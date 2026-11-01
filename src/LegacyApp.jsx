@@ -1,3 +1,4 @@
+import {FilterBar} from "./design-system/patterns/FilterBar.jsx";
 import { C, C_ARCD_SETOR, FONT_DISPLAY, TYPO, KB, semanticToneFromLegacyColor } from "./legacy/palette.js";
 export { C, C_ARCD_SETOR, TYPO, KB } from "./legacy/palette.js";
 import { uid, today, fmt, fmtCompact, fmtDate, fmtDateFull, monthName, MONTHS, fullMonth, fmtMesAno, escapeHtml, compactNumber, maiusculoOrcamento, proximoCodigoArcd, obraContextoSalvo, compLabel, rotuloRamo, numeroCodigoArcd, formatarCodigoArcd } from "./legacy/format.js";
@@ -6037,13 +6038,13 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
     />
 
     <div className="ponto-geral-controls">
-      <div className="ponto-geral-filters">
+      <FilterBar layout="grid" label="Filtros da gestão do ponto" className="ponto-geral-filters">
         <Sel label="Ciclo" value={q} onChange={setQ} options={[{v:"1",l:"1ª quinzena · 06 a 20"},{v:"2",l:"2ª quinzena · 21 a 05"}]}/>
         <Sel label="Mês" value={String(month)} onChange={v=>setMonth(Number(v))} options={MONTHS.map((m,i)=>({v:String(i),l:m}))}/>
         <Inp label="Ano" type="number" value={year} onChange={v=>setYear(Number(v)||agora.getFullYear())}/>
         <Sel label="Obra" value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
         <Inp label="Buscar funcionário" value={busca} onChange={setBusca} placeholder="Nome, cargo ou obra..."/>
-      </div>
+      </FilterBar>
       <p className="ponto-geral-count">{employees.length} funcionário(s) neste filtro · marcação dia a dia, clicando na célula</p>
       {!arqMeta&&["admin","rh"].includes(currentUser?.role)&&<Suspense fallback={null}><ImportarDoREP data={data} employees={employees} days={days}
         getRecord={attendanceFor} canEdit={(obraId,date)=>canEditAttendance(data,obraId,date,currentUser?.id)} obraName={obraName}
@@ -9328,11 +9329,11 @@ function RankingFornecedores({data,showToast,currentUser,dispatchCommand}){
       description="Ranking automático por preço, frete, prazo e qualidade com base no histórico real."
       actions={<Btn onClick={()=>setFornModal(novoFornecedor())}><Ic n="plus"/> Novo fornecedor</Btn>}
     />
-    <section className="supplier-toolbar" aria-label="Filtros do ranking">
+    <FilterBar layout="grid" className="supplier-toolbar" label="Filtros do ranking">
       <Inp label="Buscar fornecedor" value={busca} onChange={setBusca} placeholder="Nome, CNPJ ou ramo..."/>
       <Sel label="Obra" value={obraId} onChange={setObraId} options={[{v:"",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
       <Sel label="Período" value={periodo} onChange={setPeriodo} options={[{v:"6",l:"Últimos 6 meses"},{v:"12",l:"Últimos 12 meses"},{v:"24",l:"Últimos 24 meses"},{v:"todos",l:"Todo o histórico"}]}/>
-    </section>
+    </FilterBar>
     <section className="supplier-kpis">
       <div><span>Fornecedores avaliados</span><strong>{avaliados.length}<small> de {fornecedores.filter(f=>f.ativo!==false).length}</small></strong></div>
       <div><span>Cotações analisadas</span><strong>{ranking.reduce((s,r)=>s+r.propostas.length,0)}</strong></div>

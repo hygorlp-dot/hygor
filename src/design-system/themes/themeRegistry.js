@@ -18,11 +18,13 @@ const shared = Object.freeze({
   "--arcd-workspace-nav-surface":"transparent", "--arcd-workspace-nav-padding":".25rem 0 .75rem",
   "--arcd-workspace-tab-surface":"var(--arcd-surface-card)", "--arcd-workspace-tab-border":"var(--arcd-border-default)",
   "--arcd-workspace-tab-active-surface":"var(--arcd-action-primary-subtle)", "--arcd-workspace-tab-active-border":"var(--arcd-action-primary)",
-  "--arcd-workspace-count-radius":"9999px", "--arcd-heading-weight":"500", "--arcd-table-header-weight":"400",
+  "--arcd-workspace-count-radius":"9999px", "--arcd-heading-weight":"600", "--arcd-table-header-weight":"400",
   "--arcd-secondary-button-text":"var(--arcd-text-primary)", "--arcd-secondary-button-border":"var(--arcd-border-strong)",
   "--arcd-shell-toolbar-surface":"var(--arcd-surface-card)",
   "--arcd-group-tab-flex":"1 1 auto", "--arcd-table-stripe-surface":"#f3f0e9",
   "--arcd-purchase-mobile-metrics-columns":"repeat(3,minmax(0,1fr))", "--arcd-purchase-fourth-metric-display":"none",
+  "--arcd-toolbar-surface":"transparent", "--arcd-toolbar-padding":"0",
+  "--arcd-mini-kpi-border-width":"3px",
 });
 const theme = (id,label,description,tokens) => Object.freeze({id,label,description,enabled:true,tokens:Object.freeze({...shared,...tokens})});
 export const themeRegistry = Object.freeze({
@@ -47,6 +49,8 @@ export const themeRegistry = Object.freeze({
     "--arcd-shell-toolbar-surface":"#f5f6f7",
     "--arcd-group-tab-flex":"0 1 auto", "--arcd-table-stripe-surface":"#f5f6f7",
     "--arcd-purchase-mobile-metrics-columns":"repeat(2,minmax(0,1fr))", "--arcd-purchase-fourth-metric-display":"flex",
+    "--arcd-toolbar-surface":"#ffffff", "--arcd-toolbar-padding":"1rem",
+    "--arcd-mini-kpi-border-width":"1px",
   }),
   saas:theme("saas","MARCELL Claro","Navegação clara, superfícies neutras e ações em azul.",{
     "--arcd-font-sans":"Inter, 'Helvetica Neue', Arial, sans-serif",

@@ -1,3 +1,5 @@
+import {PageHeader} from "../../../design-system/patterns/PageHeader.jsx";
+import {EmptyState} from "../../../design-system/patterns/FeedbackState.jsx";
 // A consulta preserva as batidas originais; a integração exige conferência explícita do RH.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { chamarPontoEletronico } from "../../../api";
@@ -253,12 +255,10 @@ export default function PontoEletronicoView({ data, showToast, currentUser, disp
     (proxima === "batidas" ? batidasTabRef : bancoTabRef).current?.focus();
   };
 
-  if (!obras.length) return <div className="pe-page"><h1>Ponto eletrônico</h1><div className="pe-empty">Cadastre uma obra no MARCELL para parear o primeiro aparelho de ponto.</div></div>;
+  if (!obras.length) return <div className="pe-page"><PageHeader title="Ponto eletrônico" description="Registros recebidos do app Ponto de Obra."/><EmptyState title="Nenhuma obra disponível" description="Cadastre uma obra no MARCELL para parear o primeiro aparelho de ponto."/></div>;
 
   return <div className="pe-page">
-    <header className="pe-header">
-      <div className="pe-title-row"><h1>Ponto eletrônico</h1><Badge color={C.orange}>Em teste</Badge></div>
-      <p className="pe-description">Registros recebidos do app Ponto de Obra.</p>
+    <PageHeader className="pe-header" title="Ponto eletrônico" description="Registros recebidos do app Ponto de Obra." secondaryActions={<Badge color={C.orange}>Em teste</Badge>}>
       <details className="pe-context-help">
         <summary>Uso dos registros e situação formal</summary>
         <div className="pe-help-copy">
@@ -267,7 +267,7 @@ export default function PontoEletronicoView({ data, showToast, currentUser, disp
             : <p>{recursos.estabelecimentos.error ? "Não foi possível consultar a situação formal. Tente atualizar os dados do estabelecimento fiscal." : "Consultando a situação formal…"}</p>}
         </div>
       </details>
-    </header>
+    </PageHeader>
 
     <div className="pe-tabs" role="tablist" aria-label="Consultas do ponto eletrônico" onKeyDown={navegarAbas}>
       <button ref={batidasTabRef} id="pe-tab-batidas" type="button" role="tab" aria-selected={aba === "batidas"} aria-controls="pe-panel-batidas" tabIndex={aba === "batidas" ? 0 : -1} onClick={() => setAba("batidas")}>Batidas</button>

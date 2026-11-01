@@ -3406,10 +3406,10 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
       <div className="anim budget-workspace" style={{display:"flex",flexDirection:"column",gap:12}}>
         <PageHeader headingLevel={obraIdFixo?2:1} className="workspace-header"
           title="Orçamentos"
-          description="Planilha orçamentária com BDI e exportação"
-          primaryAction={<Btn onClick={()=>{setForm({...emptyOrc,obraId:obraIdFixo});setNovoModal(true);}}><Ic n="plus"/> Novo</Btn>}
+          description="Planilha orçamentária com BDI e exportação."
+          primaryAction={<Btn onClick={()=>{setForm({...emptyOrc,obraId:obraIdFixo});setNovoModal(true);}}><Ic n="plus"/> Novo orçamento</Btn>}
           secondaryActions={<>
-            <Btn v="ghost" title="Como funciona esta tela" ariaLabel="Como funciona esta tela" onClick={()=>setAjudaModal(true)}><Ic n="info"/> Ajuda</Btn>
+            <Btn v="ghost" title="Como funciona esta tela" ariaLabel="Como funciona esta tela" onClick={()=>setAjudaModal(true)}><Ic n="info"/> Guia do orçamento</Btn>
             {obrasParaCopia.some(o=>o.id!==obraIdFixo)&&<Btn v="ghost" onClick={()=>{setForm({...emptyOrc,obraId:obraIdFixo});setCopiarModal({obraOrigemId:"",orcOrigemId:"",repetirQuantidades:true});}}><Ic n="copy"/> Copiar de outra obra</Btn>}
           </>}
         />

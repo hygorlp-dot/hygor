@@ -1,3 +1,4 @@
+import {FilterBar} from "../../../design-system/patterns/FilterBar.jsx";
 import { marcellReportHtml } from "../../../reports/marcell-report.js";
 // ===================================================================
 // ConferenciaView — tela de Conferência Técnica (vistoria estruturada),
@@ -463,10 +464,10 @@ export default function Conferencia({ data, showToast, currentUser, obraIdFixo="
       description="Vistorias, inconformidades e ajustes rastreados até a resolução."
       actions={(ehAdmin||ehAuditor)&&<Btn onClick={abrirNovaConferencia} disabled={!podeCriarConferencia} title={!podeCriarConferencia?"Nenhuma obra ativa está disponível no seu escopo.":"Criar nova vistoria"}><Ic n="plus"/> Nova vistoria</Btn>}
     />
-    <div style={{display:"flex",gap:8,alignItems:"flex-end",flexWrap:"wrap"}}>
+    <FilterBar layout="grid" label="Filtros das conferências">
       <div style={{minWidth:240,flex:1}}><Sel label="Obra" value={filtroValido} onChange={setObraFiltro} options={obrasVisiveis.map(o=>({v:o.id,l:o.name}))}/></div>
       <div style={{minWidth:190}}><Sel label="Situação" value={statusFiltro} onChange={setStatusFiltro} options={[{v:"abertas",l:"Em andamento / com pendências"},{v:"todas",l:"Todas as conferências"}]}/></div>
-    </div>
+    </FilterBar>
     {ehEngenheiro&&<div style={{padding:"9px 11px",border:`1px solid ${C.blue}44`,borderRadius:8,background:`${C.blue}08`,fontSize:"var(--arcd-type-label)",color:C.blue}}>Como engenheiro de campo, você visualiza somente as pendências atribuídas a você e envia a foto da correção. A criação e a validação da vistoria pertencem ao administrador e ao engenheiro auditor.</div>}
     {(ehAdmin||ehAuditor)&&<RankingQualidade data={data} conferencias={conferenciasVisiveis} obraIdFixo={obraIdFixo} onSelecionarObra={id=>setObraFiltro(id)}/>}
     {!lista.length?<div style={{padding:"34px 18px",textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:10,background:C.surface}}><Ic n="clipboard" s={26} color={C.muted}/><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,marginTop:9}}>Nenhuma conferência nesta obra</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4}}>Crie a primeira vistoria técnica para começar a rastrear ajustes.</p></div>:

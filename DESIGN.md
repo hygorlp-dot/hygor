@@ -452,3 +452,12 @@ Preservar filtros, áreas internas e rolagem durante a sessão. Atalhos levam a 
 ## Processo de evolução visual — 01/11/2026
 
 Toda evolução de interface deve registrar hipótese, consultar as skills e componentes aplicáveis, implementar localmente, criticar a composição e o fluxo nas telas renderizadas, verificar desktop e celular, corrigir os achados e registrar evidências e limites. A escolha visual pertence ao usuário. O estudo comparativo de Compras permanece separado do tema vigente; ver docs/ESTUDO-VISUAL-COMPRAS-20261101.md.
+
+### Padrão dos módulos — MARCELL Operacional
+
+- PageHeader e PageHero compartilham a receita `mrc-screen-header`: título de 24px, descrição de 14px e ações agrupadas. As superfícies, pesos e preenchimentos vêm do tema; não criar novos cabeçalhos particulares para módulos operacionais.
+- FilterBar com `layout="grid"` organiza filtros relacionados, alinhados pela base no desktop e empilhados no celular. Preservar rótulos, seleção e handlers; não transformar a troca de apresentação em alteração de dados.
+- Abas e ações usam os controles compartilhados. Cor de seleção, foco, contadores e densidade vêm dos tokens. No celular, manter o seletor de áreas já existente e alvos de toque adequados.
+- Indicadores, blocos de formulário, gráficos e estados vazios usam a mesma hierarquia de superfícies, bordas e tipografia. Estados semânticos continuam distinguindo atraso, erro, aviso e conclusão.
+- Modo TV preserva a escala para leitura à distância. Documentos impressos também conservam suas receitas próprias. Essas exceções não justificam divergências nas telas operacionais.
+- Detalhes da aplicação e evidências: docs/PADRAO-MODULOS-ERP-20261101.md.

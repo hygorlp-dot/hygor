@@ -96,6 +96,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
   const [reviewNotice,setReviewNotice]=useState("");
   const reviewAdvance=useRef(null);
   const reviewPanelRef=useRef(null);
+  const importFileRef=useRef(null);
   useEffect(()=>{const panel=reviewPanelRef.current;if(panel){panel.scrollTop=0;panel.querySelector("h2")?.focus({preventScroll:true});}},[reviewId]);
   const [accountFilter,setAccountFilter]=useView('accountFilter',"");
   const [divergence,setDivergence]=useView('divergence',"all");
@@ -970,7 +971,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
       <PageHero
         title={modoConciliacaoRh?"Conciliação da folha":"Conciliação Bancária"}
         description={modoConciliacaoRh?"Confira os PIX com cadastro, ponto e obra.":"Correspondências seguras são automáticas. Revise as divergências."}
-        actions={modoConciliacaoRh?null:(importando?<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.yellowD}}>Lendo extrato...</span>:<label className="arcd-btn" data-variant="primary" data-size="sm" style={{border:`1px solid ${C.yellowD}`,background:C.yellow,color:C.ink,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:6,fontWeight:600}}><input type="file" accept=".ofx,.qfx,.csv,.xlsx,.xls" onChange={e=>{const file=e.target.files?.[0];e.target.value="";importar(file);}} style={{display:"none"}}/><Ic n="download" s={12}/> Importar extrato</label>)}
+        actions={modoConciliacaoRh?null:<><input ref={importFileRef} type="file" accept=".ofx,.qfx,.csv,.xlsx,.xls" onChange={e=>{const file=e.target.files?.[0];e.target.value="";importar(file);}} hidden/><Button disabled={importando} onClick={()=>importFileRef.current?.click()}><Ic n="download" s={12} color="currentColor"/>{importando?"Lendo extrato...":"Importar extrato"}</Button></>}
       />
 
       {bankOrigin&&<section className="financial-bank-origin" aria-label="Origem da revisão bancária"><details><summary>Origem: {bankOrigin.label||"Registro financeiro"} · {automacaoAtiva?"Automação ativa":"Automação pausada"}</summary><p>{bankOrigin.unavailable?"Há referência bancária indisponível neste recorte. Confira o vínculo na origem antes de prosseguir.":bankOrigin.transactionIds?.length?"Movimentos vinculados por identidade. A situação selecionada continua sendo respeitada.":"Sem movimento bancário vinculado. Localize o extrato e compare com o pagamento já registrado antes de confirmar qualquer vínculo."}</p><p>A abertura desta consulta pausa a automação; nenhuma conciliação é confirmada pelo atalho.</p><Button variant="outline" onClick={()=>setBankOrigin(null)}>Mostrar outros movimentos</Button></details></section>}

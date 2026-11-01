@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/button.jsx';
 import { Alert, AlertDescription } from '../../components/ui/alert.jsx';
 import { Input } from '../../design-system/primitives/Input.jsx';
 import { Select } from '../../design-system/primitives/Select.jsx';
+import {FilterBar} from '../../design-system/patterns/FilterBar.jsx';
 import { PageHeader } from '../../design-system/patterns/PageHeader.jsx';
 import { EmptyState } from '../../design-system/patterns/FeedbackState.jsx';
 import { enviarArquivoOneDrive } from '../../api.js';
@@ -30,8 +31,10 @@ export default function ArquivosView({data,currentUser,dispatchCommand,onRefresh
   const obraId=works.some(item=>item.id===workId)?workId:works[0]?.id||'';
   const work=works.find(item=>item.id===obraId);
   return <div className="work-files"><PageHeader title="Arquivos" description="Toda a documentação da obra, organizada por pasta e revisão." />
+    <FilterBar layout="grid" label="Contexto dos arquivos">
     <Select label="Obra dos arquivos" value={obraId} disabled={pending} onChange={event=>setWorkId(event.target.value)}>{works.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</Select>
     <Select label="Área da documentação" disabled={pending} value={section} onChange={event=>setSection(event.target.value)} options={[{value:'files',label:'Arquivos e pastas'},...(podeAcessarAba(currentUser,'licenca')?[{value:'dossier',label:'Dossiê de licenciamento'}]:[])]} />
+        </FilterBar>
     {work&&section==='dossier'?<DossierView key={work.id} {...{data,currentUser,dispatchCommand,work}} onBusyChange={setPending} />:work?<FileExplorer key={work.id} {...{data,currentUser,dispatchCommand,onRefresh,work}} onBusyChange={setPending} />:<EmptyState title="Nenhuma obra disponível" description="Cadastre uma obra ou solicite acesso para organizar seus documentos." />}
   </div>;
 }

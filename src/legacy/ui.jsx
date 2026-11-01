@@ -402,7 +402,7 @@ export function ChartPanel({ eyebrow="Análise visual", title, subtitle, legend=
 // conteúdo de cada tela — só o invólucro visual.
 export function PageHero({title,description,alert,stats,actions,headingLevel=1}){
   const Heading=headingLevel===3?"h3":headingLevel===2?"h2":"h1";
-  return <section className="page-hero">
+  return <section className="page-hero mrc-screen-header">
     <div className="page-hero__main">
       <div className="page-hero__copy">
 
@@ -443,14 +443,14 @@ export function TabRow({ tabs, active, onChange, equal = false, label = "Selecio
       {itens.map(({v,l,icon,detail,count}) => {
         const isActive = active === v;
         return (
-          <button key={v} type="button" className="tab-row__tab" data-active={isActive} data-detail={Boolean(detail)} aria-pressed={isActive} onClick={() => onChange(v)}>
+            <SharedUiButton key={v} variant="ghost" type="button" className="tab-row__tab" data-active={isActive} data-detail={Boolean(detail)} aria-pressed={isActive} onClick={() => onChange(v)}>
             <span className="tab-row__label">
               {icon && <Ic n={icon} s={13}/>}
               {l}
               {count>0 && <b className="tab-row__count">{count}</b>}
             </span>
             {detail && <small className="tab-row__detail">{detail}</small>}
-          </button>
+            </SharedUiButton>
         );
       })}
     </div>
@@ -559,7 +559,7 @@ export function Modal({ title, children, onClose, wide = false, panelClass = "",
 
 export function MiniKpi({ label, value, cor, sub }) {
   return (
-    <div style={{ background: C.card, border: `1px solid ${C.border}`,
+    <div className="mrc-mini-kpi" data-tone={semanticToneFromLegacyColor(cor)} style={{ background: C.card, border: `1px solid ${C.border}`,
                   borderTop: `3px solid ${cor}`, borderRadius: 8, padding: "10px 12px" }}>
       <p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color: C.muted, textTransform: "uppercase", letterSpacing: .6 }}>{label}</p>
       <p style={{ fontSize: "var(--arcd-type-section-title)", fontWeight:600, color: cor, marginTop: 3,
@@ -574,8 +574,8 @@ export function MiniKpi({ label, value, cor, sub }) {
 // Bloco visual reutilizado no diario.
 export function Bloco({ id, titulo, acao, children }) {
   return (
-    <section id={id} className="rdo-block">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+    <section id={id} className="rdo-block mrc-form-section">
+      <div className="mrc-section-heading" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <h2>{titulo}</h2>
         {acao}
       </div>

@@ -447,9 +447,10 @@ Selecione a obra e confira a versão do orçamento.
 
 ### Como fazer
 
-1. Cadastre ou confira as etapas e os serviços.
-2. Revise unidade, quantidade, composição e preço de cada item.
-3. Confira os totais, salve as alterações e use a saída de relatório disponível.
+1. Use Novo orçamento para cadastrar ou abra um orçamento existente. Guia do orçamento explica os recursos desta tela.
+2. Cadastre ou confira as etapas e os serviços.
+3. Revise unidade, quantidade, composição e preço de cada item.
+4. Confira os totais, salve as alterações e use a saída de relatório disponível.
 
 ### Como conferir se deu certo
 
@@ -492,25 +493,27 @@ Linha de base é a referência aprovada para comparação; confira antes de subs
 
 ## Marcos e Curva A
 
-Relacionar prazos da obra com as compras mais relevantes.
+Relacionar os insumos de maior impacto do orçamento aos prazos da obra.
 
 ### Antes de começar
 
-Confira a obra, o orçamento e o cronograma.
+Confira a obra, o orçamento com insumos vinculados e o cronograma. A aprovação da proposta exige administrador ou engenheiro auditor.
 
 ### Como fazer
 
-1. Leia os marcos e os itens de maior impacto.
-2. Confira quando o material será necessário e o prazo para comprar.
-3. Abra a necessidade de compra e revise os dados antes de encaminhar.
+1. Selecione a Obra. No celular, use Áreas dos suprimentos estratégicos para escolher a consulta.
+2. Em Visão geral, use Gerar proposta ABC e revise a proposta antes de Aprovar proposta, quando seu perfil permitir.
+3. Escolha o Perfil de fornecimento e use Gerar planos dos itens A depois da aprovação.
+4. Consulte Insumos A, Gantt de suprimentos e Detalhe para conferir necessidade, prazo sugerido e compromisso.
+5. Em Configuração, confira os limites das classes A e B e os perfis de prazo de fornecimento.
 
 ### Como conferir se deu certo
 
-Os itens prioritários têm necessidade e prazo identificados.
+Os planos dos itens prioritários mostram necessidade e prazo para revisão.
 
 ### O que merece atenção
 
-A Curva A destaca itens de maior peso; ela não confirma compra nem entrega.
+A Curva A destaca itens de maior peso; gerar proposta ou plano não confirma compra nem entrega. Alterar parâmetros não modifica propostas já aprovadas.
 
 <a id="guia-projetos"></a>
 
@@ -2703,6 +2706,10 @@ O ZIP contém os arquivos nativos com nomes padronizados e índice. O pacote par
 Anexo ausente, vencimento, situação pendente ou aplicabilidade indefinida impedem o final. O pacote é montado no navegador com limite de 100 MB; arquivos não lidos no parcial constam nas pendências. A exportação baixa o ZIP e não o envia automaticamente à Prefeitura ou ao cartório. A conferência interna não equivale à aprovação do órgão. Edição e exportação exigem administrador ou engenheiro autorizado.
 
 ## Aparência, botões e navegação
+
+### Reconhecer o padrão das telas
+
+O cabeçalho mostra a finalidade da tela e as ações principais. Confira a obra, o período e os filtros antes de usar a lista. As abas ou o seletor de visão trocam a consulta; abrir uma ajuda ou mudar o tema preserva os valores informados. No celular, os filtros ficam um abaixo do outro e tabelas largas têm sua própria rolagem.
 
 ### Comparar propostas na prévia local
 

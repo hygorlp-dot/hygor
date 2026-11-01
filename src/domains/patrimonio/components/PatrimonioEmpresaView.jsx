@@ -1,3 +1,4 @@
+import {FilterBar} from "../../../design-system/patterns/FilterBar.jsx";
 import {useEffect,useMemo,useState} from "react";
 import {marcellReportHtml} from "../../../reports/marcell-report.js";
 import { Badge, Btn, Ic, Inp, Modal, PageHero, Sel } from "../../../legacy/ui.jsx";
@@ -177,7 +178,7 @@ export default function PatrimonioEmpresaView({data,showToast,dispatchCommand}){
   };
   return <div className="anim patrimony-workspace" style={{display:"flex",flexDirection:"column",gap:12}}>
     <PageHero eyebrow="Administração" title="Patrimônio da empresa" description="Bens corporativos da empresa, com nota fiscal, identificação física, localização atual e histórico." stats={[{label:"Bens ativos",value:String(active.length),color:C.green},{label:"Valor de aquisição",value:money(total)},{label:"Com nota/documento",value:String(docs)+"/"+String(active.length),color:docs===active.length?C.green:C.orange}]} actions={<div style={{display:"flex",gap:8,flexWrap:"wrap"}}><Btn v="ghost" onClick={gerarRelatorio}><Ic n="fileText"/> Relatório</Btn><Btn v="ghost" onClick={()=>setImporting(true)}><Ic n="receipt"/> Importar NF</Btn><Btn onClick={()=>setEditor(vazio())}><Ic n="plus"/> Novo bem</Btn></div>}/>
-    <div className="patrimony-filters"><div><Inp label="Buscar" value={search} onChange={setSearch} placeholder="Código, bem, série, IMEI, NF ou fornecedor"/></div><div><Sel label="Situação" value={status} onChange={setStatus} options={[{v:"ativos",l:"Ativos"},{v:"todos",l:"Todos"}].concat(STATUS)}/></div></div>
+    <FilterBar layout="grid" label="Filtros do patrimônio" className="patrimony-filters"><div><Inp label="Buscar" value={search} onChange={setSearch} placeholder="Código, bem, série, IMEI, NF ou fornecedor"/></div><div><Sel label="Situação" value={status} onChange={setStatus} options={[{v:"ativos",l:"Ativos"},{v:"todos",l:"Todos"}].concat(STATUS)}/></div></FilterBar>
     {/* Padrão MARCELL: tabela alinhada; uma ação direta (Editar) e as demais no menu "Mais ações". */}
     <section className="patrimonio-lista" aria-label="Bens patrimoniais">
       <p className="patrimonio-lista__nota">O bem pertence à empresa. Uma obra pode aparecer apenas como localização temporária.</p>

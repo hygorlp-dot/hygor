@@ -1,0 +1,89 @@
+/* One set of page recipes for the ERP's shared header families and toolbars.
+   Presentation comes from theme roles; operational records stay untouched. */
+@media screen {
+  [data-theme] .arcd-main[data-workspace] .mrc-screen-header {
+    background:var(--arcd-workspace-header-surface) !important;
+    padding:var(--arcd-workspace-header-padding) !important;
+    border:0 !important;border-bottom:1px solid var(--arcd-border-default) !important;
+    border-radius:0 !important;box-shadow:none !important;min-width:0;
+  }
+  [data-theme] .arcd-main .mrc-screen-header :is(.arcd-page-header__title,.page-hero__title) {
+    margin:0 !important;font-size:var(--arcd-type-page-title) !important;
+    font-weight:var(--arcd-heading-weight) !important;line-height:1.25 !important;
+  }
+  [data-theme] .arcd-main .mrc-screen-header :is(.arcd-page-header__description,.page-hero__description) {
+    margin:4px 0 0 !important;max-width:70ch;
+    font-size:var(--arcd-type-body) !important;line-height:1.5 !important;color:var(--arcd-text-secondary);
+  }
+  [data-theme] .mrc-screen-header :is(.arcd-page-header__actions,.page-hero-actions) {
+    display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;min-width:0;
+  }
+  [data-theme] .arcd-main .mrc-screen-header.purchase-header .arcd-page-header__actions { display:contents; }
+  [data-theme] .arcd-main .arcd-filter-bar[data-layout=grid] {
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,12rem),1fr));
+    align-items:end;gap:var(--arcd-layout-gap);min-width:0;
+    background:var(--arcd-toolbar-surface);padding:var(--arcd-toolbar-padding);
+    border-radius:var(--arcd-radius-lg);
+  }
+  [data-theme] .arcd-filter-bar[data-layout=grid]>.arcd-field { margin:0;min-width:0; }
+  [data-theme] .arcd-filter-bar[data-layout=grid]>div { min-width:0; }
+  [data-theme] .arcd-main :is(.arcd-form-section,.mrc-form-section) {
+    border:1px solid var(--arcd-border-default);border-radius:var(--arcd-radius-lg);
+    background:var(--arcd-surface-card);padding:var(--arcd-panel-padding);min-width:0;
+  }
+  [data-theme] .mrc-section-heading { flex-wrap:wrap;gap:12px;align-items:flex-end !important; }
+  [data-theme] .mrc-section-heading h2 { font-size:var(--arcd-type-section-title); }
+  [data-theme] .mrc-mini-kpi {
+    border-top-width:var(--arcd-mini-kpi-border-width) !important;
+    border-radius:var(--arcd-radius-lg) !important;padding:var(--arcd-panel-padding) !important;min-width:0;
+  }
+  [data-theme] .mrc-mini-kpi>p:first-child { text-transform:none !important;letter-spacing:normal !important; }
+  [data-theme] :is(.arcd-feedback-state,.mrc-empty-state) {
+    border:1px solid var(--arcd-border-default);border-radius:var(--arcd-radius-lg);
+    background:var(--arcd-surface-card);padding:24px;text-align:left;
+    color:var(--arcd-text-secondary);font-size:var(--arcd-type-body);line-height:1.5;
+  }
+  [data-theme] .arcd-feedback-state__title { font-size:var(--arcd-type-card-title);color:var(--arcd-text-primary); }
+  [data-theme] .arcd-feedback-state__description { max-width:65ch; }
+  [data-theme] .arcd-main .tab-row {
+    background:var(--arcd-workspace-nav-surface);padding:var(--arcd-workspace-nav-padding);
+    border-radius:0;min-width:0;
+  }
+  [data-theme] .arcd-main .tab-row__tab { background:var(--arcd-workspace-tab-surface);border-color:var(--arcd-workspace-tab-border); }
+  [data-theme] .arcd-main .tab-row__tab[data-active=true] {
+    color:var(--arcd-action-primary);background:var(--arcd-workspace-tab-active-surface);
+    box-shadow:inset 0 -2px var(--arcd-action-primary) !important;
+  }
+  [data-theme] .tab-row__count { border-radius:var(--arcd-workspace-count-radius);font-variant-numeric:tabular-nums; }
+  [data-theme] .arcd-main .arcd-chart-panel { background:var(--arcd-surface-card) !important;box-shadow:none !important; }
+  [data-theme] .supply-actions>.arcd-field { margin:0;min-width:min(100%,14rem); }
+  [data-theme] .pe-tabs>button { min-height:var(--arcd-control-height);font-family:var(--arcd-font-sans);font-size:var(--arcd-type-control); }
+  [data-theme] .arcd-chart-panel>header { background:var(--arcd-surface-card) !important;backdrop-filter:none !important; }
+  [data-theme] .arcd-chart-panel>header>div { min-width:0; }
+  [data-theme] .arcd-chart-panel>header { flex-wrap:wrap;gap:12px; }
+  [data-theme] :is(.supplier-toolbar,.patrimony-filters).arcd-filter-bar[data-layout=grid] { margin:0; }
+  [data-theme] .ponto-geral-controls { display:grid !important;grid-template-columns:minmax(0,1fr) auto !important;gap:12px !important;align-items:center; }
+  [data-theme] .ponto-geral-controls .ponto-geral-filters {
+    grid-column:1 / -1;grid-template-columns:minmax(170px,1fr) minmax(130px,1fr) 100px minmax(180px,1fr) minmax(200px,1.4fr);
+    padding:0;background:transparent;
+  }
+  [data-theme] .ponto-geral-controls>.ponto-geral-count { margin:0;padding:0;border:0; }
+  [data-theme] .ponto-geral-controls>.mrc-button { justify-self:end; }
+  @media(max-width:1099px) {
+    [data-theme] .ponto-geral-controls .ponto-geral-filters { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    [data-theme] .ponto-geral-filters>.arcd-field:last-child { grid-column:1 / -1; }
+  }
+  @media(max-width:767px) {
+    [data-theme] .arcd-main .mrc-screen-header :is(.page-hero-actions,.arcd-page-header__actions) { width:100%; }
+    [data-theme] .mrc-screen-header :is(.page-hero-actions,.arcd-page-header__actions)>.mrc-button { flex:1 1 auto; }
+    [data-theme] .arcd-main .arcd-filter-bar[data-layout=grid] { grid-template-columns:minmax(0,1fr); }
+    [data-theme] .arcd-main .tab-row { padding:.5rem; }
+    [data-theme] .arcd-main .tab-row__mobile select { width:100%;min-height:44px; }
+    [data-theme] .mrc-section-heading>.mrc-button { min-height:44px; }
+    [data-theme] .ponto-geral-controls { grid-template-columns:minmax(0,1fr) !important; }
+    [data-theme] .ponto-geral-filters>.arcd-field:first-child { grid-column:1 / -1; }
+    [data-theme] .ponto-geral-controls>.mrc-button { width:100%;justify-self:stretch; }
+    [data-theme] .supply-actions>.arcd-field { width:100%; }
+    [data-theme] .supply-actions>.mrc-button { flex:1 1 auto; }
+  }
+}

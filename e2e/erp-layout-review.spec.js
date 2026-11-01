@@ -26,6 +26,7 @@ for(const tab of tabs)test(`${tab.id} · ${tab.label}`,async({page},info)=>{
   await expect(page.getByRole('button',{name:'Ajuda',exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:'Alterar aparência',exact:true})).toBeVisible();
   const geometry=await page.evaluate(()=>({width:innerWidth,page:document.documentElement.scrollWidth,header:document.querySelector('.arcd-topbar')?.scrollWidth,headerWidth:document.querySelector('.arcd-topbar')?.clientWidth,actualTab:document.querySelector('.arcd-app-shell')?.dataset.tab,
+    screenHeaders:[...document.querySelectorAll('main .mrc-screen-header')].map(el=>({title:el.querySelector('h1,h2,h3')?.textContent,background:getComputedStyle(el).backgroundColor,padding:getComputedStyle(el).padding,fontSize:el.querySelector('h1,h2,h3')?getComputedStyle(el.querySelector('h1,h2,h3')).fontSize:null})),
     overflow:[...document.querySelectorAll('main button,main input,main select')].filter(el=>{const r=el.getBoundingClientRect();return r.width&&r.height&&r.right>innerWidth+1;}).slice(0,8).map(el=>({text:el.textContent?.slice(0,60)||el.getAttribute('aria-label'),class:el.className}))}));
   await info.attach('geometry',{body:JSON.stringify(geometry,null,2),contentType:'application/json'});
   await writeFile(info.outputPath('geometry.json'),JSON.stringify(geometry,null,2));
@@ -33,6 +34,10 @@ for(const tab of tabs)test(`${tab.id} · ${tab.label}`,async({page},info)=>{
   expect.soft(geometry.page,JSON.stringify(geometry.overflow)).toBeLessThanOrEqual(geometry.width+1);
   expect.soft(geometry.header).toBeLessThanOrEqual(geometry.headerWidth+1);
   expect.soft(geometry.actualTab).toBe(tab.id);
+  if(process.env.MARCELL_TEST_THEME==='operacional'&&tab.id!=='tv'){
+    expect.soft(geometry.screenHeaders.length,`Cabeçalho padronizado ausente em ${tab.id}`).toBeGreaterThan(0);
+    if(geometry.screenHeaders.length){expect.soft(geometry.screenHeaders[0].fontSize).toBe('24px');expect.soft(geometry.screenHeaders[0].background).toBe('rgb(255, 255, 255)');}
+  }
   expect(errors).toEqual([]);
 });
 
