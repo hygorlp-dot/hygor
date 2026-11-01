@@ -4417,6 +4417,7 @@ canvas {
 .equipment-image-editor__content>div>p:not(.equipment-image-editor__eyebrow){max-width:680px;margin-top:4px;color:#536171;font-size:var(--arcd-type-caption);line-height:1.45}
 .equipment-image-editor__eyebrow{color:#8a6b13;font-size:var(--arcd-type-caption);font-weight:600;letter-spacing:.09em;text-transform:uppercase}
 .equipment-image-editor__fields{width:100%;display:grid;grid-template-columns:minmax(190px,.55fr) minmax(240px,1fr);gap:10px}
+.equipment-fleet-card__body .equipment-fleet-card__name{font-weight:var(--arcd-font-weight-semibold);text-align:left}
 .equipment-card-actions{
   display:flex;
   gap:6px;

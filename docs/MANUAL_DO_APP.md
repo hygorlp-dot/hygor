@@ -41,7 +41,6 @@ Conteúdo gerado de `src/features/help/help-content.js`, a mesma fonte da ajuda 
 - [Planejamento](#guia-plan)
 - [Marcos e Curva A](#guia-plan_suprimentos)
 - [Projetos](#guia-projetos)
-- [Arquivos e permissões](#guia-arquivos)
 - [Diário de obra](#guia-rdo)
 - [Conferência](#guia-conferencia)
 - [Medição da evolução](#guia-med)
@@ -86,7 +85,6 @@ Conteúdo gerado de `src/features/help/help-content.js`, a mesma fonte da ajuda 
 - [Equipamentos](#guia-equip)
 - [Locação de equipamentos](#guia-equip_fin)
 - [Patrimônio da empresa](#guia-patrimonio)
-- [Licenciamento](#guia-licenca)
 - [Cadastros](#guia-cad)
 - [IA](#guia-ia)
 - [Configurar Gemini](#guia-ia_config)
@@ -119,8 +117,10 @@ Conteúdo gerado de `src/features/help/help-content.js`, a mesma fonte da ajuda 
 - [Relatórios comerciais](#guia-com_relatorios)
 - [Financeiro · Previsão de custo final](#guia-fin_previsao)
 - [Obra · Mudanças e aditivos](#guia-obra_aditivos)
+- [Arquivos e permissões](#guia-arquivos)
 - [Arquivos · Revisões, busca e comparação](#guia-arquivos_revisoes)
 - [Arquivos · Dossiê de licenciamento](#guia-arquivos_dossie)
+- [Licenciamento](#guia-licenca)
 - [Compras · Contratos e medições](#guia-cmp_contratos)
 
 <a id="guia-ponto_obras"></a>
@@ -540,35 +540,6 @@ O projeto apresenta a informação atualizada na área correta.
 ### O que merece atenção
 
 Ao usar o controle de tempo, confira a sessão ativa e encerre-a ao concluir a atividade.
-
-<a id="guia-arquivos"></a>
-
-## Arquivos e permissões
-
-Reunir documentos por obra, com pastas, links, uploads e controle de acesso.
-
-### Antes de começar
-
-Confirme a obra em Obra dos arquivos e escolha Arquivos e pastas em Área da documentação.
-
-### Como fazer
-
-1. Abra ou crie a pasta e a subpasta de destino.
-2. Use Adicionar documento para enviar um arquivo de até 3 MB ou cadastrar um link; confira título e revisão antes de salvar.
-3. Selecione o documento e abra Visualizar para consultar o original no MARCELL ou adicionar uma nova revisão.
-4. Como administrador, entre na pasta e use Permissões desta pasta: herde o acesso ou escolha Sem acesso, Leitura ou Leitura e edição para cada pessoa.
-
-### Como conferir se deu certo
-
-O documento aparece na pasta correta, com revisões e histórico; pessoas sem acesso não recebem os registros da pasta.
-
-### O que merece atenção
-
-Subpastas acumulam restrições das pastas superiores; administradores mantêm acesso. Anexos dos módulos seguem o acesso de origem. As permissões da central não alteram o compartilhamento de links externos no provedor.
-
-### Exemplo ilustrativo
-
-Para atualizar uma planta, confira a pasta da obra e a revisão existente. Consulte o histórico para distinguir a planta atual da anterior.
 
 <a id="guia-rdo"></a>
 
@@ -1018,9 +989,9 @@ Escolha Pessoal de obra, Administrativo ou Todos; depois confira a obra e o per�
 
 ### Como fazer
 
-1. Localize o dia e a pessoa na grade ou lista.
-2. Confira a situação e os registros disponíveis.
-3. Use apenas as ações permitidas ao seu perfil e confira a confirmação do sistema.
+1. Confira a data. O nome abre a ficha conforme seu acesso.
+2. Marque Presente, Meio dia ou Falta. Mais opções reúne outras situações, jornada e observações. Férias, atestado e folga são registros válidos e aparecem no cartão.
+3. Transferir e Desligar ficam no cartão quando permitidos. Confira e confirme; Cancelar não grava.
 
 ### Como conferir se deu certo
 
@@ -1767,21 +1738,21 @@ Um relatório com filtro diferente pode apresentar outro total. Confira o cabeç
 
 ## Equipamentos
 
-Acompanhar equipamentos usados nas obras.
+Controlar equipamentos nas obras.
 
 ### Antes de começar
 
-Identifique o equipamento e a obra responsável.
+Confira o equipamento e a obra.
 
 ### Como fazer
 
-1. Pesquise o equipamento antes de cadastrar.
-2. Confira situação, localização e dados do registro.
-3. Registre a movimentação ou atualização permitida e confira o histórico.
+1. Em Frota, pesquise o equipamento; seu nome abre o cadastro.
+2. Use Salvar equipamento para confirmar alterações ou Excluir equipamento, com confirmação.
+3. Locar, Transferir e Manutenção ficam no cartão. Confira os dados antes de confirmar.
 
 ### Como conferir se deu certo
 
-O equipamento está identificado na localização e situação corretas.
+Confira situação e localização após confirmar.
 
 ### O que merece atenção
 
@@ -1799,9 +1770,9 @@ Tenha o equipamento, fornecedor, obra e período da locação.
 
 ### Como fazer
 
-1. Localize o contrato ou registro de locação.
-2. Confira período, valores, devolução e documentos.
-3. Acompanhe as obrigações e confira a situação financeira na origem.
+1. Em Frota, o nome abre o cadastro; Locar, Transferir e Manutenção ficam no cartão.
+2. Em Locações, confira contrato, período, devolução e documentos.
+3. Confira os pagamentos na origem financeira.
 
 ### Como conferir se deu certo
 
@@ -1815,7 +1786,7 @@ Devolver um equipamento não comprova quitação dos valores da locação.
 
 ## Patrimônio da empresa
 
-Consultar os bens da empresa e sua responsabilidade.
+Localizar bens e responsáveis.
 
 ### Antes de começar
 
@@ -1823,42 +1794,17 @@ Tenha identificação do bem e responsável atual.
 
 ### Como fazer
 
-1. Pesquise o bem para evitar duplicidade.
-2. Confira identificação, localização, responsável e documentos.
-3. Registre a atualização permitida e confira o histórico.
+1. Pesquise o bem; seu nome abre o cadastro.
+2. Use Mover na linha para alterar local ou responsável e Registrar movimentação para confirmar. Cancelar não grava.
+3. Mais ações reúne Histórico e Alterar status…. Confira documentos e identificação antes de salvar.
 
 ### Como conferir se deu certo
 
-O bem pode ser localizado e seu responsável está identificado.
+Confira local e responsável após salvar.
 
 ### O que merece atenção
 
 Patrimônio identifica o bem; estoque acompanha materiais e quantidades.
-
-<a id="guia-licenca"></a>
-
-## Licenciamento
-
-Acompanhar as exigências e etapas de aprovação da obra com evidências documentais.
-
-### Antes de começar
-
-Selecione a obra e confira o tipo de licença, os órgãos e o condomínio envolvidos.
-
-### Como fazer
-
-1. Abra o checklist e confira as exigências do cadastro da licença.
-2. Anexe os documentos nos itens corretos e atualize a situação conforme a evidência.
-3. Em Arquivos, escolha Dossiê de licenciamento para cadastrar responsável, validade e aplicabilidade, revisar anexos e consultar a documentação faltante.
-4. Prepare o ZIP final quando estiver completo ou um ZIP parcial INCOMPLETO com a relação de pendências; confira o pacote antes de encaminhar ao órgão.
-
-### Como conferir se deu certo
-
-Cada etapa mostra a situação e os anexos correspondentes, compartilhados com o dossiê em Arquivos.
-
-### O que merece atenção
-
-Anexar um documento ou concluir a conferência interna não comprova aprovação do órgão. O ZIP é baixado para conferência e envio manual; o sistema não protocola a documentação automaticamente.
 
 <a id="guia-cad"></a>
 
@@ -2682,6 +2628,35 @@ O cliente pede outro piso: proposta de R$ 12 mil e cinco dias. A execução come
 - **Mudança recusada ou cancelada com custo restante:** Confira o custo ainda necessário e escolha explicitamente se ele continua adicional, já está incluído ou fica fora da previsão.
 - **Aditivo e previsão parecem repetir o custo:** O aviso pode vir de inclusão declarada, premissas ou variação do restante igual ao impacto de um ou vários aditivos da mesma etapa. O app não altera os valores automaticamente. Confira os registros e ajuste a opção de impacto ou registre que o custo permanece separado.
 
+<a id="guia-arquivos"></a>
+
+## Arquivos e permissões
+
+Reunir documentos por obra, com pastas, links, uploads e controle de acesso.
+
+### Antes de começar
+
+Confirme a obra em Obra dos arquivos e escolha Arquivos e pastas em Área da documentação.
+
+### Como fazer
+
+1. Abra ou crie a pasta e a subpasta de destino.
+2. Use Adicionar documento para enviar um arquivo de até 3 MB ou cadastrar um link; confira título e revisão antes de salvar.
+3. Selecione o documento e abra Visualizar para consultar o original no MARCELL ou adicionar uma nova revisão.
+4. Como administrador, entre na pasta e use Permissões desta pasta: herde o acesso ou escolha Sem acesso, Leitura ou Leitura e edição para cada pessoa.
+
+### Como conferir se deu certo
+
+O documento aparece na pasta correta, com revisões e histórico; pessoas sem acesso não recebem os registros da pasta.
+
+### O que merece atenção
+
+Subpastas acumulam restrições das pastas superiores; administradores mantêm acesso. Anexos dos módulos seguem o acesso de origem. As permissões da central não alteram o compartilhamento de links externos no provedor.
+
+### Exemplo ilustrativo
+
+Para atualizar uma planta, confira a pasta da obra e a revisão existente. Consulte o histórico para distinguir a planta atual da anterior.
+
 <a id="guia-arquivos_revisoes"></a>
 
 ## Arquivos · Revisões, busca e comparação
@@ -2733,6 +2708,31 @@ O ZIP contém os arquivos nativos com nomes padronizados e índice. O pacote par
 ### O que merece atenção
 
 Anexo ausente, vencimento, situação pendente ou aplicabilidade indefinida impedem o final. O pacote é montado no navegador com limite de 100 MB; arquivos não lidos no parcial constam nas pendências. A exportação baixa o ZIP e não o envia automaticamente à Prefeitura ou ao cartório. A conferência interna não equivale à aprovação do órgão. Edição e exportação exigem administrador ou engenheiro autorizado.
+
+<a id="guia-licenca"></a>
+
+## Licenciamento
+
+Acompanhar as exigências e etapas de aprovação da obra com evidências documentais.
+
+### Antes de começar
+
+Selecione a obra e confira o tipo de licença, os órgãos e o condomínio envolvidos.
+
+### Como fazer
+
+1. Use o lápis Editar exigência para abrir o item correto do checklist.
+2. Anexe os documentos nos itens corretos e atualize a situação conforme a evidência.
+3. Em Arquivos, escolha Dossiê de licenciamento para cadastrar responsável, validade e aplicabilidade, revisar anexos e consultar a documentação faltante.
+4. Prepare o ZIP final quando estiver completo ou um ZIP parcial INCOMPLETO com a relação de pendências; confira o pacote antes de encaminhar ao órgão.
+
+### Como conferir se deu certo
+
+Cada etapa mostra a situação e os anexos correspondentes, compartilhados com o dossiê em Arquivos.
+
+### O que merece atenção
+
+Anexar um documento ou concluir a conferência interna não comprova aprovação do órgão. O ZIP é baixado para conferência e envio manual; o sistema não protocola a documentação automaticamente.
 
 <a id="guia-cmp_contratos"></a>
 

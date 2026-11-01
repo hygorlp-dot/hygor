@@ -81,3 +81,6 @@ A espera inicial usa a marca existente e o Spinner comum, com tokens do tema. S�
 ## Ações de registro sem esconder o próximo passo
 
 A ação frequente de um registro deve estar junto dele. Em Equipes, Desligar abre uma confirmação existente; não executa uma saída por um clique isolado. Nome abre a ficha, Detalhes tem acionador próprio e ações de consulta não devem receber rótulos que aparentem outra operação. Reutilizar RecordAction, controles e tokens da base, sem variantes de aparência por módulo. Entrega e verificações em `docs/DESLIGAMENTO-DIRETO-20261101.md`.
+
+
+Aplique o mesmo critério aos ativos: em Frota e Patrimônio, o nome usa RecordAction para abrir o cadastro. Movimentações operacionais ficam na linha/cartão; comandos destrutivos conservam confirmação e contexto. Menu não substitui a próxima ação frequente, nem deve repetir uma ação já exposta. Exigências de Licenciamento usam Editar com o documento no nome acessível. No celular, dê largura ao conteúdo antes de comprimi-lo para acomodar comandos lado a lado. Ver `docs/ACOES-DIRETAS-ERP-20261101.md`.

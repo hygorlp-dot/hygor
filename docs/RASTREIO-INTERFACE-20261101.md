@@ -120,3 +120,14 @@ Os itens podem ser tratados em conjunto ou em outra ordem. Repetir `$impeccable 
 ## Atualização — acesso direto em Pessoas
 
 R05 foi tratado na entrega `docs/DESLIGAMENTO-DIRETO-20261101.md`: o nome abre a ficha e Desligar fica na lista, sem expandir detalhes. R06 recebeu o acesso à ficha pelo nome no Ponto por obra; a reorganização dos demais controles do cartão continua pendente. Os outros achados não foram marcados como corrigidos.
+
+## Atualização — ações junto aos registros
+
+Continuação local em `docs/ACOES-DIRETAS-ERP-20261101.md`:
+
+- R02 resolvido: Editar aparece em cada exigência, com nome acessível e título específicos. A composição do celular deixou de comprimir o texto do documento.
+- R06 tratado no recorte: presença, meio dia e falta continuam diretos; situações excepcionais e detalhes ficam em Mais opções, com a situação marcada visível. Transferir e Desligar saíram do recolhimento, respeitando acesso e bloqueio. O resumo agora reconhece afastamentos como registros válidos.
+- R07 tratado no recorte: o nome abre o cadastro e o cartão mantém três ações operacionais. Editar e Excluir deixaram de se repetir; Excluir equipamento continua no cadastro, com confirmação. Não foi criada outra visualização de lista.
+- Patrimônio: nome abre o cadastro e Mover fica na linha; o menu mantém Histórico, Foto quando disponível e Alterar status….
+
+R01, R03, R04 e R08 continuam pendentes. A revisão não certifica todos os diálogos nem substitui uso em aparelho físico. Em Obras, abrir a obra e editar seus dados têm destinos distintos; em Terceirizados, expandir o contrato e editar seu cadastro também. Esses controles não foram removidos por mera semelhança visual. Os menus de histórico de condições de Compras e de memória do cálculo de Orçamento preservam conteúdo de consulta secundária.

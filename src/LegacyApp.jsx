@@ -5773,14 +5773,14 @@ function WorkerMovementModal({ data, showToast, employee, initialMode = "transfe
           <Sel label="Nova obra *" value={newObra} onChange={setNewObra} options={[{ v: "", l: "Selecione" }, ...activeObras.filter(o => o.id !== employee.obra).map(o => ({ v: o.id, l: o.name }))]} />
         ) : (
           <>
-            <Inp label="Data de término *" type="date" value={endDate} onChange={setEndDate} />
+            <Inp label="Último dia trabalhado *" type="date" value={endDate} onChange={setEndDate} />
             <Inp label="Motivo" value={reason} onChange={setReason} />
           </>
         )}
         <div style={{ display: "flex", gap: "var(--arcd-space-2)" }}>
           <Btn v="ghost" onClick={onClose} full>Cancelar</Btn>
           <Btn v={mode === "transfer" ? "warning" : "danger"} onClick={mode === "transfer" ? saveTransfer : saveDismissal} full>
-            <Ic n="check" /> {mode === "transfer" ? "Confirmar transferência" : "Confirmar demissão"}
+            <Ic n="check" /> {mode === "transfer" ? "Confirmar transferência" : "Confirmar desligamento"}
           </Btn>
         </div>
       </div>
@@ -6474,8 +6474,8 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
     const st = attStatus(data, e.id, selDate);
     if (st) counts[st] = (counts[st] || 0) + 1;
   });
-  const semReg = Math.max(0, list.length - counts.P - counts.M - counts.F);
-  const registeredCount = counts.P + counts.M + counts.F;
+  const registeredCount = Object.entries(counts).reduce((total,[st,n])=>total+(isValidAttendanceStatus(st)?n:0),0);
+  const semReg = list.length - registeredCount;
 
   return (
     <div className="anim obra-attendance">
@@ -6598,6 +6598,8 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
         const obraIdPonto=obraDoPonto(e);
         const cardLocked = isAttendanceLocked(data, obraIdPonto, selDate) && !canEditAttendance(data, obraIdPonto, selDate, currentUser?.id);
         const aberto = expandedCard === e.id;
+        const statusChoices=[["P","check","Presente"],["M","money","Meio dia"],["F","x","Falta"],["FE","calendar","Férias"],["AT","file","Atestado"],["FG","clock","Folga"]];
+        const statusButton=([st,icon,label])=><RecordAction key={st} type="button" onClick={()=>setAtt(e.id,st)} className="obra-attendance-card__status" data-tone={st} data-selected={status===st} aria-pressed={status===st}><Ic n={icon} s={14}/> {label}</RecordAction>;
 
         return (
           <article key={e.id} className="obra-attendance-card" data-status={status||"empty"} data-locked={cardLocked}>
@@ -6608,6 +6610,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
               </div>
               <div className="obra-attendance-card__badges">
                 {cardLocked && <Badge color={C.red}><Ic n="lock" s={10} /> Bloqueado</Badge>}
+                {["FE","AT","FG"].includes(status)&&<Badge color={C.blue}>{ATTENDANCE_STATUS_LABEL[status]}</Badge>}
                 {timekeeping.valid&&!timekeeping.empty&&<Badge color={C.blue}>{formatMinutes(timekeeping.workedMinutes)}</Badge>}
                 {timekeeping.valid&&timekeeping.delayMinutes>0&&<Badge color={C.orange}>{timekeeping.delayMinutes} min atraso</Badge>}
                 {ot > 0 && <Badge color={C.purple}>{ot}h extra</Badge>}
@@ -6622,22 +6625,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
               <>
                 {/* Ação principal: presença. Três botões grandes e claros. */}
                 <div className="obra-attendance-card__statuses" role="group" aria-label={`Ponto de ${e.name}`}>
-                  {[
-                    ["P", "check", "Presente"],
-                    ["M", "money", "Meio dia"],
-                    ["F", "x", "Falta"],
-                    ["FE", "calendar", "Férias"],
-                    ["AT", "file", "Atestado"],
-                    ["FG", "clock", "Folga"],
-                  ].map(([st, icon, label]) => (
-                    <RecordAction key={st} type="button" onClick={() => setAtt(e.id, st)}
-                      className="obra-attendance-card__status"
-                      data-tone={st}
-                      data-selected={status === st}
-                      aria-pressed={status === st}>
-                      <Ic n={icon} s={14} /> {label}
-                    </RecordAction>
-                  ))}
+                  {statusChoices.slice(0,3).map(statusButton)}
                 </div>
 
                 {/* Ações secundárias recolhidas: raras no dia a dia, não competem
@@ -6650,18 +6638,19 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
                 </RecordAction>
                 {aberto && (
                   <div className="obra-attendance-card__details">
+                    <div className="obra-attendance-card__statuses" role="group" aria-label={`Outras situações de ${e.name}`}>{statusChoices.slice(3).map(statusButton)}</div>
                     <div className="obra-attendance-card__secondary">
                       <Btn v="ghost" size="sm" full onClick={() => openTimekeeping(e)}><Ic n="calendar" /> Jornada</Btn>
                       <Btn v="ghost" size="sm" full onClick={() => { if (requireDailyCheck()) return; if (requireUnlocked(e)) return; setOtModal(e.id); setOtHours(String(ot)); }}><Ic n="clock" /> Hora extra</Btn>
                       <Btn v="ghost" size="sm" full onClick={() => { if (requireDailyCheck()) return; if (requireUnlocked(e)) return; setNoteModal(e.id); setNoteText(note); }}><Ic n="edit" /> Observação</Btn>
                       <Btn v="ghost" size="sm" full onClick={() => { if (requireDailyCheck()) return; if (requireUnlocked(e)) return; setRoleModal(e.id); setRoleText(roleDoDia || e.role || ""); }}><Ic n="edit" /> Função do dia</Btn>
                     </div>
-                    {podeMovimentarEquipe && <div className="obra-attendance-card__workforce">
-                      <Btn v="warning" size="sm" full onClick={() => setMovementModal({ emp: e, mode: "transfer" })}><Ic n="building" /> Transferir</Btn>
-                      <Btn v="danger" size="sm" full onClick={() => setMovementModal({ emp: e, mode: "dismiss" })}><Ic n="x" /> Demitir</Btn>
-                    </div>}
                   </div>
                 )}
+                {podeMovimentarEquipe && <div className="obra-attendance-card__workforce">
+                  <Btn v="ghost" size="sm" full onClick={() => setMovementModal({ emp: e, mode: "transfer" })}>Transferir</Btn>
+                  <Btn v="danger" size="sm" full onClick={() => setMovementModal({ emp: e, mode: "dismiss" })}>Desligar</Btn>
+                </div>}
               </>
             )}
           </article>

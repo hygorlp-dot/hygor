@@ -1,4 +1,5 @@
 import {FilterBar} from "../../../design-system/patterns/FilterBar.jsx";
+import {RecordAction} from "../../../design-system/primitives/RecordAction.jsx";
 import {useEffect,useMemo,useState} from "react";
 import {marcellReportHtml} from "../../../reports/marcell-report.js";
 import { Badge, Btn, Ic, Inp, Modal, PageHero, Sel } from "../../../legacy/ui.jsx";
@@ -179,24 +180,23 @@ export default function PatrimonioEmpresaView({data,showToast,dispatchCommand}){
   return <div className="anim patrimony-workspace" style={{display:"flex",flexDirection:"column",gap:12}}>
     <PageHero eyebrow="Administração" title="Patrimônio da empresa" description="Bens corporativos da empresa, com nota fiscal, identificação física, localização atual e histórico." stats={[{label:"Bens ativos",value:String(active.length),color:C.green},{label:"Valor de aquisição",value:money(total)},{label:"Com nota/documento",value:String(docs)+"/"+String(active.length),color:docs===active.length?C.green:C.orange}]} actions={<div style={{display:"flex",gap:8,flexWrap:"wrap"}}><Btn v="ghost" onClick={gerarRelatorio}><Ic n="fileText"/> Relatório</Btn><Btn v="ghost" onClick={()=>setImporting(true)}><Ic n="receipt"/> Importar NF</Btn><Btn onClick={()=>setEditor(vazio())}><Ic n="plus"/> Novo bem</Btn></div>}/>
     <FilterBar layout="grid" label="Filtros do patrimônio" className="patrimony-filters"><div><Inp label="Buscar" value={search} onChange={setSearch} placeholder="Código, bem, série, IMEI, NF ou fornecedor"/></div><div><Sel label="Situação" value={status} onChange={setStatus} options={[{v:"ativos",l:"Ativos"},{v:"todos",l:"Todos"}].concat(STATUS)}/></div></FilterBar>
-    {/* Padrão MARCELL: tabela alinhada; uma ação direta (Editar) e as demais no menu "Mais ações". */}
+    {/* Nome abre o cadastro; movimentação fica junto ao registro. */}
     <section className="patrimonio-lista" aria-label="Bens patrimoniais">
       <p className="patrimonio-lista__nota">O bem pertence à empresa. Uma obra pode aparecer apenas como localização temporária.</p>
       {!filtered.length?<p className="patrimonio-lista__vazio">Nenhum patrimônio encontrado.</p>:<>
         {!isMobile&&<div className="patrimonio-lista__cabecalho" aria-hidden="true"><span>Bem</span><span>Situação</span><span>Local e nota fiscal</span><span className="patrimonio-lista__num">Valor de aquisição</span><span/></div>}
         {filtered.map(a=>{const aberto=menuAberto===a.id;const fechar=()=>setMenuAberto("");return <div key={a.id} className="patrimonio-lista__linha" data-mobile={isMobile||undefined}>
-          <div className="patrimonio-lista__bem"><span className="patrimonio-lista__nome">{a.name}</span><span className="patrimonio-lista__meta">{a.assetTag||"Sem código"}{a.serialNumber?", série "+a.serialNumber:""}{a.imei?", IMEI "+a.imei:""}</span></div>
+          <div className="patrimonio-lista__bem"><RecordAction className="patrimonio-lista__nome" aria-label={`Abrir cadastro de ${a.name}`} onClick={()=>setEditor(JSON.parse(JSON.stringify(a)))}>{a.name}</RecordAction><span className="patrimonio-lista__meta">{a.assetTag||"Sem código"}{a.serialNumber?", série "+a.serialNumber:""}{a.imei?", IMEI "+a.imei:""}</span></div>
           <div><Badge color={a.status==="baixado"?C.muted:a.status==="extraviado"?C.red:a.status==="manutencao"?C.orange:C.green}>{STATUS.find(s=>s.v===a.status)?.l||a.status}</Badge></div>
           <div className="patrimonio-lista__local"><span>{a.location?.label||"Sede"}</span><span className="patrimonio-lista__meta">{a.invoice?.number?"NF "+a.invoice.number:"Sem NF"}</span></div>
           <div className="patrimonio-lista__num"><span className="patrimony-value-label">Valor de aquisição</span>{money(a.acquisitionValue)}</div>
           <div className="patrimonio-lista__acoes" onKeyDown={e=>{if(e.key==="Escape"&&aberto){fechar();e.currentTarget.querySelector("[aria-haspopup]")?.focus();}}} onBlur={e=>{if(aberto&&!e.currentTarget.contains(e.relatedTarget))fechar();}}>
-            <Btn size="sm" v="ghost" onClick={()=>setEditor(JSON.parse(JSON.stringify(a)))}>Editar</Btn>
+            {a.active!==false&&<Btn size="sm" v="ghost" onClick={()=>setMove({...JSON.parse(JSON.stringify(a)),reason:""})}>Mover</Btn>}
             <div className="patrimonio-lista__menu">
               <Btn size="sm" v="ghost" ariaLabel={"Mais ações de "+a.name} aria-expanded={aberto} aria-haspopup="menu" onClick={()=>setMenuAberto(aberto?"":a.id)}><Ic n="more"/></Btn>
               {aberto&&<div role="menu" className="patrimonio-lista__popover" data-menu-de={a.id}>
                 {a.photo?.path&&<button type="button" role="menuitem" onClick={async()=>{fechar();const tab=window.open("about:blank","_blank");const r=await obterDocumentoPatrimonio(a.photo.path);if(r.ok&&r.url&&tab){tab.location.href=r.url;}else{tab?.close();showToast(r.error||"Não foi possível abrir a foto.","error");}}}>Foto</button>}
                 <button type="button" role="menuitem" onClick={()=>{fechar();setHistory(a);}}>Histórico</button>
-                {a.active!==false&&<button type="button" role="menuitem" onClick={()=>{fechar();setMove({...JSON.parse(JSON.stringify(a)),reason:""});}}>Mover…</button>}
                 {a.active!==false&&<button type="button" role="menuitem" onClick={()=>{fechar();setStatusEdit({...a,nextStatus:a.status,reason:""});}}>Alterar status…</button>}
               </div>}
             </div>
