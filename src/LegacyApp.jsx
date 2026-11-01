@@ -9,7 +9,7 @@ export { C, C_ARCD_SETOR, TYPO, KB } from "./legacy/palette.js";
 import { uid, today, fmt, fmtCompact, fmtDate, fmtDateFull, monthName, MONTHS, fullMonth, fmtMesAno, escapeHtml, compactNumber, maiusculoOrcamento, proximoCodigoArcd, obraContextoSalvo, compLabel, rotuloRamo, numeroCodigoArcd, formatarCodigoArcd } from "./legacy/format.js";
 export { uid, today, fmt, fmtCompact, fmtDate, fmtDateFull, monthName, MONTHS, fullMonth, fmtMesAno, escapeHtml, compactNumber, maiusculoOrcamento, proximoCodigoArcd, obraContextoSalvo, compLabel, rotuloRamo } from "./legacy/format.js";
 import { prazoObra } from "./domains/obras/legacy-deadline.js";
-import { Ic, Btn, Inp, Sel, SelBtn, Badge, ArcdChartTooltip, ChartPanel, PageHero, TabRow, Divider, Modal, MiniKpi, Bloco, CampoCNPJ, textoUi, conteudoUi, ChartLegend, buscarCNPJ, SIGLAS_UI } from "./legacy/ui.jsx";
+import { LoadingState, Ic, Btn, Inp, Sel, SelBtn, Badge, ArcdChartTooltip, ChartPanel, PageHero, TabRow, Divider, Modal, MiniKpi, Bloco, CampoCNPJ, textoUi, conteudoUi, ChartLegend, buscarCNPJ, SIGLAS_UI } from "./legacy/ui.jsx";
 export { Ic, Btn, Inp, Sel, SelBtn, Badge, ArcdChartTooltip, ChartPanel, PageHero, TabRow, Divider, Modal, MiniKpi, Bloco, CampoCNPJ } from "./legacy/ui.jsx";
 import { XLSX, carregarXLSX, lerSinapiEmSegundoPlano, arquivoComoDataUrl, comprimirImagem } from "./legacy/files.js";
 export { XLSX, carregarXLSX, lerSinapiEmSegundoPlano, arquivoComoDataUrl, comprimirImagem } from "./legacy/files.js";
@@ -2937,7 +2937,7 @@ function Dashboard({ data, update, showToast, onTab, onAbrirObra, ultimaSync, cu
       <NoticiasSetor carregando={resumoDiario.carregando} noticias={resumoDiario.noticias}/>
       <NoticiasSetor carregando={resumoDiario.carregando} noticias={resumoDiario.noticiasCbicPe} titulo="CBIC Pernambuco" subtitulo="Sinduscon-PE e câmara regional"/>
     </section>
-    <Suspense fallback={null}>
+    <Suspense fallback={<LoadingState label="índices da construção"/>}>
       <LazyCubChart cub={resumoDiario.cub} carregando={resumoDiario.carregando}/>
     </Suspense>
 
@@ -3604,12 +3604,12 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
           </div>
 
           {/* Gráfico: Faturamento vs Lucro 6 meses */}
-          <Suspense fallback={<div className="arcd-page-loading">Carregando gráfico...</div>}>
+          <Suspense fallback={<LoadingState label="gráfico"/>}>
             <LazyDreFaturamentoResultadoChart hist={hist}/>
           </Suspense>
 
           {/* Distribuição de custos */}
-          <Suspense fallback={<div className="arcd-page-loading">Carregando gráfico...</div>}>
+          <Suspense fallback={<LoadingState label="gráfico"/>}>
             <LazyDreDistribuicaoCustosChart dre={dre}/>
           </Suspense>
 
@@ -3676,7 +3676,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
             ))}
           </div>
           {/* Gráfico margem */}
-          <Suspense fallback={<div className="arcd-page-loading">Carregando gráfico...</div>}>
+          <Suspense fallback={<LoadingState label="gráfico"/>}>
             <LazyDreMargemChart hist={hist}/>
           </Suspense>
         </div>
@@ -4246,7 +4246,7 @@ function HomologacaoFinanceira({data,showToast,C=C_ARCD_SETOR}){
   const contagens=relatorio?.contagens||{};
   return <div className="anim" style={{display:"flex",flexDirection:"column",gap:10}}>
     <PageHero headingLevel={2} eyebrow="FIN-002 · controle de migração" title="Homologação em sombra" description="Compara cada fato financeiro do legado com o razão canônico antes de bloquear as escritas antigas." actions={<div style={{display:"flex",gap:6}}><Btn v="ghost" onClick={carregar} disabled={carregando}>Atualizar relatório</Btn><Btn v="success" onClick={sincronizar} disabled={sincronizando||carregando}>{sincronizando?"Carregando fatos...":"Executar carga idempotente"}</Btn></div>}/>
-    {carregando&&<div style={{padding:24,textAlign:"center",border:`1px solid ${C.border}`,borderRadius:8,color:C.muted}}>Consultando o razão canônico...</div>}
+    {carregando&&<LoadingState label="o razão canônico"/>}
     {!carregando&&!relatorio&&<div style={{padding:18,border:`1px solid ${C.red}`,borderRadius:8,color:C.red}}><b>Banco ainda não preparado</b><p style={{fontSize:"var(--arcd-type-label)",margin:"5px 0 10px"}}>{erro||"Relatório indisponível."}</p><Btn onClick={preparar} disabled={migrando}>{migrando?"Aplicando migration...":"Preparar banco com segurança"}</Btn></div>}
     {relatorio&&<><div style={{padding:"11px 13px",border:`1px solid ${relatorio.prontoParaAtivar?C.green:C.orange}`,borderLeft:`1px solid ${relatorio.prontoParaAtivar?C.green:C.orange}`,borderRadius:8,background:relatorio.prontoParaAtivar?`${C.green}08`:`${C.orange}08`}}>
       <b style={{fontSize:"var(--arcd-type-body)",color:relatorio.prontoParaAtivar?C.green:C.orange}}>{relatorio.prontoParaAtivar?"Divergência zero · pronto para o gate FIN-003":"Motor permanece em sombra"}</b>
@@ -4601,7 +4601,7 @@ function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatch
       <RankingFinanceiro data={data} year={year} month={month} obraId={filterObra==="all"?"":filterObra} onSelecionarObra={setFilterObra} C={C}/>
 
       {/* Gráficos: receita vs custo e cadência quinzenal */}
-      <Suspense fallback={<div className="arcd-page-loading">Carregando gráficos...</div>}>
+      <Suspense fallback={<LoadingState label="gráficos"/>}>
         <LazyFinanceiroCharts chartData={chartData} quinzenalChart={quinzenalChart} C={C}/>
       </Suspense>
       </details>
@@ -6018,7 +6018,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
         <Inp label="Buscar funcionário" value={busca} onChange={setBusca} placeholder="Nome, cargo ou obra..."/>
       </FilterBar>
       <p className="ponto-geral-count">{employees.length} funcionário(s) neste filtro · marcação dia a dia, clicando na célula</p>
-      {!arqMeta&&["admin","rh"].includes(currentUser?.role)&&<Suspense fallback={null}><ImportarDoREP data={data} employees={employees} days={days}
+      {!arqMeta&&["admin","rh"].includes(currentUser?.role)&&<Suspense fallback={<LoadingState label="importação de ponto"/>}><ImportarDoREP data={data} employees={employees} days={days}
         getRecord={attendanceFor} canEdit={(obraId,date)=>canEditAttendance(data,obraId,date,currentUser?.id)} obraName={obraName}
         dispatchAttendanceCommand={dispatchAttendanceCommand} newOperationId={pointOperationId} showToast={showToast}/></Suspense>}
     </div>
@@ -7438,7 +7438,7 @@ function RelatoriosMensais({ data, showToast }) {
         <ReportMetric label="Registros críticos" value={totals.faltas+totals.semRegistro} detail={`${totals.faltas} faltas · ${totals.semRegistro} sem registro`} color={(totals.faltas+totals.semRegistro)>0?C.red:C.green} icon="alert"/>
       </div>
 
-      <Suspense fallback={<div className="arcd-page-loading">Carregando gráfico...</div>}>
+      <Suspense fallback={<LoadingState label="gráfico"/>}>
         <LazyRelatoriosChartPanel byObra={byObra} chartMode={chartMode} setChartMode={setChartMode} highlightObra={highlightObra} setHighlightObra={setHighlightObra}/>
       </Suspense>
 
@@ -9861,7 +9861,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
       </div>
       <div style={{borderTop:"1px solid var(--arcd-border-default)",paddingTop:"var(--arcd-space-3)",minWidth:0}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",marginBottom:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Conteúdo da pasta</p>{!carregandoPasta&&<span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",whiteSpace:"nowrap"}}>{pastas.length} pasta(s) · {arquivos.length||arquivosFallback.length} arquivo(s)</span>}</div>
-        {carregandoPasta?<div style={{padding:"var(--arcd-space-5) var(--arcd-space-2)",textAlign:"center",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)"}}>Carregando pastas e arquivos...</div>:<>
+        {carregandoPasta?<LoadingState label="pastas e arquivos"/>:<>
           {!!pastas.length&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,210px),1fr))",gap:"var(--arcd-space-2)",marginBottom:"var(--arcd-space-2)"}}>{pastas.map(pasta=><StandardButton variant="secondary" key={pasta.id} onClick={()=>abrirPastaInterna(pasta)} title={`Abrir ${pasta.name}`} style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",minWidth:0,width:"100%",textAlign:"left"}}><span style={{flex:"0 0 auto",color:"var(--arcd-action-primary)"}}><Ic n="folder"/></span><span style={{flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{pasta.name}</span><span style={{flex:"0 0 auto",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-body)"}}>›</span></StandardButton>)}</div>}
           {!!arquivos.length&&<div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>{arquivos.map(doc=>linkDocumentoObra(doc))}</div>}
           {!arquivos.length&&!!arquivosFallback.length&&<div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>{arquivosFallback.map(doc=>linkDocumentoObra(doc))}</div>}
@@ -10033,7 +10033,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
 
       {/* Confirmacao da chegada: o mesmo modal do "Receber" de Compras (R6) */}
       {chegadaModal && (
-        <Suspense fallback={null}>
+        <Suspense fallback={<Modal title={`Confirmar chegada - pedido ${chegadaModal.numero}`} onClose={()=>!chegadaEnviando&&setChegadaModal(null)}><LoadingState label="recebimento"/></Modal>}>
           <ModalRecebimentoCompras pedido={chegadaModal} titulo={`Confirmar chegada - pedido ${chegadaModal.numero}`}
             onClose={() => !chegadaEnviando && setChegadaModal(null)} onReceber={confirmarChegada}
             nomeMat={id => (data.materiais||[]).find(m => m.id === id)?.descricao || "Material"}
@@ -10280,23 +10280,23 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         {atualizacoesObra.length===0?<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhuma atualização registrada ainda.</p>:<div style={{display:"flex",flexDirection:"column"}}>{atualizacoesObra.map((e,i)=>{const d=new Date(e.at);const hora=d.getHours()===0&&d.getMinutes()===0?"":d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});const cor=e.tipo==="removeu"?C.red:e.tipo==="criou"?C.green:e.tipo==="operacao"?C.orange:C.blue;return <div key={e.id} style={{display:"grid",gridTemplateColumns:"34px minmax(0,1fr) auto",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-0)",borderTop:i?"1px solid var(--arcd-border-default)":"none",alignItems:"start"}}><span style={{width:30,height:30,borderRadius:99,display:"grid",placeItems:"center",background:`${cor}12`,color:cor,fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{String(e.responsavel||"S").split(/\s+/).slice(0,2).map(n=>n[0]).join("").toUpperCase()}</span><div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",lineHeight:"var(--arcd-line-height-normal)"}}>{e.texto}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Responsável: <strong style={{color:"var(--arcd-text-primary)"}}>{e.responsavel}</strong></p></div><div style={{textAlign:"right",whiteSpace:"nowrap"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{d.toLocaleDateString("pt-BR")}</p>{hora&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{hora}</p>}{e.valor>0&&<p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-success-text)",marginTop:"var(--arcd-space-half)"}}>{fmt(e.valor)}</p>}</div></div>;})}</div>}
       </Secao>
       </>:<div style={{paddingTop:"var(--arcd-space-1)"}}>
-        {abaConteudo==="orc"&&<Suspense fallback={<div className="arcd-page-loading">Carregando orçamento...</div>}><Orcamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} todasObras={data.obras} todosOrcamentosGlobais={data.orcamentos} todosPlanosGlobais={data.planos}/></Suspense>}
-        {abaConteudo==="plan"&&<Suspense fallback={<div className="arcd-page-loading">Carregando planejamento...</div>}><Planejamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand}/></Suspense>}
-        {abaConteudo==="rdo"&&<Suspense fallback={<div className="arcd-page-loading">Carregando diário de obra...</div>}><DiarioObra data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/></Suspense>}
+        {abaConteudo==="orc"&&<Suspense fallback={<LoadingState label="orçamento"/>}><Orcamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} todasObras={data.obras} todosOrcamentosGlobais={data.orcamentos} todosPlanosGlobais={data.planos}/></Suspense>}
+        {abaConteudo==="plan"&&<Suspense fallback={<LoadingState label="planejamento"/>}><Planejamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand}/></Suspense>}
+        {abaConteudo==="rdo"&&<Suspense fallback={<LoadingState label="diário de obra"/>}><DiarioObra data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/></Suspense>}
         {abaConteudo==="qualidade"&&<Qualidade data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/>}
         {abaConteudo==="seguranca"&&<SegurancaObra data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/>}
-        {abaConteudo==="conferencia"&&<Suspense fallback={<div className="arcd-page-loading">Carregando conferência...</div>}><Conferencia data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/></Suspense>}
+        {abaConteudo==="conferencia"&&<Suspense fallback={<LoadingState label="conferência"/>}><Conferencia data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/></Suspense>}
         {abaConteudo==="med"&&<MedicaoEvolucao data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand}
           onAbrirPlanejamento={()=>abrirModuloDaObra("plan")}
           onAbrirTerceiro={(contratoId,novaMedicao)=>{setTerceiroAlvo({contratoId,novaMedicao,nonce:Date.now()});setGrupoMenuObra("rh");abrirModuloDaObra("terc");}}/>}
-        {abaConteudo==="cmp"&&<Suspense fallback={<div className="arcd-page-loading">Carregando compras...</div>}><Compras data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/></Suspense>}
-        {abaConteudo==="est"&&<Suspense fallback={<div className="arcd-page-loading">Carregando estoque...</div>}><Estoque data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/></Suspense>}
+        {abaConteudo==="cmp"&&<Suspense fallback={<LoadingState label="compras"/>}><Compras data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/></Suspense>}
+        {abaConteudo==="est"&&<Suspense fallback={<LoadingState label="estoque"/>}><Estoque data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/></Suspense>}
         {abaConteudo==="dre"&&<DRE data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/>}
         {abaConteudo==="ponto"&&<Ponto data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchCommand}/>}
-        {abaConteudo==="equipe"&&<Suspense fallback={<div className="arcd-page-loading">Carregando equipe...</div>}><EquipeView data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} dispatchCommand={dispatchCommand} currentUser={currentUser} onTab={onTab}/></Suspense>}
-        {abaConteudo==="terc"&&<Suspense fallback={<div className="arcd-page-loading">Carregando terceiros...</div>}><Terceiros data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand} contratoInicial={terceiroAlvo}/></Suspense>}
-        {abaConteudo==="equip"&&<Suspense fallback={<div className="arcd-page-loading">Carregando equipamentos...</div>}><Equipamentos data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchCommand} obraIdFixo={obraId}/></Suspense>}
-        {abaConteudo==="licenca"&&<Suspense fallback={<div className="arcd-page-loading">Carregando licenciamento...</div>}><Licenciamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand}/></Suspense>}
+        {abaConteudo==="equipe"&&<Suspense fallback={<LoadingState label="equipe"/>}><EquipeView data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} dispatchCommand={dispatchCommand} currentUser={currentUser} onTab={onTab}/></Suspense>}
+        {abaConteudo==="terc"&&<Suspense fallback={<LoadingState label="terceiros"/>}><Terceiros data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand} contratoInicial={terceiroAlvo}/></Suspense>}
+        {abaConteudo==="equip"&&<Suspense fallback={<LoadingState label="equipamentos"/>}><Equipamentos data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchCommand} obraIdFixo={obraId}/></Suspense>}
+        {abaConteudo==="licenca"&&<Suspense fallback={<LoadingState label="licenciamento"/>}><Licenciamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand}/></Suspense>}
         {abaConteudo==="portal"&&ehAdmin&&<div style={{display:"grid",gap:"var(--arcd-space-3)"}}>
           <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderLeft:`1px solid ${portal.ativo?"var(--arcd-success-text)":"var(--arcd-text-secondary)"}`,borderRadius:12,padding:"var(--arcd-space-4)"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-3)",flexWrap:"wrap"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>Experiência do cliente</p><h2 style={{fontSize:"var(--arcd-type-section-title)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)"}}>Portal transparente da obra</h2><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)",maxWidth:690,lineHeight:"var(--arcd-line-height-normal)"}}>Escolha exatamente o que o cliente poderá consultar. Dados bancários, PIX, folha, margem, conciliação e observações internas permanecem protegidos.</p></div><Btn v={portal.ativo?"danger":"success"} onClick={()=>atualizarPortal({ativo:!portal.ativo})}><Ic n={portal.ativo?"x":"check"}/> {portal.ativo?"Desativar acesso":"Ativar portal"}</Btn></div>
@@ -10752,7 +10752,7 @@ export function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", curren
 
   if (terceiroLocal) return <div className="measurement-surface">
     <Btn v="ghost" onClick={()=>setTerceiroLocal(null)}>Voltar à medição da obra</Btn>
-    <Suspense fallback={<p>Carregando medição do terceirizado...</p>}>
+    <Suspense fallback={<LoadingState label="medição do terceirizado"/>}>
       <Terceiros data={data} update={update} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser}
         dispatchCommand={dispatchCommand} contratoInicial={terceiroLocal} />
     </Suspense>
@@ -12587,7 +12587,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
 
       {/* Gráfico histórico */}
       <div className="dre-company-panel dre-company-trend">
-        <Suspense fallback={<div className="arcd-page-loading">Carregando gráfico...</div>}>
+        <Suspense fallback={<LoadingState label="gráfico"/>}>
           <LazyDreEmpresaHistoricoChart historico={historico}/>
         </Suspense>
       </div>
@@ -12903,7 +12903,7 @@ function PainelTV({data,ultimaSync,onAtualizar,allowedTabs=[]}){
 
     <footer className="arcd-tv-footer" style={{position:"relative",zIndex:1,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,color:"rgba(245,243,238,.46)",fontSize:"var(--arcd-type-caption)"}}><span>Sincronização automática · {ultimaSync?ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}):"agora"}</span><div style={{display:"flex",alignItems:"center",gap:6}}><button onClick={()=>setPagina(p=>(p-1+totalPaginas)%totalPaginas)} aria-label="Página anterior" style={{width:28,height:24,border:`1px solid rgba(245,243,238,.15)`,borderRadius:5,background:"transparent",color:C.surface,cursor:"pointer"}}>‹</button>{Array.from({length:totalPaginas},(_,i)=><button key={i} onClick={()=>setPagina(i)} aria-label={`Página ${i+1}`} style={{width:i===pagina?18:6,height:6,border:0,borderRadius:99,background:i===pagina?C.yellow:"rgba(245,243,238,.22)",cursor:"pointer",transition:"width .2s"}}/>)}<span style={{margin:"0 2px"}}>{pagina+1}/{totalPaginas}</span><button onClick={()=>setPagina(p=>(p+1)%totalPaginas)} aria-label="Próxima página" style={{width:28,height:24,border:`1px solid rgba(245,243,238,.15)`,borderRadius:5,background:"transparent",color:C.surface,cursor:"pointer"}}>›</button></div></footer>
     </TabsContent>
-    {podeVerEquipe&&<TabsContent value="equipe" style={{flex:1}}><Suspense fallback={<p role="status">Carregando equipe…</p>}><EquipeObrasTV /></Suspense></TabsContent>}
+    {podeVerEquipe&&<TabsContent value="equipe" style={{flex:1}}><Suspense fallback={<LoadingState label="equipe"/>}><EquipeObrasTV /></Suspense></TabsContent>}
     </Tabs>
   </div>;
 }
@@ -14339,7 +14339,7 @@ export default function App() {
           <div style={{ textAlign:"center" }}>
             <div style={{ width:44, height:44, border:`4px solid ${C.border}`, borderTopColor:C.yellow, borderRadius:"50%", animation:"spin 1s linear infinite", margin:"0 auto 14px" }}/>
             <BrandMark/>
-            <p style={{ color:C.muted, marginTop:14 }}>Carregando operação...</p>
+            <LoadingState label="operação"/>
           </div>
         </div>
       </>
@@ -14719,9 +14719,9 @@ export default function App() {
                               onBuscar={()=>setBuscaAberta(true)} onAtualizar={descartarMinhaVersao} saveState={estadoSalvar} />)}
           {tab === "tv" && <PainelTV data={data} ultimaSync={ultimaSync} onAtualizar={atualizarPainelTV} allowedTabs={allowedTabs}/>}
           {tab === "chat" && <Comunicacao data={data} currentUser={currentUser} showToast={showToast}/>}
-          {tab === "admin_central" && <Suspense fallback={<div className="arcd-page-loading">Carregando central do administrador...</div>}><CentralAdministrador data={data} update={update} showToast={showToast} currentUser={currentUser}/></Suspense>}
-          {tab === "aprov_pend" && <Suspense fallback={<div className="arcd-page-loading">Carregando aprovações...</div>}><AprovacoesPendentesView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
-          {tab.startsWith("com_") && <Suspense fallback={<div className="arcd-page-loading">Carregando comercial...</div>}><Comercial data={data} update={update} dispatchCommand={dispatchOperationalCommand} showToast={showToast} currentUser={currentUser} view={tab} onTab={irPara} /></Suspense>}
+          {tab === "admin_central" && <Suspense fallback={<LoadingState label="central do administrador"/>}><CentralAdministrador data={data} update={update} showToast={showToast} currentUser={currentUser}/></Suspense>}
+          {tab === "aprov_pend" && <Suspense fallback={<LoadingState label="aprovações"/>}><AprovacoesPendentesView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
+          {tab.startsWith("com_") && <Suspense fallback={<LoadingState label="comercial"/>}><Comercial data={data} update={update} dispatchCommand={dispatchOperationalCommand} showToast={showToast} currentUser={currentUser} view={tab} onTab={irPara} /></Suspense>}
           {tab === "obras"  && (obraAberta
             ? <ObraDetalhe data={data} obraId={obraAberta} update={update} showToast={showToast}
                            currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}
@@ -14731,38 +14731,38 @@ export default function App() {
                            onTab={irPara} />
             : <Obras       data={data} update={update} showToast={showToast} dispatchCommand={dispatchOperationalCommand}
                            currentUser={currentUser} onAbrirObra={setObraAberta} />)}
-          {tab === "orc"    && <Suspense fallback={<div className="arcd-page-loading">Carregando orçamento...</div>}><Orcamento   data={data} update={update} showToast={showToast} currentUser={currentUser} /></Suspense>}
-          {tab === "projetos" && <Suspense fallback={<div className="arcd-page-loading">Carregando projetos...</div>}><ProjetosEngenharia data={data} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} showToast={showToast} onRefresh={async()=>{const fresh=await loadDataWithMeta();if(!fresh?.data)throw new Error("Falha ao atualizar projetos.");await update({__adotarServidorPatch:true,sections:{engineeringProjects:fresh.data.engineeringProjects||[]},updatedAt:fresh.updatedAt});}} /></Suspense>}
-          {tab === "arquivos" && <Suspense fallback={<div className="arcd-page-loading">Carregando arquivos...</div>}><ArquivosObra data={data} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} onRefresh={async()=>{const fresh=await loadDataWithMeta();if(!fresh?.data)throw new Error("Falha ao atualizar arquivos.");await update({__adotarServidorPatch:true,sections:{workFileCabinets:fresh.data.workFileCabinets||[]},updatedAt:fresh.updatedAt});}} /></Suspense>}
-          {tab === "plan"   && <Suspense fallback={<div className="arcd-page-loading">Carregando planejamento...</div>}><Planejamento data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
-          {tab === "plan_suprimentos" && <Suspense fallback={<div className="arcd-page-loading">Carregando suprimentos...</div>}><LazyMarcosCurvaASuprimentos data={data} update={update} showToast={showToast} currentUser={currentUser} /></Suspense>}
-          {tab === "rdo"    && <Suspense fallback={<div className="arcd-page-loading">Carregando diário de obra...</div>}><DiarioObra data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
-          {tab === "conferencia" && <Suspense fallback={<div className="arcd-page-loading">Carregando conferência...</div>}><Conferencia data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
+          {tab === "orc"    && <Suspense fallback={<LoadingState label="orçamento"/>}><Orcamento   data={data} update={update} showToast={showToast} currentUser={currentUser} /></Suspense>}
+          {tab === "projetos" && <Suspense fallback={<LoadingState label="projetos"/>}><ProjetosEngenharia data={data} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} showToast={showToast} onRefresh={async()=>{const fresh=await loadDataWithMeta();if(!fresh?.data)throw new Error("Falha ao atualizar projetos.");await update({__adotarServidorPatch:true,sections:{engineeringProjects:fresh.data.engineeringProjects||[]},updatedAt:fresh.updatedAt});}} /></Suspense>}
+          {tab === "arquivos" && <Suspense fallback={<LoadingState label="arquivos"/>}><ArquivosObra data={data} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} onRefresh={async()=>{const fresh=await loadDataWithMeta();if(!fresh?.data)throw new Error("Falha ao atualizar arquivos.");await update({__adotarServidorPatch:true,sections:{workFileCabinets:fresh.data.workFileCabinets||[]},updatedAt:fresh.updatedAt});}} /></Suspense>}
+          {tab === "plan"   && <Suspense fallback={<LoadingState label="planejamento"/>}><Planejamento data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
+          {tab === "plan_suprimentos" && <Suspense fallback={<LoadingState label="suprimentos"/>}><LazyMarcosCurvaASuprimentos data={data} update={update} showToast={showToast} currentUser={currentUser} /></Suspense>}
+          {tab === "rdo"    && <Suspense fallback={<LoadingState label="diário de obra"/>}><DiarioObra data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
+          {tab === "conferencia" && <Suspense fallback={<LoadingState label="conferência"/>}><Conferencia data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "med"    && <MedicaoEvolucao data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} onAbrirPlanejamento={()=>irPara("plan")}/>}
           {tab === "obsoletos" && <Obsoletos    data={data} update={update} showToast={showToast} onTab={irPara} dispatchCommand={dispatchOperationalCommand} />}
-          {tab === "equipe" && <Suspense fallback={<div className="arcd-page-loading">Carregando equipe...</div>}><EquipeView data={data} update={update} showToast={showToast} dispatchCommand={dispatchOperationalCommand} currentUser={currentUser} onTab={irPara} /></Suspense>}
-          {tab === "terc"   && <Suspense fallback={<div className="arcd-page-loading">Carregando terceiros...</div>}><Terceiros data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
+          {tab === "equipe" && <Suspense fallback={<LoadingState label="equipe"/>}><EquipeView data={data} update={update} showToast={showToast} dispatchCommand={dispatchOperationalCommand} currentUser={currentUser} onTab={irPara} /></Suspense>}
+          {tab === "terc"   && <Suspense fallback={<LoadingState label="terceiros"/>}><Terceiros data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand} onTab={irPara}/>}
           {tab === "equipe_obras" && <EquipeObras key={currentUser?.id} onTab={irPara} allowedTabs={allowedTabs}/>}
           {tab === "ponto_geral" && <PontoGeral data={data} update={update} showToast={showToast} currentUser={currentUser} onTab={irPara} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand}/>}
           {tab === "ponto_app" && <PontoEletronico data={data} showToast={showToast} currentUser={currentUser}/>}
-          {tab === "folha"  && <Suspense fallback={<div className="arcd-page-loading">Carregando folha...</div>}><Folha       data={data} showToast={showToast} onTab={irPara} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
-          {tab === "resc"   && <Suspense fallback={<div className="arcd-page-loading">Carregando rescisão...</div>}><RescisaoView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
-          {tab === "rh_indic" && <Suspense fallback={<div className="arcd-page-loading">Carregando indicadores...</div>}><IndicadoresView data={data} /></Suspense>}
+          {tab === "folha"  && <Suspense fallback={<LoadingState label="folha"/>}><Folha       data={data} showToast={showToast} onTab={irPara} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
+          {tab === "resc"   && <Suspense fallback={<LoadingState label="rescisão"/>}><RescisaoView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
+          {tab === "rh_indic" && <Suspense fallback={<LoadingState label="indicadores"/>}><IndicadoresView data={data} /></Suspense>}
           {tab === "dre_emp"  && <DREEmpresa onOpenWork={allowedTabs.includes("obras")?obraId=>irPara("obras",obraId):undefined} data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "dre"      && <DRE          data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "fin"      && <Financeiro onOpenWork={allowedTabs.includes("obras")?obraId=>irPara("obras",obraId):undefined} data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
-          {tab === "conc"     && <Suspense fallback={<div className="arcd-page-loading">Carregando conciliação...</div>}><Conciliacao  data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
-          {tab === "est"      && <Suspense fallback={<div className="arcd-page-loading">Carregando estoque...</div>}><Estoque data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
-          {tab === "equip"    && <Suspense fallback={<div className="arcd-page-loading">Carregando equipamentos...</div>}><Equipamentos data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
-          {tab === "equip_fin"&& <Suspense fallback={<div className="arcd-page-loading">Carregando equipamentos...</div>}><Equipamentos data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} contexto="financeiro"/></Suspense>}
-          {tab === "patrimonio"&& <Suspense fallback={<div className="arcd-page-loading">Carregando patrimônio...</div>}><PatrimonioEmpresa data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
-          {tab === "licenca"  && <Suspense fallback={<div className="arcd-page-loading">Carregando licenciamento...</div>}><Licenciamento data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
-          {tab === "cmp"      && <Suspense fallback={<div className="arcd-page-loading">Carregando compras...</div>}><Compras      data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
+          {tab === "conc"     && <Suspense fallback={<LoadingState label="conciliação"/>}><Conciliacao  data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
+          {tab === "est"      && <Suspense fallback={<LoadingState label="estoque"/>}><Estoque data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
+          {tab === "equip"    && <Suspense fallback={<LoadingState label="equipamentos"/>}><Equipamentos data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
+          {tab === "equip_fin"&& <Suspense fallback={<LoadingState label="equipamentos"/>}><Equipamentos data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} contexto="financeiro"/></Suspense>}
+          {tab === "patrimonio"&& <Suspense fallback={<LoadingState label="patrimônio"/>}><PatrimonioEmpresa data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
+          {tab === "licenca"  && <Suspense fallback={<LoadingState label="licenciamento"/>}><Licenciamento data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
+          {tab === "cmp"      && <Suspense fallback={<LoadingState label="compras"/>}><Compras      data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
           {tab === "fornecedores" && <RankingFornecedores data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
           {tab === "suprimentos" && <CotacoesMaterial data={data} update={update} showToast={showToast} onTab={irPara}/>}
           {tab === "cad"      && <Cadastros    data={data} update={update} showToast={showToast} onTab={irPara} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
-          {tab === "medicoes" && <Suspense fallback={<div className="arcd-page-loading">Carregando medições...</div>}><MedicoesView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
+          {tab === "medicoes" && <Suspense fallback={<LoadingState label="medições"/>}><MedicoesView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "caixa"    && <CaixaObra    data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "relat"    && <Relatorios   data={data} showToast={showToast} currentUser={currentUser} />}
           {tab === "ia"     && <AgenteIA    data={data} showToast={showToast} onTab={irPara} />}

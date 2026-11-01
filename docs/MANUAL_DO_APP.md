@@ -2762,9 +2762,9 @@ Alterar o formulário não salva automaticamente. O acesso aos serviços e às m
 
 ## Aparência, botões e navegação
 
-### Entrada no sistema
+### Carregamento de telas
 
-Em entradas rápidas, o aviso pode não aparecer. Marca e indicador ficam visíveis enquanto o sistema é baixado; isso não confirma erro de acesso.
+Na entrada e nas áreas internas, o indicador pode não aparecer em aberturas rápidas. Aguarde sem repetir a ação; carregar não confirma gravação. Em caso de erro, siga a orientação da tela. Fechar permite cancelar a preparação de um diálogo.
 
 ### Cadastro pelo ponto
 

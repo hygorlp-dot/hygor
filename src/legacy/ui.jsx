@@ -1,3 +1,4 @@
+export {LoadingState} from '../design-system/patterns/LoadingState.jsx';
 // Declarações extraídas literalmente da entrada legada; não importar LegacyApp aqui.
 import { C, semanticToneFromLegacyColor } from "./palette.js";
 import { compactNumber } from "./format.js";

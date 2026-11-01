@@ -137,3 +137,9 @@ R01, R03, R04 e R08 continuam pendentes. A revisão não certifica todos os diá
 R01, R03 e R04 foram tratados em `docs/EDITOR-FOTOS-RASCUNHOS-20261101.md`: paleta visível/selecionada, editor na infraestrutura comum de diálogo, limpeza de anotações reversível por Desfazer e Limpar cálculo com confirmação na Rescisão. A proteção também cobre fechamento do editor com alterações, envio em andamento e cálculo reaberto do histórico.
 
 R08 recebeu somente os dois carregamentos de imagem da Conferência, agora com Modal e Spinner comuns e cancelamento de resposta atrasada. Os demais carregamentos internos continuam pendentes. A avaliação anterior não foi convertida em certificação global; os percursos e limites de verificação estão registrados na entrega.
+
+## Atualização — carregamentos internos
+
+R08 foi tratado no recorte interno auditado em `docs/CARREGAMENTOS-INTERNOS-20261101.md`: 73 usos da receita comum, cobrindo 57 limites sob demanda e 16 consultas locais. O menu Mais, o recebimento da obra e o editor de fornecedor mantêm fechamento durante a preparação. As esperas restantes foram classificadas: rotas públicas, decoração/espaço reservado, cronômetro passivo, entrada principal já padronizada e Ajuda compacta. Esqueletos e mensagens de atualização com dados úteis permanecem intencionais; não foram ocultados por uma tela global de espera.
+
+Verificados atrasos, cancelamento, retomada, filtros e erros no leitor, além das 65 telas nos dois tamanhos. A conclusão se refere a esses estados e percursos; não representa certificação global de acessibilidade ou teste de todas as combinações de rede e permissão.

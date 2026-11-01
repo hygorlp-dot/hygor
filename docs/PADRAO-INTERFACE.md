@@ -93,3 +93,14 @@ Cores escolhidas pelo usuário para desenhar são conteúdo: use ColorSwatch da 
 Editores de foto usam Modal; não recrie overlay, foco ou Escape. Limpar conteúdo deve permitir recuperação por Desfazer ou pedir confirmação quando a recuperação não existir. Filtros não exigem essa confirmação. Use useUnsavedChanges e UnsavedChangesPrompt para preservar a edição ao cancelar; nomeie a ação pelo conteúdo, como Limpar cálculo. Rascunhos não são preferências e histórico salvo não é apagado pela limpeza do formulário.
 
 Em diálogos empilhados, fechar uma confirmação não encerra a edição de origem, e fechar editor/confirmação juntos deve devolver o foco ao acionador válido. Evidências em `docs/EDITOR-FOTOS-RASCUNHOS-20261101.md`.
+
+
+## Espera de telas e consultas
+
+Use LoadingState de `src/design-system/patterns/LoadingState.jsx` para preparar áreas e consultas. label é o assunto, como compras ou documento; o componente monta a mensagem, aguarda 200 ms para anunciar e usa o Spinner comum. title e description mantêm a compatibilidade com o catálogo anterior. A ponte legacy/ui reexporta a mesma receita para telas antigas.
+
+Não crie textos soltos de Carregando nem deixe uma ação explícita sem retorno por usar fallback vazio. Um editor aberto sob demanda deve preservar título e fechamento enquanto carrega. Ao cancelar, a resposta atrasada não pode reabrir o editor. Não associe esse aviso a uma confirmação de gravação.
+
+Consultas de fundo devem conservar os dados úteis e indicar a atualização no próprio trecho. Esqueletos estruturados, mensagens de última consulta/offline e botões com loading continuam tendo função própria. Elementos decorativos não precisam anunciar espera. O status do carregamento não deve ficar dentro de um contêiner aria-busy que impeça seu anúncio; a DataTable usa a mensagem comum como indicação de espera.
+
+Revisão e evidências em `docs/CARREGAMENTOS-INTERNOS-20261101.md`.

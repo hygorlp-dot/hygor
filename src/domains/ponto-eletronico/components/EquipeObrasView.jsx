@@ -1,3 +1,4 @@
+import {LoadingState} from '../../../design-system/patterns/LoadingState.jsx';
 import {Button as StandardButton} from '../../../components/ui/button.jsx';
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Building2, RefreshCw, Wifi, WifiOff, UserRound, Clock, AlertCircle } from "lucide-react";
@@ -80,7 +81,7 @@ export default function EquipeObrasView({ onTab, allowedTabs = [] }) {
       <SummaryCard label="Faltas confirmadas" value={snapshot ? contar("falta") : "—"} detail="Confirmadas na gestão do ponto" />
       <SummaryCard label="Obras em atividade" value={snapshot ? new Set(filtrado.pessoas.filter(p => p.situacao === "atividade").map(p => p.obraId)).size : "—"} detail="Conforme os filtros aplicados" />
     </div>
-    {!snapshot && <p role="status">{online ? carregando ? "Carregando obras e jornadas…" : "Aguardando consulta. Use Atualizar para tentar novamente." : "Conecte-se para carregar a equipe."}</p>}
+    {!snapshot && (online&&carregando?<LoadingState label="obras e jornadas"/>:<p role="status">{online?"Aguardando consulta. Use Atualizar para tentar novamente.":"Conecte-se para carregar a equipe."}</p>)}
     {snapshot && <>
       {!snapshot.obras.length && <p>Nenhuma obra disponível para seu acesso.</p>}
       {!snapshot.pessoas.length && <p>Nenhum funcionário disponível para seu acesso.</p>}

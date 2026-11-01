@@ -1,7 +1,7 @@
 // Fonte única da ajuda no app e do manual gerado. Revise junto com cada fluxo.
 export const HELP_REVIEWED_AT = '01/11/2026';
 export const HELP_INTERFACE_GUIDE = [
- ['Entrada no sistema','Em entradas rápidas, o aviso pode não aparecer. Marca e indicador ficam visíveis enquanto o sistema é baixado; isso não confirma erro de acesso.'],
+ ['Carregamento de telas','Na entrada e nas áreas internas, o indicador pode não aparecer em aberturas rápidas. Aguarde sem repetir a ação; carregar não confirma gravação. Em caso de erro, siga a orientação da tela. Fechar permite cancelar a preparação de um diálogo.'],
  ['Cadastro pelo ponto','Em Equipes, Ponto por obra e Gestão do ponto, o nome abre o cadastro para RH e administradores; outros perfis abrem o PDF. Confira Vínculo e desligamento no início do cadastro. Corrija o ponto pela célula do dia, sem limpar a linha inteira.'],
  ['Arquivos de obra e orçamento','Use Importar planilha para escolher o arquivo Excel e Selecionar PDF na leitura estrutural do Orçamento. No Diário de obra, use Selecionar áudio, Selecionar anexo ou Usar câmera. Na Conferência, use Usar câmera ou Selecionar fotos. O navegador pode oferecer câmera ou arquivos conforme o dispositivo. Confira a obra, o tipo de arquivo e o resultado apresentado antes de continuar.'],
  ['Documentos do funcionário','No prontuário, escolha a categoria e as datas, use Selecionar documento do prontuário e confira o arquivo. Use Salvar documento para concluir o envio. Essa escolha não altera o vínculo, o ponto ou a folha do funcionário.'],

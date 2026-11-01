@@ -13,7 +13,7 @@ import { FlowTabs, useWorkflow } from "../../../features/workflow/WorkflowNaviga
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { lazyWithCssRetry as lazy } from "../../../lib/lazy-with-css-retry.js";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
-import { Badge, Btn, CampoCNPJ, Ic, Inp, MiniKpi, Modal, PageHero, Sel } from "../../../legacy/ui.jsx";
+import { LoadingState, Badge, Btn, CampoCNPJ, Ic, Inp, MiniKpi, Modal, PageHero, Sel } from "../../../legacy/ui.jsx";
 import { C } from "../../../legacy/palette.js";
 import { escapeHtml, MONTHS, fmt, fmtDate, fmtDateFull, maiusculoOrcamento, today, uid } from "../../../legacy/format.js";
 import { abrirRelatorioPadrao, montarRelatorioPadraoHtml } from "../../../reports/legacy-standard.js";
@@ -1267,7 +1267,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
       </>}
 
       {/* ---------- RELATÓRIO MENSAL ---------- */}
-      {aba==="relatorio" && <Suspense fallback={<div className="equipment-report-empty"><strong>Preparando relatórios</strong><p>Organizando dados gerenciais e memórias por obra...</p></div>}>
+      {aba==="relatorio" && <Suspense fallback={<LoadingState label="relatórios de equipamentos"/>}>
         <LazyEquipmentBillingReports currentUser={currentUser} obraIdFixo={obraIdFixo}
           data={data}
           period={ym}
@@ -1311,7 +1311,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                 <Inp label="Pesquisar equipamento" value={buscaSinapiEquip} onChange={setBuscaSinapiEquip} placeholder="Código, betoneira, compactador, gerador..."/>
               </div>
               {(carregandoSinapiEquip||avisoSinapiEquip||resultadosSinapiEquip.length>0)&&<div style={{marginTop:7,maxHeight:210,overflowY:"auto",background:C.card,border:`1px solid ${C.border}`,borderRadius:5}}>
-                {carregandoSinapiEquip&&<p style={{fontSize:"var(--arcd-type-label)",color:C.blue,padding:9}}>Consultando equipamentos no SINAPI...</p>}
+                {carregandoSinapiEquip&&<LoadingState label="equipamentos no SINAPI"/>}
                 {avisoSinapiEquip&&<p style={{fontSize:"var(--arcd-type-label)",color:C.orange,padding:9,lineHeight:1.45}}>{avisoSinapiEquip}</p>}
                 {resultadosSinapiEquip.map((item,index)=>{
                   const base=basesSinapiEquip.find(b=>b.id===baseSinapiEquipId);

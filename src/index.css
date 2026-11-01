@@ -7879,3 +7879,6 @@ body.no-scroll .arcd-mobile-nav { visibility:hidden; pointer-events:none; }
 .photo-editor__tools>summary{cursor:pointer;padding-block:var(--arcd-space-2)}
 @media(max-height:600px){.arcd-modal-overlay .photo-editor{--photo-height:30dvh}}
 @media(max-height:480px){.arcd-modal-overlay .photo-editor{--photo-height:16dvh}}
+
+.mrc-loading-state{display:flex;align-items:center;gap:var(--arcd-space-2);padding:var(--arcd-space-3);min-height:var(--arcd-control-height);color:var(--arcd-text-secondary);font-size:var(--arcd-type-body);overflow-wrap:anywhere}
+.mrc-loading-state>.arcd-spinner{flex-shrink:0}

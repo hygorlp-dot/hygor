@@ -2,7 +2,7 @@ import {Input as StandardInput} from '../../components/ui/input.jsx';
 import {Button as StandardButton} from '../../components/ui/button.jsx';
 // Declarações extraídas literalmente da entrada legada; não importar LegacyApp aqui.
 import { C } from "../../legacy/palette.js";
-import { textoUi, Modal, Btn, Inp, CampoCNPJ, Ic } from "../../legacy/ui.jsx";
+import { LoadingState, textoUi, Modal, Btn, Inp, CampoCNPJ, Ic } from "../../legacy/ui.jsx";
 import { fmt, fmtDate, rotuloRamo } from "../../legacy/format.js";
 import { lazyWithCssRetry as lazy } from "../../lib/lazy-with-css-retry.js";
 import { useState } from "react";
@@ -128,7 +128,7 @@ export function CampoCEP({ label = "CEP", value, onChange, onEncontrado }) {
         style={{ width:"100%", boxSizing:"border-box", background:"var(--arcd-surface-page)", border:"1.5px solid var(--arcd-border-default)",
           color:"var(--arcd-text-primary)", padding:"var(--arcd-space-2) var(--arcd-space-2)", borderRadius:7, fontSize:"var(--arcd-type-control)", outline:"none",
           fontFamily:"var(--arcd-font-sans)" }}/>
-      {carregando && <span style={{ fontSize:"var(--arcd-type-label)", color:"var(--arcd-text-secondary)" }}>Buscando endereço...</span>}
+      {carregando && <LoadingState label="endereço"/>}
       {erro && <span style={{ fontSize:"var(--arcd-type-label)", color:"var(--arcd-warning-text)" }}>{erro}</span>}
     </label>
   );
@@ -449,7 +449,7 @@ export function ModalCotacaoWhatsApp({ titulo, itens, obraNome, prazo, fornecedo
 
 export function FornecedorEditorPilot({ form, setForm, onSave }) {
   if (!features.newSupplierEditor) return <ModalFornecedor form={form} setForm={setForm} onSave={onSave} />;
-  return <Suspense fallback={<Modal title="Carregando fornecedor" onClose={()=>setForm(null)}><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Preparando editor…</p></Modal>}>
+  return <Suspense fallback={<Modal title="Carregando fornecedor" onClose={()=>setForm(null)}><LoadingState label="editor de fornecedor"/></Modal>}>
     <LazySupplierEditor open supplier={form} onOpenChange={open=>!open&&setForm(null)} onSave={onSave}/>
   </Suspense>;
 }
