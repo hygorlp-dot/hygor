@@ -47,3 +47,6 @@ scripts/operator-pilot*.mjs
 scripts/lib/operator-pilot.mjs
 public/exemplos-projetos/
 release-preservation.json
+
+# Comparações visuais são exclusivas do ambiente local.
+prototypes/

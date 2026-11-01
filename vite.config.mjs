@@ -46,6 +46,10 @@ export default defineConfig(({mode})=>mergeConfig({
           return `assets/${prefix}-[hash].js`;
         },
         manualChunks(id) {
+          // Shared interface primitives are loaded by the application shell.
+          // Keeping them together avoids repeated import paths and independent
+          // compression overhead across small chunks, without changing UI code.
+          if(id.includes('/src/design-system/')||id.includes('/src/components/ui/'))return 'interface';
           if(id.includes('/node_modules/fflate/')||id.endsWith('/src/lib/zip-reader.js'))return 'zip-codec';
           // Os gráficos compartilham Lodash com a leitura CSV do ExcelJS.
           // Um chunk comum evita vários blocos pequenos comprimidos à parte.
