@@ -569,21 +569,22 @@ RDO significa Relatório Diário de Obra. Sugestões de IA precisam de revisão 
 
 ## Conferência
 
-Registrar vistorias e acompanhar a correção de pendências.
+Registrar vistorias e validar correções.
 
 ### Antes de começar
 
-Confira a obra e quem é o responsável pela vistoria.
+Confira obra e responsável pela vistoria.
 
 ### Como fazer
 
-1. O vistoriador cria a vistoria e registra as pendências com evidências.
-2. A pessoa atribuída à correção envia a foto da solução.
-3. O vistoriador analisa a evidência e declara o resultado.
+1. Abra a foto. Em Ferramentas e zoom, escolha ferramenta, cor e espessura.
+2. Desfazer recupera Limpar anotações. Salvar preserva o original; no formulário, confirme também Salvar achado.
+3. Fechar ou Escape pede confirmação das alterações. Continuar editando mantém o rascunho.
+4. A pessoa atribuída envia a correção; o vistoriador valida.
 
 ### Como conferir se deu certo
 
-A pendência mostra a situação correspondente à revisão realizada.
+Confira a situação da pendência após validar.
 
 ### O que merece atenção
 
@@ -1184,7 +1185,7 @@ Para conferir a folha de outubro, selecione a competência de outubro e revise o
 
 ## Rescisão
 
-Preparar a conferência do desligamento de um funcionário.
+Conferir parcelas e descontos da rescisão.
 
 ### Antes de começar
 
@@ -1192,17 +1193,17 @@ Tenha a pessoa, a data e o motivo do desligamento.
 
 ### Como fazer
 
-1. Abra a rescisão do funcionário correto.
-2. Preencha os dados solicitados e confira as parcelas e descontos apresentados.
-3. Revise os documentos e confirme somente após a conferência responsável.
+1. Confira funcionário, parcelas e descontos.
+2. Limpar cálculo pede confirmação. Continuar editando mantém o rascunho; o histórico é preservado.
+3. Revise com o RH antes de Salvar no histórico.
 
 ### Como conferir se deu certo
 
-O registro contém os dados e documentos do desligamento conferido.
+Confira o registro salvo no histórico.
 
 ### O que merece atenção
 
-Confira as informações com o responsável pelo RH antes da confirmação.
+Confirme os valores com o RH.
 
 <a id="guia-rh_indic"></a>
 

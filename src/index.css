@@ -7861,3 +7861,21 @@ body.no-scroll .arcd-mobile-nav { visibility:hidden; pointer-events:none; }
 .ponto-employee-name:hover{text-decoration:underline;text-underline-offset:.2em}
 
 .ponto-employee-role{font-size:var(--arcd-type-caption);color:var(--arcd-text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Editor de fotos: composição sobre os controles e diálogos comuns. */
+.arcd-modal-overlay .photo-editor{--photo-height:50dvh;max-width:1180px!important;display:flex;flex-direction:column;overflow:hidden}
+.photo-editor .arcd-modal-body{display:flex;flex-direction:column;gap:var(--arcd-space-2);min-height:0;overflow:auto}
+.photo-editor__toolbar,.photo-editor__group,.photo-editor__footer{display:flex;gap:var(--arcd-space-2);flex-wrap:wrap;align-items:center}
+.photo-editor__toolbar{border:0;padding:0;margin:0;min-width:0}
+.photo-editor__toolbar>select{width:auto}
+.photo-editor__canvas{overflow:auto;min-height:120px;max-height:55dvh;padding:var(--arcd-space-2);background:var(--arcd-surface-inverse)}
+.photo-editor__canvas canvas{display:block;height:auto;max-width:none}
+.photo-editor__canvas p{color:var(--arcd-text-inverse)}
+.photo-editor .arcd-modal-footer{padding:var(--arcd-space-3);border-top:1px solid var(--arcd-border-default)}
+.photo-editor__footer{align-items:flex-end}
+.photo-editor__footer>.arcd-field{flex:1;min-width:0}
+@media(max-width:767px){.arcd-modal-overlay .photo-editor{--photo-height:35dvh}.photo-editor__canvas{max-height:40dvh}}
+
+.photo-editor__tools>summary{cursor:pointer;padding-block:var(--arcd-space-2)}
+@media(max-height:600px){.arcd-modal-overlay .photo-editor{--photo-height:30dvh}}
+@media(max-height:480px){.arcd-modal-overlay .photo-editor{--photo-height:16dvh}}

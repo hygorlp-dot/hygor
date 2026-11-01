@@ -131,3 +131,9 @@ Continuação local em `docs/ACOES-DIRETAS-ERP-20261101.md`:
 - Patrimônio: nome abre o cadastro e Mover fica na linha; o menu mantém Histórico, Foto quando disponível e Alterar status….
 
 R01, R03, R04 e R08 continuam pendentes. A revisão não certifica todos os diálogos nem substitui uso em aparelho físico. Em Obras, abrir a obra e editar seus dados têm destinos distintos; em Terceirizados, expandir o contrato e editar seu cadastro também. Esses controles não foram removidos por mera semelhança visual. Os menus de histórico de condições de Compras e de memória do cálculo de Orçamento preservam conteúdo de consulta secundária.
+
+## Atualização — fotos e rascunhos
+
+R01, R03 e R04 foram tratados em `docs/EDITOR-FOTOS-RASCUNHOS-20261101.md`: paleta visível/selecionada, editor na infraestrutura comum de diálogo, limpeza de anotações reversível por Desfazer e Limpar cálculo com confirmação na Rescisão. A proteção também cobre fechamento do editor com alterações, envio em andamento e cálculo reaberto do histórico.
+
+R08 recebeu somente os dois carregamentos de imagem da Conferência, agora com Modal e Spinner comuns e cancelamento de resposta atrasada. Os demais carregamentos internos continuam pendentes. A avaliação anterior não foi convertida em certificação global; os percursos e limites de verificação estão registrados na entrega.

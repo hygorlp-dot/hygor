@@ -84,3 +84,12 @@ A ação frequente de um registro deve estar junto dele. Em Equipes, Desligar ab
 
 
 Aplique o mesmo critério aos ativos: em Frota e Patrimônio, o nome usa RecordAction para abrir o cadastro. Movimentações operacionais ficam na linha/cartão; comandos destrutivos conservam confirmação e contexto. Menu não substitui a próxima ação frequente, nem deve repetir uma ação já exposta. Exigências de Licenciamento usam Editar com o documento no nome acessível. No celular, dê largura ao conteúdo antes de comprimi-lo para acomodar comandos lado a lado. Ver `docs/ACOES-DIRETAS-ERP-20261101.md`.
+
+
+## Anotações e descarte de rascunhos
+
+Cores escolhidas pelo usuário para desenhar são conteúdo: use ColorSwatch da base, mantendo a amostra real e nome acessível. A aparência do botão, seleção e foco continua no tema. Não substitua a cor desenhada pelo fundo genérico de um comando.
+
+Editores de foto usam Modal; não recrie overlay, foco ou Escape. Limpar conteúdo deve permitir recuperação por Desfazer ou pedir confirmação quando a recuperação não existir. Filtros não exigem essa confirmação. Use useUnsavedChanges e UnsavedChangesPrompt para preservar a edição ao cancelar; nomeie a ação pelo conteúdo, como Limpar cálculo. Rascunhos não são preferências e histórico salvo não é apagado pela limpeza do formulário.
+
+Em diálogos empilhados, fechar uma confirmação não encerra a edição de origem, e fechar editor/confirmação juntos deve devolver o foco ao acionador válido. Evidências em `docs/EDITOR-FOTOS-RASCUNHOS-20261101.md`.

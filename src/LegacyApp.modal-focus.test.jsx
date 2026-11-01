@@ -57,4 +57,10 @@ describe("foco inicial do modal", () => {
     act(() => option.click());
     expect(change).toHaveBeenCalledWith("receita_servicos");
   });
+  it("preserva o foco devolvido à miniatura quando editor e confirmação fecham juntos",()=>{
+    function Stack(){const [editor,setEditor]=React.useState(false),[confirm,setConfirm]=React.useState(false);return <Modal title="Pendência" onClose={()=>{}}><button onClick={()=>setEditor(true)}>Miniatura</button>{editor&&<><Modal title="Foto" onClose={()=>setConfirm(true)}><button onClick={()=>setConfirm(true)}>Sair da foto</button></Modal>{confirm&&<Modal title="Descartar?" onClose={()=>setConfirm(false)}><button onClick={()=>{setEditor(false);setConfirm(false);}}>Descartar</button></Modal>}</>}</Modal>;}
+    const click=text=>act(()=>{const button=[...container.querySelectorAll('button')].find(b=>b.textContent===text);button.focus();button.click();vi.advanceTimersByTime(0);});
+    act(()=>root.render(<Stack/>));act(()=>vi.advanceTimersByTime(0));click('Miniatura');const trigger=[...container.querySelectorAll('button')].find(b=>b.textContent==='Miniatura');click('Sair da foto');click('Descartar');expect(container.querySelectorAll('[role="dialog"]')).toHaveLength(1);expect(document.activeElement).toBe(trigger);
+  });
+
 });

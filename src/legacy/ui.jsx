@@ -501,7 +501,7 @@ export function Modal({ title, children, onClose, wide = false, panelClass = "",
       window.removeEventListener("keydown", handleKeyDown);
       if (!document.querySelector(".arcd-modal-panel")) document.body.classList.remove("no-scroll");
       if(previousFocusRef.current?.isConnected&&previousFocusRef.current!==document.body&&previousFocusRef.current!==document.documentElement)previousFocusRef.current.focus();
-      else {const fallback=document.querySelector(".arcd-modal-panel")||document.querySelector(".arcd-main h1,.arcd-main h2");if(fallback){if(!fallback.hasAttribute("tabindex"))fallback.setAttribute("tabindex","-1");fallback.focus({preventScroll:true});}}
+      else if(!document.activeElement?.closest('.arcd-modal-panel')){const fallback=document.querySelector(".arcd-modal-panel")||document.querySelector(".arcd-main h1,.arcd-main h2");if(fallback){if(!fallback.hasAttribute("tabindex"))fallback.setAttribute("tabindex","-1");fallback.focus({preventScroll:true});}}
     };
   }, []);
 

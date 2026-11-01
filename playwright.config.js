@@ -27,6 +27,10 @@ export default defineConfig({
     video: "retain-on-failure",
   },
   projects: [
+    {name:"photo-drafts-narrow",testMatch:/photo-drafts\.spec\.js/,grep:/editor usa diálogo|Limpar cálculo confirma/,use:{browserName:"chromium",viewport:{width:320,height:568},isMobile:true,hasTouch:true}},
+    {name:"photo-drafts-landscape",testMatch:/photo-drafts\.spec\.js/,grep:/editor usa diálogo|Limpar cálculo confirma/,use:{browserName:"chromium",viewport:{width:844,height:390},isMobile:true,hasTouch:true}},
+    {name:"photo-drafts-desktop",testMatch:/photo-drafts\.spec\.js/,use:{browserName:"chromium",viewport:{width:1440,height:1000}}},
+    {name:"photo-drafts-mobile",testMatch:/photo-drafts\.spec\.js/,use:{browserName:"chromium",viewport:{width:390,height:844},isMobile:true,hasTouch:true}},
     {name:'record-actions-desktop',testMatch:/direct-record-actions\.spec\.js/,use:{browserName:'chromium',viewport:{width:1440,height:1000}}},
     {name:'record-actions-mobile',testMatch:/direct-record-actions\.spec\.js/,use:{browserName:'chromium',viewport:{width:390,height:844},isMobile:true,hasTouch:true}},
     {name:'banco-horas-desktop',testMatch:/banco-horas-almoco\.spec\.js/,use:{browserName:'chromium',viewport:{width:1440,height:1000}}},

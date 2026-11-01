@@ -1,3 +1,5 @@
+import {useUnsavedChanges} from '../../../features/workflow/useUnsavedChanges.js';
+import UnsavedChangesPrompt from '../../../features/workflow/UnsavedChangesPrompt.jsx';
 import {Button as StandardButton} from '../../../components/ui/button.jsx';
 import { marcellReportHtml } from "../../../reports/marcell-report.js";
 // ===================================================================
@@ -49,6 +51,7 @@ function Rescisao({ data, showToast, currentUser, dispatchCommand }) {
   const [salvando, setSalvando] = useState(false);
   const [rescCancelModal, setRescCancelModal] = useState(null);
   const [rescCancelReason, setRescCancelReason] = useState("");
+  const resetDraft=useUnsavedChanges(form,()=>setForm(emptyForm),{identity:"rescission-calculation",busy:salvando});
   const F = k => v => setForm(f => ({ ...f, [k]: v }));
 
   // Ao selecionar funcionário da lista
@@ -448,7 +451,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
       <Inp label="Observações (aparece no documento)" value={form.obs} onChange={F("obs")} multiline placeholder="Informações adicionais, acordos, pendências..."/>
 
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-2)"}}>
-        <Btn v="ghost" onClick={()=>setForm(emptyForm)} full><Ic n="x"/> Limpar</Btn>
+        <Btn v="ghost" onClick={resetDraft.requestClose} disabled={salvando} full><Ic n="x"/> Limpar cálculo</Btn>
         <Btn v="ghost" onClick={()=>gerarPDF()} full disabled={!calc}><Ic n="file"/> Gerar PDF</Btn>
       </div>
       <Btn onClick={salvar} full disabled={!calc||salvando}><Ic n="check"/> {salvando?"Salvando e auditando...":"Salvar no histórico"}</Btn>
@@ -501,6 +504,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
         </div>
       ))}
 
+      <UnsavedChangesPrompt guard={resetDraft} title="Limpar cálculo?" description="Limpa só o rascunho. Rescisões do histórico são preservadas." confirmLabel="Limpar cálculo"/>
       {rescCancelModal&&<Modal title="Cancelar rescisão" onClose={()=>setRescCancelModal(null)}><div className="team-confirm"><p>Cancele a rescisão de <strong>{rescCancelModal.empName}</strong>. O registro é preservado no histórico para auditoria.</p><Inp label="Motivo do cancelamento *" value={rescCancelReason} onChange={setRescCancelReason} multiline placeholder="Explique por que esta rescisão está sendo cancelada"/><div><Btn v="ghost" full onClick={()=>setRescCancelModal(null)}>Cancelar</Btn><Btn v="danger" full loading={salvando} onClick={confirmCancelarRescisao}>Confirmar cancelamento</Btn></div></div></Modal>}
     </div>
   );
