@@ -80,6 +80,17 @@ export const applyAttendanceStatusBatch = ({
 
 export const applyAttendanceServerResult = (data, result = {}) => {
   let next=data;
+  if(result.employeeAllocations?.length){
+    next={...next,employees:(next.employees||[]).map(employee=>{
+      const allocation=result.employeeAllocations.find(a=>String(a.employeeId)===String(employee.id));
+      // Respostas atrasadas/repetidas não revertem uma transferência ou
+      // edição de cadastro que o cliente já recebeu com versão posterior.
+      if(!allocation||Number(employee.version||0)>=allocation.version)return employee;
+      return {...employee,obra:allocation.obraId,version:allocation.version,updatedAt:allocation.updatedAt,
+        ...(allocation.updatedBy?{updatedBy:allocation.updatedBy,updatedById:allocation.updatedById}:{}),
+        obraHistory:[...(employee.obraHistory||[]).filter(h=>h.id!==allocation.historyEntry.id),allocation.historyEntry]};
+    })};
+  }
   if(Array.isArray(result.attendance)){
     const attendance={...(next?.attendance||{})};
     for(const patch of result.attendance){

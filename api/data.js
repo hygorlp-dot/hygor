@@ -87,6 +87,7 @@ import {
 import { readFreshAttendance, readReviewEvents, readSyncEvents } from "../server/attendance-review-source.js";
 import { planBiometricSync, validSyncRange, biometricSyncPreview } from '../server/attendance-biometric-sync.js';
 import { applyAttendanceCommand, ATTENDANCE_COMMAND } from "../server/attendance-command.js";
+import {enrichAttendanceWithAutomaticAllocation} from '../server/attendance-auto-allocation.js';
 import {
   applyEntriesToAttendance, attendanceObraKeyPrefix,
   groupAttendanceEntriesByObra, groupObraDeparturesByBucket, mergeAttendanceObjects,
@@ -1542,7 +1543,10 @@ export const executarComandoPontoBloqueado=async({usuario,command,operationNow,l
       };
       const sourceEvents=command.action===ATTENDANCE_COMMAND.REVIEW?await readReviewEvents(transaction,COMPANY,command):
         command.action===ATTENDANCE_COMMAND.SYNC&&validSyncRange(command)?await readSyncEvents(transaction,COMPANY,command):[];
-      const applied=applyAttendanceCommand(current,usuario,command,operationNow,sourceEvents);
+      const applied=enrichAttendanceWithAutomaticAllocation(
+        applyAttendanceCommand(current,usuario,command,operationNow,sourceEvents),
+        {now:operationNow,operationId:command.operationId,actorId:usuario.id,actorName:usuario.nome||usuario.email},
+      );
       if(!applied.ok)return {kind:"error",status:applied.status||400,error:applied.error};
       if(applied.idempotent)return {kind:"idempotent",result:applied.result,updatedAt:lockedPonto.updated_at};
       const closedPoint=validarPontoEmCompetenciaAberta(current,command);
@@ -1565,6 +1569,19 @@ export const executarComandoPontoBloqueado=async({usuario,command,operationNow,l
         dailyCheckDate:applied.data.dailyCheckDate||"",
         attendanceOperationReceipts:applied.data.attendanceOperationReceipts||[],
       };
+      // CORE já está travada nesta transação: cadastro, histórico, ponto e
+      // recibo idempotente só são confirmados juntos. Nunca gravar um snapshot
+      // de RH que foi lido antes do lock nem reatribuir pontos anteriores.
+      if(applied.result.employeeAllocations?.length){
+        const allocationValue={employees:applied.data.employees,changeLog:applied.data.changeLog};
+        if(pontoKeyAlvo===KEY)Object.assign(pontoValue,allocationValue);
+        else await transaction`
+          update company_app_data
+             set value=${transaction.json(encodeAppData({...decodeAppData(lockedCore.value),...allocationValue}))}::jsonb,
+                 updated_at=clock_timestamp(), updated_by=null
+           where company_id=${COMPANY} and key=${KEY}
+        `;
+      }
       const correlationId=crypto.randomUUID();
       const [savedPonto]=await transaction`
         update company_app_data

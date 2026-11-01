@@ -206,6 +206,37 @@ describe("/api/data · caminho travado do Ponto particiona attendance por obra",
   });
   afterAll(()=>vi.useRealTimers());
 
+  it('terceiro dia na nova obra atualiza CORE e ponto juntos sem alterar pagamentos ou dados do funcionário',async()=>{
+    const core=testState.rows[CORE_KEY].value;
+    core.employees[0]={...core.employees[0],role:'Servente',version:4,cpf:'preservado',dailyRate:120};
+    core.payments=[{id:'pagamento-preservado',amount:7160}];
+    core.attendance={'e-a':{'2026-08-20':{status:'P',obraId:'obra-b'},'2026-08-21':{status:'P',obraId:'obra-b'}}};
+    const command={action:'attendance-upsert',accessToken:'valid-token',operationId:'20000000-0000-4000-8000-000000000099',
+      employeeId:'e-a',date:'2026-08-22',selectedObraId:'obra-b',record:{status:'P',obraId:'obra-b'}};
+    const result=await callApi(command);
+    expect(result.status).toBe(200);
+    expect(result.body.result.employeeAllocations).toEqual([expect.objectContaining({employeeId:'e-a',previousObraId:'obra-a',obraId:'obra-b',version:5})]);
+    const saved=testState.rows[CORE_KEY].value;
+    expect(saved.employees[0]).toMatchObject({obra:'obra-b',version:5,cpf:'preservado',dailyRate:120});
+    expect(saved.changeLog).toContainEqual(expect.objectContaining({type:'transfer',automatic:true,fromId:'obra-a',toId:'obra-b'}));
+    expect(saved.payments).toEqual(core.payments);expect(saved.attendance).toEqual(core.attendance);
+    const repeated=await callApi(command);expect(repeated.body.idempotent).toBe(true);
+    expect(testState.rows[CORE_KEY].value.employees[0].version).toBe(5);
+  });
+
+  it.each(['engenharia_sem_escopo','ponto_bloqueado'])('não aplica lotação se o ponto for recusado: %s',async scenario=>{
+    const core=testState.rows[CORE_KEY].value;
+    core.employees[0].version=4;
+    core.attendance={'e-a':{'2026-08-20':{status:'P',obraId:'obra-b'},'2026-08-21':{status:'P',obraId:'obra-b'}}};
+    if(scenario==='engenharia_sem_escopo')Object.assign(core.usuarios[0],{role:'engenheiro',obraId:'obra-a'});
+    else testState.rows[PONTO_KEY].value.attendanceLocks={'2026-08-22__obra-b':{locked:true}};
+    const before=JSON.stringify(core);
+    const result=await callApi({action:'attendance-upsert',accessToken:'valid-token',operationId:'20000000-0000-4000-8000-000000000098',
+      employeeId:'e-a',date:'2026-08-22',selectedObraId:'obra-b',record:{status:'P',obraId:'obra-b'}});
+    expect(result.status).toBe(scenario==='engenharia_sem_escopo'?403:409);
+    expect(JSON.stringify(testState.rows[CORE_KEY].value)).toBe(before);
+  });
+
   it("upsert de uma obra grava só na linha própria dessa obra, sem tocar a linha meta de Ponto",async()=>{
     const result=await callApi({
       action:"attendance-upsert",accessToken:"valid-token",

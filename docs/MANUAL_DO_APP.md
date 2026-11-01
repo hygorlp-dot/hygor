@@ -1028,7 +1028,7 @@ A consulta mostra a pessoa, a data e a obra corretas.
 
 ### O que merece atenção
 
-Ausência de batida não confirma falta. Registros offline só aparecem depois da sincronização.
+Ausência de batida não confirma falta. Registros offline só aparecem depois da sincronização. Ao salvar ou sincronizar o terceiro dia trabalhado consecutivo na mesma obra, diferente da lotação atual, o sistema atualiza a lotação de qualquer funcionário ativo. São consideradas presenças ou meios períodos com obra identificada; folgas não contam e trabalho em outra obra interrompe a sequência. A transferência fica no histórico e não move pontos antigos nem pagamentos. Desligamentos e decisões de lotação mais recentes são preservados.
 
 <a id="guia-ponto_geral"></a>
 
