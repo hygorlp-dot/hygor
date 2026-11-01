@@ -1,5 +1,8 @@
 // Pode rodar isoladamente com node --test e na suíte Vitest do repositório.
-const {test}=process.env.VITEST ? await import('vitest') : await import('node:test');
+import {createRequire} from 'node:module';
+// A cobertura transforma imports dinâmicos antes de avaliar a condição.
+// Resolver o runner nativo só em execução preserva ambos os modos.
+const {test}=process.env.VITEST ? await import('vitest') : createRequire(import.meta.url)('node:test');
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';

@@ -3,10 +3,9 @@ import { act } from "react";
 
 const mountedRoots = [];
 
-// LegacyApp é pesado (Supabase, ExcelJS, Recharts...) e não deve ser
-// montado de verdade neste teste de entrada - só precisamos confirmar
-// que qualquer URL resolve diretamente para o ambiente operacional.
-vi.mock("./LegacyApp", () => ({
+// O teste verifica o destino da rota. A montagem assíncrona do ambiente
+// operacional é coberta pelas suítes de navegação; o stub fica nessa fronteira.
+vi.mock("./routes/OperationalApp", () => ({
   default: () => <div data-testid="operational-app-stub">Sistema operacional (stub)</div>,
 }));
 
