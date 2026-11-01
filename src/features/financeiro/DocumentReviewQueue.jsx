@@ -1,3 +1,4 @@
+import {ChoiceControl} from '../../design-system/primitives/ChoiceControl.jsx';
 import {useRef,useState} from 'react';
 import {Button} from '../../components/ui/button.jsx';
 import {documentReviewEligibility,documentReviewStatus} from '../../domains/financeiro/document-review-queue.js';
@@ -34,7 +35,7 @@ export default function DocumentReviewQueue({rows,allRows=rows,data,user,scope,o
  {preview&&<section aria-label="Prévia da conferência em sequência"><h3>Prévia da conferência em sequência</h3><p role="status">{remaining.length} ficha(s) por abrir · {selected.length-ready.length} bloqueado(s) ou indisponível(is) na seleção atual · {skipped.length} deixado(s) para depois. A elegibilidade será verificada novamente ao abrir.</p><p>Abrir uma ficha não significa que foi salva ou conferida. Uma atualização da base mantém a seleção e mostra a situação de cada registro.</p><Button disabled={!remaining.length} onClick={()=>open(remaining[0])}>Abrir próxima ficha fiscal</Button></section>}
  <RecordPagination count={source.length} page={page} onPage={page=>update({page})} label={preview?'Paginação da sequência':'Paginação da seleção'}/>
  <ul>{visible.map(item=>{const {id,row,reason}=item,wasOpened=opened.includes(id),changed=wasOpened&&row&&Number(row.record.version||0)!==attempts[id];return <li key={id}>
- {!preview?<label><input type="checkbox" checked={ids.includes(id)} disabled={Boolean(reason)} onChange={event=>setIds(previous=>event.target.checked?[...previous,id]:previous.filter(value=>value!==id))}/><span><strong>{row.label} · {row.entry.description}</strong><small>{reason||'Disponível para abrir a ficha fiscal'}</small></span></label>:<>
+ {!preview?<label><ChoiceControl type="checkbox" checked={ids.includes(id)} disabled={Boolean(reason)} onChange={event=>setIds(previous=>event.target.checked?[...previous,id]:previous.filter(value=>value!==id))}/><span><strong>{row.label} · {row.entry.description}</strong><small>{reason||'Disponível para abrir a ficha fiscal'}</small></span></label>:<>
  <strong>{row?.record.numero||row?.entry.description||id}</strong><p>{reason||`Situação atual: ${documentReviewStatus(row.record.status)}`}</p>
  <p>{skipped.includes(id)?'Deixada para depois':wasOpened?(changed?'Registro atualizado desde a abertura · confira o resultado individual':'Ficha aberta nesta sequência · sem nova versão confirmada'):'Ficha ainda não aberta'}</p>
  {errors[id]&&<p role="alert">{errors[id]}</p>}

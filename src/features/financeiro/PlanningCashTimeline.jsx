@@ -1,3 +1,4 @@
+import {SelectControl} from '../../design-system/primitives/Select.jsx';
 import {useMemo,useState} from 'react';
 import {Button} from '../../components/ui/button.jsx';
 import {planningCashTimeline} from '../../domains/financeiro/planning-cash-timeline.js';
@@ -18,9 +19,9 @@ export default function PlanningCashTimeline({data,today,days,obraId,forecast,on
  const openTitles=()=>onOpen({title:'Títulos previstos da obra',items:report.titles,context:`${financialDateLabel(today)} a ${financialDateLabel(report.end)} · vencimentos mantidos · cenário local`});
  return <details className="planning-cash-timeline" open={state.open||undefined} onToggle={event=>{if(event.currentTarget.open!==Boolean(state.open))update({open:event.currentTarget.open});}}><summary>Planejamento, compras e vencimentos</summary><h3>Necessidades e compromissos no tempo</h3>
  <p>Compare as datas das etapas com as compras vinculadas e os títulos da previsão. Referências do cronograma não são novas saídas de caixa.</p>
- {obraId==='all'&&<label>Obra da consulta temporal<select value={chosen} onChange={e=>update({chosen:e.target.value,shift:0})}><option value="">Selecione uma obra</option>{works.map(w=><option key={w.id} value={w.id}>{w.name}</option>)}</select></label>}
+ {obraId==='all'&&<label>Obra da consulta temporal<SelectControl value={chosen} onChange={e=>update({chosen:e.target.value,shift:0})}><option value="">Selecione uma obra</option>{works.map(w=><option key={w.id} value={w.id}>{w.name}</option>)}</SelectControl></label>}
  {!report?<p role="status">Selecione uma obra para comparar as origens. O saldo da empresa não será atribuído à obra.</p>:<>
- <div className="cash-forecast__controls"><label>Deslocamento das etapas na simulação<select value={shift} onChange={e=>update({shift:Number(e.target.value)})}>{[-30,-14,-7,0,7,14,30].map(n=><option key={n} value={n}>{n===0?'Datas atuais':n>0?`Adiar ${n} dias`:`Antecipar ${-n} dias`}</option>)}</select></label></div>
+ <div className="cash-forecast__controls"><label>Deslocamento das etapas na simulação<SelectControl value={shift} onChange={e=>update({shift:Number(e.target.value)})}>{[-30,-14,-7,0,7,14,30].map(n=><option key={n} value={n}>{n===0?'Datas atuais':n>0?`Adiar ${n} dias`:`Antecipar ${-n} dias`}</option>)}</SelectControl></label></div>
  <p role="status">Etapas neste horizonte: {report.originalCount} nas datas atuais → {report.simulatedCount} na simulação. {report.undated} etapa(s) com datas pendentes.</p>
  <p>O deslocamento muda apenas esta comparação. Datas de entrega, necessidades das solicitações e vencimentos financeiros permanecem cadastrados como estão. Estoque compartilhado não é descontado automaticamente.</p>
  <div className="cash-forecast__actions"><Button variant="outline" onClick={openTitles}>Ver títulos previstos · {report.titles.length}</Button>{navigate&&currentUser&&podeAcessarAba(currentUser,'plan')&&<Button variant="outline" onClick={()=>navigate('plan',{obraId:work})}>Abrir planejamento da obra</Button>}</div>

@@ -1,4 +1,6 @@
 :root {
+  --arcd-space-0: 0;
+  --arcd-space-half: 0.125rem;
   --arcd-space-1: 0.25rem;
   --arcd-space-2: 0.5rem;
   --arcd-space-3: 0.75rem;
@@ -8,4 +10,5 @@
   --arcd-space-8: 2rem;
   --arcd-space-10: 2.5rem;
   --arcd-space-12: 3rem;
+  --arcd-space-16: 4rem;
 }

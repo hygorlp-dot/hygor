@@ -21,7 +21,7 @@ export function FlowTabs({label,steps,tools=[],active,onChange,toolsLabel="Consu
     <nav aria-label={label}>{steps.map(item=><Button variant="ghost" key={item.id} type="button" aria-current={active===item.id?"page":undefined} onClick={()=>onChange(item.id)} aria-label={item.label}>
       <span>{item.label}</span>{item.count!=null&&<small aria-hidden="true">{item.count}</small>}
     </Button>)}</nav>
-    {tools.length>0&&<details className="workflow-tools" key={active} open={tools.some(item=>item.id===active)}><summary>{toolsLabel}{tools.some(item=>item.id===active)?` · ${selected.label}`:""}</summary><div>{tools.map(item=><button key={item.id} type="button" aria-current={active===item.id?"page":undefined} onClick={()=>onChange(item.id)}>{item.label}{item.count!=null?` · ${item.count}`:""}</button>)}</div></details>}
+    {tools.length>0&&<details className="workflow-tools" key={active} open={tools.some(item=>item.id===active)}><summary>{toolsLabel}{tools.some(item=>item.id===active)?` · ${selected.label}`:""}</summary><div>{tools.map(item=><Button variant="secondary" key={item.id} type="button" aria-current={active===item.id?"page":undefined} onClick={()=>onChange(item.id)}>{item.label}{item.count!=null?` · ${item.count}`:""}</Button>)}</div></details>}
     {selected?.description&&<p className="workflow-description">{selected.description}</p>}
   </section>;
 }
@@ -71,8 +71,8 @@ export function DreIntegration({kind,currentUser,obraId="",year,month,period="me
   return <section className="dre-integration" aria-label="Integração com o DRE">
     <details className="dre-integration__disclosure"><summary>Resultado no DRE{validPeriod?` · ${String(scope.month+1).padStart(2,"0")}/${scope.year}`:""}</summary>
     <div className="dre-integration__intro"><div><strong>Como este fluxo aparece no DRE</strong><p>{notes[kind]}</p></div>{children}</div>
-    {allowed&&validPeriod&&<div className="dre-integration__actions"><button type="button" onClick={()=>setOpen(value=>!value)} aria-expanded={open} aria-controls={id}>{open?"Ocultar valores do DRE":"Consultar valores no DRE"}</button>
-      {canNavigate&&<button type="button" onClick={()=>navigate(target,scope)}>Abrir DRE neste recorte</button>}
+    {allowed&&validPeriod&&<div className="dre-integration__actions"><Button variant="secondary" type="button" onClick={()=>setOpen(value=>!value)} aria-expanded={open} aria-controls={id}>{open?"Ocultar valores do DRE":"Consultar valores no DRE"}</Button>
+      {canNavigate&&<Button variant="secondary" type="button" onClick={()=>navigate(target,scope)}>Abrir DRE neste recorte</Button>}
     </div>}
     {open&&allowed&&validPeriod&&<div id={id} className="dre-integration__values" aria-live="polite">
       {state.loading?<p>Consultando o razão…</p>:state.error?<p role="alert">{state.error}</p>:metrics?.map(metric=><div key={metric.label}><span>{metric.label}</span><strong>{metric.value==null?"Não disponível neste recorte":metric.value.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</strong></div>)}

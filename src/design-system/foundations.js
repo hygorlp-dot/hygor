@@ -9,4 +9,5 @@ export const foundationTokens = Object.freeze({
   "--arcd-button-gap":".5rem", "--arcd-button-padding":".5rem .875rem",
   "--arcd-button-padding-sm":".375rem .625rem", "--arcd-button-padding-lg":".625rem 1.25rem",
   "--arcd-button-height-sm":"2.25rem", "--arcd-button-height-lg":"3rem", "--arcd-touch-target":"2.75rem",
+  "--arcd-textarea-min-height":"6rem",
 });

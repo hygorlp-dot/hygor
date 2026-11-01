@@ -1,3 +1,4 @@
+import {SelectControl} from '../../design-system/primitives/Select.jsx';
 import {useState} from 'react';
 import {Button} from '../../components/ui/button.jsx';
 import {FORECAST_REVIEW_DECISIONS,forecastReviewHistory} from '../../domains/financeiro/forecast-review-history.js';
@@ -13,7 +14,7 @@ export default function ForecastReviewHistory({work}){
  return <section className="forecast-review-history" aria-label="Histórico de conferência das duplicidades">
   <h4>Histórico de conferência das duplicidades</h4>
   <p>Conferências salvas, da mais recente para a mais antiga. Datas no fuso deste dispositivo. Rascunhos não entram no histórico.</p>
-  {rows.length>0&&<label>Aditivo do histórico<select aria-label="Aditivo do histórico" value={filter} onChange={e=>{setFilter(e.target.value);setPage(0);}}><option value="all">Todos os aditivos</option>{options.map(r=><option key={r.amendmentId} value={r.amendmentId}>Aditivo {r.amendmentNumber||r.amendmentId}</option>)}</select></label>}
+  {rows.length>0&&<label>Aditivo do histórico<SelectControl aria-label="Aditivo do histórico" value={filter} onChange={e=>{setFilter(e.target.value);setPage(0);}}><option value="all">Todos os aditivos</option>{options.map(r=><option key={r.amendmentId} value={r.amendmentId}>Aditivo {r.amendmentNumber||r.amendmentId}</option>)}</SelectControl></label>}
   {!filtered.length?<p>Nenhuma conferência salva neste recorte. Escolha a decisão na previsão e confirme para registrá-la aqui.</p>:<ol>{filtered.slice(page*10,page*10+10).map(r=><li key={r.id}>
    <p><strong>Aditivo {r.amendmentNumber||r.amendmentId}{r.description?` · ${r.description}`:''}</strong> · {r.stageLabel||r.stageId||'Etapa não registrada'} · Revisão {r.version??'não registrada'}</p>
    <dl><div><dt>Responsável</dt><dd>{r.by||'Não registrado'}</dd></div><div><dt>Data da conferência</dt><dd>{date(r.at)}</dd></div><div><dt>Decisão</dt><dd>{FORECAST_REVIEW_DECISIONS[r.mode]||'Não registrada'}</dd></div><div><dt>Impacto conferido</dt><dd>{money(r.amountCents)}</dd></div><div><dt>Restante conferido</dt><dd>{money(r.remainingCents)}</dd></div></dl>

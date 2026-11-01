@@ -511,9 +511,9 @@ export function Modal({ title, children, onClose, wide = false, panelClass = "",
       className="no-print arcd-modal-overlay"
       style={{
         position:"fixed", inset:0, zIndex:999,
-        background:"rgba(18,18,18,.45)",
-        backdropFilter:"blur(8px)",
-        display:"flex", alignItems:"center", justifyContent:"center", padding:14,
+        background:"var(--arcd-surface-overlay)",
+        backdropFilter:"none",
+        display:"flex", alignItems:"center", justifyContent:"center", padding:"var(--arcd-space-4)",
       }}
       onMouseDown={e => { if(e.target===e.currentTarget) onClose?.(); }}
     >
@@ -527,16 +527,16 @@ export function Modal({ title, children, onClose, wide = false, panelClass = "",
         style={{
         width:"100%", maxWidth: wide ? (isDesktop?860:720) : (isDesktop?520:460),
         maxHeight:"min(92dvh, 900px)", overflowY:"auto",
-        background:C.bg,
-        border:`1px solid ${C.border}`,
-        borderRadius:10,
+        background:"var(--arcd-surface-card)",
+        border:"1px solid var(--arcd-border-default)",
+        borderRadius:"var(--arcd-radius-lg)",
       }}>
         <div className="arcd-modal-header" style={{
           display:"flex", justifyContent:"space-between", alignItems:"center",
-          padding:"11px 14px",
-          borderBottom:`1px solid ${C.yellow}`,
-          background:C.surface,
-          borderRadius:"10px 10px 0 0",
+          padding:"var(--arcd-space-3) var(--arcd-space-4)",
+          borderBottom:"1px solid var(--arcd-border-default)",
+          background:"var(--arcd-surface-card)",
+          borderRadius:"var(--arcd-radius-lg) var(--arcd-radius-lg) 0 0",
         }}>
           <h3 className="arcd-dialog__title">{textoUi(title)}</h3>
           <Btn v="ghost" size="sm" iconOnly onClick={onClose} title="Fechar" ariaLabel="Fechar">
@@ -544,7 +544,7 @@ export function Modal({ title, children, onClose, wide = false, panelClass = "",
           </Btn>
         </div>
         <div className="arcd-modal-notice" />
-        <div className="arcd-modal-body" style={{padding:14}}>{children}</div>
+        <div className="arcd-modal-body" style={{padding:"var(--arcd-panel-padding)"}}>{children}</div>
         {footer&&<div className="arcd-modal-footer">{footer}</div>}
       </div>
     </div>

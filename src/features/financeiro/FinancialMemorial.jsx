@@ -1,3 +1,4 @@
+import {Input as StandardInput} from '../../components/ui/input.jsx';
 import {useEffect,useMemo,useRef,useState} from 'react';
 import {Button} from '../../components/ui/button.jsx';
 import {FinancialEntryDetails} from './DreMemorial.jsx';
@@ -26,7 +27,7 @@ export default function FinancialMemorial({detail,onClose,onOpenWork,onDocuments
   return <dialog ref={ref} className="annual-dre__dialog financial-memorial" aria-labelledby="financial-memorial-title" onKeyDown={e=>{if(e.key==='Escape')e.stopPropagation();}} onCancel={e=>{e.preventDefault();onClose();}}>
     <header><h3 id="financial-memorial-title">{detail.title}</h3><Button variant="outline" onClick={onClose}>Fechar memorial</Button></header>
     <p>{detail.context}</p><p>{detail.items.length} lançamento(s) no conjunto · Total do conjunto: <strong>{money(detail.totalCents??sum)}</strong></p>
-    <label className="financial-search">Pesquisar lançamento, obra ou documento<input type="search" value={query} onChange={e=>{setQuery(e.target.value);setPage(0);setEvidenceKey(null);}}/></label>
+    <label className="financial-search">Pesquisar lançamento, obra ou documento<StandardInput type="search" value={query} onChange={e=>{setQuery(e.target.value);setPage(0);setEvidenceKey(null);}}/></label>
     <p role="status">{entries.length} encontrado(s) · Subtotal da busca: <strong>{money(subtotal)}</strong> · Página {currentPage+1} de {lastPage+1}</p>
     {entries.length>50&&<nav className="financial-memorial__pagination" aria-label="Paginação do memorial"><Button variant="outline" disabled={currentPage===0} onClick={()=>{setPage(currentPage-1);setEvidenceKey(null);}}>Página anterior</Button><span>{currentPage*50+1}–{Math.min((currentPage+1)*50,entries.length)} de {entries.length}</span><Button variant="outline" disabled={currentPage===lastPage} onClick={()=>{setPage(currentPage+1);setEvidenceKey(null);}}>Próxima página</Button></nav>}
     <div className="dre-memorial">{visible.map(({item,key})=><details className="dre-memorial__entry" data-entry-key={key} key={key} open={expanded.has(key)} onToggle={e=>{if(e.currentTarget.isConnected)toggle(key,e.currentTarget.open);}}>

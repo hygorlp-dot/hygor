@@ -457,6 +457,8 @@ Toda evolução de interface deve registrar hipótese, consultar as skills e com
 
 Contrato obrigatório para futuras introduções e mapa de manutenção: `docs/PADRAO-INTERFACE.md`. A escala compartilhada está em `src/design-system/foundations.js`; linguagem genérica em `src/design-system/copy.js`. `npm run design:check` impede crescimento das exceções diretas registradas no legado e integra o lint.
 
+Primeira migração: Financeiro e Compras reutilizam controles, tipografia e espaçamentos comuns, com baseline reduzida. Registros e indicadores clicáveis usam RecordAction; comandos usam Button. Seletores de arquivos usam FilePicker, com botão acionável por teclado. O Modal compartilhado usa superfícies opacas e dimensões do tema. Ver `docs/MIGRACAO-FINANCEIRO-COMPRAS-20261101.md` para alcance e limites.
+
 - PageHeader e PageHero compartilham a receita `mrc-screen-header`: título de 24px, descrição de 14px e ações agrupadas. As superfícies, pesos e preenchimentos vêm do tema; não criar novos cabeçalhos particulares para módulos operacionais.
 - FilterBar com `layout="grid"` organiza filtros relacionados, alinhados pela base no desktop e empilhados no celular. Preservar rótulos, seleção e handlers; não transformar a troca de apresentação em alteração de dados.
 - Abas e ações usam os controles compartilhados. Cor de seleção, foco, contadores e densidade vêm dos tokens. No celular, manter o seletor de áreas já existente e alvos de toque adequados.

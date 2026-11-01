@@ -1,3 +1,4 @@
+import {SelectControl} from '../../design-system/primitives/Select.jsx';
 import {HelpButton} from '../help/HelpButton.jsx';
 import {useState} from 'react';
 import {Button} from '../../components/ui/button.jsx';
@@ -59,7 +60,7 @@ export default function CostControlReview({data,work,report,asOf,onOpen,view={},
      <div><strong>{s.entry.description}</strong><p>{s.entry.date||s.entry.competence||'Data não informada'} · {s.entry.counterparty||'Contraparte não informada'} · {money(s.entry.amountCents)}</p><p>{s.reason}</p>
      <Button variant="outline" onClick={()=>onOpen({title:`${work.name} · Conferir origem`,context:'Custo pendente de apropriação. Consulte o lançamento e seus documentos antes de confirmar.',items:[s.entry],totalCents:s.entry.amountCents})}>Ver origem e documentos</Button></div>
      {s.supported?<form onSubmit={async e=>{e.preventDefault();const ok=await send({type:COST_CONTROL_COMMAND.COST_ALLOCATION_SAVED,expectedVersion:d.version??Number(s.entry.record.version||0),payload:{obraId:work.id,budgetId:report.budget?.id,sourceType:s.entry.sourceType,sourceId:s.entry.sourceId,sourceSubId:s.entry.sourceSubId,stageId:selected,note:d.note}});if(ok)setDraft(s.id,{note:''});}}>
-       <label>Etapa para {s.entry.description}<select required value={selected} onChange={e=>setDraft(s.id,{stageId:e.target.value,version:d.version??Number(s.entry.record.version||0)})}><option value="">Escolha após conferir</option>{rows.filter(r=>r.id!=="unassigned").map(r=><option value={r.id} key={r.id}>{r.label}</option>)}</select></label>
+       <label>Etapa para {s.entry.description}<SelectControl required value={selected} onChange={e=>setDraft(s.id,{stageId:e.target.value,version:d.version??Number(s.entry.record.version||0)})}><option value="">Escolha após conferir</option>{rows.filter(r=>r.id!=="unassigned").map(r=><option value={r.id} key={r.id}>{r.label}</option>)}</SelectControl></label>
        <label>Justificativa da apropriação<Input required minLength={5} maxLength={2000} value={d.note||''} onChange={e=>setDraft(s.id,{note:e.target.value,version:d.version??Number(s.entry.record.version||0)})}/></label>
        <Button type="submit" disabled={!selected||(d.note||'').trim().length<5}>{busy?'Salvando…':'Confirmar apropriação'}</Button>
      </form>:<p>Esta origem exige conferência no cadastro responsável; a apropriação assistida atende notas fiscais, despesas da obra e medições de terceiros.</p>}
@@ -69,7 +70,7 @@ export default function CostControlReview({data,work,report,asOf,onOpen,view={},
  {filtered.length>10&&<div className="cost-control__actions"><Button variant="outline" disabled={page===0} onClick={()=>patch({page:page-1})}>Anteriores</Button><span>Página {page+1} de {Math.ceil(filtered.length/10)}</span><Button variant="outline" disabled={(page+1)*10>=filtered.length} onClick={()=>patch({page:page+1})}>Próximos</Button></div>}
  </fieldset>
  {stage&&<fieldset disabled={busy}><legend>Previsão para concluir por etapa</legend>
- <label>Etapa da previsão<select value={stage.id} onChange={e=>patch({stageId:e.target.value})}>{rows.map(r=><option value={r.id} key={r.id}>{r.label}</option>)}</select></label>
+ <label>Etapa da previsão<SelectControl value={stage.id} onChange={e=>patch({stageId:e.target.value})}>{rows.map(r=><option value={r.id} key={r.id}>{r.label}</option>)}</SelectControl></label>
  <p>Informe todo o custo que ainda será incorrido nesta etapa, incluindo compras já comprometidas que ainda não viraram custo. Não inclua novamente o incorrido nem use o saldo a pagar.</p>
  <dl className="cost-control__basis"><div><dt>Incorrido</dt><dd>{money(stage.incurred)}</dd></div><div><dt>Compras ainda não faturadas</dt><dd>{money(stage.openCommitted)}</dd></div><div><dt>Referência automática para concluir</dt><dd>{money(stage.automaticRemaining)}</dd></div><div><dt>Orçado</dt><dd>{money(stage.budget)}</dd></div></dl>
  {stage.revision&&<p role="status">{stage.reviewValid?'Previsão revisada em uso':'Valor revisado preservado; reconferir base atual'} · {stage.revision.by} · {stage.revision.asOf}. {stage.revision.note}</p>}
@@ -82,9 +83,9 @@ export default function CostControlReview({data,work,report,asOf,onOpen,view={},
  {stageChanges.map(item=>{
    const saved=coverage[item.id],current=saved?.amountCents===Math.round(Number(item.impactoCustoRestante)*100)&&saved?.remainingCents===cents&&(!stage.revision||draft.amendmentCoverage||stage.revision.budgetId===(report.budget?.id||''));
    return <div className="cost-control__coverage" key={item.id}><label>Aditivo {item.numero||item.id} · {item.descricao} · {money(Math.round(Number(item.impactoCustoRestante)*100))}
-   <select aria-label={`Cobertura do aditivo ${item.numero||item.id}`} value={current?saved.mode:'unreviewed'} onChange={e=>setCoverage(item,e.target.value)}>
+   <SelectControl aria-label={`Cobertura do aditivo ${item.numero||item.id}`} value={current?saved.mode:'unreviewed'} onChange={e=>setCoverage(item,e.target.value)}>
     <option value="unreviewed">Ainda não conferido</option><option value="included">Já está no restante informado</option><option value="separate">Fora do restante — considerar separadamente</option>
-   </select></label>
+   </SelectControl></label>
    <label>Justificativa da conferência do aditivo {item.numero||item.id}<Input maxLength={2000} value={saved?.justification||''} onChange={e=>setCoverage(item,current?saved.mode:'unreviewed',e.target.value)} placeholder="Explique por que o custo já está no restante ou deve continuar separado"/></label>
    {!saved?.justification?.trim()&&<p role="status">Sem justificativa individual: é possível salvar com aviso e complementar depois.</p>}
    </div>;

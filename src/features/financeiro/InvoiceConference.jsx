@@ -1,3 +1,4 @@
+import {SelectControl} from '../../design-system/primitives/Select.jsx';
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { lazyWithCssRetry as lazy } from "../../lib/lazy-with-css-retry.js";
 import {Button} from '../../components/ui/button.jsx';
@@ -75,7 +76,7 @@ export default function InvoiceConference({documents = [], driveId, resolveFile,
   return <Tabs value={panel} onValueChange={setPanel} className="invoice-conference">
     <TabsList className="invoice-conference__tabs" aria-label="Conferência da nota fiscal"><TabsTrigger value="original">Documento</TabsTrigger><TabsTrigger value="fields">Dados da nota</TabsTrigger></TabsList>
     <TabsContent forceMount value="original" className="invoice-conference__original">
-      {documents.length > 1 && <label className="invoice-original__select">Arquivo para conferência<select aria-label="Arquivo para conferência" value={documents[selected] ? selected : 0} onChange={event => setSelected(Number(event.target.value))}>{documents.map((document, index) => <option key={`${document.id || index}:${index}`} value={index}>{document.legenda || document.nome || document.name || `Documento ${index + 1}`}</option>)}</select></label>}
+      {documents.length > 1 && <label className="invoice-original__select">Arquivo para conferência<SelectControl aria-label="Arquivo para conferência" value={documents[selected] ? selected : 0} onChange={event => setSelected(Number(event.target.value))}>{documents.map((document, index) => <option key={`${document.id || index}:${index}`} value={index}>{document.legenda || document.nome || document.name || `Documento ${index + 1}`}</option>)}</SelectControl></label>}
       {current ? <OriginalDocument key={`${current.id || selected}:${current.url || current.webUrl || ''}`} document={current} driveId={driveId} resolveFile={resolveFile}/> : <section aria-label="Documento original"><h3>Documento original</h3><p>{emptyMessage||'Nenhum documento anexado. Use “Anexar XML, PDF ou imagem da nota” nos dados da nota para incluir o original.'}</p></section>}
     </TabsContent>
     <TabsContent forceMount value="fields" className="invoice-conference__fields"><h3>Dados para conferência</h3>{children}</TabsContent>

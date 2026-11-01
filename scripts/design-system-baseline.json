@@ -8,9 +8,9 @@
       "native-control": 2
     },
     "src/LegacyApp.jsx": {
-      "literal-spacing": 1283,
-      "literal-typography": 572,
-      "native-control": 120,
+      "literal-spacing": 1185,
+      "literal-typography": 524,
+      "native-control": 115,
       "literal-color": 100
     },
     "src/client-portal/app/ClientPortalApp.jsx": {
@@ -86,34 +86,6 @@
       "literal-spacing": 193,
       "literal-typography": 60,
       "native-control": 19
-    },
-    "src/domains/compras/LegacySupport.jsx": {
-      "literal-spacing": 24,
-      "literal-typography": 10,
-      "native-control": 2
-    },
-    "src/domains/compras/components/ComprasView.jsx": {
-      "native-control": 31,
-      "literal-spacing": 345,
-      "literal-typography": 146
-    },
-    "src/domains/compras/components/ContratosFornecimentoView.jsx": {
-      "literal-spacing": 22,
-      "literal-typography": 5,
-      "native-control": 1
-    },
-    "src/domains/compras/components/OrderActionMenu.jsx": {
-      "native-control": 2
-    },
-    "src/domains/compras/components/PurchaseContractsWorkspace.jsx": {
-      "native-control": 1
-    },
-    "src/domains/compras/components/PurchaseWorkspace.jsx": {
-      "native-control": 4
-    },
-    "src/domains/compras/components/ReceiptModal.jsx": {
-      "literal-spacing": 13,
-      "literal-typography": 6
     },
     "src/domains/dashboard/components/GestaoAVistaObras.jsx": {
       "native-control": 2
@@ -293,58 +265,8 @@
     "src/features/conciliacao/ReviewSearchFilters.jsx": {
       "native-control": 3
     },
-    "src/features/financeiro/AnnualDre.jsx": {
-      "native-control": 18
-    },
-    "src/features/financeiro/CashForecast.jsx": {
-      "native-control": 4
-    },
-    "src/features/financeiro/CashWorkspace.jsx": {
-      "native-control": 1
-    },
-    "src/features/financeiro/CostControlReview.jsx": {
-      "native-control": 3
-    },
-    "src/features/financeiro/DocumentCenter.jsx": {
-      "native-control": 3
-    },
-    "src/features/financeiro/DocumentReviewQueue.jsx": {
-      "native-control": 1
-    },
-    "src/features/financeiro/DreReconciliationManager.jsx": {
-      "native-control": 13
-    },
-    "src/features/financeiro/FinancialMemorial.jsx": {
-      "native-control": 1
-    },
-    "src/features/financeiro/FinancialReportCenter.jsx": {
-      "native-control": 8
-    },
-    "src/features/financeiro/ForecastReviewHistory.jsx": {
-      "native-control": 1
-    },
-    "src/features/financeiro/InvoiceConference.jsx": {
-      "native-control": 1
-    },
-    "src/features/financeiro/LegacyDocumentTools.jsx": {
-      "literal-spacing": 31,
-      "literal-typography": 9,
-      "literal-color": 1
-    },
-    "src/features/financeiro/PdfDocumentPreview.jsx": {
-      "native-control": 1
-    },
-    "src/features/financeiro/PlanningCashTimeline.jsx": {
-      "native-control": 2
-    },
-    "src/features/financeiro/SavedDocumentQueries.jsx": {
-      "native-control": 1
-    },
     "src/features/pilot/OperationalPilot.jsx": {
       "native-control": 1
-    },
-    "src/features/workflow/WorkflowNavigation.jsx": {
-      "native-control": 3
     },
     "src/mobile/LegacyMobileNavigation.jsx": {
       "native-control": 2

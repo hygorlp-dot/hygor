@@ -76,6 +76,12 @@ const navigate=async(page,name)=>{
   }else await page.getByRole("navigation",{name:"Fluxo de compras"}).getByRole("button",{name:new RegExp(`^${name}`)}).click();
 };
 const selectWork=page=>page.locator(".purchase-context-bar").getByLabel("Obra",{exact:true}).selectOption("a");
+const openTool=async(page,name)=>{
+  const selector=page.getByRole('combobox',{name:'Fluxo de compras',exact:true});
+  if(await selector.isVisible())return navigate(page,name);
+  const tools=page.locator('details.purchase-tools');
+  await tools.locator('summary').click();await tools.getByRole('button',{name,exact:true}).click();
+};
 
 function prepareLinkedPurchase(state){
  const request=state.solicitacoesCompra[0],quote=state.cotacoes[0],order=state.pedidos[0];
@@ -406,7 +412,7 @@ test("pagamento direto do cliente continua separado da entrega e do caixa da emp
   const delivery=page.locator(".purchase-queue-table tbody tr").filter({hasText:"PC-003"});
   await expect(delivery).toContainText("Pago");
   await expect(delivery.getByRole("button",{name:"Receber materiais · PC-003"})).toBeVisible();
-  await page.getByRole("navigation",{name:"Fluxo de compras"}).getByRole("button",{name:/^Pagamentos/}).click();
+  await navigate(page,"Pagamentos");
   await expect(page.locator(".compras-funding")).toContainText("Cliente direto");
   await expect(page.locator(".compras-funding")).toContainText("75,00");
   expect(app.state().pedidos.find(order=>order.id==="other").pagamentos[0]).toMatchObject({origem:"cliente_direto",conciliado:true});
@@ -486,11 +492,12 @@ test("comparativo por obra ordena por risco, abre a obra escolhida e explica a f
   await selectWork(page);
   const tools=page.locator("details.purchase-tools");
   const openOrcado=async()=>{
-    await tools.locator("summary").click();
-    await tools.getByRole("button",{name:"Orçado x comprado",exact:true}).click();
+    await openTool(page,"Orçado x comprado");
     // O menu fecha ao escolher e não cobre o conteúdo; o botão mostra onde você está.
-    await expect(tools.locator("summary")).toHaveText("Consultas e cadastros · Orçado x comprado");
-    await expect.poll(()=>tools.evaluate(element=>element.open)).toBe(false);
+    if(await tools.isVisible()){
+      await expect(tools.locator("summary")).toHaveText("Consultas e cadastros · Orçado x comprado");
+      await expect.poll(()=>tools.evaluate(element=>element.open)).toBe(false);
+    }
   };
   await openOrcado();
   await expect(page.getByRole("status").filter({hasText:"Sem baseline aprovada."})).toBeVisible();
@@ -517,8 +524,7 @@ test("orçado × comprado mostra o maior estouro primeiro, a barra proporcional 
   }});
   await selectWork(page);
   const tools=page.locator("details.purchase-tools");
-  await tools.locator("summary").click();
-  await tools.getByRole("button",{name:"Orçado x comprado",exact:true}).click();
+  await openTool(page,"Orçado x comprado");
 
   const etapas=page.locator(".orc-etapa");
   await expect(etapas).toHaveCount(3);
@@ -732,12 +738,17 @@ test("fila agrupada por fornecedor cobra três entregas atrasadas numa só visã
 
 test("'Chegou' na tela da obra abre o mesmo recebimento de Compras, preenchido e aceitando parcial",async({page})=>{
   const app=await enter(page);
-  const sidebar=page.locator(".arcd-sidebar");
-  const grupo=sidebar.locator(".nav-grp-hd").filter({hasText:/^Obras e projetos/});
-  const corpo=grupo.locator("xpath=following-sibling::*[contains(@class,'nav-body')][1]");
-  if(!await corpo.isVisible())await grupo.click();
-  await corpo.locator(".nav-item").filter({hasText:/^Obras$/}).click();
-  await page.getByText("Residencial Alameda").first().click();
+  if(page.viewportSize().width<1100){
+    await page.getByRole('button',{name:'Abrir Obras e projetos',exact:true}).click();
+    await page.getByRole('combobox',{name:'Telas de Obras e projetos',exact:true}).selectOption({label:'Obras'});
+  }else{
+    const sidebar=page.locator(".arcd-sidebar");
+    const grupo=sidebar.locator(".nav-grp-hd").filter({hasText:/^Obras e projetos/});
+    const corpo=grupo.locator("xpath=following-sibling::*[contains(@class,'nav-body')][1]");
+    if(!await corpo.isVisible())await grupo.click();
+    await corpo.locator(".nav-item").filter({hasText:/^Obras$/}).click();
+  }
+  await page.getByRole('heading',{name:'Residencial Alameda',exact:true}).click();
   await expect(page.getByText("O material ja chegou na obra?")).toBeVisible();
   await page.getByRole("button",{name:"Chegou",exact:true}).click();
 
@@ -764,7 +775,7 @@ test("'Chegou' na tela da obra abre o mesmo recebimento de Compras, preenchido e
 test("painel separa Resumo de Análises, sem ação destrutiva, e cada exceção abre a lista filtrada",async({page})=>{
   const app=await enter(page);
   const tools=page.locator("details.purchase-tools");
-  const abrirPainel=async()=>{await tools.locator("summary").click();await tools.getByRole("button",{name:"Mapa gerencial",exact:true}).click();};
+  const abrirPainel=()=>openTool(page,"Mapa gerencial");
   await abrirPainel();
   const painel=page.locator(".compras-management-map");
   await expect(painel.getByRole("tab",{name:"Resumo"})).toHaveAttribute("aria-selected","true");
@@ -941,7 +952,7 @@ test("histórico por material normaliza unidades, distingue custo final e abre a
   const p=state.pedidos[0];p.custoFinal={frete:20,desconto:0,impostos:0,despesas:0};
   p.itens[0]={...p.itens[0],qtd:2,qtdRecebida:2,unidadeCompra:"CX",unidadeRef:"UN",fatorConversao:10,precoUnitCotado:100,precoUnit:110,recebimentos:[{data:"2026-10-20",qtd:1},{data:"2026-10-22",qtd:1}]};
  }});
- await selectWork(page);await page.locator('.purchase-tools summary').click();await page.getByRole("button",{name:"Preços por material",exact:true}).click();
+ await selectWork(page);await openTool(page,"Preços por material");
  await page.getByLabel("Material do histórico",{exact:true}).selectOption("cement");
  await expect(page.getByRole("heading",{name:"Histórico de preços por material"})).toBeVisible();
  const history=page.getByRole("region",{name:"Histórico de preços por material"});

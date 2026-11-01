@@ -1,26 +1,26 @@
-.payment-workspace{display:flex;flex-direction:column;gap:12px;min-width:0}
-.payment-workspace .payment-heading{padding-block:0 12px;gap:8px 16px}
+.payment-workspace{display:flex;flex-direction:column;gap:var(--arcd-space-3);min-width:0}
+.payment-workspace .payment-heading{padding-block:0 var(--arcd-space-3);gap:var(--arcd-space-2) var(--arcd-space-4)}
 .payment-heading .arcd-page-header__title{font-size:var(--arcd-type-section-title)}
-.payment-heading .arcd-page-header__actions{gap:8px;flex-wrap:wrap}
+.payment-heading .arcd-page-header__actions{gap:var(--arcd-space-2);flex-wrap:wrap}
 .payment-overview{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:0;border:1px solid var(--arcd-border-default);border-radius:var(--arcd-radius-control);background:var(--arcd-surface-card)}
 .payment-overview>div{min-width:0;border-inline-end:1px solid var(--arcd-border-default)}
 .payment-overview>div:last-child{border-inline-end:0}
 .payment-overview dd{margin:0}
-.payment-overview .payment-overview__metric{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;padding:10px 12px;text-align:left;white-space:normal}
+.payment-overview .payment-overview__metric{display:flex;flex-direction:column;align-items:flex-start;gap:var(--arcd-space-half);width:100%;padding:var(--arcd-space-2) var(--arcd-space-3);text-align:left;white-space:normal}
 .payment-overview__metric strong{font-size:var(--arcd-type-card-title);font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--arcd-text-primary)}
-.payment-overview__metric span,.payment-overview__metric small{font-size:var(--arcd-type-caption);font-weight:400;line-height:1.5}
+.payment-overview__metric span,.payment-overview__metric small{font-size:var(--arcd-type-caption);font-weight:var(--arcd-font-weight-regular);line-height:1.5}
 .payment-overview [data-tone=danger] strong{color:var(--arcd-danger-text)}
-.payment-stage-navigation{padding-block:8px}
-.payment-stage-navigation h3{font-size:var(--arcd-type-label);margin-block:0 8px}
-.payment-stage-navigation>div{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
-.payment-stage-navigation button{justify-content:space-between;white-space:normal;text-align:left;gap:8px}
+.payment-stage-navigation{padding-block:var(--arcd-space-2)}
+.payment-stage-navigation h3{font-size:var(--arcd-type-label);margin-block:0 var(--arcd-space-2)}
+.payment-stage-navigation>div{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:var(--arcd-space-2)}
+.payment-stage-navigation button{justify-content:space-between;white-space:normal;text-align:left;gap:var(--arcd-space-2)}
 .payment-stage-navigation strong{font-variant-numeric:tabular-nums}
-.payment-queue-controls{display:flex;flex-direction:column;gap:12px;padding-block:8px}
-.payment-queue-controls header{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.payment-queue-controls{display:flex;flex-direction:column;gap:var(--arcd-space-3);padding-block:var(--arcd-space-2)}
+.payment-queue-controls header{display:flex;align-items:baseline;justify-content:space-between;gap:var(--arcd-space-2);flex-wrap:wrap}
 .payment-queue-controls h3{font-size:var(--arcd-type-card-title)}
 .payment-queue-controls p{color:var(--arcd-text-secondary);font-size:var(--arcd-type-label)}
-.payment-queue-controls__fields{display:grid;grid-template-columns:minmax(140px,1fr) minmax(160px,1fr) minmax(200px,1.5fr);gap:12px}
-.payment-workspace article footer{gap:8px!important}
+.payment-queue-controls__fields{display:grid;grid-template-columns:minmax(140px,1fr) minmax(160px,1fr) minmax(200px,1.5fr);gap:var(--arcd-space-3)}
+.payment-workspace article footer{gap:var(--arcd-space-2)!important}
 .payment-workspace article footer button{white-space:normal}
 @media(max-width:1099px){.payment-stage-navigation>div{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:767px){
@@ -30,7 +30,7 @@
  .payment-overview>div:nth-child(-n+2){border-block-end:1px solid var(--arcd-border-default)}
  .payment-heading .arcd-page-header__actions{width:100%}
  .payment-heading .arcd-page-header__actions>button{flex:1;min-height:44px;white-space:normal}
- .payment-queue-controls__fields{grid-template-columns:minmax(0,1fr);gap:8px}
+ .payment-queue-controls__fields{grid-template-columns:minmax(0,1fr);gap:var(--arcd-space-2)}
  .payment-workspace article footer>div:first-child{flex-basis:100%;width:100%}
  .payment-workspace article footer>span{display:none}
  .payment-workspace article footer>button{flex:1 1 130px;min-height:44px;min-width:min(100%,130px);word-break:normal;overflow-wrap:normal}

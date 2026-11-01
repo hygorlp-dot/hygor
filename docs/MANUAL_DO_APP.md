@@ -120,6 +120,7 @@ Conteúdo gerado de `src/features/help/help-content.js`, a mesma fonte da ajuda 
 - [Obra · Mudanças e aditivos](#guia-obra_aditivos)
 - [Arquivos · Revisões, busca e comparação](#guia-arquivos_revisoes)
 - [Arquivos · Dossiê de licenciamento](#guia-arquivos_dossie)
+- [Compras · Contratos e medições](#guia-cmp_contratos)
 
 <a id="guia-ponto_obras"></a>
 
@@ -2705,7 +2706,40 @@ O ZIP contém os arquivos nativos com nomes padronizados e índice. O pacote par
 
 Anexo ausente, vencimento, situação pendente ou aplicabilidade indefinida impedem o final. O pacote é montado no navegador com limite de 100 MB; arquivos não lidos no parcial constam nas pendências. A exportação baixa o ZIP e não o envia automaticamente à Prefeitura ou ao cartório. A conferência interna não equivale à aprovação do órgão. Edição e exportação exigem administrador ou engenheiro autorizado.
 
+<a id="guia-cmp_contratos"></a>
+
+## Compras · Contratos e medições
+
+Consultar contratos de fornecimento e acompanhar serviços medidos.
+
+### Antes de começar
+
+Confira a obra, o fornecedor e seu acesso aos serviços de terceiros.
+
+### Como fazer
+
+1. Em Contratos e medições, escolha Fornecimento ou Serviços e medições.
+2. Em Fornecimento, use Novo contrato quando autorizado; confira fornecedor, vigência, itens, preços e quantidades.
+3. Use Adicionar insumo e Remover insumo para ajustar os itens do formulário; confira o total e use Salvar contrato.
+4. Em Serviços e medições, revise os filtros e abra Ficha do contrato para consultar valores contratados, aprovados, baixados e a pagar.
+
+### Como conferir se deu certo
+
+O contrato e seu histórico ficam identificados no recorte escolhido.
+
+### O que merece atenção
+
+Alterar o formulário não salva automaticamente. O acesso aos serviços e às medições depende do perfil; contrato de fornecimento não confirma entrega nem pagamento.
+
 ## Aparência, botões e navegação
+
+### Exportar a fila de Compras
+
+Na Fila de trabalho, use Exportar para Excel junto à contagem de registros, também no celular. A planilha acompanha a busca, os filtros e a obra da consulta. Confira o recorte antes de baixar; exportar não altera os registros.
+
+### Selecionar anexos pelo teclado
+
+Use Selecionar arquivo, Selecionar imagens e documentos ou Selecionar comprovante, conforme a tela. Os botões também funcionam com Tab e Enter. Confira o nome, os formatos e o limite indicados antes de salvar; escolher um arquivo não confirma pagamento nem aceita uma sugestão da IA.
 
 ### Reconhecer o padrão das telas
 

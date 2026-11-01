@@ -43,6 +43,10 @@ O legado está registrado em `scripts/design-system-baseline.json`. Um novo arqu
 
 A checagem é uma barreira parcial: não interpreta todo CSS, estilos indiretos, semântica de textos ou qualidade do fluxo. Quantidades por arquivo também não provam que uma exceção antiga não foi trocada por outra. Revisão do diff, composição e comportamento permanece obrigatória. Não declarar adesão completa do legado apenas porque o lint passou.
 
+## Primeira migração do legado
+
+Financeiro e Compras adotam os controles e tokens comuns; detalhes em `docs/MIGRACAO-FINANCEIRO-COMPRAS-20261101.md`. Para campos que já têm um rótulo associado, usar SelectControl, TextareaControl e ChoiceControl, sem criar rótulos aninhados. Para seleção/abertura de um registro ou indicador, usar RecordAction; comandos continuam com Button. Anexos usam FilePicker. Importar diretamente de `src/design-system/primitives/` ou `patterns/`; não criar outra família de controles no domínio.
+
 ## Revisão desta entrega
 
 Consolidação técnica com valores visuais e rótulos preservados. Fonte da ajuda e manual revisados; não há novos passos ou controles para o operador, por isso não foi necessário reescrever instruções. Manual regenerado para conferir sincronização. Tudo local, sem deploy. A capacidade de ajustar os tokens foi exercitada no navegador em Compras, no desktop e celular, sem editar o módulo.

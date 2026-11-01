@@ -1,3 +1,4 @@
+import {Button as StandardButton} from '../../../components/ui/button.jsx';
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { MoreHorizontal } from "lucide-react";
 
@@ -68,17 +69,17 @@ export function OrderActionMenu({ label, comuns = [], destrutivas = [], busy = f
       return <a key={acao.id} role="menuitem" tabIndex={-1} className={classe} href={acao.href} target="_blank" rel="noreferrer"
         onClick={() => setOpen(false)}>{acao.label}</a>;
     }
-    return <button key={acao.id} type="button" role="menuitem" tabIndex={-1} className={classe} aria-disabled={busy || undefined}
-      onClick={() => { if (!busy) escolher(acao); }}>{acao.label}{perigo ? "…" : ""}</button>;
+    return <StandardButton variant={perigo?'destructive':'ghost'} key={acao.id} type="button" role="menuitem" tabIndex={-1} className={classe} aria-disabled={busy || undefined}
+      onClick={() => { if (!busy) escolher(acao); }}>{acao.label}{perigo ? "…" : ""}</StandardButton>;
   };
 
   if (!comuns.length && !destrutivas.length) return null;
   return <div className="purchase-order-menu">
-    <button ref={triggerRef} type="button" className="purchase-order-menu__trigger" aria-haspopup="menu" aria-expanded={open}
+    <StandardButton variant="secondary" size="icon" ref={triggerRef} type="button" className="purchase-order-menu__trigger" aria-haspopup="menu" aria-expanded={open}
       aria-controls={open ? menuId : undefined} aria-label={label} onKeyDown={onTriggerKeyDown}
       onClick={() => { pendingFocus.current = "first"; setOpen(value => !value); }}>
-      <MoreHorizontal size={18} aria-hidden="true" />
-    </button>
+      <MoreHorizontal data-icon="inline-start" aria-hidden="true" />
+    </StandardButton>
     {open && <div ref={listRef} id={menuId} role="menu" aria-label={label} data-placement={placement}
       className="purchase-order-menu__list" onKeyDown={onListKeyDown}>
       {comuns.map(acao => item(acao, false))}

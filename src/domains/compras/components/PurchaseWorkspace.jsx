@@ -1,3 +1,4 @@
+import {RecordAction} from '../../../design-system/primitives/RecordAction.jsx';
 import { useState } from "react";
 import { ArrowRight, CheckCircle2, ClipboardList, Search } from "lucide-react";
 import { Button } from "../../../design-system/primitives/Button";
@@ -57,10 +58,10 @@ export function PurchaseWorkspace({ model, area, filters, onFiltersChange, onOpe
         : area === "recebimentos" ? "Confira a chegada real dos materiais. Recebimento e pagamento são acompanhados separadamente."
           : "Solicitações, cotações e entregas por prazo."}</p></div><ClipboardList size={26} aria-hidden="true"/></div>}
     {area === "fila" && <div className="purchase-queue-metrics" aria-label="Prioridades da fila">
-      <button type="button" aria-pressed={!filters.risk && !filters.stage} onClick={() => patch({risk:"",stage:""})}><span>Em andamento</span><strong>{source.length}</strong><small>Solicitações, cotações e entregas{moneyHint(totals.valor)}</small></button>
-      <button type="button" data-tone={model.overdue>0?"danger":undefined} aria-pressed={filters.risk === "overdue"} onClick={() => patch({risk:"overdue",stage:""})}><span>Prazo vencido</span><strong>{model.overdue}</strong><small>Tratar o atraso com a obra{moneyHint(totals.valorAtrasado)}</small></button>
-      <button type="button" data-tone={model.attention>0?"warning":undefined} aria-pressed={filters.risk === "soon"} onClick={() => patch({risk:"soon",stage:""})}><span>Atenção ao prazo</span><strong>{model.attention}</strong><small>Vence hoje ou nos próximos 3 dias{moneyHint(source.filter(row => row.deadline.tone === "warning").reduce((sum, row) => sum + Number(row.total || 0), 0))}</small></button>
-      <button type="button" aria-pressed={filters.stage === "aprovacoes"} onClick={() => patch({stage:"aprovacoes",risk:""})}><span>Em aprovação</span><strong>{model.counts.aprovacoes}</strong><small>Decisão ou configuração pendente</small></button>
+      <RecordAction type="button" aria-pressed={!filters.risk && !filters.stage} onClick={() => patch({risk:"",stage:""})}><span>Em andamento</span><strong>{source.length}</strong><small>Solicitações, cotações e entregas{moneyHint(totals.valor)}</small></RecordAction>
+      <RecordAction type="button" data-tone={model.overdue>0?"danger":undefined} aria-pressed={filters.risk === "overdue"} onClick={() => patch({risk:"overdue",stage:""})}><span>Prazo vencido</span><strong>{model.overdue}</strong><small>Tratar o atraso com a obra{moneyHint(totals.valorAtrasado)}</small></RecordAction>
+      <RecordAction type="button" data-tone={model.attention>0?"warning":undefined} aria-pressed={filters.risk === "soon"} onClick={() => patch({risk:"soon",stage:""})}><span>Atenção ao prazo</span><strong>{model.attention}</strong><small>Vence hoje ou nos próximos 3 dias{moneyHint(source.filter(row => row.deadline.tone === "warning").reduce((sum, row) => sum + Number(row.total || 0), 0))}</small></RecordAction>
+      <RecordAction type="button" aria-pressed={filters.stage === "aprovacoes"} onClick={() => patch({stage:"aprovacoes",risk:""})}><span>Em aprovação</span><strong>{model.counts.aprovacoes}</strong><small>Decisão ou configuração pendente</small></RecordAction>
     </div>}
     <div className="purchase-queue-panel">
       <div className="purchase-queue-filters">
@@ -72,13 +73,12 @@ export function PurchaseWorkspace({ model, area, filters, onFiltersChange, onOpe
           options={[{value:"",label:"Todos os prazos"},{value:"overdue",label:"Prazo vencido"},{value:"soon",label:"Hoje e próximos 3 dias"},{value:"attention",label:"Vencidos e próximos 3 dias"}]}/>
         <Select label="Agrupar por" value={filters.group || ""} onChange={event => patch({group:event.target.value})}
           options={[{value:"",label:"Sem agrupamento"},...Object.entries(AGRUPAMENTOS_FILA).map(([value,label]) => ({value,label}))]}/>
-        {exportButton && <div className="workspace-export-mobile">{exportButton(rows)}</div>}
         </WorkspaceFilters>
       </div>
       <div className="purchase-order-count-row">
         <p className="purchase-result-count" role="status">{rows.length} registro(s){filtered ? ` de ${source.length}` : ""}{moneyHint(resumoDaFila(rows).valor)} · {groups.length ? `${groups.length} grupo(s), mais atrasados primeiro` : "prioridades por prazo"}</p>
         {filtered && <Button variant="ghost" size="sm" onClick={clear}>Limpar filtros</Button>}
-        {exportButton && <div className="workspace-export-desktop">{exportButton(rows)}</div>}
+        {exportButton && <div className="purchase-export-action">{exportButton(rows)}</div>}
       </div>
       {rows.length ? <div className="purchase-table-scroll" tabIndex={0} role="region" aria-label="Registros da fila de compras"><table className="purchase-queue-table">
         <caption className="purchase-sr-only">Compras em andamento com obra, prazo e próxima ação</caption>

@@ -1,3 +1,4 @@
+import {SelectControl} from '../../design-system/primitives/Select.jsx';
 import {useState} from 'react';
 import {Button} from '../../components/ui/button.jsx';
 import {Input} from '../../components/ui/input.jsx';
@@ -12,5 +13,5 @@ export default function SavedDocumentQueries({storageKey,value,works,restrictedW
  return <details className="saved-document-queries"><summary>Consultas salvas neste navegador · {rows.length}</summary>{!storageKey?<p>Informe a identificação da empresa para salvar consultas por usuário. Os filtros atuais continuam disponíveis na sessão.</p>:<>
  <p>Salva apenas busca, situação, obra e mês para este usuário e empresa. Não inclui anexos ou rascunhos.</p>
  <div className="saved-document-queries__controls"><div className="document-center__filters"><label>Nome da consulta<Input value={name} maxLength={60} onChange={e=>setName(e.target.value)}/></label><Button variant="outline" disabled={!name.trim()} onClick={save}>Salvar consulta atual</Button></div>
- <div className="document-center__filters"><label>Consulta salva<select aria-label="Consulta salva" value={selected} onChange={e=>setSelected(e.target.value)}><option value="">Selecione uma consulta</option>{rows.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</select></label><Button variant="outline" disabled={!selected} onClick={apply}>Aplicar consulta</Button><Button variant="ghost" disabled={!selected} onClick={()=>{if(persist(rows.filter(r=>r.id!==selected))){setSelected('');setMessage('Consulta removida deste navegador.');}}}>Excluir consulta</Button></div></div></>}{message&&<p role="status">{message}</p>}</details>;
+ <div className="document-center__filters"><label>Consulta salva<SelectControl aria-label="Consulta salva" value={selected} onChange={e=>setSelected(e.target.value)}><option value="">Selecione uma consulta</option>{rows.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</SelectControl></label><Button variant="outline" disabled={!selected} onClick={apply}>Aplicar consulta</Button><Button variant="ghost" disabled={!selected} onClick={()=>{if(persist(rows.filter(r=>r.id!==selected))){setSelected('');setMessage('Consulta removida deste navegador.');}}}>Excluir consulta</Button></div></div></>}{message&&<p role="status">{message}</p>}</details>;
 }

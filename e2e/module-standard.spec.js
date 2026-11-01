@@ -59,3 +59,27 @@ test('Fundamentos: ajustes centrais alcançam título e ação sem editar o mód
  expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)).toBe(false);
  expect(errors).toEqual([]);
 });
+
+async function purchaseArea(page,name){
+ await expect(page.locator('.purchase-header')).toBeVisible();
+ const selector=page.getByRole('combobox',{name:'Fluxo de compras',exact:true});
+ if(await selector.isVisible())return selector.selectOption(await selector.getByRole('option').filter({hasText:new RegExp('^'+name)}).first().getAttribute('value'));
+ const nav=page.getByRole('navigation',{name:'Fluxo de compras',exact:true});
+ if(await nav.getByRole('button',{name,exact:true}).count())return nav.getByRole('button',{name,exact:true}).click();
+ const tools=page.locator('details.purchase-tools');await tools.locator('summary').click();await tools.getByRole('button',{name,exact:true}).click();
+}
+
+test('Compras: comprovante abre pelo teclado e cancelar não registra pagamento',async({page},info)=>{
+ const errors=await enter(page,'cmp');let commands=0;page.on('request',r=>{if(r.url().endsWith('/api/data')&&r.postDataJSON()?.action==='operational-command')commands++;});
+ await purchaseArea(page,'Pagamentos');await page.getByRole('button',{name:'Registrar pagamento',exact:true}).first().click();
+ const dialog=page.getByRole('dialog');await expect(dialog).toBeVisible();await expect(dialog).toHaveCSS('background-color','rgb(255, 255, 255)');const button=dialog.getByRole('button',{name:'Selecionar comprovante',exact:true});
+ await button.focus();const chosen=page.waitForEvent('filechooser');await button.press('Enter');const chooser=await chosen;expect(chooser.isMultiple()).toBe(false);await chooser.setFiles([]);
+ await dialog.screenshot({path:info.outputPath('pagamento-padrao.png')});await dialog.getByRole('button',{name:'Cancelar',exact:true}).click();await expect(dialog).toHaveCount(0);expect(commands).toBe(0);expect(errors).toEqual([]);
+});
+
+test('Compras: contratos têm guia específico e controles para os insumos',async({page})=>{
+ const errors=await enter(page,'cmp');await purchaseArea(page,'Contratos e medições');
+ await page.getByRole('button',{name:'Ajuda',exact:true}).click();await expect(page.getByRole('heading',{name:'Compras · Contratos e medições',exact:true})).toBeVisible();await page.getByRole('button',{name:'Fechar ajuda',exact:true}).click();
+ await page.getByRole('button',{name:'Novo contrato',exact:true}).click();const dialog=page.getByRole('dialog',{name:'Novo contrato de fornecimento',exact:true});
+ await dialog.getByRole('button',{name:'Adicionar insumo',exact:true}).click();await expect(dialog.getByLabel('Insumo 2 *',{exact:true})).toBeVisible();await dialog.getByRole('button',{name:'Remover insumo',exact:true}).first().click();await expect(dialog.getByLabel('Insumo 2 *',{exact:true})).toHaveCount(0);await dialog.getByRole('button',{name:'Cancelar',exact:true}).click();expect(errors).toEqual([]);
+});

@@ -1,3 +1,4 @@
+import {SelectControl} from '../../design-system/primitives/Select.jsx';
 import {useEffect, useRef, useState} from 'react';
 import {getDocument, GlobalWorkerOptions} from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
@@ -41,7 +42,7 @@ export default function PdfDocumentPreview({url, name, onError}) {
       <Button variant="outline" size="sm" disabled={!pdf || page === 1} onClick={() => setPage(value => value - 1)}>Anterior</Button>
       <span aria-live="polite">Página {page} de {pdf?.numPages || '…'}</span>
       <Button variant="outline" size="sm" disabled={!pdf || page >= pdf.numPages} onClick={() => setPage(value => value + 1)}>Próxima</Button>
-      <label>Zoom do PDF<select aria-label="Zoom do PDF" value={zoom} onChange={event => setZoom(Number(event.target.value))}>{[0.75,1,1.5,2].map(value => <option value={value} key={value}>{value * 100}%</option>)}</select></label>
+      <label>Zoom do PDF<SelectControl aria-label="Zoom do PDF" value={zoom} onChange={event => setZoom(Number(event.target.value))}>{[0.75,1,1.5,2].map(value => <option value={value} key={value}>{value * 100}%</option>)}</SelectControl></label>
     </div>
     {rendering && <p role="status">Carregando página do PDF…</p>}
     <div className="invoice-original__surface" tabIndex={0} aria-label="Página do documento original">

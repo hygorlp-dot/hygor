@@ -1,0 +1,7 @@
+.arcd-choice-control:is([type=checkbox],[type=radio]) {
+  accent-color:var(--arcd-action-primary);width:1.125rem;height:1.125rem;
+  min-width:1.125rem;min-height:1.125rem;padding:0;margin:0;flex-shrink:0;cursor:pointer;
+}
+.arcd-choice-control:focus-visible {outline:2px solid var(--arcd-focus-ring);outline-offset:3px;}
+.arcd-choice-control:disabled {cursor:not-allowed;opacity:.56;}
+@media(max-width:767px){label:has(>.arcd-choice-control){min-height:var(--arcd-touch-target);}}

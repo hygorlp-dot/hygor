@@ -1,3 +1,5 @@
+import {Input as StandardInput} from '../../components/ui/input.jsx';
+import {Button as StandardButton} from '../../components/ui/button.jsx';
 // Declarações extraídas literalmente da entrada legada; não importar LegacyApp aqui.
 import { C } from "../../legacy/palette.js";
 import { textoUi, Modal, Btn, Inp, CampoCNPJ, Ic } from "../../legacy/ui.jsx";
@@ -115,19 +117,19 @@ export function CampoCEP({ label = "CEP", value, onChange, onEncontrado }) {
   };
 
   return (
-    <label style={{ display:"flex", flexDirection:"column", gap:4 }}>
-      {label && <span style={{ color:C.text, fontSize:"var(--arcd-type-caption)", fontWeight:600,
-        letterSpacing:.1, fontFamily:"var(--arcd-font-sans)" }}>{textoUi(label)}</span>}
-      <input value={value == null ? "" : value}
+    <label style={{ display:"flex", flexDirection:"column", gap:"var(--arcd-space-1)" }}>
+      {label && <span style={{ color:"var(--arcd-text-primary)", fontSize:"var(--arcd-type-caption)", fontWeight:"var(--arcd-font-weight-semibold)",
+        letterSpacing:"var(--arcd-letter-spacing-body)", fontFamily:"var(--arcd-font-sans)" }}>{textoUi(label)}</span>}
+      <StandardInput value={value == null ? "" : value}
         onChange={e => { onChange(e.target.value); setErro(""); }}
         onBlur={consultar}
         onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }}
         placeholder="00000-000"
-        style={{ width:"100%", boxSizing:"border-box", background:C.bg, border:`1.5px solid ${C.border}`,
-          color:C.text, padding:"8px 10px", borderRadius:7, fontSize:"var(--arcd-type-control)", outline:"none",
+        style={{ width:"100%", boxSizing:"border-box", background:"var(--arcd-surface-page)", border:"1.5px solid var(--arcd-border-default)",
+          color:"var(--arcd-text-primary)", padding:"var(--arcd-space-2) var(--arcd-space-2)", borderRadius:7, fontSize:"var(--arcd-type-control)", outline:"none",
           fontFamily:"var(--arcd-font-sans)" }}/>
-      {carregando && <span style={{ fontSize:"var(--arcd-type-label)", color:C.muted }}>Buscando endereço...</span>}
-      {erro && <span style={{ fontSize:"var(--arcd-type-label)", color:C.orange }}>{erro}</span>}
+      {carregando && <span style={{ fontSize:"var(--arcd-type-label)", color:"var(--arcd-text-secondary)" }}>Buscando endereço...</span>}
+      {erro && <span style={{ fontSize:"var(--arcd-type-label)", color:"var(--arcd-warning-text)" }}>{erro}</span>}
     </label>
   );
 }
@@ -417,23 +419,23 @@ export function ModalCotacaoWhatsApp({ titulo, itens, obraNome, prazo, fornecedo
   const lista = [...(fornecedores || [])].filter(f => f.ativo !== false && f.telefone)
     .sort((a, b) => Number(jaVendeu.has(b.id)) - Number(jaVendeu.has(a.id)) || a.nome.localeCompare(b.nome));
   return <Modal title={titulo || "Cotação por WhatsApp"} onClose={onClose}>
-    <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginBottom: 8, lineHeight: 1.5 }}>
+    <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", marginBottom: "var(--arcd-space-2)", lineHeight: "var(--arcd-line-height-normal)" }}>
       {itens.length} item(ns) na lista. Toque em cada fornecedor para abrir o WhatsApp com o pedido de orçamento completo. Quando as respostas chegarem, registre os preços em Cotações ou Suprimentos.
     </p>
-    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 10px", marginBottom: 10, maxHeight: 120, overflow: "auto" }}>
-      {itens.map((i, ix) => <p key={ix} style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>• {i.descricao} — <b style={{ color: C.text }}>{i.qtd} {i.unidade}</b></p>)}
+    <div style={{ background: "var(--arcd-surface-muted)", border: "1px solid var(--arcd-border-default)", borderRadius: 6, padding: "var(--arcd-space-2) var(--arcd-space-2)", marginBottom: "var(--arcd-space-2)", maxHeight: 120, overflow: "auto" }}>
+      {itens.map((i, ix) => <p key={ix} style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>• {i.descricao} — <b style={{ color: "var(--arcd-text-primary)" }}>{i.qtd} {i.unidade}</b></p>)}
     </div>
-    {!lista.length && <p style={{ fontSize: "var(--arcd-type-body)", color: C.muted, textAlign: "center", padding: 12 }}>Nenhum fornecedor com telefone cadastrado.</p>}
+    {!lista.length && <p style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)", textAlign: "center", padding: "var(--arcd-space-3)" }}>Nenhum fornecedor com telefone cadastrado.</p>}
     {lista.map(f => {
       const texto = mensagemWhatsAppCompra({
         empresa: data?.config?.companyName || "MARCELL Obras",
         whatsappRetorno: data?.config?.whatsappCompras || "",
         fornecedorNome: f.nome, obraNome: obraNome || "", prazo: prazo || "", itens,
       });
-      return <div key={f.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, borderBottom: `1px solid ${C.line}`, padding: "8px 0" }}>
+      return <div key={f.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--arcd-space-2)", borderBottom: "1px solid var(--arcd-border-default)", padding: "var(--arcd-space-2) var(--arcd-space-0)" }}>
         <div style={{ minWidth: 0 }}>
-          <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.nome}</p>
-          {jaVendeu.has(f.id) && <p style={{ fontSize:"var(--arcd-type-caption)", color: C.green, fontWeight:600 }}>já forneceu itens desta lista</p>}
+          <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.nome}</p>
+          {jaVendeu.has(f.id) && <p style={{ fontSize:"var(--arcd-type-caption)", color: "var(--arcd-success-text)", fontWeight:"var(--arcd-font-weight-semibold)" }}>já forneceu itens desta lista</p>}
         </div>
         <a href={linkWhatsApp(f.telefone, texto)} target="_blank" rel="noreferrer" style={{ textDecoration: "none", flexShrink: 0 }}
            onClick={() => onContato?.(f.id, f.nome)}>
@@ -447,7 +449,7 @@ export function ModalCotacaoWhatsApp({ titulo, itens, obraNome, prazo, fornecedo
 
 export function FornecedorEditorPilot({ form, setForm, onSave }) {
   if (!features.newSupplierEditor) return <ModalFornecedor form={form} setForm={setForm} onSave={onSave} />;
-  return <Suspense fallback={<Modal title="Carregando fornecedor" onClose={()=>setForm(null)}><p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Preparando editor…</p></Modal>}>
+  return <Suspense fallback={<Modal title="Carregando fornecedor" onClose={()=>setForm(null)}><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Preparando editor…</p></Modal>}>
     <LazySupplierEditor open supplier={form} onOpenChange={open=>!open&&setForm(null)} onSave={onSave}/>
   </Suspense>;
 }
@@ -459,7 +461,7 @@ export function ModalFornecedor({ form, setForm, onSave }) {
   const F = k => v => setForm(f => ({ ...f, [k]: v }));
   return (
     <Modal title={form.id ? "Editar fornecedor" : "Novo fornecedor"} onClose={()=>setForm(null)} wide>
-      <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:11}}>
+      <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-3)"}}>
         <Inp label="Nome *" value={form.nome} onChange={F("nome")} placeholder="Depósito Caruaru"/>
         <CampoCNPJ value={form.cnpj} onChange={F("cnpj")} onEncontrado={d=>setForm(f=>{
           // O CNPJ preenche o que estiver vazio: nome, contato, endereco. E,
@@ -499,58 +501,53 @@ export function ModalFornecedor({ form, setForm, onSave }) {
         </div>
 
         {/* O QUE ELE FORNECE - alimenta a sugestao de fornecedor nos pedidos */}
-        <div style={{gridColumn:"1/-1",background:C.surface,border:`1px solid ${C.border}`,
-                     borderRadius:9,padding:"11px 13px"}}>
-          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginBottom:3}}>O que fornece</p>
-          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginBottom:9,lineHeight:1.45}}>
+        <div style={{gridColumn:"1/-1",background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",
+                     borderRadius:9,padding:"var(--arcd-space-3) var(--arcd-space-3)"}}>
+          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginBottom:"var(--arcd-space-half)"}}>O que fornece</p>
+          <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginBottom:"var(--arcd-space-2)",lineHeight:"var(--arcd-line-height-normal)"}}>
             Marque todos os ramos. Uma casa de construção atende vários; uma serralheria, só metais.
             O sistema usa isso para sugerir de quem comprar cada material.
           </p>
           {(form.ramosSugeridos||[]).length > 0 && (
-            <div style={{background:`${C.blue}0A`,border:`1px solid ${C.blue}44`,borderRadius:8,
-                         padding:"8px 10px",marginBottom:9}}>
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.blue,fontWeight:600,lineHeight:1.45}}>
+            <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 4%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)",borderRadius:8,
+                         padding:"var(--arcd-space-2) var(--arcd-space-2)",marginBottom:"var(--arcd-space-2)"}}>
+              <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)",lineHeight:"var(--arcd-line-height-normal)"}}>
                 Marcado automaticamente pelo CNPJ: {(form.ramosSugeridos||[]).map(rotuloRamo).join(", ")}.
               </p>
               {form.atividadeCnae && (
-                <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>
+                <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>
                   Atividade na Receita: {form.atividadeCnae}
                 </p>
               )}
-              <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>Confira e ajuste se precisar.</p>
+              <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Confira e ajuste se precisar.</p>
             </div>
           )}
-          <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+          <div style={{display:"flex",flexWrap:"wrap",gap:"var(--arcd-space-1)"}}>
             {RAMOS_FORNECIMENTO.map(r=>{
               const marcado = (form.categorias||[]).includes(r.v);
               return (
-                <button key={r.v} type="button"
+                <StandardButton variant="secondary" key={r.v} aria-pressed={marcado} type="button"
                   onClick={()=>setForm(f=>({...f, categorias: marcado
                     ? (f.categorias||[]).filter(x=>x!==r.v)
                     : [...(f.categorias||[]), r.v]}))}
-                  style={{padding:"6px 11px",borderRadius:99,cursor:"pointer",
-                    border:`1.5px solid ${marcado?C.yellowD:C.border}`,
-                    background:marcado?`${C.yellow}1E`:C.bg,
-                    color:marcado?C.yellowD:C.muted,
-                    fontSize:"var(--arcd-type-control)",fontWeight:marcado?600:500,
-                    fontFamily:"var(--arcd-font-sans)"}}>
+                  style={{}}>
                   {r.l}
-                </button>
+                </StandardButton>
               );
             })}
           </div>
           {(form.categorias||[]).length===0 && (
-            <p style={{fontSize:"var(--arcd-type-label)",color:C.orange,marginTop:8}}>
+            <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)",marginTop:"var(--arcd-space-2)"}}>
               Sem ramo marcado, ele não aparece nas sugestões de compra.
             </p>
           )}
         </div>
 
         {/* ENDERECO - frete, retirada e proximidade da obra */}
-        <div style={{gridColumn:"1/-1",background:C.surface,border:`1px solid ${C.border}`,
-                     borderRadius:9,padding:"11px 13px"}}>
-          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginBottom:9}}>Endereço</p>
-          <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:9}}>
+        <div style={{gridColumn:"1/-1",background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",
+                     borderRadius:9,padding:"var(--arcd-space-3) var(--arcd-space-3)"}}>
+          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginBottom:"var(--arcd-space-2)"}}>Endereço</p>
+          <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}>
             <CampoCEP value={form.cep} onChange={F("cep")}
               onEncontrado={d=>setForm(f=>({...f,
                 endereco: d.endereco || f.endereco,
@@ -567,7 +564,7 @@ export function ModalFornecedor({ form, setForm, onSave }) {
             <Inp label="Cidade" value={form.cidade} onChange={F("cidade")}/>
             <Inp label="UF" value={form.uf} onChange={F("uf")} placeholder="PE"/>
           </div>
-          {(form.situacaoCadastral||form.dataAbertura)&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:8}}>
+          {(form.situacaoCadastral||form.dataAbertura)&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-2)"}}>
             Receita Federal: {form.situacaoCadastral||"situação não informada"}{form.dataAbertura?` · aberta em ${fmtDate(form.dataAbertura)}`:""}
           </p>}
         </div>
@@ -577,7 +574,7 @@ export function ModalFornecedor({ form, setForm, onSave }) {
                placeholder="Prazo de entrega, condições de pagamento, histórico..." multiline/>
         </div>
 
-        <div style={{gridColumn:"1/-1",display:"flex",gap:8}}>
+        <div style={{gridColumn:"1/-1",display:"flex",gap:"var(--arcd-space-2)"}}>
           <Btn v="ghost" onClick={()=>setForm(null)} full>Cancelar</Btn>
           <Btn onClick={()=>onSave(form)} full><Ic n="check"/> Salvar</Btn>
         </div>
