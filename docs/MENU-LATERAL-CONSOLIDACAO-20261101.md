@@ -22,3 +22,15 @@ As alterações não relacionadas do checkout principal foram preservadas. Somen
 As falhas da primeira rodada no servidor dev decorreram de alterações de configuração reiniciando o servidor durante os testes e de um teste de entrada que intercepta chunks compilados. A revisão completa foi repetida sobre o build estático, com os resultados acima.
 
 APIs, backend, migrações, dependências, agendamentos e roteamento permanecem idênticos à produção de base. A configuração local de publicação executa Vite e o gate de bundle, sem rodar o prebuild que executa migrações. Ela fica nos artefatos locais, preservando a configuração versionada.
+
+## Publicação verificada
+
+- Código publicado: `963e5a39`.
+- Implantação: `dpl_2J3KNspEVR5i5K3LjjhYEUa3udAS`, READY.
+- Produção: https://marcellapp.vercel.app/.
+- URL imutável: https://mrc-m4lem5n9y-hygor-s-projects1.vercel.app/.
+- Um único build remoto, promovido após verificar HTML, JavaScript, os dois estilos e proteção da API; sem push, PR ou preview remoto.
+- O gate remoto passou com 1.747,80 KiB gzip. A diferença pequena para o build Windows local decorre do empacotamento no ambiente Linux da Vercel; nenhum limite foi alterado.
+- No domínio principal, login HTTP 200 em 1440 e 390 px, sem overflow, erro JavaScript ou assets ausentes. O menu foi conferido no código publicado com dados sintéticos e todas as APIs interceptadas: teclado, largura máxima, recarga e restauração. APIs reais de dados e OneDrive retornaram 401 sem sessão.
+- Nenhuma gravação operacional ou migração foi executada em produção. Proteção da Vercel preservada. Evidências em `artifacts/production-verification.json` e capturas de login/menu.
+- Recuperação: implantação anterior `dpl_DFhntEVkcyGmbhFVZy92kPWTXwym` preservada. Não foi necessário rollback.
