@@ -253,7 +253,7 @@ test("engenheiro salva, recarrega e finaliza o ponto da própria obra no mobile"
   await page.getByRole("button", { name: "Abrir Ponto" }).click();
   await expect(page.getByText("TESTE QA — Funcionário Ponto")).toBeVisible();
   await expect(page.getByRole("button", { name: "Transferir" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Demitir" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Desligar" })).toHaveCount(0);
 
   // O primeiro clique deve bastar: a conferência diária é registrada junto
   // com a presença, sem obrigar o engenheiro a executar uma etapa anterior.

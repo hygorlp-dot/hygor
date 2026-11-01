@@ -41,8 +41,13 @@ describe("DataTable", () => {
     const container = render(<DataTable data={rows} columns={columns} onRowClick={onRowClick} />);
     act(() => container.querySelector("tbody tr").click());
     expect(onRowClick).toHaveBeenCalledWith(rows[0]);
-    const loading = render(<DataTable data={rows} columns={columns} loading />);
-    expect(loading.querySelector('[role="status"]').textContent).toContain("Carregando");
+    vi.useFakeTimers();
+    try{const loading = render(<DataTable data={rows} columns={columns} loading />);
+      act(()=>vi.advanceTimersByTime(200));
+      const status=loading.querySelector('[role="status"]');
+      expect(status.textContent).toContain("Carregando");
+      expect(status.closest('[aria-busy="true"]')).toBeNull();
+    }finally{vi.useRealTimers();}
   });
 
   it("troca para cartões quando o viewport é mobile", () => {

@@ -1,4 +1,5 @@
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
+import {Spinner} from '../design-system/primitives/Spinner.jsx';
 import {HelpProvider} from '../features/help/HelpContext.jsx';
 import { lazyWithCssRetry as lazy } from "../lib/lazy-with-css-retry.js";
 
@@ -9,15 +10,14 @@ const LegacyApp = lazy(() =>
 );
 
 function RouteLoading() {
-  return (
-    <main className="route-loading" aria-busy="true" aria-live="polite">
-      <div className="route-loading-mark" aria-hidden="true">MARCELL</div>
-      <div>
-        <strong>Preparando o ambiente operacional</strong>
-        <span>Carregando somente os módulos necessários…</span>
-      </div>
-    </main>
-  );
+  const [visible,setVisible]=useState(false);
+  useEffect(()=>{const timer=setTimeout(()=>setVisible(true),200);return()=>clearTimeout(timer);},[]);
+  if(!visible)return null;
+  return <main className="route-loading" aria-label="Carregamento do MARCELL">
+    <img src="/brand/marcell/full-azul.svg" alt="MARCELL"/>
+    <Spinner label="Carregando MARCELL"/>
+    <p>Aguarde o carregamento do sistema…</p>
+  </main>;
 }
 
 export default function OperationalApp() {

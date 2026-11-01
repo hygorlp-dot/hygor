@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Badge, Btn, Ic } from "../../../legacy/ui.jsx";
+import { LoadingState, Badge, Btn, Ic } from "../../../legacy/ui.jsx";
 import { C } from "../../../legacy/palette.js";
 import { consultarSombraFinanceira } from "../../../api";
 import FechamentoFinanceiroAdmin from "./FechamentoFinanceiroAdmin";
@@ -49,7 +49,7 @@ export default function FinanceiroCanonicoAdmin({currentUser}){
   }
 
   if(estado==="carregando"){
-    return <p style={{padding:24,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Validando o motor financeiro...</p>;
+    return <LoadingState label="validação do motor financeiro"/>;
   }
 
   if(estado==="erro"){

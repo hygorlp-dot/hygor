@@ -39,7 +39,7 @@ import {
   Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "../../../components/charts/LazyRecharts";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
-import { ArcdChartTooltip, Badge, Btn, ChartPanel, Ic, Inp, Modal, Sel, TabRow } from "../../../legacy/ui.jsx";
+import { LoadingState, ArcdChartTooltip, Badge, Btn, ChartPanel, Ic, Inp, Modal, Sel, TabRow } from "../../../legacy/ui.jsx";
 import { C, C_ARCD_SETOR } from "../../../legacy/palette.js";
 import { FornecedorEditorPilot, ModalCotacaoWhatsApp, fornecedoresParaMateriais, guardaPreco, linkWhatsApp, melhorPrecoHist, mensagemWhatsAppCobranca, mensagemWhatsAppCompra, oportunidadesConsolidacao, pedidosEmAtraso, slaSolicitacao, UNIDADES_PADRAO, CATS_MATERIAL } from "../LegacySupport.jsx";
 import { LinksDocumentosAuditaveis, ModalLegendaDocumento, ModoIADocumento } from "../../../features/financeiro/LegacyDocumentTools.jsx";
@@ -2019,7 +2019,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   const abrirNovaCotacao=()=>setCotModal({id:"",obraId:obraAtual,orcNivel1Id:"",data:today(),
     itens:[itemVazioCotacao()],propostas:[propostaVaziaCotacao(),propostaVaziaCotacao()]});
 
-  if(pilotOpen)return <Suspense fallback={<p role="status">Carregando piloto…</p>}><OperationalPilot data={data} mode="compras" scope={{workId:obraIdFixo||(!todasObras?obraAtual:"")}} notes={pilotNotes} onNotes={setPilotNotes} onClose={()=>setPilotOpen(false)}/></Suspense>;
+  if(pilotOpen)return <Suspense fallback={<LoadingState label="piloto"/>}><OperationalPilot data={data} mode="compras" scope={{workId:obraIdFixo||(!todasObras?obraAtual:"")}} notes={pilotNotes} onNotes={setPilotNotes} onClose={()=>setPilotOpen(false)}/></Suspense>;
 
   return (
     <div className="anim compras-view" style={{display:"flex",flexDirection:"column",gap:isDesktop?12:10}}>

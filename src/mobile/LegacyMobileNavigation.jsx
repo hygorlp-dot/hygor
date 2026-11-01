@@ -1,3 +1,5 @@
+import {LoadingState} from '../design-system/patterns/LoadingState.jsx';
+import {Dialog} from '../design-system/primitives/Dialog.jsx';
 import { Suspense, useMemo, useState } from "react";
 import { lazyWithCssRetry as lazy } from "../lib/lazy-with-css-retry.js";
 import "./styles.css";
@@ -87,7 +89,7 @@ export function LegacyMobileNavigation({
           <span className="mobile-primary-nav__badge" aria-label="Há pendências" />}
       </button>}
     </div>
-    {moreOpen && <Suspense fallback={null}><LazyMobileMoreMenu
+    {moreOpen && <Suspense fallback={<Dialog id={moreMenuId} open onOpenChange={setMoreOpen} title="Mais módulos" closeLabel="Fechar menu"><LoadingState label="módulos"/></Dialog>}><LazyMobileMoreMenu
         id={moreMenuId}
         open={moreOpen}
         onOpenChange={setMoreOpen}

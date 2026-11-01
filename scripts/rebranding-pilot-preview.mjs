@@ -5,6 +5,10 @@ import { applyOperationalCommand } from "../src/domains/sync/operational-command
 // Local-only review server. All /api requests terminate in this process.
 let data = structuredClone(initialData);
 const server = await createServer({
+  // Checkouts locais compartilham node_modules por junction; o cache não pode
+  // misturar runtimes React compilados para raízes diferentes.
+  cacheDir:"artifacts/vite-local-preview",
+  resolve:{dedupe:["react","react-dom"]},
   server:{ host:"127.0.0.1", port:Number(process.env.MARCELL_PREVIEW_PORT||4196), strictPort:true, watch:{ignored:["**/artifacts/**"]} },
   plugins:[{ name:"marcell-pilot-isolated-data", configureServer(vite) {
     vite.middlewares.use("/api", async (req, res) => {

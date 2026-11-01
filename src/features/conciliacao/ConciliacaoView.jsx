@@ -33,7 +33,7 @@ import {reconciliationDivergences,divergenceLabels} from "../../domains/concilia
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { lazyWithCssRetry as lazy } from "../../lib/lazy-with-css-retry.js";
 import { useBreakpoint } from "../../hooks/useBreakpoint";
-import { Badge, Btn, Ic, Inp, Modal, PageHero, Sel, TabRow } from "../../legacy/ui.jsx";
+import { LoadingState, Badge, Btn, Ic, Inp, Modal, PageHero, Sel, TabRow } from "../../legacy/ui.jsx";
 import { C } from "../../legacy/palette.js";
 import { XLSX, carregarXLSX } from "../../legacy/files.js";
 import { fmt, fmtDate, today, uid } from "../../legacy/format.js";
@@ -962,7 +962,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
   const rotuloAcao={extrato_importado:"Extrato importado",extrato_arquivado:"Extrato arquivado",conciliada:"Conciliação confirmada",conciliacao_desfeita:"Conciliação desfeita",ignorada:"Transação ignorada",ignorada_em_lote:"Ignorada em lote",reaberta:"Transação reaberta",reaberta_em_lote:"Reaberta em lote",conciliacao_legada:"Conciliação anterior",ignorado_legado:"Ignorada anteriormente"};
   const corAcao=acao=>acao==="conciliada"||acao==="extrato_importado"?C.green:acao.includes("desfeita")||acao.includes("reaberta")?C.blue:acao.includes("ignorada")?C.orange:acao.includes("excluido")?C.red:C.muted;
 
-  if(pilotOpen)return <Suspense fallback={<p role="status">Carregando piloto…</p>}><OperationalPilot data={data} mode="conciliacao" scope={{accountId:accountFilter}} automationRows={filaAutomatica} notes={pilotNotes} onNotes={setPilotNotes} onClose={()=>setPilotOpen(false)}/></Suspense>;
+  if(pilotOpen)return <Suspense fallback={<LoadingState label="piloto"/>}><OperationalPilot data={data} mode="conciliacao" scope={{accountId:accountFilter}} automationRows={filaAutomatica} notes={pilotNotes} onNotes={setPilotNotes} onClose={()=>setPilotOpen(false)}/></Suspense>;
 
   return (
     <div className="anim reconciliation-workspace">

@@ -1,3 +1,4 @@
+import {LoadingState} from '../../design-system/patterns/LoadingState.jsx';
 import { Suspense, useMemo, useState } from "react";
 import { lazyWithCssRetry as lazy } from "../../lib/lazy-with-css-retry.js";
 import { Button } from "../../components/ui/button";
@@ -13,6 +14,6 @@ export default function ReconciliationDocuments({ data, transaction, selection, 
     <p>A consulta mantém o movimento selecionado e não altera o lançamento.</p>
     <DocumentEvidence documents={[...context.documents,...context.unavailableDocuments]} origin={context.entry.description}/>
     {context.pedidoId && <Button variant="outline" onClick={() => setPurchase(value => !value)}>{purchase ? "Recolher ficha da compra" : "Ver ficha da compra nesta revisão"}</Button>}
-    {purchase && <Suspense fallback={<p role="status">Carregando ficha da compra…</p>}><PurchaseDossier inline data={data} selection={{ pedidoId: context.pedidoId }} onClose={() => setPurchase(false)}/></Suspense>}
+    {purchase && <Suspense fallback={<LoadingState label="ficha da compra"/>}><PurchaseDossier inline data={data} selection={{ pedidoId: context.pedidoId }} onClose={() => setPurchase(false)}/></Suspense>}
   </section>;
 }

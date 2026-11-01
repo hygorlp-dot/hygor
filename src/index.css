@@ -2385,8 +2385,8 @@ canvas {
 }
 
 .ponto-col-funcionario {
-  width: 290px;
-  box-shadow: 1px 0 0 #c9cdd0;
+  width: 220px;
+  box-shadow: 1px 0 0 var(--arcd-border-default);
 }
 
 .ponto-col-total {
@@ -2400,31 +2400,6 @@ canvas {
 .ponto-col-dia,
 .ponto-dia-cell {
   width: 64px;
-}
-
-.ponto-row-actions button {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-height: 28px !important;
-  padding: 4px 7px;
-  border: 1px solid #c8cccf;
-  border-radius: 2px !important;
-  background: #f3f4f5;
-  color: #5e6368;
-  font-size:var(--arcd-type-control) !important;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.ponto-row-actions button:first-child {
-  border-color: rgba(30, 107, 49, .35);
-  color: #1e6b31;
-}
-
-.ponto-row-actions button:hover {
-  border-color: #777d82;
-  background: #e8eaeb;
 }
 
 .ponto-dia-cell > button:first-child {
@@ -2512,17 +2487,7 @@ canvas {
     min-width: 220px !important;
   }
 
-  .ponto-row-actions button {
-    width: 28px;
-    padding: 4px;
-    justify-content: center;
-    font-size: var(--arcd-type-control) !important;
   }
-
-  .ponto-row-actions button span {
-    font-size: var(--arcd-type-caption);
-  }
-}
 
 /* Ponto por obra — operação diária de campo.
    A tela mantém a densidade Carbon no desktop e amplia os alvos no celular,
@@ -4452,6 +4417,7 @@ canvas {
 .equipment-image-editor__content>div>p:not(.equipment-image-editor__eyebrow){max-width:680px;margin-top:4px;color:#536171;font-size:var(--arcd-type-caption);line-height:1.45}
 .equipment-image-editor__eyebrow{color:#8a6b13;font-size:var(--arcd-type-caption);font-weight:600;letter-spacing:.09em;text-transform:uppercase}
 .equipment-image-editor__fields{width:100%;display:grid;grid-template-columns:minmax(190px,.55fr) minmax(240px,1fr);gap:10px}
+.equipment-fleet-card__body .equipment-fleet-card__name{font-weight:var(--arcd-font-weight-semibold);text-align:left}
 .equipment-card-actions{
   display:flex;
   gap:6px;
@@ -4912,16 +4878,8 @@ canvas {
   .equipment-location-summary{align-items:stretch;flex-direction:column}.equipment-location-layout{grid-template-columns:1fr;min-height:0}.equipment-location-works{display:flex;overflow-x:auto;border-right:0;border-bottom:1px solid #b6b6b6}.equipment-location-works header{display:none}.equipment-location-works button{flex:0 0 230px;border-right:1px solid #d6d6d6;border-bottom:0}.equipment-location-works button[data-active="true"]{box-shadow:inset 0 -3px #a7831d}.equipment-location-map iframe,.equipment-location-map__empty{min-height:340px}.equipment-location-map__caption{align-items:flex-start;flex-direction:column}.equipment-location-map__caption a{width:100%;text-align:center}.equipment-location-heading label{width:100%}.equipment-location-equipment article{grid-template-columns:1fr 1fr;gap:10px}.equipment-location-equipment__identity{grid-column:1/-1}.equipment-location-equipment article>div:last-child{grid-column:1/-1}
 }
 /* Shell mínimo exibido enquanto a rota operacional é carregada. */
-.route-loading{
-  min-height:100vh;display:flex;align-items:center;justify-content:center;gap:14px;
-  padding:24px;background:#f1f2f3;color:#121212;font-family:var(--arcd-font-sans);
-}
-.route-loading-mark{
-  width:52px;height:52px;display:grid;place-items:center;border:1px solid #7B6030;
-  background:#24282b;color:#7B6030;font-size:var(--arcd-type-caption);font-weight:600;letter-spacing:.08em;
-}
-.route-loading strong,.route-loading span{display:block}
-.route-loading strong{font-size:var(--arcd-type-label)}.route-loading span{margin-top:3px;color:#62676c;font-size:var(--arcd-type-caption)}
+.route-loading{min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--arcd-space-4);padding:var(--arcd-page-padding);background:var(--arcd-surface-page);color:var(--arcd-text-secondary);font:var(--arcd-type-body)/var(--arcd-line-height-normal) var(--arcd-font-sans);text-align:center}
+.route-loading>img{width:10rem;max-width:100%;height:auto}.route-loading>p{margin:0}
 
 /* Prancheta mobile para a vistoria técnica. */
 .conference-mobile-progress,.conference-mobile-actions{display:none}
@@ -5879,19 +5837,6 @@ canvas {
   border-color: var(--arcd-border-strong);
   background: var(--arcd-surface-card);
   color: var(--arcd-text-primary);
-}
-
-.ponto-employee-cell {
-  flex-direction: column;
-  align-items: stretch !important;
-}
-
-.ponto-employee-cell > div:first-child {
-  width: 100%;
-}
-
-.ponto-employee-cell .ponto-row-actions {
-  flex-wrap: wrap;
 }
 
 .terceiros-kanban-card__actions .terceiros-kanban-card__delete {
@@ -7911,3 +7856,29 @@ body.no-scroll .arcd-mobile-nav { visibility:hidden; pointer-events:none; }
 
 .dashboard-priority-actions {min-width:0;max-width:100%;}
 .dashboard-priority-actions > .arcd-btn {max-width:100%;white-space:normal !important;}
+
+.ponto-employee-name{display:block;white-space:normal;overflow-wrap:anywhere;text-align:left;color:var(--arcd-action-primary);font-weight:var(--arcd-font-weight-medium)}
+.ponto-employee-name:hover{text-decoration:underline;text-underline-offset:.2em}
+
+.ponto-employee-role{font-size:var(--arcd-type-caption);color:var(--arcd-text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Editor de fotos: composição sobre os controles e diálogos comuns. */
+.arcd-modal-overlay .photo-editor{--photo-height:50dvh;max-width:1180px!important;display:flex;flex-direction:column;overflow:hidden}
+.photo-editor .arcd-modal-body{display:flex;flex-direction:column;gap:var(--arcd-space-2);min-height:0;overflow:auto}
+.photo-editor__toolbar,.photo-editor__group,.photo-editor__footer{display:flex;gap:var(--arcd-space-2);flex-wrap:wrap;align-items:center}
+.photo-editor__toolbar{border:0;padding:0;margin:0;min-width:0}
+.photo-editor__toolbar>select{width:auto}
+.photo-editor__canvas{overflow:auto;min-height:120px;max-height:55dvh;padding:var(--arcd-space-2);background:var(--arcd-surface-inverse)}
+.photo-editor__canvas canvas{display:block;height:auto;max-width:none}
+.photo-editor__canvas p{color:var(--arcd-text-inverse)}
+.photo-editor .arcd-modal-footer{padding:var(--arcd-space-3);border-top:1px solid var(--arcd-border-default)}
+.photo-editor__footer{align-items:flex-end}
+.photo-editor__footer>.arcd-field{flex:1;min-width:0}
+@media(max-width:767px){.arcd-modal-overlay .photo-editor{--photo-height:35dvh}.photo-editor__canvas{max-height:40dvh}}
+
+.photo-editor__tools>summary{cursor:pointer;padding-block:var(--arcd-space-2)}
+@media(max-height:600px){.arcd-modal-overlay .photo-editor{--photo-height:30dvh}}
+@media(max-height:480px){.arcd-modal-overlay .photo-editor{--photo-height:16dvh}}
+
+.mrc-loading-state{display:flex;align-items:center;gap:var(--arcd-space-2);padding:var(--arcd-space-3);min-height:var(--arcd-control-height);color:var(--arcd-text-secondary);font-size:var(--arcd-type-body);overflow-wrap:anywhere}
+.mrc-loading-state>.arcd-spinner{flex-shrink:0}

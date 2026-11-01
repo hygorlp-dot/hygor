@@ -71,3 +71,36 @@ Pendências do RH retoma o painel existente e usa os mesmos Button, Badge, campo
 Toda alteração de linguagem visual deve valer para toda a ERP pela base comum. Tipografia, cores, espaçamentos e dimensões vêm dos tokens; estados e apresentação vêm dos controles. Composições e textos de uma tarefa podem pertencer ao domínio, sem redefinir o padrão visual. A regra também está em AGENTS.md.
 
 Detalhes funcionais e evidências em `docs/ATALHOS-RH-20261101.md`.
+
+## Cadastro pelo ponto e entrada — 01/11/2026
+
+Na Gestão do ponto, o nome usa RecordAction como acesso ao cadastro, sem a moldura de um comando. A linha não repete Ficha ou Limpar; correções continuam nas células do dia. O cabeçalho do cadastro apresenta vínculo, último dia e motivo antes dos demais campos. Os comandos e indicadores continuam usando a base compartilhada.
+
+A espera inicial usa a marca existente e o Spinner comum, com tokens do tema. Só aparece após 200 ms; não representa uma falha de login nem dispensa o download do aplicativo em uma conexão lenta. Detalhes e evidências em `docs/PONTO-CADASTRO-DESLIGAMENTO-20261101.md`.
+
+## Ações de registro sem esconder o próximo passo
+
+A ação frequente de um registro deve estar junto dele. Em Equipes, Desligar abre uma confirmação existente; não executa uma saída por um clique isolado. Nome abre a ficha, Detalhes tem acionador próprio e ações de consulta não devem receber rótulos que aparentem outra operação. Reutilizar RecordAction, controles e tokens da base, sem variantes de aparência por módulo. Entrega e verificações em `docs/DESLIGAMENTO-DIRETO-20261101.md`.
+
+
+Aplique o mesmo critério aos ativos: em Frota e Patrimônio, o nome usa RecordAction para abrir o cadastro. Movimentações operacionais ficam na linha/cartão; comandos destrutivos conservam confirmação e contexto. Menu não substitui a próxima ação frequente, nem deve repetir uma ação já exposta. Exigências de Licenciamento usam Editar com o documento no nome acessível. No celular, dê largura ao conteúdo antes de comprimi-lo para acomodar comandos lado a lado. Ver `docs/ACOES-DIRETAS-ERP-20261101.md`.
+
+
+## Anotações e descarte de rascunhos
+
+Cores escolhidas pelo usuário para desenhar são conteúdo: use ColorSwatch da base, mantendo a amostra real e nome acessível. A aparência do botão, seleção e foco continua no tema. Não substitua a cor desenhada pelo fundo genérico de um comando.
+
+Editores de foto usam Modal; não recrie overlay, foco ou Escape. Limpar conteúdo deve permitir recuperação por Desfazer ou pedir confirmação quando a recuperação não existir. Filtros não exigem essa confirmação. Use useUnsavedChanges e UnsavedChangesPrompt para preservar a edição ao cancelar; nomeie a ação pelo conteúdo, como Limpar cálculo. Rascunhos não são preferências e histórico salvo não é apagado pela limpeza do formulário.
+
+Em diálogos empilhados, fechar uma confirmação não encerra a edição de origem, e fechar editor/confirmação juntos deve devolver o foco ao acionador válido. Evidências em `docs/EDITOR-FOTOS-RASCUNHOS-20261101.md`.
+
+
+## Espera de telas e consultas
+
+Use LoadingState de `src/design-system/patterns/LoadingState.jsx` para preparar áreas e consultas. label é o assunto, como compras ou documento; o componente monta a mensagem, aguarda 200 ms para anunciar e usa o Spinner comum. title e description mantêm a compatibilidade com o catálogo anterior. A ponte legacy/ui reexporta a mesma receita para telas antigas.
+
+Não crie textos soltos de Carregando nem deixe uma ação explícita sem retorno por usar fallback vazio. Um editor aberto sob demanda deve preservar título e fechamento enquanto carrega. Ao cancelar, a resposta atrasada não pode reabrir o editor. Não associe esse aviso a uma confirmação de gravação.
+
+Consultas de fundo devem conservar os dados úteis e indicar a atualização no próprio trecho. Esqueletos estruturados, mensagens de última consulta/offline e botões com loading continuam tendo função própria. Elementos decorativos não precisam anunciar espera. O status do carregamento não deve ficar dentro de um contêiner aria-busy que impeça seu anúncio; a DataTable usa a mensagem comum como indicação de espera.
+
+Revisão e evidências em `docs/CARREGAMENTOS-INTERNOS-20261101.md`.

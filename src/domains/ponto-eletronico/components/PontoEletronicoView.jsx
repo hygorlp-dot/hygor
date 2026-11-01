@@ -7,7 +7,7 @@ import {EmptyState} from "../../../design-system/patterns/FeedbackState.jsx";
 // A consulta preserva as batidas originais; a integração exige conferência explícita do RH.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { chamarPontoEletronico } from "../../../api";
-import {Badge, Btn, Ic, Inp, Modal, Sel} from "../../../legacy/ui.jsx";
+import { LoadingState,Badge, Btn, Ic, Inp, Modal, Sel} from "../../../legacy/ui.jsx";
 import {C} from "../../../legacy/palette.js";
 import { funcionariosDaObra } from "../funcionarios.js";
 import { FUSO_OBRA, dataLocal, horaLocal, situacaoAparelho } from "../painel.js";
@@ -42,7 +42,7 @@ function EstadoRecurso({ recurso, nome }) {
     </div>
     <Btn v="ghost" onClick={() => recurso.refresh()} loading={recurso.loading ? "Tentando…" : false}>Tentar novamente</Btn>
   </div>;
-  if (!recurso.success) return <div className="pe-empty" role="status">Carregando {nome}…</div>;
+  if (!recurso.success) return <LoadingState label={nome}/>;
   return null;
 }
 
@@ -438,7 +438,7 @@ export default function PontoEletronicoView({ data, showToast, currentUser, disp
 
     {detalhe && <Modal title={`${detalhe.marcacao.tipoRegistro === "acesso_terceiro" ? "Acesso" : "Batida"} de ${nomeDaMarcacao(detalhe.marcacao)}`} panelClass="pe-modal" onClose={fecharDetalhe}>
       <div className="pe-detail">
-        {detalhe.carregandoFoto ? <p className="pe-muted" role="status">Carregando foto…</p>
+        {detalhe.carregandoFoto ? <LoadingState label="foto"/>
           : detalhe.fotoUrl ? <img src={detalhe.fotoUrl} alt={`Foto registrada na ${detalhe.marcacao.tipoRegistro === "acesso_terceiro" ? "entrada" : "batida"} de ${nomeDaMarcacao(detalhe.marcacao)}`} className="pe-photo" />
             : <div><p className={detalhe.erroFoto ? "pe-warning" : "pe-muted"}>{detalhe.erroFoto || "Sem foto neste registro."}</p>{detalhe.erroFoto && <Btn v="ghost" onClick={() => abrirDetalhe(detalhe.marcacao)}>Tentar carregar a foto novamente</Btn>}</div>}
         <dl><div><dt>Horário</dt><dd>{diaLegivel(dataLocal(detalhe.marcacao.marcadoEm))} {horaLocal(detalhe.marcacao.marcadoEm)} · {FUSOS[FUSO_OBRA] || FUSO_OBRA}</dd></div>
