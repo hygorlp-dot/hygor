@@ -1,0 +1,362 @@
+{
+  "version": 1,
+  "limits": {
+    "src/ErrorBoundary.jsx": {
+      "literal-color": 18,
+      "literal-spacing": 11,
+      "literal-typography": 6,
+      "native-control": 2
+    },
+    "src/LegacyApp.jsx": {
+      "literal-spacing": 1283,
+      "literal-typography": 572,
+      "native-control": 120,
+      "literal-color": 100
+    },
+    "src/client-portal/app/ClientPortalApp.jsx": {
+      "native-control": 1
+    },
+    "src/client-portal/app/ClientPortalBottomNav.jsx": {
+      "native-control": 1
+    },
+    "src/client-portal/app/ClientPortalHeader.jsx": {
+      "native-control": 1
+    },
+    "src/client-portal/app/ClientPortalMoreMenu.jsx": {
+      "native-control": 2
+    },
+    "src/client-portal/auth/ClientPortalLogin.jsx": {
+      "native-control": 3
+    },
+    "src/client-portal/pages/ClientTransparencyPage.jsx": {
+      "native-control": 1
+    },
+    "src/components/charts/CubChart.jsx": {
+      "literal-spacing": 8,
+      "literal-color": 3,
+      "literal-typography": 7,
+      "native-control": 1
+    },
+    "src/components/charts/RelatoriosChartPanel.jsx": {
+      "literal-spacing": 3,
+      "native-control": 1,
+      "literal-typography": 1
+    },
+    "src/domains/administracao/LegacySettings.jsx": {
+      "literal-spacing": 97,
+      "literal-typography": 17,
+      "literal-color": 2,
+      "native-control": 5
+    },
+    "src/domains/administracao/components/BasesPrecoAdmin.jsx": {
+      "literal-spacing": 35,
+      "literal-typography": 9,
+      "native-control": 1,
+      "literal-color": 1
+    },
+    "src/domains/administracao/components/CentralAdministradorView.jsx": {
+      "literal-spacing": 22,
+      "literal-typography": 6
+    },
+    "src/domains/administracao/components/FechamentoFinanceiroAdmin.jsx": {
+      "literal-spacing": 19,
+      "literal-typography": 7
+    },
+    "src/domains/administracao/components/FinanceiroCanonicoAdmin.jsx": {
+      "literal-spacing": 27,
+      "literal-typography": 10
+    },
+    "src/domains/administracao/components/NucleoRelacionalAdmin.jsx": {
+      "literal-spacing": 17,
+      "literal-typography": 7,
+      "native-control": 1
+    },
+    "src/domains/aprovacoes/components/AprovacoesPendentesView.jsx": {
+      "literal-spacing": 7,
+      "literal-typography": 1
+    },
+    "src/domains/arquivos/PdfReader.jsx": {
+      "native-control": 1
+    },
+    "src/domains/comercial/RealEstateCommercial.jsx": {
+      "native-control": 26,
+      "literal-typography": 1
+    },
+    "src/domains/comercial/components/ComercialView.jsx": {
+      "literal-spacing": 193,
+      "literal-typography": 60,
+      "native-control": 19
+    },
+    "src/domains/compras/LegacySupport.jsx": {
+      "literal-spacing": 24,
+      "literal-typography": 10,
+      "native-control": 2
+    },
+    "src/domains/compras/components/ComprasView.jsx": {
+      "native-control": 31,
+      "literal-spacing": 345,
+      "literal-typography": 146
+    },
+    "src/domains/compras/components/ContratosFornecimentoView.jsx": {
+      "literal-spacing": 22,
+      "literal-typography": 5,
+      "native-control": 1
+    },
+    "src/domains/compras/components/OrderActionMenu.jsx": {
+      "native-control": 2
+    },
+    "src/domains/compras/components/PurchaseContractsWorkspace.jsx": {
+      "native-control": 1
+    },
+    "src/domains/compras/components/PurchaseWorkspace.jsx": {
+      "native-control": 4
+    },
+    "src/domains/compras/components/ReceiptModal.jsx": {
+      "literal-spacing": 13,
+      "literal-typography": 6
+    },
+    "src/domains/dashboard/components/GestaoAVistaObras.jsx": {
+      "native-control": 2
+    },
+    "src/domains/equipamentos/BillingOwnershipAnalysis.jsx": {
+      "native-control": 2
+    },
+    "src/domains/equipamentos/EquipmentBillingReports.jsx": {
+      "native-control": 12
+    },
+    "src/domains/equipamentos/components/EquipamentosView.jsx": {
+      "literal-spacing": 175,
+      "literal-typography": 63,
+      "native-control": 7
+    },
+    "src/domains/equipamentos/components/RentalOperationsPanel.jsx": {
+      "native-control": 5
+    },
+    "src/domains/equipamentos/components/RentalRowMenu.jsx": {
+      "native-control": 3
+    },
+    "src/domains/estoque/LegacyEditors.jsx": {
+      "literal-spacing": 8,
+      "literal-typography": 1,
+      "native-control": 1
+    },
+    "src/domains/estoque/components/EstoqueView.jsx": {
+      "literal-spacing": 49,
+      "literal-typography": 24,
+      "native-control": 2
+    },
+    "src/domains/licenciamento/components/LicenciamentoView.jsx": {
+      "literal-spacing": 64,
+      "literal-typography": 23,
+      "native-control": 9
+    },
+    "src/domains/medicoes/components/MedicoesView.jsx": {
+      "literal-spacing": 81,
+      "literal-typography": 54,
+      "native-control": 5,
+      "literal-color": 2
+    },
+    "src/domains/medicoes/components/ProgressPercentageField.jsx": {
+      "native-control": 2
+    },
+    "src/domains/obras/components/AditivosContrato.jsx": {
+      "literal-spacing": 9,
+      "literal-typography": 1,
+      "native-control": 4
+    },
+    "src/domains/obras/components/DiarioObraView.jsx": {
+      "literal-spacing": 97,
+      "literal-typography": 42,
+      "native-control": 26,
+      "literal-color": 3
+    },
+    "src/domains/orcamentos/components/AddFloorForm.jsx": {
+      "native-control": 6
+    },
+    "src/domains/orcamentos/components/BoxMemoryPanel.jsx": {
+      "native-control": 21
+    },
+    "src/domains/orcamentos/components/BudgetAuditPanel.jsx": {
+      "native-control": 5
+    },
+    "src/domains/orcamentos/components/BudgetFloorEditor.jsx": {
+      "native-control": 6
+    },
+    "src/domains/orcamentos/components/ItemMemoryPanel.jsx": {
+      "native-control": 22
+    },
+    "src/domains/orcamentos/components/OrcamentoView.jsx": {
+      "literal-spacing": 548,
+      "literal-typography": 303,
+      "native-control": 93,
+      "literal-color": 5
+    },
+    "src/domains/orcamentos/components/StructuralBudgetLinks.jsx": {
+      "native-control": 5
+    },
+    "src/domains/patrimonio/components/PatrimonioEmpresaView.jsx": {
+      "literal-spacing": 30,
+      "native-control": 7
+    },
+    "src/domains/planejamento/components/PlanejamentoView.jsx": {
+      "literal-spacing": 254,
+      "literal-typography": 112,
+      "native-control": 18,
+      "literal-color": 7
+    },
+    "src/domains/ponto-eletronico/components/BancoHorasView.jsx": {
+      "native-control": 10
+    },
+    "src/domains/ponto-eletronico/components/EquipeObrasView.jsx": {
+      "native-control": 1
+    },
+    "src/domains/ponto-eletronico/components/PontoEletronicoView.jsx": {
+      "native-control": 10
+    },
+    "src/domains/ponto/components/CltAttendanceImport.jsx": {
+      "native-control": 2
+    },
+    "src/domains/ponto/components/CltPayslips.jsx": {
+      "native-control": 6
+    },
+    "src/domains/ponto/components/FolhaView.jsx": {
+      "native-control": 4
+    },
+    "src/domains/ponto/components/LaborProjectionReport.jsx": {
+      "native-control": 2
+    },
+    "src/domains/ponto/components/LaborProvisions.jsx": {
+      "native-control": 2
+    },
+    "src/domains/ponto/components/PayModeSimulation.jsx": {
+      "native-control": 2
+    },
+    "src/domains/projetos/KanbanBoard.jsx": {
+      "native-control": 1
+    },
+    "src/domains/projetos/ProjectForms.jsx": {
+      "native-control": 3
+    },
+    "src/domains/projetos/ProjectTimerStatus.jsx": {
+      "literal-spacing": 1
+    },
+    "src/domains/projetos/TasksView.jsx": {
+      "native-control": 1
+    },
+    "src/domains/qualidade/components/ConferenciaView.jsx": {
+      "literal-spacing": 73,
+      "literal-typography": 22,
+      "native-control": 21,
+      "literal-color": 7
+    },
+    "src/domains/rh/components/AttendancePayMode.jsx": {
+      "native-control": 1
+    },
+    "src/domains/rh/components/EmployeeDossier.jsx": {
+      "native-control": 1
+    },
+    "src/domains/rh/components/EquipeView.jsx": {
+      "literal-spacing": 28,
+      "native-control": 4,
+      "literal-typography": 8
+    },
+    "src/domains/rh/components/IndicadoresView.jsx": {
+      "literal-spacing": 10,
+      "literal-typography": 1
+    },
+    "src/domains/rh/components/RescisaoView.jsx": {
+      "literal-spacing": 35,
+      "literal-typography": 28,
+      "native-control": 1
+    },
+    "src/domains/suppliers/SupplierCategoriesField.jsx": {
+      "literal-spacing": 2
+    },
+    "src/domains/suprimentos/components/MarcosCurvaASuprimentos.jsx": {
+      "literal-spacing": 57,
+      "literal-typography": 6
+    },
+    "src/domains/terceirizados/components/TerceirosView.jsx": {
+      "native-control": 17,
+      "literal-spacing": 103,
+      "literal-typography": 64
+    },
+    "src/features/conciliacao/ConciliacaoView.jsx": {
+      "native-control": 18,
+      "literal-spacing": 211,
+      "literal-typography": 83,
+      "literal-color": 1
+    },
+    "src/features/conciliacao/ReconciliationReview.jsx": {
+      "native-control": 1
+    },
+    "src/features/conciliacao/ReviewSearchFilters.jsx": {
+      "native-control": 3
+    },
+    "src/features/financeiro/AnnualDre.jsx": {
+      "native-control": 18
+    },
+    "src/features/financeiro/CashForecast.jsx": {
+      "native-control": 4
+    },
+    "src/features/financeiro/CashWorkspace.jsx": {
+      "native-control": 1
+    },
+    "src/features/financeiro/CostControlReview.jsx": {
+      "native-control": 3
+    },
+    "src/features/financeiro/DocumentCenter.jsx": {
+      "native-control": 3
+    },
+    "src/features/financeiro/DocumentReviewQueue.jsx": {
+      "native-control": 1
+    },
+    "src/features/financeiro/DreReconciliationManager.jsx": {
+      "native-control": 13
+    },
+    "src/features/financeiro/FinancialMemorial.jsx": {
+      "native-control": 1
+    },
+    "src/features/financeiro/FinancialReportCenter.jsx": {
+      "native-control": 8
+    },
+    "src/features/financeiro/ForecastReviewHistory.jsx": {
+      "native-control": 1
+    },
+    "src/features/financeiro/InvoiceConference.jsx": {
+      "native-control": 1
+    },
+    "src/features/financeiro/LegacyDocumentTools.jsx": {
+      "literal-spacing": 31,
+      "literal-typography": 9,
+      "literal-color": 1
+    },
+    "src/features/financeiro/PdfDocumentPreview.jsx": {
+      "native-control": 1
+    },
+    "src/features/financeiro/PlanningCashTimeline.jsx": {
+      "native-control": 2
+    },
+    "src/features/financeiro/SavedDocumentQueries.jsx": {
+      "native-control": 1
+    },
+    "src/features/pilot/OperationalPilot.jsx": {
+      "native-control": 1
+    },
+    "src/features/workflow/WorkflowNavigation.jsx": {
+      "native-control": 3
+    },
+    "src/mobile/LegacyMobileNavigation.jsx": {
+      "native-control": 2
+    },
+    "src/mobile/MobileMoreMenu.jsx": {
+      "native-control": 1
+    },
+    "src/supplier-acceptance/SupplierAcceptancePage.jsx": {
+      "literal-spacing": 23,
+      "literal-typography": 8,
+      "literal-color": 3,
+      "native-control": 4
+    }
+  }
+}

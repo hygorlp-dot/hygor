@@ -1,5 +1,5 @@
 /* One visual contract, consumed by all three compatibility APIs. */
-.mrc-button[data-mrc-role]{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-width:0;max-width:100%;min-height:var(--arcd-control-height,40px);padding:8px 14px;border:1px solid transparent;border-radius:var(--arcd-radius-control,6px);font-family:var(--arcd-font-sans);font-size:14px;font-weight:500;line-height:1.35;letter-spacing:normal;text-align:center;white-space:normal;word-break:normal;overflow-wrap:normal;cursor:pointer;touch-action:manipulation;transition:background-color 120ms ease,border-color 120ms ease,color 120ms ease}
+.mrc-button[data-mrc-role]{display:inline-flex;align-items:center;justify-content:center;gap:var(--arcd-button-gap,.5rem);min-width:0;max-width:100%;min-height:var(--arcd-control-height,40px);padding:var(--arcd-button-padding,.5rem .875rem);border:1px solid transparent;border-radius:var(--arcd-radius-control,6px);font-family:var(--arcd-font-sans);font-size:var(--arcd-type-control,.875rem);font-weight:var(--arcd-button-weight,500);line-height:var(--arcd-button-line-height,1.35);letter-spacing:normal;text-align:center;white-space:normal;word-break:normal;overflow-wrap:normal;cursor:pointer;touch-action:manipulation;transition:background-color 120ms ease,border-color 120ms ease,color 120ms ease}
 .mrc-button[data-mrc-role=primary]{background:var(--arcd-action-primary);color:var(--arcd-action-primary-text);border-color:var(--arcd-action-primary)}
 .mrc-button[data-mrc-role=secondary]{background:var(--arcd-surface-card);color:var(--arcd-text-primary);border-color:var(--arcd-border-strong)}
 .mrc-button[data-mrc-role=quiet]{background:transparent;color:var(--arcd-text-secondary);border-color:transparent}
@@ -12,16 +12,16 @@
 .mrc-button:active:not(:disabled):not([aria-disabled=true]){transform:translateY(1px)}
 .mrc-button:is(:disabled,[aria-disabled=true]){cursor:not-allowed;opacity:.56}
 .mrc-button[data-mrc-link=true]{text-decoration:underline;text-underline-offset:3px}
-.mrc-button[data-mrc-size=sm]{min-height:36px;padding:6px 10px}
-.mrc-button[data-mrc-size=lg]{min-height:48px;padding:10px 20px}
+.mrc-button[data-mrc-size=sm]{min-height:var(--arcd-button-height-sm,2.25rem);padding:var(--arcd-button-padding-sm,.375rem .625rem)}
+.mrc-button[data-mrc-size=lg]{min-height:var(--arcd-button-height-lg,3rem);padding:var(--arcd-button-padding-lg,.625rem 1.25rem)}
 .mrc-button[data-mrc-size=icon]{min-width:var(--arcd-control-height,40px);width:var(--arcd-control-height,40px);padding-inline:0;flex-shrink:0}
 .mrc-button :is(svg,.mrc-button__spinner){flex-shrink:0}
 .mrc-button>svg[data-icon]{width:var(--arcd-icon-size-md);height:var(--arcd-icon-size-md)}
 .mrc-button__spinner{width:1em;height:1em;border:2px solid currentColor;border-inline-end-color:transparent;border-radius:50%;animation:mrc-button-spin 900ms linear infinite}
 @keyframes mrc-button-spin{to{transform:rotate(360deg)}}
 /* Bounded bridge over older theme typography; colours and states stay in this file. */
-[data-theme] .mrc-button[data-mrc-role][data-mrc-size]{min-height:var(--arcd-control-height,40px);border-radius:var(--arcd-radius-control,6px)!important;font-size:var(--arcd-type-control)!important;font-weight:500!important;line-height:1.35!important;letter-spacing:normal!important}
-[data-theme] .mrc-button[data-mrc-role][data-mrc-size=sm]{min-height:36px}
-[data-theme] .mrc-button[data-mrc-role][data-mrc-size=lg]{min-height:48px}
-@media(max-width:767px){.mrc-button[data-mrc-role]{min-height:44px!important}.mrc-button[data-mrc-size=icon]{min-width:44px;width:44px}}
+[data-theme] .mrc-button[data-mrc-role][data-mrc-size]{min-height:var(--arcd-control-height,40px);border-radius:var(--arcd-radius-control,6px)!important;font-size:var(--arcd-type-control)!important;font-weight:var(--arcd-button-weight,500)!important;line-height:var(--arcd-button-line-height,1.35)!important;letter-spacing:normal!important}
+[data-theme] .mrc-button[data-mrc-role][data-mrc-size=sm]{min-height:var(--arcd-button-height-sm,2.25rem)}
+[data-theme] .mrc-button[data-mrc-role][data-mrc-size=lg]{min-height:var(--arcd-button-height-lg,3rem)}
+@media(max-width:767px){.mrc-button[data-mrc-role]{min-height:var(--arcd-touch-target,2.75rem)!important}.mrc-button[data-mrc-size=icon]{min-width:var(--arcd-touch-target,2.75rem);width:var(--arcd-touch-target,2.75rem)}}
 @media(prefers-reduced-motion:reduce){.mrc-button[data-mrc-role]{transition:none}.mrc-button__spinner{animation:none}}

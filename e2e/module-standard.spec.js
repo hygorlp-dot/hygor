@@ -45,3 +45,17 @@ test('Conciliação: botão de importação abre o seletor pelo teclado',async({
  await button.focus();const chooser=page.waitForEvent('filechooser');await button.press('Enter');await chooser;
  await expect(button).toBeFocused();expect(errors).toEqual([]);
 });
+
+test('Fundamentos: ajustes centrais alcançam título e ação sem editar o módulo',async({page})=>{
+ const errors=await enter(page,'cmp');const title=page.getByRole('heading',{name:'Compras',exact:true});const action=page.getByRole('button',{name:'Nova solicitação',exact:true});
+ await expect(title).toHaveCSS('font-size','24px');
+ await page.evaluate(()=>{
+  const root=document.documentElement;
+  root.style.setProperty('--arcd-type-page-title','28px');
+  root.style.setProperty('--arcd-type-control','16px');
+  root.style.setProperty('--arcd-button-weight','600');
+ });
+ await expect(title).toHaveCSS('font-size','28px');await expect(action).toHaveCSS('font-size','16px');await expect(action).toHaveCSS('font-weight','600');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)).toBe(false);
+ expect(errors).toEqual([]);
+});

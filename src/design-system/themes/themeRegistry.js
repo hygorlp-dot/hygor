@@ -1,7 +1,9 @@
+import {foundationTokens} from '../foundations.js';
 export const DEFAULT_THEME = "saas";
 
 // Themes change semantic roles. Components never need to know a theme's ID.
 const shared = Object.freeze({
+  ...foundationTokens,
   "--arcd-surface-card":"#ffffff", "--arcd-surface-elevated":"#ffffff",
   "--arcd-action-primary-text":"#ffffff", "--arcd-text-inverse":"#ffffff",
   "--arcd-success-text":"#24634b", "--arcd-success-surface":"#edf7f1", "--arcd-success-border":"#8cbba0",
@@ -9,10 +11,6 @@ const shared = Object.freeze({
   "--arcd-danger-text":"#a2323b", "--arcd-danger-surface":"#fff0f1", "--arcd-danger-border":"#d8949b",
   "--arcd-info-text":"#285c91", "--arcd-info-surface":"#eef5fc", "--arcd-info-border":"#94b7dd",
   "--arcd-neutral-text":"#526174", "--arcd-neutral-surface":"#f0f2f5", "--arcd-neutral-border":"#dce1e7",
-  "--arcd-type-page-title":"1.5rem", "--arcd-type-section-title":"1.125rem", "--arcd-type-card-title":".9375rem",
-  "--arcd-type-body":".875rem", "--arcd-type-label":".875rem", "--arcd-type-caption":".8125rem",
-  "--arcd-type-control":".875rem", "--arcd-type-table":".875rem", "--arcd-type-dialog-title":"1.125rem",
-  "--arcd-type-control-touch":"1rem", "--arcd-page-padding":"1.5rem", "--arcd-page-padding-mobile":".875rem",
   "--arcd-radius-control":".375rem", "--arcd-radius-lg":".5rem",
   "--arcd-workspace-header-surface":"transparent", "--arcd-workspace-header-padding":"0",
   "--arcd-workspace-nav-surface":"transparent", "--arcd-workspace-nav-padding":".25rem 0 .75rem",
