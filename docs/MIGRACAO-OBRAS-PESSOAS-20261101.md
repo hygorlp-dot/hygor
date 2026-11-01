@@ -44,3 +44,7 @@ A primeira execução ampla misturou cenários que exigiam servidores diferentes
 Os testes antigos de RH em `e2e/rh-readiness.spec.js` procuram “Organizar pendências do RH”/“Pendências do RH”, controles ausentes na versão anterior e nesta entrega. A ausência foi reproduzida no commit-base f3e16e62, em checkout isolado. Esses testes não entram na contagem aprovada; revisar sua finalidade ou restabelecer o recurso exige uma decisão de fluxo separada. Não foram marcados como aprovados nem removidos. A conferência atual da folha e seus bloqueios permanecem cobertos pelos cenários aprovados.
 
 Evidências locais: `artifacts/workforce-migration/`, incluindo logs de testes, build, orçamento de bundle, comparação com a base e capturas. Artefatos de teste não fazem parte do código publicado.
+
+## Atualização — pendência do RH resolvida
+
+Os atalhos e sua ligação com os registros foram restabelecidos na entrega local descrita em `docs/ATALHOS-RH-20261101.md`. Os testes de RH anteriormente pendentes agora passaram no desktop e celular, com cobertura adicional de retorno, competência e rascunhos. O diagnóstico acima permanece como registro do estado anterior.

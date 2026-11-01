@@ -42,7 +42,7 @@ export default defineConfig(({mode})=>mergeConfig({
         chunkFileNames(chunk) {
           const name=chunk.name;
           const preserve=["LegacyApp","spreadsheet-tools","charts","vendor","ClientPortalApp"].includes(name)||/worker/i.test(name);
-          const prefix=preserve?name:name==="rolldown-runtime"?"r":name.slice(0,8);
+          const prefix=preserve?name:name==="rolldown-runtime"?"r":name.slice(0,6);
           return `assets/${prefix}-[hash].js`;
         },
         manualChunks(id) {
@@ -50,6 +50,9 @@ export default defineConfig(({mode})=>mergeConfig({
           // Keeping them together avoids repeated import paths and independent
           // compression overhead across small chunks, without changing UI code.
           if(id.includes('/src/design-system/')||id.includes('/src/components/ui/'))return 'interface';
+          // O mesmo repertório de ícones atende todos os módulos. Compartilhar
+          // a compressão evita o custo repetido dos pequenos chunks por ícone.
+          if(id.includes('/node_modules/lucide-react/'))return 'interface';
           if(id.includes('/node_modules/fflate/')||id.endsWith('/src/lib/zip-reader.js'))return 'zip-codec';
           // Os gráficos compartilham Lodash com a leitura CSV do ExcelJS.
           // Um chunk comum evita vários blocos pequenos comprimidos à parte.

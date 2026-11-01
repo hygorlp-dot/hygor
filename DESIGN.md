@@ -473,3 +473,7 @@ A segunda migração está documentada em `docs/MIGRACAO-OBRAS-PESSOAS-20261101.
 Células de planilha usam os controles compartilhados sem um novo campo com rótulo ao redor. Altura, entrelinha, padding e tamanho de texto da grade vêm de `--arcd-sheet-*` em `foundations.js`. A descrição continua crescendo com o conteúdo. Comandos mantêm os alvos comuns; no celular, grades largas rolam dentro do próprio painel. Estados do ponto usam RecordAction e cores semânticas da situação, sem perder o significado de Presente, Meio dia ou Falta.
 
 FilePicker aceita `inputProps` para recursos nativos como `capture`, rótulo acessível e reinicialização. Não substituir por outro seletor de arquivos próprio do módulo. A busca de Obras usa uma única borda no Input e acompanha a rolagem da página, sem uma camada fixa sobre o conteúdo. Impressão e modo TV mantêm receitas específicas.
+
+### Revisão dos atalhos do RH — 01/11/2026
+
+O painel de pendências da Folha consome os controles e a tipografia da base, sem nova família visual. As abas FlowTabs passam a quebrar em linhas no desktop em toda a ERP, preservando o seletor no celular. Alterações futuras de linguagem visual pertencem aos tokens/componentes compartilhados e devem alcançar o sistema inteiro. Validação e limites em `docs/ATALHOS-RH-20261101.md`.

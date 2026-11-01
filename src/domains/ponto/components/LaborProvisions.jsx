@@ -1,5 +1,5 @@
 import {ChoiceControl} from '../../../design-system/primitives/ChoiceControl.jsx';
-import {useState} from "react";
+import {useEffect,useState} from "react";
 import { Btn, Inp, Sel } from "../../../legacy/ui.jsx";
 import { fmt, uid } from "../../../legacy/format.js";
 import {OPERATIONAL_COMMAND} from "../../sync/operational-commands.js";
@@ -8,11 +8,12 @@ import {marcellReportHtml} from "../../../reports/marcell-report.js";
 import {resolveHistoricalEmployeeObraId} from "../permissions.js";
 import "./clt-payslips.css";
 const escape=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-export function LaborProvisions({data,currentUser,dispatchCommand,showToast,year,month,initialSelection}) {
+export function LaborProvisions({data,currentUser,dispatchCommand,showToast,year,month,initialSelection,onDirtyChange}) {
   const [competence,setCompetence]=useState(initialSelection?.competence||`${year}-${String(month+1).padStart(2,"0")}`);
   const initialEmployee=(data.employees||[]).find(e=>String(e.id)===initialSelection?.employeeId);
   const initialValues=initialEmployee?.laborProvisions?.[competence];
   const [obra,setObra]=useState("all"),[selected,setSelected]=useState(initialEmployee?.id||""),[draft,setDraft]=useState(()=>initialEmployee?structuredClone(initialValues||newProvisionDraft(initialEmployee,competence)):null),[revision,setRevision]=useState(Number(initialEmployee?.version||0)),[dirty,setDirty]=useState(false),[saving,setSaving]=useState(false),[status,setStatus]=useState(initialEmployee?(initialValues?"Salvo":"Estimativa — ainda não salva"):"");
+  useEffect(()=>{onDirtyChange?.(dirty);},[dirty,onDirtyChange]);
   const canEdit=["admin","rh"].includes(currentUser?.role);
   const referenceDate=new Date(Date.UTC(Number(competence.slice(0,4)),Number(competence.slice(5,7)),0)).toISOString().slice(0,10);
   const employees=(data.employees||[]).filter(e=>e.active!==false||e.endDate>=`${competence}-01`).filter(e=>e.startDate<=referenceDate).filter(e=>obra==="all"||resolveHistoricalEmployeeObraId({employee:e,date:referenceDate,transferEvents:data.changeLog,obras:data.obras})===obra);

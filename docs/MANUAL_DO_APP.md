@@ -60,6 +60,7 @@ Conteúdo gerado de `src/features/help/help-content.js`, a mesma fonte da ajuda 
 - [Equipes](#guia-equipe)
 - [Equipe nas Obras](#guia-equipe_obras)
 - [Terceirizados](#guia-terc)
+- [Folha · Pendências do RH](#guia-folha_pendencias)
 - [Folha](#guia-folha)
 - [Rescisão](#guia-resc)
 - [Indicadores de RH](#guia-rh_indic)
@@ -1153,6 +1154,31 @@ O contrato apresenta os serviços e o saldo esperado.
 
 Medição, aprovação e pagamento têm situações próprias; confira cada etapa.
 
+<a id="guia-folha_pendencias"></a>
+
+## Folha · Pendências do RH
+
+Resolver pendências por funcionário e mês.
+
+### Antes de começar
+
+Acesso para RH e administradores.
+
+### Como fazer
+
+1. Use Organizar pendências do RH ou escolha Pendências do RH em Áreas da folha.
+2. Selecione Funcionário das pendências e Competência das pendências.
+3. Siga Abrir cadastro, Abrir gestão do ponto, Abrir holerite ou Abrir folha e Abrir provisões. Para CLT, Abrir fechamento por obra leva ao dia e à obra da conferência.
+4. Revise o destino. Voltar a Folha retoma as pendências.
+
+### Como conferir se deu certo
+
+Atalhos não gravam dados. Provisões mantêm a base salva ou mostram uma estimativa.
+
+### O que merece atenção
+
+CLT é o vínculo pela Consolidação das Leis do Trabalho. Registro ausente não comprova falta. Confira o ciclo: a quinzena de 21 a 05 atravessa dois meses. Trocar de área com edição pendente pede confirmação de descarte.
+
 <a id="guia-folha"></a>
 
 ## Folha
@@ -1165,9 +1191,10 @@ Escolha Pessoal de obra, Administrativo ou Todos e selecione a competência, ist
 
 ### Como fazer
 
-1. Confira funcionários, ponto e informações que alimentam a folha.
-2. Revise proventos, descontos e o valor líquido de cada pessoa.
-3. Use a ação de fechamento ou emissão disponível após a revisão.
+1. Para RH e administradores, Organizar pendências do RH reúne cadastro, ponto, holerite e provisões.
+2. Confira funcionários, ponto e informações que alimentam a folha.
+3. Revise proventos, descontos e o valor líquido de cada pessoa.
+4. Use a ação de fechamento ou emissão disponível após a revisão.
 
 ### Como conferir se deu certo
 

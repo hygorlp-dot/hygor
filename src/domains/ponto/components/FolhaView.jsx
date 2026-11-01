@@ -47,6 +47,7 @@ import { LaborChargesSettings } from "./LaborChargesSettings.jsx";
 import { PayModeSimulation } from "./PayModeSimulation.jsx";
 import {EmployeeCosts} from '../../rh/components/EmployeeCosts.jsx';
 import {EmployeeDossier} from '../../rh/components/EmployeeDossier.jsx';
+import {PayrollReadiness} from '../../rh/components/PayrollReadiness.jsx';
 import {readPayrollHandoff,PAYROLL_HANDOFF_KEY} from '../../rh/payroll-handoff.js';
 import LaborProjectionReport from "./LaborProjectionReport.jsx";
 import { obterProjecaoMaoObra } from "../../../api.js";
@@ -56,7 +57,7 @@ import {useWorkspaceState} from '../../../features/workflow/workspace-session.js
 import {useHelpTopic} from '../../../features/help/HelpContext.jsx';
 
 function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
-  const {scopes}=useWorkflow();
+  const {scopes,navigate}=useWorkflow();
   const savedScope=scopes.folha;
   const [entryScope]=useState(()=>readPayrollHandoff());
   const [laborGroup,setLaborGroup]=useWorkspaceState('folha','laborGroup',()=>entryScope?.employeeId?laborArea(data.employees.find(e=>e.id===entryScope.employeeId)||{}):'all');
@@ -65,7 +66,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
     if(cltDirty&&!window.confirm('Há alterações não salvas no holerite. Deseja descartá-las para trocar o grupo?'))return;
     setCltDirty(false);setExpandedId(null);setLaborGroup(value);
   };
-  useHelpTopic('folha',laborGroup==='all'?'folha':`folha_${laborGroup}`);
+
   const now = new Date();
   const refInicial = now.getDate() <= 5 ? new Date(now.getFullYear(), now.getMonth()-1, 1) : now;
   const [year, setYear] = useState(entryScope?Number(entryScope.competence.slice(0,4)):savedScope?.year??refInicial.getFullYear());
@@ -78,7 +79,29 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
   const [closingModal,setClosingModal]=useState("");
   const [reopenReason,setReopenReason]=useState("");
   const [savingClosing,setSavingClosing]=useState(false);
-  const [payrollView,setPayrollView]=useState(entryScope?.mode==='clt'?'clt':'payroll');
+  const [payrollView,setPayrollView]=useWorkspaceState('folha','view',entryScope?.mode==='clt'?'clt':'payroll');
+  useEffect(()=>{if(entryScope)setPayrollView(entryScope.mode==='clt'?'clt':'payroll');},[entryScope]);
+  const canReview=['admin','rh'].includes(currentUser?.role);
+  const [selection,setSelection]=useState(null);
+  useHelpTopic('folha',payrollView==='readiness'&&canReview?'folha_pendencias':laborGroup==='all'?'folha':`folha_${laborGroup}`);
+  const changePayrollView=value=>{
+    if(cltDirty&&!window.confirm('Há alterações não salvas. Deseja descartá-las para trocar de área?'))return;
+    setCltDirty(false);setPayrollView(value);
+  };
+  const openReadiness=({step,employee,competence,report})=>{
+    if(!canReview)return;
+    const selected={employeeId:String(employee.id),competence};
+    setYear(Number(competence.slice(0,4)));setMonth(Number(competence.slice(5,7))-1);setSelection(selected);
+    if(step==='provisions'){setPayrollView('provisions');return;}
+    if(step==='payroll'){setLaborGroup(laborArea(employee));setExpandedId(employee.id);setPayrollView(report.mode==='clt'?'clt':'payroll');return;}
+    const date=report.pointDate,reference=new Date(`${date}T12:00:00`),day=reference.getDate();
+    if(day<=5)reference.setMonth(reference.getMonth()-1);
+    const scope={year:reference.getFullYear(),month:reference.getMonth(),cycle:day>=6&&day<=20?'1':'2',obraId:report.pointObraId||employee.obra||''};
+    const target=step==='registration'?'equipe':step==='point-close'?'ponto':'ponto_geral';
+    if(step==='registration')sessionContext.setItem('arcd_editar_funcionario',employee.id);
+    const options={action:'rh-readiness',record:{employeeId:String(employee.id),date,cycle:scope.cycle}};
+    if(navigate)navigate(target,scope,options);else onTab?.(target,'',{...options,scope});
+  };
   useEffect(()=>{if(entryScope?.mode==='daily')sessionContext.removeItem(PAYROLL_HANDOFF_KEY);},[entryScope]);
   const [unionDraft,setUnionDraft]=useState(()=>normalizeUnionDuesConfig(data.config?.unionDues));
   const [savingUnion,setSavingUnion]=useState(false);
@@ -865,7 +888,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
           {label:"Funcionários",value:rows.length,detail:filterObra==="all"?"Todas as obras":obraName(filterObra)},
           {label:"Pagamento",value:paymentDateLabel,detail:paymentObs,color:paymentInfo.adjusted?C.orange:C.green},
         ]}
-        actions={pendenciasRelatorio.length?<Btn v="warning" onClick={()=>onTab?.("ponto_geral")}><Ic n="alert"/> Revisar ponto</Btn>:null}
+        actions={<>{canReview&&<Btn v="secondary" onClick={()=>changePayrollView('readiness')}>Organizar pendências do RH</Btn>}{pendenciasRelatorio.length>0&&<Btn v="warning" onClick={()=>onTab?.("ponto_geral")}><Ic n="alert"/> Revisar ponto</Btn>}</>}
       />
       <section className="payroll-controls" aria-label="Competência e escopo da folha">
         <div className="payroll-section-heading">
@@ -885,16 +908,17 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
 
       </>}
 
-      <FlowTabs label="Áreas da folha" active={payrollView} onChange={setPayrollView}
-        steps={[{id:"payroll",label:"Folha da quinzena",description:"Confira as pendências e a composição por funcionário antes de gerar os relatórios."},...(["admin","rh","financeiro"].includes(currentUser?.role)?[{id:"projection",label:"Projeção da quinzena"}]:[]),{id:"clt",label:"Holerites CLT"},{id:"provisions",label:"Provisões trabalhistas"},{id:"simulation",label:"Simulação CLT × diária"},{id:'costs',label:'Custos por funcionário'},...(['admin','rh'].includes(currentUser?.role)?[{id:'dossier',label:'Prontuário documental'}]:[])]}
+      <FlowTabs label="Áreas da folha" active={payrollView} onChange={changePayrollView}
+        steps={[...(canReview?[{id:'readiness',label:'Pendências do RH'}]:[]),{id:"payroll",label:"Folha da quinzena",description:"Confira as pendências e a composição por funcionário antes de gerar os relatórios."},...(["admin","rh","financeiro"].includes(currentUser?.role)?[{id:"projection",label:"Projeção da quinzena"}]:[]),{id:"clt",label:"Holerites CLT"},{id:"provisions",label:"Provisões trabalhistas"},{id:"simulation",label:"Simulação CLT × diária"},{id:'costs',label:'Custos por funcionário'},...(['admin','rh'].includes(currentUser?.role)?[{id:'dossier',label:'Prontuário documental'}]:[])]}
         tools={[{id:"union",label:"Sindicato"},{id:"charges",label:"Encargos"}]} toolsLabel="Regras e descontos"/>
       {payrollView==="payroll"&&<DreIntegration kind="payroll" currentUser={currentUser} obraId={filterObra==="all"?"":filterObra} year={year} month={month}>
         <p>Consulta do DRE mensal. A quinzena de 21 a 05 atravessa dois meses; o DRE mantém a competência de cada apontamento.</p>
       </DreIntegration>}
 
+      {payrollView==='readiness'&&canReview&&<PayrollReadiness data={data} year={year} month={month} onOpen={openReadiness}/>}
       {payrollView==="projection"&&<LaborProjectionReport requestReport={obterProjecaoMaoObra}/>}
-      {payrollView==="clt"&&<CltPayslips key={laborGroup} data={data} employees={data.employees.filter(e=>matchesLaborArea(e,laborGroup))} onDirtyChange={setCltDirty} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} year={year} month={month}/>}
-      {payrollView==="provisions"&&<LaborProvisions data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} year={year} month={month}/>}
+      {payrollView==="clt"&&<CltPayslips key={`${laborGroup}-${selection?.employeeId||''}-${selection?.competence||''}`} initialSelection={selection} data={data} employees={data.employees.filter(e=>matchesLaborArea(e,laborGroup))} onDirtyChange={setCltDirty} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} year={year} month={month}/>}
+      {payrollView==="provisions"&&<LaborProvisions onDirtyChange={setCltDirty} initialSelection={selection} data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} year={year} month={month}/>}
       {payrollView==="simulation"&&<PayModeSimulation data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} year={year} month={month}/>}
       {payrollView==='costs'&&<EmployeeCosts data={data} year={year} month={month} showToast={showToast}/>}
       {payrollView==='dossier'&&<EmployeeDossier data={data} currentUser={currentUser} showToast={showToast}/>}

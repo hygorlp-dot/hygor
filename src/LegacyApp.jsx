@@ -86,7 +86,7 @@ import { rememberSection, restoreSection } from "./navigation/section-session.js
 import { FlowTabs, WorkflowContext, useWorkflow, useRememberWorkflowScope } from "./features/workflow/WorkflowNavigation.jsx";
 import {useWorkspaceState,useWorkspaceScroll,WorkflowReturn} from "./features/workflow/workspace-session.jsx";
 import {LaborAreaTabs} from './domains/rh/components/LaborAreaTabs.jsx';
-import {matchesLaborArea} from './domains/rh/labor-area.js';
+import {laborArea,matchesLaborArea} from './domains/rh/labor-area.js';
 import { normalizeWorkflowScope } from "./features/workflow/workflow-model.js";
 import MonthlyDreMemorial from "./features/financeiro/MonthlyDreMemorial.jsx";
 import AnnualDre from "./features/financeiro/AnnualDre.jsx";
@@ -5857,6 +5857,13 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
   const [obraCell,setObraCell]=useState(null);   // "empId::date" da célula com troca de obra aberta
   const pendingCellsRef=useRef(new Map());
   const [,setPendingCellsRevision]=useState(0);
+  const {intent:rhIntent}=useWorkflow();
+  useEffect(()=>{
+    if(rhIntent?.tabId!=='ponto_geral'||rhIntent.action!=='rh-readiness')return;
+    const employee=data.employees.find(e=>String(e.id)===rhIntent.record?.employeeId);if(!employee)return;
+    setLaborGroup(laborArea(employee));
+    setYear(rhIntent.scope.year);setMonth(rhIntent.scope.month);setQ(rhIntent.record.cycle);setBusca(employee.name);setFilterObra(rhIntent.scope.obraId||'all');
+  },[rhIntent?.sequence]);
   const {q1,q2}=getQ(year,month);
   const diasCiclo=q==="1"?q1:q2;
 
@@ -6209,6 +6216,13 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
     (currentUser?.role==="engenheiro"&&data.obras.length===1?data.obras[0].id:"all");
   const [selDate, setSelDate] = useState(today());
   const [filterObra, setFilterObra] = useState(obraInicial);
+  const {intent:rhIntent}=useWorkflow();
+  useEffect(()=>{
+    if(rhIntent?.tabId!=='ponto'||rhIntent.action!=='rh-readiness')return;
+    const employee=data.employees.find(e=>String(e.id)===rhIntent.record?.employeeId);if(!employee)return;
+    setLaborGroup(laborArea(employee));
+    setSelDate(rhIntent.record.date);if(!obraIdFixo)setFilterObra(currentUser?.obraId||rhIntent.scope.obraId||'all');
+  },[rhIntent?.sequence]);
   const [noteModal, setNoteModal] = useState(null);
   const [noteText, setNoteText] = useState("");
   const [roleModal, setRoleModal] = useState(null);

@@ -1,11 +1,13 @@
 import {expect,test} from '@playwright/test';
+import {selectWorkspaceArea} from './helpers/workspace-navigation.js';
 const profile={id:'rh-qa',nome:'RH QA',email:'rh@qa.test',role:'rh',active:true};
-async function enter(page,{saved=false,role='rh'}={}){
+async function enter(page,{saved=false,role='rh',prepare}={}){
   await page.clock.setFixedTime(new Date('2026-10-30T12:00:00-03:00'));
   const user={...profile,role};
   const employee={id:'emp',name:'Funcionário QA',role:'Pedreiro',cpf:'52998224725',phone:'81999999999',obra:'obra',workArea:'campo',startDate:'2026-01-01',dailyRate:100,monthlySalary:2800,remunerationMode:'clt',remunerationEffectiveFrom:'2026-10-28',active:true,version:4,workdayHours:8,workStart:'07:00',cltPayroll:{profile:{salary:2800}},vtDaily:0,vrDaily:0};
   if(saved)employee.laborProvisions={'2026-10':{competence:'2026-10',included:true,base:3500,average:0,fgtsPercent:8,finePercent:40,extraReserve:0,fgtsOnVacation:true,openingMonth:'2026-10',openingBalance:0,usedReserve:0,fgtsSeveranceBase:'',notes:'Base conhecida'}};
   const data={usuarios:[user],employees:[employee],obras:[{id:'obra',name:'Obra QA',status:'active'}],config:{companyName:'Empresa QA',cnpj:'00.000.000/0001-00',paymentHolidays:[]},attendance:{emp:{'2026-10-28':{status:'P',obraId:'obra'}}},attendanceLocks:{},advances:[],changeLog:[],payments:[{id:'preservar',amount:7160}]};
+  prepare?.(data);
   const before=JSON.stringify(data),writes=[];
   await page.route('**/api/**',r=>r.fulfill({json:{ok:true,presencas:[],items:[]}}));
   await page.route('**/api/data',async route=>{const body=route.request().postDataJSON()||{};
@@ -23,24 +25,61 @@ async function enter(page,{saved=false,role='rh'}={}){
 test('pendências e atalhos reaproveitam cadastro, holerite e provisões sem gravar',async({page},info)=>{
   const {check}=await enter(page);
   await page.getByRole('button',{name:'Organizar pendências do RH',exact:true}).click();
+  if(page.viewportSize().width>=768){
+    const nav=page.getByRole('navigation',{name:'Áreas da folha',exact:true});
+    expect(await nav.evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
+  }
   const panel=page.getByRole('region',{name:'Próximos passos do RH'});
   await expect(panel).toContainText('Matrícula');await expect(panel).toContainText('CBO');await expect(panel).toContainText('não é considerado falta');
   await expect(panel).toContainText('Estimativa não salva');await page.screenshot({path:info.outputPath('pendencias.png'),fullPage:true});
   expect(await panel.evaluate(e=>e.scrollWidth<=e.clientWidth)).toBe(true);
   await panel.getByRole('button',{name:'Abrir cadastro',exact:true}).click();await expect(page.getByRole('dialog')).toBeVisible();await expect(page.getByLabel('Nome completo *',{exact:true})).toHaveValue('Funcionário QA');await page.getByRole('dialog').getByRole('button',{name:'Cancelar',exact:true}).click();
   await page.keyboard.press('Control+k');const search=page.getByPlaceholder('Buscar obra, lead, pedido, funcionário, tela...');await search.fill('Folha');await search.locator('xpath=../..').getByRole('button').filter({hasText:'Folha'}).click();
-  await page.getByRole('button',{name:'Pendências do RH',exact:true}).click();await panel.getByRole('button',{name:'Abrir holerite',exact:true}).click();
+  await selectWorkspaceArea(page,'Áreas da folha','Pendências do RH');await panel.getByRole('button',{name:'Abrir holerite',exact:true}).click();
   await expect(page.getByRole('combobox',{name:'Funcionário do holerite',exact:true})).toHaveValue('emp');await expect(page.getByLabel('Salário contratual mensal (R$)',{exact:true})).toHaveValue('2800');await expect(page.getByRole('button',{name:'Salvar demonstrativo',exact:true})).toBeDisabled();
-  await page.getByRole('button',{name:'Pendências do RH',exact:true}).click();await panel.getByRole('button',{name:'Abrir provisões',exact:true}).click();await expect(page.getByLabel('Base mensal para provisões (R$)',{exact:true})).toHaveValue('2800');await expect(page.getByRole('button',{name:'Salvar provisões',exact:true})).toBeEnabled();await expect(page.getByText('Estimativa — ainda não salva',{exact:true})).toBeVisible();check();
+  await selectWorkspaceArea(page,'Áreas da folha','Pendências do RH');await panel.getByRole('button',{name:'Abrir provisões',exact:true}).click();await expect(page.getByLabel('Base mensal para provisões (R$)',{exact:true})).toHaveValue('2800');await expect(page.getByRole('button',{name:'Salvar provisões',exact:true})).toBeEnabled();await expect(page.getByText('Estimativa — ainda não salva',{exact:true})).toBeVisible();check();
 });
 test('atalhos abrem data, obra e funcionário corretos e mantêm estimativa salva',async({page})=>{
   const {check}=await enter(page,{saved:true});
-  await page.getByRole('button',{name:'Pendências do RH',exact:true}).click();await page.getByRole('button',{name:'Abrir gestão do ponto',exact:true}).click();
+  await selectWorkspaceArea(page,'Áreas da folha','Pendências do RH');await page.getByRole('button',{name:'Abrir gestão do ponto',exact:true}).click();
   await expect(page.getByLabel('Buscar funcionário',{exact:true})).toHaveValue('Funcionário QA');
   await page.keyboard.press('Control+k');let search=page.getByPlaceholder('Buscar obra, lead, pedido, funcionário, tela...');await search.fill('Folha');await search.locator('xpath=../..').getByRole('button').filter({hasText:'Folha'}).click();
-  await page.getByRole('button',{name:'Pendências do RH',exact:true}).click();await page.getByRole('button',{name:'Abrir fechamento por obra',exact:true}).click();
+  await selectWorkspaceArea(page,'Áreas da folha','Pendências do RH');await page.getByRole('button',{name:'Abrir fechamento por obra',exact:true}).click();
   await expect(page.locator('main input[type=date]').first()).toHaveValue('2026-10-28');
   await page.keyboard.press('Control+k');search=page.getByPlaceholder('Buscar obra, lead, pedido, funcionário, tela...');await search.fill('Folha');await search.locator('xpath=../..').getByRole('button').filter({hasText:'Folha'}).click();
-  await page.getByRole('button',{name:'Pendências do RH',exact:true}).click();await page.getByRole('button',{name:'Abrir provisões',exact:true}).click();await expect(page.getByLabel('Base mensal para provisões (R$)',{exact:true})).toHaveValue('3500');await expect(page.getByLabel('Reserva existente antes desse mês (R$)',{exact:true})).toHaveValue('0');check();
+  await selectWorkspaceArea(page,'Áreas da folha','Pendências do RH');await page.getByRole('button',{name:'Abrir provisões',exact:true}).click();await expect(page.getByLabel('Base mensal para provisões (R$)',{exact:true})).toHaveValue('3500');await expect(page.getByLabel('Reserva existente antes desse mês (R$)',{exact:true})).toHaveValue('0');check();
 });
 test('perfil financeiro não recebe atalhos de alteração do RH',async({page})=>{const {check}=await enter(page,{role:'financeiro'});await expect(page.getByRole('button',{name:'Pendências do RH',exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Organizar pendências do RH',exact:true})).toHaveCount(0);check();});
+
+test('ajuda e retorno conservam funcionário e mês, inclusive a quinzena que atravessa o ano',async({page},info)=>{
+  const {check}=await enter(page,{prepare:data=>data.employees.push({...data.employees[0],id:'engineer',name:'Engenheira QA',role:'Engenheira civil',remunerationEffectiveFrom:'2025-01-01',startDate:'2025-01-01'})});
+  await selectWorkspaceArea(page,'Áreas da folha','Pendências do RH');
+  await page.getByLabel('Funcionário das pendências',{exact:true}).selectOption('engineer');
+  await page.getByLabel('Competência das pendências',{exact:true}).fill('2026-01');
+  await page.getByRole('button',{name:'Ajuda',exact:true}).click();
+  await expect(page.locator('.app-help-article')).toContainText('Pendências do RH');
+  await page.getByRole('button',{name:'Fechar ajuda',exact:true}).click();
+  await expect(page.getByLabel('Funcionário das pendências',{exact:true})).toHaveValue('engineer');
+  await expect(page.getByLabel('Competência das pendências',{exact:true})).toHaveValue('2026-01');
+  await page.getByRole('button',{name:'Abrir gestão do ponto',exact:true}).click();
+  await expect(page.getByLabel('Buscar funcionário',{exact:true})).toHaveValue('Engenheira QA');
+  await expect(page.getByLabel('Ano',{exact:true})).toHaveValue('2025');
+  await expect(page.getByLabel('Mês',{exact:true})).toHaveValue('11');
+  await expect(page.getByLabel('Ciclo',{exact:true})).toHaveValue('2');
+  await expect(page.locator('.labor-area-tabs').getByRole('button',{name:'Administrativo',exact:true})).toHaveAttribute('aria-current','page');
+  await page.getByRole('button',{name:'Voltar a Folha',exact:true}).click();
+  await expect(page.getByLabel('Funcionário das pendências',{exact:true})).toHaveValue('engineer');
+  await expect(page.getByLabel('Competência das pendências',{exact:true})).toHaveValue('2026-01');
+  await page.screenshot({path:info.outputPath('retorno-pendencias.png'),fullPage:true});check();
+});
+for(const area of ['provisions','clt'])test(`edição de ${area} exige confirmação antes de voltar às pendências`,async({page})=>{
+  const {check}=await enter(page,{saved:true});
+  await selectWorkspaceArea(page,'Áreas da folha','Pendências do RH');
+  await page.getByRole('button',{name:area==='clt'?'Abrir holerite':'Abrir provisões',exact:true}).click();
+  const input=page.getByLabel(area==='clt'?'Salário contratual mensal (R$)':'Base mensal para provisões (R$)',{exact:true});
+  await input.fill('3510');page.once('dialog',dialog=>dialog.dismiss());
+  await selectWorkspaceArea(page,'Áreas da folha','Pendências do RH');
+  await expect(input).toHaveValue('3510');await expect(page.locator('.rh-readiness')).toHaveCount(0);
+  page.once('dialog',dialog=>dialog.accept());await selectWorkspaceArea(page,'Áreas da folha','Pendências do RH');
+  await expect(page.locator('.rh-readiness')).toBeVisible();check();
+});

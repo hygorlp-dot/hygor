@@ -1,3 +1,4 @@
+import {sessionContext} from '../../../lib/session-context.js';
 import {SelectControl} from '../../../design-system/primitives/Select.jsx';
 import {Button as StandardButton} from '../../../components/ui/button.jsx';
 import {RecordAction} from '../../../design-system/primitives/RecordAction.jsx';
@@ -133,10 +134,10 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
   });
 
   useEffect(() => {
-    const empId = window.sessionStorage.getItem("arcd_editar_funcionario");
+    const empId = sessionContext.getItem("arcd_editar_funcionario");
     if (!empId) return;
     const employee = (data.employees || []).find(e => e.id === empId);
-    window.sessionStorage.removeItem("arcd_editar_funcionario");
+    sessionContext.removeItem("arcd_editar_funcionario");
     if (!employee) return;
     setStatusFilter(employeeLifecycleStatus(employee, today()));
     setForm({...employeeEditDraft(employee),trainings:{...EMPTY_TRAININGS,...(employee.trainings||{})}});

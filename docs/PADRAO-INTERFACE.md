@@ -63,3 +63,11 @@ Obras, Orçamento, Planejamento e Pessoas, incluindo seus apoios operacionais, s
 - Busca composta: manter uma única superfície de campo e foco visível. Não empilhar uma moldura de controle ao redor de outro Input nem fixar filtros sobre as linhas da operação.
 
 Ajuda revisada para importação de planilha/PDF, anexos do diário, câmera/galeria, prontuário e edição do orçamento. Manual gerado da mesma fonte; mudanças estritamente visuais de espaçamento, foco e ícones não alteram os passos operacionais.
+
+## Atalhos do RH — 01/11/2026
+
+Pendências do RH retoma o painel existente e usa os mesmos Button, Badge, campos e FlowTabs do sistema. A alteração de composição das abas pertence ao componente compartilhado: listas longas quebram em linhas no desktop; no celular permanece o seletor de áreas. Não criar versões locais para resolver o mesmo problema em cada módulo.
+
+Toda alteração de linguagem visual deve valer para toda a ERP pela base comum. Tipografia, cores, espaçamentos e dimensões vêm dos tokens; estados e apresentação vêm dos controles. Composições e textos de uma tarefa podem pertencer ao domínio, sem redefinir o padrão visual. A regra também está em AGENTS.md.
+
+Detalhes funcionais e evidências em `docs/ATALHOS-RH-20261101.md`.

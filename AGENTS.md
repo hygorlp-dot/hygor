@@ -23,6 +23,7 @@ Esta regra se aplica a todo o projeto, inclusive aos subdiretórios.
 - Toda nova introdução no ERP deve obedecer a `docs/PADRAO-INTERFACE.md`, além de `DESIGN.md`. Esta exigência inclui textos, botões, dimensões, espaçamentos, componentes, telas e fluxos.
 - Ajustar a escala comum em `src/design-system/foundations.js`, diferenças de tema em `themes/themeRegistry.js`, densidade e espaçamento nos tokens existentes. Reutilizar padrões e controles compartilhados; não criar estilos próprios para contornar a base.
 - Linguagem genérica compartilhada usa `src/design-system/copy.js`; textos específicos pertencem ao domínio. Não alterar dados, códigos ou status persistidos como se fossem rótulos visuais.
+- Mudanças de linguagem visual devem ser feitas na base compartilhada e valer para toda a ERP: textos genéricos, botões, campos, tipografia, cores e espaçamentos não recebem versões próprias por módulo. Composições específicas podem organizar o fluxo, sempre consumindo a mesma base. Verificar os efeitos em telas representativas no desktop e celular.
 - Executar `npm run design:check`, também integrado ao lint. Não aumentar nem regenerar `scripts/design-system-baseline.json` para liberar novas exceções. O legado registrado não autoriza repetir seus desvios.
 - Revisão visual e de interação em desktop/celular continua obrigatória; a checagem automática é parcial. Exceções novas exigem justificativa e aprovação explícita do usuário.
 
