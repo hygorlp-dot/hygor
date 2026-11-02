@@ -671,9 +671,10 @@ Confirme a obra e o material necessário.
 
 ### Como fazer
 
-1. Confira a necessidade da obra, o estoque e os pedidos em aberto. Registre ou localize a solicitação.
-2. Compare as propostas e condições, registre a decisão e acompanhe o pedido. Aprovações pendentes ficam sinalizadas, sem impedir o andamento.
-3. Registre a entrega física para dar entrada no estoque. Vincule a nota e registre os pagamentos reais quando ocorrerem; essas etapas podem acontecer em outra ordem.
+1. Na Fila de trabalho, escolha Tabela ou Kanban em Visualização. Busca, obra, etapa e prazo são os mesmos; exportar considera todo o recorte. A visão fica salva por usuário neste navegador; filtros e agrupamento são preservados ao navegar na sessão. No Mapa gerencial, Abrir Kanban da fila abre esse mesmo quadro.
+2. Confira a necessidade da obra, o estoque e os pedidos em aberto. Registre ou localize a solicitação.
+3. Compare as propostas e condições, registre a decisão e acompanhe o pedido. Aprovações pendentes ficam sinalizadas, sem impedir o andamento.
+4. Registre a entrega física para dar entrada no estoque. Vincule a nota e registre os pagamentos reais quando ocorrerem; essas etapas podem acontecer em outra ordem.
 
 ### Como conferir se deu certo
 
@@ -681,7 +682,7 @@ Você sabe em que etapa a compra está e qual é a próxima ação.
 
 ### O que merece atenção
 
-Os avisos orientam sem travar etapas. Cada registro conserva sua situação: receber não paga, pagar não aprova a conferência fiscal e consultar a ficha não altera dados.
+No Kanban, arrastar só prepara etapas válidas; confira o formulário e confirme. A ação do cartão também funciona sem arrastar. Concluídos ficam no histórico. Os avisos orientam sem travar etapas. Cada registro conserva sua situação: receber não paga, pagar não aprova a conferência fiscal e consultar a ficha não altera dados.
 
 ### Exemplo ilustrativo
 
@@ -1333,25 +1334,26 @@ Nota, obrigação, pagamento e conciliação são etapas distintas. Consulte a o
 
 ## Financeiro · Hoje
 
-Priorizar as tarefas financeiras do dia.
+Conferir os compromissos e seus saldos por vencimento.
 
 ### Antes de começar
 
-Confira a data e o recorte de obra.
+Confira data e obra. Saldo em aberto não é saldo de caixa.
 
 ### Como fazer
 
-1. Leia as filas e as pendências apresentadas.
-2. Abra o item e confira vencimento, valor e origem.
-3. Siga para a área indicada para tratar a pendência e confira o retorno.
+1. Em Movimentação, escolha A pagar ou A receber.
+2. Escolha o prazo: Vencidos, Hoje, Próximos 7 dias, Depois ou Sem vencimento. Todos os prazos reúne o recorte. No celular, use Fila de vencimentos.
+3. Em Visualização, alterne Tabela e Kanban; os registros e valores do recorte são preservados. A direção e a visão ficam salvas por usuário neste navegador; filtros de prazo são da sessão. No quadro, as colunas apenas representam as datas.
+4. Use a ação do registro para revisar a origem ou registrar a operação permitida. Ver memorial mostra o detalhamento do valor.
 
 ### Como conferir se deu certo
 
-Você sabe quais tarefas exigem ação e em que área concluí-las.
+Você localiza o compromisso, o saldo e a ação permitida no mesmo recorte.
 
 ### O que merece atenção
 
-Um alerta indica algo a conferir; não é autorização automática para pagar.
+Trocar visão ou coluna não paga, recebe nem altera vencimentos. Pagamentos, recebimentos físicos e conferência fiscal são independentes. Confira adiantamentos e liquidações parciais antes de repetir uma operação.
 
 <a id="guia-fin_documentos"></a>
 

@@ -1,3 +1,4 @@
+import {useQueuePreferences} from '../../../features/workflow/useQueuePreferences.js';
 import {FilePicker} from '../../../design-system/patterns/FilePicker.jsx';
 import MessageRequestImport,{MessageRequestSource} from './MessageRequestImport.jsx';
 import {RecordAction} from '../../../design-system/primitives/RecordAction.jsx';
@@ -775,7 +776,10 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   const [fimCotacao,setFimCotacao]=useSessionState("fimCotacao","");
   const [cotacaoExpandida,setCotacaoExpandida]=useSessionState("cotacaoExpandida","");
   const [escopoMapa,setEscopoMapa]=useSessionState("escopoMapa",obraIdFixo||currentUser?.obraId||savedScope?.obraId?"obra":"empresa");
-  const [filtroKanban,setFiltroKanban]=useSessionState("filtroKanban","ativos");
+  const [queuePreferences,setQueuePreferences]=useQueuePreferences(currentUser?.id,"cmp",{layout:"table"});
+  const filaLayout=queuePreferences.layout;
+  const setFilaLayout=layout=>setQueuePreferences({...queuePreferences,layout});
+  useEffect(()=>{if(aba==="kanban"){setFilaLayout("kanban");setAba("fila");}},[aba]);
 
   const obras = useMemo(()=>(data.obras || []).filter(o=>!currentUser?.obraId||o.id===currentUser.obraId),[data.obras,currentUser?.obraId]);
   const obraAtual   = obraIdFixo || obraSel || obras[0]?.id || "";
@@ -980,51 +984,6 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     });
   },[cotacoes,buscaCotacao,statusCotacao,inicioCotacao,fimCotacao,materialPorId,fornecedorPorId,solicitacaoPorId]);
   const pedidoPorId     = useMemo(() => new Map((data.pedidos||[]).map(p => [p.id, p])), [data.pedidos]);
-  const kanbanCompras=useMemo(()=>{
-    const hoje=new Date(`${today()}T12:00:00`).getTime();
-    const risco=(dataPrazo,concluido=false)=>{
-      if(concluido)return{nivel:"concluido",cor:C.green,rotulo:"Concluído"};
-      if(!dataPrazo)return{nivel:"sem_prazo",cor:C.muted,rotulo:"Sem prazo"};
-      const dias=Math.ceil((new Date(`${String(dataPrazo).slice(0,10)}T12:00:00`).getTime()-hoje)/86400000);
-      if(dias<0)return{nivel:"atrasado",cor:C.red,rotulo:`${Math.abs(dias)}d atrasado`};
-      if(dias<=3)return{nivel:"atencao",cor:C.yellowD,rotulo:dias===0?"Vence hoje":`${dias}d restantes`};
-      return{nivel:"no_prazo",cor:C.green,rotulo:`${dias}d restantes`};
-    };
-    const cotacaoAtivaPorSolicitacao=new Set((data.cotacoes||[]).filter(c=>c.status!=="cancelada").map(c=>c.solicitacaoId).filter(Boolean));
-    const pedidosAtivos=(data.pedidos||[]).filter(p=>p.obraId===obraAtual&&p.status!=="cancelado");
-    const colunas=[
-      {id:"demanda",titulo:"Demandas",sub:"Aguardam análise",cor:C.blue,cards:[]},
-      {id:"cotacao",titulo:"Cotações",sub:"Comparação de propostas",cor:C.purple,cards:[]},
-      {id:"pedido",titulo:"Pedidos a enviar",sub:"Rascunho",cor:C.orange,cards:[]},
-      {id:"entrega",titulo:"Aguardando entrega",sub:"Enviado ao fornecedor",cor:C.yellowD,cards:[]},
-      {id:"concluido",titulo:"Concluídos",sub:"Recebimento confirmado",cor:C.green,cards:[]},
-    ];
-    const porId=new Map(colunas.map(c=>[c.id,c]));
-    (data.solicitacoesCompra||[]).filter(s=>s.obraId===obraAtual&&!["cancelada","pedido_gerado"].includes(s.status)&&!cotacaoAtivaPorSolicitacao.has(s.id)).forEach(s=>{
-      const prazo=s.necessidade||s.dataNecessidade||s.prazo||"";
-      porId.get("demanda").cards.push({id:s.id,tipo:"solicitacao",codigo:s.numero||"Solicitação",titulo:(s.itens||[])[0]?.descricaoRef||s.observacao||"Materiais da obra",detalhe:`${(s.itens||[]).length} item(ns) · ${s.prioridade||"normal"}`,prazo,risco:risco(prazo),registro:s});
-    });
-    (data.cotacoes||[]).filter(c=>c.obraId===obraAtual&&c.status==="aberta"&&(cotacaoMultiItens(c)?itensPendentesDaCotacao(c).length>0:!c.pedidoId)).forEach(c=>{
-      const sol=solicitacaoPorId.get(c.solicitacaoId);const prazo=sol?.necessidade||sol?.dataNecessidade||"";
-      porId.get("cotacao").cards.push({id:c.id,tipo:"cotacao",codigo:c.numero||"Cotação",titulo:cotacaoMultiItens(c)&&c.itens.length>1?`${c.itens.length} itens · ${materialPorId.get(c.materialId)?.descricao||"Material"}`:materialPorId.get(c.materialId)?.descricao||"Material",detalhe:`${(c.propostas||[]).length} proposta(s) · ${cotacaoMultiItens(c)?`${itensPendentesDaCotacao(c).length} item(ns) a decidir`:`${Number(c.qtd||0).toLocaleString("pt-BR")} ${unidMat(c.materialId)}`}`,prazo,risco:risco(prazo),registro:c});
-    });
-    pedidosAtivos.forEach(p=>{
-      // A coluna depende da entrega, não do pagamento (compra a prazo é o
-      // normal). O pagamento aparece no próprio cartão.
-      const status=statusPedido(p),concluido=status==="recebido";
-      const coluna=concluido?"concluido":status==="rascunho"?"pedido":"entrega";
-      const pagamento=statusPagamentoPedido(p)==="pago"?"pago":`a pagar ${fmtCompact(saldoPagamentoPedido(p))}`;
-      const prazo=p.previsao||p.dataEntrega||"";
-      const itens=(p.itens||[]);const primeiro=itens[0];
-      porId.get(coluna).cards.push({id:p.id,tipo:"pedido",codigo:p.numero||"Pedido",titulo:primeiro?(materialPorId.get(primeiro.materialId)?.descricao||primeiro.descricaoRef||"Material"):"Pedido de compra",detalhe:`${fornecedorPorId.get(p.fornecedorId)?.nome||"Fornecedor não definido"}${itens.length>1?` · +${itens.length-1} item(ns)`:""} · ${pagamento}`,valor:totalPedido(p),prazo,risco:risco(prazo,concluido),registro:p});
-    });
-    colunas.forEach(col=>col.cards.sort((a,b)=>{
-      const ordem={atrasado:0,atencao:1,sem_prazo:2,no_prazo:3,concluido:4};
-      return ordem[a.risco.nivel]-ordem[b.risco.nivel]||String(a.prazo||"9999").localeCompare(String(b.prazo||"9999"));
-    }));
-    return colunas;
-  },[data.solicitacoesCompra,data.cotacoes,data.pedidos,obraAtual,solicitacaoPorId,materialPorId,fornecedorPorId,unidMat,C]);
-
   const inicioPeriodoHistorico=useMemo(()=>{
     if(periodoHistorico==="todos")return "";
     const d=new Date(`${today()}T12:00:00`);
@@ -1873,10 +1832,13 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   };
 
   const moverCardKanban=(chave,destino)=>{
-    const [tipo,id]=String(chave||"").split(":");
-    const origem=kanbanCompras.find(col=>col.cards.some(card=>card.tipo===tipo&&card.id===id));
-    const card=origem?.cards.find(item=>item.tipo===tipo&&item.id===id);
-    if(!card||origem.id===destino)return;
+    if(!podeProcessar)return;
+    const row=fluxoCompras.rows.find(item=>`${item.type}:${item.id}`===chave);
+    if(!row)return;
+    const origem={id:({solicitacoes:'demanda',cotacoes:'cotacao',aprovacoes:'aprovacoes',pedidos:'pedido',recebimentos:'entrega'})[row.stage]};
+    if(origem.id===destino)return;
+    if(origem.id==='aprovacoes'||destino==='aprovacoes'){showToast('Consulte Ver aprovação para revisar a decisão. Arrastar não aprova a compra.','warn');return;}
+    const card={tipo:({request:'solicitacao',quote:'cotacao',order:'pedido'})[row.type],registro:row.record,id:row.id};
     const ordem=["demanda","cotacao","pedido","entrega","concluido"];
     const atual=ordem.indexOf(origem.id),proxima=ordem.indexOf(destino);
     if(proxima!==atual+1){
@@ -1952,7 +1914,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     ["forn","Cadastro de fornecedores"],["contratos","Contratos e medições"],["hist_fornecedor","Histórico por fornecedor"],["precos","Evolução de insumos"]
   ];
   const irParaArea=id=>{
-    setAba(id);setRegistroFoco("");setRetornosCompra([]);
+    if(id==="kanban"){setFilaLayout("kanban");setAba("fila");}else setAba(id);setRegistroFoco("");setRetornosCompra([]);
     window.requestAnimationFrame(()=>document.getElementById("compras-area-atual")?.focus({preventScroll:true}));
   };
   const guardarOrigemCompra=source=>setRetornosCompra(previous=>[...previous.slice(-7),{
@@ -2057,54 +2019,10 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       </div>
       {["fila","aprovacoes","recebimentos"].includes(aba)&&<PurchaseWorkspace model={fluxoCompras} area={aba} scope={escopoFluxo}
         filters={filtrosFluxo} onFiltersChange={setFiltrosFluxo} onOpen={abrirRegistroFluxo}
+        layout={filaLayout} onLayoutChange={setFilaLayout} onMove={podeProcessar?(key,stage)=>moverCardKanban(key,({solicitacoes:'demanda',cotacoes:'cotacao',aprovacoes:'aprovacoes',pedidos:'pedido',recebimentos:'entrega'})[stage]):undefined}
         supplierName={nomeForn} supplierChargeLink={linkCobrancaDoGrupo}
         exportButton={linhas=>botaoExportar(aba,[planilhaFila(linhas)],`Exportar para Excel os ${linhas.length} registro(s) da lista`)}
         afterMetrics={porObra&&porObra.linhas.length>1?<PurchasesByWork model={porObra} onOpenWork={id=>abrirObra(id,"fila")}/>:null}/>}
-
-      {aba==="kanban"&&<div className="purchase-kanban-view">
-        <section className="purchase-kanban-head">
-          <div><p>Controle visual de abastecimento</p><h3>Kanban de compras</h3><span>Os cartões avançam conforme solicitação, cotação, pagamento e recebimento são registrados.</span></div>
-          <div className="purchase-kanban-filters">
-            {[["ativos","Fluxo ativo"],["criticos","Atrasados e atenção"],["todos","Todos"]].map(([id,label])=><StandardButton variant="secondary" key={id} type="button" aria-pressed={filtroKanban===id} data-active={filtroKanban===id} onClick={()=>setFiltroKanban(id)}>{label}</StandardButton>)}
-          </div>
-        </section>
-        <div className="purchase-andon-legend" aria-label="Legenda de prazos">
-          <span><i style={{background:"var(--arcd-success-text)"}}/>No prazo</span><span><i style={{background:"var(--arcd-action-primary)"}}/>Até 3 dias</span><span><i style={{background:"var(--arcd-danger-text)"}}/>Atrasado</span><span><i style={{background:"var(--arcd-text-secondary)"}}/>Sem prazo</span>
-        </div>
-        <div className="purchase-kanban-board">
-          {kanbanCompras.map(coluna=>{
-            const cards=coluna.cards.filter(card=>{
-              if(filtroKanban==="criticos")return["atrasado","atencao"].includes(card.risco.nivel);
-              if(filtroKanban==="ativos")return coluna.id!=="concluido";
-              return true;
-            });
-            const valor=cards.reduce((s,c)=>s+Number(c.valor||0),0);
-            return <section className="purchase-kanban-column" key={coluna.id} style={{"--column-color":coluna.cor}}
-              onDragOver={e=>{e.preventDefault();e.currentTarget.dataset.dragover="true";}}
-              onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget))delete e.currentTarget.dataset.dragover;}}
-              onDrop={e=>{e.preventDefault();delete e.currentTarget.dataset.dragover;moverCardKanban(e.dataTransfer.getData("text/arcd-kanban"),coluna.id);}}>
-              <header><div><span>{coluna.titulo}</span><small>{coluna.sub}</small></div><b>{cards.length}</b></header>
-              {!!valor&&<div className="purchase-kanban-column-total">{fmtCompact(valor)}</div>}
-              <div className="purchase-kanban-cards">
-                {cards.map(card=><RecordAction type="button" draggable className="purchase-kanban-card" key={`${card.tipo}-${card.id}`} style={{"--risk-color":card.risco.cor}}
-                  onDragStart={e=>{e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/arcd-kanban",`${card.tipo}:${card.id}`);e.currentTarget.dataset.dragging="true";}}
-                  onDragEnd={e=>{delete e.currentTarget.dataset.dragging;}}
-                  onClick={()=>{
-                  if(card.tipo==="solicitacao")setSolModal({...card.registro,itens:(card.registro.itens||[]).map(i=>({...i}))});
-                  else if(card.tipo==="cotacao")setCotModal(formularioDaCotacao(card.registro));
-                  else setPedModal({...card.registro,itens:(card.registro.itens||[]).map(i=>({...i}))});
-                }}>
-                  <div className="purchase-kanban-card-top"><span>{card.codigo}</span><b style={{color:card.risco.cor}}>{card.risco.rotulo}</b></div>
-                  <h4>{card.titulo}</h4><p>{card.detalhe}</p>
-                  <footer><span>{card.prazo?`Prazo ${fmtDate(card.prazo)}`:"Defina o prazo"}</span>{card.valor>0&&<strong>{fmtCompact(card.valor)}</strong>}</footer>
-                </RecordAction>)}
-                {!cards.length&&<div className="purchase-kanban-empty">Nenhum cartão nesta etapa</div>}
-              </div>
-            </section>;
-          })}
-        </div>
-        <p className="purchase-kanban-help"><b>Regra Andon:</b> vermelho exige ação imediata; amarelo deve ser tratado antes de entrar em atraso. Clique em um cartão para atualizar o registro de origem.</p>
-      </div>}
 
       {aba==="mapa"&&<div className="compras-management-map" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
         <section style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-3)",flexWrap:"wrap",padding:"var(--arcd-space-3) var(--arcd-space-4)",background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:10}}>
@@ -2144,44 +2062,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
         </section>
         {porObra&&porObra.linhas.length>1&&<PurchasesByWork model={porObra} titulo="Compras por obra" onOpenWork={id=>abrirObra(id,"fila")}/>}
         </>:<>
-        <section className="purchase-dashboard-kanban">
-          <div className="purchase-kanban-head">
-            <div><p>Controle visual Andon</p><h3>Fluxo de compras e prazos</h3><span>Prioridades organizadas da necessidade ao recebimento, sem ocultar os indicadores gerenciais.</span></div>
-            <div style={{display:"flex",gap:"var(--arcd-space-1)",flexWrap:"wrap"}}><div className="purchase-kanban-filters">
-              {[["ativos","Fluxo ativo"],["criticos","Críticos"],["todos","Todos"]].map(([id,label])=><StandardButton variant="secondary" key={id} type="button" aria-pressed={filtroKanban===id} data-active={filtroKanban===id} onClick={()=>setFiltroKanban(id)}>{label}</StandardButton>)}
-            </div><Btn size="sm" v="ghost" onClick={()=>irParaArea("kanban")}>Ampliar Kanban →</Btn></div>
-          </div>
-          <div className="purchase-andon-legend"><span><i style={{background:"var(--arcd-success-text)"}}/>No prazo</span><span><i style={{background:"var(--arcd-action-primary)"}}/>Até 3 dias</span><span><i style={{background:"var(--arcd-danger-text)"}}/>Atrasado</span><span><i style={{background:"var(--arcd-text-secondary)"}}/>Sem prazo</span></div>
-          <div className="purchase-dashboard-deadlines">
-            {[
-              ["Atrasados",kanbanCompras.flatMap(c=>c.cards).filter(c=>c.risco.nivel==="atrasado").length,C.red],
-              ["Atenção em 3 dias",kanbanCompras.flatMap(c=>c.cards).filter(c=>c.risco.nivel==="atencao").length,C.yellowD],
-              ["No prazo",kanbanCompras.flatMap(c=>c.cards).filter(c=>c.risco.nivel==="no_prazo").length,C.green],
-              ["Sem data definida",kanbanCompras.flatMap(c=>c.cards).filter(c=>c.risco.nivel==="sem_prazo").length,C.muted],
-            ].map(([label,valor,cor])=><div key={label}><b style={{color:cor}}>{valor}</b><span>{label}</span></div>)}
-          </div>
-          <div className="purchase-kanban-board purchase-kanban-board-compact">
-            {kanbanCompras.map(coluna=>{
-              const cards=coluna.cards.filter(card=>filtroKanban==="criticos"?["atrasado","atencao"].includes(card.risco.nivel):filtroKanban==="ativos"?coluna.id!=="concluido":true);
-              return <section className="purchase-kanban-column" key={coluna.id} style={{"--column-color":coluna.cor}}
-                onDragOver={e=>{e.preventDefault();e.currentTarget.dataset.dragover="true";}}
-                onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget))delete e.currentTarget.dataset.dragover;}}
-                onDrop={e=>{e.preventDefault();delete e.currentTarget.dataset.dragover;moverCardKanban(e.dataTransfer.getData("text/arcd-kanban"),coluna.id);}}>
-                <header><div><span>{coluna.titulo}</span><small>{coluna.sub}</small></div><b>{cards.length}</b></header>
-                <div className="purchase-kanban-cards">{cards.slice(0,5).map(card=><RecordAction type="button" draggable className="purchase-kanban-card" key={`${card.tipo}-${card.id}`} style={{"--risk-color":card.risco.cor}}
-                  onDragStart={e=>{e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/arcd-kanban",`${card.tipo}:${card.id}`);e.currentTarget.dataset.dragging="true";}}
-                  onDragEnd={e=>{delete e.currentTarget.dataset.dragging;}}
-                  onClick={()=>{
-                  if(card.tipo==="solicitacao")setSolModal({...card.registro,itens:(card.registro.itens||[]).map(i=>({...i}))});
-                  else if(card.tipo==="cotacao")setCotModal(formularioDaCotacao(card.registro));
-                  else setPedModal({...card.registro,itens:(card.registro.itens||[]).map(i=>({...i}))});
-                }}><div className="purchase-kanban-card-top"><span>{card.codigo}</span><b style={{color:card.risco.cor}}>{card.risco.rotulo}</b></div><h4>{card.titulo}</h4><p>{card.detalhe}</p><footer><span>{card.prazo?fmtDate(card.prazo):"Defina o prazo"}</span>{card.valor>0&&<strong>{fmtCompact(card.valor)}</strong>}</footer></RecordAction>)}
-                  {!cards.length&&<div className="purchase-kanban-empty">Nenhum cartão</div>}{cards.length>5&&<StandardButton variant="secondary" className="purchase-kanban-more" onClick={()=>irParaArea("kanban")}>+ {cards.length-5} cartão(ões)</StandardButton>}
-                </div>
-              </section>;
-            })}
-          </div>
-        </section>
+        <section className="purchase-dashboard-kanban"><h3>Fluxo de compras e prazos</h3><p>Consulte a fila em tabela ou Kanban com as mesmas obras, busca e prazos.</p><Button variant="secondary" onClick={()=>irParaArea('kanban')}>Abrir Kanban da fila</Button></section>
         <section style={{display:"grid",gridTemplateColumns:isDesktop?"minmax(0,1fr) minmax(0,1fr)":"1fr",gap:"var(--arcd-space-2)"}}>
           <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:10,padding:"var(--arcd-space-3) var(--arcd-space-3)"}}>
             <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Maturidade do controle</p>

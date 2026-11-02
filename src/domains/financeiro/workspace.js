@@ -40,6 +40,7 @@ export function todayQueues(data,ledger,obraId,today){
     {id:'overdue',label:'Vencidos',items:all.filter(p=>p.dueDate&&p.dueDate<today)},
     {id:'nextWeek',label:'Próximos 7 dias',items:all.filter(p=>p.dueDate>today&&p.dueDate<=until)},
     {id:'undated',label:'Sem vencimento',items:all.filter(p=>!p.dueDate)},
+    {id:'later',label:'Depois',items:all.filter(p=>p.dueDate>until)},
   ].map(q=>({...q,items:q.items.sort((a,b)=>String(a.dueDate).localeCompare(String(b.dueDate))),amountCents:q.items.reduce((s,p)=>s+p.amountCents,0)}));
 }
 export function overviewEntries(data,selected,obraId,key){

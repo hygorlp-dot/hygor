@@ -44,3 +44,11 @@ describe('workspace financeiro',()=>{
     expect(e.record.numero).toBe('123');expect(JSON.stringify(e)).not.toContain('não copiar');
   });
 });
+
+it('particiona vencidos, hoje, sete dias, depois e sem vencimento sem duplicação',()=>{
+ const dates=['2026-01-19','2026-01-20','2026-01-21','2026-01-27','2026-01-28',''];
+ const d={obras:[{id:'a',name:'Obra A'}],notasFiscais:dates.map((vencimento,i)=>({id:`nf-${i}`,obraId:'a',status:'aprovada',emissao:'2026-01-01',valorBruto:100,vencimento,pagamentos:i===0?[{id:'partial',data:'2026-01-10',valor:30}]:[]}))};
+ const queues=todayQueues(d,buildFinancialLedger(d),'a','2026-01-20');
+ expect(queues.find(q=>q.id==='overdue').amountCents).toBe(7000);expect(queues.find(q=>q.id==='payToday').items).toHaveLength(1);expect(queues.find(q=>q.id==='nextWeek').items).toHaveLength(2);expect(queues.find(q=>q.id==='later').items).toHaveLength(1);expect(queues.find(q=>q.id==='undated').items).toHaveLength(1);
+ const ids=queues.flatMap(q=>q.items.map(item=>item.id));expect(new Set(ids).size).toBe(ids.length);expect(ids).toHaveLength(6);
+});

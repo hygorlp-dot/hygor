@@ -1,3 +1,4 @@
+import {buildPurchaseWorkspace} from './domains/compras/workspace.js';
 import {describe,expect,it} from "vitest";
 import {readFileSync} from "node:fs";
 
@@ -81,12 +82,11 @@ describe("correções do fluxo de compras (auditoria de 22/10/2026)",()=>{
     expect(compras).toMatch(/Motivo do adiantamento \(recomendado\)/);
   });
 
-  it("C1.2: o kanban separa pedidos pela entrega, não pelo pagamento",()=>{
-    expect(compras).not.toMatch(/Pedidos a pagar/);
-    expect(compras).toMatch(/const coluna=concluido\?"concluido":status==="rascunho"\?"pedido":"entrega";/);
-    expect(compras).not.toMatch(/liberado para recebimento/);
-    const mover=trecho(compras,"const moverCardKanban=","const comprasAbas=");
-    expect(mover).toMatch(/status:"enviado",motivoAjuste:"Pedido enviado ao fornecedor\."/);
+  it("C1.2: fila e quadro separam entrega e pagamento",()=>{
+    const pending={id:'paid-not-delivered',obraId:'a',status:'enviado',itens:[{qtd:10,qtdRecebida:0,precoUnit:10}],pagamentos:[{id:'payment',valor:100}]};
+    const received={...pending,id:'received-unpaid',itens:[{qtd:10,qtdRecebida:10,precoUnit:10}],pagamentos:[]};
+    const model=buildPurchaseWorkspace({pedidos:[pending,received]},['a'],'2026-11-01');
+    expect(model.rows.map(row=>row.id)).toEqual(['paid-not-delivered']);expect(model.rows[0]).toMatchObject({stage:'recebimentos',action:'Receber materiais'});expect(model.rows[0].detail).toContain('Pago');
   });
 });
 

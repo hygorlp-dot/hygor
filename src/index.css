@@ -5397,53 +5397,7 @@ canvas {
 @media(max-width:520px){.commercial-command-card{padding:15px}.commercial-kpis{grid-template-columns:1fr 1fr}.commercial-kpis button{padding:10px!important}.commercial-kpis button p:nth-child(2){font-size:var(--arcd-type-section-title)!important}.commercial-panel-head{align-items:flex-start}.commercial-health-grid{grid-template-columns:1fr 1fr}}
 
 /* Kanban de compras — controle visual Andon inspirado no sistema Toyota. */
-.purchase-kanban-view{display:flex;flex-direction:column;gap:9px}
-.purchase-kanban-head{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 14px;border:1px solid #d3d7d9;border-radius:9px;background:#f7f8f8}
-.purchase-kanban-head p{color:#8a6b13;font-size:var(--arcd-type-caption);font-weight:600;letter-spacing:.09em;text-transform:uppercase}
-.purchase-kanban-head h3{margin-top:2px;color:#24292d;font-size:var(--arcd-type-card-title)}
-.purchase-kanban-head>div>span{display:block;margin-top:3px;color:#747b80;font-size:var(--arcd-type-caption)}
-.purchase-kanban-filters{display:flex;flex-shrink:0;padding:3px;border:1px solid #d5d8da;border-radius:7px;background:#eceeef}
-.purchase-kanban-filters button{padding:6px 9px;border:0;border-radius:5px;background:transparent;color:#697176;font-size:var(--arcd-type-control);font-weight:600;cursor:pointer}
-.purchase-kanban-filters button[data-active=true]{background:#fff;color:#252a2e;box-shadow:0 1px 4px rgba(20,25,28,.1)}
-.purchase-andon-legend{display:flex;gap:14px;align-items:center;padding:2px 3px;color:#6e767b;font-size:var(--arcd-type-caption)}
-.purchase-andon-legend span{display:flex;align-items:center;gap:5px}
-.purchase-andon-legend i{width:7px;height:7px;border-radius:50%}
-.purchase-kanban-board{display:grid;grid-template-columns:repeat(5,minmax(210px,1fr));gap:8px;overflow-x:auto;padding-bottom:5px;scrollbar-width:thin}
-.purchase-kanban-column{position:relative;display:flex;min-height:420px;flex-direction:column;overflow:hidden;border:1px solid #d4d8da;border-radius:9px;background:#eceeef;transition:border-color .15s,box-shadow .15s,background .15s}
-.purchase-kanban-column::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:var(--column-color);z-index:1}
-.purchase-kanban-column[data-dragover=true]{border-color:var(--column-color);background:color-mix(in srgb,var(--column-color) 7%,#eceeef);box-shadow:0 0 0 2px color-mix(in srgb,var(--column-color) 18%,transparent)}
-.purchase-kanban-column>header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 11px;border-bottom:1px solid #d9dddf;background:#f8f9f9}
-.purchase-kanban-column>header span,.purchase-kanban-column>header small{display:block}
-.purchase-kanban-column>header span{color:#31373b;font-size:var(--arcd-type-caption);font-weight:600}
-.purchase-kanban-column>header small{margin-top:2px;color:#858c91;font-size:var(--arcd-type-caption)}
-.purchase-kanban-column>header b{display:grid;min-width:24px;height:24px;padding:0 5px;place-items:center;border-radius:99px;background:color-mix(in srgb,var(--column-color) 12%,white);color:var(--column-color);font-size:var(--arcd-type-caption)}
-.purchase-kanban-column-total{padding:6px 11px;border-bottom:1px solid #d9dddf;color:#646c71;font-size:var(--arcd-type-caption);font-weight:600;text-align:right}
-.purchase-kanban-cards{display:flex;flex:1;flex-direction:column;gap:7px;padding:7px}
-.purchase-kanban-card{position:relative;width:100%;padding:10px 10px 9px;overflow:hidden;border:1px solid #d6d9db;border-radius:7px;background:#fff;text-align:left;box-shadow:0 1px 2px rgba(21,27,30,.04);cursor:grab;transition:border-color .14s,transform .14s,box-shadow .14s,opacity .14s}
-.purchase-kanban-card::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:var(--risk-color)}
-.purchase-kanban-card:hover{transform:translateY(-1px);border-color:#bfc4c7;box-shadow:0 4px 12px rgba(21,27,30,.08)}
-.purchase-kanban-card:active{cursor:grabbing}
-.purchase-kanban-card[data-dragging=true]{opacity:.45;transform:rotate(1deg) scale(.98)}
-.purchase-kanban-card-top{display:flex;align-items:center;justify-content:space-between;gap:7px}
-.purchase-kanban-card-top span{color:#0d47a1;font-size:var(--arcd-type-caption);font-weight:600}
-.purchase-kanban-card-top b{padding:2px 5px;border:1px solid currentColor;border-radius:99px;font-size:var(--arcd-type-caption);font-weight:600}
-.purchase-kanban-card h4{margin-top:7px;overflow:hidden;color:#282e32;font-size:var(--arcd-type-caption);font-weight:600;text-overflow:ellipsis;white-space:nowrap}
-.purchase-kanban-card p{margin-top:3px;overflow:hidden;color:#747b80;font-size:var(--arcd-type-caption);text-overflow:ellipsis;white-space:nowrap}
-.purchase-kanban-card footer{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:9px;padding-top:7px;border-top:1px solid #eceeef;color:#7b8287;font-size:var(--arcd-type-caption)}
-.purchase-kanban-card footer strong{color:#31373b;font-size:var(--arcd-type-caption)}
-.purchase-kanban-empty{display:grid;min-height:86px;place-items:center;border:1px dashed #cbd0d2;border-radius:7px;color:#969ca0;font-size:var(--arcd-type-caption);text-align:center}
-.purchase-kanban-help{padding:8px 10px;border:1px solid #e5dcc2;background:#f5f2e7;color:#747268;font-size:var(--arcd-type-caption);line-height:1.4}
 .purchase-dashboard-kanban{overflow:hidden;border:1px solid #d4d8da;border-radius:10px;background:#f7f8f8}
-.purchase-dashboard-kanban .purchase-kanban-head{border:0;border-bottom:1px solid #d9dddf;border-radius:0;background:#fafafa}
-.purchase-dashboard-kanban .purchase-andon-legend{padding:8px 13px 3px}
-.purchase-dashboard-deadlines{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;margin:5px 8px 8px;background:#dfe2e3;border:1px solid #dfe2e3;border-radius:7px;overflow:hidden}
-.purchase-dashboard-deadlines>div{padding:8px 10px;background:#fff}
-.purchase-dashboard-deadlines b,.purchase-dashboard-deadlines span{display:block}
-.purchase-dashboard-deadlines b{font-size:var(--arcd-type-card-title)}
-.purchase-dashboard-deadlines span{margin-top:2px;color:#757d82;font-size:var(--arcd-type-caption)}
-.purchase-dashboard-kanban .purchase-kanban-board{padding:0 8px 8px}
-.purchase-kanban-board-compact .purchase-kanban-column{min-height:280px}
-.purchase-kanban-more{width:100%;padding:7px;border:1px dashed #bfc5c8;border-radius:6px;background:transparent;color:#646c71;font-size:var(--arcd-type-caption);font-weight:600;cursor:pointer}
 @media(max-width:760px){.purchase-kanban-head{align-items:flex-start;flex-direction:column}.purchase-kanban-filters{width:100%;overflow-x:auto}.purchase-kanban-filters button{flex:1;white-space:nowrap}.purchase-kanban-board{grid-template-columns:repeat(5,82vw);scroll-snap-type:x proximity}.purchase-kanban-column{min-height:360px;scroll-snap-align:start}.purchase-andon-legend{overflow-x:auto;white-space:nowrap}}
 @media(max-width:620px){.purchase-dashboard-deadlines{grid-template-columns:1fr 1fr}.purchase-dashboard-kanban .purchase-kanban-board{grid-template-columns:repeat(5,82vw)}}
 

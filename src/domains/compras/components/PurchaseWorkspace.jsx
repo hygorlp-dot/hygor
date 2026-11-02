@@ -1,3 +1,4 @@
+import {WorkQueueBoard} from '../../../design-system/patterns/WorkQueueBoard.jsx';
 import {RecordAction} from '../../../design-system/primitives/RecordAction.jsx';
 import { useState } from "react";
 import { ArrowRight, CheckCircle2, ClipboardList, Search } from "lucide-react";
@@ -28,7 +29,7 @@ const dateLabel = value => value ? new Date(`${value}T12:00:00`).toLocaleDateStr
 // `supplierName(id)` dá o nome do fornecedor; `supplierChargeLink(grupo)` devolve
 // o link de cobrança das entregas atrasadas do grupo (ou null, sem telefone).
 export function PurchaseWorkspace({ model, area, filters, onFiltersChange, onOpen, scope, afterMetrics = null,
-  supplierName = id => id, supplierChargeLink = () => null, exportButton = null }) {
+  supplierName = id => id, supplierChargeLink = () => null, exportButton = null, layout='table', onLayoutChange, onMove }) {
   const [page, setPage] = useState(0);
   const patch = next => { setPage(0); onFiltersChange({...filters, ...next}); };
   const source = model.rows.filter(row => area === "fila" || row.stage === area);
@@ -44,7 +45,7 @@ export function PurchaseWorkspace({ model, area, filters, onFiltersChange, onOpe
   const groups = agruparFilaCompras(rows, filters.group, supplierName);
   const totals = resumoDaFila(source);
   const moneyHint = value => value > 0 ? ` · ${money(value)}` : "";
-  const renderRow = row => <tr key={`${row.type}-${row.id}`}>
+  const renderRow = row => <tr key={`${row.type}-${row.id}`} data-record={`${row.type}:${row.id}`}>
           <td data-label="Registro / obra"><b>{row.code}</b><span>{row.obra}</span><small>{stageLabels[row.stage]}</small></td>
           <td data-label="Material e situação"><strong className="purchase-row-title">{row.title}</strong><span>{row.detail}</span>{row.total != null && <small className="purchase-money">{money(row.total)}</small>}</td>
           <td data-label="Prazo"><span className="purchase-deadline" data-tone={row.deadline.tone}>{row.deadline.label}</span><small>{dateLabel(row.date)}</small></td>
@@ -64,23 +65,32 @@ export function PurchaseWorkspace({ model, area, filters, onFiltersChange, onOpe
       <RecordAction type="button" aria-pressed={filters.stage === "aprovacoes"} onClick={() => patch({stage:"aprovacoes",risk:""})}><span>Em aprovação</span><strong>{model.counts.aprovacoes}</strong><small>Decisão ou configuração pendente</small></RecordAction>
     </div>}
     <div className="purchase-queue-panel">
-      <div className="purchase-queue-filters">
+
+      <div className="purchase-queue-filters mrc-queue-filterbar">
         <Input label="Buscar na fila" name="purchase-search" autoComplete="off" value={filters.query} onChange={event => patch({query:event.target.value})} placeholder="Ex.: cimento Alameda…"/>
+        {onLayoutChange&&<Select fieldClassName="mrc-queue-view" label="Visualização" value={layout} onChange={event=>onLayoutChange(event.target.value)} options={[{value:'table',label:'Tabela'},{value:'kanban',label:'Kanban'}]}/>}
         <WorkspaceFilters activeCount={[filters.stage,filters.risk,filters.group].filter(Boolean).length}>
         {area === "fila" && <Select label="Etapa do fluxo" value={filters.stage} onChange={event => patch({stage:event.target.value})}
           options={[{value:"",label:"Todas as etapas"},...Object.entries(stageLabels).map(([value,label]) => ({value,label}))]}/>}
         <Select label="Prazo" value={filters.risk} onChange={event => patch({risk:event.target.value})}
           options={[{value:"",label:"Todos os prazos"},{value:"overdue",label:"Prazo vencido"},{value:"soon",label:"Hoje e próximos 3 dias"},{value:"attention",label:"Vencidos e próximos 3 dias"}]}/>
-        <Select label="Agrupar por" value={filters.group || ""} onChange={event => patch({group:event.target.value})}
+        <Select label="Agrupar por" disabled={layout==='kanban'} value={filters.group || ""} onChange={event => patch({group:event.target.value})}
           options={[{value:"",label:"Sem agrupamento"},...Object.entries(AGRUPAMENTOS_FILA).map(([value,label]) => ({value,label}))]}/>
         </WorkspaceFilters>
       </div>
       <div className="purchase-order-count-row">
-        <p className="purchase-result-count" role="status">{rows.length} registro(s){filtered ? ` de ${source.length}` : ""}{moneyHint(resumoDaFila(rows).valor)} · {groups.length ? `${groups.length} grupo(s), mais atrasados primeiro` : "prioridades por prazo"}</p>
+        <p className="purchase-result-count" role="status">{rows.length} registro(s){filtered ? ` de ${source.length}` : ""}{moneyHint(resumoDaFila(rows).valor)} · {groups.length && layout==='table' ? `${groups.length} grupo(s), mais atrasados primeiro` : "prioridades por prazo"}</p>
         {filtered && <Button variant="ghost" size="sm" onClick={clear}>Limpar filtros</Button>}
         {exportButton && <div className="purchase-export-action">{exportButton(rows)}</div>}
       </div>
-      {rows.length ? <div className="purchase-table-scroll" tabIndex={0} role="region" aria-label="Registros da fila de compras"><table className="purchase-queue-table">
+      {rows.length ? layout==='kanban'?<>
+        <p className="mrc-queue-note">Arrastar prepara uma revisão. Use a ação do cartão para continuar.</p>
+        <WorkQueueBoard label="Fila de compras por etapa" groups={Object.entries(stageLabels).filter(([id])=>area==='fila'? !filters.stage||id===filters.stage:id===area).map(([id,label])=>({id,label,items:rows.filter(row=>row.stage===id)}))} itemKey={row=>`${row.type}:${row.id}`} onMove={onMove} renderItem={row=><>
+          <strong>{row.code} · {row.obra}</strong><strong className="purchase-row-title">{row.title}</strong><p>{row.detail}</p>
+          <span className="purchase-deadline" data-tone={row.deadline.tone}>{row.deadline.label}</span><small>{dateLabel(row.date)}</small><p>{row.responsible}</p>
+          {row.total!=null&&<strong>{money(row.total)}</strong>}<Button variant="secondary" size="sm" onClick={()=>onOpen(row)} aria-label={`${row.action} · ${row.code}`}>{row.action}<ArrowRight size={14} aria-hidden="true"/></Button>
+        </>}/>
+      </>:<div className="purchase-table-scroll" tabIndex={0} role="region" aria-label="Registros da fila de compras"><table className="purchase-queue-table">
         <caption className="purchase-sr-only">Compras em andamento com obra, prazo e próxima ação</caption>
         <thead><tr><th scope="col">Registro / obra</th><th scope="col">Material e situação</th><th scope="col">Prazo</th><th scope="col">Contato / solicitante</th><th scope="col">Próxima ação</th></tr></thead>
         {groups.length ? groups.map(group => {
@@ -99,7 +109,7 @@ export function PurchaseWorkspace({ model, area, filters, onFiltersChange, onOpe
         <h4>{filtered ? "Nenhum resultado para estes filtros" : "Nenhuma pendência nesta fila"}</h4>
         <p>{filtered ? "Tente outras palavras, altere o prazo ou limpe os filtros." : "Os registros desta obra aparecerão aqui conforme o fluxo avançar."}</p>
         {filtered && <Button variant="secondary" onClick={clear}>Mostrar todos os registros</Button>}</div>}
-      {!groups.length && rows.length > 20 && <div className="purchase-pagination"><Button variant="secondary" size="sm" disabled={!currentPage} onClick={() => setPage(currentPage - 1)}>Anterior</Button><span>Página {currentPage + 1} de {Math.ceil(rows.length / 20)}</span><Button variant="secondary" size="sm" disabled={(currentPage + 1) * 20 >= rows.length} onClick={() => setPage(currentPage + 1)}>Próxima</Button></div>}
+      {layout!=='kanban' && !groups.length && rows.length > 20 && <div className="purchase-pagination"><Button variant="secondary" size="sm" disabled={!currentPage} onClick={() => setPage(currentPage - 1)}>Anterior</Button><span>Página {currentPage + 1} de {Math.ceil(rows.length / 20)}</span><Button variant="secondary" size="sm" disabled={(currentPage + 1) * 20 >= rows.length} onClick={() => setPage(currentPage + 1)}>Próxima</Button></div>}
     </div>
     {area === "fila" && afterMetrics && <details className="workspace-disclosure"><summary>Comparar compras por obra</summary>{afterMetrics}</details>}
   </section>;

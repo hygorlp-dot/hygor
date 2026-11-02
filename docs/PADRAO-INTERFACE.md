@@ -112,3 +112,9 @@ O shell compartilhado usa `SidebarResize` e `useSidebarWidth`. Largura expandida
 ## P1 — fundação precisa, piloto local
 
 O tema `marcell` é MARCELL Preciso, padrão para novos navegadores, com densidade Compacta. Preferências válidas são preservadas; Alterar aparência permite selecionar o piloto ou Restaurar padrão. IBM Plex Sans é a família operacional comum, hospedada localmente em `public/fonts/ibm-plex`, pesos 400/500/600 e licença OFL incluída. A paleta do tema está em `themeRegistry.js`; foco da lateral usa `--arcd-nav-focus`, adequado ao fundo escuro. Densidade continua em `tokens/density.css`, sem reduzir o tamanho da fonte. Listas e formulários reutilizam controles, escala e estados existentes. Esta etapa não altera regras ou transições de Compras e Financeiro.
+
+## P2 — fila e quadro com o mesmo recorte
+
+Usar `WorkQueueBoard` para a representação por colunas. O domínio fornece os grupos de registros já filtrados e os callbacks de ação; o componente não grava operações nem altera datas. O mesmo seletor/modelo serve às duas visões. `onMove`, quando houver, só pode abrir o fluxo existente de revisão e confirmação e deve validar o registro no escopo e o acesso atual. Não criar estados de negócio para salvar a posição visual de um cartão.
+
+Preferências de apresentação usam `useQueuePreferences`, com área e usuário. Só layout e direção podem ser armazenados por esse hook. Filtros, busca, registros e rascunhos ficam no workspace da sessão, conforme o contrato existente. Tabela e quadro compartilham prazos e contagens; grupos da tabela são apresentação, não filtro. Financeiro não permite arraste por coluna de prazo. Detalhes e evidências em `PILOTO-MARCELL-P2-20261101.md`.
