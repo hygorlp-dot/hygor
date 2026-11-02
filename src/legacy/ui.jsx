@@ -239,37 +239,19 @@ export function CampoCNPJ({ label = "CNPJ", value, onChange, onEncontrado, disab
   };
 
   return (
-    <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      {label && <span style={{
-        color: C.text, fontSize:"var(--arcd-type-caption)", fontWeight:600,
-        letterSpacing: 0.1, fontFamily: "var(--arcd-font-sans)",
-      }}>{textoUi(label)}</span>}
-      <div style={{ display: "flex", gap: 6 }}>
-        <input
-          value={value == null ? "" : value}
-          onChange={e => { onChange(e.target.value); setOk(false); setErro(""); }}
-          onBlur={() => { if (soDigitos(value).length === 14) consultar(); }}
-          placeholder="00.000.000/0001-00"
-          disabled={disabled || carregando}
-          style={{
-            flex: 1, background: disabled ? C.surface : C.bg,
-            border: `1.5px solid ${ok ? C.green : erro ? C.orange : C.line}`,
-            color: C.text, padding: "8px 10px", outline: "none", fontSize: "var(--arcd-type-control)",
-            borderRadius: 7, fontFamily: "var(--arcd-font-sans)",
-          }}
-        />
-        <button type="button" onMouseDown={e=>e.preventDefault()} onClick={consultar} disabled={carregando || disabled}
-          style={{
-            flexShrink: 0, border: `1.5px solid ${C.blue}`, background: `${C.blue}10`,
-            color: C.blue, borderRadius: 7, padding: "0 10px", cursor: carregando ? "default" : "pointer",
-            fontSize:"var(--arcd-type-control)", fontWeight:600, whiteSpace: "nowrap",
-          }}>
-          {carregando ? "Buscando..." : "Buscar"}
-        </button>
+    <div>
+      <div className="arcd-lookup-field__row">
+        <DesignSystemInput label={label?textoUi(label):undefined} value={value==null?"":value}
+          onChange={e=>{onChange(e.target.value);setOk(false);setErro("");}}
+          onBlur={()=>{if(soDigitos(value).length===14)consultar();}}
+          placeholder="00.000.000/0001-00" disabled={disabled||carregando} aria-invalid={Boolean(erro)}/>
+        <SharedUiButton type="button" variant="secondary" onMouseDown={e=>e.preventDefault()} onClick={consultar} disabled={carregando||disabled}>
+          {carregando?"Buscando...":"Buscar"}
+        </SharedUiButton>
       </div>
       {erro && <span style={{ fontSize:"var(--arcd-type-label)", color: erro.startsWith("Atencao") ? C.orange : C.red }}>{erro}</span>}
       {ok && !erro && <span style={{ fontSize:"var(--arcd-type-label)", color: C.green }}>Dados preenchidos pela Receita.</span>}
-    </label>
+    </div>
   );
 }
 

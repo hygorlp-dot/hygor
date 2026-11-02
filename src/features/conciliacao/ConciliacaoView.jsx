@@ -1,3 +1,5 @@
+import {Input as FilterInput} from '../../design-system/primitives/Input.jsx';
+import {Select as FilterSelect} from '../../design-system/primitives/Select.jsx';
 import BankImportPreview from "../financeiro/BankImportPreview.jsx";
 import "../financeiro/record-continuity.css";
 import {useWorkflow} from '../workflow/WorkflowNavigation.jsx';
@@ -1012,14 +1014,10 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
       </section>}
 
       {!["extratos","regras","fechamentos"].includes(aba)&&<div className="reconciliation-toolbar">
-        <label className="reconciliation-search">
-          <span className="sr-only">Buscar na conciliação</span>
-          <Ic n="search" s={13} color={C.muted}/>
-          <input value={buscaConc} onChange={e=>setBuscaConc(e.target.value)} placeholder={aba==="historico"?"Buscar ação, operador ou transação...":"Buscar categoria, obra, fornecedor, funcionário ou data..."}/>
-        </label>
-        {aba!=="historico"&&!modoConciliacaoRh&&<select aria-label="Tipo de movimento" value={tipoMovimento} onChange={e=>{setTipoMovimento(e.target.value);setFiltroCategoria("");}}><option value="todos">Entradas e saídas</option><option value="entradas">Somente entradas</option><option value="saidas">Somente saídas</option></select>}
+        <FilterInput fieldClassName="reconciliation-search" label="Buscar na conciliação" value={buscaConc} onChange={e=>setBuscaConc(e.target.value)} placeholder={aba==="historico"?"Buscar ação, operador ou transação...":"Buscar categoria, obra, fornecedor, funcionário ou data..."}/>
+        {aba!=="historico"&&!modoConciliacaoRh&&<FilterSelect fieldClassName="reconciliation-type" label="Tipo de movimento" value={tipoMovimento} onChange={e=>{setTipoMovimento(e.target.value);setFiltroCategoria("");}} options={[{value:'todos',label:'Entradas e saídas'},{value:'entradas',label:'Somente entradas'},{value:'saidas',label:'Somente saídas'}]}/>}
         {["pendentes","identificados","conciliadas","ignoradas"].includes(aba)&&!modoConciliacaoRh&&<CategoryCombobox label="Filtrar categoria" options={categoriasFila} value={filtroCategoria} onChange={setFiltroCategoria} clearable/>}
-        {!modoConciliacaoRh&&["pendentes","ignoradas"].includes(aba)&&<button type="button" className="reconciliation-toolbar__select-all" onClick={alternarTodas}>{todosSelecionados?"Desmarcar todas":"Selecionar todas"}</button>}
+        {!modoConciliacaoRh&&["pendentes","ignoradas"].includes(aba)&&<Button type="button" variant="outline" className="reconciliation-toolbar__select-all" onClick={alternarTodas}>{todosSelecionados?"Desmarcar todas":"Selecionar todas"}</Button>}
         {!modoConciliacaoRh&&aba==="pendentes"&&transacoesElegiveisLote.length>0&&<Btn size="sm" onClick={()=>setLoteProntoModal({excluidas:new Set()})}><Ic n="check"/> Revisar e confirmar em lote · {transacoesElegiveisLote.length}</Btn>}
         {!modoConciliacaoRh&&aba==="pendentes"&&selecionadas.length>0&&<Btn size="sm" v="ghost" onClick={()=>abrirIgnorar(selecionadas,"Ignorar selecionadas")}>Ignorar selecionadas · {selecionadas.length}</Btn>}
         {!modoConciliacaoRh&&aba==="pendentes"&&transacoes.length>0&&<Btn size="sm" v="danger" onClick={()=>abrirIgnorar(transacoes,"Ignorar fila de revisão")}>Ignorar fila de revisão · {transacoes.length}</Btn>}

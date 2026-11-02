@@ -69,6 +69,5 @@
 }
 
 /* O alinhamento inclui a altura real: padding não pode aumentar o controle. */
-[data-theme] .arcd-main .workspace-command-bar [data-mrc-control]:not(textarea){box-sizing:border-box;height:var(--arcd-control-height);min-height:var(--arcd-control-height);padding-block:0;}
 [data-theme] .arcd-main .workspace-command-bar .mrc-button{min-height:var(--arcd-control-height) !important;padding-block:0;}
 [data-theme] .arcd-main .workspace-command-bar :is(.arcd-field,.workspace-command-bar__controls>label){gap:var(--arcd-space-2);}

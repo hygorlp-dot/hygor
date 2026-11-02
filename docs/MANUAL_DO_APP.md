@@ -1686,8 +1686,9 @@ Confira banco, conta e período do extrato.
 ### Como fazer
 
 1. Importe ou abra o extrato e confira as linhas.
-2. Analise cada sugestão comparando valor, data, contraparte e documento.
-3. Confirme o vínculo apenas após a conferência e acompanhe o saldo e as pendências.
+2. Use Buscar na conciliação, Tipo de movimento e Filtrar categoria para localizar as linhas; Selecionar todas marca as linhas elegíveis e não confirma vínculos.
+3. Analise cada sugestão comparando valor, data, contraparte e documento.
+4. Confirme o vínculo apenas após a conferência e acompanhe o saldo e as pendências.
 
 ### Como conferir se deu certo
 
@@ -2997,7 +2998,7 @@ Na página separada Estudo de Compras, use Precisão, Obra, Foco ou Mesa de trab
 
 ### Escolher a aparência
 
-Use o botão Alterar aparência, identificado pelo ícone de paleta no cabeçalho, para escolher MARCELL Operacional, MARCELL Claro ou MARCELL Preciso e ajustar a densidade. O padrão é MARCELL Preciso com densidade Compacta: menu azul-marinho, conteúdo claro e ações em azul. A fonte é IBM Plex Sans. Compacta reduz espaços e preserva o toque no celular. Campos e botões da barra mantêm a mesma altura em cada densidade, com rótulos alinhados. A preferência fica neste navegador; a troca mantém seus filtros e dados.
+Use o botão Alterar aparência, identificado pelo ícone de paleta no cabeçalho, para escolher MARCELL Operacional, MARCELL Claro ou MARCELL Preciso e ajustar a densidade. O padrão é MARCELL Preciso com densidade Compacta: menu azul-marinho, conteúdo claro e ações em azul. A fonte é IBM Plex Sans. Compacta reduz espaços e preserva o toque no celular. Em todo o ERP, campos de uma linha e botões comuns seguem a densidade escolhida, com rótulos alinhados. Áreas de observação e células de planilha conservam o espaço necessário. A preferência fica neste navegador; a troca mantém seus filtros e dados.
 
 ### Identificar a área selecionada
 

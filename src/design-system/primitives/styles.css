@@ -5,7 +5,7 @@
 .arcd-field__description { color: var(--arcd-text-secondary); font-size: var(--arcd-font-size-xs); }
 .arcd-field__error { color: var(--arcd-danger-text); font-size: var(--arcd-font-size-xs); font-weight: var(--arcd-font-weight-medium); }
 .arcd-input, .arcd-select, .arcd-textarea { width: 100%; border: 1px solid var(--arcd-border-strong); border-radius: var(--arcd-radius-control); background: var(--arcd-surface-card); color: var(--arcd-text-primary); font: inherit; line-height: var(--arcd-line-height-normal); transition: border-color var(--arcd-motion-fast) var(--arcd-ease-standard), background-color var(--arcd-motion-fast) var(--arcd-ease-standard), outline-color var(--arcd-motion-fast) var(--arcd-ease-standard); }
-.arcd-input, .arcd-select { min-height: var(--arcd-control-height); padding: var(--arcd-space-2) var(--arcd-space-3); }
+.arcd-input, .arcd-select { min-height: var(--arcd-control-height); padding: 0 var(--arcd-space-3); }
 .arcd-textarea { min-height: 6rem; padding: var(--arcd-space-2) var(--arcd-space-3); resize: vertical; }
 .arcd-input::placeholder, .arcd-textarea::placeholder { color: var(--arcd-text-muted); opacity: 1; }
 .arcd-input:hover:not(:disabled):not([readonly]), .arcd-select:hover:not(:disabled), .arcd-textarea:hover:not(:disabled):not([readonly]) { border-color: var(--arcd-text-secondary); background: var(--arcd-gray-0); }
@@ -71,3 +71,6 @@
 }
 
 .mrc-command-fields{display:grid;gap:var(--arcd-space-2);min-width:0;border:0;padding:0;margin:0}
+
+.arcd-lookup-field__row{display:flex;align-items:flex-end;gap:var(--arcd-space-2);min-width:0}
+.arcd-lookup-field__row>[data-mrc-field]{flex:1;min-width:0}

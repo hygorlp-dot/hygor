@@ -93,3 +93,14 @@ test('cabeçalho mantém alturas alinhadas nas densidades e no celular estreito'
     expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)).toBe(false);
   }
 });
+
+
+for(const [id,selector] of [['equipe','.team-toolbar'],['ponto_geral','.ponto-geral-filters'],['patrimonio','.patrimony-filters'],['conc','.reconciliation-toolbar']])test(`Alinhamento global · ${id}`,async({page})=>{
+ const errors=await enter(page,id);
+ const controls=await page.locator(`${selector} [data-mrc-control]`).evaluateAll(elements=>elements.filter(e=>e.getClientRects().length).map(e=>{const r=e.getBoundingClientRect();return {top:r.top,height:r.height};}));
+ expect(controls.length).toBeGreaterThanOrEqual(2);
+ expect(Math.max(...controls.map(r=>r.height))-Math.min(...controls.map(r=>r.height))).toBeLessThanOrEqual(1);
+ if(page.viewportSize().width>=1100)expect(Math.max(...controls.map(r=>r.top))-Math.min(...controls.map(r=>r.top))).toBeLessThanOrEqual(1);
+ else expect(Math.min(...controls.map(r=>r.height))).toBeGreaterThanOrEqual(44);
+ expect(errors).toEqual([]);
+});

@@ -176,3 +176,10 @@ A barra usa os tokens comuns e conserva os rótulos dos controles, a ordem natur
 
 
 Correção de alinhamento em 02/11/2026: WorkspaceCommandBar controla a altura real dos campos e o padding vertical dos botões com --arcd-control-height. O rótulo usa o mesmo intervalo da base em todos os grupos. Não reintroduzir mínimos próprios como os 43 px legados do seletor de obra. A densidade continua configurável; no celular os alvos mantêm pelo menos 44 px. Indicadores textuais usam alinhamento pela linha de base. O teste visual compara topo, altura e rótulos, além da borda inferior.
+
+
+## Alturas na base global — 02/11/2026
+
+O contrato de campos em src/design-system/primitives/control-contract.css aplica a altura da densidade a entradas de uma linha e seletores simples em toda a ERP. Os espaçamentos verticais dos botões vêm de foundations.js; a altura mínima e a centralização do conteúdo não dependem do padding. Botões com texto longo continuam podendo crescer. Textarea, seletores múltiplos, arquivos, opções de seleção e editores de planilha preservam seus contratos próprios. No celular, campos e botões comuns mantêm pelo menos 44 px.
+
+A barra de Compras/Financeiro consome a mesma base. Filtros da Conciliação usam Input, Select e Button compartilhados, incluindo rótulos visíveis e o intervalo padrão no seletor de categoria. Não criar controles nativos ou alturas particulares para reproduzir uma barra.
