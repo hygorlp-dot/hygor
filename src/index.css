@@ -57,7 +57,7 @@
   --radius-sm: calc(var(--radius) - 4px);
 
   --font-display: 'Inter Display', Inter, sans-serif;
-  --font-sans: Inter, 'Inter Display', sans-serif;
+  --font-sans: var(--arcd-font-sans);
 
   --animate-accordion-down: accordion-down 0.2s ease-out;
   --animate-accordion-up: accordion-up 0.2s ease-out;
@@ -175,7 +175,7 @@ body {
   @apply bg-background text-foreground;
   min-width: 320px;
   margin: 0;
-  font-family: "Nimbus Sans", "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--arcd-font-sans);
   letter-spacing: .16px;
 }
 #root {
@@ -342,7 +342,7 @@ canvas {
 
 .login-project-story h1 {
   margin: 0;
-  font-family: "Nimbus Sans", "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--arcd-font-sans);
   font-size: clamp(36px, 5vw, 68px);
   font-weight: 550;
   line-height: 1.02;
@@ -637,12 +637,12 @@ canvas {
   background: #7B6030;
 }
 
-.arcd-sidebar > div:last-child {
+.arcd-sidebar > div:last-of-type {
   border-top-color: var(--arcd-border-default) !important;
   background: var(--arcd-surface-muted) !important;
 }
 
-.arcd-sidebar > div:last-child p {
+.arcd-sidebar > div:last-of-type p {
   color: #343a3e !important;
 }
 
@@ -673,7 +673,7 @@ canvas {
 .arcd-main h1,
 .arcd-main h2,
 .arcd-main h3:not(.arcd-dialog__title):not(.arcd-heading-page) {
-  font-family: "Nimbus Sans", "Helvetica Neue", Arial, sans-serif !important;
+  font-family: var(--arcd-font-sans) !important;
 }
 
 .arcd-main h1 {
@@ -809,7 +809,7 @@ canvas {
 /* O aviso nunca pode competir com o conteúdo nem ficar encoberto pela
    navegação fixa no celular. Cor informa a gravidade; borda e texto fazem o resto. */
 .arcd-toast {
-  font-family: "Nimbus Sans", "Helvetica Neue", Arial, sans-serif !important;
+  font-family: var(--arcd-font-sans) !important;
   animation: arcd-toast-enter var(--arcd-motion-normal) var(--arcd-ease-standard);
 }
 
@@ -2822,7 +2822,7 @@ canvas {
   border-radius: 2px;
   background: #F3F0E9;
   color: #393939;
-  font-family: "Nimbus Sans", "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--arcd-font-sans);
   font-size:var(--arcd-type-caption);
   font-weight: 600;
   cursor: pointer;
@@ -3626,7 +3626,7 @@ canvas {
 /* Fornecedores: painel de decisão, com leitura rápida no desktop e cartões no celular. */
 .supplier-page{display:flex;flex-direction:column;gap:16px;max-width:1540px;margin:0 auto;padding:4px 0 28px;color:#181b1f}
 .supplier-header{display:flex;align-items:flex-end;justify-content:space-between;gap:18px}
-.supplier-header h1{font-family:"Nimbus Sans","Helvetica Neue",Arial,sans-serif;font-size:clamp(28px,3vw,42px);font-weight:600;letter-spacing:-.04em;line-height:1.05;margin:4px 0 6px}
+.supplier-header h1{font-family:var(--arcd-font-sans);font-size:clamp(28px,3vw,42px);font-weight:600;letter-spacing:-.04em;line-height:1.05;margin:4px 0 6px}
 .supplier-header>div>p:last-child{color:#687079;font-size:var(--arcd-type-label)}
 .supplier-eyebrow,.supplier-card-title p,.supplier-detail-head p{font-size:var(--arcd-type-caption)!important;font-weight:600;letter-spacing:.13em;color:#9a7410!important}
 .supplier-toolbar{display:grid;grid-template-columns:minmax(260px,1fr) 250px 190px;gap:8px;padding:10px;background:#e7e9eb;border:1px solid #d5d8db;border-radius:10px}
@@ -4883,8 +4883,8 @@ canvas {
 
 /* Prancheta mobile para a vistoria técnica. */
 .conference-mobile-progress,.conference-mobile-actions{display:none}
-.conference-field-view,.conference-finding-modal,.conference-field-view button,.conference-finding-modal button,.conference-field-view input,.conference-field-view select,.conference-field-view textarea,.conference-finding-modal input,.conference-finding-modal select,.conference-finding-modal textarea{font-family:"Nimbus Sans","Helvetica Neue",Arial,sans-serif!important}
-.conference-list-item{appearance:none;text-align:left;padding:14px;border:1px solid #d6d6d6;border-radius:4px;cursor:pointer;background:#fff;color:#0D1B2E;font-family:"Nimbus Sans","Helvetica Neue",Arial,sans-serif;box-shadow:none;transition:background-color .14s ease,border-color .14s ease}
+.conference-field-view,.conference-finding-modal,.conference-field-view button,.conference-finding-modal button,.conference-field-view input,.conference-field-view select,.conference-field-view textarea,.conference-finding-modal input,.conference-finding-modal select,.conference-finding-modal textarea{font-family:var(--arcd-font-sans)!important}
+.conference-list-item{appearance:none;text-align:left;padding:14px;border:1px solid #d6d6d6;border-radius:4px;cursor:pointer;background:#fff;color:#0D1B2E;font-family:var(--arcd-font-sans);box-shadow:none;transition:background-color .14s ease,border-color .14s ease}
 .conference-list-item:hover,.conference-list-item:focus-visible{background:#F3F0E9;border-color:#8d8d8d;outline:2px solid transparent}
 .conference-field-header h2{font-size:var(--arcd-type-page-title,20px);font-weight:600;line-height:1.2;margin-top:4px;overflow-wrap:anywhere}
 .conference-back{min-height:44px;border:0;background:transparent;padding:0;color:#536171;cursor:pointer;font:600 var(--arcd-type-body,var(--arcd-type-caption)) "Nimbus Sans","Helvetica Neue",Arial,sans-serif}
@@ -5237,7 +5237,7 @@ canvas {
 .arcd-tab,
 .tab-row button,
 .financial-area-nav button {
-  font-family: "Nimbus Sans", "Helvetica Neue", Arial, sans-serif !important;
+  font-family: var(--arcd-font-sans) !important;
   font-synthesis: none;
 }
 
@@ -5270,7 +5270,7 @@ canvas {
 }
 
 .arcd-topbar .app-breadcrumb > span {
-  font-family: "Nimbus Sans", "Helvetica Neue", Arial, sans-serif !important;
+  font-family: var(--arcd-font-sans) !important;
   font-size:var(--arcd-type-caption) !important;
   line-height: 1.2;
   letter-spacing: 0 !important;
@@ -5279,7 +5279,7 @@ canvas {
 
 .arcd-mobile-nav .mobile-primary-nav > button,
 .arcd-mobile-nav .mobile-subnav > button {
-  font-family: "Nimbus Sans", "Helvetica Neue", Arial, sans-serif !important;
+  font-family: var(--arcd-font-sans) !important;
   font-weight: 600 !important;
   text-transform: none !important;
 }
@@ -5448,7 +5448,7 @@ canvas {
 @media(max-width:620px){.purchase-dashboard-deadlines{grid-template-columns:1fr 1fr}.purchase-dashboard-kanban .purchase-kanban-board{grid-template-columns:repeat(5,82vw)}}
 
 /* Solicitação formal de materiais — contexto, materiais e confirmação. */
-.purchase-request-modal{max-width:min(980px,calc(100vw - 28px))!important;border-radius:4px!important;box-shadow:none!important;font-family:"Nimbus Sans",sans-serif}
+.purchase-request-modal{max-width:min(980px,calc(100vw - 28px))!important;border-radius:4px!important;box-shadow:none!important;font-family:var(--arcd-font-sans)}
 .purchase-request-flow{display:flex;flex-direction:column;gap:18px}
 .purchase-request-section{display:flex;flex-direction:column;gap:12px;min-width:0}
 .purchase-request-section+section{padding-top:18px;border-top:1px solid var(--arcd-border,#d6d6d6)}
@@ -5472,7 +5472,7 @@ canvas {
 .purchase-request-empty{padding:22px;border:1px dashed #8d8d8d;text-align:center}.purchase-request-empty strong{display:block;font-size:var(--arcd-type-label)}.purchase-request-empty p{margin-top:4px;color:#536171;font-size:var(--arcd-type-caption)}
 .purchase-request-summary{display:grid;grid-template-columns:2fr repeat(3,1fr);gap:1px;border:1px solid #d6d6d6;background:#d6d6d6}.purchase-request-summary>div{min-width:0;padding:10px 12px;background:#F3F0E9}.purchase-request-summary span,.purchase-request-summary strong{display:block}.purchase-request-summary span{color:#536171;font-size:var(--arcd-type-caption)}.purchase-request-summary strong{margin-top:4px;overflow-wrap:anywhere;color:#0D1B2E;font:600 var(--arcd-type-label) "IBM Plex Mono",monospace}
 .purchase-request-formal-notice{display:flex;align-items:center;gap:7px;padding:10px 12px;border:1px solid #b89525;background:#fffdf5;color:#4c3b00;font-size:var(--arcd-type-caption);line-height:1.4}.purchase-request-actions{display:flex;gap:8px}.purchase-request-actions .arcd-btn{min-height:44px}
-.purchase-request-modal .arcd-field__label,.purchase-request-modal .arcd-field-control{font-family:"Nimbus Sans",sans-serif!important}.purchase-request-modal .arcd-field-control:focus{border-color:#8a6b13!important;box-shadow:0 0 0 2px rgba(212,175,55,.22)}
+.purchase-request-modal .arcd-field__label,.purchase-request-modal .arcd-field-control{font-family:var(--arcd-font-sans)!important}.purchase-request-modal .arcd-field-control:focus{border-color:#8a6b13!important;box-shadow:0 0 0 2px rgba(212,175,55,.22)}
 
 /* Diário de Obra — prancheta de campo auditável */
 .rdo-history-card{min-width:0;border:1px solid var(--arcd-border-default);border-radius:4px;padding:14px;background:var(--arcd-surface-primary)}
@@ -7700,7 +7700,7 @@ body.no-scroll .arcd-mobile-nav { visibility:hidden; pointer-events:none; }
   color: inherit;
   cursor: pointer;
   text-align: left;
-  font-family: "Nimbus Sans", "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--arcd-font-sans);
 }
 
 .team-summary__item:first-child { border-left: 0; }
@@ -7816,7 +7816,7 @@ body.no-scroll .arcd-mobile-nav { visibility:hidden; pointer-events:none; }
 
 /* MARCELL Executivo: typography and colour stay local to navigation and home. */
 .arcd-sidebar .arcd-brand-word p:first-child {font-size:.875rem !important;font-weight:500 !important;letter-spacing:.08em !important;}
-.arcd-sidebar > div:last-child p {font-size:.75rem !important;font-weight:400 !important;}
+.arcd-sidebar > div:last-of-type p {font-size:.75rem !important;font-weight:400 !important;}
 .arcd-sidebar [aria-label="Buscar no sistema"] span {font-size:.75rem !important;font-weight:400 !important;}
 .arcd-main .dashboard-tech-hero h1 {font-size:1.5rem !important;font-weight:500 !important;letter-spacing:-.02em !important;line-height:1.25 !important;}
 .dashboard-greeting > p:last-child {font-weight:400 !important;}

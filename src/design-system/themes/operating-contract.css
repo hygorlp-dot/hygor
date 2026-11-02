@@ -1,8 +1,5 @@
 /* Shared ERP recipes. Theme values live only in themeRegistry.js.
    Brand artwork, reports and chart series retain their own identities. */
-@font-face { font-family:Inter;src:url('/fonts/inter/InterVariable.woff2') format('woff2');font-weight:100 900;font-style:normal;font-display:swap; }
-@font-face { font-family:'72';src:url('/fonts/sap-72/72-Regular.woff2') format('woff2');font-weight:400;font-style:normal;font-display:swap; }
-@font-face { font-family:'72';src:url('/fonts/sap-72/72-Bold.woff2') format('woff2');font-weight:700;font-style:normal;font-display:swap; }
 @media screen {
   [data-theme] body { background:var(--arcd-surface-page);color:var(--arcd-text-primary); }
   [data-theme] :is(.arcd-app-shell,.arcd-main) { background:var(--arcd-surface-page) !important;color:var(--arcd-text-primary); }
@@ -112,4 +109,9 @@
     [data-theme] .arcd-main .purchase-queue-table td:nth-child(4) { text-align:right;align-self:center; }
     [data-theme] .arcd-main .purchase-queue-table td:nth-child(5) { grid-column:1 / -1; }
   }
+}
+
+@media screen {
+  [data-theme] .arcd-sidebar .nav-item {font-size:var(--arcd-type-body) !important;line-height:1.4 !important;}
+  [data-theme] .arcd-sidebar .nav-grp-hd {font-size:var(--arcd-type-caption) !important;font-weight:500 !important;line-height:1.4 !important;}
 }

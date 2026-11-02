@@ -108,3 +108,7 @@ Revisão e evidências em `docs/CARREGAMENTOS-INTERNOS-20261101.md`.
 ## Menu lateral ajustável
 
 O shell compartilhado usa `SidebarResize` e `useSidebarWidth`. Largura expandida de 208 a 360 px, inicial de 224 px, persistida neste navegador. Arrastar, setas, Home/End e Enter (restaurar) têm o mesmo resultado em todos os módulos. O modo compacto conserva a preferência; celular e tablet mantêm a navegação existente. Não definir larguras próprias por módulo.
+
+## P1 — fundação precisa, piloto local
+
+O tema `marcell` é MARCELL Preciso, padrão para novos navegadores, com densidade Compacta. Preferências válidas são preservadas; Alterar aparência permite selecionar o piloto ou Restaurar padrão. IBM Plex Sans é a família operacional comum, hospedada localmente em `public/fonts/ibm-plex`, pesos 400/500/600 e licença OFL incluída. A paleta do tema está em `themeRegistry.js`; foco da lateral usa `--arcd-nav-focus`, adequado ao fundo escuro. Densidade continua em `tokens/density.css`, sem reduzir o tamanho da fonte. Listas e formulários reutilizam controles, escala e estados existentes. Esta etapa não altera regras ou transições de Compras e Financeiro.

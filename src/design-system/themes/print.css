@@ -1,5 +1,6 @@
 @media print {
   :root {
+    --arcd-font-sans: "Nimbus Sans", "Helvetica Neue", Arial, sans-serif !important;
     --arcd-surface-page: #ffffff;
     --arcd-surface-card: #ffffff;
     --arcd-surface-muted: #ffffff;
