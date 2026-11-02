@@ -2989,7 +2989,7 @@ O cabeçalho mostra a finalidade da tela e as ações principais. Confira a obra
 
 ### Comparar propostas na prévia local
 
-Na página separada Estudo de Compras, use Precisão, Obra ou Foco para comparar a organização visual. Como comparar explica as diferenças. A troca preserva os filtros e a tela aberta; não escolhe um tema definitivo. Os dados da prévia são fictícios. Os atalhos 1, 2 e 3 funcionam quando o foco está fora do ERP. O botão Ajuda continua disponível dentro da tela.
+Na página separada Estudo de Compras, use Precisão, Obra, Foco ou Mesa de trabalho para comparar a organização visual. Como comparar explica as diferenças. A troca preserva os filtros e a tela aberta; não escolhe um tema definitivo. Os dados da prévia são fictícios. Em Mesa de trabalho, o seletor Menu compara a lateral clara com a azul-marinho. O estudo altera apenas a prévia local e mantém as ações existentes. Os atalhos 1 a 4 funcionam quando o foco está fora do ERP. O botão Ajuda continua disponível dentro da tela.
 
 ### Escolher a aparência
 
