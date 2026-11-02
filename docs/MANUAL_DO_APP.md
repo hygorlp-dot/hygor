@@ -2997,7 +2997,7 @@ Na página separada Estudo de Compras, use Precisão, Obra, Foco ou Mesa de trab
 
 ### Escolher a aparência
 
-Use o botão Alterar aparência, identificado pelo ícone de paleta no cabeçalho, para escolher MARCELL Operacional, MARCELL Claro ou MARCELL Preciso e ajustar a densidade. O padrão é MARCELL Preciso com densidade Compacta: menu azul-marinho, conteúdo claro e ações em azul. A fonte é IBM Plex Sans. Compacta reduz espaços e preserva o toque no celular. A preferência fica neste navegador; a troca mantém seus filtros e dados.
+Use o botão Alterar aparência, identificado pelo ícone de paleta no cabeçalho, para escolher MARCELL Operacional, MARCELL Claro ou MARCELL Preciso e ajustar a densidade. O padrão é MARCELL Preciso com densidade Compacta: menu azul-marinho, conteúdo claro e ações em azul. A fonte é IBM Plex Sans. Compacta reduz espaços e preserva o toque no celular. Campos e botões da barra mantêm a mesma altura em cada densidade, com rótulos alinhados. A preferência fica neste navegador; a troca mantém seus filtros e dados.
 
 ### Identificar a área selecionada
 

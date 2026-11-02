@@ -173,3 +173,6 @@ A recuperação de falhas da fila geral usa `src/domains/sync/SaveRecovery.jsx` 
 Compras e Financeiro usam WorkspaceHeading e WorkspaceCommandBar, em src/design-system/patterns/WorkspaceCommandBar.jsx. O título e a navegação formam a identificação da área. A barra seguinte reúne escopo, consulta e ações; indicadores resumidos e resultados precedem a lista. Não repetir obra, exportação ou ação principal em outra faixa. Nenhum comando deve ser duplicado apenas para adaptar o celular.
 
 A barra usa os tokens comuns e conserva os rótulos dos controles, a ordem natural de Tab e os estados dos filtros. No celular, os grupos se reorganizam em linhas, mantendo alvos de toque e a próxima ação no registro. Não ocultar valores ou avisos relevantes para compactar. A lateral padrão continua azul-marinho MARCELL; outros temas previamente disponíveis conservam suas preferências.
+
+
+Correção de alinhamento em 02/11/2026: WorkspaceCommandBar controla a altura real dos campos e o padding vertical dos botões com --arcd-control-height. O rótulo usa o mesmo intervalo da base em todos os grupos. Não reintroduzir mínimos próprios como os 43 px legados do seletor de obra. A densidade continua configurável; no celular os alvos mantêm pelo menos 44 px. Indicadores textuais usam alinhamento pela linha de base. O teste visual compara topo, altura e rótulos, além da borda inferior.
