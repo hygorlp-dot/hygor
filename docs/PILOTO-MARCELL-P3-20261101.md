@@ -45,7 +45,9 @@ Evidências em `artifacts/p3-browser-final.log`, `p3-browser`, `p3-stress.log`, 
 | P1 — fundação compartilhada | Concluída localmente |
 | P2 — gestão à vista | Concluída localmente |
 | P3 — ficha e ação | Concluída localmente |
-| P4 — exceções e linguagem | Próxima: parciais, adiantamentos, permissões, falhas e mensagens finais |
-| P5 — revisão do piloto | Pendente: validação integral e roteiro de uso com operadores |
+| P4 — exceções e linguagem | Concluída localmente; ver PILOTO-MARCELL-P4-20261101.md |
+| P5 — revisão do piloto | Próxima; riscos e critérios em PILOTO-MARCELL-P4-20261101.md |
 
 Nota interna provisória: **9,0/10**. A separação entre consultar e agir ficou mais clara e os retornos evitam reconstruir a pesquisa. A meta 9,5 depende das exceções da P4, da revisão P5 e de evidência de uso com operadores; a nota não representa teste de usabilidade com participantes.
+
+Atualização acumulada em 01/11/2026: P4 concluída no piloto local. P5 é a próxima etapa. Avaliação conservadora atual: 7,8/10; critérios e limitações em `PILOTO-MARCELL-P4-20261101.md`. A nota acima registra a avaliação histórica desta etapa.

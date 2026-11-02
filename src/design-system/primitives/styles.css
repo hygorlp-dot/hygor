@@ -69,3 +69,5 @@
   .arcd-dialog__body { min-height: 0; flex: 1; overflow: auto; padding: var(--arcd-space-4) var(--arcd-space-4) calc(var(--arcd-space-5) + env(safe-area-inset-bottom)); overscroll-behavior-y: contain; }
   .arcd-drawer { width: 100%; border-left: 0; }
 }
+
+.mrc-command-fields{display:grid;gap:var(--arcd-space-2);min-width:0;border:0;padding:0;margin:0}

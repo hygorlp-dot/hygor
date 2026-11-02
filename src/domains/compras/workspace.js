@@ -1,4 +1,6 @@
-import { statusPedido, statusPagamentoPedido, totalPedido } from "./calculations";
+import {active} from '../financeiro/ledger.js';
+import {isFinancialDate} from '../financeiro/dates.js';
+import { statusPedido, statusPagamentoPedido, totalPedido, totalPagoPedido, saldoPagamentoPedido } from "./calculations";
 import { cotacaoMultiItens, itensDaCotacao, itensPendentesDaCotacao } from "./quote-map";
 import { atrasoDoItem } from "./delivery-schedule";
 
@@ -11,7 +13,7 @@ export const matchesPurchaseSearch = (query, ...values) => {
 };
 
 export const purchaseDeadline = (date, today) => {
-  if (!date) return { label:"Sem prazo", tone:"neutral", rank:3 };
+  if (!isFinancialDate(date)) return { label:"Sem prazo", tone:"neutral", rank:3 };
   const days = Math.round((Date.parse(`${date}T12:00:00Z`) - Date.parse(`${today}T12:00:00Z`)) / 86400000);
   if (!Number.isFinite(days)) return { label:"Sem prazo", tone:"neutral", rank:3 };
   return days < 0 ? { label:`${Math.abs(days)} dia(s) de atraso`, tone:"danger", rank:0 }
@@ -22,13 +24,14 @@ export const purchaseDeadline = (date, today) => {
 
 // Projection only: no transitions, totals or approval decisions are persisted here.
 export function buildPurchaseWorkspace(data, obraIds, today) {
-  const visible = record => obraIds.includes(record.obraId);
+  const live = record => record.ativo !== false && !record.deletedAt;
+  const visible = record => live(record) && obraIds.includes(record.obraId);
   const obras = new Map((data.obras || []).map(item => [item.id, item]));
   const materials = new Map((data.materiais || []).map(item => [item.id, item]));
   const suppliers = new Map((data.fornecedores || []).map(item => [item.id, item]));
   const approvals = new Map((data.instanciasAprovacao || []).map(item => [item.id, item]));
   const requests = new Map((data.solicitacoesCompra || []).map(item => [item.id, item]));
-  const activeQuotes = (data.cotacoes || []).filter(item => item.status === "aberta" &&
+  const activeQuotes = (data.cotacoes || []).filter(item => live(item) && item.status === "aberta" &&
     (cotacaoMultiItens(item) ? itensPendentesDaCotacao(item).length > 0 : !item.pedidoId));
   const quotedRequests = new Set(activeQuotes.map(item => item.solicitacaoId).filter(Boolean));
   const rows = [];
@@ -69,9 +72,11 @@ export function buildPurchaseWorkspace(data, obraIds, today) {
       .map(item => { const delivery = atrasoDoItem(item, order, today); return delivery.proximaData; }).filter(Boolean).sort();
     add(order, { type:"order", stage:status === "rascunho" ? "pedidos" : "recebimentos",
       title:(order.itens || []).map(item => materials.get(item.materialId)?.descricao || item.descricaoRef || "Material não informado").join(" · "),
-      detail:`${status === "rascunho" ? "Rascunho · conferir antes de enviar" : status === "parcial" ? "Entrega parcial · conferir o saldo" : "Aguardando entrega"} · ${statusPagamentoPedido(order) === "pago" ? "Pago" : "Pagamento em aberto"}`,
+      detail:`${status === "rascunho" ? "Rascunho · conferir antes de enviar" : status === "parcial" ? "Entrega parcial · conferir o saldo" : "Aguardando entrega"} · ${statusPagamentoPedido(order) === "pago" ? "Pago" : statusPagamentoPedido(order) === "parcial" ? "Pagamento parcial" : "Pagamento em aberto"}`,
       responsible:suppliers.get(order.fornecedorId)?.nome || "Fornecedor não informado",
       supplierId:order.fornecedorId || "",
+      paid:totalPagoPedido(order),balance:saldoPagamentoPedido(order),
+      advances:(order.pagamentos||[]).filter(item=>active(item)&&item.tipo==="adiantamento").length,
       date:dates[0] || order.previsao, action:status === "rascunho" ? "Revisar pedido" : "Receber materiais", total:totalPedido(order),
     });
   }

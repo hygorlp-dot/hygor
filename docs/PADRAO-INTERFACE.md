@@ -129,3 +129,18 @@ Mostrar primeiro identidade, obra, situação/prazo, valor e próxima ação per
 Paginação e seleção usam `useWorkspaceState`; `useQueuePosition` conserva a rolagem da fila e do quadro na sessão, por área e escopo. Fechar a ficha devolve o foco ao código/nome sem deslocar a lista. Não persistir registros ou rascunhos no armazenamento de preferências. Recarregar encerra o contexto da sessão, conforme P2. Guias temporários usam prioridade no `useHelpTopic`; ao fechar, o guia da área reaparece. A Ajuda pode receber foco sem que o modal de origem a capture; Escape encerra apenas a camada ativa.
 
 Relatório e roadmap: `PILOTO-MARCELL-P3-20261101.md`.
+
+
+## P4 — exceções, confirmação e linguagem
+
+Pagamentos de Compras e da central financeira, além do recebimento em Compras, usam `dispatchConfirmedAttempt` em `src/features/workflow/command-attempt.js`. Preserve o comando completo enquanto a resposta for incerta: mesma chave idempotente, versão, IDs, quantidades, pagamento e anexos. Repetir a confirmação na mesma sessão deve reenviar o comando original. Uma confirmação ou rejeição definitiva encerra a tentativa; erro de conexão, timeout ou resposta potencialmente transitória a conserva. Não transformar ausência de resposta em sucesso, nem gerar outra operação automaticamente.
+
+Durante o envio, proteja campos e fechamento. Após resposta incerta, conserve o preenchimento e impeça sua alteração até confirmar a mesma operação. O fechamento continua disponível após a falha, com orientação para conferir o histórico antes de sair ou recarregar. Esta tentativa não é um rascunho durável: documente a limitação e não prometa recuperação após desmontagem do módulo ou recarga. `mrc-command-fields` é a composição comum dos campos protegidos; botões de confirmação e Ajuda ficam fora do fieldset.
+
+Use Registrar pagamento em Compras e Financeiro; Dar entrada no estoque continua confirmando a chegada real. Adiantamento é classificação do servidor, não uma promessa feita por um checkbox. Motivo recomendado não vira nova trava. Entrega, pagamento e conferência fiscal permanecem independentes; excesso recebido continua sendo aviso.
+
+Na ficha de pedido, distinguir Valor do pedido, Pago e Saldo a pagar. No Financeiro, distinguir Valor original, Liquidado e Saldo em aberto. Pagamento de pedido ainda sem vínculo fiscal exige aviso junto à ação; não abater o saldo da nota no navegador nem vincular por descrição/fornecedor. Avisos do ledger respeitam a obra da parcela, inclusive em rateios. Textos genéricos repetitivos podem ficar na Ajuda, preservando valores, alertas relevantes e próxima ação na ficha.
+
+A consulta não concede autorização. Resolver ações contra usuário, acesso e obra atuais, espelhando os papéis existentes da API; o servidor continua sendo a autoridade. Registros excluídos/inativos não devem participar da fila operacional. Datas impossíveis não podem receber aparência de prazo válido.
+
+Evidências, riscos residuais e avaliação conservadora em `PILOTO-MARCELL-P4-20261101.md`.

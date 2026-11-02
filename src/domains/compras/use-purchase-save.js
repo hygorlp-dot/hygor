@@ -13,7 +13,7 @@ export function usePurchaseSave(rawDispatch) {
         : {state:"error", message:result?.reason || "Falha ao salvar. Seus dados continuam abertos; tente novamente."});
       return result;
     } catch {
-      const reason = "Falha de conexão ao salvar. Confira sua conexão e tente novamente no formulário.";
+      const reason = "Sem confirmação do servidor. Mantenha a ficha aberta e tente novamente. Antes de criar outro registro, confira o histórico.";
       setSave({state:"error",message:reason});
       return {ok:false,reason};
     } finally { lock.current = false; }

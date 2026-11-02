@@ -29,7 +29,7 @@ export function positionEntries(data,position){
 }
 export function todayQueues(data,ledger,obraId,today){
   const filters={...(obraId==='all'?{}:{obraId}),asOfDate:today};
-  const payable=positionEntries(data,selectAccountsPayable(ledger,filters));
+  const payable=positionEntries(data,selectAccountsPayable(ledger,filters)).map(item=>({...item,metadata:{...item.metadata,pagamentoPedidoNaoAlocado:item.record?.obraId===item.obraId&&hasUnallocatedOrderPayment(ledger,item.record,today)}}));
   const receivable=positionEntries(data,selectAccountsReceivable(ledger,filters));
   const end=new Date(`${today}T12:00:00`);end.setDate(end.getDate()+7);
   const until=`${end.getFullYear()}-${String(end.getMonth()+1).padStart(2,'0')}-${String(end.getDate()).padStart(2,'0')}`;
@@ -58,3 +58,6 @@ export function overviewEntries(data,selected,obraId,key){
   }
   return entries;
 }
+
+export const UNALLOCATED_ORDER_PAYMENT='Há pagamento no pedido ainda sem vínculo com a nota. Confira o histórico antes de pagar novamente; esse valor não foi descontado do saldo.';
+export const hasUnallocatedOrderPayment=(ledger,record,today)=>!!record?.pedidoId&&(ledger.events||[]).some(event=>event.unallocated&&event.sourceType==='pedido'&&String(event.sourceId)===String(record.pedidoId)&&event.obraId===record.obraId&&(!event.date||event.date<=today));

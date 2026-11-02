@@ -1,3 +1,5 @@
+import {Alert,AlertDescription} from '../../components/ui/alert.jsx';
+import {UNALLOCATED_ORDER_PAYMENT} from '../../domains/financeiro/workspace.js';
 import {RecordPanel} from '../workflow/RecordPanel.jsx';
 import {useWorkspaceState,useQueuePosition} from '../workflow/workspace-session.jsx';
 import {RecordAction} from '../../design-system/primitives/RecordAction.jsx';
@@ -48,10 +50,11 @@ export default function FinanceToday({queues,today,work,scope=work,onOpen,resolv
     {selection&&<RecordPanel key={`${scope}:${selection}`} recordKey={selection} title={selected?'Ficha financeira':'Título indisponível'} pageId="fin" onClose={()=>setSelection(null)}>
       {selected?<>
         <h4>{selected.description}</h4>
-        <dl className="mrc-record-panel__facts">{[['Obra',selected.obra],['Cliente / fornecedor',selected.counterparty||'Não informado'],['Movimentação',selected.direction],['Vencimento',date(selected)],['Saldo em aberto',money(selected.amountCents)],['Documento',selected.documentNumber||'Não informado']].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
+        <dl className="mrc-record-panel__facts">{[['Obra',selected.obra],['Cliente / fornecedor',selected.counterparty||'Não informado'],['Movimentação',selected.direction],['Vencimento',date(selected)],...(selected.metadata?.valorOriginal!=null?[['Valor original',money(Math.round(selected.metadata.valorOriginal*100))],['Liquidado',money(Math.round(selected.metadata.liquidado*100))]]:[]),['Saldo em aberto',money(selected.amountCents)],['Documento',selected.documentNumber||'Não informado']].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
+        {selected.metadata?.pagamentoPedidoNaoAlocado&&<Alert variant="warning" role="status"><AlertDescription>{UNALLOCATED_ORDER_PAYMENT}</AlertDescription></Alert>}
+        {selected.metadata?.vencimentoInvalido&&<p role="status">O vencimento de origem é inválido. Confira a data no registro; este título está em Sem vencimento.</p>}
         <section><h4>Próxima ação</h4>{onAction&&resolveAction?.(selected)?actions(selected):<p>Não há ação operacional disponível para este título e perfil. Consulte o detalhamento para conferir a origem.</p>}</section>
         <div className="mrc-record-panel__actions"><Button variant="secondary" onClick={()=>onOpen({title:selected.description,items:[selected],context:`Posição em ${today} · ${selected.direction}`})}>Consultar detalhamento</Button><Button variant="secondary" onClick={()=>setSelection(null)}>Voltar à fila</Button></div>
-        <p>Registrar um pagamento no sistema não executa uma transferência bancária.</p>
       </>:<p role="status">O título saiu deste recorte ou não está mais disponível. Volte à fila para conferir os saldos atuais.</p>}
     </RecordPanel>}
     {prefs.layout!=='kanban'&&!queue.items.length&&<div className="finance-today__empty" role="status"><strong>Nenhum título em {queue.label.toLocaleLowerCase('pt-BR')} para esta obra.</strong><p>Consulte outra fila ou altere a obra selecionada.</p></div>}

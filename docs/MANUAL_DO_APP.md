@@ -125,6 +125,7 @@ Conteúdo gerado de `src/features/help/help-content.js`, a mesma fonte da ajuda 
 - [Compras · Contratos e medições](#guia-cmp_contratos)
 - [Compras · Ficha rápida](#guia-cmp_ficha)
 - [Financeiro · Ficha rápida](#guia-fin_ficha)
+- [Compras · Registrar pagamento](#guia-cmp_pagamento)
 
 <a id="guia-ponto_obras"></a>
 
@@ -927,7 +928,7 @@ Confira a entrega, o pedido e a pessoa que recebeu.
 
 1. Localize o pedido aguardando recebimento.
 2. Informe somente as quantidades que chegaram e registre a conferência solicitada.
-3. Confirme e confira o recebido, o saldo pendente e o estoque.
+3. Use Dar entrada no estoque e confira o recebido, o saldo pendente e o estoque. Sem confirmação, repita o botão na mesma ficha; as quantidades são preservadas.
 
 ### Como conferir se deu certo
 
@@ -1440,7 +1441,7 @@ Confira fornecedor, documento, vencimento e obra.
 
 1. Localize a obrigação e confira documento, obra, saldo e pagamentos já registrados no pedido e na nota.
 2. Leia os avisos, selecione a origem real do pagamento e informe data, valor e comprovante disponível. A conferência pendente não impede o registro.
-3. Confirme uma única vez e confira o histórico. Encaminhe as pendências documentais ao responsável e faça a conciliação quando houver movimento bancário.
+3. Use Registrar pagamento e aguarde a confirmação. Confira o histórico e encaminhe as pendências documentais ao responsável. Concilie o movimento bancário quando disponível.
 
 ### Como conferir se deu certo
 
@@ -1448,7 +1449,7 @@ O registro mostra o pagamento confirmado ou a pendência que ainda existe.
 
 ### O que merece atenção
 
-O pagamento pode seguir com avisos. Adiantamento não deve ser repetido na nota, e pagar não aprova a conferência fiscal. A automação mantém casos pendentes para revisão; a decisão manual continua disponível ao perfil autorizado.
+Adiantamento não deve ser repetido na nota. Sem confirmação, repita Registrar pagamento na mesma ficha: o comando é preservado. Antes de fechar ou recarregar, confira o histórico. Pagar não aprova a conferência fiscal.
 
 ### Exemplo ilustrativo
 
@@ -2796,52 +2797,77 @@ Alterar o formulário não salva automaticamente. O acesso aos serviços e às m
 
 ## Compras · Ficha rápida
 
-Consultar uma compra sem perder a fila e preparar a próxima ação.
+Consultar e continuar uma compra sem reconstruir a pesquisa.
 
 ### Antes de começar
 
-Selecione a obra, os filtros e Tabela ou Kanban na fila.
+Confira a obra e os filtros da fila.
 
 ### Como fazer
 
-1. Clique no código do registro para abrir a ficha à direita; no celular, a ficha ocupa a tela.
-2. Confira material, obra, etapa, prazo, responsável e valor.
-3. Use o botão em Próxima ação para abrir a operação. Para pedidos, cancele o formulário para retomar a ficha. Solicitações e cotações abrem a área completa; use Voltar para para retomar a origem.
-4. Use Voltar à fila, Fechar ou Escape para encerrar a consulta. A busca, os filtros e a página da fila permanecem na sessão.
+1. Clique no código na Tabela ou no Kanban. A ficha abre à direita; no celular, ocupa a tela.
+2. Confira etapa, prazo e responsável. Em pedidos, compare Valor do pedido, Pago e Saldo a pagar; adiantamentos aparecem em aviso.
+3. Use a próxima ação. Cancelar um formulário curto retoma a ficha; na área completa, use Voltar para para retomar a origem.
+4. Voltar à fila, Fechar ou Escape encerram a consulta, mantendo busca, filtros e página.
 
 ### Como conferir se deu certo
 
-A consulta mantém o contexto e não grava dados. A confirmação continua no formulário da operação.
+Consultar não grava; a operação exige confirmação no formulário.
 
 ### O que merece atenção
 
-Entrega e pagamento são etapas distintas. Se o registro sair da fila, a ficha informa a indisponibilidade. Ao recarregar, os filtros da sessão são reiniciados.
+Receber não paga. Sem confirmação, repita o mesmo botão na ficha aberta. Antes de fechar ou recarregar, confira o histórico; recarregar reinicia o contexto da sessão.
 
 <a id="guia-fin_ficha"></a>
 
 ## Financeiro · Ficha rápida
 
-Conferir o compromisso e a ação disponível sem sair da fila.
+Conferir o compromisso e a ação permitida.
 
 ### Antes de começar
 
-Em Hoje, confira a obra, a movimentação e o prazo.
+Confira obra, movimentação e prazo em Hoje.
 
 ### Como fazer
 
-1. Clique no nome do registro na Tabela ou no Kanban.
-2. Confira obra, cliente ou fornecedor, vencimento e saldo em aberto.
-3. Use a ação disponível para continuar. Se abrir a conferência fiscal, feche a ficha fiscal antes de usar Voltar à fila financeira. Nas demais áreas, use o mesmo retorno; a ficha rápida será retomada.
-4. Use Consultar detalhamento para conferir origem e documentos. Fechar memorial retorna à ficha.
-5. Use Voltar à fila, Fechar ou Escape para encerrar. Ajuda explica a ficha sem alterar os dados.
+1. Clique no nome na Tabela ou no Kanban.
+2. Compare Valor original, Liquidado e Saldo em aberto. Vencimento inválido fica em Sem vencimento.
+3. Se houver aviso de pagamento no pedido sem vínculo com a nota, confira o histórico antes de pagar; o saldo não o desconta automaticamente.
+4. Use a próxima ação. Na conferência fiscal, feche a ficha fiscal e use Voltar à fila financeira para retomar a origem.
+5. Consultar detalhamento abre origem e documentos; Fechar memorial retoma a ficha. Voltar à fila, Fechar ou Escape encerram a consulta.
 
 ### Como conferir se deu certo
 
-A fila conserva a direção, o prazo e o contexto da sessão; nenhuma consulta registra pagamento.
+O recorte da sessão é conservado; consultar não registra pagamento.
 
 ### O que merece atenção
 
-A ação depende do perfil e da situação atual. Registrar pagamento não executa transferência bancária. Se o título sair do recorte, volte à fila para conferir os saldos atuais.
+A ação depende do perfil e da obra. Registrar pagamento não executa transferência bancária. Se o título sair do recorte, volte à fila para conferir os saldos.
+
+<a id="guia-cmp_pagamento"></a>
+
+## Compras · Registrar pagamento
+
+Registrar um pagamento real, parcial ou antecipado.
+
+### Antes de começar
+
+Confira o pedido e os pagamentos anteriores.
+
+### Como fazer
+
+1. Informe Origem real do pagamento, Valor pago e Data.
+2. Acima da referência de conferência, o servidor identifica um adiantamento. Informe o motivo, se possível; sua ausência gera aviso.
+3. Use Registrar pagamento e aguarde. Campos e fechamento ficam protegidos durante o envio.
+4. Sem confirmação, repita Registrar pagamento na mesma ficha: o comando e os valores são preservados. Após rejeição definitiva, siga a orientação apresentada.
+
+### Como conferir se deu certo
+
+A confirmação do servidor encerra o formulário; registrar não transfere dinheiro.
+
+### O que merece atenção
+
+Antes de fechar ou recarregar após falha, confira o histórico. A tentativa fica apenas na sessão do módulo. Nota, entrega e pagamento são independentes.
 
 ## Aparência, botões e navegação
 

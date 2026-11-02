@@ -3,6 +3,7 @@ import {podeAcessarAba} from '../administracao/abas-acesso.js';
 const collections={nota_fiscal:'notasFiscais',pedido:'pedidos',medicao:'medicoes'};
 /** Resolve from the current source, never from a description or cached row alone. */
 export function financeNextAction(data,item,user){
+ if(user?.active===false||user?.ativo===false)return null;
  if(!['admin','financeiro'].includes(user?.role)||!podeAcessarAba(user,'fin'))return null;
  const type=item.sourceType,collection=collections[type];
  if(!collection||!item.sourceId)return null;

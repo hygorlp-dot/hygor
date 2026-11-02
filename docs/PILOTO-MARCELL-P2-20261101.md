@@ -57,9 +57,11 @@ Evidências: `artifacts/p2-browser`, `artifacts/p2-whole-erp.log`, `artifacts/p2
 | P1 — fundação compartilhada | Concluída localmente |
 | P2 — gestão à vista | Concluída localmente |
 | P3 — ficha e ação | Concluída localmente; ver PILOTO-MARCELL-P3-20261101.md |
-| P4 — exceções e linguagem | Próxima |
-| P5 — revisão do piloto | Pendente |
+| P4 — exceções e linguagem | Concluída localmente; ver PILOTO-MARCELL-P4-20261101.md |
+| P5 — revisão do piloto | Próxima; riscos e critérios em PILOTO-MARCELL-P4-20261101.md |
 
 Avaliação interna provisória: 8,8/10. A mesma informação agora permanece reconhecível ao mudar de visão e o Financeiro separa direção e prazo. A nota é uma apreciação de design; a meta 9,5 ainda depende de P3–P5 e de avaliação com operadores reais.
 
 Atualização acumulada em 01/11/2026: P3 concluída localmente, nota interna provisória 9,0/10; P4 é a próxima etapa. Ver `PILOTO-MARCELL-P3-20261101.md`. A avaliação acima descreve a entrega P2.
+
+Atualização acumulada em 01/11/2026: P4 concluída no piloto local. P5 é a próxima etapa. Avaliação conservadora atual: 7,8/10; critérios e limitações em `PILOTO-MARCELL-P4-20261101.md`. A nota acima registra a avaliação histórica desta etapa.

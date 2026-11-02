@@ -19,3 +19,5 @@ it('mantém somente a consulta quando não existe destino comprovado',()=>{
  expect(financeNextAction(data,{...item,sourceType:'titulo_folha'},user)).toBeNull();
  expect(financeNextAction(data,{...item,sourceType:'nota_fiscal',sourceId:''},user)).toBeNull();
 });
+
+it('não oferece ação para usuário desativado',()=>{expect(financeNextAction(data,item,{...user,active:false})).toBeNull();});
