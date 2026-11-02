@@ -2986,7 +2986,7 @@ Mantenha a obra e o período corretos. O botão Filtros abre as opções adicion
 
 ### Conferir o salvamento
 
-O indicador no cabeçalho informa a situação do salvamento; ele não é um botão. Alterações ainda não salvas exige aguardar e conferir a confirmação. Em caso de erro ou conflito, siga a orientação apresentada antes de repetir a operação.
+Após falha, use Tentar salvar novamente no aviso da página. Aguarde a confirmação; não é preciso fazer outra edição. Sem conexão, mantenha a aba aberta até reconectar: recarregar perde edições da fila geral. Sessão, acesso e conflito exigem seguir o motivo; copie edições antes de sair. Para pagamentos e recebimentos, use Retomar trabalho salvo.
 
 ## Celular, interrupções e recuperação
 

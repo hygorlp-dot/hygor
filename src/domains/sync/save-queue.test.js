@@ -186,4 +186,34 @@ describe("fila serializada de salvamento", () => {
     }
   });
 
+  it("retoma manualmente o snapshot após esgotar tentativas, sem concorrência",async()=>{
+    let calls=0;const last=deferred();const snapshots=[];
+    const queue=createSaveQueue({maxRetries:0,save:async snapshot=>{snapshots.push(snapshot);return ++calls===1?{ok:false,status:503}:last.promise;}});
+    const snapshot={fornecedores:[{id:'f1',nome:'Edição preservada'}]};
+    await queue.enqueue(snapshot);
+    expect(queue.canRetry()).toBe(true);
+    queue.resume();queue.resume();
+    expect(queue.canRetry()).toBe(false);
+    expect(calls).toBe(2);
+    last.resolve({ok:true});
+    expect((await queue.waitForIdle()).ok).toBe(true);
+    expect(snapshots).toEqual([snapshot,snapshot]);
+  });
+  it("não oferece nova tentativa para sessão, recusa, conflito, fila vazia ou encerrada",async()=>{
+    for(const status of [401,403,409,422]){
+      let calls=0;const queue=createSaveQueue({save:async()=>{calls++;return{ok:false,status};}});
+      await queue.enqueue({id:'bloqueado'});
+      expect(queue.canRetry()).toBe(false);queue.resume();expect(calls).toBe(1);
+    }
+    const queue=createSaveQueue({save:async()=>({ok:false,status:503}),maxRetries:0});
+    expect(queue.canRetry()).toBe(false);
+    await queue.enqueue({id:'descartado'});queue.discard();expect(queue.canRetry()).toBe(false);
+    await queue.enqueue({id:'encerrado'});queue.destroy();expect(queue.canRetry()).toBe(false);
+  });
+  it("permite retomada explícita de timeout sem repetição automática",async()=>{
+    let calls=0;const queue=createSaveQueue({save:async()=>++calls===1?{ok:false,status:408}:{ok:true}});
+    await queue.enqueue({id:'timeout'});expect(calls).toBe(1);expect(queue.canRetry()).toBe(true);
+    queue.resume();expect((await queue.waitForIdle()).ok).toBe(true);expect(calls).toBe(2);
+  });
+
 });

@@ -1,9 +1,9 @@
 import {applyOperationalCommand} from '../src/domains/sync/operational-commands.js';
 import {test,expect} from '@playwright/test';
 import {data as fixture,profile} from '../scripts/fixtures/workflow-priorities-data.mjs';
-async function enter(page,tab,{many=false,readonly=false,reject=0,legacyDraft=false}={}){
+async function enter(page,tab,{many=false,readonly=false,reject=0,legacyDraft=false,saveFailure=0,loadFailure=false,reapplyFailure=false}={}){
  const account={...profile,...(readonly?{role:"visualizador",accessTabs:["home","cmp","fin"]}:{})};
- let data=structuredClone(fixture),writes=[],errors=[];data.usuarios=[account];data.condominios=[];data.orcamentos=[];
+ let data=structuredClone(fixture),writes=[],saves=[],errors=[];let blockLoads=loadFailure;data.usuarios=[account];data.condominios=[];data.orcamentos=[];
  const a=data.obras[0].id,b=data.obras[1].id;data.obras[0].name='Obra Alfa P2';data.obras[1].name='Obra Beta P2';
  const request=data.solicitacoesCompra[0];data.solicitacoesCompra=[{...request,id:'req-a',numero:'SC-A',obraId:a,status:'enviada',necessidade:'2026-10-30',itens:[{...request.itens[0],descricaoRef:'Cimento Alfa'}]},{...request,id:'req-b',numero:'SC-B',obraId:b,status:'enviada',necessidade:'2026-11-04',itens:[{...request.itens[0],descricaoRef:'Cimento Beta'}]}];data.cotacoes=[];data.pedidos=[{...data.pedidos[0],id:'order-a',numero:'PC-A',obraId:a,status:'enviado'}];
  if(many)for(let i=3;i<30;i++)data.solicitacoesCompra.push({...data.solicitacoesCompra[0],id:`req-${i}`,numero:`SC-${i}`});
@@ -15,6 +15,16 @@ async function enter(page,tab,{many=false,readonly=false,reject=0,legacyDraft=fa
  for(const key of ['outrasDesp','despesasEmpresa','medicoesTerc','titulosFolha','payments','rescisoes','caixaObra'])data[key]=[];
  await page.clock.setFixedTime(new Date('2026-11-01T15:00:00Z'));await page.addInitScript(({id,tab})=>sessionStorage.setItem(`arcd-section:${id}`,tab),{id:profile.id,tab});
  page.on('pageerror',e=>errors.push(e.message));await page.route('https://**/*',r=>r.abort());await page.route('**/api/**',r=>r.fulfill({json:{ok:true,items:[],presencas:[],connected:false}}));await page.route('**/api/data',async r=>{const body=r.request().postDataJSON()||{};
+ if(body.action==='auth-refresh'&&saveFailure===401)return r.fulfill({status:401,json:{ok:false,error:'Sessão expirada no ensaio.'}});
+ if(body.action==='load'&&saves.length&&blockLoads)return r.fulfill({status:503,json:{ok:false,error:'Leitura indisponível no ensaio.'}});
+ if(['save','save-sections'].includes(body.action)){
+  saves.push(body);
+  if(saveFailure===409&&saves.length===1)return r.fulfill({status:409,json:{ok:false,conflict:true,currentData:data,currentUpdatedAt:'2026-11-01T15:00:30Z'}});
+  if(reapplyFailure&&saves.length>1&&saves.length<6)return r.fulfill({status:503,json:{ok:false,error:'Reaplicação indisponível no ensaio.'}});
+  if((saveFailure===401||saves.length<=(saveFailure===503?4:1))&&saveFailure)return r.fulfill({status:saveFailure,json:{ok:false,error:saveFailure===401?'Sessão expirada no ensaio.':saveFailure===403?'Seu acesso foi revogado.':'Servidor indisponível no ensaio.'}});
+  await new Promise(resolve=>setTimeout(resolve,350));
+  return r.fulfill({json:{ok:true,updatedAt:'2026-11-01T15:01:00Z'}});
+ }
  if(body.action==='operational-command'){
   writes.push(body.command);
   if(reject===503)await new Promise(resolve=>setTimeout(resolve,350));
@@ -29,7 +39,7 @@ async function enter(page,tab,{many=false,readonly=false,reject=0,legacyDraft=fa
  });
  if(process.env.MARCELL_P3_STRESS){await page.route('**/fonts/**',r=>r.abort());await page.addInitScript(()=>window.addEventListener('DOMContentLoaded',()=>{if(innerWidth>1000)document.documentElement.style.fontSize='200%';}));}
  await page.goto('/');if(legacyDraft)await page.evaluate(async({owner,obraId})=>{await new Promise((resolve,reject)=>{const request=indexedDB.open('marcell-confirmations-v1',10);request.onupgradeneeded=()=>{const table=request.result.createObjectStore('records',{keyPath:'key'});table.createIndex('owner','owner');table.createIndex('kind','kind');};request.onerror=()=>reject(request.error);request.onsuccess=()=>{const db=request.result,tx=db.transaction('records','readwrite');tx.objectStore('records').put({key:JSON.stringify(['draft',owner,'nota','nf-p2-0']),owner,kind:'draft',type:'nota',id:'nf-p2-0',createdAt:'2026-11-01T15:00:00Z',context:{pageId:'fin',obraId,label:'Pagamento · NF-P2-0'},value:{valor:'12.34',data:'2026-11-01',origem:'empresa',referencia:'Versão anterior',observacao:'Conferir documento',comprovanteFile:new File(['%PDF-1.4 preservado'],'legado.pdf',{type:'application/pdf'})}});tx.oncomplete=()=>{db.close();resolve();};tx.onerror=()=>reject(tx.error);};});},{owner:profile.id,obraId:a});await page.locator('#login-email').fill(profile.email);await page.locator('#login-senha').fill('local');await page.getByRole('button',{name:'Acessar central MARCELL',exact:true}).click();
- return {a,b,writes,account,getData:()=>data,check:()=>{expect(errors).toEqual([]);}};
+ return {a,b,writes,saves,allowLoads:()=>{blockLoads=false;},account,getData:()=>data,check:()=>{expect(errors).toEqual([]);}};
 }
 
 
@@ -75,3 +85,66 @@ test('P5 crítica: confirmação bloqueada por mudança de obra volta com a mesm
 test('P5 crítica: atualização recupera rascunho e comprovante da versão anterior',async({page},info)=>{const app=await enter(page,'fin',{legacyDraft:true});await page.getByRole('button',{name:'Retomar trabalho salvo',exact:true}).click();await page.getByRole('button',{name:'Reabrir rascunho',exact:true}).click();const modal=page.getByRole('dialog').last();await expect(modal.getByLabel('Valor pago *',{exact:true})).toHaveValue('12.34');await expect(modal).toContainText('legado.pdf');const bytes=await page.evaluate(()=>new Promise((resolve,reject)=>{const r=indexedDB.open('marcell-confirmations-v1');r.onerror=()=>reject(r.error);r.onsuccess=()=>{const db=r.result,q=db.transaction('operations').objectStore('operations').getAll();q.onerror=()=>reject(q.error);q.onsuccess=async()=>{const row=q.result.find(x=>x.kind==='draft');const text=await row.value.comprovanteFile.text();db.close();resolve(text);};};}));expect(bytes).toBe('%PDF-1.4 preservado');expect(app.writes).toHaveLength(0);app.check();await page.screenshot({animations:'disabled',path:info.outputPath('rascunho-anterior.png')});});
 
 test('P5 crítica: abrir a consulta não cria uma falha de salvamento',async({page})=>{const app=await enter(page,'fin');await expect(page.getByTestId('save-status')).toHaveAttribute('data-state','idle');expect(app.writes).toHaveLength(0);app.check();});
+
+async function failCalendarSave(page,status,options={}){
+ const app=await enter(page,'home',{saveFailure:status,...options});
+ await page.getByRole('button',{name:'Novo evento',exact:true}).click();
+ const modal=page.getByRole('dialog');
+ await modal.getByLabel('Título *',{exact:true}).fill('Revisão de obra preservada');
+ await modal.getByRole('button',{name:'Salvar',exact:true}).click();
+ await expect(page.getByTestId('save-status')).toHaveAttribute('data-state',status===403?'idle':status===409?'conflict':'failed',{timeout:20000});
+ await modal.getByRole('button',{name:'Cancelar',exact:true}).click();
+ return app;
+}
+test('P5 revisão: retomar falha definitiva sem nova edição ou comando financeiro',async({page},info)=>{
+ const app=await failCalendarSave(page,503),banner=page.getByTestId('save-recovery');
+ await expect(banner).toContainText('recarregar perde as edições');
+ expect(app.saves).toHaveLength(4);
+ expect(await page.evaluate(()=>{const e=new Event('beforeunload',{cancelable:true});window.dispatchEvent(e);return e.defaultPrevented;})).toBe(true);
+ await banner.scrollIntoViewIfNeeded();await page.screenshot({animations:'disabled',path:info.outputPath('falha-com-retomada.png')});
+ expect(await banner.evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
+ const retry= banner.getByRole('button',{name:'Tentar salvar novamente',exact:true});await retry.focus();await expect(retry).toBeFocused();await retry.press('Enter');
+ await expect(page.getByTestId('save-status')).toHaveAttribute('data-state','idle');
+ await expect(banner).toHaveCount(0);
+ expect(app.saves).toHaveLength(5);
+ expect(app.saves.at(-1)).toEqual(app.saves[0]);
+ expect(app.writes).toHaveLength(0);app.check();
+});
+test('P5 revisão: recusa de acesso desfaz edição e não oferece reenvio',async({page})=>{
+ const app=await failCalendarSave(page,403);
+ await expect(page.getByTestId('save-rejected')).toContainText('Seu acesso foi revogado.');
+ await expect(page.getByRole('button',{name:'Tentar salvar novamente',exact:true})).toHaveCount(0);
+ expect(app.saves).toHaveLength(1);expect(app.writes).toHaveLength(0);app.check();
+});
+
+test('P5 revisão: falha ao ler servidor conserva conflito e edição para nova tentativa',async({page})=>{
+ const app=await failCalendarSave(page,409,{loadFailure:true});
+ await page.getByRole('button',{name:'Reaplicar minhas alterações',exact:true}).click();
+ await expect(page.getByText('Não foi possível atualizar. Mantenha esta aba aberta e tente novamente.',{exact:true})).toBeVisible();
+ await expect(page.getByTestId('save-status')).toHaveAttribute('data-state','conflict');
+ await expect(page.getByRole('button',{name:'Reaplicar minhas alterações',exact:true})).toBeVisible();
+ expect(app.saves).toHaveLength(1);
+ expect(await page.evaluate(()=>{const e=new Event('beforeunload',{cancelable:true});window.dispatchEvent(e);return e.defaultPrevented;})).toBe(true);
+ app.allowLoads();await page.getByRole('button',{name:'Reaplicar minhas alterações',exact:true}).click();
+ await expect(page.getByTestId('save-status')).toHaveAttribute('data-state','idle');
+ expect(JSON.stringify(app.saves.at(-1))).toContain('Revisão de obra preservada');expect(app.saves).toHaveLength(2);expect(app.saves[1].sectionDeltas).toEqual(app.saves[0].sectionDeltas);
+ expect(app.writes).toHaveLength(0);app.check();
+});
+test('P5 revisão: reaplicação recusada por indisponibilidade continua na fila',async({page})=>{
+ const app=await failCalendarSave(page,409,{reapplyFailure:true});
+ await page.getByRole('button',{name:'Reaplicar minhas alterações',exact:true}).click();
+ await expect(page.getByTestId('save-status')).toHaveAttribute('data-state','failed',{timeout:20000});
+ const retry=page.getByRole('button',{name:'Tentar salvar novamente',exact:true});
+ await expect(retry).toBeVisible();expect(app.saves).toHaveLength(5);
+ await retry.click();await expect(page.getByTestId('save-status')).toHaveAttribute('data-state','idle');
+ expect(JSON.stringify(app.saves.at(-1))).toContain('Revisão de obra preservada');expect(app.saves).toHaveLength(6);expect(app.saves.at(-1).sectionDeltas).toEqual(app.saves[1].sectionDeltas);
+ expect(app.writes).toHaveLength(0);app.check();
+});
+
+test('P5 revisão: sessão expirada conserva edição e exige renovar o acesso',async({page})=>{
+ const app=await failCalendarSave(page,401);
+ await expect(page.getByTestId('save-recovery')).toContainText('Sessão expirada no ensaio.');
+ await expect(page.getByTestId('save-recovery')).toContainText('Copie as edições antes de sair.');
+ await expect(page.getByRole('button',{name:'Tentar salvar novamente',exact:true})).toHaveCount(0);
+ expect(app.saves).toHaveLength(1);expect(app.writes).toHaveLength(0);app.check();
+});

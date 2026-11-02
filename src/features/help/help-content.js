@@ -16,7 +16,7 @@ export const HELP_INTERFACE_GUIDE = [
  ['Encontrar consultas e opções adicionais','No computador, Consultas e cadastros em Compras e Mais áreas no Financeiro abrem opções complementares. Clique novamente ou use Escape para recolher o menu. No celular, use o seletor de áreas do módulo.'],
  ['Acessar outros módulos no celular','Use Mais, na barra inferior, para abrir Mais módulos. Escolha o módulo desejado. Fechar menu ou Escape retorna à tela atual sem trocar a área de trabalho.'],
  ['Usar os filtros','Mantenha a obra e o período corretos. O botão Filtros abre as opções adicionais, preservando os valores ao recolher. Limpar filtros remove o recorte informado na lista.'],
- ['Conferir o salvamento','O indicador no cabeçalho informa a situação do salvamento; ele não é um botão. Alterações ainda não salvas exige aguardar e conferir a confirmação. Em caso de erro ou conflito, siga a orientação apresentada antes de repetir a operação.'],
+ ['Conferir o salvamento','Após falha, use Tentar salvar novamente no aviso da página. Aguarde a confirmação; não é preciso fazer outra edição. Sem conexão, mantenha a aba aberta até reconectar: recarregar perde edições da fila geral. Sessão, acesso e conflito exigem seguir o motivo; copie edições antes de sair. Para pagamentos e recebimentos, use Retomar trabalho salvo.'],
 ];
 export const HELP_INTERRUPTION_GUIDE = [
  ['Área reduzida no celular','Role dentro do formulário para alcançar os próximos campos e a confirmação. O diálogo acompanha a área visível quando o teclado reduz a tela. Fechar a ajuda ou uma confirmação não deve encerrar a edição principal.'],

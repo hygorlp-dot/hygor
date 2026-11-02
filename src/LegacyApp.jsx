@@ -1,3 +1,4 @@
+import {SaveRecovery} from './domains/sync/SaveRecovery.jsx';
 import PaymentDialog from './features/financeiro/PaymentDialog.jsx';
 import PendingOperations from './features/workflow/PendingOperations.jsx';
 import {useQueuePreferences} from './features/workflow/useQueuePreferences.js';
@@ -13512,6 +13513,7 @@ export default function App() {
   // Última gravação recusada pelo servidor (desfeita na tela): fica visível até
   // o usuário dispensar, para ninguém achar que salvou o que não salvou.
   const [edicaoRecusada,setEdicaoRecusada] = useState(null);
+  const resolvingSaveRef=useRef(false);
   // A lista de obras e o painel detalhado ocupam alturas diferentes. Sem este
   // reset o navegador preserva o scroll da lista e a obra pode abrir já no
   // meio do conteúdo. O layout effect executa antes da pintura, sem salto.
@@ -13620,7 +13622,7 @@ export default function App() {
         }
         setUltimaSync(new Date());
       },
-      onConflict:()=>showToast("Outra pessoa salvou ao mesmo tempo. Suas alterações aguardam resolução do conflito.","error"),
+      onConflict:()=>showToast("Alterações não salvas. Confira o aviso na página.","error"),
       onRetry:({result,delay})=>showToast(`${result?.reason||"Não foi possível conectar ao servidor."} Nova tentativa em ${Math.round(delay/1000)}s.`,"error"),
       onFailed:({result,offline,pending})=>{
         if(isServerRejection({result,offline})&&baseServidorRef.current){
@@ -13638,7 +13640,7 @@ export default function App() {
           showToast(`Alteração não salva e desfeita: ${result?.reason||"recusada pelo servidor"}`,"error");
           return;
         }
-        showToast(offline?"Sem conexão. As alterações seguem guardadas e serão retomadas ao reconectar.":(result?.reason||"Alterações não sincronizadas. Confira a conexão e faça uma nova ação para tentar novamente."),"error");
+        showToast("Alterações não salvas. Confira o aviso na página.","error");
       },
     });
   }
@@ -14140,7 +14142,7 @@ export default function App() {
     },
     [SAVE_QUEUE_STATE.SAVING]:{label:"Salvando alterações...",color:C.yellowD},
     [SAVE_QUEUE_STATE.RETRY_SCHEDULED]:{label:"Tentando salvar novamente...",color:C.orange},
-    [SAVE_QUEUE_STATE.OFFLINE]:{label:"Sem conexão · alterações protegidas",color:C.orange},
+    [SAVE_QUEUE_STATE.OFFLINE]:{label:"Sem conexão · não salvo",color:C.orange},
     [SAVE_QUEUE_STATE.CONFLICT]:{label:"Conflito de salvamento",color:C.red},
     [SAVE_QUEUE_STATE.FAILED]:{label:"Alterações ainda não salvas",color:C.red},
   }[estadoSalvar]||{label:"Verificando salvamento...",color:C.muted};
@@ -14204,56 +14206,26 @@ export default function App() {
     return () => window.removeEventListener("arcd:data-conflict", aoConflitar);
   }, []);
 
-  const reaplicarSobreServidor = async () => {
-    const meu = conflito?.rejectedPayload;
-    const base = baseServidorRef.current;   // versão que EU tinha ao começar a editar
-    setConflito(null);
-    saveQueueRef.current?.discard();
-    const fresco = await loadDataWithMeta();
-    if (!fresco?.data) { showToast("Não consegui recarregar. Tente de novo.", "error"); return; }
-
-    adoptServerVersion(fresco.updatedAt, fresco.data);
-
-    if (meu) {
-      // Merge por seção e por id, em vez de "last write wins" cego. Cada módulo
-      // é uma lista de itens com id: quem A e B tocaram em itens DIFERENTES
-      // coexiste; só o mesmo item editado pelos dois é que a minha versão vence
-      // (e disso o aviso já deixou você ciente). Assim, A mexer em obras e B em
-      // terceirizados não faz ninguém perder trabalho.
-      const merged = mesclarDados(fresco.data, meu, base);
-      const norm = normalizeData(merged);
-      const result = await saveDataDetailed(norm,normalizeData(fresco.data));
-      if (result.ok) {
-        const confirmed=normalizeData(result.merged&&result.data?result.data:norm);
-        baseServidorRef.current=confirmed;ultimoDataRef.current=confirmed;dataAtualRef.current=confirmed;
-        setData(confirmed);setUltimaSync(new Date());
-        showToast("Suas alterações foram mescladas com as da outra pessoa.");
-      } else {
-        showToast(result.reason||"Ainda em conflito. Recarregue a página.","error");
-      }
-    } else {
-      const norm = normalizeData(fresco.data);
-      baseServidorRef.current = norm;
-      ultimoDataRef.current = norm;
-      dataAtualRef.current = norm;
-      setData(norm);
-    }
+  const resolverSalvamento=async reaplicar=>{
+    if(resolvingSaveRef.current)return;
+    resolvingSaveRef.current=true;
+    try{
+      const base=baseServidorRef.current;
+      const fresco=await loadDataWithMeta();
+      if(!fresco?.data){showToast("Não foi possível atualizar. Mantenha esta aba aberta e tente novamente.","error");return;}
+      // Só libera a pendência depois da leitura. A reaplicação volta à fila,
+      // conservando a edição caso o próximo envio também falhe.
+      const servidor=normalizeData(fresco.data);
+      const norm=reaplicar?normalizeData(mesclarDados(servidor,ultimoDataRef.current||conflito?.rejectedPayload,base)):servidor;
+      adoptServerVersion(fresco.updatedAt);
+      setConflito(null);saveQueueRef.current?.discard();
+      baseServidorRef.current=servidor;ultimoDataRef.current=norm;dataAtualRef.current=norm;setData(norm);
+      if(reaplicar)await saveQueueRef.current.enqueue(norm);
+      else showToast("Tela atualizada com a versão do servidor.");
+    }finally{resolvingSaveRef.current=false;}
   };
-
-  const descartarMinhaVersao = async () => {
-    setConflito(null);
-    saveQueueRef.current?.discard();
-    const fresco = await loadDataWithMeta();
-    if (fresco?.data) {
-      adoptServerVersion(fresco.updatedAt, fresco.data);
-      const norm = normalizeData(fresco.data);
-      baseServidorRef.current = norm;
-      ultimoDataRef.current = norm;
-      dataAtualRef.current = norm;
-      setData(norm);
-      showToast("Tela atualizada com a versão do servidor.");
-    }
-  };
+  const reaplicarSobreServidor=()=>resolverSalvamento(true);
+  const descartarMinhaVersao=()=>resolverSalvamento(false);
 
   // O painel de TV permanece aberto por horas. Ele atualiza a fotografia da
   // empresa sem toast e sem disparar um novo save, mantendo a tela pública
@@ -14639,42 +14611,18 @@ export default function App() {
         </header>
 
         {/*  CONTEÚDO  */}
-        {/* Banner de conflito de gravação */}
-        {conflito && (
-          <div style={{
-            maxWidth:maxConteudo, margin:"0 auto",
-            padding: isDesktop ? "12px 22px 0" : "12px 14px 0",
-          }}>
-            <div style={{
-              background:`${C.orange}0E`, border:`1.5px solid ${C.orange}`,
-              borderRadius:8, padding:"12px 14px",
-            }}>
-              <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.orange,fontFamily:"var(--arcd-font-sans)"}}>
-                ! Seu salvamento foi recusado
-              </p>
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4,lineHeight:1.55}}>
-                Outra pessoa salvou alterações enquanto você trabalhava. <strong style={{color:C.text}}>
-                Nada seu foi perdido</strong> - o que você fez está guardado aqui.
-                Você pode reaplicar por cima da versão nova, ou descartar e recomeçar da versão do servidor.
-              </p>
-              <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap"}}>
-                <Btn size="sm" onClick={reaplicarSobreServidor}>
-                  <Ic n="check"/> Reaplicar minhas alterações
-                </Btn>
-                <Btn size="sm" v="ghost" onClick={descartarMinhaVersao}>
-                  Descartar e recarregar
-                </Btn>
-              </div>
-            </div>
-          </div>
-        )}
         </div>
 
         <main className="arcd-main" data-workspace={operationalWorkspace?tab:undefined} style={{ maxWidth:maxConteudo, margin:"0 auto", padding: isDesktop ? "24px 24px" : 14 }}>
-          {edicaoRecusada&&<div role="alert" data-testid="save-rejected" style={{display:"flex",gap:10,alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",marginBottom:12,padding:"10px 12px",border:`1px solid ${C.red}55`,background:`${C.red}0D`,borderRadius:C.rMd,color:C.text}}>
-            <span style={{fontSize:"var(--arcd-type-label)",lineHeight:1.5}}><b>Alteração não salva e desfeita</b> às {edicaoRecusada.em.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}: {edicaoRecusada.motivo}{edicaoRecusada.secoes.length?` (${edicaoRecusada.secoes.slice(0,4).join(", ")}${edicaoRecusada.secoes.length>4?"…":""})`:""}. A tela voltou ao último estado confirmado.</span>
+          {conflito&&<Alert variant="warning" className="mb-3"><AlertDescription>
+            <strong>Conflito de salvamento.</strong> Outra pessoa salvou alterações. Confira antes de reaplicar: sua versão pode substituir edições do mesmo registro. Mantenha esta aba aberta até resolver.
+            <div className="flex flex-wrap gap-2 mt-2"><StandardButton onClick={reaplicarSobreServidor}>Reaplicar minhas alterações</StandardButton><StandardButton variant="outline" onClick={descartarMinhaVersao}>Descartar e recarregar</StandardButton></div>
+          </AlertDescription></Alert>}
+          <SaveRecovery queue={saveQueueRef.current} state={estadoSalvar}/>
+          {edicaoRecusada&&<Alert variant="destructive" data-testid="save-rejected" className="flex flex-wrap items-start justify-between gap-2 mb-3">
+            <AlertDescription><b>Alteração não salva e desfeita</b> às {edicaoRecusada.em.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}: {edicaoRecusada.motivo}{edicaoRecusada.secoes.length?` (${edicaoRecusada.secoes.slice(0,4).join(", ")}${edicaoRecusada.secoes.length>4?"…":""})`:""}. A tela voltou ao último estado confirmado.</AlertDescription>
             <Btn v="ghost" size="sm" onClick={()=>setEdicaoRecusada(null)}>Entendi</Btn>
-          </div>}
+          </Alert>}
           {tab!=="projetos"&&allowedTabs.includes("projetos")&&(data.engineeringProjects||[]).some(project=>(project.sessions||[]).some(session=>session.userId===currentUser.id&&!session.endedAt))&&<Suspense fallback={null}><ProjectTimerStatus projects={data.engineeringProjects} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} onOpen={()=>setTab("projetos")} /></Suspense>}
           <WorkflowContext.Provider value={{navigate:navigateWorkflow,intent:workflowIntent,scopes:workflowScopes,rememberScope:rememberWorkflowScope,views:workflowViews.current,goBack:returnWorkflow,returnTo:workflowTrail.length?{label:`Voltar a ${workflowTrail.at(-1).obraId?(data.obras||[]).find(o=>o.id===workflowTrail.at(-1).obraId)?.name||"Obra":TAB_META[workflowTrail.at(-1).tabId]?.label||"tela anterior"}`}:null}}>
           <PendingOperations key={currentUser.id} user={currentUser} data={data} dispatch={dispatchOperationalCommand}/>

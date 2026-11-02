@@ -2,6 +2,8 @@ export const SAVE_QUEUE_STATE = Object.freeze({
   IDLE:"idle", SAVING:"saving", RETRY_SCHEDULED:"retry_scheduled", OFFLINE:"offline", CONFLICT:"conflict", FAILED:"failed",
 });
 
+const transientStatus=status=>[0,408,429,500,502,503,504].includes(status);
+
 // Serializa snapshots já reconciliados pelo App. A fila não descarta uma nova
 // alteração enquanto uma gravação está em voo e nunca reinicia sozinha depois
 // de atingir o limite de falhas.
@@ -60,7 +62,7 @@ export const createSaveQueue = ({ save, onState = () => {}, onSuccess = () => {}
       // repetindo a mesma requisição. Exibir o motivo real evita a mensagem
       // enganosa "sem resposta" e impede um loop de 409/403.
       const status=Number(result?.status||0);
-      const retryable=[0,429,500,502,503,504].includes(status);
+      const retryable=status!==408&&transientStatus(status);
       if(!retryable){
         transition(SAVE_QUEUE_STATE.FAILED);
         onFailed({result,attempts,pending:target,offline:false});
@@ -110,7 +112,9 @@ export const createSaveQueue = ({ save, onState = () => {}, onSuccess = () => {}
     }
   };
 
+  const canRetry=()=>!destroyed&&!inFlight&&!!pending&&state===SAVE_QUEUE_STATE.FAILED&&transientStatus(Number(lastFailure?.status||0));
   return {
+    canRetry,
     enqueue(snapshot){
       if(destroyed)return Promise.resolve({ok:false,state:SAVE_QUEUE_STATE.FAILED,destroyed:true});
       pending=snapshot;
@@ -121,7 +125,7 @@ export const createSaveQueue = ({ save, onState = () => {}, onSuccess = () => {}
     flush,
     waitForIdle,
     resume(){
-      if(destroyed||state!==SAVE_QUEUE_STATE.OFFLINE)return;
+      if(destroyed||(state!==SAVE_QUEUE_STATE.OFFLINE&&!canRetry()))return;
       attempts=0;lastFailure=null;
       transition(SAVE_QUEUE_STATE.IDLE);
       void flush();

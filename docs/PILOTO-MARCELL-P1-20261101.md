@@ -50,3 +50,5 @@ Atualização acumulada em 01/11/2026: P4 concluída no piloto local; P5 é a pr
 Atualização em 02/11/2026: P5 implementada e validada tecnicamente em ambiente local. Aplicação com operadores preparada e ainda pendente. Nota crítica atual: 8,3/10. Ver [P5 e roteiro de 20 tarefas](PILOTO-MARCELL-P5-20261102.md). A meta 9,5 continua aberta; sem deploy.
 
 Revisão adversa posterior em 02/11/2026: correções locais de identidade, memória e contexto; aplicação com operadores continua pendente. Avaliação crítica atual: **8,0/10**. Ver [revisão adversa da P5](PILOTO-MARCELL-P5-REVISAO-20261102.md). Sem deploy.
+
+Continuação em 02/11/2026: retomada explícita da fila geral e proteção da resolução de conflitos concluídas no piloto local. Nota conservadora mantida em **8,0/10**. Persistência geral após recarga e aplicação com operadores continuam pendentes. Ver [retomada da fila e próximos passos](PILOTO-MARCELL-P5-FILA-20261102.md). Sem deploy.
