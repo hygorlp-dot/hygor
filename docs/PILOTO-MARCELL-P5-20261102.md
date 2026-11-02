@@ -89,3 +89,5 @@ Usar uma base de teste com pedidos, notas, entregas parciais, adiantamentos e pe
 | 20. Repetir uma tarefa no celular com armazenamento bloqueado | Financeiro | Ação alcançável e bloqueio explícito, sem envio |
 
 Registrar por tarefa: operador/perfil, aparelho e largura, início/fim, conclusão sem ajuda, erros, pedidos de orientação, perda de contexto e necessidade de retorno. Comparar com a linha de base que ainda será medida. Critérios propostos: zero duplicações, zero confirmação automática por recarga, zero perda de comando na recuperação suportada e pelo menos 19/20 tarefas concluídas; qualquer falha financeira bloqueia a aprovação. Tempos e desvios devem orientar a próxima revisão, sem inventar metas antes da observação.
+
+Revisão adversa posterior em 02/11/2026: correções locais de identidade, memória e contexto; aplicação com operadores continua pendente. Avaliação crítica atual: **8,0/10**. Ver [revisão adversa da P5](PILOTO-MARCELL-P5-REVISAO-20261102.md). Sem deploy.

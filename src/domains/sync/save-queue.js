@@ -87,6 +87,7 @@ export const createSaveQueue = ({ save, onState = () => {}, onSuccess = () => {}
     };
     try{
       const result=await save(target);
+      if(destroyed)return;
       if(result?.conflict){
         pending=target;
         attempts=0;
@@ -101,7 +102,7 @@ export const createSaveQueue = ({ save, onState = () => {}, onSuccess = () => {}
       onSuccess({result,target});
       drain=true;
     }catch(error){
-      fail({ok:false,error});
+      if(!destroyed)fail({ok:false,error});
     }finally{
       inFlight=false;
       if(drain&&pending)void flush();
@@ -133,7 +134,8 @@ export const createSaveQueue = ({ save, onState = () => {}, onSuccess = () => {}
     destroy(){
       destroyed=true;pending=null;attempts=0;retryScheduled=false;
       if(retryTimer!=null){cancelSchedule(retryTimer);retryTimer=null;}
-      transition(SAVE_QUEUE_STATE.FAILED);
+      // Desmontagem não é falha de gravação visível para a próxima fila.
+      state=SAVE_QUEUE_STATE.FAILED;
       settleWaiters();
     },
     getState:()=>state,

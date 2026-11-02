@@ -1437,7 +1437,7 @@ Registrar pagamentos.
 
 ### Antes de começar
 
-Confira obra, documento, saldo e pagamentos anteriores.
+Confira Fornecedor, obra, documento, saldo e pagamentos anteriores. Se aparecer Não informado, confira a origem do documento.
 
 ### Como fazer
 
@@ -2856,7 +2856,7 @@ Registrar pagamentos.
 
 ### Antes de começar
 
-Confira obra, documento, saldo e pagamentos anteriores.
+Confira Fornecedor, obra, documento, saldo e pagamentos anteriores. Se aparecer Não informado, confira a origem do documento.
 
 ### Como fazer
 
@@ -2896,7 +2896,7 @@ A confirmação atualiza o registro; abrir o rascunho não grava.
 
 ### O que merece atenção
 
-A recarga não envia automaticamente. Não é backup: depende dos dados locais. Abas compartilham o rascunho. Sem armazenamento, o envio é bloqueado. Sem permissão, peça revisão do acesso.
+A recarga não envia automaticamente. Não é backup: depende dos dados locais. Abas compartilham o rascunho. Sem armazenamento, o envio é bloqueado. Obra e acesso seguem o registro atual. Registro indisponível mantém o trabalho salvo; confira a origem e as permissões. Se o armazenamento falhar na retomada, mantenha a ficha aberta e confira o histórico antes de outra operação. Em abas antigas, copie edições não salvas antes de recarregar após a atualização do ERP.
 
 <a id="guia-cmp_recuperacao"></a>
 
@@ -2920,7 +2920,7 @@ A confirmação atualiza o registro; abrir o rascunho não grava.
 
 ### O que merece atenção
 
-A recarga não envia automaticamente. Não é backup: depende dos dados locais. Abas compartilham o rascunho. Sem armazenamento, o envio é bloqueado. Sem permissão, peça revisão do acesso.
+A recarga não envia automaticamente. Não é backup: depende dos dados locais. Abas compartilham o rascunho. Sem armazenamento, o envio é bloqueado. Obra e acesso seguem o registro atual. Registro indisponível mantém o trabalho salvo; confira a origem e as permissões. Se o armazenamento falhar na retomada, mantenha a ficha aberta e confira o histórico antes de outra operação. Em abas antigas, copie edições não salvas antes de recarregar após a atualização do ERP.
 
 ## Aparência, botões e navegação
 

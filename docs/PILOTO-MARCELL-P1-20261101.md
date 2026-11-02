@@ -48,3 +48,5 @@ Atualização do roadmap em 01/11/2026: P2 concluída localmente; consultar `PIL
 Atualização acumulada em 01/11/2026: P4 concluída no piloto local; P5 é a próxima etapa. Ver `PILOTO-MARCELL-P4-20261101.md` para a avaliação conservadora 7,8/10 e os riscos ainda abertos.
 
 Atualização em 02/11/2026: P5 implementada e validada tecnicamente em ambiente local. Aplicação com operadores preparada e ainda pendente. Nota crítica atual: 8,3/10. Ver [P5 e roteiro de 20 tarefas](PILOTO-MARCELL-P5-20261102.md). A meta 9,5 continua aberta; sem deploy.
+
+Revisão adversa posterior em 02/11/2026: correções locais de identidade, memória e contexto; aplicação com operadores continua pendente. Avaliação crítica atual: **8,0/10**. Ver [revisão adversa da P5](PILOTO-MARCELL-P5-REVISAO-20261102.md). Sem deploy.

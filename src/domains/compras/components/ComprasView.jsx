@@ -11,7 +11,7 @@ import {useUnsavedChanges} from "../../../features/workflow/useUnsavedChanges.js
 import {WorkflowWarnings} from './ProcurementProcessStatus.jsx';
 import {planningPurchaseNeeds,planningRequestDraft} from "../../planejamento/purchase-needs.js";
 import {useHelpTopic} from '../../../features/help/HelpContext.jsx';
-import {PURCHASE_HELP} from '../../../features/help/help-content.js';
+import {PURCHASE_HELP} from '../../../features/help/help-topics.js';
 import {useWorkspaceState,useWorkspaceScroll} from "../../../features/workflow/workspace-session.jsx";
 import SupplierResponseQueue from "./SupplierResponseQueue";
 import {OrderTermsFields} from "./OrderConditions";

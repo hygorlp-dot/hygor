@@ -148,3 +148,9 @@ Evidências, riscos residuais e avaliação conservadora em `PILOTO-MARCELL-P4-2
 ## Recuperação e pagamento compartilhado — P5, 02/11/2026
 
 Pedidos e notas fiscais em Compras e Financeiro devem usar `PaymentDialog`. Reutilizar `Button`, campos, `FilePicker`, `Modal` e tokens existentes. Ação curta financeira precisa distinguir rascunho de confirmação enviada sem resposta; usar `dispatchConfirmedAttempt` com usuário e contexto para proteger o comando antes do envio. Não reenviar automaticamente na recarga. Retomar confirmação mantém IDs, versão e chave idempotente. A alocação usa o comando próprio, respeitando saldo, obra e fechamento; nunca fabricar novo pagamento para representar dinheiro já pago. Ajuda e manual acompanham o mesmo formulário. Ver [P5](PILOTO-MARCELL-P5-20261102.md) para limites da proteção local e validação.
+
+## Retomada e contexto atual — revisão P5, 02/11/2026
+
+A identidade da confirmação local distingue classe do documento e ID. Consulte o registro atual para apresentar obra e decidir acesso; o contexto do rascunho é histórico e não concede permissão. Falha de armazenamento durante reenvio mantém o comando original em memória. Migrações locais devem preservar registros e comprovantes, abortar integralmente em falha e ser verificadas com o formato anterior.
+
+Para selecionar o contexto de Ajuda, use os IDs de `src/features/help/help-topics.js` ou `useHelpTopic`. Os textos continuam na fonte única `help-content.js`; não importe os guias completos estaticamente em telas operacionais apenas para acessar o mapa de IDs. Mensagens genéricas compartilhadas, como `UI_TEXT.feedback.recordUnavailable`, pertencem à base comum de linguagem.

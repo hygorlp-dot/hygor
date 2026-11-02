@@ -15,6 +15,6 @@ export async function dispatchConfirmedAttempt(attempt,dispatch,build){
   const status=Number(result?.status||0);
   if(result?.ok||(status>=400&&status<500&&![408,429,...(retry?[401,403]:[])].includes(status))){if(attempt.key)await (attempt.store||attemptStore).resolve(attempt.key,!!result?.ok).catch(()=>{});delete attempt.command;}
   return result;
- }catch(error){if(error.local){delete attempt.command;return {ok:false,status:400,reason:`Não enviado: ${error.message||'armazenamento local indisponível'}`};}return {ok:false,status:0,reason:UNCONFIRMED_COMMAND};}
+ }catch(error){if(error.local){if(!retry)delete attempt.command;return {ok:false,status:400,reason:`Não enviado: ${error.message||'armazenamento local indisponível'}`};}return {ok:false,status:0,reason:UNCONFIRMED_COMMAND};}
  finally{attempt.busy=false;}
 }

@@ -48,7 +48,7 @@ import {validatePurchasePayment} from './domains/financeiro/purchase-payment-val
 import { sessionContext } from "./lib/session-context.js";
 import {HelpButton} from './features/help/HelpButton.jsx';
 import {useHelpTopic} from './features/help/HelpContext.jsx';
-import {FINANCE_HELP, WORK_HELP} from './features/help/help-content.js';
+import {FINANCE_HELP, WORK_HELP} from './features/help/help-topics.js';
 import {Textarea as SharedTextarea} from "./design-system/primitives/Textarea.jsx";
 import {Button as SharedUiButton} from "./components/ui/button.jsx";
 import {legacyButtonRole} from "./design-system/primitives/button-contract.js";

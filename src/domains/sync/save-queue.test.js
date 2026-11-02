@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createSaveQueue, SAVE_QUEUE_STATE } from "./save-queue";
 
-const deferred=()=>{let resolve;const promise=new Promise(r=>{resolve=r;});return{promise,resolve};};
+const deferred=()=>{let resolve,reject;const promise=new Promise((r,j)=>{resolve=r;reject=j;});return{promise,resolve,reject};};
 
 describe("fila serializada de salvamento", () => {
   it("preserva o snapshot mais recente chegado durante um salvamento", async () => {
@@ -164,4 +164,26 @@ describe("fila serializada de salvamento", () => {
     expect(calls).toEqual([{eventos:["primeiro"]},{eventos:["primeiro","segundo"]}]);
     expect(queue.hasPending()).toBe(false);
   });
+  it("não publica falha de salvamento ao encerrar uma fila ociosa",async()=>{
+    const states=[];
+    const queue=createSaveQueue({save:async()=>({ok:true}),onState:state=>states.push(state)});
+    queue.destroy();
+    expect(states).toEqual([]);
+    expect(await queue.waitForIdle()).toEqual({ok:false,state:SAVE_QUEUE_STATE.FAILED});
+  });
+
+  it("ignora respostas tardias de uma fila encerrada e resolve a espera",async()=>{
+    for(const rejected of [false,true]){
+      const request=deferred();const events=[];
+      const queue=createSaveQueue({save:()=>request.promise,onState:state=>events.push(state),onSuccess:()=>events.push('success'),onFailed:()=>events.push('failure')});
+      const waiting=queue.enqueue({id:'encerrada'});
+      queue.destroy();
+      if(rejected)request.reject(new Error('resposta tardia'));
+      else request.resolve({ok:true});
+      expect(await waiting).toEqual({ok:false,state:SAVE_QUEUE_STATE.FAILED});
+      expect(events).toEqual([SAVE_QUEUE_STATE.SAVING]);
+      expect(queue.hasPending()).toBe(false);
+    }
+  });
+
 });

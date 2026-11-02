@@ -1,3 +1,4 @@
+import {UI_TEXT} from '../../design-system/copy.js';
 import {PAYABLE_PAYMENT_COMMAND as CMD} from '../../domains/financeiro/payable-payment-commands.js';
 import {availableOrderPayments} from '../../domains/financeiro/order-payment-links.js';
 import {active} from '../../domains/financeiro/facts.js';
@@ -24,7 +25,7 @@ import {today,uid,fmt} from '../../legacy/format.js';
 import './payment-dialog.css';
 const initial=target=>({valor:String((target.type==='nota'?saldoPagamentoNota(target.record):saldoPagamentoPedido(target.record)).toFixed(2)),data:today(),origem:target.record.origemPagamento||'empresa',transacaoId:'',referencia:'',observacao:'',motivoAdiantamento:'',comprovanteFile:null,comprovanteLegenda:''});
 export default function PaymentDialog({data,user,type,id,pageId='fin',dispatch,onClose,onSaved}){
- const record=(data[type==='nota'?'notasFiscais':'pedidos']||[]).find(r=>r.id===id),target={type,record};
+ const record=(data[type==='nota'?'notasFiscais':'pedidos']||[]).find(r=>String(r.id)===String(id)),target={type,record};
  const [form,setForm]=useState(()=>record?initial(target):{}),[ready,setReady]=useState(false),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[draftStatus,setDraftStatus]=useState(''),[otherPending,setOtherPending]=useState(false);
  const attempt=useRef({owner:user.id}),dirty=useRef(false),lock=useRef(false),done=useRef(false);
  useHelpTopic(pageId,pageId==='cmp'?'cmp_pagamento':'fin_pagamentos',20);
@@ -32,7 +33,7 @@ export default function PaymentDialog({data,user,type,id,pageId='fin',dispatch,o
  useEffect(()=>{if(!ready||!dirty.current||done.current)return;let active=true;attemptStore.draft(user.id,type,id,form,{pageId,obraId:record?.obraId,obra:(data.obras||[]).find(w=>w.id===record?.obraId)?.name,label:`Pagamento · ${record?.numero||id}`}).then(()=>{if(active)setDraftStatus('Rascunho salvo neste navegador.');}).catch(()=>{if(active)setDraftStatus('Rascunho não salvo. Confira o armazenamento local.');});return()=>{active=false;};},[form,ready,user.id,type,id]);
  const close=useUnsavedChanges(form,onClose,{identity:`${type}:${id}`,busy});
  const patch=(key,value)=>{dirty.current=true;setForm(f=>({...f,[key]:value}));};
- if(!record)return <Modal title="Registro indisponível" onClose={onClose}><p>Confira a obra e o acesso antes de registrar um pagamento.</p></Modal>;
+ if(!record)return <Modal title={UI_TEXT.feedback.recordUnavailable} onClose={onClose}><p>Confira a obra e o acesso antes de registrar um pagamento.</p></Modal>;
  const work=(data.obras||[]).find(w=>w.id===record.obraId),balance=type==='nota'?saldoPagamentoNota(record):saldoPagamentoPedido(record),total=type==='nota'?Number(record.valorLiquido||record.valorBruto):totalPedido(record),value=Number(String(form.valor||'').replace(',','.'));
  const canPay=['admin','financeiro',...(pageId==='cmp'?['compras']:[])].includes(user.role)&&podeAcessarAba(user,pageId)&&user.active!==false&&(!user.obraId||user.obraId===record.obraId);
  const validation=validatePurchasePayment(data,{type,target:record,value,motivo:form.motivoAdiantamento,actorRole:user.role});
@@ -46,13 +47,13 @@ export default function PaymentDialog({data,user,type,id,pageId='fin',dispatch,o
    let docs=[],workspace=null;
    if(form.comprovanteFile&&!attempt.current.command){const file=form.comprovanteFile;const response=await enviarArquivoOneDrive({dataUrl:await arquivoComoDataUrl(file),obraName:work?.name||'Obra',driveId:work?.oneDriveDriveId,folderId:work?.oneDriveFolderId,folders:work?.oneDriveFolders,category:'financeiro',subfolder:`Pagamentos/${record.numero||id}`,date:form.data,fileName:file.name});if(!response.ok&&!response.url)throw Error(response.error||'Não foi possível salvar o comprovante.');docs=[{id:response.item?.id||uid(),nome:file.name,legenda:form.comprovanteLegenda||file.name,url:response.item?.webUrl||response.url,tipo:file.type,tamanho:file.size}];workspace=response.workspace||null;}
    attempt.current.context={pageId,obraId:record.obraId,obra:work?.name,label:`Pagamento · ${record.numero||id}`,valor:value};
-   const result=await dispatchConfirmedAttempt(attempt.current,dispatch,current=>({type:CMD.PAYABLE_PAYMENT_RECORDED,idempotencyKey:`payment-${uid()}`,expectedVersion:Number((current[type==='nota'?'notasFiscais':'pedidos']||[]).find(r=>r.id===id)?.version||0),actorId:user.id,actorName:user.nome,payload:{targetType:type,targetId:id,payment:{id:uid(),valor:value,data:form.data,origem:form.origem,transacaoId:form.origem==='empresa'?form.transacaoId:'',referencia:form.referencia,observacao:form.observacao,comprovantes:docs},workCashMovementId:form.origem==='caixa_obra'?uid():'',workspace,motivoAdiantamento:form.motivoAdiantamento}}));
+   const result=await dispatchConfirmedAttempt(attempt.current,dispatch,current=>({type:CMD.PAYABLE_PAYMENT_RECORDED,idempotencyKey:`payment-${uid()}`,expectedVersion:Number((current[type==='nota'?'notasFiscais':'pedidos']||[]).find(r=>String(r.id)===String(id))?.version||0),actorId:user.id,actorName:user.nome,payload:{targetType:type,targetId:id,payment:{id:uid(),valor:value,data:form.data,origem:form.origem,transacaoId:form.origem==='empresa'?form.transacaoId:'',referencia:form.referencia,observacao:form.observacao,comprovantes:docs},workCashMovementId:form.origem==='caixa_obra'?uid():'',workspace,motivoAdiantamento:form.motivoAdiantamento}}));
    if(!result?.ok)throw Error(result?.reason||UNCONFIRMED_COMMAND);
    done.current=true;onSaved?.(result);onClose();
   }catch(error){setMessage(attempt.current.command?UNCONFIRMED_COMMAND:error.message||UNCONFIRMED_COMMAND);}finally{lock.current=false;setBusy(false);}
  };
  return <><Modal title={`Pagamento · ${record.numero||id}`} onClose={close.requestClose} panelClass="mrc-payment-dialog"><div className="mrc-payment-dialog__body">
- <HelpButton pageId={pageId} allowedTabs={[pageId]}/><p>{work?.name||'Obra não informada'} · Total {fmt(total)} · Saldo {fmt(balance)}</p>
+ <HelpButton pageId={pageId} allowedTabs={[pageId]}/><p>Fornecedor: {record.fornecedorNome||(data.fornecedores||[]).find(f=>f.id===record.fornecedorId)?.nome||'Não informado'}</p><p>{work?.name||'Obra não informada'} · Total {fmt(total)} · Saldo {fmt(balance)}</p>
  {message&&<p role="alert">{message}</p>}{draftStatus&&<p role="status">{draftStatus}</p>}
  {type==='nota'&&availableOrderPayments(data,record).length>0&&<p role="status">{UNALLOCATED_ORDER_PAYMENT}</p>}
  {type==='nota'&&canPay&&<AdvanceAllocation data={data} note={record} user={user} dispatch={dispatch} busy={busy||!ready||otherPending||!!attempt.current.command} onBusy={setBusy} onPending={()=>setOtherPending(true)} onSaved={result=>{done.current=true;onSaved?.(result);onClose();}}/>}
