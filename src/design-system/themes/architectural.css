@@ -40,26 +40,11 @@
   background-size: 24px 24px;
 }
 
-[data-theme="architectural"] .works-card,
-[data-theme="architectural"] .supplier-ranking-card,
-[data-theme="architectural"] .dre-kpi-card,
-[data-theme="architectural"] .compras-next-action,
-[data-theme="architectural"] .obra-fin-balance,
-[data-theme="architectural"] .obra-fin-metric,
-[data-theme="architectural"] .obra-fin-table-wrap,
-[data-theme="architectural"] .purchase-kanban-column,
-[data-theme="architectural"] .purchase-kanban-card,
-[data-theme="architectural"] .supplier-detail,
-[data-theme="architectural"] .works-filter-bar,
-[data-theme="architectural"] .compras-journey,
-[data-theme="architectural"] .compras-toolbar {
+[data-theme="architectural"] .works-card,[data-theme="architectural"] .supplier-ranking-card,[data-theme="architectural"] .dre-kpi-card,[data-theme="architectural"] .obra-fin-balance,[data-theme="architectural"] .obra-fin-metric,[data-theme="architectural"] .obra-fin-table-wrap,[data-theme="architectural"] .supplier-detail,[data-theme="architectural"] .works-filter-bar {
   border-radius: 4px !important;
 }
 
-[data-theme="architectural"] .works-card::before,
-[data-theme="architectural"] .compras-next-action::before,
-[data-theme="architectural"] .dre-company-header::before,
-[data-theme="architectural"] .dre-kpi-card::before {
+[data-theme="architectural"] .works-card::before,[data-theme="architectural"] .dre-kpi-card::before {
   background: var(--arcd-accent-structural) !important;
 }
 
@@ -67,20 +52,12 @@
   background: #b66a63 !important;
 }
 
-[data-theme="architectural"] .compras-journey button[data-active="true"] .compras-step-number {
-  border-color: var(--arcd-accent-structural) !important;
-  background: var(--arcd-accent-structural) !important;
-}
-
 [data-theme="architectural"] .supplier-card-title,
 [data-theme="architectural"] .works-card-cover {
   border-radius: 0 !important;
 }
 
-[data-theme="architectural"] button,
-[data-theme="architectural"] .works-card,
-[data-theme="architectural"] .purchase-kanban-card,
-[data-theme="architectural"] .dashboard-kpi {
+[data-theme="architectural"] button,[data-theme="architectural"] .works-card,[data-theme="architectural"] .dashboard-kpi {
   transition-duration: .12s !important;
   transition-timing-function: cubic-bezier(.4, 0, .2, 1) !important;
 }
@@ -130,10 +107,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-theme="architectural"] button,
-  [data-theme="architectural"] .works-card,
-  [data-theme="architectural"] .purchase-kanban-card,
-  [data-theme="architectural"] .dashboard-kpi {
+  [data-theme="architectural"] button,[data-theme="architectural"] .works-card,[data-theme="architectural"] .dashboard-kpi {
     transition-duration: .01ms !important;
   }
 }

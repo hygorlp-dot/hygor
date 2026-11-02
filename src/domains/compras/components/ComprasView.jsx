@@ -1,5 +1,5 @@
-import {HelpButton} from '../../../features/help/HelpButton.jsx';
-import {dispatchConfirmedAttempt,UNCONFIRMED_COMMAND} from '../../../features/workflow/command-attempt.js';
+import PaymentDialog from '../../../features/financeiro/PaymentDialog.jsx';
+import {dispatchConfirmedAttempt} from '../../../features/workflow/command-attempt.js';
 import {useQueuePreferences} from '../../../features/workflow/useQueuePreferences.js';
 import {FilePicker} from '../../../design-system/patterns/FilePicker.jsx';
 import MessageRequestImport,{MessageRequestSource} from './MessageRequestImport.jsx';
@@ -1403,61 +1403,9 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     avisarPendencias(result);
   };
 
-  const paymentSubmitting=useRef(false),paymentAttempt=useRef({}),receiptAttempts=useRef(new Map());
-  const receiptAttempt=id=>{if(!receiptAttempts.current.has(id))receiptAttempts.current.set(id,{});return receiptAttempts.current.get(id);};
-  const abrirPagamento=p=>{if(!canActOnPurchaseQueue(currentUser,{type:"order",stage:"pedidos",obraId:p.obraId})){showToast("Seu perfil não permite registrar pagamento nesta obra.","error");return;}if(paymentAttempt.current.command){showToast("Há um pagamento sem confirmação. Retome a operação anterior antes de iniciar outro registro.","warn");setPagModal(paymentAttempt.current.form);return;}paymentAttempt.current={};setPagModal({pedido:p,valor:String(saldoPagamentoPedido(p).toFixed(2)),data:today(),origem:p.origemPagamento||"empresa",transacaoId:"",referencia:"",observacao:"",conciliado:false,comprovanteFile:null,comprovanteLegenda:""});};
-  const registrarPagamento=async()=>{
-    if(paymentSubmitting.current)return;
-    const f=pagModal,pedido=f?.pedido,valor=Number(String(f?.valor||"").replace(",","."));
-    if(!pedido||!(valor>0)){showToast("Informe o valor pago.","error");return;}
-    const saldo=saldoPagamentoPedido(pedido);
-    if(valor>saldo+.01){showToast(`O pagamento supera o saldo de ${fmt(saldo)}.`,"error");return;}
-    if(!canActOnPurchaseQueue(currentUser,{type:"order",stage:"pedidos",obraId:pedido.obraId})){showToast("Seu perfil não possui permissão para registrar pagamentos de compras.","error");return;}
-    const obra=(data.obras||[]).find(o=>o.id===pedido.obraId);
-    const caixa=situacaoCaixaObra(data,pedido.obraId);
-    if(f.origem==="caixa_obra"&&!obra?.hasCaixa)showToast("Caixa ainda não ativado. Confira a configuração e os movimentos registrados.","warn");
-    if(f.origem==="caixa_obra"&&valor>caixa.saldo+.001)showToast("O registro deixará o caixa negativo. Confira aportes e a origem real do pagamento.","warn");
-    paymentSubmitting.current=true;
-    setSubindoComprovantePagamento(true);
-    try{
-    paymentAttempt.current.form=f;
-    const pagamentoId=uid();let comprovantes=[];let workspace=null;
-    if(f.comprovanteFile&&!paymentAttempt.current.command){
-      const file=f.comprovanteFile,dataUrl=await arquivoComoDataUrl(file);
-      const resp=await enviarArquivoOneDrive({dataUrl,obraName:obra?.name||"Obra",driveId:obra?.oneDriveDriveId,folderId:obra?.oneDriveFolderId,folders:obra?.oneDriveFolders,category:"financeiro",subfolder:`Pagamentos de compras/${pedido.numero||"Pedido"}/${String(f.data||today()).slice(0,7)}`,date:f.data||today(),fileName:file.name});
-      if(!resp.ok&&!resp.url)throw new Error(resp.error||"Falha ao salvar o comprovante no OneDrive.");
-      comprovantes=[{id:resp.item?.id||uid(),nome:resp.item?.name||file.name,legenda:String(f.comprovanteLegenda||file.name).trim(),url:resp.item?.webUrl||resp.url,path:resp.path||"",tipo:file.type||"",tamanho:Number(file.size||0),enviadoEm:new Date().toISOString(),enviadoPorId:currentUser?.id||"",enviadoPor:currentUser?.nome||""}];
-      workspace=resp.workspace||null;
-    }
-    const transacao=(data.transacoes||[]).find(t=>t.id===f.transacaoId);
-    const pagamento={id:pagamentoId,data:f.data||today(),valor,origem:f.origem,conciliado:!!f.conciliado||!!transacao,
-      transacaoId:f.transacaoId||"",referencia:f.referencia||transacao?.descricao||"",observacao:f.observacao||"",
-      comprovantes,
-      registradoPorId:currentUser?.id||"",registradoPor:currentUser?.nome||"",registradoEm:new Date().toISOString()};
-    const result=await dispatchConfirmedAttempt(paymentAttempt.current,dispatchCommand,atual=>{
-      const vigente=(atual.pedidos||[]).find(item=>item.id===pedido.id);
-      return {
-        type:OPERATIONAL_COMMAND.PAYABLE_PAYMENT_RECORDED,
-        idempotencyKey:`purchase-payment-create-${pagamentoId}-${uid()}`,
-        expectedVersion:Number(vigente?.version||0),
-        actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-        payload:{
-          targetType:"pedido",targetId:pedido.id,payment:pagamento,
-          workCashMovementId:f.origem==="caixa_obra"?uid():"",
-          workspace,adiantamento:!!f.adiantamento,motivoAdiantamento:String(f.motivoAdiantamento||"").trim(),
-        },
-      };
-    });
-    if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o pagamento.");
-    const pedidoConfirmado=(result.data?.pedidos||[]).find(item=>item.id===pedido.id);
-    const quitado=saldoPagamentoPedido(pedidoConfirmado||pedido)<=.01;
-    const saldoProjetado=caixa.saldo-valor;
-    setPagModal(null);
-    if(f.origem==="caixa_obra"&&saldoProjetado<=caixa.limiteBaixo)showToast(`Pagamento registrado, mas o caixa ficou baixo: ${fmt(saldoProjetado)}. Recomenda-se novo aporte (reserva mínima ${fmt(caixa.limiteBaixo)}).`,"warn");
-    else showToast(quitado?`Pedido ${pedido.numero} quitado.`:`Pagamento parcial registrado. Saldo: ${fmt(saldo-valor)}.`);
-    }catch(err){showToast(err.message||"Não foi possível registrar o pagamento.","error");}
-    finally{paymentSubmitting.current=false;setSubindoComprovantePagamento(false);}
-  };
+  const receiptAttempts=useRef(new Map());
+  const receiptAttempt=id=>{if(!receiptAttempts.current.has(id))receiptAttempts.current.set(id,{owner:currentUser?.id});return receiptAttempts.current.get(id);};
+  const abrirPagamento=p=>{if(!canActOnPurchaseQueue(currentUser,{type:'order',stage:'pedidos',obraId:p.obraId})){showToast('Seu perfil não permite registrar pagamento nesta obra.','error');return;}setPagModal({id:p.id,type:'pedido'});};
 
   const reclassificarOrigemPagamento=async(pedido,pagamentoId,novaOrigem)=>{
     const pagamento=(pedido.pagamentos||[]).find(pg=>pg.id===pagamentoId);
@@ -1544,6 +1492,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       showToast("O recebimento seguro exige conexão com o servidor.","error");
       return;
     }
+    Object.assign(receiptAttempt(pedido.id),{owner:currentUser.id,context:{pageId:'cmp',obraId:pedido.obraId,obra:(data.obras||[]).find(w=>w.id===pedido.obraId)?.name,label:`Recebimento · ${pedido.numero||pedido.id}`}});
     const result=await dispatchConfirmedAttempt(receiptAttempt(pedido.id),dispatchCommand,atual=>{
       const vigente=(atual.pedidos||[]).find(item=>item.id===pedido.id);
       return {type:OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED,
@@ -2811,33 +2760,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       {recModal  && <ModalRecebimento pedido={recModal} onClose={()=>setRecModal(null)}
                                       onReceber={receber} nomeMat={nomeMat}
                                       nomeForn={nomeForn} attempt={receiptAttempt(recModal.id)} notice={<PurchaseSaveNotice save={save}/>}/>}
-      {pagModal&&<Modal title={`Pagamento · ${pagModal.pedido.numero}`} onClose={()=>!subindoComprovantePagamento&&setPagModal(null)}><div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
-        <HelpButton pageId="cmp" allowedTabs={["cmp"]}/>
-        {!subindoComprovantePagamento&&paymentAttempt.current.command&&<p role="status">{UNCONFIRMED_COMMAND}</p>}
-        <fieldset className="mrc-command-fields" aria-label="Dados do pagamento" disabled={subindoComprovantePagamento||!!paymentAttempt.current.command}>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-2)",background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:8,padding:"var(--arcd-space-2) var(--arcd-space-2)"}}><div><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",fontWeight:"var(--arcd-font-weight-semibold)"}}>Total do pedido</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{fmt(totalPedido(pagModal.pedido))}</p></div><div><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",fontWeight:"var(--arcd-font-weight-semibold)"}}>Saldo antes deste pagamento</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-danger-text)"}}>{fmt(saldoPagamentoPedido(pagModal.pedido))}</p></div></div>
-        <Sel label="Origem real do pagamento *" value={pagModal.origem} onChange={v=>setPagModal(f=>({...f,origem:v,transacaoId:v==="empresa"?f.transacaoId:""}))} options={[{v:"empresa",l:"Conta bancária da empresa"},{v:"caixa_obra",l:"Caixa da obra"},{v:"cliente_direto",l:"Cliente pagou diretamente"}]}/>
-        {pagModal.origem==="caixa_obra"&&(()=>{const cx=situacaoCaixaObra(data,pagModal.pedido.obraId),valor=Number(String(pagModal.valor||"").replace(",","."))||0,projetado=cx.saldo-valor,negativo=projetado<-.001,baixo=!negativo&&projetado<=cx.limiteBaixo;return <div style={{background:negativo?"color-mix(in srgb, var(--arcd-danger-text) 5%, transparent)":baixo?"color-mix(in srgb, var(--arcd-warning-text) 5%, transparent)":"color-mix(in srgb, var(--arcd-success-text) 5%, transparent)",border:`1px solid ${negativo?"var(--arcd-danger-text)":baixo?"var(--arcd-warning-text)":"var(--arcd-success-text)"}`,borderRadius:9,padding:"var(--arcd-space-2) var(--arcd-space-2)"}}><div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"var(--arcd-space-2)"}}>{[["Saldo disponível",cx.saldo,cx.saldo>0?C.green:C.red],["Após pagamento",projetado,negativo?C.red:baixo?C.orange:C.green],["Reserva mínima",cx.limiteBaixo,C.muted]].map(([l,v,c])=><div key={l}><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",fontWeight:"var(--arcd-font-weight-semibold)"}}>{l}</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:c,marginTop:"var(--arcd-space-half)"}}>{fmt(v)}</p></div>)}</div>{!((data.obras||[]).find(o=>o.id===pagModal.pedido.obraId)?.hasCaixa)&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-danger-text)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-2)"}}>Caixa não ativado no cadastro desta obra.</p>}{negativo&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-danger-text)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-2)"}}>Aviso: o saldo ficará negativo. Confira aportes e a origem real do pagamento.</p>}{baixo&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-warning-text)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-2)"}}>Alerta de caixa baixo: o pagamento é possível, mas deixará a reserva abaixo do nível recomendado.</p>}</div>;})()}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-2)"}}><Inp label="Valor pago *" type="number" value={pagModal.valor} onChange={v=>setPagModal(f=>({...f,valor:v}))}/><Inp label="Data *" type="date" value={pagModal.data} onChange={v=>setPagModal(f=>({...f,data:v}))}/></div>
-        {pagModal.origem==="empresa"&&<Sel label="Vincular à transação bancária (opcional)" value={pagModal.transacaoId} onChange={v=>setPagModal(f=>({...f,transacaoId:v,conciliado:!!v}))} options={[{v:"",l:"Sem transação vinculada"},...(data.transacoes||[]).filter(t=>Number(t.valor)<0).slice().sort((a,b)=>(b.data||"").localeCompare(a.data||"")).slice(0,80).map(t=>({v:t.id,l:`${fmtDate(t.data)} · ${fmt(Math.abs(Number(t.valor||0)))} · ${t.descricao||"Saída bancária"}`}))]}/>}
-        <Inp label="Comprovante / referência" value={pagModal.referencia} onChange={v=>setPagModal(f=>({...f,referencia:v}))} placeholder="PIX, boleto, recibo ou identificação do cliente"/>
-        <FilePicker buttonLabel="Selecionar comprovante" accept=".pdf,image/jpeg,image/png,image/webp" onChange={e=>{const file=e.target.files?.[0];e.target.value="";if(!file)return;if(file.size>5.5*1024*1024){showToast("O comprovante deve ter no máximo 5,5 MB.","error");return;}setPagModal(f=>({...f,comprovanteFile:file,comprovanteLegenda:String(file.name||"").replace(/\.[^.]+$/,"")}));}} style={{padding:"var(--arcd-space-3) var(--arcd-space-3)",border:`1.5px dashed ${pagModal.comprovanteFile?"var(--arcd-success-text)":"var(--arcd-action-primary)"}66`,borderRadius:9,textAlign:"center",cursor:"pointer",background:pagModal.comprovanteFile?"color-mix(in srgb, var(--arcd-success-text) 3%, transparent)":"var(--arcd-surface-muted)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:pagModal.comprovanteFile?"var(--arcd-success-text)":"var(--arcd-action-primary)"}}>{pagModal.comprovanteFile?pagModal.comprovanteFile.name:"Anexar comprovante de pagamento"}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>PDF, JPG, PNG ou WEBP · salvo no OneDrive da obra</p></FilePicker>
-        {pagModal.comprovanteFile&&<Inp label="Legenda do comprovante" value={pagModal.comprovanteLegenda} onChange={v=>setPagModal(f=>({...f,comprovanteLegenda:v}))} placeholder="Ex.: PIX pago ao fornecedor"/>}
-        <label style={{display:"flex",gap:"var(--arcd-space-2)",alignItems:"center",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",cursor:"pointer"}}><ChoiceControl type="checkbox" checked={!!pagModal.conciliado} onChange={e=>setPagModal(f=>({...f,conciliado:e.target.checked}))}/><span>Pagamento/comprovante já conferido e conciliado</span></label>
-        {(()=>{
-          // A classificação é calculada pelo servidor; pendências são avisos.
-          const conf=conferenciaPagamentoPedido(data,pagModal.pedido.id);if(!conf)return null;
-          const valor=Number(String(pagModal.valor||"").replace(",","."))||0,liberado=conf.liberadoCents/100,acima=valor>liberado+0.005;
-          return <div style={{background:acima?"color-mix(in srgb, var(--arcd-warning-text) 5%, transparent)":"var(--arcd-surface-muted)",border:`1px solid ${acima?"var(--arcd-warning-text)":"var(--arcd-border-default)"}`,borderRadius:8,padding:"var(--arcd-space-2) var(--arcd-space-2)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
-            <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>Conferência: recebido {fmt(conf.receivedCents/100)} · notas {fmt(conf.invoicedCents/100)} · referência de conferência <b>{fmt(liberado)}</b></p>
-            {acima&&<p role="status">Este valor será registrado como adiantamento. Entrega e nota ainda precisam de conferência; o aviso não impede o registro.</p>}
-            {acima&&<Inp label="Motivo do adiantamento (recomendado)" value={pagModal.motivoAdiantamento||""} onChange={v=>setPagModal(f=>({...f,motivoAdiantamento:v}))} placeholder="Ex.: sinal de 30% exigido pelo fornecedor"/>}
-          </div>;
-        })()}
-        <Inp label="Observação" value={pagModal.observacao} onChange={v=>setPagModal(f=>({...f,observacao:v}))} multiline/>
-        </fieldset>
-        <div style={{display:"flex",gap:"var(--arcd-space-2)"}}><Btn v="ghost" full onClick={()=>setPagModal(null)} disabled={subindoComprovantePagamento}>Cancelar</Btn><Btn full onClick={registrarPagamento} disabled={subindoComprovantePagamento}><Ic n="check"/> {subindoComprovantePagamento?"Registrando pagamento…":"Registrar pagamento"}</Btn></div>
-      </div></Modal>}
+      {pagModal&&<PaymentDialog data={data} user={currentUser} type="pedido" id={pagModal.id} pageId="cmp" dispatch={dispatchCommand} onClose={()=>setPagModal(null)} onSaved={()=>showToast('Pagamento registrado e confirmado pelo servidor.')}/>}
       {excluirCompraModal&&<Modal title={`Excluir compra · ${excluirCompraModal.pedido.numero}`} onClose={()=>setExcluirCompraModal(null)}><div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
         <div style={{padding:"var(--arcd-space-3) var(--arcd-space-3)",border:"1px solid var(--arcd-danger-text)",borderRadius:8,background:"color-mix(in srgb, var(--arcd-danger-text) 4%, transparent)"}}>
           <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-danger-text)"}}>Esta exclusão remove a compra dos controles operacionais.</p>

@@ -59,6 +59,8 @@ export default defineConfig({
     {name:"dre-reconciliation-mobile",testMatch:/dre-reconciliation\.spec\.js/,use:{browserName:"chromium",viewport:{width:390,height:844},isMobile:true,hasTouch:true}},
     {name:"reconciliation-categories-desktop",testMatch:/reconciliation-categories\.spec\.js/,use:{browserName:"chromium",viewport:{width:1440,height:1000}}},
     {name:"reconciliation-categories-mobile",testMatch:/reconciliation-categories\.spec\.js/,use:{browserName:"chromium",viewport:{width:390,height:844},isMobile:true,hasTouch:true}},
+    { name:"pilot-recovery-desktop",testMatch:/pilot-recovery\.spec\.js/,use:{browserName:"chromium",viewport:{width:1440,height:1000}} },
+    { name:"pilot-recovery-mobile",testMatch:/pilot-recovery\.spec\.js/,use:{browserName:"chromium",viewport:{width:390,height:844},isMobile:true,hasTouch:true} },
     { name:"pilot-exceptions-desktop",testMatch:/pilot-exceptions\.spec\.js/,use:{browserName:"chromium",viewport:{width:1440,height:1000}} },
     { name:"pilot-exceptions-mobile",testMatch:/pilot-exceptions\.spec\.js/,use:{browserName:"chromium",viewport:{width:390,height:844},isMobile:true,hasTouch:true} },
     { name:"record-panel-desktop", testMatch:/record-panel\.spec\.js/, use:{browserName:"chromium",viewport:{width:1440,height:1000}} },

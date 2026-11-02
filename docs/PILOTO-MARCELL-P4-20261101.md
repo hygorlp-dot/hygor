@@ -66,3 +66,5 @@ Riscos residuais que impedem uma nota 9,5:
 | P5 — revisão do piloto | Próxima: consolidar os fluxos completos, avaliar recuperação durável e alocação, revisar formulários e preparar/medir tarefas com operadores |
 
 P4 não autoriza deploy. A meta 9,5 permanece aberta até haver evidência de recuperação e uso suficientes.
+
+Atualização em 02/11/2026: as pendências técnicas de recuperação após recarga, alocação explícita e formulário de pagamento compartilhado foram tratadas na [P5](PILOTO-MARCELL-P5-20261102.md). O relatório acima registra a situação da P4; a posição atual está na P5, com nota crítica 8,3/10 e avaliação com operadores ainda pendente.

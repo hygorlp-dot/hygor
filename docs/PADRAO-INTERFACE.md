@@ -144,3 +144,7 @@ Na ficha de pedido, distinguir Valor do pedido, Pago e Saldo a pagar. No Finance
 A consulta não concede autorização. Resolver ações contra usuário, acesso e obra atuais, espelhando os papéis existentes da API; o servidor continua sendo a autoridade. Registros excluídos/inativos não devem participar da fila operacional. Datas impossíveis não podem receber aparência de prazo válido.
 
 Evidências, riscos residuais e avaliação conservadora em `PILOTO-MARCELL-P4-20261101.md`.
+
+## Recuperação e pagamento compartilhado — P5, 02/11/2026
+
+Pedidos e notas fiscais em Compras e Financeiro devem usar `PaymentDialog`. Reutilizar `Button`, campos, `FilePicker`, `Modal` e tokens existentes. Ação curta financeira precisa distinguir rascunho de confirmação enviada sem resposta; usar `dispatchConfirmedAttempt` com usuário e contexto para proteger o comando antes do envio. Não reenviar automaticamente na recarga. Retomar confirmação mantém IDs, versão e chave idempotente. A alocação usa o comando próprio, respeitando saldo, obra e fechamento; nunca fabricar novo pagamento para representar dinheiro já pago. Ajuda e manual acompanham o mesmo formulário. Ver [P5](PILOTO-MARCELL-P5-20261102.md) para limites da proteção local e validação.

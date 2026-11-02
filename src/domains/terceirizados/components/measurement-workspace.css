@@ -13,17 +13,6 @@
 .third-measurement-finance__body p { font-size:var(--arcd-type-label); color:var(--arcd-text-secondary); overflow-wrap:anywhere; }
 .third-measurement-finance__body a { display:inline-flex; align-items:center; min-height:44px; text-decoration:underline; }
 .third-measurement-draft { display:flex; flex-direction:column; gap:var(--arcd-space-2); }
-.third-measurement-draft__actions { display:flex; flex-wrap:wrap; gap:var(--arcd-space-2); }
-.third-measurement-summary { display:flex; flex-direction:column; gap:var(--arcd-space-3); padding:var(--arcd-space-3) 0; }
-.third-measurement-summary > p { font-weight:var(--arcd-font-weight-semibold); }
-.third-measurement-step-values { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--arcd-space-2); margin:0; }
-.third-measurement-step-values dt { font-size:var(--arcd-type-caption); color:var(--arcd-text-secondary); }
-.third-measurement-step-values dd { margin:var(--arcd-space-1) 0 0; font-size:var(--arcd-type-label); font-weight:var(--arcd-font-weight-semibold); font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
 @media (max-width:767px) {
   .third-measurement-finance > summary { font-size:var(--arcd-type-control-touch); }
-  .third-measurement-draft__actions > button { flex:1 1 140px; }
-  .third-measurement-step-values { grid-template-columns:minmax(0,1fr); }
-  .third-measurement-step-values > div { display:flex; justify-content:space-between; gap:var(--arcd-space-3); }
-  .third-measurement-step-values dd { margin:0; }
-  .third-measurement-summary .third-measurement-values { gap:var(--arcd-space-4) var(--arcd-space-3); }
 }

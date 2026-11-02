@@ -9,7 +9,7 @@ import {Button} from '../../components/ui/button.jsx';
 import {Select} from '../../design-system/primitives/Select.jsx';
 import './financial-overview.css';
 const money=v=>(v/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-export default function FinanceToday({queues,today,work,scope=work,onOpen,resolveAction,onAction,active:controlledActive,onActiveChange,preferences={},onPreferencesChange}){
+export default function FinanceToday({queues,today,work,scope=work,onOpen,onAllocate,resolveAction,onAction,active:controlledActive,onActiveChange,preferences={},onPreferencesChange}){
   const [localActive,setLocalActive]=useState('all');
   const active=controlledActive??localActive;
   const setActive=onActiveChange??setLocalActive;
@@ -53,6 +53,7 @@ export default function FinanceToday({queues,today,work,scope=work,onOpen,resolv
         <dl className="mrc-record-panel__facts">{[['Obra',selected.obra],['Cliente / fornecedor',selected.counterparty||'Não informado'],['Movimentação',selected.direction],['Vencimento',date(selected)],...(selected.metadata?.valorOriginal!=null?[['Valor original',money(Math.round(selected.metadata.valorOriginal*100))],['Liquidado',money(Math.round(selected.metadata.liquidado*100))]]:[]),['Saldo em aberto',money(selected.amountCents)],['Documento',selected.documentNumber||'Não informado']].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
         {selected.metadata?.pagamentoPedidoNaoAlocado&&<Alert variant="warning" role="status"><AlertDescription>{UNALLOCATED_ORDER_PAYMENT}</AlertDescription></Alert>}
         {selected.metadata?.vencimentoInvalido&&<p role="status">O vencimento de origem é inválido. Confira a data no registro; este título está em Sem vencimento.</p>}
+        {selected.metadata?.pagamentoPedidoNaoAlocado&&resolveAction?.(selected)?.kind==='invoice'&&onAllocate&&<Button onClick={()=>onAllocate(selected)}>Alocar adiantamento</Button>}
         <section><h4>Próxima ação</h4>{onAction&&resolveAction?.(selected)?actions(selected):<p>Não há ação operacional disponível para este título e perfil. Consulte o detalhamento para conferir a origem.</p>}</section>
         <div className="mrc-record-panel__actions"><Button variant="secondary" onClick={()=>onOpen({title:selected.description,items:[selected],context:`Posição em ${today} · ${selected.direction}`})}>Consultar detalhamento</Button><Button variant="secondary" onClick={()=>setSelection(null)}>Voltar à fila</Button></div>
       </>:<p role="status">O título saiu deste recorte ou não está mais disponível. Volte à fila para conferir os saldos atuais.</p>}

@@ -47,7 +47,7 @@ test('recebimento parcial avança com aprovação pendente e estoque atômico',a
 test('pagamento disponível com nota em conferência mantém pendência fiscal',async({page})=>{
  const app=await enter(page);await app.open('Gestão financeira');await selectWorkspaceArea(page,'Áreas do financeiro','Pagamentos');
  await page.getByRole('button',{name:'Registrar pagamento',exact:true}).first().click();
- const modal=page.getByRole('dialog');await expect(modal).toContainText('Você pode continuar');
+ const modal=page.getByRole('dialog');await expect(modal).toContainText('Pagamento com conferência fiscal pendente.');
  await modal.getByLabel('Valor pago *',{exact:true}).fill('200');
  await modal.getByRole('button',{name:'Registrar pagamento',exact:true}).click();await expect(modal).toHaveCount(0);
  expect(app.state().notasFiscais[0]).toMatchObject({status:'paga',conferenciaFiscalPendente:true});

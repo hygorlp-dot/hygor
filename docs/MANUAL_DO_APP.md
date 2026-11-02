@@ -1,6 +1,6 @@
 # Manual de uso do app MARCELL
 
-Revisão do conteúdo: 01/11/2026.
+Revisão do conteúdo: 02/11/2026.
 
 Este guia explica o uso das telas em linguagem simples. No aplicativo, clique em **Ajuda**, no cabeçalho, para ler o fluxo da página aberta. Em **Manual completo**, pesquise uma tarefa ou tela. As áreas exibidas no aplicativo respeitam seu perfil de acesso.
 
@@ -126,6 +126,8 @@ Conteúdo gerado de `src/features/help/help-content.js`, a mesma fonte da ajuda 
 - [Compras · Ficha rápida](#guia-cmp_ficha)
 - [Financeiro · Ficha rápida](#guia-fin_ficha)
 - [Compras · Registrar pagamento](#guia-cmp_pagamento)
+- [Retomar trabalho salvo](#guia-fin_recuperacao)
+- [Retomar trabalho salvo](#guia-cmp_recuperacao)
 
 <a id="guia-ponto_obras"></a>
 
@@ -928,7 +930,7 @@ Confira a entrega, o pedido e a pessoa que recebeu.
 
 1. Localize o pedido aguardando recebimento.
 2. Informe somente as quantidades que chegaram e registre a conferência solicitada.
-3. Use Dar entrada no estoque e confira o recebido, o saldo pendente e o estoque. Sem confirmação, repita o botão na mesma ficha; as quantidades são preservadas.
+3. Use Dar entrada no estoque e confira o recebido, o saldo pendente e o estoque. Sem confirmação, repita o botão ou, após recarregar, use Retomar trabalho salvo.
 
 ### Como conferir se deu certo
 
@@ -1431,25 +1433,27 @@ Uma nota importada ainda precisa de revisão. Confira se já existe antes de cad
 
 ## Financeiro · Pagamentos
 
-Conferir obrigações e acompanhar a quitação.
+Registrar pagamentos.
 
 ### Antes de começar
 
-Confira fornecedor, documento, vencimento e obra.
+Confira obra, documento, saldo e pagamentos anteriores.
 
 ### Como fazer
 
-1. Localize a obrigação e confira documento, obra, saldo e pagamentos já registrados no pedido e na nota.
-2. Leia os avisos, selecione a origem real do pagamento e informe data, valor e comprovante disponível. A conferência pendente não impede o registro.
-3. Use Registrar pagamento e aguarde a confirmação. Confira o histórico e encaminhe as pendências documentais ao responsável. Concilie o movimento bancário quando disponível.
+1. Preencha Origem real do pagamento, Valor pago e Data. Selecione o comprovante; Remover comprovante retira o arquivo.
+2. Em Alocar pagamento já realizado, selecione Pagamento do pedido, informe Valor a alocar e use Alocar adiantamento. Respeite os dois saldos.
+3. Para corrigir, use Desfazer alocação, preencha Motivo para desfazer a alocação e confirme. O saldo volta ao adiantamento, sem devolução bancária.
+4. Use Registrar pagamento para uma nova saída real e aguarde. Pagar não conclui entrega nem conferência fiscal. Informe o motivo do adiantamento, se possível.
+5. Após recarregar, use Retomar trabalho salvo. Reabra o rascunho ou retome a confirmação original.
 
 ### Como conferir se deu certo
 
-O registro mostra o pagamento confirmado ou a pendência que ainda existe.
+O saldo e o histórico mostram a confirmação; registrar no ERP não transfere dinheiro.
 
 ### O que merece atenção
 
-Adiantamento não deve ser repetido na nota. Sem confirmação, repita Registrar pagamento na mesma ficha: o comando é preservado. Antes de fechar ou recarregar, confira o histórico. Pagar não aprova a conferência fiscal.
+Alocar preserva data e total pagos; a classificação muda nessa data e o histórico registra o vínculo. Período fechado ou rateio entre obras impede alocação. Desfaça vínculos antes de estornar ou reclassificar a origem. Confirmação pendente bloqueia outra operação no registro. O rascunho inclui o comprovante neste navegador.
 
 ### Exemplo ilustrativo
 
@@ -2816,7 +2820,7 @@ Consultar não grava; a operação exige confirmação no formulário.
 
 ### O que merece atenção
 
-Receber não paga. Sem confirmação, repita o mesmo botão na ficha aberta. Antes de fechar ou recarregar, confira o histórico; recarregar reinicia o contexto da sessão.
+Receber não paga. Sem confirmação, repita o mesmo botão na ficha aberta. Após recarregar, use Retomar trabalho salvo para a confirmação pendente.
 
 <a id="guia-fin_ficha"></a>
 
@@ -2832,7 +2836,7 @@ Confira obra, movimentação e prazo em Hoje.
 
 1. Clique no nome na Tabela ou no Kanban.
 2. Compare Valor original, Liquidado e Saldo em aberto. Vencimento inválido fica em Sem vencimento.
-3. Se houver aviso de pagamento no pedido sem vínculo com a nota, confira o histórico antes de pagar; o saldo não o desconta automaticamente.
+3. Se houver pagamento do pedido sem vínculo, use Alocar adiantamento e revise antes de pagar.
 4. Use a próxima ação. Na conferência fiscal, feche a ficha fiscal e use Voltar à fila financeira para retomar a origem.
 5. Consultar detalhamento abre origem e documentos; Fechar memorial retoma a ficha. Voltar à fila, Fechar ou Escape encerram a consulta.
 
@@ -2848,26 +2852,75 @@ A ação depende do perfil e da obra. Registrar pagamento não executa transfer�
 
 ## Compras · Registrar pagamento
 
-Registrar um pagamento real, parcial ou antecipado.
+Registrar pagamentos.
 
 ### Antes de começar
 
-Confira o pedido e os pagamentos anteriores.
+Confira obra, documento, saldo e pagamentos anteriores.
 
 ### Como fazer
 
-1. Informe Origem real do pagamento, Valor pago e Data.
-2. Acima da referência de conferência, o servidor identifica um adiantamento. Informe o motivo, se possível; sua ausência gera aviso.
-3. Use Registrar pagamento e aguarde. Campos e fechamento ficam protegidos durante o envio.
-4. Sem confirmação, repita Registrar pagamento na mesma ficha: o comando e os valores são preservados. Após rejeição definitiva, siga a orientação apresentada.
+1. Preencha Origem real do pagamento, Valor pago e Data. Selecione o comprovante; Remover comprovante retira o arquivo.
+2. Em Alocar pagamento já realizado, selecione Pagamento do pedido, informe Valor a alocar e use Alocar adiantamento. Respeite os dois saldos.
+3. Para corrigir, use Desfazer alocação, preencha Motivo para desfazer a alocação e confirme. O saldo volta ao adiantamento, sem devolução bancária.
+4. Use Registrar pagamento para uma nova saída real e aguarde. Pagar não conclui entrega nem conferência fiscal. Informe o motivo do adiantamento, se possível.
+5. Após recarregar, use Retomar trabalho salvo. Reabra o rascunho ou retome a confirmação original.
 
 ### Como conferir se deu certo
 
-A confirmação do servidor encerra o formulário; registrar não transfere dinheiro.
+O saldo e o histórico mostram a confirmação; registrar no ERP não transfere dinheiro.
 
 ### O que merece atenção
 
-Antes de fechar ou recarregar após falha, confira o histórico. A tentativa fica apenas na sessão do módulo. Nota, entrega e pagamento são independentes.
+Alocar preserva data e total pagos; a classificação muda nessa data e o histórico registra o vínculo. Período fechado ou rateio entre obras impede alocação. Desfaça vínculos antes de estornar ou reclassificar a origem. Confirmação pendente bloqueia outra operação no registro. O rascunho inclui o comprovante neste navegador.
+
+<a id="guia-fin_recuperacao"></a>
+
+## Retomar trabalho salvo
+
+Recuperar trabalho salvo.
+
+### Antes de começar
+
+Entre com o mesmo usuário, navegador e endereço do app.
+
+### Como fazer
+
+1. Use Retomar trabalho salvo e confira obra e registro.
+2. Rascunho não enviado: use Reabrir rascunho e revise antes de confirmar.
+3. Confirmação enviada, sem resposta: confira o histórico e use Retomar confirmação para reenviar a operação original.
+
+### Como conferir se deu certo
+
+A confirmação atualiza o registro; abrir o rascunho não grava.
+
+### O que merece atenção
+
+A recarga não envia automaticamente. Não é backup: depende dos dados locais. Abas compartilham o rascunho. Sem armazenamento, o envio é bloqueado. Sem permissão, peça revisão do acesso.
+
+<a id="guia-cmp_recuperacao"></a>
+
+## Retomar trabalho salvo
+
+Recuperar trabalho salvo.
+
+### Antes de começar
+
+Entre com o mesmo usuário, navegador e endereço do app.
+
+### Como fazer
+
+1. Use Retomar trabalho salvo e confira obra e registro.
+2. Rascunho não enviado: use Reabrir rascunho e revise antes de confirmar.
+3. Confirmação enviada, sem resposta: confira o histórico e use Retomar confirmação para reenviar a operação original.
+
+### Como conferir se deu certo
+
+A confirmação atualiza o registro; abrir o rascunho não grava.
+
+### O que merece atenção
+
+A recarga não envia automaticamente. Não é backup: depende dos dados locais. Abas compartilham o rascunho. Sem armazenamento, o envio é bloqueado. Sem permissão, peça revisão do acesso.
 
 ## Aparência, botões e navegação
 

@@ -25,11 +25,9 @@
 .pe-page a, .pe-modal a { color: var(--arcd-info-text); text-underline-offset: .2em; overflow-wrap: anywhere; }
 .pe-page input, .pe-modal input { caret-color: var(--arcd-text-primary); }
 .pe-page ::selection, .pe-modal ::selection { background: var(--arcd-action-primary-subtle); color: var(--arcd-text-primary); }
-.pe-title-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--arcd-space-3); }
-.pe-description, .pe-muted, .pe-person-meta { color: var(--arcd-text-secondary); }
-.pe-description { margin-top: var(--arcd-space-1) !important; }
+.pe-muted { color: var(--arcd-text-secondary); }
 .pe-context-help { margin-top: var(--arcd-space-1); }
-.pe-context-help > summary, .pe-reading-help > summary, .pe-thirdparty > summary {
+.pe-context-help > summary,.pe-thirdparty > summary {
   width: fit-content;
   max-width: 100%;
   min-height: 2.75rem;
@@ -69,33 +67,8 @@
 .pe-sync-copy p { color: var(--arcd-text-secondary); font-size: var(--arcd-type-label); }
 .pe-sync-copy .pe-warning { color: var(--arcd-warning-text); }
 .pe-batidas { min-width: 0; border: 1px solid var(--arcd-border-default); border-radius: var(--arcd-radius-lg); background: var(--arcd-surface-card); padding: var(--arcd-space-4); }
-.pe-section-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--arcd-space-2) var(--arcd-space-4); margin-bottom: var(--arcd-space-4); }
 .pe-day-totals { display: flex; flex-wrap: wrap; gap: var(--arcd-space-2) var(--arcd-space-4); color: var(--arcd-text-secondary); font-size: var(--arcd-type-label); font-variant-numeric: tabular-nums; }
 .pe-day-totals strong { color: var(--arcd-text-primary); font-weight: var(--arcd-font-weight-medium); }
-.pe-filters { display: flex; flex-wrap: wrap; align-items: end; gap: var(--arcd-space-3); }
-.pe-search { flex: 1 1 16rem; min-width: 0; }
-.pe-filter-options { display: flex; flex-wrap: wrap; gap: var(--arcd-space-2); }
-.pe-filter-options > button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--arcd-space-2);
-  border: 1px solid var(--arcd-border-default);
-  border-radius: var(--arcd-radius-md);
-  padding: var(--arcd-space-2) var(--arcd-space-3);
-  background: var(--arcd-surface-card);
-  color: var(--arcd-text-primary);
-  font: inherit;
-  font-size: var(--arcd-type-control);
-  cursor: pointer;
-  transition: background-color 120ms ease, border-color 120ms ease;
-}
-.pe-filter-options > button:hover { background: var(--arcd-surface-muted); border-color: var(--arcd-border-strong); }
-.pe-filter-options > button[aria-pressed="true"] { border-color: var(--arcd-text-primary); background: var(--arcd-action-primary-subtle); font-weight: var(--arcd-font-weight-medium); }
-.pe-filter-count { min-width: 1.25rem; text-align: center; font-variant-numeric: tabular-nums; }
-.pe-results-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--arcd-space-2); min-height: 3.25rem; padding-block: var(--arcd-space-1); }
-.pe-results-heading p { color: var(--arcd-text-secondary); font-size: var(--arcd-type-caption); overflow-wrap: anywhere; }
-.pe-table-scroll { min-width: 0; width: 100%; overflow-x: auto; scrollbar-color: var(--arcd-border-strong) var(--arcd-surface-card); }
 .pe-table { width: 100%; border-collapse: collapse; text-align: start; font-size: var(--arcd-type-table); font-variant-numeric: tabular-nums; }
 .pe-table :is(th, td) { padding: var(--arcd-space-3); vertical-align: middle; text-align: start; border-bottom: 1px solid var(--arcd-border-default); }
 .pe-table thead th { background: var(--arcd-surface-muted); color: var(--arcd-text-secondary); font-size: var(--arcd-type-caption); font-weight: var(--arcd-font-weight-medium); }
@@ -105,9 +78,6 @@
 .pe-table tbody td:nth-child(2) { width: 23%; }
 .pe-table tbody tr:last-child :is(th, td) { border-bottom: 0; }
 .pe-table tbody tr:hover { background: var(--arcd-surface-subtle); }
-.pe-person-name { display: block; overflow-wrap: anywhere; font-weight: var(--arcd-font-weight-medium); }
-.pe-person-meta { display: block; font-size: var(--arcd-type-caption); font-weight: var(--arcd-font-weight-regular); overflow-wrap: anywhere; }
-.pe-punches { display: flex; flex-wrap: wrap; align-items: center; gap: var(--arcd-space-2); }
 .pe-punch {
   display: inline-flex;
   min-width: 4rem;
@@ -126,11 +96,6 @@
   cursor: pointer;
 }
 .pe-punch:hover { background: var(--arcd-surface-muted); }
-.pe-punch--attention { border-color: var(--arcd-warning-text); background: var(--arcd-warning-surface); color: var(--arcd-warning-text); }
-.pe-punch--attention:hover { border-color: var(--arcd-text-primary); }
-.pe-punch--attention span { font-weight: var(--arcd-font-weight-semibold); }
-.pe-legend { margin-top: var(--arcd-space-3) !important; color: var(--arcd-warning-text); font-size: var(--arcd-type-label); }
-.pe-reading-help { margin-top: var(--arcd-space-2); border-top: 1px solid var(--arcd-border-default); }
 .pe-thirdparty { border-top: 1px solid var(--arcd-border-default); }
 .pe-simple-list { list-style: none; padding: 0; margin: 0; }
 .pe-simple-list li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--arcd-space-3); padding-block: var(--arcd-space-2); }
@@ -223,8 +188,6 @@
   .pe-sync > svg { display: none; }
   .pe-sync-copy { flex-basis: 100%; }
   .pe-batidas { padding: var(--arcd-space-3); }
-  .pe-filter-options { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  .pe-filter-options > button { justify-content: space-between; text-align: start; }
   .pe-table, .pe-table tbody { display: block; }
   .pe-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
   .pe-table tbody tr { display: grid; gap: var(--arcd-space-3); padding-block: var(--arcd-space-4); border-top: 1px solid var(--arcd-border-default); }
@@ -243,5 +206,5 @@
   .pe-page *, .pe-modal * { transition-duration: 1ms !important; }
 }
 @media (forced-colors: active) {
-  .pe-tabs > button[aria-selected="true"], .pe-filter-options > button[aria-pressed="true"], .pe-punch--attention { border-color: Highlight; outline: 1px solid Highlight; }
+  .pe-tabs > button[aria-selected="true"] { border-color: Highlight; outline: 1px solid Highlight; }
 }

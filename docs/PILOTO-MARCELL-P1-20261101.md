@@ -34,10 +34,10 @@ O scan tipográfico do Impeccable encontrou nove avisos legados, contra onze na 
 | --- | --- | --- |
 | P0 — pesquisa e decisões | Concluída | Referências, fluxos de construção, hierarquia, contrato de linguagem e critérios |
 | P1 — fundação compartilhada | Concluída localmente | Paleta, fonte, densidade, navegação, estados e documentação |
-| P2 — gestão à vista | Próxima | Tabela/Kanban com mesmo recorte; Financeiro separado por direção e prazo, incluindo Depois e Sem vencimento |
-| P3 — ficha e ação | Pendente | Consulta lateral, ações curtas e retorno ao contexto; edição extensa em página própria |
-| P4 — exceções e linguagem | Pendente | Parciais, adiantamentos, permissões, falhas e escrita de negócio |
-| P5 — revisão do piloto | Pendente | Jornadas completas, acessibilidade, desempenho, Ajuda/manual e avaliação final |
+| P2 — gestão à vista | Concluída localmente | Tabela/Kanban com mesmo recorte; Financeiro separado por direção e prazo, incluindo Depois e Sem vencimento |
+| P3 — ficha e ação | Concluída localmente | Consulta lateral, ações curtas e retorno ao contexto; edição extensa em página própria |
+| P4 — exceções e linguagem | Concluída localmente | Parciais, adiantamentos, permissões, falhas e escrita de negócio |
+| P5 — revisão do piloto | Técnica local concluída; operadores pendentes | Jornadas completas, acessibilidade, desempenho, Ajuda/manual e avaliação final |
 
 Avaliação visual interna provisória: 8,5/10. A fundação ganhou coerência e leitura; a meta 9,5 depende das jornadas de P2–P5 e de evidência de uso, não apenas de capturas de tela. Esta nota é uma apreciação de design, não uma medição com operadores.
 
@@ -46,3 +46,5 @@ P1 não altera transições de Compras, cálculos do Financeiro ou regras de per
 Atualização do roadmap em 01/11/2026: P2 concluída localmente; consultar `PILOTO-MARCELL-P2-20261101.md`. P3 foi concluída posteriormente; P4 é a próxima etapa. Ver `PILOTO-MARCELL-P3-20261101.md`.
 
 Atualização acumulada em 01/11/2026: P4 concluída no piloto local; P5 é a próxima etapa. Ver `PILOTO-MARCELL-P4-20261101.md` para a avaliação conservadora 7,8/10 e os riscos ainda abertos.
+
+Atualização em 02/11/2026: P5 implementada e validada tecnicamente em ambiente local. Aplicação com operadores preparada e ainda pendente. Nota crítica atual: 8,3/10. Ver [P5 e roteiro de 20 tarefas](PILOTO-MARCELL-P5-20261102.md). A meta 9,5 continua aberta; sem deploy.
