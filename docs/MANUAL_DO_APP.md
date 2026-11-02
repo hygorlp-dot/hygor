@@ -2977,11 +2977,15 @@ Nas células de texto, Enter confirma a edição e Escape descarta o texto que a
 
 ### Exportar a fila de Compras
 
-Na Fila de trabalho, use Exportar para Excel junto à contagem de registros, também no celular. A planilha acompanha a busca, os filtros e a obra da consulta. Confira o recorte antes de baixar; exportar não altera os registros.
+Na Fila de trabalho, use Exportar para Excel na barra de comandos, também no celular. A planilha acompanha a busca, os filtros e a obra da consulta. Confira o recorte antes de baixar; exportar não altera os registros.
 
 ### Selecionar anexos pelo teclado
 
 Use Selecionar arquivo, Selecionar imagens e documentos ou Selecionar comprovante, conforme a tela. Os botões também funcionam com Tab e Enter. Confira o nome, os formatos e o limite indicados antes de salvar; escolher um arquivo não confirma pagamento nem aceita uma sugestão da IA.
+
+### Usar a barra de comandos
+
+Em Compras, escolha Obra, preencha Buscar na fila e ajuste Visualização ou Filtros na mesma barra que reúne Exportar para Excel, Nova solicitação e Mais ações de Compras. Os indicadores abaixo filtram prioridades e mostram quantidades e valores; Atenção ao prazo significa hoje e próximos três dias. Em Financeiro, Hoje reúne Obra, Movimentação e Visualização; no celular, Fila de vencimentos fica nessa barra. Em Pagamentos, a barra reúne Obra, Situação, Pesquisar pagamentos, Ver notas fiscais e Receber documento fiscal. Em Caixa por conta, escolha Obra e Conta bancária do caixa na barra; Abrir fila de revisão assistida permanece disponível. Em Documentos, use Obra, Competência ou mês de emissão, Pesquisar documento ou fornecedor e Conferência junto a Receber documento fiscal. Os nomes dos registros abrem a ficha; use a próxima ação para operar. As áreas continuam disponíveis junto ao título no computador e no seletor no celular. A barra se reorganiza em linhas nas telas menores; filtros, valores e permissões são preservados.
 
 ### Reconhecer o padrão das telas
 

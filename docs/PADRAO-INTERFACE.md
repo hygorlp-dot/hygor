@@ -166,3 +166,10 @@ A recuperação de falhas da fila geral usa `src/domains/sync/SaveRecovery.jsx` 
 - Tentativas de salvar outro formulário durante uma pendência são protegidas separadamente, sem substituir a primeira. Se a gravação local falhar, manter a memória, impedir confirmação e oferecer proteção ou descarte explícito.
 - Gráficos operacionais mostram a geometria final imediatamente, sem animação de entrada. Valores, legendas e interações continuam disponíveis.
 - Ajuda explica o limite: proteção das tentativas de salvar não equivale a salvamento automático de todo campo nem a backup.
+
+
+## Barra única de comandos — 02/11/2026
+
+Compras e Financeiro usam WorkspaceHeading e WorkspaceCommandBar, em src/design-system/patterns/WorkspaceCommandBar.jsx. O título e a navegação formam a identificação da área. A barra seguinte reúne escopo, consulta e ações; indicadores resumidos e resultados precedem a lista. Não repetir obra, exportação ou ação principal em outra faixa. Nenhum comando deve ser duplicado apenas para adaptar o celular.
+
+A barra usa os tokens comuns e conserva os rótulos dos controles, a ordem natural de Tab e os estados dos filtros. No celular, os grupos se reorganizam em linhas, mantendo alvos de toque e a próxima ação no registro. Não ocultar valores ou avisos relevantes para compactar. A lateral padrão continua azul-marinho MARCELL; outros temas previamente disponíveis conservam suas preferências.

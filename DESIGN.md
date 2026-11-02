@@ -486,3 +486,8 @@ Nome de registro usa RecordAction; comandos não devem ser repetidos quando o no
 ## Piloto P1 — MARCELL Preciso
 
 Direção aprovada na entrevista: lateral azul-marinho ajustável, conteúdo claro, ações em azul e dourado reservado à marca. O tema `marcell` passa a se chamar MARCELL Preciso e é o padrão para novos navegadores, com densidade Compacta; preferências existentes de tema e densidade continuam válidas. Toda a ERP usa IBM Plex Sans nos papéis operacionais, pesos 400/500/600, com números tabulares. Documentos e Modo TV conservam seus papéis próprios. Não aplicar fonte ou cor diretamente nos módulos para contornar a base. Piloto local, sem deploy.
+
+
+## Composição de listas operacionais — 02/11/2026
+
+Compras e Financeiro adotam WorkspaceHeading e WorkspaceCommandBar: título e navegação juntos, uma barra com escopo/consulta/ações e resumo compacto antes da lista. A composição vem da base compartilhada, preserva IBM Plex Sans e tokens semânticos, mantém lateral azul-marinho MARCELL e se reorganiza para toque no celular. Valores, alertas, permissões e ações do registro permanecem explícitos. Nenhuma transição financeira muda por efeito de layout.

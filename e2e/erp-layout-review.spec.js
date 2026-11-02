@@ -42,8 +42,8 @@ for(const tab of tabs)test(`${tab.id} · ${tab.label}`,async({page},info)=>{
 });
 
 test('Compras: alinhamento, seleção, foco, menus e ação principal',async({page},info)=>{
-  const errors=await enter(page,'cmp');await expect(page.locator('.purchase-header')).toBeVisible();
-  const header=page.locator('.purchase-header');
+  const errors=await enter(page,'cmp');await expect(page.getByRole('group',{name:'Comandos de Compras',exact:true})).toBeVisible();
+  const header=page.getByRole('group',{name:'Comandos de Compras',exact:true});
   const create=header.getByRole('button',{name:'Nova solicitação',exact:true});
   if(page.viewportSize().width>=1100){
     const field=await header.getByLabel('Obra',{exact:true}).boundingBox(),action=await create.boundingBox();

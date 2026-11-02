@@ -1,3 +1,4 @@
+import {WorkspaceCommandBar} from '../../design-system/patterns/WorkspaceCommandBar.jsx';
 import {Input as StandardInput} from '../../components/ui/input.jsx';
 import {SelectControl} from '../../design-system/primitives/Select.jsx';
 import {useEffect,useMemo,useRef,useState} from 'react';
@@ -13,7 +14,7 @@ import {queryStorageKey} from '../../domains/financeiro/saved-queries.js';
 import FinancialRecordFlow from './FinancialRecordFlow.jsx';
 import {Alert,AlertDescription} from '../../components/ui/alert.jsx';
 import RecordPagination,{DOCUMENT_PAGE_SIZE,recordPage} from './RecordPagination.jsx';
-export default function DocumentCenter({data,obraId,competence,onCompetence,onOpen,onReview,onReceive,view,onViewChange,resolveFile,currentUser,onObra,onPayments,onBank}){
+export default function DocumentCenter({data,obraId,competence,onCompetence,onOpen,onReview,onReceive,view,onViewChange,resolveFile,currentUser,onObra,onPayments,onBank,scopeControl}){
  const [localView,setLocalView]=useState({query:'',filter:'all',selected:null});
  const {query,filter,selected}=view??localView;
  const change=(key,value)=>(onViewChange??setLocalView)(previous=>({...previous,[key]:value}));
@@ -31,9 +32,9 @@ export default function DocumentCenter({data,obraId,competence,onCompetence,onOp
  const setPage=value=>(onViewChange??setLocalView)(previous=>({...previous,page:value,pageScope}));
  const visible=rows.slice(page*DOCUMENT_PAGE_SIZE,(page+1)*DOCUMENT_PAGE_SIZE);
  useEffect(()=>{if(current)selectionRef.current?.scrollIntoView?.({block:'nearest'});},[selected,Boolean(current)]);
- return <section className="document-center"><header><h2>Central de documentos e conferência</h2><Button onClick={onReceive}>Receber documento fiscal</Button></header>
+ return <section className="document-center"><h2>Central de documentos e conferência</h2>
  <p>Originais, comprovantes e lançamentos no mesmo recorte. Busque por documento, parcela, cliente ou fornecedor.</p>
- <div className="document-center__filters"><label>Competência ou mês de emissão<StandardInput type="month" value={competence} onChange={e=>onCompetence(e.target.value)}/></label><label>Pesquisar documento ou fornecedor<StandardInput type="search" value={query} onChange={e=>setQuery(e.target.value)}/></label><label>Conferência<SelectControl aria-label="Conferência" value={filter} onChange={e=>setFilter(e.target.value)}><option value="all">Todos · {register.length}</option>{Object.entries(documentIssueLabels).map(([id,label])=><option key={id} value={id}>{label} · {register.filter(r=>r.issues.includes(id)).length}</option>)}</SelectControl></label></div>
+ <WorkspaceCommandBar label="Comandos de documentos" scope={scopeControl} actions={<Button onClick={onReceive}>Receber documento fiscal</Button>}><label>Competência ou mês de emissão<StandardInput type="month" value={competence} onChange={e=>onCompetence(e.target.value)}/></label><label>Pesquisar documento ou fornecedor<StandardInput type="search" value={query} onChange={e=>setQuery(e.target.value)}/></label><label>Conferência<SelectControl aria-label="Conferência" value={filter} onChange={e=>setFilter(e.target.value)}><option value="all">Todos · {register.length}</option>{Object.entries(documentIssueLabels).map(([id,label])=><option key={id} value={id}>{label} · {register.filter(r=>r.issues.includes(id)).length}</option>)}</SelectControl></label></WorkspaceCommandBar>
  <SavedDocumentQueries key={storageKey||'unavailable'} storageKey={storageKey} value={{query,filter,competence,obraId}} works={data.obras||[]} restrictedWork={currentUser?.obraId} onApply={value=>{onCompetence(value.competence);onObra?.(value.obraId);(onViewChange??setLocalView)({query:value.query,filter:value.filter,selected:null});}}/>
  {selectedOutside&&<section className="financial-origin-return" role="status"><p>O registro selecionado está fora dos filtros atuais. O recorte foi preservado.</p><Button variant="outline" onClick={()=>{setQuery('');setFilter('all');}}>Mostrar registro selecionado</Button></section>}
  {selectedUnavailable&&<Alert role="status"><AlertDescription>O registro selecionado não está disponível neste recorte. Confira a obra, o mês e a atualização da base.</AlertDescription><Button variant="outline" onClick={()=>setSelected(null)}>Encerrar seleção indisponível</Button></Alert>}

@@ -1,3 +1,4 @@
+import {WorkspaceCommandBar,WorkspaceHeading} from '../../../design-system/patterns/WorkspaceCommandBar.jsx';
 import PaymentDialog from '../../../features/financeiro/PaymentDialog.jsx';
 import {dispatchConfirmedAttempt} from '../../../features/workflow/command-attempt.js';
 import {useQueuePreferences} from '../../../features/workflow/useQueuePreferences.js';
@@ -1937,12 +1938,8 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   const abrirNovaCotacao=()=>setCotModal({id:"",obraId:obraAtual,orcNivel1Id:"",data:today(),
     itens:[itemVazioCotacao()],propostas:[propostaVaziaCotacao(),propostaVaziaCotacao()]});
 
-  if(pilotOpen)return <Suspense fallback={<LoadingState label="piloto"/>}><OperationalPilot data={data} mode="compras" scope={{workId:obraIdFixo||(!todasObras?obraAtual:"")}} notes={pilotNotes} onNotes={setPilotNotes} onClose={()=>setPilotOpen(false)}/></Suspense>;
-
-  return (
-    <div className="anim compras-view" style={{display:"flex",flexDirection:"column",gap:isDesktop?12:10}}>
-      <PageHeader className="workspace-header purchase-header" title="Compras" description="Solicitações, pedidos e entregas."
-        secondaryActions={<div className="purchase-context-bar">
+  const comandosDaLista=["fila","aprovacoes","recebimentos"].includes(aba);
+  const escopoComandos=<div className="purchase-context-bar">
           <div className="compras-project-picker">{obraIdFixo
             ? <Inp label="Obra" value={obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
             : <Select label="Obra" value={todasObras?"all":obraAtual} onChange={event=>{const v=event.target.value;
@@ -1950,8 +1947,8 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                 if(v==="all"){setEscopoMapa("empresa");return;}
                 setEscopoMapa("obra");setObraSel(v);
               }} options={[{value:"all",label:"Todas as obras"},...obras.map(o=>({value:o.id,label:o.name}))]}/>}</div>
-        </div>}
-        primaryAction={<div className="purchase-header-actions">
+        </div>;
+  const acoesComandos=<div className="purchase-header-actions">
           {aba==="cotacoes"&&<Button variant="secondary" size="icon" aria-label="Voltar à fila" title="Voltar à fila" onClick={()=>irParaArea("fila")}><ArrowLeft aria-hidden="true" size={18}/></Button>}
           <Button onClick={aba==="cotacoes"?abrirNovaCotacao:aba==="pedidos"?abrirNovoPedido:abrirNovaSolicitacao}>{aba==="cotacoes"?"Adicionar cotação":aba==="pedidos"?"Novo pedido":"Nova solicitação"}</Button>
           <OrderActionMenu label="Mais ações de Compras" comuns={[
@@ -1960,11 +1957,15 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
             ...(["cotacoes","pedidos"].includes(aba)?[{id:"solicitar",label:"Nova solicitação"}]:[]),
             ...(aba!=="fila"&&aba!=="cotacoes"?[{id:"fila",label:"Voltar à fila"}]:[]),
           ]} onSelect={id=>{if(id==="piloto")setPilotOpen(true);else if(id==="analisar")abrirModoAnalise();else if(id==="solicitar")abrirNovaSolicitacao();else irParaArea("fila");}}/>
-        </div>}>
-        {save.state!=="idle"&&<p role="status" aria-live="polite" className="purchase-save-state" data-state={save.state}>{save.message}</p>}
-      </PageHeader>
-      <PurchaseNavigation area={aba} onNavigate={irParaArea} counts={fluxoCompras.counts}
-        orderCount={(data.pedidos||[]).filter(p=>obraIdsMapa.includes(p.obraId)).length} financeCount={resumoFinanceiro.pendentes} otherAreas={abasSecundarias}/>
+        </div>;
+  if(pilotOpen)return <Suspense fallback={<LoadingState label="piloto"/>}><OperationalPilot data={data} mode="compras" scope={{workId:obraIdFixo||(!todasObras?obraAtual:"")}} notes={pilotNotes} onNotes={setPilotNotes} onClose={()=>setPilotOpen(false)}/></Suspense>;
+
+  return (
+    <div className="anim compras-view" style={{display:"flex",flexDirection:"column",gap:isDesktop?12:10}}>
+      <WorkspaceHeading title="Compras" navigation={<PurchaseNavigation area={aba} onNavigate={irParaArea} counts={fluxoCompras.counts}
+        orderCount={(data.pedidos||[]).filter(p=>obraIdsMapa.includes(p.obraId)).length} financeCount={resumoFinanceiro.pendentes} otherAreas={abasSecundarias}/>}/>
+      {save.state!=="idle"&&<p role="status" aria-live="polite" className="purchase-save-state" data-state={save.state}>{save.message}</p>}
+      {!comandosDaLista&&<WorkspaceCommandBar label="Comandos de Compras" scope={escopoComandos} actions={acoesComandos}/>}
       {retornoCompra&&retornoCompra.scope===obraIdsMapa.join('|')&&<nav className="purchase-flow-return" aria-label="Retorno à origem da compra"><p>Origem: {retornoCompra.label}. O recorte anterior será restaurado ao voltar.</p><Button variant="secondary" onClick={voltarOrigemCompra}>Voltar para {retornoCompra.label}</Button></nav>}
       {/* Na fila, aprovações e recebimentos o painel abaixo já tem título próprio:
           o nome da área fica só para leitor de tela e como destino do foco. */}
@@ -1974,7 +1975,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
         {aba!=="fila"&&aba!=="cotacoes"&&<Button variant="ghost" size="sm" onClick={()=>irParaArea("fila")}>Voltar à fila</Button>}
       </div>
       {["fila","aprovacoes","recebimentos"].includes(aba)&&<PurchaseWorkspace model={fluxoCompras} area={aba} scope={escopoFluxo} scopeKey={`${aba}:${obraIdsMapa.join("|")}`}
-        canAct={row=>canActOnPurchaseQueue(currentUser,row)} filters={filtrosFluxo} onFiltersChange={setFiltrosFluxo} onOpen={abrirRegistroFluxo}
+        scopeControl={escopoComandos} commandActions={acoesComandos} canAct={row=>canActOnPurchaseQueue(currentUser,row)} filters={filtrosFluxo} onFiltersChange={setFiltrosFluxo} onOpen={abrirRegistroFluxo}
         layout={filaLayout} onLayoutChange={setFilaLayout} onMove={podeProcessar?(key,stage)=>moverCardKanban(key,({solicitacoes:'demanda',cotacoes:'cotacao',aprovacoes:'aprovacoes',pedidos:'pedido',recebimentos:'entrega'})[stage]):undefined}
         supplierName={nomeForn} supplierChargeLink={linkCobrancaDoGrupo}
         exportButton={linhas=>botaoExportar(aba,[planilhaFila(linhas)],`Exportar para Excel os ${linhas.length} registro(s) da lista`)}

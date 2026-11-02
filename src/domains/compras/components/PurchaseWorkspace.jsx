@@ -1,3 +1,4 @@
+import {WorkspaceCommandBar} from '../../../design-system/patterns/WorkspaceCommandBar.jsx';
 import {isFinancialDate} from '../../financeiro/dates.js';
 import {RecordPanel} from '../../../features/workflow/RecordPanel.jsx';
 import {useWorkspaceState,useQueuePosition} from '../../../features/workflow/workspace-session.jsx';
@@ -30,7 +31,7 @@ const dateLabel = value => isFinancialDate(value) ? new Date(`${value}T12:00:00`
 
 // `supplierName(id)` dá o nome do fornecedor; `supplierChargeLink(grupo)` devolve
 // o link de cobrança das entregas atrasadas do grupo (ou null, sem telefone).
-export function PurchaseWorkspace({ model, area, filters, onFiltersChange, onOpen, scope, scopeKey=scope, afterMetrics = null,
+export function PurchaseWorkspace({ model, area, filters, onFiltersChange, onOpen, scope, scopeKey=scope, afterMetrics = null, scopeControl,commandActions,
   supplierName = id => id, supplierChargeLink = () => null, exportButton = null, layout='table', onLayoutChange, onMove, canAct=()=>true }) {
   const [page, setPage] = useWorkspaceState("cmp","queuePage",0,scopeKey);
   const queueRef=useQueuePosition("cmp",scopeKey);
@@ -58,21 +59,13 @@ export function PurchaseWorkspace({ model, area, filters, onFiltersChange, onOpe
           <td data-label="Contato / solicitante"><span>{row.responsible}</span></td>
           <td data-label="Próxima ação">{canAct(row)?<Button variant="secondary" size="sm" onClick={() => onOpen(row)} aria-label={`${row.action} · ${row.code}`}>{row.action}<ArrowRight size={14} aria-hidden="true"/></Button>:<p>Seu perfil permite somente consultar esta etapa.</p>}</td>
         </tr>;
-  return <section ref={queueRef} className="purchase-workspace" aria-label={PURCHASE_AREA_LABELS[area]}>
+  return <section ref={queueRef} className="purchase-workspace mrc-command-workspace" aria-label={PURCHASE_AREA_LABELS[area]}>
     {area !== "fila" && <div className="purchase-queue-intro"><div>
       <h3>{area === "aprovacoes" ? "Decisões antes da compra" : area === "recebimentos" ? "O que precisa chegar à obra" : "O que precisa da sua atenção"}</h3>
       <p className="purchase-scope">{scope}</p><p>{area === "aprovacoes" ? "Consulte o bloqueio e os aprovadores. Somente pessoas elegíveis podem registrar uma decisão."
         : area === "recebimentos" ? "Confira a chegada real dos materiais. Recebimento e pagamento são acompanhados separadamente."
           : "Solicitações, cotações e entregas por prazo."}</p></div><ClipboardList size={26} aria-hidden="true"/></div>}
-    {area === "fila" && <div className="purchase-queue-metrics" aria-label="Prioridades da fila">
-      <RecordAction type="button" aria-pressed={!filters.risk && !filters.stage} onClick={() => patch({risk:"",stage:""})}><span>Em andamento</span><strong>{source.length}</strong><small>Solicitações, cotações e entregas{moneyHint(totals.valor)}</small></RecordAction>
-      <RecordAction type="button" data-tone={model.overdue>0?"danger":undefined} aria-pressed={filters.risk === "overdue"} onClick={() => patch({risk:"overdue",stage:""})}><span>Prazo vencido</span><strong>{model.overdue}</strong><small>Tratar o atraso com a obra{moneyHint(totals.valorAtrasado)}</small></RecordAction>
-      <RecordAction type="button" data-tone={model.attention>0?"warning":undefined} aria-pressed={filters.risk === "soon"} onClick={() => patch({risk:"soon",stage:""})}><span>Atenção ao prazo</span><strong>{model.attention}</strong><small>Vence hoje ou nos próximos 3 dias{moneyHint(source.filter(row => row.deadline.tone === "warning").reduce((sum, row) => sum + Number(row.total || 0), 0))}</small></RecordAction>
-      <RecordAction type="button" aria-pressed={filters.stage === "aprovacoes"} onClick={() => patch({stage:"aprovacoes",risk:""})}><span>Em aprovação</span><strong>{model.counts.aprovacoes}</strong><small>Decisão ou configuração pendente</small></RecordAction>
-    </div>}
-    <div className="purchase-queue-panel">
-
-      <div className="purchase-queue-filters mrc-queue-filterbar">
+      <WorkspaceCommandBar label="Comandos de Compras" scope={scopeControl} actions={<>{exportButton&&exportButton(rows)}{commandActions}</>}>
         <Input label="Buscar na fila" name="purchase-search" autoComplete="off" value={filters.query} onChange={event => patch({query:event.target.value})} placeholder="Ex.: cimento Alameda…"/>
         {onLayoutChange&&<Select fieldClassName="mrc-queue-view" label="Visualização" value={layout} onChange={event=>onLayoutChange(event.target.value)} options={[{value:'table',label:'Tabela'},{value:'kanban',label:'Kanban'}]}/>}
         <WorkspaceFilters activeCount={[filters.stage,filters.risk,filters.group].filter(Boolean).length}>
@@ -83,11 +76,18 @@ export function PurchaseWorkspace({ model, area, filters, onFiltersChange, onOpe
         <Select label="Agrupar por" disabled={layout==='kanban'} value={filters.group || ""} onChange={event => patch({group:event.target.value})}
           options={[{value:"",label:"Sem agrupamento"},...Object.entries(AGRUPAMENTOS_FILA).map(([value,label]) => ({value,label}))]}/>
         </WorkspaceFilters>
-      </div>
+      </WorkspaceCommandBar>
+    {area === "fila" && <div className="purchase-queue-metrics" aria-label="Prioridades da fila">
+      <RecordAction type="button" aria-pressed={!filters.risk && !filters.stage} onClick={() => patch({risk:"",stage:""})}><span>Em andamento</span><strong>{source.length}</strong><small>{moneyHint(totals.valor).replace(" · ","")}</small></RecordAction>
+      <RecordAction type="button" data-tone={model.overdue>0?"danger":undefined} aria-pressed={filters.risk === "overdue"} onClick={() => patch({risk:"overdue",stage:""})}><span>Prazo vencido</span><strong>{model.overdue}</strong><small>{moneyHint(totals.valorAtrasado).replace(" · ","")}</small></RecordAction>
+      <RecordAction type="button" title="Vence hoje ou nos próximos 3 dias" data-tone={model.attention>0?"warning":undefined} aria-pressed={filters.risk === "soon"} onClick={() => patch({risk:"soon",stage:""})}><span>Atenção ao prazo</span><strong>{model.attention}</strong><small>{moneyHint(source.filter(row => row.deadline.tone === "warning").reduce((sum, row) => sum + Number(row.total || 0), 0)).replace(" · ","")}</small></RecordAction>
+      <RecordAction type="button" aria-pressed={filters.stage === "aprovacoes"} onClick={() => patch({stage:"aprovacoes",risk:""})}><span>Em aprovação</span><strong>{model.counts.aprovacoes}</strong></RecordAction>
+    </div>}
+    <div className="purchase-queue-panel">
+
       <div className="purchase-order-count-row">
         <p className="purchase-result-count" role="status">{rows.length} registro(s){filtered ? ` de ${source.length}` : ""}{moneyHint(resumoDaFila(rows).valor)} · {groups.length && layout==='table' ? `${groups.length} grupo(s), mais atrasados primeiro` : "prioridades por prazo"}</p>
         {filtered && <Button variant="ghost" size="sm" onClick={clear}>Limpar filtros</Button>}
-        {exportButton && <div className="purchase-export-action">{exportButton(rows)}</div>}
       </div>
       {rows.length ? layout==='kanban'?<>
         <p className="mrc-queue-note">Arrastar prepara uma revisão. Use a ação do cartão para continuar.</p>
