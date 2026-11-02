@@ -118,3 +118,14 @@ O tema `marcell` é MARCELL Preciso, padrão para novos navegadores, com densida
 Usar `WorkQueueBoard` para a representação por colunas. O domínio fornece os grupos de registros já filtrados e os callbacks de ação; o componente não grava operações nem altera datas. O mesmo seletor/modelo serve às duas visões. `onMove`, quando houver, só pode abrir o fluxo existente de revisão e confirmação e deve validar o registro no escopo e o acesso atual. Não criar estados de negócio para salvar a posição visual de um cartão.
 
 Preferências de apresentação usam `useQueuePreferences`, com área e usuário. Só layout e direção podem ser armazenados por esse hook. Filtros, busca, registros e rascunhos ficam no workspace da sessão, conforme o contrato existente. Tabela e quadro compartilham prazos e contagens; grupos da tabela são apresentação, não filtro. Financeiro não permite arraste por coluna de prazo. Detalhes e evidências em `PILOTO-MARCELL-P2-20261101.md`.
+
+
+## P3 — ficha rápida e retorno ao contexto
+
+Nas filas de Compras e Financeiro, identificação usa `RecordAction` para consultar e `Button` para uma operação distinta. A consulta usa `RecordPanel` (`src/features/workflow/RecordPanel.jsx`), composto sobre o `Modal` existente: painel à direita no desktop e tela inteira no celular, com título, fechamento e Ajuda contextual. Conteúdo e espaçamento usam tokens compartilhados; não criar sobreposições próprias por módulo.
+
+Mostrar primeiro identidade, obra, situação/prazo, valor e próxima ação permitida. Consultas não gravam dados. Formulários curtos existentes abrem sobre a ficha; cancelar retoma a consulta. Edição extensa continua na área operacional. Compras registra a origem para o retorno à fila e o Financeiro conserva seus retornos operacionais. A ficha guarda só a identidade do registro na sessão e resolve o conteúdo no modelo atual e no escopo permitido; registro removido ou concluído deve informar indisponibilidade, sem comandos obsoletos.
+
+Paginação e seleção usam `useWorkspaceState`; `useQueuePosition` conserva a rolagem da fila e do quadro na sessão, por área e escopo. Fechar a ficha devolve o foco ao código/nome sem deslocar a lista. Não persistir registros ou rascunhos no armazenamento de preferências. Recarregar encerra o contexto da sessão, conforme P2. Guias temporários usam prioridade no `useHelpTopic`; ao fechar, o guia da área reaparece. A Ajuda pode receber foco sem que o modal de origem a capture; Escape encerra apenas a camada ativa.
+
+Relatório e roadmap: `PILOTO-MARCELL-P3-20261101.md`.

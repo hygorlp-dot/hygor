@@ -123,6 +123,8 @@ Conteúdo gerado de `src/features/help/help-content.js`, a mesma fonte da ajuda 
 - [Arquivos · Dossiê de licenciamento](#guia-arquivos_dossie)
 - [Licenciamento](#guia-licenca)
 - [Compras · Contratos e medições](#guia-cmp_contratos)
+- [Compras · Ficha rápida](#guia-cmp_ficha)
+- [Financeiro · Ficha rápida](#guia-fin_ficha)
 
 <a id="guia-ponto_obras"></a>
 
@@ -672,7 +674,7 @@ Confirme a obra e o material necessário.
 ### Como fazer
 
 1. Na Fila de trabalho, escolha Tabela ou Kanban em Visualização. Busca, obra, etapa e prazo são os mesmos; exportar considera todo o recorte. A visão fica salva por usuário neste navegador; filtros e agrupamento são preservados ao navegar na sessão. No Mapa gerencial, Abrir Kanban da fila abre esse mesmo quadro.
-2. Confira a necessidade da obra, o estoque e os pedidos em aberto. Registre ou localize a solicitação.
+2. Clique no código para consultar a ficha rápida; use a próxima ação para continuar. Confira a necessidade da obra, o estoque e os pedidos em aberto. Registre ou localize a solicitação.
 3. Compare as propostas e condições, registre a decisão e acompanhe o pedido. Aprovações pendentes ficam sinalizadas, sem impedir o andamento.
 4. Registre a entrega física para dar entrada no estoque. Vincule a nota e registre os pagamentos reais quando ocorrerem; essas etapas podem acontecer em outra ordem.
 
@@ -1345,7 +1347,7 @@ Confira data e obra. Saldo em aberto não é saldo de caixa.
 1. Em Movimentação, escolha A pagar ou A receber.
 2. Escolha o prazo: Vencidos, Hoje, Próximos 7 dias, Depois ou Sem vencimento. Todos os prazos reúne o recorte. No celular, use Fila de vencimentos.
 3. Em Visualização, alterne Tabela e Kanban; os registros e valores do recorte são preservados. A direção e a visão ficam salvas por usuário neste navegador; filtros de prazo são da sessão. No quadro, as colunas apenas representam as datas.
-4. Use a ação do registro para revisar a origem ou registrar a operação permitida. Ver memorial mostra o detalhamento do valor.
+4. Use a ação do registro para revisar a origem ou registrar a operação permitida. Clique no nome para abrir a ficha rápida; Consultar detalhamento mostra a origem e os documentos. Feche a consulta para retomar a fila.
 
 ### Como conferir se deu certo
 
@@ -2789,6 +2791,57 @@ O contrato e seu histórico ficam identificados no recorte escolhido.
 ### O que merece atenção
 
 Alterar o formulário não salva automaticamente. O acesso aos serviços e às medições depende do perfil; contrato de fornecimento não confirma entrega nem pagamento.
+
+<a id="guia-cmp_ficha"></a>
+
+## Compras · Ficha rápida
+
+Consultar uma compra sem perder a fila e preparar a próxima ação.
+
+### Antes de começar
+
+Selecione a obra, os filtros e Tabela ou Kanban na fila.
+
+### Como fazer
+
+1. Clique no código do registro para abrir a ficha à direita; no celular, a ficha ocupa a tela.
+2. Confira material, obra, etapa, prazo, responsável e valor.
+3. Use o botão em Próxima ação para abrir a operação. Para pedidos, cancele o formulário para retomar a ficha. Solicitações e cotações abrem a área completa; use Voltar para para retomar a origem.
+4. Use Voltar à fila, Fechar ou Escape para encerrar a consulta. A busca, os filtros e a página da fila permanecem na sessão.
+
+### Como conferir se deu certo
+
+A consulta mantém o contexto e não grava dados. A confirmação continua no formulário da operação.
+
+### O que merece atenção
+
+Entrega e pagamento são etapas distintas. Se o registro sair da fila, a ficha informa a indisponibilidade. Ao recarregar, os filtros da sessão são reiniciados.
+
+<a id="guia-fin_ficha"></a>
+
+## Financeiro · Ficha rápida
+
+Conferir o compromisso e a ação disponível sem sair da fila.
+
+### Antes de começar
+
+Em Hoje, confira a obra, a movimentação e o prazo.
+
+### Como fazer
+
+1. Clique no nome do registro na Tabela ou no Kanban.
+2. Confira obra, cliente ou fornecedor, vencimento e saldo em aberto.
+3. Use a ação disponível para continuar. Se abrir a conferência fiscal, feche a ficha fiscal antes de usar Voltar à fila financeira. Nas demais áreas, use o mesmo retorno; a ficha rápida será retomada.
+4. Use Consultar detalhamento para conferir origem e documentos. Fechar memorial retorna à ficha.
+5. Use Voltar à fila, Fechar ou Escape para encerrar. Ajuda explica a ficha sem alterar os dados.
+
+### Como conferir se deu certo
+
+A fila conserva a direção, o prazo e o contexto da sessão; nenhuma consulta registra pagamento.
+
+### O que merece atenção
+
+A ação depende do perfil e da situação atual. Registrar pagamento não executa transferência bancária. Se o título sair do recorte, volte à fila para conferir os saldos atuais.
 
 ## Aparência, botões e navegação
 

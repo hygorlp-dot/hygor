@@ -1898,6 +1898,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       if(podeProcessar){setPedModal({...row.record,motivoAjuste:"",itens:(row.record.itens||[]).map(i=>({...i,qtd:String(i.qtd),precoUnit:String(i.precoUnit)}))});return;}
       irParaPedidos(row.code);return;
     }
+    guardarOrigemCompra({...row,label:row.code});
     if(row.type==="quote"){
       setAba("cotacoes");setBuscaCotacao("");setStatusCotacao("todas");setInicioCotacao("");setFimCotacao("");
       setCotacaoExpandida(row.id);setRegistroFoco(row.id);return;
@@ -2017,7 +2018,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
         <h3>{PURCHASE_AREA_LABELS[aba]||comprasAbas.find(([id])=>id===aba)?.[1]}</h3>
         {aba!=="fila"&&aba!=="cotacoes"&&<Button variant="ghost" size="sm" onClick={()=>irParaArea("fila")}>Voltar à fila</Button>}
       </div>
-      {["fila","aprovacoes","recebimentos"].includes(aba)&&<PurchaseWorkspace model={fluxoCompras} area={aba} scope={escopoFluxo}
+      {["fila","aprovacoes","recebimentos"].includes(aba)&&<PurchaseWorkspace model={fluxoCompras} area={aba} scope={escopoFluxo} scopeKey={`${aba}:${obraIdsMapa.join("|")}`}
         filters={filtrosFluxo} onFiltersChange={setFiltrosFluxo} onOpen={abrirRegistroFluxo}
         layout={filaLayout} onLayoutChange={setFilaLayout} onMove={podeProcessar?(key,stage)=>moverCardKanban(key,({solicitacoes:'demanda',cotacoes:'cotacao',aprovacoes:'aprovacoes',pedidos:'pedido',recebimentos:'entrega'})[stage]):undefined}
         supplierName={nomeForn} supplierChargeLink={linkCobrancaDoGrupo}

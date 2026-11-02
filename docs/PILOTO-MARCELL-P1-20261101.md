@@ -43,4 +43,4 @@ Avaliação visual interna provisória: 8,5/10. A fundação ganhou coerência e
 
 P1 não altera transições de Compras, cálculos do Financeiro ou regras de permissão. A redução da complexidade do fluxo permanece explicitamente no roadmap. Como o bundle está próximo do teto, qualquer implementação subsequente precisa manter o gate e obter economia real de código/empacotamento quando necessário, sem aumentar o limite.
 
-Atualização do roadmap em 01/11/2026: P2 concluída localmente; consultar `PILOTO-MARCELL-P2-20261101.md`. P3 passa a ser a próxima etapa.
+Atualização do roadmap em 01/11/2026: P2 concluída localmente; consultar `PILOTO-MARCELL-P2-20261101.md`. P3 foi concluída posteriormente; P4 é a próxima etapa. Ver `PILOTO-MARCELL-P3-20261101.md`.

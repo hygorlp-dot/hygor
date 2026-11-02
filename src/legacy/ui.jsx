@@ -480,9 +480,10 @@ export function Modal({ title, children, onClose, wide = false, panelClass = "",
       const panel = panelRef.current;
       // A primeira interação pode acontecer antes deste timer. Preservar o
       // foco do campo evita fechar buscas e apagar a digitação por blur.
-      if (panel && !panel.contains(document.activeElement)) panel.focus();
+      if (panel && !panel.contains(document.activeElement)) panel.focus({preventScroll:true});
     }, 0);
     const handleKeyDown = event => {
+      if(event.defaultPrevented||document.activeElement?.closest(".app-help-panel,dialog[open]"))return;
       const panels = [...document.querySelectorAll(".arcd-modal-panel")];
       if (panels.at(-1) !== panelRef.current) return;
       if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); closeRef.current?.(); }
@@ -501,7 +502,7 @@ export function Modal({ title, children, onClose, wide = false, panelClass = "",
       window.clearTimeout(focusTimer);
       window.removeEventListener("keydown", handleKeyDown);
       if (!document.querySelector(".arcd-modal-panel")) document.body.classList.remove("no-scroll");
-      if(previousFocusRef.current?.isConnected&&previousFocusRef.current!==document.body&&previousFocusRef.current!==document.documentElement)previousFocusRef.current.focus();
+      if(previousFocusRef.current?.isConnected&&previousFocusRef.current!==document.body&&previousFocusRef.current!==document.documentElement)previousFocusRef.current.focus({preventScroll:true});
       else if(!document.activeElement?.closest('.arcd-modal-panel')){const fallback=document.querySelector(".arcd-modal-panel")||document.querySelector(".arcd-main h1,.arcd-main h2");if(fallback){if(!fallback.hasAttribute("tabindex"))fallback.setAttribute("tabindex","-1");fallback.focus({preventScroll:true});}}
     };
   }, []);

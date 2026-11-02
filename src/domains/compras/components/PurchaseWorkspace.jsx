@@ -1,6 +1,7 @@
+import {RecordPanel} from '../../../features/workflow/RecordPanel.jsx';
+import {useWorkspaceState,useQueuePosition} from '../../../features/workflow/workspace-session.jsx';
 import {WorkQueueBoard} from '../../../design-system/patterns/WorkQueueBoard.jsx';
 import {RecordAction} from '../../../design-system/primitives/RecordAction.jsx';
-import { useState } from "react";
 import { ArrowRight, CheckCircle2, ClipboardList, Search } from "lucide-react";
 import { Button } from "../../../design-system/primitives/Button";
 import { Input } from "../../../design-system/primitives/Input";
@@ -28,9 +29,13 @@ const dateLabel = value => value ? new Date(`${value}T12:00:00`).toLocaleDateStr
 
 // `supplierName(id)` dá o nome do fornecedor; `supplierChargeLink(grupo)` devolve
 // o link de cobrança das entregas atrasadas do grupo (ou null, sem telefone).
-export function PurchaseWorkspace({ model, area, filters, onFiltersChange, onOpen, scope, afterMetrics = null,
+export function PurchaseWorkspace({ model, area, filters, onFiltersChange, onOpen, scope, scopeKey=scope, afterMetrics = null,
   supplierName = id => id, supplierChargeLink = () => null, exportButton = null, layout='table', onLayoutChange, onMove }) {
-  const [page, setPage] = useState(0);
+  const [page, setPage] = useWorkspaceState("cmp","queuePage",0,scopeKey);
+  const queueRef=useQueuePosition("cmp",scopeKey);
+  const [selection,setSelection]=useWorkspaceState("cmp","quickRecord",null,scopeKey);
+  const selected=model.rows.find(row=>`${row.type}:${row.id}`===selection);
+  const inspect=row=>setSelection(`${row.type}:${row.id}`);
   const patch = next => { setPage(0); onFiltersChange({...filters, ...next}); };
   const source = model.rows.filter(row => area === "fila" || row.stage === area);
   const rows = source.filter(row => (area !== "fila" || !filters.stage || row.stage === filters.stage) &&
@@ -46,13 +51,13 @@ export function PurchaseWorkspace({ model, area, filters, onFiltersChange, onOpe
   const totals = resumoDaFila(source);
   const moneyHint = value => value > 0 ? ` · ${money(value)}` : "";
   const renderRow = row => <tr key={`${row.type}-${row.id}`} data-record={`${row.type}:${row.id}`}>
-          <td data-label="Registro / obra"><b>{row.code}</b><span>{row.obra}</span><small>{stageLabels[row.stage]}</small></td>
+          <td data-label="Registro / obra"><RecordAction aria-label={`Consultar ${row.code}`} onClick={()=>inspect(row)}>{row.code}</RecordAction><span>{row.obra}</span><small>{stageLabels[row.stage]}</small></td>
           <td data-label="Material e situação"><strong className="purchase-row-title">{row.title}</strong><span>{row.detail}</span>{row.total != null && <small className="purchase-money">{money(row.total)}</small>}</td>
           <td data-label="Prazo"><span className="purchase-deadline" data-tone={row.deadline.tone}>{row.deadline.label}</span><small>{dateLabel(row.date)}</small></td>
           <td data-label="Contato / solicitante"><span>{row.responsible}</span></td>
           <td data-label="Próxima ação"><Button variant="secondary" size="sm" onClick={() => onOpen(row)} aria-label={`${row.action} · ${row.code}`}>{row.action}<ArrowRight size={14} aria-hidden="true"/></Button></td>
         </tr>;
-  return <section className="purchase-workspace" aria-label={PURCHASE_AREA_LABELS[area]}>
+  return <section ref={queueRef} className="purchase-workspace" aria-label={PURCHASE_AREA_LABELS[area]}>
     {area !== "fila" && <div className="purchase-queue-intro"><div>
       <h3>{area === "aprovacoes" ? "Decisões antes da compra" : area === "recebimentos" ? "O que precisa chegar à obra" : "O que precisa da sua atenção"}</h3>
       <p className="purchase-scope">{scope}</p><p>{area === "aprovacoes" ? "Consulte o bloqueio e os aprovadores. Somente pessoas elegíveis podem registrar uma decisão."
@@ -86,7 +91,7 @@ export function PurchaseWorkspace({ model, area, filters, onFiltersChange, onOpe
       {rows.length ? layout==='kanban'?<>
         <p className="mrc-queue-note">Arrastar prepara uma revisão. Use a ação do cartão para continuar.</p>
         <WorkQueueBoard label="Fila de compras por etapa" groups={Object.entries(stageLabels).filter(([id])=>area==='fila'? !filters.stage||id===filters.stage:id===area).map(([id,label])=>({id,label,items:rows.filter(row=>row.stage===id)}))} itemKey={row=>`${row.type}:${row.id}`} onMove={onMove} renderItem={row=><>
-          <strong>{row.code} · {row.obra}</strong><strong className="purchase-row-title">{row.title}</strong><p>{row.detail}</p>
+          <RecordAction aria-label={`Consultar ${row.code}`} onClick={()=>inspect(row)}>{row.code} · {row.obra}</RecordAction><strong className="purchase-row-title">{row.title}</strong><p>{row.detail}</p>
           <span className="purchase-deadline" data-tone={row.deadline.tone}>{row.deadline.label}</span><small>{dateLabel(row.date)}</small><p>{row.responsible}</p>
           {row.total!=null&&<strong>{money(row.total)}</strong>}<Button variant="secondary" size="sm" onClick={()=>onOpen(row)} aria-label={`${row.action} · ${row.code}`}>{row.action}<ArrowRight size={14} aria-hidden="true"/></Button>
         </>}/>
@@ -111,6 +116,14 @@ export function PurchaseWorkspace({ model, area, filters, onFiltersChange, onOpe
         {filtered && <Button variant="secondary" onClick={clear}>Mostrar todos os registros</Button>}</div>}
       {layout!=='kanban' && !groups.length && rows.length > 20 && <div className="purchase-pagination"><Button variant="secondary" size="sm" disabled={!currentPage} onClick={() => setPage(currentPage - 1)}>Anterior</Button><span>Página {currentPage + 1} de {Math.ceil(rows.length / 20)}</span><Button variant="secondary" size="sm" disabled={(currentPage + 1) * 20 >= rows.length} onClick={() => setPage(currentPage + 1)}>Próxima</Button></div>}
     </div>
+    {selection&&<RecordPanel key={`${scopeKey}:${selection}`} recordKey={selection} title={selected?`Compra · ${selected.code}`:'Compra indisponível'} pageId="cmp" onClose={()=>setSelection(null)}>
+      {selected?<>
+        <h4>{selected.title}</h4><p>{selected.detail}</p>
+        <dl className="mrc-record-panel__facts">{[['Registro',selected.code],['Obra',selected.obra],['Etapa',stageLabels[selected.stage]],['Prazo',`${selected.deadline.label} · ${dateLabel(selected.date)}`],['Responsável / contato',selected.responsible],['Valor',selected.total==null?'Não informado':money(selected.total)]].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
+        <section><h4>Próxima ação</h4><p>Entrega e pagamento são acompanhados separadamente. Confira os dados antes de confirmar a operação.</p></section>
+        <div className="mrc-record-panel__actions"><Button onClick={()=>onOpen(selected)}>{selected.action}</Button><Button variant="secondary" onClick={()=>setSelection(null)}>Voltar à fila</Button></div>
+      </>:<p role="status">O registro saiu desta fila ou não está disponível para a obra selecionada. Volte à fila para consultar os registros atuais.</p>}
+    </RecordPanel>}
     {area === "fila" && afterMetrics && <details className="workspace-disclosure"><summary>Comparar compras por obra</summary>{afterMetrics}</details>}
   </section>;
 }

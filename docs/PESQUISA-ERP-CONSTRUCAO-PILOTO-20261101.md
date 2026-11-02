@@ -146,3 +146,5 @@ Gestão à vista não significa tornar todo item colorido ou carregar todas as l
 ## Estado desta etapa
 
 P0 concluída. O piloto continua autorizado para execução local. Nesta preparação foram adicionados somente este documento e a skill do usuário; nenhuma tela, regra de negócio, API, dado ou configuração de deploy foi alterada. Ajuda/manual foram lidos como referência; não há mudança de instruções ao operador nesta etapa documental. A atualização das orientações e a geração do manual acompanham P1–P5 conforme os controles efetivamente modificados.
+
+Atualização acumulada em 01/11/2026: P1, P2 e P3 concluídas localmente. P4 — exceções e linguagem é a próxima etapa; P5 segue pendente. Ver `PILOTO-MARCELL-P3-20261101.md` para evidências, limites e nota provisória 9,0/10. O estado acima registra a preparação documental P0.
