@@ -17,7 +17,8 @@
 // ===================================================================
 
 import { useEffect, useState } from "react";
-import { Badge, Btn, C, Ic } from "../../../LegacyApp";
+import { LoadingState, Badge, Btn, Ic } from "../../../legacy/ui.jsx";
+import { C } from "../../../legacy/palette.js";
 import {
   consultarComprasRelacionalSombra, consultarEquipamentosRelacionalSombra, consultarNucleoRelacionalSombra,
   consultarPontoRelacionalSombra,
@@ -134,7 +135,7 @@ export default function NucleoRelacionalAdmin({ currentUser }) {
       </div>
       <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginTop: -6 }}>{dominio.descricao}</p>
 
-      {estado === "carregando" && <p style={{ padding: 20, textAlign: "center", fontSize:"var(--arcd-type-label)", color: C.muted }}>Consultando...</p>}
+      {estado === "carregando" && <LoadingState label="núcleo relacional"/>}
 
       {estado === "erro" && (
         <div style={{ background: `${C.red}0C`, border: `1px solid ${C.red}44`, borderRadius: 9, padding: 14 }}>

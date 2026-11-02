@@ -4,7 +4,8 @@
 // porque a tela de origem (Financeiro) aceita um tema próprio
 // (C_ARCD_SETOR), não necessariamente o C global.
 import { BarChart, Bar, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { ArcdChartTooltip, ChartPanel, compactNumber, fmt } from "../../LegacyApp.jsx";
+import { ArcdChartTooltip, ChartPanel } from "../../legacy/ui.jsx";
+import { compactNumber, fmt } from "../../legacy/format.js";
 
 export default function FinanceiroCharts({ chartData, quinzenalChart, C }) {
   return (

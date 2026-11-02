@@ -48,7 +48,7 @@ export const statusPagamentoPedido = pedido => {
   if(total<=0)return "sem_valor";
   return pago>=total-.01?"pago":pago>0?"parcial":"pendente";
 };
-export const pedidoLiberadoParaReceber = pedido => statusPagamentoPedido(pedido)==="pago";
+export const pedidoLiberadoParaReceber = pedido => Boolean(pedido)&&pedido.ativo!==false&&!pedido.deletedAt&&pedido.status!=='cancelado';
 export const origemPagamentoLabel = origem =>
   ({empresa:"Empresa",caixa_obra:"Caixa da obra",cliente_direto:"Cliente direto"}[origem]||"Empresa");
 

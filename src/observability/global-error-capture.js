@@ -9,8 +9,6 @@ import { buildLocalErrorDiagnostic } from "./local-error-diagnostic";
 // Ruído que não é defeito do app: extensão do navegador, script de outra
 // origem sem detalhe, laço do ResizeObserver, cancelamento pelo usuário.
 const RUIDO = /ResizeObserver loop|^Script error\.?$|chrome-extension:|moz-extension:|safari-(web-)?extension:|AbortError|The user aborted|NotAllowedError/i;
-// Falha de chunk depois de deploy já é tratada (e reportada) pelo ErrorBoundary.
-const FALHA_IMPORT_DINAMICO = /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|ChunkLoadError/i;
 
 export const enviarRelatorioErro = payload => {
   try {
@@ -30,7 +28,9 @@ export function instalarCapturaGlobal(win = window, { enviar = enviarRelatorioEr
   const reportar = (erro, origem) => {
     const mensagem = String(erro?.message ?? erro ?? "").trim();
     const pilha = String(erro?.stack || "");
-    if (!mensagem || RUIDO.test(mensagem) || RUIDO.test(pilha) || FALHA_IMPORT_DINAMICO.test(mensagem)) return;
+    // Imports de exportação/preview também podem falhar em um clique, fora
+    // da renderização; nesses casos o ErrorBoundary nunca recebe a falha.
+    if (!mensagem || RUIDO.test(mensagem) || RUIDO.test(pilha)) return;
     // Mesmo erro repetido (ex.: em loop de render) conta uma vez por página.
     const chave = `${origem}|${mensagem.slice(0, 200)}`;
     if (vistos.has(chave) || enviados >= limitePorPagina) return;

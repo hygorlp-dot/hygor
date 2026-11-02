@@ -59,7 +59,7 @@ describe("navegação móvel do app legado", () => {
     const more = [...container.querySelectorAll("button")].find(button => button.textContent.includes("Mais"));
     expect(more.getAttribute("aria-expanded")).toBe("false");
     act(() => more.click());
-    await waitFor(() => document.querySelector("#arcd-mobile-modules-menu"));
+    await waitFor(() => document.querySelector("#arcd-mobile-modules-menu .arcd-mobile-more-menu__item"));
     expect(more.getAttribute("aria-expanded")).toBe("true");
     act(() => [...document.querySelectorAll(".arcd-mobile-more-menu__item")][0].click());
     expect(onSelectGroup).toHaveBeenCalledTimes(1);

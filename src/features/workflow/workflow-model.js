@@ -13,6 +13,7 @@ export const MODULE_FLOWS = {
   ]},
   eng_grp:{title:"Da previsão ao resultado da obra",steps:[
     ["obras","Selecionar obra","Abra a obra para consultar contexto, documentos e responsáveis."],
+    ["projetos","Projetos","Gerencie entregas, revisões e horas de engenharia e arquitetura."],
     ["orc","Orçamento e memorial","Defina os serviços, quantitativos e vínculos da memória de cálculo."],
     ["plan","Planejamento","Organize prazos e recursos com base no orçamento."],
     ["rdo","Execução","Registre o trabalho realizado e os acontecimentos do dia."],

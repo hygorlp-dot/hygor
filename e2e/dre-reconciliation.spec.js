@@ -29,7 +29,7 @@ async function enter(page,{failFirst=false}={}){
   await page.getByRole("button",{name:"Acessar central MARCELL"}).click();
   if(page.viewportSize().width<1100){
     await page.getByRole("button",{name:"Abrir Visão gerencial",exact:true}).click();
-    await page.locator(".mobile-subnav").getByRole("button",{name:"DRE obras",exact:true}).click();
+    await page.getByRole('combobox',{name:'Telas de Visão gerencial',exact:true}).selectOption('dre');
   }else{
     const sidebar=page.locator(".arcd-sidebar"),group=sidebar.locator(".nav-grp-hd").filter({hasText:/^Visão gerencial/});
     const body=group.locator("xpath=following-sibling::*[contains(@class,'nav-body')][1]");

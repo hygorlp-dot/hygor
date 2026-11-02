@@ -1,0 +1,11 @@
+﻿CASA ALAMEDA — MATERIAL FICTÍCIO DE TESTE
+
+Arquivos disponíveis nesta pasta:
+- R01.txt: memorial inicial, com pendências demonstrativas.
+- R02.txt: memorial com alterações demonstrativas em relação à R01.
+
+Os dois arquivos existem apenas no servidor local. Não representam dados
+do cliente, quantitativos reais ou orientação técnica para execução.
+
+Use o projeto de exemplo do módulo Projetos para testar atividades,
+cronômetro, links, pareceres e preservação das revisões anteriores.

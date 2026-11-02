@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import { authenticateAppContext } from "../../server/app-auth.js";
+import { decodeAppData } from '../data-codec.js';
 
 const CLIENT_ID = process.env.MICROSOFT_CLIENT_ID;
 const CLIENT_SECRET = process.env.MICROSOFT_CLIENT_SECRET;
@@ -38,6 +39,12 @@ const loadCentralSession = async () => {
   return unseal(data?.value?.sealed);
 };
 export const verifyAppUser = async (userId,pin,accessToken) => !db ? null : authenticateAppContext({userId,pin,accessToken},{scope:"onedrive"});
+export const loadFileAccessData = async () => {
+  if(!db)throw Object.assign(new Error('Armazenamento indisponível.'),{status:503});
+  const {data,error}=await db.from('company_app_data').select('value').eq('company_id',COMPANY).eq('key','arced_ponto_v1').maybeSingle();
+  if(error||!data)throw Object.assign(new Error('Não foi possível conferir as permissões dos arquivos.'),{status:503});
+  return decodeAppData(data.value);
+};
 export const fileSignature=(driveId,itemId)=>crypto.createHmac("sha256",String(CLIENT_SECRET)).update(`${driveId}:${itemId}`).digest("base64url");
 export const configured = () => !!(CLIENT_ID && CLIENT_SECRET && REDIRECT_URI && ROOT_URL);
 export const authConfig = () => ({ CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, AUTHORITY, ROOT_URL });

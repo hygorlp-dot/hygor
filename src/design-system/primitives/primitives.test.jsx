@@ -46,7 +46,8 @@ describe("Button", () => {
 
   it("expõe a variante semântica de sucesso", () => {
     const container = render(<Button variant="success">Confirmado</Button>);
-    expect(container.querySelector("button").className).toContain("arcd-button--success");
+    expect(container.querySelector("button").dataset.mrcRole).toBe("primary");
+    expect(container.querySelector("button").classList.contains("mrc-button")).toBe(true);
   });
 });
 

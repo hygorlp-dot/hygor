@@ -2,15 +2,14 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-// Lê como texto (não importa os módulos) pelo mesmo motivo de
-// LegacyApp.dre-wiring.test.js: LegacyApp.jsx é grande demais e carrega
-// efeitos colaterais para importar num teste de contrato.
-const legacySource = readFileSync(resolve(process.cwd(), "src/LegacyApp.jsx"), "utf8");
+// A paleta é independente da entrada do app; validar os valores na fonte
+// que também é reexportada pela API legada.
+const legacySource = readFileSync(resolve(process.cwd(), "src/legacy/palette.js"), "utf8");
 const primitivesSource = readFileSync(resolve(process.cwd(), "src/design-system/tokens/primitives.css"), "utf8");
 
 const extractLegacyColor = key => {
   const match = legacySource.match(new RegExp(`\\b${key}:\\s*"(#[0-9A-Fa-f]{6})"`));
-  if (!match) throw new Error(`Não achei C.${key} em src/LegacyApp.jsx - o objeto C mudou de formato?`);
+  if (!match) throw new Error(`Não achei C.${key} em src/legacy/palette.js - o objeto C mudou de formato?`);
   return match[1].toLowerCase();
 };
 

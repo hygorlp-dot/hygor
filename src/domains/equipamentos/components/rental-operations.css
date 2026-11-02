@@ -104,7 +104,6 @@
 
 /* detalhe */
 .ro-detail { display: grid; gap: var(--arcd-space-5); }
-.ro-detail__status { display: flex; align-items: center; gap: var(--arcd-space-2); flex-wrap: wrap; }
 .ro-detail h3 { margin: 0 0 var(--arcd-space-2); color: var(--arcd-text-primary); font-size: var(--arcd-type-card-title); font-weight: 600; }
 .ro-detail dl { margin: 0; }
 .ro-detail__field { display: grid; grid-template-columns: 9.5rem minmax(0, 1fr); gap: var(--arcd-space-3); padding: var(--arcd-space-2) 0; border-bottom: 1px solid var(--arcd-border-default); }

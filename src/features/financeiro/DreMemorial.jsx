@@ -1,13 +1,12 @@
 import { Button } from "../../components/ui/button.jsx";
 import { ANNUAL_SOURCES, annualSourceValues } from "../../domains/dre/annual-statement.js";
+import {financialDocumentUrl} from '../../domains/financeiro/document-links.js';
+import FinancialDocumentLink from './FinancialDocumentLink.jsx';
 
 const money=value=>(Number(value||0)/100).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
 const labels={id:"Identificador",obraId:"Obra",sourceId:"Registro de origem",sourceType:"Tipo de origem",dueDate:"Vencimento",paidAmountCents:"Valor pago (centavos)",lastSettlementDate:"Último pagamento",expenseDetails:"Dados da despesa",documentos:"Documentos anexados",invoices:"Notas fiscais vinculadas",calculation:"Memória de cálculo",dataEmissao:"Data de emissão",dataVencimento:"Vencimento",dataPagamento:"Data de pagamento",competencia:"Competência",valorTotal:"Valor total",valorBruto:"Valor bruto",valorLiquido:"Valor líquido",fornecedorNome:"Fornecedor",numero:"Número",url:"Abrir documento",webUrl:"Abrir documento",nome:"Nome",descricao:"Descrição",observacao:"Observação",status:"Situação",itens:"Itens",pagamentos:"Pagamentos",recebimentos:"Recebimentos",metadata:"Dados complementares"};
 const label=key=>labels[key]||key.replace(/([a-z])([A-Z])/g,"$1 $2").replaceAll("_"," ").replace(/^./,c=>c.toUpperCase());
-export const safeDocumentUrl=value=>{
-  if(typeof value!=="string")return null;
-  try{const url=new URL(value);return ["https:","http:"].includes(url.protocol)?url.href:null;}catch{return null;}
-};
+export const safeDocumentUrl=financialDocumentUrl;
 function Documents({item}){
   const links=new Map();
   const visit=(value,name="Documento anexado")=>{
@@ -19,7 +18,7 @@ function Documents({item}){
     const url=safeDocumentUrl(value);if(url)links.set(url,name);
   };
   visit(item.record);visit(item.invoices);visit(item.documents);visit(item.metadata);
-  return <div className="dre-memorial__documents"><h5>Notas fiscais e documentos</h5>{links.size?<ul>{[...links].map(([url,name])=><li key={url}><a href={url} target="_blank" rel="noopener noreferrer">{name} · Abrir em nova aba</a></li>)}</ul>:<p>Nenhum link de nota fiscal ou documento anexado a este lançamento.</p>}</div>;
+  return <div className="dre-memorial__documents"><h5>Notas fiscais e documentos</h5>{links.size?<ul>{[...links].map(([url,name])=><li key={url}><FinancialDocumentLink href={url}>{name} · Abrir em nova aba</FinancialDocumentLink></li>)}</ul>:<p>Nenhum link de nota fiscal ou documento anexado a este lançamento.</p>}</div>;
 }
 function Value({value}){
   if(value==null||value==="")return "Não informado";
@@ -27,7 +26,7 @@ function Value({value}){
   if(Array.isArray(value))return value.length?<ol>{value.map((item,index)=><li key={index}><Value value={item}/></li>)}</ol>:"Nenhum registro";
   if(typeof value==="object")return <dl className="dre-memorial__fields">{Object.entries(value).map(([key,item])=><div key={key}><dt>{label(key)}</dt><dd><Value value={item}/></dd></div>)}</dl>;
   const url=safeDocumentUrl(value);
-  if(url)return <a href={url} target="_blank" rel="noopener noreferrer">Abrir documento em nova aba</a>;
+  if(url)return <FinancialDocumentLink href={url}>Abrir documento em nova aba</FinancialDocumentLink>;
   if(/^\d{4}-\d{2}-\d{2}$/.test(String(value)))return String(value).split("-").reverse().join("/");
   return String(value);
 }
@@ -45,25 +44,7 @@ export default function DreMemorial({row,month,onOpenWork}){
         {rate!=null?<p>Provisão calculada: {money(Math.round(base*100))} × {rate.toLocaleString("pt-BR")}% = {money(total)}. Não corresponde a uma nota fiscal.</p>:<>
           {items.map((item,index)=><details key={`${item.id}:${index}`} className="dre-memorial__entry">
             <summary><span>{item.description||"Lançamento"}<small>{item.obra} · <Value value={item.date}/></small></span><strong>{money(item.amountCents)}</strong></summary>
-            <div className="dre-memorial__body">
-              <dl className="dre-memorial__fields">
-                <div><dt>Obra</dt><dd>{item.obra}{item.obraId&&onOpenWork&&<Button variant="outline" size="sm" onClick={()=>onOpenWork(item.obraId)}>Abrir obra</Button>}</dd></div>
-                <div><dt>Data do lançamento</dt><dd><Value value={item.date}/></dd></div>
-                <div><dt>Competência</dt><dd>{item.competence}</dd></div>
-                <div><dt>Cliente / fornecedor</dt><dd>{item.counterparty||item.record?.fornecedor||item.record?.fornecedorNome||"Não informado"}</dd></div>
-                <div><dt>Documento</dt><dd>{item.documentNumber||item.record?.documento||"Não informado"}</dd></div>
-                <div><dt>Valor apropriado no DRE</dt><dd>{money(item.amountCents)}</dd></div>
-                <div><dt>Origem</dt><dd>{item.sourceType} · {item.sourceId}</dd></div>
-                <div><dt>Situação</dt><dd>{{recognized:"Reconhecido no DRE",open:"Em aberto",paid:"Pago"}[item.record?.status||item.status]||item.record?.status||item.status||"Não informada"}</dd></div>
-              </dl>
-              {item.note&&<p>{item.note}</p>}
-              <Documents item={item}/>
-              {item.record?<><h5>Dados completos do lançamento</h5><Value value={item.record}/></>:<p>Não há ficha operacional vinculada a este registro.</p>}
-              {item.invoices?.length>0&&<><h5>Notas fiscais vinculadas</h5><Value value={item.invoices}/></>}
-              {item.documents?.length>0&&<><h5>Documentos da movimentação</h5><Value value={item.documents}/></>}
-              {item.calculation&&<><h5>Memória de cálculo</h5><Value value={item.calculation}/></>}
-              {item.metadata&&Object.keys(item.metadata).length>0&&<><h5>Informações complementares</h5><Value value={item.metadata}/></>}
-            </div>
+            <FinancialEntryDetails item={item} onOpenWork={onOpenWork}/>
           </details>)}
           {!items.length&&<p>{total===0?"Sem lançamentos nesta competência.":"Não há lançamentos individualizados disponíveis para esta fonte."}</p>}
           {items.length>0&&<p>Soma dos lançamentos: <strong>{money(sum)}</strong></p>}
@@ -74,3 +55,27 @@ export default function DreMemorial({row,month,onOpenWork}){
     {!row.sources.length&&<p>Esta linha ainda não tem fonte vinculada. Use Ajustar linhas para transferir uma fonte existente.</p>}
   </div>;
 }
+
+export function FinancialEntryDetails({item,onOpenWork}){return (
+            <div className="dre-memorial__body">
+              <dl className="dre-memorial__fields">
+                <div><dt>Obra</dt><dd>{item.obra}{item.obraId&&onOpenWork&&<Button variant="outline" size="sm" onClick={()=>onOpenWork(item.obraId)}>Abrir obra</Button>}</dd></div>
+                <div><dt>Data do lançamento</dt><dd><Value value={item.date}/></dd></div>
+                <div><dt>Competência</dt><dd>{item.competence||"Não informada"}</dd></div>
+                <div><dt>Cliente / fornecedor</dt><dd>{item.counterparty||item.record?.fornecedor||item.record?.fornecedorNome||"Não informado"}</dd></div>
+                <div><dt>Documento</dt><dd>{item.documentNumber||item.record?.documento||"Não informado"}</dd></div>
+                {(item.dueDate||item.record?.vencimento||item.record?.dataVencimento)&&<div><dt>Vencimento</dt><dd><Value value={item.dueDate||item.record?.vencimento||item.record?.dataVencimento}/></dd></div>}
+                {item.metadata?.liquidado!=null&&<div><dt>Valor liquidado</dt><dd>{money(Math.round(item.metadata.liquidado*100))}</dd></div>}
+                <div><dt>Valor do lançamento</dt><dd>{money(item.amountCents)}</dd></div>
+                <div><dt>Origem</dt><dd>{item.sourceType} · {item.sourceId}</dd></div>
+                <div><dt>Situação</dt><dd>{{recognized:"Reconhecido no DRE",open:"Em aberto",paid:"Pago"}[item.record?.status||item.status]||item.record?.status||item.status||"Não informada"}</dd></div>
+              </dl>
+              {item.note&&<p>{item.note}</p>}
+              <Documents item={item}/>
+              {item.record?<details><summary>Dados completos do lançamento</summary><Value value={item.record}/></details>:<p>Não há ficha operacional vinculada a este registro.</p>}
+              {item.invoices?.length>0&&<details><summary>Notas fiscais vinculadas</summary><Value value={item.invoices}/></details>}
+              {item.documents?.length>0&&<details><summary>Documentos da movimentação</summary><Value value={item.documents}/></details>}
+              {item.calculation&&<details><summary>Memória de cálculo</summary><Value value={item.calculation}/></details>}
+              {item.metadata&&Object.keys(item.metadata).length>0&&<details><summary>Informações complementares</summary><Value value={item.metadata}/></details>}
+            </div>
+);}

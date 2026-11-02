@@ -79,6 +79,7 @@ body[data-adjustable-tables] table[data-mrc-adjustable]{table-layout:fixed}
 body[data-adjustable-tables] table[data-mrc-adjustable] td{font-size:var(--mrc-table-font,10px)!important;line-height:1.2!important;padding:var(--mrc-table-padding,2px) 4px!important;overflow-wrap:break-word}
 body[data-adjustable-tables] table[data-mrc-adjustable] th{font-size:calc(var(--mrc-table-font,10px) - 1px)!important;line-height:1.2!important;padding:4px!important}
 body[data-adjustable-tables] table[data-mrc-adjustable] td.num{white-space:normal!important;overflow-wrap:anywhere}
+body[data-adjustable-tables] table[data-mrc-adjustable] tfoot td.num{white-space:nowrap!important;overflow-wrap:normal}
 body[data-adjustable-tables] .section{break-before:auto!important;page-break-before:auto!important}
 body[data-adjustable-tables][data-annex-new-page="true"] .section{break-before:page!important;page-break-before:always!important}
 body[data-adjustable-tables] .section :is(h3,p){break-after:avoid}

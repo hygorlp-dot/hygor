@@ -1,5 +1,7 @@
 # Manual completo do sistema ARCD
 
+> Para o guia operacional atualizado junto com a ajuda do app, consulte [Manual de uso MARCELL](MANUAL_DO_APP.md). O documento abaixo preserva a revisão técnica de julho de 2026 e pode conter descrições anteriores aos fluxos atuais.
+
 Versão auditada: 22 de julho de 2026  
 Base técnica da revisão: commit `d16a63c`  
 Aplicação: ARCD Construtech — gestão integrada de obras

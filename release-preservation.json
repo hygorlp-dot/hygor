@@ -1,0 +1,28 @@
+{
+  "productionAliasBase": "cb12ca60",
+  "publishedFeaturesBase": "c580442a",
+  "workflowSnapshot": "bc2aa45e",
+  "preserved": [
+    "api/data.js",
+    "api/microsoft/onedrive.js",
+    "server/data-projection.js",
+    "server/work-file-cabinet-policy.js",
+    "server/engineering-project-policy.js",
+    "src/domains/arquivos",
+    "src/domains/projetos",
+    "src/domains/ponto-eletronico",
+    "src/domains/rh/components/EquipeView.jsx",
+    "src/domains/ponto-eletronico/useEquipeObras.js",
+    "src/domains/ponto-eletronico/useEquipeObras.test.jsx",
+    "vercel.json"
+  ],
+  "conflictsReviewed": 110,
+  "runtimeHandlerBase": "c580442a",
+  "newCommand": "ORIGEM_FECHAMENTO_CORRIGIDA",
+  "directApiDelta": "role, atomic persistence, server timestamp and authenticated actor",
+  "validated": {
+    "unit": 897,
+    "financePurchaseBrowser": 56,
+    "nativePointBrowser": 2
+  }
+}

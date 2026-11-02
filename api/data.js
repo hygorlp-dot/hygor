@@ -1,3 +1,7 @@
+import {ACCOUNTING_COMMAND_TYPES,validateAccountingSnapshotPolicy} from '../src/domains/financeiro/accounting-indicators.js';
+import {BASELINE_COMMAND,BASELINE_COMMAND_TYPES} from '../src/domains/planejamento/approved-baseline.js';
+import {quoteLinkKey,issueQuoteLink,verifyQuoteLink,quoteLinkAccess,publicQuoteView} from "../server/supplier-quote-link.js";
+import {storeSupplierResponse} from "../src/domains/compras/supplier-quote-response.js";
 import { reconcileImportedStatement } from "../server/reconciliation-after-import.js";
 // ═══════════════════════════════════════════════════════════════════
 // /api/data — a única porta de entrada para o banco
@@ -65,6 +69,9 @@ import {
   validateClosedRepresentationPreservation,
 } from "../server/closed-dre-mutation-guard.js";
 import { projectChangedSectionsPatch } from "../server/section-patch.js";
+import { ENGINEERING_COMMAND_TYPES, ENGINEERING_ROLES } from "../src/domains/projetos/commands.js";
+import { FILE_COMMAND_TYPES, FILE_ROLES } from "../src/domains/arquivos/commands.js";
+import { DOSSIER_COMMAND_TYPES } from '../src/domains/licenciamento/dossier.js';
 import { applyOperationalCommand, OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
 import { validateOperationalCommandScope } from "../server/operational-command-policy.js";
 import {
@@ -79,7 +86,10 @@ import {
   coreFieldsOnly, DOMAIN_ROW, domainForField, mergeDomainRows, pickDomainFields, rowForAttendanceCommand,
   rowForOperationalCommand, SPLITTABLE_DOMAINS,
 } from "../server/domain-row-routing.js";
+import { readFreshAttendance, readReviewEvents, readSyncEvents } from "../server/attendance-review-source.js";
+import { planBiometricSync, validSyncRange, biometricSyncPreview } from '../server/attendance-biometric-sync.js';
 import { applyAttendanceCommand, ATTENDANCE_COMMAND } from "../server/attendance-command.js";
+import {enrichAttendanceWithAutomaticAllocation} from '../server/attendance-auto-allocation.js';
 import {
   applyEntriesToAttendance, attendanceObraKeyPrefix,
   groupAttendanceEntriesByObra, groupObraDeparturesByBucket, mergeAttendanceObjects,
@@ -189,6 +199,15 @@ export const authorizeFinancialCommand = (commandType, role) => {
 const RECONCILIATION_COMMANDS=new Set(Object.values(RECONCILIATION_COMMAND));
 const ATTENDANCE_COMMANDS=new Set(Object.values(ATTENDANCE_COMMAND));
 export const OPERATIONAL_COMMAND_ROLES = {
+  ...Object.fromEntries([...ACCOUNTING_COMMAND_TYPES].map(type=>[type,['admin','financeiro']])),
+  [BASELINE_COMMAND.SCHEDULE_BASELINE_PROPOSED]:['admin','diretoria','engenheiro','engenheiro_auditor','planejamento'],
+  [BASELINE_COMMAND.SCHEDULE_BASELINE_APPROVED]:['admin','diretoria'],
+  [OPERATIONAL_COMMAND.CLOSING_SOURCE_CORRECTED]:['admin','financeiro'],
+  ...Object.fromEntries([...ENGINEERING_COMMAND_TYPES].map(type=>[type,ENGINEERING_ROLES])),
+  ...Object.fromEntries([...FILE_COMMAND_TYPES].map(type=>[type,FILE_ROLES])),
+  ...Object.fromEntries([...DOSSIER_COMMAND_TYPES].map(type=>[type,['admin','engenheiro']])),
+  [OPERATIONAL_COMMAND.COST_ALLOCATION_SAVED]:['admin','financeiro'],
+  [OPERATIONAL_COMMAND.COST_FORECAST_SAVED]:['admin','financeiro'],
   [OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED]:["admin","engenheiro","engenheiro_auditor"],
   [OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CANCELLED]:["admin","engenheiro","engenheiro_auditor"],
   [OPERATIONAL_COMMAND.FIELD_REPORT_CHANGED]:["admin","engenheiro","engenheiro_auditor"],
@@ -216,6 +235,7 @@ export const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.COMPANY_RECURRING_EXPENSES_REPLICATED]:["admin","financeiro"],
   [OPERATIONAL_COMMAND.WORK_CASH_MOVEMENT_CREATED]:["admin","financeiro"],
   [OPERATIONAL_COMMAND.WORK_CASH_MOVEMENT_CANCELLED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.ORDER_PAYMENT_ALLOCATED]:["admin","financeiro","compras"],
   [OPERATIONAL_COMMAND.PAYABLE_PAYMENT_RECORDED]:["admin","financeiro","compras"],
   [OPERATIONAL_COMMAND.PURCHASE_PAYMENT_RECLASSIFIED]:["admin","financeiro","compras"],
   [OPERATIONAL_COMMAND.PAYABLE_PAYMENT_REVERSED]:["admin","financeiro","compras"],
@@ -250,6 +270,9 @@ export const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.SUPPLY_CONTRACT_CLOSED]:["admin","compras"],
   [OPERATIONAL_COMMAND.MATERIAL_SAVED]:["admin","compras","engenheiro","engenheiro_auditor"],
   [OPERATIONAL_COMMAND.PURCHASE_ORDER_CREATED_FROM_QUOTE]:["admin","compras"],
+  [OPERATIONAL_COMMAND.QUOTE_SUPPLIER_RESPONSE_REVIEWED]:["admin","compras"],
+  [OPERATIONAL_COMMAND.QUOTE_SUPPLIER_DISPATCH_RECORDED]:["admin","compras"],
+  [OPERATIONAL_COMMAND.QUOTE_SUPPLIER_DISPATCH_UPDATED]:["admin","compras"],
   [OPERATIONAL_COMMAND.QUOTE_MAP_DECIDED]:["admin","compras"],
   [OPERATIONAL_COMMAND.PURCHASE_ORDER_DOCUMENT_ATTACHED]:["admin","compras"],
   [OPERATIONAL_COMMAND.PURCHASE_ORDER_SENT_TO_SUPPLIER]:["admin","compras"],
@@ -329,6 +352,8 @@ export const authorizeOperationalCommand = (commandType, role) => {
   return { ok:true };
 };
 const FINANCIAL_OPERATIONAL_COMMANDS=new Set([
+  OPERATIONAL_COMMAND.CLOSING_SOURCE_CORRECTED,
+  OPERATIONAL_COMMAND.COST_ALLOCATION_SAVED,
   OPERATIONAL_COMMAND.MANUAL_RECEIPT_CREATED,OPERATIONAL_COMMAND.MANUAL_RECEIPT_REVERSED,
   OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_SAVED,OPERATIONAL_COMMAND.CLIENT_MEASUREMENTS_GENERATED,
   OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_CANCELLED,OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_RECEIPTS_CHANGED,
@@ -339,6 +364,7 @@ const FINANCIAL_OPERATIONAL_COMMANDS=new Set([
   OPERATIONAL_COMMAND.COMPANY_EXPENSE_SAVED,OPERATIONAL_COMMAND.COMPANY_EXPENSE_CANCELLED,
   OPERATIONAL_COMMAND.COMPANY_RECURRING_EXPENSES_REPLICATED,
   OPERATIONAL_COMMAND.WORK_CASH_MOVEMENT_CREATED,OPERATIONAL_COMMAND.WORK_CASH_MOVEMENT_CANCELLED,
+  OPERATIONAL_COMMAND.ORDER_PAYMENT_ALLOCATED,
   OPERATIONAL_COMMAND.PAYABLE_PAYMENT_RECORDED,OPERATIONAL_COMMAND.PURCHASE_PAYMENT_RECLASSIFIED,
   OPERATIONAL_COMMAND.PAYABLE_PAYMENT_REVERSED,
   OPERATIONAL_COMMAND.PURCHASE_CANCELLED,
@@ -359,6 +385,9 @@ const FINANCIAL_OPERATIONAL_COMMANDS=new Set([
   OPERATIONAL_COMMAND.INVOICE_REJECTED,
   OPERATIONAL_COMMAND.PURCHASE_ORDER_SAVED,
   OPERATIONAL_COMMAND.PURCHASE_ORDER_CREATED_FROM_QUOTE,
+  OPERATIONAL_COMMAND.QUOTE_SUPPLIER_RESPONSE_REVIEWED,
+  OPERATIONAL_COMMAND.QUOTE_SUPPLIER_DISPATCH_RECORDED,
+  OPERATIONAL_COMMAND.QUOTE_SUPPLIER_DISPATCH_UPDATED,
   OPERATIONAL_COMMAND.QUOTE_MAP_DECIDED,
   OPERATIONAL_COMMAND.PURCHASE_ORDER_DOCUMENT_ATTACHED,
   OPERATIONAL_COMMAND.PURCHASE_ORDER_SENT_TO_SUPPLIER,
@@ -1429,7 +1458,8 @@ const executarComandoOperacionalBloqueado=async({
 };
 
 const datasAlteradasPeloComandoPonto=command=>{
-  if(command?.action===ATTENDANCE_COMMAND.UPSERT)return [String(command.date||"")].filter(Boolean);
+  if(command?.action===ATTENDANCE_COMMAND.SYNC)return (command.items||[]).map(item=>String(item.date||''));
+  if([ATTENDANCE_COMMAND.UPSERT,ATTENDANCE_COMMAND.REVIEW].includes(command?.action))return [String(command.date||"")].filter(Boolean);
   if(command?.action===ATTENDANCE_COMMAND.BATCH_UPSERT){
     return [...new Set((Array.isArray(command.patches)?command.patches:[])
       .map(patch=>String(patch?.date||"")).filter(Boolean))];
@@ -1512,12 +1542,18 @@ export const executarComandoPontoBloqueado=async({usuario,command,operationNow,l
       const current={
         ...linha.payload,
         ...coreFieldsOnly(decodeAppData(lockedCore.value),linha.rowVersions),
+        ...await readFreshAttendance(transaction,COMPANY,linha.payload),
         attendanceLocks:freshPontoSlice.attendanceLocks||{},
         unlockRequests:freshPontoSlice.unlockRequests||[],
         dailyCheckDate:freshPontoSlice.dailyCheckDate||"",
         attendanceOperationReceipts:freshPontoSlice.attendanceOperationReceipts||[],
       };
-      const applied=applyAttendanceCommand(current,usuario,command,operationNow);
+      const sourceEvents=command.action===ATTENDANCE_COMMAND.REVIEW?await readReviewEvents(transaction,COMPANY,command):
+        command.action===ATTENDANCE_COMMAND.SYNC&&validSyncRange(command)?await readSyncEvents(transaction,COMPANY,command):[];
+      const applied=enrichAttendanceWithAutomaticAllocation(
+        applyAttendanceCommand(current,usuario,command,operationNow,sourceEvents),
+        {now:operationNow,operationId:command.operationId,actorId:usuario.id,actorName:usuario.nome||usuario.email},
+      );
       if(!applied.ok)return {kind:"error",status:applied.status||400,error:applied.error};
       if(applied.idempotent)return {kind:"idempotent",result:applied.result,updatedAt:lockedPonto.updated_at};
       const closedPoint=validarPontoEmCompetenciaAberta(current,command);
@@ -1540,6 +1576,19 @@ export const executarComandoPontoBloqueado=async({usuario,command,operationNow,l
         dailyCheckDate:applied.data.dailyCheckDate||"",
         attendanceOperationReceipts:applied.data.attendanceOperationReceipts||[],
       };
+      // CORE já está travada nesta transação: cadastro, histórico, ponto e
+      // recibo idempotente só são confirmados juntos. Nunca gravar um snapshot
+      // de RH que foi lido antes do lock nem reatribuir pontos anteriores.
+      if(applied.result.employeeAllocations?.length){
+        const allocationValue={employees:applied.data.employees,changeLog:applied.data.changeLog};
+        if(pontoKeyAlvo===KEY)Object.assign(pontoValue,allocationValue);
+        else await transaction`
+          update company_app_data
+             set value=${transaction.json(encodeAppData({...decodeAppData(lockedCore.value),...allocationValue}))}::jsonb,
+                 updated_at=clock_timestamp(), updated_by=null
+           where company_id=${COMPANY} and key=${KEY}
+        `;
+      }
       const correlationId=crypto.randomUUID();
       const [savedPonto]=await transaction`
         update company_app_data
@@ -1775,6 +1824,31 @@ export default async function handler(req, res) {
       const resposta=await tratarAcaoPonto({action,body:req.body||{},headers:req.headers||{},cron:cronAutorizado(req)});
       if(pareamento)await rateLimitCentral(`ponto-parear|${ip}`,resposta.status===200?"success":"failure");
       return res.status(resposta.status).json(resposta.json);
+    }
+    if(action==="cotacao-fornecedor-ver"||action==="cotacao-fornecedor-responder"){
+      const subject=`supplier-quote|${ip}`;
+      const limit=await rateLimitCentral(subject,"status");
+      if(limit?.blocked)return res.status(429).json({error:"Muitas tentativas. Aguarde e tente novamente."});
+      const claims=verifyQuoteLink({key:quoteLinkKey(),token:req.body?.token,company:COMPANY});
+      if(!claims){await rateLimitCentral(subject,"failure");return res.status(404).json({error:"Link inválido ou vencido. Solicite outro a Compras."});}
+      const line=await lerLinha(),access=quoteLinkAccess(line.payload,claims);
+      if(!access){await rateLimitCentral(subject,"failure");return res.status(404).json({error:"A cotação foi alterada ou não está mais disponível."});}
+      res.setHeader("Cache-Control","no-store");
+      if(action==="cotacao-fornecedor-ver")return res.status(200).json({ok:true,cotacao:publicQuoteView(line.payload,access)});
+      if(!process.env.POSTGRES_URL_NON_POOLING)return res.status(503).json({error:"O recebimento seguro está indisponível. Tente novamente mais tarde."});
+      const actor={id:`fornecedor:${access.proposal.fornecedorId}`,nome:"Fornecedor pelo portal",role:"fornecedor"};
+      const outcome=await executarMutacaoEmpresaBloqueada({actor,action:"supplier_quote_response",domain:rowForOperationalCommand(OPERATIONAL_COMMAND.QUOTATION_SAVED),linha:line,
+        mutate:async({payload:current,updatedAt})=>{
+          const locked=quoteLinkAccess(current,claims);
+          if(!locked)return {kind:"error",status:409,error:"A cotação mudou. Solicite outro link."};
+          const result=storeSupplierResponse(current,{quoteId:claims.q,proposalId:claims.p,responseId:locked.responseId,scope:locked.scope,body:req.body||{}});
+          if(!result.ok)return {kind:"error",status:409,error:result.reason};
+          if(result.idempotent)return {kind:"idempotent",data:current,updatedAt};
+          return {kind:"save",data:result.data,basePayload:current,before:{quoteId:claims.q},after:{quoteId:claims.q,responseId:locked.responseId,status:"pendente"}};
+        }});
+      if(outcome.kind==="error"){await rateLimitCentral(subject,"failure");return res.status(outcome.status||409).json({error:outcome.error});}
+      await sincronizarCotacaoAoVivo({companyId:COMPANY,quoteId:claims.q,mergedData:outcome.data,actor});
+      return res.status(200).json({ok:true,status:"pendente"});
     }
     // Link de aceite do pedido (fornecedor, sem login). O código é assinado e
     // não fica guardado; cada tentativa conta no limite persistente por IP.
@@ -2638,15 +2712,26 @@ export default async function handler(req, res) {
     // Ponto é persistido por fato, nunca pela substituição da seção projetada.
     // O payload permanece constante (um registro ou lote curto), a validação
     // usa o dataset autoritativo e a mesma RPC grava mutação + auditoria.
+    if(action==='attendance-preview-punches'){
+      if(!['admin','rh'].includes(usuario.role))return res.status(403).json({ok:false,error:'Somente RH e administrador podem sincronizar batidas.'});
+      if(!validSyncRange(req.body))return res.status(400).json({ok:false,error:'Escolha um período válido de até 32 dias.'});
+      if(!process.env.POSTGRES_URL_NON_POOLING)return res.status(503).json({ok:false,error:'A consulta de batidas requer conexão transacional.'});
+      const items=await comSql(async transaction=>planBiometricSync(atual,req.body,await readSyncEvents(transaction,COMPANY,req.body),new Date().toISOString()));
+      return res.status(200).json({ok:true,items:biometricSyncPreview(items)});
+    }
     if(ATTENDANCE_COMMANDS.has(action)){
       const command={...req.body,action};
       const operationNow=new Date().toISOString();
-      // upsert/batch-upsert são os únicos comandos que tocam `attendance`
+      // upsert/batch-upsert e conferência RH tocam `attendance`
       // (agora particionado por obra - ver executarComandoPontoBloqueado);
       // os outros 5 (lock/unlock/daily-check) só mexem nos campos "meta" que
       // continuam numa única linha compartilhada, então seguem no caminho
       // genérico de sempre.
-      const isAttendanceWrite=action===ATTENDANCE_COMMAND.UPSERT||action===ATTENDANCE_COMMAND.BATCH_UPSERT;
+      const isAttendanceWrite=[ATTENDANCE_COMMAND.UPSERT,ATTENDANCE_COMMAND.BATCH_UPSERT,ATTENDANCE_COMMAND.REVIEW,ATTENDANCE_COMMAND.SYNC].includes(action);
+      if([ATTENDANCE_COMMAND.REVIEW,ATTENDANCE_COMMAND.SYNC].includes(action)){
+        if(!["admin","rh"].includes(usuario.role))return res.status(403).json({ok:false,error:"Somente RH e administrador podem conferir batidas."});
+        if(!process.env.POSTGRES_URL_NON_POOLING)return res.status(503).json({ok:false,error:"A integração de ponto requer conexão transacional. Contate o administrador."});
+      }
       if(process.env.POSTGRES_URL_NON_POOLING&&isAttendanceWrite){
         const outcome=await executarComandoPontoBloqueado({
           usuario,command,operationNow,linha:{payload:atual,rowVersions},
@@ -2749,7 +2834,10 @@ export default async function handler(req, res) {
     // insegura de "último snapshot vence". A rota ainda devolve a projeção
     // filtrada pelo papel para poder substituir o save legado gradualmente.
     if(action==="operational-command"){
-      const command=req.body?.command||{};
+      const rawCommand=req.body?.command||{};
+      // Engineering durations always use server time, never a supplied browser clock.
+      const command=(ACCOUNTING_COMMAND_TYPES.has(rawCommand.type)||BASELINE_COMMAND_TYPES.has(rawCommand.type)||ENGINEERING_COMMAND_TYPES.has(rawCommand.type)||FILE_COMMAND_TYPES.has(rawCommand.type)||DOSSIER_COMMAND_TYPES.has(rawCommand.type)||rawCommand.type===OPERATIONAL_COMMAND.CLOSING_SOURCE_CORRECTED||rawCommand.type===OPERATIONAL_COMMAND.ORDER_PAYMENT_ALLOCATED)?{...rawCommand,now:new Date().toISOString()}:rawCommand;
+      if(command.type===OPERATIONAL_COMMAND.CLOSING_SOURCE_CORRECTED){command.actorId=usuario.id;command.actorName=usuario.nome;}
       const authz=authorizeOperationalCommand(command.type,usuario.role);
       if(!authz.ok)return res.status(authz.status).json({error:authz.error});
       if(!/^[a-zA-Z0-9_-]{16,200}$/.test(String(command.idempotencyKey||"")))return res.status(400).json({error:"Chave idempotente operacional inválida."});
@@ -2852,6 +2940,8 @@ export default async function handler(req, res) {
       const dominioInicial=linhaEfetivaParaEscrita(domainAlvo,rowVersions);
       let base={payload:atual,domain:dominioInicial,rowVersions,updatedAt:dominioInicial===DOMAIN_ROW.CORE?updatedAt:rowVersions[domainAlvo]};
       for(let attempt=0;attempt<6;attempt+=1){
+        const retryScope=validateOperationalCommandScope({user:usuario,data:base.payload,command});
+        if(!retryScope.ok)return res.status(403).json({error:retryScope.error});
         const result=await reconcileImportedStatement(applyOperationalCommand(base.payload,{...command,actorId:usuario.id,actorRole:usuario.role||"",actorName:usuario.nome||usuario.email||"Usuário autenticado"}),command,usuario,validarImportacaoAutomatica);
         if(!result.ok)return res.status(409).json({conflict:true,reason:result.reason,currentUpdatedAt:base.updatedAt});
         if(result.idempotent)return res.status(200).json({ok:true,idempotent:true,data:projectDataForUser(base.payload,usuario),updatedAt:base.updatedAt});
@@ -3049,6 +3139,15 @@ export default async function handler(req, res) {
     // cotação: a lacuna fundamental fechada").
     // Gera o link de aceite do pedido para o fornecedor (C2.5): mesmos perfis
     // que enviam o pedido. Só o código assinado sai daqui; nada é gravado.
+    if(action==="cotacao-fornecedor-link"){
+      if(!["admin","compras"].includes(usuario.role))return res.status(403).json({error:"Somente Compras ou Administração geram links."});
+      const quote=(atual.cotacoes||[]).find(q=>q.id===req.body?.quoteId);
+      if(!quote||(usuario.obraId&&usuario.obraId!==quote.obraId))return res.status(404).json({error:"Cotação indisponível."});
+      const proposal=quote.propostas?.find(p=>p.id===req.body?.proposalId);
+      if(!proposal||!(atual.fornecedores||[]).some(f=>f.id===proposal.fornecedorId&&f.ativo!==false))return res.status(409).json({error:"Fornecedor indisponível."});
+      try{return res.status(200).json({ok:true,...issueQuoteLink({key:quoteLinkKey(),quote,proposalId:proposal.id,company:COMPANY})});}
+      catch{return res.status(409).json({error:"Não foi possível gerar o link. Confira a cotação e a configuração do servidor."});}
+    }
     if(action==="pedido-aceite-link"){
       if(!podeGerarLinkAceite(usuario.role))return res.status(403).json({error:"Somente Administração ou Compras geram o link de aceite."});
       const pedido=(atual?.pedidos||[]).find(item=>String(item.id)===String(req.body?.orderId||""));
@@ -3468,7 +3567,7 @@ export default async function handler(req, res) {
       }
       if (!objeto(sections)) return res.status(400).json({ error: "Nenhuma seção para salvar." });
       const chaves = Object.keys(sections).filter(k => k && !k.startsWith("__")).slice(0, 120);
-      const commandOnlySections=["attendance","attendanceLocks","unlockRequests","dailyCheckDate","attendanceOperationReceipts","changeLog"];
+      const commandOnlySections=["workFileCabinets","engineeringProjects","attendance","attendanceLocks","unlockRequests","dailyCheckDate","attendanceOperationReceipts","changeLog"];
       const legacyPointWrite=chaves.find(key=>commandOnlySections.includes(key));
       if(legacyPointWrite)return res.status(409).json({
         error:`A seção ${legacyPointWrite} exige o comando granular do servidor.`,
@@ -3533,6 +3632,8 @@ export default async function handler(req, res) {
             if(erroExclusao)return {kind:"error",status:409,error:erroExclusao};
             const erroBaseline=validateBudgetBaselinePolicy(current,value,usuario);
             if(erroBaseline)return {kind:"error",status:403,error:erroBaseline};
+            const erroBaseContabil=validateAccountingSnapshotPolicy(current,value);
+            if(erroBaseContabil)return {kind:"error",status:403,error:erroBaseContabil};
             const erroBaselinePlano=validatePlanningBaselinePolicy(current,value,usuario);
             if(erroBaselinePlano)return {kind:"error",status:403,error:erroBaselinePlano};
             if(chaves.includes("conferencias")){
@@ -3619,6 +3720,8 @@ export default async function handler(req, res) {
       if(erroExclusao)return res.status(409).json({error:erroExclusao});
       const erroBaseline=validateBudgetBaselinePolicy(atual,{...atual,...sections},usuario);
       if(erroBaseline)return res.status(403).json({error:erroBaseline});
+      const erroBaseContabil=validateAccountingSnapshotPolicy(atual,{...atual,...sections});
+      if(erroBaseContabil)return res.status(403).json({error:erroBaseContabil});
       const erroBaselinePlano=validatePlanningBaselinePolicy(atual,{...atual,...sections},usuario);
       if(erroBaselinePlano)return res.status(403).json({error:erroBaselinePlano});
       const erroConciliacaoBancaria=validateBankReconciliationPolicy(atual,{...atual,...sections},usuario);
@@ -3692,7 +3795,7 @@ export default async function handler(req, res) {
         error:"Há competência financeira fechada. Recarregue a página e salve pela operação granular do módulo.",
         code:"CLOSED_DRE_GRANULAR_REQUIRED",
       });
-      const commandOnlySections=["attendance","attendanceLocks","unlockRequests","dailyCheckDate","attendanceOperationReceipts","changeLog"];
+      const commandOnlySections=["workFileCabinets","engineeringProjects","attendance","attendanceLocks","unlockRequests","dailyCheckDate","attendanceOperationReceipts","changeLog"];
       const attemptedCommandOnly=commandOnlySections.find(key=>
         Object.prototype.hasOwnProperty.call(payload,key)&&!igual(payload?.[key],atual?.[key]));
       if(attemptedCommandOnly)return res.status(409).json({
@@ -3732,6 +3835,8 @@ export default async function handler(req, res) {
       if(erroExclusao)return res.status(409).json({error:erroExclusao});
       const erroBaseline=validateBudgetBaselinePolicy(atual,incomingPayload,usuario);
       if(erroBaseline)return res.status(403).json({error:erroBaseline});
+      const erroBaseContabil=validateAccountingSnapshotPolicy(atual,incomingPayload);
+      if(erroBaseContabil)return res.status(403).json({error:erroBaseContabil});
       const erroBaselinePlano=validatePlanningBaselinePolicy(atual,incomingPayload,usuario);
       if(erroBaselinePlano)return res.status(403).json({error:erroBaselinePlano});
       const erroConciliacaoBancaria=validateBankReconciliationPolicy(atual,incomingPayload,usuario);

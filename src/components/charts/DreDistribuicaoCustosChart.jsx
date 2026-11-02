@@ -2,7 +2,9 @@
 // para virar seu próprio chunk lazy - ver LazyDreDistribuicaoCustosChart
 // no ponto de uso em LegacyApp.jsx.
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
-import { ArcdChartTooltip, C, ChartPanel, fmt } from "../../LegacyApp.jsx";
+import { ArcdChartTooltip, ChartPanel } from "../../legacy/ui.jsx";
+import { C } from "../../legacy/palette.js";
+import { fmt } from "../../legacy/format.js";
 
 export default function DreDistribuicaoCustosChart({ dre }) {
   const dados = [

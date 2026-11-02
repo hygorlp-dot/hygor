@@ -1,5 +1,5 @@
 import {useState} from "react";
-import {Ic} from "../../../LegacyApp";
+import { Ic } from "../../../legacy/ui.jsx";
 import {SITUACAO_REGRA as R,SITUACOES} from "../gestao-a-vista.js";
 
 // "Suas obras hoje": uma linha por obra ativa, lida da esquerda para a direita

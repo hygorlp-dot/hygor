@@ -3,15 +3,18 @@
 // sensível. Esconder o menu no navegador não basta: a API é chamável direto.
 
 export const ROLE_TABS = {
-  admin:       ["home","tv","chat","aprov_pend","admin_central","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","ponto_geral","ponto_app","equipe","equipe_obras","terc","equip","equip_fin","patrimonio","licenca","folha","resc","rh_indic","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia","ia_config","obsoletos","cad","config","com_dash","com_indicacoes","com_leads","com_funil","com_jornada","com_agenda","com_reunioes","com_tarefas","com_propostas","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios","com_workspace","com_real_estate","com_pipeline","com_relationships","com_deals","com_management"],
-  engenheiro:  ["home","tv","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","ponto_app","equipe","equipe_obras","terc","equip","licenca","caixa","obsoletos","cad","ia"],
-  engenheiro_auditor:["home","tv","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","equipe","equipe_obras","terc","equip","licenca","caixa","obsoletos","cad","ia"],
+  admin:       ["home","tv","chat","aprov_pend","admin_central","obras","projetos","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","ponto_geral","ponto_app","equipe","equipe_obras","terc","equip","equip_fin","patrimonio","licenca","folha","resc","rh_indic","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia","ia_config","obsoletos","cad","config","com_dash","com_indicacoes","com_leads","com_funil","com_jornada","com_agenda","com_reunioes","com_tarefas","com_propostas","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios","com_workspace","com_real_estate","com_pipeline","com_relationships","com_deals","com_management"],
+  engenheiro:  ["home","tv","obras","projetos","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","ponto_app","equipe","equipe_obras","terc","equip","licenca","caixa","obsoletos","cad","ia"],
+  engenheiro_auditor:["home","tv","obras","projetos","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","equipe","equipe_obras","terc","equip","licenca","caixa","obsoletos","cad","ia"],
   compras:     ["home","tv","cmp","fornecedores","suprimentos","plan_suprimentos","est","patrimonio","cad","ia"],
   rh:          ["home","tv","ponto","ponto_geral","ponto_app","equipe","equipe_obras","terc","folha","resc","rh_indic","conc","cad","ia"],
   financeiro:  ["home","tv","equip_fin","patrimonio","plan","cmp","fornecedores","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia"],
   comercial:   ["home","tv","com_workspace","com_real_estate","com_pipeline","com_relationships","com_deals","com_management","com_funil","com_leads","com_propostas","com_negociacoes","com_agenda","com_parceiros","com_metas","com_relatorios","ia"],
   visualizador:["home","tv"],
 };
+
+// A central reúne somente os documentos que a projeção de cada perfil entrega.
+for (const role of Object.keys(ROLE_TABS).filter(role=>role!=="visualizador")) ROLE_TABS[role].push("arquivos");
 
 export const allowedTabsForUser=user=>{
   if(!user||user.role==="admin")return ROLE_TABS.admin;

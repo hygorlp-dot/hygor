@@ -13,10 +13,10 @@ import { FlowTabs } from "../../../features/workflow/WorkflowNavigation.jsx";
 
 import { useMemo, useState } from "react";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
-import {
-  Badge, Btn, C, GestaoAprovacoes, GestaoUsuarios, Ic, Inp, PageHero, ROLES, Sel,
-  fmtDateFull, today,
-} from "../../../LegacyApp";
+import { Badge, Btn, Ic, Inp, PageHero, Sel } from "../../../legacy/ui.jsx";
+import { C } from "../../../legacy/palette.js";
+import { GestaoAprovacoes, GestaoUsuarios, ROLES } from "../LegacySettings.jsx";
+import { fmtDateFull, today } from "../../../legacy/format.js";
 import { chamarIA } from "../../../api";
 import BasesPrecoAdmin from "./BasesPrecoAdmin";
 import NucleoRelacionalAdmin from "./NucleoRelacionalAdmin";

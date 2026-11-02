@@ -59,6 +59,10 @@ test("exportação real da folha remove a assinatura antiga salva na configuraç
   expect(widths[0]).toBeGreaterThan(widths[3] * 4);
   expect(widths[3]).toBeLessThan(widths[13]);
   expect(await mainTable.locator("tbody td").evaluateAll(cells => cells.every(c => c.scrollWidth <= c.clientWidth + 1))).toBe(true);
+  expect(await mainTable.locator("tfoot td.num").evaluateAll(cells=>cells.every(cell=>{
+    const range=document.createRange();range.selectNodeContents(cell);
+    return range.getClientRects().length===1&&cell.scrollWidth<=cell.clientWidth+1;
+  }))).toBe(true);
   const nameWidth = await mainTable.locator("col").first().evaluate(c => c.style.width);
   await report.locator("#mrc-width").focus(); await report.locator("#mrc-width").press("ArrowRight");
   await expect.poll(() => mainTable.locator("col").first().evaluate(c => c.style.width)).not.toBe(nameWidth);

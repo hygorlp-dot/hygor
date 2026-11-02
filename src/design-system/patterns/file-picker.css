@@ -1,0 +1,3 @@
+.mrc-file-picker {display:flex;flex-direction:column;align-items:stretch;gap:var(--arcd-space-3);}
+.mrc-file-picker__content {min-width:0;}
+.mrc-file-picker>input[type=file] {display:none;}

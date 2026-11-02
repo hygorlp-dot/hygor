@@ -1,3 +1,5 @@
+import {LoadingState} from '../../../design-system/patterns/LoadingState.jsx';
+import {Button as StandardButton} from '../../../components/ui/button.jsx';
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Building2, RefreshCw, Wifi, WifiOff, UserRound, Clock, AlertCircle } from "lucide-react";
 import { useEquipeObras } from "../useEquipeObras";
@@ -21,12 +23,12 @@ export function Avatar({ pessoa }) {
     : <span className="equipe-obras__avatar" aria-hidden="true">{iniciais}</span>;
 }
 function Pessoa({ pessoa, fuso, onOpen }) {
-  return <button type="button" className="equipe-obras__pessoa" onClick={() => onOpen(pessoa.id)} aria-label={`Ver jornada de ${pessoa.nome}: ${SITUACOES_EQUIPE[pessoa.situacao]}`}>
+  return <StandardButton variant="secondary" type="button" className="equipe-obras__pessoa" onClick={() => onOpen(pessoa.id)} aria-label={`Ver jornada de ${pessoa.nome}: ${SITUACOES_EQUIPE[pessoa.situacao]}`}>
     <Avatar pessoa={pessoa} /><strong>{pessoa.nome}</strong><span>{pessoa.funcao || "Função não informada"}</span>
     <span key={`${pessoa.situacao}:${pessoa.horario}`} className="equipe-obras__status" data-status={pessoa.situacao}>{SITUACOES_EQUIPE[pessoa.situacao]}</span>
     {pessoa.horario && <time dateTime={pessoa.horario}>{hora(pessoa.horario, fuso)}</time>}
     {pessoa.pendencias.length > 0 && <span><AlertCircle size={14} aria-hidden="true" /> Conferência pendente</span>}
-  </button>;
+  </StandardButton>;
 }
 
 export default function EquipeObrasView({ onTab, allowedTabs = [] }) {
@@ -79,7 +81,7 @@ export default function EquipeObrasView({ onTab, allowedTabs = [] }) {
       <SummaryCard label="Faltas confirmadas" value={snapshot ? contar("falta") : "—"} detail="Confirmadas na gestão do ponto" />
       <SummaryCard label="Obras em atividade" value={snapshot ? new Set(filtrado.pessoas.filter(p => p.situacao === "atividade").map(p => p.obraId)).size : "—"} detail="Conforme os filtros aplicados" />
     </div>
-    {!snapshot && <p role="status">{online ? carregando ? "Carregando obras e jornadas…" : "Aguardando consulta. Use Atualizar para tentar novamente." : "Conecte-se para carregar a equipe."}</p>}
+    {!snapshot && (online&&carregando?<LoadingState label="obras e jornadas"/>:<p role="status">{online?"Aguardando consulta. Use Atualizar para tentar novamente.":"Conecte-se para carregar a equipe."}</p>)}
     {snapshot && <>
       {!snapshot.obras.length && <p>Nenhuma obra disponível para seu acesso.</p>}
       {!snapshot.pessoas.length && <p>Nenhum funcionário disponível para seu acesso.</p>}

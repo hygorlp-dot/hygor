@@ -180,6 +180,72 @@ describe("/api/data · caminho travado (executarMutacaoEmpresaBloqueada) roteia 
   });
   afterAll(()=>vi.useRealTimers());
 
+  it("persiste projeto e cronômetro com identidade e horário do servidor, deduplicando reenvio",async()=>{
+    const form={name:"Projeto de arquitetura",obraId:"",responsibleId:"admin-a",discipline:"Arquitetura",stage:"Executivo",status:"ativo",plannedHours:20,deadline:"2026-11-30"};
+    const created=await callApi(opCommand("PROJETO_ENGENHARIA_SALVO",{projectId:"eng-api",project:form}));
+    expect(created.status).toBe(200);
+    expect(created.body.sections.engineeringProjects[0]).toMatchObject({id:"eng-api",version:1});
+    const startRequest=opCommand("PROJETO_CRONOMETRO_INICIADO",{projectId:"eng-api"},{actorId:"forged-user",actorRole:"admin",now:"1990-01-01T00:00:00Z"});
+    const started=await callApi(startRequest);
+    expect(started.status).toBe(200);
+    const session=started.body.sections.engineeringProjects[0].sessions[0];
+    expect(session).toMatchObject({userId:"admin-a",startedAt:"2026-08-21T12:00:00.000Z"});
+    const retry=await callApi(startRequest);
+    expect(retry.body.idempotent).toBe(true);
+    expect(retry.body.data.engineeringProjects[0].sessions).toHaveLength(1);
+    const duplicate=await callApi(opCommand("PROJETO_CRONOMETRO_INICIADO",{projectId:"eng-api"},{idempotencyKey:"second-start-other-tab-123"}));
+    expect(duplicate.status).toBe(409);
+    vi.setSystemTime(new Date("2026-08-21T13:30:00.000Z"));
+    const stopped=await callApi(opCommand("PROJETO_CRONOMETRO_PAUSADO",{projectId:"eng-api",sessionId:session.id},{now:"2050-01-01T00:00:00Z"}));
+    expect(stopped.status).toBe(200);
+    expect(stopped.body.sections.engineeringProjects[0].sessions[0].endedAt).toBe("2026-08-21T13:30:00.000Z");
+    const loaded=await callApi({action:"load",accessToken:"valid-token"});
+    expect(loaded.status).toBe(200);
+    expect(loaded.body.data.engineeringProjects[0].sessions).toEqual(stopped.body.sections.engineeringProjects[0].sessions);
+  });
+
+  it("não permite falsificar horas ou revisões por snapshot ou delta",async()=>{
+    const result=await callApi({action:"save-sections",accessToken:"valid-token",sections:{engineeringProjects:[{id:"forged",sessions:[{adjustedSeconds:999999}]}]}});
+    expect(result.status).toBe(409);
+    expect(result.body.code).toBe("ATTENDANCE_GRANULAR_REQUIRED");
+    const delta=await callApi({action:"save-sections",accessToken:"valid-token",sectionDeltas:{engineeringProjects:{changed:[{id:"forged"}],original:[],removed:[]}}});
+    expect(delta.status).toBe(409);
+    expect(testState.rows[CORE_KEY].value.engineeringProjects).toBeUndefined();
+  });
+
+  it("movimenta atividades Kanban pela API travada e rejeita a versão anterior",async()=>{
+    const form={name:"Projeto Kanban API",obraId:"",responsibleId:"admin-a",discipline:"Arquitetura",stage:"Executivo",status:"ativo",plannedHours:20};
+    await callApi(opCommand("PROJETO_ENGENHARIA_SALVO",{projectId:"eng-api",project:form}));
+    const saved=await callApi(opCommand("PROJETO_ATIVIDADE_SALVA",{projectId:"eng-api",task:{title:"Conferir planta",responsibleId:"admin-a",status:"pendente"}},{expectedVersion:1}));
+    expect(saved.status).toBe(200);
+    const taskId=saved.body.sections.engineeringProjects[0].tasks[0].id;
+    const moved=await callApi(opCommand("PROJETO_ATIVIDADE_MOVIDA",{projectId:"eng-api",taskId,status:"em_revisao"},{expectedVersion:2}));
+    expect(moved.status).toBe(200);
+    expect(moved.body.sections.engineeringProjects[0].tasks[0].status).toBe("em_revisao");
+    const stale=await callApi(opCommand("PROJETO_ATIVIDADE_MOVIDA",{projectId:"eng-api",taskId,status:"concluida"},{expectedVersion:2,idempotencyKey:"stale-kanban-move-api-123"}));
+    expect(stale.status).toBe(409);
+    const loaded=await callApi({action:"load",accessToken:"valid-token"});
+    expect(loaded.body.data.engineeringProjects[0].tasks[0].status).toBe("em_revisao");
+    expect(loaded.body.data.engineeringProjects[0].history.at(-1).type).toBe("PROJETO_ATIVIDADE_MOVIDA");
+  });
+
+  it("persiste pastas e revisões pela API com horário do servidor, idempotência e proteção de snapshot",async()=>{
+    testState.rows[CORE_KEY].value.obras=[{id:'files-work',name:'Obra de teste'}];
+    const folder=await callApi(opCommand('ARQUIVOS_PASTA_SALVA',{obraId:'files-work',id:'folder',name:'Projetos'},{expectedVersion:0,now:'1900-01-01T00:00:00Z'}));
+    expect(folder.status).toBe(200);
+    expect(folder.body.sections.workFileCabinets[0].history[0].at).not.toContain('1900');
+    const payload={obraId:'files-work',id:'doc',folderId:'folder',name:'Planta',revisionId:'r1',label:'R01',kind:'link',url:'https://example.org/planta.pdf'};
+    const op=opCommand('ARQUIVOS_DOCUMENTO_ADICIONADO',payload,{expectedVersion:1,idempotencyKey:'files-api-idempotent-document-123'});
+    expect((await callApi(op)).status).toBe(200);expect((await callApi(op)).status).toBe(200);
+    const revision=await callApi(opCommand('ARQUIVOS_REVISAO_ADICIONADA',{...payload,revisionId:'r2',label:'R02'},{expectedVersion:2}));
+    expect(revision.status).toBe(200);
+    const loaded=await callApi({action:'load',accessToken:'valid-token'});
+    expect(loaded.body.data.workFileCabinets[0].documents[0].revisions).toHaveLength(2);
+    const forged=await callApi({action:'save-sections',accessToken:'valid-token',sections:{workFileCabinets:[]}});
+    expect(forged.status).toBe(409);
+    expect(testState.rows[CORE_KEY].value.workFileCabinets[0].documents).toHaveLength(1);
+  });
+
   it("reaproveita a lerLinha() já feita no topo do handler - não relê pelo Supabase dentro de executarMutacaoEmpresaBloqueada",async()=>{
     await callApi(opCommand("EQUIPAMENTO_SALVO",{equipment:{id:"eq-reuse",nome:"Compactador"}}));
     // lerLinha() faz 3 chamadas (linha core + linhas separadas via .in() +

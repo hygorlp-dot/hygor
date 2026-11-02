@@ -6,7 +6,14 @@ const PONTO_KEY="arced_ponto_v1__ponto";
 const testState=vi.hoisted(()=>({
   rows:{},
   rpcCalls:[],
+  sourceEvents:[],
 }));
+vi.mock('../../server/pg-conexao.js',()=>({comSql:callback=>callback(async(parts)=>{
+  const query=parts.join('?');
+  if(query.includes('from ponto_eventos'))return testState.sourceEvents;
+  if(query.includes('from ponto_marcacoes'))return [];
+  throw new Error(`Consulta não prevista na prévia: ${query}`);
+})}));
 
 // O mock simula a tabela company_app_data de verdade: várias linhas por
 // (company_id,key). Desde a separação de linhas por domínio (20/08/2026,
@@ -124,6 +131,23 @@ const initialPontoData=()=>({
 });
 
 describe("/api/data · persistência granular do ponto",()=>{
+  it.each(['attendance-preview-punches','attendance-sync-punches'])('engenharia não pode executar %s',async action=>{
+    const result=await callApi({action,accessToken:'valid-token',startsOn:'2026-07-27',endsOn:'2026-07-28',operationId:'20000000-0000-4000-8000-000000000003',items:[]});
+    expect(result.status).toBe(403);expect(testState.rpcCalls).toHaveLength(0);
+  });
+  it('RH consulta prévia biométrica pela API sem RPC nem escrita',async()=>{
+    const previous=process.env.POSTGRES_URL_NON_POOLING;
+    try{
+      process.env.POSTGRES_URL_NON_POOLING='postgres://isolated-test';
+      testState.rows[CORE_KEY].value.usuarios[0].role='rh';
+      testState.rows[CORE_KEY].value.employees[0].workSchedules=[{code:'44h-seg-sex',effectiveFrom:'2026-07-01'}];
+      testState.sourceEvents=['07:00','12:00','13:00','17:00'].map((hour,i)=>({id:`src-${i}`,employee_id:'e-a',obra_id:'obra-a',marcado_em:`2026-07-27T${hour}:00-03:00`,hora_confiavel:true,metodo:'facial',payload:{versaoJornada:1,tipoEvento:['entrada','intervalo','retorno','saida'][i]}}));
+      const before=JSON.stringify(testState.rows);
+      const response=await callApi({action:'attendance-preview-punches',accessToken:'valid-token',startsOn:'2026-07-27',endsOn:'2026-07-27',obraId:'all'});
+      expect(response.status).toBe(200);expect(response.body.items[0]).toMatchObject({state:'ready',employeeId:'e-a',record:{status:'P'}});
+      expect(JSON.stringify(testState.rows)).toBe(before);expect(testState.rpcCalls).toHaveLength(0);
+    }finally{if(previous===undefined)delete process.env.POSTGRES_URL_NON_POOLING;else process.env.POSTGRES_URL_NON_POOLING=previous;}
+  });
   // Timeout maior que o padrão de 10s: reimportar api/data.js puxa um
   // grafo de módulos pesado, e sob a suíte inteira rodando em paralelo
   // (disputa de CPU entre ~215 arquivos) isso passou de 10s por duas

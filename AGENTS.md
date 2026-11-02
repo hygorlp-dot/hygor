@@ -17,3 +17,27 @@ Além de `impeccable` e `shadcn`, consulte e aplique as skills abaixo quando for
 Combine as orientações relevantes com `impeccable` e `shadcn`, preservando a arquitetura e o sistema de design existentes. A consulta a essas skills não implica migrar a interface para Material 3, Expo ou outra biblioteca sem que isso faça parte do escopo solicitado.
 
 Esta regra se aplica a todo o projeto, inclusive aos subdiretórios.
+
+## Padrão obrigatório para novas interfaces
+
+- Toda nova introdução no ERP deve obedecer a `docs/PADRAO-INTERFACE.md`, além de `DESIGN.md`. Esta exigência inclui textos, botões, dimensões, espaçamentos, componentes, telas e fluxos.
+- Ajustar a escala comum em `src/design-system/foundations.js`, diferenças de tema em `themes/themeRegistry.js`, densidade e espaçamento nos tokens existentes. Reutilizar padrões e controles compartilhados; não criar estilos próprios para contornar a base.
+- Linguagem genérica compartilhada usa `src/design-system/copy.js`; textos específicos pertencem ao domínio. Não alterar dados, códigos ou status persistidos como se fossem rótulos visuais.
+- Mudanças de linguagem visual devem ser feitas na base compartilhada e valer para toda a ERP: textos genéricos, botões, campos, tipografia, cores e espaçamentos não recebem versões próprias por módulo. Composições específicas podem organizar o fluxo, sempre consumindo a mesma base. Verificar os efeitos em telas representativas no desktop e celular.
+- Executar `npm run design:check`, também integrado ao lint. Não aumentar nem regenerar `scripts/design-system-baseline.json` para liberar novas exceções. O legado registrado não autoriza repetir seus desvios.
+- Revisão visual e de interação em desktop/celular continua obrigatória; a checagem automática é parcial. Exceções novas exigem justificativa e aprovação explícita do usuário.
+
+## Ajuda contextual e manual obrigatório
+
+- Toda alteração no app deve incluir revisão da ajuda e do manual. Quando mudar um fluxo, botão, filtro, regra, permissão ou resultado apresentado ao usuário, atualize a orientação correspondente na mesma alteração.
+- A fonte única é `src/features/help/help-content.js`. Escreva em português simples para quem nunca usou um ERP: finalidade, o que preparar, passos em ordem, resultado esperado e cuidados. Use os nomes reais dos controles; explique siglas e não prometa funções que a tela não oferece.
+- Toda aba deve ter um guia específico e manter o botão Ajuda no cabeçalho compartilhado. Novas áreas internas com fluxo próprio precisam selecionar sua ajuda contextual com `useHelpTopic` e ter seu guia incluído no manual.
+- Após revisar o conteúdo, atualize a data de revisão e execute `npm run manual:generate`. Inclua `docs/MANUAL_DO_APP.md` na alteração. `npm run manual:check`, também incluído no lint, verifica cobertura de abas e sincronização do arquivo com a ajuda.
+- O verificador não substitui revisão humana do conteúdo: registre na validação quando uma mudança técnica não exigir alteração de instruções ao usuário.
+- Preserve o contexto, os filtros e os dados ao abrir a ajuda; navegar no manual não deve gravar registros nem abrir telas operacionais automaticamente. O índice do app deve respeitar as áreas de acesso do usuário.
+
+## Contrato de interface MARCELL — novas introduções
+
+- Por solicitação do usuário em 01/11/2026, toda nova tela, componente, texto, botão, dimensão, espaçamento e fluxo deve seguir o padrão compartilhado MARCELL. Reutilizar componentes e tokens, sem criar estilos locais para contornar a base.
+- A consolidação local vigente está no checkout `C:/dev/repositorio-mrc`, consolidado a partir de `8bfa833d` e das alterações locais preservadas. Consulte seu `docs/PADRAO-INTERFACE.md` e `DESIGN.md` antes de continuar esse trabalho. Não sobrescrever alterações deste checkout com uma versão anterior do workspace.
+- Nesse checkout, a escala comum é `src/design-system/foundations.js`, textos genéricos são `src/design-system/copy.js` e `npm run design:check` integra o lint. Não aumentar a baseline do legado para liberar novas exceções. Revisar desktop, celular, ajuda e manual em cada alteração relevante.

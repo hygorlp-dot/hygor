@@ -9,20 +9,20 @@ describe("painel do ponto eletrônico", () => {
     expect(horaLocal("2026-10-01T10:05:09.000Z")).toBe("07:05:09");
   });
 
-  it("resume o dia por funcionário: em jornada primeiro, depois fechada, depois sem batida", () => {
+  it("mantém batidas sem tipo pendentes de conferência, sem presumir jornada fechada", () => {
     const funcionarios = [{ id: "e1", nome: "Ana" }, { id: "e2", nome: "Bruno" }, { id: "e3", nome: "Carlos" }];
     const r = resumoDoDia([
       m("e2", "2026-10-01T10:00:00Z"), m("e2", "2026-10-01T15:00:00Z"),
       m("e1", "2026-10-01T10:30:00Z", { metodo: "encarregado" }),
     ], funcionarios);
     expect(r.map(l => [l.nome, l.situacao, l.batidas.length, l.alertas])).toEqual([
-      ["Ana", "em_jornada", 1, 1], ["Bruno", "fechada", 2, 0], ["Carlos", "sem_batida", 0, 0],
+      ["Ana", "conferir", 1, 1], ["Bruno", "conferir", 2, 0], ["Carlos", "sem_batida", 0, 0],
     ]);
   });
 
   it("marcação de quem saiu da equipe da obra não some da tela", () => {
     const r = resumoDoDia([m("e9", "2026-10-01T10:00:00Z")], [{ id: "e1", nome: "Ana" }]);
-    expect(r.find(l => l.employeeId === "e9")).toMatchObject({ foraDaObra: true, situacao: "em_jornada" });
+    expect(r.find(l => l.employeeId === "e9")).toMatchObject({ foraDaObra: true, situacao: "conferir" });
   });
 
   it("acesso de terceiro não entra no resumo de ponto", () => {

@@ -1,0 +1,11 @@
+import {data as original,profile} from './workflow-priorities-data.mjs';
+export {profile};
+export const data=structuredClone(original);
+data.budgetBaselines=[{id:'forecast-baseline-a',obraId:'a',tipo:'controle',ativo:true,budgetId:'budget-a'}];
+const budget=data.orcamentos.find(item=>item.id==='budget-a');
+budget.nome='Orçamento de controle · demonstração';budget.etapas=[{id:'forecast-stage',nome:'Alvenaria'}];
+budget.itens=[{id:'forecast-service',tipo:'servico',etapaId:'forecast-stage',descricao:'Alvenaria · demonstração fictícia',unidade:'m²',quantidade:1200,precoUnit:100}];
+data.contasBancarias=[{id:'forecast-bank',nome:'Conta fictícia da demonstração',ativa:true}];
+data.medicoes=[{id:'forecast-receivable',obraId:'a',dataEmissao:'2026-10-01',competencia:'2026-10',dataVencimento:'2026-11-07',valorPrevisto:25000,contaBancariaId:'forecast-bank',descricao:'Recebimento futuro fictício',recebimentos:[]},{id:'forecast-undated',obraId:'a',dataEmissao:'2026-10-01',competencia:'2026-10',valorPrevisto:1000,descricao:'Exemplo de título sem vencimento',recebimentos:[]}];
+data.notasFiscais=[{id:'forecast-invoice',obraId:'a',etapaId:'forecast-stage',status:'aprovada',emissao:'2026-10-01',competencia:'2026-10',vencimento:'2026-11-02',valorBruto:18000,numero:'DEMONSTRACAO',fornecedor:'Fornecedor fictício',contaBancariaId:'forecast-bank',pagamentos:[]}];
+data.pedidos=[];

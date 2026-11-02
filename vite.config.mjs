@@ -1,11 +1,23 @@
-import {defineConfig} from "vite";
+import {defineConfig, mergeConfig} from "vite";
 import react from "@vitejs/plugin-react";
 import {fileURLToPath, URL} from "node:url";
+import {spreadsheetBrowserConfig} from "./scripts/spreadsheet-browser-config.mjs";
+import {sharedSinapiWorker} from "./scripts/shared-sinapi-worker.mjs";
 
-export default defineConfig({
-  plugins: [react()],
+export default defineConfig(({mode})=>mergeConfig({
+  plugins: [react(),sharedSinapiWorker()],
+  // Evidências e builds locais não são fontes da aplicação. Observá-los
+  // dispara recargas contínuas enquanto outras verificações estão rodando.
+  server: {
+    watch: {ignored: ["**/artifacts/**", "**/analises/**", "**/.impeccable/**", "**/test-results*/**", "**/playwright-report/**", "**/output/**"]},
+  },
   resolve: {
-    alias: {"@": fileURLToPath(new URL("./src", import.meta.url))},
+    // Gráficos operacionais exibem o estado final, preservando o contrato
+    // de renderização do Recharts sem carregar seu motor de interpolação.
+    alias: [
+      {find:"@",replacement:fileURLToPath(new URL("./src",import.meta.url))},
+      {find:/^react-smooth$/,replacement:fileURLToPath(new URL("./src/components/charts/ChartFinalState.jsx",import.meta.url))},
+    ],
   },
   // O formato padrão de worker do Vite é "iife" - incompatível com
   // `new Worker(url, {type:"module"})`, que sinapi-parser.worker.js e
@@ -18,7 +30,7 @@ export default defineConfig({
     // O navegador de produção não precisa receber 10+ MB de mapas contendo o
     // código-fonte completo. Previews e builds locais preservam os mapas para
     // diagnóstico; produção publica somente os artefatos executáveis.
-    sourcemap: process.env.VERCEL_ENV !== "production",
+    sourcemap: process.env.VERCEL_ENV === "production" ? false : "hidden",
     chunkSizeWarningLimit: 650,
     // Um Web Worker pequeno (como o do ORSE, orse-parser.worker.js) vira
     // uma data: URL inline por tamanho - mas nesse caminho o bundler não
@@ -30,12 +42,37 @@ export default defineConfig({
     assetsInlineLimit: (filePath) => filePath.includes(".worker.") ? false : undefined,
     rollupOptions: {
       output: {
+        // Compacta apenas os prefixos dos arquivos; hashes e nomes com
+        // orçamentos individuais permanecem intactos. O manifest mapeia a origem.
+        chunkFileNames(chunk) {
+          const name=chunk.name;
+          const preserve=["LegacyApp","spreadsheet-tools","charts","vendor","ClientPortalApp"].includes(name)||/worker/i.test(name);
+          const prefix=preserve?name:name==="rolldown-runtime"?"r":name.slice(0,2);
+          return `assets/${prefix}-[hash].js`;
+        },
         manualChunks(id) {
+          // Shared interface primitives are loaded by the application shell.
+          // Keeping them together avoids repeated import paths and independent
+          // compression overhead across small chunks, without changing UI code.
+          if(id.includes('/src/design-system/')||id.includes('/src/components/ui/'))return 'interface';
+          // Os adaptadores legados já usam os mesmos controles. Mantê-los
+          // junto da base compartilha a compressão, sem antecipar as telas.
+          if(id.includes('/src/legacy/')||id.includes('/src/hooks/')||id.includes('/src/features/workflow/'))return 'interface';
+          // O mesmo repertório de ícones atende todos os módulos. Compartilhar
+          // a compressão evita o custo repetido dos pequenos chunks por ícone.
+          if(id.includes('/node_modules/lucide-react/'))return 'interface';
+          if(id.includes('/node_modules/fflate/')||id.endsWith('/src/lib/zip-reader.js'))return 'zip-codec';
+          // Os gráficos compartilham Lodash com a leitura CSV do ExcelJS.
+          // Um chunk comum evita vários blocos pequenos comprimidos à parte.
+          if(id.includes("/node_modules/recharts/")||id.includes("/node_modules/lodash/"))return "charts";
           if (id.includes("exceljs")) return "spreadsheet-tools";
           if (
             id.includes("/src/domains/financeiro/")
+            // Sincronização e finanças compartilham deltas, comandos e validações.
+            || (id.includes("/src/domains/sync/")&&!id.endsWith(".jsx"))
             || id.includes("/src/domains/dre/")
             || id.includes("/src/domains/conciliacao/")
+            || (id.includes('/src/domains/compras/')&&!id.includes('/components/')&&!id.endsWith('/LegacySupport.jsx')&&!id.endsWith('/export-sheets.js'))
           ) return "financial-domain";
           // As demais dependências compartilhadas ficam a cargo do
           // particionamento automático do Rolldown.
@@ -62,4 +99,4 @@ export default defineConfig({
       },
     },
   },
-});
+},mode==="test"?{}:spreadsheetBrowserConfig()));

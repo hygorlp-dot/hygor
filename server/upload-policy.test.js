@@ -8,14 +8,14 @@ import {
 
 describe("política de upload", () => {
   it("mantém engenheiro restrito à própria obra em upload operacional", () => {
-    const user = { id: "u-1", obraId: "obra-1" };
+    const user = { id: "u-1", role:"engenheiro", obraId: "obra-1" };
     expect(canUploadToDestination(user, { obraId: "obra-1" })).toBe(true);
     expect(canUploadToDestination(user, { obraId: "obra-2" })).toBe(false);
     expect(canUploadToDestination(user, { obraId: "" })).toBe(false);
   });
 
   it("permite chat corporativo autenticado sem transformar obra em caminho livre", () => {
-    const user = { id: "u-1", obraId: "obra-1" };
+    const user = { id: "u-1", role:"engenheiro", obraId: "obra-1" };
     expect(canUploadToDestination(user, { obraId: "obra-2", folder: "chat" })).toBe(true);
     expect(uploadStoragePrefix({ obraId: "obra-2", folder: "chat" })).toBe("chat");
     expect(uploadDestination("chat/../../obra-2")).toBe("work");

@@ -1,3 +1,7 @@
+import {Input as StandardInput} from '../../../components/ui/input.jsx';
+import {SelectControl} from '../../../design-system/primitives/Select.jsx';
+import {Button as StandardButton} from '../../../components/ui/button.jsx';
+import {ChoiceControl} from '../../../design-system/primitives/ChoiceControl.jsx';
 import { useMemo, useRef, useState } from 'react';
 import {
   BOX_DIMENSIONS, BOX_MEASURES, BOX_MEASURE_GROUPS, boxGeometry, boxMeasureValue, boxWarnings,
@@ -190,14 +194,14 @@ function BoxEditor({budget, element, isSaved, drafts, onSave, onRemove, onDuplic
     {readOnly && <p className="box-note box-note--warning" role="note">Orçamento aprovado: as medidas são só para consulta. Crie uma revisão para editar.</p>}
     <fieldset disabled={readOnly || busy} className="box-editor__body">
       <div className="box-editor__identity">
-        <label>Nome<input value={draft.nome} onChange={e => setDraft({nome:e.target.value})} placeholder="Ex.: reservatório inferior"/></label>
+        <label>Nome<StandardInput value={draft.nome} onChange={e => setDraft({nome:e.target.value})} placeholder="Ex.: reservatório inferior"/></label>
         <label>Etapa do orçamento
-          <select value={draft.etapaId} onChange={e => setStage(e.target.value)}>
+          <SelectControl value={draft.etapaId} onChange={e => setStage(e.target.value)}>
             <option value="">Escolha a etapa com os serviços da caixa</option>
             {stages.map(s => <option key={s.id} value={s.id}>{stagePath(stages, s.id)}</option>)}
-          </select>
+          </SelectControl>
         </label>
-        <label>Origem das medidas<input value={draft.fonte} onChange={e => setDraft({fonte:e.target.value})} placeholder="Ex.: planta A-02, rev. 01"/></label>
+        <label>Origem das medidas<StandardInput value={draft.fonte} onChange={e => setDraft({fonte:e.target.value})} placeholder="Ex.: planta A-02, rev. 01"/></label>
       </div>
 
       <section className="box-editor__geometry" aria-labelledby={`dims-${element.id}`}>
@@ -208,7 +212,7 @@ function BoxEditor({budget, element, isSaved, drafts, onSave, onRemove, onDuplic
               const err = fieldError(d.key), id = `${element.id}-${d.key}`;
               return <label key={d.key} htmlFor={id}>{d.label}{d.optional ? ' (opcional)' : ''}
                 <span className="box-field" data-invalid={!!err}>
-                  <input id={id} inputMode="decimal" autoComplete="off" value={draft[d.key] ?? ''} aria-invalid={!!err} aria-describedby={err ? `${id}-err` : undefined}
+                  <StandardInput id={id} inputMode="decimal" autoComplete="off" value={draft[d.key] ?? ''} aria-invalid={!!err} aria-describedby={err ? `${id}-err` : undefined}
                     onChange={e => setDraft({[d.key]:e.target.value})} placeholder={d.key === 'quantidade' ? '1' : d.optional ? '0' : 'Preencher'}/>
                   <span className="box-field__unit" aria-hidden="true">{d.unit}</span>
                 </span>
@@ -235,9 +239,9 @@ function BoxEditor({budget, element, isSaved, drafts, onSave, onRemove, onDuplic
         <header className="box-items__head">
           <h3 id={`svc-${element.id}`}>Serviços da etapa</h3>
           {rows.length > 0 && <span className="box-items__count">{included.length} de {plural(rows.length, 'serviço marcado', 'serviços marcados')}</span>}
-          {eligible.length > 0 && <button type="button" className="box-link-button" onClick={() =>
+          {eligible.length > 0 && <StandardButton variant="secondary" type="button" className="box-link-button" onClick={() =>
             setLinks({...links, ...Object.fromEntries(eligible.map(r => [r.item.id, {...r.link, include:!allOn}]))})
-          }>{allOn ? 'Desmarcar todos' : 'Marcar todos'}</button>}
+          }>{allOn ? 'Desmarcar todos' : 'Marcar todos'}</StandardButton>}
         </header>
         {!draft.etapaId && <p className="box-hint">Escolha a etapa para listar os serviços.</p>}
         {draft.etapaId && !rows.length && <p className="box-hint">Esta etapa não tem serviços cadastrados.</p>}
@@ -251,7 +255,7 @@ function BoxEditor({budget, element, isSaved, drafts, onSave, onRemove, onDuplic
           return <div key={item.id} className="box-item" data-included={link.include} data-blocked={!linkable || !options.length}
             onMouseEnter={() => link.include && setActive(link.measure || null)} onMouseLeave={() => setActive(null)}
             onFocus={() => link.include && setActive(link.measure || null)} onBlur={() => setActive(null)}>
-            <input id={chk} type="checkbox" className="box-item__check" checked={link.include} disabled={!linkable || !options.length} onChange={e => editLink(item.id, {include:e.target.checked})}/>
+            <ChoiceControl id={chk} type="checkbox" className="box-item__check" checked={link.include} disabled={!linkable || !options.length} onChange={e => editLink(item.id, {include:e.target.checked})}/>
             <label htmlFor={chk} className="box-item__desc">
               <span className="box-item__meta">{item.codigoItem} · {item.fonte} {item.codigo} · {unitLabel(item.unidade)}</span>
               <span className="box-item__text" title={item.descricao}>{item.descricao}</span>
@@ -261,7 +265,7 @@ function BoxEditor({budget, element, isSaved, drafts, onSave, onRemove, onDuplic
               {itemMemorial && <span className="box-item__flag">Hoje medido no memorial item a item. Marcar substitui essa medição.</span>}
             </label>
             <div className="box-item__measure">
-              {options.length > 0 && <select aria-label={`Medida do item ${item.codigoItem}`} value={link.measure} disabled={!link.include} onChange={e => { editLink(item.id, {measure:e.target.value}); setActive(e.target.value || null); }}>
+              {options.length > 0 && <SelectControl aria-label={`Medida do item ${item.codigoItem}`} value={link.measure} disabled={!link.include} onChange={e => { editLink(item.id, {measure:e.target.value}); setActive(e.target.value || null); }}>
                 <option value="">Escolha a medida</option>
                 {BOX_MEASURE_GROUPS.map(group => {
                   const inGroup = options.filter(([, m]) => m.group === group);
@@ -271,14 +275,14 @@ function BoxEditor({budget, element, isSaved, drafts, onSave, onRemove, onDuplic
                     return <option key={key} value={key}>{m.label}{v != null ? ` · ${dec(v)} ${unitLabel(m.unit)}` : ''}</option>;
                   })}</optgroup>;
                 })}
-              </select>}
+              </SelectControl>}
               {measure?.factor && link.include && <label className="box-item__factor">{measure.factor.label}
-                <span className="box-field"><input inputMode="decimal" value={link.factor} onChange={e => editLink(item.id, {factor:e.target.value})} placeholder="Preencher"/><span className="box-field__unit" aria-hidden="true">{measure.factor.unit}</span></span>
+                <span className="box-field"><StandardInput inputMode="decimal" value={link.factor} onChange={e => editLink(item.id, {factor:e.target.value})} placeholder="Preencher"/><span className="box-field__unit" aria-hidden="true">{measure.factor.unit}</span></span>
               </label>}
               {tela && link.include && <small className="box-hint">{tela.tela}: {dec(tela.kgM2)} kg/m² nominal, sem traspasse. Ajuste se o projeto pedir.</small>}
               {link.include && link.measure && <code className="box-item__math">{geometry.valid ? describeBoxMeasure(link.measure, geometry, link.factor, item.unidade) : measure?.formula}</code>}
               {link.include && link.suggested && link.measure && <small className="box-hint">Sugerido pela descrição do serviço.</small>}
-              {(itemMemorial || (linkable && !options.length)) && <button type="button" className="box-link-button" onClick={() => onOpenItemMemory?.(item.id)}>Abrir memorial item a item</button>}
+              {(itemMemorial || (linkable && !options.length)) && <StandardButton variant="secondary" type="button" className="box-link-button" onClick={() => onOpenItemMemory?.(item.id)}>Abrir memorial item a item</StandardButton>}
             </div>
             <div className="box-item__result">
               {link.include
@@ -313,7 +317,7 @@ function BoxEditor({budget, element, isSaved, drafts, onSave, onRemove, onDuplic
     {receipt && <section className="box-receipt" role="status">
       <strong>Aplicado em {plural(receipt.changes.length, 'serviço', 'serviços')}.</strong>
       <span>Total dos serviços: <span className="box-num">{brl(receipt.totalBefore)}</span> → <span className="box-num">{brl(receipt.totalAfter)}</span>. Novas mudanças nas medidas recalculam todos eles.</span>
-      {canUndo && <button type="button" className="box-link-button" onClick={async () => { await onUndo?.(); setReceipt(null); }}>Desfazer esta aplicação</button>}
+      {canUndo && <StandardButton variant="secondary" type="button" className="box-link-button" onClick={async () => { await onUndo?.(); setReceipt(null); }}>Desfazer esta aplicação</StandardButton>}
     </section>}
     {error && <p role="alert" className="box-note box-note--danger">{error}</p>}
 
@@ -323,21 +327,21 @@ function BoxEditor({budget, element, isSaved, drafts, onSave, onRemove, onDuplic
       </p>
       <div className="box-actions__buttons">
         {review
-          ? <><button type="button" onClick={() => setReview(false)}>Voltar e ajustar</button>
-              <button type="button" className="box-primary" disabled={busy || !!blocker} onClick={apply}>{busy ? 'Gravando…' : 'Confirmar e aplicar'}</button></>
-          : <button type="button" className="box-primary" disabled={!!blocker} onClick={() => { setReceipt(null); setReview(true); }}>Revisar e aplicar</button>}
+          ? <><StandardButton variant="secondary" type="button" onClick={() => setReview(false)}>Voltar e ajustar</StandardButton>
+              <StandardButton variant="primary" type="button" className="box-primary" disabled={busy || !!blocker} onClick={apply}>{busy ? 'Gravando…' : 'Confirmar e aplicar'}</StandardButton></>
+          : <StandardButton variant="primary" type="button" className="box-primary" disabled={!!blocker} onClick={() => { setReceipt(null); setReview(true); }}>Revisar e aplicar</StandardButton>}
       </div>
       <div className="box-actions__secondary">
-        <button type="button" className="box-link-button" disabled={!geometry.valid} onClick={() => onDuplicate(draft)}>Duplicar medidas</button>
-        {isSaved && !confirmDelete && <button type="button" className="box-link-button box-link-button--danger" onClick={() => setConfirmDelete(true)}>Excluir reservatório</button>}
+        <StandardButton variant="secondary" type="button" className="box-link-button" disabled={!geometry.valid} onClick={() => onDuplicate(draft)}>Duplicar medidas</StandardButton>
+        {isSaved && !confirmDelete && <StandardButton variant="secondary" type="button" className="box-link-button box-link-button--danger" onClick={() => setConfirmDelete(true)}>Excluir reservatório</StandardButton>}
         {confirmDelete && <span className="box-confirm" role="group" aria-label="Confirmar exclusão">
           Excluir “{draft.nome}”? As quantidades atuais ficam como estão.
-          <button type="button" className="box-link-button box-link-button--danger" onClick={async () => {
+          <StandardButton variant="secondary" type="button" className="box-link-button box-link-button--danger" onClick={async () => {
             setBusy(true);
             try { const r = await onRemove(draft.id); if (!r?.ok) throw new Error(r?.reason || 'Falha ao excluir.'); drafts.current.delete(element.id); }
             catch (e) { setError(e.message); setBusy(false); setConfirmDelete(false); }
-          }}>Excluir</button>
-          <button type="button" className="box-link-button" onClick={() => setConfirmDelete(false)}>Cancelar</button>
+          }}>Excluir</StandardButton>
+          <StandardButton variant="secondary" type="button" className="box-link-button" onClick={() => setConfirmDelete(false)}>Cancelar</StandardButton>
         </span>}
       </div>
     </div>}
@@ -370,15 +374,15 @@ export default function BoxMemoryPanel({budget, onSave, onRemove, onUndo, canUnd
         <h2>Caixas e reservatórios</h2>
         <p>Informe as medidas da caixa uma vez. Cada serviço da etapa usa a área, o volume ou a quantidade correspondente, e o orçamento é recalculado sempre que as medidas mudarem.</p>
       </div>
-      {!readOnly && saved.length > 0 && <button type="button" onClick={() => startNew(newBoxElement(budget))}>Novo reservatório</button>}
+      {!readOnly && saved.length > 0 && <StandardButton variant="secondary" type="button" onClick={() => startNew(newBoxElement(budget))}>Novo reservatório</StandardButton>}
     </header>
     {(saved.length > 0 || creating) && <nav className="box-memory__tabs" aria-label="Reservatórios deste orçamento">
-      {saved.map(e => <button key={e.id} type="button" aria-current={current?.id === e.id ? 'true' : undefined} onClick={() => setSelected(e.id)}>
+      {saved.map(e => <StandardButton variant="secondary" key={e.id} type="button" aria-current={current?.id === e.id ? 'true' : undefined} onClick={() => setSelected(e.id)}>
         {e.nome}{dirty(e.id) ? <span className="box-memory__dirty" title="Alterações não aplicadas"> · não aplicado</span> : null}
-      </button>)}
-      {creating && !saved.some(e => e.id === creating.id) && <button type="button" aria-current={current?.id === creating.id ? 'true' : undefined} onClick={() => setSelected(creating.id)}>
+      </StandardButton>)}
+      {creating && !saved.some(e => e.id === creating.id) && <StandardButton variant="secondary" type="button" aria-current={current?.id === creating.id ? 'true' : undefined} onClick={() => setSelected(creating.id)}>
         {creating.nome || 'Novo'}<span className="box-memory__dirty"> · não salvo</span>
-      </button>}
+      </StandardButton>}
     </nav>}
     {current
       ? <BoxEditor key={current.id} budget={budget} element={current} isSaved={saved.some(e => e.id === current.id)} drafts={drafts}
@@ -386,7 +390,7 @@ export default function BoxMemoryPanel({budget, onSave, onRemove, onUndo, canUnd
           onDuplicate={d => startNew({...newBoxElement(budget), ...Object.fromEntries(BOX_DIMENSIONS.map(x => [x.key, d[x.key]])), fonte:d.fonte, nome:`${d.nome} (cópia)`, etapaId:''})}/>
       : <div className="box-memory__empty">
           <p>Nenhum reservatório medido neste orçamento.</p>
-          {!readOnly && <button type="button" className="box-primary" onClick={() => startNew(newBoxElement(budget))}>Medir um reservatório</button>}
+          {!readOnly && <StandardButton variant="primary" type="button" className="box-primary" onClick={() => startNew(newBoxElement(budget))}>Medir um reservatório</StandardButton>}
         </div>}
   </section>;
 }

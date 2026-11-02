@@ -1,4 +1,8 @@
+import {ACCOUNTING_COMMAND_TYPES,canUseCompanyAccounting} from '../src/domains/financeiro/accounting-indicators.js';
+import {BASELINE_COMMAND,BASELINE_COMMAND_TYPES} from '../src/domains/planejamento/approved-baseline.js';
+import {closingCorrectionScope} from "../src/domains/financeiro/closing-correction.js";
 import { OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
+import {COST_CONTROL_COMMAND_TYPES,costControlWorkId} from '../src/domains/financeiro/cost-control.js';
 import { canOperateTechnicalMeasurement } from "../src/domains/medicoes/permissions.js";
 import { EQUIPMENT_COMMAND_TYPES, equipmentCommandObraId } from "../src/domains/equipamentos/commands.js";
 import { PATRIMONY_COMMAND_TYPES } from "../src/domains/patrimonio/commands.js";
@@ -94,7 +98,14 @@ import {
   stockCommandObraId,
 } from "../src/domains/estoque/commands.js";
 
+import { ENGINEERING_COMMAND_TYPES } from "../src/domains/projetos/commands.js";
+import { FILE_COMMAND_TYPES } from "../src/domains/arquivos/commands.js";
+import { podeAcessarAba } from '../src/domains/administracao/abas-acesso.js';
+import { validateFileCabinetScope } from "./work-file-cabinet-policy.js";
+import { validateEngineeringScope } from "./engineering-project-policy.js";
+
 const operationalCommandObraId=(data={},command={})=>{
+  if(COST_CONTROL_COMMAND_TYPES.has(command.type))return costControlWorkId(data,command);
   const payload=command?.payload||{};
   if(PATRIMONY_COMMAND_TYPES.has(command?.type))return "";
   if(EQUIPMENT_COMMAND_TYPES.has(command?.type))return equipmentCommandObraId(data,command);
@@ -143,7 +154,24 @@ const operationalCommandObraId=(data={},command={})=>{
 };
 
 export const validateOperationalCommandScope=({user={},data={},command={}}={})=>{
+  if(ACCOUNTING_COMMAND_TYPES.has(command.type))return canUseCompanyAccounting(user)&&podeAcessarAba(user,'fin')?{ok:true,scope:'company',obraId:''}:{ok:false,error:'A base contábil da empresa exige administrador ou financeiro com acesso geral, sem vínculo restrito a uma obra.'};
+  if(BASELINE_COMMAND_TYPES.has(command.type)){
+    const obraId=String(command.payload?.obraId||'');
+    const roles=command.type===BASELINE_COMMAND.SCHEDULE_BASELINE_APPROVED?['admin','diretoria']:['admin','diretoria','engenheiro','engenheiro_auditor','planejamento'];
+    return user.active!==false&&roles.includes(user.role)&&podeAcessarAba(user,'plan')&&(!user.obraId||String(user.obraId)===obraId)&&(data.obras||[]).some(row=>row.id===obraId)?{ok:true,obraId,scope:'work'}:{ok:false,error:'Seu perfil não pode operar a linha de base desta obra.'};
+  }
+  if(command.type===OPERATIONAL_COMMAND.CLOSING_SOURCE_CORRECTED)return closingCorrectionScope({user,data,command});
+  if(command.type?.startsWith('DOSSIE_')){
+    const obraId=String(command.payload?.obraId||'');
+    return user.active!==false&&['admin','engenheiro'].includes(user.role)&&podeAcessarAba(user,'licenca')&&(!user.obraId||user.obraId===obraId)&&(data.obras||[]).some(item=>item.id===obraId)?{ok:true,obraId,scope:'work'}:{ok:false,error:'Seu perfil não pode alterar o licenciamento desta obra.'};
+  }
+  if(ENGINEERING_COMMAND_TYPES.has(command.type))return validateEngineeringScope({user,data,command});
+  if(FILE_COMMAND_TYPES.has(command.type))return validateFileCabinetScope({user,data,command});
   const obraId=operationalCommandObraId(data,command);
+  if(COST_CONTROL_COMMAND_TYPES.has(command.type)){
+    const allowed=['admin','financeiro'].includes(user.role)&&(user.role==='admin'||!user.obraId||String(user.obraId)===obraId);
+    return allowed&&Boolean(obraId)&&Boolean((data.obras||[]).find(w=>w.id===obraId))?{ok:true,obraId,scope:'work'}:{ok:false,error:'Seu perfil não pode revisar custos desta obra.'};
+  }
   if(command.type===OPERATIONAL_COMMAND.FIELD_REPORT_REOPENED){
     return user?.role==="admin"
       ?{ok:true,obraId,scope:"work"}

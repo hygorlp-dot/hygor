@@ -633,3 +633,11 @@ describe("MEI na projeção",()=>{
   });
 });
 
+
+it("administração local usa central sem perder obra responsável nem permissão da obra",()=>{
+ const data=fixture(baseEmployee({role:"Mestre de obras"}));data.obras[0].contractType="admin_only";data.attendance.e1={"2026-10-21":{status:"P",obraId:"o1"}};
+ const report=buildLaborProjection(data,{asOf:"2026-10-29",access:{allowedWorkIds:["o1"],includeAdministrative:false},filters:{area:"administrative"}});
+ expect(report.people).toHaveLength(1);expect(report.groups[0]).toMatchObject({kind:"administrative",obraId:"o1",name:"Administração Central · Obra 1"});
+ expect(report.people[0].days.every(day=>day.obraId==="o1")).toBe(true);
+ expect(buildLaborProjection(data,{asOf:"2026-10-29",filters:{area:"works"}}).people).toHaveLength(0);
+});

@@ -2,12 +2,13 @@
 // "Chegou" (tela da obra). Monta o que vai ao comando PURCHASE_RECEIPT_RECORDED;
 // quem decide de verdade continua sendo o servidor.
 //
-// Regra: ao menos uma quantidade maior que zero, nenhuma acima do que falta
-// (receber a mais esconde erro de nota fiscal) e nada negativo ou inválido.
+// Regra: ao menos uma quantidade maior que zero, sem valores negativos ou
+// inválidos. Excesso gera aviso, mas o estoque reflete a entrega real.
 // Receber não depende de pagamento (C1.2): o saldo só é informado.
 import {
   conversionFactorOf, purchaseUnitOf, referenceQuantityOf, referenceUnitCostOf,
 } from "./unit-conversion.js";
+import {operationalWarning} from './workflow-advisories.js';
 
 const EPS = 1e-6;
 export const faltaDoItem = item => Math.max(0, Number(item?.qtd || 0) - Number(item?.qtdRecebida || 0));
@@ -26,8 +27,7 @@ export const montarRecebimento = (pedido, recebidos, { quando, novoId, descricao
   });
   const invalida = linhas.find(linha => !Number.isFinite(linha.chegou) || linha.chegou < 0);
   if (invalida) return { ok: false, erro: "Quantidade recebida inválida.", itemId: invalida.item.id };
-  const excedeu = linhas.find(linha => linha.chegou > linha.falta + EPS);
-  if (excedeu) return { ok: false, erro: `Só faltam ${excedeu.falta}.`, itemId: excedeu.item.id };
+  const warnings=linhas.filter(linha=>linha.chegou>linha.falta+EPS).map(linha=>operationalWarning('RECEIPT_EXCEEDS_ORDER','recebimento','Compras / responsável pelo recebimento',`Quantidade recebida acima do saldo do item ${linha.item.id}.`,'Confira a diferença com o fornecedor e regularize o pedido ou a devolução. O estoque registra a quantidade realmente recebida.'));
   const chegaram = linhas.filter(linha => linha.chegou > 0);
   if (!chegaram.length) return { ok: false, erro: "Informe ao menos uma quantidade recebida." };
 
@@ -43,6 +43,7 @@ export const montarRecebimento = (pedido, recebidos, { quando, novoId, descricao
   }));
   return {
     ok: true,
+    warnings,
     receivedQuantities: Object.fromEntries(chegaram.map(({ item, chegou }) => [item.id, chegou])),
     stockEntries,
     completo: linhas.every(linha => linha.chegou >= linha.falta - EPS),

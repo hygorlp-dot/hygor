@@ -1,0 +1,12 @@
+import {describe,it,expect} from 'vitest';
+import {folderAccess,projectFileCabinet,cabinetFileAccess} from './access.js';
+import {applyOperationalCommand} from '../sync/operational-commands.js';
+import {FILE_COMMAND} from './commands.js';
+const reader={id:'r',role:'engenheiro',obraId:'a',active:true},editor={...reader,id:'e'},admin={id:'admin',role:'admin',active:true};
+const cabinet={obraId:'a',version:0,folders:[{id:'f',name:'Restrita',parentId:'',access:{restricted:true,readers:['r','e'],editors:['e']}},{id:'s',name:'Subpasta',parentId:'f'}],documents:[{id:'d',folderId:'s',revisions:[{id:'v',url:'/api/microsoft/onedrive?action=file&driveId=drive&itemId=item'}]}],history:[{folderIds:['s'],detail:'Documento privado'}]};
+describe('Permissões por pasta',()=>{
+  it('herda restrições e separa leitura de edição',()=>{expect(folderAccess(cabinet,'s',reader)).toBe(true);expect(folderAccess(cabinet,'s',reader,'write')).toBe(false);expect(folderAccess(cabinet,'s',editor,'write')).toBe(true);expect(folderAccess(cabinet,'s',{...reader,id:'other'})).toBe(false);expect(folderAccess(cabinet,'s',admin,'write')).toBe(true);});
+  it('retira documentos, nomes de pastas e auditoria da projeção sem acesso',()=>{const result=projectFileCabinet(cabinet,{...reader,id:'other'});expect(result.folders).toEqual([]);expect(result.documents).toEqual([]);expect(result.history).toEqual([]);});
+  it('nega link antigo sem autenticação e não permite duplicação em pasta pública contornar restrição',()=>{const publicCopy={...cabinet,documents:[...cabinet.documents,{...cabinet.documents[0],id:'copy',folderId:''}]},data={workFileCabinets:[publicCopy]},ref={driveId:'drive',itemId:'item'};expect(cabinetFileAccess(data,null,ref)).toEqual({registered:true,allowed:false});expect(cabinetFileAccess(data,{...reader,id:'other'},ref).allowed).toBe(false);expect(cabinetFileAccess(data,reader,ref).allowed).toBe(true);});
+  it('recusa comandos de escrita por leitor e configuração de ACL por não administrador',()=>{const data={obras:[{id:'a'}],usuarios:[reader,editor,admin],workFileCabinets:[cabinet]};for(const type of [FILE_COMMAND.DOCUMENT_MOVED,FILE_COMMAND.FOLDER_ACCESS_CHANGED]){const result=applyOperationalCommand(data,{type,actorId:reader.id,actorRole:reader.role,expectedVersion:0,idempotencyKey:`acl-test-${type}`,now:'2026-10-31T12:00:00Z',payload:{obraId:'a',id:type===FILE_COMMAND.DOCUMENT_MOVED?'d':'f',folderId:''}});expect(result.ok).toBe(false);}});
+});

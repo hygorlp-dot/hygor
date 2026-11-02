@@ -1,10 +1,16 @@
+import {buildPurchaseWorkspace} from './domains/compras/workspace.js';
 import {describe,expect,it} from "vitest";
 import {readFileSync} from "node:fs";
 
+const suporteCompras=readFileSync(`${process.cwd()}/src/domains/compras/LegacySupport.jsx`,"utf8");
 const legacy=readFileSync(`${process.cwd()}/src/LegacyApp.jsx`,"utf8");
 const compras=readFileSync(`${process.cwd()}/src/domains/compras/components/ComprasView.jsx`,"utf8");
+const contratosWorkspace=readFileSync(`${process.cwd()}/src/domains/compras/components/PurchaseContractsWorkspace.jsx`,"utf8");
 const recebimento=readFileSync(`${process.cwd()}/src/domains/compras/receipt.js`,"utf8");
 const modalRecebimento=readFileSync(`${process.cwd()}/src/domains/compras/components/ReceiptModal.jsx`,"utf8");
+const paymentDialog=readFileSync(`${process.cwd()}/src/features/financeiro/PaymentDialog.jsx`,"utf8");
+const paymentValidation=readFileSync(`${process.cwd()}/src/domains/financeiro/purchase-payment-validation.js`,"utf8");
+const paymentCommands=readFileSync(`${process.cwd()}/src/domains/financeiro/payable-payment-commands.js`,"utf8");
 const trecho=(source,inicio,fim)=>source.slice(source.indexOf(inicio),source.indexOf(fim,source.indexOf(inicio)));
 
 describe("correções do fluxo de compras (auditoria de 22/10/2026)",()=>{
@@ -34,11 +40,13 @@ describe("correções do fluxo de compras (auditoria de 22/10/2026)",()=>{
     expect(mover).not.toMatch(/abrirPagamento\(card\.registro\)/);
   });
 
-  it("solicitação reprovada não vira pedido",()=>{
+  it("solicitação com decisão pendente ou recusada avisa e permite gerar pedido",()=>{
     const gerar=trecho(compras,"const gerarPedidoSolicitacao=","const abrirCotacaoDaSolicitacao=");
-    // Desde a C1.1, qualquer status diferente de "aprovada" bloqueia.
+    // Pendência processual avisa; os comandos do domínio validam a integridade.
     expect(gerar).toMatch(/instanciaApr&&instanciaApr\.status!=="aprovada"/);
-    expect(gerar).toMatch(/foi reprovada na aprovação/);
+    const aviso=trecho(gerar,"if(instanciaApr","const itens");
+    expect(aviso).toMatch(/O pedido pode seguir/);
+    expect(aviso).not.toMatch(/return/);
   });
 
   it("confirmação de chegada converte para a unidade do estoque",()=>{
@@ -64,25 +72,29 @@ describe("correções do fluxo de compras (auditoria de 22/10/2026)",()=>{
     // a quantidade do pedido está na embalagem comprada (SC), não na unidade do cadastro (KG)
     expect(modalRecebimento).toMatch(/label=\{`Chegou agora \(\$\{purchaseUnitOf\(l\)\}\)`\}/);
     // o modal trava o segundo clique enquanto confirma
-    expect(modalRecebimento).toMatch(/const confirmar=async\(\)=>\{if\(salvando\)return;setSalvando\(true\)/);
+    expect(modalRecebimento).toMatch(/const confirmar=async\(\)=>\{if\(lock\.current\)return;lock\.current=true;setSalvando\(true\)/);
     const chegada=trecho(legacy,"const confirmarChegada = async","const atividade = useMemo");
     expect(chegada).toMatch(/if \(chegadaEnviando\) return;/);
     expect(chegada).toMatch(/setChegadaEnviando\(true\);[\s\S]*finally\{\s*setChegadaEnviando\(false\);/);
   });
 
   it("C1.4: pagamento mostra o conferido e manda adiantamento com motivo ao servidor",()=>{
-    const pagar=trecho(compras,"const registrarPagamento=async","const reclassificarOrigemPagamento=");
-    expect(pagar).toMatch(/conferenciaPagamentoPedido\(data,pedido\.id\)/);
-    expect(pagar).toMatch(/adiantamento:!!f\.adiantamento,motivoAdiantamento:/);
-    expect(compras).toMatch(/Motivo do adiantamento \*/);
+    expect(compras).toMatch(/<PaymentDialog[^>]*pageId="cmp"/);
+    expect(paymentDialog).toContain('validatePurchasePayment(data,');
+    expect(paymentValidation).toContain('avaliarPagamentoPedido(data,');
+    expect(paymentDialog).toContain("validation.campos?.tipo==='adiantamento'");
+    expect(paymentDialog).toContain('Motivo do adiantamento (recomendado)');
+    expect(paymentDialog).toContain('motivoAdiantamento:form.motivoAdiantamento');
+    // A classificação é recalculada no servidor, não escolhida pelo formulário.
+    expect(paymentCommands).toContain('validatePurchasePayment(data,');
+    expect(paymentCommands).toContain('motivo:payload.motivoAdiantamento');
   });
 
-  it("C1.2: o kanban separa pedidos pela entrega, não pelo pagamento",()=>{
-    expect(compras).not.toMatch(/Pedidos a pagar/);
-    expect(compras).toMatch(/const coluna=concluido\?"concluido":status==="rascunho"\?"pedido":"entrega";/);
-    expect(compras).not.toMatch(/liberado para recebimento/);
-    const mover=trecho(compras,"const moverCardKanban=","const comprasAbas=");
-    expect(mover).toMatch(/status:"enviado",motivoAjuste:"Pedido enviado ao fornecedor\."/);
+  it("C1.2: fila e quadro separam entrega e pagamento",()=>{
+    const pending={id:'paid-not-delivered',obraId:'a',status:'enviado',itens:[{qtd:10,qtdRecebida:0,precoUnit:10}],pagamentos:[{id:'payment',valor:100}]};
+    const received={...pending,id:'received-unpaid',itens:[{qtd:10,qtdRecebida:10,precoUnit:10}],pagamentos:[]};
+    const model=buildPurchaseWorkspace({pedidos:[pending,received]},['a'],'2026-11-01');
+    expect(model.rows.map(row=>row.id)).toEqual(['paid-not-delivered']);expect(model.rows[0]).toMatchObject({stage:'recebimentos',action:'Receber materiais'});expect(model.rows[0].detail).toContain('Pago');
   });
 });
 
@@ -92,7 +104,9 @@ describe("contratos de fornecimento (C2.4)",()=>{
   it("a aba grava pelo servidor e o pedido leva o vínculo do contrato",()=>{
     expect(contratos).toMatch(/type:OPERATIONAL_COMMAND\.SUPPLY_CONTRACT_SAVED/);
     expect(contratos).toMatch(/type:OPERATIONAL_COMMAND\.SUPPLY_CONTRACT_CLOSED/);
-    expect(compras).toMatch(/\["contratos","Contratos de fornecimento"\]/);
+    expect(compras).toMatch(/\["contratos","Contratos e medições"\]/);
+    expect(compras).toMatch(/<PurchaseContractsWorkspace/);
+    expect(contratosWorkspace).toMatch(/<ContratosFornecimentoView/);
     expect(compras).toMatch(/contratosDisponiveis\(data,\{fornecedorId:form\.fornecedorId,obraId:form\.obraId,dataPedido:form\.data\}\)/);
     const salvar=trecho(compras,"const salvarPedido = async","const abrirPagamento=");
     expect(salvar).toMatch(/contratoId:i\.contratoId\|\|"",contratoItemId:i\.contratoItemId\|\|""/);
@@ -106,7 +120,7 @@ describe("entrega programada por item (C2.2)",()=>{
     expect(salvar).toMatch(/remessas:\(i\.remessas\|\|\[\]\)/);
     expect(compras).toMatch(/Programar remessas/);
     expect(compras).toMatch(/atrasoDoItem\(i,p,today\(\)\)/);
-    expect(legacy).toMatch(/export const pedidosEmAtraso = \(data, hoje\) => pedidosComItensAtrasados\(data, hoje\);/);
+    expect(suporteCompras).toMatch(/export const pedidosEmAtraso = \(data, hoje\) => pedidosComItensAtrasados\(data, hoje\);/);
   });
 });
 

@@ -1,3 +1,6 @@
+import {Button as StandardButton} from '../../../components/ui/button.jsx';
+import {Input as StandardInput} from '../../../components/ui/input.jsx';
+import {SelectControl} from '../../../design-system/primitives/Select.jsx';
 import { useState } from "react";
 import { structuralMeasureOrigin } from '../structural-provenance';
 import { suggestedStructuralTarget, compatibleMemoryUnit, memoryBudgetItems, compatibleStructuralItem, structuralOrigin, normalizeStructuralText } from "../structural-budget-matching";
@@ -22,11 +25,11 @@ export default function StructuralBudgetLinks({ scope, rows, budget, onChange, o
   return <section className="structural-links" aria-label="Destinos no orçamento">
     <header>
       <div><h4>Destinos no orçamento · {context}</h4><p>{linked} de {rows.length} quantitativos com destino · coluna Quantidade</p></div>
-      {!readOnly && <button type="button" disabled={saving} onClick={() => editing ? apply() : setEditing(true)} aria-expanded={editing}>{saving ? "Salvando quantidades…" : editing ? "Concluir vínculos" : "Definir destinos"}</button>}
-      {!readOnly && !editing && onApply && <button type="button" disabled={saving} onClick={apply}>Atualizar quantidades</button>}
+      {!readOnly && <StandardButton variant="secondary" type="button" disabled={saving} onClick={() => editing ? apply() : setEditing(true)} aria-expanded={editing}>{saving ? "Salvando quantidades…" : editing ? "Concluir vínculos" : "Definir destinos"}</StandardButton>}
+      {!readOnly && !editing && onApply && <StandardButton variant="secondary" type="button" disabled={saving} onClick={apply}>Atualizar quantidades</StandardButton>}
     </header>
     {canEdit && <label className="structural-link-search">Buscar item por etapa, número, código ou descrição
-      <input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Ex.: concretagem de pilares" />
+      <StandardInput type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Ex.: concretagem de pilares" />
     </label>}
     <div className="structural-link-head" aria-hidden="true"><span>Quantitativo do memorial</span><span>Célula de destino</span></div>
     {rows.map(row => {
@@ -50,14 +53,14 @@ export default function StructuralBudgetLinks({ scope, rows, budget, onChange, o
           <details className="structural-source"><summary>{source.status} · Origem da medida</summary><p>{context} · {row.label}</p><p>{source.detail}</p></details>
         </div>
         <div>
-          {canEdit ? <select disabled={saving} aria-label={`Destino de ${row.label} · ${context}`} value={targetId} onChange={e => onChange(key, e.target.value)}>
+          {canEdit ? <SelectControl disabled={saving} aria-label={`Destino de ${row.label} · ${context}`} value={targetId} onChange={e => onChange(key, e.target.value)}>
             <option value="">Sem vínculo</option>
             {targetId && !item && <option value={targetId}>Item removido — redefina o destino</option>}
             {candidates.map(candidate => <option key={candidate.id} value={candidate.id}>{candidate.codigoItem} · {candidate.stagePath} · {candidate.descricao.length > 125 ? `${candidate.descricao.slice(0, 125)}…` : candidate.descricao} · {candidate.unidade}</option>)}
-          </select> : item ? <><strong>Item {item.codigoItem} · Quantidade</strong><small>{item.stagePath}</small><p>{item.descricao}</p><small>No orçamento: {Number(item.quantidade || 0).toLocaleString("pt-BR")} {item.unidade}</small></> : <span className={targetId ? "structural-pending" : "structural-muted"}>{targetId ? "⚠ Item removido — redefina o destino" : "Sem vínculo definido"}</span>}
+          </SelectControl> : item ? <><strong>Item {item.codigoItem} · Quantidade</strong><small>{item.stagePath}</small><p>{item.descricao}</p><small>No orçamento: {Number(item.quantidade || 0).toLocaleString("pt-BR")} {item.unidade}</small></> : <span className={targetId ? "structural-pending" : "structural-muted"}>{targetId ? "⚠ Item removido — redefina o destino" : "Sem vínculo definido"}</span>}
           {canEdit && item && <><small>Destino: {item.stagePath} · item {item.codigoItem}</small><p>{item.descricao}</p></>}
           {item && <Route type={onNavigateTarget?'button':undefined} className="structural-route" onClick={onNavigateTarget?()=>onNavigateTarget(item):undefined}>{context} → {row.label} → item {item.codigoItem} → {Number(item.quantidade || 0).toLocaleString('pt-BR',{maximumFractionDigits:4})} {item.unidade}</Route>}
-          {canEdit && suggestion && <button type="button" disabled={saving} onClick={()=>onChange(key,suggestion.id)}>Usar sugestão: item {suggestion.codigoItem} · {suggestion.stagePath}</button>}
+          {canEdit && suggestion && <StandardButton variant="secondary" type="button" disabled={saving} onClick={()=>onChange(key,suggestion.id)}>Usar sugestão: item {suggestion.codigoItem} · {suggestion.stagePath}</StandardButton>}
           {wrongService && <small className="structural-pending">⚠ O serviço vinculado não corresponde a {row.label.toLowerCase()}. Redefina o destino.</small>}
           {incompatible && <small className="structural-pending">⚠ Unidade do destino ({item.unidade}) diferente de {row.unit}.</small>}
           {canEdit && !candidates.length && <small>Nenhum item de {row.label.toLowerCase()} em {row.unit} nesta busca. Confira a descrição e a unidade no orçamento.</small>}

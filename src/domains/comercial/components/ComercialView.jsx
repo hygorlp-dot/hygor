@@ -1,3 +1,5 @@
+import { PageHeader } from "../../../design-system/patterns/PageHeader";
+import { WorkspaceNavigation } from "../../../design-system/patterns/WorkspaceNavigation";
 import { marcellReportHtml } from "../../../reports/marcell-report.js";
 // ===================================================================
 // ComercialView — tela Comercial extraída de LegacyApp.jsx
@@ -10,15 +12,12 @@ import { marcellReportHtml } from "../../../reports/marcell-report.js";
 
 import { Suspense, useMemo, useState } from "react";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
-import {
-  Btn, C, COM_ETAPAS, COM_IMOBILIARIO_SECTIONS, COM_JORNADA, COM_PERDAS,
-  COM_ROUTE_SECTION, COM_TEMPERATURA, Ic, Inp, KB, LazyRealEstateCommercial,
-  Modal, Sel, SelBtn, XLSX,
-  arquivoComoDataUrl, carregarXLSX, cicloMedioVenda, comDateTime, comDias,
-  comEtapaLabel, comFaseDaEtapa, conversaoPorFase, escapeHtml, fmt,
-  fmtCompact, fmtDate, momentosIndicacao, npsResumo, rankingIndicadores,
-  taxaIndicacao, today, uid, PageHero,
-} from "../../../LegacyApp";
+import { LoadingState, Btn, Ic, Inp, Modal, Sel, SelBtn, PageHero } from "../../../legacy/ui.jsx";
+import { C, KB } from "../../../legacy/palette.js";
+import { COM_ETAPAS, COM_IMOBILIARIO_SECTIONS, COM_JORNADA, COM_PERDAS, COM_ROUTE_SECTION, COM_TEMPERATURA, cicloMedioVenda, comDateTime, comDias, comEtapaLabel, comFaseDaEtapa, conversaoPorFase, momentosIndicacao, npsResumo, rankingIndicadores, taxaIndicacao } from "../legacy-model.js";
+import { LazyRealEstateCommercial } from "../LegacyRealEstate.jsx";
+import { XLSX, arquivoComoDataUrl, carregarXLSX } from "../../../legacy/files.js";
+import { escapeHtml, fmt, fmtCompact, fmtDate, today, uid } from "../../../legacy/format.js";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { buildFinancialLedger, selectCashFlow as selectLedgerCashFlow } from "../../financeiro/ledger";
 import { archiveLeadForDeletion, isVisibleLead } from "../leads";
@@ -621,13 +620,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
   );
 
   const Titulo = ({titulo,sub,acao}) => <PageHero title={titulo} description={sub} actions={acao}/>;
-  const vazio = (t) => (
-    <p
-      style={{ fontSize:"var(--arcd-type-label)", color: C.muted, textAlign: "center", padding: 18 }}
-    >
-      {t}
-    </p>
-  );
+  const vazio = (t) => <div className="mrc-empty-state">{t}</div>;
   // `key={l}` deixa este helper seguro para uso dentro de .map() (o rótulo
   // já é único em todo call site conhecido) sem quebrar o uso avulso, onde
   // React simplesmente ignora um key fora de lista.
@@ -1304,7 +1297,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
       </div>
     </div>;
   } else if(commercialView==="com_leads"){
-    const lista=leads.filter(l=>isVisibleLead(l)&&[l.nome,l.telefone,l.email,l.cidade,l.servico,l.origem].join(" ").toLowerCase().includes(busca.toLowerCase()));conteudo=<><Titulo titulo="Leads" sub={`${leads.filter(isVisibleLead).length} cadastrado(s)`} acao={<Btn onClick={()=>{setLeadForm(leadVazio());setLeadAba("geral");}}><Ic n="plus"/> NOVO LEAD</Btn>}/><Inp value={busca} onChange={setBusca} placeholder="Buscar nome, telefone, cidade, serviço ou origem..."/><div style={{display:"flex",flexDirection:"column",gap:6}}>{lista.map(l=><button key={l.id} onClick={()=>{setLeadForm({...l});setLeadAba("geral");}} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:8,background:C.card,border:`1px solid ${C.border}`,borderLeft:`1px solid ${COM_TEMPERATURA[l.temperatura]||C.muted}`,borderRadius:6,padding:"9px 11px",cursor:"pointer",textAlign:"left"}}><div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{l.nome}</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",marginTop:2}}>{l.servico||"Sem serviço"} · {l.cidade||"-"} · {l.origem||"Sem origem"}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.blue,marginTop:3}}>{comEtapaLabel(l.etapa)} · {nomeUsuario(l.responsavelId)} · próxima: {l.proximaAtividade||"-"} {l.proximaAtividadeEm?comDateTime(l.proximaAtividadeEm):""}</p></div><div style={{textAlign:"right"}}><b style={{fontSize:"var(--arcd-type-body)",color:C.yellowD}}>{fmt(l.orcamentoEstimado)}</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{l.probabilidade}% · {l.temperatura}</p></div></button>)}{!lista.length&&vazio("Nenhum lead encontrado.")}</div></>;
+    const lista=leads.filter(l=>isVisibleLead(l)&&[l.nome,l.telefone,l.email,l.cidade,l.servico,l.origem].join(" ").toLowerCase().includes(busca.toLowerCase()));conteudo=<><Titulo titulo="Leads" sub={`${leads.filter(isVisibleLead).length} cadastrado(s)`} acao={<Btn onClick={()=>{setLeadForm(leadVazio());setLeadAba("geral");}}><Ic n="plus"/> Novo lead</Btn>}/><Inp value={busca} onChange={setBusca} placeholder="Buscar nome, telefone, cidade, serviço ou origem..."/><div style={{display:"flex",flexDirection:"column",gap:6}}>{lista.map(l=><button key={l.id} onClick={()=>{setLeadForm({...l});setLeadAba("geral");}} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:8,background:C.card,border:`1px solid ${C.border}`,borderLeft:`1px solid ${COM_TEMPERATURA[l.temperatura]||C.muted}`,borderRadius:6,padding:"9px 11px",cursor:"pointer",textAlign:"left"}}><div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{l.nome}</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",marginTop:2}}>{l.servico||"Sem serviço"} · {l.cidade||"-"} · {l.origem||"Sem origem"}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.blue,marginTop:3}}>{comEtapaLabel(l.etapa)} · {nomeUsuario(l.responsavelId)} · próxima: {l.proximaAtividade||"-"} {l.proximaAtividadeEm?comDateTime(l.proximaAtividadeEm):""}</p></div><div style={{textAlign:"right"}}><b style={{fontSize:"var(--arcd-type-body)",color:C.yellowD}}>{fmt(l.orcamentoEstimado)}</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{l.probabilidade}% · {l.temperatura}</p></div></button>)}{!lista.length&&vazio("Nenhum lead encontrado.")}</div></>;
   } else if(commercialView==="com_funil"){
     conteudo=<><Titulo titulo="Funil de vendas" sub="Arraste os cards; toda mudança fica registrada no histórico" acao={<Btn onClick={()=>{setLeadForm(leadVazio());setLeadAba("geral");}}><Ic n="plus"/> LEAD</Btn>}/><div style={{...KB.scroll,flexWrap:"wrap",overflowX:"visible",scrollSnapType:"none",rowGap:28,columnGap:8}}>{COM_ETAPAS.filter(([id])=>id!=="arquivado").map(([id,label])=>{const ls=leads.filter(l=>isVisibleLead(l)&&l.etapa===id);const soma=ls.reduce((s,l)=>s+(l.orcamentoEstimado||0),0);return <div key={id} onDragOver={e=>e.preventDefault()} onDrop={e=>{const l=leadBy(e.dataTransfer.getData("leadId"));if(l)moverLead(l,id);}} style={KB.coluna(C.blue,false)}><div onClick={()=>setColunaResumo({label,leads:ls})} title="Ver resumo de quem está nesta etapa" style={{...KB.colHead(C.blue),cursor:"pointer"}}><b style={{fontSize:"var(--arcd-type-label)",color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0}}>{label.toUpperCase()}</b><div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:2,flexShrink:0}}><span style={KB.contador}>{ls.length}</span>{soma>0&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.yellowD}}>{fmt(soma)}</span>}</div></div><div style={KB.colBody}>{ls.map(l=><div key={l.id} draggable onDragStart={e=>e.dataTransfer.setData("leadId",l.id)} onClick={()=>{setLeadForm({...l});setLeadAba("geral");}} style={{...KB.card(l.proximaAtividadeEm&&new Date(l.proximaAtividadeEm).getTime()<agora?C.red:null),borderLeft:`1px solid ${COM_TEMPERATURA[l.temperatura]||C.muted}`}}><div style={{display:"flex",justifyContent:"space-between",gap:5}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0}}>{l.nome}</p><span style={{fontSize:"var(--arcd-type-caption)",color:C.yellowD,fontWeight:600,flexShrink:0}}>{fmt(l.orcamentoEstimado)}</span></div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{l.servico||"-"}</p><div style={{display:"flex",justifyContent:"space-between",gap:5,alignItems:"center"}}><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{nomeUsuario(l.responsavelId)} · {l.probabilidade}%</span><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:comDias(l.etapaDesde)>=5?C.orange:C.muted}}>{comDias(l.etapaDesde)}d</span></div><p style={{fontSize:"var(--arcd-type-caption)",color:l.proximaAtividadeEm&&new Date(l.proximaAtividadeEm).getTime()<agora?C.red:C.blue,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{l.proximaAtividadeEm&&new Date(l.proximaAtividadeEm).getTime()<agora?"⚠ ":""}{l.proximaAtividade||"Sem próxima atividade"}</p></div>)}{!ls.length&&<div style={{padding:"12px 6px",textAlign:"center",fontSize:"var(--arcd-type-caption)",color:C.muted,border:`1px dashed ${C.border}`,borderRadius:6,margin:"2px 0"}}>Solte aqui</div>}</div></div>;})}</div></>;
   } else if(commercialView==="com_jornada"){
@@ -1469,13 +1462,9 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
     : view==="com_management"||managementSections.some(s=>s.id===commercialView) ? managementSections
     : null;
   return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
-    {showRealEstateHub&&<div style={{display:"flex",gap:5,overflowX:"auto",padding:"6px",background:C.card,border:`1px solid ${C.border}`,borderRadius:9,position:"sticky",top:58,zIndex:18}}>
-      {COM_IMOBILIARIO_SECTIONS.map(section=><button key={section.id} type="button" onClick={()=>openCommercialSection(section)} style={{display:"inline-flex",alignItems:"center",gap:5,whiteSpace:"nowrap",minHeight:34,padding:"7px 10px",borderRadius:7,border:`1px solid ${activeCommercialSection===section.id?C.yellowD:C.line}`,background:activeCommercialSection===section.id?`${C.yellow}18`:C.bg,color:C.text,fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}><Ic n={section.icon} s={12}/>{section.label}</button>)}
-    </div>}
-    {activeSubNav&&<div style={{display:"flex",gap:5,overflowX:"auto",padding:"6px",background:C.card,border:`1px solid ${C.border}`,borderRadius:9}}>
-      {activeSubNav.map(section=><button key={section.id} type="button" onClick={()=>onTab(section.id)} style={{display:"inline-flex",alignItems:"center",gap:5,whiteSpace:"nowrap",minHeight:34,padding:"7px 10px",borderRadius:7,border:`1px solid ${commercialView===section.id?C.yellowD:C.line}`,background:commercialView===section.id?`${C.yellow}18`:C.bg,color:C.text,fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>{section.l}</button>)}
-    </div>}
-    {showRealEstateHub?<Suspense fallback={<div style={{padding:30,textAlign:"center",color:C.muted}}>Carregando gestão imobiliária...</div>}><LazyRealEstateCommercial section={activeCommercialSection} commercial={com} appData={data} currentUser={currentUser} showToast={showToast} onSave={(next,message)=>persistirComercial(next,{mensagem:message})} onUploadFile={anexarArquivoImobiliario} onLegacyNavigate={onTab}/></Suspense>:conteudo}
+    {showRealEstateHub&&<><PageHeader className="workspace-header" title="Venda de imóveis" description="Disponibilidade, reservas e vendas do portfólio."/><WorkspaceNavigation label="Áreas dos imóveis" active={activeCommercialSection} onChange={id=>openCommercialSection(COM_IMOBILIARIO_SECTIONS.find(section=>section.id===id))} items={COM_IMOBILIARIO_SECTIONS}/></>}
+    {activeSubNav&&<WorkspaceNavigation label="Áreas do comercial" active={commercialView} onChange={onTab} items={activeSubNav.map(section=>({id:section.id,label:section.l}))}/>}
+    {showRealEstateHub?<Suspense fallback={<LoadingState label="gestão imobiliária"/>}><LazyRealEstateCommercial section={activeCommercialSection} commercial={com} appData={data} currentUser={currentUser} showToast={showToast} onSave={(next,message)=>persistirComercial(next,{mensagem:message})} onUploadFile={anexarArquivoImobiliario} onLegacyNavigate={onTab}/></Suspense>:conteudo}
     {npsForm&&<Modal title="Pesquisa de satisfação na entrega" onClose={()=>setNpsForm(null)}>
       <div style={{display:"flex",flexDirection:"column",gap:12}}>
         <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.5}}>

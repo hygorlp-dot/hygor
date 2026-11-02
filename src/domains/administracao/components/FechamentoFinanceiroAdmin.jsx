@@ -1,5 +1,6 @@
 import {useMemo,useState} from "react";
-import {Badge,Btn,C,Inp} from "../../../LegacyApp";
+import { Badge, Btn, Inp } from "../../../legacy/ui.jsx";
+import { C } from "../../../legacy/palette.js";
 import {consultarPreviaFechamentoFinanceiro} from "../../../api";
 
 const card={background:C.card,border:`1px solid ${C.border}`,borderRadius:9,padding:12};

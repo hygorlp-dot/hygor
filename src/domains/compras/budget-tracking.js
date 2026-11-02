@@ -78,17 +78,19 @@ export const calcOrcadoComprado=(data,obraId,{pedidoSimulado=null}={})=>{
 
   const soma={comprometido:{},recebido:{},previsto:{}};
   const pedidosDaEtapa={};
-  let semApropriacao=0;
+  let semApropriacao=0,semApropriacaoRecebida=0;
+  const pedidosSemApropriacao=[];
   pedidos.filter(p=>p.obraId===obraId&&p.status!=="cancelado"&&p.deletedAt==null&&p.ativo!==false).forEach(p=>(p.itens||[]).forEach(i=>{
     const valor=valorDoItem(i,materiais,i.qtd);
     const raiz=raizVinculo(i);
-    if(!raiz){if(pedidoVivo(p))semApropriacao+=valor;return;}
+    if(!raiz){if(pedidoVivo(p)){const recebido=valorDoItem(i,materiais,i.qtdRecebida);semApropriacao+=valor;semApropriacaoRecebida+=recebido;pedidosSemApropriacao.push({id:p.id,valor,recebido,item:i});}return;}
     const destino=pedidoVivo(p)?soma.comprometido:soma.previsto;
     destino[raiz.id]=(destino[raiz.id]||0)+valor;
     const porPedido=pedidosDaEtapa[raiz.id]||(pedidosDaEtapa[raiz.id]=new Map());
     const atual=porPedido.get(String(p.id))||{id:String(p.id),numero:p.numero||"",fornecedorId:p.fornecedorId||"",
       status:p.status||"",data:p.data||"",rascunho:!pedidoVivo(p),valor:0};
     atual.valor+=valor;
+    if(pedidoVivo(p))atual.recebido=(atual.recebido||0)+valorDoItem(i,materiais,i.qtdRecebida);
     porPedido.set(String(p.id),atual);
     if(pedidoVivo(p))soma.recebido[raiz.id]=(soma.recebido[raiz.id]||0)+valorDoItem(i,materiais,i.qtdRecebida);
   }));
@@ -108,7 +110,7 @@ export const calcOrcadoComprado=(data,obraId,{pedidoSimulado=null}={})=>{
     };
   }).filter(l=>l.orcado>0||l.comprometido>0||l.previsto>0)
     .sort(ordemDeRisco);
-  return {orc,linhas,semApropriacao,motivo:null,temOrcamento:true};
+  return {orc,linhas,semApropriacao,semApropriacaoRecebida,pedidosSemApropriacao,motivo:null,temOrcamento:true};
 };
 
 // Etapas que o pedido em edição leva a 90% ou além do orçado. O pedido é

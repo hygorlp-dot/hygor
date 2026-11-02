@@ -8,10 +8,8 @@
 // Mesmo corpo, mesma lógica - nenhum comportamento mudou nesta extração.
 // Continua sendo o motor que desenha a tela de Planejamento hoje; o
 // motor novo e testado (./calculations.js) só audita ao lado (ver
-// PlanejamentoView.jsx e legacy-canonical-diff.js). Import circular com
-// LegacyApp.jsx (para `today`/`fmtDate`) é o mesmo padrão já usado por
-// PlanejamentoView.jsx - seguro porque nada aqui chama essas funções no
-// topo do módulo, só dentro de corpos de função.
+// PlanejamentoView.jsx e legacy-canonical-diff.js). Os formatadores vêm
+// de um módulo independente; o motor não depende da entrada do aplicativo.
 // ===================================================================
 
 import { getActiveBudgetBaseline } from "../orcamentos/calculations.js";
@@ -20,7 +18,7 @@ import {
   flattenBudgetTree as achatarArvore,
   budgetSubtreeIds as idsDaSubarvore,
 } from "../orcamentos/tree.js";
-import { today, fmtDate } from "../../LegacyApp.jsx";
+import { today, fmtDate } from "../../legacy/format.js";
 
 export const diasCorridos = (ini, fim) => {
   if (!ini || !fim) return 0;

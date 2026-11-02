@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import ts from "typescript";
 
 const source = await readFile(new URL("../src/LegacyApp.jsx", import.meta.url), "utf8");
 // server/dre-projection.js reimplementou localmente o custo de locação de
@@ -12,18 +13,19 @@ const dreProjectionSource = await readFile(new URL("../server/dre-projection.js"
 // 2026-08-16 (ver docs/PLANO_REDUCAO_LEGACYAPP_SUPABASE.md, item #8) - a
 // tela canônica agora mora lá, não em `source`.
 const medicoesSource = await readFile(new URL("../src/domains/medicoes/components/MedicoesView.jsx", import.meta.url), "utf8");
-const section = (startToken, endToken) => {
-  const start = source.indexOf(startToken);
-  const end = source.indexOf(endToken, start);
-  if (start < 0 || end < 0) throw new Error(`Fronteira não localizada: ${startToken}`);
-  return source.slice(start, end);
+// An extracted neighboring helper must not invalidate the financial boundary.
+const syntax=ts.createSourceFile('LegacyApp.jsx',source,ts.ScriptTarget.Latest,true,ts.ScriptKind.JSX);
+const section = name => {
+  const node=syntax.statements.find(statement=>ts.isFunctionDeclaration(statement)&&statement.name?.text===name);
+  if(!node)throw new Error(`Fronteira não localizada: ${name}`);
+  return source.slice(node.getStart(syntax),node.getEnd());
 };
-const financialScreen = section("function Financeiro({", "function ClienteContratualModal(");
+const financialScreen = section("Financeiro");
 const canonicalScreens = [
-  ["FinanceiroObraPainel", section("function FinanceiroObraPainel(", "function DRE(")],
-  ["DRELegado", section("function DRELegado(", "function ModoIADocumento(")],
+  ["FinanceiroObraPainel", section("FinanceiroObraPainel")],
+  ["DRELegado", section("DRELegado")],
   ["MedicoesView", medicoesSource],
-  ["FinanceiroAdministrativo", section("function FinanceiroAdministrativo(", "function RankingFinanceiro(")],
+  ["FinanceiroAdministrativo", section("FinanceiroAdministrativo")],
 ];
 const violations = [
   ["cálculo direto de mão de obra", /\bcalcObraLaborCost\s*\(/],

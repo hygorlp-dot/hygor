@@ -1,24 +1,23 @@
-// Registros do app Ponto de Obra. A leitura desta tela não altera a ARP,
-// a Gestão do ponto nem a folha. Configurações continuam nas ações existentes.
+import {Button as StandardButton} from '../../../components/ui/button.jsx';
+import {RecordAction} from '../../../design-system/primitives/RecordAction.jsx';
+import {ChoiceControl} from '../../../design-system/primitives/ChoiceControl.jsx';
+import {Input as StandardInput} from '../../../components/ui/input.jsx';
+import {PageHeader} from "../../../design-system/patterns/PageHeader.jsx";
+import {EmptyState} from "../../../design-system/patterns/FeedbackState.jsx";
+// A consulta preserva as batidas originais; a integração exige conferência explícita do RH.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { chamarPontoEletronico } from "../../../api";
-import { Badge, Btn, C, Ic, Inp, Modal, Sel } from "../../../LegacyApp";
-import { funcionariosAtivos, funcionariosDaObra } from "../funcionarios.js";
-import { FUSO_OBRA, dataLocal, horaLocal, resumoDoDia, situacaoAparelho } from "../painel.js";
+import { LoadingState,Badge, Btn, Ic, Inp, Modal, Sel} from "../../../legacy/ui.jsx";
+import {C} from "../../../legacy/palette.js";
+import { funcionariosDaObra } from "../funcionarios.js";
+import { FUSO_OBRA, dataLocal, horaLocal, situacaoAparelho } from "../painel.js";
 import { usePontoEletronico } from "../usePontoEletronico.js";
+import ConferenciaBatidas from "./ConferenciaBatidas.jsx";
 import BancoHorasView from "./BancoHorasView.jsx";
 import "./ponto-eletronico.css";
 
 const VAZIO = Object.freeze([]);
 const corDoTom = { ok: C.green, atencao: C.orange, critico: C.red, neutro: C.muted };
-const corSituacao = { em_jornada: C.blue, fechada: C.green, sem_batida: C.muted };
-const rotuloSituacao = { em_jornada: "Jornada em aberto", fechada: "Jornada fechada", sem_batida: "Sem batida recebida" };
-const FILTROS = [
-  { id: "todos", nome: "Todos" },
-  { id: "sem_batida", nome: "Sem batida recebida" },
-  { id: "conferir", nome: "A conferir" },
-  { id: "em_jornada", nome: "Em aberto" },
-];
 const FUSOS = {
   "America/Recife": "Recife (UTC−3)",
   "America/Sao_Paulo": "Brasília / São Paulo (UTC−3)",
@@ -26,12 +25,10 @@ const FUSOS = {
   "America/Rio_Branco": "Rio Branco (UTC−5)",
   "America/Noronha": "Fernando de Noronha (UTC−2)",
 };
-const normalizarBusca = valor => String(valor || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR");
 const diaLegivel = dia => String(dia || "").split("-").reverse().join("/");
 const instanteLegivel = iso => iso && Number.isFinite(Date.parse(iso))
   ? new Intl.DateTimeFormat("pt-BR", { timeZone: FUSO_OBRA, day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(iso))
   : "não informado";
-const pedeConferencia = batida => !batida.horaConfiavel || batida.relogioAlterado || batida.metodo === "encarregado";
 const quantidade = (valor, singular, plural) => `${valor} ${valor === 1 ? singular : plural}`;
 const rotuloRecurso = (recurso, resumo) => !recurso.success
   ? (recurso.error ? "Não disponível" : "Carregando…")
@@ -45,7 +42,7 @@ function EstadoRecurso({ recurso, nome }) {
     </div>
     <Btn v="ghost" onClick={() => recurso.refresh()} loading={recurso.loading ? "Tentando…" : false}>Tentar novamente</Btn>
   </div>;
-  if (!recurso.success) return <div className="pe-empty" role="status">Carregando {nome}…</div>;
+  if (!recurso.success) return <LoadingState label={nome}/>;
   return null;
 }
 
@@ -57,15 +54,13 @@ function abrirSecao(ref) {
   elemento.querySelector("summary")?.focus();
 }
 
-export default function PontoEletronicoView({ data, showToast, currentUser }) {
+export default function PontoEletronicoView({ data, showToast, currentUser, dispatchAttendanceCommand, onTab }) {
   const obras = useMemo(() => (data?.obras || []).filter(o => o?.id && o?.name), [data?.obras]);
   const [obraId, setObraId] = useState(() => [...obras]
     .map(o => ({ id: String(o.id), n: funcionariosDaObra(data?.employees, o.id).length }))
     .sort((a, b) => b.n - a.n)[0]?.id || "");
   const [dia, setDia] = useState(() => dataLocal(new Date().toISOString()));
   const [aba, setAba] = useState("batidas");
-  const [busca, setBusca] = useState("");
-  const [filtro, setFiltro] = useState("todos");
   const [somenteBioPendente, setSomenteBioPendente] = useState(true);
   const [pareamento, setPareamento] = useState(null);
   const [pinModal, setPinModal] = useState(null);
@@ -85,7 +80,7 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
   const podeFiscal = ["admin", "rh"].includes(currentUser?.role);
   const ocupado = Boolean(acaoEmCurso);
   const { recursos, refresh, refreshGlobais, refreshRecurso, carregando } = usePontoEletronico({
-    obraId, dia, podeGerir, scopeKey: `${currentUser?.id || ""}:${currentUser?.role || ""}`,
+    obraId, dia, podeGerir, todasObras:podeFiscal, scopeKey: `${currentUser?.id || ""}:${currentUser?.role || ""}`,
   });
   const dispositivos = recursos.dispositivos.data || VAZIO;
   const marcacoes = recursos.marcacoes.data || VAZIO;
@@ -100,7 +95,6 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
   const nomeUsuario = useMemo(() => new Map((data?.usuarios || []).map(u => [String(u.id), u.nome || u.email])), [data?.usuarios]);
   const nomeObra = useMemo(() => new Map(obras.map(o => [String(o.id), o.name])), [obras]);
   const nomeEstab = useMemo(() => new Map(estabelecimentos.map(e => [String(e.id), e.nome])), [estabelecimentos]);
-  const resumo = useMemo(() => resumoDoDia(marcacoes, funcionarios, funcionariosAtivos(data?.employees)), [marcacoes, funcionarios, data?.employees]);
   const acessosTerceiros = useMemo(() => marcacoes.filter(m => m.tipoRegistro === "acesso_terceiro"), [marcacoes]);
   const bioPorFuncionario = useMemo(() => new Map(biometrias.map(b => [String(b.employeeId), b])), [biometrias]);
   const semBiometria = funcionarios.filter(f => !bioPorFuncionario.has(String(f.id))).length;
@@ -109,18 +103,6 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
   const online = ativos.filter(d => situacaoAparelho(d).tom === "ok").length;
   const ultimoContato = ativos.map(d => d.ultimoContatoEm).filter(v => Number.isFinite(Date.parse(v))).sort((a, b) => Date.parse(b) - Date.parse(a))[0];
   const estabDaObra = estabelecimentos.find(e => (e.obras || []).some(id => String(id) === String(obraId))) || null;
-  const contagens = {
-    todos: resumo.length,
-    sem_batida: resumo.filter(l => l.situacao === "sem_batida").length,
-    conferir: resumo.filter(l => l.alertas > 0).length,
-    em_jornada: resumo.filter(l => l.situacao === "em_jornada").length,
-  };
-  const resumoFiltrado = useMemo(() => {
-    const termo = normalizarBusca(busca.trim());
-    return resumo.filter(l => (!termo || normalizarBusca(`${l.nome} ${l.funcao}`).includes(termo))
-      && (filtro === "todos" || (filtro === "conferir" ? l.alertas > 0 : l.situacao === filtro)));
-  }, [resumo, busca, filtro]);
-  const temAlertasVisiveis = resumoFiltrado.some(l => l.alertas > 0);
   const codigoExpirado = Boolean(pareamento?.codigo && Date.parse(pareamento.expiraEm) <= agoraMs);
   const nomeDaMarcacao = m => m.tipoRegistro === "acesso_terceiro"
     ? nomeTerceiro.get(String(m.terceiroId)) || "terceirizado"
@@ -277,12 +259,10 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
     (proxima === "batidas" ? batidasTabRef : bancoTabRef).current?.focus();
   };
 
-  if (!obras.length) return <div className="pe-page"><h1>Ponto eletrônico</h1><div className="pe-empty">Cadastre uma obra no MARCELL para parear o primeiro aparelho de ponto.</div></div>;
+  if (!obras.length) return <div className="pe-page"><PageHeader title="Ponto eletrônico" description="Registros recebidos do app Ponto de Obra."/><EmptyState title="Nenhuma obra disponível" description="Cadastre uma obra no MARCELL para parear o primeiro aparelho de ponto."/></div>;
 
   return <div className="pe-page">
-    <header className="pe-header">
-      <div className="pe-title-row"><h1>Ponto eletrônico</h1><Badge color={C.orange}>Em teste</Badge></div>
-      <p className="pe-description">Registros recebidos do app Ponto de Obra.</p>
+    <PageHeader className="pe-header" title="Ponto eletrônico" description="Registros recebidos do app Ponto de Obra." secondaryActions={<Badge color={C.orange}>Em teste</Badge>}>
       <details className="pe-context-help">
         <summary>Uso dos registros e situação formal</summary>
         <div className="pe-help-copy">
@@ -291,11 +271,11 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
             : <p>{recursos.estabelecimentos.error ? "Não foi possível consultar a situação formal. Tente atualizar os dados do estabelecimento fiscal." : "Consultando a situação formal…"}</p>}
         </div>
       </details>
-    </header>
+    </PageHeader>
 
     <div className="pe-tabs" role="tablist" aria-label="Consultas do ponto eletrônico" onKeyDown={navegarAbas}>
-      <button ref={batidasTabRef} id="pe-tab-batidas" type="button" role="tab" aria-selected={aba === "batidas"} aria-controls="pe-panel-batidas" tabIndex={aba === "batidas" ? 0 : -1} onClick={() => setAba("batidas")}>Batidas</button>
-      <button ref={bancoTabRef} id="pe-tab-banco" type="button" role="tab" aria-selected={aba === "banco"} aria-controls="pe-panel-banco" tabIndex={aba === "banco" ? 0 : -1} onClick={() => setAba("banco")}>Banco de horas</button>
+      <StandardButton variant="secondary" ref={batidasTabRef} id="pe-tab-batidas" type="button" role="tab" aria-selected={aba === "batidas"} aria-controls="pe-panel-batidas" tabIndex={aba === "batidas" ? 0 : -1} onClick={() => setAba("batidas")}>Batidas</StandardButton>
+      <StandardButton variant="secondary" ref={bancoTabRef} id="pe-tab-banco" type="button" role="tab" aria-selected={aba === "banco"} aria-controls="pe-panel-banco" tabIndex={aba === "banco" ? 0 : -1} onClick={() => setAba("banco")}>Banco de horas</StandardButton>
     </div>
 
     <div className="pe-context">
@@ -329,59 +309,16 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
         <div className="pe-actions"><Btn v="ghost" onClick={() => abrirSecao(aparelhosRef)}>Ver aparelhos</Btn>{recursos.estabelecimentos.success && !estabDaObra && <Btn v="ghost" onClick={() => abrirSecao(fiscalRef)}>Ver vínculo fiscal</Btn>}</div>
       </section>
 
-      <section className="pe-batidas" aria-labelledby="pe-batidas-heading" aria-busy={recursos.marcacoes.loading}>
-        <div className="pe-section-heading">
-          <h2 id="pe-batidas-heading">Batidas de {diaLegivel(dia)}</h2>
-          {recursos.marcacoes.success && <div className="pe-day-totals">
-            <span>Batidas recebidas: <strong>{marcacoes.filter(m => m.tipoRegistro === "ponto").length}</strong></span>
-            <span>Jornadas em aberto no dia: <strong>{contagens.em_jornada}</strong></span>
-          </div>}
-        </div>
-        <EstadoRecurso recurso={recursos.marcacoes} nome="as batidas deste dia" />
-        {recursos.marcacoes.success && <>
-          <div className="pe-filters">
-            <div className="pe-search"><Inp label="Buscar funcionário" type="search" value={busca} onChange={setBusca} placeholder="Nome ou função" /></div>
-            <div className="pe-filter-options" role="group" aria-label="Filtrar funcionários por situação">
-              {FILTROS.map(item => <button type="button" key={item.id} aria-pressed={filtro === item.id} onClick={() => setFiltro(item.id)} aria-label={`${item.nome}: ${quantidade(contagens[item.id], "funcionário", "funcionários")}`}>
-                {item.nome}<span className="pe-filter-count">{contagens[item.id]}</span>
-              </button>)}
-            </div>
-          </div>
-          <div className="pe-results-heading">
-            <p role="status">{resumoFiltrado.length} de {resumo.length} funcionários{busca.trim() ? ` · busca por “${busca.trim()}”` : ""}</p>
-            {(busca || filtro !== "todos") && <Btn v="ghost" onClick={() => { setBusca(""); setFiltro("todos"); }}>Limpar filtros</Btn>}
-          </div>
-          {!resumo.length ? <div className="pe-empty">Nenhum funcionário ativo lotado nesta obra e nenhuma batida de funcionário recebida neste dia.</div>
-            : !resumoFiltrado.length ? <div className="pe-empty"><strong>Nenhum funcionário neste filtro.</strong><p>Altere a busca ou limpe os filtros para ver a equipe.</p></div>
-              : <div className="pe-table-scroll"><table className="pe-table">
-                <caption className="pe-sr-only">Batidas recebidas na obra {nomeObra.get(String(obraId))} em {diaLegivel(dia)}. Horários de {FUSOS[FUSO_OBRA] || FUSO_OBRA}.</caption>
-                <thead><tr><th scope="col">Funcionário</th><th scope="col">Situação no dia</th><th scope="col">Batidas recebidas</th></tr></thead>
-                <tbody>{resumoFiltrado.map(l => <tr key={l.employeeId}>
-                  <th scope="row"><span className="pe-person-name">{l.nome}</span>{l.funcao && <span className="pe-person-meta">{l.funcao}</span>}{l.foraDaObra && <span className="pe-person-meta">Lotado em outra obra</span>}</th>
-                  <td data-label="Situação no dia"><Badge color={corSituacao[l.situacao]}>{rotuloSituacao[l.situacao]}</Badge></td>
-                  <td data-label="Batidas recebidas"><div className="pe-punches">
-                    {l.batidas.length ? l.batidas.map(b => {
-                      const atencao = pedeConferencia(b);
-                      const horario = horaLocal(b.marcadoEm).slice(0, 5);
-                      return <button key={b.id} type="button" className={`pe-punch${atencao ? " pe-punch--attention" : ""}`} onClick={() => abrirDetalhe(b)}
-                        aria-label={`Ver batida de ${l.nome} às ${horario} em ${diaLegivel(dia)}${atencao ? ", a conferir" : ""}`} aria-describedby={atencao ? "pe-legenda-alerta" : undefined}>
-                        {horario}{atencao && <span aria-hidden="true">!</span>}
-                      </button>;
-                    }) : <span className="pe-muted">Nenhuma recebida</span>}
-                  </div></td>
-                </tr>)}</tbody>
-              </table></div>}
-          {temAlertasVisiveis && <p id="pe-legenda-alerta" className="pe-legend"><strong>! A conferir:</strong> identificação pelo encarregado, hora não confirmada pelo servidor ou relógio do celular alterado. O sinal não invalida a batida.</p>}
-          <details className="pe-reading-help"><summary>Como ler as situações do dia</summary><div className="pe-help-copy">
-            <p>A tela organiza as batidas recebidas em pares: uma quantidade ímpar indica jornada em aberto no dia; uma quantidade par indica jornada fechada. Essa leitura não confirma se o funcionário está trabalhando agora.</p>
-            <p>“Sem batida recebida” significa que ainda não chegou uma marcação desse funcionário para esta obra e este dia. Confira a conexão do aparelho antes de concluir que faltou uma batida.</p>
-          </div></details>
+      <EstadoRecurso recurso={recursos.marcacoes} nome="as batidas deste dia" />
+      {recursos.marcacoes.success && <>
+        <ConferenciaBatidas key={`${obraId}-${dia}`} data={data} events={marcacoes} date={dia} obraId={obraId}
+          currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand} onTab={onTab}
+          abrirDetalhe={abrirDetalhe} showToast={showToast} disabled={recursos.marcacoes.loading || !!recursos.marcacoes.error}/>
           {!!acessosTerceiros.length && <details className="pe-thirdparty">
             <summary>Acessos de terceirizados ({acessosTerceiros.length})</summary>
-            <ul className="pe-simple-list">{acessosTerceiros.map(a => <li key={a.id}><span>{nomeDaMarcacao(a)}</span><button type="button" className="pe-punch" onClick={() => abrirDetalhe(a)} aria-label={`Ver acesso de ${nomeDaMarcacao(a)} às ${horaLocal(a.marcadoEm).slice(0, 5)}`}>{horaLocal(a.marcadoEm).slice(0, 5)}</button></li>)}</ul>
+            <ul className="pe-simple-list">{acessosTerceiros.map(a => <li key={a.id}><span>{nomeDaMarcacao(a)}</span><RecordAction type="button" className="pe-punch" onClick={() => abrirDetalhe(a)} aria-label={`Ver acesso de ${nomeDaMarcacao(a)} às ${horaLocal(a.marcadoEm).slice(0, 5)}`}>{horaLocal(a.marcadoEm).slice(0, 5)}</RecordAction></li>)}</ul>
           </details>}
-        </>}
-      </section>
+      </>}
 
       <section className="pe-settings" aria-labelledby="pe-settings-heading">
         <h2 id="pe-settings-heading">Configurações e cadastros</h2>
@@ -409,7 +346,7 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
             <p className="pe-muted">O rosto é cadastrado no aparelho da obra por um responsável com PIN, com o consentimento do funcionário (LGPD).</p>
             <EstadoRecurso recurso={recursos.biometrias} nome="os cadastros de biometria" />
             {recursos.biometrias.success && <>
-              <label className="pe-check"><input type="checkbox" checked={somenteBioPendente} onChange={event => setSomenteBioPendente(event.target.checked)} />Mostrar somente cadastros pendentes</label>
+              <label className="pe-check"><ChoiceControl type="checkbox" checked={somenteBioPendente} onChange={event => setSomenteBioPendente(event.target.checked)} />Mostrar somente cadastros pendentes</label>
               {!funcionariosBio.length ? <p className="pe-empty">{funcionarios.length ? "Todos os funcionários lotados nesta obra têm biometria cadastrada." : "Nenhum funcionário ativo lotado nesta obra."}</p>
                 : <div className="pe-record-list">{funcionariosBio.map(f => {
                   const b = bioPorFuncionario.get(String(f.id));
@@ -473,11 +410,11 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
       <form className="pe-form" onSubmit={event => { event.preventDefault(); salvarPin(); }}>
         {erroAcao && <p className="pe-inline-error" role="alert">{erroAcao}</p>}
         <Sel label="Responsável" value={pinModal.userId} disabled={ocupado} onChange={v => setPinModal(p => ({ ...p, userId: v }))} options={[{ v: "", l: "Selecione" }, ...(data?.usuarios || []).filter(u => u.active !== false).map(u => ({ v: String(u.id), l: u.nome || u.email }))]} />
-        <label className="arcd-field pe-native-field" htmlFor="pe-pin"><span>PIN do app</span><input id="pe-pin" className="arcd-field-control" type="password" inputMode="numeric" pattern="[0-9]{4,8}" minLength={4} maxLength={8} autoComplete="new-password" aria-describedby="pe-pin-hint" disabled={ocupado} value={pinModal.pin} onChange={event => setPinModal(p => ({ ...p, pin: event.target.value.replace(/\D/g, "").slice(0, 8) }))} /><small id="pe-pin-hint">Use de 4 a 8 números. Este PIN é exclusivo do app de ponto.</small></label>
+        <label className="arcd-field pe-native-field" htmlFor="pe-pin"><span>PIN do app</span><StandardInput id="pe-pin" className="arcd-field-control" type="password" inputMode="numeric" pattern="[0-9]{4,8}" minLength={4} maxLength={8} autoComplete="new-password" aria-describedby="pe-pin-hint" disabled={ocupado} value={pinModal.pin} onChange={event => setPinModal(p => ({ ...p, pin: event.target.value.replace(/\D/g, "").slice(0, 8) }))} /><small id="pe-pin-hint">Use de 4 a 8 números. Este PIN é exclusivo do app de ponto.</small></label>
         <fieldset className="pe-scope"><legend>Obras em que pode atuar</legend>
-          <label className="pe-check"><input type="radio" name="pe-pin-scope" value="todas" checked={pinModal.escopo === "todas"} disabled={ocupado} onChange={() => setPinModal(p => ({ ...p, escopo: "todas" }))} />Todas as obras</label>
-          <label className="pe-check"><input type="radio" name="pe-pin-scope" value="selecionadas" checked={pinModal.escopo === "selecionadas"} disabled={ocupado} onChange={() => setPinModal(p => ({ ...p, escopo: "selecionadas" }))} />Somente as obras selecionadas</label>
-          {pinModal.escopo === "selecionadas" && <div className="pe-work-options">{obras.map(o => <label key={o.id} className="pe-check"><input type="checkbox" checked={pinModal.obras.includes(String(o.id))} disabled={ocupado} onChange={event => setPinModal(p => ({ ...p, obras: event.target.checked ? [...p.obras, String(o.id)] : p.obras.filter(id => id !== String(o.id)) }))} />{o.name}</label>)}{!pinModal.obras.length && <p className="pe-warning" role="status">Selecione pelo menos uma obra ou escolha “Todas as obras”.</p>}</div>}
+          <label className="pe-check"><ChoiceControl type="radio" name="pe-pin-scope" value="todas" checked={pinModal.escopo === "todas"} disabled={ocupado} onChange={() => setPinModal(p => ({ ...p, escopo: "todas" }))} />Todas as obras</label>
+          <label className="pe-check"><ChoiceControl type="radio" name="pe-pin-scope" value="selecionadas" checked={pinModal.escopo === "selecionadas"} disabled={ocupado} onChange={() => setPinModal(p => ({ ...p, escopo: "selecionadas" }))} />Somente as obras selecionadas</label>
+          {pinModal.escopo === "selecionadas" && <div className="pe-work-options">{obras.map(o => <label key={o.id} className="pe-check"><ChoiceControl type="checkbox" checked={pinModal.obras.includes(String(o.id))} disabled={ocupado} onChange={event => setPinModal(p => ({ ...p, obras: event.target.checked ? [...p.obras, String(o.id)] : p.obras.filter(id => id !== String(o.id)) }))} />{o.name}</label>)}{!pinModal.obras.length && <p className="pe-warning" role="status">Selecione pelo menos uma obra ou escolha “Todas as obras”.</p>}</div>}
         </fieldset>
         <Btn type="submit" disabled={ocupado || !pinModal.userId || pinModal.pin.length < 4 || (pinModal.escopo === "selecionadas" && !pinModal.obras.length)} loading={acaoEmCurso === "pin" ? "Salvando PIN…" : false}>Salvar PIN</Btn>
       </form>
@@ -492,16 +429,16 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
         {estabModal.tipoInscricao && <Inp label={`Número do ${estabModal.tipoInscricao.toUpperCase()}`} value={estabModal.numeroInscricao || ""} disabled={ocupado} onChange={v => setEstabModal(e => ({ ...e, numeroInscricao: v }))} />}
         <Inp label="CNO (12 dígitos)" value={estabModal.cno || ""} disabled={ocupado} onChange={v => setEstabModal(e => ({ ...e, cno: v }))} />
         <Inp label="CAEPF (14 dígitos)" value={estabModal.caepf || ""} disabled={ocupado} onChange={v => setEstabModal(e => ({ ...e, caepf: v }))} />
-        <label className="arcd-field pe-native-field" htmlFor="pe-timezone"><span>Fuso horário</span><input id="pe-timezone" className="arcd-field-control" type="text" list="pe-timezones" aria-describedby="pe-timezone-hint" value={estabModal.timezone ?? "America/Recife"} disabled={ocupado} onChange={event => setEstabModal(e => ({ ...e, timezone: event.target.value }))} /><small id="pe-timezone-hint">{FUSOS[estabModal.timezone] || "Use um fuso IANA, como America/Recife."}</small></label>
+        <label className="arcd-field pe-native-field" htmlFor="pe-timezone"><span>Fuso horário</span><StandardInput id="pe-timezone" className="arcd-field-control" type="text" list="pe-timezones" aria-describedby="pe-timezone-hint" value={estabModal.timezone ?? "America/Recife"} disabled={ocupado} onChange={event => setEstabModal(e => ({ ...e, timezone: event.target.value }))} /><small id="pe-timezone-hint">{FUSOS[estabModal.timezone] || "Use um fuso IANA, como America/Recife."}</small></label>
         <datalist id="pe-timezones">{Object.entries(FUSOS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</datalist>
-        {!estabModal.id && <label className="pe-check"><input type="checkbox" checked={Boolean(estabModal.vincular)} disabled={ocupado} onChange={event => setEstabModal(e => ({ ...e, vincular: event.target.checked }))} />Vincular a obra {estabModal.obraNome} a este estabelecimento</label>}
+        {!estabModal.id && <label className="pe-check"><ChoiceControl type="checkbox" checked={Boolean(estabModal.vincular)} disabled={ocupado} onChange={event => setEstabModal(e => ({ ...e, vincular: event.target.checked }))} />Vincular a obra {estabModal.obraNome} a este estabelecimento</label>}
         <Btn type="submit" disabled={ocupado || !String(estabModal.nome || "").trim()} loading={acaoEmCurso === "estabelecimento" ? "Salvando…" : false}>Salvar estabelecimento</Btn>
       </form>
     </Modal>}
 
     {detalhe && <Modal title={`${detalhe.marcacao.tipoRegistro === "acesso_terceiro" ? "Acesso" : "Batida"} de ${nomeDaMarcacao(detalhe.marcacao)}`} panelClass="pe-modal" onClose={fecharDetalhe}>
       <div className="pe-detail">
-        {detalhe.carregandoFoto ? <p className="pe-muted" role="status">Carregando foto…</p>
+        {detalhe.carregandoFoto ? <LoadingState label="foto"/>
           : detalhe.fotoUrl ? <img src={detalhe.fotoUrl} alt={`Foto registrada na ${detalhe.marcacao.tipoRegistro === "acesso_terceiro" ? "entrada" : "batida"} de ${nomeDaMarcacao(detalhe.marcacao)}`} className="pe-photo" />
             : <div><p className={detalhe.erroFoto ? "pe-warning" : "pe-muted"}>{detalhe.erroFoto || "Sem foto neste registro."}</p>{detalhe.erroFoto && <Btn v="ghost" onClick={() => abrirDetalhe(detalhe.marcacao)}>Tentar carregar a foto novamente</Btn>}</div>}
         <dl><div><dt>Horário</dt><dd>{diaLegivel(dataLocal(detalhe.marcacao.marcadoEm))} {horaLocal(detalhe.marcacao.marcadoEm)} · {FUSOS[FUSO_OBRA] || FUSO_OBRA}</dd></div>

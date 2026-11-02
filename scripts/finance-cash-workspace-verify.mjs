@@ -1,0 +1,34 @@
+import {chromium,expect} from '@playwright/test';
+import {mkdir,writeFile} from 'node:fs/promises';
+import {selectFinanceArea} from './finance-browser-navigation.mjs';
+const user={id:'cash-workspace-qa',nome:'QA',email:'cash-workspace@local.test',role:'admin',active:true};
+const data={usuarios:[user],obras:[],config:{},employees:[],attendance:{},extratos:[{id:'s',banco:'Banco Intermedium S/A',conta:'000009896',arquivo:'Extrato QA.ofx',status:'ativo',importadoEm:'2026-08-17T14:00:00Z'}],transacoes:Array.from({length:925},(_,i)=>({id:`t${i}`,extratoId:'s',data:'2026-08-15',valor:1,status:i<56?'conciliado':i<132?'ignorado':'pendente',descricao:`Movimento QA ${String(i).padStart(4,'0')}`}))};
+const original=JSON.stringify(data),output='artifacts/financeiro/caixa-operacional';await mkdir(output,{recursive:true});
+const browser=await chromium.launch({headless:true}),checks=[],errors=[];
+try{for(const width of [1440,390]){
+ const page=await browser.newPage({viewport:{width,height:1000}});let writes=0;
+ page.on('pageerror',error=>errors.push(error.message));await page.clock.setFixedTime(new Date('2026-10-31T12:00:00-03:00'));
+ await page.route('https://**/*',r=>r.abort());await page.route('http://127.0.0.1:4203/**',r=>r.abort());
+ await page.route('**/api/**',r=>{const body=r.request().postDataJSON()||{};if(['save','save-sections','financial-command','operational-command'].includes(body.action))writes++;
+  return r.fulfill({json:body.action==='status'?{ok:true,connected:true,localReview:true,readOnly:true}:body.action==='profiles'?{usuarios:[user],precisaSetup:false}:{ok:true,items:[],bases:[],accessToken:'isolated-workspace',refreshToken:'isolated-workspace',usuario:user,data:structuredClone(data),updatedAt:new Date().toISOString()}});
+ });
+ await page.goto('http://127.0.0.1:4192/?local-review=account-cash&account-preview=9896');await page.locator('#login-email').fill(user.email);await page.locator('#login-senha').fill('isolated');await page.getByRole('button',{name:'Acessar central MARCELL'}).click();
+ const workspace=page.locator('.cash-workspace');await expect(workspace.getByRole('heading',{name:'Caixa por conta',exact:true})).toBeVisible({timeout:15000});
+ await expect(workspace.getByRole('region',{name:'Atualização bancária'})).toContainText('15/08/2026');await expect(workspace.getByRole('region',{name:'Atualização bancária'})).toContainText('17/08/2026');
+ await expect(workspace.getByText(/cobertura bancária após essa data não está comprovada/)).toBeVisible();
+ for(const input of await workspace.locator('.account-cash input').all())await expect(input).toHaveValue('');
+ await workspace.getByRole('button',{name:'Revisar 925 movimentos',exact:true}).click();const dialog=page.getByRole('dialog');
+ await expect(dialog.locator('.dre-memorial__entry')).toHaveCount(50);await expect(dialog.locator('.dre-memorial__body')).toHaveCount(0);await expect(dialog.getByText(/Total do conjunto:/)).toContainText('925,00');
+ const nodes=await dialog.evaluate(element=>element.querySelectorAll('*').length);
+ await dialog.getByRole('button',{name:'Próxima página',exact:true}).click();await expect(dialog.getByRole('status')).toContainText('Página 2 de 19');
+ await dialog.getByLabel('Pesquisar lançamento, obra ou documento').fill('0924');await expect(dialog.locator('.dre-memorial__entry')).toHaveCount(1);await expect(dialog.getByRole('status')).toContainText('Subtotal da busca: R$');await expect(dialog.getByRole('status')).toContainText('1,00');await expect(dialog.getByText(/Total do conjunto:/)).toContainText('925,00');
+ await dialog.locator('.dre-memorial__entry>summary').click();await expect(dialog.locator('.dre-memorial__body')).toHaveCount(1);
+ await dialog.screenshot({path:`${output}/memorial-busca-${width}.png`});await page.keyboard.press('Escape');
+ await workspace.getByText('Previsão por vencimentos',{exact:true}).click();await workspace.getByLabel('Horizonte',{exact:true}).selectOption('7');await workspace.getByLabel('Saldo inicial da simulação (R$)',{exact:true}).fill('1500');
+ await selectFinanceArea(page,'Visão financeira');await expect(page.locator('.cash-workspace')).toHaveCount(0);await expect(page.locator('.cash-forecast')).toHaveCount(0);
+ await selectFinanceArea(page,'Caixa por conta');await expect(workspace.getByLabel('Horizonte',{exact:true})).toHaveValue('7');await expect(workspace.getByLabel('Saldo inicial da simulação (R$)',{exact:true})).toHaveValue('1500');
+ for(const input of await workspace.locator('.account-cash input').all())await expect(input).toHaveValue('');
+ await workspace.getByRole('heading',{name:'Caixa por conta',exact:true}).scrollIntoViewIfNeeded();await page.screenshot({path:`${output}/caixa-${width}.png`});
+ expect(writes).toBe(0);expect(JSON.stringify(data)).toBe(original);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ checks.push({width,pageSize:50,initialDetailPanels:0,memorialNodes:nodes,searchesAll925:true,subtotalDistinct:true,basePreserved:true,writes});await page.close();
+}expect(errors).toEqual([]);await writeFile(`${output}/verificacao.json`,JSON.stringify({checks,errors},null,2));console.log(JSON.stringify({checks,errors}));}finally{await browser.close();}

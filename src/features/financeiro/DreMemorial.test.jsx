@@ -24,3 +24,8 @@ it("não cria links executáveis ou de arquivos locais",()=>{
   for(const value of ["javascript:alert(1)","data:text/html,hi","file:///C:/secret","//example.com"]){expect(safeDocumentUrl(value)).toBeNull();}
   expect(safeDocumentUrl("https://example.com/nf.pdf")).toBe("https://example.com/nf.pdf");
 });
+it('usa o arquivo protegido do provedor também nos links do memorial',()=>{
+ const url='/api/microsoft/onedrive?action=file&driveId=a&itemId=b&sig=c';
+ expect(safeDocumentUrl(url)).toBe(url);
+ expect(safeDocumentUrl('https://user:secret@example.com/nota.pdf')).toBeNull();
+});

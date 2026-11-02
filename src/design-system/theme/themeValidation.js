@@ -1,6 +1,6 @@
 import { DEFAULT_THEME, enabledThemeIds } from "../themes/themeRegistry.js";
 
-export const DEFAULT_DENSITY = "comfortable";
+export const DEFAULT_DENSITY = "compact";
 export const densityOptions = Object.freeze(["compact", "comfortable", "spacious"]);
 const REQUIRED_THEME_TOKENS = Object.freeze([
   "--arcd-surface-page", "--arcd-surface-card", "--arcd-surface-muted",

@@ -3,9 +3,11 @@
 // O pagamento de um pedido fica coberto até o que já foi conferido: o menor
 // valor entre o material recebido e as notas fiscais lançadas para o pedido,
 // mais uma tolerância. Acima disso é adiantamento: permitido (sinal é comum
-// em obra), mas com motivo e só por quem responde pelo caixa da empresa.
+// em obra), com avisos e motivo recomendado. As permissões são da fronteira
+// de comando, sem nova trava de aprovação neste cálculo.
 import { analyzePurchaseThreeWayMatch } from "../financeiro/workflows.js";
 import { active, toCents } from "../financeiro/ledger.js";
+import {operationalWarning} from './workflow-advisories.js';
 
 export const TOLERANCIA_CONFERENCIA_PADRAO=Object.freeze({percentual:2,valor:50});
 export const PAPEIS_ADIANTAMENTO_COMPRA=Object.freeze(["admin","financeiro"]);
@@ -42,15 +44,10 @@ export const avaliarPagamentoPedido=(data,{pedidoId,valor,adiantamento,motivo,ac
   const conferencia=conferenciaPagamentoPedido(data,pedidoId);
   if(!conferencia)return {error:"Pedido não encontrado."};
   const valorCents=toCents(valor);
-  if(valorCents<=conferencia.liberadoCents)return {campos:{tipo:"conferido"},conferencia};
+  if(valorCents<=conferencia.liberadoCents)return {campos:{tipo:"conferido",workflowWarnings:[]},conferencia,warnings:[]};
   const justificativa=String(motivo||"").trim();
-  if(adiantamento!==true||!justificativa){
-    const liberado=(conferencia.liberadoCents/100).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
-    return {error:`Pagamento acima do conferido (recebido e com nota): só ${liberado} está liberado. Para pagar antes, marque como adiantamento e informe o motivo.`,conferencia};
-  }
-  if(!PAPEIS_ADIANTAMENTO_COMPRA.includes(String(actorRole||""))){
-    return {error:"Adiantamento de compra só pode ser registrado pelo Financeiro ou pelo Administrador.",conferencia};
-  }
+  const warnings=[operationalWarning('PAYMENT_AHEAD_OF_CONFERENCE','pagamento','Financeiro','Pagamento anterior à conferência completa de entrega e nota.','Confira o adiantamento e regularize a entrega e o documento fiscal; a pendência não impede o registro.')];
+  if(!justificativa)warnings.push(operationalWarning('ADVANCE_REASON_MISSING','pagamento','Responsável pelo pagamento','O adiantamento está sem motivo informado.','Complete a observação do pagamento para explicar a antecipação.'));
   return {campos:{tipo:"adiantamento",motivoAdiantamento:justificativa,
-    conferidoNoPagamentoCents:conferencia.conferidoCents},conferencia};
+    conferidoNoPagamentoCents:conferencia.conferidoCents,workflowWarnings:warnings},conferencia,warnings};
 };

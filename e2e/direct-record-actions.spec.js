@@ -1,0 +1,40 @@
+import {test,expect} from '@playwright/test';
+import {data as fixture,profile} from '../scripts/fixtures/workflow-priorities-data.mjs';
+
+async function enter(page,screen,{role=profile.role}={}){
+ const data=structuredClone(fixture),actor={...profile,role};data.usuarios=[actor];
+ data.employees=[{...data.employees[0],id:'person',name:'Pessoa do ponto QA',role:'Pedreiro',obra:data.obras[0].id,active:true,startDate:'2026-01-01'}];
+ data.attendance={person:{'2026-11-01':{status:'AT',obraId:data.obras[0].id}}};
+ const writes=[],errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.clock.setFixedTime(new Date('2026-11-01T12:00:00-03:00'));
+ await page.addInitScript(({id,screen})=>{sessionStorage.setItem(`arcd-section:${id}`,screen);localStorage.setItem('arcd-theme','operacional');},{id:actor.id,screen});
+ await page.route('https://**/*',r=>r.abort());
+ await page.route('**/api/**',r=>r.fulfill({json:{ok:true,items:[],bases:[],presencas:[],connected:false}}));
+ await page.route('**/api/data',r=>{const body=r.request().postDataJSON()||{};if(['operational-command','save'].includes(body.action))writes.push(body);return r.fulfill({json:{ok:true,usuarios:[actor],usuario:actor,precisaSetup:false,data,accessToken:'local',refreshToken:'local',updatedAt:'2026-11-01T15:00:00Z'}});});
+ await page.goto('/');await page.locator('#login-email').fill(actor.email);await page.locator('#login-senha').fill('local');await page.getByRole('button',{name:'Acessar central MARCELL'}).click();await expect(page.locator('.arcd-main')).toBeVisible();
+ return {check:async()=>{expect(errors).toEqual([]);expect(writes).toEqual([]);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);}};
+}
+
+test('Frota: nome abre cadastro, ações operacionais ficam diretas e excluir pede confirmação',async({page},info)=>{
+ const app=await enter(page,'equip');const card=page.locator('.equipment-fleet-card').first();await expect(card).toBeVisible();await expect(card.getByRole('button',{name:'Editar',exact:true})).toHaveCount(0);await expect(card.getByRole('button',{name:'Excluir',exact:true})).toHaveCount(0);
+ for(const [action,title] of [['Locar','Nova locação'],['Transferir','Transferir equipamento'],['Manutenção','Nova manutenção']]){await card.getByRole('button',{name:action,exact:true}).click();const dialog=page.getByRole('dialog',{name:title,exact:true});await expect(dialog).toBeVisible();await dialog.getByRole('button',{name:'Fechar',exact:true}).click();}
+ const name=card.getByRole('button',{name:/^Abrir cadastro de/});await name.focus();await name.press('Enter');const dialog=page.getByRole('dialog',{name:'Editar equipamento',exact:true});await expect(dialog).toBeVisible();await dialog.getByRole('button',{name:'Excluir equipamento',exact:true}).click();const confirmation=page.getByRole('dialog').last();await expect(confirmation).toContainText('Excluir');await confirmation.getByRole('button',{name:'Cancelar',exact:true}).click();await dialog.getByRole('button',{name:'Fechar',exact:true}).click();await page.screenshot({path:info.outputPath('frota.png'),animations:'disabled'});await app.check();
+});
+
+test('Patrimônio: Mover direto, nome abre cadastro e menu conserva histórico',async({page},info)=>{
+ const app=await enter(page,'patrimonio');const row=page.locator('.patrimonio-lista__linha').first();await expect(row.getByRole('button',{name:'Editar',exact:true})).toHaveCount(0);await row.getByRole('button',{name:'Mover',exact:true}).click();const move=page.getByRole('dialog',{name:'Movimentar patrimônio',exact:true});await expect(move.getByLabel('Local atual',{exact:true})).toHaveValue('Escritório de engenharia');await move.getByLabel('Local atual',{exact:true}).fill('Local ainda não salvo');await move.getByRole('button',{name:'Cancelar',exact:true}).click();await expect(row).toContainText('Escritório de engenharia');await row.getByRole('button',{name:/^Abrir cadastro de/}).click();await expect(page.getByRole('dialog',{name:'Editar patrimônio',exact:true})).toBeVisible();await page.getByRole('dialog').getByRole('button',{name:'Fechar',exact:true}).click();const more=row.getByRole('button',{name:/^Mais ações de/});await more.click();await expect(page.getByRole('menuitem',{name:'Mover…',exact:true})).toHaveCount(0);await page.getByRole('menuitem',{name:'Histórico',exact:true}).click();await expect(page.getByRole('dialog')).toContainText('Sem eventos registrados.');await page.getByRole('dialog').getByRole('button',{name:'Fechar',exact:true}).click();await more.click();await page.keyboard.press('Escape');await expect(more).toBeFocused();await page.screenshot({path:info.outputPath('patrimonio.png'),animations:'disabled'});await app.check();
+});
+
+test('Licenciamento: cada edição identifica sua exigência e abre o item correto',async({page},info)=>{
+ const app=await enter(page,'licenca');const edits=page.getByRole('button',{name:/^Editar exigência:/});await expect(edits.first()).toBeVisible();expect(await edits.count()).toBeGreaterThan(0);const first=edits.first(),label=await first.getAttribute('aria-label');await expect(first).toHaveAttribute('title',label);await first.click();await expect(page.getByRole('dialog',{name:label.replace('Editar exigência: ',''),exact:true})).toBeVisible();await page.getByRole('dialog').getByRole('button',{name:'Fechar',exact:true}).click();if(page.viewportSize().width<768){const content=first.locator('xpath=../..').locator(':scope > div').first();expect((await content.boundingBox()).width).toBeGreaterThan(250);}await first.scrollIntoViewIfNeeded();await page.screenshot({path:info.outputPath('licenciamento.png'),animations:'disabled'});await app.check();
+});
+
+test('Ponto por obra: movimentações diretas e situação excepcional identificada',async({page},info)=>{
+ const app=await enter(page,'ponto');const card=page.locator('.obra-attendance-card').first();await expect(card.locator('.obra-attendance-card__details')).toHaveCount(0);await expect(card.locator('.obra-attendance-card__badges')).toContainText('Atestado');await expect(page.locator('.obra-attendance__summary-item[data-tone=neutral] .obra-attendance__summary-value')).toHaveText('0');await expect(card.getByRole('button',{name:'Atestado',exact:true})).toHaveCount(0);
+ await card.getByRole('button',{name:'Desligar',exact:true}).click();const dialog=page.getByRole('dialog',{name:'Registrar desligamento',exact:true});await expect(dialog.getByLabel('Último dia trabalhado *',{exact:true})).toBeVisible();await expect(dialog.getByRole('button',{name:'Confirmar desligamento',exact:true})).toBeVisible();await dialog.getByRole('button',{name:'Cancelar',exact:true}).click();await card.getByRole('button',{name:'Transferir',exact:true}).click();await expect(page.getByRole('dialog',{name:'Transferir trabalhador',exact:true})).toBeVisible();await page.getByRole('dialog').getByRole('button',{name:'Cancelar',exact:true}).click();
+ await card.getByRole('button',{name:'Mais opções',exact:true}).click();await expect(card.getByRole('button',{name:'Atestado',exact:true})).toHaveAttribute('aria-pressed','true');for(const label of ['Férias','Folga','Jornada','Hora extra','Observação','Função do dia'])await expect(card.getByRole('button',{name:label,exact:true})).toBeVisible();await card.getByRole('button',{name:'Menos opções',exact:true}).click();await expect(card.locator('.obra-attendance-card__badges')).toContainText('Atestado');await page.screenshot({path:info.outputPath('ponto.png'),animations:'disabled'});await app.check();
+});
+
+test('Ponto por obra: Engenharia mantém apontamento sem ações de desligamento',async({page})=>{
+ const app=await enter(page,'ponto',{role:'engenheiro'});const card=page.locator('.obra-attendance-card').first();await expect(card).toBeVisible();await expect(card.getByRole('button',{name:'Desligar',exact:true})).toHaveCount(0);await expect(card.getByRole('button',{name:'Transferir',exact:true})).toHaveCount(0);for(const label of ['Presente','Meio dia','Falta'])await expect(card.getByRole('button',{name:label,exact:true})).toBeVisible();await app.check();
+});

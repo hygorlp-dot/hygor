@@ -73,12 +73,29 @@
 // chunk e de mídia permanecem iguais.
 // 30/10/2026: painel "Suas obras hoje" (gestão à vista) no Painel inicial,
 // +3,6 KB gzip medidos (2,5 KB JS + 0,8 KB CSS). Teto +4 KiB.
+// Conferência RH e escala de 44h: margem adicional de 4 KiB para o novo fluxo.
+// Limites individuais preservados; validar o total após juntar a main.
+// 02/11/2026: consolidação de previsões já publicadas + indicadores contábeis
+// sobre a interface vigente IBM Plex Sans. Medido: 1.887.889 bytes gzip.
+// Total 1845 KiB; somente o núcleo operacional financeiro recebe teto 204 KiB
+// (207.545 bytes medidos). Demais chunks, mídia e baseline visual preservados.
 export const BUNDLE_BUDGETS = Object.freeze({
-  totalGzipBytes: 1_748 * 1024,
+  // 31/10/2026: versão consolidada com leitor PDF carregado sob demanda,
+  // financeiro operacional e projetos de engenharia. Medição de produção:
+  // 1.806,50 KiB gzip no conjunto de chunks. Acréscimo limitado a 64 KiB;
+  // limites individuais e de mídia permanecem preservados.
+  // 31/10/2026: ExcelJS modular e dependências compartilhadas permitem
+  // restabelecer o teto anterior à consolidação (build: 1.767.928 bytes).
+  // 02/11/2026: consolidação preserva Minha equipe, com permissões em abas,
+  // e Financeiro completo por obra, com memoriais e exportações. Custo medido
+  // do conjunto: cerca de 9,5 KiB gzip sobre 8bfa833d; ajuste de 12 KiB.
+  // Limites individuais, mídia e baseline de design permanecem inalterados.
+  totalGzipBytes: 1_845 * 1024,
   genericJavaScriptGzipBytes: 200 * 1024,
   staticMediaTotalBytes: 4 * 1024 * 1024,
   genericStaticMediaBytes: 1 * 1024 * 1024,
   chunks: [
+    { label: "financial-operational-core", pattern: /^fi-.*\.js$/, maxGzipBytes: 204 * 1024 },
     { label: "LegacyApp", pattern: /^LegacyApp-.*\.js$/, maxGzipBytes: 570 * 1024 },
     // Exceção temporária registrada: planilhas ainda dependem de exceljs.
     { label: "spreadsheet-tools", pattern: /^spreadsheet-tools-.*\.js$/, maxGzipBytes: 275 * 1024 },

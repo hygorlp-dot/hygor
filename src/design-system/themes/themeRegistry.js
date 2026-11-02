@@ -1,3 +1,77 @@
+import {foundationTokens} from '../foundations.js';
 export const DEFAULT_THEME = "marcell";
-export const themeRegistry = Object.freeze({marcell:Object.freeze({id:"marcell",label:"MARCELL",description:"Azul-marinho, ouro acetinado e areia. Identidade oficial MARCELL.",enabled:true})});
+
+// Themes change semantic roles. Components never need to know a theme's ID.
+const shared = Object.freeze({
+  ...foundationTokens,
+  "--arcd-font-sans":"'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif",
+  "--arcd-nav-focus":"#235bb0",
+  "--arcd-surface-card":"#ffffff", "--arcd-surface-elevated":"#ffffff",
+  "--arcd-action-primary-text":"#ffffff", "--arcd-text-inverse":"#ffffff",
+  "--arcd-success-text":"#24634b", "--arcd-success-surface":"#edf7f1", "--arcd-success-border":"#8cbba0",
+  "--arcd-warning-text":"#805517", "--arcd-warning-surface":"#fff7e8", "--arcd-warning-border":"#d8b36f",
+  "--arcd-danger-text":"#a2323b", "--arcd-danger-surface":"#fff0f1", "--arcd-danger-border":"#d8949b",
+  "--arcd-info-text":"#285c91", "--arcd-info-surface":"#eef5fc", "--arcd-info-border":"#94b7dd",
+  "--arcd-neutral-text":"#526174", "--arcd-neutral-surface":"#f0f2f5", "--arcd-neutral-border":"#dce1e7",
+  "--arcd-radius-control":".375rem", "--arcd-radius-lg":".5rem",
+  "--arcd-workspace-header-surface":"transparent", "--arcd-workspace-header-padding":"0",
+  "--arcd-workspace-nav-surface":"transparent", "--arcd-workspace-nav-padding":".25rem 0 .75rem",
+  "--arcd-workspace-tab-surface":"var(--arcd-surface-card)", "--arcd-workspace-tab-border":"var(--arcd-border-default)",
+  "--arcd-workspace-tab-active-surface":"var(--arcd-action-primary-subtle)", "--arcd-workspace-tab-active-border":"var(--arcd-action-primary)",
+  "--arcd-workspace-count-radius":"9999px", "--arcd-heading-weight":"600", "--arcd-table-header-weight":"400",
+  "--arcd-secondary-button-text":"var(--arcd-text-primary)", "--arcd-secondary-button-border":"var(--arcd-border-strong)",
+  "--arcd-shell-toolbar-surface":"var(--arcd-surface-card)",
+  "--arcd-group-tab-flex":"1 1 auto", "--arcd-table-stripe-surface":"#f3f0e9",
+  "--arcd-purchase-mobile-metrics-columns":"repeat(3,minmax(0,1fr))", "--arcd-purchase-fourth-metric-display":"none",
+  "--arcd-toolbar-surface":"transparent", "--arcd-toolbar-padding":"0",
+  "--arcd-mini-kpi-border-width":"3px",
+});
+const theme = (id,label,description,tokens) => Object.freeze({id,label,description,enabled:true,tokens:Object.freeze({...shared,...tokens})});
+export const themeRegistry = Object.freeze({
+  operacional:theme("operacional","MARCELL Operacional","Faixas claras, hierarquia de trabalho e ações em azul, com referência SAP.",{
+    "--arcd-surface-page":"#f5f6f7", "--arcd-surface-muted":"#eaecee", "--arcd-surface-subtle":"#f5f6f7",
+    "--arcd-surface-inverse":"#223548", "--arcd-surface-overlay":"rgb(34 53 72 / 44%)",
+    "--arcd-text-primary":"#223548", "--arcd-text-secondary":"#354a5f", "--arcd-text-muted":"#475e75",
+    "--arcd-border-subtle":"#eaecee", "--arcd-border-default":"#d5dadd", "--arcd-border-strong":"#788fa5",
+    "--arcd-action-primary":"#0057d2", "--arcd-action-primary-hover":"#0040b0", "--arcd-action-primary-active":"#022879",
+    "--arcd-action-primary-subtle":"#ebf8ff", "--arcd-focus-ring":"#0057d2",
+    "--arcd-nav-surface":"#ffffff", "--arcd-nav-text":"#354a5f", "--arcd-nav-active-text":"#0040b0",
+    "--arcd-nav-active-surface":"#ebf8ff", "--arcd-nav-hover-surface":"#f5f6f7", "--arcd-nav-hover-text":"#223548",
+    "--arcd-nav-border":"#d5dadd", "--arcd-nav-brand-text":"#0d1b2e",
+    "--arcd-radius-control":".5rem", "--arcd-radius-lg":".75rem",
+    "--arcd-workspace-header-surface":"#ffffff", "--arcd-workspace-header-padding":"1rem",
+    "--arcd-workspace-nav-surface":"#ffffff", "--arcd-workspace-nav-padding":".5rem 1rem",
+    "--arcd-workspace-tab-surface":"transparent", "--arcd-workspace-tab-border":"transparent",
+    "--arcd-workspace-tab-active-surface":"transparent", "--arcd-workspace-tab-active-border":"transparent",
+    "--arcd-workspace-count-radius":".25rem", "--arcd-heading-weight":"600", "--arcd-table-header-weight":"500",
+    "--arcd-secondary-button-text":"#0040b0", "--arcd-secondary-button-border":"#788fa5",
+    "--arcd-shell-toolbar-surface":"#f5f6f7",
+    "--arcd-group-tab-flex":"0 1 auto", "--arcd-table-stripe-surface":"#f5f6f7",
+    "--arcd-purchase-mobile-metrics-columns":"repeat(2,minmax(0,1fr))", "--arcd-purchase-fourth-metric-display":"flex",
+    "--arcd-toolbar-surface":"#ffffff", "--arcd-toolbar-padding":"1rem",
+    "--arcd-mini-kpi-border-width":"1px",
+  }),
+  saas:theme("saas","MARCELL Claro","Navegação clara, superfícies neutras e ações em azul.",{
+    "--arcd-surface-page":"#f6f7f9", "--arcd-surface-muted":"#f0f2f5", "--arcd-surface-subtle":"#f8f9fb",
+    "--arcd-surface-inverse":"#202c3d", "--arcd-surface-overlay":"rgb(21 32 48 / 44%)",
+    "--arcd-text-primary":"#202c3d", "--arcd-text-secondary":"#526174", "--arcd-text-muted":"#607086",
+    "--arcd-border-subtle":"#e9edf2", "--arcd-border-default":"#dce1e7", "--arcd-border-strong":"#8995a5",
+    "--arcd-action-primary":"#235bb0", "--arcd-action-primary-hover":"#19498e", "--arcd-action-primary-active":"#143b74",
+    "--arcd-action-primary-subtle":"#edf3fc", "--arcd-focus-ring":"#235bb0",
+    "--arcd-nav-surface":"#ffffff", "--arcd-nav-text":"#526174", "--arcd-nav-active-text":"#19498e",
+    "--arcd-nav-active-surface":"#edf3fc", "--arcd-nav-hover-surface":"#f0f2f5", "--arcd-nav-hover-text":"#202c3d",
+    "--arcd-nav-border":"#e4e8ee", "--arcd-nav-brand-text":"#0d1b2e",
+  }),
+  marcell:theme("marcell","MARCELL Preciso","Menu azul-marinho e ações em azul.",{
+    "--arcd-surface-page":"#f5f6f8", "--arcd-surface-muted":"#edf0f4", "--arcd-surface-subtle":"#f5f6f8",
+    "--arcd-surface-inverse":"#0d1b2e", "--arcd-surface-overlay":"rgb(13 27 46 / 56%)",
+    "--arcd-text-primary":"#0d1b2e", "--arcd-text-secondary":"#536171", "--arcd-text-muted":"#637081",
+    "--arcd-border-subtle":"#e8ebef", "--arcd-border-default":"#d9dde2", "--arcd-border-strong":"#8a96a5",
+    "--arcd-action-primary":"#235bb0", "--arcd-action-primary-hover":"#19498e", "--arcd-action-primary-active":"#143b74",
+    "--arcd-action-primary-subtle":"#edf3fc", "--arcd-focus-ring":"#235bb0", "--arcd-nav-focus":"#9cc4ff",
+    "--arcd-nav-surface":"#0d1b2e", "--arcd-nav-text":"#c4cfda", "--arcd-nav-active-text":"#ffffff",
+    "--arcd-nav-active-surface":"#244b7d", "--arcd-nav-hover-surface":"#1b2c42", "--arcd-nav-hover-text":"#ffffff",
+    "--arcd-nav-border":"#304056", "--arcd-nav-brand-text":"#ffffff",
+  }),
+});
 export const enabledThemeIds = Object.freeze(Object.values(themeRegistry).filter(theme=>theme.enabled).map(theme=>theme.id));

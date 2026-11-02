@@ -2,7 +2,9 @@
 // para virar seu próprio chunk lazy - ver LazyRelatoriosChartPanel no
 // ponto de uso em LegacyApp.jsx.
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { ArcdChartTooltip, C, ChartPanel, compactNumber, fmt } from "../../LegacyApp.jsx";
+import { ArcdChartTooltip, ChartPanel } from "../../legacy/ui.jsx";
+import { C } from "../../legacy/palette.js";
+import { compactNumber, fmt } from "../../legacy/format.js";
 
 export default function RelatoriosChartPanel({ byObra, chartMode, setChartMode, highlightObra, setHighlightObra }) {
   return (

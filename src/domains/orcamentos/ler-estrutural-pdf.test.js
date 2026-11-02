@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+vi.mock('pdfjs-dist/build/pdf.worker.min.mjs?url',()=>({default:'/pdf.worker.test.mjs'}));
 
 vi.mock("pdfjs-dist", () => ({
   GlobalWorkerOptions: {},

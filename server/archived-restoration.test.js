@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import { restorationRecord, restoreArchivedAttendance } from "./archived-restoration.js";
 
 describe("restauração de quinzena arquivada", () => {
+  it("preserva as 9h da escala conferida mesmo com referência cadastral de 8h", () => {
+    const result=restoreArchivedAttendance({archiveAttendance:{e1:{"2026-10-29":{status:"P",pontoReview:{revision:1},archivedWorkdayHours:9,archivedWorkStart:"07:00"}}},employeesSnapshot:[{id:"e1",workdayHours:8}]});
+    expect(result.attendance.e1["2026-10-29"].archivedWorkdayHours).toBe(9);
+  });
   it("restitui somente os dias que não foram relançados", () => {
     const result = restoreArchivedAttendance({
       attendance: {e1: {"2026-07-07": {status: "F"}}},

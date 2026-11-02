@@ -1,38 +1,112 @@
+import {WorkspaceCommandBar,WorkspaceHeading} from './design-system/patterns/WorkspaceCommandBar.jsx';
+import {SaveRecoveryContext} from './features/workflow/SaveRecoveryContext.jsx';
+import {snapshotJournal,recoveryTab,snapshotChanges} from './domains/sync/snapshot-journal.js';
+import {SaveRecovery} from './domains/sync/SaveRecovery.jsx';
+import PaymentDialog from './features/financeiro/PaymentDialog.jsx';
+import PendingOperations from './features/workflow/PendingOperations.jsx';
+import {useQueuePreferences} from './features/workflow/useQueuePreferences.js';
+import {SidebarResize, useSidebarWidth} from './design-system/patterns/SidebarResize.jsx';
+import {SelectControl} from './design-system/primitives/Select.jsx';
+import {RecordAction} from './design-system/primitives/RecordAction.jsx';
+import {ChoiceControl} from './design-system/primitives/ChoiceControl.jsx';
+import {Input as StandardInput} from './components/ui/input.jsx';
+import {Button as StandardButton} from './components/ui/button.jsx';
+import {FilterBar} from "./design-system/patterns/FilterBar.jsx";
+import { C, C_ARCD_SETOR, FONT_DISPLAY, TYPO, KB, semanticToneFromLegacyColor } from "./legacy/palette.js";
+export { C, C_ARCD_SETOR, TYPO, KB } from "./legacy/palette.js";
+import { uid, today, fmt, fmtCompact, fmtDate, fmtDateFull, monthName, MONTHS, fullMonth, fmtMesAno, escapeHtml, compactNumber, maiusculoOrcamento, proximoCodigoArcd, obraContextoSalvo, compLabel, rotuloRamo, numeroCodigoArcd, formatarCodigoArcd } from "./legacy/format.js";
+export { uid, today, fmt, fmtCompact, fmtDate, fmtDateFull, monthName, MONTHS, fullMonth, fmtMesAno, escapeHtml, compactNumber, maiusculoOrcamento, proximoCodigoArcd, obraContextoSalvo, compLabel, rotuloRamo } from "./legacy/format.js";
+import { prazoObra } from "./domains/obras/legacy-deadline.js";
+import { LoadingState, Ic, Btn, Inp, Sel, SelBtn, Badge, ArcdChartTooltip, ChartPanel, PageHero, TabRow, Divider, Modal, MiniKpi, Bloco, CampoCNPJ, textoUi, conteudoUi, ChartLegend, buscarCNPJ, SIGLAS_UI } from "./legacy/ui.jsx";
+export { Ic, Btn, Inp, Sel, SelBtn, Badge, ArcdChartTooltip, ChartPanel, PageHero, TabRow, Divider, Modal, MiniKpi, Bloco, CampoCNPJ } from "./legacy/ui.jsx";
+import { XLSX, carregarXLSX, lerSinapiEmSegundoPlano, arquivoComoDataUrl, comprimirImagem } from "./legacy/files.js";
+export { XLSX, carregarXLSX, lerSinapiEmSegundoPlano, arquivoComoDataUrl, comprimirImagem } from "./legacy/files.js";
+import { COM_ETAPAS, COM_IMOBILIARIO_SECTIONS, COM_JORNADA, COM_PERDAS, COM_ROUTE_SECTION, COM_TEMPERATURA, cicloMedioVenda, comDateTime, comDias, comEtapaLabel, comFaseDaEtapa, conversaoPorFase, momentosIndicacao, npsResumo, rankingIndicadores, taxaIndicacao } from "./domains/comercial/legacy-model.js";
+export { COM_ETAPAS, COM_IMOBILIARIO_SECTIONS, COM_JORNADA, COM_PERDAS, COM_ROUTE_SECTION, COM_TEMPERATURA, cicloMedioVenda, comDateTime, comDias, comEtapaLabel, comFaseDaEtapa, conversaoPorFase, momentosIndicacao, npsResumo, rankingIndicadores, taxaIndicacao } from "./domains/comercial/legacy-model.js";
+import { LazyRealEstateCommercial } from "./domains/comercial/LegacyRealEstate.jsx";
+export { LazyRealEstateCommercial } from "./domains/comercial/LegacyRealEstate.jsx";
+import { GestaoAprovacoes, GestaoUsuarios, ROLES, SETORES_APROVACAO, novaPoliticaAprovacao, MOTORES_APROVACAO_POR_ENTIDADE, MODELOS_PORTE_APROVACAO, novaCondicaoAprovacao, EditorCondicaoAprovacao, novaEtapaAprovacao, EditorEtapaAprovacao, ROTULOS_AUTOAPROVACAO, ACCESS_SECTORS, TAB_META, etapaModelo, CAMPOS_CONTEXTO_APROVACAO, ROTULOS_OPERADOR_APROVACAO, TIPOS_APROVADOR_APROVACAO, ROTULOS_MODO_QUORUM, ROTULOS_SEM_APROVADOR, ROTULOS_ACAO_VENCIMENTO, TAB_META_BASE } from "./domains/administracao/LegacySettings.jsx";
+export { GestaoAprovacoes, GestaoUsuarios, ROLES, SETORES_APROVACAO, MOTORES_APROVACAO_POR_ENTIDADE } from "./domains/administracao/LegacySettings.jsx";
+import { FornecedorEditorPilot, ModalCotacaoWhatsApp, fornecedoresParaMateriais, guardaPreco, linkWhatsApp, melhorPrecoHist, mensagemWhatsAppCobranca, mensagemWhatsAppCompra, oportunidadesConsolidacao, pedidosEmAtraso, slaSolicitacao, UNIDADES_PADRAO, CATS_MATERIAL, ModalFornecedor, LazySupplierEditor, normDesc, SLA_DIAS, ramosDosCnaes, CampoCEP, CNAE_RAMOS, PALAVRAS_RAMO } from "./domains/compras/LegacySupport.jsx";
+export { FornecedorEditorPilot, ModalCotacaoWhatsApp, fornecedoresParaMateriais, guardaPreco, linkWhatsApp, melhorPrecoHist, mensagemWhatsAppCobranca, mensagemWhatsAppCompra, oportunidadesConsolidacao, pedidosEmAtraso, slaSolicitacao, UNIDADES_PADRAO, CATS_MATERIAL } from "./domains/compras/LegacySupport.jsx";
+import { LinksDocumentosAuditaveis, ModalLegendaDocumento, ModoIADocumento, jsonDaRespostaIA, C_MODO_IA, destinosDocumentoIA, identificarObraPeloNomeArquivo, sugerirDestinoDocumento, normalizarIdentificacaoObra } from "./features/financeiro/LegacyDocumentTools.jsx";
+export { LinksDocumentosAuditaveis, ModalLegendaDocumento, ModoIADocumento, jsonDaRespostaIA } from "./features/financeiro/LegacyDocumentTools.jsx";
+import { LICENCAS, LIC_STATUS, LIC_TERRAS_ALPHA_VERIFICACAO, licStatusInfo, licencaPorId, preRequisitosOk, progressoChecklist, CONTRACT_LABELS, DIA_VENC_1_PADRAO, DIA_VENC_2_PADRAO, clampDiaNoMes, LIC_SIMPLIFICADA_PRE, LIC_SIMPLIFICADA_DOCS, LIC_TERRAS_ALPHA_PRE, LIC_TERRAS_ALPHA_DOCS } from "./domains/licenciamento/legacy-checklists.js";
+export { LICENCAS, LIC_STATUS, LIC_TERRAS_ALPHA_VERIFICACAO, licStatusInfo, licencaPorId, preRequisitosOk, progressoChecklist, CONTRACT_LABELS, DIA_VENC_1_PADRAO, DIA_VENC_2_PADRAO, clampDiaNoMes } from "./domains/licenciamento/legacy-checklists.js";
+import { ETAPAS_PADRAO, MAX_NIVEL, CLASSE_ABC, SINAPI_UFS, calcControleCustosOrcamento } from "./domains/orcamentos/legacy-reference.js";
+export { ETAPAS_PADRAO, MAX_NIVEL, CLASSE_ABC, SINAPI_UFS, calcControleCustosOrcamento } from "./domains/orcamentos/legacy-reference.js";
+import { ModalComposicao, ModalMaterial } from "./domains/estoque/LegacyEditors.jsx";
+export { ModalComposicao, ModalMaterial } from "./domains/estoque/LegacyEditors.jsx";
+import { semAcentoConc, parseBRConc, chaveTransacao, somaRateios, sugerirRateio, diasEntre, sugerirMedicoes, sugerirPagamentoMaoObra, periodoPontoDaTransacao, valorEsperadoPonto } from "./domains/conciliacao/legacy-suggestions.js";
+export { semAcentoConc, parseBRConc, chaveTransacao, somaRateios, sugerirRateio, diasEntre, sugerirMedicoes, sugerirPagamentoMaoObra, periodoPontoDaTransacao } from "./domains/conciliacao/legacy-suggestions.js";
+import { montarRelatorioPadraoHtml, abrirRelatorioPadrao, gerarFichaFuncionarioPDF, ARCD_LOGO, calcFrequenciaMensalFuncionario, calcRankingFrequencia, FICHA_TIPO_LABEL } from "./reports/legacy-standard.js";
+export { montarRelatorioPadraoHtml, abrirRelatorioPadrao, gerarFichaFuncionarioPDF, ARCD_LOGO } from "./reports/legacy-standard.js";
+import { calcObraLaborCost, calcDREObra, calcDREConsolidado, calcDREHistorico, calcVisaoFinanceira, calcLedgerAcumulado, calcProjecaoContratoObra, calcularRankingFinanceiro, calcRelatorioMensal } from "./domains/financeiro/legacy-calculations.js";
+import {useVisualViewportBounds} from "./lib/useVisualViewportBounds.js";
+import {useUnsavedChanges} from "./features/workflow/useUnsavedChanges.js";
+import UnsavedChangesPrompt from "./features/workflow/UnsavedChangesPrompt.jsx";
+import {workStageCosts} from "./domains/financeiro/work-stage-costs.js";
+import {AditivosContrato} from "./domains/obras/components/AditivosContrato.jsx";
+import {WorkflowWarnings} from './domains/compras/components/ProcurementProcessStatus.jsx';
+import {validatePurchasePayment} from './domains/financeiro/purchase-payment-validation.js';
+import { sessionContext } from "./lib/session-context.js";
+import {HelpButton} from './features/help/HelpButton.jsx';
+import {useHelpTopic} from './features/help/HelpContext.jsx';
+import {FINANCE_HELP, WORK_HELP} from './features/help/help-topics.js';
+import {Textarea as SharedTextarea} from "./design-system/primitives/Textarea.jsx";
+import {Button as SharedUiButton} from "./components/ui/button.jsx";
+import {legacyButtonRole} from "./design-system/primitives/button-contract.js";
+import PaymentOverview from "./features/financeiro/PaymentOverview.jsx";
+import WorkStageCosts from "./features/financeiro/WorkStageCosts.jsx";
+import DocumentCenter from "./features/financeiro/DocumentCenter.jsx";
+import ClosingPending from "./features/financeiro/ClosingPending.jsx";
+import ClosingOriginEditor from './features/financeiro/ClosingOriginEditor.jsx';
+import {closingCorrectionScope} from './domains/financeiro/closing-correction.js';
+import RecordRecoveryPanel,{SessionRenewalFields} from './features/financeiro/RecordRecoveryPanel.jsx';
+import {useRecordRecovery} from './features/financeiro/useRecordRecovery.js';
+import {invoiceRecoveryFields,formatInvoiceEditor} from './features/financeiro/record-recovery.js';
+import {invoiceBankContext,hasInvoiceBankPayment} from './domains/financeiro/record-continuity.js';
+import CashWorkspace from "./features/financeiro/CashWorkspace.jsx";
+import FinanceToday from "./features/financeiro/FinanceToday.jsx";
+import FinancialMemorial from "./features/financeiro/FinancialMemorial.jsx";
+import {financeNextAction} from './domains/financeiro/next-action.js';
+import {PurchaseDossier} from './domains/compras/components/PurchaseDossier.jsx';
+import FinancialReportCenter from "./features/financeiro/FinancialReportCenter.jsx";
+const ForecastWorkspace=lazy(()=>import("./features/financeiro/ForecastWorkspace.jsx"));
+import InvoiceConference from "./features/financeiro/InvoiceConference.jsx";
+import FinancialPreview from "./features/financeiro/FinancialPreview.jsx";
+import {previewCompanyRecurrences} from "./domains/financeiro/recurrence-preview.js";
+import {invoiceImportConflicts} from "./domains/financeiro/invoice-import-preview.js";
+import {documentRegister} from "./domains/financeiro/document-register.js";
+import {captureFinancePosition,restoreFinancePosition} from "./features/financeiro/navigation-context.js";
+import {todayQueues,overviewEntries,financialEntry,positionEntries} from "./domains/financeiro/workspace.js";
 import {AttendancePayMode} from "./domains/rh/components/AttendancePayMode.jsx";
 import { marcellReportHtml } from "./reports/marcell-report.js";
 import { createPortal } from "react-dom";
 import { BRAND, MARCELL_LOGO } from "./brand/identity.js";
 import { FinancialOverviewMetrics } from "./features/financeiro/FinancialOverviewMetrics.jsx";
-import { Children, lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { PageHeader } from "./design-system/patterns/PageHeader.jsx";
+import { WorkspaceNavigation } from "./design-system/patterns/WorkspaceNavigation.jsx";
+import { Children, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { lazyWithCssRetry as lazy } from "./lib/lazy-with-css-retry.js";
 import DreReconciliationManager from "./features/financeiro/DreReconciliationManager.jsx";
 import { activeErpModule, moduleForTab, visibleErpModules } from "./navigation/erp-navigation.js";
 import { rememberSection, restoreSection } from "./navigation/section-session.js";
-import { FlowTabs, WorkflowContext, useWorkflow } from "./features/workflow/WorkflowNavigation.jsx";
+import { FlowTabs, WorkflowContext, useWorkflow, useRememberWorkflowScope } from "./features/workflow/WorkflowNavigation.jsx";
+import {useWorkspaceState,useWorkspaceScroll,WorkflowReturn} from "./features/workflow/workspace-session.jsx";
+import {LaborAreaTabs} from './domains/rh/components/LaborAreaTabs.jsx';
+import {laborArea,matchesLaborArea} from './domains/rh/labor-area.js';
 import { normalizeWorkflowScope } from "./features/workflow/workflow-model.js";
 import MonthlyDreMemorial from "./features/financeiro/MonthlyDreMemorial.jsx";
 import AnnualDre from "./features/financeiro/AnnualDre.jsx";
 import LaborProjectionReport from "./domains/ponto/components/LaborProjectionReport.jsx";
-// Planilhas são um recurso pesado e opcional. O pacote só entra na memória
-// quando o usuário realmente importa ou exporta um arquivo.
-export let XLSX = null;
-export const carregarXLSX = async () => {
-  if (!XLSX) XLSX = await import("./lib/spreadsheet");
-  return XLSX;
-};
-
-// O importador oficial é grande e só entra no bundle quando o operador escolhe
-// um XLSX. O worker continua emitindo progresso e protegendo a tela de travas.
-export const lerSinapiEmSegundoPlano = async (...args) => {
-  const { readSinapiInWorker } = await import("./domains/orcamentos/sinapi-import");
-  return readSinapiInWorker(...args);
-};
 
 // O navegador não conversa mais com o banco. Fala com /api/data, que roda no
 // servidor e é quem guarda a chave. Sem chave de banco neste bundle.
 import { listarPerfis, criarPrimeiroAdmin, entrarComPin, entrarComEmail, restaurarSessaoEmail, provisionarContaEmail, definirPinOperador,
          saveDataDetailed, logout as encerrarSessao,
          registrarPresenca, encerrarPresenca, listarPresencas,
-         loadDataWithMeta, adoptServerVersion,
+         loadDataWithMeta, adoptServerVersion,renewEditingSession,
          conectarOneDrive, statusOneDrive, criarEstruturaOneDrive,
          sincronizarEstruturasOneDrive, criarPastaOneDrive, listarPastaOneDrive, enviarArquivoOneDrive, obterLinkArquivoOneDrive,
          arquivarQuinzena, restaurarQuinzena,
@@ -50,21 +124,19 @@ import { Label } from "./components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "./components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs";
 import { Alert, AlertDescription } from "./components/ui/alert";
+import { ThemeMenu } from "./design-system/theme/ThemeMenu.jsx";
+import { useTheme } from "./design-system/theme/ThemeProvider.jsx";
 import { ThemeSettings } from "./design-system/theme/ThemeSettings";
 import { Button as DesignSystemButton } from "./design-system/primitives/Button.jsx";
 import { Dialog as DesignSystemDialog } from "./design-system/primitives/Dialog.jsx";
 import { Input as DesignSystemInput } from "./design-system/primitives/Input.jsx";
 import { Select as DesignSystemSelect } from "./design-system/primitives/Select.jsx";
-import { Eye, EyeOff, ChevronLeft, Delete } from "lucide-react";
+import { Eye, EyeOff, ChevronLeft, ChevronRight, Search, RefreshCw, Delete } from "lucide-react";
 import { cn } from "./lib/utils";
 import { features } from "./config/features";
 import { SUPPLIER_CATEGORIES as RAMOS_FORNECIMENTO } from "./domains/suppliers/categories";
 import { useCountUp } from "./lib/useCountUp";
 import { useBreakpoint } from "./hooks/useBreakpoint";
-
-// O editor novo só é baixado se a flag local do piloto for habilitada. Com a
-// flag desligada, o modal histórico continua sendo a única implementação.
-const LazySupplierEditor = lazy(() => import("./domains/suppliers/SupplierEditor").then(module => ({ default: module.SupplierEditor })));
 const LazyLegacyMobileNavigation = lazy(() => import("./mobile/LegacyMobileNavigation.jsx")
   .then(module => ({ default:module.LegacyMobileNavigation })));
 const LazyLoginBrandPanel = lazy(() => import("./components/login/LoginProjectParallax"));
@@ -73,6 +145,9 @@ const PatrimonioEmpresa = lazy(() => import("./domains/patrimonio/components/Pat
 const DiarioObra = lazy(() => import("./domains/obras/components/DiarioObraView.jsx"));
 const ImportarDoREP = lazy(() => import("./domains/ponto-eletronico/components/ImportarDoREP.jsx").then(module => ({ default: module.ImportarDoREP })));
 const Estoque = lazy(() => import("./domains/estoque/components/EstoqueView.jsx"));
+const ProjectTimerStatus = lazy(() => import("./domains/projetos/ProjectTimerStatus.jsx"));
+const ProjetosEngenharia = lazy(() => import("./domains/projetos/ProjetosView.jsx"));
+const ArquivosObra = lazy(() => import("./domains/arquivos/ArquivosView.jsx"));
 const Licenciamento = lazy(() => import("./domains/licenciamento/components/LicenciamentoView.jsx"));
 const Conferencia = lazy(() => import("./domains/qualidade/components/ConferenciaView.jsx"));
 const EquipeObrasTV = lazy(() => import("./domains/ponto-eletronico/components/EquipeObrasTV.jsx"));
@@ -88,8 +163,6 @@ const LazyDreEmpresaHistoricoChart = lazy(() => import("./components/charts/DreE
 const LazyDreFaturamentoResultadoChart = lazy(() => import("./components/charts/DreFaturamentoResultadoChart.jsx"));
 const LazyDreDistribuicaoCustosChart = lazy(() => import("./components/charts/DreDistribuicaoCustosChart.jsx"));
 const LazyDreMargemChart = lazy(() => import("./components/charts/DreMargemChart.jsx"));
-export const LazyRealEstateCommercial = lazy(() => import("./domains/comercial/RealEstateCommercial")
-  .then(module => ({ default:module.RealEstateCommercial })));
 import {
   statusPedido, totalPedido, recebidoPedido,
   totalPagoPedido, saldoPagamentoPedido, statusPagamentoPedido,
@@ -149,6 +222,7 @@ const OFFLINE_QUEUEABLE_COMMANDS={
 };
 import { projectAlertAction, validateProjectForm } from "./domains/obras/project-validation";
 import { rebuildTechnicalMeasurementProjection } from "./domains/medicoes";
+import { ProgressPercentageField } from "./domains/medicoes/components/ProgressPercentageField.jsx";
 import { calcSaldos } from "./domains/estoque/calculations";
 import { canManageAttendanceWorkforce, resolveEmployeeAttendanceObraId, resolveHolidayObraId } from "./domains/ponto/permissions";
 import { resumoGestaoAVista, ultimoMesFechado } from "./domains/dashboard/gestao-a-vista.js";
@@ -233,156 +307,7 @@ import {
   normalizeApprovalInstances, podeAdministrarPoliticas, podeGerenciarDelegacoes, OPERADORES,
 } from "./domains/aprovacoes/index.js";
 import { arcdApprovalEngine as motorAprovacaoGenerico } from "./domains/aprovacoes/arcd-engine.js";
-import { ROLE_TABS, allowedTabsForUser } from "./domains/administracao/abas-acesso.js";
-
-// Resolvedores concretos do motor de aprovação para o app ARCD: como este
-// app ainda não tem cargo/hierarquia/departamento/centro de custo cadastrados,
-// cada resolvedor devolve [] quando o conceito não existe de verdade na base -
-// isso é o comportamento CORRETO (aciona a contingência configurada na etapa,
-// nunca inventa um aprovador). Não presume nenhum cargo fixo além do que já
-// existe em `usuarios[].role` (admin/financeiro/compras/engenheiro/rh/...).
-// Genéricos por natureza (não dependem de nada específico de Compras) -
-// reutilizados por qualquer entidadeTipo, ver MOTORES_APROVACAO_POR_ENTIDADE.
-//
-// ARCD OBRAS - aplicação legada em migração incremental por domínio
-// - Base compartilhada Supabase via supabase.js
-// - Cadastro de obras, equipe, ponto, folha, relatórios e configurações
-// - Transferência/demissão individual no ponto
-// - Bloqueio do ponto por obra/data após finalização
-// - Solicitação de permissão por e-mail para hygorlp@gmail.com
-// - Link de aprovação temporária por 30 minutos
-// - Pagamento dia 20 para 1ª quinzena e dia 05 do mês seguinte para 2ª quinzena
-// - Ajuste de pagamento por sábado/domingo/feriados
-// - Feriados nacionais + Pernambuco + Caruaru
-// - Regra: falta em dia útil imediatamente anterior/posterior perde feriado
-// - Relatórios com gasto por obra, metragem quadrada e custo de mão de obra por m
-// - Interface reforçada para o Registro de Ponto, com ícones e navegação em destaque
-// - Agente de IA para apoiar ponto, folha, obras, custos e alertas
-// - Rebranding visual ARCD OBRA: linguagem gráfica geométrica, foco no ponto e navegação mais intuitiva
-//
-
-export const ARCD_LOGO = MARCELL_LOGO;
-
-export const C = {
-  // MARCELL: areia, azul-marinho e ouro. Valores literais de compatibilidade para gráficos.
-  bg:       "#F3F0E9",
-  surface:  "#FFFFFF",
-  card:     "#FFFFFF",
-  card2:    "#E8E5DF",
-  border:   "#D9DDE2",
-  // Ouro acessível - seleção e identidade
-  yellow:   "#7B6030",     // Ouro acessível
-  yellowD:  "#7B6030",     // Ouro escuro
-  yellowDim:"#EEE5D5",     // Ouro claro
-  // Azul-marinho MARCELL
-  text:     "#0D1B2E",     // Grafite - texto principal
-  muted:    "#536171",
-  subtle:   "#34445A",
-  ink:      "#0D1B2E",     // Texto sobre fundo ouro
-  // Cinza Técnico
-  cinza:    "#78818B",
-  sand:     "#F3F0E9",
-  ivory:    "#E8E5DF",
-  // Sistema
-  green:    "#2E6652",     // Verde técnico
-  red:      "#A63B3B",     // Vermelho técnico
-  blue:     "#355874",     // Azul técnico
-  orange:   "#855A24",     // Laranja técnico
-  purple:   "#536171",     // Roxo técnico
-  line:     "#D9DDE2",
-  shadow:   "rgba(22,22,22,.045)",
-  // Tokens de forma - controlam a "temperatura" visual do app inteiro. Valores
-  // baixos = aspecto técnico/instrumento; altos = aspecto consumidor. Toda a
-  // interface lê daqui, então ajustar aqui muda tudo de forma coerente.
-  rSm:      6,             // raio pequeno (chips, inputs internos)
-  rMd:      8,
-  rLg:      8,
-  shHair:   "none",
-  shCard:   "none",
-};
-
-// Ponte curta durante a migração: pontos que ainda recebem a paleta legada
-// publicam somente uma intenção visual para as classes semânticas. Nenhum
-// componente novo deve receber hexadecimais ou escolher cores livremente.
-const semanticToneFromLegacyColor = color => {
-  if (color === C.green) return "success";
-  if (color === C.red) return "danger";
-  if (color === C.orange) return "warning";
-  if (color === C.blue) return "info";
-  if (color === C.purple) return "auxiliary";
-  if (color === C.yellow || color === C.yellowD) return "primary";
-  return "neutral";
-};
-
-// Escala tipografica unica do app. Toda tela nova (ou revisada) deve montar
-// seus titulos/textos a partir daqui em vez de inventar fontSize/fontWeight
-// soltos - e o que unifica visualmente heroes, cards e paineis diferentes.
-const FONT_DISPLAY = "'Nimbus Sans','Helvetica Neue',Arial,sans-serif";
-export const TYPO = {
-  h1:      { fontFamily:FONT_DISPLAY, fontWeight:600, fontSize:"var(--arcd-type-page-title)", letterSpacing:"var(--arcd-letter-spacing-tight)", lineHeight:1.15, color:C.text },
-  h2:      { fontFamily:FONT_DISPLAY, fontWeight:600, fontSize:"var(--arcd-type-section-title)", letterSpacing:"var(--arcd-letter-spacing-tight)", lineHeight:1.18, color:C.text },
-  h3:      { fontFamily:FONT_DISPLAY, fontWeight:600, fontSize:"var(--arcd-type-card-title)", letterSpacing:-.1, lineHeight:1.25, color:C.text },
-  h4:      { fontFamily:FONT_DISPLAY, fontWeight:600, fontSize:"var(--arcd-type-body)", letterSpacing:0, lineHeight:1.3, color:C.text },
-  eyebrow: { fontSize:"var(--arcd-type-label)", fontWeight:400, letterSpacing:0, color:C.muted },
-  body:    { fontSize:"var(--arcd-type-body)", fontWeight:400, lineHeight:1.5, color:C.text },
-  bodyMuted:{ fontSize:"var(--arcd-type-body)", fontWeight:400, lineHeight:1.5, color:C.muted },
-  small:   { fontSize:"var(--arcd-type-caption)", fontWeight:500, color:C.muted },
-  label:   { fontFamily:FONT_DISPLAY, fontSize:"var(--arcd-type-label)", fontWeight:600, letterSpacing:"var(--arcd-letter-spacing-body)", color:C.text },
-  // Tamanho/peso reais vêm do override global (.tab-row button) em index.css,
-  // que também cobre sidebar, nav mobile e os demais menus de abas do app -
-  // isto aqui é só o fallback caso a classe não esteja disponível.
-  tab:       { fontFamily:"var(--arcd-font-sans)", fontSize:"var(--arcd-type-label)", fontWeight:600, letterSpacing:.08 },
-  tabDetail: { fontSize:"var(--arcd-type-caption)", fontWeight:500 },
-};
-
-// KANBAN - tokens estilo Trello. Colunas estreitas e altas, fundo levemente
-// cinza, cards brancos compactos com sombra fininha. O objetivo é densidade: o
-// quadro rola horizontal e cabe muita coisa na tela sem parecer "gordo".
-// Reutilizados por todos os Kanbans (Terceiros, Obras, Funil, Jornada) para
-// que fiquem visualmente idênticos.
-export const KB = {
-  larguraCol: 272,          // largura da coluna (Trello usa ~272px)
-  gapCols:    8,            // espaço entre colunas
-  gapCards:   6,            // espaço entre cards
-  raioCol:    8,
-  raioCard:   6,
-  padCol:     "6px 6px 8px",
-  padCard:    "7px 9px",
-  scroll: {                 // container do quadro
-    display:"flex", gap:8, overflowX:"auto", overflowY:"hidden",
-    paddingBottom:10, alignItems:"flex-start",
-    WebkitOverflowScrolling:"touch", scrollSnapType:"x proximity",
-  },
-  coluna: (cor, ativa) => ({
-    width:272, minWidth:272, maxWidth:272, scrollSnapAlign:"start",
-    background: ativa ? `${cor}0e` : "#F0EDE7",
-    border:`1px solid ${ativa ? cor : "#E2DCD2"}`,
-    borderRadius:8, display:"flex", flexDirection:"column",
-    maxHeight:"calc(100vh - 220px)",
-    transition:"background .15s, border-color .15s",
-  }),
-  colHead: (cor) => ({
-    display:"flex", justifyContent:"space-between", alignItems:"center", gap:6,
-    padding:"8px 10px", borderTop:`3px solid ${cor}`,
-    borderTopLeftRadius:8, borderTopRightRadius:8,
-    position:"sticky", top:0, zIndex:1, background:"inherit",
-  }),
-  colBody: {
-    padding:"0 6px 6px", display:"flex", flexDirection:"column", gap:6,
-    overflowY:"auto", flex:1,
-  },
-  card: (destaque) => ({
-    background:"#fff",
-    border:`1px solid ${destaque || "#E2DCD2"}`,
-    borderRadius:6, padding:"7px 9px", cursor:"pointer",
-    boxShadow:"0 1px 2px rgba(18,18,18,.08)",
-    display:"flex", flexDirection:"column", gap:4,
-  }),
-  contador: {
-    fontSize:"var(--arcd-type-label)", fontWeight:600, color:C.muted,
-    background:"#fff", borderRadius:99, padding:"1px 8px", minWidth:22, textAlign:"center",
-  },
-};
+import { ROLE_TABS, allowedTabsForUser, podeAcessarAba } from "./domains/administracao/abas-acesso.js";
 
 const G = `
 @keyframes chatMentionPulse{0%,100%{box-shadow:0 6px 18px rgba(0,0,0,.28)}50%{box-shadow:0 0 0 8px rgba(212,175,55,.28),0 6px 18px rgba(0,0,0,.28)}}
@@ -729,202 +654,7 @@ div::-webkit-scrollbar{height:0;width:0}
   .ponto-legend-help{margin-left:0;width:100%}
 }
 `;
-
-
-//
-// Helpers gerais
-//
-
-export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
 const pointOperationId=()=>crypto.randomUUID();
-
-export const today = () => toLocalISODate(new Date());
-
-export const fmt = n => Number(n || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
-// Consulta pública de CNPJ (BrasilAPI - gratuita, sem chave). Devolve os campos
-// já normalizados para o app, ou lança erro com mensagem amigável. Não guarda
-// nada; é só leitura da base pública da Receita.
-const buscarCNPJ = async (cnpjBruto) => {
-  const cnpj = soDigitos(cnpjBruto);
-  if (cnpj.length !== 14) throw new Error("CNPJ deve ter 14 dígitos.");
-  const resp = await consultarCNPJReceita(cnpj);
-  if (!resp.ok) throw new Error(resp.error || "Não consegui consultar o CNPJ agora. Tente novamente.");
-  const d = resp.data || {};
-  const cidade = d.municipio || "";
-  const uf = d.uf || "";
-  const enderecoPartes = [d.descricao_tipo_de_logradouro, d.logradouro, d.numero].filter(Boolean).join(" ");
-  const bairro = d.bairro ? `, ${d.bairro}` : "";
-  const cidadeUf = [cidade, uf].filter(Boolean).join(" - ");
-  // CNAEs: o principal e os secundarios. E daqui que da pra deduzir o ramo
-  // de fornecimento sem o usuario marcar na mao.
-  const cnaes = [
-    { codigo: String(d.cnae_fiscal || ""), descricao: d.cnae_fiscal_descricao || "" },
-    ...(Array.isArray(d.cnaes_secundarios) ? d.cnaes_secundarios.map(c => ({
-      codigo: String(c.codigo || ""), descricao: c.descricao || "",
-    })) : []),
-  ].filter(c => c.codigo || c.descricao);
-
-  return {
-    razaoSocial: d.razao_social || "",
-    nomeFantasia: d.nome_fantasia || "",
-    // Nome de exibição: fantasia se houver, senão razão social.
-    nome: d.nome_fantasia || d.razao_social || "",
-    telefone: d.ddd_telefone_1 || "",
-    email: d.email || "",
-    cidade, uf, cidadeUf,
-    endereco: [enderecoPartes + bairro, cidadeUf, d.cep ? `CEP ${d.cep}` : ""].filter(Boolean).join(", "),
-    // Partes separadas do endereco, para preencher campo a campo.
-    logradouro: [d.descricao_tipo_de_logradouro, d.logradouro].filter(Boolean).join(" ").trim(),
-    numero: d.numero || "",
-    complemento: d.complemento || "",
-    bairro: d.bairro || "",
-    cep: d.cep || "",
-    situacao: d.descricao_situacao_cadastral || "",
-    atividade: d.cnae_fiscal_descricao || "",
-    cnaes,
-    abertura: d.data_inicio_atividade || "",
-  };
-};
-// Formato compacto para KPIs executivos: R$ 2,4 mi / R$ 850 mil. Mantém a leitura
-// rápida sem encher o card de dígitos. Para valores pequenos, cai no fmt normal.
-export const fmtCompact = n => {
-  const v = Number(n || 0);
-  const abs = Math.abs(v);
-  const sinal = v < 0 ? "-" : "";
-  if (abs >= 1e6) return `${sinal}R$ ${(abs/1e6).toFixed(abs>=1e7?0:1).replace(".",",")} mi`;
-  if (abs >= 1e3) return `${sinal}R$ ${(abs/1e3).toFixed(0)} mil`;
-  return fmt(v);
-};
-
-export const fmtDate = iso => {
-  if (!iso || typeof iso !== "string" || !iso.includes("-")) return "-";
-  const [, m, d] = iso.split("-");
-  return `${d}/${m}`;
-};
-
-export const fmtDateFull = iso => {
-  if (!iso || typeof iso !== "string" || !iso.includes("-")) return "-";
-  const [y, m, d] = iso.split("-");
-  return `${d}/${m}/${y}`;
-};
-
-export const monthName = m => ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"][m] || "";
-export const MONTHS = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-export const fullMonth = m => ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"][m] || "";
-// Mes/ano curto a partir de uma data ISO: "ago/26". Usado na regua do Gantt.
-export const fmtMesAno = iso => {
-  if (!iso) return "";
-  const meses = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
-  const d = new Date(iso + "T00:00:00");
-  return `${meses[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`;
-};
-
-// Prazo da obra: dado contractStart/contractEnd, devolve % de tempo decorrido,
-// dias restantes e um rotulo/cor. null se nao ha datas de contrato.
-const prazoObra = (obra) => {
-  const ini = obra?.contractStart, fim = obra?.contractEnd;
-  if (!ini || !fim) return null;
-  const hoje = today();
-  const totalDias = diasCorridos(ini, fim);
-  if (totalDias <= 0) return null;
-  const decorridos = Math.max(0, Math.min(totalDias, diasCorridos(ini, hoje)));
-  const pct = (decorridos / totalDias) * 100;
-  // Diferenca ASSINADA em dias (negativa se o prazo ja passou). diasCorridos
-  // trava em zero, entao calculamos direto aqui.
-  const restam = Math.round((new Date(fim + "T00:00:00") - new Date(hoje + "T00:00:00")) / 86400000);
-  let rotulo, cor;
-  if (restam < 0)      { rotulo = `atrasada ${Math.abs(restam)}d`; cor = C.red; }
-  else if (restam === 0) { rotulo = "vence hoje"; cor = C.orange; }
-  else if (restam <= 15) { rotulo = `faltam ${restam}d`; cor = C.orange; }
-  else                 { rotulo = `faltam ${restam}d`; cor = C.blue; }
-  return { pct: Math.min(pct, 100), restam, totalDias, decorridos, rotulo, cor };
-};
-
-// fmtCPF/fmtPhone moveram para EquipeView.jsx/RescisaoView.jsx em
-// 2026-08-20 (únicos consumidores).
-
-export const escapeHtml = value => String(value || "")
-  .replace(/&/g, "&amp;")
-  .replace(/</g, "&lt;")
-  .replace(/>/g, "&gt;")
-  .replace(/\"/g, "&quot;")
-  .replace(/'/g, "&#039;");
-
-//
-// Dados padrão e normalização
-//
-
-//  Especialidades de terceirizados
-// Ramos de fornecimento. Um fornecedor pode atender varios (uma casa de
-// construcao vende de tudo; uma serralheria so metais). Serve para filtrar a
-// busca e para o sistema sugerir de quem comprar cada material.
-export const rotuloRamo = v => RAMOS_FORNECIMENTO.find(r => r.v === v)?.l || v;
-
-// ==============================================================
-//  CNAE -> RAMO DE FORNECIMENTO
-//  A Receita diz o que a empresa faz (CNAE principal + secundarios).
-//  Isso e suficiente para deduzir o que ela fornece, poupando o
-//  usuario de marcar na mao. Duas vias: o CODIGO (confiavel) e as
-//  PALAVRAS da descricao (pega o que o codigo nao cobre). O que for
-//  deduzido entra como sugestao - da para desmarcar.
-// ==============================================================
-const CNAE_RAMOS = [
-  { pre:["4744001","4672900"], ramos:["ferragens","ferramentas"] },
-  { pre:["4744002","1610203","1610205"], ramos:["madeira"] },
-  { pre:["4744003","2222600"], ramos:["hidraulico"] },
-  { pre:["4744004"], ramos:["areia_brita","cobertura"] },
-  { pre:["4744005","4744099","4679699","4679604"], ramos:["casa_construcao"] },
-  { pre:["4744006","4679602","2391503"], ramos:["pedras"] },
-  { pre:["4741500","4679601"], ramos:["tintas"] },
-  { pre:["4742300","4673700"], ramos:["eletrico"] },
-  { pre:["4743100","4679603","2512800","2511000"], ramos:["esquadrias"] },
-  { pre:["4674500","2320600","2330305"], ramos:["cimento"] },
-  { pre:["2330301","2330302","2330303","2330399"], ramos:["concreto"] },
-  { pre:["2342701","2342702"], ramos:["porcelanato"] },
-  { pre:["2441501","2451200","4685100","2599301"], ramos:["aco","metais"] },
-  { pre:["7732201","7732202"], ramos:["locacao"] },
-  { pre:["4649408","3292202"], ramos:["epi"] },
-];
-const PALAVRAS_RAMO = [
-  { termos:["ferragem","ferramenta","parafuso","fixacao"], ramos:["ferragens","ferramentas"] },
-  { termos:["madeira","serraria","compensado","carpintaria"], ramos:["madeira"] },
-  { termos:["hidraulic","tubo","conexao","pvc","saneamento"], ramos:["hidraulico"] },
-  { termos:["areia","brita","pedra britada","tijolo","aterro"], ramos:["areia_brita"] },
-  { termos:["telha","cobertura","calha"], ramos:["cobertura"] },
-  { termos:["material de construcao","materiais de construcao","construcao em geral"], ramos:["casa_construcao"] },
-  { termos:["marmore","granito","revestimento de pedra","rocha ornamental"], ramos:["pedras"] },
-  { termos:["tinta","verniz","pintura","solvente"], ramos:["tintas"] },
-  { termos:["eletric","fio e cabo","condutor","iluminacao","luminaria"], ramos:["eletrico"] },
-  { termos:["vidro","espelho","esquadria","janela","porta de aluminio","serralheria"], ramos:["esquadrias"] },
-  { termos:["cimento","argamassa","cal hidratada"], ramos:["cimento"] },
-  { termos:["concreto","pre-moldado","premoldado","usinado"], ramos:["concreto"] },
-  { termos:["ceramic","azulejo","porcelanato","piso e revestimento"], ramos:["porcelanato"] },
-  { termos:["aco","siderurgic","metalurgic","vergalhao","ferro"], ramos:["aco"] },
-  { termos:["metal sanitario","louca sanitaria","louca","metais sanitarios"], ramos:["louca_metal"] },
-  { termos:["gesso","drywall","forro"], ramos:["gesso"] },
-  { termos:["impermeabiliz","manta asfaltica"], ramos:["impermeabilizante"] },
-  { termos:["aluguel de maquinas","locacao de maquinas","aluguel de andaimes","locacao de equipamentos"], ramos:["locacao"] },
-  { termos:["equipamento de protecao","seguranca do trabalho"], ramos:["epi"] },
-];
-
-// Deduz os ramos a partir da lista de CNAEs devolvida pela Receita.
-const ramosDosCnaes = (cnaes) => {
-  const semAcento = s => String(s || "").toLowerCase()
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  const achados = new Set();
-  (cnaes || []).forEach(c => {
-    const cod = String(c.codigo || "").replace(/\D/g, "");
-    CNAE_RAMOS.forEach(m => {
-      if (m.pre.some(p => cod.startsWith(p))) m.ramos.forEach(r => achados.add(r));
-    });
-    const desc = semAcento(c.descricao);
-    PALAVRAS_RAMO.forEach(m => {
-      if (m.termos.some(t => desc.includes(t))) m.ramos.forEach(r => achados.add(r));
-    });
-  });
-  return [...achados];
-};
 
 // Ponto de partida para subdividir um contrato. E sugestao: a tela deixa
 // renomear, reordenar, apagar e acrescentar. A ordem e a de execucao.
@@ -967,92 +697,6 @@ const CONTRACT_TYPES = [
   { v: "fixed_labor_admin", l: "Misto - MO fixo + % sobre materiais e terceirizados"  },
 ];
 
-// ==============================================================
-//  LICENCIAMENTO NA PREFEITURA
-//  Lista oficial da URB Caruaru para Licenca de Construcao
-//  Simplificada. A estrutura aceita outros tipos de licenca -
-//  basta acrescentar em LICENCAS.
-// ==============================================================
-const LIC_SIMPLIFICADA_PRE = [
-  { id:"tipo",      texto:"Residência unifamiliar (qualquer área), OU comércio/serviço até 750 m², OU institucional até 750 m²" },
-  { id:"poluidor",  texto:"Atividade de baixo potencial poluidor (isenta de licença ambiental)" },
-  { id:"bombeiro",  texto:"Isento de projeto do Corpo de Bombeiros, ou com projeto aprovado pelo órgão" },
-  { id:"comar",     texto:"Isento de consulta ao COMAR, ou com anuência do órgão" },
-  { id:"tombado",   texto:"Imóvel não tombado nem em processo de tombamento" },
-  { id:"iep",       texto:"Imóvel fora da lista de imóvel especial de preservação (IEP)" },
-];
-
-const LIC_SIMPLIFICADA_DOCS = [
-  { id:"taxa",           nome:"Taxa administrativa", quando:"sempre", grupo:"Taxas" },
-  { id:"procuracao",     nome:"Procuração + documento com foto do proprietário e do procurador",
-    quando:"condicional", cond:"Só quando houver procurador", anexo:"ANEXO VIII", grupo:"Proprietário" },
-  { id:"titulo",         nome:"Título de propriedade registrado em cartório de Caruaru",
-    quando:"sempre", grupo:"Proprietário",
-    obs:"Se for contrato ou escritura de compra e venda, anexar também a certidão do cartório do lote - mesmo que do antigo dono." },
-  { id:"contrato_social",nome:"Contrato social com último aditivo",
-    quando:"condicional", cond:"Só se o proprietário for empresa", grupo:"Proprietário" },
-  { id:"iptu",           nome:"Certidão Negativa de débitos do IPTU atualizada", quando:"sempre", grupo:"Proprietário" },
-  { id:"docs_foto",      nome:"Cópia de documento com foto de todos que assinam",
-    quando:"sempre", grupo:"Proprietário", obs:"Proprietário e responsáveis técnicos." },
-  { id:"art_projeto",    nome:"ART ou RRT do projeto arquitetônico", quando:"sempre", grupo:"Responsabilidade técnica" },
-  { id:"art_execucao",   nome:"ART ou RRT da execução da obra", quando:"sempre", grupo:"Responsabilidade técnica" },
-  { id:"iss_projeto",    nome:"ISS do responsável pelo projeto (ou nota avulsa)", quando:"sempre", grupo:"Responsabilidade técnica" },
-  { id:"iss_execucao",   nome:"ISS do responsável pela execução, inscrito em Caruaru",
-    quando:"sempre", grupo:"Responsabilidade técnica",
-    obs:"Atenção: para execução a prefeitura NÃO aceita nota avulsa. O profissional precisa ter inscrição no município." },
-  { id:"elevador",       nome:"ART/RRT + documento com foto + ISS do responsável pelo elevador",
-    quando:"condicional", cond:"Se tiver elevador ou mais de 4 pavimentos", grupo:"Responsabilidade técnica" },
-  { id:"art_compl",      nome:"ART ou RRT dos projetos complementares",
-    quando:"condicional", cond:"Quando houver complementares", grupo:"Responsabilidade técnica" },
-  { id:"iss_compl",      nome:"ISS dos projetos complementares (ou nota avulsa)",
-    quando:"condicional", cond:"Quando houver complementares", grupo:"Responsabilidade técnica" },
-  { id:"termo_prop",     nome:"Termo de responsabilidade do proprietário", quando:"sempre", anexo:"ANEXO III", grupo:"Termos" },
-  { id:"termo_projeto",  nome:"Termo de responsabilidade do responsável técnico pelo projeto",
-    quando:"sempre", anexo:"ANEXO IV", grupo:"Termos" },
-  { id:"termo_exec",     nome:"Termo de responsabilidade do responsável técnico pela execução",
-    quando:"sempre", anexo:"ANEXO V", grupo:"Termos" },
-  { id:"plantas",        nome:"04 jogos de plantas impressos e assinados + arquivos PDF e DWG",
-    quando:"sempre", grupo:"Projeto",
-    obs:"Assinados pelo proprietário e pelos responsáveis técnicos." },
-];
-
-// Fluxo fornecido pela Associacao Terras Alpha Caruaru. Ele cobre a analise
-// interna do condominio e a liberacao posterior ao alvara da Prefeitura, para
-// que o operador nao confunda "projeto aprovado" com "obra liberada".
-const LIC_TERRAS_ALPHA_PRE = [
-  { id:"normas_condominio", texto:"Projeto conferido conforme o Regulamento do Condomínio Terras Alpha Caruaru e o plano diretor do Município" },
-  { id:"titularidade", texto:"Proprietário do projeto confere com o titular do lote/quadra e com os documentos de propriedade" },
-  { id:"adimplencia", texto:"Associado adimplente com as despesas da Associação" },
-  { id:"fiduciaria", texto:"Situação fiduciária do lote verificada; certidão atualizada disponível quando houver alienação ou gravame" },
-];
-
-const LIC_TERRAS_ALPHA_DOCS = [
-  { id:"projeto_arquitetonico", nome:"Projeto arquitetônico no padrão da Prefeitura", quando:"sempre", grupo:"Projeto arquitetônico", obs:"Incluir plantas de todos os pavimentos, implantação, localização e cobertura." },
-  { id:"elevacoes", nome:"Elevações de todas as fachadas", quando:"sempre", grupo:"Projeto arquitetônico" },
-  { id:"cortes", nome:"Mínimo de dois cortes", quando:"sempre", grupo:"Projeto arquitetônico" },
-  { id:"levantamento_planialtimetrico", nome:"Levantamento planialtimétrico - 1 via", quando:"sempre", grupo:"Projetos e levantamentos" },
-  { id:"projeto_hidrossanitario", nome:"Projeto hidrossanitário de águas pluviais, esgoto e vazão da piscina", quando:"condicional", cond:"Obrigatório quando houver piscina", grupo:"Projetos e levantamentos" },
-  { id:"estudo_solo", nome:"Estudo do solo (sondagem) ou Termo de Responsabilidade da Sondagem", quando:"sempre", grupo:"Projetos e levantamentos", obs:"O termo deve ter firma reconhecida. Quando escolhido, deve ser solicitado por e-mail à Associação." },
-  { id:"contrato_compra", nome:"Contrato de compra do imóvel - cópia integral", quando:"sempre", grupo:"Propriedade", obs:"Deve constar o nome do proprietário do projeto e a identificação do lote/quadra." },
-  { id:"certidao_propriedade", nome:"Certidão de propriedade atualizada", quando:"sempre", grupo:"Propriedade", obs:"Em nome do proprietário que consta no projeto; entregar antes da liberação da obra." },
-  { id:"termo_inscricao", nome:"Termo de inscrição no Loteamento Terras Alpha Caruaru", quando:"sempre", grupo:"Propriedade", obs:"Confirmar com o Setor Administrativo da Associação se o proprietário já possui o termo." },
-  { id:"art_rrt_projeto", nome:"ART ou RRT do responsável técnico pelo projeto", quando:"sempre", grupo:"Responsabilidade técnica" },
-  { id:"art_rrt_execucao", nome:"ART ou RRT do responsável técnico pela execução da obra", quando:"sempre", grupo:"Responsabilidade técnica" },
-  { id:"croqui_canteiro", nome:"Croqui do canteiro, acesso e ligações provisórias", quando:"sempre", grupo:"Execução", obs:"Indicar local de acesso, sanitário e ligações de água e energia." },
-  { id:"dwg_projeto", nome:"Arquivo digital do projeto arquitetônico em DWG", quando:"sempre", grupo:"Entrega digital", obs:"Enviar por e-mail ao setor responsável pela análise." },
-  { id:"memorial_areas", nome:"Memorial de cálculo de áreas conforme modelo padrão", quando:"sempre", grupo:"Entrega digital" },
-];
-
-export const LIC_TERRAS_ALPHA_VERIFICACAO = [
-  { id:"condominio_aprovado", nome:"Projeto aprovado pelo Condomínio" },
-  { id:"prefeitura_aprovada", nome:"Projeto aprovado e licença de construção emitida pela Prefeitura" },
-  { id:"licenca_entregue", nome:"Cópia da licença de construção entregue à Associação" },
-  { id:"vias_carimbadas", nome:"Vias impressas aprovadas devolvidas à Associação para carimbo e assinatura" },
-  { id:"via_arquivada", nome:"Uma via do projeto ficou arquivada na Associação" },
-  { id:"adimplencia_confirmada", nome:"Adimplência e situação fiduciária confirmadas na liberação" },
-  { id:"liberacao_emitida", nome:"Termo/autorização de liberação da obra emitido pela Associação" },
-];
-
 const CONDOMINIOS_PADRAO = [{
   id:"cond-terras-alpha-caruaru", nome:"Terras Alpha Caruaru", cidade:"Caruaru", uf:"PE",
   cep:"55038-215", endereco:"Rua Quitéria Luiza da Silva Nova, 35 - Universitário, Empresarial Ethos, sala 810",
@@ -1060,60 +704,6 @@ const CONDOMINIOS_PADRAO = [{
   atendimento:"Segunda a sexta, das 08:00 às 12:00. Análises iniciadas na segunda e na quarta-feira após a entrega.",
   observacoes:"A entrega do projeto é presencial. A aprovação do condomínio antecede o protocolo na Prefeitura.",
 }];
-
-export const LICENCAS = [
-  { id:"simplificada", orgao:"URB Caruaru", nome:"Licença de Construção Simplificada",
-    prazo:"10 dias úteis",
-    finalidade:"Atesta que o projeto atende a legislação vigente e que existe responsável técnico pela execução.",
-    pre:LIC_SIMPLIFICADA_PRE, docs:LIC_SIMPLIFICADA_DOCS },
-  { id:"terras_alpha_caruaru", orgao:"Associação Terras Alpha Caruaru", nome:"Aprovação e liberação de obra",
-    prazo:"Conforme calendário de análise da Associação",
-    finalidade:"Organiza a aprovação condominial, o protocolo municipal e a liberação definitiva para iniciar a obra.",
-    pre:LIC_TERRAS_ALPHA_PRE, docs:LIC_TERRAS_ALPHA_DOCS },
-];
-export const licencaPorId = id => LICENCAS.find(l => l.id === id) || LICENCAS[0];
-
-// Situacoes de cada documento. "na" = nao se aplica a esta obra (some da conta).
-export const LIC_STATUS = [
-  { v:"pendente",     l:"Pendente",     cor:C.muted  },
-  { v:"em_andamento", l:"Em andamento", cor:C.orange },
-  { v:"entregue",     l:"Entregue",     cor:C.blue   },
-  { v:"aprovado",     l:"Aprovado",     cor:C.green  },
-  { v:"na",           l:"Não necessário",cor:C.border },
-];
-export const licStatusInfo = v => LIC_STATUS.find(s => s.v === v) || LIC_STATUS[0];
-
-// Andamento do checklist: so conta o que se aplica a esta obra.
-export const progressoChecklist = (check, docs) => {
-  const defs = docs || LIC_SIMPLIFICADA_DOCS;
-  const st = id => check?.itens?.[id]?.status || "pendente";
-  const aplicaveis = defs.filter(d => st(d.id) !== "na");
-  const ok = aplicaveis.filter(d => ["entregue","aprovado"].includes(st(d.id)));
-  return {
-    total: defs.length, aplicaveis: aplicaveis.length,
-    concluidos: ok.length,
-    aprovados: aplicaveis.filter(d => st(d.id) === "aprovado").length,
-    pendentes: aplicaveis.filter(d => st(d.id) === "pendente").length,
-    naoAplica: defs.length - aplicaveis.length,
-    pct: aplicaveis.length ? (ok.length / aplicaveis.length) * 100 : 0,
-    pronto: aplicaveis.length > 0 && ok.length === aplicaveis.length,
-  };
-};
-
-// Elegibilidade: a licenca simplificada so vale se TODOS os pre-requisitos
-// forem atendidos. Se faltar um, o caminho e outro tipo de licenca.
-export const preRequisitosOk = (check, pre) => {
-  const lista = pre || LIC_SIMPLIFICADA_PRE;
-  const faltando = lista.filter(p => !check?.pre?.[p.id]);
-  return { marcados: lista.length - faltando.length, total: lista.length,
-           ok: faltando.length === 0, faltando };
-};
-
-export const CONTRACT_LABELS = {
-  fixed_labor:       "Somente MO",
-  admin_only:        "Só Administração",
-  fixed_labor_admin: "MO + Admin %",
-};
 
 // Frequência de cobrança
 // Os dias de vencimento NAO sao mais fixos no codigo: cada obra guarda
@@ -1123,20 +713,9 @@ const FREQ_OPTS = [
   { v:"quinzenal", l:"Quinzenal - 2 parcelas por mês"   },
 ];
 
-// Dias de vencimento padrao do contrato ARCD: 15 e 30.
-export const DIA_VENC_1_PADRAO = 15;
-export const DIA_VENC_2_PADRAO = 30;
-
 // Opcoes de dia para os selects (1..31). "30" em fevereiro vira 28/29 -
 // ver clampDiaNoMes abaixo.
 const DIA_OPTS = Array.from({length:31}, (_,i) => ({ v:String(i+1), l:`Dia ${i+1}` }));
-
-// Prende o dia ao ultimo dia real do mes: pedir dia 30 em fevereiro devolve
-// 28 (ou 29 em ano bissexto), em vez de escorregar para 1/3 ou 2/3.
-export const clampDiaNoMes = (ano, mesIdx, dia) => {
-  const ultimo = new Date(ano, mesIdx + 1, 0).getDate();
-  return Math.min(Math.max(Number(dia) || 1, 1), ultimo);
-};
 
 const DEFAULT = () => ({
   schemaVersion: APP_SCHEMA_VERSION,
@@ -1168,6 +747,8 @@ const DEFAULT = () => ({
     { id: uid(), name: "Obra 2", address: "", condominioId:"", condominioNome:"", quadra:"", lote:"", engineer: "", engineerId: "", startDate: "", status: "active", areaM2: 0, oneDriveUrl: "", contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0, contractStart: "", contractEnd: "", totalParcelas: 0, billingFrequency: "mensal", diaVenc1: DIA_VENC_1_PADRAO, diaVenc2: DIA_VENC_2_PADRAO, entrada: 0, entradaDate: "", hasCaixa: false },
   ],
   condominios: CONDOMINIOS_PADRAO.map(x=>({...x})),
+  engineeringProjects: [],
+  workFileCabinets: [],
   licencas: [],
   employees: [],
   titulosFolha: [],
@@ -1213,16 +794,6 @@ const DEFAULT = () => ({
   reservasEstoque: [],
 });
 
-export const maiusculoOrcamento = valor => String(valor ?? "").toLocaleUpperCase("pt-BR");
-const formatarCodigoArcd = numero => `MARCELL${String(numero).padStart(3,"0")}`;
-const numeroCodigoArcd = codigo => Number(/^ARCD(\d+)$/i.exec(String(codigo||"").trim())?.[1] || 0);
-export const proximoCodigoArcd = data => {
-  const codigos=[...(data?.materiais||[]),...(data?.composicoes||[]),...(data?.composicoesEmpresa||[])];
-  const maior=codigos.reduce((max,item)=>Math.max(max,numeroCodigoArcd(item.codigo)),0);
-  return formatarCodigoArcd(maior+1);
-};
-export const obraContextoSalvo = () => typeof window!=="undefined" ? (window.sessionStorage.getItem("arcd_obra_contexto")||"") : "";
-
 // ---------------------------------------------------------------------------
 //  MERGE DE DADOS (resolução de conflito entre dois editores)
 //  O banco é um blob único, então quando duas pessoas salvam quase juntas, a
@@ -1237,65 +808,6 @@ export const obraContextoSalvo = () => typeof window!=="undefined" ? (window.ses
 //  sumiu do meu) é removido. Campos escalares (não-lista) que eu mudei em
 //  relação à base vencem; o resto fica do servidor.
 // ---------------------------------------------------------------------------
-const mesclarLista = (servidor, meu, base) => {
-  const S = Array.isArray(servidor) ? servidor : [];
-  const M = Array.isArray(meu) ? meu : [];
-  const B = Array.isArray(base) ? base : [];
-  // Só dá para mesclar por id se os itens tiverem id. Sem id, cai no meu (a
-  // lista inteira é minha intenção) - é o comportamento antigo, seguro.
-  const temId = x => x && typeof x === "object" && "id" in x;
-  if (!M.every(temId) || !S.every(temId)) return meu !== undefined ? meu : servidor;
-
-  const idsBase = new Set(B.map(x => x.id));
-  const mapMeu  = new Map(M.map(x => [x.id, x]));
-  const mapBase = new Map(B.map(x => [x.id, x]));
-  const jsonEq  = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-
-  // Itens que EU removi: estavam na base e sumiram do meu.
-  const removidosPorMim = new Set([...idsBase].filter(id => !mapMeu.has(id)));
-
-  const saida = [];
-  const vistos = new Set();
-  // Percorre o servidor mantendo a ordem dele; aplica minhas edições.
-  S.forEach(itemS => {
-    const id = itemS.id;
-    vistos.add(id);
-    if (removidosPorMim.has(id)) return;               // eu apaguei: some
-    const itemM = mapMeu.get(id);
-    if (!itemM) { saida.push(itemS); return; }         // eu não toquei: fica do servidor
-    const itemB = mapBase.get(id);
-    // Eu mudei em relação à base? então minha versão vence para este item.
-    if (itemB && jsonEq(itemM, itemB)) saida.push(itemS); // eu não mudei; servidor pode ter mudado
-    else saida.push(itemM);                               // eu mudei: fica meu
-  });
-  // Itens que EU criei (não estavam na base nem apareceram no servidor).
-  M.forEach(itemM => {
-    if (!vistos.has(itemM.id) && !idsBase.has(itemM.id)) saida.push(itemM);
-  });
-  return saida;
-};
-
-const mesclarDados = (servidor, meu, base) => {
-  const s = servidor || {}, m = meu || {}, b = base || {};
-  const saida = { ...s };
-  Object.keys(m).forEach(chave => {
-    const vm = m[chave], vs = s[chave], vb = b[chave];
-    if (Array.isArray(vm) || Array.isArray(vs)) {
-      saida[chave] = mesclarLista(vs, vm, vb);
-    } else if (vm && typeof vm === "object") {
-      // Objeto aninhado (ex.: config): mescla campo a campo com a mesma regra -
-      // recursão passando a base do próprio objeto, para não sobrescrever o que
-      // a outra pessoa mudou e eu não toquei.
-      saida[chave] = mesclarDados(vs || {}, vm, vb || {});
-    } else {
-      // Escalar: se EU mudei em relação à base, minha versão vence; senão,
-      // mantém o servidor (que pode ter a mudança da outra pessoa).
-      saida[chave] = (JSON.stringify(vm) !== JSON.stringify(vb)) ? vm : (vs !== undefined ? vs : vm);
-    }
-  });
-  return saida;
-};
-
 const normalizeData = incoming => {
   const base = DEFAULT();
   const d = migrateSupplyData(incoming && typeof incoming === "object" ? incoming : {});
@@ -2250,12 +1762,13 @@ const normalizeData = incoming => {
       solicitacaoId: x.solicitacaoId || "",
       status:     x.status     || "aberta",   // aberta | decidida | cancelada
       propostas: Array.isArray(x.propostas) ? x.propostas.map(p => ({
+        ...p,
         id:           p.id           || uid(),
         fornecedorId: p.fornecedorId || "",
         precoUnit:    Number(p.precoUnit || 0),
         // Mapa de cotação (C1.3): preço por item da cotação.
         ...(p.precos&&typeof p.precos==="object"?{precos:{...p.precos}}:{}),
-        prazoDias:    Number(p.prazoDias || 0),
+        prazoDias:    p.prazoDias==null||p.prazoDias===""?null:Number(p.prazoDias),
         obs:          p.obs || "",
         documentos: Array.isArray(p.documentos) ? p.documentos.map(a=>({
           id:a.id||uid(),nome:a.nome||"",legenda:a.legenda||a.nome||"Documento da cotação",
@@ -2285,6 +1798,7 @@ const normalizeData = incoming => {
       referenciaId:x.referenciaId || "",
       solicitacaoId:x.solicitacaoId || "",
       itens: Array.isArray(x.itens) ? x.itens.map(i => ({
+        ...i,
         id:          i.id         || uid(),
         materialId:  i.materialId || "",
         qtd:         Number(i.qtd || 0),
@@ -2729,6 +2243,12 @@ const normalizeData = incoming => {
       obraId: r.obraId || "",
       data:   r.data   || "",   // YYYY-MM-DD
       codigo: Number(r.codigo || rdoIndex + 1),
+      productionVersion:r.productionVersion===1?1:undefined,
+      version:Number(r.version||0),operationalHistory:Array.isArray(r.operationalHistory)?r.operationalHistory:[],
+      createdAt:r.createdAt||r.criadoEm||'',updatedAt:r.updatedAt||r.atualizadoEm||'',
+      motivoCancelamento:r.motivoCancelamento||'',canceladoEm:r.canceladoEm||'',canceladoPor:r.canceladoPor||'',canceladoPorId:r.canceladoPorId||'',
+      reabertoEm:r.reabertoEm||'',reabertoPor:r.reabertoPor||'',reabertoPorId:r.reabertoPorId||'',motivoReabertura:r.motivoReabertura||'',
+
       status: r.status || "preparacao", // preparacao | concluido | cancelado
       praticabilidade: r.praticabilidade || "praticavel",
       periodos: Array.isArray(r.periodos) ? r.periodos : ["manha","tarde"],
@@ -2747,6 +2267,7 @@ const normalizeData = incoming => {
       // progresso acumulado total (progressoAte). Guardamos os dois para a
       // medicao poder somar dias trabalhados.
       servicos: Array.isArray(r.servicos) ? r.servicos.map(s => ({
+        budgetQuantity:s.budgetQuantity??"",budgetId:s.budgetId||"",budgetItemId:s.budgetItemId||"",unidade:s.unidade||"",quantidadeDia:s.quantidadeDia??"",horasPorPessoa:s.horasPorPessoa&&typeof s.horasPorPessoa==="object"?s.horasPorPessoa:{},
         tarefaId:     s.tarefaId     || "",
         etapaId:      s.etapaId      || "",
         descricao:    s.descricao    || "",
@@ -2835,109 +2356,6 @@ const normalizeData = incoming => {
   };
   return finalizeNormalizedData(d, normalized);
 };
-
-//
-// UI base
-//
-
-export function Ic({ n, s = 16, color }) {
-  // Icones em SVG (feather-style). Antes eram emojis, que o build do Vercel
-  // apaga - por isso sumiam na tela. SVG e ASCII puro: aparece sempre, tem
-  // contraste, herda a cor via --ic-color ou a prop color.
-  const P = {
-    // --- Navegação e objetos principais ---
-    home:     "M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22V12h6v10",  // casa (dashboard/painel)
-    building: "M3 21h18 M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16 M9 7h1 M9 11h1 M9 15h1 M14 7h1 M14 11h1 M14 15h1", // prédio (obras)
-    users:    "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M23 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75", // várias pessoas (equipe)
-    user:     "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z", // uma pessoa (cliente/lead)
-    handshake:"M11 17l2 2a1 1 0 0 0 3-3 M14 14l2.5 2.5a1 1 0 0 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 0 1-1.41 0l-2.12-2.12a1 1 0 0 0-1.41 0L3 12 M18 3l3 3-3 3 M3 21l3-3", // parceria (parceiros)
-    clock:    "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 6v6l4 2",
-    more:     "M3.5 12a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0 M10.5 12a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0 M17.5 12a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0", // três pontos (menu "Mais ações")
-    smartphone:"M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z M12 18h.01", // celular (app de ponto da obra)
-    refresh:  "M23 4v6h-6 M1 20v-6h6 M3.51 9a9 9 0 0 1 14.85-3.36L23 10 M1 14l4.64 4.36A9 9 0 0 0 20.49 15",
-    // --- Gráficos e dados ---
-    chart:    "M18 20V10 M12 20V4 M6 20v-6",           // barras (dashboard)
-    funnel:   "M3 4h18l-7 8v7l-4 2v-9z",               // funil (funil de vendas)
-    trending: "M23 6l-9.5 9.5-5-5L1 18 M17 6h6v6",     // linha subindo (metas/KPIs/relatórios)
-    target:   "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12z M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z", // alvo (medição/metas)
-    ruler:    "M3 15l6-6 M6 12l2 2 M9 9l2 2 M16 3l5 5L8 21l-5-5z", // régua/trena (medição de obra)
-    // --- Dinheiro ---
-    dollar:   "M12 1v22 M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6", // cifrão (financeiro)
-    wallet:   "M20 12V8H6a2 2 0 0 1 0-4h12v4 M4 6v12a2 2 0 0 0 2 2h14v-4 M18 12a2 2 0 0 0 0 4h4v-4z", // carteira (folha/caixa)
-    receipt:  "M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1z M8 7h8 M8 11h8 M8 15h5", // recibo (pagamento/conciliação)
-    // --- Documentos ---
-    file:     "M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z M13 2v7h7",       // arquivo (documento genérico)
-    folder:   "M3 5h6l2 2h10a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z",
-    fileText: "M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z M13 2v7h7 M8 13h8 M8 17h8 M8 9h2", // documento com texto (orçamento/proposta/contrato)
-    clipboard:"M9 2h6a1 1 0 0 1 1 1v2H8V3a1 1 0 0 1 1-1z M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2 M9 13l2 2 4-4", // prancheta com check (diário de obra/tarefas)
-    box:      "M21 8l-9-5-9 5 9 5 9-5z M3 8v8l9 5 9-5V8 M12 13v8", // caixa (estoque)
-    cart:     "M9 22a1 1 0 1 0 0-2 1 1 0 0 0 0 2z M20 22a1 1 0 1 0 0-2 1 1 0 0 0 0 2z M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6", // carrinho (compras)
-    // --- Ações ---
-    plus:     "M12 5v14 M5 12h14",
-    edit:     "M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7 M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z",
-    trash:    "M3 6h18 M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2 M10 11v6 M14 11v6",
-    x:        "M18 6L6 18 M6 6l12 12",
-    check:    "M20 6L9 17l-5-5",
-    mail:     "M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z M22 6l-10 7L2 6",
-    lock:     "M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z M7 11V7a5 5 0 0 1 10 0v4",
-    unlock:   "M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z M7 11V7a5 5 0 0 1 9.9-1",
-    download: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M7 10l5 5 5-5 M12 15V3",
-    copy:     "M9 9h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V11a2 2 0 0 1 2-2z M5 15H4a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v1",
-    search:   "M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z M21 21l-4.35-4.35",
-    calendar: "M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z M16 2v4 M8 2v4 M3 10h18",
-    alert:    "M12 2 1 21h22L12 2z M12 9v4 M12 17h.01",
-    info:     "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 10v7 M12 7h.01",
-    settings: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z",
-    phone:    "M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z",
-    ia:       "M12 2a3 3 0 0 0-3 3 3 3 0 0 0-3 3v1a3 3 0 0 0 0 6v1a3 3 0 0 0 3 3 3 3 0 0 0 6 0 3 3 0 0 0 3-3v-1a3 3 0 0 0 0-6V8a3 3 0 0 0-3-3 3 3 0 0 0-3-3z M12 2v20", // cérebro (IA)
-    briefcase:"M4 7h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2 M2 13h20", // maleta (rescisão/comercial)
-    wrench:   "M14.7 6.3a4 4 0 0 1-5.4 5.4l-6 6a2 2 0 1 0 3 3l6-6a4 4 0 0 1 5.4-5.4l-2.7 2.7 1.4 1.4 2.7-2.7", // chave (equipamentos)
-    chevL:    "M15 18l-6-6 6-6",
-    chevR:    "M9 18l6-6-6-6",
-    chevron:  "M6 9l6 6 6-6",
-    chevUp:   "M18 15l-6-6-6 6",
-    cornerDownRight: "M15 10l5 5-5 5 M4 4v7a4 4 0 0 0 4 4h12", // seta que desce e vira à direita (criar subnível)
-    star:     "M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14 2 9.27l6.91-1.01z", // favorito
-    // --- Clima (resumo diário) ---
-    sun:      "M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10z M12 1L12 3 M12 21L12 23 M4.22 4.22L5.64 5.64 M18.36 18.36L19.78 19.78 M1 12L3 12 M21 12L23 12 M4.22 19.78L5.64 18.36 M18.36 5.64L19.78 4.22",
-    cloud:    "M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z",
-    cloudRain:"M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 15.25 M16 13L16 21 M8 13L8 21 M12 15L12 23",
-    zap:      "M13 2L3 14L12 14L11 22L21 10L12 10L13 2Z",
-    attach:   "M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48", // clipe de papel (anexar arquivo no chat)
-  };
-  // Aliases: nomes antigos que apontam para glifos do catálogo, para não quebrar
-  // usos espalhados. money/pay = cifrão; brain = ia; terc = users; week = agenda;
-  // medicoes = régua (medição de obra).
-  P.money = P.dollar; P.pay = P.dollar; P.brain = P.ia; P.robot = P.ia;
-  P.terc = P.users; P.week = P.calendar; P.medicoes = P.ruler;
-  const d = P[n];
-  if (!d) {
-    // fallback discreto: um ponto, nao um traco solto
-    return (
-      <span aria-hidden="true" style={{
-        width:s+4, height:s+4, display:"inline-flex", alignItems:"center",
-        justifyContent:"center", color: color || `var(--ic-color, ${C.yellow})`,
-      }}>
-        <svg width={s*0.4} height={s*0.4} viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="currentColor"/></svg>
-      </span>
-    );
-  }
-  return (
-    <span aria-hidden="true" className="arcd-icon" data-icon-size={s<=13?"sm":s>=20?"lg":"md"} style={{
-      width:s+4, height:s+4, display:"inline-flex", alignItems:"center",
-      justifyContent:"center", color: color || `var(--ic-color, ${C.yellow})`,
-      flexShrink:0,
-    }}>
-      <svg width={s} height={s} viewBox="0 0 24 24" fill="none"
-           stroke="currentColor" strokeWidth="2"
-           strokeLinecap="round" strokeLinejoin="round">
-        {d.split(" M").map((seg, i) => (
-          <path key={i} d={i === 0 ? seg : "M" + seg}/>
-        ))}
-      </svg>
-    </span>
-  );
-}
 function IcoObra({ n, s = 17 }) {
   const P = {
     financeiro: "M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6",
@@ -2972,453 +2390,12 @@ function ChevronBaixo({ s = 14 }) {
 }
 
 function BrandMark({ compact = false, dark = false, signature = true }) {
+  const {theme} = useTheme();
+  dark = dark && theme === "marcell";
   return <div className="arcd-brand-mark" style={{display:"flex",alignItems:"center",gap:12,minWidth:0}}>
     <img src={dark?BRAND.monogramOnDark:BRAND.monogram} alt="MRC" width={compact?34:46} style={{height:"auto",flexShrink:0}}/>
     {!compact&&<div className="arcd-brand-word"><p style={{fontFamily:"var(--arcd-font-sans)",color:dark?"#FFFFFF":C.text,fontSize:"var(--arcd-type-card-title)",fontWeight:600,letterSpacing:".13em",lineHeight:1.2}}>MARCELL</p>{signature&&<p style={{fontSize:"var(--arcd-type-caption)",color:dark?"#C1CBD7":C.muted,lineHeight:1.5}}>Engenharia e construção</p>}</div>}
   </div>;
-}
-
-const SIGLAS_UI = new Set([
-  "MARCELL", "BDI", "CBO", "CLT", "CEP", "CFO", "CNPJ", "CPF", "CUB", "DRE", "EBITDA", "FGTS", "IRRF",
-  "FVM", "FVS", "IA", "INSS", "ISS", "MO", "NFS-E", "ORSE", "PDF",
-  "PIN", "RDO", "RG", "SINAPI", "SLA", "UF", "URL", "VR", "VT",
-]);
-
-function textoUi(valor) {
-  if (typeof valor !== "string") return valor;
-  const letras = valor.match(/[A-Za-zÀ-ÖØ-öø-ÿ]/g);
-  if (!letras?.length || !letras.every(letra => letra === letra.toUpperCase())) return valor;
-
-  let primeiraPalavra = true;
-  return valor.toLowerCase().replace(/[A-Za-zÀ-ÖØ-öø-ÿ]+(?:-[A-Za-zÀ-ÖØ-öø-ÿ]+)*/g, palavra => {
-    const sigla = palavra.toUpperCase();
-    if (SIGLAS_UI.has(sigla)) return sigla;
-    if (primeiraPalavra) {
-      primeiraPalavra = false;
-      return palavra.charAt(0).toUpperCase() + palavra.slice(1);
-    }
-    return palavra;
-  });
-}
-
-function conteudoUi(children) {
-  return Children.map(children, child => typeof child === "string" ? textoUi(child) : child);
-}
-
-export function Btn({ children, onClick, v = "primary", size = "md", full = false, disabled = false, loading = false, iconOnly = false, type = "button", style = {}, className = "", title, ariaLabel, ...props }) {
-  // Padrão MARCELL (29/10/2026): três aparências. As variantes antigas
-  // (success, info, dark, warning, secondary) seguem aceitas e mapeadas para
-  // estas, para que nenhuma tela invente cor de botão.
-  const principal = { bg:C.text, color:C.card, border:C.text, hover:"#1E3552", hoverBorder:"#1E3552" };
-  const secundario = { bg:C.card, color:C.text, border:"#C9CED6", hover:"#F3F0E9", hoverBorder:"#7A8591" };
-  const perigo = { bg:C.card, color:C.red, border:"#E0B1B1", hover:"#FBEAEA", hoverBorder:C.red };
-  const variants = {
-    primary:principal, success:principal, info:principal, dark:principal,
-    ghost:secundario, secondary:secundario, warning:secundario,
-    danger:perigo,
-  };
-  const vv = variants[v] || principal;
-  const py = size === "sm" ? 5 : size === "lg" ? 10 : 8;
-  const px = size === "sm" ? 10 : size === "lg" ? 18 : 14;
-
-  return (
-    <button
-      className={`arcd-btn ${className}`.trim()}
-      data-variant={v}
-      data-size={size}
-      data-icon-only={iconOnly}
-      {...props}
-      type={type}
-      title={title}
-      aria-label={ariaLabel||title}
-      aria-busy={loading||undefined}
-      onClick={onClick}
-      disabled={disabled||loading}
-      style={{
-        width: full ? "100%" : "auto",
-        border: `1px solid ${vv.border}`,
-        background: vv.bg,
-        color: vv.color,
-        padding: `${py}px ${px}px`,
-        cursor: disabled ? "not-allowed" : "pointer",
-        fontFamily: FONT_DISPLAY,
-        fontWeight:400,
-        letterSpacing: 0,
-        display: "inline-flex",
-        gap: 6,
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: "var(--arcd-type-control)",
-        borderRadius: 8,
-        boxShadow: "none",
-        transition: "background .12s ease, border-color .12s ease",
-        "--btn-hover": vv.hover,
-        "--btn-hover-border": vv.hoverBorder,
-        // O icone herda a cor do texto do botao (nao branco fixo): assim no
-        // botao escuro ou fantasma ele acompanha e nunca some no fundo.
-        "--ic-color": (style && style.color) || vv.color,
-        ...style,
-      }}
-    >
-      {loading?<><Ic n="refresh"/><span>{typeof loading==="string"?textoUi(loading):"Processando..."}</span></>:conteudoUi(children)}
-    </button>
-  );
-}
-
-export function Inp({ label, value, onChange, type = "text", placeholder = "", max, min, disabled = false, multiline = false, inputRef = null, error = "" }) {
-  const Comp = multiline ? "textarea" : "input";
-
-  return (
-    <label className="arcd-field arcd-legacy-field" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      {label && <span className="arcd-field__label" style={{
-        color: C.text, fontSize:"var(--arcd-type-label)", fontWeight:600,
-        letterSpacing: 0.1,
-        fontFamily:"var(--arcd-font-sans)",
-      }}>{textoUi(label)}</span>}
-      <Comp
-        className="arcd-field-control"
-        ref={inputRef}
-        type={multiline ? undefined : type}
-        value={value ?? ""}
-        onChange={e => onChange(e.target.value)}
-        placeholder={placeholder}
-        max={max}
-        min={min}
-        disabled={disabled}
-        rows={multiline ? 3 : undefined}
-        aria-invalid={error?"true":undefined}
-        style={{
-          width: "100%",
-          background: disabled ? C.surface : C.bg,
-          border: `1.5px solid ${C.line}`,
-          color: C.text,
-          padding: "8px 10px",
-          outline: "none",
-          fontSize: "var(--arcd-type-body)",
-          borderRadius: 7,
-          resize: "vertical",
-          fontFamily:"var(--arcd-font-sans)",
-        }}
-      />
-      {error&&<small role="alert" style={{color:C.red,fontSize:"var(--arcd-type-label)"}}>{error}</small>}
-    </label>
-  );
-}
-
-
-// Campo de CNPJ com busca automatica na Receita (BrasilAPI). Ao clicar em
-// "Buscar" (ou sair do campo com 14 digitos), consulta e entrega os dados ao
-// pai via onEncontrado. Mostra estado de carregando/erro sem travar o resto.
-// Campo de CEP que preenche o endereco sozinho (ViaCEP). Mesmo padrao do
-// CampoCNPJ: consulta ao sair do campo, avisa em vez de travar se falhar.
-function CampoCEP({ label = "CEP", value, onChange, onEncontrado }) {
-  const [carregando, setCarregando] = useState(false);
-  const [erro, setErro] = useState("");
-
-  const consultar = async () => {
-    setErro("");
-    const cep = soDigitos(value);
-    if (cep.length !== 8) { if (cep.length) setErro("O CEP tem 8 dígitos."); return; }
-    setCarregando(true);
-    try {
-      const r = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
-      const j = await r.json();
-      if (j.erro) { setErro("CEP não encontrado."); return; }
-      onEncontrado && onEncontrado({
-        endereco: j.logradouro || "", bairro: j.bairro || "",
-        cidade: j.localidade || "", uf: j.uf || "",
-      });
-    } catch (e) {
-      setErro("Não foi possível consultar o CEP agora.");
-    } finally {
-      setCarregando(false);
-    }
-  };
-
-  return (
-    <label style={{ display:"flex", flexDirection:"column", gap:4 }}>
-      {label && <span style={{ color:C.text, fontSize:"var(--arcd-type-caption)", fontWeight:600,
-        letterSpacing:.1, fontFamily:"var(--arcd-font-sans)" }}>{textoUi(label)}</span>}
-      <input value={value == null ? "" : value}
-        onChange={e => { onChange(e.target.value); setErro(""); }}
-        onBlur={consultar}
-        onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }}
-        placeholder="00000-000"
-        style={{ width:"100%", boxSizing:"border-box", background:C.bg, border:`1.5px solid ${C.border}`,
-          color:C.text, padding:"8px 10px", borderRadius:7, fontSize:"var(--arcd-type-control)", outline:"none",
-          fontFamily:"var(--arcd-font-sans)" }}/>
-      {carregando && <span style={{ fontSize:"var(--arcd-type-label)", color:C.muted }}>Buscando endereço...</span>}
-      {erro && <span style={{ fontSize:"var(--arcd-type-label)", color:C.orange }}>{erro}</span>}
-    </label>
-  );
-}
-
-export function CampoCNPJ({ label = "CNPJ", value, onChange, onEncontrado, disabled = false }) {
-  const [carregando, setCarregando] = useState(false);
-  const [erro, setErro] = useState("");
-  const [ok, setOk] = useState(false);
-
-  const consultar = async () => {
-    setErro(""); setOk(false);
-    if (soDigitos(value).length !== 14) { setErro("Digite os 14 digitos do CNPJ."); return; }
-    setCarregando(true);
-    try {
-      const dados = await buscarCNPJ(value);
-      onEncontrado && onEncontrado(dados);
-      setOk(true);
-      if (dados.situacao && dados.situacao.toUpperCase() !== "ATIVA")
-        setErro(`Atencao: situacao cadastral "${dados.situacao}".`);
-    } catch (e) {
-      setErro(e.message || "Nao foi possivel consultar.");
-    } finally {
-      setCarregando(false);
-    }
-  };
-
-  return (
-    <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      {label && <span style={{
-        color: C.text, fontSize:"var(--arcd-type-caption)", fontWeight:600,
-        letterSpacing: 0.1, fontFamily: "var(--arcd-font-sans)",
-      }}>{textoUi(label)}</span>}
-      <div style={{ display: "flex", gap: 6 }}>
-        <input
-          value={value == null ? "" : value}
-          onChange={e => { onChange(e.target.value); setOk(false); setErro(""); }}
-          onBlur={() => { if (soDigitos(value).length === 14) consultar(); }}
-          placeholder="00.000.000/0001-00"
-          disabled={disabled || carregando}
-          style={{
-            flex: 1, background: disabled ? C.surface : C.bg,
-            border: `1.5px solid ${ok ? C.green : erro ? C.orange : C.line}`,
-            color: C.text, padding: "8px 10px", outline: "none", fontSize: "var(--arcd-type-control)",
-            borderRadius: 7, fontFamily: "var(--arcd-font-sans)",
-          }}
-        />
-        <button type="button" onMouseDown={e=>e.preventDefault()} onClick={consultar} disabled={carregando || disabled}
-          style={{
-            flexShrink: 0, border: `1.5px solid ${C.blue}`, background: `${C.blue}10`,
-            color: C.blue, borderRadius: 7, padding: "0 10px", cursor: carregando ? "default" : "pointer",
-            fontSize:"var(--arcd-type-control)", fontWeight:600, whiteSpace: "nowrap",
-          }}>
-          {carregando ? "Buscando..." : "Buscar"}
-        </button>
-      </div>
-      {erro && <span style={{ fontSize:"var(--arcd-type-label)", color: erro.startsWith("Atencao") ? C.orange : C.red }}>{erro}</span>}
-      {ok && !erro && <span style={{ fontSize:"var(--arcd-type-label)", color: C.green }}>Dados preenchidos pela Receita.</span>}
-    </label>
-  );
-}
-
-export function Sel({ label, value, onChange, options = [], disabled = false, error = "" }) {
-  return (
-    <label className="arcd-field arcd-legacy-field" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      {label && <span className="arcd-field__label" style={{
-        color: C.text, fontSize:"var(--arcd-type-label)", fontWeight:600,
-        letterSpacing: 0.1,
-        fontFamily:"var(--arcd-font-sans)",
-      }}>{textoUi(label)}</span>}
-      <select
-        className="arcd-field-control"
-        value={value ?? ""}
-        onChange={e => onChange(e.target.value)}
-        disabled={disabled}
-        aria-invalid={error?"true":undefined}
-        style={{
-          width: "100%",
-          background: disabled ? C.surface : C.bg,
-          border: `1.5px solid ${C.line}`,
-          color: C.text,
-          padding: "8px 10px",
-          outline: "none",
-          fontSize: "var(--arcd-type-control)",
-          borderRadius: 7,
-          fontFamily:"var(--arcd-font-sans)",
-        }}
-      >
-        {options.map(o => <option key={String(o.v)} value={o.v} disabled={o.disabled}>{o.l}</option>)}
-      </select>
-      {error&&<small role="alert" style={{color:C.red,fontSize:"var(--arcd-type-label)"}}>{error}</small>}
-    </label>
-  );
-}
-
-// Botão que abre um menu de opções, para listas longas onde o <select> nativo
-// fica pouco legível (ex.: etapas do funil comercial).
-export function SelBtn({ label, value, onChange, options = [], disabled = false }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-  useEffect(() => {
-    if (!open) return undefined;
-    const aoClicarFora = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener("mousedown", aoClicarFora);
-    return () => document.removeEventListener("mousedown", aoClicarFora);
-  }, [open]);
-  const atual = options.find(o => String(o.v) === String(value ?? ""));
-  return (
-    <div ref={ref} style={{ position: "relative", display: "flex", flexDirection: "column", gap: 4 }}>
-      {label && <span className="arcd-field__label" style={{
-        color: C.text, fontSize:"var(--arcd-type-label)", fontWeight:600, letterSpacing: 0.1,
-        fontFamily: "var(--arcd-font-sans)",
-      }}>{textoUi(label)}</span>}
-      <button type="button" disabled={disabled} onClick={() => setOpen(v => !v)}
-        style={{
-          width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
-          background: disabled ? C.surface : C.bg, border: `1.5px solid ${C.line}`, color: C.text,
-          padding: "8px 10px", borderRadius: 7, fontSize: "var(--arcd-type-control)", cursor: disabled ? "default" : "pointer",
-          fontFamily: "var(--arcd-font-sans)", textAlign: "left",
-        }}>
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{atual?.l || "Selecione"}</span>
-        <Ic n="chevron" s={12} color={C.muted}/>
-      </button>
-      {open && (
-        <div style={{
-          position: "absolute", top: "100%", left: 0, right: 0, marginTop: 4, zIndex: 20,
-          background: C.card, border: `1px solid ${C.border}`, borderRadius: 8,
-          boxShadow: "0 6px 18px rgba(18,18,18,.14)", maxHeight: 260, overflowY: "auto", padding: 4,
-        }}>
-          {options.map(o => {
-            const selecionada = String(o.v) === String(value ?? "");
-            return (
-              <button key={String(o.v)} type="button" onClick={() => { onChange(o.v); setOpen(false); }}
-                style={{
-                  width: "100%", textAlign: "left", padding: "7px 9px", borderRadius: 6, border: 0,
-                  background: selecionada ? `${C.blue}14` : "transparent",
-                  color: selecionada ? C.blue : C.text, fontWeight: selecionada ? 600 : 500,
-                  fontSize: "var(--arcd-type-control)", cursor: "pointer", fontFamily: "var(--arcd-font-sans)",
-                }}>
-                {o.l}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-export function Badge({ children, color = C.yellow }) {
-  return (
-    <span style={{
-      display: "inline-flex",
-      alignItems: "center",
-      gap: 4,
-      padding: "3px 10px",
-      border: 0,
-      background: `${color}1F`,
-      color,
-      fontSize:"var(--arcd-type-caption)",
-      fontWeight:400,
-      letterSpacing: 0,
-      marginTop: 2,
-      marginRight: 3,
-      borderRadius: 999,
-    }}>
-      {conteudoUi(children)}
-    </span>
-  );
-}
-
-export const compactNumber = value => {
-  const n = Number(value || 0);
-  return new Intl.NumberFormat("pt-BR", {
-    notation: Math.abs(n) >= 1000 ? "compact" : "standard",
-    maximumFractionDigits: 1,
-  }).format(n);
-};
-
-export function ArcdChartTooltip({ active, payload, label, formatter }) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div style={{
-      minWidth:160, padding:"10px 12px", background:"rgba(18,18,18,.94)",
-      color:"#fff", border:`1px solid ${C.yellow}66`, borderRadius:10,
-      boxShadow:"0 14px 38px rgba(18,18,18,.2)", backdropFilter:"blur(12px)",
-    }}>
-      <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:.9,textTransform:"uppercase",color:C.cinza,marginBottom:7}}>{label}</p>
-      {payload.filter(p=>p.value!==undefined).map((p,i)=><div key={`${p.dataKey}-${i}`} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:18,marginTop:i?5:0}}>
-        <span style={{display:"flex",alignItems:"center",gap:6,fontSize:"var(--arcd-type-label)",color:"#E9E7E1"}}><i style={{width:7,height:7,borderRadius:2,background:p.color||p.fill,display:"block"}}/>{p.name}</span>
-        <b style={{fontSize:"var(--arcd-type-label)",color:"#fff"}}>{formatter?formatter(p.value,p.name):compactNumber(p.value)}</b>
-      </div>)}
-    </div>
-  );
-}
-
-function ChartLegend({ items=[] }) {
-  return <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>{items.map(i=><span key={i.label} style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600}}><i style={{width:14,height:3,borderRadius:99,background:i.color,display:"block"}}/>{i.label}</span>)}</div>;
-}
-
-export function ChartPanel({ eyebrow="Análise visual", title, subtitle, legend=[], action, children, height=240 }) {
-  return <section className="arcd-chart-panel" style={{
-    position:"relative",overflow:"hidden",background:C.card,border:`1px solid ${C.line}`,
-    borderRadius:14,boxShadow:"0 10px 30px rgba(18,18,18,.045)",
-  }}>
-
-    <header style={{position:"relative",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,padding:"14px 16px 11px",borderBottom:`1px solid ${C.line}`,background:"rgba(255,255,255,.86)",backdropFilter:"blur(8px)"}}>
-      <div style={{minWidth:0}}><h3 style={{fontFamily:"var(--arcd-font-sans)",fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,letterSpacing:-.2,marginTop:2}}>{title}</h3>{subtitle&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{subtitle}</p>}</div>
-      {action&&<div className="no-print" style={{flexShrink:0}}>{action}</div>}
-    </header>
-    {!!legend.length&&<div style={{position:"relative",padding:"9px 16px 0"}}><ChartLegend items={legend}/></div>}
-    <div style={{position:"relative",height,padding:"8px 8px 10px 2px"}}>{children}</div>
-  </section>;
-}
-
-// Cabeçalho padrão de tela: substitui os heroes "artesanais" de cada módulo
-// (gradiente escuro, cor e padding diferentes por tela) por um único
-// componente flat, no mesmo sistema Carbon do dashboard. Sem alterar o
-// conteúdo de cada tela — só o invólucro visual.
-export function PageHero({title,description,alert,stats,actions}){
-  return <section className="page-hero">
-    <div className="page-hero__main">
-      <div className="page-hero__copy">
-
-        <h2 className="page-hero__title">{title}</h2>
-        {description&&<p className="page-hero__description">{description}</p>}
-        {alert&&<div className="page-hero__alert" data-tone={alert.tone||"danger"}><Ic n={alert.tone==="success"?"check":"alert"} s={13}/>{alert.text}</div>}
-      </div>
-      {actions&&<div className="page-hero-actions">{actions}</div>}
-    </div>
-    {!!stats?.length&&<div className="page-hero__stats">
-      {stats.map(s=><div key={s.label} className="page-hero__stat">
-        <p className="page-hero__stat-label">{s.label}</p>
-        <p className="page-hero__stat-value" data-tone={semanticToneFromLegacyColor(s.color)}>{s.value}</p>
-        {s.detail&&<p className="page-hero__stat-detail">{s.detail}</p>}
-      </div>)}
-    </div>}
-  </section>;
-}
-
-// Barra de abas internas (troca de visão dentro de uma mesma tela) - um único
-// padrão de tipografia/tamanho/espaçamento para os ~16 lugares do app que
-// antes reinventavam essa mesma peça com fontSize/fontWeight próprios.
-// tabs aceita duas formas por item:
-//   - array [value, label] ou [value, label, extra], onde extra é uma string
-//     (subtítulo, ex.: DRE) ou um número (badge de contagem, ex.: Compras);
-//   - objeto {v, l, icon, detail, count} quando também precisa de ícone.
-// equal=true usa colunas de largura igual (poucas abas, rótulos parecidos);
-// o padrão (false) é uma fileira que rola na horizontal sem quebrar linha -
-// evita o efeito "serrilhado" de abas com rótulos de tamanhos muito diferentes.
-export function TabRow({ tabs, active, onChange, equal = false }) {
-  const itens = tabs.map(t => Array.isArray(t)
-    ? { v:t[0], l:t[1], detail: typeof t[2]==="string" ? t[2] : null, count: typeof t[2]==="number" ? t[2] : null }
-    : t);
-  return (
-    <div className="tab-row" data-equal={equal} style={equal ? { "--arcd-tab-count": itens.length } : undefined}>
-      {itens.map(({v,l,icon,detail,count}) => {
-        const isActive = active === v;
-        return (
-          <button key={v} type="button" className="tab-row__tab" data-active={isActive} data-detail={Boolean(detail)} aria-pressed={isActive} onClick={() => onChange(v)}>
-            <span className="tab-row__label">
-              {icon && <Ic n={icon} s={13}/>}
-              {l}
-              {count>0 && <b className="tab-row__count">{count}</b>}
-            </span>
-            {detail && <small className="tab-row__detail">{detail}</small>}
-          </button>
-        );
-      })}
-    </div>
-  );
 }
 
 function ReportMetric({ label, value, detail, color=C.yellow, icon="chart", active=false, onClick }) {
@@ -3428,94 +2405,6 @@ function ReportMetric({ label, value, detail, color=C.yellow, icon="chart", acti
     border:`1px solid ${active?color:C.line}`,borderRadius:9,padding:"10px 11px",cursor:onClick?"pointer":"default",
     boxShadow:active?`0 0 0 2px ${color}12`:C.shHair,position:"relative",overflow:"hidden",
   }}><span style={{position:"absolute",left:0,top:0,bottom:0,width:3,background:color}}/><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:.8,textTransform:"uppercase",color:C.muted}}>{label}</p><span style={{width:24,height:24,borderRadius:7,display:"grid",placeItems:"center",background:`${color}10`,color}}><Ic n={icon} s={12} color={color}/></span></div><p style={{fontFamily:FONT_DISPLAY,fontSize:"clamp(17px,2vw,21px)",fontWeight:600,letterSpacing:-.55,color:C.text,lineHeight:1,marginTop:7}}>{value}</p>{detail&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:4}}>{detail}</p>}</Comp>;
-}
-
-export function Divider() {
-  return <div style={{ height: 1, background: `linear-gradient(90deg, transparent, ${C.line}, transparent)`, margin: "12px 0" }} />;
-}
-
-export function Modal({ title, children, onClose, wide = false, panelClass = "", footer = null }) {
-  const { isDesktop } = useBreakpoint();
-  const panelRef = useRef(null);
-  const previousFocusRef = useRef(null);
-  const closeRef = useRef(onClose);
-  closeRef.current = onClose;
-
-  useEffect(() => {
-    previousFocusRef.current = document.activeElement;
-    document.body.classList.add("no-scroll");
-    const focusTimer = window.setTimeout(() => {
-      const panel = panelRef.current;
-      // A primeira interação pode acontecer antes deste timer. Preservar o
-      // foco do campo evita fechar buscas e apagar a digitação por blur.
-      if (panel && !panel.contains(document.activeElement)) panel.focus();
-    }, 0);
-    const handleKeyDown = event => {
-      const panels = [...document.querySelectorAll(".arcd-modal-panel")];
-      if (panels.at(-1) !== panelRef.current) return;
-      if (event.key === "Escape") closeRef.current?.();
-      if (event.key !== "Tab" || !panelRef.current) return;
-      const focusable = [...panelRef.current.querySelectorAll(
-        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
-      )].filter(element => element.offsetParent !== null);
-      if (!focusable.length) { event.preventDefault(); panelRef.current.focus(); return; }
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.clearTimeout(focusTimer);
-      window.removeEventListener("keydown", handleKeyDown);
-      document.body.classList.remove("no-scroll");
-      previousFocusRef.current?.focus?.();
-    };
-  }, []);
-
-  return (
-    <div
-      className="no-print arcd-modal-overlay"
-      style={{
-        position:"fixed", inset:0, zIndex:999,
-        background:"rgba(18,18,18,.45)",
-        backdropFilter:"blur(8px)",
-        display:"flex", alignItems:"center", justifyContent:"center", padding:14,
-      }}
-      onMouseDown={e => { if(e.target===e.currentTarget) onClose?.(); }}
-    >
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label={textoUi(title)}
-        tabIndex={-1}
-        className={`animUp arcd-modal-panel ${panelClass}`.trim()}
-        style={{
-        width:"100%", maxWidth: wide ? (isDesktop?860:720) : (isDesktop?520:460),
-        maxHeight:"min(92dvh, 900px)", overflowY:"auto",
-        background:C.bg,
-        border:`1px solid ${C.border}`,
-        borderRadius:10,
-      }}>
-        <div className="arcd-modal-header" style={{
-          display:"flex", justifyContent:"space-between", alignItems:"center",
-          padding:"11px 14px",
-          borderBottom:`1px solid ${C.yellow}`,
-          background:C.surface,
-          borderRadius:"10px 10px 0 0",
-        }}>
-          <h3 className="arcd-dialog__title">{textoUi(title)}</h3>
-          <Btn v="ghost" size="sm" iconOnly onClick={onClose} title="Fechar" ariaLabel="Fechar">
-            <Ic n="x" s={13}/>
-          </Btn>
-        </div>
-        <div className="arcd-modal-notice" />
-        <div className="arcd-modal-body" style={{padding:14}}>{children}</div>
-        {footer&&<div className="arcd-modal-footer">{footer}</div>}
-      </div>
-    </div>
-  );
 }
 
 function Toast({ toast }) {
@@ -3547,35 +2436,6 @@ function Toast({ toast }) {
   );
   return noticeTarget ? createPortal(notice, noticeTarget) : notice;
 }
-
-//
-// Dashboard
-//
-
-//
-// HELPERS FINANCEIROS
-//
-
-const {
-  calcObraLaborCost,
-  calcDREObra,
-  calcDREConsolidado,
-  calcDREHistorico,
-  calcVisaoFinanceira,
-  calcProjecaoContratoObra,
-  calculateFinancialRanking:calcularRankingFinanceiro,
-  calculateMonthlyFinancialReport:calcRelatorioMensal,
-} = createFinancialCalculationEngine({
-  getDays,
-  getQ,
-  monthName,
-  getPayrollHolidays,
-  isWeekdayIso:prIsWeekdayIso,
-  isEmployeeEmployedOnDate,
-  getAttendance:getAtt,
-  getAttendanceStatus:attStatus,
-  getHolidayPayRule,
-});
 export { calcProjecaoContratoObra };
 
 const {
@@ -3612,62 +2472,44 @@ const calcObraRevenue = calculateContractProjection;
 // DASHBOARD - redesenhado
 //
 
-function KpiCard({label,value,detail,icon,color=C.blue,onClick}){
-  const displayValue=useCountUp(value);
+function KpiCard({label,value,detail,icon,color=C.blue,onClick,animate=true}){
+  const displayValue=useCountUp(animate?value:null);
   const Comp=onClick?"button":"div";
   return <Comp type={onClick?"button":undefined} onClick={onClick} className="dashboard-kpi" data-tone={semanticToneFromLegacyColor(color)} data-interactive={Boolean(onClick)}>
     <div className="dashboard-kpi__head">
       <span className="dashboard-kpi__label">{label}</span>
       <span className="dashboard-kpi__icon"><Ic n={icon} s={13}/></span>
     </div>
-    <p className="dashboard-kpi__value">{displayValue}</p>
+    <p className="dashboard-kpi__value">{animate?displayValue:value}</p>
     {detail&&<p className="dashboard-kpi__detail">{detail}</p>}
   </Comp>;
 }
 
 
-function DashboardTechHero({data,currentUser,ultimaSync,fila,onBuscar,onAtualizar,onAbrir,periodo,onAnterior,onProximo,proximoDesabilitado,clima,saveState=SAVE_QUEUE_STATE.IDLE}){
-  const {isDesktop}=useBreakpoint();
+function DashboardTechHero({currentUser,ultimaSync,fila,onBuscar,onAtualizar,onAbrir,periodo,onAnterior,onProximo,proximoDesabilitado,clima,saveState=SAVE_QUEUE_STATE.IDLE}){
   const agora=new Date(),nome=(currentUser?.nome||"operador").trim().split(/\s+/)[0];
   const saudacao=agora.getHours()<12?"Bom dia":agora.getHours()<18?"Boa tarde":"Boa noite";
-  const papel=ROLES.find(r=>r.v===currentUser?.role)?.l||"Operador";
-  const criticas=fila.filter(x=>x.severidade===3).length;
-  const mensagem=criticas
-    ? `Vamos priorizar ${criticas} ${criticas===1?"ponto crítico":"pontos críticos"} agora.`
-    : fila.length
-      ? `${fila.length} ${fila.length===1?"ação para acompanhar hoje":"ações para acompanhar hoje"}.`
-      : "A operação está em ordem. Bom trabalho hoje.";
-  // Leitura do clima para decisão de campo: condição, vento e UV viram uma
-  // frase objetiva sobre atividade externa/concretagem, com uma piada leve
-  // no fim — não só o número.
-  const climaObra=clima&&{
-    sun:      {condicao:"ensolarado",piada:"Sol favorece o cronograma — só não esqueça o protetor solar do time.",cor:C.yellowD},
-    cloud:    {condicao:"nublado",piada:"Tempo ameno, sem desculpa de calor pra atrasar nada hoje.",cor:C.subtle},
-    cloudRain:{condicao:"chuvoso",piada:"Bom dia pra revisar planilha, ruim pra concretar.",cor:C.orange},
-    zap:      {condicao:"com trovoada",piada:"Hoje o café do escritório rende mais que o canteiro.",cor:C.red},
-  }[clima.icone];
-  const climaTxt=climaObra&&`Hoje o clima em Caruaru está ${climaObra.condicao}, ${clima.temperatura}°, ventos a ${clima.vento} km/h${clima.uv!=null?`, índice UV ${clima.uv}${clima.uvLabel?` (${clima.uvLabel})`:""}`:""}. ${climaObra.piada}`;
-  const syncInfo={
-    [SAVE_QUEUE_STATE.IDLE]:{label:"sincronizado",color:C.green},
-    [SAVE_QUEUE_STATE.SAVING]:{label:"salvando alterações",color:C.yellowD},
-    [SAVE_QUEUE_STATE.RETRY_SCHEDULED]:{label:"nova tentativa agendada",color:C.orange},
-    [SAVE_QUEUE_STATE.OFFLINE]:{label:"alterações aguardando conexão",color:C.orange},
-    [SAVE_QUEUE_STATE.CONFLICT]:{label:"conflito aguardando resolução",color:C.red},
-    [SAVE_QUEUE_STATE.FAILED]:{label:"alterações não sincronizadas",color:C.red},
-  }[saveState]||{label:"sincronizado",color:C.green};
-  return <section className="dashboard-tech-hero" style={{position:"relative",overflow:"hidden",minHeight:isDesktop?178:232,borderRadius:C.rLg,padding:isDesktop?"20px 22px":"18px",color:C.text,background:C.card,border:`1px solid ${C.border}`,boxShadow:"none"}}>
-
-    <div style={{position:"relative",zIndex:1,display:"flex",flexDirection:"column",minHeight:isDesktop?136:196,justifyContent:"space-between",gap:14}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12}}><div><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:7}}>{papel} · {syncInfo.label}{saveState===SAVE_QUEUE_STATE.IDLE?(ultimaSync?` às ${ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`:" agora"):""}</p></div><div style={{display:"flex",alignItems:"center",gap:6}}>{onBuscar&&<Btn v="ghost" iconOnly onClick={onBuscar} title="Buscar" ariaLabel="Buscar"><Ic n="funnel" s={13}/></Btn>}{onAtualizar&&<Btn v="ghost" iconOnly onClick={onAtualizar} title="Atualizar" ariaLabel="Atualizar"><Ic n="refresh" s={13}/></Btn>}</div></div>
-      <div className="dashboard-greeting" style={{maxWidth:640}}>
-
-        <h1 style={{...TYPO.h1,fontSize:"clamp(24px,3vw,32px)",marginTop:5}}>{saudacao}, {nome}.</h1><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:8}}>{agora.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"})}</p>
-        {climaObra&&<p style={{fontSize:"var(--arcd-type-body)",lineHeight:1.5,marginTop:9,color:C.subtle}}><span aria-hidden="true" className={`dashboard-weather-motif dashboard-weather-motif-${clima.icone}`} style={{display:"inline-flex",verticalAlign:"-5px",marginRight:3}}><Ic n={clima.icone} s={18} color={climaObra.cor}/></span>{climaTxt}</p>}
-        <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,marginTop:7,color:C.yellowD}}>{mensagem}</p>
-      </div>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:9,flexWrap:"wrap"}}><div className="dashboard-priority-actions" style={{display:"flex",alignItems:"center",gap:9,flexWrap:"wrap"}}><Btn v="primary" onClick={()=>fila[0]&&onAbrir(fila[0].tab)} disabled={!fila.length}>{fila.length?`Abrir prioridade principal →`:"Nenhuma ação urgente"}</Btn><span style={{fontSize:"var(--arcd-type-label)",color:C.muted}}><b style={{color:criticas?C.red:C.green}}>{criticas}</b> crítica(s) · <b style={{color:C.yellowD}}>{fila.length}</b> ação(ões) em andamento</span></div>{periodo&&<div style={{display:"flex",alignItems:"center",border:`1px solid ${C.border}`,background:C.card2,borderRadius:9,padding:2}}><button onClick={onAnterior} style={{border:0,background:"transparent",color:C.subtle,padding:"5px 8px",cursor:"pointer"}}>←</button><span style={{minWidth:100,textAlign:"center",fontSize:"var(--arcd-type-caption)",fontWeight:600,textTransform:"capitalize",color:C.muted}}>{periodo}</span><button onClick={onProximo} disabled={proximoDesabilitado} style={{border:0,background:"transparent",color:proximoDesabilitado?C.cinza:C.subtle,padding:"5px 8px",cursor:proximoDesabilitado?"default":"pointer"}}>→</button></div>}</div>
+  const criticas=fila.filter(item=>item.severidade===3).length;
+  const syncLabel={
+    [SAVE_QUEUE_STATE.IDLE]:ultimaSync?`Atualizado às ${ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`:"Atualizado agora",
+    [SAVE_QUEUE_STATE.SAVING]:"Salvando alterações",
+    [SAVE_QUEUE_STATE.RETRY_SCHEDULED]:"Nova tentativa agendada",
+    [SAVE_QUEUE_STATE.OFFLINE]:"Alterações aguardando conexão",
+    [SAVE_QUEUE_STATE.CONFLICT]:"Conflito aguardando resolução",
+    [SAVE_QUEUE_STATE.FAILED]:"Alterações não sincronizadas",
+  }[saveState];
+  return <PageHeader className="workspace-header dashboard-tech-hero" title="Visão gerencial"
+    description={<>{saudacao}, {nome}. <time dateTime={today()}>{agora.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"})}</time></>}
+    secondaryActions={<>{periodo&&<div className="workspace-period" role="group" aria-label="Competência dos indicadores">
+      <Button variant="ghost" size="icon" aria-label="Mês anterior" onClick={onAnterior}><ChevronLeft/></Button>
+      <span>{periodo}</span><Button variant="ghost" size="icon" aria-label="Próximo mês" onClick={onProximo} disabled={proximoDesabilitado}><ChevronRight/></Button>
+    </div>}{onBuscar&&<Button variant="outline" size="icon" aria-label="Buscar" onClick={onBuscar}><Search/></Button>}
+    {onAtualizar&&<Button variant="outline" size="icon" aria-label="Atualizar" onClick={onAtualizar}><RefreshCw/></Button>}</>}
+    primaryAction={<Button disabled={!fila.length} onClick={()=>fila[0]&&onAbrir(fila[0].tab)}>{fila.length?"Abrir prioridade":"Nenhuma ação urgente"}</Button>}>
+    <div className="dashboard-context"><span role="status">{syncLabel}</span><span>{criticas} crítica(s) · {fila.length} ação(ões) em andamento</span>
+      {clima&&<span>Caruaru: {clima.temperatura} °C · vento {clima.vento} km/h</span>}
     </div>
-  </section>;
+  </PageHeader>;
 }
 
 function FilaOperador({fila,onTab}){
@@ -3730,9 +2572,11 @@ function CalendarioEmpresa({data,update,showToast,currentUser}){
   const [mesOffset,setMesOffset]=useState(0);
   const [diaSelecionado,setDiaSelecionado]=useState("");
   const [eventoForm,setEventoForm]=useState(null);
+  const eventSaveLock=useRef(false);
   const eventos=data.eventosEmpresa||[];
 
   const salvarEvento=async()=>{
+    if(eventSaveLock.current)return;
     const f=eventoForm;
     if(!String(f.titulo||"").trim()){showToast("Informe o título do evento.","error");return;}
     if(!f.data){showToast("Informe a data do evento.","error");return;}
@@ -3743,11 +2587,15 @@ function CalendarioEmpresa({data,update,showToast,currentUser}){
       criadoPorId:f.criadoPorId||currentUser?.id||"",criadoPor:f.criadoPor||currentUser?.nome||"",
       criadoEm:f.criadoEm||agora,
     };
-    const lista=f.id?eventos.map(e=>e.id===f.id?registro:e):[...eventos,registro];
+    const lista=eventos.some(e=>e.id===registro.id)?eventos.map(e=>e.id===registro.id?registro:e):[...eventos,registro];
+    eventSaveLock.current=true;
+    setEventoForm(previous=>previous?{...previous,id:registro.id}:previous);
+    try{
     const result=await update({...data,eventosEmpresa:lista});
-    if(result&&result.ok===false){showToast("Não foi possível salvar o evento.","error");return;}
+    if(result&&result.ok===false){showToast(result.reason||"Não foi possível salvar o evento.",result.deferred?"info":"error");return;}
     setEventoForm(null);
     showToast(f.id?"Evento atualizado.":"Evento cadastrado.");
+    }finally{eventSaveLock.current=false;}
   };
 
   const excluirEvento=async evento=>{
@@ -3919,7 +2767,7 @@ function DashboardEngenheiro({data,update,showToast,onTab,currentUser,ultimaSync
   const aguardandoValidacao=ehAuditor?abertas.filter(x=>x.p.status==="aguardando_validacao").length:0;
   const aguardandoCorrecao=!ehAuditor?abertas.filter(x=>["aberta","em_ajuste"].includes(x.p.status)).length:0;
   const fila=useMemo(()=>construirFilaOperador(data,currentUser),[data,currentUser]);
-  const abrir=c=>{sessionStorage.setItem("arcd_obra_contexto",c.obraId);sessionStorage.setItem("arcd_conferencia_obra",c.obraId);onTab("conferencia");};
+  const abrir=c=>{sessionContext.setItem("arcd_obra_contexto",c.obraId);sessionContext.setItem("arcd_conferencia_obra",c.obraId);onTab("conferencia");};
   const impacto={baixo:C.green,medio:C.orange,alto:"#E26A2C",critico:C.red};
   return <div className="anim dashboard-tech-motion" style={{display:"flex",flexDirection:"column",gap:16}}>
     <DashboardTechHero data={data} currentUser={currentUser} ultimaSync={ultimaSync} fila={fila} onAbrir={onTab} saveState={saveState}/>
@@ -3936,6 +2784,7 @@ function DashboardEngenheiro({data,update,showToast,onTab,currentUser,ultimaSync
 // saúde da empresa, depois o que exige decisão e só então os resumos de apoio.
 function Dashboard({ data, update, showToast, onTab, onAbrirObra, ultimaSync, currentUser, onBuscar, onAtualizar, saveState }) {
   const { cols, isDesktop } = useBreakpoint();
+  const [todosIndicadores,setTodosIndicadores]=useState(false);
   const agora=new Date();
   const [periodo,setPeriodo]=useState({y:agora.getFullYear(),m:agora.getMonth()});
   const year=periodo.y, month=periodo.m;
@@ -4008,54 +2857,54 @@ function Dashboard({ data, update, showToast, onTab, onAbrirObra, ultimaSync, cu
     ...alertasBase,
   ].filter(a=>abasPermitidas.includes(a.tab)).filter((a,i,arr)=>arr.findIndex(x=>x.texto===a.texto)===i).sort((a,b)=>b.sev-a.sev);
 
-  // Card local só decide se o KPI é clicável (acesso por aba); a aparência
-  // vem do KpiCard compartilhado com o dashboard do engenheiro.
-  const Card=({label,value,detail,icon,color=C.blue,tab})=>{const acessivel=tab&&abasPermitidas.includes(tab);if(tab&&!acessivel)return null;return <KpiCard label={label} value={value} detail={detail} icon={icon} color={color} onClick={acessivel?()=>onTab(tab):undefined}/>;};
   const Titulo=({children,acao})=><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,marginBottom:12}}><div><h3 style={TYPO.h3}>{children}</h3></div>{acao}</div>;
   const superficie={background:C.card,border:`1px solid ${C.border}`,borderRadius:C.rLg,boxShadow:"none"};
 
   return <div className="anim dashboard-tech-motion dashboard-command-center" style={{position:"relative",display:"flex",flexDirection:"column",gap:14,paddingBottom:16}}>
-    {/* Marca d'água institucional: grande, porém abaixo de todo o conteúdo. */}
-
     <DashboardTechHero data={data} currentUser={currentUser} ultimaSync={ultimaSync} fila={filaOperador} onBuscar={onBuscar} onAtualizar={onAtualizar} onAbrir={onTab} periodo={`${fullMonth(month)} ${year}`} onAnterior={()=>irMes(-1)} onProximo={()=>irMes(1)} proximoDesabilitado={ehAtual} clima={resumoDiario.clima} saveState={saveState}/>
-    {veObras&&<GestaoAVistaObras resumo={gestaoAVista} hoje={hoje} onAbrirObra={onAbrirObra} custoStatus={custosObras.status}/>}
-    <FilaOperador fila={filaOperador} onTab={onTab}/>
-    <section style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:isDesktop?"1fr 1fr":"1fr",gap:12}}>
-      <NoticiasSetor carregando={resumoDiario.carregando} noticias={resumoDiario.noticias}/>
-      <NoticiasSetor carregando={resumoDiario.carregando} noticias={resumoDiario.noticiasCbicPe} titulo="CBIC Pernambuco" subtitulo="Sinduscon-PE e câmara regional"/>
-    </section>
-    <Suspense fallback={null}>
-      <LazyCubChart cub={resumoDiario.cub} carregando={resumoDiario.carregando}/>
-    </Suspense>
-
-    <section className="dashboard-executive-grid" style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:cols(2,3,4),gap:10}}>
+    <section id="dashboard-indicators" className="dashboard-executive-grid" data-expanded={todosIndicadores} style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:cols(2,3,4),gap:10}}>
       {[
         {label:"Obras ativas",value:exec.obrasAtivas,detail:exec.obrasCriticas?`${exec.obrasCriticas} em situação crítica`:"Operação acompanhada",icon:"building",color:exec.obrasCriticas?C.red:C.blue,tab:"obras"},
-        {label:"Receitas do período",value:fmtCompact(exec.dre.recebido),detail:`Faturado ${fmtCompact(exec.dre.faturamento)}`,icon:"trending",color:C.green,tab:"dre"},
-        {label:"Despesas do período",value:fmtCompact(exec.dre.totalCustos),detail:`${exec.dre.faturamento?((exec.dre.totalCustos/exec.dre.faturamento)*100).toFixed(0):0}% da receita`,icon:"receipt",color:C.red,tab:"dre_emp"},
-        {label:"Saldo atual",value:fmtCompact(exec.dre.saldoCaixa),detail:"Recebimentos menos custos",icon:"wallet",color:exec.dre.saldoCaixa>=0?C.green:C.red,tab:"dre"},
+        {label:"Receitas do período",value:fmt(exec.dre.recebido),detail:`Faturado ${fmt(exec.dre.faturamento)}`,icon:"trending",color:C.green,tab:"dre"},
+        {label:"Despesas do período",value:fmt(exec.dre.totalCustos),detail:`${exec.dre.faturamento?((exec.dre.totalCustos/exec.dre.faturamento)*100).toFixed(0):0}% da receita`,icon:"receipt",color:C.red,tab:"dre_emp"},
+        {label:"Saldo atual",value:fmt(exec.dre.saldoCaixa),detail:"Recebimentos menos custos",icon:"wallet",color:exec.dre.saldoCaixa>=0?C.green:C.red,tab:"dre"},
         {label:"Pendências críticas",value:prioridades.filter(a=>a.sev===3).length,detail:`${prioridades.length} alertas ativos`,icon:"alert",color:prioridades.some(a=>a.sev===3)?C.red:C.orange},
         {label:"Compras pendentes",value:exec.comprasPendentes+exec.solicitacoesAbertas,detail:`${exec.solicitacoesAbertas} aguardando análise`,icon:"cart",color:C.orange,tab:"cmp"},
         {label:"Leads em andamento",value:exec.leadsAtivos,detail:`${novosLeads} novo(s) no mês`,icon:"funnel",color:C.blue,tab:"com_funil"},
-        {label:"Resultado operacional",value:fmtCompact(exec.dre.lucroBruto),detail:`Margem ${exec.dre.margemBruta.toFixed(1)}%`,icon:"chart",color:exec.dre.lucroBruto>=0?C.green:C.red,tab:"dre_emp"},
-      ].map((k,idx)=><span key={k.label} style={{"--row-i":idx}}><Card {...k}/></span>)}
+        {label:"Resultado operacional",value:fmt(exec.dre.lucroBruto),detail:`Margem ${exec.dre.margemBruta.toFixed(1)}%`,icon:"chart",color:exec.dre.lucroBruto>=0?C.green:C.red,tab:"dre_emp"},
+      ].map(k=>{const acessivel=k.tab&&abasPermitidas.includes(k.tab);return k.tab&&!acessivel?null:<span key={k.label}><KpiCard {...k} animate={false} onClick={acessivel?()=>onTab(k.tab):undefined}/></span>;})}
     </section>
+    <Button variant="ghost" className="dashboard-indicators-toggle" aria-expanded={todosIndicadores} aria-controls="dashboard-indicators" onClick={()=>setTodosIndicadores(value=>!value)}>{todosIndicadores?"Menos indicadores":"Mais indicadores"}</Button>
+    <div className="dashboard-work-grid">
+    {veObras&&<GestaoAVistaObras resumo={gestaoAVista} hoje={hoje} onAbrirObra={onAbrirObra} custoStatus={custosObras.status}/>}
 
-    <section id="dashboard-prioridades" style={{position:"relative",zIndex:1,...superficie,padding:isDesktop?18:14}}>
+      <div className="dashboard-work-grid__aside"><FilaOperador fila={filaOperador} onTab={onTab}/><details className="workspace-disclosure"><summary>Outras pendências ({prioridades.length})</summary><section id="dashboard-prioridades" style={{position:"relative",zIndex:1,padding:isDesktop?8:4}}>
       <Titulo acao={<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:prioridades.length?C.red:C.green,background:`${prioridades.length?C.red:C.green}0D`,padding:"5px 9px",borderRadius:99}}>{prioridades.length?`${prioridades.length} para revisar`:"Tudo em ordem"}</span>}>Pendências que exigem atenção</Titulo>
-      {!prioridades.length?<div style={{padding:"18px 4px",display:"flex",alignItems:"center",gap:10,color:C.green}}><span style={{width:30,height:30,borderRadius:10,display:"grid",placeItems:"center",background:`${C.green}10`}}><Ic n="check"/></span><div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"#2D3135"}}>Nenhuma pendência prioritária</p><p style={{fontSize:"var(--arcd-type-label)",color:"#8A8F94",marginTop:2}}>A operação está sob controle.</p></div></div>:<div style={{display:"grid",gridTemplateColumns:isDesktop&&prioridades.length>3?"1fr 1fr":"1fr",columnGap:20}}>{prioridades.slice(0,8).map((a,i)=>{const cor=a.sev===3?C.red:a.sev===2?C.orange:C.blue;return <button key={`${a.texto}-${i}`} onClick={()=>onTab(a.tab)} style={{display:"flex",alignItems:"center",gap:11,width:"100%",textAlign:"left",border:0,borderTop:i>=(isDesktop&&prioridades.length>3?2:1)?"1px solid rgba(27,31,36,.06)":"none",background:"transparent",padding:"11px 3px",cursor:"pointer"}}><span style={{width:8,height:8,borderRadius:99,background:cor,boxShadow:`0 0 0 5px ${cor}0D`,flexShrink:0}}/><span style={{fontSize:"var(--arcd-type-label)",color:"#303438",lineHeight:1.35,flex:1}}>{a.texto}</span><span style={{fontSize:"var(--arcd-type-card-title)",color:"#B1B5B9"}}>›</span></button>;})}</div>}
-    </section>
+      {!prioridades.length?<div style={{padding:"18px 4px",display:"flex",alignItems:"center",gap:10,color:C.green}}><span style={{width:30,height:30,borderRadius:10,display:"grid",placeItems:"center",background:`${C.green}10`}}><Ic n="check"/></span><div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"#2D3135"}}>Nenhuma pendência prioritária</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>A operação está sob controle.</p></div></div>:<div style={{display:"grid",gridTemplateColumns:isDesktop&&prioridades.length>3?"1fr 1fr":"1fr",columnGap:20}}>{prioridades.slice(0,8).map((a,i)=>{const cor=a.sev===3?C.red:a.sev===2?C.orange:C.blue;return <button key={`${a.texto}-${i}`} onClick={()=>onTab(a.tab)} style={{display:"flex",alignItems:"center",gap:11,width:"100%",textAlign:"left",border:0,borderTop:i>=(isDesktop&&prioridades.length>3?2:1)?"1px solid rgba(27,31,36,.06)":"none",background:"transparent",padding:"11px 3px",cursor:"pointer"}}><span style={{width:8,height:8,borderRadius:99,background:cor,boxShadow:`0 0 0 5px ${cor}0D`,flexShrink:0}}/><span style={{fontSize:"var(--arcd-type-label)",color:"#303438",lineHeight:1.35,flex:1}}>{a.texto}</span><span style={{fontSize:"var(--arcd-type-card-title)",color:"#B1B5B9"}}>›</span></button>;})}</div>}
+    </section></details>
+      </div>
+    </div>
 
 
-    <section style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:isDesktop?"1fr 1fr":"1fr",gap:12}}>
-      <div style={{...superficie,padding:18}}><Titulo acao={<DesignSystemButton variant="link" size="sm" className="dashboard-link-btn" onClick={()=>onTab("dre_emp")}>Detalhes →</DesignSystemButton>}>Resumo financeiro</Titulo><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"14px 22px"}}>{[["A receber",exec.dre.aReceber,C.orange],["Fluxo do período",exec.dre.saldoCaixa,exec.dre.saldoCaixa>=0?C.green:C.red],["Principais saídas",exec.dre.totalCustos,C.red],["Resultado do mês",exec.dre.lucroBruto,exec.dre.lucroBruto>=0?C.green:C.red]].map(([l,v,c])=><div key={l}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{l}</p><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:c,marginTop:5,letterSpacing:-.3}}>{fmtCompact(v)}</p></div>)}</div></div>
-      <div style={{...superficie,padding:18}}><Titulo acao={<DesignSystemButton variant="link" size="sm" className="dashboard-link-btn" onClick={()=>onTab("com_dash")}>Abrir comercial →</DesignSystemButton>}>Resumo comercial</Titulo><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"14px 22px"}}>{[["Novos leads",novosLeads,C.blue],["Propostas abertas",propostasAbertas,C.orange],["Aguardando assinatura",contratosPendentes,C.red],["Vendas no mês",fmtCompact(vendasMes),C.green]].map(([l,v,c])=><div key={l}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{l}</p><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:c,marginTop:5,letterSpacing:-.3}}>{v}</p></div>)}</div><div style={{height:5,display:"flex",overflow:"hidden",borderRadius:99,marginTop:17,background:"#ECEEEF"}}>{[["novo",C.blue],["qualificado",C.orange],["proposta",C.purple],["negociacao",C.yellowD]].map(([etapa,cor])=>{const qtd=leadsAtivos.filter(l=>l.etapa===etapa).length;return qtd?<span key={etapa} title={`${etapa}: ${qtd}`} style={{width:`${qtd/Math.max(1,leadsAtivos.length)*100}%`,background:cor}}/>:null;})}</div></div>
-    </section>
+    <details className="workspace-disclosure"><summary>Resumo financeiro e comercial</summary>    <section style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:isDesktop?"1fr 1fr":"1fr",gap:12}}>
+      <div style={{...superficie,padding:18}}><Titulo acao={<DesignSystemButton variant="link" size="sm" className="dashboard-link-btn" onClick={()=>onTab("dre_emp")}>Detalhes →</DesignSystemButton>}>Resumo financeiro</Titulo><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"14px 22px"}}>{[["A receber",exec.dre.aReceber,C.orange],["Fluxo do período",exec.dre.saldoCaixa,exec.dre.saldoCaixa>=0?C.green:C.red],["Principais saídas",exec.dre.totalCustos,C.red],["Resultado do mês",exec.dre.lucroBruto,exec.dre.lucroBruto>=0?C.green:C.red]].map(([l,v,c])=><div key={l}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{l}</p><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:c,marginTop:5,letterSpacing:-.3}}>{fmt(v)}</p></div>)}</div></div>
+      <div style={{...superficie,padding:18}}><Titulo acao={<DesignSystemButton variant="link" size="sm" className="dashboard-link-btn" onClick={()=>onTab("com_dash")}>Abrir comercial →</DesignSystemButton>}>Resumo comercial</Titulo><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"14px 22px"}}>{[["Novos leads",novosLeads,C.blue],["Propostas abertas",propostasAbertas,C.orange],["Aguardando assinatura",contratosPendentes,C.red],["Vendas no mês",fmt(vendasMes),C.green]].map(([l,v,c])=><div key={l}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{l}</p><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:c,marginTop:5,letterSpacing:-.3}}>{v}</p></div>)}</div><div style={{height:5,display:"flex",overflow:"hidden",borderRadius:99,marginTop:17,background:"#ECEEEF"}}>{[["novo",C.blue],["qualificado",C.orange],["proposta",C.purple],["negociacao",C.yellowD]].map(([etapa,cor])=>{const qtd=leadsAtivos.filter(l=>l.etapa===etapa).length;return qtd?<span key={etapa} title={`${etapa}: ${qtd}`} style={{width:`${qtd/Math.max(1,leadsAtivos.length)*100}%`,background:cor}}/>:null;})}</div></div>
+    </section></details>
 
     <section style={{position:"relative",zIndex:1}}><Titulo>Ações rápidas</Titulo><div style={{display:"grid",gridTemplateColumns:cols(2,3,6),gap:8}}>{[
       ["Nova compra","cart","cmp"],["Novo lead","user","com_leads"],["Lançar despesa","dollar","dre_emp"],["Abrir ponto","clock","ponto"],["Revisar medições","ruler","medicoes"],["Conferências","check","conferencia"],
     ].filter(([, ,tab])=>abasPermitidas.includes(tab)).map(([label,icon,tab])=><button key={label} onClick={()=>onTab(tab)} className="dashboard-quick-action" style={{minHeight:70,border:`1px solid ${C.border}`,background:C.card,borderRadius:C.rLg,padding:11,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"flex-start",justifyContent:"space-between",textAlign:"left",...TYPO.label}}><span style={{width:28,height:28,borderRadius:9,background:C.card2,display:"grid",placeItems:"center",color:C.blue}}><Ic n={icon} s={13}/></span>{label}</button>)}</div></section>
     <CalendarioEmpresa data={data} update={update} showToast={showToast} currentUser={currentUser}/>
+    <details className="workspace-disclosure"><summary>Mercado e índices da construção</summary>
+    <section style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:isDesktop?"1fr 1fr":"1fr",gap:12}}>
+      <NoticiasSetor carregando={resumoDiario.carregando} noticias={resumoDiario.noticias}/>
+      <NoticiasSetor carregando={resumoDiario.carregando} noticias={resumoDiario.noticiasCbicPe} titulo="CBIC Pernambuco" subtitulo="Sinduscon-PE e câmara regional"/>
+    </section>
+    <Suspense fallback={<LoadingState label="índices da construção"/>}>
+      <LazyCubChart cub={resumoDiario.cub} carregando={resumoDiario.carregando}/>
+    </Suspense>
+
+    </details>
   </div>;
 }
 
@@ -4138,7 +2987,7 @@ function FinanceiroObraPainel({data,showToast,currentUser=null,obraId,dispatchCo
   return <div className="obra-financeiro">
     <header className="obra-fin-header"><div><p>CONTROLE FINANCEIRO DA OBRA</p><h2>{obra?.name||"Obra"}</h2><span>Recebimentos, compromissos e pagamentos em uma única visão.</span></div><DesignSystemButton onClick={()=>{setDespForm({obraId,competencia:periodo,categoria:"material",descricao:"",valor:""});setDespModal(true);}}><Ic n="plus"/> Nova despesa</DesignSystemButton></header>
     <TabRow tabs={[["resumo","Resumo"],["dre","DRE por competência"],["caixa","Entradas e saídas"],["posicoes","Contas em aberto"],["movimentos","Rastreabilidade"],["orcado","Orçado × comprometido"]]} active={aba} onChange={setAba}/>
-    <div className="obra-fin-controls"><label><span>Competência</span><input type="month" value={periodo} onChange={e=>setPeriodo(e.target.value)}/></label>{aba!=="resumo"&&aba!=="orcado"&&<label className="obra-fin-search"><span>Pesquisar</span><input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Descrição, fornecedor ou categoria"/></label>}</div>
+    <div className="obra-fin-controls"><label><span>Competência</span><StandardInput type="month" value={periodo} onChange={e=>setPeriodo(e.target.value)}/></label>{aba!=="resumo"&&aba!=="orcado"&&<label className="obra-fin-search"><span>Pesquisar</span><StandardInput value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Descrição, fornecedor ou categoria"/></label>}</div>
     {aba==="resumo"&&<><section className="obra-fin-summary">
       <div className="obra-fin-column"><h3>DRE do período</h3><Metric label="Receita reconhecida" value={receitaReconhecida} detail="Regime de competência" tone="positive"/><Metric label="Custos incorridos" value={custoIncorrido} detail="Documentos e apropriações" tone="negative"/><Metric label="Resultado por competência" value={resultadoCompetencia} detail={`${dre.margemBruta.toFixed(1)}% de margem`} tone={resultadoCompetencia>=0?"positive":"danger"}/></div>
       <div className="obra-fin-column"><h3>Posições</h3><Metric label="Contas a receber" value={dre.contasReceber} detail="Faturado ainda não recebido"/><Metric label="Contas a pagar" value={dre.contasPagar} detail="Obrigações ainda não liquidadas"/><Metric label="Comprometido" value={dre.comprometido} detail="Pedidos ainda não convertidos em custo"/><Metric label="Pago direto pelo cliente" value={dre.pagoPeloCliente||0} detail="Baixou obrigação sem passar pelo caixa da empresa"/></div>
@@ -4147,17 +2996,17 @@ function FinanceiroObraPainel({data,showToast,currentUser=null,obraId,dispatchCo
     {["dre","caixa","movimentos"].includes(aba)&&<Tabela lista={listaAba}/>}
     {aba==="posicoes"&&<section className="obra-fin-summary"><div className="obra-fin-column"><h3>Contas a receber</h3><Metric label="Saldo" value={dre.contasReceber} detail="Medições menos recebimentos vinculados"/><Metric label="Recebimentos não alocados" value={dre.recebimentosNaoAlocados} detail="Entraram no caixa sem baixar documento"/></div><div className="obra-fin-column"><h3>Contas a pagar</h3><Metric label="Saldo" value={dre.contasPagar} detail="NFs e medições de terceiros menos pagamentos"/><Metric label="Pagamentos não alocados" value={dre.pagamentosNaoAlocados} detail="Saíram do caixa sem obrigação reconhecida"/></div><div className="obra-fin-column"><h3>Compromissos</h3><Metric label="Pedidos comprometidos" value={dre.comprometido} detail="Pedido aprovado menos documentos reconhecidos"/></div></section>}
     {aba==="orcado"&&<section className="obra-fin-budget"><div className="obra-fin-budget-kpis"><Metric label="Custo orçado" value={orcado} detail="Orçamento aprovado"/><Metric label="Custo realizado" value={realizadoCustos} detail={`${orcado?(realizadoCustos/orcado*100).toFixed(1):"0,0"}% consumido`} tone={realizadoCustos>orcado?"danger":"negative"}/><Metric label="Saldo do orçamento" value={orcado-realizadoCustos} detail="Disponível para executar" tone={orcado-realizadoCustos>=0?"positive":"danger"}/></div><div className="obra-fin-budget-progress"><div><span>Execução financeira</span><b>{orcado?Math.round(realizadoCustos/orcado*100):0}%</b></div><i><b style={{width:`${Math.min(100,orcado?realizadoCustos/orcado*100:0)}%`}}/></i></div><div className="obra-fin-categories"><h3>Custos realizados por categoria</h3>{categorias.map(([l,v])=><div key={l}><span>{l}</span><i><b style={{width:`${realizadoCustos?v/realizadoCustos*100:0}%`}}/></i><strong>{fmt(v)}</strong></div>)}{!categorias.length&&<em>Sem custos realizados nesta competência.</em>}</div></section>}
-    <DesignSystemDialog open={despModal} onOpenChange={setDespModal} title="Nova despesa da obra"><div style={{display:"grid",gap:10}}><DesignSystemInput label="Obra" value={obra?.name||""} onChange={()=>{}} disabled/><DesignSystemInput label="Descrição" required value={despForm.descricao} onChange={e=>setDespForm(f=>({...f,descricao:e.target.value}))}/><DesignSystemSelect label="Categoria" value={despForm.categoria} onChange={e=>setDespForm(f=>({...f,categoria:e.target.value}))} options={categoriasDesp(data).map(c=>({value:c.v,label:c.l}))}/><DesignSystemInput label="Competência" type="month" value={despForm.competencia} onChange={e=>setDespForm(f=>({...f,competencia:e.target.value}))}/><DesignSystemInput label="Valor" required type="number" value={despForm.valor} onChange={e=>setDespForm(f=>({...f,valor:e.target.value}))}/>
+    <DesignSystemDialog open={despModal} onOpenChange={setDespModal} title="Nova despesa da obra"><div style={{display:"grid",gap:"var(--arcd-space-2)"}}><DesignSystemInput label="Obra" value={obra?.name||""} onChange={()=>{}} disabled/><DesignSystemInput label="Descrição" required value={despForm.descricao} onChange={e=>setDespForm(f=>({...f,descricao:e.target.value}))}/><DesignSystemSelect label="Categoria" value={despForm.categoria} onChange={e=>setDespForm(f=>({...f,categoria:e.target.value}))} options={categoriasDesp(data).map(c=>({value:c.v,label:c.l}))}/><DesignSystemInput label="Competência" type="month" value={despForm.competencia} onChange={e=>setDespForm(f=>({...f,competencia:e.target.value}))}/><DesignSystemInput label="Valor" required type="number" value={despForm.valor} onChange={e=>setDespForm(f=>({...f,valor:e.target.value}))}/>
       {despForm.categoria==="material" && ["admin_only","fixed_labor_admin"].includes(obra?.contractType) && (
         <div>
-          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.subtle,textTransform:"uppercase",marginBottom:5}}>Este material entra na taxa de administração?</p>
-          <div style={{display:"flex",gap:8}}>
+          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-muted)",textTransform:"uppercase",marginBottom:"var(--arcd-space-1)"}}>Este material entra na taxa de administração?</p>
+          <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
             <DesignSystemButton size="sm" variant={despForm.contaAdmin!==false?"success":"ghost"} onClick={()=>setDespForm(f=>({...f,contaAdmin:true}))} style={{flex:1}}>Sim, entra</DesignSystemButton>
             <DesignSystemButton size="sm" variant={despForm.contaAdmin===false?"danger":"ghost"} onClick={()=>setDespForm(f=>({...f,contaAdmin:false}))} style={{flex:1}}>Não entra</DesignSystemButton>
           </div>
         </div>
       )}
-      <div style={{display:"flex",gap:8}}><DesignSystemButton variant="ghost" onClick={()=>setDespModal(false)} style={{flex:1}}>Cancelar</DesignSystemButton><DesignSystemButton disabled={expenseCommandPending} onClick={salvarDespesa} style={{flex:1}}>{expenseCommandPending?"Salvando...":"Salvar despesa"}</DesignSystemButton></div></div></DesignSystemDialog>
+      <div style={{display:"flex",gap:"var(--arcd-space-2)"}}><DesignSystemButton variant="ghost" onClick={()=>setDespModal(false)} style={{flex:1}}>Cancelar</DesignSystemButton><DesignSystemButton disabled={expenseCommandPending} onClick={salvarDespesa} style={{flex:1}}>{expenseCommandPending?"Salvando...":"Salvar despesa"}</DesignSystemButton></div></div></DesignSystemDialog>
   </div>;
 }
 
@@ -4167,26 +3016,29 @@ function DRE({data,showToast,currentUser=null,obraIdFixo="",dispatchCommand=null
 
 function DRELegado({ data, showToast, currentUser=null, obraIdFixo="", dispatchCommand=null }) {
   const {intent}=useWorkflow();
+  const useSessionState=(key,initial)=>useWorkspaceState("dre",key,initial,obraIdFixo);
+  useWorkspaceScroll("dre",obraIdFixo);
   const now   = new Date();
-  const [year,  setYear]   = useState(now.getFullYear());
-  const [month, setMonth]  = useState(now.getMonth());
-  const [periodoDRE,setPeriodoDRE] = useState("mes");
-  const [view,  setView]   = useState(obraIdFixo?"obra":"consolidado"); // "consolidado" | "obra" | "historico"
-  const [selObra, setSelObra] = useState(obraIdFixo||data.obras[0]?.id||"");
+  const [year,  setYear]   = useSessionState("year",now.getFullYear());
+  const [month, setMonth]  = useSessionState("month",now.getMonth());
+  const [periodoDRE,setPeriodoDRE] = useSessionState("periodoDRE","mes");
+  const [view,  setView]   = useSessionState("view",obraIdFixo?"obra":"consolidado"); // "consolidado" | "obra" | "historico"
+  const [selObra, setSelObra] = useSessionState("selObra",obraIdFixo||data.obras[0]?.id||"");
   useEffect(()=>{
-    if(intent?.tabId!=="dre")return;
+    if(intent?.tabId!=="dre"||intent.action==="resume")return;
     const scope=normalizeWorkflowScope(intent.scope,currentUser);
     if(scope.year!=null)setYear(scope.year);
     if(scope.month!=null)setMonth(scope.month);
-    setPeriodoDRE(scope.period);
-    if(scope.obraId){setSelObra(scope.obraId);setView("obra");}
-    else if(!obraIdFixo)setView("consolidado");
+    if(intent.linked!==false)setPeriodoDRE(scope.period);
+    if(scope.obraId){if(scope.obraId!==selObra||intent.linked!==false)setView("obra");setSelObra(scope.obraId);}
+    else if(!obraIdFixo&&intent.linked!==false)setView("consolidado");
   },[intent?.sequence]);
+  useRememberWorkflowScope("dre",{obraId:obraIdFixo||(view==="obra"?selObra:""),year,month,period:periodoDRE});
   const [despModal, setDespModal] = useState(false);
   const [expenseCommandPending,setExpenseCommandPending]=useState(false);
   const [despForm,  setDespForm]  = useState({ obraId:"", competencia:"", categoria:"material", descricao:"", valor:"" });
   const [detalheKpi, setDetalheKpi] = useState("");
-  const [filtroDetalhe, setFiltroDetalhe] = useState({ busca:"", categoria:"todos", obra:"todas", ordem:"data_desc" });
+  const [filtroDetalhe, setFiltroDetalhe] = useSessionState("filtroDetalhe",{ busca:"", categoria:"todos", obra:"todas", ordem:"data_desc" });
   const [avaliacaoCFOObra,setAvaliacaoCFOObra]=useState(null);
   const [avaliandoCFOObra,setAvaliandoCFOObra]=useState(false);
   const [razaoDRE,setRazaoDRE]=useState({consolidado:null,obra:null});
@@ -4715,12 +3567,12 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
           </div>
 
           {/* Gráfico: Faturamento vs Lucro 6 meses */}
-          <Suspense fallback={<div className="arcd-page-loading">Carregando gráfico...</div>}>
+          <Suspense fallback={<LoadingState label="gráfico"/>}>
             <LazyDreFaturamentoResultadoChart hist={hist}/>
           </Suspense>
 
           {/* Distribuição de custos */}
-          <Suspense fallback={<div className="arcd-page-loading">Carregando gráfico...</div>}>
+          <Suspense fallback={<LoadingState label="gráfico"/>}>
             <LazyDreDistribuicaoCustosChart dre={dre}/>
           </Suspense>
 
@@ -4787,7 +3639,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
             ))}
           </div>
           {/* Gráfico margem */}
-          <Suspense fallback={<div className="arcd-page-loading">Carregando gráfico...</div>}>
+          <Suspense fallback={<LoadingState label="gráfico"/>}>
             <LazyDreMargemChart hist={hist}/>
           </Suspense>
         </div>
@@ -4915,215 +3767,25 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
 
 const lerXmlFiscal=texto=>{try{const doc=new DOMParser().parseFromString(texto,"application/xml");const val=(...tags)=>{for(const tag of tags){const el=doc.getElementsByTagName(tag)[0]||doc.getElementsByTagNameNS("*",tag)[0];if(el?.textContent)return el.textContent.trim();}return"";};return{numero:val("nNF","numero"),serie:val("serie"),chave:val("chNFe","chave"),emissao:String(val("dhEmi","dEmi","dataEmissao")).slice(0,10),fornecedorNome:val("xNome","razaoSocial"),documentoFornecedor:val("CNPJ","CPF"),valorBruto:Number(String(val("vNF","valorNota","valorServicos")||0).replace(",",".")),retencoes:{iss:Number(String(val("vISSQN","valorISS")||0).replace(",",".")),inss:Number(String(val("vRetPrev","valorINSS")||0).replace(",",".")),irrf:Number(String(val("vIRRF","valorIR")||0).replace(",",".")),pis:Number(String(val("vPIS","valorPIS")||0).replace(",",".")),cofins:Number(String(val("vCOFINS","valorCOFINS")||0).replace(",",".")),csll:Number(String(val("valorCSLL")||0).replace(",",".")),outros:0}};}catch{return null;}};
 
-export const jsonDaRespostaIA=texto=>{const bruto=String(texto||"").trim();const cercado=bruto.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1]||bruto;const inicio=cercado.indexOf("{");const fim=cercado.lastIndexOf("}");if(inicio<0||fim<=inicio)throw new Error("A IA não devolveu uma sugestão estruturada.");return JSON.parse(cercado.slice(inicio,fim+1));};
-export const arquivoComoDataUrl=file=>new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error("Não foi possível ler o arquivo."));reader.readAsDataURL(file);});
-const C_MODO_IA={...C,purple:C.yellowD,blue:C.yellowD};
-export const C_ARCD_SETOR={...C,purple:C.yellowD};
-const normalizarIdentificacaoObra=valor=>String(valor||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
-const identificarObraPeloNomeArquivo=(nomeArquivo,obras=[])=>{
-  const arquivo=normalizarIdentificacaoObra(String(nomeArquivo||"").replace(/\.[^.]+$/, ""));
-  const compacto=arquivo.replace(/\s/g,"");
-  if(!arquivo)return null;
-  const avaliadas=obras.map(obra=>{
-    const nome=normalizarIdentificacaoObra(obra.name),nomeCompacto=nome.replace(/\s/g,"");
-    const tokens=nome.split(" ").filter(t=>t.length>=2);
-    const cliente=normalizarIdentificacaoObra(obra.cliente||obra.client),clienteCompacto=cliente.replace(/\s/g,"");
-    let confianca=0,evidencia="";
-    if(nomeCompacto.length>=3&&compacto.includes(nomeCompacto)){confianca=100;evidencia=`O título contém “${obra.name}”.`;}
-    else if(tokens.length&&tokens.every(t=>arquivo.includes(t))){confianca=90;evidencia=`Os identificadores de “${obra.name}” aparecem no título.`;}
-    else if(tokens.length>=2){const proporcao=tokens.filter(t=>arquivo.includes(t)).length/tokens.length;if(proporcao>=.66){confianca=76;evidencia=`A maior parte do nome “${obra.name}” aparece no título.`;}}
-    if(confianca<70&&clienteCompacto.length>=5&&compacto.includes(clienteCompacto)){confianca=68;evidencia=`O título contém o cliente “${obra.cliente||obra.client}”, mas a obra precisa ser confirmada.`;}
-    return{obraId:obra.id,obraNome:obra.name,confianca,evidencia,fonte:"nome do arquivo"};
-  }).sort((a,b)=>b.confianca-a.confianca);
-  const melhor=avaliadas[0],segunda=avaliadas[1];
-  return melhor?.confianca>=75&&(!segunda||melhor.confianca-segunda.confianca>=12)?melhor:null;
-};
-
-const destinosDocumentoIA=(data,modulo)=>{
-  if(modulo==="compras"){
-    const fornecedores=new Map((data.fornecedores||[]).map(f=>[f.id,f.nome]));
-    const materiais=new Map((data.materiais||[]).map(m=>[m.id,m.descricao]));
-    const pedidos=(data.pedidos||[]).filter(p=>p.status!=="cancelado").map(p=>({id:`pedido-${p.id}`,entidade:"pedido",entidadeId:p.id,obraId:p.obraId||"",data:p.data||"",valor:totalPedido(p),pasta:`Pedidos/${p.numero||p.data||"Sem número"}`,label:`Pedido ${p.numero||"sem número"} · ${fornecedores.get(p.fornecedorId)||"Fornecedor"} · ${fmt(totalPedido(p))}`}));
-    const cotacoes=(data.cotacoes||[]).flatMap(c=>{const totais=mapaDaCotacao(c).totaisPorProposta;return (c.propostas||[]).map(p=>({id:`cotacao-${c.id}-${p.id}`,entidade:"cotacao",entidadeId:c.id,propostaId:p.id,obraId:c.obraId||"",data:c.data||"",valor:Number(totais[p.id]||0),pasta:`Cotações/${c.data||today()}/${fornecedores.get(p.fornecedorId)||"Fornecedor"}`,label:`Cotação · ${materiais.get(c.materialId)||"Material"} · ${fornecedores.get(p.fornecedorId)||"Fornecedor"} · ${fmt(Number(totais[p.id]||0))}`}));});
-    return[...cotacoes,...pedidos].sort((a,b)=>String(b.data||"").localeCompare(String(a.data||"")));
-  }
-  const medicoes=(data.medicoes||[]).map(m=>({id:`med-${m.id}`,entidade:"movimento",obraId:m.obraId||"",data:m.dataPagamento||m.dataVencimento||m.competencia||"",valor:Number(m.valorPrevisto||0),pasta:`Medições/${String(m.competencia||m.dataVencimento||today()).slice(0,7)}`,label:`Medição · ${m.descricao||m.numeroParcela||"obra"} · ${fmt(Number(m.valorPrevisto||0))}`}));
-  const recebimentos=(data.payments||[]).map(p=>({id:`pay-${p.id}`,entidade:"movimento",obraId:p.obraId||"",data:p.date||"",valor:Number(p.amount||0),pasta:`Comprovantes/${String(p.date||today()).slice(0,7)}`,label:`Recebimento · ${p.description||"entrada"} · ${fmt(Number(p.amount||0))}`}));
-  const notas=(data.notasFiscais||[]).map(n=>({id:`nf-${n.id}`,entidade:"nota",entidadeId:n.id,obraId:n.obraId||"",data:n.emissao||n.criadoEm||"",valor:Number(n.valorLiquido||n.valorBruto||0),pasta:`Notas fiscais/${String(n.emissao||today()).slice(0,7)}`,label:`${String(n.tipo||"NF").toUpperCase()} ${n.numero||"sem número"} · ${n.fornecedorNome||"Fornecedor"} · ${fmt(Number(n.valorLiquido||n.valorBruto||0))}`}));
-  const despesas=(data.outrasDesp||[]).map(d=>({id:`desp-${d.id}`,entidade:"movimento",obraId:d.obraId||"",data:d.competencia||"",valor:Number(d.valor||0),pasta:`Despesas/${String(d.competencia||today()).slice(0,7)}`,label:`Despesa da obra · ${d.descricao||d.categoria||"lançamento"} · ${fmt(Number(d.valor||0))}`}));
-  const administrativas=(data.despesasEmpresa||[]).map(d=>({id:`adm-${d.id}`,entidade:"movimento",obraId:"",data:d.competencia||"",valor:Number(d.valor||0),pasta:`Administrativo/${String(d.competencia||today()).slice(0,7)}`,label:`Administrativo · ${d.descricao||d.categoria||"lançamento"} · ${fmt(Number(d.valor||0))}`}));
-  const banco=(data.transacoes||[]).map(t=>({id:`bank-${Number(t.valor)>=0?"in":"out"}-${t.id}`,entidade:"movimento",obraId:(t.rateios||[]).find(r=>r.obraId)?.obraId||"",data:t.data||"",valor:Math.abs(Number(t.valor||0)),pasta:`Conciliação bancária/${String(t.data||today()).slice(0,7)}`,label:`Banco · ${t.descricao||"movimentação"} · ${fmt(Math.abs(Number(t.valor||0)))}`}));
-  return[...notas,...medicoes,...recebimentos,...despesas,...administrativas,...banco].sort((a,b)=>String(b.data||"").localeCompare(String(a.data||"")));
-};
-
-const sugerirDestinoDocumento=(destinos,sugestao,obraId)=>{
-  const valor=Number(sugestao?.valorLiquido||sugestao?.valorBruto||0);const texto=normalizarIdentificacaoObra([sugestao?.numero,sugestao?.fornecedorNome,sugestao?.descricao].join(" "));
-  const avaliados=destinos.filter(d=>!obraId||!d.obraId||d.obraId===obraId).map(d=>{let pontos=0;if(obraId&&d.obraId===obraId)pontos+=2;if(valor&&Math.abs(Number(d.valor||0)-valor)<=Math.max(.02,valor*.005))pontos+=4;const alvo=normalizarIdentificacaoObra(d.label);const tokens=texto.split(" ").filter(t=>t.length>=3);if(tokens.some(t=>alvo.includes(t)))pontos+=2;return{d,pontos};}).sort((a,b)=>b.pontos-a.pontos);
-  const melhor=avaliados[0],segundo=avaliados[1];return melhor?.pontos>=5&&(!segundo||melhor.pontos-segundo.pontos>=2)?melhor.d:null;
-};
-
-export function ModoIADocumento({modulo,data,update,showToast,currentUser,onClose,obraIdInicial="",C=C_MODO_IA,dispatchCommand=null}){
-  const {formGrid}=useBreakpoint();
-  const obras=(data.obras||[]).filter(o=>!currentUser?.obraId||o.id===currentUser.obraId);
-  const destinos=useMemo(()=>destinosDocumentoIA(data,modulo).filter(d=>!currentUser?.obraId||!d.obraId||d.obraId===currentUser.obraId),[data,modulo,currentUser?.obraId]);
-  const formInicial=()=>({obraId:obraIdInicial||currentUser?.obraId||"",tipoDocumento:"outro",numero:"",emissao:today(),vencimento:"",fornecedorNome:"",documentoFornecedor:"",descricao:"",categoria:"",valorBruto:"",valorLiquido:"",subfolder:`${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,"0")}`,origemPagamento:"empresa",legendaDocumento:"",destinoId:""});
-  const [arquivo,setArquivo]=useState(null);const [dataUrl,setDataUrl]=useState("");const [analisando,setAnalisando]=useState(false);const [salvando,setSalvando]=useState(false);const [sugestao,setSugestao]=useState(null);const [obraMatch,setObraMatch]=useState(null);
-  const [lote,setLote]=useState([]);const [ativoId,setAtivoId]=useState("");
-  const [statusIA,setStatusIA]=useState("verificando");
-  const [form,setForm]=useState(formInicial);
-  const F=k=>v=>setForm(f=>({...f,[k]:v}));
-  useEffect(()=>{let ativo=true;verificarStatusIA().then(r=>{if(ativo)setStatusIA(r.ok&&r.configured?"disponivel":"indisponivel");}).catch(()=>{if(ativo)setStatusIA("indisponivel");});return()=>{ativo=false;};},[]);
-  const carregarItem=item=>{if(!item)return;setAtivoId(item.id);setArquivo(item.arquivo);setDataUrl(item.dataUrl);setSugestao(item.sugestao||null);setObraMatch(item.obraMatch||null);setForm(item.form||formInicial());};
-  const selecionarArquivo=async e=>{const files=Array.from(e.target.files||[]).slice(0,10);e.target.value="";if(!files.length)return;const validos=files.filter(file=>/^(application\/pdf|image\/(jpeg|png|webp))$/i.test(file.type)&&file.size<=5.5*1024*1024);if(validos.length!==files.length)showToast(`${files.length-validos.length} arquivo(s) ignorado(s). Use PDF, JPG, PNG ou WEBP com até 5,5 MB.`,"error");if(!validos.length)return;const itens=await Promise.all(validos.map(async file=>{const match=identificarObraPeloNomeArquivo(file.name,obras);return{id:uid(),arquivo:file,dataUrl:await arquivoComoDataUrl(file),form:{...formInicial(),legendaDocumento:String(file.name||"").replace(/\.[^.]+$/,"")||"Documento analisado por IA",...(match&&!obraIdInicial&&!currentUser?.obraId?{obraId:match.obraId}:{})},sugestao:null,obraMatch:match,status:"pendente",erro:""};}));setLote(itens);carregarItem(itens[0]);showToast(`${itens.length} documento(s) adicionado(s). Cada arquivo terá uma análise independente.`);void executarLote(itens);};
-  const analisar=async()=>{if(!arquivo||!dataUrl){showToast("Selecione um documento para analisar.","error");return;}setAnalisando(true);try{
-    const contexto={modulo,arquivoNome:arquivo.name,obraSugeridaPeloTitulo:obraMatch,obras:obras.map(o=>({id:o.id,nome:o.name,cliente:o.cliente||o.client||"",endereco:o.address||""})),fornecedores:(data.fornecedores||[]).map(f=>({nome:f.nome,cnpj:f.cnpj})).slice(0,200),destinosExistentes:destinos.slice(0,250).map(d=>({id:d.id,obraId:d.obraId,data:d.data,valor:d.valor,descricao:d.label}))};
-    const prompt=`Leia integralmente este documento financeiro/comercial. Pode ser NF-e, NFS-e, cotação de fornecedor, boleto, recibo, comprovante, conta de energia, água, internet ou outro documento. Identifique a obra comparando PRIMEIRO o nome original do arquivo (${arquivo.name}) e depois o texto do documento com a lista de obras do contexto. Compare número, fornecedor, obra, data, descrição e valor com destinosExistentes. Só preencha destinoId quando houver correspondência forte; ele deve ser exatamente um ID da lista. Se não houver, deixe vazio para o operador criar um lançamento. Retorne SOMENTE JSON válido, sem markdown, neste formato: {"obraId":"","obraNome":"","obraConfianca":0,"obraEvidencia":"trecho do nome do arquivo ou documento que justificou a associação","destinoId":"","tipoDocumento":"nfe|nfse|cotacao|boleto|recibo|energia|agua|internet|frete|outro","numero":"","emissao":"YYYY-MM-DD ou vazio","vencimento":"YYYY-MM-DD ou vazio","fornecedorNome":"","documentoFornecedor":"CNPJ/CPF ou vazio","descricao":"descrição objetiva do lançamento","categoria":"categoria contábil/compra sugerida","valorBruto":0,"valorLiquido":0,"confianca":0,"resumo":"","alertas":[""],"itens":[{"descricao":"","quantidade":1,"unidade":"UN","valorUnitario":0}]}. Não invente valores ilegíveis; use vazio ou zero e gere alerta. As confianças vão de 0 a 100.`;
-    const body={modulo,prompt,contexto};if(arquivo.type==="application/pdf")body.documentos=[{dataUrl,nome:arquivo.name}];else body.imagens=[{dataUrl,legenda:arquivo.name}];
-    const json=await chamarIA(body);if(!json.ok)throw new Error(json.error||"A IA não conseguiu analisar o documento.");const s=jsonDaRespostaIA(json.reply||json.answer);
-    const obraIA=obras.find(o=>o.id===s.obraId);const confiancaObraIA=Math.max(0,Math.min(100,Number(s.obraConfianca||0)));const fixa=obraIdInicial||currentUser?.obraId;const matchFinal=fixa?{obraId:fixa,obraNome:obras.find(o=>o.id===fixa)?.name||"",confianca:100,evidencia:"Obra definida pelo contexto de acesso.",fonte:"contexto"}:obraMatch||(obraIA&&confiancaObraIA>=60?{obraId:obraIA.id,obraNome:obraIA.name,confianca:confiancaObraIA,evidencia:s.obraEvidencia||"Associação sugerida pela leitura do documento.",fonte:"IA"}:null);
-    const destinoSugerido=(Number(s.confianca||0)>=75?destinos.find(d=>d.id===s.destinoId):null)||sugerirDestinoDocumento(destinos,s,matchFinal?.obraId||form.obraId);
-    const novoForm={...form,obraId:matchFinal?.obraId||destinoSugerido?.obraId||form.obraId,tipoDocumento:["nfe","nfse","boleto","recibo","energia","agua","internet","frete","outro"].includes(s.tipoDocumento)?s.tipoDocumento:"outro",numero:s.numero||form.numero,emissao:s.emissao||form.emissao,vencimento:s.vencimento||"",fornecedorNome:s.fornecedorNome||"",documentoFornecedor:s.documentoFornecedor||"",descricao:s.descricao||s.itens?.[0]?.descricao||"",categoria:s.categoria||"",valorBruto:String(Number(s.valorBruto||0)||""),valorLiquido:String(Number(s.valorLiquido||s.valorBruto||0)||""),destinoId:destinoSugerido?.id||"",legendaDocumento:form.legendaDocumento||s.descricao||s.tipoDocumento||"Documento analisado por IA"};setObraMatch(matchFinal);setSugestao(s);setForm(novoForm);setLote(lista=>lista.map(item=>item.id===ativoId?{...item,sugestao:s,obraMatch:matchFinal,form:novoForm,status:"revisar",erro:""}:item));
-    showToast(matchFinal?`Leitura concluída. Obra sugerida por ${matchFinal.fonte}; revise antes de aceitar.`:"Leitura concluída. Confirme manualmente a obra antes de aceitar.",matchFinal?undefined:"warn");
-  }catch(err){setLote(lista=>lista.map(item=>item.id===ativoId?{...item,status:"erro",erro:err.message||"Falha na leitura"}:item));showToast(err.message||"Falha na leitura por IA.","error");}finally{setAnalisando(false);}};
-  const analisarDocumentoDoLote=async(item,indice,total)=>{
-    const a=item.arquivo,u=item.dataUrl,matchTitulo=item.obraMatch,formItem=item.form||formInicial();
-    const contexto={modulo,arquivoNome:a.name,documentoNoLote:indice,totalNoLote:total,regraDoLote:"Analise exclusivamente este arquivo e não reutilize dados de outros documentos.",obraSugeridaPeloTitulo:matchTitulo,obras:obras.map(o=>({id:o.id,nome:o.name,cliente:o.cliente||o.client||"",endereco:o.address||""})),fornecedores:(data.fornecedores||[]).map(f=>({nome:f.nome,cnpj:f.cnpj})).slice(0,200),destinosExistentes:destinos.slice(0,250).map(d=>({id:d.id,obraId:d.obraId,data:d.data,valor:d.valor,descricao:d.label}))};
-    const prompt=`Analise SOMENTE o arquivo “${a.name}”. Esta é a análise ${indice} de ${total}, mas ela deve ser totalmente independente: não combine fornecedor, CNPJ/CPF, número, valores, datas, itens ou obra com qualquer outro arquivo do lote. Leia integralmente o documento. Ele pode ser NF-e, NFS-e, cotação, boleto, recibo, comprovante ou conta de consumo. Identifique a obra comparando primeiro o nome original do arquivo e depois o conteúdo com a lista de obras. Só preencha destinoId se houver correspondência forte e ele existir no contexto. Retorne SOMENTE JSON válido, sem markdown: {"obraId":"","obraNome":"","obraConfianca":0,"obraEvidencia":"","destinoId":"","tipoDocumento":"nfe|nfse|cotacao|boleto|recibo|energia|agua|internet|frete|outro","numero":"","emissao":"YYYY-MM-DD ou vazio","vencimento":"YYYY-MM-DD ou vazio","fornecedorNome":"","documentoFornecedor":"","descricao":"","categoria":"","valorBruto":0,"valorLiquido":0,"confianca":0,"resumo":"","alertas":[""],"itens":[{"descricao":"","quantidade":1,"unidade":"UN","valorUnitario":0}]}. Não invente conteúdo ilegível; use vazio ou zero e gere alerta.`;
-    const body={modulo,prompt,contexto};if(a.type==="application/pdf")body.documentos=[{dataUrl:u,nome:a.name}];else body.imagens=[{dataUrl:u,legenda:a.name}];
-    const json=await chamarIA(body);if(!json.ok)throw new Error(json.error||"A IA não conseguiu analisar o documento.");const leitura=jsonDaRespostaIA(json.reply||json.answer);const s={...leitura,resumo:total>1?`Documento ${indice} de ${total} · ${leitura.resumo||"Análise individual concluída."}`:leitura.resumo};
-    const obraIA=obras.find(o=>o.id===s.obraId);const confiancaObraIA=Math.max(0,Math.min(100,Number(s.obraConfianca||0)));const fixa=obraIdInicial||currentUser?.obraId;const matchFinal=fixa?{obraId:fixa,obraNome:obras.find(o=>o.id===fixa)?.name||"",confianca:100,evidencia:"Obra definida pelo contexto de acesso.",fonte:"contexto"}:matchTitulo||(obraIA&&confiancaObraIA>=60?{obraId:obraIA.id,obraNome:obraIA.name,confianca:confiancaObraIA,evidencia:s.obraEvidencia||"Associação sugerida pela leitura do documento.",fonte:"IA"}:null);
-    const destinoSugerido=(Number(s.confianca||0)>=75?destinos.find(d=>d.id===s.destinoId):null)||sugerirDestinoDocumento(destinos,s,matchFinal?.obraId||formItem.obraId);
-    const novoForm={...formItem,obraId:matchFinal?.obraId||destinoSugerido?.obraId||formItem.obraId,tipoDocumento:["nfe","nfse","boleto","recibo","energia","agua","internet","frete","outro"].includes(s.tipoDocumento)?s.tipoDocumento:"outro",numero:s.numero||formItem.numero,emissao:s.emissao||formItem.emissao,vencimento:s.vencimento||"",fornecedorNome:s.fornecedorNome||"",documentoFornecedor:s.documentoFornecedor||"",descricao:s.descricao||s.itens?.[0]?.descricao||"",categoria:s.categoria||"",valorBruto:String(Number(s.valorBruto||0)||""),valorLiquido:String(Number(s.valorLiquido||s.valorBruto||0)||""),destinoId:destinoSugerido?.id||"",legendaDocumento:formItem.legendaDocumento||s.descricao||s.tipoDocumento||"Documento analisado por IA"};
-    return{...item,sugestao:s,obraMatch:matchFinal,form:novoForm,status:"revisar",erro:""};
-  };
-  const executarLote=async itens=>{const origem=(itens||lote).map(item=>item.id===ativoId?{...item,form,sugestao,obraMatch}:item);if(!origem.length||statusIA!=="disponivel"){showToast("Confirme a conexão da IA antes de enviar o lote.","error");return;}setAnalisando(true);setLote(origem);const resultados=[];let concluidos=0,falhas=0;for(let i=0;i<origem.length;i++){const atual={...origem[i],status:"analisando",erro:""};setLote(lista=>lista.map(item=>item.id===atual.id?atual:item));try{const pronto=await analisarDocumentoDoLote(atual,i+1,origem.length);resultados.push(pronto);concluidos++;setLote(lista=>lista.map(item=>item.id===pronto.id?pronto:item));}catch(err){const falho={...atual,status:"erro",erro:err.message||"Falha na análise"};resultados.push(falho);falhas++;setLote(lista=>lista.map(item=>item.id===falho.id?falho:item));}}const primeiro=resultados.find(item=>item.status==="revisar")||resultados[0];if(primeiro)carregarItem(primeiro);setAnalisando(false);showToast(`${concluidos} documento(s) analisado(s) separadamente${falhas?` · ${falhas} com falha`:""}.`,falhas?"warn":undefined);};
-  const concluirDocumentoAtivo=()=>{const restantes=lote.filter(item=>item.id!==ativoId);setLote(restantes);if(restantes.length)carregarItem(restantes[0]);else onClose?.();};
-  const aceitar=async()=>{
-    const destino=destinos.find(d=>d.id===form.destinoId);
-    if(!arquivo||!dataUrl||!String(form.legendaDocumento||"").trim()||(!destino&&(!form.obraId||Number(form.valorBruto)<=0))){showToast("Confirme destino, obra, legenda e valor antes de aceitar.","error");return;}
-    if(!window.confirm(destino?`Vincular o documento a “${destino.label}”?`:`Criar o lançamento sugerido de ${fmt(Number(form.valorBruto))}?`))return;
-    setSalvando(true);
-    try{
-      const obraUploadId=destino?.obraId||form.obraId;const obra=obras.find(o=>o.id===obraUploadId)||(data.obras||[]).find(o=>o.id===obraUploadId);
-      const competencia=String(form.emissao||today()).slice(0,7);const pastaNova=modulo==="compras"?`Pedidos IA/${competencia}`:["nfe","nfse","frete"].includes(form.tipoDocumento)?`Notas fiscais/${competencia}`:["recibo","boleto"].includes(form.tipoDocumento)?`Comprovantes/${competencia}`:["energia","agua","internet"].includes(form.tipoDocumento)?`Contas de consumo/${competencia}`:`Documentos analisados/${competencia}`;
-      const resp=await enviarArquivoOneDrive({dataUrl,obraName:obra?.name||"Administrativo",driveId:obra?.oneDriveDriveId,folderId:obra?.oneDriveFolderId,folders:obra?.oneDriveFolders,category:modulo==="compras"?"compras":"financeiro",subfolder:destino?.pasta||pastaNova,date:form.emissao||today(),fileName:arquivo.name});
-      if(!resp.ok&&!resp.url)throw new Error(resp.error||"Falha ao salvar no OneDrive.");
-      const agora=new Date().toISOString();const doc={id:resp.item?.id||uid(),nome:resp.item?.name||arquivo.name,legenda:String(form.legendaDocumento).trim(),url:resp.item?.webUrl||resp.url,path:resp.path||"",tipo:arquivo.type,tamanho:arquivo.size||0,enviadoEm:agora,enviadoPorId:currentUser?.id||"",enviadoPor:currentUser?.nome||""};
-      const obrasAtualizadas=(data.obras||[]).map(o=>o.id===obraUploadId?{...o,oneDriveDriveId:resp.workspace?.driveId||o.oneDriveDriveId,oneDriveFolderId:resp.workspace?.folderId||o.oneDriveFolderId,oneDriveFolders:resp.workspace?.folders||o.oneDriveFolders,oneDriveUrl:resp.workspace?.webUrl||o.oneDriveUrl}:o);
-      const analiseIA={...sugestao,confianca:Number(sugestao?.confianca||0),revisadoPorId:currentUser?.id||"",revisadoPor:currentUser?.nome||"",revisadoEm:agora};
-      if(destino){
-        if(modulo==="financeiro"){
-          let commandData=data;
-          if(destino.entidade==="nota"){
-            if(!dispatchCommand)throw new Error("Comando fiscal indisponível.");
-            const result=await dispatchCommand(atual=>{
-              const nota=(atual.notasFiscais||[]).find(n=>n.id===destino.entidadeId);
-              return {
-                type:OPERATIONAL_COMMAND.INVOICE_SAVED,
-                idempotencyKey:`invoice-document-${destino.entidadeId}-${doc.id}-${uid()}`,
-                expectedVersion:Number(nota?.version||0),
-                actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-                payload:{invoice:{
-                  ...nota,documentos:[...(nota?.documentos||[]),doc],
-                }},
-              };
-            });
-            if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o vínculo à nota.");
-            commandData=result.data;
-          }
-          const registros=commandData.documentosMovimentacoes||[];
-          const registro=registros.find(r=>r.movimentoId===destino.id);
-          const documentosMovimentacoes=registro
-            ?registros.map(r=>r.movimentoId===destino.id
-              ?{...r,documentos:[...(r.documentos||[]),doc]}:r)
-            :[...registros,{id:uid(),movimentoId:destino.id,
-              obraId:destino.obraId||"",tipo:destino.label.split(" · ")[0],
-              documentos:[doc]}];
-          update({...commandData,obras:(commandData.obras||[]).map(o=>
-            o.id===obraUploadId?obrasAtualizadas.find(item=>item.id===o.id)||o:o),
-            documentosMovimentacoes});
-        }else if(destino.entidade==="cotacao"){
-          update({...data,obras:obrasAtualizadas,cotacoes:(data.cotacoes||[]).map(c=>c.id===destino.entidadeId?{...c,propostas:(c.propostas||[]).map(p=>p.id===destino.propostaId?{...p,documentos:[...(p.documentos||[]),doc]}:p)}:c)});
-        }else{
-          if(!dispatchCommand)throw new Error("Comando de compras indisponível.");
-          const result=await dispatchCommand(atual=>{
-            const pedido=(atual.pedidos||[]).find(item=>item.id===destino.entidadeId);
-            return {
-              type:OPERATIONAL_COMMAND.PURCHASE_ORDER_DOCUMENT_ATTACHED,
-              idempotencyKey:`purchase-order-document-${destino.entidadeId}-${doc.id}-${uid()}`,
-              expectedVersion:Number(pedido?.version||0),
-              actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-              payload:{orderId:destino.entidadeId,document:doc},
-            };
-          });
-          if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o vínculo ao pedido.");
-          update({...result.data,obras:(result.data.obras||[]).map(o=>
-            o.id===obraUploadId?obrasAtualizadas.find(item=>item.id===o.id)||o:o)});
-        }
-        showToast("Documento analisado, salvo no diretório correto e vinculado ao item selecionado.");concluirDocumentoAtivo();return;
-      }
-      if(modulo==="financeiro"){
-        const notaId=uid();const numero=String(form.numero||`DOC-${Date.now()}`).trim();const nota={id:notaId,tipo:["nfe","nfse","frete"].includes(form.tipoDocumento)?form.tipoDocumento:"outro",numero,serie:"",chave:"",emissao:form.emissao||today(),vencimento:form.vencimento||"",fornecedorId:"",fornecedorNome:form.fornecedorNome||"Não identificado",documentoFornecedor:form.documentoFornecedor||"",obraId:form.obraId,pedidoId:"",valorBruto:Number(form.valorBruto),valorLiquido:Number(form.valorLiquido||form.valorBruto),retencoes:{iss:0,inss:0,irrf:0,pis:0,cofins:0,csll:0,outros:0},rateios:[{id:uid(),obraId:form.obraId,etapaId:"",percentual:100,valor:Number(form.valorBruto)}],documentos:[doc],status:"recebida",divergencias:sugestao?.alertas||[],analiseIA,descricao:form.descricao,categoria:form.categoria,pastaDrive:pastaNova,criadoPorId:currentUser?.id||"",criadoPor:currentUser?.nome||"",criadoEm:agora,atualizadoEm:agora};
-        if(!dispatchCommand)throw new Error("Comando fiscal indisponível.");
-        const result=await dispatchCommand(()=>({
-          type:OPERATIONAL_COMMAND.INVOICE_SAVED,
-          idempotencyKey:`invoice-ai-create-${notaId}-${uid()}`,
-          expectedVersion:0,
-          actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-          payload:{invoice:nota},
-        }));
-        if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou a nota.");
-        const documentosMovimentacoes=[...(result.data.documentosMovimentacoes||[]),{
-          id:uid(),movimentoId:`nf-${notaId}`,obraId:form.obraId,
-          tipo:"Nota fiscal",documentos:[doc]}];
-        update({...result.data,obras:(result.data.obras||[]).map(o=>
-          o.id===obraUploadId?obrasAtualizadas.find(item=>item.id===o.id)||o:o),
-          documentosMovimentacoes});
-      }else{
-        if(!dispatchCommand)throw new Error("Comando de compras indisponível.");
-        const norm=v=>String(v||"").replace(/\D/g,"");
-        let fornecedor=(data.fornecedores||[]).find(f=>
-          (norm(form.documentoFornecedor)&&norm(f.cnpj)===norm(form.documentoFornecedor))
-          ||String(f.nome||"").toLowerCase()===String(form.fornecedorNome||"").toLowerCase());
-        const novoFornecedor=!fornecedor?{
-          id:uid(),nome:form.fornecedorNome||"Fornecedor a confirmar",
-          cnpj:form.documentoFornecedor||"",categorias:[],ativo:true,
-        }:null;
-        fornecedor=fornecedor||novoFornecedor;
-        const material={id:uid(),codigo:`IA-${String((data.materiais||[]).length+1).padStart(4,"0")}`,descricao:maiusculoOrcamento(form.descricao||form.categoria||"ITEM LIDO POR IA"),unidade:"UN",categoria:"outros",estoqueMin:0,precoMedio:Number(form.valorBruto),fonteRef:"IA",ativo:true};
-        const pedido={id:uid(),numero:`PC-IA-${String((data.pedidos||[]).length+1).padStart(4,"0")}`,obraId:form.obraId,fornecedorId:fornecedor.id,data:form.emissao||today(),previsao:form.vencimento||"",status:"rascunho",referenciaId:"",solicitacaoId:"",itens:[{id:uid(),materialId:material.id,qtd:1,precoUnit:Number(form.valorBruto),qtdRecebida:0,orcItemId:"",orcNivel1Id:"",referenciaId:"",fonteRef:"IA",codigoRef:material.codigo,descricaoRef:material.descricao,unidadeRef:"UN",precoRef:Number(form.valorBruto),dataBaseRef:"",ufRef:""}],cotacaoId:"",transacaoId:"",origemPagamento:form.origemPagamento,pagamentos:[],documentos:[doc],analiseIA,criadoPorId:currentUser?.id||"",criadoPor:currentUser?.nome||"",criadoEm:agora,obs:`Documento ${form.numero||arquivo.name} · ${form.categoria||"classificação a revisar"}`};
-        const result=await dispatchCommand(()=>({
-          type:OPERATIONAL_COMMAND.PURCHASE_ORDER_SAVED,
-          idempotencyKey:`purchase-order-ai-${pedido.id}-${uid()}`,
-          expectedVersion:0,actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-          payload:{order:pedido,newSupplier:novoFornecedor,newMaterials:[material]},
-        }));
-        if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o novo pedido.");
-        update({...result.data,obras:(result.data.obras||[]).map(o=>
-          o.id===obraUploadId?obrasAtualizadas.find(item=>item.id===o.id)||o:o)});
-      }
-      showToast(modulo==="financeiro"?"Documento salvo, vinculado à nova nota e enviado para conferência fiscal.":"Documento salvo e vinculado ao novo pedido em rascunho.");concluirDocumentoAtivo();
-    }catch(err){showToast(err.message||"Não foi possível concluir o lançamento.","error");}finally{setSalvando(false);}
-  };
-  if(!arquivo)return <Modal title={`Modo IA · ${modulo==="compras"?"Compras":"Financeiro"}`} onClose={onClose} wide><div style={{display:"flex",flexDirection:"column",gap:12}}><div style={{padding:14,border:`1px solid ${C.yellow}55`,borderRadius:12,background:`linear-gradient(135deg,${C.yellow}12,${C.surface})`}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:1.1,textTransform:"uppercase",color:C.yellowD}}>Verificação documental em lote</p><h3 style={{fontSize:"var(--arcd-type-card-title)",color:C.text,marginTop:4}}>Uma análise independente para cada arquivo</h3><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.55,marginTop:5}}>Selecione até 10 imagens ou PDFs. O Gemini processará um documento por chamada para não misturar obra, fornecedor, datas, itens ou valores. Depois, cada sugestão deverá ser revisada e aceita separadamente.</p></div><label style={{minHeight:150,padding:22,border:`2px dashed ${statusIA==="disponivel"?C.yellow:C.border}`,borderRadius:12,textAlign:"center",cursor:statusIA==="disponivel"?"pointer":"wait",background:C.card,display:"grid",placeItems:"center"}}><div><span style={{width:44,height:44,borderRadius:12,display:"grid",placeItems:"center",margin:"0 auto 9px",background:C.text,color:C.yellow}}><Ic n="fileText" s={21}/></span><b style={{fontSize:"var(--arcd-type-body)",color:C.text}}>{statusIA==="disponivel"?"Selecionar imagens e documentos":"Verificando conexão com a IA..."}</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:4}}>PDF, JPG, PNG ou WEBP · até 10 arquivos · 5,5 MB por arquivo</p></div><input type="file" multiple accept=".pdf,image/jpeg,image/png,image/webp" disabled={statusIA!=="disponivel"} onChange={selecionarArquivo} style={{display:"none"}}/></label>{statusIA==="indisponivel"&&<div style={{padding:"9px 11px",border:`1px solid ${C.red}55`,borderRadius:8,background:`${C.red}09`,fontSize:"var(--arcd-type-label)",color:C.red}}>A IA não está disponível. Solicite ao administrador que valide a integração Gemini.</div>}<Btn v="ghost" onClick={onClose} full>Cancelar</Btn></div></Modal>;
-  const confianca=Math.max(0,Math.min(100,Number(sugestao?.confianca||0)));
-  return <Modal title={`Modo IA · ${modulo==="compras"?"Compras":"Financeiro"}`} onClose={onClose} wide><div style={{display:"flex",flexDirection:"column",gap:11}}><div style={{background:`linear-gradient(135deg,${C.purple}12,${C.blue}09)`,border:`1px solid ${C.purple}44`,borderRadius:10,padding:12,display:"flex",gap:10,alignItems:"center"}}><span style={{width:38,height:38,borderRadius:10,display:"grid",placeItems:"center",background:C.purple,color:"#fff"}}><Ic n="brain" s={19}/></span><div style={{flex:1}}><b style={{fontSize:"var(--arcd-type-body)",color:C.purple}}>Leitura assistida e auditável</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>A IA sugere o lançamento e procura o item correspondente. Você confirma o vínculo e o diretório antes de salvar.</p></div><Badge color={statusIA==="disponivel"?C.green:statusIA==="verificando"?C.orange:C.red}>{statusIA==="disponivel"?"IA CONECTADA":statusIA==="verificando"?"VERIFICANDO":"IA INDISPONÍVEL"}</Badge></div>{statusIA==="indisponivel"&&<div style={{padding:"9px 11px",border:`1px solid ${C.red}55`,borderRadius:8,background:`${C.red}09`,fontSize:"var(--arcd-type-label)",color:C.red}}>O serviço de IA não está configurado na produção. Solicite ao administrador a ativação da integração.</div>}<label style={{padding:15,border:`2px dashed ${arquivo?C.green:C.blue}66`,borderRadius:10,textAlign:"center",cursor:"pointer",background:arquivo?`${C.green}08`:C.card}}><b style={{fontSize:"var(--arcd-type-label)",color:arquivo?C.green:C.blue}}>{arquivo?arquivo.name:"Selecionar PDF ou imagem"}</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>PDF, JPG, PNG ou WEBP · máximo 5,5 MB</p><input type="file" accept=".pdf,image/jpeg,image/png,image/webp" onChange={selecionarArquivo} style={{display:"none"}}/></label>{obraMatch&&<div style={{padding:"9px 11px",border:`1px solid ${C.green}55`,borderRadius:8,background:`${C.green}08`,fontSize:"var(--arcd-type-caption)",color:C.subtle}}><b style={{color:C.green}}>Obra reconhecida: {obraMatch.obraNome}</b> · {obraMatch.fonte} ({Math.round(obraMatch.confianca)}%)<p style={{marginTop:2,color:C.muted}}>{obraMatch.evidencia}</p></div>}<Btn onClick={analisar} disabled={!arquivo||analisando||statusIA!=="disponivel"} full><Ic n="ia"/> {analisando?"Lendo documento...":statusIA==="verificando"?"Verificando serviço...":"Analisar e sugerir lançamento"}</Btn>{sugestao&&<><div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:10,alignItems:"center",padding:"9px 10px",border:`1px solid ${C.border}`,borderRadius:8}}><div><b style={{fontSize:"var(--arcd-type-label)"}}>Confiança da leitura</b><div style={{height:5,background:C.surface,borderRadius:99,marginTop:5,overflow:"hidden"}}><div style={{height:"100%",width:`${confianca}%`,background:confianca>=80?C.green:confianca>=55?C.yellow:C.red}}/></div></div><b style={{fontSize:"var(--arcd-type-card-title)",color:confianca>=80?C.green:confianca>=55?C.yellowD:C.red}}>{confianca}%</b></div>{sugestao.resumo&&<p style={{fontSize:"var(--arcd-type-label)",color:C.subtle,lineHeight:1.5,padding:"8px 10px",background:C.surface,borderRadius:7}}>{sugestao.resumo}</p>}{sugestao.alertas?.map((a,i)=><p key={i} style={{fontSize:"var(--arcd-type-caption)",color:C.red}}>⚠ {a}</p>)}<div style={{padding:"10px 11px",border:`1px solid ${form.destinoId?C.green:C.border}`,background:form.destinoId?`${C.green}08`:C.surface,borderRadius:9}}><Sel label={modulo==="compras"?"Vincular a pedido ou cotação":"Vincular à movimentação financeira"} value={form.destinoId} onChange={v=>{const destino=destinos.find(d=>d.id===v);setForm(f=>({...f,destinoId:v,obraId:destino?.obraId||f.obraId,subfolder:destino?.pasta||f.subfolder}));}} options={[{v:"",l:modulo==="compras"?"Criar novo pedido em rascunho":"Criar nova nota/lançamento"},...destinos.filter(d=>!form.obraId||!d.obraId||d.obraId===form.obraId).slice(0,250).map(d=>({v:d.id,l:d.label}))]}/><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:5}}>{form.destinoId?"O arquivo será acrescentado ao item selecionado sem criar um lançamento duplicado.":"Nenhum item compatível selecionado: será criado um novo registro após sua confirmação."}</p></div><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Sel label="Obra *" value={form.obraId} onChange={v=>{setForm(f=>({...f,obraId:v,destinoId:""}));const o=obras.find(x=>x.id===v);setObraMatch(o?{obraId:o.id,obraNome:o.name,confianca:100,evidencia:"Obra confirmada pelo operador.",fonte:"seleção manual"}:null);}} options={[{v:"",l:"Confirme a obra"},...obras.map(o=>({v:o.id,l:o.name}))]}/><Sel label="Tipo de documento" value={form.tipoDocumento} onChange={F("tipoDocumento")} options={[{v:"nfe",l:"NF-e"},{v:"nfse",l:"NFS-e"},{v:"boleto",l:"Boleto"},{v:"recibo",l:"Recibo / comprovante"},{v:"energia",l:"Conta de energia"},{v:"agua",l:"Conta de água"},{v:"internet",l:"Internet/telefone"},{v:"frete",l:"Frete/CT-e"},{v:"outro",l:"Outro"}]}/><Inp label="Número / referência" value={form.numero} onChange={F("numero")}/><Inp label="Emissão" type="date" value={form.emissao} onChange={F("emissao")}/><Inp label="Vencimento" type="date" value={form.vencimento} onChange={F("vencimento")}/><Inp label="CNPJ / CPF" value={form.documentoFornecedor} onChange={F("documentoFornecedor")}/><Inp label="Fornecedor" value={form.fornecedorNome} onChange={F("fornecedorNome")}/><Inp label="Categoria sugerida" value={form.categoria} onChange={F("categoria")}/><Inp label="Valor bruto *" type="number" value={form.valorBruto} onChange={F("valorBruto")}/><Inp label="Valor líquido" type="number" value={form.valorLiquido} onChange={F("valorLiquido")}/>{modulo==="compras"&&<Sel label="Origem do pagamento" value={form.origemPagamento} onChange={F("origemPagamento")} options={[{v:"caixa",l:"Caixa da empresa/obra"},{v:"cliente_direto",l:"Cliente paga direto"}]}/>}<Inp label="Legenda do documento *" value={form.legendaDocumento} onChange={F("legendaDocumento")} placeholder="Ex.: NF 123, cotação revisada, comprovante PIX"/></div><Inp label="Descrição do lançamento" value={form.descricao} onChange={F("descricao")}/><div style={{padding:"8px 10px",border:`1px solid ${C.border}`,borderRadius:8,background:C.surface,fontSize:"var(--arcd-type-caption)",color:C.muted}}>Diretório sugerido: <b style={{color:C.text}}>{modulo==="compras"?"09 - Compras e Suprimentos":"08 - Financeiro e Fiscal"} / {destinos.find(d=>d.id===form.destinoId)?.pasta||form.subfolder}</b></div><div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={onClose} full>Cancelar</Btn><Btn v="success" onClick={aceitar} disabled={salvando||!String(form.legendaDocumento||"").trim()} full><Ic n="check"/> {salvando?"Salvando no Drive...":form.destinoId?"Vincular documento":"Aceitar e criar lançamento"}</Btn></div></>}</div></Modal>;
-}
-
 const novaNotaFiscal=()=>({id:"",tipo:"nfe",numero:"",serie:"",chave:"",emissao:today(),vencimento:"",fornecedorId:"",fornecedorNome:"",documentoFornecedor:"",obraId:"",pedidoId:"",valorBruto:"",valorLiquido:"",retencoes:{iss:0,inss:0,irrf:0,pis:0,cofins:0,csll:0,outros:0},rateios:[],documentos:[],pagamentos:[],status:"recebida",divergencias:[],analiseIA:null});
 
-function CentralFiscal({data,update,showToast,currentUser,abrirCadastro=false,onCadastroAberto,dispatchCommand=null}){
+function CentralFiscal({data,update,showToast,currentUser,obraIdFiltro="all",onObraChange,onMemorial,abrirNotaId="",onNotaAberta,abrirCadastro=false,onCadastroAberto,dispatchCommand=null}){
+  const [xmlPreview,setXmlPreview]=useState(null);
   const {formGrid}=useBreakpoint();const notas=data.notasFiscais||[];const [form,setForm]=useState(null);const [subindo,setSubindo]=useState(false);const [filtro,setFiltro]=useState("todas");const [anexoFiscal,setAnexoFiscal]=useState(null);const [invoiceCommandPending,setInvoiceCommandPending]=useState(false);const [sugestoesNota,setSugestoesNota]=useState([]);
+  const invoiceRecovery=useRecordRecovery({collection:'notasFiscais',fields:invoiceRecoveryFields,format:formatInvoiceEditor});
+  const invoiceExit=useUnsavedChanges(form,()=>setForm(null),{busy:invoiceCommandPending||subindo});
+  useEffect(()=>{invoiceRecovery.reset(form);},[Boolean(form),form?.id,invoiceRecovery.reset]);
+  useEffect(()=>{if(!abrirNotaId)return;const nota=notas.find(n=>n.id===abrirNotaId);if(nota)setForm({...nota,valorBruto:String(nota.valorBruto),valorLiquido:String(nota.valorLiquido)});onNotaAberta?.();},[abrirNotaId,notas,onNotaAberta]);
   const contasPagarFiscal=useMemo(
-    ()=>selectLedgerAccountsPayable(buildFinancialLedger(data),{asOfDate:today()}),
-    [data],
+    ()=>selectLedgerAccountsPayable(buildFinancialLedger(data),{asOfDate:today(),...(obraIdFiltro==="all"?{}:{obraId:obraIdFiltro})}),
+    [data,obraIdFiltro],
   );
   const vazia=novaNotaFiscal;
   useEffect(()=>{if(!abrirCadastro)return;setForm(novaNotaFiscal());onCadastroAberto?.();},[abrirCadastro,onCadastroAberto]);
   const F=k=>v=>setForm(f=>({...f,[k]:v}));const totalRet=f=>Object.values(f.retencoes||{}).reduce((s,v)=>s+Number(v||0),0);const pedido=form?(data.pedidos||[]).find(p=>p.id===form.pedidoId):null;
   const setRetencao=(campo,valor)=>setForm(f=>{const retencoes={...f.retencoes,[campo]:valor};return{...f,retencoes,valorLiquido:String(Math.max(0,Number(f.valorBruto||0)-Object.values(retencoes).reduce((s,x)=>s+Number(x||0),0)))}});
   const importar=e=>{const file=e.target.files?.[0];e.target.value="";if(!file||!form)return;if(file.size>5.5*1024*1024){showToast("O documento deve ter no máximo 5,5 MB.","error");return;}setAnexoFiscal({file,legenda:String(file.name||"").replace(/\.[^.]+$/,"")||"Documento fiscal"});};
-  const salvarAnexoFiscal=async()=>{if(!anexoFiscal?.file||!form||!String(anexoFiscal.legenda||"").trim())return;const file=anexoFiscal.file;setSubindo(true);try{const dataUrl=await arquivoComoDataUrl(file);let extra={};if(file.name.toLowerCase().endsWith(".xml")){const texto=await file.text();extra=lerXmlFiscal(texto)||{};}const obra=(data.obras||[]).find(o=>o.id===form.obraId);const resp=await enviarArquivoOneDrive({dataUrl,obraName:obra?.name||"Administrativo",driveId:obra?.oneDriveDriveId,folderId:obra?.oneDriveFolderId,folders:obra?.oneDriveFolders,category:"financeiro",subfolder:`Notas fiscais/${String(form.emissao||today()).slice(0,7)}`,date:form.emissao||today(),fileName:file.name});if(!resp.ok&&!resp.url)throw new Error(resp.error||"Falha no envio.");const agora=new Date().toISOString();const doc={id:resp.item?.id||uid(),nome:resp.item?.name||file.name,legenda:String(anexoFiscal.legenda).trim(),url:resp.item?.webUrl||resp.url,path:resp.path||"",tipo:file.type,tamanho:file.size||0,enviadoEm:agora,enviadoPorId:currentUser?.id||"",enviadoPor:currentUser?.nome||""};setForm(f=>({...f,...extra,retencoes:{...f.retencoes,...(extra.retencoes||{})},valorLiquido:extra.valorBruto?Math.max(0,extra.valorBruto-Object.values(extra.retencoes||{}).reduce((s,v)=>s+Number(v||0),0)):f.valorLiquido,documentos:[...(f.documentos||[]),doc]}));const obras=(data.obras||[]).map(o=>o.id===form.obraId?{...o,oneDriveDriveId:resp.workspace?.driveId||o.oneDriveDriveId,oneDriveFolderId:resp.workspace?.folderId||o.oneDriveFolderId,oneDriveFolders:resp.workspace?.folders||o.oneDriveFolders,oneDriveUrl:resp.workspace?.webUrl||o.oneDriveUrl}:o);if(form.obraId)update({...data,obras});setAnexoFiscal(null);showToast("Documento fiscal salvo no OneDrive, com legenda e pronto para conferência.");}catch(err){showToast(err.message||"Falha ao importar documento.","error");}finally{setSubindo(false);}};
+  const salvarAnexoFiscal=async()=>{if(!anexoFiscal?.file||!form||!String(anexoFiscal.legenda||"").trim())return;const file=anexoFiscal.file;setSubindo(true);try{const dataUrl=await arquivoComoDataUrl(file);const obra=(data.obras||[]).find(o=>o.id===form.obraId);const resp=await enviarArquivoOneDrive({dataUrl,obraName:obra?.name||"Administrativo",driveId:obra?.oneDriveDriveId,folderId:obra?.oneDriveFolderId,folders:obra?.oneDriveFolders,category:"financeiro",subfolder:`Notas fiscais/${String(form.emissao||today()).slice(0,7)}`,date:form.emissao||today(),fileName:file.name});if(!resp.ok&&!resp.url)throw new Error(resp.error||"Falha no envio.");const agora=new Date().toISOString();const doc={id:resp.item?.id||uid(),driveId:resp.item?.parentReference?.driveId||resp.workspace?.driveId||obra?.oneDriveDriveId||"",nome:resp.item?.name||file.name,legenda:String(anexoFiscal.legenda).trim(),url:resp.item?.webUrl||resp.url,path:resp.path||"",tipo:file.type,tamanho:file.size||0,enviadoEm:agora,enviadoPorId:currentUser?.id||"",enviadoPor:currentUser?.nome||""};setForm(f=>({...f,documentos:[...(f.documentos||[]),doc]}));const obras=(data.obras||[]).map(o=>o.id===form.obraId?{...o,oneDriveDriveId:resp.workspace?.driveId||o.oneDriveDriveId,oneDriveFolderId:resp.workspace?.folderId||o.oneDriveFolderId,oneDriveFolders:resp.workspace?.folders||o.oneDriveFolders,oneDriveUrl:resp.workspace?.webUrl||o.oneDriveUrl}:o);if(form.obraId)update({...data,obras});setAnexoFiscal(null);showToast("Documento fiscal salvo no OneDrive, com legenda e pronto para conferência.");}catch(err){showToast(err.message||"Falha ao importar documento.","error");}finally{setSubindo(false);}};
   // C3.1: o XML da NF-e preenche a nota, acha o fornecedor pelo CNPJ, sugere o
   // pedido e liga os itens. A chave vai só para o campo da nota.
   const ligarItensAoPedido=(itensXml,pedidoId)=>{const ped=(data.pedidos||[]).find(p=>p.id===pedidoId);return casarItensNota(itensXml,ped,data.materiais).map(c=>({...c.xmlItem,pedidoItemId:c.pedidoItemId}));};
@@ -5133,46 +3795,59 @@ function CentralFiscal({data,update,showToast,currentUser,abrirCadastro=false,on
     const forn=fornecedorPorDocumento(data.fornecedores,nota.documentoFornecedor);
     const sugestoes=forn?sugerirPedidosParaNota(data,{fornecedorId:forn.id,obraId:form.obraId,valorBruto:nota.valorBruto,itens:nota.itens}):[];
     const pedidoSugerido=sugestoes[0]?.pedido||null;
-    setSugestoesNota(sugestoes.slice(0,5));
-    setForm(f=>({...f,tipo:"nfe",numero:nota.numero,serie:nota.serie,chave:nota.chave,emissao:nota.emissao||f.emissao,vencimento:nota.vencimento||f.vencimento,
+    const proposed={...form,tipo:"nfe",numero:nota.numero,serie:nota.serie,chave:nota.chave,emissao:nota.emissao||form.emissao,vencimento:nota.vencimento||form.vencimento,
       fornecedorId:forn?.id||"",fornecedorNome:forn?.nome||nota.fornecedorNome,documentoFornecedor:nota.documentoFornecedor,
-      valorBruto:String(nota.valorBruto),valorLiquido:String(Math.max(0,nota.valorBruto-totalRet(f))),
-      obraId:f.obraId||pedidoSugerido?.obraId||"",pedidoId:pedidoSugerido?.id||f.pedidoId||"",
-      itensNota:ligarItensAoPedido(nota.itens,pedidoSugerido?.id||f.pedidoId)}));
-    showToast(!forn?"XML lido. Fornecedor não encontrado pelo CNPJ: cadastre-o ou ligue o pedido manualmente.":pedidoSugerido?`XML lido. Pedido ${pedidoSugerido.numero} sugerido; confira os itens.`:"XML lido. Nenhum pedido aberto deste fornecedor.",forn?"success":"warn");
+      valorBruto:String(nota.valorBruto),valorLiquido:String(Math.max(0,nota.valorBruto-totalRet(form))),
+      obraId:form.obraId||pedidoSugerido?.obraId||"",pedidoId:pedidoSugerido?.id||form.pedidoId||"",
+      itensNota:ligarItensAoPedido(nota.itens,pedidoSugerido?.id||form.pedidoId)};
+    setXmlPreview({filename:file.name,imported:nota,proposed,before:{...form},base:JSON.stringify(form),suggestions:sugestoes.slice(0,5),acknowledged:false});
+  };
+  const xmlConflicts=xmlPreview?invoiceImportConflicts(data,xmlPreview.imported,form?.id):null;
+  const xmlPreviewValue=(key,value)=>{
+    if(value==null||value==="")return "Não informado";
+    if(["valorBruto","valorLiquido"].includes(key))return fmt(Number(value));
+    if(["emissao","vencimento"].includes(key)&&/^\d{4}-\d{2}-\d{2}$/.test(String(value)))return String(value).split("-").reverse().join("/");
+    if(key==="pedidoId")return (data.pedidos||[]).find(item=>item.id===value)?.numero||String(value);
+    return String(value);
+  };
+  const aplicarPreviaXml=()=>{
+    if(!xmlPreview||xmlConflicts?.duplicate)return;
+    if(JSON.stringify(form)!==xmlPreview.base){setXmlPreview(current=>({...current,error:"A ficha mudou desde a leitura. Cancele e leia o XML novamente."}));return;}
+    setSugestoesNota(xmlPreview.suggestions);setForm(xmlPreview.proposed);setXmlPreview(null);
+    showToast("XML aplicado à ficha. Revise os dados e salve para confirmar o lançamento.");
   };
   const salvar=async()=>{
     if(!form.obraId||!form.numero||Number(form.valorBruto)<=0){showToast("Informe obra, número e valor da nota.","error");return;}
     if(!dispatchCommand||invoiceCommandPending)return;
     const ret=totalRet(form);
-    const invoiceId=form.id||uid();
+    const invoiceId=invoiceRecovery.entityId(form.id||uid());
     const invoice={
       ...form,id:invoiceId,valorBruto:Number(form.valorBruto),
       valorLiquido:Number(form.valorLiquido||Number(form.valorBruto)-ret),
       rateios:form.rateios?.length?form.rateios:[{
-        id:uid(),obraId:form.obraId,etapaId:"",percentual:100,
+        id:`rateio-${invoiceId}`,obraId:form.obraId,etapaId:"",percentual:100,
         valor:Number(form.valorBruto),
       }],
     };
     setInvoiceCommandPending(true);
     try{
-      const result=await dispatchCommand(atual=>{
-        const vigente=(atual.notasFiscais||[]).find(item=>item.id===invoiceId);
-        return {
+      const command=invoiceRecovery.prepare({
           type:OPERATIONAL_COMMAND.INVOICE_SAVED,
           idempotencyKey:`invoice-save-${invoiceId}-${uid()}`,
-          expectedVersion:vigente?Number(vigente.version||0):0,
+          expectedVersion:Number(invoiceRecovery.base.current?.version||0),
           actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
           payload:{invoice},
-        };
       });
-      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou a nota.");
+      if(!command)return;
+      const result=await dispatchCommand(command);
+      if(!result?.ok){invoiceRecovery.fail(result);showToast(result?.reason||'O servidor não confirmou a nota.','error');return;}
       setForm(null);
       const divergencias=Number(result.summary?.divergenceCount||0);
       showToast(divergencias
         ?"Nota salva com divergências na conferência de três vias."
         :"Pedido, recebimento físico e nota conferidos.");
     }catch(error){
+      invoiceRecovery.fail(error);
       showToast(error.message||"Não foi possível salvar a nota fiscal.","error");
     }finally{
       setInvoiceCommandPending(false);
@@ -5180,7 +3855,7 @@ function CentralFiscal({data,update,showToast,currentUser,abrirCadastro=false,on
   };
   const aprovar=async n=>{
     const riskAccepted=!!n.divergencias?.length;
-    if(riskAccepted&&!window.confirm("A nota possui divergências. Aprovar mesmo assim?"))return;
+    if(riskAccepted)showToast("A nota tem divergências. A decisão será registrada com os avisos para conferência.","warn");
     if(!dispatchCommand||invoiceCommandPending)return;
     setInvoiceCommandPending(true);
     try{
@@ -5195,7 +3870,7 @@ function CentralFiscal({data,update,showToast,currentUser,abrirCadastro=false,on
         };
       });
       if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou a aprovação.");
-      showToast("Nota aprovada para pagamento.");
+      showToast("Conferência fiscal registrada. Os pagamentos existentes foram preservados.");
     }catch(error){
       showToast(error.message||"Não foi possível aprovar a nota fiscal.","error");
     }finally{
@@ -5226,50 +3901,40 @@ function CentralFiscal({data,update,showToast,currentUser,abrirCadastro=false,on
       setInvoiceCommandPending(false);
     }
   };
-  const lista=notas.filter(n=>filtro==="todas"||n.status===filtro);const valorPendente=contasPagarFiscal.balanceCents/100;
+  const notasEscopo=notas.filter(n=>obraIdFiltro==="all"||n.obraId===obraIdFiltro||n.rateios?.some(r=>r.obraId===obraIdFiltro));
+  const lista=notasEscopo.filter(n=>filtro==="todas"||n.status===filtro||filtro==='recebida'&&n.conferenciaFiscalPendente);const valorPendente=contasPagarFiscal.balanceCents/100;
   return <div style={{display:"flex",flexDirection:"column",gap:10}}>
-    <PageHero
+    <PageHero headingLevel={2}
       eyebrow="Recepção e auditoria fiscal"
       title="Central de notas fiscais"
       description="Documento → pedido/recebimento → rateio/retenções → aprovação → conciliação → contador"
       stats={[
-        {label:"Recebidas",value:notas.length,color:C.blue},
-        {label:"Com divergência",value:notas.filter(n=>n.divergencias?.length).length,color:C.red},
-        {label:"Aprovadas",value:notas.filter(n=>n.status==="aprovada").length,color:C.green},
+        {label:"Recebidas",value:notasEscopo.length,color:C.blue},
+        {label:"Com divergência",value:notasEscopo.filter(n=>n.divergencias?.length).length,color:C.red},
+        {label:"Aprovadas",value:notasEscopo.filter(n=>n.status==="aprovada").length,color:C.green},
         {label:"A pagar",value:fmt(valorPendente),color:C.orange},
       ]}
       actions={<Btn onClick={()=>{setSugestoesNota([]);setForm(vazia());}}><Ic n="plus"/> Receber nota</Btn>}
     />
-    <div style={{display:"flex",gap:4,overflowX:"auto"}}>{[["todas","Todas"],["recebida","Em conferência"],["aprovada","Aprovadas"],["paga","Pagas"],["rejeitada","Rejeitadas"]].map(([v,l])=><button key={v} onClick={()=>setFiltro(v)} style={{padding:"6px 9px",border:`1px solid ${filtro===v?C.purple:C.border}`,borderRadius:7,background:filtro===v?`${C.purple}12`:C.card,color:filtro===v?C.purple:C.muted,fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>{l}</button>)}</div>{lista.map(n=><div key={n.id} style={{padding:"10px 11px",border:`1px solid ${C.border}`,borderLeft:`1px solid ${n.divergencias?.length?C.red:n.status==="aprovada"?C.green:C.blue}`,borderRadius:9,background:C.card}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><div><b style={{fontSize:"var(--arcd-type-body)"}}>{n.tipo.toUpperCase()} {n.numero} · {n.fornecedorNome||"Fornecedor"}</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{(data.obras||[]).find(o=>o.id===n.obraId)?.name} · emissão {fmtDate(n.emissao)} · {n.documentos.length} arquivo(s) no Drive</p></div><b style={{color:C.yellowD}}>{fmt(n.valorLiquido)}</b></div>{n.divergencias?.map((d,i)=><p key={i} style={{fontSize:"var(--arcd-type-caption)",color:C.red,marginTop:4}}>⚠ {d}</p>)}{n.status==="rejeitada"&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.red,marginTop:4}}>Rejeitada por {n.rejeitadoPor||"-"}: {n.motivoRejeicao||"sem motivo registrado"}</p>}<div style={{display:"flex",gap:5,marginTop:7,flexWrap:"wrap"}}><Btn size="sm" v="ghost" onClick={()=>setForm({...n,valorBruto:String(n.valorBruto),valorLiquido:String(n.valorLiquido)})}>Verificar</Btn>{n.status==="recebida"&&<Btn size="sm" v="success" onClick={()=>aprovar(n)}>Aprovar pagamento</Btn>}{["recebida","aprovada"].includes(n.status)&&<Btn size="sm" v="danger" onClick={()=>rejeitar(n)}>Rejeitar</Btn>}{n.documentos.map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-caption)",color:C.blue,padding:"6px"}}>{a.legenda||a.nome} ↗</a>)}</div></div>)}{!lista.length&&<p style={{padding:20,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhuma nota neste estágio.</p>}{form&&<Modal title={form.id?`Conferir nota ${form.numero}`:"Receber documento fiscal"} onClose={()=>setForm(null)} wide><div style={{display:"flex",flexDirection:"column",gap:10}}><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Sel label="Tipo" value={form.tipo} onChange={F("tipo")} options={[{v:"nfe",l:"NF-e de produto"},{v:"nfse",l:"NFS-e de serviço"},{v:"cte",l:"CT-e / frete"},{v:"outro",l:"Outro documento"}]}/><Sel label="Obra *" value={form.obraId} onChange={v=>setForm(f=>({...f,obraId:v,pedidoId:""}))} options={[{v:"",l:"Selecione"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/><Sel label="Pedido relacionado" value={form.pedidoId} onChange={v=>setForm(f=>({...f,pedidoId:v,...(f.itensNota?.length?{itensNota:ligarItensAoPedido(f.itensNota,v)}:{})}))} options={[{v:"",l:"Sem pedido"},...(data.pedidos||[]).filter(p=>p.obraId===form.obraId).map(p=>({v:p.id,l:`${p.numero} · ${fmt(totalPedido(p))}`}))]}/><Inp label="Número *" value={form.numero} onChange={F("numero")}/><Inp label="Série" value={form.serie} onChange={F("serie")}/><Inp label="Chave de acesso" value={form.chave} onChange={F("chave")}/><Inp label="Emissão" type="date" value={form.emissao} onChange={F("emissao")}/><Inp label="Vencimento" type="date" value={form.vencimento} onChange={F("vencimento")}/><Inp label="Fornecedor" value={form.fornecedorNome} onChange={F("fornecedorNome")}/><Inp label="Valor bruto *" type="number" value={form.valorBruto} onChange={v=>setForm(f=>({...f,valorBruto:v,valorLiquido:String(Math.max(0,Number(v||0)-totalRet(f)))}))}/><Inp label="Retenções" value={fmt(totalRet(form))} onChange={()=>{}} disabled/><Inp label="Valor líquido" type="number" value={form.valorLiquido} onChange={F("valorLiquido")}/></div><div style={{display:"grid",gridTemplateColumns:formGrid(4),gap:6}}>{Object.keys(form.retencoes).map(k=><Inp key={k} label={k.toUpperCase()} type="number" value={form.retencoes[k]} onChange={v=>setRetencao(k,v)}/>)}</div><label style={{padding:"12px",border:`2px solid ${C.green}66`,borderRadius:9,textAlign:"center",cursor:"pointer",color:C.green,fontSize:"var(--arcd-type-label)",fontWeight:600,background:`${C.green}08`}}>Importar XML da NF-e (preenche a nota e confere com o pedido)<input type="file" accept=".xml,text/xml,application/xml" onChange={importarXmlNfe} style={{display:"none"}}/></label>{sugestoesNota.length>1&&<div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Outros pedidos do fornecedor:</span>{sugestoesNota.map(s=><Btn key={s.pedido.id} size="sm" v={form.pedidoId===s.pedido.id?"success":"ghost"} onClick={()=>setForm(f=>({...f,obraId:s.pedido.obraId,pedidoId:s.pedido.id,...(f.itensNota?.length?{itensNota:ligarItensAoPedido(f.itensNota,s.pedido.id)}:{})}))}>{s.pedido.numero} · {fmt(s.total)} · {s.casados} item(ns)</Btn>)}</div>}{form.itensNota?.length>0&&(()=>{const ped=(data.pedidos||[]).find(p=>p.id===form.pedidoId);const nomeItem=i=>(data.materiais||[]).find(m=>m.id===i.materialId)?.descricao||i.descricaoRef||"Item";const usados=new Set(form.itensNota.map(i=>i.pedidoItemId).filter(Boolean));return <div style={{border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 10px",background:C.surface}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Itens da nota × pedido {ped?.numero||""}</p>{form.itensNota.map((it,ix)=>{const itemPed=ped?.itens?.find(x=>x.id===it.pedidoItemId);const divs=it.pedidoItemId?divergenciasDoItem(it,itemPed):[ped?"Sem item correspondente: vincule manualmente.":"Escolha o pedido para conferir."];return <div key={ix} style={{marginTop:6,paddingTop:6,borderTop:`1px solid ${C.line}`,display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)",gap:6,alignItems:"center"}}><span className="brk" style={{fontSize:"var(--arcd-type-label)",color:C.text}}><b>{it.descricao}</b><small style={{display:"block",color:C.muted}}>{Number(it.qtd).toLocaleString("pt-BR")} {it.unidade} × {fmt(it.precoUnit)} = {fmt(it.valorTotal)}</small></span><Sel label="Item do pedido" value={it.pedidoItemId||""} onChange={v=>setForm(f=>({...f,itensNota:f.itensNota.map((x,k)=>k===ix?{...x,pedidoItemId:v}:x)}))} options={[{v:"",l:"Sem vínculo"},...(ped?.itens||[]).filter(x=>x.id===it.pedidoItemId||!usados.has(x.id)).map(x=>({v:x.id,l:`${nomeItem(x)} · ${Number(x.qtd).toLocaleString("pt-BR")} × ${fmt(x.precoUnit)}`}))]}/>{divs.map((d,k)=><p key={k} style={{gridColumn:"1/-1",fontSize:"var(--arcd-type-caption)",color:C.red,fontWeight:600}}>⚠ {d}</p>)}</div>;})}{ped&&<p style={{fontSize:"var(--arcd-type-caption)",color:Math.abs(Number(form.valorBruto||0)-totalPedido(ped))>0.01?C.orange:C.green,fontWeight:600,marginTop:6}}>Nota {fmt(Number(form.valorBruto||0))} · pedido {fmt(totalPedido(ped))} · recebido {fmt(recebidoPedido(ped))}. A conferência completa roda ao salvar.</p>}</div>;})()}<label style={{padding:"12px",border:`2px dashed ${C.blue}55`,borderRadius:9,textAlign:"center",cursor:"pointer",color:C.blue,fontSize:"var(--arcd-type-label)",fontWeight:600}}>{subindo?"Enviando e lendo documento...":form.documentos?.length?"+ Anexar outro XML, PDF ou imagem":"Anexar XML, PDF ou imagem da nota"}<input type="file" accept=".xml,.pdf,image/*" onChange={importar} disabled={subindo} style={{display:"none"}}/></label>{form.documentos?.map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-label)",color:C.blue,textDecoration:"underline"}}>{a.legenda||a.nome} · visualizar no OneDrive ↗</a>)}{pedido&&<div style={{padding:"9px 10px",background:C.surface,borderRadius:8,fontSize:"var(--arcd-type-label)"}}>Pedido {pedido.numero}: <b>{fmt(totalPedido(pedido))}</b> · recebido: <b>{fmt(recebidoPedido(pedido))}</b></div>}<div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={()=>setForm(null)} full>Cancelar</Btn><Btn onClick={salvar} full>Salvar e conferir</Btn></div></div></Modal>}<ModalLegendaDocumento anexo={anexoFiscal} setAnexo={setAnexoFiscal} onClose={()=>!subindo&&setAnexoFiscal(null)} onSalvar={salvarAnexoFiscal} salvando={subindo} titulo="Legenda do documento fiscal" C={C}/></div>;
+    <Sel label="Obra" value={obraIdFiltro} onChange={onObraChange} options={[{v:"all",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/><div style={{display:"flex",gap:4,overflowX:"auto"}}>{[["todas","Todas"],["recebida","Em conferência"],["aprovada","Aprovadas"],["paga","Pagas"],["rejeitada","Rejeitadas"]].map(([v,l])=><button key={v} onClick={()=>setFiltro(v)} style={{padding:"6px 9px",border:`1px solid ${filtro===v?C.purple:C.border}`,borderRadius:7,background:filtro===v?`${C.purple}12`:C.card,color:filtro===v?C.purple:C.muted,fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>{l}</button>)}</div>{lista.map(n=><div key={n.id} style={{padding:"10px 11px",border:`1px solid ${C.border}`,borderLeft:`1px solid ${n.divergencias?.length?C.red:n.status==="aprovada"?C.green:C.blue}`,borderRadius:9,background:C.card}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><div><b style={{fontSize:"var(--arcd-type-body)"}}>{n.tipo.toUpperCase()} {n.numero} · {n.fornecedorNome||"Fornecedor"}</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{(data.obras||[]).find(o=>o.id===n.obraId)?.name} · emissão {fmtDate(n.emissao)} · {n.documentos.length} arquivo(s) no Drive</p></div><b style={{color:C.yellowD}}>{fmt(n.valorLiquido)}</b></div>{n.conferenciaFiscalPendente&&<p role="status">Conferência fiscal pendente. O pagamento registrado não substitui a revisão do documento.</p>}{n.divergencias?.map((d,i)=><p key={i} style={{fontSize:"var(--arcd-type-caption)",color:C.red,marginTop:4}}>⚠ {d}</p>)}{n.status==="rejeitada"&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.red,marginTop:4}}>Rejeitada por {n.rejeitadoPor||"-"}: {n.motivoRejeicao||"sem motivo registrado"}</p>}<div style={{display:"flex",gap:5,marginTop:7,flexWrap:"wrap"}}><Btn size="sm" v="ghost" onClick={()=>setForm({...n,valorBruto:String(n.valorBruto),valorLiquido:String(n.valorLiquido)})}>Verificar</Btn><Btn size="sm" v="ghost" onClick={()=>onMemorial?.({title:`Nota ${n.numero}`,items:[financialEntry(data,{sourceType:"nota_fiscal",sourceId:n.id,obraId:n.obraId,amountCents:Math.round(Number(n.valorLiquido||n.valorBruto||0)*100)})],context:"Documento fiscal e dados vinculados"})}>Ver memorial</Btn>{(n.status==="recebida"||n.conferenciaFiscalPendente)&&<Btn size="sm" v="success" onClick={()=>aprovar(n)}>Concluir conferência fiscal</Btn>}{["recebida","aprovada"].includes(n.status)&&<Btn size="sm" v="danger" onClick={()=>rejeitar(n)}>Rejeitar</Btn>}{n.documentos.map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-caption)",color:C.blue,padding:"6px"}}>{a.legenda||a.nome} ↗</a>)}</div></div>)}{!lista.length&&<p style={{padding:20,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhuma nota neste estágio.</p>}{form&&<Modal title={form.id?`Conferir nota ${form.numero}`:"Receber documento fiscal"} onClose={invoiceExit.requestClose} wide panelClass="invoice-conference-modal"><InvoiceConference documents={form.documentos||[]} driveId={(data.obras||[]).find(obra=>obra.id===(notas.find(nota=>nota.id===form.id)?.obraId||form.obraId))?.oneDriveDriveId} resolveFile={obterLinkArquivoOneDrive}><div style={{display:"flex",flexDirection:"column",gap:10}}><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Sel label="Tipo" value={form.tipo} onChange={F("tipo")} options={[{v:"nfe",l:"NF-e de produto"},{v:"nfse",l:"NFS-e de serviço"},{v:"cte",l:"CT-e / frete"},{v:"outro",l:"Outro documento"}]}/><Sel label="Obra *" value={form.obraId} onChange={v=>setForm(f=>({...f,obraId:v,pedidoId:""}))} options={[{v:"",l:"Selecione"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/><Sel label="Pedido relacionado" value={form.pedidoId} onChange={v=>setForm(f=>({...f,pedidoId:v,...(f.itensNota?.length?{itensNota:ligarItensAoPedido(f.itensNota,v)}:{})}))} options={[{v:"",l:"Sem pedido"},...(data.pedidos||[]).filter(p=>p.obraId===form.obraId).map(p=>({v:p.id,l:`${p.numero} · ${fmt(totalPedido(p))}`}))]}/><Inp label="Número *" value={form.numero} onChange={F("numero")}/><Inp label="Série" value={form.serie} onChange={F("serie")}/><Inp label="Chave de acesso" value={form.chave} onChange={F("chave")}/><Inp label="Emissão" type="date" value={form.emissao} onChange={F("emissao")}/><Inp label="Vencimento" type="date" value={form.vencimento} onChange={F("vencimento")}/><Inp label="Fornecedor" value={form.fornecedorNome} onChange={F("fornecedorNome")}/><Sel label="Categoria" value={form.categoria||""} onChange={F("categoria")} options={[{v:"",l:"Não informada"},...categoriasDesp(data),...(form.categoria&&!categoriasDesp(data).some(c=>c.v===form.categoria)?[{v:form.categoria,l:form.categoria}]:[])]}/><Inp label="Valor bruto *" type="number" value={form.valorBruto} onChange={v=>setForm(f=>({...f,valorBruto:v,valorLiquido:String(Math.max(0,Number(v||0)-totalRet(f)))}))}/><Inp label="Retenções" value={fmt(totalRet(form))} onChange={()=>{}} disabled/><Inp label="Valor líquido" type="number" value={form.valorLiquido} onChange={F("valorLiquido")}/></div><div style={{display:"grid",gridTemplateColumns:formGrid(4),gap:6}}>{Object.keys(form.retencoes).map(k=><Inp key={k} label={k.toUpperCase()} type="number" value={form.retencoes[k]} onChange={v=>setRetencao(k,v)}/>)}</div><label style={{padding:"12px",border:`2px solid ${C.green}66`,borderRadius:9,textAlign:"center",cursor:"pointer",color:C.green,fontSize:"var(--arcd-type-label)",fontWeight:600,background:`${C.green}08`}}>Importar XML da NF-e (preenche a nota e confere com o pedido)<input type="file" accept=".xml,text/xml,application/xml" onChange={importarXmlNfe} style={{display:"none"}}/></label>{sugestoesNota.length>1&&<div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Outros pedidos do fornecedor:</span>{sugestoesNota.map(s=><Btn key={s.pedido.id} size="sm" v={form.pedidoId===s.pedido.id?"success":"ghost"} onClick={()=>setForm(f=>({...f,obraId:s.pedido.obraId,pedidoId:s.pedido.id,...(f.itensNota?.length?{itensNota:ligarItensAoPedido(f.itensNota,s.pedido.id)}:{})}))}>{s.pedido.numero} · {fmt(s.total)} · {s.casados} item(ns)</Btn>)}</div>}{form.itensNota?.length>0&&(()=>{const ped=(data.pedidos||[]).find(p=>p.id===form.pedidoId);const nomeItem=i=>(data.materiais||[]).find(m=>m.id===i.materialId)?.descricao||i.descricaoRef||"Item";const usados=new Set(form.itensNota.map(i=>i.pedidoItemId).filter(Boolean));return <div style={{border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 10px",background:C.surface}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Itens da nota × pedido {ped?.numero||""}</p>{form.itensNota.map((it,ix)=>{const itemPed=ped?.itens?.find(x=>x.id===it.pedidoItemId);const divs=it.pedidoItemId?divergenciasDoItem(it,itemPed):[ped?"Sem item correspondente: vincule manualmente.":"Escolha o pedido para conferir."];return <div key={ix} style={{marginTop:6,paddingTop:6,borderTop:`1px solid ${C.line}`,display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)",gap:6,alignItems:"center"}}><span className="brk" style={{fontSize:"var(--arcd-type-label)",color:C.text}}><b>{it.descricao}</b><small style={{display:"block",color:C.muted}}>{Number(it.qtd).toLocaleString("pt-BR")} {it.unidade} × {fmt(it.precoUnit)} = {fmt(it.valorTotal)}</small></span><Sel label="Item do pedido" value={it.pedidoItemId||""} onChange={v=>setForm(f=>({...f,itensNota:f.itensNota.map((x,k)=>k===ix?{...x,pedidoItemId:v}:x)}))} options={[{v:"",l:"Sem vínculo"},...(ped?.itens||[]).filter(x=>x.id===it.pedidoItemId||!usados.has(x.id)).map(x=>({v:x.id,l:`${nomeItem(x)} · ${Number(x.qtd).toLocaleString("pt-BR")} × ${fmt(x.precoUnit)}`}))]}/>{divs.map((d,k)=><p key={k} style={{gridColumn:"1/-1",fontSize:"var(--arcd-type-caption)",color:C.red,fontWeight:600}}>⚠ {d}</p>)}</div>;})}{ped&&<p style={{fontSize:"var(--arcd-type-caption)",color:Math.abs(Number(form.valorBruto||0)-totalPedido(ped))>0.01?C.orange:C.green,fontWeight:600,marginTop:6}}>Nota {fmt(Number(form.valorBruto||0))} · pedido {fmt(totalPedido(ped))} · recebido {fmt(recebidoPedido(ped))}. A conferência completa roda ao salvar.</p>}</div>;})()}<label style={{padding:"12px",border:`2px dashed ${C.blue}55`,borderRadius:9,textAlign:"center",cursor:"pointer",color:C.blue,fontSize:"var(--arcd-type-label)",fontWeight:600}}>{subindo?"Enviando e lendo documento...":form.documentos?.length?"+ Anexar outro XML, PDF ou imagem":"Anexar XML, PDF ou imagem da nota"}<input type="file" accept=".xml,.pdf,image/*" onChange={importar} disabled={subindo} style={{display:"none"}}/></label>{form.documentos?.map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-label)",color:C.blue,textDecoration:"underline"}}>{a.legenda||a.nome} · visualizar no OneDrive ↗</a>)}{pedido&&<div style={{padding:"9px 10px",background:C.surface,borderRadius:8,fontSize:"var(--arcd-type-label)"}}>Pedido {pedido.numero}: <b>{fmt(totalPedido(pedido))}</b> · recebido: <b>{fmt(recebidoPedido(pedido))}</b></div>}<RecordRecoveryPanel data={data} recovery={invoiceRecovery} draft={form} fields={invoiceRecoveryFields} user={currentUser} onRebase={setForm} onConfirmed={async result=>{await update({__adotarServidorPatch:true,updatedAt:result.updatedAt,sections:{notasFiscais:result.data.notasFiscais,operationalCommandReceipts:result.data.operationalCommandReceipts}});setForm(null);}}/><div style={{display:"flex",gap:8}}><Btn v="ghost" disabled={invoiceCommandPending} onClick={invoiceExit.requestClose} full>Cancelar</Btn><Btn onClick={salvar} disabled={invoiceCommandPending} loading={invoiceCommandPending&&"Salvando…"} full>Salvar e conferir</Btn></div></div></InvoiceConference></Modal>}{form&&<UnsavedChangesPrompt guard={invoiceExit}/>}{xmlPreview&&<Modal title="Prévia da importação XML" wide onClose={()=>setXmlPreview(null)}><FinancialPreview
+      description={`${xmlPreview.filename}. Aplicar preenche a ficha aberta; não salva nem cria uma nota fiscal.`}
+      columns={["Campo","Na ficha","Do XML / proposta"]}
+      rows={[["Número","numero"],["Série","serie"],["Chave","chave"],["Fornecedor","fornecedorNome"],["CNPJ / CPF","documentoFornecedor"],["Emissão","emissao"],["Vencimento","vencimento"],["Valor bruto","valorBruto"],["Valor líquido após retenções","valorLiquido"],["Pedido","pedidoId"]].map(([label,key])=>({id:key,cells:[label,xmlPreviewValue(key,xmlPreview.before[key]),xmlPreviewValue(key,xmlPreview.proposed[key])]}))}
+      error={xmlPreview.error||(xmlConflicts.duplicate?`Já existe uma nota ativa com esta chave: ${xmlConflicts.duplicate.numero}. Use o cadastro existente.`:"")}
+      disabled={Boolean(xmlConflicts.duplicate)||(xmlConflicts.similar.length>0&&!xmlPreview.acknowledged)}
+      onCancel={()=>setXmlPreview(null)} onConfirm={aplicarPreviaXml} confirmLabel="Aplicar XML à ficha">
+      <p>{xmlPreview.proposed.itensNota?.length||0} item(ns) · {xmlPreview.proposed.fornecedorId?"Fornecedor localizado no cadastro":"Fornecedor não localizado; confira o cadastro"}. Nenhum fornecedor será criado automaticamente.</p>
+      {xmlConflicts.duplicate&&<Btn onClick={()=>{const existing=xmlConflicts.duplicate;setForm({...existing,valorBruto:String(existing.valorBruto),valorLiquido:String(existing.valorLiquido)});setSugestoesNota([]);setXmlPreview(null);}}>Abrir nota já cadastrada</Btn>}
+      {xmlConflicts.similar.length>0&&<label><input type="checkbox" checked={xmlPreview.acknowledged} onChange={event=>setXmlPreview(current=>({...current,acknowledged:event.target.checked}))}/> Revisei {xmlConflicts.similar.length} possível(is) duplicidade(s) por fornecedor, série e número: {xmlConflicts.similar.map(invoice=>invoice.numero).join(", ")}</label>}
+    </FinancialPreview></Modal>}<ModalLegendaDocumento anexo={anexoFiscal} setAnexo={setAnexoFiscal} onClose={()=>!subindo&&setAnexoFiscal(null)} onSalvar={salvarAnexoFiscal} salvando={subindo} titulo="Legenda do documento fiscal" C={C}/></div>;
 }
 
-export function LinksDocumentosAuditaveis({documentos=[],onSelecionar,subindo=false,C=C_ARCD_SETOR}){
-  return <div style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:4,minWidth:118}}>
-    {documentos.map(doc=><a key={doc.id||doc.url} href={doc.url} target="_blank" rel="noreferrer" title={doc.nome||doc.legenda} style={{maxWidth:180,color:C.blue,fontSize:"var(--arcd-type-caption)",fontWeight:600,textDecoration:"underline",textUnderlineOffset:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{doc.legenda||doc.nome||"Visualizar documento"} ↗</a>)}
-    <label style={{color:C.blue,fontSize:"var(--arcd-type-label)",fontWeight:600,textDecoration:"underline",textUnderlineOffset:2,cursor:subindo?"wait":"pointer",whiteSpace:"nowrap"}}>
-      {subindo?"Enviando...":documentos.length?"+ Anexar outro":"+ Anexar documento"}
-      <input type="file" accept=".pdf,.xml,.doc,.docx,.xls,.xlsx,.csv,.txt,image/*" disabled={subindo} onChange={onSelecionar} style={{display:"none"}}/>
-    </label>
-  </div>;
-}
-
-export function ModalLegendaDocumento({anexo,setAnexo,onClose,onSalvar,salvando=false,titulo="Anexar documento",C=C_ARCD_SETOR}){
-  if(!anexo)return null;
-  return <Modal title={titulo} onClose={onClose}><div style={{display:"flex",flexDirection:"column",gap:11}}>
-    <div style={{padding:"9px 11px",border:`1px solid ${C.border}`,borderRadius:8,background:C.surface}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>Arquivo selecionado</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginTop:3,overflowWrap:"anywhere"}}>{anexo.file?.name}</p></div>
-    <Inp label="Legenda do documento *" value={anexo.legenda||""} onChange={v=>setAnexo(a=>({...a,legenda:v}))} placeholder="Ex.: Cotação atualizada, comprovante de pagamento..."/>
-    <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,lineHeight:1.45}}>A legenda será exibida como link. Você poderá anexar outros documentos ao mesmo registro.</p>
-    <div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={onClose} disabled={salvando} full>Cancelar</Btn><Btn onClick={onSalvar} disabled={salvando||!String(anexo.legenda||"").trim()} full><Ic n="upload"/> {salvando?"Salvando no Drive...":"Anexar documento"}</Btn></div>
-  </div></Modal>;
-}
-
-function CentralPagamentosFinanceiro({data,showToast,currentUser,onNovaNota,onAbrirFiscal,dispatchCommand,C=C_ARCD_SETOR}){
-  const {cols,formGrid}=useBreakpoint();
-  const [obraId,setObraId]=useState("all");
-  const [filtro,setFiltro]=useState("fila");
-  const [busca,setBusca]=useState("");
+function CentralPagamentosFinanceiro({data,showToast,currentUser,onNovaNota,onAbrirFiscal,onReviewInvoice,dispatchCommand,obraId="all",onObraChange,onMemorial,view,onViewChange,onBank,C=C_ARCD_SETOR}){
+  const setObraId=onObraChange;
+  const filtro=view.filter,busca=view.query;
+  const setFiltro=filter=>onViewChange(previous=>({...previous,filter}));
+  const setBusca=query=>onViewChange(previous=>({...previous,query}));
   const [pagamento,setPagamento]=useState(null);
-  const [salvando,setSalvando]=useState(false);
   const podeOperar=["admin","financeiro"].includes(currentUser?.role);
   const obras=data.obras||[],pedidos=data.pedidos||[],notas=data.notasFiscais||[];
   const ledgerPagamentos=useMemo(()=>buildFinancialLedger(data),[data]);
@@ -5294,6 +3959,7 @@ function CentralPagamentosFinanceiro({data,showToast,currentUser,onNovaNota,onAb
   const termo=normalizarIdentificacaoObra(busca);
   const obrigacoesEscopo=obraId==="all"?obrigacoes:obrigacoes.filter(item=>item.obraId===obraId);
   const visiveis=obrigacoesEscopo.filter(item=>{
+    if(view.invoiceId&&(item.tipo!=='nota'||String(item.registro.id)!==String(view.invoiceId)))return false;
     const semConciliacao=item.pagamentos.some(pg=>!pg.conciliado);
     if(filtro==="fila"&&item.estado==="paga"&&!semConciliacao)return false;
     if(filtro==="vencidas"&&item.estado!=="vencida")return false;
@@ -5323,76 +3989,37 @@ function CentralPagamentosFinanceiro({data,showToast,currentUser,onNovaNota,onAb
     {label:"Vencido",valor:totalVencido,cor:C.red,apoio:`${contasPagar.items.filter(item=>item.status==="vencido").length} vencida(s)`},
     {label:"A conciliar",valor:semConciliar,cor:C.orange,apoio:`${totalAConciliar} pagamento(s)`},
   ];
+  const openPaymentMetric=label=>{
+    let items;
+    if(label==="A conciliar")items=saidasPendentesConciliacao.map(e=>financialEntry(data,e));
+    else {let positions=contasPagar.items;
+      if(label==="Autorizado a pagar")positions=positions.filter(p=>p.sourceType==="nota_fiscal"&&notasAutorizadas.has(String(p.sourceId)));
+      if(label==="Vencido")positions=positions.filter(p=>p.status==="vencido");
+      items=positionEntries(data,{items:positions});
+    }
+    onMemorial?.({title:label,items,context:`Posição em ${today()} · ${obraId==="all"?"Todas as obras":obraNome(obraId)}`});
+  };
   const etapasFluxo=[
     {numero:1,label:"Pedidos",valor:totalPedidosEscopo,cor:C.text,filtro:"todas"},
-    {numero:2,label:"Sem NF",valor:semNota,cor:C.purple,filtro:"sem_nota"},
-    {numero:3,label:"Conferência",valor:emConferencia,cor:C.blue,filtro:"conferencia"},
+    {numero:2,label:"Sem documento",valor:semNota,cor:C.purple,filtro:"sem_nota"},
+    {numero:3,label:"Em conferência",valor:emConferencia,cor:C.blue,filtro:"conferencia"},
     {numero:4,label:"Autorizadas",valor:autorizadas.length,cor:C.green,filtro:"autorizadas"},
     {numero:5,label:"Pagas",valor:totalPagas,cor:C.green,filtro:"pagas"},
     {numero:6,label:"A conciliar",valor:totalAConciliar,cor:C.orange,filtro:"conciliar"},
   ];
-  const transacoesUsadas=new Set([...pedidos.flatMap(p=>p.pagamentos||[]),...notas.flatMap(n=>n.pagamentos||[])].map(pg=>pg.transacaoId).filter(Boolean));
-  const transacoesDisponiveis=(data.transacoes||[]).filter(t=>Number(t.valor)<0&&t.status!=="ignorado"&&!transacoesUsadas.has(t.id)).sort((a,b)=>String(b.data||"").localeCompare(String(a.data||""))).slice(0,100);
   const estadoVisual={vencida:{l:"Vencida",c:C.red},autorizada:{l:"Autorizada",c:C.green},parcial:{l:"Parcial",c:C.orange},conferencia:{l:"Em conferência",c:C.blue},sem_nota:{l:"Aguardando NF",c:C.purple},paga:{l:"Paga",c:C.green}};
-  const abrirPagamento=item=>setPagamento({item,valor:String(item.saldo.toFixed(2)),data:today(),origem:item.registro.origemPagamento||"empresa",transacaoId:"",referencia:"",observacao:"",conciliado:false,comprovanteFile:null,comprovanteLegenda:""});
-  const registrarPagamento=async()=>{
-    const f=pagamento,item=f?.item,valor=Number(String(f?.valor||"").replace(",","."));
-    if(!podeOperar){showToast("Somente o Financeiro ou a Administração pode realizar pagamentos.","error");return;}
-    if(!item||!(valor>0)){showToast("Informe o valor pago.","error");return;}
-    if(valor>item.saldo+.01){showToast(`O pagamento supera o saldo de ${fmt(item.saldo)}.`,"error");return;}
-    if(item.estado==="conferencia"){showToast("A nota precisa ser aprovada antes do pagamento.","error");return;}
-    if(item.tipo==="pedido"&&!window.confirm("Este pedido ainda não possui nota fiscal vinculada. Confirma o pagamento antecipado?"))return;
-    const obra=obras.find(o=>o.id===item.obraId),caixa=situacaoCaixaObra(data,item.obraId);
-    if(f.origem==="caixa_obra"&&!obra?.hasCaixa){showToast("O caixa desta obra não está ativado. Selecione outra origem ou ative o caixa.","error");return;}
-    if(f.origem==="caixa_obra"&&valor>caixa.saldo+.001){showToast(`Pagamento bloqueado: o caixa possui ${fmt(caixa.saldo)} e ficaria negativo. Registre um aporte antes de pagar.`,"error");return;}
-    const transacaoSelecionada=(data.transacoes||[]).find(t=>t.id===f.transacaoId);
-    if(transacaoSelecionada&&Math.abs(Math.abs(Number(transacaoSelecionada.valor||0))-valor)>.02){showToast(`A transação selecionada é de ${fmt(Math.abs(Number(transacaoSelecionada.valor||0)))} e não confere com o pagamento de ${fmt(valor)}. Faça a conciliação por rateio no módulo Conciliação.`,"error");return;}
-    setSalvando(true);
-    try{
-      const pagamentoId=uid();let comprovantes=[];let workspace=null;
-      if(f.comprovanteFile){const file=f.comprovanteFile,dataUrl=await arquivoComoDataUrl(file);const pasta=item.tipo==="nota"?`Notas fiscais/${item.numero}/Comprovantes`:`Pagamentos de compras/${item.numero}/Comprovantes`;const resp=await enviarArquivoOneDrive({dataUrl,obraName:obra?.name||"Obra",driveId:obra?.oneDriveDriveId,folderId:obra?.oneDriveFolderId,folders:obra?.oneDriveFolders,category:"financeiro",subfolder:pasta,date:f.data||today(),fileName:file.name});if(!resp.ok&&!resp.url)throw new Error(resp.error||"Falha ao salvar o comprovante no OneDrive.");comprovantes=[{id:resp.item?.id||uid(),nome:resp.item?.name||file.name,legenda:String(f.comprovanteLegenda||file.name).trim(),url:resp.item?.webUrl||resp.url,path:resp.path||"",tipo:file.type||"",tamanho:Number(file.size||0),enviadoEm:new Date().toISOString(),enviadoPorId:currentUser?.id||"",enviadoPor:currentUser?.nome||""}];workspace=resp.workspace||null;}
-      const transacao=transacaoSelecionada;const conciliado=!!f.conciliado||!!transacao;
-      const novoPagamento={id:pagamentoId,data:f.data||today(),valor,origem:f.origem,conciliado,transacaoId:f.transacaoId||"",referencia:f.referencia||transacao?.descricao||"",observacao:f.observacao||"",comprovantes};
-      const result=await dispatchCommand(atual=>{
-        const vigente=((item.tipo==="nota"?atual.notasFiscais:atual.pedidos)||[])
-          .find(registro=>registro.id===item.registro.id);
-        return {
-          type:OPERATIONAL_COMMAND.PAYABLE_PAYMENT_RECORDED,
-          idempotencyKey:`payable-payment-create-${pagamentoId}-${uid()}`,
-          expectedVersion:Number(vigente?.version||0),
-          actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-          payload:{
-            targetType:item.tipo,targetId:item.registro.id,payment:novoPagamento,
-            workCashMovementId:f.origem==="caixa_obra"?uid():"",
-            workspace,
-          },
-        };
-      });
-      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o pagamento.");
-      const saldoCaixa=caixa.saldo-valor;setPagamento(null);
-      if(f.origem==="caixa_obra"&&saldoCaixa<=caixa.limiteBaixo)showToast(`Pagamento registrado. Atenção: o caixa ficou baixo em ${fmt(saldoCaixa)}.`,"warn");else showToast(item.saldo-valor<=.01?`${item.numero} quitada e encaminhada para conciliação.`:`Pagamento parcial registrado. Saldo restante: ${fmt(item.saldo-valor)}.`);
-    }catch(err){showToast(err.message||"Não foi possível registrar o pagamento.","error");}finally{setSalvando(false);}
-  };
+  const abrirPagamento=item=>setPagamento({type:item.tipo,id:item.registro.id});
   if(!podeOperar)return <div style={{padding:30,textAlign:"center",border:`1px solid ${C.border}`,borderRadius:12,color:C.red}}>Central operacional exclusiva do Financeiro e da Administração.</div>;
-  return <div className="anim" style={{display:"flex",flexDirection:"column",gap:9}}>
-    <PageHero
-      eyebrow="Tesouraria · contas a pagar"
-      title="Central de pagamentos"
-      description="Do pedido à conciliação, com documento e aprovação rastreáveis."
-      actions={<>
-        <Btn size="sm" v="ghost" onClick={onAbrirFiscal}><Ic n="file"/> Notas fiscais</Btn>
-        <Btn size="sm" onClick={onNovaNota}><Ic n="plus"/> Receber NF</Btn>
-      </>}
-    />
+  return <div className="anim payment-workspace mrc-command-workspace">
+    {view.invoiceId&&<div className="financial-origin-return" role="status"><p>Mostrando somente a obrigação do documento selecionado. Os valores do resumo continuam no escopo da obra.</p><Button variant="outline" onClick={()=>onViewChange(previous=>({...previous,invoiceId:''}))}>Mostrar todos os documentos</Button></div>}
+    <WorkspaceCommandBar label="Comandos de pagamentos" scope={<Sel label="Obra" value={obraId} onChange={setObraId} options={[{v:"all",l:"Todas as obras"},...obras.map(o=>({v:o.id,l:o.name}))]}/>} actions={<><Btn size="sm" v="ghost" onClick={onAbrirFiscal}><Ic n="file"/> Ver notas fiscais</Btn><Btn size="sm" onClick={onNovaNota}><Ic n="plus"/> Receber documento fiscal</Btn></>}>
+      <Sel label="Situação" value={filtro} onChange={setFiltro} options={[{v:"fila",l:"Fila operacional"},{v:"vencidas",l:"Vencidas"},{v:"autorizadas",l:"Autorizadas a pagar"},{v:"conferencia",l:"Em conferência"},{v:"sem_nota",l:"Pedidos sem documento fiscal"},{v:"conciliar",l:"Pagos a conciliar"},{v:"pagas",l:"Pagas"},{v:"todas",l:"Todas"}]}/><Inp label="Pesquisar pagamentos" value={busca} onChange={setBusca} placeholder="Documento, pedido, fornecedor ou obra"/>
+    </WorkspaceCommandBar>
+    <PaymentOverview metrics={resumoFinanceiro} stages={etapasFluxo} filter={filtro} onStage={setFiltro} onMetric={openPaymentMetric} formatMoney={fmt}/>
+    <div className="workspace-list-status"><h2>Fila de obrigações</h2><p role="status">{visiveis.length} resultado(s)</p></div>
 
-    <section aria-label="Resumo financeiro" style={{display:"grid",gridTemplateColumns:cols(2,2,4),gap:7}}>{resumoFinanceiro.map(kpi=><div key={kpi.label} style={{position:"relative",overflow:"hidden",background:C.card,border:`1px solid ${C.border}`,borderRadius:9,padding:"10px 11px",boxShadow:C.shHair}}><i style={{position:"absolute",left:0,top:0,bottom:0,width:3,background:kpi.cor}}/><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.45}}>{kpi.label}</p><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:kpi.cor,marginTop:3,lineHeight:1}}>{fmt(kpi.valor)}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:4}}>{kpi.apoio}</p></div>)}</section>
-
-    <section aria-label="Etapas do fluxo de pagamento" style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:"9px 10px"}}><div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",marginBottom:7}}><div><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.text,textTransform:"uppercase",letterSpacing:.45}}>Fluxo de pagamento</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Selecione uma etapa para filtrar a fila.</p></div><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{obraId==="all"?"Todas as obras":obraNome(obraId)}</span></div><div style={{display:"grid",gridTemplateColumns:cols(2,3,6),gap:5}}>{etapasFluxo.map(etapa=>{const ativo=filtro===etapa.filtro||(etapa.numero===1&&filtro==="fila");return <button key={etapa.numero} type="button" onClick={()=>setFiltro(etapa.numero===1?"fila":etapa.filtro)} aria-pressed={ativo} style={{position:"relative",border:`1px solid ${ativo?etapa.cor:C.line}`,borderRadius:7,background:ativo?`${etapa.cor}0D`:C.card,padding:"7px 8px",textAlign:"left",cursor:"pointer",minWidth:0}}><span style={{display:"block",fontSize:"var(--arcd-type-caption)",fontWeight:600,color:ativo?etapa.cor:C.muted}}>ETAPA {etapa.numero}</span><span style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:5,marginTop:2}}><b style={{fontSize:"var(--arcd-type-caption)",color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{etapa.label}</b><strong style={{fontSize:"var(--arcd-type-body)",color:etapa.cor}}>{etapa.valor}</strong></span></button>;})}</div></section>
-
-    <section aria-label="Fila de pagamentos" style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px",boxShadow:C.shHair}}><div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",marginBottom:8}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Fila de obrigações</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Prioridade por vencimento, aprovação e conciliação.</p></div><span style={{padding:"3px 7px",borderRadius:99,background:C.surface,border:`1px solid ${C.border}`,fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.text,whiteSpace:"nowrap"}}>{visiveis.length} resultado(s)</span></div><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:7}}><Sel label="Obra" value={obraId} onChange={setObraId} options={[{v:"all",l:"Todas as obras"},...obras.map(o=>({v:o.id,l:o.name}))]}/><Sel label="Situação" value={filtro} onChange={setFiltro} options={[{v:"fila",l:"Fila operacional"},{v:"vencidas",l:"Vencidas"},{v:"autorizadas",l:"Autorizadas a pagar"},{v:"conferencia",l:"Em conferência"},{v:"sem_nota",l:"Pedidos sem NF"},{v:"conciliar",l:"Pagos a conciliar"},{v:"pagas",l:"Pagas"},{v:"todas",l:"Todas"}]}/><Inp label="Pesquisar" value={busca} onChange={setBusca} placeholder="NF, pedido, fornecedor ou obra"/></div></section>
-
-    <div style={{display:"flex",flexDirection:"column",gap:7}}>{visiveis.map(item=>{const ev=estadoVisual[item.estado]||estadoVisual.conferencia,semConc=item.pagamentos.some(pg=>!pg.conciliado),vencida=item.estado==="vencida";return <article key={item.id} style={{background:C.card,border:`1px solid ${vencida?`${C.red}77`:C.border}`,borderLeft:`1px solid ${ev.c}`,borderRadius:9,overflow:"hidden",boxShadow:C.shHair}}><div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:10,alignItems:"start",padding:"10px 11px"}}><div style={{minWidth:0}}><div style={{display:"flex",gap:5,alignItems:"center",flexWrap:"wrap"}}><Badge color={ev.c}>{ev.l}</Badge><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:item.tipo==="nota"?C.blue:C.purple}}>{item.tipo==="nota"?"DOCUMENTO FISCAL":"PEDIDO SEM NF"}</span>{semConc&&<Badge color={C.orange}>A CONCILIAR</Badge>}</div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginTop:5,overflowWrap:"anywhere"}}>{item.numero} · {item.fornecedor}</p><div style={{display:"flex",gap:7,alignItems:"center",flexWrap:"wrap",marginTop:4,fontSize:"var(--arcd-type-caption)",color:C.muted}}><span><b style={{color:C.text}}>Obra:</b> {obraNome(item.obraId)}</span><span><b style={{color:C.text}}>Emissão:</b> {item.emissao?fmtDate(item.emissao):"-"}</span><span style={{color:vencida?C.red:C.muted}}><b style={{color:vencida?C.red:C.text}}>Vencimento:</b> {item.vencimento?fmtDate(item.vencimento):"não informado"}</span></div></div><div style={{minWidth:105,textAlign:"right",background:C.surface,border:`1px solid ${C.line}`,borderRadius:7,padding:"7px 8px"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>{item.saldo>.01?"Saldo a pagar":"Total pago"}</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:item.saldo>.01?C.red:C.green,marginTop:2}}>{fmt(item.saldo>.01?item.saldo:item.total)}</p>{item.saldo>.01&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>de {fmt(item.total)}</p>}</div></div>{item.estado==="sem_nota"&&<div style={{margin:"0 11px 8px",padding:"6px 8px",borderRadius:6,background:`${C.purple}0B`,color:C.purple,fontSize:"var(--arcd-type-caption)",fontWeight:600}}>Documento fiscal ainda não vinculado. Pagamentos antecipados permanecem sinalizados para auditoria.</div>}{item.estado==="conferencia"&&<div style={{margin:"0 11px 8px",padding:"6px 8px",borderRadius:6,background:`${C.blue}0B`,color:C.blue,fontSize:"var(--arcd-type-caption)",fontWeight:600}}>Aguardando conferência do pedido, recebimento, valores, retenções e rateio.</div>}{item.pagamentos.length>0&&<div style={{display:"flex",gap:5,flexWrap:"wrap",padding:"0 11px 8px"}}>{item.pagamentos.map(pg=><span key={pg.id} style={{fontSize:"var(--arcd-type-caption)",color:pg.conciliado?C.green:C.orange,background:pg.conciliado?`${C.green}0B`:`${C.orange}0B`,border:`1px solid ${pg.conciliado?C.green:C.orange}44`,borderRadius:99,padding:"3px 7px"}}>{fmt(pg.valor)} · {origemPagamentoLabel(pg.origem)} · {pg.conciliado?"conciliado":"pendente"}{(pg.comprovantes||[]).map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{color:C.blue,marginLeft:5,fontWeight:600}}>comprovante ↗</a>)}</span>)}</div>}<footer style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",padding:"7px 11px",borderTop:`1px solid ${C.line}`,background:C.surface}}><div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",minWidth:0}}>{item.documentos.map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:"var(--arcd-type-caption)",color:C.blue,fontWeight:600,textDecoration:"none"}}><Ic n="file" s={11}/>{a.legenda||a.nome} ↗</a>)}{!item.documentos.length&&<span style={{fontSize:"var(--arcd-type-caption)",color:C.orange,fontWeight:600}}>SEM DOCUMENTO ANEXO</span>}</div><span style={{flex:1}}/>{item.estado==="sem_nota"&&<Btn size="sm" v="ghost" onClick={onNovaNota}>Cadastrar NF</Btn>}{item.estado==="conferencia"&&<Btn size="sm" v="ghost" onClick={onAbrirFiscal}>Conferir NF</Btn>}{item.saldo>.01&&item.estado!=="conferencia"&&<Btn size="sm" onClick={()=>abrirPagamento(item)}><Ic n="receipt"/> Realizar pagamento</Btn>}</footer></article>;})}{!visiveis.length&&<div style={{padding:"28px 16px",textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:10,background:C.surface}}><Ic n="check" s={22} color={C.green}/><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginTop:6}}>Nenhuma obrigação neste filtro</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>A fila está atualizada com os pedidos e documentos fiscais cadastrados.</p></div>}</div>
-    {pagamento&&<Modal title={`Realizar pagamento · ${pagamento.item.numero}`} onClose={()=>!salvando&&setPagamento(null)}><div style={{display:"flex",flexDirection:"column",gap:10}}><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,padding:"9px 10px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:8}}><div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600,textTransform:"uppercase"}}>Total</p><b style={{fontSize:"var(--arcd-type-body)"}}>{fmt(pagamento.item.total)}</b></div><div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600,textTransform:"uppercase"}}>Saldo</p><b style={{fontSize:"var(--arcd-type-body)",color:C.red}}>{fmt(pagamento.item.saldo)}</b></div></div><Sel label="Origem real do pagamento *" value={pagamento.origem} onChange={v=>setPagamento(f=>({...f,origem:v,transacaoId:v==="empresa"?f.transacaoId:"",conciliado:v==="empresa"?f.conciliado:false}))} options={[{v:"empresa",l:"Conta bancária da empresa"},{v:"caixa_obra",l:"Caixa da obra"},{v:"cliente_direto",l:"Cliente pagou diretamente"}]}/>{pagamento.origem==="caixa_obra"&&(()=>{const cx=situacaoCaixaObra(data,pagamento.item.obraId),valor=Number(String(pagamento.valor||"").replace(",","."))||0,projetado=cx.saldo-valor,negativo=projetado<-.001,baixo=!negativo&&projetado<=cx.limiteBaixo,ativa=!!obras.find(o=>o.id===pagamento.item.obraId)?.hasCaixa;return <div style={{padding:"9px 10px",border:`1px solid ${!ativa||negativo?C.red:baixo?C.orange:C.green}`,borderRadius:8,background:!ativa||negativo?`${C.red}0B`:baixo?`${C.orange}0B`:`${C.green}0B`}}><div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>{[["Disponível",cx.saldo],["Após pagar",projetado],["Reserva",cx.limiteBaixo]].map(([l,v])=><div key={l}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{l}</p><b style={{fontSize:"var(--arcd-type-label)",color:v<0?C.red:C.text}}>{fmt(v)}</b></div>)}</div>{!ativa&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.red,fontWeight:600,marginTop:6}}>Caixa não ativado para esta obra.</p>}{negativo&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.red,fontWeight:600,marginTop:6}}>Bloqueado: o caixa ficaria negativo.</p>}{baixo&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.orange,fontWeight:600,marginTop:6}}>Alerta: o saldo ficará abaixo da reserva recomendada.</p>}</div>;})()}<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}><Inp label="Valor pago *" type="number" value={pagamento.valor} onChange={v=>setPagamento(f=>({...f,valor:v}))}/><Inp label="Data *" type="date" value={pagamento.data} onChange={v=>setPagamento(f=>({...f,data:v}))}/></div>{pagamento.origem==="empresa"&&<Sel label="Transação bancária para conciliar" value={pagamento.transacaoId} onChange={v=>setPagamento(f=>({...f,transacaoId:v,conciliado:!!v}))} options={[{v:"",l:"Vincular depois na conciliação"},...transacoesDisponiveis.map(t=>({v:t.id,l:`${fmtDate(t.data)} · ${fmt(Math.abs(Number(t.valor||0)))} · ${t.descricao||"Saída bancária"}`}))]}/>}<Inp label="Referência do pagamento" value={pagamento.referencia} onChange={v=>setPagamento(f=>({...f,referencia:v}))} placeholder="PIX, boleto, TED ou identificação"/><label style={{padding:"11px",border:`1.5px dashed ${pagamento.comprovanteFile?C.green:C.blue}66`,borderRadius:8,textAlign:"center",cursor:"pointer",background:pagamento.comprovanteFile?`${C.green}08`:C.surface}}><b style={{fontSize:"var(--arcd-type-label)",color:pagamento.comprovanteFile?C.green:C.blue}}>{pagamento.comprovanteFile?pagamento.comprovanteFile.name:"Anexar comprovante"}</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>PDF ou imagem · salvo no diretório financeiro da obra</p><input type="file" accept=".pdf,image/jpeg,image/png,image/webp" style={{display:"none"}} onChange={e=>{const file=e.target.files?.[0];e.target.value="";if(!file)return;if(file.size>5.5*1024*1024){showToast("O comprovante deve ter no máximo 5,5 MB.","error");return;}setPagamento(f=>({...f,comprovanteFile:file,comprovanteLegenda:String(file.name||"").replace(/\.[^.]+$/,"" )}));}}/></label>{pagamento.comprovanteFile&&<Inp label="Legenda do comprovante" value={pagamento.comprovanteLegenda} onChange={v=>setPagamento(f=>({...f,comprovanteLegenda:v}))}/>}<label style={{display:"flex",gap:7,alignItems:"center",fontSize:"var(--arcd-type-label)",color:C.text}}><input type="checkbox" checked={!!pagamento.conciliado} onChange={e=>setPagamento(f=>({...f,conciliado:e.target.checked}))}/><span>Pagamento já conferido e conciliado</span></label><Inp label="Observação" value={pagamento.observacao} onChange={v=>setPagamento(f=>({...f,observacao:v}))} multiline/><div style={{display:"flex",gap:7}}><Btn v="ghost" full onClick={()=>setPagamento(null)} disabled={salvando}>Cancelar</Btn><Btn full onClick={registrarPagamento} disabled={salvando}><Ic n="check"/> {salvando?"Salvando e auditando...":"Confirmar pagamento"}</Btn></div></div></Modal>}
+    <div style={{display:"flex",flexDirection:"column",gap:7}}>{visiveis.map(item=>{const ev=estadoVisual[item.estado]||estadoVisual.conferencia,semConc=item.pagamentos.some(pg=>!pg.conciliado),vencida=item.estado==="vencida";return <article key={item.id} style={{background:C.card,border:`1px solid ${vencida?`${C.red}77`:C.border}`,borderLeft:`1px solid ${ev.c}`,borderRadius:9,overflow:"hidden",boxShadow:C.shHair}}><div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:10,alignItems:"start",padding:"10px 11px"}}><div style={{minWidth:0}}><div style={{display:"flex",gap:5,alignItems:"center",flexWrap:"wrap"}}><Badge color={ev.c}>{ev.l}</Badge><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:item.tipo==="nota"?C.blue:C.purple}}>{item.tipo==="nota"?"DOCUMENTO FISCAL":"PEDIDO SEM NF"}</span>{semConc&&<Badge color={C.orange}>A CONCILIAR</Badge>}</div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginTop:5,overflowWrap:"anywhere"}}>{item.numero} · {item.fornecedor}</p><div style={{display:"flex",gap:7,alignItems:"center",flexWrap:"wrap",marginTop:4,fontSize:"var(--arcd-type-caption)",color:C.muted}}><span><b style={{color:C.text}}>Obra:</b> {obraNome(item.obraId)}</span><span><b style={{color:C.text}}>Emissão:</b> {item.emissao?fmtDate(item.emissao):"-"}</span><span style={{color:vencida?C.red:C.muted}}><b style={{color:vencida?C.red:C.text}}>Vencimento:</b> {item.vencimento?fmtDate(item.vencimento):"não informado"}</span></div></div><div style={{minWidth:105,textAlign:"right",background:C.surface,border:`1px solid ${C.line}`,borderRadius:7,padding:"7px 8px"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>{item.saldo>.01?"Saldo a pagar":"Total pago"}</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:item.saldo>.01?C.red:C.green,marginTop:2}}>{fmt(item.saldo>.01?item.saldo:item.total)}</p>{item.saldo>.01&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>de {fmt(item.total)}</p>}</div></div>{item.estado==="sem_nota"&&<div style={{margin:"0 11px 8px",padding:"6px 8px",borderRadius:6,background:`${C.purple}0B`,color:C.purple,fontSize:"var(--arcd-type-caption)",fontWeight:600}}>Documento fiscal ainda não vinculado. Pagamentos antecipados permanecem sinalizados para auditoria.</div>}{item.estado==="conferencia"&&<div style={{margin:"0 11px 8px",padding:"6px 8px",borderRadius:6,background:`${C.blue}0B`,color:C.blue,fontSize:"var(--arcd-type-caption)",fontWeight:600}}>Aguardando conferência do pedido, recebimento, valores, retenções e rateio.</div>}{item.pagamentos.length>0&&<div style={{display:"flex",gap:5,flexWrap:"wrap",padding:"0 11px 8px"}}>{item.pagamentos.map(pg=><span key={pg.id} style={{fontSize:"var(--arcd-type-caption)",color:pg.conciliado?C.green:C.orange,background:pg.conciliado?`${C.green}0B`:`${C.orange}0B`,border:`1px solid ${pg.conciliado?C.green:C.orange}44`,borderRadius:99,padding:"3px 7px"}}>{fmt(pg.valor)} · {origemPagamentoLabel(pg.origem)} · {pg.conciliado?"conciliado":"pendente"}{(pg.comprovantes||[]).map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{color:C.blue,marginLeft:5,fontWeight:600}}>comprovante ↗</a>)}</span>)}</div>}<footer style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",padding:"7px 11px",borderTop:`1px solid ${C.line}`,background:C.surface}}><div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",minWidth:0}}>{item.documentos.map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:"var(--arcd-type-caption)",color:C.blue,fontWeight:600,textDecoration:"none"}}><Ic n="file" s={11}/>{a.legenda||a.nome} ↗</a>)}{!item.documentos.length&&<span style={{fontSize:"var(--arcd-type-caption)",color:C.orange,fontWeight:600}}>Sem anexo cadastrado</span>}</div><span style={{flex:1}}/><Btn size="sm" v="ghost" onClick={()=>onMemorial?.({title:item.numero,items:[{...financialEntry(data,{sourceType:item.tipo==="nota"?"nota_fiscal":"pedido",sourceId:item.registro.id,obraId:item.obraId,amountCents:Math.round(item.total*100)}),metadata:{saldo:item.saldo,vencimento:item.vencimento}}],context:"Documento e histórico de pagamentos"})}>Ver memorial</Btn>{item.estado==="sem_nota"&&<Btn size="sm" v="ghost" onClick={onNovaNota}>Receber documento fiscal</Btn>}{item.estado==="conferencia"&&<Btn size="sm" v="ghost" onClick={()=>onReviewInvoice?onReviewInvoice(item.registro):onAbrirFiscal()}>Conferir documento</Btn>}{item.tipo==="nota"&&hasInvoiceBankPayment(item.registro)&&onBank&&<Btn size="sm" v="ghost" onClick={()=>onBank(item.registro.id)}>Revisar conciliação</Btn>}{item.saldo>.01&&<Btn size="sm" onClick={()=>abrirPagamento(item)}><Ic n="receipt"/> Registrar pagamento</Btn>}</footer></article>;})}{!visiveis.length&&<div style={{padding:"28px 16px",textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:10,background:C.surface}}><Ic n="check" s={22} color={C.green}/><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginTop:6}}>Nenhuma obrigação neste filtro</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>A fila está atualizada com os pedidos e documentos fiscais cadastrados.</p></div>}</div>
+    {pagamento&&<PaymentDialog data={data} user={currentUser} type={pagamento.type} id={pagamento.id} pageId="fin" dispatch={dispatchCommand} onClose={()=>setPagamento(null)} onSaved={()=>showToast('Pagamento registrado e confirmado pelo servidor.')}/>}
   </div>;
 }
 
@@ -5453,33 +4080,33 @@ function FinanceiroAdministrativo({data,update,showToast,currentUser,C=C_ARCD_SE
   const obraNome=id=>(data.obras||[]).find(o=>o.id===id)?.name||"Administrativo";
   const statusCor=status=>["paga","aprovada","recebido","recebida","conciliada"].includes(status)?C.green:["cancelada","ignorada"].includes(status)?C.muted:status==="vencida"?C.red:status==="a conciliar"?C.purple:C.orange;
   const maiorGrafico=Math.max(faturamento,custos,recebido,Math.abs(resultado),1);
-  return <div className="anim" style={{display:"flex",flexDirection:"column",gap:11}}>
-    <PageHero
+  return <div className="anim" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
+    <PageHero headingLevel={2}
       eyebrow="Controle corporativo"
       title="Administrativo financeiro"
       description="Visão consolidada ou por obra, com movimentações, resultado e documentos auditáveis."
       actions={<TabRow tabs={[["resumo","Resumo"],["receitas","Receitas"],["despesas","Despesas"],["resultados","Resultados"],["documentos","Documentos"]]} active={aba} onChange={setAba}/>}
     />
-    <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:7}}><Sel label="Obra" value={obraId} onChange={setObraId} options={[{v:"all",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/><Sel label="Mês" value={String(mes)} onChange={v=>setMes(Number(v))} options={Array.from({length:12},(_,i)=>({v:String(i),l:fullMonth(i)}))}/><Sel label="Ano" value={String(ano)} onChange={v=>setAno(Number(v))} options={Array.from({length:5},(_,i)=>agora.getFullYear()-2+i).map(v=>({v:String(v),l:String(v)}))}/></div>
+    <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:"var(--arcd-space-2)"}}><Sel label="Obra" value={obraId} onChange={setObraId} options={[{v:"all",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/><Sel label="Mês" value={String(mes)} onChange={v=>setMes(Number(v))} options={Array.from({length:12},(_,i)=>({v:String(i),l:fullMonth(i)}))}/><Sel label="Ano" value={String(ano)} onChange={v=>setAno(Number(v))} options={Array.from({length:5},(_,i)=>agora.getFullYear()-2+i).map(v=>({v:String(v),l:String(v)}))}/></div>
     {aba==="resumo"&&<>
-      <div style={{display:"grid",gridTemplateColumns:cols(2,3,3),gap:7}}>{[["Faturamento",faturamento,C.green,"emitido"],["Recebido",recebido,C.blue,"entrada de caixa"],["A receber",aReceber,C.orange,`${receitasAbertas.length} título(s)`],["Custos e despesas",custos,C.red,despesasAdministrativas?`${fmt(despesasAdministrativas)} administrativo`:"regime gerencial"],["Notas em aberto",valorNotasAbertas,C.purple,`${notasAbertas.length} documento(s)`],["Resultado",resultado,resultado>=0?C.green:C.red,faturamento?`${((resultado/faturamento)*100).toFixed(1)}% de margem`:"sem faturamento"]].map(([l,v,c,s])=><div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,borderRadius:9,padding:"10px 11px"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:"var(--arcd-type-section-title)",fontWeight:600,color:c,marginTop:3}}>{fmt(v)}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{s}</p></div>)}</div>
-      <div style={{display:"grid",gridTemplateColumns:cols("1fr","1fr","1fr 1fr"),gap:8}}>
-        <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,overflow:"hidden"}}><div style={{padding:"9px 11px",borderBottom:`1px solid ${C.line}`}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600}}>Próximas receitas</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Medições ainda não recebidas</p></div><div style={{maxHeight:230,overflowY:"auto"}}>{receitasAbertas.slice(0,12).map(item=>{const vencida=item.dataVencimento&&item.dataVencimento<today();return <div key={item.id} style={{padding:"8px 11px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between",gap:8}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>{item.descricao||`Medição ${item.numeroParcela||""}`}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{obraNome(item.obraId)} · {item.dataVencimento?fmtDate(item.dataVencimento):"sem vencimento"}</p></div><b style={{fontSize:"var(--arcd-type-label)",color:vencida?C.red:C.green,whiteSpace:"nowrap"}}>{fmt(item.valorPrevisto)}</b></div>})}{!receitasAbertas.length&&<p style={{padding:18,textAlign:"center",fontSize:"var(--arcd-type-caption)",color:C.muted}}>Nenhuma receita em aberto no período.</p>}</div></div>
-        <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,overflow:"hidden"}}><div style={{padding:"9px 11px",borderBottom:`1px solid ${C.line}`}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600}}>Próximas obrigações</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Notas aguardando pagamento ou conferência</p></div><div style={{maxHeight:230,overflowY:"auto"}}>{notasAbertas.sort((a,b)=>String(a.vencimento).localeCompare(String(b.vencimento))).slice(0,12).map(item=>{const vencida=item.vencimento&&item.vencimento<today();return <div key={item.id} style={{padding:"8px 11px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between",gap:8}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>{item.fornecedorNome||`Nota ${item.numero}`}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{obraNome(item.obraId)} · {item.vencimento?fmtDate(item.vencimento):"sem vencimento"}</p></div><b style={{fontSize:"var(--arcd-type-label)",color:vencida?C.red:C.orange,whiteSpace:"nowrap"}}>{fmt(item.valorLiquido||item.valorBruto)}</b></div>})}{!notasAbertas.length&&<p style={{padding:18,textAlign:"center",fontSize:"var(--arcd-type-caption)",color:C.muted}}>Nenhuma obrigação fiscal em aberto.</p>}</div></div>
+      <div style={{display:"grid",gridTemplateColumns:cols(2,3,3),gap:"var(--arcd-space-2)"}}>{[["Faturamento",faturamento,C.green,"emitido"],["Recebido",recebido,C.blue,"entrada de caixa"],["A receber",aReceber,C.orange,`${receitasAbertas.length} título(s)`],["Custos e despesas",custos,C.red,despesasAdministrativas?`${fmt(despesasAdministrativas)} administrativo`:"regime gerencial"],["Notas em aberto",valorNotasAbertas,C.purple,`${notasAbertas.length} documento(s)`],["Resultado",resultado,resultado>=0?C.green:C.red,faturamento?`${((resultado/faturamento)*100).toFixed(1)}% de margem`:"sem faturamento"]].map(([l,v,c,s])=><div key={l} style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderTop:`3px solid ${c}`,borderRadius:9,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>{l}</p><p style={{fontSize:"var(--arcd-type-section-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:c,marginTop:"var(--arcd-space-half)"}}>{fmt(v)}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{s}</p></div>)}</div>
+      <div style={{display:"grid",gridTemplateColumns:cols("1fr","1fr","1fr 1fr"),gap:"var(--arcd-space-2)"}}>
+        <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:9,overflow:"hidden"}}><div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:"1px solid var(--arcd-border-default)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>Próximas receitas</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Medições ainda não recebidas</p></div><div style={{maxHeight:230,overflowY:"auto"}}>{receitasAbertas.slice(0,12).map(item=>{const vencida=item.dataVencimento&&item.dataVencimento<today();return <div key={item.id} style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:"1px solid var(--arcd-border-default)",display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{item.descricao||`Medição ${item.numeroParcela||""}`}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{obraNome(item.obraId)} · {item.dataVencimento?fmtDate(item.dataVencimento):"sem vencimento"}</p></div><b style={{fontSize:"var(--arcd-type-label)",color:vencida?"var(--arcd-danger-text)":"var(--arcd-success-text)",whiteSpace:"nowrap"}}>{fmt(item.valorPrevisto)}</b></div>})}{!receitasAbertas.length&&<p style={{padding:"var(--arcd-space-4)",textAlign:"center",fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Nenhuma receita em aberto no período.</p>}</div></div>
+        <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:9,overflow:"hidden"}}><div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:"1px solid var(--arcd-border-default)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>Próximas obrigações</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Notas aguardando pagamento ou conferência</p></div><div style={{maxHeight:230,overflowY:"auto"}}>{notasAbertas.sort((a,b)=>String(a.vencimento).localeCompare(String(b.vencimento))).slice(0,12).map(item=>{const vencida=item.vencimento&&item.vencimento<today();return <div key={item.id} style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:"1px solid var(--arcd-border-default)",display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{item.fornecedorNome||`Nota ${item.numero}`}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{obraNome(item.obraId)} · {item.vencimento?fmtDate(item.vencimento):"sem vencimento"}</p></div><b style={{fontSize:"var(--arcd-type-label)",color:vencida?"var(--arcd-danger-text)":"var(--arcd-warning-text)",whiteSpace:"nowrap"}}>{fmt(item.valorLiquido||item.valorBruto)}</b></div>})}{!notasAbertas.length&&<p style={{padding:"var(--arcd-space-4)",textAlign:"center",fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Nenhuma obrigação fiscal em aberto.</p>}</div></div>
       </div>
-      {obraId==="all"&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,overflowX:"auto"}}><table style={{width:"100%",minWidth:720,borderCollapse:"collapse",fontSize:"var(--arcd-type-caption)"}}><thead><tr style={{background:C.surface}}>{["Obra","Faturado","Recebido","Custos","Resultado","A receber","Margem"].map(h=><th key={h} style={{padding:"7px 9px",textAlign:h==="Obra"?"left":"right",color:C.muted,fontSize:"var(--arcd-type-label)",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead><tbody>{linhasObra.map(l=>{const res=l.faturamento-l.totalCustos;return <tr key={l.obra.id} onClick={()=>setObraId(l.obra.id)} style={{borderBottom:`1px solid ${C.line}`,cursor:"pointer"}}><td style={{padding:"8px 9px",fontWeight:600}}>{l.obra.name}</td>{[l.faturamento,l.recebido,l.totalCustos,res,l.aReceber].map((v,i)=><td key={i} style={{padding:"8px 9px",textAlign:"right",fontWeight:i===3?600:600,color:i===3?(v>=0?C.green:C.red):C.text}}>{fmt(v)}</td>)}<td style={{padding:"8px 9px",textAlign:"right",fontWeight:600,color:res>=0?C.green:C.red}}>{l.faturamento?`${(res/l.faturamento*100).toFixed(1)}%`:"-"}</td></tr>})}</tbody></table></div>}
+      {obraId==="all"&&<div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:9,overflowX:"auto"}}><table style={{width:"100%",minWidth:720,borderCollapse:"collapse",fontSize:"var(--arcd-type-caption)"}}><thead><tr style={{background:"var(--arcd-surface-muted)"}}>{["Obra","Faturado","Recebido","Custos","Resultado","A receber","Margem"].map(h=><th key={h} style={{padding:"var(--arcd-space-2)",textAlign:h==="Obra"?"left":"right",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)",borderBottom:"1px solid var(--arcd-border-default)"}}>{h}</th>)}</tr></thead><tbody>{linhasObra.map(l=>{const res=l.faturamento-l.totalCustos;return <tr key={l.obra.id} onClick={()=>setObraId(l.obra.id)} style={{borderBottom:"1px solid var(--arcd-border-default)",cursor:"pointer"}}><td style={{padding:"var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{l.obra.name}</td>{[l.faturamento,l.recebido,l.totalCustos,res,l.aReceber].map((v,i)=><td key={i} style={{padding:"var(--arcd-space-2)",textAlign:"right",fontWeight:i===3?600:600,color:i===3?(v>=0?"var(--arcd-success-text)":"var(--arcd-danger-text)"):"var(--arcd-text-primary)"}}>{fmt(v)}</td>)}<td style={{padding:"var(--arcd-space-2)",textAlign:"right",fontWeight:"var(--arcd-font-weight-semibold)",color:res>=0?"var(--arcd-success-text)":"var(--arcd-danger-text)"}}>{l.faturamento?`${(res/l.faturamento*100).toFixed(1)}%`:"-"}</td></tr>})}</tbody></table></div>}
     </>}
     {["receitas","despesas"].includes(aba)&&<>
-      <div style={{display:"grid",gridTemplateColumns:cols(1,3,3),gap:7}}>{(aba==="receitas"?[["Faturado",faturamento,C.green],["Recebido",recebido,C.blue],["A receber",aReceber,C.orange]]:[["Custos e despesas",custos,C.red],["Notas em aberto",valorNotasAbertas,C.purple],["Documentos fiscais",notas.length,C.blue]]).map(([l,v,c])=><div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,borderRadius:9,padding:"10px 11px"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:c,marginTop:3}}>{typeof v==="number"&&l!=="Documentos fiscais"?fmt(v):v}</p></div>)}</div>
+      <div style={{display:"grid",gridTemplateColumns:cols(1,3,3),gap:"var(--arcd-space-2)"}}>{(aba==="receitas"?[["Faturado",faturamento,C.green],["Recebido",recebido,C.blue],["A receber",aReceber,C.orange]]:[["Custos e despesas",custos,C.red],["Notas em aberto",valorNotasAbertas,C.purple],["Documentos fiscais",notas.length,C.blue]]).map(([l,v,c])=><div key={l} style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderTop:`3px solid ${c}`,borderRadius:9,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>{l}</p><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:c,marginTop:"var(--arcd-space-half)"}}>{typeof v==="number"&&l!=="Documentos fiscais"?fmt(v):v}</p></div>)}</div>
       <Inp label={`Pesquisar em ${aba}`} value={buscaMov} onChange={setBuscaMov} placeholder="Descrição, obra, origem ou situação..."/>
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,overflowX:"auto"}}><table style={{width:"100%",minWidth:920,borderCollapse:"collapse",fontSize:"var(--arcd-type-caption)"}}><thead><tr style={{background:C.surface}}>{["Data","Origem","Descrição","Obra","Situação","Valor","Documentos"].map(h=><th key={h} style={{padding:"7px 9px",textAlign:h==="Valor"?"right":"left",color:C.muted,fontSize:"var(--arcd-type-label)",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead><tbody>{movimentosVisiveis.map(item=>{const cor=statusCor(item.status);const anexos=documentosDoMovimento(item);return <tr key={item.id} style={{borderBottom:`1px solid ${C.line}`}}><td style={{padding:"8px 9px",whiteSpace:"nowrap"}}>{item.data?fmtDate(item.data):"-"}</td><td style={{padding:"8px 9px",fontWeight:600,color:aba==="receitas"?C.green:C.red}}>{item.tipo}</td><td style={{padding:"8px 9px",maxWidth:290,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} title={item.descricao}>{item.descricao}</td><td style={{padding:"8px 9px",fontWeight:600}}>{obraNome(item.obraId)}</td><td style={{padding:"8px 9px"}}><span style={{display:"inline-flex",padding:"3px 6px",borderRadius:5,background:`${cor}12`,color:cor,fontSize:"var(--arcd-type-caption)",fontWeight:600,textTransform:"uppercase"}}>{item.status}</span></td><td style={{padding:"8px 9px",textAlign:"right",fontWeight:600,color:aba==="receitas"?C.green:C.red,whiteSpace:"nowrap"}}>{fmt(item.valor)}</td><td style={{padding:"8px 9px"}}><LinksDocumentosAuditaveis documentos={anexos} subindo={subindoAnexoMov&&anexoMov?.item?.id===item.id} onSelecionar={e=>selecionarDocumentoMovimento(item,e)} C={C}/></td></tr>})}</tbody></table>{!movimentosVisiveis.length&&<p style={{padding:24,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhuma movimentação encontrada neste período.</p>}</div>
-      <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>As origens permanecem identificadas para evitar confundir faturamento, caixa, documento fiscal e transação bancária.</p>
+      <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:9,overflowX:"auto"}}><table style={{width:"100%",minWidth:920,borderCollapse:"collapse",fontSize:"var(--arcd-type-caption)"}}><thead><tr style={{background:"var(--arcd-surface-muted)"}}>{["Data","Origem","Descrição","Obra","Situação","Valor","Documentos"].map(h=><th key={h} style={{padding:"var(--arcd-space-2)",textAlign:h==="Valor"?"right":"left",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)",borderBottom:"1px solid var(--arcd-border-default)"}}>{h}</th>)}</tr></thead><tbody>{movimentosVisiveis.map(item=>{const cor=statusCor(item.status);const anexos=documentosDoMovimento(item);return <tr key={item.id} style={{borderBottom:"1px solid var(--arcd-border-default)"}}><td style={{padding:"var(--arcd-space-2)",whiteSpace:"nowrap"}}>{item.data?fmtDate(item.data):"-"}</td><td style={{padding:"var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-semibold)",color:aba==="receitas"?"var(--arcd-success-text)":"var(--arcd-danger-text)"}}>{item.tipo}</td><td style={{padding:"var(--arcd-space-2)",maxWidth:290,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} title={item.descricao}>{item.descricao}</td><td style={{padding:"var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{obraNome(item.obraId)}</td><td style={{padding:"var(--arcd-space-2)"}}><span style={{display:"inline-flex",padding:"var(--arcd-space-half) var(--arcd-space-1)",borderRadius:5,background:`${cor}12`,color:cor,fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",textTransform:"uppercase"}}>{item.status}</span></td><td style={{padding:"var(--arcd-space-2)",textAlign:"right",fontWeight:"var(--arcd-font-weight-semibold)",color:aba==="receitas"?"var(--arcd-success-text)":"var(--arcd-danger-text)",whiteSpace:"nowrap"}}>{fmt(item.valor)}</td><td style={{padding:"var(--arcd-space-2)"}}><LinksDocumentosAuditaveis documentos={anexos} subindo={subindoAnexoMov&&anexoMov?.item?.id===item.id} onSelecionar={e=>selecionarDocumentoMovimento(item,e)} C={C}/></td></tr>})}</tbody></table>{!movimentosVisiveis.length&&<p style={{padding:"var(--arcd-space-6)",textAlign:"center",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhuma movimentação encontrada neste período.</p>}</div>
+      <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>As origens permanecem identificadas para evitar confundir faturamento, caixa, documento fiscal e transação bancária.</p>
     </>}
     {aba==="resultados"&&<>
-      <div style={{display:"grid",gridTemplateColumns:cols("1fr","1fr","1.1fr .9fr"),gap:8}}><div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 13px"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.7}}>Composição do período</p>{[["Faturamento",faturamento,C.green],["Recebido",recebido,C.blue],["Custos",custos,C.red],["Resultado",Math.abs(resultado),resultado>=0?C.green:C.red]].map(([l,v,c])=><div key={l} style={{marginTop:11}}><div style={{display:"flex",justifyContent:"space-between",gap:8,fontSize:"var(--arcd-type-caption)"}}><span style={{fontWeight:600,color:C.text}}>{l}</span><b style={{color:c}}>{l==="Resultado"&&resultado<0?"- ":""}{fmt(v)}</b></div><div style={{height:7,borderRadius:99,background:C.surface,overflow:"hidden",marginTop:5}}><i style={{display:"block",height:"100%",width:`${Math.max(2,v/maiorGrafico*100)}%`,background:c,borderRadius:99}}/></div></div>)}</div><div style={{background:`linear-gradient(145deg,${resultado>=0?C.green:C.red}12,${C.card})`,border:`1px solid ${resultado>=0?C.green:C.red}55`,borderRadius:10,padding:"13px",display:"flex",flexDirection:"column",justifyContent:"center"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>Resultado gerencial</p><p style={{fontSize:"clamp(25px,5vw,40px)",fontWeight:600,color:resultado>=0?C.green:C.red,marginTop:5}}>{fmt(resultado)}</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4}}>{faturamento?`${(resultado/faturamento*100).toFixed(1)}% de margem no período`:"Sem faturamento no período"}</p></div></div>
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,overflowX:"auto"}}><table style={{width:"100%",minWidth:720,borderCollapse:"collapse",fontSize:"var(--arcd-type-caption)"}}><thead><tr style={{background:C.surface}}>{["Obra","Faturado","Recebido","Custos","Resultado","A receber","Margem"].map(h=><th key={h} style={{padding:"7px 9px",textAlign:h==="Obra"?"left":"right",color:C.muted,fontSize:"var(--arcd-type-label)",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead><tbody>{linhasObra.map(l=>{const res=l.faturamento-l.totalCustos;return <tr key={l.obra.id} onClick={()=>setObraId(l.obra.id)} style={{borderBottom:`1px solid ${C.line}`,cursor:"pointer"}}><td style={{padding:"8px 9px",fontWeight:600}}>{l.obra.name}</td>{[l.faturamento,l.recebido,l.totalCustos,res,l.aReceber].map((v,i)=><td key={i} style={{padding:"8px 9px",textAlign:"right",fontWeight:i===3?600:600,color:i===3?(v>=0?C.green:C.red):C.text}}>{fmt(v)}</td>)}<td style={{padding:"8px 9px",textAlign:"right",fontWeight:600,color:res>=0?C.green:C.red}}>{l.faturamento?`${(res/l.faturamento*100).toFixed(1)}%`:"-"}</td></tr>})}</tbody></table></div>
+      <div style={{display:"grid",gridTemplateColumns:cols("1fr","1fr","1.1fr .9fr"),gap:"var(--arcd-space-2)"}}><div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:10,padding:"var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>Composição do período</p>{[["Faturamento",faturamento,C.green],["Recebido",recebido,C.blue],["Custos",custos,C.red],["Resultado",Math.abs(resultado),resultado>=0?C.green:C.red]].map(([l,v,c])=><div key={l} style={{marginTop:"var(--arcd-space-3)"}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",fontSize:"var(--arcd-type-caption)"}}><span style={{fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{l}</span><b style={{color:c}}>{l==="Resultado"&&resultado<0?"- ":""}{fmt(v)}</b></div><div style={{height:7,borderRadius:99,background:"var(--arcd-surface-muted)",overflow:"hidden",marginTop:"var(--arcd-space-1)"}}><i style={{display:"block",height:"100%",width:`${Math.max(2,v/maiorGrafico*100)}%`,background:c,borderRadius:99}}/></div></div>)}</div><div style={{background:`linear-gradient(145deg,${resultado>=0?C.green:C.red}12,var(--arcd-surface-card))`,border:`1px solid ${resultado>=0?"var(--arcd-success-text)":"var(--arcd-danger-text)"}55`,borderRadius:10,padding:"var(--arcd-space-3)",display:"flex",flexDirection:"column",justifyContent:"center"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Resultado gerencial</p><p style={{fontSize:"clamp(25px,5vw,40px)",fontWeight:"var(--arcd-font-weight-semibold)",color:resultado>=0?"var(--arcd-success-text)":"var(--arcd-danger-text)",marginTop:"var(--arcd-space-1)"}}>{fmt(resultado)}</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>{faturamento?`${(resultado/faturamento*100).toFixed(1)}% de margem no período`:"Sem faturamento no período"}</p></div></div>
+      <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:9,overflowX:"auto"}}><table style={{width:"100%",minWidth:720,borderCollapse:"collapse",fontSize:"var(--arcd-type-caption)"}}><thead><tr style={{background:"var(--arcd-surface-muted)"}}>{["Obra","Faturado","Recebido","Custos","Resultado","A receber","Margem"].map(h=><th key={h} style={{padding:"var(--arcd-space-2)",textAlign:h==="Obra"?"left":"right",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)",borderBottom:"1px solid var(--arcd-border-default)"}}>{h}</th>)}</tr></thead><tbody>{linhasObra.map(l=>{const res=l.faturamento-l.totalCustos;return <tr key={l.obra.id} onClick={()=>setObraId(l.obra.id)} style={{borderBottom:"1px solid var(--arcd-border-default)",cursor:"pointer"}}><td style={{padding:"var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{l.obra.name}</td>{[l.faturamento,l.recebido,l.totalCustos,res,l.aReceber].map((v,i)=><td key={i} style={{padding:"var(--arcd-space-2)",textAlign:"right",fontWeight:i===3?600:600,color:i===3?(v>=0?"var(--arcd-success-text)":"var(--arcd-danger-text)"):"var(--arcd-text-primary)"}}>{fmt(v)}</td>)}<td style={{padding:"var(--arcd-space-2)",textAlign:"right",fontWeight:"var(--arcd-font-weight-semibold)",color:res>=0?"var(--arcd-success-text)":"var(--arcd-danger-text)"}}>{l.faturamento?`${(res/l.faturamento*100).toFixed(1)}%`:"-"}</td></tr>})}</tbody></table></div>
     </>}
-    {aba==="documentos"&&<><div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:7,alignItems:"end"}}><Inp label="Pesquisar nota, fornecedor, obra ou arquivo" value={buscaDoc} onChange={setBuscaDoc} placeholder="Ex.: B2-04, energia, fornecedor..."/><button onClick={()=>setDocPeriodo(v=>v==="periodo"?"todos":"periodo")} style={{height:36,border:`1px solid ${C.border}`,background:C.card,color:C.text,borderRadius:7,padding:"0 10px",fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>{docPeriodo==="periodo"?`${fullMonth(mes)} ${ano}`:"Todo o histórico"}</button></div><div style={{display:"flex",flexDirection:"column",gap:6}}>{documentos.map(item=>{const cor=statusCor(item.status);return <div key={item.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`1px solid ${item.url?C.blue:C.orange}`,borderRadius:8,padding:"9px 11px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}><div style={{minWidth:0,flex:1}}><div style={{display:"flex",gap:5,alignItems:"center",flexWrap:"wrap"}}><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.blue,textTransform:"uppercase"}}>{item.tipo}</span><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:cor,background:`${cor}12`,borderRadius:4,padding:"2px 5px"}}>{item.status||"cadastrado"}</span></div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.referencia} · {item.nome}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{obraNome(item.obraId)}{item.fornecedor?` · ${item.fornecedor}`:""}{item.data?` · ${fmtDate(item.data)}`:""}{item.valor?` · ${fmt(item.valor)}`:""}</p></div>{item.url?<a href={item.url} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",gap:5,border:`1px solid ${C.blue}`,background:`${C.blue}0D`,color:C.blue,borderRadius:7,padding:"6px 9px",fontSize:"var(--arcd-type-caption)",fontWeight:600,textDecoration:"none"}}><Ic n="file" s={12}/> Visualizar</a>:<span style={{fontSize:"var(--arcd-type-caption)",color:C.orange,fontWeight:600}}>SEM ANEXO</span>}</div>})}{!documentos.length&&<div style={{padding:28,textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:9,color:C.muted,fontSize:"var(--arcd-type-label)"}}>Nenhuma nota ou documento encontrado com os filtros escolhidos.</div>}</div></>}
+    {aba==="documentos"&&<><div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:"var(--arcd-space-2)",alignItems:"end"}}><Inp label="Pesquisar nota, fornecedor, obra ou arquivo" value={buscaDoc} onChange={setBuscaDoc} placeholder="Ex.: B2-04, energia, fornecedor..."/><StandardButton variant="secondary" onClick={()=>setDocPeriodo(v=>v==="periodo"?"todos":"periodo")} style={{height:36,border:"1px solid var(--arcd-border-default)",background:"var(--arcd-surface-card)",color:"var(--arcd-text-primary)",borderRadius:7,padding:"var(--arcd-space-0) var(--arcd-space-2)",fontSize:"var(--arcd-type-control)",fontWeight:"var(--arcd-font-weight-semibold)",cursor:"pointer"}}>{docPeriodo==="periodo"?`${fullMonth(mes)} ${ano}`:"Todo o histórico"}</StandardButton></div><div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>{documentos.map(item=>{const cor=statusCor(item.status);return <div key={item.id} style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderLeft:`1px solid ${item.url?"var(--arcd-action-primary)":"var(--arcd-warning-text)"}`,borderRadius:8,padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}><div style={{minWidth:0,flex:1}}><div style={{display:"flex",gap:"var(--arcd-space-1)",alignItems:"center",flexWrap:"wrap"}}><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textTransform:"uppercase"}}>{item.tipo}</span><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:cor,background:`${cor}12`,borderRadius:4,padding:"var(--arcd-space-half) var(--arcd-space-1)"}}>{item.status||"cadastrado"}</span></div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.referencia} · {item.nome}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{obraNome(item.obraId)}{item.fornecedor?` · ${item.fornecedor}`:""}{item.data?` · ${fmtDate(item.data)}`:""}{item.valor?` · ${fmt(item.valor)}`:""}</p></div>{item.url?<a href={item.url} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",gap:"var(--arcd-space-1)",border:"1px solid var(--arcd-action-primary)",background:"color-mix(in srgb, var(--arcd-action-primary) 5%, transparent)",color:"var(--arcd-action-primary)",borderRadius:7,padding:"var(--arcd-space-1) var(--arcd-space-2)",fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",textDecoration:"none"}}><Ic n="file" s={12}/> Visualizar</a>:<span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-warning-text)",fontWeight:"var(--arcd-font-weight-semibold)"}}>SEM ANEXO</span>}</div>})}{!documentos.length&&<div style={{padding:"var(--arcd-space-6)",textAlign:"center",border:"1px dashed var(--arcd-border-default)",borderRadius:9,color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)"}}>Nenhuma nota ou documento encontrado com os filtros escolhidos.</div>}</div></>}
     <ModalLegendaDocumento anexo={anexoMov} setAnexo={setAnexoMov} onClose={()=>!subindoAnexoMov&&setAnexoMov(null)} onSalvar={salvarDocumentoMovimento} salvando={subindoAnexoMov} titulo="Anexar documento à movimentação" C={C}/>
   </div>;
 }
@@ -5538,8 +4165,8 @@ function HomologacaoFinanceira({data,showToast,C=C_ARCD_SETOR}){
   };
   const contagens=relatorio?.contagens||{};
   return <div className="anim" style={{display:"flex",flexDirection:"column",gap:10}}>
-    <PageHero eyebrow="FIN-002 · controle de migração" title="Homologação em sombra" description="Compara cada fato financeiro do legado com o razão canônico antes de bloquear as escritas antigas." actions={<div style={{display:"flex",gap:6}}><Btn v="ghost" onClick={carregar} disabled={carregando}>Atualizar relatório</Btn><Btn v="success" onClick={sincronizar} disabled={sincronizando||carregando}>{sincronizando?"Carregando fatos...":"Executar carga idempotente"}</Btn></div>}/>
-    {carregando&&<div style={{padding:24,textAlign:"center",border:`1px solid ${C.border}`,borderRadius:8,color:C.muted}}>Consultando o razão canônico...</div>}
+    <PageHero headingLevel={2} eyebrow="FIN-002 · controle de migração" title="Homologação em sombra" description="Compara cada fato financeiro do legado com o razão canônico antes de bloquear as escritas antigas." actions={<div style={{display:"flex",gap:6}}><Btn v="ghost" onClick={carregar} disabled={carregando}>Atualizar relatório</Btn><Btn v="success" onClick={sincronizar} disabled={sincronizando||carregando}>{sincronizando?"Carregando fatos...":"Executar carga idempotente"}</Btn></div>}/>
+    {carregando&&<LoadingState label="o razão canônico"/>}
     {!carregando&&!relatorio&&<div style={{padding:18,border:`1px solid ${C.red}`,borderRadius:8,color:C.red}}><b>Banco ainda não preparado</b><p style={{fontSize:"var(--arcd-type-label)",margin:"5px 0 10px"}}>{erro||"Relatório indisponível."}</p><Btn onClick={preparar} disabled={migrando}>{migrando?"Aplicando migration...":"Preparar banco com segurança"}</Btn></div>}
     {relatorio&&<><div style={{padding:"11px 13px",border:`1px solid ${relatorio.prontoParaAtivar?C.green:C.orange}`,borderLeft:`1px solid ${relatorio.prontoParaAtivar?C.green:C.orange}`,borderRadius:8,background:relatorio.prontoParaAtivar?`${C.green}08`:`${C.orange}08`}}>
       <b style={{fontSize:"var(--arcd-type-body)",color:relatorio.prontoParaAtivar?C.green:C.orange}}>{relatorio.prontoParaAtivar?"Divergência zero · pronto para o gate FIN-003":"Motor permanece em sombra"}</b>
@@ -5561,42 +4188,59 @@ function HomologacaoFinanceira({data,showToast,C=C_ARCD_SETOR}){
   </div>;
 }
 
-function FechamentoFinanceiroMensal({data,update,showToast,currentUser,C=C_ARCD_SETOR}){
+function FechamentoFinanceiroMensal({data,update,showToast,currentUser,onMemorial,onDocuments,onCorrect,onBank,C=C_ARCD_SETOR}){
   const agora=new Date();
-  const [competencia,setCompetencia]=useState(`${agora.getFullYear()}-${String(agora.getMonth()+1).padStart(2,"0")}`);
+  const [competencia,setCompetencia]=useWorkspaceState('fin','closingCompetence',`${agora.getFullYear()}-${String(agora.getMonth()+1).padStart(2,"0")}`);
   const [processando,setProcessando]=useState(false);
+  const [closingError,setClosingError]=useState('');
+  const [closingStatus,setClosingStatus]=useState(0),[closingNotice,setClosingNotice]=useState('');
+  const closingLock=useRef(false);
+  const [closingKeys,setClosingKeys]=useWorkspaceState('fin','closingAttemptKeys',{});
   const previa=useMemo(()=>createMonthlyClosingSnapshot(data,{competencia,actor:currentUser,closedAt:"preview"}),[data,competencia,currentUser]);
   const fechar=async()=>{
+    if(closingLock.current)return;
     if(currentUser?.role!=="admin"){showToast("Somente administrador pode fechar uma competência.","error");return;}
     const snapshot=createMonthlyClosingSnapshot(data,{competencia,actor:currentUser});
     if(!snapshot.ok){showToast(snapshot.error||"A competência não pode ser fechada.","error");return;}
     if(!window.confirm(`Fechar ${competencia}? Novas liquidações neste período serão bloqueadas no servidor.`))return;
-    setProcessando(true);
+    closingLock.current=true;setProcessando(true);setClosingError('');setClosingStatus(0);setClosingNotice('');
+    const closingKey=closingKeys[competencia]||`close-${competencia}-${uid()}`;
+    setClosingKeys(previous=>({...previous,[competencia]:closingKey}));
+    try{
     const resposta=await executarComandoFinanceiro({
       type:"CLOSE_ACCOUNTING_PERIOD",
-      idempotencyKey:`close-${competencia}-${Date.now()}`,
+      idempotencyKey:closingKey,
       payload:{startsOn:snapshot.closing.dataInicio,endsOn:snapshot.closing.dataFim,competencia},
     });
-    setProcessando(false);
-    if(!resposta.ok){showToast(resposta.error||"O servidor não confirmou o fechamento.","error");return;}
-    update({...data,fechamentosFinanceiros:[...(data.fechamentosFinanceiros||[]),snapshot.closing]});
+    if(!resposta.ok){setClosingStatus(Number(resposta.status||0));throw new Error(resposta.error||"O servidor não confirmou o fechamento.");}
+    if(resposta.closing?.competencia!==competencia||resposta.closing?.status!=='fechado')throw new Error('O servidor não retornou o fechamento auditável. Confira a situação antes de tentar novamente.');
+    await update(atual=>({__adotarServidorPatch:true,updatedAt:resposta.updatedAt,sections:{...resposta.sections,
+      fechamentosFinanceiros:resposta.sections?.fechamentosFinanceiros||[...(atual.fechamentosFinanceiros||[]).filter(item=>item.competencia!==competencia),resposta.closing],
+    }}));
     showToast(`Competência ${competencia} fechada e congelada.`);
+    }catch(error){setClosingError(error.message||'Não foi possível confirmar o fechamento. Confira a situação antes de tentar novamente.');}
+    finally{closingLock.current=false;setProcessando(false);}
   };
   const fechamentos=(data.fechamentosFinanceiros||[]).slice().sort((a,b)=>String(b.competencia).localeCompare(String(a.competencia)));
   const snap=previa.ok?previa.closing.snapshot:null;
   return <div className="anim" style={{display:"flex",flexDirection:"column",gap:10}}>
-    <PageHero eyebrow="Fechamento contábil" title="Fechamento mensal imutável" description="Confere DRE, caixa, posições e IDs do razão antes de bloquear novas liquidações no período." actions={<Btn v="success" onClick={fechar} disabled={processando||!previa.ok}>{processando?"Fechando...":"Fechar competência"}</Btn>}/>
-    <div style={{display:"grid",gridTemplateColumns:"minmax(180px,240px) 1fr",gap:8,alignItems:"end"}}>
-      <Inp label="Competência" type="month" value={competencia} onChange={setCompetencia}/>
+    <PageHero headingLevel={2} eyebrow="Fechamento contábil" title="Fechamento mensal imutável" description="Selecione a competência e confira os valores e as pendências antes de fechar o período."/>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,240px),1fr))",gap:8,alignItems:"end"}}>
+      <Inp label="Competência" type="month" disabled={processando} value={competencia} onChange={value=>{setCompetencia(value);setClosingError('');}}/>
       <div style={{padding:"9px 11px",border:`1px solid ${previa.ok?C.green:C.red}`,borderRadius:8,background:previa.ok?`${C.green}08`:`${C.red}08`}}>
-        <b style={{fontSize:"var(--arcd-type-label)",color:previa.ok?C.green:C.red}}>{previa.ok?"Conferência pronta para fechamento":previa.error}</b>
+        <b style={{fontSize:"var(--arcd-type-label)",color:previa.ok?C.green:C.red}}>{previa.ok?"Motor financeiro sem divergências. Confira separadamente a documentação abaixo.":previa.error}</b>
       </div>
     </div>
+    <ClosingPending data={data} competence={competencia} conference={previa.conference} onOpen={onMemorial} onCorrect={onCorrect} onBank={onBank} onDocuments={()=>onDocuments(competencia)}/>
+    {closingError&&<Alert variant="destructive" role="alert"><AlertDescription>{closingError} A competência selecionada foi mantida. Confira o estado do período antes de repetir a confirmação.</AlertDescription></Alert>}
+    {closingStatus===401&&<SessionRenewalFields user={currentUser} onRenew={async password=>{try{const result=await renewEditingSession({email:currentUser.email,password,userId:currentUser.id});if(!result.ok){setClosingError(result.error);return;}setClosingStatus(0);setClosingError('');setClosingNotice('Acesso renovado. Confira a competência e confirme novamente quando estiver pronto.');}catch(error){setClosingError(error.message||'Não foi possível renovar o acesso.');}}}/>}
+    {closingNotice&&<p role="status">{closingNotice}</p>}
     {snap&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(145px,1fr))",gap:6}}>{[
       ["Receita",snap.revenueCents],["Custos",snap.costCents],["Resultado",snap.resultCents],
       ["Entradas",snap.cashInCents],["Saídas",snap.cashOutCents],["A receber",snap.receivableCents],
       ["A pagar",snap.payableCents],["Comprometido",snap.commitmentCents],
     ].map(([label,cents])=><div key={label} style={{padding:"9px 10px",background:C.card,border:`1px solid ${C.border}`,borderRadius:8}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600,textTransform:"uppercase"}}>{label}</p><b style={{fontSize:"var(--arcd-type-card-title)",color:C.text}}>{fmt(Number(cents||0)/100)}</b></div>)}</div>}
+    <div className="financial-closing__action"><p>Competência a fechar: <strong>{competencia}</strong>. Confira o memorial e as pendências antes de confirmar.</p><Btn v="success" onClick={fechar} disabled={processando||!previa.ok}>{processando?"Fechando...":"Fechar competência"}</Btn></div>
     <div style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
       <div style={{padding:"8px 11px",background:C.surface}}><b style={{fontSize:"var(--arcd-type-label)"}}>Competências fechadas</b></div>
       {!fechamentos.length?<p style={{padding:18,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhum fechamento mensal registrado.</p>:fechamentos.map(item=><div key={item.id} style={{display:"grid",gridTemplateColumns:"120px minmax(0,1fr) auto",gap:8,padding:"9px 11px",borderTop:`1px solid ${C.line}`,alignItems:"center"}}><b style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{item.competencia}</b><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Fechado por {item.fechadoPor||"Administrador"} · {item.snapshot?.eventCount||0} evento(s) congelados</span><Badge color={C.green}>FECHADO</Badge></div>)}
@@ -5604,17 +4248,84 @@ function FechamentoFinanceiroMensal({data,update,showToast,currentUser,C=C_ARCD_
   </div>;
 }
 
-function Financeiro({ data, update, showToast, currentUser, dispatchCommand=async()=>({ok:false,reason:"Comandos financeiros indisponíveis."}), C=C_ARCD_SETOR }) {
-  const [areaFinanceira,setAreaFinanceira]=useState(()=>currentUser?.role==="financeiro"?"pagamentos":"visao");
+function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatchCommand=async()=>({ok:false,reason:"Comandos financeiros indisponíveis."}), C=C_ARCD_SETOR }) {
+  const {intent,rememberScope}=useWorkflow();
+  const useSessionState=(key,initial)=>useWorkspaceState("fin",key,initial);
+  useWorkspaceScroll("fin");
+  const [areaFinanceira,setAreaFinanceira]=useSessionState("areaFinanceira","hoje");
+  useHelpTopic('fin',FINANCE_HELP[areaFinanceira]||'fin');
+  const [todayQueue,setTodayQueue]=useSessionState("todayQueue","all");
+  const [todayPreferences,setTodayPreferences]=useQueuePreferences(currentUser?.id,"fin",{direction:"A pagar",layout:"table"});
+  const [taskReturn,setTaskReturn]=useState(null);
+  const [todayPurchase,setTodayPurchase]=useState(null);
+  const [todayPayment,setTodayPayment]=useState(null);
+  const [documentView,setDocumentView]=useSessionState("documentView",{query:"",filter:"all",selected:null});
+  const [paymentView,setPaymentView]=useSessionState('paymentView',{filter:'fila',query:'',invoiceId:''});
+  const [financialReturn,setFinancialReturn]=useSessionState('financialReturn',null);
+  const [closingOrigin,setClosingOrigin]=useState(null);
+  const [costReviewView,setCostReviewView]=useSessionState("costReviewView",{});
+  const [cashScenario,setCashScenario]=useSessionState("cashScenario",{days:30,opening:"",delay:0,overdue:false});
+  const [cashView,setCashView]=useSessionState("cashView",{account:"",accountPositions:{}});
+  const [forecastView,setForecastView]=useSessionState("forecastView",{area:"cash",asOf:today(),cash:{},labor:{}});
+  const [forecastReturn,setForecastReturn]=useState(false);
+  const [reportView,setReportView]=useSessionState("reportView",()=>{const date=today(),month=date.slice(0,7);return {kind:"result",group:"work",start:month+"-01",end:new Date(Date.UTC(Number(month.slice(0,4)),Number(month.slice(5,7)),0)).toISOString().slice(0,10),asOf:date,direction:"all",category:"all",account:"all",status:"all",query:"",includeUndated:false};});
+  const [documentReturn,setDocumentReturn]=useState(null);
+  const [fiscalReturn,setFiscalReturn]=useState(false);
+  const positionToRestore=useRef(null);
+  useEffect(()=>{
+    if(!positionToRestore.current)return;
+    const positions=positionToRestore.current;positionToRestore.current=null;
+    restoreFinancePosition(positions);
+  });
   const [abrirCadastroFiscal,setAbrirCadastroFiscal]=useState(false);
+  const [notaParaConferir,setNotaParaConferir]=useState("");
+  const [documentMonth,setDocumentMonth]=useSessionState("documentMonth",()=>today().slice(0,7));
+  const confirmarNotaAberta=useCallback(()=>setNotaParaConferir(""),[]);
+  const conferirNota=id=>{setFiscalReturn(areaFinanceira==="documentos"?{obraId:filterObra,positions:captureFinancePosition(document.querySelector('.document-center'))}:null);setNotaParaConferir(id);setAbrirCadastroFiscal(false);setAreaFinanceira("fiscal");};
+  const rememberFinancialOrigin=()=>setFinancialReturn({area:areaFinanceira,obraId:filterObra,month:documentMonth,view:documentView,payments:paymentView,previous:financialReturn});
+  const openInvoicePayments=id=>{
+    if(!financeNextAction(data,{sourceType:'nota_fiscal',sourceId:id,obraId:(data.notasFiscais||[]).find(n=>n.id===id)?.obraId},currentUser))return;
+    rememberFinancialOrigin();setPaymentView({filter:'todas',query:'',invoiceId:id});setAreaFinanceira('pagamentos');
+  };
+  const {navigate:navigateFinancial}=useWorkflow();
+  const openInvoiceBank=id=>{
+    const context=invoiceBankContext(data,id,currentUser);
+    if(context)navigateFinancial?.('conc',{obraId:context.obraId},{action:'review-financial-origin',record:context});
+  };
+  const backFinancialOrigin=()=>{
+    if(!financialReturn)return;
+    setFilterObra(financialReturn.obraId);setDocumentMonth(financialReturn.month);setDocumentView(financialReturn.view);setPaymentView(financialReturn.payments);setAreaFinanceira(financialReturn.area);setFiscalReturn(false);setFinancialReturn(financialReturn.previous||null);
+  };
+  const openClosingOrigin=row=>{
+    if(row.type!=='nota_fiscal'){
+      const scope=closingCorrectionScope({user:currentUser,data,command:{payload:{sourceType:row.type,sourceId:row.record.id}}});
+      if(!scope.ok){showToast(scope.error,'error');return;}
+      setClosingOrigin(row);return;
+    }
+    rememberFinancialOrigin();setFilterObra('all');
+    if(row.type==='nota_fiscal'){conferirNota(row.record.id);return;}
+    setDocumentMonth(row.period||'');setDocumentView({query:'',filter:'all',selected:row.id});setAreaFinanceira('documentos');
+  };
   const abrirNovaNota=useCallback(()=>{setAbrirCadastroFiscal(true);setAreaFinanceira("fiscal");},[]);
   const abrirFiscal=useCallback(()=>{setAbrirCadastroFiscal(false);setAreaFinanceira("fiscal");},[]);
   const confirmarAberturaFiscal=useCallback(()=>setAbrirCadastroFiscal(false),[]);
+  useEffect(()=>{
+    if(intent?.tabId!=="fin"||intent.action!=="review-purchase-invoice"||!['admin','financeiro'].includes(currentUser?.role)||!podeAcessarAba(currentUser,'fin'))return;
+    const invoice=(data.notasFiscais||[]).find(n=>String(n.id)===String(intent.record?.invoiceId)&&String(n.obraId)===String(intent.scope?.obraId)&&(!currentUser.obraId||String(n.obraId)===String(currentUser.obraId))&&!n.deletedAt&&n.ativo!==false&&!['cancelada','cancelado','estornada','estornado'].includes(n.status));
+    if(invoice&&financeNextAction(data,{sourceType:'nota_fiscal',sourceId:invoice.id,obraId:invoice.obraId},currentUser)){setNotaParaConferir(invoice.id);setAbrirCadastroFiscal(false);setAreaFinanceira('fiscal');}
+  },[intent?.sequence]);
   const now = new Date();
-  const [year,  setYear]  = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth());
-  const [filterObra, setFilterObra] = useState("all");
-  const [expanded, setExpanded] = useState(null);
+  const [year,  setYear]  = useSessionState("year",now.getFullYear());
+  const [month, setMonth] = useSessionState("month",now.getMonth());
+  const [filterObra, setFilterObra] = useSessionState("filterObra","all");
+  useEffect(()=>{rememberScope?.("fin",{obraId:filterObra==="all"?"":filterObra,year,month,period:"mes"});},[filterObra,year,month,rememberScope]);
+  useEffect(()=>{
+    if(intent?.tabId!=="fin"||intent.action==="resume")return;
+    setFilterObra(currentUser?.obraId||intent.scope?.obraId||"all");
+    if(intent.scope?.year!=null)setYear(intent.scope.year);
+    if(intent.scope?.month!=null)setMonth(intent.scope.month);
+  },[intent?.sequence]);
+  const [expanded, setExpanded] = useSessionState("expanded",null);
   const [payModal, setPayModal] = useState(false);
   const [paymentCommandPending,setPaymentCommandPending]=useState(false);
   const [payForm, setPayForm] = useState({ obraId:"", date:today(), amount:"", description:"" });
@@ -5631,6 +4342,43 @@ function Financeiro({ data, update, showToast, currentUser, dispatchCommand=asyn
   const T = financialView.summary;
   const totalMarginPct = T.marginPct;
   const allPayments = financialView.receipts;
+  const [memorial,setMemorial]=useState(null);
+  const currentDate=today();
+  const queues=useMemo(()=>todayQueues(data,financialView.selected.ledger,filterObra,currentDate),[data,financialView,filterObra,currentDate]);
+  const openMetric=key=>setMemorial({title:({result:"Resultado",revenue:"Receita reconhecida",costs:"Custos incorridos",cashIn:"Entradas de caixa",cashOut:"Saídas de caixa",receivable:"Contas a receber",payable:"Contas a pagar"})[key],items:overviewEntries(data,financialView.selected,filterObra,key),totalCents:Math.round(T[key]*100),context:`${fullMonth(month)} ${year} · ${filterObra==="all"?"Todas as obras":data.obras.find(o=>o.id===filterObra)?.name} · ${["receivable","payable"].includes(key)?"Posição acumulada até o fim do mês":["cashIn","cashOut"].includes(key)?"Data do movimento":"Competência"}`});
+  const openSecondaryMetric=index=>{
+    const titles=["Custos comprometidos","Recebimentos não alocados","Pagamentos não alocados","Estornos e cancelamentos"];
+    const keys=["committed","unallocatedReceipts","unallocatedPayments","reversals"];
+    const movements=selectFinancialMovements(financialView.selected.ledger,{...(filterObra==="all"?{}:{obraId:filterObra}),startDate:financialView.selected.per0,endDate:financialView.selected.perF});
+    const items=index===0?overviewEntries(data,financialView.selected,filterObra,"committed"):movements.filter(e=>index===3?["revenue_reversal","cost_reversal"].includes(e.natureza):e.unallocated&&e.natureza===(index===1?"cash_in":"cash_out")).map(e=>financialEntry(data,e));
+    setMemorial({title:titles[index],items,totalCents:Math.round(T[keys[index]]*100),context:`${fullMonth(month)} ${year} · ${index===0?"Compromissos acumulados até o fim do mês":index===3?"Estornos financeiros no período; cancelamentos sem efeito não compõem o valor":"Data do movimento"}`});
+  };
+  const stageLedger=useMemo(()=>areaFinanceira==="etapas"?calcLedgerAcumulado(data,(data.obras||[]).filter(w=>filterObra==="all"||w.id===filterObra).map(w=>w.id),Number(currentDate.slice(0,4)),Number(currentDate.slice(5,7))-1):null,[data,filterObra,currentDate,areaFinanceira]);
+  const memorialDocuments=useMemo(()=>memorial?documentRegister(data):[],[data,memorial]);
+  const findMemorialDocument=item=>memorialDocuments.find(row=>row.record.id===item.sourceId&&row.type===({pagamento_nota:"nota_fiscal"}[item.sourceType]||item.sourceType))||memorialDocuments.find(row=>row.type==="nota_fiscal"&&item.invoices?.some(invoice=>invoice.id===row.record.id));
+  const openMemorialDocuments=(item,detail,positions)=>{
+    const row=findMemorialDocument(item);if(!row)return;
+    setDocumentReturn({area:areaFinanceira,detail,month:documentMonth,view:documentView,obraId:filterObra,positions,previous:documentReturn});
+    setDocumentMonth(row.period||"");setDocumentView({query:"",filter:"all",selected:row.id});
+    setMemorial(null);setAreaFinanceira("documentos");
+  };
+  const backToMemorial=()=>{
+    positionToRestore.current=documentReturn.positions;
+    setDocumentMonth(documentReturn.month);setDocumentView(documentReturn.view);setFilterObra(documentReturn.obraId);
+    setAreaFinanceira(documentReturn.area);setMemorial(documentReturn.detail);setDocumentReturn(documentReturn.previous||null);
+  };
+  const memorialPanel=memorial?<FinancialMemorial detail={memorial} onClose={()=>setMemorial(null)} onOpenWork={onOpenWork} canOpenDocuments={findMemorialDocument} onDocuments={["admin","financeiro"].includes(currentUser?.role)?openMemorialDocuments:undefined}/>:null;
+  const openTodayAction=item=>{
+    const action=financeNextAction(data,item,currentUser);if(!action)return;
+    if(action.kind==='purchase'){setTodayPurchase({pedidoId:action.id});return;}
+    const row=action.kind==='document'?documentRegister(data).find(r=>r.type===action.type&&String(r.record.id)===String(action.id)):null;
+    if(action.kind==='document'&&!row)return;
+    setTaskReturn({area:areaFinanceira,obraId:filterObra,positions:captureFinancePosition(document.querySelector('main')),month:documentMonth,view:documentView,label:todayPurchase?'Voltar à conferência da compra':areaFinanceira==='pagamentos'?'Voltar à fila de pagamentos':'Voltar à fila financeira'});
+    if(action.kind==='invoice'){conferirNota(action.id);return;}
+    setDocumentMonth(row.period||'');setDocumentView({query:'',filter:'all',selected:row.id});setAreaFinanceira('documentos');
+  };
+  const workFilter=<Sel label="Obra" value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as obras"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>;
+
 
   // Gráfico: receita vs custo MO por obra
   const chartData = obraRows.map(r=>({
@@ -5721,40 +4469,45 @@ function Financeiro({ data, update, showToast, currentUser, dispatchCommand=asyn
   const obraName = id => obraPorIdFin.get(id)?.name||"-";
 
   const StatusBar = ({pct, color=C.green}) => (
-    <div style={{height:6,background:C.surface,borderRadius:99,overflow:"hidden",marginTop:6}}>
-      <div style={{height:"100%",width:`${Math.min(pct,100)}%`,background:pct>100?C.red:color,borderRadius:99,transition:"width .3s"}}/>
+    <div style={{height:6,background:"var(--arcd-surface-muted)",borderRadius:99,overflow:"hidden",marginTop:"var(--arcd-space-1)"}}>
+      <div style={{height:"100%",width:`${Math.min(pct,100)}%`,background:pct>100?"var(--arcd-danger-text)":color,borderRadius:99,transition:"width .3s"}}/>
     </div>
   );
 
   const podeAcessarAdministrativoFinanceiro=["admin","financeiro"].includes(currentUser?.role);
-  const abasFinanceiras=[["visao","Visão financeira"],...(podeAcessarAdministrativoFinanceiro?[["pagamentos","Pagamentos"],["administrativo","Administrativo"],["fiscal","Notas fiscais"]]:[]),...(currentUser?.role==="admin"?[["fechamento","Fechamento"],["homologacao","Homologação"]]:[]),["ia","Modo IA"]];
-  const NavegacaoFinanceira=()=> <FlowTabs label="Áreas do financeiro" active={areaFinanceira} onChange={setAreaFinanceira}
-    steps={abasFinanceiras.filter(([id])=>["visao","pagamentos","fiscal","fechamento"].includes(id)).map(([id,label])=>({id,label}))}
-    tools={abasFinanceiras.filter(([id])=>!["visao","pagamentos","fiscal","fechamento"].includes(id)).map(([id,label])=>({id,label}))}/>;
-  if(areaFinanceira==="pagamentos"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><CentralPagamentosFinanceiro data={data} showToast={showToast} currentUser={currentUser} onNovaNota={abrirNovaNota} onAbrirFiscal={abrirFiscal} dispatchCommand={dispatchCommand} C={C}/></div>;
-  if(areaFinanceira==="administrativo"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><FinanceiroAdministrativo data={data} update={update} showToast={showToast} currentUser={currentUser} C={C}/></div>;
-  if(areaFinanceira==="fiscal"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><CentralFiscal data={data} update={update} showToast={showToast} currentUser={currentUser} abrirCadastro={abrirCadastroFiscal} onCadastroAberto={confirmarAberturaFiscal} dispatchCommand={dispatchCommand}/></div>;
-  if(areaFinanceira==="fechamento"&&currentUser?.role==="admin")return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><FechamentoFinanceiroMensal data={data} update={update} showToast={showToast} currentUser={currentUser} C={C}/></div>;
-  if(areaFinanceira==="homologacao"&&currentUser?.role==="admin")return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><HomologacaoFinanceira data={data} showToast={showToast} C={C}/></div>;
-  if(areaFinanceira==="ia")return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><ModoIADocumento modulo="financeiro" data={data} update={update} showToast={showToast} currentUser={currentUser} onClose={()=>setAreaFinanceira("fiscal")} dispatchCommand={dispatchCommand}/></div>;
+  const abasFinanceiras=[["hoje","Hoje"],["caixa","Caixa por conta"],["visao","Visão financeira"],...(podeAcessarAdministrativoFinanceiro?[["etapas","Custos por etapa"],["previsoes","Previsões gerenciais"],["documentos","Documentos"],["relatorios","Relatórios financeiros"],["pagamentos","Pagamentos"],["administrativo","Administrativo"],["fiscal","Notas fiscais"]]:[]),...(currentUser?.role==="admin"?[["fechamento","Fechamento"],["homologacao","Homologação"]]:[]),["ia","Modo IA"]];
+  const navegacaoFinanceira=<><WorkspaceHeading title="Financeiro" navigation={<WorkspaceNavigation className="financial-navigation" label="Áreas do financeiro" active={areaFinanceira} onChange={setAreaFinanceira}
+    items={abasFinanceiras.filter(([id])=>["hoje","pagamentos","caixa","documentos"].includes(id)).map(([id,label])=>({id,label}))}
+    toolsLabel="Mais áreas"
+    tools={abasFinanceiras.filter(([id])=>!["hoje","pagamentos","caixa","documentos"].includes(id)).map(([id,label])=>({id,label}))}/>}/>
+    {areaFinanceira==="etapas"&&<WorkspaceCommandBar label="Comandos do Financeiro" scope={workFilter}/>}
+    {financialReturn&&!taskReturn&&!fiscalReturn&&!documentReturn&&<nav className="financial-origin-return" aria-label="Retorno à conferência financeira"><p>Retome a origem com o recorte anterior.</p><Button variant="outline" onClick={backFinancialOrigin}>{financialReturn.area==="fechamento"?"Voltar à conferência do fechamento":financialReturn.area==="documentos"?"Voltar à central de documentos":"Voltar à rotina financeira de origem"}</Button></nav>}{taskReturn&&<Btn v="ghost" onClick={()=>{positionToRestore.current=taskReturn.positions;setFilterObra(taskReturn.obraId);setDocumentMonth(taskReturn.month);setDocumentView(taskReturn.view);setAreaFinanceira(taskReturn.area);setTaskReturn(null);}}>{taskReturn.label}</Btn>}</>;
+  if(areaFinanceira==="previsoes"&&podeAcessarAdministrativoFinanceiro)return <div className="financial-overview">{navegacaoFinanceira}<Suspense fallback={<p role="status">Preparando previsões gerenciais…</p>}><ForecastWorkspace dispatchCommand={dispatchCommand} data={data} currentUser={currentUser} calcPeriod={calcVisaoFinanceira} today={currentDate} view={forecastView} onViewChange={setForecastView} obraId={filterObra} onObraChange={setFilterObra} onOpen={setMemorial} onCosts={obraId=>{setFilterObra(obraId);setForecastReturn(true);setAreaFinanceira("etapas");}} /></Suspense>{memorialPanel}</div>;
+  if(areaFinanceira==="caixa")return <div className="financial-overview">{navegacaoFinanceira}<CashWorkspace scopeControl={workFilter} currentUser={currentUser} data={data} ledger={financialView.selected.ledger} today={currentDate} obraId={filterObra} onOpen={setMemorial} view={cashView} onViewChange={setCashView} scenario={cashScenario} onScenarioChange={setCashScenario}/>{memorialPanel}</div>;
+  if(areaFinanceira==="hoje")return <div className="financial-overview">{navegacaoFinanceira}<FinanceToday scopeControl={workFilter} scope={filterObra} preferences={todayPreferences} onPreferencesChange={setTodayPreferences} active={todayQueue} onActiveChange={setTodayQueue} queues={queues} today={currentDate} work={filterObra==="all"?"Todas as obras":obraName(filterObra)} onOpen={setMemorial} onAllocate={item=>setTodayPayment(item.sourceId)} resolveAction={item=>financeNextAction(data,item,currentUser)} onAction={openTodayAction}/><Btn v="ghost" onClick={()=>setAreaFinanceira("caixa")}>Abrir caixa por conta e previsão</Btn>{memorialPanel}{todayPayment&&<PaymentDialog data={data} user={currentUser} type="nota" id={todayPayment} pageId="fin" dispatch={dispatchCommand} onClose={()=>setTodayPayment(null)} onSaved={()=>showToast('Operação financeira confirmada.')}/>}{todayPurchase&&<PurchaseDossier data={data} selection={todayPurchase} currentUser={currentUser} onReviewInvoice={invoice=>openTodayAction({sourceType:'nota_fiscal',sourceId:invoice.id,obraId:invoice.obraId})} onClose={()=>setTodayPurchase(null)}/>}</div>;
+  if(areaFinanceira==="etapas"&&podeAcessarAdministrativoFinanceiro)return <div className="financial-overview">{navegacaoFinanceira}{forecastReturn&&<Button variant="secondary" onClick={()=>{setForecastReturn(false);setAreaFinanceira("previsoes");}}>Voltar às previsões gerenciais</Button>}<WorkStageCosts data={data} ledger={stageLedger.ledger} missingStart={stageLedger.missingStart} obraId={filterObra} asOf={currentDate} onOpen={setMemorial} view={costReviewView} onViewChange={setCostReviewView} dispatchCommand={dispatchCommand} currentUser={currentUser}/>{memorialPanel}</div>;
+  if(areaFinanceira==="relatorios"&&podeAcessarAdministrativoFinanceiro)return <div className="financial-overview">{navegacaoFinanceira}<FinancialReportCenter data={data} calcPeriod={calcVisaoFinanceira} view={reportView} onViewChange={setReportView} obraId={filterObra} onObraChange={setFilterObra} onOpen={setMemorial} loadSpreadsheet={async()=>{await carregarXLSX();return XLSX;}}/>{memorialPanel}</div>;
+  if(areaFinanceira==="documentos"&&podeAcessarAdministrativoFinanceiro)return <div className="financial-overview">{navegacaoFinanceira}{documentReturn&&<Btn v="ghost" onClick={backToMemorial}>Voltar ao memorial de origem</Btn>}<DocumentCenter scopeControl={workFilter} onPayments={openInvoicePayments} onBank={podeAcessarAba(currentUser,"conc")?openInvoiceBank:undefined} currentUser={currentUser} onObra={setFilterObra} view={documentView} onViewChange={setDocumentView} data={data} obraId={filterObra} competence={documentMonth} onCompetence={setDocumentMonth} onOpen={setMemorial} onReview={conferirNota} onReceive={abrirNovaNota}/>{memorialPanel}</div>;
+  if(areaFinanceira==="pagamentos"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>{navegacaoFinanceira}{memorialPanel}<CentralPagamentosFinanceiro view={paymentView} onViewChange={setPaymentView} onBank={podeAcessarAba(currentUser,"conc")?openInvoiceBank:undefined} obraId={filterObra} onObraChange={setFilterObra} onMemorial={setMemorial} data={data} showToast={showToast} currentUser={currentUser} onNovaNota={abrirNovaNota} onAbrirFiscal={abrirFiscal} onReviewInvoice={invoice=>openTodayAction({sourceType:"nota_fiscal",sourceId:invoice.id,obraId:invoice.obraId})} dispatchCommand={dispatchCommand} C={C}/></div>;
+  if(areaFinanceira==="administrativo"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>{navegacaoFinanceira}<FinanceiroAdministrativo data={data} update={update} showToast={showToast} currentUser={currentUser} C={C}/></div>;
+  if(areaFinanceira==="fiscal"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>{navegacaoFinanceira}{fiscalReturn&&<Btn v="ghost" onClick={()=>{positionToRestore.current=fiscalReturn.positions;setFilterObra(fiscalReturn.obraId);setFiscalReturn(null);setAreaFinanceira("documentos");}}>Voltar à central de documentos</Btn>}{memorialPanel}<CentralFiscal abrirNotaId={notaParaConferir} onNotaAberta={confirmarNotaAberta} obraIdFiltro={filterObra} onObraChange={setFilterObra} onMemorial={setMemorial} data={data} update={update} showToast={showToast} currentUser={currentUser} abrirCadastro={abrirCadastroFiscal} onCadastroAberto={confirmarAberturaFiscal} dispatchCommand={dispatchCommand}/></div>;
+  if(areaFinanceira==="fechamento"&&currentUser?.role==="admin")return <div className="anim" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>{navegacaoFinanceira}{memorialPanel}{closingOrigin&&<ClosingOriginEditor key={`${closingOrigin.type}:${closingOrigin.record.id}`} row={closingOrigin} data={data} user={currentUser} dispatch={dispatchCommand} onAdopt={update} onClose={()=>setClosingOrigin(null)}/>}<FechamentoFinanceiroMensal onCorrect={openClosingOrigin} onBank={podeAcessarAba(currentUser,"conc")?transaction=>navigateFinancial?.("conc",{},{action:"review-financial-origin",record:{transactionIds:[transaction.id],accountId:transaction.contaBancariaId||"",label:"Pendência do fechamento"}}):undefined} onMemorial={setMemorial} onDocuments={competence=>{rememberFinancialOrigin();setDocumentMonth(competence);setFilterObra("all");setAreaFinanceira("documentos");}} data={data} update={update} showToast={showToast} currentUser={currentUser} C={C}/></div>;
+  if(areaFinanceira==="homologacao"&&currentUser?.role==="admin")return <div className="anim" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>{navegacaoFinanceira}<HomologacaoFinanceira data={data} showToast={showToast} C={C}/></div>;
+  if(areaFinanceira==="ia")return <div className="anim" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>{navegacaoFinanceira}<ModoIADocumento modulo="financeiro" data={data} update={update} showToast={showToast} currentUser={currentUser} onClose={()=>setAreaFinanceira("fiscal")} dispatchCommand={dispatchCommand}/></div>;
 
   return (
-    <div className="anim financial-overview" style={{display:"flex",flexDirection:"column",gap:10}}>
-      <NavegacaoFinanceira/>
-      <PageHero
-        eyebrow="Gestão financeira"
-        title="Financeiro por obra"
-        description="Margem, contrato, mão de obra e recebimentos no mesmo recorte."
-      />
+    <div className="anim financial-overview" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+      {navegacaoFinanceira}
+      <header className="financial-heading"><h2>Financeiro por obra</h2><p>Resultado por competência; entradas e saídas pela data do movimento.</p></header>
 
       {/* Filtros */}
-      <div className="financial-overview-filters" style={{display:"grid",gridTemplateColumns:"120px 160px minmax(220px,1fr)",gap:6}}>
+      <div className="financial-overview-filters" style={{display:"grid",gridTemplateColumns:"120px 160px minmax(220px,1fr)",gap:"var(--arcd-space-1)"}}>
         <Sel label="Ano" value={String(year)} onChange={v=>setYear(Number(v))} options={years}/>
         <Sel label="Mês" value={String(month)} onChange={v=>setMonth(Number(v))} options={Array.from({length:12},(_,i)=>({v:String(i),l:fullMonth(i)}))}/>
         <Sel label="Obra" value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as obras"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
       </div>
 
-      <FinancialOverviewMetrics totals={T} margin={totalMarginPct}/>
+      <FinancialOverviewMetrics totals={T} margin={totalMarginPct} onSelect={openMetric}/>{memorialPanel}
       <div className="financial-secondary-metrics">
         {[
           ["Custos comprometidos",fmt(T.committed),C.text],
@@ -5762,64 +4515,67 @@ function Financeiro({ data, update, showToast, currentUser, dispatchCommand=asyn
           ["Pagamentos não alocados",fmt(T.unallocatedPayments),T.unallocatedPayments?C.orange:C.text],
           ["Estornos e cancelamentos",fmt(T.reversals),C.text],
         ].map(([label,value,color],index)=><div key={label}>
-          <p>{label}</p><b style={{color}}>{value}</b>
+          <p><StandardButton variant="secondary" type="button" className="financial-kpi-link" onClick={()=>openSecondaryMetric(index)}>{label}</StandardButton></p><b style={{color}}>{value}</b>
           {index===3&&<small>{T.reversalCount} estorno(s) · {T.cancelledCount} cancelamento(s)</small>}
         </div>)}
       </div>
 
+      <Btn v="ghost" onClick={()=>setAreaFinanceira("caixa")}>Abrir caixa por conta e previsão</Btn>
+      <details className="financial-analysis"><summary>Análises e gráficos por obra</summary>
       <RankingFinanceiro data={data} year={year} month={month} obraId={filterObra==="all"?"":filterObra} onSelecionarObra={setFilterObra} C={C}/>
 
       {/* Gráficos: receita vs custo e cadência quinzenal */}
-      <Suspense fallback={<div className="arcd-page-loading">Carregando gráficos...</div>}>
+      <Suspense fallback={<LoadingState label="gráficos"/>}>
         <LazyFinanceiroCharts chartData={chartData} quinzenalChart={quinzenalChart} C={C}/>
       </Suspense>
+      </details>
 
       {/* Fluxo de caixa */}
-      <FluxoCaixa data={data}/>
+      <details className="financial-analysis"><summary>Histórico mensal e estimativas gerais</summary><FluxoCaixa data={data} year={year} month={month} obraId={filterObra}/></details>
 
       {/* Cards por obra */}
-      <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:1}}>Análise por obra - {fullMonth(month)} {year}</p>
+      <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>Análise por obra - {fullMonth(month)} {year}</p>
       {obraRows.map(r => {
         const exp = expanded===r.id;
         const commitColor = r.commitment!=null&&r.commitment>100 ? C.red : r.commitment!=null&&r.commitment>80 ? C.orange : C.green;
         return (
-          <div key={r.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
-            <button onClick={()=>setExpanded(exp?null:r.id)} style={{
-              width:"100%",background:"transparent",border:0,color:C.text,
-              padding:"14px 16px",textAlign:"left",cursor:"pointer",
+          <div key={r.id} style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:10,overflow:"hidden"}}>
+            <StandardButton variant="secondary" onClick={()=>setExpanded(exp?null:r.id)} style={{
+              width:"100%",background:"transparent",border:0,color:"var(--arcd-text-primary)",
+              padding:"var(--arcd-space-3) var(--arcd-space-4)",textAlign:"left",cursor:"pointer",
 
             }}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-2)"}}>
                 <div style={{flex:1}}>
-                  <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-section-title)",letterSpacing:.3}}>{r.name}</p>
-                  <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:4}}>
+                  <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:"var(--arcd-font-weight-semibold)",fontSize:"var(--arcd-type-section-title)",letterSpacing:"var(--arcd-letter-spacing-body)"}}>{r.name}</p>
+                  <div style={{display:"flex",gap:"var(--arcd-space-1)",flexWrap:"wrap",marginTop:"var(--arcd-space-1)"}}>
                     <Badge color={C.yellow}>{CONTRACT_LABELS[r.contractType]||r.contractType}</Badge>
                     {r.contractValue>0 && <Badge color={C.subtle}>Contrato: {fmt(r.contractValue)}</Badge>}
                     <Badge color={C.muted}>{r.activeEmps} MO  {r.activeTercCount} terceiros</Badge>
                   </div>
                 </div>
                 <div style={{textAlign:"right",flexShrink:0}}>
-                  <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-section-title)",color:r.margin>=0?C.green:C.red,letterSpacing:.5,lineHeight:1}}>{fmt(r.margin)}</p>
-                  <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>margem real {r.marginPct.toFixed(0)}%</p>
+                  <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:"var(--arcd-font-weight-semibold)",fontSize:"var(--arcd-type-section-title)",color:r.margin>=0?"var(--arcd-success-text)":"var(--arcd-danger-text)",letterSpacing:"var(--arcd-letter-spacing-body)",lineHeight:"var(--arcd-line-height-normal)"}}>{fmt(r.margin)}</p>
+                  <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>margem real {r.marginPct.toFixed(0)}%</p>
                 </div>
               </div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,marginTop:10}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-2)"}}>
                 {[
                   ["Receita",fmt(r.revenue),C.green],
                   ["Custo MO",fmt(r.laborCost),C.orange],
                   ["Recebido",fmt(r.received),C.blue],
                 ].map(([l,v,c])=>(
-                  <div key={l} style={{background:C.surface,padding:"6px 8px",borderRadius:8}}>
-                    <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>{l}</p>
-                    <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:c}}>{v}</p>
+                  <div key={l} style={{background:"var(--arcd-surface-muted)",padding:"var(--arcd-space-1) var(--arcd-space-2)",borderRadius:8}}>
+                    <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",fontWeight:"var(--arcd-font-weight-semibold)"}}>{l}</p>
+                    <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:c}}>{v}</p>
                   </div>
                 ))}
               </div>
               {r.commitment!=null && (
-                <div style={{marginTop:8}}>
-                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
-                    <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Comprometimento do contrato</p>
-                    <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:commitColor}}>{r.commitment.toFixed(1)}%</p>
+                <div style={{marginTop:"var(--arcd-space-2)"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:"var(--arcd-space-half)"}}>
+                    <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Comprometimento do contrato</p>
+                    <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:commitColor}}>{r.commitment.toFixed(1)}%</p>
                   </div>
                   <StatusBar pct={r.commitment} color={commitColor}/>
                 </div>
@@ -5831,30 +4587,30 @@ function Financeiro({ data, update, showToast, currentUser, dispatchCommand=asyn
                 const evoFin = r.contractValue > 0 ? (r.receivedTotal / r.contractValue) * 100 : null;
                 if (!prz && evoFin == null) return null;
                 return (
-                  <div style={{marginTop:8,display:"flex",flexDirection:"column",gap:8}}>
+                  <div style={{marginTop:"var(--arcd-space-2)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
                     {prz && (
                       <div>
-                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
-                          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Prazo da obra</p>
-                          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:prz.cor}}>{prz.rotulo}</p>
+                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:"var(--arcd-space-half)"}}>
+                          <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Prazo da obra</p>
+                          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:prz.cor}}>{prz.rotulo}</p>
                         </div>
                         <StatusBar pct={prz.pct} color={prz.cor}/>
-                        <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>
+                        <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>
                           {fmtDate(r.contractStart)}{r.contractEnd ? ` a ${fmtDate(r.contractEnd)}` : ""}
                         </p>
                       </div>
                     )}
                     {evoFin != null && (
                       <div>
-                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
-                          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Evolucao financeira (recebido / contrato)</p>
-                          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.green}}>{evoFin.toFixed(1)}%</p>
+                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:"var(--arcd-space-half)"}}>
+                          <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Evolucao financeira (recebido / contrato)</p>
+                          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-success-text)"}}>{evoFin.toFixed(1)}%</p>
                         </div>
                         <StatusBar pct={Math.min(evoFin,100)} color={C.green}/>
-                        <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>
+                        <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>
                           {fmt(r.receivedTotal)} de {fmt(r.contractValue)}
                           {prz && Math.abs(evoFin - prz.pct) >= 12 && (
-                            <span style={{color: evoFin < prz.pct ? C.red : C.orange, fontWeight:600}}>
+                            <span style={{color: evoFin < prz.pct ? "var(--arcd-danger-text)" : "var(--arcd-warning-text)", fontWeight:"var(--arcd-font-weight-semibold)"}}>
                               {" - "}{evoFin < prz.pct ? "recebimento atras do prazo" : "recebimento adiantado"}
                             </span>
                           )}
@@ -5864,11 +4620,11 @@ function Financeiro({ data, update, showToast, currentUser, dispatchCommand=asyn
                   </div>
                 );
               })()}
-            </button>
+            </StandardButton>
 
             {exp && (
-              <div style={{borderTop:`1px solid ${C.line}`,padding:"14px 16px",background:C.surface,display:"flex",flexDirection:"column",gap:10}}>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
+              <div style={{borderTop:"1px solid var(--arcd-border-default)",padding:"var(--arcd-space-3) var(--arcd-space-4)",background:"var(--arcd-surface-muted)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"var(--arcd-space-2)"}}>
                   {[
                     ["Contrato",fmt(r.contractValue),C.subtle],
                     ["Admin %",r.adminPercentage>0?`${r.adminPercentage}%`:"-",C.subtle],
@@ -5887,36 +4643,36 @@ function Financeiro({ data, update, showToast, currentUser, dispatchCommand=asyn
                     ["Resultado competência",fmt(r.margin),r.margin>=0?C.green:C.red],
                     ["Custos comprometidos",fmt(r.committed),C.orange],
                   ].map(([l,v,c])=>(
-                    <div key={l} style={{background:C.card,border:`1px solid ${C.border}`,padding:"8px 10px",borderRadius:8}}>
-                      <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600,marginBottom:3}}>{l}</p>
-                      <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:c}}>{v}</p>
+                    <div key={l} style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",padding:"var(--arcd-space-2)",borderRadius:8}}>
+                      <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",fontWeight:"var(--arcd-font-weight-semibold)",marginBottom:"var(--arcd-space-half)"}}>{l}</p>
+                      <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:c}}>{v}</p>
                     </div>
                   ))}
                 </div>
-                <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,fontStyle:"italic"}}>Receita e custos seguem competência; recebimentos e pagamentos seguem a data efetiva de caixa.</p>
+                <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",fontStyle:"italic"}}>Receita e custos seguem competência; recebimentos e pagamentos seguem a data efetiva de caixa.</p>
               </div>
             )}
           </div>
         );
       })}
-      {obraRows.length===0&&<div style={{textAlign:"center",padding:"32px 0",color:C.muted}}>Nenhuma obra com dados no período.</div>}
+      {obraRows.length===0&&<div style={{textAlign:"center",padding:"var(--arcd-space-8) var(--arcd-space-0)",color:"var(--arcd-text-secondary)"}}>Nenhuma obra com dados no período.</div>}
 
       {/* Recebimentos */}
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:4}}>
-        <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:1}}>Recebimentos registrados</p>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:"var(--arcd-space-1)"}}>
+        <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>Recebimentos registrados</p>
         <Btn onClick={()=>setPayModal(true)} size="sm"><Ic n="plus"/> Novo</Btn>
       </div>
 
-      {allPayments.length===0&&<div style={{background:C.card,border:`1px solid ${C.border}`,padding:"20px",textAlign:"center",color:C.muted,borderRadius:10}}>Nenhum recebimento registrado ainda.</div>}
+      {allPayments.length===0&&<div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",padding:"var(--arcd-space-5)",textAlign:"center",color:"var(--arcd-text-secondary)",borderRadius:10}}>Nenhum recebimento registrado ainda.</div>}
       {allPayments.map(p=>(
-        <div key={p.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`1px solid ${C.green}`,padding:"12px 14px",borderRadius:10,display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
+        <div key={p.id} style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderLeft:"1px solid var(--arcd-success-text)",padding:"var(--arcd-space-3)",borderRadius:10,display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)"}}>
           <div>
-            <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-card-title)"}}>{p.description}</p>
-            <p style={{color:C.muted,fontSize:"var(--arcd-type-body)"}}>{obraName(p.obraId)}  {fmtDateFull(p.date)}</p>
+            <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:"var(--arcd-font-weight-semibold)",fontSize:"var(--arcd-type-card-title)"}}>{p.description}</p>
+            <p style={{color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-body)"}}>{obraName(p.obraId)}  {fmtDateFull(p.date)}</p>
           </div>
-          <div style={{display:"flex",alignItems:"center",gap:10}}>
-            <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-section-title)",color:C.green,letterSpacing:.5}}>{fmt(p.amount)}</p>
-            {p.removable
+          <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)"}}>
+            <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:"var(--arcd-font-weight-semibold)",fontSize:"var(--arcd-type-section-title)",color:"var(--arcd-success-text)",letterSpacing:"var(--arcd-letter-spacing-body)"}}>{fmt(p.amount)}</p>
+            <Btn v="ghost" size="sm" onClick={()=>setMemorial({title:p.description,items:[financialEntry(data,p)],context:"Recebimento · data do movimento"})}>Ver memorial</Btn>{p.removable
               ? <Btn v="danger" size="sm" disabled={paymentCommandPending} onClick={()=>removePayment(p.sourceId)}><Ic n="trash"/></Btn>
               : <Badge color={C.muted}>Vinculado</Badge>}
           </div>
@@ -5927,12 +4683,12 @@ function Financeiro({ data, update, showToast, currentUser, dispatchCommand=asyn
 
       {payModal&&(
         <Modal title="Registrar recebimento" onClose={()=>setPayModal(false)}>
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+          <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
             <Sel label="Obra *" value={payForm.obraId} onChange={PF("obraId")} options={[{v:"",l:"Selecione a obra"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
             <Inp label="Data *" type="date" value={payForm.date} onChange={PF("date")}/>
             <Inp label="Valor recebido (R$) *" type="number" value={payForm.amount} onChange={PF("amount")} placeholder="0,00"/>
             <Inp label="Descrição" value={payForm.description} onChange={PF("description")} placeholder="Ex.: Medição #1, parcela 50%..."/>
-            <div style={{display:"flex",gap:8}}>
+            <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
               <Btn v="ghost" disabled={paymentCommandPending} onClick={()=>setPayModal(false)} full>Cancelar</Btn>
               <Btn v="success" disabled={paymentCommandPending} onClick={savePayment} full><Ic n="check"/> {paymentCommandPending?"Salvando...":"Salvar"}</Btn>
             </div>
@@ -5952,11 +4708,11 @@ const clienteContratualVazio = () => ({id:"",leadId:"",nome:"",tipoPessoa:"PF",d
 function ClienteContratualModal({form,setForm,onClose,onSave,formGrid}){
   const F=k=>v=>setForm(f=>({...f,[k]:v}));
   const civis=["Solteiro(a)","Casado(a)","União estável","Divorciado(a)","Separado(a)","Viúvo(a)"];
-  return <Modal title={form.id?"Editar cliente":"Novo cliente contratual"} onClose={onClose} wide><div style={{display:"flex",flexDirection:"column",gap:12}}>
-    <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Sel label="Tipo de pessoa *" value={form.tipoPessoa} onChange={v=>setForm(f=>({...f,tipoPessoa:v,documento:""}))} options={[{v:"PF",l:"Pessoa física"},{v:"PJ",l:"Pessoa jurídica"}]}/><Inp label={form.tipoPessoa==="PJ"?"Nome para identificação *":"Nome completo *"} value={form.nome} onChange={F("nome")}/><Inp label={`${form.tipoPessoa==="PJ"?"CNPJ":"CPF"} *`} value={maskDoc(form.documento,form.tipoPessoa)} onChange={v=>F("documento")(soDigitos(v))}/></div>
-    {form.tipoPessoa==="PF"?<><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.yellowD,textTransform:"uppercase"}}>Qualificação pessoal</p><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Inp label="RG / identidade *" value={form.rg} onChange={F("rg")}/><Inp label="Órgão expedidor / UF *" value={form.orgaoExpedidor} onChange={F("orgaoExpedidor")}/><Inp label="Data de nascimento" type="date" value={form.dataNascimento} onChange={F("dataNascimento")}/><Inp label="Nacionalidade *" value={form.nacionalidade} onChange={F("nacionalidade")}/><Sel label="Estado civil *" value={form.estadoCivil} onChange={F("estadoCivil")} options={[{v:"",l:"Selecione"},...civis.map(v=>({v,l:v}))]}/><Inp label="Regime de bens" value={form.regimeBens} onChange={F("regimeBens")}/><Inp label="Profissão *" value={form.profissao} onChange={F("profissao")}/></div>{["Casado(a)","União estável"].includes(form.estadoCivil)&&<div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}><Inp label="Nome do cônjuge/companheiro" value={form.conjugeNome} onChange={F("conjugeNome")}/><Inp label="CPF do cônjuge/companheiro" value={maskDoc(form.conjugeCpf,"PF")} onChange={v=>F("conjugeCpf")(soDigitos(v))}/></div>}</>:<><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.yellowD,textTransform:"uppercase"}}>Empresa e representante legal</p><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Inp label="Razão social *" value={form.razaoSocial} onChange={F("razaoSocial")}/><Inp label="Nome fantasia" value={form.nomeFantasia} onChange={F("nomeFantasia")}/><Inp label="Inscrição estadual" value={form.inscricaoEstadual} onChange={F("inscricaoEstadual")}/><Inp label="Inscrição municipal" value={form.inscricaoMunicipal} onChange={F("inscricaoMunicipal")}/><Inp label="Representante legal *" value={form.representanteNome} onChange={F("representanteNome")}/><Inp label="CPF do representante *" value={maskDoc(form.representanteCpf,"PF")} onChange={v=>F("representanteCpf")(soDigitos(v))}/><Inp label="RG / órgão expedidor" value={`${form.representanteRg}${form.representanteOrgaoExpedidor?` · ${form.representanteOrgaoExpedidor}`:""}`} onChange={F("representanteRg")}/><Inp label="Cargo / poderes *" value={form.representanteCargo} onChange={F("representanteCargo")}/><Inp label="Nacionalidade" value={form.representanteNacionalidade} onChange={F("representanteNacionalidade")}/><Sel label="Estado civil" value={form.representanteEstadoCivil} onChange={F("representanteEstadoCivil")} options={[{v:"",l:"Selecione"},...civis.map(v=>({v,l:v}))]}/><Inp label="Profissão" value={form.representanteProfissao} onChange={F("representanteProfissao")}/></div></>}
-    <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.yellowD,textTransform:"uppercase"}}>Contato e domicílio contratual</p><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Inp label="Telefone *" value={form.telefone} onChange={F("telefone")}/><Inp label="WhatsApp" value={form.whatsapp} onChange={F("whatsapp")}/><Inp label="E-mail *" type="email" value={form.email} onChange={F("email")}/><Inp label="CEP *" value={form.cep} onChange={F("cep")}/><Inp label="Logradouro *" value={form.endereco} onChange={F("endereco")}/><Inp label="Número *" value={form.numero} onChange={F("numero")}/><Inp label="Complemento" value={form.complemento} onChange={F("complemento")}/><Inp label="Bairro *" value={form.bairro} onChange={F("bairro")}/><Inp label="Cidade *" value={form.cidade} onChange={F("cidade")}/><Inp label="UF *" value={form.uf} onChange={v=>F("uf")(v.toUpperCase().slice(0,2))}/></div><Inp label="Observações contratuais" value={form.observacoes} onChange={F("observacoes")} multiline/>
-    <div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={onClose} full>Cancelar</Btn><Btn onClick={onSave} full><Ic n="check"/> Salvar cliente</Btn></div>
+  return <Modal title={form.id?"Editar cliente":"Novo cliente contratual"} onClose={onClose} wide><div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
+    <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:"var(--arcd-space-2)"}}><Sel label="Tipo de pessoa *" value={form.tipoPessoa} onChange={v=>setForm(f=>({...f,tipoPessoa:v,documento:""}))} options={[{v:"PF",l:"Pessoa física"},{v:"PJ",l:"Pessoa jurídica"}]}/><Inp label={form.tipoPessoa==="PJ"?"Nome para identificação *":"Nome completo *"} value={form.nome} onChange={F("nome")}/><Inp label={`${form.tipoPessoa==="PJ"?"CNPJ":"CPF"} *`} value={maskDoc(form.documento,form.tipoPessoa)} onChange={v=>F("documento")(soDigitos(v))}/></div>
+    {form.tipoPessoa==="PF"?<><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textTransform:"uppercase"}}>Qualificação pessoal</p><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:"var(--arcd-space-2)"}}><Inp label="RG / identidade *" value={form.rg} onChange={F("rg")}/><Inp label="Órgão expedidor / UF *" value={form.orgaoExpedidor} onChange={F("orgaoExpedidor")}/><Inp label="Data de nascimento" type="date" value={form.dataNascimento} onChange={F("dataNascimento")}/><Inp label="Nacionalidade *" value={form.nacionalidade} onChange={F("nacionalidade")}/><Sel label="Estado civil *" value={form.estadoCivil} onChange={F("estadoCivil")} options={[{v:"",l:"Selecione"},...civis.map(v=>({v,l:v}))]}/><Inp label="Regime de bens" value={form.regimeBens} onChange={F("regimeBens")}/><Inp label="Profissão *" value={form.profissao} onChange={F("profissao")}/></div>{["Casado(a)","União estável"].includes(form.estadoCivil)&&<div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}><Inp label="Nome do cônjuge/companheiro" value={form.conjugeNome} onChange={F("conjugeNome")}/><Inp label="CPF do cônjuge/companheiro" value={maskDoc(form.conjugeCpf,"PF")} onChange={v=>F("conjugeCpf")(soDigitos(v))}/></div>}</>:<><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textTransform:"uppercase"}}>Empresa e representante legal</p><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:"var(--arcd-space-2)"}}><Inp label="Razão social *" value={form.razaoSocial} onChange={F("razaoSocial")}/><Inp label="Nome fantasia" value={form.nomeFantasia} onChange={F("nomeFantasia")}/><Inp label="Inscrição estadual" value={form.inscricaoEstadual} onChange={F("inscricaoEstadual")}/><Inp label="Inscrição municipal" value={form.inscricaoMunicipal} onChange={F("inscricaoMunicipal")}/><Inp label="Representante legal *" value={form.representanteNome} onChange={F("representanteNome")}/><Inp label="CPF do representante *" value={maskDoc(form.representanteCpf,"PF")} onChange={v=>F("representanteCpf")(soDigitos(v))}/><Inp label="RG / órgão expedidor" value={`${form.representanteRg}${form.representanteOrgaoExpedidor?` · ${form.representanteOrgaoExpedidor}`:""}`} onChange={F("representanteRg")}/><Inp label="Cargo / poderes *" value={form.representanteCargo} onChange={F("representanteCargo")}/><Inp label="Nacionalidade" value={form.representanteNacionalidade} onChange={F("representanteNacionalidade")}/><Sel label="Estado civil" value={form.representanteEstadoCivil} onChange={F("representanteEstadoCivil")} options={[{v:"",l:"Selecione"},...civis.map(v=>({v,l:v}))]}/><Inp label="Profissão" value={form.representanteProfissao} onChange={F("representanteProfissao")}/></div></>}
+    <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textTransform:"uppercase"}}>Contato e domicílio contratual</p><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:"var(--arcd-space-2)"}}><Inp label="Telefone *" value={form.telefone} onChange={F("telefone")}/><Inp label="WhatsApp" value={form.whatsapp} onChange={F("whatsapp")}/><Inp label="E-mail *" type="email" value={form.email} onChange={F("email")}/><Inp label="CEP *" value={form.cep} onChange={F("cep")}/><Inp label="Logradouro *" value={form.endereco} onChange={F("endereco")}/><Inp label="Número *" value={form.numero} onChange={F("numero")}/><Inp label="Complemento" value={form.complemento} onChange={F("complemento")}/><Inp label="Bairro *" value={form.bairro} onChange={F("bairro")}/><Inp label="Cidade *" value={form.cidade} onChange={F("cidade")}/><Inp label="UF *" value={form.uf} onChange={v=>F("uf")(v.toUpperCase().slice(0,2))}/></div><Inp label="Observações contratuais" value={form.observacoes} onChange={F("observacoes")} multiline/>
+    <div style={{display:"flex",gap:"var(--arcd-space-2)"}}><Btn v="ghost" onClick={onClose} full>Cancelar</Btn><Btn onClick={onSave} full><Ic n="check"/> Salvar cliente</Btn></div>
   </div></Modal>;
 }
 
@@ -5980,8 +4736,8 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
   const clientes=data.comercial?.clientes||[];
   const condominios=(data.condominios||[]).filter(x=>x.ativo!==false);
   useEffect(()=>{
-    const id=sessionStorage.getItem("arcd_editar_obra");if(!id)return;
-    sessionStorage.removeItem("arcd_editar_obra");const obra=(data.obras||[]).find(o=>o.id===id);if(!obra)return;
+    const id=sessionContext.getItem("arcd_editar_obra");if(!id)return;
+    sessionContext.removeItem("arcd_editar_obra");const obra=(data.obras||[]).find(o=>o.id===id);if(!obra)return;
     setForm({...obra,areaM2:String(obra.areaM2||""),diaVenc1:String(obra.diaVenc1||DIA_VENC_1_PADRAO),diaVenc2:String(obra.diaVenc2||DIA_VENC_2_PADRAO)});setModal(true);
   },[data.obras]);
   const salvarClienteDaObra=async()=>{
@@ -6334,7 +5090,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
     : "Portfólio em dia, sem alertas críticos";
 
   return (
-    <div className="anim works-hub" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <div className="anim works-hub" style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
       <PageHero
         eyebrow="MARCELL · Engenharia operacional"
         title="Central de obras"
@@ -6344,23 +5100,26 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
           {label:"Obras ativas",value:obrasComando.filter(o=>o.status==="active").length,detail:"Em operação",color:C.green},
           {label:"Requer atenção",value:contagensObras.atencao,detail:"Dados e prazos",color:contagensObras.atencao?C.red:C.green},
           {label:"Prazo ≤ 30 dias",value:contagensObras.prazo,detail:"Janela crítica",color:contagensObras.prazo?C.orange:C.text},
-          {label:"Carteira ativa",value:fmtCompact(totalCarteira),detail:"Valor contratado",color:C.yellowD},
+          {label:"Carteira ativa",value:fmt(totalCarteira),detail:"Valor contratado",color:C.yellowD},
         ]}
         actions={<>
+          {ehAdmin&&<details className="works-files"><summary>Arquivos e pastas</summary><div>
           {ehAdmin&&<Btn v="ghost" onClick={()=>abrirOneDrive(data.config?.oneDriveRootUrl)}><Ic n="folder" s={14}/> Arquivos gerais</Btn>}
           {ehAdmin&&oneDriveStatus==="connected"&&<Btn v="ghost" disabled={sincronizandoPastas} onClick={()=>sincronizarPastas(true)}><Ic n="folder" s={14}/> {sincronizandoPastas?"Preparando pastas...":"Preparar pastas"}</Btn>}
           {ehAdmin&&oneDriveStatus!=="connected"&&<Btn v="ghost" onClick={conectarOneDrive}>Conectar OneDrive</Btn>}
+          </div></details>}
           {ehAdmin&&<Btn onClick={()=>abrirEditorObra()}><Ic n="plus" s={14}/> Nova obra</Btn>}
         </>}
       />
 
-      <section className="works-filter-bar" style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:C.rLg,padding:10,boxShadow:"none"}}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:9,flexWrap:"wrap"}}>
-          <div className="works-category-tabs" style={{display:"flex",gap:5,overflowX:"auto",paddingBottom:1,maxWidth:"100%"}}>
-            {categoriasObras.map(([v,l])=><button type="button" aria-pressed={categoria===v} data-active={categoria===v} key={v} onClick={()=>setCategoria(v)}>{l} <span>{contagensObras[v]}</span></button>)}
+      <section className="works-filter-bar" style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:C.rLg,padding:"var(--arcd-space-2)",boxShadow:"none"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
+          <label className="works-category-select">Situação das obras<SelectControl value={categoria} onChange={event=>setCategoria(event.target.value)}>{categoriasObras.map(([v,l])=><option key={v} value={v}>{l} · {contagensObras[v]}</option>)}</SelectControl></label>
+          <div className="works-category-tabs" style={{display:"flex",gap:"var(--arcd-space-1)",overflowX:"auto",paddingBottom:"var(--arcd-space-0)",maxWidth:"100%"}}>
+            {categoriasObras.map(([v,l])=><StandardButton variant="secondary" type="button" aria-pressed={categoria===v} data-active={categoria===v} key={v} onClick={()=>setCategoria(v)}>{l} <span>{contagensObras[v]}</span></StandardButton>)}
           </div>
-          <div className="works-view-toggle" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4,background:C.surface,padding:3,borderRadius:9}}>
-            {[["lista","Painel"],["quadro","Fluxo"]].map(([v,l])=><button type="button" aria-pressed={vista===v} data-active={vista===v} key={v} onClick={()=>setVista(v)}>{l}</button>)}
+          <div className="works-view-toggle" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-1)",background:"var(--arcd-surface-muted)",padding:"var(--arcd-space-half)",borderRadius:9}}>
+            {[["lista","Painel"],["quadro","Fluxo"]].map(([v,l])=><StandardButton variant="secondary" type="button" aria-pressed={vista===v} data-active={vista===v} key={v} onClick={()=>setVista(v)}>{l}</StandardButton>)}
           </div>
         </div>
       </section>
@@ -6375,30 +5134,30 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
             resumo, não dá pra saber se alguma obra sumiu ou só está fora da
             tela, numa coluna que exige rolar. */}
         <div style={{
-          background:C.surface, border:`1px solid ${C.border}`, borderRadius:6,
-          padding:"9px 12px", display:"flex", justifyContent:"space-between",
-          alignItems:"center", gap:8, flexWrap:"wrap",
+          background:"var(--arcd-surface-muted)", border:"1px solid var(--arcd-border-default)", borderRadius:6,
+          padding:"var(--arcd-space-2) var(--arcd-space-3)", display:"flex", justifyContent:"space-between",
+          alignItems:"center", gap:"var(--arcd-space-2)", flexWrap:"wrap",
         }}>
           <div>
-            <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,
+            <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",
                        fontFamily:"var(--arcd-font-sans)"}}>
               {(data.obras||[]).length} obra{(data.obras||[]).length===1?"":"s"} no quadro
             </p>
-            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
+            <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>
               {fases.filter(f => (porFase[f.id]||[]).length > 0)
                     .map(f => `${(porFase[f.id]||[]).length} em ${f.nome}`)
                     .join(" · ") || "nenhuma posicionada"}
             </p>
           </div>
           {somaQuadro !== (data.obras||[]).length && (
-            <span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.red,
-                          background:`${C.red}12`,padding:"4px 8px",borderRadius:6}}>
+            <span style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-danger-text)",
+                          background:"color-mix(in srgb, var(--arcd-danger-text) 7%, transparent)",padding:"var(--arcd-space-1) var(--arcd-space-2)",borderRadius:6}}>
               ! {somaQuadro} exibidas de {(data.obras||[]).length}
             </span>
           )}
         </div>
 
-        <div style={{...KB.scroll, margin:"0 -14px", padding:"0 14px 10px"}}>
+        <div style={{...KB.scroll, margin:"var(--arcd-space-0) calc(var(--arcd-space-3) * -1)", padding:"var(--arcd-space-0) var(--arcd-space-3) var(--arcd-space-2)"}}>
           {fases.map((fase, fi) => {
             const obrasDaFase = porFase[fase.id] || [];
             const alvo = sobreFase === fase.id;
@@ -6414,15 +5173,15 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
                 style={KB.coluna(fase.cor, alvo)}>
 
                 {/* Cabeçalho da coluna */}
-                <div style={{padding:"8px 10px", borderTop:`3px solid ${fase.cor}`, borderTopLeftRadius:8, borderTopRightRadius:8, borderBottom:`1px solid ${C.line}`, position:"sticky", top:0, zIndex:1, background:"inherit"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:6}}>
+                <div style={{padding:"var(--arcd-space-2)", borderTop:`3px solid ${fase.cor}`, borderTopLeftRadius:8, borderTopRightRadius:8, borderBottom:"1px solid var(--arcd-border-default)", position:"sticky", top:0, zIndex:1, background:"inherit"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-1)"}}>
                     <span style={{width:9,height:9,borderRadius:2,background:fase.cor,flexShrink:0}}/>
                     <p style={{
-                      flex:1, minWidth:0, fontSize:"var(--arcd-type-label)", fontWeight:600,
-                      textTransform:"uppercase", letterSpacing:.6, color:C.text,
+                      flex:1, minWidth:0, fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)",
+                      textTransform:"uppercase", letterSpacing:"var(--arcd-letter-spacing-body)", color:"var(--arcd-text-primary)",
                       overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
                     }}>{fase.nome}</p>
-                    {ehAdmin&&<div style={{display:"flex",gap:1,flexShrink:0}}>
+                    {ehAdmin&&<div style={{display:"flex",gap:"var(--arcd-space-0)",flexShrink:0}}>
                       <Btn v="ghost" size="sm" iconOnly onClick={()=>moverFase(fase.id,-1)} disabled={fi===0} title="Mover coluna p/ esquerda" ariaLabel="Mover coluna para a esquerda">
                         <Ic n="chevL" s={11}/>
                       </Btn>
@@ -6437,7 +5196,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
                       </Btn>
                     </div>}
                   </div>
-                  <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3}}>
+                  <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>
                     {obrasDaFase.length} obra{obrasDaFase.length===1?"":"s"}
                   </p>
                 </div>
@@ -6455,41 +5214,41 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
                         onDragEnd={() => { setArrastando(null); setSobreFase(null); }}
                         style={{
                           ...KB.card(null),
-                          border:`1px solid ${C.border}`,
+                          border:"1px solid var(--arcd-border-default)",
                           opacity: arrastando===o.id ? .4 : 1,
                           position:"relative",
                         }}>
-                        <div style={{display:"flex",justifyContent:"space-between",gap:6,alignItems:"flex-start"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-1)",alignItems:"flex-start"}}>
                           <p style={{
                             flex:1, minWidth:0,
                             fontFamily:"var(--arcd-font-sans)",
-                            fontSize:"var(--arcd-type-body)", fontWeight:600, color:C.text, lineHeight:1.3,
+                            fontSize:"var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-text-primary)", lineHeight:"var(--arcd-line-height-normal)",
                           }}>{o.name}</p>
                           {ehAdmin&&<Btn v="ghost" size="sm" iconOnly onClick={()=>setMenuCard(menu ? null : o.id)} title="Mover ou editar obra" ariaLabel="Mover ou editar obra" style={{flexShrink:0}}>⋮</Btn>}
                         </div>
 
                         {o.cliente && (
-                          <p style={{fontSize:"var(--arcd-type-label)",color:C.subtle,fontWeight:600,marginTop:2}}>{o.cliente}</p>
+                          <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-muted)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-half)"}}>{o.cliente}</p>
                         )}
                         {o.engineer && (
-                          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>Eng. {o.engineer}</p>
+                          <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Eng. {o.engineer}</p>
                         )}
 
-                        <div style={{display:"flex",alignItems:"center",gap:5,marginTop:6,flexWrap:"wrap"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-1)",flexWrap:"wrap"}}>
                           <Badge color={st.c}>{st.l}</Badge>
-                          <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted,background:C.surface,borderRadius:4,padding:"1px 5px"}}>
+                          <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",background:"var(--arcd-surface-muted)",borderRadius:4,padding:"var(--arcd-space-0) var(--arcd-space-1)"}}>
                             {CONTRACT_LABELS[o.contractType]||o.contractType}
                           </span>
                           {Number(o.areaM2)>0 && (
-                            <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{o.areaM2} m2</span>
+                            <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{o.areaM2} m2</span>
                           )}
                           {count>0 && (
-                            <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{count} func.</span>
+                            <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{count} func.</span>
                           )}
                         </div>
 
                         {Number(o.contractValue)>0 && (
-                          <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.yellow,marginTop:6}}>
+                          <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",marginTop:"var(--arcd-space-1)"}}>
                             {fmt(o.contractValue)}
                           </p>
                         )}
@@ -6498,8 +5257,8 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
                         {(o.contractStart || o.contractEnd) && (() => {
                           const prz = prazoObra(o);
                           return (
-                            <div style={{marginTop:5,display:"flex",flexDirection:"column",gap:2}}>
-                              <div style={{display:"flex",alignItems:"center",gap:5,fontSize:"var(--arcd-type-caption)",color:C.muted}}>
+                            <div style={{marginTop:"var(--arcd-space-1)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-half)"}}>
+                              <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-1)",fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>
                                 <Ic n="calendar" s={11} color={C.muted}/>
                                 <span>
                                   {o.contractStart ? fmtDate(o.contractStart) : "?"}
@@ -6508,7 +5267,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
                                 </span>
                               </div>
                               {prz && (
-                                <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:prz.cor}}>{prz.rotulo}</span>
+                                <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:prz.cor}}>{prz.rotulo}</span>
                               )}
                             </div>
                           );
@@ -6519,30 +5278,23 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
                         {menu && (
                           <div style={{
                             position:"absolute", top:28, right:8, zIndex:20,
-                            background:C.bg, border:`1.5px solid ${C.border}`,
+                            background:"var(--arcd-surface-page)", border:"1.5px solid var(--arcd-border-default)",
                             borderRadius:6, boxShadow:`0 6px 20px ${C.shadow}`,
-                            minWidth:180, padding:5,
+                            minWidth:180, padding:"var(--arcd-space-1)",
                           }}>
-                            <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase",
-                                       letterSpacing:.6,padding:"4px 7px"}}>Mover para</p>
+                            <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",
+                                       letterSpacing:"var(--arcd-letter-spacing-body)",padding:"var(--arcd-space-1) var(--arcd-space-2)"}}>Mover para</p>
                             {fases.filter(f=>f.id!==fase.id).map(f=>(
-                              <button key={f.id} onClick={()=>moverObra(o.id, f.id)} style={{
-                                width:"100%", textAlign:"left", display:"flex", alignItems:"center", gap:6,
-                                padding:"6px 7px", background:"transparent", border:0,
-                                borderRadius:5, cursor:"pointer", fontSize:"var(--arcd-type-control)", color:C.text,
-                                fontFamily:"var(--arcd-font-sans)",
-                              }}>
+                              <StandardButton variant="secondary" key={f.id} onClick={()=>moverObra(o.id, f.id)} style={{width:"100%",textAlign:"left",display:"flex",alignItems:"center",gap:"var(--arcd-space-1)"}}>
                                 <span style={{width:7,height:7,borderRadius:2,background:f.cor,flexShrink:0}}/>
                                 {f.nome}
-                              </button>
+                              </StandardButton>
                             ))}
-                            <div style={{height:1,background:C.line,margin:"4px 0"}}/>
-                            {ehAdmin&&<button onClick={()=>{abrirEditorObra(o);setMenuCard(null);}}
-                              style={{width:"100%",textAlign:"left",padding:"6px 7px",background:"transparent",
-                                      border:0,borderRadius:5,cursor:"pointer",fontSize:"var(--arcd-type-control)",color:C.text,
-                                      fontFamily:"var(--arcd-font-sans)"}}>
+                            <div style={{height:1,background:"var(--arcd-border-default)",margin:"var(--arcd-space-1) var(--arcd-space-0)"}}/>
+                            {ehAdmin&&<StandardButton variant="secondary" onClick={()=>{abrirEditorObra(o);setMenuCard(null);}}
+                              style={{width:"100%",textAlign:"left"}}>
                                Editar obra
-                            </button>}
+                            </StandardButton>}
                           </div>
                         )}
                       </div>
@@ -6550,7 +5302,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
                   })}
 
                   {obrasDaFase.length === 0 && (
-                    <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,textAlign:"center",padding:"14px 6px"}}>
+                    <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",textAlign:"center",padding:"var(--arcd-space-3) var(--arcd-space-1)"}}>
                       Mova uma obra para esta fase
                     </p>
                   )}
@@ -6561,96 +5313,91 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
 
           {/* Nova coluna */}
           {ehAdmin&&<div style={{flex:"0 0 168px",minWidth:168}}>
-            <button className="works-new-phase" onClick={abrirNovaFase} style={{
-              width:"100%", padding:"14px 10px",
-              background:"transparent", border:`1.5px dashed ${C.border}`,
-              borderRadius:8, cursor:"pointer", color:C.muted,
-              fontFamily:"var(--arcd-font-sans)", fontWeight:600, fontSize:"var(--arcd-type-control)",
-            }}>+ Nova fase</button>
+            <StandardButton variant="secondary" className="works-new-phase" onClick={abrirNovaFase} style={{width:"100%"}}>+ Nova fase</StandardButton>
           </div>}
         </div>
       </>)}
 
       {/*  LISTA  */}
       {vista === "lista" && <>
-      <label className="works-search" style={{display:"flex",alignItems:"center",gap:9,background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"8px 11px"}}>
+      <label className="works-search" style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)"}}>
         <Ic n="search" s={16} color={C.muted}/>
-        <span className="sr-only">Buscar obras</span><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar por obra, cliente, endereço, responsável ou fase..." style={{flex:1,minWidth:0,border:0,outline:0,background:"transparent",color:C.text,fontSize:"var(--arcd-type-control)",fontFamily:"inherit",padding:"4px 0"}}/>
-        <span style={{fontSize:"var(--arcd-type-label)",color:C.muted,whiteSpace:"nowrap"}}>{list.length} resultado{list.length===1?"":"s"}</span>
+        <span className="sr-only">Buscar obras</span><StandardInput value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar por obra, cliente, endereço, responsável ou fase..." style={{flex:1,minWidth:0}}/>
+        <span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",whiteSpace:"nowrap"}}>{list.length} resultado{list.length===1?"":"s"}</span>
       </label>
 
-      <div className="works-grid" style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:12}}>
+      <div className="works-grid" style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:"var(--arcd-space-3)"}}>
         {list.map(o => {
           const st = statusMap[o.status] || statusMap.active;
           const codigo = String(Math.max(0,(data.obras||[]).findIndex(x=>x.id===o.id))+1).padStart(4,"0");
           const prazo = prazoObra(o);
           const risco = o._alertas.length > 0;
-          return <article data-risk={risco} key={o.id} className="lift-card works-card" style={{background:C.card,border:`1px solid ${risco?`${C.red}66`:C.border}`,borderRadius:15,overflow:"hidden",boxShadow:"0 10px 30px rgba(18,18,18,.07)",display:"flex",flexDirection:"column",minWidth:0}}>
-            <button data-has-image={!!o.capaUrl} className="works-card-cover" onClick={()=>onAbrirObra?.(o.id)} style={{position:"relative",height:132,border:0,padding:0,cursor:"pointer",textAlign:"left",overflow:"hidden",background:o.capaUrl?`linear-gradient(180deg,rgba(18,18,18,.08),rgba(18,18,18,.88)),url("${o.capaUrl}") center/cover`:`linear-gradient(135deg,#121212 0%,#242018 72%,#4B3D10 100%)`,color:"#fff"}}>
-              {!o.capaUrl&&<><span aria-hidden="true" style={{position:"absolute",right:-24,top:-46,width:180,height:180,borderRadius:"50%",border:`1px solid ${C.yellow}55`,boxShadow:`inset 0 0 0 25px #D4AF370A,inset 0 0 0 48px #D4AF370A`}}/></>}
-              <div style={{position:"absolute",inset:0,padding:13,display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
-                  <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:1,color:C.yellowDim}}>MARCELL · #{codigo}</span>
-                  <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,textTransform:"uppercase",letterSpacing:.45,color:st.c,background:"rgba(255,255,255,.94)",borderRadius:99,padding:"4px 7px"}}>{st.l}</span>
+          return <article data-risk={risco} key={o.id} className="lift-card works-card" style={{background:"var(--arcd-surface-card)",border:`1px solid ${risco?"color-mix(in srgb, var(--arcd-danger-text) 40%, transparent)":"var(--arcd-border-default)"}`,borderRadius:15,overflow:"hidden",boxShadow:"var(--arcd-shadow-lg)",display:"flex",flexDirection:"column",minWidth:0}}>
+            <RecordAction data-has-image={!!o.capaUrl} className="works-card-cover" onClick={()=>onAbrirObra?.(o.id)} style={{position:"relative",height:132,border:0,padding:0,cursor:"pointer",textAlign:"left",overflow:"hidden",background:o.capaUrl?`linear-gradient(180deg,rgba(18,18,18,.08),rgba(18,18,18,.88)),url("${o.capaUrl}") center/cover`:`linear-gradient(135deg,#121212 0%,#242018 72%,#4B3D10 100%)`,color:"var(--arcd-text-inverse)"}}>
+              {!o.capaUrl&&<><span aria-hidden="true" style={{position:"absolute",right:-24,top:-46,width:180,height:180,borderRadius:"50%",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 33%, transparent)",boxShadow:"none"}}/></>}
+              <div style={{position:"absolute",inset:0,padding:"var(--arcd-space-3)",display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)"}}>
+                  <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",letterSpacing:"var(--arcd-letter-spacing-body)",color:"var(--arcd-action-primary-subtle)"}}>MARCELL · #{codigo}</span>
+                  <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",color:st.c,background:"color-mix(in srgb, var(--arcd-text-inverse) 94%, transparent)",borderRadius:99,padding:"var(--arcd-space-1) var(--arcd-space-2)"}}>{st.l}</span>
                 </div>
                 <div style={{position:"relative"}}>
-                  <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,textTransform:"uppercase",letterSpacing:.9,color:"rgba(255,255,255,.55)",marginBottom:3}}>{o._fase?.nome||"Fase não definida"}</p>
-                  <h3 className="brk" style={{fontFamily:FONT_DISPLAY,fontSize:"var(--arcd-type-section-title)",fontWeight:600,lineHeight:1.08,color:"#fff",paddingRight:14}}>{o.name}</h3>
+                  <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",color:"color-mix(in srgb, var(--arcd-text-inverse) 55%, transparent)",marginBottom:"var(--arcd-space-half)"}}>{o._fase?.nome||"Fase não definida"}</p>
+                  <h3 className="brk" style={{fontFamily:FONT_DISPLAY,fontSize:"var(--arcd-type-section-title)",fontWeight:"var(--arcd-font-weight-semibold)",lineHeight:"var(--arcd-line-height-normal)",color:"var(--arcd-text-inverse)",paddingRight:"var(--arcd-space-3)"}}>{o.name}</h3>
                 </div>
               </div>
-            </button>
-            <div className="works-card-body" style={{padding:13,display:"flex",flexDirection:"column",gap:11,flex:1}}>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
-                <div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,textTransform:"uppercase",letterSpacing:.6,color:C.muted}}>Cliente</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:o.cliente?C.text:C.muted,marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.cliente||"Não vinculado"}</p></div>
-                <div title={o.engineer||"Sem responsável"} style={{width:34,height:34,flexShrink:0,borderRadius:99,display:"grid",placeItems:"center",background:o.engineer?C.text:C.surface,border:`1px solid ${o.engineer?C.text:C.border}`,color:o.engineer?C.yellow:C.muted,fontSize:"var(--arcd-type-caption)",fontWeight:600}}>{(o.engineer||"?").split(" ").slice(0,2).map(n=>n[0]).join("")}</div>
+            </RecordAction>
+            <div className="works-card-body" style={{padding:"var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)",flex:1}}>
+              <div className="works-card-identity" style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"var(--arcd-space-2)"}}>
+                <div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",color:"var(--arcd-text-secondary)"}}>Cliente</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:o.cliente?"var(--arcd-text-primary)":"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.cliente||"Não vinculado"}</p></div>
+                <div title={o.engineer||"Sem responsável"} style={{width:34,height:34,flexShrink:0,borderRadius:99,display:"grid",placeItems:"center",background:o.engineer?"var(--arcd-text-primary)":"var(--arcd-surface-muted)",border:`1px solid ${o.engineer?"var(--arcd-text-primary)":"var(--arcd-border-default)"}`,color:o.engineer?"var(--arcd-action-primary)":"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{(o.engineer||"?").split(" ").slice(0,2).map(n=>n[0]).join("")}</div>
               </div>
 
-              <div className="works-card-metrics" style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:6}}>
-                {[["Contrato",Number(o.contractValue)>0?fmtCompact(o.contractValue):"—"],["Área",Number(o.areaM2)>0?`${Number(o.areaM2).toLocaleString("pt-BR")} m²`:"—"],["Equipe",`${o._equipe.length}`]].map(([l,v])=><div key={l} style={{background:C.surface,border:`1px solid ${C.ivory}`,borderRadius:8,padding:"7px 7px 6px",minWidth:0}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,textTransform:"uppercase",letterSpacing:.45,color:C.muted}}>{l}</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{v}</p></div>)}
+              <div className="works-card-metrics" style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:"var(--arcd-space-1)"}}>
+                {[["Contrato",Number(o.contractValue)>0?fmt(o.contractValue):"—"],["Área",Number(o.areaM2)>0?`${Number(o.areaM2).toLocaleString("pt-BR")} m²`:"—"],["Equipe",`${o._equipe.length}`]].map(([l,v])=><div key={l} style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-surface-muted)",borderRadius:8,padding:"var(--arcd-space-2) var(--arcd-space-2) var(--arcd-space-1)",minWidth:0}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",color:"var(--arcd-text-secondary)"}}>{l}</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{v}</p></div>)}
               </div>
 
-              <div>
-                <div style={{display:"flex",justifyContent:"space-between",fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,marginBottom:5}}><span>Dados essenciais preenchidos</span><span>{o._completude}%</span></div>
-                <div style={{height:4,borderRadius:99,background:C.ivory,overflow:"hidden"}}><i style={{display:"block",height:"100%",width:`${o._completude}%`,borderRadius:99,background:o._completude>=80?C.green:o._completude>=55?C.yellow:C.red}}/></div>
+              <div className="works-card-health">
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",marginBottom:"var(--arcd-space-1)"}}><span>Dados essenciais preenchidos</span><span>{o._completude}%</span></div>
+                <div style={{height:4,borderRadius:99,background:"var(--arcd-surface-muted)",overflow:"hidden"}}><i style={{display:"block",height:"100%",width:`${o._completude}%`,borderRadius:99,background:o._completude>=80?"var(--arcd-success-text)":o._completude>=55?"var(--arcd-action-primary)":"var(--arcd-danger-text)"}}/></div>
               </div>
 
-              {risco?<div className="works-alerts"><button type="button" aria-expanded={expandedAlerts.has(o.id)} onClick={()=>setExpandedAlerts(current=>{const next=new Set(current);next.has(o.id)?next.delete(o.id):next.add(o.id);return next;})}><Ic n="alert" s={14}/><span><strong>{o._alertas.length} pendência(s)</strong><small>{expandedAlerts.has(o.id)?"Ocultar ações":"Ver como corrigir"}</small></span><Ic n="chevron" s={12}/></button>{expandedAlerts.has(o.id)&&<div className="works-alerts__list">{o._alertas.map(alert=>{const action=projectAlertAction(alert);return <div key={alert}><span>{alert}</span><button type="button" onClick={()=>ehAdmin?abrirEditorObra(o):onAbrirObra?.(o.id)}>{ehAdmin?action.label:"Abrir obra"}</button></div>;})}</div>}</div>:<div className="works-regular"><Ic n="check" s={14}/><span>Cadastro operacional regular</span></div>}
+              {risco?<div className="works-alerts"><StandardButton variant="secondary" type="button" aria-expanded={expandedAlerts.has(o.id)} onClick={()=>setExpandedAlerts(current=>{const next=new Set(current);next.has(o.id)?next.delete(o.id):next.add(o.id);return next;})}><Ic n="alert" s={14}/><span><strong>{o._alertas.length} pendência(s)</strong><small>{expandedAlerts.has(o.id)?"Ocultar ações":"Ver como corrigir"}</small></span><Ic n="chevron" s={12}/></StandardButton>{expandedAlerts.has(o.id)&&<div className="works-alerts__list">{o._alertas.map(alert=>{const action=projectAlertAction(alert);return <div key={alert}><span>{alert}</span><StandardButton variant="secondary" type="button" onClick={()=>ehAdmin?abrirEditorObra(o):onAbrirObra?.(o.id)}>{ehAdmin?action.label:"Abrir obra"}</StandardButton></div>;})}</div>}</div>:<div className="works-regular"><Ic n="check" s={14}/><span>Cadastro operacional regular</span></div>}
 
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,minHeight:18}}>
-                <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:prazo?.cor||C.muted}}>{prazo?.rotulo||"Prazo não definido"}</span>
-                <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted,whiteSpace:"nowrap"}}>Eng. {o.engineer?.split(" ")[0]||"não definido"}</span>
+              <div className="works-card-deadline" style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",minHeight:18}}>
+                <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:prazo?.cor||"var(--arcd-text-secondary)"}}>{prazo?.rotulo||"Prazo não definido"}</span>
+                <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",whiteSpace:"nowrap"}}>Eng. {o.engineer?.split(" ")[0]||"não definido"}</span>
               </div>
 
-              <div style={{display:"grid",gridTemplateColumns:ehAdmin&&o.oneDriveUrl?"1fr auto":"1fr",gap:6,marginTop:"auto"}}>
+              <div className="works-card-open" style={{display:"grid",gridTemplateColumns:ehAdmin&&o.oneDriveUrl?"1fr auto":"1fr",gap:"var(--arcd-space-1)",marginTop:"auto"}}>
                 <Btn v="dark" full onClick={()=>onAbrirObra?.(o.id)}>Abrir obra <span>→</span></Btn>
                 {ehAdmin&&o.oneDriveUrl&&<Btn v="ghost" iconOnly onClick={()=>abrirOneDrive(o.oneDriveUrl)} title="Abrir arquivos" ariaLabel="Abrir arquivos"><Ic n="folder" s={14}/></Btn>}
               </div>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:8,borderTop:`1px solid ${C.line}`}}>
-                <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{CONTRACT_LABELS[o.contractType]||"Contrato"}</span>
-                {ehAdmin&&<div style={{display:"flex",gap:3}}><Btn v="ghost" size="sm" iconOnly onClick={()=>abrirEditorObra(o)} title="Editar obra" ariaLabel="Editar obra"><Ic n="edit" s={12}/></Btn><Btn v="danger" size="sm" iconOnly onClick={()=>remove(o.id)} title="Excluir obra" ariaLabel="Excluir obra"><Ic n="trash" s={12}/></Btn></div>}
+              <div className="works-card-footer" style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:"var(--arcd-space-2)",borderTop:"1px solid var(--arcd-border-default)"}}>
+                <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{CONTRACT_LABELS[o.contractType]||"Contrato"}</span>
+                {ehAdmin&&<div style={{display:"flex",gap:"var(--arcd-space-half)"}}><Btn v="ghost" size="sm" iconOnly onClick={()=>abrirEditorObra(o)} title="Editar obra" ariaLabel="Editar obra"><Ic n="edit" s={12}/></Btn><Btn v="danger" size="sm" iconOnly onClick={()=>remove(o.id)} title="Excluir obra" ariaLabel="Excluir obra"><Ic n="trash" s={12}/></Btn></div>}
               </div>
             </div>
           </article>;
         })}
-        {!list.length&&<div style={{gridColumn:"1/-1",textAlign:"center",padding:42,background:C.card,border:`1px dashed ${C.border}`,borderRadius:14}}><div style={{width:46,height:46,borderRadius:99,display:"grid",placeItems:"center",margin:"0 auto",background:C.surface,color:C.muted}}><Ic n="building" s={22}/></div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,marginTop:10}}>Nenhuma obra nesta categoria</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3}}>Altere o filtro ou a busca para ampliar os resultados.</p></div>}
+        {!list.length&&<div style={{gridColumn:"1/-1",textAlign:"center",padding:"var(--arcd-space-10)",background:"var(--arcd-surface-card)",border:"1px dashed var(--arcd-border-default)",borderRadius:14}}><div style={{width:46,height:46,borderRadius:99,display:"grid",placeItems:"center",margin:"var(--arcd-space-0) auto",background:"var(--arcd-surface-muted)",color:"var(--arcd-text-secondary)"}}><Ic n="building" s={22}/></div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-2)"}}>Nenhuma obra nesta categoria</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Altere o filtro ou a busca para ampliar os resultados.</p></div>}
       </div>
 
       {/* A grade acima é a única representação da visão Painel. As duas
           implementações antigas (tabela desktop e cartões móveis) foram
           removidas para que semântica, permissões e estados não divirjam. */}
       {false&&isDesktop&&<div hidden aria-hidden="true">
-        <div style={{display:"grid",gridTemplateColumns:"74px minmax(220px,1.5fr) minmax(160px,1fr) 110px 145px 125px minmax(150px,.8fr) 72px",gap:10,padding:"10px 14px",background:"rgba(246,247,249,.86)",borderBottom:`1px solid ${C.border}`,fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.55}}><span>Código</span><span>Obra</span><span>Cliente</span><span>Status</span><span>Fase</span><span>Início</span><span>Responsável</span><span style={{textAlign:"right"}}>Ações</span></div>
-        {list.map((o,index)=>{const st=statusMap[o.status]||statusMap.active;const fase=fases.find(f=>f.id===o.faseId);const equipe=(data.employees||[]).filter(e=>e.active!==false&&e.obra===o.id);const codigo=String(index+1).padStart(4,"0");return <div key={o.id} className="lift-card" onClick={()=>onAbrirObra?.(o.id)} style={{display:"grid",gridTemplateColumns:"74px minmax(220px,1.5fr) minmax(160px,1fr) 110px 145px 125px minmax(150px,.8fr) 72px",gap:10,alignItems:"center",padding:"12px 14px",borderBottom:index<list.length-1?`1px solid ${C.line}`:"none",cursor:"pointer",background:C.card}}>
-          <span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.blue}}>#{codigo}</span>
-          <div style={{display:"flex",alignItems:"center",gap:10,minWidth:0}}><div style={{width:38,height:38,borderRadius:10,flexShrink:0,display:"grid",placeItems:"center",overflow:"hidden",background:o.capaUrl?`url("${o.capaUrl}") center/cover`:`linear-gradient(145deg,${C.ink},${C.blue})`,color:"white",fontWeight:600}}>{!o.capaUrl&&(o.name||"O").charAt(0)}</div><div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.name}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.address||`${Number(o.areaM2||0).toLocaleString("pt-BR")} m²`}</p></div></div>
-          <span style={{fontSize:"var(--arcd-type-label)",color:o.cliente?C.text:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.cliente||"Não informado"}</span>
+        <div style={{display:"grid",gridTemplateColumns:"74px minmax(220px,1.5fr) minmax(160px,1fr) 110px 145px 125px minmax(150px,.8fr) 72px",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-3)",background:"var(--arcd-surface-overlay)",borderBottom:"1px solid var(--arcd-border-default)",fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}><span>Código</span><span>Obra</span><span>Cliente</span><span>Status</span><span>Fase</span><span>Início</span><span>Responsável</span><span style={{textAlign:"right"}}>Ações</span></div>
+        {list.map((o,index)=>{const st=statusMap[o.status]||statusMap.active;const fase=fases.find(f=>f.id===o.faseId);const equipe=(data.employees||[]).filter(e=>e.active!==false&&e.obra===o.id);const codigo=String(index+1).padStart(4,"0");return <div key={o.id} className="lift-card" onClick={()=>onAbrirObra?.(o.id)} style={{display:"grid",gridTemplateColumns:"74px minmax(220px,1.5fr) minmax(160px,1fr) 110px 145px 125px minmax(150px,.8fr) 72px",gap:"var(--arcd-space-2)",alignItems:"center",padding:"var(--arcd-space-3)",borderBottom:index<list.length-1?"1px solid var(--arcd-border-default)":"none",cursor:"pointer",background:"var(--arcd-surface-card)"}}>
+          <span style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)"}}>#{codigo}</span>
+          <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",minWidth:0}}><div style={{width:38,height:38,borderRadius:10,flexShrink:0,display:"grid",placeItems:"center",overflow:"hidden",background:o.capaUrl?`url("${o.capaUrl}") center/cover`:"linear-gradient(145deg,var(--arcd-text-primary),var(--arcd-action-primary))",color:"white",fontWeight:"var(--arcd-font-weight-semibold)"}}>{!o.capaUrl&&(o.name||"O").charAt(0)}</div><div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.name}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.address||`${Number(o.areaM2||0).toLocaleString("pt-BR")} m²`}</p></div></div>
+          <span style={{fontSize:"var(--arcd-type-label)",color:o.cliente?"var(--arcd-text-primary)":"var(--arcd-text-secondary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.cliente||"Não informado"}</span>
           <span><Badge color={st.c}>{st.l}</Badge></span>
-          <span style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:"var(--arcd-type-label)",fontWeight:600,color:fase?.cor||C.muted}}><i style={{width:7,height:7,borderRadius:99,background:fase?.cor||C.border}}/>{fase?.nome||"Sem fase"}</span>
-          <span style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>{fmtDate(o.contractStart||o.startDate)||"—"}</span>
-          <div style={{display:"flex",alignItems:"center",gap:7,minWidth:0}}><span style={{width:28,height:28,borderRadius:99,display:"grid",placeItems:"center",background:`${C.blue}14`,border:`1px solid ${C.blue}33`,color:C.blue,fontSize:"var(--arcd-type-caption)",fontWeight:600}}>{(o.engineer||"?").split(" ").slice(0,2).map(n=>n[0]).join("")}</span><span style={{fontSize:"var(--arcd-type-label)",color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.engineer||"Não definido"}{equipe.length>0&&<small style={{display:"block",color:C.muted,fontSize:"var(--arcd-type-caption)"}}>{equipe.length} na equipe</small>}</span></div>
-          <div onClick={e=>e.stopPropagation()} style={{display:"flex",justifyContent:"flex-end",gap:3}}><Btn v="ghost" size="sm" iconOnly onClick={()=>{setForm({...o,areaM2:String(o.areaM2||""),diaVenc1:String(o.diaVenc1||DIA_VENC_1_PADRAO),diaVenc2:String(o.diaVenc2||DIA_VENC_2_PADRAO)});setModal(true);}} title="Editar obra" ariaLabel="Editar obra"><Ic n="edit" s={13}/></Btn>{ehAdmin&&<Btn v="danger" size="sm" iconOnly onClick={()=>remove(o.id)} title="Excluir obra" ariaLabel="Excluir obra"><Ic n="trash" s={13}/></Btn>}</div>
+          <span style={{display:"inline-flex",alignItems:"center",gap:"var(--arcd-space-1)",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:fase?.cor||"var(--arcd-text-secondary)"}}><i style={{width:7,height:7,borderRadius:99,background:fase?.cor||"var(--arcd-border-default)"}}/>{fase?.nome||"Sem fase"}</span>
+          <span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>{fmtDate(o.contractStart||o.startDate)||"—"}</span>
+          <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",minWidth:0}}><span style={{width:28,height:28,borderRadius:99,display:"grid",placeItems:"center",background:"color-mix(in srgb, var(--arcd-action-primary) 8%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 20%, transparent)",color:"var(--arcd-action-primary)",fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{(o.engineer||"?").split(" ").slice(0,2).map(n=>n[0]).join("")}</span><span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.engineer||"Não definido"}{equipe.length>0&&<small style={{display:"block",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-caption)"}}>{equipe.length} na equipe</small>}</span></div>
+          <div onClick={e=>e.stopPropagation()} style={{display:"flex",justifyContent:"flex-end",gap:"var(--arcd-space-half)"}}><Btn v="ghost" size="sm" iconOnly onClick={()=>{setForm({...o,areaM2:String(o.areaM2||""),diaVenc1:String(o.diaVenc1||DIA_VENC_1_PADRAO),diaVenc2:String(o.diaVenc2||DIA_VENC_2_PADRAO)});setModal(true);}} title="Editar obra" ariaLabel="Editar obra"><Ic n="edit" s={13}/></Btn>{ehAdmin&&<Btn v="danger" size="sm" iconOnly onClick={()=>remove(o.id)} title="Excluir obra" ariaLabel="Excluir obra"><Ic n="trash" s={13}/></Btn>}</div>
         </div>;})}
-        {!list.length&&<div style={{textAlign:"center",padding:34,color:C.muted,fontSize:"var(--arcd-type-body)"}}>Nenhuma obra encontrada.</div>}
+        {!list.length&&<div style={{textAlign:"center",padding:"var(--arcd-space-8)",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-body)"}}>Nenhuma obra encontrada.</div>}
       </div>}
 
       {false&&!isDesktop&&<div hidden aria-hidden="true">
@@ -6661,24 +5408,24 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
         const fase = fases.find(f=>f.id===o.faseId);
         const prazo = prazoObra(o);
         return (
-          <div key={o.id} className="lift-card" style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden",boxShadow:C.shCard,display:"flex",flexDirection:"column",minWidth:0}}>
-            <button onClick={()=>onAbrirObra?.(o.id)} style={{position:"relative",height:112,border:0,cursor:onAbrirObra?"pointer":"default",padding:0,textAlign:"left",background:o.capaUrl?`linear-gradient(180deg,rgba(0,0,0,.05),rgba(0,0,0,.72)),url("${o.capaUrl}") center/cover`:`linear-gradient(135deg,${C.ink},${C.subtle} 70%,${C.yellowD})`,color:"#fff"}}>
-              {!o.capaUrl&&<span style={{position:"absolute",right:16,top:5,fontFamily:"var(--arcd-font-sans)",fontSize:70,fontWeight:600,color:"rgba(255,255,255,.08)",lineHeight:1}}>{(o.name||"O").charAt(0)}</span>}
-              <div style={{position:"absolute",inset:0,padding:13,display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:6}}><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:.7,textTransform:"uppercase",background:"rgba(255,255,255,.92)",color:st.c,borderRadius:99,padding:"4px 7px"}}>{st.l}</span>{fase&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:"rgba(255,255,255,.85)"}}>{fase.nome}</span>}</div>
-                <div><h3 className="brk" style={{fontFamily:FONT_DISPLAY,fontSize:"var(--arcd-type-section-title)",fontWeight:600,lineHeight:1.15,color:"#fff"}}>{o.name}</h3>{o.cliente&&<p style={{fontSize:"var(--arcd-type-label)",color:"rgba(255,255,255,.82)",marginTop:3}}>{o.cliente}</p>}</div>
+          <div key={o.id} className="lift-card" style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:12,overflow:"hidden",boxShadow:C.shCard,display:"flex",flexDirection:"column",minWidth:0}}>
+            <StandardButton variant="secondary" onClick={()=>onAbrirObra?.(o.id)} style={{position:"relative",height:112,textAlign:"left"}}>
+              {!o.capaUrl&&<span style={{position:"absolute",right:16,top:5,fontFamily:"var(--arcd-font-sans)",fontSize:"var(--arcd-type-page-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:"color-mix(in srgb, var(--arcd-text-inverse) 8%, transparent)",lineHeight:"var(--arcd-line-height-normal)"}}>{(o.name||"O").charAt(0)}</span>}
+              <div style={{position:"absolute",inset:0,padding:"var(--arcd-space-3)",display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-1)"}}><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",letterSpacing:"var(--arcd-letter-spacing-body)",textTransform:"uppercase",background:"color-mix(in srgb, var(--arcd-text-inverse) 92%, transparent)",color:st.c,borderRadius:99,padding:"var(--arcd-space-1) var(--arcd-space-2)"}}>{st.l}</span>{fase&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"color-mix(in srgb, var(--arcd-text-inverse) 85%, transparent)"}}>{fase.nome}</span>}</div>
+                <div><h3 className="brk" style={{fontFamily:FONT_DISPLAY,fontSize:"var(--arcd-type-section-title)",fontWeight:"var(--arcd-font-weight-semibold)",lineHeight:"var(--arcd-line-height-normal)",color:"var(--arcd-text-inverse)"}}>{o.name}</h3>{o.cliente&&<p style={{fontSize:"var(--arcd-type-label)",color:"color-mix(in srgb, var(--arcd-text-inverse) 82%, transparent)",marginTop:"var(--arcd-space-half)"}}>{o.cliente}</p>}</div>
               </div>
-            </button>
-            <div style={{padding:12,display:"flex",flexDirection:"column",gap:10,flex:1}}>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:7}}>{[["Contrato",Number(o.contractValue)>0?fmtCompact(o.contractValue):"-"],["Área",area>0?`${area.toLocaleString("pt-BR")} m²`:"-"],["Equipe",`${count}`]].map(([l,v])=><div key={l} style={{background:C.surface,borderRadius:7,padding:"7px 6px"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.5}}>{l}</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{v}</p></div>)}</div>
-              <div style={{minHeight:37}}>{o.address&&<p className="brk" style={{fontSize:"var(--arcd-type-label)",color:C.subtle,lineHeight:1.35}}>{o.address}</p>}{o.engineer&&<p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3}}>Responsável · <b style={{color:C.text}}>{o.engineer}</b></p>}{prazo&&<p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:prazo.cor,marginTop:3}}>{prazo.rotulo}</p>}</div>
-              <div style={{display:"grid",gridTemplateColumns:ehAdmin&&o.oneDriveUrl?"1fr 1fr":"1fr",gap:5,marginTop:"auto"}}><Btn size="sm" onClick={()=>onAbrirObra?.(o.id)}>Abrir painel →</Btn>{ehAdmin&&o.oneDriveUrl&&<Btn size="sm" v="ghost" onClick={()=>abrirOneDrive(o.oneDriveUrl)}><Ic n="folder"/> Arquivos</Btn>}</div>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderTop:`1px solid ${C.line}`,paddingTop:8}}><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{CONTRACT_LABELS[o.contractType]||"Contrato"}</span><div style={{display:"flex",gap:3}}><Btn v="ghost" size="sm" iconOnly onClick={()=>{setForm({...o,areaM2:String(o.areaM2||""),diaVenc1:String(o.diaVenc1||DIA_VENC_1_PADRAO),diaVenc2:String(o.diaVenc2||DIA_VENC_2_PADRAO)});setModal(true);}} title="Editar obra" ariaLabel="Editar obra"><Ic n="edit" s={14}/></Btn>{ehAdmin&&<Btn v="danger" size="sm" iconOnly onClick={()=>remove(o.id)} title="Excluir obra" ariaLabel="Excluir obra"><Ic n="trash" s={14}/></Btn>}</div></div>
+            </StandardButton>
+            <div style={{padding:"var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)",flex:1}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"var(--arcd-space-2)"}}>{[["Contrato",Number(o.contractValue)>0?fmtCompact(o.contractValue):"-"],["Área",area>0?`${area.toLocaleString("pt-BR")} m²`:"-"],["Equipe",`${count}`]].map(([l,v])=><div key={l} style={{background:"var(--arcd-surface-muted)",borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-1)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>{l}</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{v}</p></div>)}</div>
+              <div style={{minHeight:37}}>{o.address&&<p className="brk" style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-muted)",lineHeight:"var(--arcd-line-height-normal)"}}>{o.address}</p>}{o.engineer&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Responsável · <b style={{color:"var(--arcd-text-primary)"}}>{o.engineer}</b></p>}{prazo&&<p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:prazo.cor,marginTop:"var(--arcd-space-half)"}}>{prazo.rotulo}</p>}</div>
+              <div style={{display:"grid",gridTemplateColumns:ehAdmin&&o.oneDriveUrl?"1fr 1fr":"1fr",gap:"var(--arcd-space-1)",marginTop:"auto"}}><Btn size="sm" onClick={()=>onAbrirObra?.(o.id)}>Abrir painel →</Btn>{ehAdmin&&o.oneDriveUrl&&<Btn size="sm" v="ghost" onClick={()=>abrirOneDrive(o.oneDriveUrl)}><Ic n="folder"/> Arquivos</Btn>}</div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderTop:"1px solid var(--arcd-border-default)",paddingTop:"var(--arcd-space-2)"}}><span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{CONTRACT_LABELS[o.contractType]||"Contrato"}</span><div style={{display:"flex",gap:"var(--arcd-space-half)"}}><Btn v="ghost" size="sm" iconOnly onClick={()=>{setForm({...o,areaM2:String(o.areaM2||""),diaVenc1:String(o.diaVenc1||DIA_VENC_1_PADRAO),diaVenc2:String(o.diaVenc2||DIA_VENC_2_PADRAO)});setModal(true);}} title="Editar obra" ariaLabel="Editar obra"><Ic n="edit" s={14}/></Btn>{ehAdmin&&<Btn v="danger" size="sm" iconOnly onClick={()=>remove(o.id)} title="Excluir obra" ariaLabel="Excluir obra"><Ic n="trash" s={14}/></Btn>}</div></div>
             </div>
           </div>
         );
       })}
-      {!list.length&&<div style={{gridColumn:"1/-1",textAlign:"center",padding:32,border:`1px dashed ${C.border}`,borderRadius:10}}><Ic n="building" s={25} color={C.muted}/><p style={{fontSize:"var(--arcd-type-body)",color:C.muted,marginTop:7}}>Nenhuma obra encontrada.</p></div>}
+      {!list.length&&<div style={{gridColumn:"1/-1",textAlign:"center",padding:"var(--arcd-space-8)",border:"1px dashed var(--arcd-border-default)",borderRadius:10}}><Ic n="building" s={25} color={C.muted}/><p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-2)"}}>Nenhuma obra encontrada.</p></div>}
       </div>}
       </>}
 
@@ -6686,33 +5433,30 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
       {faseModal && (
         <Modal title={faseModal.modo==="editar" ? "Editar fase" : "Nova fase"}
                onClose={()=>{setFaseModal(null);setFaseNome("");}}>
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+          <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
             <Inp label="Nome da fase *" value={faseNome} onChange={setFaseNome}
               placeholder="Ex.: Análise da Prefeitura"/>
 
             <div>
-              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginBottom:6}}>Cor</p>
-              <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginBottom:"var(--arcd-space-1)"}}>Cor</p>
+              <div style={{display:"flex",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
                 {CORES_FASE.map(c=>(
-                  <button type="button" key={c} aria-label={`Usar cor ${c}`} aria-pressed={faseCor===c} title={`Cor ${c}`} onClick={()=>setFaseCor(c)} style={{
-                    width:44,height:44,borderRadius:7,background:c,cursor:"pointer",
-                    border: faseCor===c ? `3px solid ${C.text}` : `1px solid ${C.border}`,
-                  }}/>
+                  <StandardButton variant="secondary" type="button" key={c} aria-label={`Usar cor ${c}`} aria-pressed={faseCor===c} title={`Cor ${c}`} onClick={()=>setFaseCor(c)} style={{width:44,height:44}}/>
                 ))}
               </div>
             </div>
 
             {/* Prévia da coluna */}
-            <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:6,padding:"9px 11px"}}>
-              <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <div style={{background:"var(--arcd-surface-muted)",border:"1.5px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+              <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-1)"}}>
                 <span style={{width:9,height:9,borderRadius:2,background:faseCor}}/>
-                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,textTransform:"uppercase",letterSpacing:.6,color:C.text}}>
+                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",color:"var(--arcd-text-primary)"}}>
                   {faseNome || "Nome da fase"}
                 </p>
               </div>
             </div>
 
-            <div style={{display:"flex",gap:8}}>
+            <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
               <Btn v="ghost" onClick={()=>{setFaseModal(null);setFaseNome("");}} full>Cancelar</Btn>
               <Btn onClick={salvarFase} full><Ic n="check"/> Salvar</Btn>
             </div>
@@ -6725,7 +5469,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
           {/* Grid de verdade: 1 coluna no celular, 2 no resto. Os separadores de
               seção usam gridColumn:"1/-1", que só funciona em container grid -
               dentro do flex antigo eram CSS morto. */}
-          <div style={{ display: "grid", gridTemplateColumns: formGrid(2), gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: formGrid(2), gap: "var(--arcd-space-3)" }}>
             <Inp label="Nome *" value={form.name} onChange={setField("name")} error={projectErrors.name}/>
             <Inp label="Área (m²)" type="number" min="0" value={form.areaM2} onChange={setField("areaM2")} placeholder="Ex.: 250" error={projectErrors.areaM2}/>
             <Inp label="Endereço" value={form.address} onChange={setField("address")} />
@@ -6734,11 +5478,11 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
             {form.condominioId&&<><Inp label="Quadra" value={form.quadra||""} onChange={setField("quadra")} placeholder="Ex.: Q-12"/><Inp label="Lote" value={form.lote||""} onChange={setField("lote")} placeholder="Ex.: 08"/></>}
             <Sel label="Engenheiro de campo responsável" value={form.engineerId||""} onChange={setField("engineerId")}
               options={[{v:"",l:engenheiros.length?"Selecione o engenheiro...":"Cadastre um engenheiro em Ajustes > Usuários"},...engenheiros.map(u=>({v:u.id,l:u.nome}))]}/>
-            <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:6,alignItems:"end"}}><Sel label="Cliente contratante" value={form.clienteId||""} onChange={v=>{const c=clientes.find(x=>x.id===v);setForm(f=>({...f,clienteId:v,cliente:c?.nome||""}));}} options={[{v:"",l:"Selecione um cliente"},...clientes.map(c=>({v:c.id,l:c.tipoPessoa==="PJ"?(c.razaoSocial||c.nome):c.nome}))]}/><Btn v="info" onClick={()=>setClienteModal(clienteContratualVazio())}><Ic n="plus"/> Cliente</Btn></div>
+            <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:"var(--arcd-space-1)",alignItems:"end"}}><Sel label="Cliente contratante" value={form.clienteId||""} onChange={v=>{const c=clientes.find(x=>x.id===v);setForm(f=>({...f,clienteId:v,cliente:c?.nome||""}));}} options={[{v:"",l:"Selecione um cliente"},...clientes.map(c=>({v:c.id,l:c.tipoPessoa==="PJ"?(c.razaoSocial||c.nome):c.nome}))]}/><Btn v="info" onClick={()=>setClienteModal(clienteContratualVazio())}><Ic n="plus"/> Cliente</Btn></div>
             <Inp label="Data de início" type="date" value={form.startDate} onChange={setField("startDate")} />
             {ehAdmin&&<div style={{gridColumn:"1/-1"}}>
               <Inp label="Pasta da obra no OneDrive" value={form.oneDriveUrl} onChange={setField("oneDriveUrl")} placeholder="Cole aqui o link da subpasta desta obra" error={projectErrors.oneDriveUrl}/>
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4}}>O sistema salva apenas o link. Projetos, contratos e documentos permanecem no OneDrive.</p>
+              <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>O sistema salva apenas o link. Projetos, contratos e documentos permanecem no OneDrive.</p>
             </div>}
             <Sel label="Fase (quadro)" value={form.faseId || (fases[0]?.id||"")} onChange={setField("faseId")}
               options={fases.map(f=>({v:f.id,l:f.nome}))}/>
@@ -6747,30 +5491,30 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
               { v: "paused", l: "Pausada" },
               { v: "done", l: "Concluída" },
             ]} />
-            <div style={{ gridColumn:"1/-1", height:1, background:`linear-gradient(90deg,transparent,${C.line},transparent)`, margin:"4px 0" }}/>
+            <div style={{ gridColumn:"1/-1", height:1, background:"linear-gradient(90deg,transparent,var(--arcd-border-default),transparent)", margin:"var(--arcd-space-1) var(--arcd-space-0)" }}/>
             <div style={{ gridColumn:"1/-1" }}>
-              <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color:C.yellow, textTransform:"uppercase", letterSpacing:.7, marginBottom:8 }}>Contrato financeiro</p>
+              <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-action-primary)", textTransform:"uppercase", letterSpacing:"var(--arcd-letter-spacing-body)", marginBottom:"var(--arcd-space-2)" }}>Contrato financeiro</p>
             </div>
             <Sel label="Modalidade do contrato *" value={form.contractType} onChange={setField("contractType")} options={CONTRACT_TYPES}/>
             <Inp label="Valor total do contrato (R$)" type="number" min="0" value={form.contractValue} onChange={setField("contractValue")} placeholder="0,00" error={projectErrors.contractValue}/>
             {(form.contractType === "fixed_labor_admin" || form.contractType === "admin_only") && (
               <div style={{gridColumn: form.contractType==="admin_only"?"1/-1":"auto"}}>
                 <Inp label="% Administração" type="number" min="0" max="100" value={form.adminPercentage} onChange={setField("adminPercentage")} placeholder="Ex.: 12" error={projectErrors.adminPercentage}/>
-                <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:4}}>
+                <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>
                   {form.contractType==="admin_only"
                     ? "Por padrão incide sobre todos os custos gastos na obra (mão de obra, benefícios, materiais, terceirizados, equipamentos e rescisões)."
                     : "Por padrão incide só sobre materiais e terceirizados gastos - a mão de obra já está coberta pela parcela fixa abaixo."}
                   {" "}Ajuste abaixo o que entra nessa base.
                 </p>
-                <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8,marginTop:8}}>
+                <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)"}}>
                   {[
                     ["adminBaseMateriais","Materiais",form.adminBaseMateriais!==false],
                     ["adminBaseMaoDeObra","Mão de obra",form.adminBaseMaoDeObra===true||(form.adminBaseMaoDeObra===undefined&&form.contractType==="admin_only")],
                     ["adminBaseTerceirizados","Terceirizados",form.adminBaseTerceirizados!==false],
                   ].map(([campo,label,checked])=>(
                     <label key={campo} className="works-check" data-checked={checked}>
-                      <input type="checkbox" checked={checked} onChange={e=>setField(campo)(e.target.checked)}/>
-                      <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:checked?C.yellowD:C.text}}>{label}</p>
+                      <ChoiceControl type="checkbox" checked={checked} onChange={e=>setField(campo)(e.target.checked)}/>
+                      <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:checked?"var(--arcd-action-primary)":"var(--arcd-text-primary)"}}>{label}</p>
                     </label>
                   ))}
                 </div>
@@ -6780,8 +5524,8 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
             {(form.contractType === "fixed_labor" || form.contractType === "fixed_labor_admin") && (
               <Inp label="Valor parcela MO fixo (R$)" type="number" min="0" value={form.parcelaMensal} onChange={setField("parcelaMensal")} placeholder="Ex.: 15.000"/>
             )}
-            <div style={{gridColumn:"1/-1",height:1,background:C.line,margin:"4px 0"}}/>
-            <p style={{gridColumn:"1/-1",fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.yellow,textTransform:"uppercase",letterSpacing:.7}}>Cronograma de cobrança</p>
+            <div style={{gridColumn:"1/-1",height:1,background:"var(--arcd-border-default)",margin:"var(--arcd-space-1) var(--arcd-space-0)"}}/>
+            <p style={{gridColumn:"1/-1",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>Cronograma de cobrança</p>
             <Sel label="Frequência de cobrança *" value={form.billingFrequency} onChange={setField("billingFrequency")} options={FREQ_OPTS}/>
             <Inp label="Total de parcelas" type="number" min="1" value={form.totalParcelas} onChange={setField("totalParcelas")} placeholder={form.billingFrequency==="quinzenal"?"Ex.: 24":"Ex.: 12"} error={projectErrors.totalParcelas}/>
 
@@ -6795,16 +5539,16 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
             ) : (
               <Sel label="Dia de vencimento *" value={String(form.diaVenc1||DIA_VENC_1_PADRAO)} onChange={setField("diaVenc1")} options={DIA_OPTS} error={projectErrors.diaVenc1}/>
             )}
-            <div style={{gridColumn:"1/-1",background:`${C.yellow}12`,border:`1px solid ${C.yellow}44`,borderRadius:6,padding:"9px 12px"}}>
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.subtle,lineHeight:1.6}}>
+            <div style={{gridColumn:"1/-1",background:"color-mix(in srgb, var(--arcd-action-primary) 7%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+              <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-muted)",lineHeight:"var(--arcd-line-height-normal)"}}>
                 {form.billingFrequency === "quinzenal"
                   ? <>Cada mês gera 2 parcelas: uma no dia <b>{form.diaVenc1||DIA_VENC_1_PADRAO}</b> e outra no dia <b>{form.diaVenc2||DIA_VENC_2_PADRAO}</b>. Padrão do contrato: 15 e 30.</>
                   : <>Cada mês gera 1 parcela, vencendo no dia <b>{form.diaVenc1||DIA_VENC_1_PADRAO}</b>.</>}
                 {" "}Em meses mais curtos, o dia 29/30/31 cai no último dia do mês (fev → 28).
               </p>
             </div>
-            <div style={{gridColumn:"1/-1",height:1,background:C.line,margin:"4px 0"}}/>
-            <p style={{gridColumn:"1/-1",fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.yellow,textTransform:"uppercase",letterSpacing:.7}}>Período e entrada</p>
+            <div style={{gridColumn:"1/-1",height:1,background:"var(--arcd-border-default)",margin:"var(--arcd-space-1) var(--arcd-space-0)"}}/>
+            <p style={{gridColumn:"1/-1",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>Período e entrada</p>
             <Inp label="Início do contrato *" type="date" value={form.contractStart} onChange={setField("contractStart")} error={projectErrors.contractStart}/>
             <Inp label="Fim previsto" type="date" value={form.contractEnd} onChange={setField("contractEnd")} error={projectErrors.contractEnd}/>
             {form.contractType !== "admin_only" && (<>
@@ -6812,24 +5556,24 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
               <Inp label="Data da entrada" type="date" value={form.entradaDate} onChange={setField("entradaDate")} error={projectErrors.entradaDate}/>
             </>)}
             {form.contractValue && form.totalParcelas && Number(form.totalParcelas)>0 && form.contractType !== "admin_only" && !form.parcelaMensal && (
-              <div style={{gridColumn:"1/-1",background:`${C.yellow}12`,border:`1px solid ${C.yellow}44`,borderRadius:6,padding:"8px 12px"}}>
-                <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Parcela MO sugerida: <strong style={{color:C.yellow}}>{(((Number(form.contractValue)-Number(form.entrada||0))/Number(form.totalParcelas))).toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</strong></p>
-                <Btn v="primary" size="sm" style={{marginTop:6}} onClick={()=>setField("parcelaMensal")(String(Math.round((Number(form.contractValue)-Number(form.entrada||0))/Number(form.totalParcelas))))}>
+              <div style={{gridColumn:"1/-1",background:"color-mix(in srgb, var(--arcd-action-primary) 7%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+                <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Parcela MO sugerida: <strong style={{color:"var(--arcd-action-primary)"}}>{(((Number(form.contractValue)-Number(form.entrada||0))/Number(form.totalParcelas))).toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</strong></p>
+                <Btn v="primary" size="sm" style={{marginTop:"var(--arcd-space-1)"}} onClick={()=>setField("parcelaMensal")(String(Math.round((Number(form.contractValue)-Number(form.entrada||0))/Number(form.totalParcelas))))}>
                   Usar este valor →
                 </Btn>
               </div>
             )}
             {/* Caixa de obra */}
-            <div style={{gridColumn:"1/-1",height:1,background:C.line,margin:"4px 0"}}/>
+            <div style={{gridColumn:"1/-1",height:1,background:"var(--arcd-border-default)",margin:"var(--arcd-space-1) var(--arcd-space-0)"}}/>
             <label className="works-check works-check--wide" data-checked={form.hasCaixa} style={{gridColumn:"1/-1"}}>
-              <input type="checkbox" checked={form.hasCaixa} onChange={e=>setField("hasCaixa")(e.target.checked)}/>
+              <ChoiceControl type="checkbox" checked={form.hasCaixa} onChange={e=>setField("hasCaixa")(e.target.checked)}/>
               <div>
-                <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:form.hasCaixa?C.green:C.text}}> Esta obra possui caixa de obra</p>
-                <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:1}}>Cliente faz aportes para compra de materiais - controle separado de entradas e gastos</p>
+                <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:form.hasCaixa?"var(--arcd-success-text)":"var(--arcd-text-primary)"}}> Esta obra possui caixa de obra</p>
+                <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-0)"}}>Cliente faz aportes para compra de materiais - controle separado de entradas e gastos</p>
               </div>
             </label>
             {reviewingProject&&<div className="works-review" role="status" style={{gridColumn:"1/-1"}}><div><strong>Revise antes de confirmar</strong><p>{form.name||"Obra sem nome"} · {CONTRACT_LABELS[form.contractType]||form.contractType} · {fmt(Number(form.contractValue||0))}</p><p>{form.billingFrequency==="quinzenal"?"2 cobranças por mês":"1 cobrança por mês"} · {form.totalParcelas||0} parcela(s) · início {fmtDate(form.contractStart)}</p></div><span>Nenhuma folha anterior será alterada por este cadastro.</span></div>}
-            <div style={{ gridColumn:"1/-1", display: "flex", gap: 8, marginTop: 4 }}>
+            <div style={{ gridColumn:"1/-1", display: "flex", gap: "var(--arcd-space-2)", marginTop: "var(--arcd-space-1)" }}>
               <Btn v="ghost" onClick={() => setModal(false)} full>Cancelar</Btn>
               <Btn onClick={save} loading={savingProject} full><Ic n="check" /> {reviewingProject?"Confirmar e salvar":"Revisar cadastro"}</Btn>
             </div>
@@ -6841,152 +5585,6 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
         onSave={salvarClienteDaObra} formGrid={formGrid}/>}
     </div>
   );
-}
-
-// A tela Equipe foi extraída para
-// src/domains/rh/components/EquipeView.jsx em 2026-08-20.
-
-//
-// FICHA DO FUNCIONÁRIO - resumo de frequência, ranking e histórico
-// (gerarFichaFuncionarioPDF é usada pela EquipeView extraída acima e por
-// outro consumidor mais abaixo neste arquivo - fica exportada aqui)
-//
-
-// Frequência mês a mês (últimos N meses em que o funcionário esteve
-// vinculado), reaproveitando a mesma leitura dia a dia da Folha
-// (getAtt/isEmployeeEmployedOnDate), mas agregando por competência em vez de
-// calcular valores de pagamento.
-function calcFrequenciaMensalFuncionario(data, employee, meses = 12) {
-  const hoje = new Date();
-  const resultado = [];
-  for (let i = meses - 1; i >= 0; i--) {
-    const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
-    const year = d.getFullYear(), month = d.getMonth();
-    const dias = getDays(year, month).filter(prIsWeekdayIso);
-    let presentes = 0, meiodia = 0, faltas = 0, semRegistro = 0, diasNoVinculo = 0;
-    dias.forEach(dia => {
-      if (!isEmployeeEmployedOnDate(employee, dia)) return;
-      diasNoVinculo++;
-      const st = attStatus(data, employee.id, dia);
-      if (st === "P") presentes++;
-      else if (st === "M") meiodia++;
-      else if (st === "F") faltas++;
-      else if (isLeaveStatus(st)) return;
-      else semRegistro++;
-    });
-    if (diasNoVinculo === 0) continue;
-    resultado.push({
-      label: `${monthName(month)}/${String(year).slice(2)}`,
-      presentes, meiodia, faltas, semRegistro, diasNoVinculo,
-      pctPresenca: ((presentes + meiodia * 0.5) / diasNoVinculo) * 100,
-    });
-  }
-  return resultado;
-}
-
-// Ranking de frequência entre todos os funcionários com vínculo na janela
-// analisada (mesma leitura, mas comparando todo mundo para posicionar o
-// funcionário da ficha).
-function calcRankingFrequencia(data, meses = 3) {
-  const hoje = new Date();
-  const janela = [];
-  for (let i = meses - 1; i >= 0; i--) {
-    const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
-    janela.push(...getDays(d.getFullYear(), d.getMonth()).filter(prIsWeekdayIso));
-  }
-  return (data.employees || []).map(emp => {
-    let presentes = 0, meiodia = 0, faltas = 0, diasNoVinculo = 0;
-    janela.forEach(dia => {
-      if (!isEmployeeEmployedOnDate(emp, dia)) return;
-      diasNoVinculo++;
-      const st = attStatus(data, emp.id, dia);
-      if (st === "P") presentes++;
-      else if (st === "M") meiodia++;
-      else if (st === "F") faltas++;
-    });
-    return { emp, presentes, meiodia, faltas, diasNoVinculo, pct: diasNoVinculo ? ((presentes + meiodia * 0.5) / diasNoVinculo) * 100 : null };
-  })
-    .filter(l => l.diasNoVinculo > 0)
-    .sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1))
-    .map((l, i) => ({ ...l, posicao: i + 1 }));
-}
-
-const FICHA_TIPO_LABEL = {
-  created: "Cadastro", transfer: "Transferência de obra", dismissal: "Desligamento",
-  promotion: "Mudança de função", salary_change: "Alteração de diária",
-  employee_archived: "Cadastro arquivado", reactivation: "Reativação",
-  editou: "Edição de cadastro",
-};
-
-export function gerarFichaFuncionarioPDF(data, employee, showToast) {
-  const frequencia = calcFrequenciaMensalFuncionario(data, employee, 12);
-  const ranking = calcRankingFrequencia(data, 3);
-  const posicaoRanking = ranking.find(l => l.emp.id === employee.id);
-  const historico = (data.changeLog || [])
-    .filter(e => e.empId === employee.id)
-    .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
-
-  const totalPresencas = frequencia.reduce((s, f) => s + f.presentes + f.meiodia * 0.5, 0);
-  const totalDias = frequencia.reduce((s, f) => s + f.diasNoVinculo, 0);
-  const totalFaltas = frequencia.reduce((s, f) => s + f.faltas, 0);
-  const pctGeral = totalDias ? (totalPresencas / totalDias) * 100 : 0;
-
-  const tempoCasa = (() => {
-    if (!employee.startDate) return "-";
-    const ini = new Date(employee.startDate + "T12:00:00");
-    const fim = employee.endDate ? new Date(employee.endDate + "T12:00:00") : new Date();
-    const meses = Math.max(0, Math.round((fim - ini) / (1000 * 60 * 60 * 24 * 30.44)));
-    const anos = Math.floor(meses / 12), restM = meses % 12;
-    return anos > 0 ? `${anos} ano(s) e ${restM} mês(es)` : `${restM} mês(es)`;
-  })();
-
-  const obraAtual = (data.obras || []).find(o => o.id === employee.obra)?.name || "-";
-
-  const html = montarRelatorioPadraoHtml({
-    data,
-    titulo: "Ficha do funcionário",
-    subtitulo: employee.name,
-    paisagem: false,
-    meta: [
-      { label: "Função", value: employee.role || "-" },
-      { label: "CPF", value: employee.cpf || "-" },
-      { label: "Obra atual", value: employee.active === false ? "Desligado" : obraAtual },
-      { label: "Admissão", value: employee.startDate ? fmtDateFull(employee.startDate) : "-" },
-      ...(employee.active === false ? [
-        { label: "Desligamento", value: employee.endDate ? fmtDateFull(employee.endDate) : "-" },
-        { label: "Motivo", value: employee.terminationReason || "-" },
-      ] : []),
-      { label: "Tempo de casa", value: tempoCasa },
-    ],
-    kpis: [
-      { label: "Presença (12 meses)", value: `${pctGeral.toFixed(1)}%` },
-      { label: "Faltas (12 meses)", value: String(totalFaltas) },
-      { label: "Ranking de frequência", value: posicaoRanking ? `${posicaoRanking.posicao}º de ${ranking.length}` : "Sem dados" },
-      { label: "Diária atual", value: fmt(Number(employee.dailyRate || 0)) },
-    ],
-    tabelas: [
-      {
-        titulo: "Frequência mensal (últimos 12 meses)",
-        headers: ["Mês", { label: "Presenças", num: true }, { label: "Meios período", num: true }, { label: "Faltas", num: true }, { label: "Sem registro", num: true }, { label: "% presença", num: true }],
-        rows: frequencia.map(f => [
-          escapeHtml(f.label), escapeHtml(String(f.presentes)), escapeHtml(String(f.meiodia)),
-          escapeHtml(String(f.faltas)), escapeHtml(String(f.semRegistro)), escapeHtml(`${f.pctPresenca.toFixed(1)}%`),
-        ]),
-        vazio: "Sem lançamentos de ponto no período.",
-      },
-      {
-        titulo: "Histórico de alterações",
-        headers: ["Data", "Tipo", "Descrição", "Operador"],
-        rows: historico.map(h => [
-          escapeHtml(fmtDateFull(h.date)), escapeHtml(FICHA_TIPO_LABEL[h.type] || h.type),
-          escapeHtml(h.message || "-"), escapeHtml(h.operador || "Sistema"),
-        ]),
-        vazio: "Nenhuma alteração registrada para este funcionário.",
-      },
-    ],
-    legenda: "Ranking de frequência compara a % de presença (presença + meio período × 0,5, sobre dias úteis de vínculo) dos últimos 3 meses entre todos os funcionários com registro no período. Mudanças de função e diária só aparecem no histórico a partir de quando passaram a ser registradas pelo sistema.",
-  });
-  abrirRelatorioPadrao(html, showToast);
 }
 
 //
@@ -7086,12 +5684,12 @@ function WorkerMovementModal({ data, showToast, employee, initialMode = "transfe
 
   return (
     <Modal title={mode === "transfer" ? "Transferir trabalhador" : "Registrar desligamento"} onClose={onClose}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `1px solid ${mode === "transfer" ? C.yellow : C.red}`, padding: 12 }}>
-          <p style={{ fontFamily:"var(--arcd-font-sans)", fontWeight:600, fontSize: "var(--arcd-type-section-title)" }}>{employee.name}</p>
-          <p style={{ color: C.muted, fontSize: "var(--arcd-type-body)" }}>Obra atual: {obraName(employee.obra)}{employee.role ? `  ${employee.role}` : ""}</p>
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
+        <div style={{ background: "var(--arcd-surface-card)", border: "1px solid var(--arcd-border-default)", borderLeft: `1px solid ${mode === "transfer" ? "var(--arcd-action-primary)" : "var(--arcd-danger-text)"}`, padding: "var(--arcd-space-3)" }}>
+          <p style={{ fontFamily:"var(--arcd-font-sans)", fontWeight:"var(--arcd-font-weight-semibold)", fontSize: "var(--arcd-type-section-title)" }}>{employee.name}</p>
+          <p style={{ color: "var(--arcd-text-secondary)", fontSize: "var(--arcd-type-body)" }}>Obra atual: {obraName(employee.obra)}{employee.role ? `  ${employee.role}` : ""}</p>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns:formGrid(2), gap: 8 }}>
+        <div style={{ display: "grid", gridTemplateColumns:formGrid(2), gap: "var(--arcd-space-2)" }}>
           <Btn v={mode === "transfer" ? "warning" : "ghost"} onClick={() => setMode("transfer")} full>Transferir</Btn>
           <Btn v={mode === "dismiss" ? "danger" : "ghost"} onClick={() => setMode("dismiss")} full>Desligar</Btn>
         </div>
@@ -7099,14 +5697,14 @@ function WorkerMovementModal({ data, showToast, employee, initialMode = "transfe
           <Sel label="Nova obra *" value={newObra} onChange={setNewObra} options={[{ v: "", l: "Selecione" }, ...activeObras.filter(o => o.id !== employee.obra).map(o => ({ v: o.id, l: o.name }))]} />
         ) : (
           <>
-            <Inp label="Data de término *" type="date" value={endDate} onChange={setEndDate} />
+            <Inp label="Último dia trabalhado *" type="date" value={endDate} onChange={setEndDate} />
             <Inp label="Motivo" value={reason} onChange={setReason} />
           </>
         )}
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: "var(--arcd-space-2)" }}>
           <Btn v="ghost" onClick={onClose} full>Cancelar</Btn>
           <Btn v={mode === "transfer" ? "warning" : "danger"} onClick={mode === "transfer" ? saveTransfer : saveDismissal} full>
-            <Ic n="check" /> {mode === "transfer" ? "Confirmar transferência" : "Confirmar demissão"}
+            <Ic n="check" /> {mode === "transfer" ? "Confirmar transferência" : "Confirmar desligamento"}
           </Btn>
         </div>
       </div>
@@ -7149,15 +5747,15 @@ function UnlockRequestModal({ data, dispatchAttendanceCommand, showToast, obraId
 
   return (
     <Modal title="Solicitar permissão" onClose={onClose}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `1px solid ${C.yellow}`, padding: 12 }}>
-          <p style={{ fontFamily:"var(--arcd-font-sans)", fontWeight:600, fontSize: "var(--arcd-type-section-title)" }}>{obraName}</p>
-          <p style={{ color: C.muted, fontSize: "var(--arcd-type-body)" }}>Data bloqueada: {fmtDateFull(date)}</p>
-          {employee?.name && <p style={{ color: C.muted, fontSize: "var(--arcd-type-body)" }}>Trabalhador: {employee.name}</p>}
-          <p style={{ color: C.subtle, fontSize: "var(--arcd-type-body)", marginTop: 6 }}>A solicitação será enviada para {approverEmail}.</p>
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
+        <div style={{ background: "var(--arcd-surface-card)", border: "1px solid var(--arcd-border-default)", borderLeft: "1px solid var(--arcd-action-primary)", padding: "var(--arcd-space-3)" }}>
+          <p style={{ fontFamily:"var(--arcd-font-sans)", fontWeight:"var(--arcd-font-weight-semibold)", fontSize: "var(--arcd-type-section-title)" }}>{obraName}</p>
+          <p style={{ color: "var(--arcd-text-secondary)", fontSize: "var(--arcd-type-body)" }}>Data bloqueada: {fmtDateFull(date)}</p>
+          {employee?.name && <p style={{ color: "var(--arcd-text-secondary)", fontSize: "var(--arcd-type-body)" }}>Trabalhador: {employee.name}</p>}
+          <p style={{ color: "var(--arcd-text-muted)", fontSize: "var(--arcd-type-body)", marginTop: "var(--arcd-space-1)" }}>A solicitação será enviada para {approverEmail}.</p>
         </div>
         <Inp label="Motivo da alteração *" value={reason} onChange={setReason} multiline placeholder="Ex.: ponto lançado errado, funcionário em obra diferente, ajuste solicitado pelo responsável..." />
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: "var(--arcd-space-2)" }}>
           <Btn v="ghost" onClick={onClose} full>Cancelar</Btn>
           <Btn v="warning" onClick={sendRequest} full><Ic n="mail" /> Enviar solicitação</Btn>
         </div>
@@ -7171,16 +5769,25 @@ function UnlockRequestModal({ data, dispatchAttendanceCommand, showToast, obraId
 //
 
 function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAttendanceCommand, dispatchCommand }) {
+  const [laborGroup,setLaborGroup]=useWorkspaceState('ponto_geral','laborGroup','all');
+  useHelpTopic('ponto_geral',laborGroup==='all'?'ponto_geral':`ponto_geral_${laborGroup}`);
   const agora = new Date();
   const refInicial = agora.getDate() <= 5 ? new Date(agora.getFullYear(), agora.getMonth()-1, 1) : agora;
-  const [year,setYear]=useState(refInicial.getFullYear());
-  const [month,setMonth]=useState(refInicial.getMonth());
-  const [q,setQ]=useState(agora.getDate()>=6&&agora.getDate()<=20?"1":"2");
-  const [filterObra,setFilterObra]=useState("all");
-  const [busca,setBusca]=useState("");
+  const [year,setYear]=useWorkspaceState('ponto_geral','year',refInicial.getFullYear());
+  const [month,setMonth]=useWorkspaceState('ponto_geral','month',refInicial.getMonth());
+  const [q,setQ]=useWorkspaceState('ponto_geral','q',agora.getDate()>=6&&agora.getDate()<=20?"1":"2");
+  const [filterObra,setFilterObra]=useWorkspaceState('ponto_geral','filterObra',"all");
+  const [busca,setBusca]=useWorkspaceState('ponto_geral','busca',"");
   const [obraCell,setObraCell]=useState(null);   // "empId::date" da célula com troca de obra aberta
   const pendingCellsRef=useRef(new Map());
   const [,setPendingCellsRevision]=useState(0);
+  const {intent:rhIntent,navigate:navigateEmployee}=useWorkflow();
+  useEffect(()=>{
+    if(rhIntent?.tabId!=='ponto_geral'||rhIntent.action!=='rh-readiness')return;
+    const employee=data.employees.find(e=>String(e.id)===rhIntent.record?.employeeId);if(!employee)return;
+    setLaborGroup(laborArea(employee));
+    setYear(rhIntent.scope.year);setMonth(rhIntent.scope.month);setQ(rhIntent.record.cycle);setBusca(employee.name);setFilterObra(rhIntent.scope.obraId||'all');
+  },[rhIntent?.sequence]);
   const {q1,q2}=getQ(year,month);
   const diasCiclo=q==="1"?q1:q2;
 
@@ -7203,6 +5810,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
   };
 
   const finalizarQuinzena=async()=>{
+    if(laborGroup!=='all'||filterObra!=='all'){showToast('Selecione Todos e Todas as obras para arquivar a quinzena da empresa.','error');return;}
     let total=0;const empsEnvolvidos=new Set();
     Object.entries(data.attendance||{}).forEach(([empId,mapa])=>{
       diasCiclo.forEach(d=>{if(mapa?.[d]){total++;empsEnvolvidos.add(empId);}});
@@ -7259,12 +5867,13 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
     data,employee,date,record,selectedObraId,
   });
   const employees=(data.employees||[]).filter(e=>employeeRelevantInPeriod(data,e,diasCiclo))
+    .filter(e=>matchesLaborArea(e,laborGroup))
     .filter(e=>filterObra==="all"||e.obra===filterObra||e.lastObra===filterObra||days.some(d=>obraDoRegistro(e,d,getAtt(data,e.id,d))===filterObra))
     .filter(e=>[e.name,e.role,obraName(e.obra)].join(" ").toLowerCase().includes(busca.toLowerCase()))
     .sort((a,b)=>a.name.localeCompare(b.name));
   const diaLabel=iso=>{const d=prParseIso(iso);return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}`;};
   const semana=iso=>["DOM","SEG","TER","QUA","QUI","SEX","SÁB"][prParseIso(iso).getDay()];
-  const corStatus=st=>st==="P"?C.green:st==="M"?C.yellow:st==="F"?C.red:isLeaveStatus(st)?C.blue:C.muted;
+  const corStatus=st=>st==="P"?"var(--arcd-success-text)":st==="M"?"var(--arcd-warning-text)":st==="F"?"var(--arcd-danger-text)":isLeaveStatus(st)?"var(--arcd-info-text)":"var(--arcd-text-muted)";
   // Clique avança P → ½ → F → Férias → Atestado → Folga → vazio.
   const proxStatus=st=>({P:"M",M:"F",F:"FE",FE:"AT",AT:"FG",FG:null})[st]??"P";
   const cellKeyFor=(employeeId,date)=>`${employeeId}::${date}`;
@@ -7312,34 +5921,11 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
 
   // Sem preenchimento automático de presença: cada dia é marcado manualmente,
   // clicando na própria célula - evita presença lançada sem verificação real.
-  const limparLinha=async emp=>{
-    if(bloqueadoPorArquivo())return;
-    if(!window.confirm(`Limpar os lançamentos visíveis de ${emp.name}?`))return;
-    let bloqueados=0;
-    const patches=days.flatMap(date=>{
-      const ant=getAtt(data,emp.id,date);
-      if(!ant)return [];
-      const obraId=obraDoRegistro(emp,date,ant);
-      if(obraId&&!canEditAttendance(data,obraId,date,currentUser?.id)){bloqueados++;return [];}
-      return [{employeeId:emp.id,date,selectedObraId:obraId,record:{...ant,status:null,obraId}}];
-    });
-    if(!patches.length){
-      showToast(bloqueados?"Os lançamentos visíveis estão bloqueados.":"Não há lançamentos para limpar.",bloqueados?"error":"success");
-      return;
-    }
-    const operationId=pointOperationId();
-    markPending(operationId,patches);
-    const result=await dispatchAttendanceCommand({
-      action:"attendance-batch-upsert",operationId,patches,
-    });
-    clearPending(operationId,patches);
-    if(!result?.ok){showToast(result?.reason||"Os lançamentos não foram removidos.","error");return;}
-    showToast(bloqueados?`${bloqueados} dia(s) bloqueado(s) foram preservados; os demais foram removidos.`:"Lançamentos do período removidos.");
-  };
-
   const periodo=`${fmtDateFull(diasCiclo[0])} a ${fmtDateFull(diasCiclo[diasCiclo.length-1])}`;
   const rotuloCurto=st=>st==="M"?"½":isValidAttendanceStatus(st)?st:"·";
-  return <div className="anim ponto-geral" style={{display:"flex",flexDirection:"column",gap:12}}>
+  return <div className="anim ponto-geral" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
+    <LaborAreaTabs value={laborGroup} onChange={setLaborGroup}/>
+    {laborGroup!=="all"&&<p style={{color:"var(--arcd-text-secondary)"}}>Para arquivar a quinzena da empresa, selecione Todos e Todas as obras.</p>}
     <AttendancePayMode data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} onTab={onTab}/>
     <PageHero
       eyebrow="Gestão do ponto"
@@ -7348,41 +5934,41 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
     />
 
     <div className="ponto-geral-controls">
-      <div className="ponto-geral-filters">
+      <FilterBar layout="grid" label="Filtros da gestão do ponto" className="ponto-geral-filters">
         <Sel label="Ciclo" value={q} onChange={setQ} options={[{v:"1",l:"1ª quinzena · 06 a 20"},{v:"2",l:"2ª quinzena · 21 a 05"}]}/>
         <Sel label="Mês" value={String(month)} onChange={v=>setMonth(Number(v))} options={MONTHS.map((m,i)=>({v:String(i),l:m}))}/>
         <Inp label="Ano" type="number" value={year} onChange={v=>setYear(Number(v)||agora.getFullYear())}/>
         <Sel label="Obra" value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
         <Inp label="Buscar funcionário" value={busca} onChange={setBusca} placeholder="Nome, cargo ou obra..."/>
-      </div>
+      </FilterBar>
       <p className="ponto-geral-count">{employees.length} funcionário(s) neste filtro · marcação dia a dia, clicando na célula</p>
-      {!arqMeta&&["admin","rh"].includes(currentUser?.role)&&<Suspense fallback={null}><ImportarDoREP data={data} employees={employees} days={days}
+      {!arqMeta&&["admin","rh"].includes(currentUser?.role)&&<Suspense fallback={<LoadingState label="importação de ponto"/>}><ImportarDoREP data={data} employees={employees} days={days}
         getRecord={attendanceFor} canEdit={(obraId,date)=>canEditAttendance(data,obraId,date,currentUser?.id)} obraName={obraName}
         dispatchAttendanceCommand={dispatchAttendanceCommand} newOperationId={pointOperationId} showToast={showToast}/></Suspense>}
     </div>
 
     {arqMeta ? (
-      <div className="ponto-geral-archive" style={{background:`${C.yellow}10`,border:`1px solid ${C.yellow}`,borderRadius:8,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+      <div className="ponto-geral-archive" style={{background:"color-mix(in srgb, var(--arcd-action-primary) 6%, transparent)",border:"1px solid var(--arcd-action-primary)",borderRadius:8,padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
         <div>
-          <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-body)",color:C.yellowD,display:"flex",alignItems:"center",gap:6}}><Ic n="lock"/> QUINZENA FINALIZADA E ARQUIVADA</p>
-          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
+          <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:"var(--arcd-font-weight-semibold)",fontSize:"var(--arcd-type-body)",color:"var(--arcd-action-primary)",display:"flex",alignItems:"center",gap:"var(--arcd-space-1)"}}><Ic n="lock"/> QUINZENA FINALIZADA E ARQUIVADA</p>
+          <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>
             {arqMeta.totalLancamentos} lançamento(s) de {arqMeta.funcionarios} funcionário(s) · arquivada por {arqMeta.archivedBy?.nome||"-"} em {fmtDateFull(String(arqMeta.archivedAt||"").slice(0,10))}. Edição bloqueada.
           </p>
         </div>
-        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+        <div style={{display:"flex",gap:"var(--arcd-space-1)",flexWrap:"wrap"}}>
           <Btn v="ghost" size="sm" onClick={verArquivo} disabled={arqBusy}><Ic n="calendar"/> Ver arquivo</Btn>
           {currentUser?.role==="admin"&&<Btn v="warning" size="sm" onClick={restaurarArquivo} disabled={arqBusy}><Ic n="unlock"/> Restaurar</Btn>}
         </div>
       </div>
     ) : podeArquivar ? (
-      <div className="ponto-geral-archive" style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-        <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>
+      <div className="ponto-geral-archive" style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:8,padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
+        <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>
           {quinzenaEncerrada
             ? "Após conferir e pagar a folha, finalize a quinzena: o ponto vira um arquivo próprio, a edição é bloqueada e o sistema fica mais leve."
             : "A quinzena ainda está em andamento. Finalize somente após o último dia do ciclo e o pagamento da folha."}
         </p>
-        <Btn v="warning" size="sm" onClick={finalizarQuinzena} disabled={arqBusy||!quinzenaEncerrada}
-          title={quinzenaEncerrada?"":"Disponível após o fim da quinzena"}>
+        <Btn v="warning" size="sm" onClick={finalizarQuinzena} aria-label="Finalizar e arquivar quinzena" disabled={arqBusy||!quinzenaEncerrada||laborGroup!=='all'||filterObra!=='all'}
+          title={laborGroup!=='all'||filterObra!=='all'?'Selecione Todos e Todas as obras':quinzenaEncerrada?"":"Disponível após o fim da quinzena"}>
           <Ic n="lock"/> {arqBusy?"Arquivando...":"Finalizar e arquivar quinzena"}
         </Btn>
       </div>
@@ -7395,78 +5981,67 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
 
     <div className="ponto-geral-legend">
       <span className="ponto-legend-title">Clique na célula para alternar</span>
-      <span className="ponto-legend-chip"><i style={{background:C.green}}/>Presente</span>
-      <span className="ponto-legend-chip"><i style={{background:C.yellowD}}/>Meio dia</span>
-      <span className="ponto-legend-chip"><i style={{background:C.red}}/>Falta</span>
-      <span className="ponto-legend-chip"><i style={{background:C.cinza}}/>Sem registro</span>
-      <span className="ponto-legend-chip"><i style={{background:"#8a3800"}}/>Feriado</span>
+      <span className="ponto-legend-chip"><i style={{background:"var(--arcd-success-text)"}}/>Presente</span>
+      <span className="ponto-legend-chip"><i style={{background:"var(--arcd-action-primary)"}}/>Meio dia</span>
+      <span className="ponto-legend-chip"><i style={{background:"var(--arcd-danger-text)"}}/>Falta</span>
+      <span className="ponto-legend-chip"><i style={{background:"var(--arcd-text-muted)"}}/>Sem registro</span>
+      <span className="ponto-legend-chip"><i style={{background:"var(--arcd-surface-inverse)"}}/>Feriado</span>
       <span className="ponto-legend-help">Para mudar a obra do dia, clique no texto abaixo do status.</span>
     </div>
 
-    <div className="ponto-geral-table-wrap" style={{overflow:"auto",border:`1px solid ${C.border}`,borderRadius:8,background:C.card,maxHeight:"70vh"}}>
-      <table className="ponto-geral-table" style={{borderCollapse:"separate",borderSpacing:0,minWidth:Math.max(900,354+days.length*64),width:"100%",fontSize:"var(--arcd-type-label)"}}>
-        <thead style={{position:"sticky",top:0,zIndex:5}}><tr>
-          <th className="ponto-col-funcionario" style={{position:"sticky",left:0,zIndex:7,minWidth:290,background:C.surface,color:C.text,padding:"8px 12px",textAlign:"left",fontSize:"var(--arcd-type-label)",fontWeight:600,letterSpacing:.4,borderBottom:`1px solid ${C.border}`}}>FUNCIONÁRIO E AÇÕES</th>
-          <th className="ponto-col-total" style={{minWidth:64,background:C.surface,color:C.text,padding:8,fontSize:"var(--arcd-type-label)",fontWeight:600,borderBottom:`1px solid ${C.border}`}}>DIAS</th>
-          {days.map(date=>{const feriado=feriados.includes(date);return <th className={`ponto-col-dia${feriado?" ponto-feriado":""}`} key={date} title={feriado?(nomesFeriados.get(date)||"Feriado"):""} style={{minWidth:64,background:feriado?`${C.red}14`:C.surface,color:feriado?C.red:C.text,padding:"6px 4px",borderLeft:`1px solid ${C.line}`,borderBottom:`1px solid ${C.border}`}}><div style={{fontSize:"var(--arcd-type-label)",fontWeight:600}}>{diaLabel(date)}</div><div style={{fontSize:"var(--arcd-type-caption)",fontWeight:feriado?600:600,opacity:feriado?1:.6}}>{semana(date)}</div>{feriado&&<span className="ponto-feriado-label">Feriado</span>}</th>;})}
+    <div className="ponto-geral-table-wrap" style={{overflow:"auto",border:"1px solid var(--arcd-border-default)",borderRadius:8,background:"var(--arcd-surface-card)",maxHeight:"70vh"}}>
+      <table className="ponto-geral-table" style={{borderCollapse:"separate",borderSpacing:0,minWidth:Math.max(900,284+days.length*64),width:"100%",fontSize:"var(--arcd-type-label)"}}>
+        <thead><tr>
+          <th className="ponto-col-funcionario" style={{position:"sticky",left:0,zIndex:7,minWidth:220,background:"var(--arcd-surface-muted)",color:"var(--arcd-text-primary)",padding:"var(--arcd-space-2) var(--arcd-space-3)",textAlign:"left",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",letterSpacing:"var(--arcd-letter-spacing-body)",borderBottom:"1px solid var(--arcd-border-default)"}}>Funcionário</th>
+          <th className="ponto-col-total" style={{minWidth:64,background:"var(--arcd-surface-muted)",color:"var(--arcd-text-primary)",padding:"var(--arcd-space-2)",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",borderBottom:"1px solid var(--arcd-border-default)"}}>DIAS</th>
+          {days.map(date=>{const feriado=feriados.includes(date);return <th className={`ponto-col-dia${feriado?" ponto-feriado":""}`} key={date} title={feriado?(nomesFeriados.get(date)||"Feriado"):""} style={{minWidth:64,background:feriado?"color-mix(in srgb, var(--arcd-danger-text) 8%, transparent)":"var(--arcd-surface-muted)",color:feriado?"var(--arcd-danger-text)":"var(--arcd-text-primary)",padding:"var(--arcd-space-1)",borderLeft:"1px solid var(--arcd-border-default)",borderBottom:"1px solid var(--arcd-border-default)"}}><div style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{diaLabel(date)}</div><div style={{fontSize:"var(--arcd-type-caption)",fontWeight:feriado?600:600,opacity:feriado?1:.6}}>{semana(date)}</div>{feriado&&<span className="ponto-feriado-label">Feriado</span>}</th>;})}
         </tr></thead>
-        <tbody>{employees.map(emp=>{const equivalentes=days.reduce((s,d)=>{const st=attendanceFor(emp.id,d)?.status;return s+(st==="P"?1:st==="M"?.5:0);},0);return <tr key={emp.id} style={{borderTop:`1px solid ${C.line}`}}>
-          <td className="ponto-col-funcionario" style={{position:"sticky",left:0,zIndex:2,background:C.card,padding:"8px 12px",borderTop:`1px solid ${C.line}`,minWidth:290}}>
-            <div className="ponto-employee-cell" style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
-              <div style={{minWidth:0}}>
-                <div style={{display:"flex",alignItems:"center",gap:5,minWidth:0}}>
-                  <button type="button" onClick={()=>{window.sessionStorage.setItem("arcd_editar_funcionario",emp.id);onTab?.("equipe");}} title="Editar cadastro do funcionário" style={{fontSize:"var(--arcd-type-control)",fontWeight:600,color:C.text,display:"block",whiteSpace:"normal",overflowWrap:"anywhere",cursor:"pointer",border:0,background:"transparent",padding:0,textAlign:"left",textDecoration:"underline",textDecorationColor:"transparent",textUnderlineOffset:2}} onMouseEnter={e=>e.currentTarget.style.textDecorationColor=C.blue} onMouseLeave={e=>e.currentTarget.style.textDecorationColor="transparent"}>{emp.name}</button>
-                  {emp.active===false&&<Badge color={C.muted}>Demitido</Badge>}
-                </div>
-                <div style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{emp.role||"Funcionário"} · {obraName(emp.obra)}</div>
-              </div>
-              <div className="ponto-row-actions" style={{display:"flex",gap:4,flexShrink:0}}>
-                <Btn v="ghost" size="sm" title="Ver ficha do funcionário" onClick={()=>gerarFichaFuncionarioPDF(data,emp,showToast)}><Ic n="file" s={11}/> Ficha</Btn>
-                <Btn v="ghost" size="sm" title="Limpar todos os lançamentos desta linha" onClick={()=>limparLinha(emp)}><Ic n="x" s={11}/> Limpar</Btn>
-              </div>
-            </div>
+        <tbody>{employees.map(emp=>{const equivalentes=days.reduce((s,d)=>{const st=attendanceFor(emp.id,d)?.status;return s+(st==="P"?1:st==="M"?.5:0);},0);return <tr key={emp.id} style={{borderTop:"1px solid var(--arcd-border-default)"}}>
+          <td className="ponto-col-funcionario" style={{position:"sticky",left:0,zIndex:2,background:"var(--arcd-surface-card)",padding:"var(--arcd-space-2) var(--arcd-space-3)",borderTop:"1px solid var(--arcd-border-default)",minWidth:290}}>
+            <RecordAction className="ponto-employee-name" type="button" onClick={()=>{if(!['admin','rh'].includes(currentUser?.role)){gerarFichaFuncionarioPDF(data,emp,showToast);return;}sessionContext.setItem("arcd_editar_funcionario",emp.id);if(navigateEmployee)navigateEmployee('equipe',{year,month,obraId:filterObra==='all'?'':filterObra});else onTab?.("equipe");}} title="Abrir ficha do funcionário">{emp.name}</RecordAction>
+            <div className="ponto-employee-role">{emp.active===false&&'Desligado · '}{emp.role||'Funcionário'} · {obraName(emp.obra)}</div>
           </td>
-          <td className="ponto-col-total" style={{textAlign:"center",fontWeight:600,fontSize:"var(--arcd-type-table)",color:C.blue,borderTop:`1px solid ${C.line}`,fontFamily:"var(--arcd-font-sans)"}}>{equivalentes.toFixed(1).replace(".0","")}</td>
+          <td className="ponto-col-total" style={{textAlign:"center",fontWeight:"var(--arcd-font-weight-semibold)",fontSize:"var(--arcd-type-table)",color:"var(--arcd-action-primary)",borderTop:"1px solid var(--arcd-border-default)",fontFamily:"var(--arcd-font-sans)"}}>{equivalentes.toFixed(1).replace(".0","")}</td>
           {days.map(date=>{
             const cellKey=cellKeyFor(emp.id,date),pending=pendingCellsRef.current.has(cellKey);
             const att=attendanceFor(emp.id,date),st=att?.status,obraId=obraDoRegistro(emp,date,att),fora=!employeeRelevantOnDate(data,emp,date),feriado=feriados.includes(date);
             const foraDeLotacao=st&&obraId&&obraId!==emp.obra;   // trabalhou em obra diferente da lotação
             const aberto=obraCell===cellKey;
-            return <td className={`ponto-dia-cell${feriado?" ponto-feriado":""}`} key={date} style={{padding:4,borderTop:`1px solid ${C.line}`,borderLeft:`1px solid ${C.line}`,background:feriado?`${C.red}06`:fora?C.surface:C.card,verticalAlign:"middle"}}>
-              {fora?<div style={{textAlign:"center",color:C.muted,fontSize:"var(--arcd-type-label)"}}>—</div>:<>
-                <button onClick={()=>salvarCelula(emp,date,{status:proxStatus(st)})}
+            return <td className={`ponto-dia-cell${feriado?" ponto-feriado":""}`} key={date} style={{padding:"var(--arcd-space-1)",borderTop:"1px solid var(--arcd-border-default)",borderLeft:"1px solid var(--arcd-border-default)",background:feriado?"color-mix(in srgb, var(--arcd-danger-text) 2%, transparent)":fora?"var(--arcd-surface-muted)":"var(--arcd-surface-card)",verticalAlign:"middle"}}>
+              {fora?<div style={{textAlign:"center",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)"}}>—</div>:<>
+                <RecordAction onClick={()=>salvarCelula(emp,date,{status:proxStatus(st)})}
                   aria-busy={pending}
                   title={pending?"Salvando...":ATTENDANCE_STATUS_LABEL[st]||"Sem registro"}
-                  style={{width:"100%",height:30,border:`1.5px solid ${st?corStatus(st):C.border}`,borderRadius:5,
-                          background:st?corStatus(st):C.bg,color:st?"#fff":C.muted,
-                          fontWeight:600,cursor:"pointer",fontSize:"var(--arcd-type-control)",fontFamily:"var(--arcd-font-sans)",
-                          boxShadow:pending?`0 0 0 2px ${C.blue}33`:"none",opacity:pending ? .82 : 1}}>
+                  style={{width:"100%",height:30,textAlign:"center",border:`1.5px solid ${st?corStatus(st):"var(--arcd-border-default)"}`,borderRadius:"var(--arcd-radius-control)",
+                          background:st?corStatus(st):"var(--arcd-surface-page)",color:st?"var(--arcd-text-inverse)":"var(--arcd-text-secondary)",
+                          fontWeight:"var(--arcd-font-weight-semibold)",cursor:"pointer",fontSize:"var(--arcd-type-control)",fontFamily:"var(--arcd-font-sans)",
+                          boxShadow:pending?"0 0 0 2px color-mix(in srgb, var(--arcd-action-primary) 20%, transparent)":"none",opacity:pending ? .82 : 1}}>
                   {st?rotuloCurto(st):feriado?"Feriado":rotuloCurto(st)}
-                </button>
+                </RecordAction>
                 {/* Obra: escondida por padrão. Mostra um chip discreto só quando a
                     obra do dia difere da lotação; toque abre a troca. */}
                 {aberto ? (
-                  <select autoFocus value={obraId} onChange={e=>{salvarCelula(emp,date,{obraId:e.target.value});setObraCell(null);}} onBlur={()=>setObraCell(null)}
-                    style={{width:"100%",marginTop:2,border:`1px solid ${C.blue}`,borderRadius:4,background:C.bg,color:C.text,fontSize:"var(--arcd-type-control)",padding:"2px 1px"}}>
+                  <SelectControl autoFocus value={obraId} onChange={e=>{salvarCelula(emp,date,{obraId:e.target.value});setObraCell(null);}} onBlur={()=>setObraCell(null)}
+                    style={{width:"100%",marginTop:"var(--arcd-space-half)",border:"1px solid var(--arcd-action-primary)",borderRadius:4,background:"var(--arcd-surface-page)",color:"var(--arcd-text-primary)",fontSize:"var(--arcd-type-control)",padding:"var(--arcd-space-half) var(--arcd-space-0)"}}>
                     <option value="">Sem obra</option>
                     {(data.obras||[]).map(o=><option key={o.id} value={o.id}>{o.name}</option>)}
-                  </select>
+                  </SelectControl>
                 ) : foraDeLotacao ? (
-                  <button onClick={()=>setObraCell(cellKey)} title={`Obra do dia: ${obraName(obraId)}`}
-                    style={{width:"100%",marginTop:2,border:`1px solid ${C.orange}55`,background:`${C.orange}12`,color:C.orange,borderRadius:4,fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer",padding:"2px 1px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                  <RecordAction onClick={()=>setObraCell(cellKey)} title={`Obra do dia: ${obraName(obraId)}`}
+                    style={{width:"100%",marginTop:"var(--arcd-space-half)",border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)",background:"color-mix(in srgb, var(--arcd-warning-text) 7%, transparent)",color:"var(--arcd-warning-text)",borderRadius:"var(--arcd-radius-control)",fontSize:"var(--arcd-type-control)",fontWeight:"var(--arcd-font-weight-semibold)",cursor:"pointer",padding:"var(--arcd-space-half)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                     {obraName(obraId)}
-                  </button>
+                  </RecordAction>
                 ) : st ? (
-                  <button onClick={()=>setObraCell(cellKey)} title="Trocar a obra deste dia"
-                    style={{width:"100%",marginTop:2,border:0,background:"transparent",color:C.muted,borderRadius:4,fontSize:"var(--arcd-type-control)",cursor:"pointer",padding:"1px",opacity:.55}}>
+                  <RecordAction onClick={()=>setObraCell(cellKey)} title="Trocar a obra deste dia"
+                    style={{width:"100%",marginTop:"var(--arcd-space-half)",border:0,background:"transparent",color:"var(--arcd-text-secondary)",borderRadius:"var(--arcd-radius-control)",fontSize:"var(--arcd-type-control)",cursor:"pointer",padding:"var(--arcd-space-half)",opacity:.55}}>
                     trocar obra
-                  </button>
+                  </RecordAction>
                 ) : null}
               </>}
             </td>;})}
         </tr>;})}</tbody>
       </table>
-      {!employees.length&&<div style={{padding:24,textAlign:"center",color:C.muted}}>Nenhum funcionário encontrado para os filtros selecionados.</div>}
+      {!employees.length&&<div style={{padding:"var(--arcd-space-6)",textAlign:"center",color:"var(--arcd-text-secondary)"}}>Nenhum funcionário encontrado para os filtros selecionados.</div>}
     </div>
 
     {arqView&&(()=>{
@@ -7487,46 +6062,55 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
       const totDias=linhas.reduce((s,l)=>s+l.dias,0);
       const totCusto=linhas.reduce((s,l)=>s+l.custo,0);
       return <Modal title={`Arquivo · ${arqView.meta?.label||quinzenaLabel}`} onClose={()=>setArqView(null)} wide>
-        <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginBottom:10}}>
+        <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginBottom:"var(--arcd-space-2)"}}>
           Período {fmtDateFull(arqView.meta?.inicio)} a {fmtDateFull(arqView.meta?.fim)} · arquivado por {arqView.meta?.archivedBy?.nome||"-"}. Valores calculados com a diária da época (congelada no arquivo).
         </p>
-        <div style={{overflow:"auto",border:`1px solid ${C.border}`,borderRadius:8}}>
+        <div style={{overflow:"auto",border:"1px solid var(--arcd-border-default)",borderRadius:8}}>
           <table style={{borderCollapse:"collapse",width:"100%",fontSize:"var(--arcd-type-label)"}}>
-            <thead><tr style={{background:C.surface}}>
-              {["Funcionário","P","½","F","HE","Dias","Diária","Custo"].map(h=><th key={h} style={{padding:"8px 10px",textAlign:h==="Funcionário"?"left":"center",fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.muted,borderBottom:`1px solid ${C.border}`}}>{h}</th>)}
+            <thead><tr style={{background:"var(--arcd-surface-muted)"}}>
+              {["Funcionário","P","½","F","HE","Dias","Diária","Custo"].map(h=><th key={h} style={{padding:"var(--arcd-space-2)",textAlign:h==="Funcionário"?"left":"center",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",borderBottom:"1px solid var(--arcd-border-default)"}}>{h}</th>)}
             </tr></thead>
             <tbody>
-              {linhas.map(l=><tr key={l.id} style={{borderTop:`1px solid ${C.line}`}}>
-                <td style={{padding:"7px 10px"}}><b>{l.name}</b><div style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{l.role||"Funcionário"}</div></td>
-                <td style={{textAlign:"center",color:C.green,fontWeight:600}}>{l.p}</td>
-                <td style={{textAlign:"center",color:C.yellowD,fontWeight:600}}>{l.m}</td>
-                <td style={{textAlign:"center",color:C.red,fontWeight:600}}>{l.f}</td>
-                <td style={{textAlign:"center",color:C.purple,fontWeight:600}}>{l.he}h</td>
-                <td style={{textAlign:"center",fontWeight:600}}>{l.dias.toFixed(1).replace(".0","")}</td>
-                <td style={{textAlign:"center",color:C.muted}}>{fmt(l.dailyRate)}</td>
-                <td style={{textAlign:"center",fontWeight:600,color:C.yellowD}}>{fmt(l.custo)}</td>
+              {linhas.map(l=><tr key={l.id} style={{borderTop:"1px solid var(--arcd-border-default)"}}>
+                <td style={{padding:"var(--arcd-space-2)"}}><b>{l.name}</b><div style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{l.role||"Funcionário"}</div></td>
+                <td style={{textAlign:"center",color:"var(--arcd-success-text)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{l.p}</td>
+                <td style={{textAlign:"center",color:"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{l.m}</td>
+                <td style={{textAlign:"center",color:"var(--arcd-danger-text)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{l.f}</td>
+                <td style={{textAlign:"center",color:"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{l.he}h</td>
+                <td style={{textAlign:"center",fontWeight:"var(--arcd-font-weight-semibold)"}}>{l.dias.toFixed(1).replace(".0","")}</td>
+                <td style={{textAlign:"center",color:"var(--arcd-text-secondary)"}}>{fmt(l.dailyRate)}</td>
+                <td style={{textAlign:"center",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)"}}>{fmt(l.custo)}</td>
               </tr>)}
             </tbody>
-            <tfoot><tr style={{background:C.surface,borderTop:`2px solid ${C.border}`}}>
-              <td style={{padding:"8px 10px",fontWeight:600}}>TOTAL · {linhas.length} funcionário(s)</td>
+            <tfoot><tr style={{background:"var(--arcd-surface-muted)",borderTop:"2px solid var(--arcd-border-default)"}}>
+              <td style={{padding:"var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-semibold)"}}>TOTAL · {linhas.length} funcionário(s)</td>
               <td colSpan={4}></td>
-              <td style={{textAlign:"center",fontWeight:600}}>{totDias.toFixed(1).replace(".0","")}</td>
+              <td style={{textAlign:"center",fontWeight:"var(--arcd-font-weight-semibold)"}}>{totDias.toFixed(1).replace(".0","")}</td>
               <td></td>
-              <td style={{textAlign:"center",fontWeight:600,color:C.yellowD}}>{fmt(totCusto)}</td>
+              <td style={{textAlign:"center",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)"}}>{fmt(totCusto)}</td>
             </tr></tfoot>
           </table>
         </div>
-        <p style={{fontSize:"var(--arcd-type-label)",color:C.subtle,marginTop:8}}>Custo em diárias e horas extras, sem VT/VR e adiantamentos — valores congelados no arquivo.</p>
+        <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-muted)",marginTop:"var(--arcd-space-2)"}}>Custo em diárias e horas extras, sem VT/VR e adiantamentos — valores congelados no arquivo.</p>
       </Modal>;
     })()}
   </div>;
 }
 
 function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispatchAttendanceCommand, dispatchCommand, onTab }) {
+  const [laborGroup,setLaborGroup]=useWorkspaceState('ponto','laborGroup','all',obraIdFixo);
+  useHelpTopic('ponto',laborGroup==='all'?'ponto':`ponto_${laborGroup}`);
   const obraInicial=obraIdFixo||currentUser?.obraId||
     (currentUser?.role==="engenheiro"&&data.obras.length===1?data.obras[0].id:"all");
-  const [selDate, setSelDate] = useState(today());
-  const [filterObra, setFilterObra] = useState(obraInicial);
+  const [selDate, setSelDate] = useWorkspaceState('ponto','date',today(),obraIdFixo);
+  const [filterObra, setFilterObra] = useWorkspaceState('ponto','work',obraInicial,obraIdFixo);
+  const {intent:rhIntent,navigate:navigateEmployee}=useWorkflow();
+  useEffect(()=>{
+    if(rhIntent?.tabId!=='ponto'||rhIntent.action!=='rh-readiness')return;
+    const employee=data.employees.find(e=>String(e.id)===rhIntent.record?.employeeId);if(!employee)return;
+    setLaborGroup(laborArea(employee));
+    setSelDate(rhIntent.record.date);if(!obraIdFixo)setFilterObra(currentUser?.obraId||rhIntent.scope.obraId||'all');
+  },[rhIntent?.sequence]);
   const [noteModal, setNoteModal] = useState(null);
   const [noteText, setNoteText] = useState("");
   const [roleModal, setRoleModal] = useState(null);
@@ -7580,6 +6164,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
   }, [selDate, attendanceCompletion.allDone, lastAllDoneNotification, showToast]);
 
   const list = data.employees
+    .filter(e=>matchesLaborArea(e,laborGroup))
     .filter(e => employeeRelevantOnDate(data, e, selDate))
     .filter(e => {
       if (filterObra === "all") return true;
@@ -7616,6 +6201,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
   };
 
   const finalizeObraAttendance = async () => {
+    if(laborGroup!=='all'){showToast('Selecione Todos para finalizar o ponto completo desta obra.','error');return;}
     if (filterObra === "all") {
       showToast("Selecione uma obra específica para finalizar o ponto.", "error");
       return;
@@ -7812,11 +6398,12 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
     const st = attStatus(data, e.id, selDate);
     if (st) counts[st] = (counts[st] || 0) + 1;
   });
-  const semReg = Math.max(0, list.length - counts.P - counts.M - counts.F);
-  const registeredCount = counts.P + counts.M + counts.F;
+  const registeredCount = Object.entries(counts).reduce((total,[st,n])=>total+(isValidAttendanceStatus(st)?n:0),0);
+  const semReg = list.length - registeredCount;
 
   return (
     <div className="anim obra-attendance">
+      <LaborAreaTabs value={laborGroup} onChange={setLaborGroup}/>
       <AttendancePayMode data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} onTab={onTab}/>
       <PageHero
         eyebrow="Registro de ponto"
@@ -7852,14 +6439,14 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
             {attendanceCompletion.pendingObras.length} obra(s) com ponto pendente
           </p>
           {attendanceCompletion.pendingObras.map(o => (
-            <button key={o.obraId} onClick={() => setFilterObra(o.obraId)}
+            <StandardButton variant="secondary" key={o.obraId} onClick={() => setFilterObra(o.obraId)}
               className="obra-attendance__pending-item"
               data-active={filterObra === o.obraId}
               aria-pressed={filterObra === o.obraId}>
               <span className="obra-attendance__pending-marker" aria-hidden="true"/>
               <span className="obra-attendance__pending-name">{o.obraName}</span>
               <span className="obra-attendance__pending-count">{o.missingCount} sem ponto</span>
-            </button>
+            </StandardButton>
           ))}
         </section>
       )}
@@ -7891,7 +6478,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
           {selectedObraLocked ? (
             <Btn v="warning" size="sm" onClick={() => setUnlockModal({ obraId: selectedObra.id, date: selDate, employee: null })}><Ic n="mail" /> Solicitar permissão</Btn>
           ) : (
-            <Btn size="sm" onClick={finalizeObraAttendance}><Ic n="lock" /> Finalizar ponto</Btn>
+            <Btn size="sm" onClick={finalizeObraAttendance} disabled={laborGroup!=='all'}><Ic n="lock" /> Finalizar ponto</Btn>
           )}
         </div>
       )}
@@ -7913,7 +6500,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
 
       <div className="obra-attendance__bulk">
         <Btn v="success" size="sm" onClick={() => markAll("P")} disabled={filterObra==="all"||!selectedObraCanEdit||list.length===0} full title={filterObra==="all"?"Selecione uma obra para usar ações em lote":undefined}><Ic n="check" /> Todos presentes</Btn>
-        <Btn v="ghost" size="sm" onClick={() => markAll("F")} disabled={filterObra==="all"||!selectedObraCanEdit||list.length===0} full title={filterObra==="all"?"Selecione uma obra para usar ações em lote":undefined} style={{color:C.red}}><Ic n="x" /> Todos com falta</Btn>
+        <Btn v="ghost" size="sm" onClick={() => markAll("F")} disabled={filterObra==="all"||!selectedObraCanEdit||list.length===0} full title={filterObra==="all"?"Selecione uma obra para usar ações em lote":undefined} style={{color:"var(--arcd-danger-text)"}}><Ic n="x" /> Todos com falta</Btn>
       </div>
 
       {list.length === 0 && <div className="obra-attendance__empty">Nenhum trabalhador ativo nesta seleção.</div>}
@@ -7935,16 +6522,19 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
         const obraIdPonto=obraDoPonto(e);
         const cardLocked = isAttendanceLocked(data, obraIdPonto, selDate) && !canEditAttendance(data, obraIdPonto, selDate, currentUser?.id);
         const aberto = expandedCard === e.id;
+        const statusChoices=[["P","check","Presente"],["M","money","Meio dia"],["F","x","Falta"],["FE","calendar","Férias"],["AT","file","Atestado"],["FG","clock","Folga"]];
+        const statusButton=([st,icon,label])=><RecordAction key={st} type="button" onClick={()=>setAtt(e.id,st)} className="obra-attendance-card__status" data-tone={st} data-selected={status===st} aria-pressed={status===st}><Ic n={icon} s={14}/> {label}</RecordAction>;
 
         return (
           <article key={e.id} className="obra-attendance-card" data-status={status||"empty"} data-locked={cardLocked}>
             <header className="obra-attendance-card__header">
               <div className="obra-attendance-card__identity">
-                <p className="obra-attendance-card__name" title={e.name}>{e.name}</p>
+                <RecordAction className="obra-attendance-card__name" title="Abrir ficha do funcionário" onClick={()=>{if(!['admin','rh'].includes(currentUser?.role)){gerarFichaFuncionarioPDF(data,e,showToast);return;}sessionContext.setItem('arcd_editar_funcionario',e.id);if(navigateEmployee)navigateEmployee('equipe',{obraId:filterObra==='all'?'':filterObra});else onTab?.('equipe');}}>{e.name}</RecordAction>
                 <p className="obra-attendance-card__meta">{obraName(e.obra)}{(roleDoDia || e.role) ? ` · ${roleDoDia || e.role}` : ""}{roleDoDia && roleDoDia !== e.role ? " (hoje)" : ""}</p>
               </div>
               <div className="obra-attendance-card__badges">
                 {cardLocked && <Badge color={C.red}><Ic n="lock" s={10} /> Bloqueado</Badge>}
+                {["FE","AT","FG"].includes(status)&&<Badge color={C.blue}>{ATTENDANCE_STATUS_LABEL[status]}</Badge>}
                 {timekeeping.valid&&!timekeeping.empty&&<Badge color={C.blue}>{formatMinutes(timekeeping.workedMinutes)}</Badge>}
                 {timekeeping.valid&&timekeeping.delayMinutes>0&&<Badge color={C.orange}>{timekeeping.delayMinutes} min atraso</Badge>}
                 {ot > 0 && <Badge color={C.purple}>{ot}h extra</Badge>}
@@ -7959,46 +6549,32 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
               <>
                 {/* Ação principal: presença. Três botões grandes e claros. */}
                 <div className="obra-attendance-card__statuses" role="group" aria-label={`Ponto de ${e.name}`}>
-                  {[
-                    ["P", "check", "Presente"],
-                    ["M", "money", "Meio dia"],
-                    ["F", "x", "Falta"],
-                    ["FE", "calendar", "Férias"],
-                    ["AT", "file", "Atestado"],
-                    ["FG", "clock", "Folga"],
-                  ].map(([st, icon, label]) => (
-                    <button key={st} type="button" onClick={() => setAtt(e.id, st)}
-                      className="obra-attendance-card__status"
-                      data-tone={st}
-                      data-selected={status === st}
-                      aria-pressed={status === st}>
-                      <Ic n={icon} s={14} /> {label}
-                    </button>
-                  ))}
+                  {statusChoices.slice(0,3).map(statusButton)}
                 </div>
 
                 {/* Ações secundárias recolhidas: raras no dia a dia, não competem
                     com a marcação de presença. */}
-                <button onClick={() => setExpandedCard(aberto ? null : e.id)}
+                <RecordAction onClick={() => setExpandedCard(aberto ? null : e.id)}
                   type="button"
                   className="obra-attendance-card__more"
                   aria-expanded={aberto}>
                   {aberto ? "Menos opções" : "Mais opções"} <span aria-hidden="true">{aberto ? "▲" : "▼"}</span>
-                </button>
+                </RecordAction>
                 {aberto && (
                   <div className="obra-attendance-card__details">
+                    <div className="obra-attendance-card__statuses" role="group" aria-label={`Outras situações de ${e.name}`}>{statusChoices.slice(3).map(statusButton)}</div>
                     <div className="obra-attendance-card__secondary">
                       <Btn v="ghost" size="sm" full onClick={() => openTimekeeping(e)}><Ic n="calendar" /> Jornada</Btn>
                       <Btn v="ghost" size="sm" full onClick={() => { if (requireDailyCheck()) return; if (requireUnlocked(e)) return; setOtModal(e.id); setOtHours(String(ot)); }}><Ic n="clock" /> Hora extra</Btn>
                       <Btn v="ghost" size="sm" full onClick={() => { if (requireDailyCheck()) return; if (requireUnlocked(e)) return; setNoteModal(e.id); setNoteText(note); }}><Ic n="edit" /> Observação</Btn>
                       <Btn v="ghost" size="sm" full onClick={() => { if (requireDailyCheck()) return; if (requireUnlocked(e)) return; setRoleModal(e.id); setRoleText(roleDoDia || e.role || ""); }}><Ic n="edit" /> Função do dia</Btn>
                     </div>
-                    {podeMovimentarEquipe && <div className="obra-attendance-card__workforce">
-                      <Btn v="warning" size="sm" full onClick={() => setMovementModal({ emp: e, mode: "transfer" })}><Ic n="building" /> Transferir</Btn>
-                      <Btn v="danger" size="sm" full onClick={() => setMovementModal({ emp: e, mode: "dismiss" })}><Ic n="x" /> Demitir</Btn>
-                    </div>}
                   </div>
                 )}
+                {podeMovimentarEquipe && <div className="obra-attendance-card__workforce">
+                  <Btn v="ghost" size="sm" full onClick={() => setMovementModal({ emp: e, mode: "transfer" })}>Transferir</Btn>
+                  <Btn v="danger" size="sm" full onClick={() => setMovementModal({ emp: e, mode: "dismiss" })}>Desligar</Btn>
+                </div>}
               </>
             )}
           </article>
@@ -8012,7 +6588,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
       {noteModal && (
         <Modal title="Observação" onClose={() => setNoteModal(null)}>
           <Inp label="Observação" value={noteText} onChange={setNoteText} multiline />
-          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+          <div style={{ display: "flex", gap: "var(--arcd-space-2)", marginTop: "var(--arcd-space-3)" }}>
             <Btn v="ghost" onClick={() => setNoteModal(null)} full>Cancelar</Btn>
             <Btn onClick={saveNote} full><Ic n="check" /> Salvar</Btn>
           </div>
@@ -8021,13 +6597,13 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
 
       {roleModal && (
         <Modal title="Função do dia" onClose={() => setRoleModal(null)}>
-          <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginTop: -4, marginBottom: 10 }}>
+          <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", marginTop: -4, marginBottom: "var(--arcd-space-2)" }}>
             Use quando o trabalhador exerceu, NESTE dia, uma função diferente da cadastrada
             (ex.: pedreiro que ajudou como azulejista). Não muda o cadastro do funcionário,
             só este dia.
           </p>
           <Inp label="Função nesta data" value={roleText} onChange={setRoleText} placeholder="Ex.: Azulejista" />
-          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+          <div style={{ display: "flex", gap: "var(--arcd-space-2)", marginTop: "var(--arcd-space-3)" }}>
             <Btn v="ghost" onClick={() => setRoleModal(null)} full>Cancelar</Btn>
             <Btn onClick={saveRole} full><Ic n="check" /> Salvar</Btn>
           </div>
@@ -8037,7 +6613,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
       {otModal && (
         <Modal title="Horas extras" onClose={() => setOtModal(null)}>
           <Inp label="Quantidade de horas" type="number" value={otHours} onChange={setOtHours} />
-          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+          <div style={{ display: "flex", gap: "var(--arcd-space-2)", marginTop: "var(--arcd-space-3)" }}>
             <Btn v="ghost" onClick={() => setOtModal(null)} full>Cancelar</Btn>
             <Btn v="info" onClick={saveOT} full><Ic n="check" /> Registrar</Btn>
           </div>
@@ -8046,21 +6622,21 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
 
       {timeModal && (
         <Modal title="Jornada do dia" onClose={() => setTimeModal(null)}>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-2)"}}>
             <Inp label="Entrada" type="time" value={timeForm.entrada} onChange={v=>setTimeForm(f=>({...f,entrada:v}))}/>
             <Inp label="Saída para intervalo" type="time" value={timeForm.intervaloSaida} onChange={v=>setTimeForm(f=>({...f,intervaloSaida:v}))}/>
             <Inp label="Retorno do intervalo" type="time" value={timeForm.intervaloRetorno} onChange={v=>setTimeForm(f=>({...f,intervaloRetorno:v}))}/>
             <Inp label="Saída" type="time" value={timeForm.saida} onChange={v=>setTimeForm(f=>({...f,saida:v}))}/>
           </div>
-          <div style={{marginTop:12,padding:10,border:`1px solid ${timekeepingPreview?.valid?C.border:C.red}`,borderRadius:7,background:C.surface}}>
+          <div style={{marginTop:"var(--arcd-space-3)",padding:"var(--arcd-space-2)",border:`1px solid ${timekeepingPreview?.valid?"var(--arcd-border-default)":"var(--arcd-danger-text)"}`,borderRadius:7,background:"var(--arcd-surface-muted)"}}>
             {timekeepingPreview?.valid
-              ? <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>
+              ? <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>
                   Total: {formatMinutes(timekeepingPreview.workedMinutes)}
                   {timekeepingPreview.delayMinutes>0?` · atraso de ${timekeepingPreview.delayMinutes} min`:" · sem atraso"}
                 </p>
-              : <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.red}}>{timekeepingPreview?.error}</p>}
+              : <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-danger-text)"}}>{timekeepingPreview?.error}</p>}
           </div>
-          <div style={{display:"flex",gap:8,marginTop:12}}>
+          <div style={{display:"flex",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-3)"}}>
             <Btn v="ghost" onClick={()=>setTimeModal(null)} full>Cancelar</Btn>
             <Btn onClick={saveTimekeeping} full><Ic n="check"/> Salvar jornada</Btn>
           </div>
@@ -8079,12 +6655,13 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
 // FLUXO DE CAIXA
 //
 
-function FluxoCaixa({ data }) {
+function FluxoCaixa({ data, year, month, obraId="all" }) {
   // Extrai primitivos: `new Date()` gera um objeto novo a cada render, então
   // usá-lo direto na lista de dependências faria o memo recalcular sempre.
   const _hoje = new Date();
-  const nowY = _hoje.getFullYear();
-  const nowM = _hoje.getMonth();
+  const nowY = year ?? _hoje.getFullYear();
+  const nowM = month ?? _hoje.getMonth();
+  const actualYear=_hoje.getFullYear(),actualMonth=_hoje.getMonth();
   const [months, setMonths] = useState(6);
 
   // Calcula histórico real + projeção futura
@@ -8097,12 +6674,12 @@ function FluxoCaixa({ data }) {
       const m = d.getMonth();
       const ym = `${y}-${String(m+1).padStart(2,"0")}`;
       const mdays = getDays(y, m);
-      const isFuture = d > new Date(nowY, nowM, 1);
+      const isFuture = d > new Date(actualYear, actualMonth, 1);
 
       if (!isFuture) {
         const inicio = mdays[0] || `${ym}-01`;
         const fim = mdays[mdays.length-1] || `${ym}-31`;
-        const caixa = selectLedgerCashFlow(ledger, { startDate:inicio, endDate:fim, includeCorporate:true });
+        const caixa = selectLedgerCashFlow(ledger, { startDate:inicio, endDate:fim, ...(obraId==="all"?{}:{obraId}), includeCorporate:obraId==="all" });
         result.push({
           mes:monthName(m)+"/"+String(y).slice(2),
           received:caixa.cashIn, totalOut:caixa.cashOut, balance:caixa.balance,
@@ -8111,21 +6688,21 @@ function FluxoCaixa({ data }) {
       } else {
         // Projeção
         const workDays = mdays.filter(d=>{const wd=new Date(d+"T12:00:00").getDay();return wd>=1&&wd<=6;}).length;
-        const activeEmps = data.employees.filter(e=>e.active!==false);
+        const activeEmps = data.employees.filter(e=>e.active!==false&&(obraId==="all"||e.obra===obraId));
         const laborEst = activeEmps.reduce((s,e)=>s+Number(e.dailyRate||0)*workDays*0.82,0);
-        const tercEst = (data.terceirizados||[]).filter(t=>t.active!==false).reduce((s,t)=>s+Number(t.weeklyRate||0)*4.3,0);
+        const tercEst = (data.terceirizados||[]).filter(t=>t.active!==false&&(obraId==="all"||t.obraId===obraId)).reduce((s,t)=>s+Number(t.weeklyRate||0)*4.3,0);
         // Projeção de meses futuros: só estima com base na MO (sem materiais e
         // terceirizados futuros, que não têm como ser projetados aqui). Para
         // obras admin_only/fixed_labor_admin isso subestima a receita prevista
         // - é uma aproximação grosseira só para o gráfico de fluxo de caixa;
         // o valor real e auditável fica no fechamento por competência em
         // Medições (MedicoesView).
-        const revenueEst = data.obras.filter(o=>o.status!=="done").reduce((s,o)=>{const{laborCost}=calcObraLaborCost(data,o.id,mdays);return s+calcObraRevenue(o,laborCost).revenue;},0);
+        const revenueEst = data.obras.filter(o=>o.status!=="done"&&(obraId==="all"||o.id===obraId)).reduce((s,o)=>{const{laborCost}=calcObraLaborCost(data,o.id,mdays);return s+calcObraRevenue(o,laborCost).revenue;},0);
         result.push({ mes: monthName(m)+"/"+String(y).slice(2), received: revenueEst, laborCost: laborEst, tercCost: tercEst, totalOut: laborEst+tercEst, balance: revenueEst-(laborEst+tercEst), isProjection: true, isCurrent: false });
       }
     }
     return result;
-  }, [data, months, nowY, nowM]);
+  }, [data, months, nowY, nowM, obraId,actualYear,actualMonth]);
 
   const maxVal = Math.max(...cashflow.map(c=>Math.max(c.received,c.totalOut,1)));
   const totalReceived = cashflow.filter(c=>!c.isProjection).reduce((s,c)=>s+c.received,0);
@@ -8138,7 +6715,7 @@ function FluxoCaixa({ data }) {
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div>
           <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.blue,textTransform:"uppercase",letterSpacing:1}}>Histórico + Projeção</p>
-          <h3 style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-page-title)",letterSpacing:1.5,color:C.text}}>Fluxo de Caixa</h3>
+          <h3 style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-page-title)",letterSpacing:1.5,color:C.text}}>Fluxo de Caixa</h3><p>Referência: {fullMonth(nowM)} {nowY} · {obraId==="all"?"Todas as obras":data.obras.find(o=>o.id===obraId)?.name}. Janela de {months} meses até a referência e 3 meses seguintes. Valores posteriores ao mês atual são estimativas.</p>
         </div>
         <Sel value={String(months)} onChange={v=>setMonths(Number(v))} options={[{v:"3",l:"3 meses"},{v:"6",l:"6 meses"},{v:"12",l:"12 meses"}]}/>
       </div>
@@ -8215,16 +6792,6 @@ function FluxoCaixa({ data }) {
     </div>
   );
 }
-
-// A tela de Terceiros (cadastro e pagamentos semanais) foi extraída para
-// src/domains/terceirizados/components/TerceirosView.jsx em 2026-08-15 -
-// importada como `Terceiros` abaixo, mesmo nome de sempre.
-
-export const compLabel = ym => {
-  if (!ym) return "-";
-  const [y, m] = ym.split("-");
-  return `${fullMonth(Number(m)-1)} ${y}`;
-};
 
 //
 // Relatórios
@@ -8795,7 +7362,7 @@ function RelatoriosMensais({ data, showToast }) {
         <ReportMetric label="Registros críticos" value={totals.faltas+totals.semRegistro} detail={`${totals.faltas} faltas · ${totals.semRegistro} sem registro`} color={(totals.faltas+totals.semRegistro)>0?C.red:C.green} icon="alert"/>
       </div>
 
-      <Suspense fallback={<div className="arcd-page-loading">Carregando gráfico...</div>}>
+      <Suspense fallback={<LoadingState label="gráfico"/>}>
         <LazyRelatoriosChartPanel byObra={byObra} chartMode={chartMode} setChartMode={setChartMode} highlightObra={highlightObra} setHighlightObra={setHighlightObra}/>
       </Suspense>
 
@@ -9798,45 +8365,6 @@ function Config({ data, update, showToast, currentUser, onLogout, dispatchAttend
   );
 }
 
-//
-// SISTEMA DE LOGIN E PERMISSÕES
-//
-
-export const ROLES = [
-  { v:"admin",      l:"Administrador",     desc:"Acesso total ao sistema",             color:"#D4AF37" },
-  { v:"engenheiro", l:"Engenheiro de Campo",desc:"Obras, Ponto, Equipe, Terceiros",    color:"#1565C0" },
-  { v:"engenheiro_auditor", l:"Engenheiro Auditor",desc:"Auditoria técnica, vistorias e conferências", color:"#0F766E" },
-  { v:"compras",    l:"Setor de Compras",   desc:"Solicitações, pedidos, fornecedores e estoque", color:"#D97706" },
-  { v:"rh",         l:"RH / Gestão",       desc:"Equipe, Terceirizados, Folha e Rescisão", color:"#2E7D32" },
-  { v:"financeiro", l:"Financeiro",         desc:"Pagamentos, notas, conciliação, DRE e auditoria", color:"#6A1B9A" },
-  { v:"comercial",  l:"Comercial",          desc:"Orçamentos e atividades comerciais", color:"#2E7D32" },
-  { v:"visualizador",l:"Visualizador",      desc:"Somente Dashboard (somente leitura)", color:"#6B6459" },
-];
-
-
-const ACCESS_SECTORS=[
-  {id:"engenharia",label:"Engenharia",color:"#1565C0",tabs:[
-    ["obras","Obras"],["orc","Orçamento"],["plan","Planejamento"],["plan_suprimentos","Marcos e Curva A"],["rdo","Diário de obra"],["conferencia","Conferência"],["med","Medição técnica"],
-    ["equip","Equipamentos"],["licenca","Licenciamento"],["obsoletos","Obsoletos"],
-  ]},
-  {id:"compras",label:"Compras",color:"#D97706",tabs:[
-    ["cmp","Compras e solicitações"],["fornecedores","Fornecedores e ranking"],["est","Estoque"],
-  ]},
-  {id:"financeiro",label:"Financeiro",color:"#6A1B9A",tabs:[
-    ["dre_emp","DRE Empresa"],["dre","DRE Obras"],["fin","Gestão financeira"],["conc","Conciliação"],
-    ["equip_fin","Locação de equipamentos"],["medicoes","Medições financeiras"],["caixa","Caixa da obra"],["relat","Relatórios"],
-  ]},
-  {id:"rh",label:"Recursos Humanos",color:"#0F766E",tabs:[
-    ["equipe","Equipes"],["equipe_obras","Equipe nas Obras"],["ponto","Ponto por obra"],["ponto_geral","Gestão geral do ponto"],["ponto_app","Ponto eletrônico (app)"],["terc","Terceirizados"],["folha","Folha de pagamento"],["resc","Rescisões"],["rh_indic","Indicadores"],["conc","Conciliação da folha"],
-  ]},
-  {id:"comercial",label:"Comercial",color:"#2E7D32",tabs:[
-    ["com_workspace","Comercial da empresa"],["com_real_estate","Venda de imóveis"],["com_pipeline","Pipeline"],["com_relationships","Relacionamentos"],["com_deals","Propostas e contratos"],["com_management","Gestão comercial"],
-  ]},
-  {id:"geral",label:"Recursos gerais",color:"#6B6459",tabs:[
-    ["patrimonio","Patrimônio da empresa"],["ia","Inteligência artificial"],["cad","Cadastros gerais"],
-  ]},
-];
-
 
 //  Tela de Login
 
@@ -10043,571 +8571,6 @@ function LoginScreen({ onLogin, erroInicial="", precisaSetup=false }) {
   );
 }
 
-//  Gestão de Usuários (dentro de Config)
-
-export function GestaoUsuarios({ data, update, showToast, currentUser }) {
-  const emptyU = { id:"", nome:"", role:"engenheiro", email:"", obraId:"", maxDesconto:10, active:true, accessTabs:[...ROLE_TABS.engenheiro] };
-  const [modal,   setModal]   = useState(false);
-  const [pinModal,setPinModal] = useState(null); // userId
-  const [form,    setForm]    = useState(emptyU);
-  const [newPin,  setNewPin]  = useState("");
-  const [newPin2, setNewPin2] = useState("");
-  const [contaModal,setContaModal]=useState(null);
-  const [senhaTemp,setSenhaTemp]=useState("");
-  const [senhaTemp2,setSenhaTemp2]=useState("");
-  const [ativandoConta,setAtivandoConta]=useState(false);
-  const [presencas,setPresencas] = useState([]);
-  const [presencaBusy,setPresencaBusy] = useState(false);
-  const [presencaErro,setPresencaErro] = useState("");
-  const F = k => v => setForm(f=>({...f,[k]:v}));
-  const mudarPerfil=role=>setForm(f=>({...f,role,accessTabs:[...(ROLE_TABS[role]||["home"])]}));
-  const toggleTela=tab=>setForm(f=>{const atual=new Set(f.accessTabs||[]);atual.has(tab)?atual.delete(tab):atual.add(tab);return{...f,accessTabs:[...atual]};});
-  const toggleSetor=setor=>setForm(f=>{const atual=new Set(f.accessTabs||[]);const ids=setor.tabs.map(([id])=>id);const todos=ids.every(id=>atual.has(id));ids.forEach(id=>todos?atual.delete(id):atual.add(id));return{...f,accessTabs:[...atual]};});
-
-  const saveUser = async () => {
-    if (!form.nome.trim()) { showToast("Nome obrigatório.","error"); return; }
-    if(form.id===currentUser?.id&&form.role!=="admin"){showToast("O administrador logado não pode retirar o próprio acesso administrativo.","error");return;}
-    const accessTabs=form.role==="admin"?[...ROLE_TABS.admin]:[...new Set(["home",...(form.accessTabs||[])])].filter(tab=>ROLE_TABS.admin.includes(tab)&&tab!=="config");
-    const payload = { ...form,accessTabs,maxDesconto:Math.max(0,Math.min(100,Number(form.maxDesconto||0))), id: form.id||uid(), createdAt: form.createdAt||new Date().toISOString() };
-    // PIN só é definido via modal separado
-    if (!form.id) payload.pin = ""; // novo usuário sem PIN → admin define depois
-    const usuarios = form.id
-      ? (data.usuarios||[]).map(u=>u.id===form.id?payload:u)
-      : [...(data.usuarios||[]), payload];
-    const obras=(data.obras||[]).map(o=>o.engineerId===payload.id?{...o,engineer:payload.role==="engenheiro"&&payload.active!==false?payload.nome:"",engineerId:payload.role==="engenheiro"&&payload.active!==false?payload.id:""}:o);
-    update({...data, usuarios, obras});
-    setModal(false);
-    showToast(form.id?"Usuário atualizado.":"Usuário cadastrado. Defina o PIN agora.");
-    if (!form.id) setPinModal(payload.id);
-  };
-
-  const savePin = async (userId) => {
-    if (newPin.length < 4) { showToast("PIN mínimo 4 dígitos.","error"); return; }
-    if (newPin !== newPin2) { showToast("PINs não coincidem.","error"); return; }
-    const sincronizado=await update({__aguardarFila:true});
-    if(!sincronizado?.ok){showToast("Conclua o salvamento pendente antes de definir o PIN.","error");return;}
-    const resultado=await definirPinOperador(userId,newPin);
-    if(!resultado.ok){showToast(resultado.erro||"Não foi possível definir o PIN.","error");return;}
-    update({__adotarServidor:true,data:resultado.data,updatedAt:resultado.updatedAt});
-    setPinModal(null); setNewPin(""); setNewPin2("");
-    showToast("PIN definido com sucesso.");
-  };
-
-  const ativarContaEmail=async()=>{
-    if(senhaTemp.length<8){showToast("A senha temporária deve ter ao menos 8 caracteres.","error");return;}
-    if(senhaTemp!==senhaTemp2){showToast("As senhas não coincidem.","error");return;}
-    const sincronizado=await update({__aguardarFila:true});
-    if(!sincronizado?.ok){showToast("Conclua o salvamento pendente antes de ativar a conta.","error");return;}
-    setAtivandoConta(true);
-    const r=await provisionarContaEmail(contaModal,senhaTemp);
-    setAtivandoConta(false);
-    if(!r.ok){showToast(r.erro||"Não foi possível ativar a conta.","error");return;}
-    update({__adotarServidor:true,data:r.data,updatedAt:r.updatedAt});
-    setContaModal(null);setSenhaTemp("");setSenhaTemp2("");showToast("Conta de e-mail ativada. Entregue a senha temporária ao operador.");
-  };
-
-  const toggleActive = (id) => {
-    const usuarios = (data.usuarios||[]).map(u=>u.id===id?{...u,active:!u.active}:u);
-    update({...data,usuarios});
-    showToast("Status atualizado.");
-  };
-
-  const carregarPresencas = useCallback(async () => {
-    if (currentUser?.role !== "admin") return;
-    setPresencaBusy(true);
-    const r = await listarPresencas();
-    if (r.ok) { setPresencas(r.presencas); setPresencaErro(""); }
-    else setPresencaErro(r.erro || "Não foi possível consultar quem está on-line.");
-    setPresencaBusy(false);
-  }, [currentUser?.role]);
-
-  useEffect(() => {
-    if (currentUser?.role !== "admin") return undefined;
-    const polling = criarPollingAdaptativo({ tarefa: carregarPresencas, visivelMs: 30000, ocultoMs: 120000 });
-    polling.iniciar();
-    return polling.parar;
-  }, [currentUser?.role, carregarPresencas]);
-
-  const presencasPorUsuario = useMemo(() => {
-    const mapa = new Map();
-    presencas.forEach(p => {
-      if (!mapa.has(p.userId)) mapa.set(p.userId, []);
-      mapa.get(p.userId).push(p);
-    });
-    mapa.forEach(lista => lista.sort((a,b)=>new Date(b.lastSeen)-new Date(a.lastSeen)));
-    return mapa;
-  }, [presencas]);
-
-  const fmtUltimaAtividade = iso => {
-    if (!iso) return "Nunca registrado";
-    const d = new Date(iso);
-    if (isNaN(d.getTime())) return "Horário indisponível";
-    const segundos = Math.max(0, Math.round((Date.now()-d.getTime())/1000));
-    if (segundos < 60) return "Agora";
-    if (segundos < 3600) return `Há ${Math.floor(segundos/60)} min`;
-    return d.toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
-  };
-
-  return (
-    <div style={{display:"flex",flexDirection:"column",gap:12}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <div>
-          <p style={{fontFamily:"var(--arcd-font-sans)",fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:C.text,textTransform:"uppercase",letterSpacing:.5}}>Usuários do Sistema</p>
-          <p style={{fontSize:"var(--arcd-type-body)",color:C.muted,marginTop:2}}>{(data.usuarios||[]).length} cadastrados</p>
-        </div>
-        {currentUser?.role==="admin"&&<div style={{display:"flex",gap:6}}><Btn size="sm" v="ghost" onClick={carregarPresencas} disabled={presencaBusy}><Ic n="clock"/> {presencaBusy?"Atualizando...":"Atualizar on-line"}</Btn><Btn size="sm" onClick={()=>{setForm(emptyU);setModal(true);}}><Ic n="plus"/> Novo</Btn></div>}
-      </div>
-
-      {currentUser?.role==="admin"&&presencaErro&&<p style={{fontSize:"var(--arcd-type-label)",color:C.red,background:`${C.red}0B`,border:`1px solid ${C.red}33`,borderRadius:6,padding:"7px 9px"}}>{presencaErro}</p>}
-
-      {(data.usuarios||[]).length===0&&(
-        <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:6,padding:20,textAlign:"center",color:C.muted}}>
-          Nenhum usuário cadastrado. Crie o admin primeiro.
-        </div>
-      )}
-
-      {(data.usuarios||[]).map(u=>{
-        const role=ROLES.find(r=>r.v===u.role)||ROLES[0];
-        const hasPIN=!!u.pin;
-        const acessos=allowedTabsForUser(u);
-        const setores=u.role==="admin"?["TODOS OS SETORES"]:ACCESS_SECTORS.filter(s=>s.tabs.some(([id])=>acessos.includes(id))).map(s=>s.label.toUpperCase());
-        const sessoes=presencasPorUsuario.get(u.id)||[];
-        const sessoesOnline=sessoes.filter(p=>p.online);
-        const ultima=sessoesOnline[0]||sessoes[0];
-        return(
-          <div key={u.id} style={{
-            background:C.bg,border:`1.5px solid ${C.border}`,borderLeft:`1px solid ${role.color}`,
-            borderRadius:6,padding:"12px 14px",
-            boxShadow:`0 1px 4px ${C.shadow}`,
-            opacity:u.active===false?0.55:1,
-          }}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
-              <div className="settings-user-details">
-                <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  <p style={{fontWeight:600,fontSize:"var(--arcd-type-body)",color:C.text}}>{u.nome}</p>
-                  {u.id===currentUser?.id&&<span style={{fontSize:"var(--arcd-type-label)",background:C.yellow,color:"#fff",padding:"2px 6px",borderRadius:4,fontWeight:600}}>VOCÊ</span>}
-                  {currentUser?.role==="admin"&&<span style={{fontSize:"var(--arcd-type-caption)",background:sessoesOnline.length?`${C.green}18`:C.surface,color:sessoesOnline.length?C.green:C.muted,border:`1px solid ${sessoesOnline.length?C.green:C.border}`,padding:"2px 6px",borderRadius:99,fontWeight:600,display:"inline-flex",alignItems:"center",gap:4}}><span style={{width:6,height:6,borderRadius:"50%",background:sessoesOnline.length?C.green:C.muted}}/>{sessoesOnline.length?`ONLINE${sessoesOnline.length>1?` · ${sessoesOnline.length} SESSÕES`:""}`:"OFFLINE"}</span>}
-                  {!hasPIN&&<span style={{fontSize:"var(--arcd-type-label)",background:C.orange,color:"#fff",padding:"2px 6px",borderRadius:4,fontWeight:600}}>SEM PIN</span>}
-                </div>
-                <p style={{fontSize:"var(--arcd-type-label)",color:role.color,fontWeight:600,marginTop:2}}>{role.l}</p>
-                {u.email&&<p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:1}}>{u.email}</p>}
-                <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3}}>{role.desc}</p>
-                <p style={{fontSize:"var(--arcd-type-caption)",color:u.obraId?C.orange:C.green,marginTop:3,fontWeight:600}}>Obras: {u.obraId?((data.obras||[]).find(o=>o.id===u.obraId)?.name||"restrição inválida — obra removida"):"todas as obras"}</p>
-                {currentUser?.role==="admin"&&<p style={{fontSize:"var(--arcd-type-caption)",color:sessoesOnline.length?C.green:C.muted,marginTop:4}}>{sessoesOnline.length?`${TAB_META[ultima?.tab]?.label||ultima?.tab||"No aplicativo"} · ${ultima?.device||"Dispositivo"}`:`Última atividade: ${fmtUltimaAtividade(ultima?.lastSeen)}`}</p>}
-                <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:6}}>{setores.map(nome=><span key={nome} style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.blue,background:`${C.blue}0C`,border:`1px solid ${C.blue}35`,padding:"2px 5px",borderRadius:4}}>{nome}</span>)}</div>
-              </div>
-              {currentUser?.role==="admin"&&(
-                <div className="settings-user-actions" style={{display:"flex",gap:4,flexShrink:0}}>
-                  <Btn size="sm" v={u.authUserId?"success":"ghost"} onClick={()=>{if(!u.email){showToast("Cadastre o e-mail do operador antes de ativar a conta.","error");return;}setContaModal(u.id);setSenhaTemp("");setSenhaTemp2("");}}>{u.authUserId?"Senha":"Ativar login"}</Btn>
-                  <Btn size="sm" v="ghost" onClick={()=>setPinModal(u.id)}>PIN</Btn>
-                  <Btn size="sm" v="ghost" onClick={()=>{setForm({...u,accessTabs:[...allowedTabsForUser(u)]});setModal(true);}}><Ic n="edit"/></Btn>
-                  {u.obraId&&<Btn size="sm" v="success" onClick={()=>{update({...data,usuarios:(data.usuarios||[]).map(x=>x.id===u.id?{...x,obraId:""}:x)});showToast(`${u.nome} agora pode acessar todas as obras.`);}}>Todas obras</Btn>}
-                  <Btn size="sm" v={u.active===false?"success":"dark"} onClick={()=>toggleActive(u.id)}>
-                    {u.active===false?"Ativar":"Inativar"}
-                  </Btn>
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      })}
-
-      {/* Modal: cadastro de usuário */}
-      {modal&&(
-        <Modal title={form.id?"Editar usuário":"Novo usuário"} onClose={()=>setModal(false)} wide>
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <Inp label="Nome completo *" value={form.nome} onChange={F("nome")} placeholder="Nome do usuário"/>
-            <Sel label="Perfil-base *" value={form.role} onChange={mudarPerfil} options={ROLES.map(r=>({v:r.v,l:r.l}))}/>
-            <Inp label="E-mail" value={form.email} onChange={F("email")} placeholder="email@empresa.com"/>
-            <Inp label="Limite de desconto comercial (%)" type="number" value={form.maxDesconto??10} onChange={F("maxDesconto")} placeholder="10"/>
-            <Sel label="Restringir a obra (opcional)" value={form.obraId} onChange={F("obraId")}
-              options={[{v:"",l:"Todas as obras"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
-            <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 12px"}}>
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>
-                O perfil-base preenche uma sugestão. O acesso efetivo é definido pelas telas marcadas abaixo.
-              </p>
-            </div>
-            {form.role==="admin"?<div style={{background:`${C.yellow}10`,border:`1px solid ${C.yellow}`,borderRadius:6,padding:"10px 12px"}}><p style={{fontSize:"var(--arcd-type-label)",color:C.yellowD,fontWeight:600}}>ADMINISTRADOR · ACESSO TOTAL</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>O administrador sempre acessa todos os setores, usuários e configurações.</p></div>:<div style={{display:"flex",flexDirection:"column",gap:8}}>
-              <div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>ACESSOS DESTE USUÁRIO</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Marque o setor inteiro ou escolha telas individualmente. Dashboard é liberado automaticamente.</p></div>
-              {ACCESS_SECTORS.map(setor=>{const selecionadas=setor.tabs.filter(([id])=>(form.accessTabs||[]).includes(id)).length;const todas=selecionadas===setor.tabs.length;return <div key={setor.id} style={{border:`1px solid ${todas?setor.color:C.border}`,borderLeft:`1px solid ${setor.color}`,borderRadius:6,padding:"9px 10px",background:todas?`${setor.color}08`:C.surface}}>
-                <button onClick={()=>toggleSetor(setor)} style={{display:"flex",width:"100%",justifyContent:"space-between",alignItems:"center",gap:8,border:0,background:"transparent",cursor:"pointer",padding:0,textAlign:"left"}}><span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:setor.color}}>{setor.label.toUpperCase()}</span><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{selecionadas}/{setor.tabs.length} · {todas?"DESMARCAR SETOR":"MARCAR SETOR"}</span></button>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:5,marginTop:7}}>{setor.tabs.map(([id,label])=>{const marcado=(form.accessTabs||[]).includes(id);return <label key={id} style={{display:"flex",alignItems:"center",gap:7,border:`1px solid ${marcado?setor.color:C.border}`,background:marcado?`${setor.color}0B`:C.bg,borderRadius:6,padding:"6px 8px",cursor:"pointer"}}><input type="checkbox" checked={marcado} onChange={()=>toggleTela(id)}/><span style={{fontSize:"var(--arcd-type-label)",color:marcado?C.text:C.muted,fontWeight:marcado?600:500}}>{label}</span></label>;})}</div>
-              </div>;})}
-            </div>}
-            <div style={{display:"flex",gap:8}}>
-              <Btn v="ghost" onClick={()=>setModal(false)} full>Cancelar</Btn>
-              <Btn onClick={saveUser} full><Ic n="check"/> Salvar</Btn>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {/* Modal: definir PIN */}
-      {pinModal&&(
-        <Modal title="Definir PIN de acesso" onClose={()=>{setPinModal(null);setNewPin("");setNewPin2("");}}>
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:6,padding:"10px 14px"}}>
-              <p style={{fontSize:"var(--arcd-type-body)",color:C.muted}}>Usuário: <strong style={{color:C.text}}>{(data.usuarios||[]).find(u=>u.id===pinModal)?.nome||"-"}</strong></p>
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4}}>O PIN é pessoal e deve ter entre 4 e 6 dígitos numéricos.</p>
-            </div>
-            <Inp label="Novo PIN *" type="password" value={newPin} onChange={setNewPin} placeholder="4 a 6 dígitos"/>
-            <Inp label="Confirmar PIN *" type="password" value={newPin2} onChange={setNewPin2} placeholder="Repita o PIN"/>
-            <div style={{display:"flex",gap:8}}>
-              <Btn v="ghost" onClick={()=>{setPinModal(null);setNewPin("");setNewPin2("");}} full>Cancelar</Btn>
-              <Btn v="primary" onClick={()=>savePin(pinModal)} full><Ic n="check"/> Definir PIN</Btn>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {contaModal&&<Modal title={(data.usuarios||[]).find(u=>u.id===contaModal)?.authUserId?"Redefinir senha do operador":"Ativar acesso por e-mail"} onClose={()=>setContaModal(null)}><div style={{display:"flex",flexDirection:"column",gap:12}}><div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"10px 12px"}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{(data.usuarios||[]).find(u=>u.id===contaModal)?.nome}</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3}}>{(data.usuarios||[]).find(u=>u.id===contaModal)?.email}</p></div><Inp label="Senha temporária *" type="password" value={senhaTemp} onChange={setSenhaTemp} placeholder="Mínimo 8 caracteres"/><Inp label="Confirmar senha *" type="password" value={senhaTemp2} onChange={setSenhaTemp2} placeholder="Repita a senha"/><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.45}}>O operador usará seu e-mail e esta senha na nova tela de login. O PIN continuará disponível somente durante a transição.</p><div style={{display:"flex",gap:8}}><Btn v="ghost" full onClick={()=>setContaModal(null)}>Cancelar</Btn><Btn full onClick={ativarContaEmail} disabled={ativandoConta}>{ativandoConta?"Ativando...":"Ativar conta"}</Btn></div></div></Modal>}
-    </div>
-  );
-}
-
-//
-// GESTÃO DE APROVAÇÕES - tela administrativa sobre o motor genérico de
-// domains/aprovacoes/ (engine.js + policies.js). O motor já suporta qualquer
-// setor; hoje só existem resolvedores de aprovador genéricos
-// (resolvedoresAprovacaoGenericos, acima) - por isso a lista de tipos de
-// processo e de aprovador abaixo fica restrita ao que realmente resolve
-// alguém. Adicionar um novo setor é trabalho de desenvolvimento (escrever o
-// resolvedor), não de configuração - por design, o motor nunca inventa um
-// aprovador para um cargo/departamento que a base não tem.
-export const SETORES_APROVACAO = [
-  { v: "solicitacaoCompra", l: "Compras · Solicitação de compra" },
-  { v: "pagamentoTerceiro", l: "Terceiros · Pagamento" },
-];
-export const MOTORES_APROVACAO_POR_ENTIDADE = { solicitacaoCompra: () => motorAprovacaoGenerico, pagamentoTerceiro: () => motorAprovacaoGenerico };
-const TIPOS_APROVADOR_APROVACAO = [
-  { v: "usuario", l: "Usuário específico", refs: "usuario" },
-  { v: "cargo", l: "Perfil de acesso (cargo)", refs: "role" },
-  { v: "responsavelObra", l: "Engenheiro responsável pela obra", refs: null },
-  { v: "compradorResponsavel", l: "Setor de Compras", refs: null },
-  { v: "financeiro", l: "Setor Financeiro", refs: null },
-  { v: "administrador", l: "Administrador", refs: null },
-  { v: "campoSolicitacao", l: "Aprovador indicado na solicitação", refs: null },
-];
-const CAMPOS_CONTEXTO_APROVACAO = [
-  { v: "valorTotal", l: "Valor total (R$)" },
-  { v: "obraId", l: "Obra" },
-  { v: "categoria", l: "Categoria do item" },
-  { v: "urgencia", l: "Prioridade da solicitação" },
-  { v: "solicitanteId", l: "Solicitante" },
-  { v: "possuiMedicao", l: "Pagamento vinculado a uma medição do terceiro?" },
-];
-const ROTULOS_OPERADOR_APROVACAO = {
-  igual:"é igual a", diferente:"é diferente de", maior:"maior que", maior_igual:"maior ou igual a",
-  menor:"menor que", menor_igual:"menor ou igual a", entre:"entre (mín, máx)",
-  contem:"contém o texto", pertence_lista:"está na lista", nao_pertence_lista:"não está na lista",
-};
-const ROTULOS_MODO_QUORUM = { qualquer:"Qualquer um decide", todos:"Todos precisam aprovar", minimo:"Quantidade mínima" };
-const ROTULOS_SEM_APROVADOR = { enviar_administrador:"Enviar para o administrador", pular_etapa:"Pular etapa (segue sem aprovação)", auto_aprovar_etapa:"Aprovar automaticamente", bloquear:"Bloquear até intervenção manual" };
-const ROTULOS_ACAO_VENCIMENTO = { escalonar:"Escalonar para substituto/administrador", aprovar_automatico:"Aprovar automaticamente", bloquear:"Bloquear até intervenção manual", retornar_solicitante:"Devolver ao solicitante" };
-const ROTULOS_AUTOAPROVACAO = { proibida:"Nunca permitir", sempre:"Sempre permitir", abaixo_valor:"Permitir abaixo de um valor", perfis_especificos:"Permitir para perfis específicos", sem_outro_elegivel:"Permitir só quando não houver outro aprovador" };
-
-const novaCondicaoAprovacao = () => ({ id: uid(), campo: "valorTotal", operador: "maior", valor: "" });
-const novaEtapaAprovacao = ordem => ({
-  id: uid(), ordem, nome: "", tipoAprovador: "administrador", referenciasAprovadores: [],
-  modoQuorum: "qualquer", quantidadeMinima: 1, prazoValor: 0, prazoUnidade: "dias_uteis",
-  acaoNoVencimento: "escalonar", substitutos: [], grupoSubstituto: "",
-  semAprovadorAcao: "enviar_administrador", consolidarAprovadorRepetido: "manter", condicoes: [],
-});
-const novaPoliticaAprovacao = () => ({
-  id: "", nome: "", descricao: "", ativa: true, prioridade: 10, entidadeTipo: "solicitacaoCompra",
-  vigenciaInicio: "", vigenciaFim: "", condicoes: [], etapas: [novaEtapaAprovacao(0)],
-  autoaprovacao: { modo: "proibida", valorLimite: 0, perfis: [] },
-});
-
-// Modelos iniciais por porte de empresa (§ "Assistente de configuração por
-// porte" do pedido original). Só preenchem o formulário - nada é salvo até o
-// admin revisar e confirmar, e tudo continua editável depois.
-const etapaModelo = (ordem, nome, tipoAprovador) => ({ ...novaEtapaAprovacao(ordem), nome, tipoAprovador });
-const MODELOS_PORTE_APROVACAO = {
-  enxuto: () => ({
-    ...novaPoliticaAprovacao(), nome: "Alçada do administrador acima de R$ 5.000",
-    descricao: "Times pequenos: abaixo do limite, segue direto (comportamento padrão da tela de Aprovações). Acima, só o administrador decide.",
-    condicoes: [{ ...novaCondicaoAprovacao(), campo: "valorTotal", operador: "maior", valor: "5000" }],
-    etapas: [etapaModelo(0, "Aprovação do administrador", "administrador")],
-    autoaprovacao: { modo: "sem_outro_elegivel", valorLimite: 0, perfis: [] },
-  }),
-  intermediario: () => ({
-    ...novaPoliticaAprovacao(), nome: "Responsável da obra + financeiro",
-    descricao: "Passa primeiro pelo responsável da obra e depois pelo financeiro, em sequência.",
-    etapas: [etapaModelo(0, "Responsável da obra", "responsavelObra"), etapaModelo(1, "Financeiro", "financeiro")],
-  }),
-  segregado: () => ({
-    ...novaPoliticaAprovacao(), nome: "Responsável da obra → financeiro → administrador",
-    descricao: "Segregação de funções completa: três etapas em sequência, sem acúmulo implícito.",
-    etapas: [etapaModelo(0, "Responsável da obra", "responsavelObra"), etapaModelo(1, "Financeiro", "financeiro"), etapaModelo(2, "Administrador", "administrador")],
-  }),
-};
-
-// Condição de contexto (valor livre, exceto quando o campo tem opções
-// conhecidas na base - aí usa Sel para não deixar o admin digitar um id que
-// não existe).
-function EditorCondicaoAprovacao({ condicao, data, onChange, onRemove }) {
-  const valorInput = condicao.campo === "obraId"
-    ? <Sel label="Valor" value={condicao.valor||""} onChange={v=>onChange({...condicao,valor:v})} options={[{v:"",l:"Selecione a obra"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
-    : condicao.campo === "urgencia"
-    ? <Sel label="Valor" value={condicao.valor||""} onChange={v=>onChange({...condicao,valor:v})} options={[{v:"normal",l:"Normal"},{v:"urgente",l:"Urgente"}]}/>
-    : condicao.campo === "solicitanteId"
-    ? <Sel label="Valor" value={condicao.valor||""} onChange={v=>onChange({...condicao,valor:v})} options={[{v:"",l:"Selecione o usuário"},...(data.usuarios||[]).map(u=>({v:u.id,l:u.nome}))]}/>
-    : condicao.campo === "possuiMedicao"
-    ? <Sel label="Valor" value={condicao.valor||""} onChange={v=>onChange({...condicao,valor:v})} options={[{v:"sim",l:"Sim, há medição"},{v:"nao",l:"Não, pagamento manual/sem medição"}]}/>
-    : <Inp label="Valor" value={condicao.valor??""} onChange={v=>onChange({...condicao,valor:v})} placeholder={["entre","pertence_lista","nao_pertence_lista"].includes(condicao.operador)?"Separe por vírgula":""}/>;
-  return <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr auto",gap:6,alignItems:"end",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:8}}>
-    <Sel label="Campo" value={condicao.campo} onChange={v=>onChange({...condicao,campo:v,valor:""})} options={CAMPOS_CONTEXTO_APROVACAO}/>
-    <Sel label="Condição" value={condicao.operador} onChange={v=>onChange({...condicao,operador:v})} options={OPERADORES.map(op=>({v:op,l:ROTULOS_OPERADOR_APROVACAO[op]||op}))}/>
-    {valorInput}
-    <Btn size="sm" v="ghost" onClick={onRemove}><Ic n="trash"/></Btn>
-  </div>;
-}
-
-function EditorEtapaAprovacao({ etapa, data, onChange, onRemove }) {
-  const { cols } = useBreakpoint();
-  const tipoDef = TIPOS_APROVADOR_APROVACAO.find(t => t.v === etapa.tipoAprovador);
-  const refOptions = tipoDef?.refs === "usuario"
-    ? (data.usuarios||[]).filter(u=>u.active!==false).map(u=>({id:u.id,l:u.nome}))
-    : tipoDef?.refs === "role" ? ROLES.map(r=>({id:r.v,l:r.l})) : [];
-  const toggleRef = id => onChange({...etapa, referenciasAprovadores: etapa.referenciasAprovadores.includes(id)
-    ? etapa.referenciasAprovadores.filter(x=>x!==id) : [...etapa.referenciasAprovadores, id]});
-  return <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,padding:11,display:"flex",flexDirection:"column",gap:8}}>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 90px auto",gap:6,alignItems:"end"}}>
-      <Inp label="Nome da etapa" value={etapa.nome} onChange={v=>onChange({...etapa,nome:v})} placeholder="Ex.: Aprovação do engenheiro"/>
-      <Inp label="Ordem" type="number" value={etapa.ordem} onChange={v=>onChange({...etapa,ordem:Number(v||0)})}/>
-      <Btn size="sm" v="ghost" onClick={onRemove}><Ic n="trash"/> Remover etapa</Btn>
-    </div>
-    <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Etapas com a mesma ordem rodam em paralelo; ordens diferentes rodam em sequência.</p>
-    <Sel label="Quem aprova" value={etapa.tipoAprovador} onChange={v=>onChange({...etapa,tipoAprovador:v,referenciasAprovadores:[]})} options={TIPOS_APROVADOR_APROVACAO}/>
-    {tipoDef?.refs && <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:5}}>
-      {refOptions.map(o=><label key={o.id} style={{display:"flex",alignItems:"center",gap:6,border:`1px solid ${etapa.referenciasAprovadores.includes(o.id)?C.blue:C.border}`,background:etapa.referenciasAprovadores.includes(o.id)?`${C.blue}0B`:C.bg,borderRadius:6,padding:"5px 7px",cursor:"pointer"}}>
-        <input type="checkbox" checked={etapa.referenciasAprovadores.includes(o.id)} onChange={()=>toggleRef(o.id)}/>
-        <span style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{o.l}</span>
-      </label>)}
-      {!refOptions.length && <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Nenhuma opção cadastrada.</p>}
-    </div>}
-    <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:6}}>
-      <Sel label="Quórum" value={etapa.modoQuorum} onChange={v=>onChange({...etapa,modoQuorum:v})} options={Object.entries(ROTULOS_MODO_QUORUM).map(([v,l])=>({v,l}))}/>
-      {etapa.modoQuorum==="minimo" && <Inp label="Quantidade mínima" type="number" value={etapa.quantidadeMinima} onChange={v=>onChange({...etapa,quantidadeMinima:Math.max(1,Number(v||1))})}/>}
-      <Inp label="Prazo" type="number" value={etapa.prazoValor} onChange={v=>onChange({...etapa,prazoValor:Math.max(0,Number(v||0))})}/>
-      <Sel label="Unidade do prazo" value={etapa.prazoUnidade} onChange={v=>onChange({...etapa,prazoUnidade:v})} options={[{v:"dias_uteis",l:"Dias úteis"},{v:"horas",l:"Horas"}]}/>
-      <Sel label="Sem aprovador elegível" value={etapa.semAprovadorAcao} onChange={v=>onChange({...etapa,semAprovadorAcao:v})} options={Object.entries(ROTULOS_SEM_APROVADOR).map(([v,l])=>({v,l}))}/>
-      <Sel label="Ao vencer o prazo" value={etapa.acaoNoVencimento} onChange={v=>onChange({...etapa,acaoNoVencimento:v})} options={Object.entries(ROTULOS_ACAO_VENCIMENTO).map(([v,l])=>({v,l}))}/>
-      <Sel label="Aprovador repetido na próxima etapa" value={etapa.consolidarAprovadorRepetido} onChange={v=>onChange({...etapa,consolidarAprovadorRepetido:v})} options={[{v:"manter",l:"Manter separado"},{v:"consolidar",l:"Uma decisão conclui as duas"},{v:"ignorar",l:"Pular a próxima automaticamente"}]}/>
-    </div>
-    <div style={{display:"flex",flexDirection:"column",gap:5}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted}}>CONDIÇÕES DA ETAPA (opcional - sem condição, a etapa sempre roda)</span><Btn size="sm" v="ghost" onClick={()=>onChange({...etapa,condicoes:[...etapa.condicoes,novaCondicaoAprovacao()]})}><Ic n="plus"/> Condição</Btn></div>
-      {etapa.condicoes.map(c=><EditorCondicaoAprovacao key={c.id} condicao={c} data={data} onChange={nc=>onChange({...etapa,condicoes:etapa.condicoes.map(x=>x.id===nc.id?nc:x)})} onRemove={()=>onChange({...etapa,condicoes:etapa.condicoes.filter(x=>x.id!==c.id)})}/>)}
-    </div>
-  </div>;
-}
-
-export function GestaoAprovacoes({ data, update, showToast, currentUser }) {
-  const { cols } = useBreakpoint();
-  const [modal, setModal] = useState(null);
-  const [simulando, setSimulando] = useState(null);
-  const [contextoSim, setContextoSim] = useState({ valorTotal:"", obraId:"", categoria:"", urgencia:"normal", solicitanteId:"" });
-  const [resultadoSim, setResultadoSim] = useState(null);
-  const politicas = data.politicasAprovacao || [];
-
-  const podeAdministrar = podeAdministrarPoliticas(currentUser?.role);
-
-  const abrirNova = () => setModal(novaPoliticaAprovacao());
-  const abrirEditar = p => setModal(JSON.parse(JSON.stringify(p)));
-
-  const validacaoAtual = modal ? validarPolitica(modal, { politicasExistentes: politicas }) : null;
-
-  const salvar = () => {
-    if (!validacaoAtual.valida) { showToast(validacaoAtual.erros[0], "error"); return; }
-    const agora = new Date().toISOString();
-    const existente = modal.id && politicas.some(p => p.id === modal.id);
-    const payload = {
-      ...modal, id: modal.id || uid(),
-      versao: existente ? Number(modal.versao||1) + 1 : 1,
-      criadoPorId: modal.criadoPorId || currentUser?.id || "", criadoPor: modal.criadoPor || currentUser?.nome || "",
-      criadoEm: modal.criadoEm || agora, atualizadoPor: currentUser?.nome || "", atualizadoEm: agora,
-    };
-    const politicasAprovacao = existente ? politicas.map(p => p.id === payload.id ? payload : p) : [...politicas, payload];
-    update({ ...data, politicasAprovacao });
-    setModal(null);
-    showToast(existente ? `Política atualizada para a versão ${payload.versao}. Processos já em andamento continuam na versão anterior.` : "Política criada.");
-    if (validacaoAtual.alertas.length) showToast(validacaoAtual.alertas[0], "warn");
-  };
-
-  const alternarAtiva = p => {
-    update({ ...data, politicasAprovacao: politicas.map(x => x.id === p.id ? { ...x, ativa: !x.ativa, atualizadoPor: currentUser?.nome || "", atualizadoEm: new Date().toISOString() } : x) });
-    showToast(p.ativa ? "Política desativada." : "Política ativada.");
-  };
-
-  const abrirSimulador = p => { setSimulando(p); setResultadoSim(null); };
-  const executarSimulacao = () => {
-    const motor = MOTORES_APROVACAO_POR_ENTIDADE[simulando.entidadeTipo]?.();
-    if (!motor) { showToast("Nenhum motor de execução cadastrado para este tipo de processo.", "error"); return; }
-    const contexto = { valorTotal:Number(contextoSim.valorTotal||0), obraId:contextoSim.obraId, categoria:contextoSim.categoria, urgencia:contextoSim.urgencia, solicitanteId:contextoSim.solicitanteId||currentUser?.id||"" };
-    setResultadoSim(motor.simularPolitica(simulando, contexto, data));
-  };
-
-  const eventosAuditoria = useMemo(() => [...(data.auditoriaAprovacao||[])].sort((a,b)=>String(b.data||"").localeCompare(String(a.data||""))).slice(0,200), [data.auditoriaAprovacao]);
-
-  const delegacoes = data.delegacoesAprovacao || [];
-  const [delegForm, setDelegForm] = useState({ usuarioOrigemId:"", usuarioDestinoId:"", inicio:today(), fim:"", escopo:"" });
-  const podeDelegar = podeGerenciarDelegacoes(currentUser?.role);
-
-  if (!podeAdministrar) return <div style={{padding:24,textAlign:"center",color:C.red}}>Acesso exclusivo da administração.</div>;
-
-  const mudarComportamentoSemPolitica = v => {
-    update({ ...data, configAprovacao: { ...data.configAprovacao, comportamentoSemPolitica: v } });
-    showToast("Comportamento padrão atualizado.");
-  };
-
-  const criarDelegacao = () => {
-    if (!delegForm.usuarioOrigemId || !delegForm.usuarioDestinoId) { showToast("Selecione quem está ausente e quem vai substituir.", "error"); return; }
-    if (delegForm.usuarioOrigemId === delegForm.usuarioDestinoId) { showToast("O substituto não pode ser o mesmo usuário ausente.", "error"); return; }
-    if (!delegForm.inicio) { showToast("Informe a data de início da delegação.", "error"); return; }
-    if (delegForm.fim && delegForm.fim < delegForm.inicio) { showToast("A data final não pode ser anterior ao início.", "error"); return; }
-    const destino = (data.usuarios||[]).find(u => u.id === delegForm.usuarioDestinoId);
-    const registro = { id: uid(), usuarioOrigemId: delegForm.usuarioOrigemId, usuarioDestinoId: delegForm.usuarioDestinoId, usuarioDestinoNome: destino?.nome||"", inicio: delegForm.inicio, fim: delegForm.fim||"", escopo: delegForm.escopo||"", ativo: true, criadoEm: new Date().toISOString() };
-    update({ ...data, delegacoesAprovacao: [...delegacoes, registro] });
-    setDelegForm({ usuarioOrigemId:"", usuarioDestinoId:"", inicio:today(), fim:"", escopo:"" });
-    showToast("Delegação criada.");
-  };
-  const revogarDelegacao = id => {
-    update({ ...data, delegacoesAprovacao: delegacoes.map(d => d.id===id ? { ...d, ativo:false } : d) });
-    showToast("Delegação revogada.");
-  };
-
-  return <div style={{display:"flex",flexDirection:"column",gap:12}}>
-    <div style={{background:`${C.yellow}0B`,border:`1px solid ${C.yellow}44`,borderRadius:7,padding:"9px 11px",display:"flex",flexDirection:"column",gap:8}}>
-      <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Quando nenhuma política ativa se aplicar a um processo, o app nunca trava sozinho - ele segue o comportamento padrão abaixo. Hoje só o setor de Compras tem aprovadores conectados ao motor; outros setores exigem trabalho de desenvolvimento antes de aparecerem aqui.</p>
-      <div style={{maxWidth:340}}><Sel label="Comportamento sem política aplicável" value={data.configAprovacao?.comportamentoSemPolitica||"auto_aprovar"} onChange={mudarComportamentoSemPolitica} options={[{v:"auto_aprovar",l:"Aprovar automaticamente"},{v:"fila_administrativa",l:"Enviar à fila do administrador"},{v:"bloquear",l:"Bloquear até intervenção manual"}]}/></div>
-    </div>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-      <b style={{fontSize:"var(--arcd-type-body)",color:C.text}}>{politicas.length} política(s) de aprovação cadastrada(s)</b>
-      <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-        <Btn v="ghost" onClick={()=>setModal(MODELOS_PORTE_APROVACAO.enxuto())}>Modelo enxuto</Btn>
-        <Btn v="ghost" onClick={()=>setModal(MODELOS_PORTE_APROVACAO.intermediario())}>Modelo intermediário</Btn>
-        <Btn v="ghost" onClick={()=>setModal(MODELOS_PORTE_APROVACAO.segregado())}>Modelo segregado</Btn>
-        <Btn onClick={abrirNova}><Ic n="plus"/> Do zero</Btn>
-      </div>
-    </div>
-    <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:-6}}>Os modelos só preenchem o formulário como ponto de partida - nada é salvo até você revisar e confirmar, e tudo continua editável depois.</p>
-    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
-      {politicas.map((p,i)=><div key={p.id} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:9,padding:"11px 12px",borderTop:i?`1px solid ${C.line}`:"none",alignItems:"center"}}>
-        <div style={{minWidth:0}}>
-          <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}>
-            <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>{p.nome||"Sem nome"}</p>
-            <Badge color={p.ativa?C.green:C.muted}>{p.ativa?"ATIVA":"INATIVA"}</Badge>
-            <Badge color={C.blue}>v{p.versao}</Badge>
-          </div>
-          <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>{SETORES_APROVACAO.find(s=>s.v===p.entidadeTipo)?.l||p.entidadeTipo} · prioridade {p.prioridade} · {p.etapas.length} etapa(s){p.condicoes.length?` · ${p.condicoes.length} condição(ões)`:" · sem condição (aplica sempre que ativa)"}</p>
-        </div>
-        <div style={{display:"flex",gap:6,flexWrap:"wrap",justifyContent:"flex-end"}}>
-          <Btn size="sm" v="ghost" onClick={()=>abrirSimulador(p)}><Ic n="eye"/> Simular</Btn>
-          <Btn size="sm" v="ghost" onClick={()=>abrirEditar(p)}>Editar</Btn>
-          <Btn size="sm" v={p.ativa?"ghost":"success"} onClick={()=>alternarAtiva(p)}>{p.ativa?"Desativar":"Ativar"}</Btn>
-        </div>
-      </div>)}
-      {!politicas.length && <p style={{padding:30,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhuma política cadastrada ainda. Enquanto isso, tudo segue o comportamento padrão acima.</p>}
-    </div>
-
-    {podeDelegar && <>
-      <b style={{fontSize:"var(--arcd-type-label)",color:C.text,marginTop:4}}>Delegações (férias, afastamento, substituição)</b>
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:12,display:"flex",flexDirection:"column",gap:8}}>
-        <div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:6}}>
-          <Sel label="Usuário ausente" value={delegForm.usuarioOrigemId} onChange={v=>setDelegForm({...delegForm,usuarioOrigemId:v})} options={[{v:"",l:"Selecione"},...(data.usuarios||[]).map(u=>({v:u.id,l:u.nome}))]}/>
-          <Sel label="Substituto" value={delegForm.usuarioDestinoId} onChange={v=>setDelegForm({...delegForm,usuarioDestinoId:v})} options={[{v:"",l:"Selecione"},...(data.usuarios||[]).map(u=>({v:u.id,l:u.nome}))]}/>
-          <Inp label="Início" type="date" value={delegForm.inicio} onChange={v=>setDelegForm({...delegForm,inicio:v})}/>
-          <Inp label="Fim (opcional)" type="date" value={delegForm.fim} onChange={v=>setDelegForm({...delegForm,fim:v})}/>
-        </div>
-        <Inp label="Escopo/motivo (anotação - ainda não filtra por setor)" value={delegForm.escopo} onChange={v=>setDelegForm({...delegForm,escopo:v})} placeholder="Ex.: férias, cobre só Compras"/>
-        <Btn onClick={criarDelegacao}><Ic n="plus"/> Criar delegação</Btn>
-        <div style={{display:"flex",flexDirection:"column",gap:5,marginTop:4}}>
-          {delegacoes.map(d=><div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"7px 9px"}}>
-            <div style={{minWidth:0}}>
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{(data.usuarios||[]).find(u=>u.id===d.usuarioOrigemId)?.nome||"Usuário removido"} → {d.usuarioDestinoNome||"?"} <Badge color={d.ativo?C.green:C.muted}>{d.ativo?"ATIVA":"REVOGADA"}</Badge></p>
-              <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{fmtDateFull(d.inicio)}{d.fim?` até ${fmtDateFull(d.fim)}`:" · sem data de fim"}{d.escopo?` · ${d.escopo}`:""}</p>
-            </div>
-            {d.ativo && <Btn size="sm" v="ghost" onClick={()=>revogarDelegacao(d.id)}>Revogar</Btn>}
-          </div>)}
-          {!delegacoes.length && <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhuma delegação cadastrada.</p>}
-        </div>
-      </div>
-    </>}
-
-    <b style={{fontSize:"var(--arcd-type-label)",color:C.text,marginTop:4}}>Auditoria de aprovações</b>
-    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
-      {eventosAuditoria.map((e,i)=><div key={e.id||i} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:9,padding:"9px 12px",borderTop:i?`1px solid ${C.line}`:"none"}}>
-        <div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{e.motivo||e.evento}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{e.evento}{e.usuario?` · ${e.usuario}`:""}{e.instanciaId?` · ${e.instanciaId}`:""}</p></div>
-        <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,whiteSpace:"nowrap"}}>{e.data?new Date(e.data).toLocaleString("pt-BR"):""}</p>
-      </div>)}
-      {!eventosAuditoria.length && <p style={{padding:20,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhum evento de aprovação registrado ainda.</p>}
-    </div>
-
-    {modal && <Modal wide title={modal.id?`Editar política · v${modal.versao||1}`:"Nova política de aprovação"} onClose={()=>setModal(null)}>
-      <div style={{display:"flex",flexDirection:"column",gap:10}}>
-        <div style={{display:"grid",gridTemplateColumns:cols(1,2,2),gap:8}}>
-          <Inp label="Nome da política *" value={modal.nome} onChange={v=>setModal({...modal,nome:v})} placeholder="Ex.: Alçada de pedidos até R$ 5.000"/>
-          <Sel label="Tipo de processo" value={modal.entidadeTipo} onChange={v=>setModal({...modal,entidadeTipo:v})} options={SETORES_APROVACAO}/>
-          <Inp label="Prioridade (maior vence em caso de empate)" type="number" value={modal.prioridade} onChange={v=>setModal({...modal,prioridade:Number(v||0)})}/>
-          <label style={{display:"flex",alignItems:"center",gap:7,marginTop:18}}><input type="checkbox" checked={modal.ativa} onChange={()=>setModal({...modal,ativa:!modal.ativa})}/><span style={{fontSize:"var(--arcd-type-label)",color:C.text}}>Política ativa</span></label>
-          <Inp label="Vigência início (opcional)" type="date" value={modal.vigenciaInicio} onChange={v=>setModal({...modal,vigenciaInicio:v})}/>
-          <Inp label="Vigência fim (opcional)" type="date" value={modal.vigenciaFim} onChange={v=>setModal({...modal,vigenciaFim:v})}/>
-        </div>
-        <Inp label="Descrição (opcional)" value={modal.descricao} onChange={v=>setModal({...modal,descricao:v})} multiline/>
-
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><b style={{fontSize:"var(--arcd-type-label)",color:C.text}}>Condições para esta política se aplicar</b><Btn size="sm" v="ghost" onClick={()=>setModal({...modal,condicoes:[...modal.condicoes,novaCondicaoAprovacao()]})}><Ic n="plus"/> Condição</Btn></div>
-        <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:-6}}>Sem nenhuma condição, a política se aplica sempre que estiver ativa e dentro da vigência.</p>
-        {modal.condicoes.map(c=><EditorCondicaoAprovacao key={c.id} condicao={c} data={data} onChange={nc=>setModal({...modal,condicoes:modal.condicoes.map(x=>x.id===nc.id?nc:x)})} onRemove={()=>setModal({...modal,condicoes:modal.condicoes.filter(x=>x.id!==c.id)})}/>)}
-
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:4}}><b style={{fontSize:"var(--arcd-type-label)",color:C.text}}>Etapas de aprovação</b><Btn size="sm" v="ghost" onClick={()=>setModal({...modal,etapas:[...modal.etapas,novaEtapaAprovacao(modal.etapas.length)]})}><Ic n="plus"/> Etapa</Btn></div>
-        {!modal.etapas.length && <div style={{background:`${C.blue}0B`,border:`1px solid ${C.blue}44`,borderRadius:7,padding:"8px 10px",fontSize:"var(--arcd-type-label)",color:C.muted}}>Sem nenhuma etapa, esta política aprova automaticamente - use isso para dispensar aprovação explicitamente (fica registrado como decisão da política, não como aprovação humana).</div>}
-        {modal.etapas.map(e=><EditorEtapaAprovacao key={e.id} etapa={e} data={data} onChange={ne=>setModal({...modal,etapas:modal.etapas.map(x=>x.id===ne.id?ne:x)})} onRemove={()=>setModal({...modal,etapas:modal.etapas.filter(x=>x.id!==e.id)})}/>)}
-
-        <b style={{fontSize:"var(--arcd-type-label)",color:C.text,marginTop:4}}>Autoaprovação (o próprio solicitante aprova)</b>
-        <div style={{display:"grid",gridTemplateColumns:cols(1,2,2),gap:8}}>
-          <Sel label="Quando permitir" value={modal.autoaprovacao.modo} onChange={v=>setModal({...modal,autoaprovacao:{...modal.autoaprovacao,modo:v}})} options={Object.entries(ROTULOS_AUTOAPROVACAO).map(([v,l])=>({v,l}))}/>
-          {modal.autoaprovacao.modo==="abaixo_valor" && <Inp label="Valor limite (R$)" type="number" value={modal.autoaprovacao.valorLimite} onChange={v=>setModal({...modal,autoaprovacao:{...modal.autoaprovacao,valorLimite:Number(v||0)}})}/>}
-        </div>
-        {modal.autoaprovacao.modo==="perfis_especificos" && <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:5}}>
-          {ROLES.map(r=><label key={r.v} style={{display:"flex",alignItems:"center",gap:6,border:`1px solid ${modal.autoaprovacao.perfis.includes(r.v)?C.blue:C.border}`,background:modal.autoaprovacao.perfis.includes(r.v)?`${C.blue}0B`:C.bg,borderRadius:6,padding:"5px 7px",cursor:"pointer"}}>
-            <input type="checkbox" checked={modal.autoaprovacao.perfis.includes(r.v)} onChange={()=>setModal({...modal,autoaprovacao:{...modal.autoaprovacao,perfis:modal.autoaprovacao.perfis.includes(r.v)?modal.autoaprovacao.perfis.filter(x=>x!==r.v):[...modal.autoaprovacao.perfis,r.v]}})}/>
-            <span style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{r.l}</span>
-          </label>)}
-        </div>}
-
-        {validacaoAtual.erros.length>0 && <div style={{background:`${C.red}0C`,border:`1px solid ${C.red}55`,borderRadius:7,padding:"9px 11px"}}>{validacaoAtual.erros.map((m,i)=><p key={i} style={{fontSize:"var(--arcd-type-label)",color:C.red}}>· {m}</p>)}</div>}
-        {validacaoAtual.alertas.length>0 && <div style={{background:`${C.yellow}0C`,border:`1px solid ${C.yellow}55`,borderRadius:7,padding:"9px 11px"}}>{validacaoAtual.alertas.map((m,i)=><p key={i} style={{fontSize:"var(--arcd-type-label)",color:C.yellowD}}>· {m}</p>)}</div>}
-
-        <div style={{display:"flex",gap:8}}>
-          <Btn v="ghost" full onClick={()=>setModal(null)}>Cancelar</Btn>
-          <Btn full onClick={salvar} disabled={!validacaoAtual.valida}><Ic n="check"/> {modal.id?"Salvar nova versão":"Criar política"}</Btn>
-        </div>
-      </div>
-    </Modal>}
-
-    {simulando && <Modal title={`Simular · ${simulando.nome}`} onClose={()=>setSimulando(null)}>
-      <div style={{display:"flex",flexDirection:"column",gap:10}}>
-        <div style={{display:"grid",gridTemplateColumns:cols(1,2,2),gap:8}}>
-          <Inp label="Valor total (R$)" type="number" value={contextoSim.valorTotal} onChange={v=>setContextoSim({...contextoSim,valorTotal:v})}/>
-          <Sel label="Obra" value={contextoSim.obraId} onChange={v=>setContextoSim({...contextoSim,obraId:v})} options={[{v:"",l:"Nenhuma"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
-          <Sel label="Prioridade" value={contextoSim.urgencia} onChange={v=>setContextoSim({...contextoSim,urgencia:v})} options={[{v:"normal",l:"Normal"},{v:"urgente",l:"Urgente"}]}/>
-          <Sel label="Solicitante" value={contextoSim.solicitanteId} onChange={v=>setContextoSim({...contextoSim,solicitanteId:v})} options={[{v:"",l:"Eu mesmo"},...(data.usuarios||[]).map(u=>({v:u.id,l:u.nome}))]}/>
-        </div>
-        <Btn onClick={executarSimulacao}><Ic n="check"/> Simular</Btn>
-        {resultadoSim && <div style={{display:"flex",flexDirection:"column",gap:7}}>
-          <Badge color={resultadoSim.status==="aprovada"?C.green:resultadoSim.status==="em_andamento"?C.blue:C.orange}>{resultadoSim.status.toUpperCase()}</Badge>
-          {resultadoSim.etapas.map((e,i)=><div key={i} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"8px 10px"}}>
-            <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>{e.nome||`Etapa ${i+1}`} · {e.status}</p>
-            <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{(e.aprovadoresElegiveis||[]).map(a=>a.nome).join(", ")||e.motivoConclusao||"Sem aprovador elegível"}</p>
-          </div>)}
-          {!resultadoSim.etapas.length && <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>{resultadoSim.motivo}</p>}
-        </div>}
-      </div>
-    </Modal>}
-  </div>;
-}
-
 
 const CentralAdministrador = lazy(() => import("./domains/administracao/components/CentralAdministradorView"));
 const AprovacoesPendentesView = lazy(() => import("./domains/aprovacoes/components/AprovacoesPendentesView"));
@@ -10615,91 +8578,7 @@ const EquipeView = lazy(() => import("./domains/rh/components/EquipeView"));
 const RescisaoView = lazy(() => import("./domains/rh/components/RescisaoView"));
 // EquipeView/RescisaoView extraídas de LegacyApp.jsx em 2026-08-20, mesma
 // técnica de extração das telas anteriores.
-const IndicadoresView = lazy(() => import("./domains/rh/components/IndicadoresView"));
-// IndicadoresView nasceu fora de LegacyApp.jsx (não é extração, é tela
-// nova) - achado "RH analytics" de docs/AUDITORIA_RH.md.
-// A tela "Minhas aprovações pendentes" foi extraída para
-// src/domains/aprovacoes/components/AprovacoesPendentesView.jsx em
-// 2026-08-18, mesma técnica de extração das telas anteriores.
-// A Central do Administrador (orquestrador de auditoria/usuários/aprovações)
-// foi extraída para
-// src/domains/administracao/components/CentralAdministradorView.jsx em
-// 2026-08-16 - importada como `CentralAdministrador` acima, mesmo nome de
-// sempre. GestaoUsuarios/GestaoAprovacoes continuam aqui (exportados),
-// GestaoUsuarios também é usado pela tela Config.
-
-//
-// ORÇAMENTO - planilha orçamentária com base SINAPI / ORSE
-//
-//
-// ARQUITETURA (importante):
-// A base SINAPI oficial é persistida de forma normalizada no Supabase: preços
-// de composições, insumos e relações analíticas. O orçamento recebe apenas um
-// snapshot dos itens usados; assim, uma reimportação corrige o detalhamento
-// sem reprecificar nem alterar o orçamento já aprovado.
-//
-
-export const ETAPAS_PADRAO = [
-  "SERVIÇOS PRELIMINARES",
-  "MOVIMENTO DE TERRA",
-  "INFRAESTRUTURA / FUNDAÇÕES",
-  "SUPRAESTRUTURA",
-  "PAREDES E PAINÉIS",
-  "COBERTURA",
-  "IMPERMEABILIZAÇÃO",
-  "INSTALAÇÕES HIDROSSANITÁRIAS",
-  "INSTALAÇÕES ELÉTRICAS",
-  "ESQUADRIAS",
-  "REVESTIMENTOS DE PAREDE E TETO",
-  "PISOS E PAVIMENTAÇÕES",
-  "PINTURA",
-  "LOUÇAS E METAIS",
-  "SERVIÇOS COMPLEMENTARES",
-  "LIMPEZA FINAL",
-];
-
-//
-// BDI - Acórdão 2622/2013-TCU-Plenário
-//
-//
-// Faixas referenciais de BDI por tipo de obra. O TCU não fixa um valor:
-// fixa um INTERVALO (1º quartil  3º quartil). Adotar valor fora dele não
-// é proibido, mas exige justificativa técnica no processo - é exatamente
-// isso que a auditoria cobra.
-
-// Faixas dos componentes para CONSTRUÇÃO DE EDIFÍCIOS (Acórdão 2622/2013).
-// Servem de baliza no modo detalhado; os demais tipos de obra têm tabelas
-// próprias - por isso o alerta de faixa usa sempre o BDI total, que é o que
-// o TCU efetivamente audita.
-
-// Fórmula do TCU:
-//   BDI = [ (1+AC+S+R+G) x (1+DF) x (1+L) / (1  I) ]  1
-// I = tributos incidentes sobre o faturamento (PIS + COFINS + ISS + CPRB)
-// ==============================================================
-//  CONFERENCIA DIMENSIONAL DO ORCAMENTO
-//  Compara as quantidades de servicos por AREA com a area construida
-//  da obra. Ex.: forro costuma ser ~area construida; se o orcamento
-//  tem 300 m de forro numa obra de 200 m, ha 100 m de divergencia.
-//  Roda LOCALMENTE (sem IA) - a IA so enriquece quando disponivel.
-// ==============================================================
-
-// Familias de servico por AREA e a relacao esperada com a area construida.
-// fator: quanto o servico costuma medir em relacao a area construida.
-//   1.0  = ~igual (forro, piso, contrapiso, laje, impermeab. de laje)
-//   ~2.5 = paredes tem 2 faces e pe-direito (reboco, chapisco, pintura parede)
-// tol: tolerancia (fracao) antes de virar alerta.
-// RESPONSIVIDADE
-//
-//
-// O app é estilizado inline, então media query pura não alcança os
-// componentes. Este hook expõe o breakpoint ao React, permitindo trocar
-// não só medidas, mas o próprio LAYOUT (barra inferior  sidebar).
-//
-// Usa matchMedia em vez de listener de resize: dispara só quando cruza o
-// limite, e não a cada pixel arrastado.
-// narrow = celulares pequenos (iPhone SE, Android de entrada). Abaixo de 420px
-// não adianta encolher fonte: certos pares lado a lado precisam EMPILHAR.
-export const MAX_NIVEL = 5;   // 1.1.1.1.1 - além disso a indentação fica ilegível no celular
+const IndicadoresView = lazy(() => import("./domains/rh/components/IndicadoresView"));   // 1.1.1.1.1 - além disso a indentação fica ilegível no celular
 
 //  Árvore de etapas
 // A numeração (1, 1.1, 1.1.2) NÃO é armazenada: é derivada da posição na
@@ -10733,18 +8612,6 @@ const resumoMedicao = (tarefasFundidas) => {
     : 0;
   return { total: t.length, peloDiario, diasTotais, avancoFisico };
 };
-
-//  CURVA ABC
-//  Principio de Pareto aplicado a orcamento: poucos itens respondem pela maior
-//  parte do custo. Ordena os itens por custo decrescente, acumula o percentual
-//  e corta em faixas:
-//    A - ate 80% do valor acumulado  (poucos itens, quase todo o dinheiro)
-//    B - de 80% a 95%
-//    C - o restante (muitos itens, pouco valor)
-//  Itens repetidos (mesmo codigo em etapas diferentes) sao agrupados, senao a
-//  curva mente: o mesmo servico apareceria varias vezes com valor fatiado.
-export const CLASSE_ABC = { A:{ cor:"#C62828", limite:80 }, B:{ cor:"#EF6C00", limite:95 }, C:{ cor:"#2E7D32", limite:100 } };
-export const SINAPI_UFS = ["AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT","PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"];
 // A tela de Orçamento foi extraída para
 // src/domains/orcamentos/components/OrcamentoView.jsx em 2026-08-16 -
 // importada como `Orcamento` abaixo, mesmo nome de sempre. O comentário
@@ -10762,202 +8629,6 @@ export const SINAPI_UFS = ["AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG
 // Categorias de custo direto de obra (usadas no rateio p/ obra)
 export const CATS_OBRA_CONC = reconciliationCategories({}, {direction:"saida",destination:"obra"})
   .map(category => ({v:category.id,l:category.label}));
-
-export const semAcentoConc = (s) =>
-  String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-
-// "1.234,56" → 1234.56
-export const parseBRConc = (v) => {
-  if (typeof v === "number") return v;
-  const s = String(v ?? "").trim();
-  if (!s) return 0;
-  const neg = /^\(.*\)$/.test(s) || s.startsWith("-");
-  const n = Number(s.replace(/[()]/g,"").replace(/\./g,"").replace(",",".").replace(/[^\d.-]/g,""));
-  if (isNaN(n)) return 0;
-  return neg && n > 0 ? -n : n;
-};
-
-// parseOFX foi consolidado em src/domains/conciliacao/calculations.js em
-// 25/08/2026 (ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md) - existiam duas
-// implementações divergentes (esta e uma cópia simplificada, nunca usada,
-// dentro do próprio calculations.js), e a divergência escondia que a
-// extração de contraparte por PIX nunca rodava de fato. Importado do
-// domínio agora, no topo deste arquivo.
-
-// Chave de deduplicação: FITID quando existe; senão, impressão digital da linha.
-export const chaveTransacao = (t) =>
-  t.fitid ? `fit:${t.fitid}`
-          : `h:${t.data}|${Number(t.valor).toFixed(2)}|${String(t.descricao).slice(0,40).toLowerCase()}`;
-
-// Soma dos rateios. O fechamento (soma == valor da transação, 1 centavo) é
-// verificado no componente, que precisa exibir a diferença ao vivo.
-export const somaRateios = (rateios) =>
-  (rateios||[]).reduce((s,r) => s + Number(r.valor||0), 0);
-
-
-export const sugerirRateio = suggestClassificationRule;
-
-// Distância em dias entre duas datas ISO
-export const diasEntre = (a, b) => {
-  if (!a || !b) return 999;
-  return Math.abs(Math.round(
-    (new Date(a + "T12:00:00") - new Date(b + "T12:00:00")) / 86400000
-  ));
-};
-
-//  Casamento entrada bancária  medição em aberto
-//
-// Devolve CANDIDATAS pontuadas, nunca uma decisão. Duas medições de mesmo
-// valor e mesmo vencimento empatam - é aí que o palpite automático erraria
-// metade das vezes, e por isso quem escolhe é o usuário.
-export const sugerirMedicoes = (tr, data) => {
-  const v = Number(tr.valor || 0);
-  if (v <= 0) return [];                       // só entrada quita medição
-  const desc = semAcentoConc(tr.descricao);
-  const cands = [];
-
-  (data.medicoes || []).filter(m => statusRecebimentoMedicao(m)!=="recebida").forEach(m => {
-    const obra = (data.obras || []).find(o => o.id === m.obraId);
-    const prev = Number(m.valorPrevisto || 0);
-    if (prev <= 0) return;
-
-    let score = 0;
-    const motivos = [];
-
-    // Valor
-    const dif = Math.abs(prev - v);
-    if (dif < 0.01)               { score += 100; motivos.push("valor exato"); }
-    else if (dif / prev <= 0.01)  { score += 60;  motivos.push("valor ~1%"); }
-    else if (dif / prev <= 0.05)  { score += 30;  motivos.push("valor ~5%"); }
-    else if (v < prev)            { score += 10;  motivos.push("pagamento parcial"); }
-    else return;                                 // recebeu MAIS que o previsto → não é esta
-
-    // Proximidade do vencimento
-    const d = diasEntre(tr.data, m.dataVencimento);
-    if (d <= 3)       { score += 40; motivos.push(`${d}d do vencimento`); }
-    else if (d <= 10) { score += 25; motivos.push(`${d}d do vencimento`); }
-    else if (d <= 30) { score += 8; }
-    else              { score -= 15; }
-
-    // Nome do cliente ou da obra citado no extrato
-    const prim = (s) => semAcentoConc(s).split(" ")[0];
-    if (obra?.engineer && prim(obra.engineer) && desc.includes(prim(obra.engineer))) {
-      score += 30; motivos.push("cliente na descrição");
-    }
-    if (obra?.name && prim(obra.name) && desc.includes(prim(obra.name))) {
-      score += 25; motivos.push("obra na descrição");
-    }
-
-    if (score >= 40) {
-      cands.push({ m, obra, score, motivos, parcial: v < prev - 0.01, prev });
-    }
-  });
-
-  return cands.sort((a, b) => b.score - a.score).slice(0, 3);
-};
-
-// ==============================================================
-//  CONCILIACAO DE MAO DE OBRA
-//  Dado um DEBITO no extrato (pagamento a operario), sugere de qual
-//  funcionario e - casando por VALOR ESPERADO (dias trabalhados no
-//  ponto x diaria) e por NOME. O nome pode ser o do proprio operario
-//  OU o do titular do PIX (pixHolder): e comum o pagamento cair na
-//  conta da esposa ou de um terceiro, e isso precisa ser conciliavel.
-// ==============================================================
-
-// Quanto um funcionario deveria receber num periodo, pelo PONTO.
-// Soma diarias (P=1, M=0.5) + beneficios, exatamente como o DRE conta.
-const valorEsperadoPonto = (data, emp, days) => {
-  let bruto = 0, beneficios = 0, diasP = 0, diasM = 0;
-  const year = days[0] ? Number(days[0].slice(0, 4)) : new Date().getFullYear();
-  const holidays = getPayrollHolidays(data, year);
-  days.forEach(d => {
-    if (!isEmployeeEmployedOnDate(emp, d)) return;
-    if (holidays.includes(d) && prIsWeekdayIso(d)) {
-      bruto += Number(getHolidayPayRule(data, emp, d, holidays).amount || 0);
-      return;
-    }
-    const st = attStatus(data, emp.id, d);
-    if (st === "P") { bruto += Number(emp.dailyRate || 0); beneficios += Number(emp.vtDaily || 0) + Number(emp.vrDaily || 0); diasP++; }
-    else if (st === "M") { bruto += Number(emp.dailyRate || 0) * .5; beneficios += (Number(emp.vtDaily || 0) + Number(emp.vrDaily || 0)) * .5; diasM++; }
-  });
-  return { bruto, beneficios, total: bruto + beneficios, diasP, diasM };
-};
-
-// Sugere de qual funcionario e um debito do extrato.
-// tr: transacao (valor negativo = saida). days: periodo de referencia (a
-// quinzena/mes do pagamento). Devolve candidatos com score e o alerta de
-// divergencia de valor (recebeu diferente do que o ponto diz).
-export const sugerirPagamentoMaoObra = (tr, data, days) => {
-  const saida = Math.abs(Number(tr.valor || 0));
-  if (Number(tr.valor || 0) >= 0 || saida <= 0) return [];   // so debito
-  const desc = semAcentoConc(tr.descricao);
-  const prim = (s) => semAcentoConc(s || "").split(" ")[0];
-  const cands = [];
-
-  // Nao filtrar pelo status atual: o valor esperado elimina automaticamente
-  // quem nao trabalhou no periodo historico consultado.
-  (data.employees || []).forEach(emp => {
-    const esp = valorEsperadoPonto(data, emp, days);
-    const nomeOuTitularNoPix=hasEmployeePixNameEvidence(tr,emp);
-    // Sem nome/titular, um valor igual ou um número na descrição não basta
-    // para sugerir que um PIX foi pagamento de mão de obra.
-    if(!nomeOuTitularNoPix)return;
-
-    let score = 0;
-    const motivos = [];
-
-    // Valor: compara com o total esperado (e tambem so o bruto, caso paguem
-    // beneficios a parte).
-    const difTotal = Math.abs(esp.total - saida);
-    const difBruto = Math.abs(esp.bruto - saida);
-    const dif = Math.min(difTotal, difBruto);
-    const base = difTotal <= difBruto ? esp.total : esp.bruto;
-    if (dif < 0.01)              { score += 100; motivos.push("valor exato do ponto"); }
-    else if (base && dif/base <= 0.02) { score += 60; motivos.push("valor ~2% do ponto"); }
-    else if (base && dif/base <= 0.08) { score += 25; motivos.push("valor proximo do ponto"); }
-
-    score += 45;
-    motivos.push("nome ou titular PIX confirmado na descrição");
-    // Chave PIX citada.
-    if (emp.pixKey && desc.includes(semAcentoConc(emp.pixKey).slice(0, 8))) {
-      score += 20; motivos.push("chave PIX na descricao");
-    }
-
-    if (score >= 40) {
-      // Divergencia: pagou diferente do que o ponto diz que deveria.
-      const divergencia = dif >= 0.01 ? saida - esp.total : 0;
-      if(esp.total<=0)motivos.push("sem valor registrado no ponto para a quinzena");
-      cands.push({
-        emp, score, motivos,
-        esperado: esp.total, esperadoBruto: esp.bruto, pago: saida,
-        diasTrabalhados: esp.diasP + esp.diasM * 0.5,
-        divergencia,
-        pagoATerceiro: !!(emp.pixHolder && prim(emp.pixHolder) &&
-                          desc.includes(prim(emp.pixHolder)) &&
-                          !desc.includes(prim(emp.name || ""))),
-      });
-    }
-  });
-
-  return cands.sort((a, b) => b.score - a.score).slice(0, 3);
-};
-
-export const periodoPontoDaTransacao = (iso) => {
-  const referencia=iso || today();
-  const y = Number(referencia.slice(0, 4)), m = Number(referencia.slice(5, 7)) - 1;
-  const dia = Number(referencia.slice(8, 10));
-  const { q1, q2 } = getQ(y, m);
-  // Pagamentos no início do mês normalmente referem-se à segunda quinzena
-  // anterior; nos demais casos, à quinzena corrente.
-  const days=dia <= 7
-    ? getQ(m === 0 ? y - 1 : y, m === 0 ? 11 : m - 1).q2
-    : dia <= 20 ? q1 : q2;
-  return {
-    days,
-    periodoPonto:days.length ? `${fmtDate(days[0])} a ${fmtDate(days[days.length-1])}` : "",
-  };
-};
 
 // A tela de Conciliação foi extraída para
 // src/domains/conciliacao/components/ConciliacaoView.jsx em 2026-08-16 -
@@ -10987,210 +8658,6 @@ export const periodoPontoDaTransacao = (iso) => {
 // porque telas antigas importam daqui.
 export { niveisUmOrcamento };
 
-// ==============================================================
-//  COMPRAS AUTOMATIZADAS
-//  Dado um conjunto de materiais, sugere fornecedores que os servem
-//  (por categoria cadastrada + historico de compra) e gera a mensagem
-//  de WhatsApp pronta - texto humano pedindo materiais, desconto e
-//  forma de pagamento.
-// ==============================================================
-
-// Fornecedores que servem os materiais de um pedido, com score.
-// Casa por: (a) categoria do material x categorias do fornecedor,
-// (b) historico - ja comprei este material dele antes (mais forte).
-export const fornecedoresParaMateriais = (data, materialIds) => {
-  const mats = (data.materiais || []).filter(m => materialIds.includes(m.id));
-  const catsNecessarias = [...new Set(mats.map(m => m.categoria).filter(Boolean))];
-  const pedidos = data.pedidos || [];
-
-  const scores = {};
-  (data.fornecedores || []).filter(f => f.ativo !== false).forEach(forn => {
-    let score = 0;
-    const motivos = [];
-    const catsAtende = (forn.categorias || []).filter(c => catsNecessarias.includes(c));
-    if (catsAtende.length) {
-      score += catsAtende.length * 20;
-      motivos.push(`fornece ${catsAtende.length} categoria(s)`);
-    }
-    // Historico: ja recebi estes materiais deste fornecedor?
-    let jaComprou = 0;
-    materialIds.forEach(mid => {
-      const comprou = pedidos.some(p => p.fornecedorId === forn.id && p.status !== "cancelado" &&
-        (p.itens || []).some(i => i.materialId === mid && Number(i.qtdRecebida) > 0));
-      if (comprou) jaComprou++;
-    });
-    if (jaComprou) {
-      score += jaComprou * 35;
-      motivos.push(`ja forneceu ${jaComprou} destes itens`);
-    }
-    if (score > 0) scores[forn.id] = { forn, score, motivos, jaComprou };
-  });
-
-  return Object.values(scores).sort((a, b) => b.score - a.score);
-};
-
-// Melhor preco historico de um material (menor preco ja pago e de quem).
-// Recebe o historico JA calculado (ver historicoPreco/historicoPrecoTodos) -
-// quem chama e responsavel por nao rescanear pedidos a cada render.
-export const melhorPrecoHist = (h, fornecedores) => {
-  if (!h || !h.length) return null;
-  const menor = h.reduce((m, x) => !m || x.preco < m.preco ? x : m, null);
-  const forn = (fornecedores || []).find(f => f.id === menor.fornecedorId);
-  return { preco: menor.preco, fornecedor: forn?.nome || "", data: menor.data };
-};
-
-// Gera a mensagem de WhatsApp - texto humano, natural, de quem trabalha com
-// obra. Pede os materiais, desconto e condicoes de pagamento. Recebe os itens
-// ja resolvidos {descricao, qtd, unidade}.
-export const mensagemWhatsAppCompra = ({ empresa, fornecedorNome, obraNome, itens, prazo, whatsappRetorno }) => {
-  const saudacao = fornecedorNome ? `Ola, ${fornecedorNome.split(" ")[0]}! Tudo bem?` : "Ola! Tudo bem?";
-  const linhas = itens.map(i => {
-    const un = i.unidade ? ` ${i.unidade}` : "";
-    return `- ${i.descricao}: ${i.qtd}${un}`;
-  }).join("\n");
-  const ass = empresa ? `\n\nObrigado!\n${empresa}` : "\n\nObrigado!";
-  const retorno = whatsappRetorno ? `\n\nPode responder por aqui mesmo ou no nosso WhatsApp de Compras: ${whatsappRetorno}` : "";
-  const obra = obraNome ? ` para a obra ${obraNome}` : "";
-  const prazoTxt = prazo ? `\n\nPrecisamos${obra} com entrega ate ${prazo}. Da pra atender?`
-                         : `\n\nMe informa por favor o prazo de entrega${obra}.`;
-  return `${saudacao}\n\nGostaria de um orcamento dos seguintes materiais:\n\n${linhas}`
-       + prazoTxt
-       + `\n\nVoces conseguem algum desconto para pagamento a vista? E quais as formas de pagamento e prazos que trabalham?`
-       + `\n\nFico no aguardo do melhor preco.${retorno}${ass}`;
-};
-
-// Monta o link wa.me a partir de um telefone brasileiro e do texto.
-export const linkWhatsApp = (telefone, texto) => {
-  const num = String(telefone || "").replace(/\D/g, "");
-  // Assume Brasil: se nao tem 55 na frente e tem 10-11 digitos, adiciona.
-  const full = num.length >= 12 ? num : (num.length >= 10 ? "55" + num : num);
-  return `https://wa.me/${full}?text=${encodeURIComponent(texto)}`;
-};
-
-// ── Entregas atrasadas ─────────────────────────────────────────────
-// Pedido enviado/parcial com previsao vencida e material ainda pendente.
-// Devolve o que falta chegar de cada um, pronto para a cobranca.
-// C2.2: o atraso olha cada item e cada remessa programada, não o pedido.
-export const pedidosEmAtraso = (data, hoje) => pedidosComItensAtrasados(data, hoje);
-
-// Mensagem de cobranca de entrega - firme e educada, citando o combinado.
-export const mensagemWhatsAppCobranca = ({ empresa, fornecedorNome, obraNome, numero, previsao, diasAtraso, itens }) => {
-  const saudacao = fornecedorNome ? `Ola, ${fornecedorNome.split(" ")[0]}! Tudo bem?` : "Ola! Tudo bem?";
-  const linhas = (itens || []).map(i => {
-    const un = i.unidade ? ` ${i.unidade}` : "";
-    return `- ${i.descricao}: falta ${i.falta}${un}`;
-  }).join("\n");
-  const obra = obraNome ? ` da obra ${obraNome}` : "";
-  const ass = empresa ? `\n\nObrigado!\n${empresa}` : "\n\nObrigado!";
-  return `${saudacao}\n\nEstou acompanhando o pedido ${numero}${obra}, que tinha entrega combinada para ${previsao} - ja se passaram ${diasAtraso} dia(s).`
-       + `\n\nAinda falta chegar:\n\n${linhas}`
-       + `\n\nPreciso desses materiais para nao parar a frente de servico. Consegue me confirmar hoje a nova data de entrega?${ass}`;
-};
-
-// ── Guarda de preco ────────────────────────────────────────────────
-// Chamada enquanto o comprador digita o preco unitario. Compara com o melhor
-// preco ja pago e com a referencia SINAPI/ORSE do item, e devolve um veredito.
-// O objetivo e pegar o vazamento NA HORA - a analise de Orcado x Comprado so
-// denuncia depois que o dinheiro ja saiu.
-// Recebe o historico JA calculado (ver historicoPreco/historicoPrecoTodos) -
-// quem chama e responsavel por nao rescanear pedidos a cada render.
-export const guardaPreco = (h, precoDigitado, fornecedores, precoRef) => {
-  const preco = Number(precoDigitado || 0);
-  if (!(preco > 0)) return null;
-
-  const melhor = h && h.length ? h.reduce((m, x) => !m || x.preco < m.preco ? x : m, null) : null;
-  const ref = Number(precoRef || 0);
-
-  const avisos = [];
-  if (melhor && melhor.preco > 0) {
-    const dif = preco - melhor.preco;
-    const pct = (dif / melhor.preco) * 100;
-    const forn = (fornecedores || []).find(f => f.id === melhor.fornecedorId);
-    if (pct > 5) {
-      avisos.push({
-        nivel: pct > 20 ? "alto" : "medio",
-        texto: `${pct.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% acima do melhor que você já pagou (${fmt(melhor.preco)}${forn ? ` · ${forn.nome}` : ""}${melhor.data ? ` · ${fmtDate(melhor.data)}` : ""})`,
-      });
-    } else if (pct < -5) {
-      avisos.push({ nivel: "bom", texto: `melhor preço já pago para este material (antes: ${fmt(melhor.preco)})` });
-    }
-  }
-  if (ref > 0) {
-    const pctRef = ((preco - ref) / ref) * 100;
-    if (pctRef > 10) avisos.push({ nivel: pctRef > 30 ? "alto" : "medio", texto: `${pctRef.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% acima da referência (${fmt(ref)})` });
-  }
-
-  const nivel = avisos.some(a => a.nivel === "alto") ? "alto"
-    : avisos.some(a => a.nivel === "medio") ? "medio"
-    : avisos.some(a => a.nivel === "bom") ? "bom" : null;
-
-  return { nivel, avisos, melhor, compras: h ? h.length : 0 };
-};
-
-// ── SLA das solicitacoes ───────────────────────────────────────────
-// Solicitacao parada e obra parada. Urgente tem 2 dias uteis de tolerancia;
-// normal, 5. O relogio conta desde o envio ate a analise (nao ate o pedido):
-// o que se mede aqui e o tempo de RESPOSTA do setor de Compras.
-const SLA_DIAS = { urgente: 2, normal: 5 };
-
-export const slaSolicitacao = (sol, hoje) => {
-  if (!["enviada", "em_analise"].includes(sol.status)) return null;
-  const criada = String(sol.criadoEm || "").slice(0, 10);
-  if (!criada) return null;
-  const dias = Math.max(0, Math.round((new Date(hoje + "T00:00:00") - new Date(criada + "T00:00:00")) / 86400000));
-  const limite = SLA_DIAS[sol.prioridade === "urgente" ? "urgente" : "normal"];
-  const restante = limite - dias;
-  return {
-    dias, limite, restante,
-    status: restante < 0 ? "estourado" : restante === 0 ? "no_limite" : "ok",
-  };
-};
-
-// ── Consolidacao multi-obra ────────────────────────────────────────
-// Com uma dezena de obras, o mesmo cimento e pedido por tres delas em semanas
-// proximas e comprado tres vezes, sem volume. Aqui procuramos o mesmo material
-// (pela descricao normalizada) em solicitacoes ABERTAS de obras DIFERENTES
-// dentro de uma janela de dias, e sugerimos a compra unica.
-const normDesc = (s) => String(s || "").toUpperCase().replace(/\s+/g, " ").trim();
-
-export const oportunidadesConsolidacao = (data, hoje, janelaDias = 10) => {
-  const abertas = (data.solicitacoesCompra || [])
-    .filter(s => ["enviada", "em_analise"].includes(s.status) && s.criadoEm);
-  if (abertas.length < 2) return [];
-
-  const limite = new Date(hoje + "T00:00:00").getTime() - janelaDias * 86400000;
-  const porMaterial = new Map();
-
-  abertas.forEach(sol => {
-    const quando = new Date(String(sol.criadoEm).slice(0, 10) + "T00:00:00").getTime();
-    if (quando < limite) return;   // fora da janela: consolidar nao faz sentido
-    (sol.itens || []).forEach(item => {
-      const chave = `${normDesc(item.descricaoRef)}|${normDesc(item.unidadeRef)}`;
-      if (!chave.replace("|", "").trim()) return;
-      const reg = porMaterial.get(chave) || {
-        descricao: normDesc(item.descricaoRef), unidade: normDesc(item.unidadeRef),
-        total: 0, obras: new Map(),
-      };
-      reg.total += Number(item.quantidade || 0);
-      const obraNome = (data.obras || []).find(o => o.id === sol.obraId)?.name || "Obra";
-      const jaObra = reg.obras.get(sol.obraId) || { obraId: sol.obraId, obraNome, qtd: 0, solicitacoes: new Set() };
-      jaObra.qtd += Number(item.quantidade || 0);
-      jaObra.solicitacoes.add(sol.numero);
-      reg.obras.set(sol.obraId, jaObra);
-      porMaterial.set(chave, reg);
-    });
-  });
-
-  return [...porMaterial.values()]
-    .filter(r => r.obras.size >= 2)   // so vale consolidar entre obras distintas
-    .map(r => ({
-      descricao: r.descricao, unidade: r.unidade, total: r.total,
-      obras: [...r.obras.values()].map(o => ({ ...o, solicitacoes: [...o.solicitacoes] }))
-        .sort((a, b) => b.qtd - a.qtd),
-    }))
-    .sort((a, b) => b.obras.length - a.obras.length || b.total - a.total);
-};
-
 // Orçado x Comprado, por linha do orçamento.
 //
 // O "orçado" é o CUSTO da linha (quantidade x preço unitário SINAPI), sem BDI -
@@ -11198,39 +8665,6 @@ export const oportunidadesConsolidacao = (data, hoje, janelaDias = 10) => {
 // compra contra o preço COM BDI faria todo item parecer barato.
 // Orçado × comprometido × recebido por etapa: src/domains/compras/budget-tracking.js (C3.2).
 export { calcOrcadoComprado };
-
-// Visão executiva do orçamento por etapa de primeiro nível. Cada valor só é
-// apropriado quando a origem aponta para uma linha real do orçamento; valores
-// sem vínculo ficam separados para não produzirmos uma precisão fictícia.
-// Usada tanto por OrcamentoView.jsx (extraído) quanto por ObraDetalhe, aqui
-// mesmo - por isso não pode ficar só dentro de um dos dois.
-export const calcControleCustosOrcamento = (data, orc) => {
-  if(!orc)return{etapas:[],total:{},semApropriacao:{solicitado:0,comprometido:0,recebido:0,aplicado:0}};
-  const etapas=orc.etapas||[];const etapaPorId=new Map(etapas.map(e=>[e.id,e]));
-  const itemPorId=new Map((orc.itens||[]).filter(i=>i.tipo!=="titulo").map(i=>[i.id,i]));
-  const raizDaEtapa=id=>{let e=etapaPorId.get(id),n=0;while(e?.parentId&&n++<30)e=etapaPorId.get(e.parentId)||e;return e;};
-  const raizDoItem=id=>{const item=itemPorId.get(id);return item?raizDaEtapa(item.etapaId):null;};
-  const raizVinculo=i=>etapaPorId.get(i?.orcNivel1Id)?raizDaEtapa(i.orcNivel1Id):raizDoItem(i?.orcItemId);
-  const mapa=new Map();
-  const linha=e=>{const id=e?.id||"sem_etapa";if(!mapa.has(id))mapa.set(id,{id,nome:e?.nome||"Sem etapa",ordem:Number(e?.ordem||0),orcado:0,solicitado:0,comprometido:0,recebido:0,aplicado:0,pago:0});return mapa.get(id);};
-  itemPorId.forEach(item=>{linha(raizDaEtapa(item.etapaId)).orcado+=Number(item.quantidade||0)*Number(item.precoUnit||0);});
-  const sem={solicitado:0,comprometido:0,recebido:0,aplicado:0};
-  (data.solicitacoesCompra||[]).filter(s=>s.obraId===orc.obraId&&!['cancelada','rejeitada'].includes(s.status)).forEach(s=>(s.itens||[]).forEach(i=>{
-    const valor=referenceTotalOf(i),raiz=raizVinculo(i);
-    if(raiz)linha(raiz).solicitado+=valor;else sem.solicitado+=valor;
-  }));
-  const transacaoPorId=new Map((data.transacoes||[]).map(t=>[t.id,t]));
-  (data.pedidos||[]).filter(p=>p.obraId===orc.obraId&&pedidoVivo(p)).forEach(p=>{
-    const pago=statusPagamentoPedido(p)==="pago"||(!!p.transacaoId&&transacaoPorId.get(p.transacaoId)?.status==="conciliado");
-    (p.itens||[]).forEach(i=>{const raiz=raizVinculo(i),total=Number(i.qtd||0)*Number(i.precoUnit||0),recebido=Number(i.qtdRecebida||0)*Number(i.precoUnit||0);
-      if(raiz){const l=linha(raiz);l.comprometido+=total;l.recebido+=recebido;if(pago)l.pago+=total;}else{sem.comprometido+=total;sem.recebido+=recebido;}
-    });
-  });
-  (data.movEstoque||[]).filter(m=>m.obraId===orc.obraId&&m.tipo==="consumo").forEach(m=>{const valor=Number(m.qtd||0)*Number(m.valorUnit||0),raiz=raizVinculo(m);if(raiz)linha(raiz).aplicado+=valor;else sem.aplicado+=valor;});
-  const lista=[...mapa.values()].map(l=>({...l,saldo:l.orcado-l.comprometido,projecao:Math.max(l.orcado,l.comprometido),percentual:l.orcado?l.comprometido/l.orcado*100:0})).sort((a,b)=>a.ordem-b.ordem||a.nome.localeCompare(b.nome));
-  const total=lista.reduce((a,l)=>{Object.keys(a).forEach(k=>a[k]+=Number(l[k]||0));return a;},{orcado:0,solicitado:0,comprometido:0,recebido:0,aplicado:0,pago:0,saldo:0,projecao:0});
-  return{etapas:lista,total,semApropriacao:sem};
-};
 
 // Painel da obra: comprado → recebido → aplicado → pago.
 // "Previsto" (do orçamento) fica de fora de propósito: o orçamento é feito de
@@ -11399,100 +8833,6 @@ export const calcCompras = (data, obraIds) => {
     emEstoque: recebido - aplicado,
   };
 };
-
-//
-// ESTOQUE - controle FÍSICO
-//
-// Não gera lançamento financeiro. O custo do material já entrou no DRE pela
-// Conciliação, no momento da compra (regime de caixa). Lançar de novo na
-// baixa contaria o mesmo saco de cimento duas vezes.
-//
-
-//
-// UNIDADES DE MEDIDA
-//
-// Antes era texto livre. Alguém digitava "sc", outro "SC", outro "saco" -
-// e o sistema tratava como três coisas diferentes. Soma errada, curva ABC
-// errada, composição que não baixa. Erro silencioso, o pior tipo.
-//
-// Agora é uma lista. Estas são as unidades SINAPI mais usadas; você
-// acrescenta as suas.
-export const UNIDADES_PADRAO = [
-  { sigla:"un",   nome:"Unidade" },
-  { sigla:"m",    nome:"Metro linear" },
-  { sigla:"m2",   nome:"Metro quadrado" },
-  { sigla:"m3",   nome:"Metro cúbico" },
-  { sigla:"kg",   nome:"Quilograma" },
-  { sigla:"t",    nome:"Tonelada" },
-  { sigla:"sc",   nome:"Saco" },
-  { sigla:"l",    nome:"Litro" },
-  { sigla:"gl",   nome:"Galão" },
-  { sigla:"pc",   nome:"Peça" },
-  { sigla:"cj",   nome:"Conjunto" },
-  { sigla:"br",   nome:"Barra" },
-  { sigla:"rl",   nome:"Rolo" },
-  { sigla:"cx",   nome:"Caixa" },
-  { sigla:"mlh",  nome:"Milheiro" },
-  { sigla:"h",    nome:"Hora" },
-  { sigla:"dia",  nome:"Diária" },
-  { sigla:"vb",   nome:"Verba" },
-];
-
-export const CATS_MATERIAL = [
-  { v:"estrutural",  l:"Estrutural (cimento, aço, brita)" },
-  { v:"alvenaria",   l:"Alvenaria e argamassa" },
-  { v:"eletrico",    l:"Elétrico" },
-  { v:"hidraulico",  l:"Hidráulico" },
-  { v:"acabamento",  l:"Acabamento (revestimento, tinta)" },
-  { v:"cobertura",   l:"Cobertura e impermeabilização" },
-  { v:"esquadria",   l:"Esquadrias" },
-  { v:"ferramenta",  l:"Ferramentas e EPI" },
-  { v:"outros",      l:"Outros" },
-];
-
-
-// ============================================================================
-//  SUPRIMENTOS - Curva de necessidade de materiais + comparação de preços +
-//  alertas de pesquisa por curva ABC + sugestão de fornecedor.
-// ============================================================================
-// Modal compartilhado: dispara pedido de orcamento por WhatsApp, um link por
-// fornecedor, com a lista completa de itens. Fornecedores que ja venderam
-// algum item da lista aparecem primeiro.
-export function ModalCotacaoWhatsApp({ titulo, itens, obraNome, prazo, fornecedores, pedidos, materiais, data, onClose, onContato }) {
-  const jaVendeu = new Set();
-  (pedidos || []).filter(p => p.status !== "cancelado").forEach(p => (p.itens || []).forEach(i => {
-    const mat = (materiais || []).find(m => m.id === i.materialId);
-    if (mat && itens.some(it => String(it.descricao || "").toUpperCase() === String(mat.descricao || "").toUpperCase())) jaVendeu.add(p.fornecedorId);
-  }));
-  const lista = [...(fornecedores || [])].filter(f => f.ativo !== false && f.telefone)
-    .sort((a, b) => Number(jaVendeu.has(b.id)) - Number(jaVendeu.has(a.id)) || a.nome.localeCompare(b.nome));
-  return <Modal title={titulo || "Cotação por WhatsApp"} onClose={onClose}>
-    <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginBottom: 8, lineHeight: 1.5 }}>
-      {itens.length} item(ns) na lista. Toque em cada fornecedor para abrir o WhatsApp com o pedido de orçamento completo. Quando as respostas chegarem, registre os preços em Cotações ou Suprimentos.
-    </p>
-    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 10px", marginBottom: 10, maxHeight: 120, overflow: "auto" }}>
-      {itens.map((i, ix) => <p key={ix} style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>• {i.descricao} — <b style={{ color: C.text }}>{i.qtd} {i.unidade}</b></p>)}
-    </div>
-    {!lista.length && <p style={{ fontSize: "var(--arcd-type-body)", color: C.muted, textAlign: "center", padding: 12 }}>Nenhum fornecedor com telefone cadastrado.</p>}
-    {lista.map(f => {
-      const texto = mensagemWhatsAppCompra({
-        empresa: data?.config?.companyName || "MARCELL Obras",
-        whatsappRetorno: data?.config?.whatsappCompras || "",
-        fornecedorNome: f.nome, obraNome: obraNome || "", prazo: prazo || "", itens,
-      });
-      return <div key={f.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, borderBottom: `1px solid ${C.line}`, padding: "8px 0" }}>
-        <div style={{ minWidth: 0 }}>
-          <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.nome}</p>
-          {jaVendeu.has(f.id) && <p style={{ fontSize:"var(--arcd-type-caption)", color: C.green, fontWeight:600 }}>já forneceu itens desta lista</p>}
-        </div>
-        <a href={linkWhatsApp(f.telefone, texto)} target="_blank" rel="noreferrer" style={{ textDecoration: "none", flexShrink: 0 }}
-           onClick={() => onContato?.(f.id, f.nome)}>
-          <Btn size="sm" v="success">WhatsApp</Btn>
-        </a>
-      </div>;
-    })}
-  </Modal>;
-}
 
 // Nomeado CotacoesMaterial (não mais "Suprimentos") para não colidir com o
 // grupo de menu "Suprimentos" (que já agrupa Compras+Estoque) nem com o
@@ -11870,11 +9210,11 @@ function RankingFornecedores({data,showToast,currentUser,dispatchCommand}){
       description="Ranking automático por preço, frete, prazo e qualidade com base no histórico real."
       actions={<Btn onClick={()=>setFornModal(novoFornecedor())}><Ic n="plus"/> Novo fornecedor</Btn>}
     />
-    <section className="supplier-toolbar" aria-label="Filtros do ranking">
-      <div className="supplier-search"><Ic n="search"/><input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar nome, CNPJ ou ramo..." aria-label="Buscar fornecedor"/></div>
-      <select value={obraId} onChange={e=>setObraId(e.target.value)} aria-label="Filtrar por obra"><option value="">Todas as obras</option>{(data.obras||[]).map(o=><option key={o.id} value={o.id}>{o.name}</option>)}</select>
-      <select value={periodo} onChange={e=>setPeriodo(e.target.value)} aria-label="Filtrar por período"><option value="6">Últimos 6 meses</option><option value="12">Últimos 12 meses</option><option value="24">Últimos 24 meses</option><option value="todos">Todo o histórico</option></select>
-    </section>
+    <FilterBar layout="grid" className="supplier-toolbar" label="Filtros do ranking">
+      <Inp label="Buscar fornecedor" value={busca} onChange={setBusca} placeholder="Nome, CNPJ ou ramo..."/>
+      <Sel label="Obra" value={obraId} onChange={setObraId} options={[{v:"",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
+      <Sel label="Período" value={periodo} onChange={setPeriodo} options={[{v:"6",l:"Últimos 6 meses"},{v:"12",l:"Últimos 12 meses"},{v:"24",l:"Últimos 24 meses"},{v:"todos",l:"Todo o histórico"}]}/>
+    </FilterBar>
     <section className="supplier-kpis">
       <div><span>Fornecedores avaliados</span><strong>{avaliados.length}<small> de {fornecedores.filter(f=>f.ativo!==false).length}</small></strong></div>
       <div><span>Cotações analisadas</span><strong>{ranking.reduce((s,r)=>s+r.propostas.length,0)}</strong></div>
@@ -11882,7 +9222,7 @@ function RankingFornecedores({data,showToast,currentUser,dispatchCommand}){
       <div><span>Entregas no prazo</span><strong>{entregasTotal?`${Math.round(noPrazoTotal/entregasTotal*100)}%`:"—"}<small>{entregasTotal?` ${noPrazoTotal}/${entregasTotal}`:" sem histórico"}</small></strong></div>
     </section>
     <section className="supplier-ranking-card">
-      <div className="supplier-card-title"><div><p>DESEMPENHO CONSOLIDADO</p><h2>Ranking geral</h2></div><span>Preço 35% · Frete 15% · Prazo 25% · Qualidade 25%</span></div>
+      <div className="supplier-card-title"><div><h2>Ranking geral</h2></div><span>Preço 35% · Frete 15% · Prazo 25% · Qualidade 25%</span></div>
       <div className="supplier-table-wrap"><table className="supplier-table">
         <thead><tr><th>#</th><th>Fornecedor</th><th>Nota geral</th><th>Preço</th><th>Frete</th><th>Prazo</th><th>Qualidade</th><th>Base</th><th></th></tr></thead>
         <tbody>{lista.map((r,i)=><tr key={r.fornecedor.id} onClick={()=>setSelecionadoId(r.fornecedor.id)} className={selecionadoId===r.fornecedor.id?"is-selected":""}>
@@ -11899,7 +9239,7 @@ function RankingFornecedores({data,showToast,currentUser,dispatchCommand}){
     </section>
     <section className="supplier-method"><Ic n="ia"/><div><b>Como a nota é calculada</b><p>Preço compara cada proposta com a menor cotação; prazo combina promessa e entrega real; qualidade considera atendimento da quantidade e divergências; frete usa valor estruturado, condição CIF/FOB e CT-e. Critérios sem evidência não reduzem a nota — apenas a confiança.</p></div></section>
     {selecionado&&<div className="supplier-detail-backdrop" onClick={()=>setSelecionadoId("")}><aside className="supplier-detail" onClick={e=>e.stopPropagation()}>
-      <div className="supplier-detail-head"><div><p>ANÁLISE DO FORNECEDOR</p><h2>{selecionado.fornecedor.nome}</h2><span>{selecionado.fornecedor.cnpj||"CNPJ não informado"}</span></div><button onClick={()=>setSelecionadoId("")} aria-label="Fechar"><Ic n="x"/></button></div>
+      <div className="supplier-detail-head"><div><h2>{selecionado.fornecedor.nome}</h2><span>{selecionado.fornecedor.cnpj||"CNPJ não informado"}</span></div><button onClick={()=>setSelecionadoId("")} aria-label="Fechar"><Ic n="x"/></button></div>
       <div className="supplier-detail-score"><div>{nota(selecionado.geral,corNota(selecionado.geral))}<span>nota geral</span></div><p><b>{selecionado.confianca}% de confiança</b><br/>{selecionado.evidencias} evidência(s) no período</p></div>
       <div className="supplier-detail-grid">{[["Preço",selecionado.preco],["Frete",selecionado.frete],["Prazo",selecionado.prazo],["Qualidade",selecionado.qualidade]].map(([l,v])=><div key={l}><span>{l}</span><b style={{color:corNota(v)}}>{v===null?"Sem dados":v}</b></div>)}</div>
       <div className="supplier-facts"><div><span>Volume comprado</span><b>{fmt(selecionado.valorComprado)}</b></div><div><span>Propostas / vitórias</span><b>{selecionado.propostas.length} / {selecionado.vitorias}</b></div><div><span>Pedidos</span><b>{selecionado.pedidos.length}</b></div><div><span>Entregas no prazo</span><b>{selecionado.entregas?`${selecionado.noPrazo}/${selecionado.entregas}`:"Sem dados"}</b></div></div>
@@ -11907,146 +9247,6 @@ function RankingFornecedores({data,showToast,currentUser,dispatchCommand}){
     </aside></div>}
     {fornModal&&<FornecedorEditorPilot form={fornModal} setForm={setFornModal} onSave={salvarForn}/>}
   </div>;
-}
-
-export function FornecedorEditorPilot({ form, setForm, onSave }) {
-  if (!features.newSupplierEditor) return <ModalFornecedor form={form} setForm={setForm} onSave={onSave} />;
-  return <Suspense fallback={<Modal title="Carregando fornecedor" onClose={()=>setForm(null)}><p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Preparando editor…</p></Modal>}>
-    <LazySupplierEditor open supplier={form} onOpenChange={open=>!open&&setForm(null)} onSave={onSave}/>
-  </Suspense>;
-}
-
-function ModalFornecedor({ form, setForm, onSave }) {
-
-  const { formGrid } = useBreakpoint();
-  const F = k => v => setForm(f => ({ ...f, [k]: v }));
-  return (
-    <Modal title={form.id ? "Editar fornecedor" : "Novo fornecedor"} onClose={()=>setForm(null)} wide>
-      <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:11}}>
-        <Inp label="Nome *" value={form.nome} onChange={F("nome")} placeholder="Depósito Caruaru"/>
-        <CampoCNPJ value={form.cnpj} onChange={F("cnpj")} onEncontrado={d=>setForm(f=>{
-          // O CNPJ preenche o que estiver vazio: nome, contato, endereco. E,
-          // pelo CNAE, ja sugere os ramos que a empresa fornece - o usuario
-          // confere e ajusta. Nada que ele digitou e sobrescrito.
-          const sugeridos = ramosDosCnaes(d.cnaes);
-          const jaTinha = f.categorias || [];
-          return {
-            ...f,
-            nome:       f.nome       || d.nome,
-            razaoSocial:f.razaoSocial|| d.razaoSocial,
-            nomeFantasia:f.nomeFantasia||d.nomeFantasia,
-            telefone:   f.telefone   || d.telefone,
-            email:      f.email      || d.email,
-            cep:        f.cep        || d.cep,
-            endereco:   f.endereco   || d.logradouro,
-            numero:     f.numero     || d.numero,
-            complemento:f.complemento|| d.complemento,
-            bairro:     f.bairro     || d.bairro,
-            cidade:     f.cidade     || d.cidade,
-            uf:         f.uf         || d.uf,
-            // Une o que ja estava marcado com o que veio do CNAE (sem duplicar).
-            categorias: [...new Set([...jaTinha, ...sugeridos])],
-            // Guarda a atividade para o usuario conferir de onde veio a sugestao.
-            atividadeCnae: d.atividade || f.atividadeCnae || "",
-            situacaoCadastral: d.situacao || f.situacaoCadastral || "",
-            dataAbertura: d.abertura || f.dataAbertura || "",
-            ramosSugeridos: sugeridos,
-          };
-        })}/>
-        <Inp label="Razão social" value={form.razaoSocial} onChange={F("razaoSocial")} placeholder="Preenchida pelo CNPJ"/>
-        <Inp label="Nome fantasia" value={form.nomeFantasia} onChange={F("nomeFantasia")} placeholder="Preenchido pelo CNPJ"/>
-        <Inp label="Contato" value={form.contato} onChange={F("contato")} placeholder="Nome do vendedor"/>
-        <Inp label="Telefone" value={form.telefone} onChange={F("telefone")} placeholder="(81) 9...."/>
-        <div style={{gridColumn:"1/-1"}}>
-          <Inp label="E-mail" value={form.email} onChange={F("email")} placeholder="vendas@..."/>
-        </div>
-
-        {/* O QUE ELE FORNECE - alimenta a sugestao de fornecedor nos pedidos */}
-        <div style={{gridColumn:"1/-1",background:C.surface,border:`1px solid ${C.border}`,
-                     borderRadius:9,padding:"11px 13px"}}>
-          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginBottom:3}}>O que fornece</p>
-          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginBottom:9,lineHeight:1.45}}>
-            Marque todos os ramos. Uma casa de construção atende vários; uma serralheria, só metais.
-            O sistema usa isso para sugerir de quem comprar cada material.
-          </p>
-          {(form.ramosSugeridos||[]).length > 0 && (
-            <div style={{background:`${C.blue}0A`,border:`1px solid ${C.blue}44`,borderRadius:8,
-                         padding:"8px 10px",marginBottom:9}}>
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.blue,fontWeight:600,lineHeight:1.45}}>
-                Marcado automaticamente pelo CNPJ: {(form.ramosSugeridos||[]).map(rotuloRamo).join(", ")}.
-              </p>
-              {form.atividadeCnae && (
-                <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>
-                  Atividade na Receita: {form.atividadeCnae}
-                </p>
-              )}
-              <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>Confira e ajuste se precisar.</p>
-            </div>
-          )}
-          <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-            {RAMOS_FORNECIMENTO.map(r=>{
-              const marcado = (form.categorias||[]).includes(r.v);
-              return (
-                <button key={r.v} type="button"
-                  onClick={()=>setForm(f=>({...f, categorias: marcado
-                    ? (f.categorias||[]).filter(x=>x!==r.v)
-                    : [...(f.categorias||[]), r.v]}))}
-                  style={{padding:"6px 11px",borderRadius:99,cursor:"pointer",
-                    border:`1.5px solid ${marcado?C.yellowD:C.border}`,
-                    background:marcado?`${C.yellow}1E`:C.bg,
-                    color:marcado?C.yellowD:C.muted,
-                    fontSize:"var(--arcd-type-control)",fontWeight:marcado?600:500,
-                    fontFamily:"var(--arcd-font-sans)"}}>
-                  {r.l}
-                </button>
-              );
-            })}
-          </div>
-          {(form.categorias||[]).length===0 && (
-            <p style={{fontSize:"var(--arcd-type-label)",color:C.orange,marginTop:8}}>
-              Sem ramo marcado, ele não aparece nas sugestões de compra.
-            </p>
-          )}
-        </div>
-
-        {/* ENDERECO - frete, retirada e proximidade da obra */}
-        <div style={{gridColumn:"1/-1",background:C.surface,border:`1px solid ${C.border}`,
-                     borderRadius:9,padding:"11px 13px"}}>
-          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginBottom:9}}>Endereço</p>
-          <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:9}}>
-            <CampoCEP value={form.cep} onChange={F("cep")}
-              onEncontrado={d=>setForm(f=>({...f,
-                endereco: d.endereco || f.endereco,
-                bairro:   d.bairro   || f.bairro,
-                cidade:   d.cidade   || f.cidade,
-                uf:       d.uf       || f.uf,
-              }))}/>
-            <Inp label="Número" value={form.numero} onChange={F("numero")} placeholder="123"/>
-            <div style={{gridColumn:"1/-1"}}>
-              <Inp label="Logradouro" value={form.endereco} onChange={F("endereco")} placeholder="Rua, avenida..."/>
-            </div>
-            <Inp label="Complemento" value={form.complemento} onChange={F("complemento")} placeholder="Sala, loja, galpão..."/>
-            <Inp label="Bairro" value={form.bairro} onChange={F("bairro")}/>
-            <Inp label="Cidade" value={form.cidade} onChange={F("cidade")}/>
-            <Inp label="UF" value={form.uf} onChange={F("uf")} placeholder="PE"/>
-          </div>
-          {(form.situacaoCadastral||form.dataAbertura)&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:8}}>
-            Receita Federal: {form.situacaoCadastral||"situação não informada"}{form.dataAbertura?` · aberta em ${fmtDate(form.dataAbertura)}`:""}
-          </p>}
-        </div>
-
-        <div style={{gridColumn:"1/-1"}}>
-          <Inp label="Observações" value={form.obs} onChange={F("obs")}
-               placeholder="Prazo de entrega, condições de pagamento, histórico..." multiline/>
-        </div>
-
-        <div style={{gridColumn:"1/-1",display:"flex",gap:8}}>
-          <Btn v="ghost" onClick={()=>setForm(null)} full>Cancelar</Btn>
-          <Btn onClick={()=>onSave(form)} full><Ic n="check"/> Salvar</Btn>
-        </div>
-      </div>
-    </Modal>
-  );
 }
 
 // A tela de Compras (com seus 4 modais - solicitação, pedido, cotação,
@@ -12157,9 +9357,10 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
     if(!proximos||typeof proximos!=="object")return undefined;
     return update(recomporDadosDaObra(data,proximos,obraId));
   },[data,obraId,update]);
-  const [abaConteudo,setAbaConteudo]=useState("geral");
+  const [abaConteudo,setAbaConteudo]=useWorkspaceState("obras","area","geral",obraId);
+  useHelpTopic('obras',WORK_HELP[abaConteudo]||abaConteudo);
   const [terceiroAlvo,setTerceiroAlvo]=useState(null); // contrato a abrir em Terceiros (vindo da aba Medição)
-  const [grupoMenuObra,setGrupoMenuObra]=useState("geral");
+  const [grupoMenuObra,setGrupoMenuObra]=useWorkspaceState("obras","group","geral",obraId);
 
   const hoje = today();
 
@@ -12403,7 +9604,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
       if(janela)janela.location.href=resposta.url;else window.location.assign(resposta.url);
     }catch(err){janela?.close();showToast?.(err.message||"Não foi possível abrir o documento.","error");}
   };
-  const linkDocumentoObra=(doc,compacto=false)=><a key={doc.id||doc.url} href={urlArquivoInterna(doc.url)?doc.url:"#visualizar-arquivo"} target="_blank" rel="noopener noreferrer" onClick={e=>abrirDocumentoSeguro(e,doc)} title={`Visualizar ${doc.nome||"documento"}`} style={{display:"flex",alignItems:"center",gap:8,padding:compacto?"6px 0":"9px 10px",border:compacto?0:`1px solid ${C.border}`,borderTop:compacto?`1px solid ${C.line}`:undefined,borderRadius:compacto?0:8,color:C.blue,textDecoration:"none",fontSize:compacto?"var(--arcd-type-caption)":"var(--arcd-type-caption)"}}><Ic n="file"/><span style={{flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{doc.nome||"Documento"}</span><span style={{fontSize:"var(--arcd-type-label)",fontWeight:600}}>Visualizar ↗</span></a>;
+  const linkDocumentoObra=(doc,compacto=false)=><a key={doc.id||doc.url} href={urlArquivoInterna(doc.url)?doc.url:"#visualizar-arquivo"} target="_blank" rel="noopener noreferrer" onClick={e=>abrirDocumentoSeguro(e,doc)} title={`Visualizar ${doc.nome||"documento"}`} style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",padding:compacto?"6px 0":"9px 10px",border:compacto?0:"1px solid var(--arcd-border-default)",borderTop:compacto?"1px solid var(--arcd-border-default)":undefined,borderRadius:compacto?0:8,color:"var(--arcd-action-primary)",textDecoration:"none",fontSize:compacto?"var(--arcd-type-caption)":"var(--arcd-type-caption)"}}><Ic n="file"/><span style={{flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{doc.nome||"Documento"}</span><span style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>Visualizar ↗</span></a>;
 
   const criarSubpasta = async () => {
     const nomePasta=novaPasta.trim();
@@ -12514,15 +9715,17 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
     const comprometido=Number(custos.total.comprometido||0)+Number(custos.semApropriacao.comprometido||0);
     const recebido=Number(custos.total.recebido||0)+Number(custos.semApropriacao.recebido||0);
     const aplicado=Number(custos.total.aplicado||0)+Number(custos.semApropriacao.aplicado||0);
-    const orcado=Number(custos.total.orcado||resumo?.orcTotal||0);
-    const projecao=Math.max(orcado,comprometido);
+    const acumulado=calcLedgerAcumulado(data,[obraId],Number(hoje.slice(0,4)),Number(hoje.slice(5,7))-1);
+    const previsaoCustos=workStageCosts(data,acumulado.ledger,obraId,hoje);
+    const orcado=previsaoCustos.budget?previsaoCustos.totals.budget/100:0;
+    const projecao=previsaoCustos.totals.forecast/100;
     const fimProjetado=janela.fim&&prazo.resumo.desvioObra>0?somaDias(janela.fim,prazo.resumo.desvioObra):janela.fim;
     const tarefasCriticas=prazo.linhas.filter(l=>!l.titulo&&l.situacao==="atrasada").sort((a,b)=>Number(b.desvio||0)-Number(a.desvio||0)).slice(0,5);
     const medidoFinanceiro=(resumo?.medicoes||[]).reduce((s,m)=>s+Number(m.valorPrevisto||0),0);
     const percentualMedido=Number(obra?.contractValue||0)>0?medidoFinanceiro/Number(obra.contractValue)*100:0;
     return{temPlano:!!plano&&executivas.length>0,tarefas:executivas,progresso:Math.round(medicao.avancoFisico||0),prazo:prazo.resumo,
-      inicio:janela.ini,fimPlanejado:janela.fim,fimProjetado,tarefasCriticas,custos:{orcado,comprometido,recebido,aplicado,projecao,saldo:orcado-comprometido},percentualMedido};
-  },[data.planos,data.rdos,data.solicitacoesCompra,data.pedidos,data.movEstoque,data.transacoes,resumo?.orc,resumo?.orcTotal,resumo?.medicoes,obraId,obra?.contractValue,hoje]);
+      inicio:janela.ini,fimPlanejado:janela.fim,fimProjetado,tarefasCriticas,custos:{orcado,comprometido,recebido,aplicado,projecao,saldo:orcado-projecao,temOrcamento:!!previsaoCustos.budget,reconferir:previsaoCustos.rows.some(r=>r.revision&&!r.reviewValid),semInicio:acumulado.missingStart?.includes(obraId),restante:previsaoCustos.totals.remaining/100,reserva:previsaoCustos.totals.contingency/100,mudancas:previsaoCustos.totals.changeImpact/100},percentualMedido};
+  },[data,resumo?.orc,resumo?.orcTotal,resumo?.medicoes,obraId,obra?.contractValue,hoje]);
 
   const indicadoresGerais=useMemo(()=>{
     const pendencias=(data.conferencias||[]).filter(c=>c.obraId===obraId).flatMap(c=>c.pendencias||[]).filter(p=>p.status!=="resolvida");
@@ -12531,9 +9734,9 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
 
   if (!obra || !resumo) {
     return (
-      <div style={{padding:20,textAlign:"center"}}>
-        <p style={{fontSize:"var(--arcd-type-body)",color:C.muted}}>Obra não encontrada.</p>
-        <Btn v="ghost" onClick={onVoltar} full style={{marginTop:12}}>← Voltar</Btn>
+      <div style={{padding:"var(--arcd-space-5)",textAlign:"center"}}>
+        <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)"}}>Obra não encontrada.</p>
+        <Btn v="ghost" onClick={onVoltar} full style={{marginTop:"var(--arcd-space-3)"}}>← Voltar</Btn>
       </div>
     );
   }
@@ -12559,9 +9762,9 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
   };
 
   const Par = ({ l, v, c }) => (
-    <div style={{display:"flex",justifyContent:"space-between",gap:8,marginTop:4}}>
-      <span style={{fontSize:"var(--arcd-type-body)",color:C.muted}}>{l}</span>
-      <span style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:c||C.text,whiteSpace:"nowrap"}}>{v}</span>
+    <div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-1)"}}>
+      <span style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)"}}>{l}</span>
+      <span style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:c||"var(--arcd-text-primary)",whiteSpace:"nowrap"}}>{v}</span>
     </div>
   );
 
@@ -12572,21 +9775,21 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
     const pastas=itensPasta.filter(item=>item.type==="folder");
     const arquivos=itensPasta.filter(item=>item.type==="file").map(item=>({...item,nome:item.name}));
     const arquivosFallback=!carregandoPasta&&!itensPasta.length&&caminhoPastas.length<=1?(obra.documentosOneDrive||[]):[];
-    return <div style={{display:"flex",flexDirection:"column",gap:12,minWidth:0}}>
-      <div aria-label="Caminho da pasta" style={{display:"flex",alignItems:"center",gap:5,minWidth:0,overflowX:"auto",padding:"2px 0 4px",scrollbarWidth:"thin"}}>
-        {caminhoPastas.map((pasta,indice)=><span key={pasta.id} style={{display:"flex",alignItems:"center",gap:5,minWidth:0,flex:"0 0 auto"}}>{indice>0&&<span style={{color:C.muted,fontSize:"var(--arcd-type-label)"}}>›</span>}<button onClick={()=>navegarCaminhoPasta(indice)} title={pasta.nome} style={{maxWidth:220,border:0,background:indice===caminhoPastas.length-1?`${C.blue}0C`:"transparent",borderRadius:6,padding:"5px 7px",color:indice===caminhoPastas.length-1?C.blue:C.muted,fontSize:"var(--arcd-type-control)",fontWeight:indice===caminhoPastas.length-1?600:600,cursor:"pointer",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{pasta.nome}</button></span>)}
+    return <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)",minWidth:0}}>
+      <div aria-label="Caminho da pasta" style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-1)",minWidth:0,overflowX:"auto",padding:"var(--arcd-space-half) var(--arcd-space-0) var(--arcd-space-1)",scrollbarWidth:"thin"}}>
+        {caminhoPastas.map((pasta,indice)=><span key={pasta.id} style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-1)",minWidth:0,flex:"0 0 auto"}}>{indice>0&&<span style={{color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)"}}>›</span>}<StandardButton variant="secondary" onClick={()=>navegarCaminhoPasta(indice)} title={pasta.nome} style={{maxWidth:220,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{pasta.nome}</StandardButton></span>)}
       </div>
-      <div style={{display:"flex",flexWrap:"wrap",gap:7,alignItems:"end",minWidth:0}}>
+      <div style={{display:"flex",flexWrap:"wrap",gap:"var(--arcd-space-2)",alignItems:"end",minWidth:0}}>
         <div style={{flex:"1 1 260px",minWidth:0}}><Inp label={`Nova pasta em ${pastaAtual?.nome||"Arquivos da obra"}`} value={novaPasta} onChange={setNovaPasta} placeholder="Ex.: Projetos estruturais"/></div>
         <Btn v="info" onClick={criarSubpasta} disabled={!novaPasta.trim()||criandoPasta} style={{flex:"0 0 auto",maxWidth:"100%"}}><Ic n="folder"/> {criandoPasta?"Criando...":"Criar pasta"}</Btn>
       </div>
-      <div style={{borderTop:`1px solid ${C.line}`,paddingTop:12,minWidth:0}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,marginBottom:8}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>Conteúdo da pasta</p>{!carregandoPasta&&<span style={{fontSize:"var(--arcd-type-caption)",color:C.muted,whiteSpace:"nowrap"}}>{pastas.length} pasta(s) · {arquivos.length||arquivosFallback.length} arquivo(s)</span>}</div>
-        {carregandoPasta?<div style={{padding:"22px 10px",textAlign:"center",color:C.muted,fontSize:"var(--arcd-type-label)"}}>Carregando pastas e arquivos...</div>:<>
-          {!!pastas.length&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,210px),1fr))",gap:7,marginBottom:10}}>{pastas.map(pasta=><button key={pasta.id} onClick={()=>abrirPastaInterna(pasta)} title={`Abrir ${pasta.name}`} style={{display:"flex",alignItems:"center",gap:9,minWidth:0,width:"100%",border:`1px solid ${C.border}`,borderRadius:9,background:C.surface,padding:"10px 11px",cursor:"pointer",textAlign:"left",color:C.text}}><span style={{flex:"0 0 auto",color:C.blue}}><Ic n="folder"/></span><span style={{flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:"var(--arcd-type-label)",fontWeight:600}}>{pasta.name}</span><span style={{flex:"0 0 auto",color:C.muted,fontSize:"var(--arcd-type-body)"}}>›</span></button>)}</div>}
-          {!!arquivos.length&&<div style={{display:"flex",flexDirection:"column",gap:6}}>{arquivos.map(doc=>linkDocumentoObra(doc))}</div>}
-          {!arquivos.length&&!!arquivosFallback.length&&<div style={{display:"flex",flexDirection:"column",gap:6}}>{arquivosFallback.map(doc=>linkDocumentoObra(doc))}</div>}
-          {!pastas.length&&!arquivos.length&&!arquivosFallback.length&&<div style={{padding:"22px 10px",textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:9}}><Ic n="folder" color={C.muted}/><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginTop:6}}>Esta pasta está vazia</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>Crie uma subpasta ou carregue um arquivo aqui.</p></div>}
+      <div style={{borderTop:"1px solid var(--arcd-border-default)",paddingTop:"var(--arcd-space-3)",minWidth:0}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",marginBottom:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Conteúdo da pasta</p>{!carregandoPasta&&<span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",whiteSpace:"nowrap"}}>{pastas.length} pasta(s) · {arquivos.length||arquivosFallback.length} arquivo(s)</span>}</div>
+        {carregandoPasta?<LoadingState label="pastas e arquivos"/>:<>
+          {!!pastas.length&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,210px),1fr))",gap:"var(--arcd-space-2)",marginBottom:"var(--arcd-space-2)"}}>{pastas.map(pasta=><StandardButton variant="secondary" key={pasta.id} onClick={()=>abrirPastaInterna(pasta)} title={`Abrir ${pasta.name}`} style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",minWidth:0,width:"100%",textAlign:"left"}}><span style={{flex:"0 0 auto",color:"var(--arcd-action-primary)"}}><Ic n="folder"/></span><span style={{flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{pasta.name}</span><span style={{flex:"0 0 auto",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-body)"}}>›</span></StandardButton>)}</div>}
+          {!!arquivos.length&&<div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>{arquivos.map(doc=>linkDocumentoObra(doc))}</div>}
+          {!arquivos.length&&!!arquivosFallback.length&&<div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>{arquivosFallback.map(doc=>linkDocumentoObra(doc))}</div>}
+          {!pastas.length&&!arquivos.length&&!arquivosFallback.length&&<div style={{padding:"var(--arcd-space-5) var(--arcd-space-2)",textAlign:"center",border:"1px dashed var(--arcd-border-default)",borderRadius:9}}><Ic n="folder" color={C.muted}/><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-1)"}}>Esta pasta está vazia</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Crie uma subpasta ou carregue um arquivo aqui.</p></div>}
         </>}
       </div>
     </div>;
@@ -12594,9 +9797,9 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
 
   const abrirModuloDaObra = destino => {
     if(!destino)return;
-    sessionStorage.setItem("arcd_obra_contexto",obraId);
+    sessionContext.setItem("arcd_obra_contexto",obraId);
     const chaves={rdo:"arcd_rdo_obra",conferencia:"arcd_conferencia_obra",plan:"arcd_plan_obra",orc:"arcd_orc_obra",med:"arcd_med_obra",cmp:"arcd_compras_obra",est:"arcd_estoque_obra",dre:"arcd_dre_obra",ponto:"arcd_ponto_obra",equipe:"arcd_equipe_obra",terc:"arcd_terceiros_obra",equip:"arcd_equipamentos_obra",licenca:"arcd_licenca_obra"};
-    if(chaves[destino])sessionStorage.setItem(chaves[destino],obraId);
+    if(chaves[destino])sessionContext.setItem(chaves[destino],obraId);
     setAbaConteudo(destino);
   };
 
@@ -12605,21 +9808,21 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
   const Secao = ({ id, icone, titulo, cor, badge, atalho, children }) => {
     const aberta = !!secoesAbertas[id];
     return (
-      <div className="acc-sec" style={{ "--acc-color": cor || C.yellow }}>
-        <button className="acc-hd" data-open={aberta}
+      <div className="acc-sec" style={{ "--acc-color": cor || "var(--arcd-action-primary)" }}>
+        <StandardButton variant="secondary" className="acc-hd" data-open={aberta}
                 onClick={() => toggleSecao(id)} aria-expanded={aberta}>
           <span className="acc-ic"><IcoObra n={icone} s={17}/></span>
           <span className="acc-title">{titulo}</span>
           {badge != null && <span className="acc-badge">{badge}</span>}
           <span className="acc-chev"><ChevronBaixo s={14}/></span>
-        </button>
+        </StandardButton>
         {aberta && (
           <div className="acc-body">
             {children}
             {atalho && (
-              <button className="acc-link" onClick={() => abrirModuloDaObra(atalho)}>
+              <StandardButton variant="secondary" className="acc-link" onClick={() => abrirModuloDaObra(atalho)}>
                 Abrir {atalho === "dre" ? "financeiro" : atalho} completo →
-              </button>
+              </StandardButton>
             )}
           </div>
         )}
@@ -12628,80 +9831,28 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
   };
 
   const barra = (pct, cor) => (
-    <div style={{marginTop:9,height:6,background:C.line,borderRadius:99,overflow:"hidden"}}>
+    <div style={{marginTop:"var(--arcd-space-2)",height:6,background:"var(--arcd-border-default)",borderRadius:99,overflow:"hidden"}}>
       <div style={{height:"100%",width:`${Math.min(100,Math.max(0,pct))}%`,
                    background:cor,borderRadius:99}}/>
     </div>
   );
 
   return (
-    <div className="anim" style={{display:"flex",flexDirection:"column",gap:0}}>
-      {/* Capa + abas ficam fixas no topo, exceto no Orçamento: ali o banner e as
-          duas linhas de abas somavam ~340px e cobriam a planilha, que já traz o
-          próprio cabeçalho fixo de colunas (.budget-cols). */}
-      <div style={abaConteudo==="orc"?{background:C.bg,paddingTop:2}:{position:"sticky",top:0,zIndex:30,background:C.bg,paddingTop:2,boxShadow:"0 10px 24px rgba(20,24,28,.04)"}}>
-      <button onClick={onVoltar} style={{background:"transparent",border:0,color:C.muted,
-        cursor:"pointer",fontSize:"var(--arcd-type-control)",padding:0,textAlign:"left",marginBottom:11,
-        fontFamily:"var(--arcd-font-sans)",fontWeight:600}}>← Todas as obras</button>
-
-      {/* CAPA DA OBRA: imagem, identidade e os numeros que importam.
-          Sem foto, cai num gradiente da marca com a inicial da obra. */}
-      <div style={{position:"relative",borderRadius:12,overflow:"hidden",marginBottom:11,
-                   minHeight:150,
-                   background: obra.capaUrl
-                     ? `linear-gradient(180deg, rgba(0,0,0,.15) 0%, rgba(0,0,0,.72) 100%), url("${obra.capaUrl}") center/cover`
-                     : `linear-gradient(135deg,${C.ink} 0%,${C.subtle} 55%,${C.yellowD} 100%)`}}>
-
-        {/* Ações principais da obra ficam sempre visíveis. */}
-        <div style={{position:"absolute",top:10,right:10,zIndex:2,display:"flex",gap:6,flexWrap:"wrap",justifyContent:"flex-end"}}><button onClick={onEditarObra} style={{background:"rgba(255,255,255,.94)",color:C.blue,border:0,borderRadius:8,padding:"7px 11px",fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer",fontFamily:"var(--arcd-font-sans)"}}><Ic n="edit" s={12}/> Editar obra</button><button onClick={()=>inputCapaRef.current?.click()} disabled={enviandoCapa}
-          style={{background: enviandoCapa ? C.muted : C.blue, color:"#fff",border:0,borderRadius:8,
-            padding:"7px 11px",fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:enviandoCapa?"default":"pointer",
-            fontFamily:"var(--arcd-font-sans)"}}>
-          {enviandoCapa ? "Enviando..." : obra.capaUrl ? "Alterar imagem" : "Adicionar imagem"}
-        </button></div>
+    <div className="anim work-detail-workspace" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
+      <div className="work-detail-context">
+        <Btn v="ghost" onClick={onVoltar}>Todas as obras</Btn>
+        <PageHeader className="workspace-header" title={obra.name}
+          description={[obra.cliente,obra.engineer&&`Eng. ${obra.engineer}`].filter(Boolean).join(" · ")}
+          primaryAction={abaConteudo==="geral"&&<Btn onClick={onEditarObra}><Ic n="edit" s={14}/> Editar obra</Btn>}
+          secondaryActions={abaConteudo==="geral"&&<Btn v="ghost" onClick={()=>inputCapaRef.current?.click()} disabled={enviandoCapa}>{enviandoCapa?"Enviando...":obra.capaUrl?"Alterar imagem":"Adicionar imagem"}</Btn>}>
+          <div className="work-detail-status"><Badge color={st.c}>{st.l}</Badge>{resumo.fase&&<span>{resumo.fase.nome}</span>}</div>
+        </PageHeader>
         <input ref={inputCapaRef} type="file" accept="image/*" style={{display:"none"}}
-               onChange={e=>{ const f=e.target.files?.[0]; if(f) enviarCapa(f); e.target.value=""; }}/>
-
-        <div style={{position:"relative",zIndex:1,padding:"clamp(14px,4vw,18px)",
-                     display:"flex",flexDirection:"column",justifyContent:"flex-end",minHeight:150}}>
-          {/* Selo da empresa, como no cabecalho de projeto */}
-          <div style={{display:"inline-flex",alignSelf:"flex-start",alignItems:"center",gap:7,
-                       background:"rgba(255,255,255,.92)",borderRadius:8,padding:"5px 9px",marginBottom:9}}>
-            <span style={{width:16,height:16,borderRadius:4,background:C.yellowD,display:"inline-block"}}/>
-            <span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.ink}}>MARCELL</span>
-          </div>
-
-          <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"flex-end"}}>
-            <div style={{minWidth:0}}>
-              {resumo.fase && (
-                <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,textTransform:"uppercase",letterSpacing:.8,
-                           color:"rgba(255,255,255,.8)"}}>{resumo.fase.nome}</p>
-              )}
-              <h3 className="brk" style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,
-                         fontSize:"clamp(18px,5.2vw,25px)",marginTop:2,lineHeight:1.15,color:"#fff"}}>{obra.name}</h3>
-              {(obra.cliente || obra.engineer) && (
-                <p style={{fontSize:"var(--arcd-type-label)",color:"rgba(255,255,255,.85)",marginTop:3}}>
-                  {[obra.cliente, obra.engineer && `Eng. ${obra.engineer}`].filter(Boolean).join("  ·  ")}
-                </p>
-              )}
-            </div>
-            <Badge color={st.c}>{st.l}</Badge>
-          </div>
-
-          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginTop:13}}>
-            {[["Contrato", fmt(obra.contractValue)],
-              ["Recebido", fmt(resumo.recebido)],
-              ["Resultado", fmt(margem)]].map(([l,v])=>(
-              <div key={l}>
-                <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,textTransform:"uppercase",letterSpacing:.5,
-                           color:"rgba(255,255,255,.7)"}}>{l}</p>
-                <p style={{fontSize:"clamp(12px,3.4vw,15px)",fontWeight:600,whiteSpace:"nowrap",color:"#fff",
-                           fontFamily:"var(--arcd-font-sans)"}}>{v}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+          onChange={event=>{const file=event.target.files?.[0];if(file)enviarCapa(file);event.target.value="";}}/>
+        <details className="work-detail-summary" data-overview={abaConteudo==="geral"} open={abaConteudo==="geral"}><summary>Resumo e ações da obra</summary>
+        {abaConteudo!=="geral"&&<div className="work-detail-summary__actions"><Btn v="ghost" onClick={()=>inputCapaRef.current?.click()} disabled={enviandoCapa}>{enviandoCapa?"Enviando...":obra.capaUrl?"Alterar imagem":"Adicionar imagem"}</Btn><Btn onClick={onEditarObra}><Ic n="edit" s={14}/> Editar obra</Btn></div>}
+        {obra.capaUrl&&<img className="work-detail-image" src={obra.capaUrl} alt={`Imagem de ${obra.name}`}/>}
+        <dl className="work-detail-metrics">{[["Contrato",fmt(obra.contractValue)],["Recebido",fmt(resumo.recebido)],["Resultado",fmt(margem)]].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl></details>
 
       {/* Navegação compacta em dois níveis. O primeiro nível acompanha a
           largura da tela; o segundo mostra apenas os módulos do grupo ativo. */}
@@ -12713,51 +9864,56 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         {id:"financeiro",label:"Financeiro",itens:[["dre","DRE da obra","dre"]]},
         {id:"rh",label:"RH",itens:[["ponto","Ponto","ponto"],["equipe","Equipe","equipe"],["terc","Terceiros","terc"]]},
         {id:"recursos",label:"Recursos",itens:[["equip","Equipamentos","equip"],["licenca","Licenciamento","licenca"],["arquivos","Arquivos",null],...(ehAdmin?[["portal","Portal do cliente",null]]:[])]},
-      ];const grupo=grupos.find(g=>g.id===grupoMenuObra)||grupos[0];return <div style={{marginBottom:12,display:"flex",flexDirection:"column",gap:6}}>
-        <TabRow equal tabs={grupos.map(g=>[g.id,g.label])} active={grupoMenuObra} onChange={id=>{setGrupoMenuObra(id);if(id==="geral")setAbaConteudo("geral");}}/>
-        {grupo.id!=="geral"&&<TabRow equal tabs={grupo.itens.map(([id,label])=>[id,label])} active={abaConteudo} onChange={id=>{const item=grupo.itens.find(([iid])=>iid===id);if(["arquivos","portal","qualidade","seguranca"].includes(id))setAbaConteudo(id);else if(item?.[2])abrirModuloDaObra(item[2]);}}/>}
+      ];const grupo=grupos.find(g=>g.id===grupoMenuObra)||grupos[0];return <div style={{marginBottom:"var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>
+        <label className="work-detail-navigation__mobile"><span>Telas da obra</span><SelectControl aria-label="Telas da obra" value={abaConteudo} onChange={event=>{const id=event.target.value;const owner=grupos.find(group=>group.itens.some(item=>item[0]===id));if(!owner)return;setGrupoMenuObra(owner.id);const item=owner.itens.find(entry=>entry[0]===id);if(["geral","arquivos","portal","qualidade","seguranca"].includes(id))setAbaConteudo(id);else if(item?.[2])abrirModuloDaObra(item[2]);}}>{grupos.map(group=><optgroup key={group.id} label={group.label}>{group.itens.map(([id,label])=><option key={id} value={id}>{label}</option>)}</optgroup>)}</SelectControl></label>
+        <div className="work-detail-navigation__desktop"><TabRow label="Áreas da obra" equal tabs={grupos.map(g=>[g.id,g.label])} active={grupoMenuObra} onChange={id=>{setGrupoMenuObra(id);if(id==="geral")setAbaConteudo("geral");}}/>
+        {grupo.id!=="geral"&&<TabRow label="Telas da obra" equal tabs={grupo.itens.map(([id,label])=>[id,label])} active={abaConteudo} onChange={id=>{const item=grupo.itens.find(([iid])=>iid===id);if(["arquivos","portal","qualidade","seguranca"].includes(id))setAbaConteudo(id);else if(item?.[2])abrirModuloDaObra(item[2]);}}/>}
+        </div>
       </div>;})()}
       </div>
 
       {abaConteudo==="geral"?<>
-      <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:8,marginBottom:12}}>{[
+      <AditivosContrato obra={obra} data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast}/>
+      <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:"var(--arcd-space-2)",marginBottom:"var(--arcd-space-3)"}}>{[
         ["Avanço físico",`${indicadoresGerais.progresso}%`,C.blue,"trending"],
         ["Pendências abertas",indicadoresGerais.pendencias,indicadoresGerais.criticas?C.red:C.orange,"alert"],
         ["Tarefas atrasadas",indicadoresGerais.atrasadas,indicadoresGerais.atrasadas?C.red:C.green,"calendar"],
         ["A receber",fmt(resumo.aReceber),resumo.aReceber?C.orange:C.green,"dollar"],
-      ].map(([label,value,color,icon])=><div key={label} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"11px 12px"}}><div style={{display:"flex",justifyContent:"space-between",gap:7}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.5}}>{label}</p><Ic n={icon} s={13} color={color}/></div><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color,marginTop:6}}>{value}</p>{label==="Pendências abertas"&&indicadoresGerais.criticas>0&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.red,marginTop:3}}>{indicadoresGerais.criticas} crítica(s)</p>}</div>)}</div>
+      ].map(([label,value,color,icon])=><div key={label} style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:10,padding:"var(--arcd-space-3)"}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>{label}</p><Ic n={icon} s={13} color={color}/></div><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color,marginTop:"var(--arcd-space-1)"}}>{value}</p>{label==="Pendências abertas"&&indicadoresGerais.criticas>0&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-danger-text)",marginTop:"var(--arcd-space-half)"}}>{indicadoresGerais.criticas} crítica(s)</p>}</div>)}</div>
 
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`1px solid ${previsaoObra.prazo.atrasadas||previsaoObra.custos.saldo<0?C.red:C.blue}`,borderRadius:10,padding:"12px 14px",marginBottom:12}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap"}}><div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>Previsão executiva da obra</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Cronograma, avanço físico, medições e compromissos financeiros consolidados</p></div><Btn size="sm" v="ghost" onClick={()=>abrirModuloDaObra("plan")}>Abrir planejamento</Btn></div>
-        {!previsaoObra.temPlano?<div style={{marginTop:10,background:`${C.orange}0B`,border:`1px solid ${C.orange}55`,borderRadius:7,padding:"9px 11px"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.orange}}>A obra ainda não possui cronograma executável.</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Crie ou sincronize o planejamento com o orçamento para habilitar previsão de prazo e avanço ponderado.</p></div>:<>
-          <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:7,marginTop:10}}>{[
+      <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderLeft:`1px solid ${previsaoObra.prazo.atrasadas||previsaoObra.custos.saldo<0?"var(--arcd-danger-text)":"var(--arcd-action-primary)"}`,borderRadius:10,padding:"var(--arcd-space-3)",marginBottom:"var(--arcd-space-3)"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}><div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Previsão executiva da obra</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Cronograma, avanço físico, medições e compromissos financeiros consolidados</p></div><Btn size="sm" v="ghost" onClick={()=>abrirModuloDaObra("plan")}>Abrir planejamento</Btn></div>
+        {!previsaoObra.temPlano?<div style={{marginTop:"var(--arcd-space-2)",background:"color-mix(in srgb, var(--arcd-warning-text) 4%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)",borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-warning-text)"}}>A obra ainda não possui cronograma executável.</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Crie ou sincronize o planejamento com o orçamento para habilitar previsão de prazo e avanço ponderado.</p></div>:<>
+          <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)"}}>{[
             ["Avanço físico",`${previsaoObra.progresso}%`,C.blue],
             ["Desvio de prazo",`${previsaoObra.prazo.desvioObra>0?"+":""}${previsaoObra.prazo.desvioObra||0} dia(s)`,previsaoObra.prazo.desvioObra>0?C.red:C.green],
             ["Conclusão prevista",previsaoObra.fimProjetado?fmtDate(previsaoObra.fimProjetado):"Sem data",previsaoObra.prazo.desvioObra>0?C.orange:C.green],
             ["Medição financeira",`${Math.min(999,previsaoObra.percentualMedido).toFixed(1)}%`,C.purple],
-          ].map(([l,v,c])=><div key={l} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"8px 9px"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:c,marginTop:3}}>{v}</p></div>)}</div>
-          {previsaoObra.tarefasCriticas.length>0&&<div style={{marginTop:9,borderTop:`1px solid ${C.line}`,paddingTop:8}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.red,textTransform:"uppercase"}}>Maiores atrasos medidos</p>{previsaoObra.tarefasCriticas.map(t=><div key={t.id} style={{display:"flex",justifyContent:"space-between",gap:8,marginTop:5}}><span style={{fontSize:"var(--arcd-type-label)",color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.nome}</span><b style={{fontSize:"var(--arcd-type-label)",color:C.red,whiteSpace:"nowrap"}}>+{t.desvio} dias · {Number(t.pctMedido||0).toFixed(0)}%</b></div>)}</div>}
+          ].map(([l,v,c])=><div key={l} style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:7,padding:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>{l}</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:c,marginTop:"var(--arcd-space-half)"}}>{v}</p></div>)}</div>
+          {previsaoObra.tarefasCriticas.length>0&&<div style={{marginTop:"var(--arcd-space-2)",borderTop:"1px solid var(--arcd-border-default)",paddingTop:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-danger-text)",textTransform:"uppercase"}}>Maiores atrasos medidos</p>{previsaoObra.tarefasCriticas.map(t=><div key={t.id} style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-1)"}}><span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.nome}</span><b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-danger-text)",whiteSpace:"nowrap"}}>+{t.desvio} dias · {Number(t.pctMedido||0).toFixed(0)}%</b></div>)}</div>}
         </>}
-        <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:7,marginTop:10,borderTop:`1px solid ${C.line}`,paddingTop:9}}>{[
+        <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)",borderTop:"1px solid var(--arcd-border-default)",paddingTop:"var(--arcd-space-2)"}}>{[
           ["Orçado",previsaoObra.custos.orcado,C.blue],["Comprometido",previsaoObra.custos.comprometido,C.orange],
-          ["Recebido na obra",previsaoObra.custos.recebido,C.purple],["Projeção de custo",previsaoObra.custos.projecao,previsaoObra.custos.projecao>previsaoObra.custos.orcado?C.red:C.green],
-        ].map(([l,v,c])=><div key={l}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:c,marginTop:2}}>{fmt(v)}</p></div>)}</div>
-        {previsaoObra.custos.saldo<0&&<p style={{fontSize:"var(--arcd-type-label)",color:C.red,fontWeight:600,marginTop:8}}>Risco de estouro: compromissos superam o orçamento em {fmt(Math.abs(previsaoObra.custos.saldo))}.</p>}
+          ["Recebido na obra",previsaoObra.custos.recebido,C.purple],["Custo final estimado",previsaoObra.custos.projecao,previsaoObra.custos.temOrcamento&&previsaoObra.custos.projecao>previsaoObra.custos.orcado?C.red:C.green],
+        ].map(([l,v,c])=><div key={l}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>{l}</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:c,marginTop:"var(--arcd-space-half)"}}>{fmt(v)}</p></div>)}</div>
+        <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-2)"}}>Custo final = incorrido + restante ({fmt(previsaoObra.custos.restante)}) + reserva ({fmt(previsaoObra.custos.reserva)}) + mudanças adicionais ({fmt(previsaoObra.custos.mudancas)}). Confira a memória em Financeiro → Custos por etapa.</p>
+        {(!previsaoObra.custos.temOrcamento||previsaoObra.custos.reconferir||previsaoObra.custos.semInicio)&&<p role="status" style={{color:"var(--arcd-warning-text)",fontSize:"var(--arcd-type-label)"}}>{!previsaoObra.custos.temOrcamento?"Sem orçamento de controle aprovado; comparação indisponível. ":""}{previsaoObra.custos.reconferir?"Revisões preservadas; reconferir a base atual. ":""}{previsaoObra.custos.semInicio?"Sem início válido; custos de ponto e equipamentos incompletos.":""}</p>}
+        {previsaoObra.custos.temOrcamento&&previsaoObra.custos.saldo<0&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-danger-text)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-2)"}}>Risco de estouro: previsão supera o orçamento em {fmt(Math.abs(previsaoObra.custos.saldo))}.</p>}
       </div>
 
       {/* Alertas ficam FORA do acordeao: precisam ser vistos sem abrir nada */}
       {resumo.abaixoMin > 0 && (
-        <div style={{background:`${C.red}0E`,border:`1px solid ${C.red}66`,borderRadius:6,
-                     padding:"10px 12px",marginBottom:9}}>
-          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.red}}>
+        <div style={{background:"color-mix(in srgb, var(--arcd-danger-text) 5%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-danger-text) 40%, transparent)",borderRadius:6,
+                     padding:"var(--arcd-space-2) var(--arcd-space-3)",marginBottom:"var(--arcd-space-2)"}}>
+          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-danger-text)"}}>
             {resumo.abaixoMin} material(is) abaixo do estoque minimo
           </p>
         </div>
       )}
       {resumo.cmp.aReceber > 0.01 && (
-        <div style={{background:`${C.orange}0E`,border:`1px solid ${C.orange}66`,borderRadius:6,
-                     padding:"10px 12px",marginBottom:9}}>
-          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.orange}}>
+        <div style={{background:"color-mix(in srgb, var(--arcd-warning-text) 5%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 40%, transparent)",borderRadius:6,
+                     padding:"var(--arcd-space-2) var(--arcd-space-3)",marginBottom:"var(--arcd-space-2)"}}>
+          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-warning-text)"}}>
             {fmt(resumo.cmp.aReceber)} comprado e ainda nao entregue
           </p>
         </div>
@@ -12766,28 +9922,28 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
       {/* POP-UP DE CHEGADA: material a caminho que a obra ainda nao confirmou.
           A equipe de campo confirma aqui - o material entra no estoque sozinho. */}
       {update && resumo.pedAbertos.length > 0 && (
-        <div style={{background:`${C.blue}0C`,border:`1.5px solid ${C.blue}55`,
-                     borderRadius:8,padding:"12px 14px",marginBottom:9}}>
-          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+        <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 5%, transparent)",border:"1.5px solid color-mix(in srgb, var(--arcd-action-primary) 33%, transparent)",
+                     borderRadius:8,padding:"var(--arcd-space-3)",marginBottom:"var(--arcd-space-2)"}}>
+          <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",marginBottom:"var(--arcd-space-2)"}}>
             <Ic n="alert" s={16} color={C.blue}/>
-            <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.blue}}>
+            <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)"}}>
               O material ja chegou na obra?
             </p>
           </div>
-          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginBottom:10,lineHeight:1.5}}>
+          <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginBottom:"var(--arcd-space-2)",lineHeight:"var(--arcd-line-height-normal)"}}>
             Tem {resumo.pedAbertos.length} pedido(s) a caminho. Ao confirmar a chegada,
             o material entra no estoque automaticamente.
           </p>
-          <div style={{display:"flex",flexDirection:"column",gap:7}}>
+          <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
             {resumo.pedAbertos.map(p => {
               const forn = (data.fornecedores||[]).find(f => f.id === p.fornecedorId);
               const nItens = (p.itens||[]).filter(i => Number(i.qtd||0) > Number(i.qtdRecebida||0)).length;
               return (
                 <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",
-                     gap:8,background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:"9px 11px"}}>
+                     gap:"var(--arcd-space-2)",background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
                   <div style={{minWidth:0,flex:1}}>
-                    <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>Pedido {p.numero}</p>
-                    <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:1}}>
+                    <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Pedido {p.numero}</p>
+                    <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-0)"}}>
                       {forn?.nome || "-"} - {nItens} item(ns) a receber
                     </p>
                   </div>
@@ -12801,7 +9957,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
 
       {/* Confirmacao da chegada: o mesmo modal do "Receber" de Compras (R6) */}
       {chegadaModal && (
-        <Suspense fallback={null}>
+        <Suspense fallback={<Modal title={`Confirmar chegada - pedido ${chegadaModal.numero}`} onClose={()=>!chegadaEnviando&&setChegadaModal(null)}><LoadingState label="recebimento"/></Modal>}>
           <ModalRecebimentoCompras pedido={chegadaModal} titulo={`Confirmar chegada - pedido ${chegadaModal.numero}`}
             onClose={() => !chegadaEnviando && setChegadaModal(null)} onReceber={confirmarChegada}
             nomeMat={id => (data.materiais||[]).find(m => m.id === id)?.descricao || "Material"}
@@ -12814,8 +9970,8 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
           contrato em destaque e atalho para editar. */}
       <Secao id="detalhes" icone="orcamento" titulo="Detalhes gerais" cor={C.yellowD}
              badge={CONTRACT_LABELS[obra.contractType]||obra.contractType}>
-        <div style={{display:"flex",justifyContent:"flex-end",marginBottom:9}}><Btn size="sm" v="ghost" onClick={onEditarObra}><Ic n="edit"/> Editar dados da obra</Btn></div>
-        <div style={{display:"grid",gridTemplateColumns:cols(2,3,3),gap:9}}>
+        <div style={{display:"flex",justifyContent:"flex-end",marginBottom:"var(--arcd-space-2)"}}><Btn size="sm" v="ghost" onClick={onEditarObra}><Ic n="edit"/> Editar dados da obra</Btn></div>
+        <div style={{display:"grid",gridTemplateColumns:cols(2,3,3),gap:"var(--arcd-space-2)"}}>
           {[["Tipo de contrato", CONTRACT_LABELS[obra.contractType]||obra.contractType],
             ["Valor do contrato", obra.contractValue>0?fmt(obra.contractValue):"-"],
             ["Área construída", Number(obra.areaM2)>0?`${obra.areaM2} m2`:"-"],
@@ -12824,8 +9980,8 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
             ["Condomínio", obra.condominioNome?`${obra.condominioNome}${obra.quadra||obra.lote?` · Qd. ${obra.quadra||"-"} · Lt. ${obra.lote||"-"}`:""}`:"Fora de condomínio / não informado"],
             ["Endereço", obra.address||"-"]].map(([l,v])=>(
             <div key={l}>
-              <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.5}}>{l}</p>
-              <p style={{fontSize:"var(--arcd-type-body)",color:C.text,marginTop:2,fontWeight:600}}>{v}</p>
+              <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>{l}</p>
+              <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{v}</p>
             </div>
           ))}
         </div>
@@ -12833,10 +9989,10 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
           const prz = prazoObra(obra);
           if (!prz) return null;
           return (
-            <div style={{marginTop:11}}>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
-                <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Prazo decorrido</p>
-                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:prz.cor}}>{prz.rotulo}</p>
+            <div style={{marginTop:"var(--arcd-space-3)"}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:"var(--arcd-space-half)"}}>
+                <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Prazo decorrido</p>
+                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:prz.cor}}>{prz.rotulo}</p>
               </div>
               {barra(prz.pct, prz.cor)}
             </div>
@@ -12848,24 +10004,24 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
              badge={obra.oneDriveUrl ? "OneDrive" : null}>
         {ehAdmin&&obra.oneDriveUrl ? (
           <>
-            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.55,marginBottom:9}}>
+            <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)",marginBottom:"var(--arcd-space-2)"}}>
               Projetos, contratos e documentos desta obra ficam armazenados e editáveis no OneDrive.
             </p>
             <Btn v="ghost" full onClick={() => abrirOneDrive(obra.oneDriveUrl)}>
               <Ic n="folder" /> Abrir pasta da obra ↗
             </Btn>
-            <div style={{display:"flex",gap:6,marginTop:8}}>
+            <div style={{display:"flex",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-2)"}}>
               <Inp value={novaPasta} onChange={setNovaPasta} placeholder="Nome da nova pasta" />
               <Btn v="ghost" onClick={criarSubpasta}>Criar pasta</Btn>
             </div>
-            <Btn full onClick={()=>inputDocumentoRef.current?.click()} disabled={enviandoDocumento} style={{marginTop:8}}>
+            <Btn full onClick={()=>inputDocumentoRef.current?.click()} disabled={enviandoDocumento} style={{marginTop:"var(--arcd-space-2)"}}>
               <Ic n="file" /> {enviandoDocumento?"Enviando...":"Enviar documento"}
             </Btn>
             <input ref={inputDocumentoRef} type="file" style={{display:"none"}} onChange={e=>{enviarDocumento(e.target.files?.[0]);e.target.value="";}}/>
           </>
         ) : ehAdmin ? (
           <>
-            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.55,marginBottom:9}}>
+            <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)",marginBottom:"var(--arcd-space-2)"}}>
               Esta obra ainda não tem uma subpasta vinculada. Abra a pasta geral, crie a pasta da obra e depois cole o link ao editar o cadastro.
             </p>
             <Btn v="ghost" full onClick={() => abrirOneDrive(data.config?.oneDriveRootUrl)}>
@@ -12873,41 +10029,41 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
             </Btn>
           </>
         ) : <>
-          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.55,marginBottom:9}}>Você pode criar pastas e enviar documentos pelo ArcD. A abertura e a navegação direta no OneDrive são exclusivas da administração.</p>
-          <div style={{display:"flex",gap:6}}><Inp value={novaPasta} onChange={setNovaPasta} placeholder="Nome da nova pasta"/><Btn v="ghost" onClick={criarSubpasta}>Criar pasta</Btn></div>
-          <Btn full onClick={()=>inputDocumentoRef.current?.click()} disabled={enviandoDocumento} style={{marginTop:8}}><Ic n="file"/> {enviandoDocumento?"Enviando...":"Enviar documento"}</Btn>
+          <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)",marginBottom:"var(--arcd-space-2)"}}>Você pode criar pastas e enviar documentos pelo ArcD. A abertura e a navegação direta no OneDrive são exclusivas da administração.</p>
+          <div style={{display:"flex",gap:"var(--arcd-space-1)"}}><Inp value={novaPasta} onChange={setNovaPasta} placeholder="Nome da nova pasta"/><Btn v="ghost" onClick={criarSubpasta}>Criar pasta</Btn></div>
+          <Btn full onClick={()=>inputDocumentoRef.current?.click()} disabled={enviandoDocumento} style={{marginTop:"var(--arcd-space-2)"}}><Ic n="file"/> {enviandoDocumento?"Enviando...":"Enviar documento"}</Btn>
           <input ref={inputDocumentoRef} type="file" style={{display:"none"}} onChange={e=>{enviarDocumento(e.target.files?.[0]);e.target.value="";}}/>
         </>}
-        <div style={{marginTop:10,paddingTop:8,borderTop:`1px solid ${C.line}`}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase",marginBottom:4}}>Documentos disponíveis</p>{!(obra.documentosOneDrive||[]).length?<p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhum documento enviado pelo ArcD.</p>:(obra.documentosOneDrive||[]).map(doc=>linkDocumentoObra(doc,true))}</div>
+        <div style={{marginTop:"var(--arcd-space-2)",paddingTop:"var(--arcd-space-2)",borderTop:"1px solid var(--arcd-border-default)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",marginBottom:"var(--arcd-space-1)"}}>Documentos disponíveis</p>{!(obra.documentosOneDrive||[]).length?<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhum documento enviado pelo ArcD.</p>:(obra.documentosOneDrive||[]).map(doc=>linkDocumentoObra(doc,true))}</div>
       </Secao>
 
       <Secao id="diarios" icone="atividade" titulo="Diário de Obra" cor={C.green}
              badge={(data.rdos||[]).filter(r=>r.obraId===obraId).length||null}>
         {(() => {const lista=(data.rdos||[]).filter(r=>r.obraId===obraId).sort((a,b)=>(b.data||"").localeCompare(a.data||"")).slice(0,3);return <>
-          {lista.length?lista.map(r=><div key={r.id} style={{display:"flex",justifyContent:"space-between",gap:8,padding:"6px 0",borderBottom:`1px solid ${C.line}`}}><div><b style={{fontSize:"var(--arcd-type-label)",color:C.text}}>RDO-{String(r.codigo||0).padStart(3,"0")} · {fmtDate(r.data)}</b><p style={{fontSize:"var(--arcd-type-caption)",color:r.status==="concluido"?C.green:C.orange}}>{r.status==="concluido"?"Concluído":"Em preparação"} · {(r.fotos||[]).length} foto(s)</p></div></div>):<p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhum relatório registrado para esta obra.</p>}
-          <Btn full style={{marginTop:8}} onClick={()=>abrirModuloDaObra("rdo")}><Ic n="clipboard"/> Abrir histórico e registrar RDO</Btn>
+          {lista.length?lista.map(r=><div key={r.id} style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-1) var(--arcd-space-0)",borderBottom:"1px solid var(--arcd-border-default)"}}><div><b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>RDO-{String(r.codigo||0).padStart(3,"0")} · {fmtDate(r.data)}</b><p style={{fontSize:"var(--arcd-type-caption)",color:r.status==="concluido"?"var(--arcd-success-text)":"var(--arcd-warning-text)"}}>{r.status==="concluido"?"Concluído":"Em preparação"} · {(r.fotos||[]).length} foto(s)</p></div></div>):<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhum relatório registrado para esta obra.</p>}
+          <Btn full style={{marginTop:"var(--arcd-space-2)"}} onClick={()=>abrirModuloDaObra("rdo")}><Ic n="clipboard"/> Abrir histórico e registrar RDO</Btn>
         </>;})()}
       </Secao>
 
       {/* Dados do cliente */}
       <Secao id="cliente" icone="equipe" titulo="Dados do cliente" cor={C.blue}>
         {!obra.cliente ? (
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}><p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Cliente não informado.</p><Btn size="sm" v="info" onClick={onEditarObra}><Ic n="plus"/> Cadastrar cliente</Btn></div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Cliente não informado.</p><Btn size="sm" v="info" onClick={onEditarObra}><Ic n="plus"/> Cadastrar cliente</Btn></div>
         ) : (() => {
           const com = data.comercial||{};
           const cli = (com.clientes||[]).find(c=>c.id===obra.clienteId||c.obraId===obraId||c.nome===obra.cliente||c.razaoSocial===obra.cliente);
           return (
-            <><div style={{display:"grid",gridTemplateColumns:cols(1,2,2),gap:9}}>
+            <><div style={{display:"grid",gridTemplateColumns:cols(1,2,2),gap:"var(--arcd-space-2)"}}>
               {[["Nome", obra.cliente],
                 ["Telefone", cli?.telefone||cli?.whatsapp||"-"],
                 ["E-mail", cli?.email||"-"],
                 ["Cidade", cli?.cidade||"-"]].map(([l,v])=>(
                 <div key={l}>
-                  <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.5}}>{l}</p>
-                  <p style={{fontSize:"var(--arcd-type-body)",color:C.text,marginTop:2,fontWeight:600}}>{v}</p>
+                  <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>{l}</p>
+                  <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{v}</p>
                 </div>
               ))}
-            </div><div style={{display:"flex",justifyContent:"flex-end",marginTop:9}}><Btn size="sm" v="info" onClick={onEditarObra}><Ic n="edit"/> Editar obra ou cliente</Btn></div></>
+            </div><div style={{display:"flex",justifyContent:"flex-end",marginTop:"var(--arcd-space-2)"}}><Btn size="sm" v="info" onClick={onEditarObra}><Ic n="edit"/> Editar obra ou cliente</Btn></div></>
           );
         })()}
       </Secao>
@@ -12924,21 +10080,21 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
           <Secao id="tarefas" icone="orcamento" titulo="Próximas tarefas" cor={C.purple}
                  badge={tarefas.length||null} atalho="plan">
             {tarefas.length===0
-              ? <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhuma tarefa pendente no cronograma.</p>
+              ? <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhuma tarefa pendente no cronograma.</p>
               : (
-                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>
                   {tarefas.map(t=>(
-                    <div key={t.id} style={{display:"flex",justifyContent:"space-between",gap:8,
-                         alignItems:"center",padding:"7px 0",borderBottom:`1px solid ${C.line}`}}>
+                    <div key={t.id} style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",
+                         alignItems:"center",padding:"var(--arcd-space-2) var(--arcd-space-0)",borderBottom:"1px solid var(--arcd-border-default)"}}>
                       <div style={{minWidth:0,flex:1}}>
-                        <p style={{fontSize:"var(--arcd-type-label)",color:C.text,fontWeight:600,whiteSpace:"nowrap",
+                        <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",fontWeight:"var(--arcd-font-weight-semibold)",whiteSpace:"nowrap",
                                    overflow:"hidden",textOverflow:"ellipsis"}}>{t.nome}</p>
-                        <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:1}}>
+                        <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-0)"}}>
                           {t.inicio?fmtDate(t.inicio):"-"} a {t.fim?fmtDate(t.fim):"-"}
                         </p>
                       </div>
-                      <span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,flexShrink:0,
-                            color:Number(t.progresso||0)>0?C.blue:C.muted}}>
+                      <span style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",flexShrink:0,
+                            color:Number(t.progresso||0)>0?"var(--arcd-action-primary)":"var(--arcd-text-secondary)"}}>
                         {Number(t.progresso||0)}%
                       </span>
                     </div>
@@ -12960,26 +10116,26 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
           <Secao id="pagamentos" icone="medicoes" titulo="Próximos pagamentos" cor={C.green}
                  badge={pend.length||null} atalho="medicoes">
             {pend.length===0
-              ? <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhuma parcela em aberto.</p>
+              ? <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhuma parcela em aberto.</p>
               : (<>
-                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>
                   {pend.map(m=>(
-                    <div key={m.id} style={{display:"flex",justifyContent:"space-between",gap:8,
-                         alignItems:"center",padding:"7px 0",borderBottom:`1px solid ${C.line}`}}>
+                    <div key={m.id} style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",
+                         alignItems:"center",padding:"var(--arcd-space-2) var(--arcd-space-0)",borderBottom:"1px solid var(--arcd-border-default)"}}>
                       <div style={{minWidth:0,flex:1}}>
-                        <p style={{fontSize:"var(--arcd-type-label)",color:C.text,fontWeight:600}}>
+                        <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>
                           {m.descricao||m.competencia||"Parcela"}
                         </p>
-                        <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:1}}>{m.competencia||"-"}</p>
+                        <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-0)"}}>{m.competencia||"-"}</p>
                       </div>
-                      <b style={{fontSize:"var(--arcd-type-body)",color:C.yellowD,flexShrink:0}}>{fmt(m.valorPrevisto)}</b>
+                      <b style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-action-primary)",flexShrink:0}}>{fmt(m.valorPrevisto)}</b>
                     </div>
                   ))}
                 </div>
-                <div style={{display:"flex",justifyContent:"space-between",marginTop:9,paddingTop:8,
-                             borderTop:`1.5px solid ${C.border}`}}>
-                  <span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.muted}}>Total em aberto</span>
-                  <b style={{fontSize:"var(--arcd-type-body)",color:C.green}}>{fmt(total)}</b>
+                <div style={{display:"flex",justifyContent:"space-between",marginTop:"var(--arcd-space-2)",paddingTop:"var(--arcd-space-2)",
+                             borderTop:"1.5px solid var(--arcd-border-default)"}}>
+                  <span style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)"}}>Total em aberto</span>
+                  <b style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-success-text)"}}>{fmt(total)}</b>
                 </div>
               </>)}
           </Secao>
@@ -12992,7 +10148,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         <Par l="Recebido" v={fmt(resumo.recebido)} c={C.green}/>
         <Par l="A receber" v={fmt(resumo.aReceber)} c={C.orange}/>
         <Par l="Despesas" v={fmt(resumo.despesas)} c={C.red}/>
-        <div style={{borderTop:`1px solid ${C.line}`,marginTop:7,paddingTop:7}}>
+        <div style={{borderTop:"1px solid var(--arcd-border-default)",marginTop:"var(--arcd-space-2)",paddingTop:"var(--arcd-space-2)"}}>
           <Par l="Resultado" v={fmt(margem)} c={margem >= 0 ? C.green : C.red}/>
         </div>
       </Secao>
@@ -13015,7 +10171,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
           {barra(resumo.orcTotal ? (resumo.cmp.comprado/resumo.orcTotal)*100 : 0,
                  resumo.cmp.comprado > resumo.orcTotal ? C.red : C.yellow)}
         </>) : (
-          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.5}}>
+          <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)"}}>
             Sem orçamento vinculado a esta obra.
           </p>
         )}
@@ -13045,30 +10201,31 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
       </Secao>
 
       <Secao id="atividade" icone="atividade" titulo="Atualizações da obra" cor={C.blue} badge={atualizacoesObra.length||null}>
-        {atualizacoesObra.length===0?<p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhuma atualização registrada ainda.</p>:<div style={{display:"flex",flexDirection:"column"}}>{atualizacoesObra.map((e,i)=>{const d=new Date(e.at);const hora=d.getHours()===0&&d.getMinutes()===0?"":d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});const cor=e.tipo==="removeu"?C.red:e.tipo==="criou"?C.green:e.tipo==="operacao"?C.orange:C.blue;return <div key={e.id} style={{display:"grid",gridTemplateColumns:"34px minmax(0,1fr) auto",gap:9,padding:"10px 0",borderTop:i?`1px solid ${C.line}`:"none",alignItems:"start"}}><span style={{width:30,height:30,borderRadius:99,display:"grid",placeItems:"center",background:`${cor}12`,color:cor,fontSize:"var(--arcd-type-caption)",fontWeight:600}}>{String(e.responsavel||"S").split(/\s+/).slice(0,2).map(n=>n[0]).join("").toUpperCase()}</span><div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-label)",color:C.text,lineHeight:1.4}}>{e.texto}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>Responsável: <strong style={{color:C.text}}>{e.responsavel}</strong></p></div><div style={{textAlign:"right",whiteSpace:"nowrap"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.text}}>{d.toLocaleDateString("pt-BR")}</p>{hora&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{hora}</p>}{e.valor>0&&<p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.green,marginTop:3}}>{fmt(e.valor)}</p>}</div></div>;})}</div>}
+        {atualizacoesObra.length===0?<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhuma atualização registrada ainda.</p>:<div style={{display:"flex",flexDirection:"column"}}>{atualizacoesObra.map((e,i)=>{const d=new Date(e.at);const hora=d.getHours()===0&&d.getMinutes()===0?"":d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});const cor=e.tipo==="removeu"?C.red:e.tipo==="criou"?C.green:e.tipo==="operacao"?C.orange:C.blue;return <div key={e.id} style={{display:"grid",gridTemplateColumns:"34px minmax(0,1fr) auto",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-0)",borderTop:i?"1px solid var(--arcd-border-default)":"none",alignItems:"start"}}><span style={{width:30,height:30,borderRadius:99,display:"grid",placeItems:"center",background:`${cor}12`,color:cor,fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{String(e.responsavel||"S").split(/\s+/).slice(0,2).map(n=>n[0]).join("").toUpperCase()}</span><div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",lineHeight:"var(--arcd-line-height-normal)"}}>{e.texto}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Responsável: <strong style={{color:"var(--arcd-text-primary)"}}>{e.responsavel}</strong></p></div><div style={{textAlign:"right",whiteSpace:"nowrap"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{d.toLocaleDateString("pt-BR")}</p>{hora&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{hora}</p>}{e.valor>0&&<p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-success-text)",marginTop:"var(--arcd-space-half)"}}>{fmt(e.valor)}</p>}</div></div>;})}</div>}
       </Secao>
-      </>:<div style={{paddingTop:4}}>
-        {abaConteudo==="orc"&&<Suspense fallback={<div className="arcd-page-loading">Carregando orçamento...</div>}><Orcamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} todasObras={data.obras} todosOrcamentosGlobais={data.orcamentos} todosPlanosGlobais={data.planos}/></Suspense>}
-        {abaConteudo==="plan"&&<Suspense fallback={<div className="arcd-page-loading">Carregando planejamento...</div>}><Planejamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand}/></Suspense>}
-        {abaConteudo==="rdo"&&<Suspense fallback={<div className="arcd-page-loading">Carregando diário de obra...</div>}><DiarioObra data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/></Suspense>}
+      </>:<div style={{paddingTop:"var(--arcd-space-1)"}}>
+        {abaConteudo==="orc"&&<Suspense fallback={<LoadingState label="orçamento"/>}><Orcamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} todasObras={data.obras} todosOrcamentosGlobais={data.orcamentos} todosPlanosGlobais={data.planos}/></Suspense>}
+        {abaConteudo==="plan"&&<Suspense fallback={<LoadingState label="planejamento"/>}><Planejamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand}/></Suspense>}
+        {abaConteudo==="rdo"&&<Suspense fallback={<LoadingState label="diário de obra"/>}><DiarioObra data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/></Suspense>}
         {abaConteudo==="qualidade"&&<Qualidade data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/>}
         {abaConteudo==="seguranca"&&<SegurancaObra data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/>}
-        {abaConteudo==="conferencia"&&<Suspense fallback={<div className="arcd-page-loading">Carregando conferência...</div>}><Conferencia data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/></Suspense>}
+        {abaConteudo==="conferencia"&&<Suspense fallback={<LoadingState label="conferência"/>}><Conferencia data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/></Suspense>}
         {abaConteudo==="med"&&<MedicaoEvolucao data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand}
+          onAbrirPlanejamento={()=>abrirModuloDaObra("plan")}
           onAbrirTerceiro={(contratoId,novaMedicao)=>{setTerceiroAlvo({contratoId,novaMedicao,nonce:Date.now()});setGrupoMenuObra("rh");abrirModuloDaObra("terc");}}/>}
-        {abaConteudo==="cmp"&&<Suspense fallback={<div className="arcd-page-loading">Carregando compras...</div>}><Compras data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/></Suspense>}
-        {abaConteudo==="est"&&<Suspense fallback={<div className="arcd-page-loading">Carregando estoque...</div>}><Estoque data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/></Suspense>}
+        {abaConteudo==="cmp"&&<Suspense fallback={<LoadingState label="compras"/>}><Compras data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/></Suspense>}
+        {abaConteudo==="est"&&<Suspense fallback={<LoadingState label="estoque"/>}><Estoque data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/></Suspense>}
         {abaConteudo==="dre"&&<DRE data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/>}
         {abaConteudo==="ponto"&&<Ponto data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchCommand}/>}
-        {abaConteudo==="equipe"&&<Suspense fallback={<div className="arcd-page-loading">Carregando equipe...</div>}><EquipeView data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} dispatchCommand={dispatchCommand} currentUser={currentUser} onTab={onTab}/></Suspense>}
-        {abaConteudo==="terc"&&<Suspense fallback={<div className="arcd-page-loading">Carregando terceiros...</div>}><Terceiros data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand} contratoInicial={terceiroAlvo}/></Suspense>}
-        {abaConteudo==="equip"&&<Suspense fallback={<div className="arcd-page-loading">Carregando equipamentos...</div>}><Equipamentos data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchCommand} obraIdFixo={obraId}/></Suspense>}
-        {abaConteudo==="licenca"&&<Suspense fallback={<div className="arcd-page-loading">Carregando licenciamento...</div>}><Licenciamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand}/></Suspense>}
-        {abaConteudo==="portal"&&ehAdmin&&<div style={{display:"grid",gap:12}}>
-          <div style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`1px solid ${portal.ativo?C.green:C.muted}`,borderRadius:12,padding:16}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.blue,textTransform:"uppercase",letterSpacing:.7}}>Experiência do cliente</p><h2 style={{fontSize:"var(--arcd-type-section-title)",color:C.text,marginTop:3}}>Portal transparente da obra</h2><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4,maxWidth:690,lineHeight:1.55}}>Escolha exatamente o que o cliente poderá consultar. Dados bancários, PIX, folha, margem, conciliação e observações internas permanecem protegidos.</p></div><Btn v={portal.ativo?"danger":"success"} onClick={()=>atualizarPortal({ativo:!portal.ativo})}><Ic n={portal.ativo?"x":"check"}/> {portal.ativo?"Desativar acesso":"Ativar portal"}</Btn></div>
-            <div style={{marginTop:14}}><Inp label="Mensagem de abertura" value={portal.mensagem||""} onChange={v=>atualizarPortal({mensagem:v})} placeholder="Ex.: Sua obra avança com qualidade e segurança."/></div>
-            <div style={{marginTop:12}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.text,textTransform:"uppercase",letterSpacing:.55,marginBottom:7}}>Informações publicadas</p><div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:8}}>{[
+        {abaConteudo==="equipe"&&<Suspense fallback={<LoadingState label="equipe"/>}><EquipeView data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} dispatchCommand={dispatchCommand} currentUser={currentUser} onTab={onTab}/></Suspense>}
+        {abaConteudo==="terc"&&<Suspense fallback={<LoadingState label="terceiros"/>}><Terceiros data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand} contratoInicial={terceiroAlvo}/></Suspense>}
+        {abaConteudo==="equip"&&<Suspense fallback={<LoadingState label="equipamentos"/>}><Equipamentos data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchCommand} obraIdFixo={obraId}/></Suspense>}
+        {abaConteudo==="licenca"&&<Suspense fallback={<LoadingState label="licenciamento"/>}><Licenciamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand}/></Suspense>}
+        {abaConteudo==="portal"&&ehAdmin&&<div style={{display:"grid",gap:"var(--arcd-space-3)"}}>
+          <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderLeft:`1px solid ${portal.ativo?"var(--arcd-success-text)":"var(--arcd-text-secondary)"}`,borderRadius:12,padding:"var(--arcd-space-4)"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-3)",flexWrap:"wrap"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>Experiência do cliente</p><h2 style={{fontSize:"var(--arcd-type-section-title)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)"}}>Portal transparente da obra</h2><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)",maxWidth:690,lineHeight:"var(--arcd-line-height-normal)"}}>Escolha exatamente o que o cliente poderá consultar. Dados bancários, PIX, folha, margem, conciliação e observações internas permanecem protegidos.</p></div><Btn v={portal.ativo?"danger":"success"} onClick={()=>atualizarPortal({ativo:!portal.ativo})}><Ic n={portal.ativo?"x":"check"}/> {portal.ativo?"Desativar acesso":"Ativar portal"}</Btn></div>
+            <div style={{marginTop:"var(--arcd-space-3)"}}><Inp label="Mensagem de abertura" value={portal.mensagem||""} onChange={v=>atualizarPortal({mensagem:v})} placeholder="Ex.: Sua obra avança com qualidade e segurança."/></div>
+            <div style={{marginTop:"var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",marginBottom:"var(--arcd-space-2)"}}>Informações publicadas</p><div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:"var(--arcd-space-2)"}}>{[
               ["publicarFotos","Fotos aprovadas","Registros visuais dos RDOs",portal.publicarFotos!==false],
               ["publicarCronograma","Cronograma","Etapas, datas e progresso",portal.publicarCronograma!==false],
               ["publicarFinanceiro","Medições","Parcelas e recebimentos",!!portal.publicarFinanceiro],
@@ -13077,29 +10234,29 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
               ["publicarNotasFiscais","Notas fiscais","Fornecedor, valores e situação",!!portal.publicarNotasFiscais],
               ["publicarCompras","Compras","Pedidos, itens e entregas",!!portal.publicarCompras],
               ["publicarCotacoes","Cotações","Propostas, preços e prazos",!!portal.publicarCotacoes],
-            ].map(([k,l,sub,checked])=><label key={k} style={{display:"grid",gridTemplateColumns:"18px minmax(0,1fr)",columnGap:8,alignItems:"start",padding:"10px 11px",minHeight:58,border:`1px solid ${checked?C.blue:C.border}`,borderRadius:8,background:checked?`${C.blue}08`:C.surface,cursor:"pointer",color:C.text}}><input type="checkbox" checked={checked} onChange={e=>atualizarPortal({[k]:e.target.checked})} style={{marginTop:2}}/><span><b style={{display:"block",fontSize:"var(--arcd-type-label)"}}>{l}</b><small style={{display:"block",marginTop:2,fontSize:"var(--arcd-type-caption)",fontWeight:500,color:C.muted,lineHeight:1.3}}>{sub}</small></span></label>)}</div></div>
-            <div style={{display:"flex",gap:8,marginTop:14,flexWrap:"wrap"}}><Btn onClick={copiarLinkPortal} disabled={!portal.ativo}><Ic n="link"/> Copiar link sem login</Btn><Btn v="primary" onClick={()=>window.open(linkNovoPortal,"_blank","noopener,noreferrer")}><Ic n="lock"/> Abrir novo portal</Btn><Btn v="ghost" onClick={publicarPortalSeguro} disabled={portalBusy}><Ic n="refresh"/> Atualizar dados publicados</Btn>{portal.ativo&&<Btn v={visualizandoComoCliente?"primary":"ghost"} onClick={()=>setVisualizandoComoCliente(v=>!v)}><Ic n="eye"/> {visualizandoComoCliente?"Fechar visualização":"Visualizar legado"}</Btn>}<Btn v="ghost" onClick={()=>{setVisualizandoComoCliente(false);atualizarPortal({token:globalThis.crypto?.randomUUID?.()||uid()+uid()});}}><Ic n="refresh"/> Revogar link anterior</Btn></div>
-            <p style={{marginTop:9,fontSize:"var(--arcd-type-label)",lineHeight:1.5,color:C.muted}}>O link sem login mostra somente os dados marcados para publicação. O acesso individual acrescenta histórico, perfil e auditoria por cliente.</p>
+            ].map(([k,l,sub,checked])=><label key={k} style={{display:"grid",gridTemplateColumns:"18px minmax(0,1fr)",columnGap:"var(--arcd-space-2)",alignItems:"start",padding:"var(--arcd-space-2) var(--arcd-space-3)",minHeight:58,border:`1px solid ${checked?"var(--arcd-action-primary)":"var(--arcd-border-default)"}`,borderRadius:8,background:checked?"color-mix(in srgb, var(--arcd-action-primary) 3%, transparent)":"var(--arcd-surface-muted)",cursor:"pointer",color:"var(--arcd-text-primary)"}}><ChoiceControl type="checkbox" checked={checked} onChange={e=>atualizarPortal({[k]:e.target.checked})} style={{marginTop:"var(--arcd-space-half)"}}/><span><b style={{display:"block",fontSize:"var(--arcd-type-label)"}}>{l}</b><small style={{display:"block",marginTop:"var(--arcd-space-half)",fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-medium)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)"}}>{sub}</small></span></label>)}</div></div>
+            <div style={{display:"flex",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-3)",flexWrap:"wrap"}}><Btn onClick={copiarLinkPortal} disabled={!portal.ativo}><Ic n="link"/> Copiar link sem login</Btn><Btn v="primary" onClick={()=>window.open(linkNovoPortal,"_blank","noopener,noreferrer")}><Ic n="lock"/> Abrir novo portal</Btn><Btn v="ghost" onClick={publicarPortalSeguro} disabled={portalBusy}><Ic n="refresh"/> Atualizar dados publicados</Btn>{portal.ativo&&<Btn v={visualizandoComoCliente?"primary":"ghost"} onClick={()=>setVisualizandoComoCliente(v=>!v)}><Ic n="eye"/> {visualizandoComoCliente?"Fechar visualização":"Visualizar legado"}</Btn>}<Btn v="ghost" onClick={()=>{setVisualizandoComoCliente(false);atualizarPortal({token:globalThis.crypto?.randomUUID?.()||uid()+uid()});}}><Ic n="refresh"/> Revogar link anterior</Btn></div>
+            <p style={{marginTop:"var(--arcd-space-2)",fontSize:"var(--arcd-type-label)",lineHeight:"var(--arcd-line-height-normal)",color:"var(--arcd-text-secondary)"}}>O link sem login mostra somente os dados marcados para publicação. O acesso individual acrescenta histórico, perfil e auditoria por cliente.</p>
           </div>
-          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:16}}>
-            <h3 style={{fontSize:"var(--arcd-type-card-title)",color:C.text}}>Acessos individuais</h3>
-            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3}}>Cadastre o cliente, defina a senha inicial e vincule-o somente a esta obra.</p>
-            <div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:8,marginTop:12}}>
-              <label style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>E-mail<input value={portalForm.email} onChange={e=>setPortalForm(form=>({...form,email:e.target.value}))} type="email" placeholder="cliente@email.com" style={{display:"block",width:"100%",marginTop:5,padding:"9px 10px",border:`1px solid ${C.border}`,borderRadius:6}}/></label>
-              <label style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Telefone<input value={portalForm.phone} onChange={e=>setPortalForm(form=>({...form,phone:e.target.value}))} placeholder="(81) 99999-9999" style={{display:"block",width:"100%",marginTop:5,padding:"9px 10px",border:`1px solid ${C.border}`,borderRadius:6}}/></label>
-              <label style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Perfil<select value={portalForm.profile} onChange={e=>setPortalForm(form=>({...form,profile:e.target.value}))} style={{display:"block",width:"100%",marginTop:5,padding:"9px 10px",border:`1px solid ${C.border}`,borderRadius:6}}><option value="owner">Proprietário</option><option value="spouse">Cônjuge</option><option value="representative">Representante</option><option value="financial">Financeiro</option><option value="external_architect">Arquiteto externo</option><option value="observer">Observador</option></select></label>
-              <label style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Senha inicial<div style={{display:"flex",gap:5,marginTop:5}}><input value={portalForm.password} onChange={e=>setPortalForm(form=>({...form,password:e.target.value}))} style={{width:"100%",padding:"9px 10px",border:`1px solid ${C.border}`,borderRadius:6}}/><Btn size="sm" v="ghost" onClick={gerarSenhaPortal}>Gerar</Btn></div></label>
+          <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:12,padding:"var(--arcd-space-4)"}}>
+            <h3 style={{fontSize:"var(--arcd-type-card-title)",color:"var(--arcd-text-primary)"}}>Acessos individuais</h3>
+            <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Cadastre o cliente, defina a senha inicial e vincule-o somente a esta obra.</p>
+            <div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-3)"}}>
+              <label style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>E-mail<StandardInput value={portalForm.email} onChange={e=>setPortalForm(form=>({...form,email:e.target.value}))} type="email" placeholder="cliente@email.com" style={{display:"block",width:"100%",marginTop:"var(--arcd-space-1)",padding:"var(--arcd-space-2)",border:"1px solid var(--arcd-border-default)",borderRadius:6}}/></label>
+              <label style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Telefone<StandardInput value={portalForm.phone} onChange={e=>setPortalForm(form=>({...form,phone:e.target.value}))} placeholder="(81) 99999-9999" style={{display:"block",width:"100%",marginTop:"var(--arcd-space-1)",padding:"var(--arcd-space-2)",border:"1px solid var(--arcd-border-default)",borderRadius:6}}/></label>
+              <label style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Perfil<SelectControl value={portalForm.profile} onChange={e=>setPortalForm(form=>({...form,profile:e.target.value}))} style={{display:"block",width:"100%",marginTop:"var(--arcd-space-1)",padding:"var(--arcd-space-2)",border:"1px solid var(--arcd-border-default)",borderRadius:6}}><option value="owner">Proprietário</option><option value="spouse">Cônjuge</option><option value="representative">Representante</option><option value="financial">Financeiro</option><option value="external_architect">Arquiteto externo</option><option value="observer">Observador</option></SelectControl></label>
+              <label style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Senha inicial<div style={{display:"flex",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-1)"}}><StandardInput value={portalForm.password} onChange={e=>setPortalForm(form=>({...form,password:e.target.value}))} style={{width:"100%",padding:"var(--arcd-space-2)",border:"1px solid var(--arcd-border-default)",borderRadius:6}}/><Btn size="sm" v="ghost" onClick={gerarSenhaPortal}>Gerar</Btn></div></label>
             </div>
-            <div style={{display:"flex",gap:8,marginTop:12,flexWrap:"wrap"}}><Btn onClick={cadastrarAcessoPortal} disabled={portalBusy||!portalForm.email||!portalForm.password}><Ic n="user"/> {portalBusy?"Salvando...":"Criar ou atualizar acesso"}</Btn>{portalForm.password&&<Btn v="ghost" onClick={()=>navigator.clipboard.writeText(`Portal MARCELL: ${linkNovoPortal}\nE-mail: ${portalForm.email}\nSenha inicial: ${portalForm.password}`)}><Ic n="copy"/> Copiar convite</Btn>}</div>
-            <div style={{marginTop:14}}>{!acessosPortal.length?<p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhum cliente com acesso individual nesta obra.</p>:acessosPortal.map(acesso=><div key={acesso.id} style={{display:"flex",alignItems:"center",gap:8,padding:"9px 0",borderTop:`1px solid ${C.line}`,fontSize:"var(--arcd-type-label)"}}><div style={{flex:1}}><strong style={{color:C.text}}>{acesso.email}</strong><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{acesso.profile} · {acesso.active?"Ativo":"Revogado"}{acesso.lastLoginAt?` · último acesso ${new Date(acesso.lastLoginAt).toLocaleString("pt-BR")}`:""}</p></div>{acesso.active&&<Btn size="sm" v="danger" onClick={()=>revogarAcessoPortal(acesso.id)} disabled={portalBusy}><Ic n="x"/> Revogar</Btn>}</div>)}</div>
+            <div style={{display:"flex",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-3)",flexWrap:"wrap"}}><Btn onClick={cadastrarAcessoPortal} disabled={portalBusy||!portalForm.email||!portalForm.password}><Ic n="user"/> {portalBusy?"Salvando...":"Criar ou atualizar acesso"}</Btn>{portalForm.password&&<Btn v="ghost" onClick={()=>navigator.clipboard.writeText(`Portal MARCELL: ${linkNovoPortal}\nE-mail: ${portalForm.email}\nSenha inicial: ${portalForm.password}`)}><Ic n="copy"/> Copiar convite</Btn>}</div>
+            <div style={{marginTop:"var(--arcd-space-3)"}}>{!acessosPortal.length?<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhum cliente com acesso individual nesta obra.</p>:acessosPortal.map(acesso=><div key={acesso.id} style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-0)",borderTop:"1px solid var(--arcd-border-default)",fontSize:"var(--arcd-type-label)"}}><div style={{flex:1}}><strong style={{color:"var(--arcd-text-primary)"}}>{acesso.email}</strong><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{acesso.profile} · {acesso.active?"Ativo":"Revogado"}{acesso.lastLoginAt?` · último acesso ${new Date(acesso.lastLoginAt).toLocaleString("pt-BR")}`:""}</p></div>{acesso.active&&<Btn size="sm" v="danger" onClick={()=>revogarAcessoPortal(acesso.id)} disabled={portalBusy}><Ic n="x"/> Revogar</Btn>}</div>)}</div>
           </div>
-          {visualizandoComoCliente&&portal.ativo&&<div style={{background:"#eef1f5",border:`1px solid ${C.border}`,borderRadius:14,overflow:"hidden",boxShadow:`0 14px 38px ${C.shadow}`}}><div style={{display:"flex",alignItems:"center",gap:7,padding:"9px 12px",background:"#e4e8ee",borderBottom:`1px solid ${C.border}`}}><span style={{width:9,height:9,borderRadius:99,background:"#ff5f57"}}/><span style={{width:9,height:9,borderRadius:99,background:"#febc2e"}}/><span style={{width:9,height:9,borderRadius:99,background:"#28c840"}}/><div style={{flex:1,background:"#fff",borderRadius:6,padding:"5px 9px",fontSize:"var(--arcd-type-caption)",color:C.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{linkPortal}</div><Btn size="sm" v="ghost" onClick={()=>window.open(linkPortal,"_blank","noopener,noreferrer")}>Abrir em nova aba ↗</Btn></div><div style={{padding:"8px 12px",background:`${C.blue}09`,borderBottom:`1px solid ${C.blue}25`,fontSize:"var(--arcd-type-label)",color:C.blue,fontWeight:600}}>PRÉ-VISUALIZAÇÃO EXATA · abaixo está a mesma página acessada pelo cliente</div><iframe title={`Portal do cliente · ${obra.name}`} src={linkPortal} sandbox="allow-scripts allow-same-origin allow-popups" style={{display:"block",width:"100%",height:"min(760px,75vh)",border:0,background:"#fff"}}/></div>}
-          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:16}}><h3 style={{fontSize:"var(--arcd-type-body)",color:C.text}}>Documentos liberados ao cliente</h3><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,margin:"3px 0 10px"}}>O documento só aparece no portal quando marcado individualmente.</p>{!(obra.documentosOneDrive||[]).length?<p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhum documento enviado.</p>:(obra.documentosOneDrive||[]).map(doc=><label key={doc.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderTop:`1px solid ${C.line}`,fontSize:"var(--arcd-type-label)",color:C.text}}><input type="checkbox" checked={doc.publicarCliente===true} onChange={e=>update({...data,obras:(data.obras||[]).map(o=>o.id===obraId?{...o,documentosOneDrive:(o.documentosOneDrive||[]).map(d=>d.id===doc.id?{...d,publicarCliente:e.target.checked}:d)}:o)})}/><Ic n="file"/><span style={{flex:1}}>{doc.nome}</span><span style={{color:doc.publicarCliente?C.green:C.muted}}>{doc.publicarCliente?"Publicado":"Interno"}</span></label>)}</div>
+          {visualizandoComoCliente&&portal.ativo&&<div style={{background:"var(--arcd-surface-inverse)",border:"1px solid var(--arcd-border-default)",borderRadius:14,overflow:"hidden",boxShadow:`0 14px 38px ${C.shadow}`}}><div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-3)",background:"var(--arcd-surface-inverse)",borderBottom:"1px solid var(--arcd-border-default)"}}><span style={{width:9,height:9,borderRadius:99,background:"var(--arcd-surface-inverse)"}}/><span style={{width:9,height:9,borderRadius:99,background:"var(--arcd-surface-inverse)"}}/><span style={{width:9,height:9,borderRadius:99,background:"var(--arcd-surface-inverse)"}}/><div style={{flex:1,background:"var(--arcd-surface-card)",borderRadius:6,padding:"var(--arcd-space-1) var(--arcd-space-2)",fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{linkPortal}</div><Btn size="sm" v="ghost" onClick={()=>window.open(linkPortal,"_blank","noopener,noreferrer")}>Abrir em nova aba ↗</Btn></div><div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",background:"color-mix(in srgb, var(--arcd-action-primary) 4%, transparent)",borderBottom:"1px solid color-mix(in srgb, var(--arcd-action-primary) 15%, transparent)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>PRÉ-VISUALIZAÇÃO EXATA · abaixo está a mesma página acessada pelo cliente</div><iframe title={`Portal do cliente · ${obra.name}`} src={linkPortal} sandbox="allow-scripts allow-same-origin allow-popups" style={{display:"block",width:"100%",height:"min(760px,75vh)",border:0,background:"var(--arcd-surface-card)"}}/></div>}
+          <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:12,padding:"var(--arcd-space-4)"}}><h3 style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)"}}>Documentos liberados ao cliente</h3><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",margin:"var(--arcd-space-half) var(--arcd-space-0) var(--arcd-space-2)"}}>O documento só aparece no portal quando marcado individualmente.</p>{!(obra.documentosOneDrive||[]).length?<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhum documento enviado.</p>:(obra.documentosOneDrive||[]).map(doc=><label key={doc.id} style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-0)",borderTop:"1px solid var(--arcd-border-default)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}><ChoiceControl type="checkbox" checked={doc.publicarCliente===true} onChange={e=>update({...data,obras:(data.obras||[]).map(o=>o.id===obraId?{...o,documentosOneDrive:(o.documentosOneDrive||[]).map(d=>d.id===doc.id?{...d,publicarCliente:e.target.checked}:d)}:o)})}/><Ic n="file"/><span style={{flex:1}}>{doc.nome}</span><span style={{color:doc.publicarCliente?"var(--arcd-success-text)":"var(--arcd-text-secondary)"}}>{doc.publicarCliente?"Publicado":"Interno"}</span></label>)}</div>
         </div>}
-        {abaConteudo==="arquivos"&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"clamp(12px,2vw,16px)",display:"flex",flexDirection:"column",gap:14,minWidth:0}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap",minWidth:0}}>
-            <div style={{flex:"1 1 320px",minWidth:0}}><h2 style={{fontSize:"var(--arcd-type-section-title)",fontWeight:600,color:C.text}}>Arquivos da obra</h2><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4,lineHeight:1.5}}>{ehAdmin?"Navegue pelas pastas no ArcD e, quando necessário, acesse a estrutura administrativa no OneDrive.":"Navegue, crie subpastas e envie arquivos pelo ArcD. O acesso direto ao OneDrive permanece protegido."}</p></div>
-            <div style={{display:"flex",gap:7,flexWrap:"wrap",maxWidth:"100%"}}>{ehAdmin&&obra.oneDriveUrl&&<Btn v="ghost" onClick={()=>abrirOneDrive(obra.oneDriveUrl)}><Ic n="folder"/> Abrir no OneDrive</Btn>}<Btn onClick={()=>inputDocumentoRef.current?.click()} disabled={enviandoDocumento}><Ic n="file"/> {enviandoDocumento?"Enviando...":"Carregar arquivo"}</Btn><input ref={inputDocumentoRef} type="file" style={{display:"none"}} onChange={e=>{enviarDocumento(e.target.files?.[0]);e.target.value="";}}/></div>
+        {abaConteudo==="arquivos"&&<div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:14,padding:"var(--arcd-panel-padding)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)",minWidth:0}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-2)",flexWrap:"wrap",minWidth:0}}>
+            <div style={{flex:"1 1 320px",minWidth:0}}><h2 style={{fontSize:"var(--arcd-type-section-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Arquivos da obra</h2><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)",lineHeight:"var(--arcd-line-height-normal)"}}>{ehAdmin?"Navegue pelas pastas no ArcD e, quando necessário, acesse a estrutura administrativa no OneDrive.":"Navegue, crie subpastas e envie arquivos pelo ArcD. O acesso direto ao OneDrive permanece protegido."}</p></div>
+            <div style={{display:"flex",gap:"var(--arcd-space-2)",flexWrap:"wrap",maxWidth:"100%"}}>{ehAdmin&&obra.oneDriveUrl&&<Btn v="ghost" onClick={()=>abrirOneDrive(obra.oneDriveUrl)}><Ic n="folder"/> Abrir no OneDrive</Btn>}<Btn onClick={()=>inputDocumentoRef.current?.click()} disabled={enviandoDocumento}><Ic n="file"/> {enviandoDocumento?"Enviando...":"Carregar arquivo"}</Btn><input ref={inputDocumentoRef} type="file" style={{display:"none"}} onChange={e=>{enviarDocumento(e.target.files?.[0]);e.target.value="";}}/></div>
           </div>
           {renderExploradorArquivos()}
         </div>}
@@ -13107,72 +10264,6 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
     </div>
   );
 }
-// A tela de Planejamento (Gantt editável, com QuestionarioPlanejamento,
-// CurvaSGrafico, MiniFF, ModalTarefa, ModalCalendario, ModalMarco) foi
-// extraída para src/domains/planejamento/components/PlanejamentoView.jsx
-// em 2026-08-16 - importada como `Planejamento` abaixo, mesmo nome de
-// sempre. MiniKpi continua aqui porque é usado por vários outros módulos.
-
-export function MiniKpi({ label, value, cor, sub }) {
-  return (
-    <div style={{ background: C.card, border: `1px solid ${C.border}`,
-                  borderTop: `3px solid ${cor}`, borderRadius: 8, padding: "10px 12px" }}>
-      <p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color: C.muted, textTransform: "uppercase", letterSpacing: .6 }}>{label}</p>
-      <p style={{ fontSize: "var(--arcd-type-section-title)", fontWeight:600, color: cor, marginTop: 3,
-                  fontFamily: "var(--arcd-font-sans)" }}>{value}</p>
-      {sub && <p style={{ fontSize:"var(--arcd-type-caption)", color: C.muted, marginTop: 2 }}>{sub}</p>}
-    </div>
-  );
-}
-
-
-
-// ==============================================================
-//  DIARIO DE OBRA (RDO) - conforme boa pratica
-//  - Clima manha/tarde/noite
-//  - Efetivo (mao de obra) + presencas do ponto sem trocar de aba
-//  - Servicos executados: cada um atualiza o progresso da tarefa
-//    do planejamento (alimenta a medicao de evolucao)
-//  - Ocorrencias e fotos (Storage - guarda so a URL)
-// ==============================================================
-
-// Normaliza fotos de câmera antes do envio. Mantém o enquadramento completo
-// (importante para a evidência), respeita a orientação EXIF quando o navegador
-// oferece createImageBitmap e limita o payload para funcionar em redes móveis.
-export const comprimirImagem = async file => {
-  if(!file)throw new Error("Nenhuma foto foi selecionada.");
-  if(file.size>24*1024*1024)throw new Error("A foto é maior que 24 MB. Reduza a resolução e tente novamente.");
-  const tipo=String(file.type||"").toLowerCase();
-  if(tipo&&!tipo.startsWith("image/"))throw new Error("Selecione um arquivo de imagem.");
-  let imagem=null,objectUrl="";
-  try{
-    if(typeof createImageBitmap==="function"){
-      try{imagem=await createImageBitmap(file,{imageOrientation:"from-image"});}catch{/* fallback para Image */}
-    }
-    if(!imagem){
-      objectUrl=URL.createObjectURL(file);
-      imagem=await new Promise((resolve,reject)=>{
-        const img=new Image();
-        img.onload=()=>resolve(img);
-        img.onerror=()=>reject(new Error("Formato de foto não suportado. Use a câmera ou selecione JPG/PNG."));
-        img.src=objectUrl;
-      });
-    }
-    const largura=Number(imagem.width||imagem.naturalWidth||0),altura=Number(imagem.height||imagem.naturalHeight||0);
-    if(!largura||!altura)throw new Error("Não foi possível ler as dimensões da foto.");
-    const MAX=1600,escala=Math.min(1,MAX/Math.max(largura,altura));
-    const canvas=document.createElement("canvas");
-    canvas.width=Math.max(1,Math.round(largura*escala));
-    canvas.height=Math.max(1,Math.round(altura*escala));
-    const ctx=canvas.getContext("2d");
-    if(!ctx)throw new Error("O navegador não conseguiu preparar a foto.");
-    ctx.drawImage(imagem,0,0,canvas.width,canvas.height);
-    return canvas.toDataURL("image/jpeg",0.78);
-  }finally{
-    if(objectUrl)URL.revokeObjectURL(objectUrl);
-    if(imagem&&typeof imagem.close==="function")imagem.close();
-  }
-};
 
 
 
@@ -13217,7 +10308,7 @@ function SegurancaObra({data,showToast,currentUser,obraIdFixo="",dispatchCommand
   };
   const atividadeNome=id=>(atividades.find(item=>item.id===id)?.nome||atividades.find(item=>item.id===id)?.descricao||id||"Atividade não identificada");
   const activityOptions=[{v:"",l:"Selecione"},...atividades.map(item=>({v:item.id,l:item.nome||item.descricao||item.id}))];
-  return <div style={{display:"flex",flexDirection:"column",gap:10}}><PageHero eyebrow="Engenharia de campo" title="Segurança operacional" description="APR e Permissão de Trabalho que liberam atividades críticas de forma auditável."/><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))",gap:9}}><div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,padding:11}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>Nova APR</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>A aprovação exige risco e controle definidos.</p><div style={{marginTop:8,display:"grid",gap:7}}><Sel label="Atividade" value={apr.activityId} onChange={value=>setApr(form=>({...form,activityId:value}))} options={activityOptions}/><Inp label="Riscos (um por linha)" multiline value={apr.riscos} onChange={value=>setApr(form=>({...form,riscos:value}))} placeholder="Queda de altura"/><Inp label="Controles (um por linha)" multiline value={apr.controles} onChange={value=>setApr(form=>({...form,controles:value}))} placeholder="Linha de vida inspecionada"/><div style={{display:"flex",gap:7}}><Btn v="ghost" full onClick={()=>salvarApr("rascunho")}>Salvar rascunho</Btn><Btn full onClick={()=>salvarApr("aprovada")}>Aprovar APR</Btn></div></div></div><div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,padding:11}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>Permissão de trabalho</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Só é liberada quando houver APR aprovada para a atividade.</p><div style={{marginTop:8,display:"grid",gap:7}}><Sel label="Atividade" value={pt.activityId} onChange={value=>setPt(form=>({...form,activityId:value}))} options={activityOptions}/><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}><Inp label="Início" type="date" value={pt.validFrom} onChange={value=>setPt(form=>({...form,validFrom:value}))}/><Inp label="Fim" type="date" value={pt.validUntil} onChange={value=>setPt(form=>({...form,validUntil:value}))}/></div><Btn full onClick={liberarPt}>Liberar permissão</Btn></div></div></div><div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,overflow:"hidden"}}><div style={{padding:"10px 12px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between",gap:8}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Liberadores de atividades críticas</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>O avanço físico será bloqueado até APR aprovada e PT liberada.</p></div><Badge color={C.green}>{permits.filter(item=>item.status==="liberada").length} PT liberada(s)</Badge></div>{[...new Set([...aprs.map(item=>item.activityId),...permits.map(item=>item.activityId)])].map(activityId=>{const aprAtiva=aprs.find(item=>item.activityId===activityId&&item.status==="aprovada"),ptAtiva=permits.find(item=>item.activityId===activityId&&item.status==="liberada");const liberada=aprAtiva&&ptAtiva;return <div key={activityId} style={{padding:"9px 12px",borderTop:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between",gap:9,alignItems:"center"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>{atividadeNome(activityId)}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>APR {aprAtiva?"aprovada":"pendente"} · PT {ptAtiva?`${ptAtiva.validFrom} a ${ptAtiva.validUntil}`:"pendente"}</p></div><Badge color={liberada?C.green:C.orange}>{liberada?"LIBERADA":"PENDENTE"}</Badge></div>;})}{!aprs.length&&!permits.length&&<p style={{padding:18,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Ainda não há APR ou permissão registradas nesta obra.</p>}</div></div>;
+  return <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}><PageHero eyebrow="Engenharia de campo" title="Segurança operacional" description="APR e Permissão de Trabalho que liberam atividades críticas de forma auditável."/><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))",gap:"var(--arcd-space-2)"}}><div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:9,padding:"var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Nova APR</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>A aprovação exige risco e controle definidos.</p><div style={{marginTop:"var(--arcd-space-2)",display:"grid",gap:"var(--arcd-space-2)"}}><Sel label="Atividade" value={apr.activityId} onChange={value=>setApr(form=>({...form,activityId:value}))} options={activityOptions}/><Inp label="Riscos (um por linha)" multiline value={apr.riscos} onChange={value=>setApr(form=>({...form,riscos:value}))} placeholder="Queda de altura"/><Inp label="Controles (um por linha)" multiline value={apr.controles} onChange={value=>setApr(form=>({...form,controles:value}))} placeholder="Linha de vida inspecionada"/><div style={{display:"flex",gap:"var(--arcd-space-2)"}}><Btn v="ghost" full onClick={()=>salvarApr("rascunho")}>Salvar rascunho</Btn><Btn full onClick={()=>salvarApr("aprovada")}>Aprovar APR</Btn></div></div></div><div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:9,padding:"var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Permissão de trabalho</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Só é liberada quando houver APR aprovada para a atividade.</p><div style={{marginTop:"var(--arcd-space-2)",display:"grid",gap:"var(--arcd-space-2)"}}><Sel label="Atividade" value={pt.activityId} onChange={value=>setPt(form=>({...form,activityId:value}))} options={activityOptions}/><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-2)"}}><Inp label="Início" type="date" value={pt.validFrom} onChange={value=>setPt(form=>({...form,validFrom:value}))}/><Inp label="Fim" type="date" value={pt.validUntil} onChange={value=>setPt(form=>({...form,validUntil:value}))}/></div><Btn full onClick={liberarPt}>Liberar permissão</Btn></div></div></div><div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:9,overflow:"hidden"}}><div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:"1px solid var(--arcd-border-default)",display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Liberadores de atividades críticas</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>O avanço físico será bloqueado até APR aprovada e PT liberada.</p></div><Badge color={C.green}>{permits.filter(item=>item.status==="liberada").length} PT liberada(s)</Badge></div>{[...new Set([...aprs.map(item=>item.activityId),...permits.map(item=>item.activityId)])].map(activityId=>{const aprAtiva=aprs.find(item=>item.activityId===activityId&&item.status==="aprovada"),ptAtiva=permits.find(item=>item.activityId===activityId&&item.status==="liberada");const liberada=aprAtiva&&ptAtiva;return <div key={activityId} style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderTop:"1px solid var(--arcd-border-default)",display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"center"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{atividadeNome(activityId)}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>APR {aprAtiva?"aprovada":"pendente"} · PT {ptAtiva?`${ptAtiva.validFrom} a ${ptAtiva.validUntil}`:"pendente"}</p></div><Badge color={liberada?C.green:C.orange}>{liberada?"LIBERADA":"PENDENTE"}</Badge></div>;})}{!aprs.length&&!permits.length&&<p style={{padding:"var(--arcd-space-4)",textAlign:"center",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Ainda não há APR ou permissão registradas nesta obra.</p>}</div></div>;
 }
 
 function Qualidade({data,showToast,currentUser,obraIdFixo="",dispatchCommand=null}){
@@ -13272,21 +10363,7 @@ function Qualidade({data,showToast,currentUser,obraIdFixo="",dispatchCommand=nul
     const result=await executar(atual=>{const vigente=(atual.qualidadeRegistros||[]).find(registro=>registro.id===ficha.id);return {type:OPERATIONAL_COMMAND.QUALITY_RECORD_RELEASED,idempotencyKey:`liberar-qualidade-${ficha.id}-${uid()}`,expectedVersion:Number(vigente?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",payload:{recordId:ficha.id}};},"Não foi possível liberar a ficha.");
     if(result?.ok)showToast("Ficha liberada para medição.");
   };
-  return <div style={{display:"flex",flexDirection:"column",gap:10}}><PageHero eyebrow="Engenharia de campo" title="Qualidade · FVS e FVM" description="Inspeções, não conformidades e liberações confirmadas pelo servidor." actions={<Btn onClick={gerarPlano} disabled={gerando}><Ic n="plus"/> {gerando?"Gerando...":"Gerar/atualizar plano"}</Btn>}/><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:7}}>{[["FVS",regs.filter(item=>item.tipo==="fvs").length,C.blue],["FVM",regs.filter(item=>item.tipo==="fvm").length,C.purple],["Liberadas",regs.filter(item=>item.status==="aprovada").length,C.green],["Não conformes",regs.filter(item=>item.status==="reprovada").length,C.red]].map(([label,value,color])=><div key={label} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${color}`,borderRadius:7,padding:8}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600}}>{label}</p><b style={{fontSize:"var(--arcd-type-card-title)",color}}>{value}</b></div>)}</div>{regs.map(ficha=>{const open=aberto===ficha.id;const feitos=(ficha.itens||[]).filter(item=>item.status!=="pendente").length;const draft=rascunho(ficha.id);return <div key={ficha.id} style={{background:C.card,border:`1px solid ${ficha.status==="reprovada"?C.red:C.border}`,borderRadius:8,overflow:"hidden"}}><button onClick={()=>setAberto(open?"":ficha.id)} style={{width:"100%",border:0,background:"transparent",padding:"10px 12px",display:"flex",justifyContent:"space-between",gap:8,textAlign:"left",cursor:"pointer"}}><div><b style={{fontSize:"var(--arcd-type-label)",color:ficha.tipo==="fvs"?C.blue:C.purple}}>{ficha.codigo} · {ficha.tipo.toUpperCase()}</b><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,marginTop:2}}>{ficha.titulo}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Responsável: {ficha.responsavel||"Não definido"} · {feitos}/{(ficha.itens||[]).length} critérios</p></div><Badge color={ficha.status==="aprovada"?C.green:ficha.status==="reprovada"?C.red:C.orange}>{ficha.status}</Badge></button>{open&&<div style={{borderTop:`1px solid ${C.line}`,padding:10}}><Sel label="Responsável pela execução/correção" value={draft.responsavelId??ficha.responsavelId} onChange={value=>editarRascunho(ficha.id,{responsavelId:value})} options={[{v:"",l:"Selecione"},...usuarios.map(user=>({v:user.id,l:user.nome}))]}/><Inp label="Referência técnica (projeto, memorial, procedimento, norma)" value={draft.normaProjeto??ficha.normaProjeto} onChange={value=>editarRascunho(ficha.id,{normaProjeto:value})}/><Btn size="sm" v="ghost" style={{marginTop:7}} onClick={()=>salvarDetalhes(ficha)}>Salvar referência</Btn><div style={{marginTop:8}}>{(ficha.itens||[]).map(item=><div key={item.id} style={{padding:"8px 0",borderTop:`1px solid ${C.line}`}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>{item.criterio}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{item.metodo} · {item.tolerancia}</p><div style={{display:"flex",gap:5,marginTop:6,flexWrap:"wrap"}}>{[["conforme","Conforme",C.green],["nao_conforme","Não conforme",C.red],["nao_aplicavel","N/A",C.muted]].map(([status,label,color])=><button key={status} onClick={()=>inspecionar(ficha,item,status)} disabled={ficha.status==="aprovada"} style={{border:`1px solid ${item.status===status?color:C.border}`,background:item.status===status?`${color}12`:C.bg,color,borderRadius:5,padding:"4px 7px",fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>{label}</button>)}</div>{item.verificadoEm&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>{item.responsavel} · {new Date(item.verificadoEm).toLocaleString("pt-BR")}</p>}</div>)}</div>{ficha.naoConformidade&&ficha.naoConformidade.status!=="encerrada"&&<div style={{background:`${C.red}08`,border:`1px solid ${C.red}55`,borderRadius:7,padding:9,marginTop:8}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.red}}>NÃO CONFORMIDADE</p><Inp label="Ação corretiva" value={draft.acao??""} onChange={value=>editarRascunho(ficha.id,{acao:value})} multiline/><Inp label="Verificação de eficácia" value={draft.eficacia??""} onChange={value=>editarRascunho(ficha.id,{eficacia:value})} multiline/><Btn size="sm" v="success" onClick={()=>resolverNC(ficha)}>Encerrar NC após reinspeção</Btn></div>}<Btn full style={{marginTop:9}} onClick={()=>liberar(ficha)} disabled={ficha.status==="aprovada"}>Liberar ficha</Btn></div>}</div>;})}{!regs.length&&<p style={{textAlign:"center",padding:20,color:C.muted,fontSize:"var(--arcd-type-label)"}}>Gere o plano para criar uma FVS para cada etapa de 1º nível e FVM para os materiais comprados.</p>}</div>;
-}
-
-
-// Bloco visual reutilizado no diario.
-export function Bloco({ id, titulo, acao, children }) {
-  return (
-    <section id={id} className="rdo-block">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-        <h2>{titulo}</h2>
-        {acao}
-      </div>
-      {children}
-    </section>
-  );
+  return <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}><PageHero eyebrow="Engenharia de campo" title="Qualidade · FVS e FVM" description="Inspeções, não conformidades e liberações confirmadas pelo servidor." actions={<Btn onClick={gerarPlano} disabled={gerando}><Ic n="plus"/> {gerando?"Gerando...":"Gerar/atualizar plano"}</Btn>}/><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"var(--arcd-space-2)"}}>{[["FVS",regs.filter(item=>item.tipo==="fvs").length,C.blue],["FVM",regs.filter(item=>item.tipo==="fvm").length,C.purple],["Liberadas",regs.filter(item=>item.status==="aprovada").length,C.green],["Não conformes",regs.filter(item=>item.status==="reprovada").length,C.red]].map(([label,value,color])=><div key={label} style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderTop:`3px solid ${color}`,borderRadius:7,padding:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{label}</p><b style={{fontSize:"var(--arcd-type-card-title)",color}}>{value}</b></div>)}</div>{regs.map(ficha=>{const open=aberto===ficha.id;const feitos=(ficha.itens||[]).filter(item=>item.status!=="pendente").length;const draft=rascunho(ficha.id);return <div key={ficha.id} style={{background:"var(--arcd-surface-card)",border:`1px solid ${ficha.status==="reprovada"?"var(--arcd-danger-text)":"var(--arcd-border-default)"}`,borderRadius:8,overflow:"hidden"}}><StandardButton variant="secondary" onClick={()=>setAberto(open?"":ficha.id)} style={{width:"100%",display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",textAlign:"left"}}><div><b style={{fontSize:"var(--arcd-type-label)",color:ficha.tipo==="fvs"?"var(--arcd-action-primary)":"var(--arcd-action-primary)"}}>{ficha.codigo} · {ficha.tipo.toUpperCase()}</b><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)"}}>{ficha.titulo}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Responsável: {ficha.responsavel||"Não definido"} · {feitos}/{(ficha.itens||[]).length} critérios</p></div><Badge color={ficha.status==="aprovada"?C.green:ficha.status==="reprovada"?C.red:C.orange}>{ficha.status}</Badge></StandardButton>{open&&<div style={{borderTop:"1px solid var(--arcd-border-default)",padding:"var(--arcd-space-2)"}}><Sel label="Responsável pela execução/correção" value={draft.responsavelId??ficha.responsavelId} onChange={value=>editarRascunho(ficha.id,{responsavelId:value})} options={[{v:"",l:"Selecione"},...usuarios.map(user=>({v:user.id,l:user.nome}))]}/><Inp label="Referência técnica (projeto, memorial, procedimento, norma)" value={draft.normaProjeto??ficha.normaProjeto} onChange={value=>editarRascunho(ficha.id,{normaProjeto:value})}/><Btn size="sm" v="ghost" style={{marginTop:"var(--arcd-space-2)"}} onClick={()=>salvarDetalhes(ficha)}>Salvar referência</Btn><div style={{marginTop:"var(--arcd-space-2)"}}>{(ficha.itens||[]).map(item=><div key={item.id} style={{padding:"var(--arcd-space-2) var(--arcd-space-0)",borderTop:"1px solid var(--arcd-border-default)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{item.criterio}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{item.metodo} · {item.tolerancia}</p><div style={{display:"flex",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-1)",flexWrap:"wrap"}}>{[["conforme","Conforme",C.green],["nao_conforme","Não conforme",C.red],["nao_aplicavel","N/A",C.muted]].map(([status,label,color])=><StandardButton variant="secondary" key={status} onClick={()=>inspecionar(ficha,item,status)} disabled={ficha.status==="aprovada"} style={{color}}>{label}</StandardButton>)}</div>{item.verificadoEm&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{item.responsavel} · {new Date(item.verificadoEm).toLocaleString("pt-BR")}</p>}</div>)}</div>{ficha.naoConformidade&&ficha.naoConformidade.status!=="encerrada"&&<div style={{background:"color-mix(in srgb, var(--arcd-danger-text) 3%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-danger-text) 33%, transparent)",borderRadius:7,padding:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-danger-text)"}}>NÃO CONFORMIDADE</p><Inp label="Ação corretiva" value={draft.acao??""} onChange={value=>editarRascunho(ficha.id,{acao:value})} multiline/><Inp label="Verificação de eficácia" value={draft.eficacia??""} onChange={value=>editarRascunho(ficha.id,{eficacia:value})} multiline/><Btn size="sm" v="success" onClick={()=>resolverNC(ficha)}>Encerrar NC após reinspeção</Btn></div>}<Btn full style={{marginTop:"var(--arcd-space-2)"}} onClick={()=>liberar(ficha)} disabled={ficha.status==="aprovada"}>Liberar ficha</Btn></div>}</div>;})}{!regs.length&&<p style={{textAlign:"center",padding:"var(--arcd-space-5)",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)"}}>Gere o plano para criar uma FVS para cada etapa de 1º nível e FVM para os materiais comprados.</p>}</div>;
 }
 
 
@@ -13295,6 +10372,7 @@ export function Bloco({ id, titulo, acao, children }) {
 // contrato a um serviço do planejamento; o vínculo vira proposta de avanço no
 // boletim técnico (o avanço oficial continua sendo só o boletim aprovado).
 export function TerceirosNaMedicao({ data, obraId, tarefas, currentUser, dispatchCommand, showToast, onAbrirTerceiro }) {
+  const { isMobile } = useBreakpoint();
   const contratos = useMemo(() => thirdPartyMeasurementsForProject(data, obraId), [data.terceirizados, data.medicoesTerc, obraId]);
   const [salvando, setSalvando] = useState("");
   const podeVincular = ["admin","engenheiro","engenheiro_auditor"].includes(currentUser?.role) && !!dispatchCommand;
@@ -13321,44 +10399,44 @@ export function TerceirosNaMedicao({ data, obraId, tarefas, currentUser, dispatc
     } finally { setSalvando(""); }
   };
 
-  const chip = (texto, cor) => <span style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color: cor, background: `${cor}14`,
-    border: `1px solid ${cor}44`, borderRadius: 99, padding: "2px 8px", whiteSpace: "nowrap" }}>{texto}</span>;
+  const chip = (texto, cor) => <span style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color: cor, background: `${cor}14`,
+    border: `1px solid ${cor}44`, borderRadius: 99, padding: "var(--arcd-space-half) var(--arcd-space-2)", whiteSpace: "nowrap" }}>{texto}</span>;
 
   return (
-    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
-      <div style={{ padding: "11px 14px", borderBottom: `1px solid ${C.line}` }}>
-        <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.text, textTransform: "uppercase", letterSpacing: .5 }}>
+    <div style={{ background: "var(--arcd-surface-card)", border: "1px solid var(--arcd-border-default)", borderRadius: 8, overflow: "hidden" }}>
+      <div style={{ padding: "var(--arcd-space-3)", borderBottom: "1px solid var(--arcd-border-default)" }}>
+        <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)", textTransform: "uppercase", letterSpacing: "var(--arcd-letter-spacing-body)" }}>
           Terceirizados desta obra
         </p>
-        <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginTop: 2 }}>
+        <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", marginTop: "var(--arcd-space-half)" }}>
           Avanço das etapas contratadas, medido pelo engenheiro e aprovado pelo financeiro
         </p>
       </div>
       {contratos.length === 0 ? (
-        <p style={{ padding: 18, fontSize:"var(--arcd-type-label)", color: C.muted, textAlign: "center" }}>
+        <p style={{ padding: "var(--arcd-space-4)", fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", textAlign: "center" }}>
           Nenhum contrato de terceirizado por medição nesta obra.
         </p>
       ) : contratos.map(c => {
         const esp = specInfo(c.especialidade);
         return (
-          <div key={c.id} style={{ padding: "12px 14px", borderTop: `1px solid ${C.line}`, display: "flex", flexDirection: "column", gap: 9 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
+          <div key={c.id} style={{ padding: "var(--arcd-space-3)", borderTop: "1px solid var(--arcd-border-default)", display: "flex", flexDirection: "column", gap: "var(--arcd-space-2)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--arcd-space-2)", flexWrap: "wrap" }}>
               <div style={{ minWidth: 0 }}>
-                <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.text }}>{c.nome}</p>
-                <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginTop: 1 }}>
+                <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)" }}>{c.nome}</p>
+                <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", marginTop: "var(--arcd-space-0)" }}>
                   {esp?.l || c.especialidade} · contrato {fmt(c.valorContrato)} · aprovado {fmt(c.valorAprovado)} · a medir {fmt(c.aMedir)}
-                  {c.valorAguardando > 0 && <> · <span style={{ color: C.orange, fontWeight:600 }}>{fmt(c.valorAguardando)} aguardando aprovação</span></>}
+                  {c.valorAguardando > 0 && <> · <span style={{ color: "var(--arcd-warning-text)", fontWeight:"var(--arcd-font-weight-semibold)" }}>{fmt(c.valorAguardando)} aguardando aprovação</span></>}
                 </p>
               </div>
               <div style={{ textAlign: "right" }}>
-                <p style={{ fontSize: "var(--arcd-type-card-title)", fontWeight:600, color: C.blue }}>{c.avancoAprovado.toFixed(1)}%</p>
-                <p style={{ fontSize:"var(--arcd-type-caption)", color: C.muted }}>
+                <p style={{ fontSize: "var(--arcd-type-card-title)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-action-primary)" }}>{c.avancoAprovado.toFixed(1)}%</p>
+                <p style={{ fontSize:"var(--arcd-type-caption)", color: "var(--arcd-text-secondary)" }}>
                   físico aprovado{c.avancoEnviado > c.avancoAprovado + 0.001 ? ` · ${c.avancoEnviado.toFixed(1)}% com os pendentes` : ""}
                 </p>
               </div>
             </div>
             {(c.contagem.aguardando + c.contagem.rejeitadas + c.contagem.aPagar + c.contagem.pagas) > 0 && (
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: "var(--arcd-space-1)", flexWrap: "wrap" }}>
                 {c.contagem.aguardando > 0 && chip(`${c.contagem.aguardando} aguardando aprovação`, C.orange)}
                 {c.contagem.rejeitadas > 0 && chip(`${c.contagem.rejeitadas} rejeitada(s)`, C.red)}
                 {c.contagem.aPagar > 0 && chip(`${c.contagem.aPagar} aprovada(s) a pagar`, C.blue)}
@@ -13366,35 +10444,35 @@ export function TerceirosNaMedicao({ data, obraId, tarefas, currentUser, dispatc
               </div>
             )}
             {c.etapas.length === 0 ? (
-              <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>Contrato ainda sem etapas. Subdivida-o em Terceiros para poder medir.</p>
+              <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>Contrato ainda sem etapas. Subdivida-o em Terceiros para poder medir.</p>
             ) : (
-              <div style={{ border: `1px solid ${C.line}`, borderRadius: 7, overflow: "hidden" }}>
+              <div style={{ border: "1px solid var(--arcd-border-default)", borderRadius: 7, overflow: "hidden" }}>
                 {c.etapas.map((e, i) => {
                   const vinculada = e.tarefaId ? tarefasPorId.get(e.tarefaId) : null;
                   const orfa = e.tarefaId && !vinculada;
                   return (
-                    <div key={e.id} style={{ padding: "8px 10px", borderTop: i ? `1px solid ${C.line}` : 0,
-                         display: "grid", gridTemplateColumns: "minmax(0,1.3fr) minmax(170px,1fr) 70px", gap: 10, alignItems: "center" }}>
+                    <div key={e.id} style={{ padding: "var(--arcd-space-2)", borderTop: i ? "1px solid var(--arcd-border-default)" : 0,
+                         display: "grid", gridTemplateColumns: isMobile ? "minmax(0,1fr) 70px" : "minmax(0,1.3fr) minmax(170px,1fr) 70px", gap: "var(--arcd-space-2)", alignItems: "center" }}>
                       <div style={{ minWidth: 0 }}>
-                        <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color: C.text }}>{e.nome} <span style={{ fontWeight: 400, color: C.muted }}>· {fmt(e.valor)}</span></p>
-                        <div style={{ marginTop: 5, height: 5, background: C.line, borderRadius: 99, overflow: "hidden", position: "relative" }}>
-                          <div style={{ position: "absolute", inset: 0, width: `${e.pctEnviado}%`, background: `${C.orange}66` }} />
-                          <div style={{ position: "absolute", inset: 0, width: `${e.pctAprovado}%`, background: e.pctAprovado >= 100 ? C.green : C.blue }} />
+                        <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)" }}>{e.nome} <span style={{ fontWeight: "var(--arcd-font-weight-regular)", color: "var(--arcd-text-secondary)" }}>· {fmt(e.valor)}</span></p>
+                        <div style={{ marginTop: "var(--arcd-space-1)", height: 5, background: "var(--arcd-border-default)", borderRadius: 99, overflow: "hidden", position: "relative" }}>
+                          <div style={{ position: "absolute", inset: 0, width: `${e.pctEnviado}%`, background: "color-mix(in srgb, var(--arcd-warning-text) 40%, transparent)" }} />
+                          <div style={{ position: "absolute", inset: 0, width: `${e.pctAprovado}%`, background: e.pctAprovado >= 100 ? "var(--arcd-success-text)" : "var(--arcd-action-primary)" }} />
                         </div>
                       </div>
                       {tarefas.length > 0 ? (
-                        <select aria-label={`Serviço do planejamento para a etapa ${e.nome}`} value={orfa ? "" : e.tarefaId}
+                        <SelectControl aria-label={`Serviço do planejamento para a etapa ${e.nome}`} value={orfa ? "" : e.tarefaId}
                           disabled={!podeVincular || salvando === `${c.id}:${e.id}`}
                           onChange={ev => vincular(c.id, e.id, ev.target.value)}
-                          style={{ width: "100%", minWidth: 0, fontSize:"var(--arcd-type-control)", padding: "6px 7px", borderRadius: 6,
-                                   border: `1px solid ${orfa ? C.red : C.border}`, background: C.bg, color: C.text }}>
+                          style={{ gridColumn: isMobile ? "1 / -1" : undefined, gridRow: isMobile ? 2 : undefined, width: "100%", minWidth: 0, fontSize:"var(--arcd-type-control)", padding: "var(--arcd-space-1) var(--arcd-space-2)", borderRadius: 6,
+                                   border: `1px solid ${orfa ? "var(--arcd-danger-text)" : "var(--arcd-border-default)"}`, background: "var(--arcd-surface-page)", color: "var(--arcd-text-primary)" }}>
                           <option value="">{orfa ? "Serviço removido — vincular de novo" : "Sem vínculo com o planejamento"}</option>
                           {tarefas.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
-                        </select>
-                      ) : <span style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>Sem serviços no planejamento</span>}
-                      <span style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, textAlign: "right", color: e.pctAprovado >= 100 ? C.green : C.text }}>
+                        </SelectControl>
+                      ) : <span style={{ gridColumn: isMobile ? "1 / -1" : undefined, gridRow: isMobile ? 2 : undefined, fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>Sem serviços no planejamento</span>}
+                      <span style={{ gridColumn: isMobile ? 2 : undefined, gridRow: isMobile ? 1 : undefined, fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", textAlign: "right", color: e.pctAprovado >= 100 ? "var(--arcd-success-text)" : "var(--arcd-text-primary)" }}>
                         {e.pctAprovado.toFixed(0)}%
-                        {e.pctEnviado > e.pctAprovado && <span style={{ display: "block", fontSize:"var(--arcd-type-caption)", fontWeight: 600, color: C.orange }}>{e.pctEnviado.toFixed(0)}% enviado</span>}
+                        {e.pctEnviado > e.pctAprovado && <span style={{ display: "block", fontSize:"var(--arcd-type-caption)", fontWeight: "var(--arcd-font-weight-semibold)", color: "var(--arcd-warning-text)" }}>{e.pctEnviado.toFixed(0)}% enviado</span>}
                       </span>
                     </div>
                   );
@@ -13402,12 +10480,12 @@ export function TerceirosNaMedicao({ data, obraId, tarefas, currentUser, dispatc
               </div>
             )}
             {tarefas.length === 0 && c.etapas.length > 0 && (
-              <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>
+              <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>
                 Cadastre os serviços no Planejamento para que estas etapas alimentem o avanço físico e a curva S da obra.
               </p>
             )}
             {onAbrirTerceiro && (
-              <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: "var(--arcd-space-1)", justifyContent: "flex-end", flexWrap: "wrap" }}>
                 <Btn size="sm" v="ghost" onClick={() => onAbrirTerceiro(c.id, false)}>Ver medições</Btn>
                 <Btn size="sm" onClick={() => onAbrirTerceiro(c.id, true)} disabled={!c.etapas.length}><Ic n="plus" /> Nova medição</Btn>
               </div>
@@ -13424,7 +10502,7 @@ export function TerceirosNaMedicao({ data, obraId, tarefas, currentUser, dispatc
 //  Mostra o avanco de cada tarefa: o que veio do diario (RDO) e o
 //  que e manual. Permite ajustar o progresso manualmente aqui.
 // ==============================================================
-function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=null, dispatchCommand=null, onAbrirTerceiro=null }) {
+export function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=null, dispatchCommand=null, onAbrirTerceiro=null, onAbrirPlanejamento=null }) {
   const { cols } = useBreakpoint();
   const obras = (data.obras || []).filter(o => o.status !== "done");
   const [obraId, setObraId] = useState(()=>obraIdFixo||(obras.some(o=>o.id===obraContextoSalvo())?obraContextoSalvo():(obras[0]?.id||"")));
@@ -13456,6 +10534,20 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
   const [fatModal,setFatModal]=useState(null);
   const [fatForm,setFatForm]=useState({competencia:today().slice(0,7),dataVencimento:""});
   const [billingPending,setBillingPending]=useState(false);
+  const [escolherTerceiro, setEscolherTerceiro] = useState(false);
+  const [terceiroLocal, setTerceiroLocal] = useState(null);
+  const contratosMedicao = thirdPartyMeasurementsForProject(data, obraId);
+  const abrirTerceiro = (contratoId, novaMedicao) => {
+    setEscolherTerceiro(false);
+    if (onAbrirTerceiro) onAbrirTerceiro(contratoId, novaMedicao);
+    else setTerceiroLocal({contratoId, novaMedicao});
+  };
+  const iniciarMedicaoTerceiro = () => {
+    if (contratosMedicao.length === 1) {
+      const contrato = contratosMedicao[0];
+      abrirTerceiro(contrato.id, contrato.etapas.length > 0);
+    } else setEscolherTerceiro(true);
+  };
 
   // Medições de obra já confirmadas desta obra, em ordem.
   const medicoesObra = useMemo(() =>
@@ -13467,7 +10559,7 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
   // confirma ou corrige. É a "confirmação com o diário" pedida: o número do
   // diário entra como proposta, e a divergência aceita fica registrada.
   const abrirConfirmacao = () => {
-    if (!tarefas.length) { showToast?.("Sem serviços para medir.", "error"); return; }
+    if (!tarefas.length) { iniciarMedicaoTerceiro(); return; }
     setConfPct(Object.fromEntries(tarefas.map(t => [t.id, String(propostaBoletim(t))])));
     setConfResp(""); setConfObs(""); setConfData(today());
     setConfModal(true);
@@ -13582,21 +10674,30 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
     showToast?.("O avanço oficial só pode ser alterado em um novo boletim de medição aprovado.", "warn");
   };
 
+  if (terceiroLocal) return <div className="measurement-surface">
+    <Btn v="ghost" onClick={()=>setTerceiroLocal(null)}>Voltar à medição da obra</Btn>
+    <Suspense fallback={<LoadingState label="medição do terceirizado"/>}>
+      <Terceiros data={data} update={update} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser}
+        dispatchCommand={dispatchCommand} contratoInicial={terceiroLocal} />
+    </Suspense>
+  </div>;
+
   if (!obras.length) {
-    return <div style={{ padding: 24, textAlign: "center" }}>
-      <p style={{ fontSize: "var(--arcd-type-body)", color: C.muted }}>Cadastre uma obra para medir a evolucao.</p>
+    return <div style={{ padding: "var(--arcd-space-6)", textAlign: "center" }}>
+      <p style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)" }}>Cadastre uma obra para medir a evolucao.</p>
     </div>;
   }
 
   return (
-    <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <div className="anim measurement-surface" style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
+      {!obraIdFixo&&<PageHeader className="workspace-header" title="Medição da obra" description="Avanço físico e evolução dos serviços executados."/>}
       {obraIdFixo
         ? <Inp label="Obra" value={(data.obras||[]).find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
         : <Sel label="Obra" value={obraId} onChange={setObraId}
              options={obras.map(o => ({ v: o.id, l: o.name }))} />}
 
       {/* Resumo */}
-      <div style={{ display: "grid", gridTemplateColumns: cols(2, 4, 4), gap: 8 }}>
+      <div style={{ display: "grid", gridTemplateColumns: cols(2, 4, 4), gap: "var(--arcd-space-2)" }}>
         <MiniKpi label="Avanco fisico" value={`${resumo.avancoFisico.toFixed(0)}%`} cor={C.blue} />
         <MiniKpi label="Servicos" value={`${resumo.total}`} cor={C.text} />
         <MiniKpi label="Medidos pelo diario" value={`${resumo.peloDiario}`} cor={C.green}
@@ -13605,36 +10706,51 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
                  sub="somados nos RDOs" />
       </div>
 
+      {!tarefas.length && (
+        <Alert role="status" aria-label="Como iniciar a medição">
+          <AlertDescription>
+            <div className="flex flex-col gap-3">
+              <p><strong>Medição disponível sem Planejamento.</strong> Use “Confirmar medição” para medir as etapas do contrato de um terceirizado.</p>
+              <p>Para acompanhar também o avanço físico oficial da obra, cadastre os serviços no Planejamento e vincule as etapas dos contratos.</p>
+              <div className="flex flex-wrap gap-2">
+                {onAbrirPlanejamento && <Btn size="sm" onClick={()=>onAbrirPlanejamento(obraId)}>Abrir Planejamento</Btn>}
+                <Btn size="sm" v="ghost" onClick={iniciarMedicaoTerceiro}>Medir terceirizados</Btn>
+              </div>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Tabela de evolucao */}
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
-        <div style={{ padding: "11px 14px", borderBottom: `1px solid ${C.line}` }}>
-          <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.text, textTransform: "uppercase", letterSpacing: .5 }}>
+      <div style={{ background: "var(--arcd-surface-card)", border: "1px solid var(--arcd-border-default)", borderRadius: 8, overflow: "hidden" }}>
+        <div style={{ padding: "var(--arcd-space-3)", borderBottom: "1px solid var(--arcd-border-default)" }}>
+          <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)", textTransform: "uppercase", letterSpacing: "var(--arcd-letter-spacing-body)" }}>
             Evolucao por servico
           </p>
         </div>
         {tarefas.length === 0 ? (
-          <p style={{ padding: 20, fontSize: "var(--arcd-type-body)", color: C.muted, textAlign: "center" }}>
+          <p style={{ padding: "var(--arcd-space-5)", fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)", textAlign: "center" }}>
             Sem servicos no planejamento desta obra.
           </p>
         ) : tarefas.map(t => (
-          <div key={t.id} style={{ padding: "11px 14px", borderTop: `1px solid ${C.line}` }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+          <div key={t.id} style={{ padding: "var(--arcd-space-3)", borderTop: "1px solid var(--arcd-border-default)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--arcd-space-2)" }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <p className="brk" style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.text }}>{t.nome}</p>
-                <div style={{ display: "flex", gap: 8, marginTop: 2, flexWrap: "wrap" }}>
-                  <span style={{ fontSize:"var(--arcd-type-label)", fontWeight:600,
-                                 color: t.origemProgresso === "diario" ? C.green : C.muted }}>
+                <p className="brk" style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)" }}>{t.nome}</p>
+                <div style={{ display: "flex", gap: "var(--arcd-space-2)", marginTop: "var(--arcd-space-half)", flexWrap: "wrap" }}>
+                  <span style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)",
+                                 color: t.origemProgresso === "diario" ? "var(--arcd-success-text)" : "var(--arcd-text-secondary)" }}>
                     {t.origemProgresso === "diario" ? "via diario"
                       : t.origemProgresso === "medicao_oficial" ? "medicao oficial"
                       : t.origemProgresso === "medicao" ? "ajustado na medicao"
                       : "manual"}
                   </span>
                   {t.diasTrabalhados > 0 && (
-                    <span style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>{t.diasTrabalhados} dia(s) trabalhado(s)</span>
+                    <span style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>{t.diasTrabalhados} dia(s) trabalhado(s)</span>
                   )}
-                  {t.custo > 0 && <span style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>{fmt(t.custo)}</span>}
+                  {t.custo > 0 && <span style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>{fmt(t.custo)}</span>}
                   {avancoTerceiros.has(t.id) && (
-                    <span style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color: C.purple }}
+                    <span style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-action-primary)" }}
                       title={avancoTerceiros.get(t.id).fontes.map(f => `${f.contrato} · ${f.etapa}: ${f.pct}%`).join("\n")}>
                       terceirizado: {avancoTerceiros.get(t.id).pct.toFixed(0)}% aprovado
                     </span>
@@ -13642,58 +10758,62 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
                 </div>
               </div>
               {editando === t.id ? (
-                <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
-                  <input type="number" defaultValue={t.progresso} min="0" max="100"
-                         id={`prog-${t.id}`} style={{ width: 60, padding: "6px", borderRadius: 6,
-                         border: `1px solid ${C.border}`, fontSize: "var(--arcd-type-control)", textAlign: "center" }} />
+                <div style={{ display: "flex", gap: "var(--arcd-space-1)", alignItems: "center" }}>
+                  <StandardInput type="number" defaultValue={t.progresso} min="0" max="100"
+                         id={`prog-${t.id}`} style={{ width: 60, padding: "var(--arcd-space-1)", borderRadius: 6,
+                         border: "1px solid var(--arcd-border-default)", fontSize: "var(--arcd-type-control)", textAlign: "center" }} />
                   <Btn size="sm" onClick={() => {
                     const v = document.getElementById(`prog-${t.id}`).value;
                     ajustarManual(t.id, v); setEditando(null);
                   }}><Ic n="check" /></Btn>
                 </div>
               ) : (
-                <button onClick={() => setEditando(t.id)} style={{ display: "flex", alignItems: "center",
-                        gap: 5, background: "transparent", border: 0, cursor: "pointer", flexShrink: 0 }}>
-                  <span style={{ fontSize: "var(--arcd-type-card-title)", fontWeight:600,
-                                 color: t.progresso >= 100 ? C.green : C.blue }}>{t.progresso}%</span>
+                <StandardButton variant="secondary" onClick={() => setEditando(t.id)} style={{display: "flex",alignItems: "center",gap: "var(--arcd-space-1)",flexShrink: 0}}>
+                  <span style={{ fontSize: "var(--arcd-type-card-title)", fontWeight:"var(--arcd-font-weight-semibold)",
+                                 color: t.progresso >= 100 ? "var(--arcd-success-text)" : "var(--arcd-action-primary)" }}>{t.progresso}%</span>
                   <Ic n="edit" s={13} color={C.muted} />
-                </button>
+                </StandardButton>
               )}
             </div>
-            <div style={{ marginTop: 7, height: 6, background: C.line, borderRadius: 99, overflow: "hidden" }}>
+            <div style={{ marginTop: "var(--arcd-space-2)", height: 6, background: "var(--arcd-border-default)", borderRadius: 99, overflow: "hidden" }}>
               <div style={{ height: "100%", width: `${t.progresso}%`,
-                            background: t.progresso >= 100 ? C.green : C.blue, borderRadius: 99 }} />
+                            background: t.progresso >= 100 ? "var(--arcd-success-text)" : "var(--arcd-action-primary)", borderRadius: 99 }} />
             </div>
           </div>
         ))}
       </div>
 
-      <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, lineHeight: 1.5, padding: "0 4px" }}>
+      <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", lineHeight: "var(--arcd-line-height-normal)", padding: "var(--arcd-space-0) var(--arcd-space-1)" }}>
         O diário e as medições aprovadas dos terceirizados sugerem o avanço. O boletim técnico aprovado é a única
         fonte do avanço oficial e alimenta a curva S e o físico-financeiro; correções geram um novo boletim auditável.
       </p>
 
-      {obraId && <TerceirosNaMedicao data={data} obraId={obraId} tarefas={tarefas} currentUser={currentUser}
-        dispatchCommand={dispatchCommand} showToast={showToast} onAbrirTerceiro={onAbrirTerceiro} />}
+      {obraId && <section aria-label="Medição dos terceirizados">
+        <TerceirosNaMedicao data={data} obraId={obraId} tarefas={tarefas} currentUser={currentUser}
+          dispatchCommand={dispatchCommand} showToast={showToast} onAbrirTerceiro={abrirTerceiro} />
+      </section>}
 
       {/* Boletim de medição: confirma o avanço contra o diário */}
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8,
-                      padding: "11px 14px", borderBottom: `1px solid ${C.line}`, flexWrap: "wrap" }}>
+      <div style={{ background: "var(--arcd-surface-card)", border: "1px solid var(--arcd-border-default)", borderRadius: 8, overflow: "hidden" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--arcd-space-2)",
+                      padding: "var(--arcd-space-3)", borderBottom: "1px solid var(--arcd-border-default)", flexWrap: "wrap" }}>
           <div>
-            <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.text, textTransform: "uppercase", letterSpacing: .5 }}>
+            <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)", textTransform: "uppercase", letterSpacing: "var(--arcd-letter-spacing-body)" }}>
               Boletins de medição
             </p>
-            <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginTop: 2 }}>
+            <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", marginTop: "var(--arcd-space-half)" }}>
               Confirma o avanço físico contra o diário e o congela como medição oficial
             </p>
           </div>
-          <Btn size="sm" onClick={abrirConfirmacao} disabled={!tarefas.length}>
-            <Ic n="check" /> Confirmar medição
-          </Btn>
+          <div className="flex flex-wrap gap-2">
+            {onAbrirPlanejamento && <Btn size="sm" v="ghost" onClick={()=>onAbrirPlanejamento(obraId)}>Abrir Planejamento</Btn>}
+            <Btn size="sm" onClick={abrirConfirmacao}>
+              <Ic n="check" /> Confirmar medição
+            </Btn>
+          </div>
         </div>
         {medicoesObra.length === 0 ? (
-          <p style={{ padding: 18, fontSize:"var(--arcd-type-label)", color: C.muted, textAlign: "center" }}>
+          <p style={{ padding: "var(--arcd-space-4)", fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", textAlign: "center" }}>
             Nenhuma medição confirmada. A medição fotografa o avanço aceito numa data.
           </p>
         ) : (
@@ -13701,25 +10821,25 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
             const divergentes = m.itens.filter(i => Math.abs(i.pctConfirmado - i.pctDiario) > 0.01).length;
             const faturamento=(data.medicoes||[]).find(item=>item.medicaoTecnicaId===m.id&&item.status!=="cancelada");
             return (
-              <div key={m.id} style={{ padding: "11px 14px", borderTop: `1px solid ${C.line}` }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+              <div key={m.id} style={{ padding: "var(--arcd-space-3)", borderTop: "1px solid var(--arcd-border-default)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--arcd-space-2)", flexWrap: "wrap" }}>
                   <div>
-                    <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.text }}>
+                    <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)" }}>
                       Medição {m.numero} · {fmtDateFull(m.data)}
                     </p>
-                    <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginTop: 2 }}>
+                    <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", marginTop: "var(--arcd-space-half)" }}>
                       {m.responsavel ? `${m.responsavel} · ` : ""}{m.itens.length} serviço(s)
-                      {divergentes > 0 && <span style={{ color: C.orange, fontWeight:600 }}> · {divergentes} ajustado(s) vs diário</span>}
+                      {divergentes > 0 && <span style={{ color: "var(--arcd-warning-text)", fontWeight:"var(--arcd-font-weight-semibold)" }}> · {divergentes} ajustado(s) vs diário</span>}
                     </p>
                   </div>
                   <div style={{ textAlign: "right" }}>
-                    <p style={{ fontSize: "var(--arcd-type-card-title)", fontWeight:600, color: C.blue,
+                    <p style={{ fontSize: "var(--arcd-type-card-title)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-action-primary)",
                                 fontFamily: "var(--arcd-font-sans)" }}>{m.avancoFisico.toFixed(0)}%</p>
-                    <p style={{ fontSize:"var(--arcd-type-caption)", color: C.muted }}>físico confirmado</p>
+                    <p style={{ fontSize:"var(--arcd-type-caption)", color: "var(--arcd-text-secondary)" }}>físico confirmado</p>
                   </div>
                 </div>
-                {m.observacao && <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, fontStyle: "italic", marginTop: 5 }}>"{m.observacao}"</p>}
-                <div style={{ display: "flex", justifyContent: "flex-end", gap:6, marginTop: 7 }}>
+                {m.observacao && <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", fontStyle: "italic", marginTop: "var(--arcd-space-1)" }}>"{m.observacao}"</p>}
+                <div style={{ display: "flex", justifyContent: "flex-end", gap:"var(--arcd-space-1)", marginTop: "var(--arcd-space-2)" }}>
                   {faturamento
                     ? <Badge color={C.green}>FATURADA · {fmt(faturamento.valorPrevisto)}</Badge>
                     : <Btn size="sm" v="success" onClick={()=>abrirFaturamento(m)}>Gerar faturamento</Btn>}
@@ -13731,39 +10851,50 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
         )}
       </div>
 
+      {escolherTerceiro && <Modal title="Medir terceirizado" panelClass="measurement-entry-modal" onClose={()=>setEscolherTerceiro(false)}>
+        <div className="measurement-contract-choices">
+          <p>Escolha o contrato para registrar o percentual executado de cada etapa.</p>
+          {contratosMedicao.map(contrato=><Btn key={contrato.id} v="ghost" full onClick={()=>abrirTerceiro(contrato.id, contrato.etapas.length > 0)}>
+            <span>{contrato.nome}<small style={{display:"block"}}>{contrato.etapas.length ? `${contrato.avancoAprovado.toFixed(1)}% aprovado · ${contrato.etapas.length} etapas` : "Cadastrar etapas antes de medir"}</small></span>
+            <Ic n="chevR" />
+          </Btn>)}
+          {!contratosMedicao.length && <p>Nenhum contrato de terceirizado por medição nesta obra. Cadastre o contrato e suas etapas em RH → Terceiros.</p>}
+        </div>
+      </Modal>}
+
       {/* Modal: confirmar medição contra o diário */}
       {confModal && (
-        <Modal title={`Confirmar medição ${medicoesObra.length + 1}`} onClose={() => setConfModal(false)} wide>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, lineHeight: 1.55 }}>
+        <Modal title={`Confirmar medição ${medicoesObra.length + 1}`} panelClass="measurement-entry-modal" onClose={() => setConfModal(false)} wide
+          footer={<div className="measurement-entry-actions">
+            <Btn v="ghost" full onClick={() => setConfModal(false)}>Cancelar</Btn>
+            <Btn full onClick={salvarConfirmacao}><Ic n="check" /> Confirmar e congelar</Btn>
+          </div>}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
+            <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", lineHeight: "var(--arcd-line-height-normal)" }}>
               Cada serviço abre com a proposta: o avanço aprovado do terceirizado vinculado, quando
               houver; senão, o do diário. Confirme ou corrija o valor que o fiscal aprova. A
               divergência aceita fica registrada no boletim, e o progresso do cronograma passa a
               ser o confirmado.
             </p>
             <Inp label="Data efetiva da medição" type="date" value={confData} onChange={setConfData}/>
-            <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
-              {tarefas.map((t, i) => {
+            <div style={{ border: "1px solid var(--arcd-border-default)", borderRadius: 8, overflow: "hidden" }}>
+              {tarefas.map(t => {
                 const conf = Number(confPct[t.id]) || 0;
                 const terc = avancoTerceiros.get(t.id);
                 const div = Math.round((conf - propostaBoletim(t)) * 100) / 100;
                 return (
-                  <div key={t.id} style={{ padding: "9px 11px", borderTop: i ? `1px solid ${C.line}` : 0,
-                       display: "grid", gridTemplateColumns: "minmax(0,1fr) 66px 78px", gap: 8, alignItems: "center" }}>
+                  <div key={t.id} className="measurement-entry-row">
                     <div style={{ minWidth: 0 }}>
-                      <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.nome}</p>
-                      <p style={{ fontSize:"var(--arcd-type-caption)", color: t.origemProgresso === "diario" ? C.green : C.muted }}>
+                      <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.nome}</p>
+                      <p style={{ fontSize:"var(--arcd-type-caption)", color: t.origemProgresso === "diario" ? "var(--arcd-success-text)" : "var(--arcd-text-secondary)" }}>
                         diário: {t.progresso || 0}%{t.origemProgresso !== "diario" ? " (manual)" : ""}
-                        {terc && <span style={{ color: C.purple, fontWeight:600 }}> · terceirizado aprovado: {terc.pct}%</span>}
+                        {terc && <span style={{ color: "var(--arcd-action-primary)", fontWeight:"var(--arcd-font-weight-semibold)" }}> · terceirizado aprovado: {terc.pct}%</span>}
                       </p>
                     </div>
-                    <input type="number" min="0" max="100" value={confPct[t.id] ?? ""}
-                      onChange={e => setConfPct(p => ({ ...p, [t.id]: e.target.value }))}
-                      style={{ width: "100%", boxSizing: "border-box", background: C.bg,
-                               border: `1.5px solid ${div !== 0 ? C.orange : C.line}`, color: C.text,
-                               padding: "6px 7px", borderRadius: 7, fontSize: "var(--arcd-type-control)", textAlign: "right", outline: "none" }} />
-                    <span style={{ fontSize:"var(--arcd-type-label)", textAlign: "right", fontWeight:600,
-                                   color: div > 0 ? C.blue : div < 0 ? C.red : C.muted }}>
+                    <ProgressPercentageField label={`Percentual de ${t.nome}`} value={confPct[t.id] ?? ""} previous={propostaBoletim(t)}
+                      onChange={value=>setConfPct(p=>({...p,[t.id]:value}))} />
+                    <span style={{ fontSize:"var(--arcd-type-label)", textAlign: "right", fontWeight:"var(--arcd-font-weight-semibold)",
+                                   color: div > 0 ? "var(--arcd-action-primary)" : div < 0 ? "var(--arcd-danger-text)" : "var(--arcd-text-secondary)" }}>
                       {div === 0 ? "confere" : `${div > 0 ? "+" : ""}${div}%`}
                     </span>
                   </div>
@@ -13774,23 +10905,19 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
                  placeholder="Engenheiro / fiscal" />
             <Inp label="Observação" value={confObs} onChange={setConfObs} multiline
                  placeholder="Ex.: alvenaria do 2º pavimento medida a 60%, pendente verga" />
-            <div style={{ display: "flex", gap: 8 }}>
-              <Btn v="ghost" full onClick={() => setConfModal(false)}>Cancelar</Btn>
-              <Btn full onClick={salvarConfirmacao}><Ic n="check" /> Confirmar e congelar</Btn>
-            </div>
           </div>
         </Modal>
       )}
       {fatModal&&<Modal title={`Faturar medição técnica ${fatModal.numero}`} onClose={()=>setFatModal(null)}>
-        <div style={{display:"flex",flexDirection:"column",gap:9}}>
-          <div style={{padding:"8px 10px",border:`1px solid ${C.blue}55`,borderRadius:7,background:`${C.blue}08`}}>
-            <b style={{fontSize:"var(--arcd-type-label)",color:C.blue}}>Avanço físico confirmado: {Number(fatModal.avancoFisico||0).toFixed(1)}%</b>
-            <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>O valor é calculado pelo contrato e pelo avanço ainda não faturado; não há digitação manual.</p>
+        <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+          <div style={{padding:"var(--arcd-space-2)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 33%, transparent)",borderRadius:7,background:"color-mix(in srgb, var(--arcd-action-primary) 3%, transparent)"}}>
+            <b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)"}}>Avanço físico confirmado: {Number(fatModal.avancoFisico||0).toFixed(1)}%</b>
+            <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>O valor é calculado pelo contrato e pelo avanço ainda não faturado; não há digitação manual.</p>
           </div>
-          {faturamentoPreview?.ok?<div style={{padding:"9px 10px",border:`1px solid ${C.green}55`,borderRadius:7,background:`${C.green}08`}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Faturamento incremental calculado</p><b style={{fontSize:"var(--arcd-type-card-title)",color:C.green}}>{fmt(faturamentoPreview.measurement.valorPrevisto)}</b></div>:<p style={{fontSize:"var(--arcd-type-label)",color:C.red}}>{faturamentoPreview?.error}</p>}
+          {faturamentoPreview?.ok?<div style={{padding:"var(--arcd-space-2)",border:"1px solid color-mix(in srgb, var(--arcd-success-text) 33%, transparent)",borderRadius:7,background:"color-mix(in srgb, var(--arcd-success-text) 3%, transparent)"}}><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Faturamento incremental calculado</p><b style={{fontSize:"var(--arcd-type-card-title)",color:"var(--arcd-success-text)"}}>{fmt(faturamentoPreview.measurement.valorPrevisto)}</b></div>:<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-danger-text)"}}>{faturamentoPreview?.error}</p>}
           <Inp label="Competência" type="month" value={fatForm.competencia} onChange={competencia=>setFatForm(form=>({...form,competencia}))}/>
           <Inp label="Vencimento" type="date" value={fatForm.dataVencimento} onChange={dataVencimento=>setFatForm(form=>({...form,dataVencimento}))}/>
-          <div style={{display:"flex",gap:7}}><Btn v="ghost" disabled={billingPending} full onClick={()=>setFatModal(null)}>Cancelar</Btn><Btn v="success" disabled={billingPending} full onClick={confirmarFaturamento}>{billingPending?"Gerando...":"Gerar faturamento"}</Btn></div>
+          <div style={{display:"flex",gap:"var(--arcd-space-2)"}}><Btn v="ghost" disabled={billingPending} full onClick={()=>setFatModal(null)}>Cancelar</Btn><Btn v="success" disabled={billingPending} full onClick={confirmarFaturamento}>{billingPending?"Gerando...":"Gerar faturamento"}</Btn></div>
         </div>
       </Modal>}
     </div>
@@ -13837,6 +10964,7 @@ function Obsoletos({ data, update, showToast, onTab, dispatchCommand }) {
 
   return (
     <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <PageHeader className="workspace-header" title="Telas antigas" description="Obras inativas e funcionários desligados para consulta e reativação."/>
       <div style={{ display: "flex", gap: 6 }}>
         {[["obras", `Obras (${obrasInativas.length})`], ["equipe", `Equipe (${equipeInativa.length})`]].map(([id, lbl]) => (
           <button key={id} onClick={() => setVisao(id)} style={{
@@ -13908,7 +11036,7 @@ function Obsoletos({ data, update, showToast, onTab, dispatchCommand }) {
                   </div>
                   <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
                     <Btn v="ghost" size="sm" onClick={()=>{
-                      window.sessionStorage.setItem("arcd_editar_funcionario",e.id);
+                      sessionContext.setItem("arcd_editar_funcionario",e.id);
                       onTab?.("equipe");
                     }}><Ic n="edit"/> Editar</Btn>
                     <Btn v="ghost" size="sm" onClick={() => reativarEmp(e.id)}>Readmitir</Btn>
@@ -14183,10 +11311,7 @@ function Cadastros({ data, update, showToast, onTab, currentUser, dispatchComman
 
   return (
     <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
-      <div>
-        <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.blue,textTransform:"uppercase",letterSpacing:1}}>Sistema</p>
-        <h3 className="arcd-heading-page">Cadastros</h3>
-      </div>
+      <PageHeader className="workspace-header" title="Cadastros" description="Referências utilizadas no orçamento, estoque, compras e folha."/>
 
       {/*  MENU  */}
       {sec === "menu" && (<>
@@ -14488,83 +11613,6 @@ function Cadastros({ data, update, showToast, onTab, currentUser, dispatchComman
   );
 }
 
-export function ModalMaterial({ form, setForm, onSave, unidades = [] }) {
-  const { formGrid } = useBreakpoint();
-  const F = k => v => setForm(f => ({ ...f, [k]: v }));
-  return (
-    <Modal title={form.id ? "Editar insumo" : "Novo insumo"} onClose={()=>setForm(null)} wide>
-      <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:11}}>
-        <Inp label="Código automático" value={form.codigo} onChange={()=>{}} disabled/>
-        <Inp label="Descrição *" value={form.descricao} onChange={F("descricao")}
-             placeholder="Cimento CP-II 50kg"/>
-        <Sel label="Unidade *" value={form.unidade} onChange={F("unidade")}
-             options={unidades.map(u => ({ v:u.sigla, l:`${u.sigla} - ${u.nome}` }))}/>
-        <Sel label="Categoria" value={form.categoria} onChange={F("categoria")}
-             options={CATS_MATERIAL.map(c=>({v:c.v,l:c.l}))}/>
-        <Inp label="Estoque mínimo" type="number" value={form.estoqueMin} onChange={F("estoqueMin")}
-             placeholder="0"/>
-        <Inp label="Preço médio (R$)" type="number" value={form.precoMedio} onChange={F("precoMedio")}
-             placeholder="0,00"/>
-        <div style={{gridColumn:"1/-1",display:"flex",gap:8}}>
-          <Btn v="ghost" onClick={()=>setForm(null)} full>Cancelar</Btn>
-          <Btn onClick={()=>onSave(form)} full><Ic n="check"/> Salvar</Btn>
-        </div>
-      </div>
-    </Modal>
-  );
-}
-
-export function ModalComposicao({ form, setForm, onSave, materiais, unidades = [] }) {
-  const { formGrid } = useBreakpoint();
-  const F = k => v => setForm(f => ({ ...f, [k]: v }));
-  const setItem = (i, campo, v) =>
-    setForm(f => ({ ...f, itens: f.itens.map((x,k) => k===i ? {...x,[campo]:v} : x) }));
-  const addItem = () => setForm(f => ({ ...f, itens:[...f.itens, {materialId:"",coef:""}] }));
-  const delItem = (i) => setForm(f => ({ ...f, itens: f.itens.filter((_,k)=>k!==i) }));
-
-  return (
-    <Modal title={form.id ? "Editar composição" : "Nova composição"} onClose={()=>setForm(null)} wide>
-      <div style={{display:"flex",flexDirection:"column",gap:12}}>
-        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:11}}>
-          <Inp label="Código automático" value={form.codigo||""} onChange={()=>{}} disabled/>
-          <Inp label="Serviço *" value={form.nome} onChange={F("nome")}
-               placeholder="Alvenaria de vedação"/>
-          <Sel label="Unidade *" value={form.unidade} onChange={F("unidade")}
-               options={unidades.map(u => ({ v:u.sigla, l:`${u.sigla} - ${u.nome}` }))}/>
-        </div>
-
-        <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.5}}>
-          Quanto cada insumo é consumido para executar <strong style={{color:C.text}}>
-          1 {form.unidade || "unidade"}</strong> deste serviço.
-        </p>
-
-        {form.itens.map((it, i) => (
-          <div key={i} style={{background:C.surface,border:`1px solid ${C.border}`,
-                               borderRadius:6,padding:"9px 11px"}}>
-            <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:9}}>
-              <Sel label="Insumo" value={it.materialId} onChange={v=>setItem(i,"materialId",v)}
-                   options={[{v:"",l:"Selecione..."}, ...materiais.map(m=>({v:m.id,l:`${m.descricao} (${m.unidade})`}))]}/>
-              <Inp label={`Consumo por 1 ${form.unidade||"un"}`} type="number" value={it.coef}
-                   onChange={v=>setItem(i,"coef",v)} placeholder="0,00"/>
-            </div>
-            {form.itens.length > 1 && (
-              <button onClick={()=>delItem(i)} style={{background:"transparent",border:0,color:C.muted,
-                fontSize:"var(--arcd-type-control)",cursor:"pointer",marginTop:6,textDecoration:"underline"}}>remover insumo</button>
-            )}
-          </div>
-        ))}
-
-        <Btn v="ghost" onClick={addItem} full><Ic n="plus"/> Adicionar insumo</Btn>
-
-        <div style={{display:"flex",gap:8}}>
-          <Btn v="ghost" onClick={()=>setForm(null)} full>Cancelar</Btn>
-          <Btn onClick={()=>onSave(form)} full><Ic n="check"/> Salvar</Btn>
-        </div>
-      </div>
-    </Modal>
-  );
-}
-
 
 
 const CAIXA_CATS = [
@@ -14575,90 +11623,6 @@ const CAIXA_CATS = [
   { v:"taxa",         l:"Taxa / Documentação",    icon:"" },
   { v:"outros",       l:"Outros",                 icon:"" },
 ];
-
-// Layout único de relatório em PDF/impressão para o app inteiro - mesmo
-// cabeçalho, grade de KPIs, tabelas e assinaturas do relatório de Folha de
-// Pagamento (a referência de layout limpo). Todo relatório novo deve montar
-// seu HTML a partir daqui em vez de inventar CSS próprio; os textos das
-// células já devem chegar formatados/escapados pelo chamador (mesma
-// convenção usada nos templates existentes).
-export function montarRelatorioPadraoHtml({
-  data, titulo, subtitulo = "", meta = [], kpis = [], tabelas = [], legenda = "",
-  assinaturas = [], paisagem = true,
-}) {
-  const metaHtml = meta.filter(Boolean).map(m => `<p><strong>${escapeHtml(m.label)}:</strong> ${escapeHtml(m.value)}</p>`).join("");
-  const kpisHtml = kpis.length ? `<div class="kpis">${kpis.map(k => `<div class="kpi"><span>${escapeHtml(k.label)}</span><b>${escapeHtml(k.value)}</b></div>`).join("")}</div>` : "";
-  const linhaCelulas = (headers, row) => row.map((cell, ci) => `<td${headers[ci]?.num ? ' class="num"' : ""}>${cell}</td>`).join("");
-  const tabelasHtml = tabelas.map((t, i) => `
-    <div class="${i === 0 ? "" : "section"}">
-      ${t.titulo ? `<h3>${escapeHtml(t.titulo)}</h3>` : ""}
-      ${t.descricao ? `<p style="font-size:11px;color:#555">${escapeHtml(t.descricao)}</p>` : ""}
-      <table>
-        <thead><tr>${t.headers.map(h => `<th${h.num ? ' class="num"' : ""}>${escapeHtml(typeof h === "string" ? h : h.label)}</th>`).join("")}</tr></thead>
-        <tbody>
-          ${t.rows.length ? t.rows.map(row => `<tr>${linhaCelulas(t.headers, row)}</tr>`).join("") : `<tr><td colspan="${t.headers.length}" class="vazio">${escapeHtml(t.vazio || "Nenhum registro encontrado.")}</td></tr>`}
-        </tbody>
-        ${t.totalRow ? `<tfoot><tr class="total">${linhaCelulas(t.headers, t.totalRow)}</tr></tfoot>` : ""}
-      </table>
-    </div>
-  `).join("");
-  const assinaturasHtml = assinaturas.length ? `<div class="signatures">${assinaturas.map(a => `<div class="signature">${escapeHtml(a)}</div>`).join("")}</div>` : "";
-
-  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${escapeHtml(titulo)}</title>
-<style>
-@page{size:A4 ${paisagem ? "landscape" : "portrait"};margin:10mm}
-*{box-sizing:border-box}
-body{font-family:Arial,sans-serif;margin:0;color:#111;font-size:10px}
-h1,h2,h3{margin:0 0 8px 0}
-p{margin:4px 0}
-.cabecalho{border-bottom:3px solid #d4af37;padding-bottom:10px;margin-bottom:10px;display:flex;align-items:center;gap:14px}
-.cabecalho img.logo{height:46px;max-width:140px;object-fit:contain;flex-shrink:0}
-.cabecalho .titulos{flex:1;min-width:0}
-.meta{display:flex;gap:18px;flex-wrap:wrap;color:#333}
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:7px;margin:10px 0}
-.kpi{border:1px solid #bbb;border-top:3px solid #d4af37;padding:7px;background:#fafafa}
-.kpi span{display:block;font-size:8px;text-transform:uppercase;color:#666;font-weight:bold}
-.kpi b{display:block;font-size:14px;margin-top:2px}
-table{width:100%;border-collapse:collapse;margin-top:8px;font-size:8px;table-layout:auto}
-thead{display:table-header-group}
-tfoot{display:table-footer-group}
-tr{break-inside:avoid;page-break-inside:avoid}
-th,td{border:1px solid #aaa;padding:4px;text-align:left;vertical-align:middle}
-th{background:#e8e8e8;font-size:7.5px;text-transform:uppercase;white-space:nowrap}
-td.num,th.num{text-align:right;white-space:nowrap}
-.total{font-weight:bold;background:#fff8d6}
-.vazio{text-align:center;padding:16px;color:#666;font-style:italic}
-.section{margin-top:18px;padding-top:10px;border-top:3px solid #d4af37;break-before:page;page-break-before:always}
-.legenda{font-size:8px;color:#555;margin-top:5px}
-.signatures{margin-top:32px;display:flex;justify-content:space-between;gap:40px;break-inside:avoid}
-.signature{flex:1;border-top:1px solid #111;padding-top:8px;text-align:center}
-@media screen{body{padding:24px;max-width:1400px;margin:auto}}
-</style></head><body>
-<div class="cabecalho">
-  <img class="logo" src="${data.config?.companyImageUrl || data.config?.logoUrl || ARCD_LOGO}" alt="Logo"/>
-  <div class="titulos">
-    <h1>${escapeHtml(data.config?.companyName || "ArcD Obras")}</h1>
-    ${data.config?.cnpj ? `<p>CNPJ: ${escapeHtml(data.config.cnpj)}</p>` : ""}
-    <h2>${escapeHtml(titulo)}${subtitulo ? ` - ${escapeHtml(subtitulo)}` : ""}</h2>
-    <div class="meta">${metaHtml}</div>
-  </div>
-</div>
-${kpisHtml}
-${legenda ? `<p class="legenda">${escapeHtml(legenda)}</p>` : ""}
-${tabelasHtml}
-${assinaturasHtml}
-<p style="margin-top:${assinaturas.length ? 30 : 16}px;color:#999;font-size:9px">Gerado por ${escapeHtml(data.config?.companyName || "MARCELL")} em ${new Date().toLocaleString("pt-BR")}</p>
-</body></html>`;
-}
-
-// Abre o HTML do relatório numa aba nova e já dispara a impressão - mesmo
-// comportamento (e mesmo aviso de pop-up bloqueado) usado pela Folha.
-export function abrirRelatorioPadrao(html, showToast) {
-  const w = window.open("", "_blank");
-  if (!w) { showToast?.("Não foi possível abrir a impressão. Permita pop-ups para este aplicativo e tente novamente.", "error"); return; }
-  w.document.open(); w.document.write(marcellReportHtml(html)); w.document.close(); w.focus();
-  window.setTimeout(() => w.print(), 300);
-}
 
 // Extrato/relatório financeiro do caixa de uma obra, em PDF. Compartilhado
 // entre a tela de Caixa de Obra e o hub de Relatórios, para não duplicar o
@@ -14778,10 +11742,7 @@ function CaixaObra({ data, showToast, currentUser=null, dispatchCommand=null }) 
   if (obrasComCaixa.length === 0) {
     return (
       <div className="anim" style={{display:"flex",flexDirection:"column",gap:14}}>
-        <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderLeft:`1px solid ${C.green}`,padding:"16px 18px",borderRadius:8}}>
-          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.green,textTransform:"uppercase",letterSpacing:1.2,marginBottom:3}}>Aportes e materiais</p>
-          <p style={{fontFamily:"var(--arcd-font-sans)",fontSize:"var(--arcd-type-section-title)",fontWeight:600,color:C.text,lineHeight:1}}>Caixa de Obra</p>
-        </div>
+        <PageHeader className="workspace-header" title="Caixa da obra" description="Aportes do cliente e controle de gastos por obra."/>
         <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:8,padding:30,textAlign:"center",boxShadow:`0 1px 4px ${C.shadow}`}}>
           <p style={{fontSize:"clamp(22px,10vw,40px)",marginBottom:8}}></p>
           <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,marginBottom:6}}>Nenhuma obra com caixa ativado</p>
@@ -14795,11 +11756,7 @@ function CaixaObra({ data, showToast, currentUser=null, dispatchCommand=null }) 
     <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
 
       {/* Header */}
-      <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderLeft:`1px solid ${C.green}`,padding:"14px 18px",borderRadius:8}}>
-        <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.green,textTransform:"uppercase",letterSpacing:1.2,marginBottom:3}}>Aportes e materiais</p>
-        <p style={{fontFamily:"var(--arcd-font-sans)",fontSize:"var(--arcd-type-section-title)",fontWeight:600,color:C.text,lineHeight:1}}>Caixa de Obra</p>
-        <p style={{color:C.muted,fontSize:"var(--arcd-type-body)",marginTop:4}}>{obrasComCaixa.length} obra(s) com caixa · aportes do cliente e controle de gastos</p>
-      </div>
+      <PageHeader className="workspace-header" title="Caixa da obra" description="Aportes do cliente e controle de gastos por obra."/>
 
       {/* Consolidado */}
       <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:8,overflow:"hidden",boxShadow:`0 1px 4px ${C.shadow}`}}>
@@ -14936,22 +11893,25 @@ const emptyCompanyExpenseForm = competencia => ({
 });
 
 function DREEmpresa(props) {
-  const [annual,setAnnual]=useState(false);
+  const [annual,setAnnual]=useWorkspaceState("dre_emp","annual",false);
   return <><div className="annual-dre__view-switch" aria-label="Visão do DRE"><button type="button" aria-pressed={!annual} onClick={()=>setAnnual(false)}>DRE mensal e lançamentos</button><button type="button" aria-pressed={annual} onClick={()=>setAnnual(true)}>DRE anual ajustável</button></div>{annual?<AnnualDre update={props.update} onOpenWork={props.onOpenWork}/>:<DREEmpresaMensal {...props}/>}</>;
 }
 
 function DREEmpresaMensal({ data, showToast, currentUser=null, dispatchCommand=null, onOpenWork }) {
   const {intent}=useWorkflow();
+  const useSessionState=(key,initial)=>useWorkspaceState("dre_emp",key,initial);
+  useWorkspaceScroll("dre_emp");
   const { cols } = useBreakpoint();
   const now = new Date();
-  const [year,  setYear]   = useState(now.getFullYear());
-  const [month, setMonth]  = useState(now.getMonth());
+  const [year,  setYear]   = useSessionState("year",now.getFullYear());
+  const [month, setMonth]  = useSessionState("month",now.getMonth());
   useEffect(()=>{
-    if(intent?.tabId!=="dre_emp")return;
+    if(intent?.tabId!=="dre_emp"||intent.action==="resume")return;
     if(intent.scope.year!=null)setYear(intent.scope.year);
     if(intent.scope.month!=null)setMonth(intent.scope.month);
   },[intent?.sequence]);
-  const [abaDRE, setAbaDRE] = useState("inteligencia");
+  useRememberWorkflowScope("dre_emp",{obraId:"",year,month,period:"mes"});
+  const [abaDRE, setAbaDRE] = useSessionState("abaDRE","inteligencia");
   const [memorialDetail,setMemorialDetail]=useState(null);
   useEffect(()=>setMemorialDetail(null),[year,month]);
   const [analiseIA, setAnaliseIA] = useState(null);
@@ -14960,6 +11920,7 @@ function DREEmpresaMensal({ data, showToast, currentUser=null, dispatchCommand=n
   const [expenseCommandPending,setExpenseCommandPending]=useState(false);
   const [editDesp,  setEditDesp]  = useState(null);
   const [despForm,  setDespForm]  = useState(emptyCompanyExpenseForm(""));
+  const [recurrencePreview,setRecurrencePreview]=useState(null);
   const [expenseGroupFilter,setExpenseGroupFilter]=useState("all");
   const [expenseSearch,setExpenseSearch]=useState("");
   const [razaoEmpresa,setRazaoEmpresa]=useState(null);
@@ -15166,29 +12127,29 @@ Regras: não inclua faturamento, folha, compras ou custos de execução das obra
     const w=window.open("","_blank");w.document.write(marcellReportHtml(html));w.document.close();
   };
 
-  // Despesas recorrentes - auto-copiar para o mês atual
-  const replicarRecorrentes = async() => {
-    if(!dispatchCommand||expenseCommandPending)return;
-    const prevYM = month===0?`${year-1}-12`:`${year}-${String(month).padStart(2,"0")}`;
+  // A cópia só é enviada depois da revisão das obrigações selecionadas.
+  const replicarRecorrentes = () => {
+    const fromCompetence=month===0?`${year-1}-12`:`${year}-${String(month).padStart(2,"0")}`;
+    const plan=previewCompanyRecurrences(data,{fromCompetence,toCompetence:ym});
+    setRecurrencePreview({...plan,fromCompetence,toCompetence:ym,selected:plan.rows.filter(row=>row.eligible).map(row=>row.source.id)});
+  };
+  const confirmarRecorrentes = async() => {
+    if(!dispatchCommand||expenseCommandPending||!recurrencePreview?.selected.length)return;
     setExpenseCommandPending(true);
     try{
       const result=await dispatchCommand(()=>({
         type:OPERATIONAL_COMMAND.COMPANY_RECURRING_EXPENSES_REPLICATED,
-        idempotencyKey:`company-expenses-replicate-${ym}-${uid()}`,
+        idempotencyKey:`company-expenses-replicate-${recurrencePreview.toCompetence}-${uid()}`,
         actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-        payload:{
-          fromCompetence:prevYM,toCompetence:ym,
-          ids:Array.from({length:(data.despesasEmpresa||[]).length},()=>uid()),
-        },
+        payload:{fromCompetence:recurrencePreview.fromCompetence,toCompetence:recurrencePreview.toCompetence,
+          sourceIds:recurrencePreview.selected,previewFingerprint:recurrencePreview.fingerprint,
+          ids:recurrencePreview.selected.map(()=>uid())},
       }));
       if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou a cópia.");
-      if(!result.copied){showToast("Nenhuma despesa recorrente ativa do mês anterior a copiar.","warn");return;}
-      showToast(`${result.copied} despesa(s) recorrente(s) copiada(s) para ${period}.`);
-    }catch(error){
-      showToast(error.message||"Não foi possível copiar as despesas recorrentes.","error");
-    }finally{
-      setExpenseCommandPending(false);
-    }
+      setRecurrencePreview(null);
+      showToast(`${result.copied||0} despesa(s) recorrente(s) copiada(s).`);
+    }catch(error){setRecurrencePreview(current=>({...current,error:error.message}));}
+    finally{setExpenseCommandPending(false);}
   };
 
   const saveDesp = async() => {
@@ -15550,7 +12511,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
 
       {/* Gráfico histórico */}
       <div className="dre-company-panel dre-company-trend">
-        <Suspense fallback={<div className="arcd-page-loading">Carregando gráfico...</div>}>
+        <Suspense fallback={<LoadingState label="gráfico"/>}>
           <LazyDreEmpresaHistoricoChart historico={historico}/>
         </Suspense>
       </div>
@@ -15697,6 +12658,16 @@ td.val{text-align:right;font-weight:700;min-width:110px}
       <div className="dre-company-panel dre-company-pdf"><Btn onClick={gerarPDF} v="danger" full><Ic n="file"/> Gerar DRE PDF - {period}</Btn></div>
 
       {/* Modal despesa */}
+      {recurrencePreview&&<Modal title="Prévia de despesas recorrentes" wide onClose={()=>!expenseCommandPending&&setRecurrencePreview(null)}>
+        <FinancialPreview description={`Origem: ${recurrencePreview.fromCompetence} · Destino: ${recurrencePreview.toCompetence}. Novas obrigações em aberto, sem copiar pagamentos ou documentos do mês anterior.`}
+          columns={["Copiar","Despesa / fornecedor","Vencimento previsto","Valor","Conferência"]}
+          rows={recurrencePreview.rows.map(row=>({id:row.source.id,cells:[<input type="checkbox" aria-label={`Copiar ${row.source.descricao}`} disabled={!row.eligible||expenseCommandPending} checked={recurrencePreview.selected.includes(row.source.id)} onChange={event=>setRecurrencePreview(current=>({...current,selected:event.target.checked?[...current.selected,row.source.id]:current.selected.filter(id=>id!==row.source.id)}))}/>,`${row.source.descricao} · ${row.source.fornecedor||"Sem fornecedor"}`,row.dueDate?row.dueDate.split("-").reverse().join("/"):"Sem vencimento",fmt(row.source.valor),row.issue||(row.duplicate?(row.existingId?"Já existe no destino — ignorada":"Repetida nesta prévia — ignorada"):"Nova obrigação")] }))}
+          error={recurrencePreview.error} pending={expenseCommandPending} disabled={!recurrencePreview.selected.length}
+          onCancel={()=>setRecurrencePreview(null)} onConfirm={confirmarRecorrentes} confirmLabel={`Confirmar ${recurrencePreview.selected.length} recorrência(s)`}>
+          <p>{recurrencePreview.selected.length} selecionada(s) · Total: {fmt(recurrencePreview.rows.filter(row=>recurrencePreview.selected.includes(row.source.id)).reduce((total,row)=>total+Number(row.source.valor),0))}</p>
+          <Btn v="ghost" disabled={expenseCommandPending} onClick={replicarRecorrentes}>Atualizar prévia</Btn>
+        </FinancialPreview>
+      </Modal>}
       {despModal&&(
         <Modal title={editDesp?"Editar despesa":"Nova despesa operacional"} onClose={()=>{setDespModal(false);setEditDesp(null);}} wide>
           <div style={{display:"grid",gridTemplateColumns:cols(2),gap:12}}>
@@ -15749,206 +12720,6 @@ td.val{text-align:right;font-weight:700;min-width:110px}
     </div>
   );
 }
-
-//
-export const COM_ETAPAS=[
-  ["novo","Novo lead"],["primeiro_contato","Primeiro contato"],["qualificacao","Em qualificação"],["reuniao_agendada","Reunião agendada"],
-  ["reuniao_realizada","Reunião realizada"],["aguardando_info","Aguardando informações"],["escopo","Escopo em elaboração"],
-  ["proposta_elaboracao","Proposta em elaboração"],["proposta_enviada","Proposta enviada"],["negociacao","Em negociação"],
-  ["aguardando_decisao","Aguardando decisão"],["contrato_elaboracao","Contrato em elaboração"],["contrato_enviado","Contrato enviado"],
-  ["aguardando_assinatura","Aguardando assinatura"],["contrato_assinado","Contrato assinado"],["aguardando_entrada","Aguardando pagamento da entrada"],
-  ["contratado","Contratado"],["transferido","Transferido para engenharia"],["perdido","Perdido"],["arquivado","Arquivado"],
-];
-export const COM_PERDAS=["Preço","Prazo","Falta de orçamento","Desistência","Contratação de concorrente","Falta de retorno","Serviço fora do escopo","Condições de pagamento","Outro"];
-// JORNADA DO CLIENTE - Kanban de fases maiores. As 20 etapas granulares do
-// funil mapeiam para 6 fases que contam a história do cliente: da chegada ao
-// fechamento. Cada etapa pertence a uma fase; assim o lead anda pelo Kanban
-// SOZINHO conforme o sistema muda sua etapa (proposta enviada, contrato
-// assinado, etc.), sem ninguém arrastar. A ordem aqui é a ordem da jornada.
-export const COM_JORNADA=[
-  { id:"captura",    label:"Captura",       desc:"Lead chegou, primeiro contato", cor:C.blue,
-    etapas:["novo","primeiro_contato"] },
-  { id:"qualifica",  label:"Qualificação",  desc:"Entender necessidade e fit",    cor:C.purple,
-    etapas:["qualificacao","aguardando_info"] },
-  { id:"reuniao",    label:"Reunião",       desc:"Encontro e levantamento",       cor:C.orange,
-    etapas:["reuniao_agendada","reuniao_realizada","escopo"] },
-  { id:"proposta",   label:"Proposta",      desc:"Orçamento na mão do cliente",   cor:C.yellowD,
-    etapas:["proposta_elaboracao","proposta_enviada","negociacao","aguardando_decisao"] },
-  { id:"contrato",   label:"Contrato",      desc:"Fechamento e assinatura",       cor:C.green,
-    etapas:["contrato_elaboracao","contrato_enviado","aguardando_assinatura","contrato_assinado","aguardando_entrada"] },
-  { id:"ganho",      label:"Cliente",       desc:"Contratado e transferido",      cor:C.text,
-    etapas:["contratado","transferido"] },
-];
-export const comFaseDaEtapa=etapa=>COM_JORNADA.find(f=>f.etapas.includes(etapa))?.id||null;
-
-// ==============================================================
-//  MOTOR DE INDICACAO
-//  A ARCD vive de indicacao de cliente. Entao o que importa nao e
-//  quantos leads entraram, e sim QUEM os trouxe e se o motor esta
-//  girando. Estas funcoes respondem: quem indica, quanto isso rende,
-//  se a carteira esta produzindo e onde o funil vaza.
-// ==============================================================
-
-// Quem indicou, quantos trouxe, quantos viraram contrato e quanto renderam.
-// Aceita indicador cadastrado (clienteId) ou anotado a mao (nome livre).
-export const rankingIndicadores = (com) => {
-  const leads = com?.leads || [], vendas = com?.vendas || [], clientes = com?.clientes || [];
-  const mapa = {};
-  const chave = l => l.indicadoPorClienteId || (l.indicadoPorNome ? `nome:${l.indicadoPorNome}` : "");
-  leads.forEach(l => {
-    const k = chave(l);
-    if (!k) return;
-    if (!mapa[k]) mapa[k] = {
-      chave: k, clienteId: l.indicadoPorClienteId || "",
-      nome: l.indicadoPorClienteId
-        ? (clientes.find(c => c.id === l.indicadoPorClienteId)?.nome || "Cliente")
-        : l.indicadoPorNome,
-      indicados: [], ganhos: 0, perdidos: 0, emAberto: 0, valorGerado: 0,
-    };
-    const r = mapa[k];
-    r.indicados.push(l.id);
-    const venda = vendas.find(v => v.leadId === l.id);
-    if (venda) { r.ganhos++; r.valorGerado += Number(venda.valor || 0); }
-    else if (l.status === "perdido" || l.etapa === "perdido") r.perdidos++;
-    else r.emAberto++;
-  });
-  return Object.values(mapa).map(r => ({
-    ...r, total: r.indicados.length,
-    conversao: r.indicados.length ? (r.ganhos / r.indicados.length) * 100 : 0,
-  })).sort((a, b) => b.valorGerado - a.valorGerado || b.total - a.total);
-};
-
-// O termometro do motor: quantas indicacoes cada obra entregue gerou e
-// que fatia da carteira ja indicou alguem. Se cai, o lead cai daqui a meses.
-export const taxaIndicacao = (com, obras) => {
-  const entregues = (obras || []).filter(o => o.status === "done").length;
-  const leads = com?.leads || [];
-  const indicacoes = leads.filter(l => l.indicadoPorClienteId || l.indicadoPorNome).length;
-  const clientesQueIndicaram = new Set(leads.map(l => l.indicadoPorClienteId).filter(Boolean)).size;
-  const totalClientes = (com?.clientes || []).length;
-  return {
-    obrasEntregues: entregues, indicacoes,
-    porObraEntregue: entregues ? indicacoes / entregues : 0,
-    clientesQueIndicaram, totalClientes,
-    pctClientesAtivos: totalClientes ? (clientesQueIndicaram / totalClientes) * 100 : 0,
-  };
-};
-
-// NPS da entrega: 9-10 promotor, 7-8 neutro, 0-6 detrator.
-// Promotor e candidato a indicar; detrator precisa de acao antes de falar mal.
-export const npsResumo = (pesquisas) => {
-  const ps = (pesquisas || []).filter(p => Number(p.nota) >= 0 && p.data);
-  if (!ps.length) return { total: 0, promotores: 0, neutros: 0, detratores: 0, nps: null, media: 0 };
-  const prom = ps.filter(p => p.nota >= 9).length;
-  const neut = ps.filter(p => p.nota >= 7 && p.nota <= 8).length;
-  const detr = ps.filter(p => p.nota <= 6).length;
-  return {
-    total: ps.length, promotores: prom, neutros: neut, detratores: detr,
-    nps: ((prom - detr) / ps.length) * 100,
-    // Number() é obrigatório aqui: o filtro acima só garante Number(p.nota)>=0,
-    // p.nota em si pode chegar como string (formulário/planilha) - sem isto a
-    // soma vira concatenação (achado de 25/08/2026, ver BLUEPRINT).
-    media: ps.reduce((s, p) => s + Number(p.nota), 0) / ps.length,
-  };
-};
-
-// Conversao agrupada por FASE da jornada (6 fases em vez de 20 etapas).
-// Com o volume de leads de uma construtora de alto padrao, 20 barras nao
-// dizem nada; 6 fases mostram na hora onde o negocio morre.
-export const conversaoPorFase = (leads) => {
-  const fases = COM_JORNADA;
-  const ordemEtapa = {};
-  fases.forEach((f, i) => f.etapas.forEach(e => { ordemEtapa[e] = i; }));
-  const linhas = fases.map((f, i) => ({
-    id: f.id, label: f.label, cor: f.cor,
-    alcancaram: (leads || []).filter(l => {
-      const base = (l.etapa === "perdido" || l.etapa === "arquivado")
-        ? (l.etapaMaxima || l.etapa) : l.etapa;
-      const oi = ordemEtapa[base];
-      return oi != null && oi >= i;
-    }).length,
-  }));
-  return linhas.map((l, i) => {
-    const ant = i > 0 ? linhas[i-1].alcancaram : linhas[0].alcancaram;
-    return { ...l,
-      taxaDaAnterior: ant ? (l.alcancaram / ant) * 100 : 0,
-      perdaNaFase: i > 0 ? ant - l.alcancaram : 0 };
-  });
-};
-
-// Ciclo de venda: do primeiro contato ao contrato. Sem isso nao da para
-// prever caixa nem saber se um lead de 90 dias ainda esta vivo.
-export const cicloMedioVenda = (com) => {
-  const leads = com?.leads || [], vendas = com?.vendas || [];
-  const dias = [];
-  vendas.forEach(v => {
-    const l = leads.find(x => x.id === v.leadId);
-    if (!l || !l.createdAt || !v.fechadaEm) return;
-    const d = Math.floor((new Date(v.fechadaEm) - new Date(l.createdAt)) / 86400000);
-    if (d >= 0) dias.push(d);
-  });
-  if (!dias.length) return { n: 0, medio: 0, minimo: 0, maximo: 0, mediana: 0 };
-  const ord = [...dias].sort((a, b) => a - b);
-  return { n: dias.length,
-    medio: dias.reduce((s, d) => s + d, 0) / dias.length,
-    minimo: ord[0], maximo: ord[ord.length-1], mediana: ord[Math.floor(ord.length/2)] };
-};
-
-// Momentos de pedir indicacao. Sao os tres picos de propensao: a entrega,
-// o marco visivel da obra e o pos-obra. Devolve as acoes pendentes.
-export const momentosIndicacao = (data) => {
-  const com = data?.comercial || {};
-  const acoes = [];
-  (data?.obras || []).forEach(o => {
-    const cliente = (com.clientes || []).find(c => c.obraId === o.id || c.nome === o.cliente);
-    const pesquisa = (com.pesquisas || []).find(p => p.obraId === o.id);
-    // 1) Obra entregue sem pesquisa de satisfacao
-    if (o.status === "done" && !pesquisa) {
-      acoes.push({ tipo:"nps", obraId:o.id, obraNome:o.name, clienteId:cliente?.id||"",
-        clienteNome:cliente?.nome||o.cliente||"", titulo:"Pesquisa de satisfação na entrega",
-        motivo:"Obra entregue e ainda sem nota do cliente." });
-    }
-    // 2) Promotor que ainda nao foi convidado a indicar
-    if (pesquisa && pesquisa.nota >= 9 && !pesquisa.pediuIndicacao) {
-      acoes.push({ tipo:"pedir", obraId:o.id, obraNome:o.name, clienteId:cliente?.id||"",
-        clienteNome:cliente?.nome||o.cliente||"", titulo:"Pedir indicação ao cliente",
-        motivo:`Deu nota ${pesquisa.nota} - é promotor e ainda não foi convidado a indicar.` });
-    }
-    // 3) Detrator: agir antes que ele fale mal
-    if (pesquisa && pesquisa.nota <= 6) {
-      acoes.push({ tipo:"recuperar", obraId:o.id, obraNome:o.name, clienteId:cliente?.id||"",
-        clienteNome:cliente?.nome||o.cliente||"", titulo:"Recuperar cliente insatisfeito",
-        motivo:`Deu nota ${pesquisa.nota}. Trate antes que vire indicação negativa.` });
-    }
-    // 4) Obra em andamento com progresso alto = marco visivel
-    if (o.status === "active" && o.contractEnd && o.contractStart) {
-      const prz = prazoObra(o);
-      if (prz && prz.pct >= 60 && prz.pct < 100) {
-        acoes.push({ tipo:"marco", obraId:o.id, obraNome:o.name, clienteId:cliente?.id||"",
-          clienteNome:cliente?.nome||o.cliente||"", titulo:"Convidar para visita / pedir indicação",
-          motivo:`Obra em ${prz.pct.toFixed(0)}% - fase de marco visível, bom momento para mostrar.` });
-      }
-    }
-  });
-  return acoes;
-};
-export const COM_TEMPERATURA={frio:C.blue,morno:C.orange,quente:C.red};
-export const comEtapaLabel=id=>COM_ETAPAS.find(([v])=>v===id)?.[1]||id;
-export const comDias=iso=>iso?Math.max(0,Math.floor((Date.now()-new Date(iso).getTime())/86400000)):0;
-export const comDateTime=iso=>iso?new Date(iso).toLocaleString("pt-BR"):"-";
-export const COM_IMOBILIARIO_SECTIONS=[
-  {id:"overview",label:"Visão geral",icon:"chart"},
-  {id:"developments",label:"Empreendimentos",icon:"building"},
-  {id:"properties",label:"Imóveis avulsos",icon:"home"},
-  {id:"units",label:"Unidades",icon:"grid"},
-  {id:"reservations",label:"Reservas",icon:"clock"},
-  {id:"sales",label:"Vendas",icon:"dollar"},
-  {id:"visits",label:"Agenda e visitas",icon:"calendar"},
-  {id:"brokers",label:"Corretores e parceiros",icon:"users"},
-  {id:"documents",label:"Arquivos dos imóveis",icon:"file"},
-  {id:"reports",label:"Relatórios",icon:"trending"},
-];
-export const COM_ROUTE_SECTION={com_funil:"crm",com_leads:"crm",com_propostas:"proposals",com_negociacoes:"proposals",com_metas:"commissions"};
 const Comercial = lazy(() => import("./domains/comercial/components/ComercialView"));
 // A tela Comercial foi extraída para
 // src/domains/comercial/components/ComercialView.jsx em 2026-08-16 -
@@ -16056,7 +12827,7 @@ function PainelTV({data,ultimaSync,onAtualizar,allowedTabs=[]}){
 
     <footer className="arcd-tv-footer" style={{position:"relative",zIndex:1,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,color:"rgba(245,243,238,.46)",fontSize:"var(--arcd-type-caption)"}}><span>Sincronização automática · {ultimaSync?ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}):"agora"}</span><div style={{display:"flex",alignItems:"center",gap:6}}><button onClick={()=>setPagina(p=>(p-1+totalPaginas)%totalPaginas)} aria-label="Página anterior" style={{width:28,height:24,border:`1px solid rgba(245,243,238,.15)`,borderRadius:5,background:"transparent",color:C.surface,cursor:"pointer"}}>‹</button>{Array.from({length:totalPaginas},(_,i)=><button key={i} onClick={()=>setPagina(i)} aria-label={`Página ${i+1}`} style={{width:i===pagina?18:6,height:6,border:0,borderRadius:99,background:i===pagina?C.yellow:"rgba(245,243,238,.22)",cursor:"pointer",transition:"width .2s"}}/>)}<span style={{margin:"0 2px"}}>{pagina+1}/{totalPaginas}</span><button onClick={()=>setPagina(p=>(p+1)%totalPaginas)} aria-label="Próxima página" style={{width:28,height:24,border:`1px solid rgba(245,243,238,.15)`,borderRadius:5,background:"transparent",color:C.surface,cursor:"pointer"}}>›</button></div></footer>
     </TabsContent>
-    {podeVerEquipe&&<TabsContent value="equipe" style={{flex:1}}><Suspense fallback={<p role="status">Carregando equipe…</p>}><EquipeObrasTV /></Suspense></TabsContent>}
+    {podeVerEquipe&&<TabsContent value="equipe" style={{flex:1}}><Suspense fallback={<LoadingState label="equipe"/>}><EquipeObrasTV /></Suspense></TabsContent>}
     </Tabs>
   </div>;
 }
@@ -16238,6 +13009,9 @@ function IconeChat({ size = 26 }) {
 // Destaca "@Nome" dentro do texto da mensagem para quem já foi resolvido como
 // menção real (não qualquer "@" digitado à toa).
 function ChatFlutuante({ currentUser, usuarios, showToast, bottomOffset=20 }) {
+  const {isMobile}=useBreakpoint();
+  const [launcherTarget,setLauncherTarget]=useState(null);
+  useLayoutEffect(()=>setLauncherTarget(isMobile?document.querySelector('[data-chat-launcher-slot]'):null),[isMobile]);
   const [aberto, setAberto] = useState(false);
   const [gestaoAberta, setGestaoAberta] = useState(false);
   const [mensagens, setMensagens] = useState([]);
@@ -16383,6 +13157,23 @@ function ChatFlutuante({ currentUser, usuarios, showToast, bottomOffset=20 }) {
   };
 
   if (!currentUser) return null;
+  const launcher=(
+      <button onClick={() => (aberto ? setAberto(false) : abrirPainel())} title="Comunicação da equipe" aria-label={aberto?"Fechar chat da equipe":"Abrir chat da equipe"} aria-expanded={aberto}
+        className={temMencaoNaoLida ? "arcd-chat-launcher chat-mention-pulse" : "arcd-chat-launcher"}
+        style={{
+          width: launcherTarget?44:56, height: launcherTarget?44:56, borderRadius: launcherTarget?"var(--arcd-radius-control)":"50%", border: launcherTarget?"1px solid var(--arcd-border-strong)":0, background: launcherTarget?"var(--arcd-action-primary)":WA.green, cursor: "pointer",
+          display: "grid", placeItems: "center", boxShadow: launcherTarget?"none":"0 6px 18px rgba(0,0,0,.28)", position: "relative",
+        }}>
+        <IconeChat size={launcherTarget?20:26} />
+        {naoLidas > 0 && (
+          <span style={{
+            position: "absolute", top: -3, right: -3, minWidth: 20, height: 20, borderRadius: 99,
+            background: WA.red, color: "#fff", fontSize:"var(--arcd-type-label)", fontWeight:600, display: "grid", placeItems: "center",
+            padding: "0 4px", border: "2px solid #fff",
+          }}>{naoLidas > 99 ? "99+" : naoLidas}</span>
+        )}
+      </button>
+  );
 
   return (
     <div className="no-print arcd-team-chat" style={{ "--chat-bottom":typeof bottomOffset==="number"?`${bottomOffset}px`:bottomOffset,position: "fixed", right: 20, bottom: bottomOffset, zIndex: 1300, display: "flex", flexDirection: "column", alignItems: "flex-end", fontFamily: "var(--arcd-font-sans)" }}>
@@ -16546,98 +13337,10 @@ function ChatFlutuante({ currentUser, usuarios, showToast, bottomOffset=20 }) {
         </div>
       )}
 
-      {/* Bolha flutuante */}
-      <button onClick={() => (aberto ? setAberto(false) : abrirPainel())} title="Comunicação da equipe" aria-label="Abrir chat da equipe"
-        className={temMencaoNaoLida ? "chat-mention-pulse" : ""}
-        style={{
-          width: 56, height: 56, borderRadius: "50%", border: 0, background: WA.green, cursor: "pointer",
-          display: "grid", placeItems: "center", boxShadow: "0 6px 18px rgba(0,0,0,.28)", position: "relative",
-        }}>
-        <IconeChat size={26} />
-        {naoLidas > 0 && (
-          <span style={{
-            position: "absolute", top: -3, right: -3, minWidth: 20, height: 20, borderRadius: 99,
-            background: WA.red, color: "#fff", fontSize:"var(--arcd-type-label)", fontWeight:600, display: "grid", placeItems: "center",
-            padding: "0 4px", border: "2px solid #fff",
-          }}>{naoLidas > 99 ? "99+" : naoLidas}</span>
-        )}
-      </button>
+      {launcherTarget?createPortal(launcher,launcherTarget):launcher}
     </div>
   );
 }
-
-// NAVEGAÇÃO - grupos e sub-tabs
-//
-
-// Os módulos compartilham os mesmos destinos e permissões da aplicação.
-const TAB_META_BASE = {
-  equipe_obras: { label: "Equipe nas Obras", icon: "users" },
-  admin_central:{ label:"Central do administrador", icon:"shield" },
-  aprov_pend:{ label:"Minhas aprovações", icon:"check" },
-  home:   { label: "Dashboard",  icon: "home"   },
-  tv:     { label: "Modo TV",    icon: "eye"   },
-  chat:   { label: "Comunicação",icon: "mail"   },
-  obras:  { label: "Obras",      icon: "building"},
-  orc:    { label: "Orçamento",  icon: "fileText"},
-  com_dash:{label:"Dashboard",icon:"chart"},
-  com_workspace:{label:"Comercial da empresa",icon:"clipboard"},
-  com_real_estate:{label:"Venda de imóveis",icon:"building"},
-  com_pipeline:{label:"Pipeline",icon:"funnel"},
-  com_relationships:{label:"Relacionamentos",icon:"users"},
-  com_deals:{label:"Propostas e contratos",icon:"fileText"},
-  com_management:{label:"Gestão comercial",icon:"chart"},
-  com_indicacoes:{label:"Indicações",icon:"users"},
-  com_leads:{label:"Leads",icon:"user"},
-  com_funil:{label:"Funil",icon:"funnel"},
-  com_jornada:{label:"Jornada",icon:"trending"},
-  com_agenda:{label:"Agenda",icon:"calendar"},
-  com_reunioes:{label:"Reuniões",icon:"users"},
-  com_tarefas:{label:"Tarefas",icon:"clipboard"},
-  com_propostas:{label:"Propostas",icon:"fileText"},
-  com_negociacoes:{label:"Negociações",icon:"handshake"},
-  com_contratos:{label:"Contratos",icon:"file"},
-  com_clientes:{label:"Clientes",icon:"users"},
-  com_parceiros:{label:"Parceiros",icon:"handshake"},
-  com_metas:{label:"Metas e comissões",icon:"target"},
-  com_perdas:{label:"Perdas",icon:"alert"},
-  com_relatorios:{label:"Relatórios",icon:"trending"},
-  plan:   { label: "Planejamento", icon: "calendar"},
-  plan_suprimentos: { label:"Marcos e Curva A", icon:"trending" },
-  rdo:    { label: "Diario de obra", icon: "clipboard"},
-  conferencia: { label: "Conferência", icon: "check"},
-  med:    { label: "Medicao",        icon: "ruler"},
-  ponto:  { label: "Ponto por obra", icon: "clock"},
-  ponto_geral: { label: "Gestão do ponto", icon: "calendar"},
-  ponto_app: { label: "Ponto eletrônico (app)", icon: "smartphone"},
-  equipe: { label: "Equipes", icon: "users"},
-  terc:   { label: "Terceirizados", icon: "handshake" },
-  folha:  { label: "Folha",      icon: "wallet"  },
-  resc:   { label: "Rescisão",   icon: "briefcase"  },
-  rh_indic: { label: "Indicadores", icon: "trending" },
-  dre_emp:  { label: "DRE empresa", icon: "chart" },
-  dre:      { label: "DRE obras",   icon: "building" },
-  fin:      { label: "Gestão financeira", icon: "trending" },
-  conc:     { label: "Conciliação", icon: "receipt" },
-  est:      { label: "Estoque",     icon: "box" },
-  equip:    { label: "Equipamentos", icon: "wrench" },
-  equip_fin:{ label: "Locação de equipamentos", icon: "wrench" },
-  patrimonio:{ label: "Patrimônio da empresa", icon: "box" },
-  licenca:  { label: "Licenciamento", icon: "file" },
-  cmp:      { label: "Compras",     icon: "cart" },
-  fornecedores: { label: "Fornecedores", icon: "handshake" },
-  suprimentos: { label: "Curva e preços", icon: "trending" },
-  cad:      { label: "Cadastros",   icon: "settings" },
-  medicoes: { label: "Medições",   icon: "ruler" },
-  caixa:    { label: "Caixa da obra", icon: "wallet" },
-  relat:    { label: "Relatórios", icon: "trending" },
-  ia:     { label: "IA",         icon: "ia"  },
-  ia_config: { label: "Configurar Gemini", icon: "settings" },
-  config: { label: "Ajustes",    icon: "settings" },
-  obsoletos: { label: "Telas antigas", icon: "trash" },
-};
-
-//
-const TAB_META = Object.fromEntries(Object.entries(TAB_META_BASE).map(([id,meta])=>[id,{...meta,group:moduleForTab(id)?.id}]));
 
 // App principal
 //
@@ -16749,13 +13452,22 @@ export default function App() {
   const [obraAberta,  setObraAberta]  = useState("");
   const [workflowIntent,setWorkflowIntent]=useState(null);
   const [workflowScopes,setWorkflowScopes]=useState({});
+  const workflowViews=useRef(new Map());
+  const workflowLastScope=useRef({});
+  const workflowLastTabs=useRef(new Map());
+  const [workflowTrail,setWorkflowTrail]=useState([]);
   const rememberWorkflowScope=useCallback((screen,scope)=>{
+    workflowLastScope.current=scope;
     setWorkflowScopes(previous=>JSON.stringify(previous[screen])===JSON.stringify(scope)?previous:{...previous,[screen]:scope});
   },[]);
   const [loading,     setLoading]     = useState(true);
   const [erroInicial, setErroInicial] = useState("");
   const [firstSetup, setFirstSetup] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
+  const leavingSessionRef=useRef(false);
+  const recoveryUserRef=useRef(currentUser);recoveryUserRef.current=currentUser;
+  const [recoveryOpen,setRecoveryOpen]=useState(false),[recoveryAvailable,setRecoveryAvailable]=useState(false),[recoveryReady,setRecoveryReady]=useState(false),[recoveryRevision,setRecoveryRevision]=useState(0);
+  useEffect(()=>{if(currentUser)leavingSessionRef.current=false;workflowViews.current.clear();workflowLastTabs.current.clear();workflowLastScope.current={};setWorkflowScopes({});setWorkflowTrail([]);setWorkflowIntent(null);},[currentUser?.id]);
   const [conflito,    setConflito]    = useState(null);
   const [toast,       setToast]       = useState(null);
   // Momento da ultima sincronizacao bem-sucedida com o servidor.
@@ -16764,6 +13476,10 @@ export default function App() {
   // Última gravação recusada pelo servidor (desfeita na tela): fica visível até
   // o usuário dispensar, para ninguém achar que salvou o que não salvou.
   const [edicaoRecusada,setEdicaoRecusada] = useState(null);
+  const resolvingSaveRef=useRef(false);
+  const deferredEditKeysRef=useRef(new Map()),memoryEditsRef=useRef(new Map()),protectingEditsRef=useRef(0);
+  const [memoryEditCount,setMemoryEditCount]=useState(0);
+  const recoveryReadyRef=useRef(recoveryReady);recoveryReadyRef.current=recoveryReady;
   // A lista de obras e o painel detalhado ocupam alturas diferentes. Sem este
   // reset o navegador preserva o scroll da lista e a obra pode abrir já no
   // meio do conteúdo. O layout effect executa antes da pintura, sem salto.
@@ -16853,6 +13569,10 @@ export default function App() {
   }
   if(!saveQueueRef.current){
     saveQueueRef.current=createSaveQueue({
+      capture:()=>({user:recoveryUserRef.current,tab:recoveryTab(),base:baseServidorRef.current}),
+      protect:(intended,context)=>snapshotJournal.protect({...context,intended}),
+      release:receipt=>snapshotJournal.release(receipt),
+      onStorageError:()=>showToast("Confirmação recebida, mas a recuperação local não foi limpa. Consulte a versão atual antes de reenviar.","error"),
       save:alvo=>saveDataDetailed(alvo,baseServidorRef.current),
       onState:setEstadoSalvar,
       onSuccess:({result, target})=>{
@@ -16872,7 +13592,7 @@ export default function App() {
         }
         setUltimaSync(new Date());
       },
-      onConflict:()=>showToast("Outra pessoa salvou ao mesmo tempo. Suas alterações aguardam resolução do conflito.","error"),
+      onConflict:()=>showToast("Alterações não salvas. Confira o aviso na página.","error"),
       onRetry:({result,delay})=>showToast(`${result?.reason||"Não foi possível conectar ao servidor."} Nova tentativa em ${Math.round(delay/1000)}s.`,"error"),
       onFailed:({result,offline,pending})=>{
         if(isServerRejection({result,offline})&&baseServidorRef.current){
@@ -16883,14 +13603,14 @@ export default function App() {
           const confirmado=baseServidorRef.current;
           const secoes=rejectedSections(confirmado,pending);
           setTimeout(()=>{
-            saveQueueRef.current?.discard();
+            saveQueueRef.current?.discard({keepJournal:true});
             ultimoDataRef.current=confirmado;dataAtualRef.current=confirmado;setData(confirmado);
             setEdicaoRecusada({motivo:result?.reason||result?.error||"O servidor recusou a alteração.",secoes,em:new Date()});
           },0);
           showToast(`Alteração não salva e desfeita: ${result?.reason||"recusada pelo servidor"}`,"error");
           return;
         }
-        showToast(offline?"Sem conexão. As alterações seguem guardadas e serão retomadas ao reconectar.":(result?.reason||"Alterações não sincronizadas. Confira a conexão e faça uma nova ação para tentar novamente."),"error");
+        showToast("Alterações não salvas. Confira o aviso na página.","error");
       },
     });
   }
@@ -16913,7 +13633,7 @@ export default function App() {
 
   useEffect(()=>{
     const protegerSaida=event=>{
-      if(!saveQueueRef.current?.hasPending()&&!attendanceCommandInFlightRef.current&&!attendanceQueueRef.current?.hasPending())return;
+      if(!saveQueueRef.current?.hasPending()&&!protectingEditsRef.current&&!memoryEditsRef.current.size&&!attendanceCommandInFlightRef.current&&!attendanceQueueRef.current?.hasPending()&&(recoveryReadyRef.current||!document.querySelector('.arcd-modal-panel input:not([readonly]):not(:disabled),.arcd-modal-panel textarea:not([readonly]):not(:disabled)')))return;
       event.preventDefault();
       event.returnValue="";
     };
@@ -16922,6 +13642,7 @@ export default function App() {
   },[]);
 
   const update = useCallback(async (next) => {
+    if(leavingSessionRef.current||currentUser?.id!==recoveryUserRef.current?.id)return {ok:false,reason:"A conta da edição mudou. Entre com a conta original para conferir."};
     // Aceita atualização funcional. O resolvedor recebe sempre o espelho mais
     // recente, mesmo que o React ainda não tenha renderizado o clique anterior.
     // Isso elimina a dependência de closures antigos nos fluxos migrados.
@@ -16964,6 +13685,21 @@ export default function App() {
       return;
     }
 
+    if(!recoveryReady){setRecoveryOpen(true);return {ok:false,reason:"Confira o armazenamento antes de enviar a edição."};}
+    if((recoveryAvailable&&!saveQueueRef.current?.hasPending())||[SAVE_QUEUE_STATE.FAILED,SAVE_QUEUE_STATE.CONFLICT,SAVE_QUEUE_STATE.OFFLINE].includes(saveQueueRef.current?.getState())){
+      const editorId=document.activeElement?.closest('[data-recovery-editor]')?.dataset.recoveryEditor||'workspace';
+      const changes=snapshotChanges(rendered,next);
+      const identity=JSON.stringify([currentUser.id,editorId,Object.entries(changes).map(([key,c])=>[key,c.delta?[...c.delta.changed.map(r=>String(r.id)),...c.delta.removed.map(String)].sort():null])]);
+      let id=deferredEditKeysRef.current.get(identity);if(!id){id=crypto.randomUUID();deferredEditKeysRef.current.set(identity,id);}
+      const entry={user:currentUser,tab:`${recoveryTab()}:edit:${id}`,base:rendered,intended:normalizeData(next)};
+      memoryEditsRef.current.set(id,entry);setMemoryEditCount(memoryEditsRef.current.size);protectingEditsRef.current++;
+      try{
+        await snapshotJournal.protect(entry);
+        if(memoryEditsRef.current.get(id)===entry)memoryEditsRef.current.delete(id);
+        setRecoveryOpen(true);return {ok:false,deferred:true,reason:"Preenchimento protegido separadamente. Conclua as revisões em Resolver salvamento."};
+      }catch{setRecoveryOpen(true);return {ok:false,reason:"A nova edição está apenas na memória. Proteja ou descarte antes de continuar."};}
+      finally{protectingEditsRef.current--;setMemoryEditCount(memoryEditsRef.current.size);}
+    }
     // RECONCILIAÇÃO CONTRA O ESTADO MAIS RECENTE
     // `rendered` é exatamente a fotografia usada pelo handler do clique.
     // `ultimoDataRef` pode já conter outro cadastro ainda não renderizado.
@@ -16989,7 +13725,7 @@ export default function App() {
     // proximo a enviar. Nunca ha dois saves simultaneos - fim dos 409 do
     // proprio dispositivo contra si mesmo.
     return saveQueueRef.current.enqueue(normalized);
-  }, [data,showToast]);
+  }, [data,showToast,recoveryAvailable,recoveryReady,currentUser?.id]);
 
   // Ponte de migração para comandos por agregado. O comando é criado dentro
   // da atualização funcional, portanto `expectedVersion` é verificado contra
@@ -16999,8 +13735,11 @@ export default function App() {
   // chave idempotente. A corrente evita que dois cliques deste navegador
   // disputem a mesma versão da entidade entre si.
   const commandTailRef=useRef(Promise.resolve());
+  const operationalInFlightRef=useRef(0);
   const dispatchOperationalCommand=useCallback(commandOrFactory=>{
+    if(leavingSessionRef.current||currentUser?.id!==recoveryUserRef.current?.id)return Promise.resolve({ok:false,status:0,reason:"A conta da operação mudou. Confira com a conta original."});
     const executar=async()=>{
+      if(leavingSessionRef.current||currentUser?.id!==recoveryUserRef.current?.id)return {ok:false,status:0,reason:"A conta da operação mudou. Confira com a conta original."};
       // Não misturamos um comando versionado com um snapshot local ainda não
       // confirmado. Se a fila não puder esvaziar, preservar a edição local é
       // mais seguro que executar o comando sobre uma base desconhecida.
@@ -17009,15 +13748,17 @@ export default function App() {
         if(!drained.ok||saveQueueRef.current?.hasPending())return {ok:false,state:drained.state,reason:drained.reason||"Há alterações locais aguardando sincronização. Use o indicador de salvamento para resolver a pendência e tente novamente."};
       }
       const atual=dataAtualRef.current||DEFAULT();
-      const command=typeof commandOrFactory==="function"?commandOrFactory(atual):commandOrFactory;
+      const command=typeof commandOrFactory==="function"?await commandOrFactory(atual):commandOrFactory;
+      if(leavingSessionRef.current||currentUser?.id!==recoveryUserRef.current?.id)return {ok:false,status:0,reason:"A conta da operação mudou. Confira com a conta original."};
       const resposta=await executarComandoOperacional(command);
+      if(leavingSessionRef.current||currentUser?.id!==recoveryUserRef.current?.id)return {ok:false,status:0,code:"SESSION_CHANGED",reason:"A conta da operação mudou. Confira com a conta original."};
       if(!resposta?.ok){
         // Só entra na fila offline durável quando a falha é de conectividade
         // (status 0/429/5xx — mesmo critério de retryable do save-queue), não
         // quando o servidor rejeitou a regra de negócio (ex.: validação),
         // caso em que repetir offline só confundiria o usuário.
         const offlineSpec=OFFLINE_QUEUEABLE_COMMANDS[command?.type];
-        const retryable=[0,429,500,502,503,504].includes(Number(resposta?.status||0));
+        const retryable=resposta?.code!=="SESSION_CHANGED"&&[0,429,500,502,503,504].includes(Number(resposta?.status||0));
         if(offlineSpec&&retryable&&campoOfflineStoreRef.current){
           const entityId=offlineSpec.entityId(command)||command.idempotencyKey;
           const queued=await campoOfflineStoreRef.current.enqueue({
@@ -17029,7 +13770,7 @@ export default function App() {
             return {ok:true,offlineQueued:true,data:atual};
           }
         }
-        return {ok:false,reason:resposta?.reason||resposta?.error||"O servidor não confirmou o comando operacional."};
+        return {ok:false,status:resposta?.status,code:resposta?.code,reason:resposta?.reason||resposta?.error||"O servidor não confirmou o comando operacional."};
       }
       const recebeuPatch=resposta.sections&&typeof resposta.sections==="object";
       if(recebeuPatch){
@@ -17048,10 +13789,11 @@ export default function App() {
         ...(resposta.summary!=null?{summary:resposta.summary}:{}),
       };
     };
-    const pendente=commandTailRef.current.then(executar,executar);
+    operationalInFlightRef.current++;
+    const pendente=commandTailRef.current.then(executar,executar).finally(()=>{operationalInFlightRef.current=Math.max(0,operationalInFlightRef.current-1);});
     commandTailRef.current=pendente.catch(()=>undefined);
     return pendente;
-  },[update,showToast]);
+  },[update,showToast,currentUser?.id]);
 
   // Ao reconectar, reenvia os comandos guardados offline (Fase 3 do roadmap
   // de arquitetura) reusando a mesma idempotencyKey gerada no momento do
@@ -17198,7 +13940,7 @@ export default function App() {
           dataAtualRef.current=normalizados;
           const cadastro=normalizados.usuarios.find(u=>u.id===restaurada.usuario?.id);
           const usuarioCompleto={...restaurada.usuario,...cadastro,pin:undefined};
-          setData(normalizados);setCurrentUser(usuarioCompleto);setUltimaSync(new Date());
+          setData(normalizados);leavingSessionRef.current=false;setCurrentUser(usuarioCompleto);setUltimaSync(new Date());
           setTab(restoreSection(usuarioCompleto.id,allowedTabsForUser(usuarioCompleto)));
           return;
         }
@@ -17291,19 +14033,28 @@ export default function App() {
 
   // Navegação unificada: leva a uma aba (e opcionalmente abre uma obra),
   // fechando a busca. Usado pela busca global e por qualquer atalho.
-  const irPara = useCallback((tabId, obraId="") => {
+  const irPara = useCallback((tabId, obraId="", options={}) => {
+    if(!options.preserveHistory)setWorkflowTrail(previous=>previous.length?[]:previous);
+    const scope=normalizeWorkflowScope(options.scope||{...workflowLastScope.current,...(obraId?{obraId}:{})},currentUser);
+    setWorkflowIntent(previous=>({tabId,scope,action:options.action||"navigate",linked:Boolean(options.linked),record:options.record||null,sequence:(previous?.sequence||0)+1}));
     setObraAberta(obraId || "");
     setTab(tabId);
     const g = moduleForTab(tabId);
+    if(g)workflowLastTabs.current.set(g.id,{tabId,obraId});
     if (g) setGruposAbertos(prev => ({ ...prev, [g.id]: true }));
     setBuscaAberta(false);
-  }, []);
-  const navigateWorkflow=useCallback((tabId,scope)=>{
+  }, [currentUser?.id,currentUser?.obraId]);
+  const navigateWorkflow=useCallback((tabId,scope,options={})=>{
     if(!allowedTabs.includes(tabId))return;
     const normalized=normalizeWorkflowScope(scope||workflowScopes[tabId]||{},currentUser);
-    setWorkflowIntent(previous=>({tabId,scope:normalized,sequence:(previous?.sequence||0)+1}));
-    irPara(tabId);
-  },[allowedTabsKey,currentUser?.obraId,workflowScopes,irPara]);
+    if(tabId!==tab)setWorkflowTrail(previous=>[...previous.slice(-7),{tabId:tab,obraId:obraAberta,scope:normalizeWorkflowScope(workflowScopes[tab]||workflowLastScope.current,currentUser)}]);
+    irPara(tabId,"",{...options,linked:true,scope:normalized,preserveHistory:true});
+  },[allowedTabsKey,currentUser?.obraId,workflowScopes,irPara,tab,obraAberta]);
+  const returnWorkflow=()=>{
+    const previous=workflowTrail.at(-1);if(!previous||!allowedTabs.includes(previous.tabId))return;
+    setWorkflowTrail(history=>history.slice(0,-1));
+    irPara(previous.tabId,previous.obraId,{scope:previous.scope,action:"resume",preserveHistory:true});
+  };
 
   // Índice de busca global: tudo que a pessoa pode querer achar por nome ou
   // número, com a aba de destino. Só monta quando há dados e usuário logado.
@@ -17331,7 +14082,7 @@ export default function App() {
   // Atalho de teclado: Ctrl/Cmd+K abre a busca; Esc fecha.
   useEffect(() => {
     const onKey = (e) => {
-      if ((e.ctrlKey||e.metaKey) && (e.key==="k"||e.key==="K")) { e.preventDefault(); setBuscaAberta(v=>!v); }
+      if ((e.ctrlKey||e.metaKey) && (e.key==="k"||e.key==="K")) { e.preventDefault(); if(document.querySelector('[role="dialog"]'))return; setBuscaAberta(v=>!v); }
       if (e.key==="Escape") setBuscaAberta(false);
     };
     window.addEventListener("keydown", onKey);
@@ -17354,18 +14105,22 @@ export default function App() {
 
   // Layout responsivo
   const { isDesktop, pick } = useBreakpoint();
-  const SIDEBAR_W = sidebarCompacta ? 68 : 224;
+  const operationalWorkspace=tab!=="tv";
+  const [sidebarWidth, setSidebarWidth] = useSidebarWidth();
+  const [sidebarResizing, setSidebarResizing] = useState(false);
+  const SIDEBAR_W = sidebarCompacta ? 68 : sidebarWidth;
   // No desktop a navegação vira sidebar → não há barra inferior ocupando espaço
-  const navHeight  = isDesktop ? 0 : (hasSubTabs ? 132 : 80);
+  const navHeight  = isDesktop ? 0 : (hasSubTabs&&!operationalWorkspace ? 132 : 80);
   // Em monitor ultrawide (21:9, 34"), esticar o conteúdo até a borda deixa a
   // linha de texto longa demais e os cards deformados. O teto de 1440px mantém
   // a leitura confortável e centraliza o conteúdo, sem deixar a tela "vazia":
   // as grades já usam 4 colunas nesse tamanho.
-  const maxConteudo = pick("100%", "100%", "min(1440px, 100%)");
+  const maxConteudo = "100%";
 
   const goGroup = (group) => {
     if (group.tabs.includes(tab)) return;
-    setTab(group.tabs[0]);
+    const previous=workflowLastTabs.current.get(group.id);
+    irPara(group.tabs.includes(previous?.tabId)?previous.tabId:group.tabs[0],group.tabs.includes(previous?.tabId)?previous.obraId:"");
   };
 
   // Alerta rápido: ponto pendente hoje?
@@ -17374,12 +14129,12 @@ export default function App() {
     : false;
   const syncStatus = {
     [SAVE_QUEUE_STATE.IDLE]:{
-      label:ultimaSync?`Salvo às ${ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`:"Dados sincronizados",
-      color:C.green,
+      label:recoveryAvailable?"Edição protegida pendente":ultimaSync?`Salvo às ${ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`:"Dados sincronizados",
+      color:recoveryAvailable?C.orange:C.green,
     },
     [SAVE_QUEUE_STATE.SAVING]:{label:"Salvando alterações...",color:C.yellowD},
     [SAVE_QUEUE_STATE.RETRY_SCHEDULED]:{label:"Tentando salvar novamente...",color:C.orange},
-    [SAVE_QUEUE_STATE.OFFLINE]:{label:"Sem conexão · alterações protegidas",color:C.orange},
+    [SAVE_QUEUE_STATE.OFFLINE]:{label:"Sem conexão · não salvo",color:C.orange},
     [SAVE_QUEUE_STATE.CONFLICT]:{label:"Conflito de salvamento",color:C.red},
     [SAVE_QUEUE_STATE.FAILED]:{label:"Alterações ainda não salvas",color:C.red},
   }[estadoSalvar]||{label:"Verificando salvamento...",color:C.muted};
@@ -17443,55 +14198,50 @@ export default function App() {
     return () => window.removeEventListener("arcd:data-conflict", aoConflitar);
   }, []);
 
-  const reaplicarSobreServidor = async () => {
-    const meu = conflito?.rejectedPayload;
-    const base = baseServidorRef.current;   // versão que EU tinha ao começar a editar
-    setConflito(null);
-    saveQueueRef.current?.discard();
-    const fresco = await loadDataWithMeta();
-    if (!fresco?.data) { showToast("Não consegui recarregar. Tente de novo.", "error"); return; }
-
-    adoptServerVersion(fresco.updatedAt, fresco.data);
-
-    if (meu) {
-      // Merge por seção e por id, em vez de "last write wins" cego. Cada módulo
-      // é uma lista de itens com id: quem A e B tocaram em itens DIFERENTES
-      // coexiste; só o mesmo item editado pelos dois é que a minha versão vence
-      // (e disso o aviso já deixou você ciente). Assim, A mexer em obras e B em
-      // terceirizados não faz ninguém perder trabalho.
-      const merged = mesclarDados(fresco.data, meu, base);
-      const norm = normalizeData(merged);
-      const result = await saveDataDetailed(norm,normalizeData(fresco.data));
-      if (result.ok) {
-        const confirmed=normalizeData(result.merged&&result.data?result.data:norm);
-        baseServidorRef.current=confirmed;ultimoDataRef.current=confirmed;dataAtualRef.current=confirmed;
-        setData(confirmed);setUltimaSync(new Date());
-        showToast("Suas alterações foram mescladas com as da outra pessoa.");
-      } else {
-        showToast(result.reason||"Ainda em conflito. Recarregue a página.","error");
-      }
-    } else {
-      const norm = normalizeData(fresco.data);
-      baseServidorRef.current = norm;
-      ultimoDataRef.current = norm;
-      dataAtualRef.current = norm;
-      setData(norm);
-    }
+  const aplicarRecuperacao=async(merged,current,row)=>{
+    if(resolvingSaveRef.current||protectingEditsRef.current||memoryEditsRef.current.size)return {ok:false,reason:"Proteja os preenchimentos da memória antes de confirmar."};
+    resolvingSaveRef.current=true;
+    try{
+      snapshotJournal.adopt(row);
+      saveQueueRef.current.discard({keepJournal:true});
+      adoptServerVersion(current.updatedAt);baseServidorRef.current=normalizeData(current.data);
+      const norm=normalizeData(merged);ultimoDataRef.current=norm;dataAtualRef.current=norm;setData(norm);setConflito(null);
+      const result=await saveQueueRef.current.enqueue(norm);
+      if(result.ok){setRecoveryRevision(v=>v+1);await snapshotJournal.release(row).catch(()=>showToast("Registro confirmado. Confira a recuperação local antes de reenviar.","error"));}
+      return result;
+    }finally{resolvingSaveRef.current=false;}
   };
-
-  const descartarMinhaVersao = async () => {
-    setConflito(null);
-    saveQueueRef.current?.discard();
-    const fresco = await loadDataWithMeta();
-    if (fresco?.data) {
-      adoptServerVersion(fresco.updatedAt, fresco.data);
-      const norm = normalizeData(fresco.data);
-      baseServidorRef.current = norm;
-      ultimoDataRef.current = norm;
-      dataAtualRef.current = norm;
-      setData(norm);
-      showToast("Tela atualizada com a versão do servidor.");
-    }
+  const protegerPreenchimentos=async()=>{
+    protectingEditsRef.current++;
+    try{
+      for(const [id,entry] of [...memoryEditsRef.current]){await snapshotJournal.protect(entry);if(memoryEditsRef.current.get(id)===entry)memoryEditsRef.current.delete(id);}
+      return {ok:true};
+    }catch{return {ok:false,reason:"Não foi possível proteger todos os preenchimentos. Mantenha esta aba aberta."};}
+    finally{protectingEditsRef.current--;setMemoryEditCount(memoryEditsRef.current.size);}
+  };
+  const descartarEdicaoDaMemoria=()=>{
+    if(!window.confirm("Descartar a edição que ainda não foi protegida? O preenchimento desta tentativa será perdido."))return;
+    memoryEditsRef.current.clear();setMemoryEditCount(0);
+    saveQueueRef.current.discard({keepJournal:true});
+    const norm=normalizeData(baseServidorRef.current);ultimoDataRef.current=norm;dataAtualRef.current=norm;setData(norm);
+    setRecoveryRevision(v=>v+1);setRecoveryOpen(false);setConflito(null);
+  };
+  const reaplicarSobreServidor=()=>setRecoveryOpen(true);
+  const descartarMinhaVersao=async target=>{
+    if(resolvingSaveRef.current||[SAVE_QUEUE_STATE.SAVING,SAVE_QUEUE_STATE.RETRY_SCHEDULED].includes(saveQueueRef.current.getState()))return;
+    if((recoveryAvailable||saveQueueRef.current.hasPending())&&!window.confirm("Descartar as edições pendentes e consultar o servidor?"))return;
+    resolvingSaveRef.current=true;
+    try{
+      const fresco=await loadDataWithMeta();
+      if(!fresco?.data){showToast("Não foi possível atualizar. A edição protegida foi mantida.","error");return;}
+      const saved=target?.owner===currentUser.id?target:await snapshotJournal.readLatest(currentUser.id,recoveryTab());
+      if(saved)await snapshotJournal.release(saved);
+      saveQueueRef.current.discard({keepJournal:true});setConflito(null);
+      adoptServerVersion(fresco.updatedAt);const norm=normalizeData(fresco.data);
+      baseServidorRef.current=norm;ultimoDataRef.current=norm;dataAtualRef.current=norm;setData(norm);
+      setRecoveryRevision(v=>v+1);setRecoveryOpen(false);
+    }catch{showToast("Não foi possível descartar a edição protegida.","error");}
+    finally{resolvingSaveRef.current=false;}
   };
 
   // O painel de TV permanece aberto por horas. Ele atualiza a fotografia da
@@ -17510,8 +14260,22 @@ export default function App() {
   // Sair e trocar usuário agora fazem a mesma coisa por baixo: limpam o PIN da
   // memória e voltam pro login. Não existe mais uma "sessão do Supabase" por
   // cima - o PIN É a sessão.
+  const prepararTrocaDeConta=()=>{
+    if(saveQueueRef.current?.getState()===SAVE_QUEUE_STATE.SAVING||protectingEditsRef.current||operationalInFlightRef.current||attendanceCommandInFlightRef.current||attendanceQueueRef.current?.hasPending()){
+      showToast("Aguarde a conclusão do envio antes de trocar de conta.","error");return false;
+    }
+    if(memoryEditsRef.current.size||(saveQueueRef.current?.getFailure()?.local&&saveQueueRef.current.hasPending())){
+      setRecoveryOpen(true);showToast("Proteja ou descarte a edição da memória antes de sair.","error");return false;
+    }
+    leavingSessionRef.current=true;
+    saveQueueRef.current?.destroy();saveQueueRef.current=null;
+    attendanceQueueRef.current?.destroy();attendanceQueueRef.current=null;
+    setEstadoSalvar(SAVE_QUEUE_STATE.IDLE);setConflito(null);setRecoveryReady(false);setRecoveryAvailable(false);setRecoveryOpen(false);
+    return true;
+  };
   const sairDoSistema = async () => {
     if (!window.confirm("Sair do sistema?")) return;
+    if(!prepararTrocaDeConta())return;
     await encerrarPresenca();
     setCurrentUser(null);
     setData(null);        // os dados saem da memória junto
@@ -17520,6 +14284,7 @@ export default function App() {
 
   // Tablet compartilhado na obra: troca quem opera, sem a pergunta de confirmação.
   const trocarDeUsuario = async () => {
+    if(!prepararTrocaDeConta())return;
     await encerrarPresenca();
     setCurrentUser(null);
     setData(null);
@@ -17543,7 +14308,7 @@ export default function App() {
           <div style={{ textAlign:"center" }}>
             <div style={{ width:44, height:44, border:`4px solid ${C.border}`, borderTopColor:C.yellow, borderRadius:"50%", animation:"spin 1s linear infinite", margin:"0 auto 14px" }}/>
             <BrandMark/>
-            <p style={{ color:C.muted, marginTop:14 }}>Carregando operação...</p>
+            <LoadingState label="operação"/>
           </div>
         </div>
       </>
@@ -17563,7 +14328,7 @@ export default function App() {
       const usuarioCompleto={...usuario,...cadastro,pin:undefined};
       setData(normalizados);
       setUltimaSync(new Date());
-      setCurrentUser(usuarioCompleto);
+      leavingSessionRef.current=false;setCurrentUser(usuarioCompleto);
       const allowed = allowedTabsForUser(usuarioCompleto);
       setTab(restoreSection(usuarioCompleto.id,allowed));
     };
@@ -17578,23 +14343,23 @@ export default function App() {
   }
 
   return (
-    <>
+    <SaveRecoveryContext.Provider value={{visible:recoveryAvailable&&!recoveryOpen&&![SAVE_QUEUE_STATE.SAVING,SAVE_QUEUE_STATE.RETRY_SCHEDULED].includes(estadoSalvar),open:()=>setRecoveryOpen(true),revision:recoveryRevision}}>
       <style>{G}</style>
       <div className="arcd-app-shell" data-tab={tab} style={{
         minHeight:"100vh", background:"transparent", color:C.text,
         paddingBottom: isDesktop ? 8 : `calc(${navHeight + 8}px + env(safe-area-inset-bottom))`,
         paddingLeft: isDesktop ? SIDEBAR_W : 0,   // abre espaço p/ a sidebar
-        transition: "padding-left .18s ease",
+        transition: sidebarResizing ? "none" : "padding-left .18s ease",
       }}>
 
         {/*  SIDEBAR (só desktop)  */}
         {isDesktop && (
-          <aside className="no-print arcd-sidebar" style={{
+          <aside id="menu-lateral" className="no-print arcd-sidebar" data-resizing={sidebarResizing || undefined} style={{
             position:"fixed", top:0, left:0, bottom:0, width:SIDEBAR_W, zIndex:90,
             background:C.bg, borderRight:`1px solid ${C.border}`,
             display:"flex", flexDirection:"column",
             boxShadow:"none",
-            transition:"width .18s ease",
+            transition:sidebarResizing ? "none" : "width .18s ease",
           }}>
             {/* Marca */}
             <div style={{
@@ -17707,7 +14472,7 @@ export default function App() {
                               key={tabId}
                               className="nav-item"
                               data-active={ativo}
-                              onClick={() => { setObraAberta(""); setTab(tabId); abrirGrupoDaAba(tabId); }}
+                              onClick={() => irPara(tabId)}
                               aria-current={ativo ? "page" : undefined}
                             >
                               <Ic n={meta.icon} s={13}/>
@@ -17775,7 +14540,7 @@ export default function App() {
                     background:"transparent", border:0, color:C.muted,
                     fontSize:"var(--arcd-type-control)", cursor:"pointer", lineHeight:1, padding:"0 3px",
                   }}></button>
-                  <button onClick={sairDoSistema} title="Sair do sistema" style={{
+                  <button onClick={sairDoSistema} title="Sair do sistema" aria-label="Sair do sistema" style={{
                     background:"transparent", border:0, color:C.muted,
                     fontSize:"var(--arcd-type-control)", cursor:"pointer", lineHeight:1, padding:"0 3px",
                   }}>x</button>
@@ -17783,23 +14548,16 @@ export default function App() {
               </div>
               )}
             </div>
+            {!sidebarCompacta && <SidebarResize width={sidebarWidth} onChange={setSidebarWidth} onResizing={setSidebarResizing}/>}
           </aside>
         )}
 
         {/*  HEADER  */}
-        {/* Cabeçalho e banner de conflito compartilham UM único wrapper sticky
-            (em vez de cada um ter seu próprio position:sticky;top:0) - assim
-            o banner nunca "some" ao rolar a tela para baixo. Achado ao
-            investigar "orçamento não salva com mais de uma pessoa": o banner
-            de conflito É mostrado (nada silencioso), mas antes rolava para
-            fora da tela junto com o resto do conteúdo em telas longas (ex.:
-            Memória de Cálculo do Orçamento) - o usuário seguia editando sem
-            notar que a fila de salvamento estava travada aguardando a
-            resolução do conflito, e via a mudança local sem perceber que
-            nada estava chegando ao servidor. */}
-        <div style={{ position:"sticky", top:0, zIndex:50 }}>
+        {/* A navegação acompanha a página; somente um conflito de salvamento
+            mantém o aviso visível até a resolução. */}
+        <div className="app-header-region" style={{ position:conflito?"sticky":"relative", top:conflito?0:undefined, zIndex:50 }}>
         <header className="no-print arcd-topbar" style={{
-          background:"rgba(255,255,255,.97)", backdropFilter:"blur(18px)",
+          background:"var(--arcd-surface-card)",
           borderBottom:`1px solid ${C.border}`,
           boxShadow:"none",
         }}>
@@ -17809,7 +14567,10 @@ export default function App() {
               {!isDesktop && <BrandMark compact/>}
               {/* Breadcrumb */}
               <div className="app-breadcrumb" style={{ display:"flex", alignItems:"center", gap:6 }}>
-                <span style={{ fontSize:"var(--arcd-type-label)", color:activeGroup?.color, fontWeight:600, textTransform:"uppercase", letterSpacing:.8 }}>
+                {!isDesktop&&operationalWorkspace?<select className="workspace-module-select" aria-label={`Telas de ${activeGroup?.label}`} value={tab==="obras"&&obrasMenuEngenharia.some(obra=>obra.id===obraAberta)?`obra:${obraAberta}`:tab} onChange={event=>event.target.value.startsWith("obra:")?irPara("obras",event.target.value.slice(5)):irPara(event.target.value)}>
+                  {activeGroup?.tabs.map(id=><option key={id} value={id}>{TAB_META[id]?.label||id}</option>)}
+                  {activeGroup?.id==="eng_grp"&&obrasMenuEngenharia.length>0&&<optgroup label="Obras ativas">{obrasMenuEngenharia.map(obra=><option key={obra.id} value={`obra:${obra.id}`}>{obra.name}</option>)}</optgroup>}
+                </select>:<><span style={{ fontSize:"var(--arcd-type-label)", color:activeGroup?.color, fontWeight:600, textTransform:"uppercase", letterSpacing:.8 }}>
                   {activeGroup?.label}
                 </span>
                 {hasSubTabs && (
@@ -17819,12 +14580,15 @@ export default function App() {
                       {TAB_META[tab]?.label}
                     </span>
                   </>
-                )}
+                )}</>}
               </div>
             </div>
 
             {/* Usuário logado + ponto rápido */}
-            <div className="app-header-actions" style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <div className="app-header-actions" style={{ display:"flex", alignItems:"center", gap:"var(--arcd-header-actions-gap,8px)" }}>
+              <ThemeMenu />
+              <HelpButton pageId={tab} allowedTabs={allowedTabs}/>
+              <div className="app-header-chat-slot" data-chat-launcher-slot/>
               <div
                 className="app-save-status"
                 data-testid="save-status"
@@ -17862,122 +14626,93 @@ export default function App() {
 
               {/* Ponto rápido */}
               {allowedTabs.includes("ponto") && (
-                <button
+                <Button variant="secondary"
                   className="app-quick-point"
                   aria-label="Abrir Ponto"
+                  aria-current={tab==="ponto"?"page":undefined}
                   onClick={() => setTab("ponto")}
-                  style={{
-                    background: tab==="ponto" ? C.yellow : C.surface,
-                    color: tab==="ponto" ? C.text : C.text,
-                    border:`1px solid ${tab==="ponto"?C.yellow:C.border}`,
-                    borderRadius:C.rMd, padding:"7px 12px",
-                    display:"inline-flex", alignItems:"center", gap:5,
-                    cursor:"pointer", fontFamily:"var(--arcd-font-sans)",
-                    fontWeight:600, textTransform:"uppercase", letterSpacing:.6, fontSize:"var(--arcd-type-control)",
-                    position:"relative",
-                    "--ic-color": C.text,
-                  }}
                 >
                   <Ic n="clock" s={13}/> <span className="app-quick-label">Ponto</span>
                   {pontoPending && tab!=="ponto" && (
                     <span style={{ position:"absolute", top:-4, right:-4, width:9, height:9, background:C.red, borderRadius:"50%", border:`2px solid ${C.bg}` }}/>
                   )}
-                </button>
+                </Button>
               )}
             </div>
           </div>
         </header>
 
         {/*  CONTEÚDO  */}
-        {/* Banner de conflito de gravação */}
-        {conflito && (
-          <div style={{
-            maxWidth:maxConteudo, margin:"0 auto",
-            padding: isDesktop ? "12px 22px 0" : "12px 14px 0",
-          }}>
-            <div style={{
-              background:`${C.orange}0E`, border:`1.5px solid ${C.orange}`,
-              borderRadius:8, padding:"12px 14px",
-            }}>
-              <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.orange,fontFamily:"var(--arcd-font-sans)"}}>
-                ! Seu salvamento foi recusado
-              </p>
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4,lineHeight:1.55}}>
-                Outra pessoa salvou alterações enquanto você trabalhava. <strong style={{color:C.text}}>
-                Nada seu foi perdido</strong> - o que você fez está guardado aqui.
-                Você pode reaplicar por cima da versão nova, ou descartar e recomeçar da versão do servidor.
-              </p>
-              <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap"}}>
-                <Btn size="sm" onClick={reaplicarSobreServidor}>
-                  <Ic n="check"/> Reaplicar minhas alterações
-                </Btn>
-                <Btn size="sm" v="ghost" onClick={descartarMinhaVersao}>
-                  Descartar e recarregar
-                </Btn>
-              </div>
-            </div>
-          </div>
-        )}
         </div>
 
-        <main className="arcd-main" style={{ maxWidth:maxConteudo, margin:"0 auto", padding: isDesktop ? "24px 24px" : 14 }}>
-          {edicaoRecusada&&<div role="alert" data-testid="save-rejected" style={{display:"flex",gap:10,alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",marginBottom:12,padding:"10px 12px",border:`1px solid ${C.red}55`,background:`${C.red}0D`,borderRadius:C.rMd,color:C.text}}>
-            <span style={{fontSize:"var(--arcd-type-label)",lineHeight:1.5}}><b>Alteração não salva e desfeita</b> às {edicaoRecusada.em.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}: {edicaoRecusada.motivo}{edicaoRecusada.secoes.length?` (${edicaoRecusada.secoes.slice(0,4).join(", ")}${edicaoRecusada.secoes.length>4?"…":""})`:""}. A tela voltou ao último estado confirmado.</span>
+        <main className="arcd-main" data-workspace={operationalWorkspace?tab:undefined} style={{ maxWidth:maxConteudo, margin:"0 auto", padding: isDesktop ? "24px 24px" : 14 }}>
+          {conflito&&<Alert variant="warning" className="mb-3"><AlertDescription>
+            <strong>Conflito de salvamento.</strong> Outra pessoa salvou alterações. Confira antes de reaplicar: sua versão pode substituir edições do mesmo registro. Mantenha esta aba aberta até resolver.
+            <div className="flex flex-wrap gap-2 mt-2"><StandardButton onClick={reaplicarSobreServidor}>Reaplicar minhas alterações</StandardButton><StandardButton variant="outline" onClick={descartarMinhaVersao}>Descartar e recarregar</StandardButton></div>
+          </AlertDescription></Alert>}
+          <SaveRecovery key={currentUser.id} memoryCount={memoryEditCount} onProtectMemory={protegerPreenchimentos} onDiscardMemory={descartarEdicaoDaMemoria} onRecovered={()=>setRecoveryRevision(v=>v+1)} normalize={normalizeData} pageId={tab} queue={saveQueueRef.current} state={estadoSalvar} user={currentUser} open={recoveryOpen} onOpen={()=>setRecoveryOpen(true)} onClose={()=>setRecoveryOpen(false)} onApply={aplicarRecuperacao} onUser={setCurrentUser} onAvailable={setRecoveryAvailable} onReady={setRecoveryReady} revision={recoveryRevision} onDiscard={descartarMinhaVersao}/>
+          {edicaoRecusada&&<Alert variant="destructive" data-testid="save-rejected" className="flex flex-wrap items-start justify-between gap-2 mb-3">
+            <AlertDescription><b>Alteração não salva e desfeita</b> às {edicaoRecusada.em.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}: {edicaoRecusada.motivo}{edicaoRecusada.secoes.length?` (${edicaoRecusada.secoes.slice(0,4).join(", ")}${edicaoRecusada.secoes.length>4?"…":""})`:""}. A tela voltou ao último estado confirmado.</AlertDescription>
             <Btn v="ghost" size="sm" onClick={()=>setEdicaoRecusada(null)}>Entendi</Btn>
-          </div>}
-          <WorkflowContext.Provider value={{navigate:navigateWorkflow,intent:workflowIntent,scopes:workflowScopes,rememberScope:rememberWorkflowScope}}>
+          </Alert>}
+          {tab!=="projetos"&&allowedTabs.includes("projetos")&&(data.engineeringProjects||[]).some(project=>(project.sessions||[]).some(session=>session.userId===currentUser.id&&!session.endedAt))&&<Suspense fallback={null}><ProjectTimerStatus projects={data.engineeringProjects} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} onOpen={()=>setTab("projetos")} /></Suspense>}
+          <WorkflowContext.Provider value={{navigate:navigateWorkflow,intent:workflowIntent,scopes:workflowScopes,rememberScope:rememberWorkflowScope,views:workflowViews.current,goBack:returnWorkflow,returnTo:workflowTrail.length?{label:`Voltar a ${workflowTrail.at(-1).obraId?(data.obras||[]).find(o=>o.id===workflowTrail.at(-1).obraId)?.name||"Obra":TAB_META[workflowTrail.at(-1).tabId]?.label||"tela anterior"}`}:null}}>
+          <PendingOperations key={currentUser.id} user={currentUser} data={data} dispatch={dispatchOperationalCommand}/>
+          <WorkflowReturn/>
 
           {tab === "home"   && (["engenheiro","engenheiro_auditor"].includes(currentUser?.role)
-            ? <DashboardEngenheiro data={data} update={update} showToast={showToast} onTab={setTab} ultimaSync={ultimaSync} currentUser={currentUser} saveState={estadoSalvar}/>
-            : <Dashboard data={data} update={update} showToast={showToast} onTab={setTab} onAbrirObra={obraId=>irPara("obras",obraId)} ultimaSync={ultimaSync} currentUser={currentUser}
+            ? <DashboardEngenheiro data={data} update={update} showToast={showToast} onTab={irPara} ultimaSync={ultimaSync} currentUser={currentUser} saveState={estadoSalvar}/>
+            : <Dashboard data={data} update={update} showToast={showToast} onTab={irPara} onAbrirObra={obraId=>irPara("obras",obraId)} ultimaSync={ultimaSync} currentUser={currentUser}
                               onBuscar={()=>setBuscaAberta(true)} onAtualizar={descartarMinhaVersao} saveState={estadoSalvar} />)}
           {tab === "tv" && <PainelTV data={data} ultimaSync={ultimaSync} onAtualizar={atualizarPainelTV} allowedTabs={allowedTabs}/>}
           {tab === "chat" && <Comunicacao data={data} currentUser={currentUser} showToast={showToast}/>}
-          {tab === "admin_central" && <Suspense fallback={<div className="arcd-page-loading">Carregando central do administrador...</div>}><CentralAdministrador data={data} update={update} showToast={showToast} currentUser={currentUser}/></Suspense>}
-          {tab === "aprov_pend" && <Suspense fallback={<div className="arcd-page-loading">Carregando aprovações...</div>}><AprovacoesPendentesView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
-          {tab.startsWith("com_") && <Suspense fallback={<div className="arcd-page-loading">Carregando comercial...</div>}><Comercial data={data} update={update} dispatchCommand={dispatchOperationalCommand} showToast={showToast} currentUser={currentUser} view={tab} onTab={setTab} /></Suspense>}
+          {tab === "admin_central" && <Suspense fallback={<LoadingState label="central do administrador"/>}><CentralAdministrador data={data} update={update} showToast={showToast} currentUser={currentUser}/></Suspense>}
+          {tab === "aprov_pend" && <Suspense fallback={<LoadingState label="aprovações"/>}><AprovacoesPendentesView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
+          {tab.startsWith("com_") && <Suspense fallback={<LoadingState label="comercial"/>}><Comercial data={data} update={update} dispatchCommand={dispatchOperationalCommand} showToast={showToast} currentUser={currentUser} view={tab} onTab={irPara} /></Suspense>}
           {tab === "obras"  && (obraAberta
             ? <ObraDetalhe data={data} obraId={obraAberta} update={update} showToast={showToast}
                            currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}
                            dispatchAttendanceCommand={dispatchAttendanceCommand}
                            onVoltar={() => setObraAberta("")}
-                           onEditarObra={()=>{sessionStorage.setItem("arcd_editar_obra",obraAberta);setObraAberta("");}}
-                           onTab={(t) => { setObraAberta(""); setTab(t); }} />
+                           onEditarObra={()=>{sessionContext.setItem("arcd_editar_obra",obraAberta);setObraAberta("");}}
+                           onTab={irPara} />
             : <Obras       data={data} update={update} showToast={showToast} dispatchCommand={dispatchOperationalCommand}
                            currentUser={currentUser} onAbrirObra={setObraAberta} />)}
-          {tab === "orc"    && <Suspense fallback={<div className="arcd-page-loading">Carregando orçamento...</div>}><Orcamento   data={data} update={update} showToast={showToast} currentUser={currentUser} /></Suspense>}
-          {tab === "plan"   && <Suspense fallback={<div className="arcd-page-loading">Carregando planejamento...</div>}><Planejamento data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
-          {tab === "plan_suprimentos" && <Suspense fallback={<div className="arcd-page-loading">Carregando suprimentos...</div>}><LazyMarcosCurvaASuprimentos data={data} update={update} showToast={showToast} currentUser={currentUser} /></Suspense>}
-          {tab === "rdo"    && <Suspense fallback={<div className="arcd-page-loading">Carregando diário de obra...</div>}><DiarioObra data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
-          {tab === "conferencia" && <Suspense fallback={<div className="arcd-page-loading">Carregando conferência...</div>}><Conferencia data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
-          {tab === "med"    && <MedicaoEvolucao data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
-          {tab === "obsoletos" && <Obsoletos    data={data} update={update} showToast={showToast} onTab={setTab} dispatchCommand={dispatchOperationalCommand} />}
-          {tab === "equipe" && <Suspense fallback={<div className="arcd-page-loading">Carregando equipe...</div>}><EquipeView data={data} update={update} showToast={showToast} dispatchCommand={dispatchOperationalCommand} currentUser={currentUser} onTab={setTab} /></Suspense>}
-          {tab === "terc"   && <Suspense fallback={<div className="arcd-page-loading">Carregando terceiros...</div>}><Terceiros data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
-          {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand} onTab={setTab}/>}
-          {tab === "equipe_obras" && <EquipeObras key={currentUser?.id} onTab={setTab} allowedTabs={allowedTabs}/>}
-          {tab === "ponto_geral" && <PontoGeral data={data} update={update} showToast={showToast} currentUser={currentUser} onTab={setTab} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand}/>}
+          {tab === "orc"    && <Suspense fallback={<LoadingState label="orçamento"/>}><Orcamento   data={data} update={update} showToast={showToast} currentUser={currentUser} /></Suspense>}
+          {tab === "projetos" && <Suspense fallback={<LoadingState label="projetos"/>}><ProjetosEngenharia data={data} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} showToast={showToast} onRefresh={async()=>{const fresh=await loadDataWithMeta();if(!fresh?.data)throw new Error("Falha ao atualizar projetos.");await update({__adotarServidorPatch:true,sections:{engineeringProjects:fresh.data.engineeringProjects||[]},updatedAt:fresh.updatedAt});}} /></Suspense>}
+          {tab === "arquivos" && <Suspense fallback={<LoadingState label="arquivos"/>}><ArquivosObra data={data} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} onRefresh={async()=>{const fresh=await loadDataWithMeta();if(!fresh?.data)throw new Error("Falha ao atualizar arquivos.");await update({__adotarServidorPatch:true,sections:{workFileCabinets:fresh.data.workFileCabinets||[]},updatedAt:fresh.updatedAt});}} /></Suspense>}
+          {tab === "plan"   && <Suspense fallback={<LoadingState label="planejamento"/>}><Planejamento data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
+          {tab === "plan_suprimentos" && <Suspense fallback={<LoadingState label="suprimentos"/>}><LazyMarcosCurvaASuprimentos data={data} update={update} showToast={showToast} currentUser={currentUser} /></Suspense>}
+          {tab === "rdo"    && <Suspense fallback={<LoadingState label="diário de obra"/>}><DiarioObra data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
+          {tab === "conferencia" && <Suspense fallback={<LoadingState label="conferência"/>}><Conferencia data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
+          {tab === "med"    && <MedicaoEvolucao data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} onAbrirPlanejamento={()=>irPara("plan")}/>}
+          {tab === "obsoletos" && <Obsoletos    data={data} update={update} showToast={showToast} onTab={irPara} dispatchCommand={dispatchOperationalCommand} />}
+          {tab === "equipe" && <Suspense fallback={<LoadingState label="equipe"/>}><EquipeView data={data} update={update} showToast={showToast} dispatchCommand={dispatchOperationalCommand} currentUser={currentUser} onTab={irPara} /></Suspense>}
+          {tab === "terc"   && <Suspense fallback={<LoadingState label="terceiros"/>}><Terceiros data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
+          {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand} onTab={irPara}/>}
+          {tab === "equipe_obras" && <EquipeObras key={currentUser?.id} onTab={irPara} allowedTabs={allowedTabs}/>}
+          {tab === "ponto_geral" && <PontoGeral data={data} update={update} showToast={showToast} currentUser={currentUser} onTab={irPara} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand}/>}
           {tab === "ponto_app" && <PontoEletronico data={data} showToast={showToast} currentUser={currentUser}/>}
-          {tab === "folha"  && <Suspense fallback={<div className="arcd-page-loading">Carregando folha...</div>}><Folha       data={data} showToast={showToast} onTab={setTab} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
-          {tab === "resc"   && <Suspense fallback={<div className="arcd-page-loading">Carregando rescisão...</div>}><RescisaoView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
-          {tab === "rh_indic" && <Suspense fallback={<div className="arcd-page-loading">Carregando indicadores...</div>}><IndicadoresView data={data} /></Suspense>}
+          {tab === "folha"  && <Suspense fallback={<LoadingState label="folha"/>}><Folha       data={data} showToast={showToast} onTab={irPara} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
+          {tab === "resc"   && <Suspense fallback={<LoadingState label="rescisão"/>}><RescisaoView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
+          {tab === "rh_indic" && <Suspense fallback={<LoadingState label="indicadores"/>}><IndicadoresView data={data} /></Suspense>}
           {tab === "dre_emp"  && <DREEmpresa onOpenWork={allowedTabs.includes("obras")?obraId=>irPara("obras",obraId):undefined} data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "dre"      && <DRE          data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
-          {tab === "fin"      && <Financeiro   data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
-          {tab === "conc"     && <Suspense fallback={<div className="arcd-page-loading">Carregando conciliação...</div>}><Conciliacao  data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
-          {tab === "est"      && <Suspense fallback={<div className="arcd-page-loading">Carregando estoque...</div>}><Estoque data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
-          {tab === "equip"    && <Suspense fallback={<div className="arcd-page-loading">Carregando equipamentos...</div>}><Equipamentos data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
-          {tab === "equip_fin"&& <Suspense fallback={<div className="arcd-page-loading">Carregando equipamentos...</div>}><Equipamentos data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} contexto="financeiro"/></Suspense>}
-          {tab === "patrimonio"&& <Suspense fallback={<div className="arcd-page-loading">Carregando patrimônio...</div>}><PatrimonioEmpresa data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
-          {tab === "licenca"  && <Suspense fallback={<div className="arcd-page-loading">Carregando licenciamento...</div>}><Licenciamento data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
-          {tab === "cmp"      && <Suspense fallback={<div className="arcd-page-loading">Carregando compras...</div>}><Compras      data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
+          {tab === "fin"      && <Financeiro onOpenWork={allowedTabs.includes("obras")?obraId=>irPara("obras",obraId):undefined} data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
+          {tab === "conc"     && <Suspense fallback={<LoadingState label="conciliação"/>}><Conciliacao  data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
+          {tab === "est"      && <Suspense fallback={<LoadingState label="estoque"/>}><Estoque data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
+          {tab === "equip"    && <Suspense fallback={<LoadingState label="equipamentos"/>}><Equipamentos data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
+          {tab === "equip_fin"&& <Suspense fallback={<LoadingState label="equipamentos"/>}><Equipamentos data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} contexto="financeiro"/></Suspense>}
+          {tab === "patrimonio"&& <Suspense fallback={<LoadingState label="patrimônio"/>}><PatrimonioEmpresa data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
+          {tab === "licenca"  && <Suspense fallback={<LoadingState label="licenciamento"/>}><Licenciamento data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
+          {tab === "cmp"      && <Suspense fallback={<LoadingState label="compras"/>}><Compras      data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
           {tab === "fornecedores" && <RankingFornecedores data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
-          {tab === "suprimentos" && <CotacoesMaterial data={data} update={update} showToast={showToast} onTab={(t)=>{setObraAberta("");setTab(t);}}/>}
-          {tab === "cad"      && <Cadastros    data={data} update={update} showToast={showToast} onTab={setTab} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
-          {tab === "medicoes" && <Suspense fallback={<div className="arcd-page-loading">Carregando medições...</div>}><MedicoesView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
+          {tab === "suprimentos" && <CotacoesMaterial data={data} update={update} showToast={showToast} onTab={irPara}/>}
+          {tab === "cad"      && <Cadastros    data={data} update={update} showToast={showToast} onTab={irPara} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
+          {tab === "medicoes" && <Suspense fallback={<LoadingState label="medições"/>}><MedicoesView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "caixa"    && <CaixaObra    data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "relat"    && <Relatorios   data={data} showToast={showToast} currentUser={currentUser} />}
-          {tab === "ia"     && <AgenteIA    data={data} showToast={showToast} onTab={setTab} />}
+          {tab === "ia"     && <AgenteIA    data={data} showToast={showToast} onTab={irPara} />}
           {tab === "ia_config" && <ConfiguracaoIA showToast={showToast}/>}
           {tab === "config" && <Config      data={data} update={update} showToast={showToast} currentUser={currentUser} onLogout={sairDoSistema} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand} />}
           {["dre","dre_emp","conc"].includes(tab)&&<DreReconciliationManager data={data} update={update} currentUser={currentUser}/>}
@@ -17995,7 +14730,7 @@ export default function App() {
           <div style={{ maxWidth:maxConteudo, margin:"0 auto" }}>
 
             {/* Sub-tabs (só aparece quando grupo tem >1 aba) */}
-            {hasSubTabs && (
+            {hasSubTabs&&!operationalWorkspace && (
               <div className="mobile-subnav" style={{
                 display:"flex", gap:5, overflowX:"auto", padding:"8px 12px 6px",
                 borderBottom:`1px solid ${C.line}55`,
@@ -18005,7 +14740,7 @@ export default function App() {
                   const meta = TAB_META[tabId];
                   const isActive = tab === tabId;
                   return (
-                    <button key={tabId} data-active={isActive} onClick={() => setTab(tabId)} style={{
+                    <button key={tabId} data-active={isActive} onClick={() => irPara(tabId)} style={{
                       flexShrink:0,
                       background: isActive ? `${activeGroup.color}22` : "transparent",
                       color: isActive ? activeGroup.color : C.muted,
@@ -18050,6 +14785,7 @@ export default function App() {
                 visível e o restante abre em um painel acessível. */}
             <Suspense fallback={<div className="mobile-primary-nav-loading" aria-hidden="true"/>}>
               <LazyLegacyMobileNavigation
+                userLabel={currentUser.nome} onSignOut={sairDoSistema}
                 groups={visibleGroups}
                 activeGroupId={activeGroup?.id}
                 badges={groupBadge}
@@ -18068,6 +14804,6 @@ export default function App() {
       {currentUser && tab!=="tv" && (
         <ChatFlutuante currentUser={currentUser} usuarios={data?.usuarios||[]} showToast={showToast} bottomOffset={isDesktop||tab==="conferencia"?20:`calc(${navHeight+12}px + env(safe-area-inset-bottom))`}/>
       )}
-    </>
+    </SaveRecoveryContext.Provider>
   );
 }

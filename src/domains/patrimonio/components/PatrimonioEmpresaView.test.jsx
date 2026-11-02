@@ -22,14 +22,16 @@ beforeEach(async () => {
 afterEach(() => { act(() => root.unmount()); container.remove(); });
 
 it("cada bem tem uma ação direta e as demais num menu", async () => {
-  expect(porRotulo("Editar")).toBeTruthy();
+  expect(porRotulo("Abrir cadastro de Serra mármore 110mm")).toBeTruthy();
+  expect(porRotulo("Editar")).toBeUndefined();
+  expect(porRotulo("Mover")).toBeTruthy();
   expect(porRotulo("Histórico")).toBeUndefined();
   const gatilho = porRotulo("Mais ações de Serra mármore 110mm");
   expect(gatilho.getAttribute("aria-expanded")).toBe("false");
   await act(async () => gatilho.click());
   expect(gatilho.getAttribute("aria-expanded")).toBe("true");
   const itens = [...container.querySelectorAll("[role=menuitem]")].map(i => i.textContent);
-  expect(itens).toEqual(["Histórico", "Mover…", "Alterar status…"]);
+  expect(itens).toEqual(["Histórico", "Alterar status…"]);
   expect(document.activeElement.textContent).toBe("Histórico");
 });
 

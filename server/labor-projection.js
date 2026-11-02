@@ -77,11 +77,10 @@ export const validateLaborProjectionFilters = (input = {}, access, data = {}) =>
   if (access.allowedWorkIds !== null) {
     const allowed = new Set((access.allowedWorkIds || []).map(String));
     if ((result.obraId && !allowed.has(result.obraId))
-      || ["administrative", "unassigned"].includes(result.area)) {
+      || result.area === "unassigned") {
       throw failure(403, "LABOR_PROJECTION_SCOPE_FORBIDDEN", "O filtro solicitado está fora do seu escopo de obra.");
     }
     if (!result.obraId && allowed.size === 1) result.obraId = [...allowed][0];
-    result.area = "works";
   }
   if (result.obraId && !(data.obras || []).some(work => String(work.id) === result.obraId)) {
     throw failure(400, "LABOR_PROJECTION_FILTER_INVALID", "Obra inválida para a projeção.");
@@ -380,7 +379,6 @@ const TOTAL_FIELDS = ["employeeCount", "actualCost", "confirmedFutureCost", "est
 const MONEY_FIELDS = ["actualCost", "confirmedFutureCost", "estimatedCost", "pendingCost", "projectedCost", "fullAttendanceReserve"];
 const HISTORY_FIELDS = ["startDate", "endDate", "expectedDays", "eligibleDays", "observedDays", "missingDays", "excludedDays", "holidayDays", "nonWorkingDays", "absenceDays", "halfDays", "presentDays", "coverage", "representedIntervals", "limitedClassification", "trackingStart"];
 const isAllowedPart = (part, access) => {
-  if (["administrative", "unassigned"].includes(part.kind)) return access.includeAdministrative;
   const workId = String(part.obraId || "");
   if (!workId) return access.includeAdministrative;
   return access.allowedWorkIds === null || (access.allowedWorkIds || []).map(String).includes(workId);

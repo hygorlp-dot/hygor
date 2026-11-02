@@ -1,0 +1,165 @@
+{
+  "version": 1,
+  "limits": {
+    "src/ErrorBoundary.jsx": {
+      "literal-color": 18,
+      "literal-spacing": 11,
+      "literal-typography": 6,
+      "native-control": 2
+    },
+    "src/LegacyApp.jsx": {
+      "literal-spacing": 780,
+      "literal-typography": 344,
+      "native-control": 77,
+      "literal-color": 79
+    },
+    "src/client-portal/app/ClientPortalApp.jsx": {
+      "native-control": 1
+    },
+    "src/client-portal/app/ClientPortalBottomNav.jsx": {
+      "native-control": 1
+    },
+    "src/client-portal/app/ClientPortalHeader.jsx": {
+      "native-control": 1
+    },
+    "src/client-portal/app/ClientPortalMoreMenu.jsx": {
+      "native-control": 2
+    },
+    "src/client-portal/auth/ClientPortalLogin.jsx": {
+      "native-control": 3
+    },
+    "src/client-portal/pages/ClientTransparencyPage.jsx": {
+      "native-control": 1
+    },
+    "src/components/charts/CubChart.jsx": {
+      "literal-spacing": 8,
+      "literal-color": 3,
+      "literal-typography": 7,
+      "native-control": 1
+    },
+    "src/components/charts/RelatoriosChartPanel.jsx": {
+      "literal-spacing": 3,
+      "native-control": 1,
+      "literal-typography": 1
+    },
+    "src/domains/administracao/LegacySettings.jsx": {
+      "literal-spacing": 97,
+      "literal-typography": 17,
+      "literal-color": 2,
+      "native-control": 5
+    },
+    "src/domains/administracao/components/BasesPrecoAdmin.jsx": {
+      "literal-spacing": 35,
+      "literal-typography": 9,
+      "native-control": 1,
+      "literal-color": 1
+    },
+    "src/domains/administracao/components/CentralAdministradorView.jsx": {
+      "literal-spacing": 22,
+      "literal-typography": 6
+    },
+    "src/domains/administracao/components/FechamentoFinanceiroAdmin.jsx": {
+      "literal-spacing": 19,
+      "literal-typography": 7
+    },
+    "src/domains/administracao/components/FinanceiroCanonicoAdmin.jsx": {
+      "literal-spacing": 27,
+      "literal-typography": 10
+    },
+    "src/domains/administracao/components/NucleoRelacionalAdmin.jsx": {
+      "literal-spacing": 17,
+      "literal-typography": 7,
+      "native-control": 1
+    },
+    "src/domains/aprovacoes/components/AprovacoesPendentesView.jsx": {
+      "literal-spacing": 7,
+      "literal-typography": 1
+    },
+    "src/domains/comercial/RealEstateCommercial.jsx": {
+      "native-control": 26,
+      "literal-typography": 1
+    },
+    "src/domains/comercial/components/ComercialView.jsx": {
+      "literal-spacing": 193,
+      "literal-typography": 60,
+      "native-control": 19
+    },
+    "src/domains/dashboard/components/GestaoAVistaObras.jsx": {
+      "native-control": 2
+    },
+    "src/domains/equipamentos/BillingOwnershipAnalysis.jsx": {
+      "native-control": 2
+    },
+    "src/domains/equipamentos/EquipmentBillingReports.jsx": {
+      "native-control": 12
+    },
+    "src/domains/equipamentos/components/EquipamentosView.jsx": {
+      "literal-spacing": 175,
+      "literal-typography": 63,
+      "native-control": 7
+    },
+    "src/domains/equipamentos/components/RentalOperationsPanel.jsx": {
+      "native-control": 5
+    },
+    "src/domains/equipamentos/components/RentalRowMenu.jsx": {
+      "native-control": 3
+    },
+    "src/domains/estoque/LegacyEditors.jsx": {
+      "literal-spacing": 8,
+      "literal-typography": 1,
+      "native-control": 1
+    },
+    "src/domains/estoque/components/EstoqueView.jsx": {
+      "literal-spacing": 49,
+      "literal-typography": 24,
+      "native-control": 2
+    },
+    "src/domains/medicoes/components/MedicoesView.jsx": {
+      "literal-spacing": 81,
+      "literal-typography": 54,
+      "native-control": 5,
+      "literal-color": 2
+    },
+    "src/domains/medicoes/components/ProgressPercentageField.jsx": {
+      "native-control": 2
+    },
+    "src/domains/patrimonio/components/PatrimonioEmpresaView.jsx": {
+      "literal-spacing": 30,
+      "native-control": 7
+    },
+    "src/domains/suppliers/SupplierCategoriesField.jsx": {
+      "literal-spacing": 2
+    },
+    "src/domains/suprimentos/components/MarcosCurvaASuprimentos.jsx": {
+      "literal-spacing": 57,
+      "literal-typography": 6
+    },
+    "src/features/conciliacao/ConciliacaoView.jsx": {
+      "native-control": 18,
+      "literal-spacing": 211,
+      "literal-typography": 83,
+      "literal-color": 1
+    },
+    "src/features/conciliacao/ReconciliationReview.jsx": {
+      "native-control": 1
+    },
+    "src/features/conciliacao/ReviewSearchFilters.jsx": {
+      "native-control": 3
+    },
+    "src/features/pilot/OperationalPilot.jsx": {
+      "native-control": 1
+    },
+    "src/mobile/LegacyMobileNavigation.jsx": {
+      "native-control": 2
+    },
+    "src/mobile/MobileMoreMenu.jsx": {
+      "native-control": 1
+    },
+    "src/supplier-acceptance/SupplierAcceptancePage.jsx": {
+      "literal-spacing": 23,
+      "literal-typography": 8,
+      "literal-color": 3,
+      "native-control": 4
+    }
+  }
+}

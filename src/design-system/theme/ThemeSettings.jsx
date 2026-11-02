@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { Button } from "../primitives/Button.jsx";
 import { Select } from "../primitives/Select.jsx";
 import { DEFAULT_THEME, themeRegistry } from "../themes/themeRegistry.js";
@@ -10,15 +11,17 @@ const densityLabels = Object.freeze({ compact: "Compacta", comfortable: "Confort
 // aparência e densidade não alteram dados, permissões ou regras de negócio.
 export function ThemeSettings() {
   const { theme, density, setTheme, setDensity } = useTheme();
+  const titleId = useId();
   const availableThemes = Object.values(themeRegistry).filter(item => item.enabled);
   const restoreDefaults = () => { setTheme(DEFAULT_THEME); setDensity(DEFAULT_DENSITY); };
-  return <section className="arcd-form-section" aria-labelledby="theme-settings-title">
-    <h2 id="theme-settings-title" className="arcd-form-section__title">Aparência operacional</h2>
-    <p className="arcd-form-section__description">Tema e densidade alteram apenas a aparência e o tamanho dos controles. Dados e permissões não são modificados.</p>
+  return <section className="arcd-form-section" aria-labelledby={titleId}>
+    <h2 id={titleId} className="arcd-form-section__title">Aparência</h2>
+    <p className="arcd-form-section__description">Escolha o tema e o espaço entre os controles. Sua preferência fica salva neste navegador.</p>
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 13rem), 1fr))", gap: "var(--arcd-layout-gap)" }}>
       <Select label="Tema" value={theme} onChange={event => setTheme(event.target.value)} options={availableThemes.map(item => ({ value: item.id, label: item.label }))} />
       <Select label="Densidade" value={density} onChange={event => setDensity(event.target.value)} options={densityOptions.map(value => ({ value, label: densityLabels[value] }))} />
     </div>
+    <p className="theme-settings-description" role="status">{themeRegistry[theme].description}</p>
     <div className="arcd-page-header__actions" style={{ marginTop: "var(--arcd-space-5)" }}>
       <Button variant="secondary" onClick={restoreDefaults}>Restaurar padrão</Button>
     </div>

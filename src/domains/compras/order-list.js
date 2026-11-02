@@ -7,7 +7,7 @@ import { statusPedido } from "./calculations";
 export const FILTROS_PEDIDOS_VAZIOS = Object.freeze({ status: "todos", fornecedorId: "", obraId: "", atrasados: false, ids: null, origem: "" });
 
 export const OPCOES_STATUS_PEDIDO = Object.freeze([
-  { value: "todos", label: "Todos os status" },
+  { value: "todos", label: "Todas as situações" },
   { value: "a_receber", label: "A receber (enviado ou parcial)" },
   { value: "rascunho", label: "Rascunho" },
   { value: "enviado", label: "Enviado" },
@@ -50,7 +50,7 @@ export function contarPedidosPorStatus(pedidos) {
 //   rascunho  → revisar (ainda não foi para o fornecedor)
 //   enviado / parcial → receber material
 //   recebido / cancelado → nenhuma
-export function acoesDoPedido({ pedido, podeEnviar = false, podeExcluir = false, atrasado = false, temTelefone = false, liberadoParaReceber = true }) {
+export function acoesDoPedido({ pedido, podeEnviar = false, podeExcluir = false, atrasado = false, temTelefone = false, temSaldoEmAberto = false }) {
   const status = statusPedido(pedido);
   const encerrado = status === "cancelado" || status === "recebido";
   const emEntrega = aguardandoEntrega(status);
@@ -61,10 +61,11 @@ export function acoesDoPedido({ pedido, podeEnviar = false, podeExcluir = false,
     : null;
 
   const comuns = [];
+  if(status==='rascunho')comuns.push({id:'receber',label:'Receber material com pedido em rascunho'});
   if (emEntrega) comuns.push({ id: "editar", label: "Editar pedido" });
   if (emEntrega && podeEnviar) comuns.push({ id: "enviar", label: jaEnviado ? "Reenviar ao fornecedor" : "Enviar ao fornecedor" });
   if (emEntrega && podeEnviar && !pedido.aceiteFornecedor?.nome) comuns.push({ id: "aceite", label: "Registrar aceite" });
-  if (emEntrega && !liberadoParaReceber) comuns.push({ id: "saldo", label: "Ver saldo em aberto" });
+  if (emEntrega && temSaldoEmAberto) comuns.push({ id: "saldo", label: "Ver saldo em aberto" });
   if (atrasado && temTelefone && !encerrado) comuns.push({ id: "cobrar", label: "Cobrar entrega" });
   if (!encerrado && temTelefone) comuns.push({ id: "whatsapp", label: "Conversar no WhatsApp" });
 

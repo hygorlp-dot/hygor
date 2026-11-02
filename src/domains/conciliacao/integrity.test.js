@@ -22,20 +22,20 @@ describe("integridade de pagamento e vínculo bancário",()=>{
     const data=fixture();data.pedidos[0].status=status;
     expect(pay(data).resumo.ok).toBe(false);expect(pay(data).data).toBe(data);
   });
-  test("não paga acima do saldo nem libera adiantamento sem justificativa",()=>{
+  test("preserva o limite do saldo e avisa adiantamento sem justificativa",()=>{
     const data=fixture();data.transacoes[0].valor=-150;
     expect(pay(data).resumo.motivo).toMatch(/saldo/);
     data.transacoes[0].valor=-100;
-    expect(pay(data).resumo.motivo).toMatch(/adiantamento/);
-    expect(pay(data,"pedido",{adiantamento:true,motivoAdiantamento:"Sinal contratado",operador:{id:"x",role:"compras"}}).resumo.ok).toBe(false);
+    expect(pay(data).data.pedidos[0].pagamentos[0].workflowWarnings[0].code).toBe('PAYMENT_AHEAD_OF_CONFERENCE');
+    expect(pay(data,"pedido",{adiantamento:true,motivoAdiantamento:"Sinal contratado",operador:{id:"x",role:"compras"}}).resumo.ok).toBe(true);
     const result=pay(data,"pedido",{adiantamento:true,motivoAdiantamento:"Sinal contratado"});
     expect(result.resumo.ok).toBe(true);
     expect(result.data.pedidos[0].pagamentos[0]).toMatchObject({valor:100,tipo:"adiantamento",motivoAdiantamento:"Sinal contratado"});
     expect(buildLegacyFinancialFacts(result.data).facts.find(item=>item.legacyId==="order").recognizedAmount).toBe(0);
   });
-  test("exige aprovação da nota e respeita pagamentos anteriores",()=>{
+  test("mantém conferência da nota pendente e respeita pagamentos anteriores",()=>{
     const data=fixture();data.notasFiscais[0].status="recebida";
-    expect(pay(data,"nota").resumo.ok).toBe(false);
+    const pending=pay(data,'nota');expect(pending.resumo.ok).toBe(true);expect(pending.data.notasFiscais[0].conferenciaFiscalPendente).toBe(true);
     data.notasFiscais[0].status="aprovada";data.notasFiscais[0].pagamentos=[{id:"old",valor:10}];
     expect(pay(data,"nota").resumo.motivo).toMatch(/saldo/);
   });

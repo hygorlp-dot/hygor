@@ -302,3 +302,15 @@ describe("ações da solicitação por comando (antes eram update() direto)",()=
     expect(result.data.solicitacoesCompra[0].status).toBe("em_analise");
   });
 });
+
+it('conserva texto e referência do print no comando sem criar pedido nem pagamento',()=>{
+ const initial={...base(),pedidos:[],payments:[],notasFiscais:[]};
+ const cmd=command();cmd.payload.request.origemMensagem={texto:'20 kg de aço',imagem:{nome:'print.png',url:'https://example.test/print.png',itemId:'drive-print'}};
+ const result=applyOperationalCommand(initial,cmd);
+ expect(result.ok).toBe(true);
+ const saved=result.data.solicitacoesCompra.find(s=>s.id==='sol-2');
+ expect(saved.origemMensagem).toEqual(cmd.payload.request.origemMensagem);
+ expect(result.data.pedidos).toEqual([]);expect(result.data.payments).toEqual([]);expect(result.data.notasFiscais).toEqual([]);
+ expect(result.data.instanciasAprovacao[0].status).not.toBe('aprovada');
+ const again=applyOperationalCommand(result.data,cmd);expect(again.idempotent).toBe(true);expect(again.data.solicitacoesCompra).toHaveLength(2);
+});

@@ -30,16 +30,16 @@ describe("comandos do caixa de obra",()=>{
     ))).toBe("o-1");
   });
 
-  it("bloqueia caixa desativado, saldo negativo e cancelamento conciliado",()=>{
+  it("avisa caixa desativado e saldo negativo, preservando proteção de cancelamento conciliado",()=>{
     const disabled=base();disabled.obras[0].hasCaixa=false;
     expect(applyWorkCashCommand(disabled,command(
       WORK_CASH_COMMAND.WORK_CASH_MOVEMENT_CREATED,
       {movement:{id:"m-1",obraId:"o-1",data:"2026-07-28",tipo:"aporte",valor:100}},
-    ),now).reason).toMatch(/não está ativado/);
+    ),now).warnings[0].code).toBe('WORK_CASH_NOT_CONFIGURED');
     expect(applyWorkCashCommand(base(),command(
       WORK_CASH_COMMAND.WORK_CASH_MOVEMENT_CREATED,
       {movement:{id:"m-1",obraId:"o-1",data:"2026-07-28",tipo:"despesa",valor:100}},
-    ),now).reason).toMatch(/saldo suficiente/);
+    ),now).warnings[0].code).toBe('WORK_CASH_NEGATIVE');
     const linked={...base(),caixaObra:[{
       id:"m-1",obraId:"o-1",data:"2026-07-28",tipo:"aporte",valor:100,
       status:"ativo",version:1,transacaoId:"tx-1",

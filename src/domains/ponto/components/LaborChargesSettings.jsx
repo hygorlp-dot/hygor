@@ -2,7 +2,8 @@
 // (financeiro/labor-charges.js). Gravado em config.laborCharges pelo comando
 // de configuração da empresa, que só o administrador executa.
 import { useEffect, useState } from "react";
-import { Btn, Ic, Inp, Sel, uid } from "../../../LegacyApp";
+import { Btn, Ic, Inp, Sel } from "../../../legacy/ui.jsx";
+import { uid } from "../../../legacy/format.js";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { cltChargeFactor, laborChargesConfig } from "../../financeiro/labor-charges";
 

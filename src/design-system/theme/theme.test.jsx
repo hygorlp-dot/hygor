@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
 import { ThemeProvider, useTheme } from "./ThemeProvider.jsx";
 import { ThemeSettings } from "./ThemeSettings.jsx";
-import { DEFAULT_THEME } from "../themes/themeRegistry.js";
+import { DEFAULT_THEME, themeRegistry, enabledThemeIds } from "../themes/themeRegistry.js";
 import { THEME_STORAGE_KEYS } from "./themeStorage.js";
 import { DEFAULT_DENSITY, isValidThemeColor, normalizeDensity, normalizeTheme, validateThemeTokens } from "./themeValidation.js";
 import { readFileSync } from "node:fs";
@@ -36,7 +36,7 @@ describe("ARCD Theme Engine", () => {
     expect(container.querySelector('[data-testid="theme"]').textContent).toBe(DEFAULT_THEME);
     expect(container.querySelector('[data-testid="density"]').textContent).toBe(DEFAULT_DENSITY);
     expect(document.documentElement.dataset.theme).toBe(DEFAULT_THEME);
-    expect(document.documentElement.dataset.density).toBe("comfortable");
+    expect(document.documentElement.dataset.density).toBe(DEFAULT_DENSITY);
     expect(localStorage.getItem(THEME_STORAGE_KEYS.theme)).toBe(DEFAULT_THEME);
   });
 
@@ -61,9 +61,10 @@ describe("ARCD Theme Engine", () => {
   it("permite ajustar densidade e restaurar o padrão no seletor", () => {
     const container = render(<ThemeProvider><ThemeSettings /></ThemeProvider>);
     const selects = container.querySelectorAll("select");
-    expect([...selects[0].options].map(option => option.value)).toEqual(["marcell"]);
+    expect([...selects[0].options].map(option => option.value)).toEqual(enabledThemeIds);
     act(() => { selects[0].value = "marcell"; selects[0].dispatchEvent(new Event("change", { bubbles: true })); });
-    expect(document.documentElement.dataset.theme).toBe(DEFAULT_THEME);
+    expect(document.documentElement.dataset.theme).toBe("marcell");
+    expect(document.documentElement.style.getPropertyValue("--arcd-nav-surface")).toBe(themeRegistry.marcell.tokens["--arcd-nav-surface"]);
     act(() => { selects[1].value = "spacious"; selects[1].dispatchEvent(new Event("change", { bubbles: true })); });
     expect(document.documentElement.dataset.density).toBe("spacious");
     act(() => [...container.querySelectorAll("button")].find(button => button.textContent === "Restaurar padrão").click());
@@ -71,12 +72,23 @@ describe("ARCD Theme Engine", () => {
     expect(document.documentElement.dataset.density).toBe(DEFAULT_DENSITY);
   });
 
+  it.each(enabledThemeIds)("reaplica o tema %s salvo sem alterar outras preferências", theme => {
+    localStorage.setItem(THEME_STORAGE_KEYS.theme,theme);
+    localStorage.setItem("financial-scope","obra-a");
+    const container=render(<ThemeProvider><ThemeSettings /></ThemeProvider>);
+    expect(document.documentElement.dataset.theme).toBe(theme);
+    expect(validateThemeTokens(token=>document.documentElement.style.getPropertyValue(token)).valid).toBe(true);
+    expect(container.querySelector('[role="status"]').textContent).toBe(themeRegistry[theme].description);
+    expect(localStorage.getItem("financial-scope")).toBe("obra-a");
+  });
+
   it("mantém TabRow e PageHero legados conectados a classes semânticas", () => {
     const source = readFileSync(resolve(process.cwd(), "src/LegacyApp.jsx"), "utf8");
-    const pageHero = source.slice(source.indexOf("function PageHero"), source.indexOf("function TabRow"));
-    const tabRow = source.slice(source.indexOf("function TabRow"), source.indexOf("function ReportMetric"));
+    const shared = readFileSync(resolve(process.cwd(), "src/legacy/ui.jsx"), "utf8");
+    const pageHero = shared.slice(shared.indexOf("function PageHero"), shared.indexOf("function TabRow"));
+    const tabRow = shared.slice(shared.indexOf("function TabRow"), shared.indexOf("function Divider"));
     const kpiCard = source.slice(source.indexOf("function KpiCard"), source.indexOf("function DashboardTechHero"));
-    expect(pageHero).toContain('className="page-hero"');
+    expect(pageHero).toMatch(/className="[^"]*\bpage-hero\b[^"]*"/);
     expect(pageHero).not.toContain("style={{");
     expect(tabRow).toContain('className="tab-row"');
     expect(tabRow).toContain('aria-pressed={isActive}');

@@ -1,0 +1,25 @@
+import {act} from 'react';
+import {createRoot} from 'react-dom/client';
+import {afterEach,it,expect,vi} from 'vitest';
+import {ModalRecebimento} from './ReceiptModal.jsx';
+vi.mock('../../../hooks/useBreakpoint.js',()=>({useBreakpoint:()=>({isDesktop:true})}));
+let root,container;
+afterEach(()=>{act(()=>root?.unmount());container?.remove();root=null;});
+const pedido={id:'order',numero:'PC-001',fornecedorId:'supplier',itens:[{id:'line',materialId:'cement',qtd:10,qtdRecebida:2,precoUnit:20,unidadeCompra:'SC',unidadeRef:'KG',fatorConversao:50}],pagamentos:[]};
+const button=()=>[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Dar entrada no estoque'));
+it.each(['recusa','falha'])('bloqueia dois cliques no mesmo evento e permite tentar após %s',async failure=>{
+ let settle;
+ const onReceber=vi.fn(()=>new Promise((resolve,reject)=>{settle=failure==='recusa'?()=>resolve({ok:false,reason:'Recebimento recusado para revisão.'}):()=>reject(Error('offline'));}));
+ container=document.createElement('div');document.body.append(container);root=createRoot(container);
+ act(()=>root.render(<ModalRecebimento pedido={pedido} onClose={()=>{}} onReceber={onReceber} nomeMat={()=>'Cimento'} nomeForn={()=>'Fornecedor'}/>));
+ const submit=button();
+ act(()=>{submit.click();submit.click();});
+ expect(onReceber).toHaveBeenCalledTimes(1);
+ expect(onReceber).toHaveBeenCalledWith(pedido,{line:'8'});
+ expect(submit.disabled).toBe(true);
+ await act(async()=>settle());
+ expect(document.querySelector('[role="alert"]').textContent).toBeTruthy();
+ expect(submit.disabled).toBe(false);
+ act(()=>button().click());expect(onReceber).toHaveBeenCalledTimes(2);
+ await act(async()=>settle());
+});

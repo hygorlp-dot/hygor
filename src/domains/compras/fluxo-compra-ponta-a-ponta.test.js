@@ -170,10 +170,10 @@ describe("fluxo de uma compra de obra: pagamento, caixa e origem", () => {
     targetType: "pedido", targetId: "p-1", ...payload,
   }, data.pedidos[0].version, role);
 
-  it("pagamento acima da tolerância sem recebimento nem nota exige adiantamento", () => {
+  it("pagamento acima da tolerância sem recebimento nem nota gera aviso de adiantamento", () => {
     const data = withOrder();
     const payment = { id: "pg-1", data: "2026-10-10", valor: 1000, origem: "empresa", comprovantes: [] };
-    expect(pay(data, { payment }).ok).toBe(false);
+    expect(pay(data, { payment }).data.pedidos[0].pagamentos[0].workflowWarnings[0].code).toBe('PAYMENT_AHEAD_OF_CONFERENCE');
     expect(pay(data, { payment, adiantamento: true, motivoAdiantamento: "Sinal" }).ok).toBe(true);
   });
 

@@ -43,6 +43,6 @@ describe("resumo do dia com funcionário global", () => {
   it("quem é lotado em outra obra e bateu aqui aparece com o NOME, marcado como de outra obra", () => {
     const m = { tipoRegistro: "ponto", employeeId: "e9", marcadoEm: "2026-10-01T10:00:00Z", horaConfiavel: true };
     const r = resumoDoDia([m], [{ id: "e1", nome: "Ana" }], [{ id: "e9", nome: "João Armador", funcao: "Armador" }]);
-    expect(r.find(l => l.employeeId === "e9")).toMatchObject({ nome: "João Armador", funcao: "Armador", foraDaObra: true, situacao: "em_jornada" });
+    expect(r.find(l => l.employeeId === "e9")).toMatchObject({ nome: "João Armador", funcao: "Armador", foraDaObra: true, situacao: "conferir" });
   });
 });

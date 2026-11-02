@@ -1,5 +1,6 @@
 import { calculateWorkCash } from "./work-cash.js";
 import { active } from "./ledger.js";
+import {operationalWarning} from '../compras/workflow-advisories.js';
 
 export const WORK_CASH_COMMAND=Object.freeze({
   WORK_CASH_MOVEMENT_CREATED:"MOVIMENTO_CAIXA_OBRA_CRIADO",
@@ -30,7 +31,6 @@ export const applyWorkCashCommand=(data={},command={},now=new Date().toISOString
     const project=(data.obras||[]).find(item=>String(item.id)===obraId);
     if(!id)return fail("Movimento do caixa sem identificação.");
     if(!project)return fail("A obra do movimento não existe.");
-    if(!project.hasCaixa)return fail("O caixa desta obra não está ativado.");
     if(movementById(data,id))return fail("Já existe um movimento com esta identificação.");
     const tipo=String(raw.tipo||"");
     if(!["aporte","despesa"].includes(tipo))return fail("Tipo de movimento do caixa inválido.");
@@ -38,12 +38,13 @@ export const applyWorkCashCommand=(data={},command={},now=new Date().toISOString
     if(!(valor>0)||!Number.isFinite(valor))return fail("Informe um valor positivo para o movimento.");
     const date=String(raw.data||"");
     if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return fail("Informe uma data válida para o movimento.");
-    if(tipo==="despesa"&&valor>calculateWorkCash(data,obraId).saldo+0.001){
-      return fail("O caixa da obra não possui saldo suficiente para esta despesa.");
-    }
+    const warnings=[];
+    if(!project.hasCaixa)warnings.push(operationalWarning('WORK_CASH_NOT_CONFIGURED','pagamento','Administrador / Financeiro','Movimento registrado com caixa da obra ainda não ativado.','Confira a configuração do caixa e os movimentos já existentes; não repita o lançamento.'));
+    if(tipo==='despesa'&&valor>calculateWorkCash(data,obraId).saldo+0.001)warnings.push(operationalWarning('WORK_CASH_NEGATIVE','pagamento','Financeiro','O saldo do caixa fica negativo com este registro.','Confira os aportes e a origem real do pagamento. Registre somente os fatos que ocorreram.'));
     const userName=actor.nome||"Usuário autenticado";
     const movement={
       ...raw,id,obraId,data:date,tipo,valor,
+      workflowWarnings:warnings,
       categoria:String(raw.categoria||(tipo==="aporte"?"aporte":"outros")),
       descricao:String(raw.descricao||"").trim(),
       conciliado:false,transacaoId:"",
@@ -55,7 +56,7 @@ export const applyWorkCashCommand=(data={},command={},now=new Date().toISOString
     };
     return {
       ok:true,data:{...data,caixaObra:[...(data.caixaObra||[]),movement]},
-      entityId:id,
+      entityId:id,warnings,
     };
   }
 

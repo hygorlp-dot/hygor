@@ -27,3 +27,26 @@ playwright-report/
 vercel.release-equipe.json
 # PDFs e imagens locais de conferência visual
 /output/pdf/
+
+# Dados, capturas e relatórios exclusivamente locais.
+/artifacts/
+/analises/
+/.impeccable/
+
+# Revisões e ambientes sintéticos ficam somente no computador.
+artifacts/
+analises/
+.impeccable/
+e2e/
+**/*.test.js
+**/*.test.jsx
+**/*.test.mjs
+scripts/fixtures/
+scripts/*preview*.mjs
+scripts/operator-pilot*.mjs
+scripts/lib/operator-pilot.mjs
+public/exemplos-projetos/
+release-preservation.json
+
+# Comparações visuais são exclusivas do ambiente local.
+prototypes/

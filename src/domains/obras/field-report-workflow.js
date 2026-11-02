@@ -1,10 +1,11 @@
-const FIELD_REPORT_CLIMATE_PERIODS=["manha","tarde","noite"];
+const FIELD_REPORT_CLIMATE_PERIODS=["manha","tarde"];
 
+const dailyProductionComplete=report=>report?.productionVersion!==1||(report.servicos||[]).length>0&&(report.servicos||[]).every(service=>service.budgetId&&service.budgetItemId&&service.unidade&&service.quantidadeDia!==''&&service.quantidadeDia!=null&&Number.isFinite(Number(service.quantidadeDia))&&Number(service.quantidadeDia)>=0);
 const fieldReportCompletionChecks=report=>[
   {id:"contexto",label:"Obra e data",complete:Boolean(String(report?.obraId||"").trim()&&/^\d{4}-\d{2}-\d{2}$/.test(String(report?.data||"")))},
   {id:"relato",label:"Relato do dia",complete:Boolean(String(report?.descricao||report?.transcricaoVoz||"").trim())},
   {id:"clima",label:"Clima confirmado",complete:FIELD_REPORT_CLIMATE_PERIODS.every(period=>Boolean(String(report?.clima?.[period]||"").trim()))},
-  {id:"execucao",label:"Serviço executado",complete:Boolean((report?.servicos||[]).some(service=>Number(service?.progressoAte||0)>0||String(service?.obs||"").trim()))},
+  {id:"execucao",label:"Serviço executado",complete:dailyProductionComplete(report)&&Boolean((report?.servicos||[]).some(service=>Number(service?.progressoAte||0)>0||String(service?.obs||"").trim()))},
   {id:"revisao",label:"Revisão técnica",complete:Boolean(report?.revisaoEngenheiro?.aprovado)},
 ];
 

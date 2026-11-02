@@ -1,23 +1,41 @@
 import { useMemo, useRef, useState } from "react";
-import { Modal, fmt, fmtDate } from "../../../LegacyApp";
+import { Modal } from "../../../legacy/ui.jsx";
+import { fmt, fmtDate, today } from "../../../legacy/format.js";
 import { Button } from "../../../design-system/primitives/Button";
 import { totalPedido } from "../calculations";
-import { fichaDaCompra, urlDocumentoCompra } from "../purchase-dossier";
+import { fichaDaCompra } from "../purchase-dossier";
 import { CostComparison } from "./PurchaseFinalCost";
+import {purchaseDossierPending} from "../purchase-dossier-status";
+import OrderConditions from "./OrderConditions";
+import PurchaseConference from "./PurchaseConference.jsx";
+import DocumentEvidence from '../../../features/financeiro/DocumentEvidence.jsx';
+import FinancialDocumentLink from '../../../features/financeiro/FinancialDocumentLink.jsx';
+import {documentEvidenceInfo} from '../../financeiro/document-evidence.js';
+import {podeAcessarAba} from '../../administracao/abas-acesso.js';
+import {useWorkflow} from '../../../features/workflow/WorkflowNavigation.jsx';
+import "./purchase-dossier.css";
 
-export function PurchaseDossier({data,selection,onClose}){
+function DossierFrame({inline,onClose,children}){
+  return inline ? <section aria-label="Ficha completa da compra conjunta"><header><h3>Ficha completa da compra conjunta</h3><Button variant="ghost" onClick={onClose}>Fechar ficha da compra</Button></header>{children}</section>
+    : <Modal title="Ficha completa da compra conjunta" wide onClose={onClose}>{children}</Modal>;
+}
+
+export function PurchaseDossier({data,selection,onClose,inline=false,currentUser,onReviewInvoice}){
+  const {navigate}=useWorkflow();
   const f=useMemo(()=>fichaDaCompra(data,selection),[data,selection]),[selected,setSelected]=useState(null);
+  const canReadTitles=['admin','financeiro'].includes(currentUser?.role)&&podeAcessarAba(currentUser,'fin')&&(!currentUser.obraId||f.orders.every(order=>String(order.obraId)===String(currentUser.obraId)));
   const dossierRef=useRef(null);
+  const status=purchaseDossierPending(f);
   const goTo=key=>{const section=dossierRef.current?.querySelector(`[data-section="${key}"]`);section?.scrollIntoView({block:"start"});section?.focus({preventScroll:true});};
   const name=id=>(data.fornecedores||[]).find(p=>String(p.id)===String(id))?.nome||"Fornecedor não informado";
   const material=id=>(data.materiais||[]).find(p=>String(p.id)===String(id))?.descricao||"Material";
-  const url=selected?urlDocumentoCompra(selected):"";
-  const drive=url.match(/^https:\/\/drive\.google\.com\/file\/d\/([\w-]+)\//);
-  const preview=drive?`https://drive.google.com/file/d/${drive[1]}/preview`:/\.pdf(?:[?#]|$)/i.test(url)||/\.pdf$/i.test(selected?.nome||"")?url:"";
-  return <Modal title="Ficha completa da compra conjunta" wide onClose={onClose}>
+  return <DossierFrame inline={inline} onClose={onClose}>
     <div className="purchase-dossier" ref={dossierRef}>
-      <nav className="purchase-dossier-nav" aria-label="Seções da compra">{[["origin","Origem"],["cost","Custos"],["orders",`Pedidos (${f.orders.length})`],["invoices",`Notas fiscais (${f.invoices.length})`],["payments","Pagamentos"],["documents",`Anexos (${f.documents.length})`]].filter(([key])=>key!=="cost"||f.quote).map(([key,label])=><Button key={key} variant="ghost" onClick={()=>goTo(key)}>{label}</Button>)}</nav>
-      <p>Pedidos agrupados pela cotação de origem. Aprovações seguem as alçadas da empresa.</p>
+      <nav className="purchase-dossier-nav" aria-label="Seções da compra">{[["conference","Conferência"],["origin","Origem"],["cost","Custos"],["orders",`Pedidos (${f.orders.length})`],["invoices",`Notas fiscais (${f.invoices.length})`],["payments","Pagamentos"],["documents",`Anexos (${f.documents.length})`]].filter(([key])=>key!=="cost"||f.quote).map(([key,label])=><Button key={key} variant="ghost" onClick={()=>goTo(key)}>{label}</Button>)}</nav>
+      <p>Pedidos agrupados pela cotação de origem. Pendências de aprovação ficam sinalizadas sem impedir o andamento.</p>
+      <section aria-label="Pendências da compra"><h3>Pendências para conferência</h3><p>{status.orders} pedido(s) ativo(s) · {status.deliveries} com entrega pendente · {status.missingInvoices} sem nota vinculada · {f.documents.length} anexo(s)</p>{status.pending.length?<ul>{status.pending.map(p=><li key={p.label}><Button variant="ghost" onClick={()=>goTo(p.key)}>{p.label}</Button></li>)}</ul>:<p>Nenhuma pendência detectada nos recebimentos, notas e endereços de anexos desta ficha.</p>}<p>As indicações orientam a conferência; não substituem a aprovação nem autorizam pagamentos.</p></section>
+      <div data-section="conference" tabIndex={-1}><PurchaseConference data={data} dossier={f} asOf={today()} canReadTitles={canReadTitles}
+        onOpenInvoice={canReadTitles?(onReviewInvoice||(navigate?invoice=>navigate('fin',{obraId:invoice.obraId},{action:'review-purchase-invoice',record:{invoiceId:invoice.id,obraId:invoice.obraId}}):undefined)):undefined}/></div>
       <section data-section="origin" tabIndex={-1}><h3>Origem e aprovação</h3>
         <p>Solicitação: {f.request?.numero||f.request?.id||"Sem solicitação vinculada"} · Cotação: {f.quote?.numero||f.quote?.id||"Sem cotação vinculada"}</p>
         <p>Aprovação: {f.approval?.status||"Sem instância vinculada"} · Solicitante: {f.request?.solicitanteNome||f.request?.solicitadoPor||f.request?.criadoPor||"Não informado"}</p>
@@ -29,11 +47,12 @@ export function PurchaseDossier({data,selection,onClose}){
       {f.quote&&<div data-section="cost" tabIndex={-1}><CostComparison quote={f.quote} supplierName={name}/></div>}
       <section data-section="orders" tabIndex={-1}><h3>Pedidos e recebimentos · {f.orders.length}</h3>
         {!f.orders.length&&<p>A cotação ainda não gerou pedidos.</p>}
-        {f.orders.map(p=><article key={p.id}><h4>{p.numero} · {name(p.fornecedorId)} · {p.status}</h4>
+        {f.orders.map(p=><article key={p.id}><h4>{p.numero} · {p.historicoCondicoesPedido?.at(-1)?.fornecedor?.nome||name(p.fornecedorId)} · {p.status}</h4>
           <p>{fmt(totalPedido(p))} · Emissão {fmtDate(p.data)} · Entrega {p.previsao?fmtDate(p.previsao):"não informada"}</p>
           <p>Pagamento: {p.condicoesPagamento||"Condições não informadas"}</p>
+          <OrderConditions order={p}/>
           {p.custoFinal&&<p>O valor dos itens já inclui o rateio de frete, desconto e despesas da proposta.</p>}
-          <ul>{(p.itens||[]).map(i=><li key={i.id}>{material(i.materialId)} · comprado {i.qtd} · recebido {i.qtdRecebida||0} · unitário {fmt(i.precoUnit)}
+          <ul>{(p.itens||[]).map(i=><li key={i.id}>{material(i.materialId)} · comprado {i.qtd} · recebido {i.qtdRecebida||0} · a receber {Math.max(0,Number(i.qtd||0)-Number(i.qtdRecebida||0))} {i.unidadeCompra||i.unidadeRef||""} · unitário {fmt(i.precoUnit)}
             {(i.recebimentos||[]).map((r,index)=><span key={r.id||index}> · {fmtDate(r.data)}: {r.qtd??r.quantidade??"recebimento registrado"}{r.responsavel?` · ${r.responsavel}`:""}</span>)}</li>)}</ul>
           {p.aceiteFornecedor&&<p>Aceite: {p.aceiteFornecedor.nome} · {fmtDate(p.aceiteFornecedor.data)} · {p.aceiteFornecedor.canal}</p>}
           {(p.ajustes||[]).map((a,index)=><p key={a.id||index}>Ajuste: {a.usuario||"Operador"} · {a.motivo} · {fmtDate(a.criadoEm?.slice(0,10))}</p>)}
@@ -55,9 +74,9 @@ export function PurchaseDossier({data,selection,onClose}){
       </section>
       <section data-section="documents" tabIndex={-1}><h3>Notas e demais anexos · {f.documents.length}</h3>
         {!f.documents.length&&<p>Nenhum arquivo anexado aos registros desta compra.</p>}
-        {f.documents.map((d,index)=><div className="purchase-document-row" key={`${d.origem}-${d.id||index}`}><span>{d.origem} · {d.legenda||d.nome||"Documento"}</span>{urlDocumentoCompra(d)?<><Button variant="secondary" onClick={()=>setSelected(d)}>Visualizar</Button><a href={urlDocumentoCompra(d)} target="_blank" rel="noreferrer">Abrir arquivo ↗</a></>:<span>Arquivo sem endereço válido</span>}</div>)}
+        {f.documents.map((d,index)=><div className="purchase-document-row" key={`${d.origem}-${d.id||index}`}><span>{d.origem} · {d.legenda||d.nome||"Documento"}</span>{documentEvidenceInfo(d).resolvable?<><Button variant="secondary" onClick={()=>setSelected(d)}>Visualizar</Button>{documentEvidenceInfo(d).url&&<FinancialDocumentLink href={documentEvidenceInfo(d).url}>Abrir arquivo ↗</FinancialDocumentLink>}</>:<span>Arquivo sem endereço válido</span>}</div>)}
       </section>
-      {selected&&<section aria-label="Visualização do anexo"><h3>{selected.legenda||selected.nome||"Documento"}</h3>{preview?<iframe title="Visualização do documento da compra" src={preview} className="purchase-document-preview"/>:<p>Use “Abrir arquivo” para visualizar este formato no serviço de origem.</p>}<a href={url} target="_blank" rel="noreferrer">Abrir arquivo em outra aba ↗</a><Button variant="ghost" onClick={()=>setSelected(null)}>Fechar visualização</Button></section>}
+      {selected&&<section aria-label="Visualização do anexo"><DocumentEvidence documents={[selected]} origin={selected.origem}/><Button variant="ghost" onClick={()=>setSelected(null)}>Fechar visualização</Button></section>}
     </div>
-  </Modal>;
+  </DossierFrame>;
 }

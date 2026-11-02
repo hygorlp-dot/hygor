@@ -90,7 +90,7 @@ const expandComposition = (entries, budget, factor = 1, depth = 0) => entries.fl
   return [{ ...entry, coeficiente:coef, composicaoId:entry?.composicaoId || "" }];
 });
 const analyticalInputs = (item, budget) => {
-  const direct = item?.materialId || item?.insumoId ? [item] : [];
+  const direct = item?.materialId || item?.insumoId ? [{...item,coeficiente:1}] : [];
   const nested = [item?.insumos, item?.analitico, item?.composicao?.itens, item?.composicaoAnalitica]
     .find(Array.isArray) || [];
   if (nested.length) return nested;

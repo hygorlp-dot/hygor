@@ -65,7 +65,7 @@ describe("ação principal do cartão de pedido (R4)", () => {
     const aceito = pedido("2", "enviado", { aceiteFornecedor: { nome: "Ana", data: "2026-10-20" } });
     expect(acoesDoPedido({ ...base, pedido: aceito }).comuns.map(a => a.id)).not.toContain("aceite");
     expect(acoesDoPedido(base).comuns.map(a => a.id)).not.toContain("saldo");
-    expect(acoesDoPedido({ ...base, liberadoParaReceber: false }).comuns.map(a => a.id)).toContain("saldo");
+    expect(acoesDoPedido({ ...base, temSaldoEmAberto: true }).comuns.map(a => a.id)).toContain("saldo");
   });
 });
 

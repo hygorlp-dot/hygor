@@ -74,13 +74,13 @@ describe("comandos transacionais de pedidos",()=>{
     expect(result.data.cotacoes[0]).toMatchObject({status:"decidida",pedidoId:"p-1",version:2});
   });
 
-  it("exige justificativa quando a proposta escolhida não é a menor",()=>{
+  it("avisa justificativa ausente quando a proposta escolhida não é a menor",()=>{
     const result=applyPurchaseOrderCommand(base(),command(
       PURCHASE_ORDER_COMMAND.PURCHASE_ORDER_CREATED_FROM_QUOTE,
       {quoteId:"c-1",proposalId:"pr-2",orderId:"p-1",itemId:"i-1",number:"PC-001",date:"2026-07-28"},
     ));
-    expect(result).toMatchObject({ok:false});
-    expect(result.reason).toMatch(/justifique/i);
+    expect(result.ok).toBe(true);
+    expect(result.summary.workflowWarnings[0].code).toBe('QUOTE_JUSTIFICATION_MISSING');
   });
 
   it("anexa documento com controle de versão",()=>{
@@ -305,15 +305,16 @@ describe("comando de anexação de documento à proposta (PURCHASE_QUOTE_DOCUMEN
     expect(again.ok).toBe(true);
   });
 
-  it("recusa gerar pedido de solicitação reprovada na aprovação",()=>{
+  it("permite pedido e preserva o aviso de aprovação recusada",()=>{
     const data=base();
     data.solicitacoesCompra[0].aprovacaoInstanciaId="apr-1";
     data.instanciasAprovacao=[{id:"apr-1",status:"reprovada"}];
     const result=applyPurchaseOrderCommand(data,command(
       PURCHASE_ORDER_COMMAND.PURCHASE_ORDER_SAVED,{order:rawOrder()},
     ),"2026-07-28T12:00:00.000Z");
-    expect(result.ok).toBe(false);
-    expect(result.reason).toContain("reprovada");
+    expect(result.ok).toBe(true);
+    expect(result.data.instanciasAprovacao[0].status).toBe('reprovada');
+    expect(result.data.pedidos[0].workflowWarnings).toEqual(expect.arrayContaining([expect.objectContaining({code:'APPROVAL_PENDING',blocking:false})]));
   });
 
   it("pedido novo sem número é numerado pelo servidor, também a partir da cotação (C2.1)",()=>{
@@ -346,14 +347,16 @@ describe("comando de anexação de documento à proposta (PURCHASE_QUOTE_DOCUMEN
     expect(back.data.pedidos[0].status).toBe("enviado");
   });
 
-  it("solicitação aguardando aprovação não vira pedido",()=>{
+  it("solicitação aguardando aprovação pode gerar pedido com aviso",()=>{
     const data=base();
     data.solicitacoesCompra[0].aprovacaoInstanciaId="apr-1";
     data.instanciasAprovacao=[{id:"apr-1",status:"em_andamento"}];
     const result=applyPurchaseOrderCommand(data,command(
       PURCHASE_ORDER_COMMAND.PURCHASE_ORDER_SAVED,{order:rawOrder()},
     ),"2026-07-28T12:00:00.000Z");
-    expect(result.reason).toContain("aguarda aprovação");
+    expect(result.ok).toBe(true);
+    expect(result.summary.workflowWarnings[0].code).toBe('APPROVAL_PENDING');
+    expect(result.data.instanciasAprovacao[0].status).toBe('em_andamento');
   });
 
   describe("alçada de R$ 5.000 no pedido",()=>{
@@ -362,21 +365,21 @@ describe("comando de anexação de documento à proposta (PURCHASE_QUOTE_DOCUMEN
       PURCHASE_ORDER_COMMAND.PURCHASE_ORDER_SAVED,{order},
     ),...patch},"2026-07-28T12:00:00.000Z");
 
-    it("pedido direto acima da alçada só o Administrador lança",()=>{
-      expect(save(base(),big).reason).toMatch(/precisa de aprovação do Administrador/);
-      expect(save(base(),big,{actorRole:"compras"}).ok).toBe(false);
+    it("pedido acima da alçada pode seguir com aviso para o Administrador",()=>{
+      expect(save(base(),big).summary.workflowWarnings[0].code).toBe('APPROVAL_LIMIT_EXCEEDED');
+      expect(save(base(),big,{actorRole:"compras"}).ok).toBe(true);
       expect(save(base(),big,{actorRole:"admin"}).ok).toBe(true);
       expect(save(base(),{...big,itens:[{id:"i-1",materialId:"m-1",qtd:100,precoUnit:50}]}).ok).toBe(true);
     });
 
-    it("solicitação aprovada pelo Administrador cobre pedido acima da alçada; a do engenheiro não",()=>{
+    it("avisa quando a aprovação não cobre a alçada sem mudar a decisão existente",()=>{
       const instance=(etapa)=>({id:"apr-1",status:"aprovada",policyId:"padrao-solicitacao-compra",
         snapshotPolitica:{etapas:[{id:"engenheiro-obra",tipoAprovador:"responsavelObra"},{id:"administrador",tipoAprovador:"administrador"}]},
         resultadosEtapas:etapa==="admin"?[{status:"pulada"},{status:"concluida"}]:[{status:"concluida"},{status:"pulada"}]});
       const withRequest=etapa=>{const data=base();data.solicitacoesCompra[0].aprovacaoInstanciaId="apr-1";
         data.instanciasAprovacao=[instance(etapa)];return data;};
       const order={...big,solicitacaoId:"s-1"};
-      expect(save(withRequest("engenheiro"),order).ok).toBe(false);
+      expect(save(withRequest("engenheiro"),order).summary.workflowWarnings[0].code).toBe('APPROVAL_LIMIT_EXCEEDED');
       expect(save(withRequest("admin"),order).ok).toBe(true);
     });
 
