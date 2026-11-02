@@ -23,3 +23,16 @@ it('edição recuperada desabilita conteúdo e footer, mantendo Fechar acessíve
  mount(<Scene revision={0}/>);act(()=>root.render(<Scene revision={1}/>));
  expect(document.querySelector('input').matches(':disabled')).toBe(true);expect([...document.querySelectorAll('button')].find(b=>b.textContent==='Gravar no footer').matches(':disabled')).toBe(true);expect(document.querySelector('button[aria-label="Fechar"]').matches(':disabled')).toBe(false);
 });
+
+// Dialog e Drawer também usam portais: a janela intermediária pode desaparecer
+// junto com a confirmação, antes ou depois de sua limpeza de efeitos.
+it.each([Dialog,Drawer])('devolve o foco ao acionador vivo quando duas camadas fecham juntas', Component=>{
+ function App(){const [editing,setEditing]=useState(false),[confirming,setConfirming]=useState(false);return <Modal title="Registro" onClose={()=>{}}><button onClick={()=>setEditing(true)}>Abrir edição</button><Component open={editing} onOpenChange={setEditing} title="Edição"><button onClick={()=>setConfirming(true)}>Sair da edição</button></Component><Dialog open={confirming} onOpenChange={setConfirming} title="Confirmar saída"><button onClick={()=>{setEditing(false);setConfirming(false);}}>Descartar edição</button></Dialog></Modal>;}
+ mount(<App/>);
+ const button=text=>[...document.querySelectorAll('button')].find(b=>b.textContent===text);
+ const trigger=button('Abrir edição');
+ for(const label of ['Abrir edição','Sair da edição','Descartar edição'])act(()=>{const target=button(label);target.focus();target.click();});
+ expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(1);
+ expect(document.activeElement).toBe(trigger);
+ expect(document.body.style.overflow).toBe('hidden');
+});

@@ -8,6 +8,9 @@ const compras=readFileSync(`${process.cwd()}/src/domains/compras/components/Comp
 const contratosWorkspace=readFileSync(`${process.cwd()}/src/domains/compras/components/PurchaseContractsWorkspace.jsx`,"utf8");
 const recebimento=readFileSync(`${process.cwd()}/src/domains/compras/receipt.js`,"utf8");
 const modalRecebimento=readFileSync(`${process.cwd()}/src/domains/compras/components/ReceiptModal.jsx`,"utf8");
+const paymentDialog=readFileSync(`${process.cwd()}/src/features/financeiro/PaymentDialog.jsx`,"utf8");
+const paymentValidation=readFileSync(`${process.cwd()}/src/domains/financeiro/purchase-payment-validation.js`,"utf8");
+const paymentCommands=readFileSync(`${process.cwd()}/src/domains/financeiro/payable-payment-commands.js`,"utf8");
 const trecho=(source,inicio,fim)=>source.slice(source.indexOf(inicio),source.indexOf(fim,source.indexOf(inicio)));
 
 describe("correções do fluxo de compras (auditoria de 22/10/2026)",()=>{
@@ -69,17 +72,22 @@ describe("correções do fluxo de compras (auditoria de 22/10/2026)",()=>{
     // a quantidade do pedido está na embalagem comprada (SC), não na unidade do cadastro (KG)
     expect(modalRecebimento).toMatch(/label=\{`Chegou agora \(\$\{purchaseUnitOf\(l\)\}\)`\}/);
     // o modal trava o segundo clique enquanto confirma
-    expect(modalRecebimento).toMatch(/const confirmar=async\(\)=>\{if\(salvando\)return;setSalvando\(true\)/);
+    expect(modalRecebimento).toMatch(/const confirmar=async\(\)=>\{if\(lock\.current\)return;lock\.current=true;setSalvando\(true\)/);
     const chegada=trecho(legacy,"const confirmarChegada = async","const atividade = useMemo");
     expect(chegada).toMatch(/if \(chegadaEnviando\) return;/);
     expect(chegada).toMatch(/setChegadaEnviando\(true\);[\s\S]*finally\{\s*setChegadaEnviando\(false\);/);
   });
 
   it("C1.4: pagamento mostra o conferido e manda adiantamento com motivo ao servidor",()=>{
-    const pagar=trecho(compras,"const registrarPagamento=async","const reclassificarOrigemPagamento=");
-    expect(pagar).toMatch(/conferenciaPagamentoPedido\(data,pedido\.id\)/);
-    expect(pagar).toMatch(/adiantamento:!!f\.adiantamento,motivoAdiantamento:/);
-    expect(compras).toMatch(/Motivo do adiantamento \(recomendado\)/);
+    expect(compras).toMatch(/<PaymentDialog[^>]*pageId="cmp"/);
+    expect(paymentDialog).toContain('validatePurchasePayment(data,');
+    expect(paymentValidation).toContain('avaliarPagamentoPedido(data,');
+    expect(paymentDialog).toContain("validation.campos?.tipo==='adiantamento'");
+    expect(paymentDialog).toContain('Motivo do adiantamento (recomendado)');
+    expect(paymentDialog).toContain('motivoAdiantamento:form.motivoAdiantamento');
+    // A classificação é recalculada no servidor, não escolhida pelo formulário.
+    expect(paymentCommands).toContain('validatePurchasePayment(data,');
+    expect(paymentCommands).toContain('motivo:payload.motivoAdiantamento');
   });
 
   it("C1.2: fila e quadro separam entrega e pagamento",()=>{

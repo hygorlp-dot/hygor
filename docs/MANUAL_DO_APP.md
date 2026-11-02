@@ -586,7 +586,7 @@ Confira obra e responsável pela vistoria.
 
 1. Abra a foto. Em Ferramentas e zoom, escolha ferramenta, cor e espessura.
 2. Desfazer recupera Limpar anotações. Salvar preserva o original; no formulário, confirme também Salvar achado.
-3. Fechar ou Escape pede confirmação das alterações. Continuar editando mantém o rascunho.
+3. Fechar ou Escape pede confirmação das alterações. Continuar editando mantém o rascunho. Ao fechar o editor, o foco do teclado volta à miniatura que abriu a foto, quando ela continua disponível.
 4. A pessoa atribuída envia a correção; o vistoriador valida.
 
 ### Como conferir se deu certo

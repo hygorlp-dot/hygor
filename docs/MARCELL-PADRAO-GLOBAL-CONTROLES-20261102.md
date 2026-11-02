@@ -31,3 +31,7 @@ Uma execução mais ampla incluiu verificações antigas de LegacyApp e encontro
 Arquivos: LegacyApp.dre-wiring.test.js (expectativa de implementação financeira no arquivo antigo), LegacyApp.modal-focus.test.jsx (consultas de foco/DOM anteriores aos portais compartilhados), LegacyApp.purchase-workflow-fixes.test.js (verificações textuais de implementações extraídas) e LegacyApp.third-party-measurement-link.test.jsx (expectativas de DOM e linguagem anteriores). A adequação desses testes ao comportamento vigente fica registrada como pendência separada, sem afirmar que foram corrigidos nesta alteração.
 
 Evidências: erp-global-scoped-unit.log, erp-global-legacy-baseline.log, erp-global-whole-final.log, erp-global-regress-final.log, erp-global-lint-final.log, erp-global-types-final.log e erp-global-arch-final.log em artifacts/. Capturas em erp-controls-after/, erp-controls-narrow/, erp-controls-adapters/ e erp-editors-after/. A revisão responsiva foi em navegador automatizado, sem ensaio em aparelho físico ou homologação de produção.
+
+## Encerramento da pendência dos nove testes — 02/11/2026
+
+A pendência acima foi investigada em alteração posterior. Oito expectativas estavam desatualizadas; um teste expôs falha real de retorno do foco ao fechar editor e confirmação juntos. Os nove testes foram corrigidos, sem remover verificações ou alterar regras financeiras. Consulte [diagnóstico e validação](MARCELL-TESTES-LEGADOS-20261102.md). O registro anterior permanece como evidência histórica da revisão visual.

@@ -193,7 +193,8 @@ describe("comandos transacionais de pagamentos de obrigações",()=>{
       expect(missing.ok).toBe(true);
       expect(missing.summary.workflowWarnings).toEqual(expect.arrayContaining([expect.objectContaining({code:'ADVANCE_REASON_MISSING'})]));
       expect(pay(pending(),300,{adiantamento:true,motivoAdiantamento:"Sinal de 30%"}).ok).toBe(true);
-      const ok=pay(pending(),300,{adiantamento:true,motivoAdiantamento:"Sinal de 30%"},"financeiro");
+      // O formulário compartilhado envia o motivo, sem impor o tipo ao servidor.
+      const ok=pay(pending(),300,{motivoAdiantamento:"Sinal de 30%"},"financeiro");
       expect(ok.ok).toBe(true);
       expect(ok.data.pedidos[0].pagamentos[0]).toMatchObject({tipo:"adiantamento",motivoAdiantamento:"Sinal de 30%"});
     });
