@@ -1,8 +1,10 @@
+import {expandSectionDelta} from '../src/domains/sync/section-delta.js';
 import {applyOperationalCommand} from '../src/domains/sync/operational-commands.js';
 import {test,expect} from '@playwright/test';
 import {data as fixture,profile} from '../scripts/fixtures/workflow-priorities-data.mjs';
-async function enter(page,tab,{many=false,readonly=false,reject=0,legacyDraft=false,saveFailure=0,loadFailure=false,reapplyFailure=false}={}){
+async function enter(page,tab,{many=false,readonly=false,reject=0,legacyDraft=false,saveFailure=0,loadFailure=false,reapplyFailure=false,storageUnavailable=false}={}){
  const account={...profile,...(readonly?{role:"visualizador",accessTabs:["home","cmp","fin"]}:{})};
+ let updatedAt='2026-11-01T15:00:00Z';
  let data=structuredClone(fixture),writes=[],saves=[],errors=[];let blockLoads=loadFailure;data.usuarios=[account];data.condominios=[];data.orcamentos=[];
  const a=data.obras[0].id,b=data.obras[1].id;data.obras[0].name='Obra Alfa P2';data.obras[1].name='Obra Beta P2';
  const request=data.solicitacoesCompra[0];data.solicitacoesCompra=[{...request,id:'req-a',numero:'SC-A',obraId:a,status:'enviada',necessidade:'2026-10-30',itens:[{...request.itens[0],descricaoRef:'Cimento Alfa'}]},{...request,id:'req-b',numero:'SC-B',obraId:b,status:'enviada',necessidade:'2026-11-04',itens:[{...request.itens[0],descricaoRef:'Cimento Beta'}]}];data.cotacoes=[];data.pedidos=[{...data.pedidos[0],id:'order-a',numero:'PC-A',obraId:a,status:'enviado'}];
@@ -15,6 +17,7 @@ async function enter(page,tab,{many=false,readonly=false,reject=0,legacyDraft=fa
  for(const key of ['outrasDesp','despesasEmpresa','medicoesTerc','titulosFolha','payments','rescisoes','caixaObra'])data[key]=[];
  await page.clock.setFixedTime(new Date('2026-11-01T15:00:00Z'));await page.addInitScript(({id,tab})=>sessionStorage.setItem(`arcd-section:${id}`,tab),{id:profile.id,tab});
  page.on('pageerror',e=>errors.push(e.message));await page.route('https://**/*',r=>r.abort());await page.route('**/api/**',r=>r.fulfill({json:{ok:true,items:[],presencas:[],connected:false}}));await page.route('**/api/data',async r=>{const body=r.request().postDataJSON()||{};
+ if(body.action==='auth-login'&&saves.length&&saveFailure===401)saveFailure=0;
  if(body.action==='auth-refresh'&&saveFailure===401)return r.fulfill({status:401,json:{ok:false,error:'Sessão expirada no ensaio.'}});
  if(body.action==='load'&&saves.length&&blockLoads)return r.fulfill({status:503,json:{ok:false,error:'Leitura indisponível no ensaio.'}});
  if(['save','save-sections'].includes(body.action)){
@@ -23,7 +26,8 @@ async function enter(page,tab,{many=false,readonly=false,reject=0,legacyDraft=fa
   if(reapplyFailure&&saves.length>1&&saves.length<6)return r.fulfill({status:503,json:{ok:false,error:'Reaplicação indisponível no ensaio.'}});
   if((saveFailure===401||saves.length<=(saveFailure===503?4:1))&&saveFailure)return r.fulfill({status:saveFailure,json:{ok:false,error:saveFailure===401?'Sessão expirada no ensaio.':saveFailure===403?'Seu acesso foi revogado.':'Servidor indisponível no ensaio.'}});
   await new Promise(resolve=>setTimeout(resolve,350));
-  return r.fulfill({json:{ok:true,updatedAt:'2026-11-01T15:01:00Z'}});
+  if(body.action==='save')data=body.payload;else{data={...data,...body.sections};for(const [key,delta] of Object.entries(body.sectionDeltas||{}))data[key]=expandSectionDelta(delta,data[key]).incoming;}
+  updatedAt='2026-11-01T15:01:00Z';return r.fulfill({json:{ok:true,updatedAt}});
  }
  if(body.action==='operational-command'){
   writes.push(body.command);
@@ -35,9 +39,10 @@ async function enter(page,tab,{many=false,readonly=false,reject=0,legacyDraft=fa
   if(writes.length===1&&reject===503)return r.fulfill({status:503,json:{ok:false,error:'A resposta se perdeu. Mantenha a ficha aberta.'}});
   return r.fulfill({json:{...result,updatedAt:'2026-11-01T15:00:00Z'}});
  }
- return r.fulfill({json:{ok:true,usuarios:[account],usuario:account,data,precisaSetup:false,accessToken:'local',refreshToken:'local',updatedAt:'2026-11-01T15:00:00Z'}});
+ return r.fulfill({json:{ok:true,usuarios:[account],usuario:account,data,precisaSetup:false,accessToken:'local',refreshToken:'local',updatedAt}});
  });
  if(process.env.MARCELL_P3_STRESS){await page.route('**/fonts/**',r=>r.abort());await page.addInitScript(()=>window.addEventListener('DOMContentLoaded',()=>{if(innerWidth>1000)document.documentElement.style.fontSize='200%';}));}
+ if(storageUnavailable)await page.addInitScript(()=>{const nativeOpen=IDBFactory.prototype.open;IDBFactory.prototype.open=function(name,...args){if(name==='marcell-workspace-edits-v1'&&!window.__allowWorkspaceStorage)throw new DOMException('Armazenamento bloqueado','SecurityError');return nativeOpen.call(this,name,...args);};});
  await page.goto('/');if(legacyDraft)await page.evaluate(async({owner,obraId})=>{await new Promise((resolve,reject)=>{const request=indexedDB.open('marcell-confirmations-v1',10);request.onupgradeneeded=()=>{const table=request.result.createObjectStore('records',{keyPath:'key'});table.createIndex('owner','owner');table.createIndex('kind','kind');};request.onerror=()=>reject(request.error);request.onsuccess=()=>{const db=request.result,tx=db.transaction('records','readwrite');tx.objectStore('records').put({key:JSON.stringify(['draft',owner,'nota','nf-p2-0']),owner,kind:'draft',type:'nota',id:'nf-p2-0',createdAt:'2026-11-01T15:00:00Z',context:{pageId:'fin',obraId,label:'Pagamento · NF-P2-0'},value:{valor:'12.34',data:'2026-11-01',origem:'empresa',referencia:'Versão anterior',observacao:'Conferir documento',comprovanteFile:new File(['%PDF-1.4 preservado'],'legado.pdf',{type:'application/pdf'})}});tx.oncomplete=()=>{db.close();resolve();};tx.onerror=()=>reject(tx.error);};});},{owner:profile.id,obraId:a});await page.locator('#login-email').fill(profile.email);await page.locator('#login-senha').fill('local');await page.getByRole('button',{name:'Acessar central MARCELL',exact:true}).click();
  return {a,b,writes,saves,allowLoads:()=>{blockLoads=false;},account,getData:()=>data,check:()=>{expect(errors).toEqual([]);}};
 }
@@ -96,55 +101,112 @@ async function failCalendarSave(page,status,options={}){
  await modal.getByRole('button',{name:'Cancelar',exact:true}).click();
  return app;
 }
-test('P5 revisão: retomar falha definitiva sem nova edição ou comando financeiro',async({page},info)=>{
- const app=await failCalendarSave(page,503),banner=page.getByTestId('save-recovery');
- await expect(banner).toContainText('recarregar perde as edições');
- expect(app.saves).toHaveLength(4);
- expect(await page.evaluate(()=>{const e=new Event('beforeunload',{cancelable:true});window.dispatchEvent(e);return e.defaultPrevented;})).toBe(true);
- await banner.scrollIntoViewIfNeeded();await page.screenshot({animations:'disabled',path:info.outputPath('falha-com-retomada.png')});
- expect(await banner.evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
- const retry= banner.getByRole('button',{name:'Tentar salvar novamente',exact:true});await retry.focus();await expect(retry).toBeFocused();await retry.press('Enter');
+async function reviewGeneral(page){
+ await page.getByTestId('save-recovery').getByRole('button',{name:'Resolver salvamento',exact:true}).click();
+ const modal=page.getByRole('dialog').last();await modal.getByRole('button',{name:'Consultar versão atual',exact:true}).click();
+ await expect(modal.getByRole('button',{name:'Salvar alterações revisadas',exact:true})).toBeEnabled();return modal;
+}
+test('Recuperação integral: recarga conserva intenção e não reenvia automaticamente',async({page},info)=>{
+ const app=await failCalendarSave(page,503);expect(app.saves).toHaveLength(4);
+ page.on('dialog',d=>d.accept());await page.reload();
+ await expect(page.getByTestId('save-recovery')).toBeVisible();expect(app.saves).toHaveLength(4);
+ const modal=await reviewGeneral(page);await modal.screenshot({path:info.outputPath('recuperacao-apos-recarga.png')});
+ await modal.getByRole('button',{name:'Salvar alterações revisadas',exact:true}).click();
  await expect(page.getByTestId('save-status')).toHaveAttribute('data-state','idle');
- await expect(banner).toHaveCount(0);
- expect(app.saves).toHaveLength(5);
- expect(app.saves.at(-1)).toEqual(app.saves[0]);
- expect(app.writes).toHaveLength(0);app.check();
+ expect(app.saves).toHaveLength(5);expect(JSON.stringify(app.saves.at(-1))).toContain('Revisão de obra preservada');expect(app.writes).toHaveLength(0);app.check();
 });
-test('P5 revisão: recusa de acesso desfaz edição e não oferece reenvio',async({page})=>{
- const app=await failCalendarSave(page,403);
- await expect(page.getByTestId('save-rejected')).toContainText('Seu acesso foi revogado.');
- await expect(page.getByRole('button',{name:'Tentar salvar novamente',exact:true})).toHaveCount(0);
- expect(app.saves).toHaveLength(1);expect(app.writes).toHaveLength(0);app.check();
-});
-
-test('P5 revisão: falha ao ler servidor conserva conflito e edição para nova tentativa',async({page})=>{
- const app=await failCalendarSave(page,409,{loadFailure:true});
- await page.getByRole('button',{name:'Reaplicar minhas alterações',exact:true}).click();
- await expect(page.getByText('Não foi possível atualizar. Mantenha esta aba aberta e tente novamente.',{exact:true})).toBeVisible();
- await expect(page.getByTestId('save-status')).toHaveAttribute('data-state','conflict');
- await expect(page.getByRole('button',{name:'Reaplicar minhas alterações',exact:true})).toBeVisible();
- expect(app.saves).toHaveLength(1);
- expect(await page.evaluate(()=>{const e=new Event('beforeunload',{cancelable:true});window.dispatchEvent(e);return e.defaultPrevented;})).toBe(true);
- app.allowLoads();await page.getByRole('button',{name:'Reaplicar minhas alterações',exact:true}).click();
- await expect(page.getByTestId('save-status')).toHaveAttribute('data-state','idle');
- expect(JSON.stringify(app.saves.at(-1))).toContain('Revisão de obra preservada');expect(app.saves).toHaveLength(2);expect(app.saves[1].sectionDeltas).toEqual(app.saves[0].sectionDeltas);
- expect(app.writes).toHaveLength(0);app.check();
-});
-test('P5 revisão: reaplicação recusada por indisponibilidade continua na fila',async({page})=>{
- const app=await failCalendarSave(page,409,{reapplyFailure:true});
- await page.getByRole('button',{name:'Reaplicar minhas alterações',exact:true}).click();
+test('Recuperação integral: acesso ao aviso sem fechar formulário e edição antiga bloqueada',async({page})=>{
+ const app=await enter(page,'home',{saveFailure:503});
+ await page.getByRole('button',{name:'Novo evento',exact:true}).click();const editor=page.getByRole('dialog').first();
+ await editor.getByLabel('Título *',{exact:true}).fill('Evento sem duplicação');await editor.getByRole('button',{name:'Salvar',exact:true}).click();
  await expect(page.getByTestId('save-status')).toHaveAttribute('data-state','failed',{timeout:20000});
- const retry=page.getByRole('button',{name:'Tentar salvar novamente',exact:true});
- await expect(retry).toBeVisible();expect(app.saves).toHaveLength(5);
- await retry.click();await expect(page.getByTestId('save-status')).toHaveAttribute('data-state','idle');
- expect(JSON.stringify(app.saves.at(-1))).toContain('Revisão de obra preservada');expect(app.saves).toHaveLength(6);expect(app.saves.at(-1).sectionDeltas).toEqual(app.saves[1].sectionDeltas);
- expect(app.writes).toHaveLength(0);app.check();
+ await editor.getByRole('button',{name:'Resolver salvamento',exact:true}).click();
+ const recovery=page.getByRole('dialog').last();await recovery.getByRole('button',{name:'Consultar versão atual',exact:true}).click();await recovery.getByRole('button',{name:'Salvar alterações revisadas',exact:true}).click();
+ await expect(editor.getByText('Edição atualizada pela recuperação. Feche e reabra o registro antes de editar novamente.',{exact:true})).toBeVisible();
+ await expect(editor.getByRole('button',{name:'Salvar',exact:true})).toBeDisabled();expect(app.saves).toHaveLength(5);expect(app.writes).toHaveLength(0);app.check();
+});
+test('Recuperação integral: renovar sessão mantém editor e exige confirmação explícita',async({page})=>{
+ const app=await failCalendarSave(page,401);await page.getByTestId('save-recovery').getByRole('button',{name:'Resolver salvamento',exact:true}).click();
+ const modal=page.getByRole('dialog').last();await modal.getByLabel('Senha para renovar a sessão',{exact:true}).fill('local');await modal.getByRole('button',{name:'Renovar sessão',exact:true}).click();
+ await expect(modal).toContainText('Acesso renovado');expect(app.saves).toHaveLength(1);
+ await modal.getByRole('button',{name:'Consultar versão atual',exact:true}).click();await modal.getByRole('button',{name:'Salvar alterações revisadas',exact:true}).click();await expect(page.getByTestId('save-status')).toHaveAttribute('data-state','idle');expect(app.saves).toHaveLength(2);app.check();
+});
+test('Recuperação integral: leitura indisponível mantém edição protegida',async({page})=>{
+ const app=await failCalendarSave(page,409,{loadFailure:true});await page.getByTestId('save-recovery').getByRole('button',{name:'Resolver salvamento',exact:true}).click();const modal=page.getByRole('dialog').last();
+ await modal.getByRole('button',{name:'Consultar versão atual',exact:true}).click();await expect(modal).toContainText('Leitura indisponível no ensaio.');expect(app.saves).toHaveLength(1);
+ app.allowLoads();await modal.getByRole('button',{name:'Consultar versão atual',exact:true}).click();await modal.getByRole('button',{name:'Salvar alterações revisadas',exact:true}).click();
+ await expect(page.getByTestId('save-status')).toHaveAttribute('data-state','idle');expect(app.saves).toHaveLength(2);app.check();
+});
+test('Recuperação integral: recusa de acesso conserva edição sem reenvio automático',async({page})=>{
+ const app=await failCalendarSave(page,403);await expect(page.getByTestId('save-rejected')).toContainText('Seu acesso foi revogado.');
+ await expect(page.getByTestId('save-recovery')).toBeVisible();expect(app.saves).toHaveLength(1);
+ const modal=await reviewGeneral(page);await modal.getByRole('combobox').selectOption('current');await modal.getByRole('button',{name:'Salvar alterações revisadas',exact:true}).click();
+ await expect(page.getByTestId('save-recovery')).toHaveCount(0);expect(app.saves).toHaveLength(1);expect(app.writes).toHaveLength(0);app.check();
 });
 
-test('P5 revisão: sessão expirada conserva edição e exige renovar o acesso',async({page})=>{
- const app=await failCalendarSave(page,401);
- await expect(page.getByTestId('save-recovery')).toContainText('Sessão expirada no ensaio.');
- await expect(page.getByTestId('save-recovery')).toContainText('Copie as edições antes de sair.');
- await expect(page.getByRole('button',{name:'Tentar salvar novamente',exact:true})).toHaveCount(0);
- expect(app.saves).toHaveLength(1);expect(app.writes).toHaveLength(0);app.check();
+test('Recuperação integral: conflito exige escolha e permite conservar servidor sem repetir gravação',async({page})=>{
+ const app=await failCalendarSave(page,503);
+ const event=(app.saves[0].sectionDeltas?.eventosEmpresa?.changed||app.saves[0].sections?.eventosEmpresa)[0];
+ app.getData().eventosEmpresa=[{...event,titulo:'Título do servidor'}];
+ await page.getByTestId('save-recovery').getByRole('button',{name:'Resolver salvamento',exact:true}).click();const modal=page.getByRole('dialog').last();
+ await modal.getByRole('button',{name:'Consultar versão atual',exact:true}).click();
+ const save=modal.getByRole('button',{name:'Salvar alterações revisadas',exact:true});await expect(save).toBeDisabled();
+ await expect(modal).toContainText('Título do servidor');await modal.getByRole('combobox').selectOption('current');await expect(save).toBeEnabled();await save.click();
+ await expect(page.getByTestId('save-recovery')).toHaveCount(0);expect(app.saves).toHaveLength(4);expect(app.writes).toHaveLength(0);app.check();
+});
+test('Recuperação integral: cancelar revisão preserva o preenchimento do formulário',async({page})=>{
+ const app=await enter(page,'home',{saveFailure:503});await page.getByRole('button',{name:'Novo evento',exact:true}).click();const editor=page.getByRole('dialog').first();
+ await editor.getByLabel('Título *',{exact:true}).fill('Preenchimento preservado');await editor.getByRole('button',{name:'Salvar',exact:true}).click();
+ await expect(page.getByTestId('save-status')).toHaveAttribute('data-state','failed',{timeout:20000});await editor.getByRole('button',{name:'Resolver salvamento',exact:true}).click();
+ const recovery=page.getByRole('dialog').last();await recovery.press('Escape');await expect(page.getByRole('dialog')).toHaveCount(1);await expect(editor.getByLabel('Título *',{exact:true})).toHaveValue('Preenchimento preservado');expect(app.saves).toHaveLength(4);app.check();
+});
+test('Recuperação integral: armazenamento indisponível bloqueia envio e permite voltar à edição',async({page})=>{
+ const app=await enter(page,'home',{storageUnavailable:true});await page.getByRole('button',{name:'Novo evento',exact:true}).click();const editor=page.getByRole('dialog').first();
+ await editor.getByLabel('Título *',{exact:true}).fill('Edição sem armazenamento');await editor.getByRole('button',{name:'Salvar',exact:true}).click();
+ const recovery=page.getByRole('dialog').last();await expect(recovery.getByRole('button',{name:'Verificar armazenamento',exact:true})).toBeVisible();expect(app.saves).toHaveLength(0);
+ expect(await page.evaluate(()=>{const e=new Event('beforeunload',{cancelable:true});window.dispatchEvent(e);return e.defaultPrevented;})).toBe(true);
+ await page.evaluate(()=>window.__allowWorkspaceStorage=true);await recovery.getByRole('button',{name:'Verificar armazenamento',exact:true}).click();
+ await expect(page.getByRole('dialog')).toHaveCount(1);await expect(editor.getByLabel('Título *',{exact:true})).toHaveValue('Edição sem armazenamento');
+ await editor.getByRole('button',{name:'Salvar',exact:true}).click();await expect(page.getByRole('dialog')).toHaveCount(0);expect(app.saves).toHaveLength(1);expect(JSON.stringify(app.saves[0])).toContain('Edição sem armazenamento');app.check();
+});
+test('Recuperação integral: nova aba encontra edição própria e exige confirmação',async({page})=>{
+ const first=await failCalendarSave(page,503);const other=await page.context().newPage();const second=await enter(other,'home');
+ await expect(other.getByTestId('save-recovery')).toBeVisible();expect(second.saves).toHaveLength(0);
+ const recovery=await reviewGeneral(other);await recovery.getByRole('button',{name:'Salvar alterações revisadas',exact:true}).click();
+ await expect(other.getByTestId('save-recovery')).toHaveCount(0);expect(first.saves).toHaveLength(4);expect(second.saves).toHaveLength(1);expect(second.writes).toHaveLength(0);second.check();await other.close();
+});
+test('Recuperação integral: acesso alterado bloqueia revisão e conserva intenção',async({page})=>{
+ const app=await failCalendarSave(page,503);app.account.role='visualizador';app.account.accessTabs=['home'];
+ await page.getByTestId('save-recovery').getByRole('button',{name:'Resolver salvamento',exact:true}).click();const recovery=page.getByRole('dialog').last();
+ await recovery.getByRole('button',{name:'Consultar versão atual',exact:true}).click();await expect(recovery).toContainText('Acesso ou obra alterados.');await expect(recovery.getByRole('button',{name:'Salvar alterações revisadas',exact:true})).toHaveCount(0);expect(app.saves).toHaveLength(4);app.check();
+});
+
+test('Recuperação integral: segunda edição fica protegida enquanto a primeira aguarda revisão',async({page})=>{
+ const app=await failCalendarSave(page,503);await page.getByRole('button',{name:'Novo evento',exact:true}).click();const editor=page.getByRole('dialog').first();
+ await editor.getByLabel('Título *',{exact:true}).fill('Segundo trabalho protegido');await editor.getByRole('button',{name:'Salvar',exact:true}).click();
+ const count=await page.evaluate(()=>new Promise((resolve,reject)=>{const request=indexedDB.open('marcell-workspace-edits-v1');request.onerror=()=>reject(request.error);request.onsuccess=()=>{const db=request.result,r=db.transaction('edits').objectStore('edits').getAll();r.onsuccess=()=>{db.close();resolve(r.result.length);};};}));
+ expect(count).toBeGreaterThanOrEqual(2);expect(app.saves).toHaveLength(4);
+ const first=page.getByRole('dialog').last();await first.getByRole('button',{name:'Consultar versão atual',exact:true}).click();await first.getByRole('button',{name:'Salvar alterações revisadas',exact:true}).click();
+ await expect(page.getByRole('dialog')).toHaveCount(1);await editor.getByRole('button',{name:'Fechar',exact:true}).click();
+ const second=await reviewGeneral(page);await expect(second).toContainText('Segundo trabalho protegido');await second.getByRole('button',{name:'Salvar alterações revisadas',exact:true}).click();
+ await expect(page.getByTestId('save-recovery')).toHaveCount(0);await expect.poll(()=>app.getData().eventosEmpresa.map(e=>e.titulo).sort()).toEqual(['Revisão de obra preservada','Segundo trabalho protegido'].sort());expect(app.saves).toHaveLength(6);app.check();
+});
+
+test('Recuperação integral: troca de conta não expõe nem reenvia a edição anterior',async({page},info)=>{
+ const app=await failCalendarSave(page,503);page.on('dialog',dialog=>dialog.accept());
+ async function exit(){if(info.project.name==='mobile')await page.getByRole('button',{name:'Abrir mais módulos',exact:true}).click();await page.getByRole('button',{name:'Sair do sistema',exact:true}).click();await expect(page.locator('#login-email')).toBeVisible();}
+ async function login(){await page.locator('#login-email').fill(app.account.email);await page.locator('#login-senha').fill('local');await page.getByRole('button',{name:'Acessar central MARCELL',exact:true}).click();}
+ await exit();app.account.id='other-user';app.account.nome='Outra conta';await login();
+ await expect(page.getByRole('heading',{name:'Visão gerencial',exact:true})).toBeVisible();await expect(page.getByTestId('save-recovery')).toHaveCount(0);expect(app.saves).toHaveLength(4);
+ await exit();app.account.id=profile.id;app.account.nome=profile.nome;await login();await expect(page.getByTestId('save-recovery')).toBeVisible();expect(app.saves).toHaveLength(4);app.check();
+});
+
+
+test('Recuperação integral: falha ao proteger segunda edição bloqueia confirmação até recuperar armazenamento',async({page})=>{
+ const app=await failCalendarSave(page,503);
+ await page.evaluate(()=>{const put=IDBObjectStore.prototype.put;window.__blockRecoveryWrites=true;IDBObjectStore.prototype.put=function(...args){if(this.transaction.db.name==='marcell-workspace-edits-v1'&&window.__blockRecoveryWrites)throw new DOMException('Sem espaço no ensaio','QuotaExceededError');return put.apply(this,args);};});
+ await page.getByRole('button',{name:'Novo evento',exact:true}).click();const editor=page.getByRole('dialog').last();await editor.getByLabel('Título *',{exact:true}).fill('Segunda edição sem espaço');await editor.getByRole('button',{name:'Salvar',exact:true}).click();
+ const recovery=page.getByRole('dialog').last();await expect(recovery).toContainText('1 preenchimento(s)');await recovery.getByRole('button',{name:'Consultar versão atual',exact:true}).click();await expect(recovery.getByRole('button',{name:'Salvar alterações revisadas',exact:true})).toBeDisabled();expect(app.saves).toHaveLength(4);
+ await recovery.getByRole('button',{name:'Proteger preenchimentos',exact:true}).click();await expect(recovery).toContainText('1 preenchimento(s)');expect(app.saves).toHaveLength(4);
+ await page.evaluate(()=>{window.__blockRecoveryWrites=false;});await recovery.getByRole('button',{name:'Proteger preenchimentos',exact:true}).click();await expect(recovery.getByRole('button',{name:'Proteger preenchimentos',exact:true})).toHaveCount(0);await expect(recovery.getByRole('button',{name:'Salvar alterações revisadas',exact:true})).toBeEnabled();expect(app.saves).toHaveLength(4);app.check();
 });

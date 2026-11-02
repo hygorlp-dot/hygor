@@ -22,13 +22,13 @@ describe("fundações responsivas", () => {
     expect(typography).toContain("--arcd-type-control-touch: 1rem;");
     expect(css).toContain("height: 100dvh");
     expect(primitives).toContain(".arcd-input, .arcd-select, .arcd-textarea { font-size: var(--arcd-type-control-touch); }");
-    expect(primitives).toContain(".arcd-dialog { display: flex; width: 100%; max-width: none; height: 100dvh;");
+    expect(primitives).toContain(".arcd-dialog { display: flex; width: 100%; max-width: none; height: var(--mrc-viewport-height,100dvh);");
   });
 
   it("usa navegação compacta e diálogo acessível no app operacional", () => {
     expect(app).toContain("<LazyLegacyMobileNavigation");
     expect(shared).toContain('role="dialog"');
     expect(shared).toContain('aria-modal="true"');
-    expect(shared).toContain('event.key === "Escape"');
+    expect(shared).toContain('useDialogLifecycle(true,panelRef,onClose,undefined,overlayRef)');
   });
 });

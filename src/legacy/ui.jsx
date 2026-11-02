@@ -1,3 +1,6 @@
+import {useDialogLifecycle} from '../design-system/primitives/useDialogLifecycle.js';
+import {createPortal} from 'react-dom';
+import {useRecoveredEditor,SaveRecoveryShortcut} from '../features/workflow/SaveRecoveryContext.jsx';
 export {LoadingState} from '../design-system/patterns/LoadingState.jsx';
 // Declarações extraídas literalmente da entrada legada; não importar LegacyApp aqui.
 import { C, semanticToneFromLegacyColor } from "./palette.js";
@@ -14,7 +17,6 @@ import { Select as DesignSystemSelect } from "../design-system/primitives/Select
 import { useRef } from "react";
 import { useEffect } from "react";
 import { useBreakpoint } from "../hooks/useBreakpoint";
-import { useVisualViewportBounds } from "../lib/useVisualViewportBounds.js";
 
 
 // Consulta pública de CNPJ (BrasilAPI - gratuita, sem chave). Devolve os campos
@@ -465,54 +467,18 @@ export function Divider() {
 
 
 export function Modal({ title, children, onClose, wide = false, panelClass = "", footer = null }) {
+  const {stale,editorId}=useRecoveredEditor();
   const { isDesktop } = useBreakpoint();
   const panelRef = useRef(null);
   const overlayRef = useRef(null);
-  useVisualViewportBounds(overlayRef);
-  const previousFocusRef = useRef(null);
-  const closeRef = useRef(onClose);
-  closeRef.current = onClose;
+  useDialogLifecycle(true,panelRef,onClose,undefined,overlayRef);
 
-  useEffect(() => {
-    previousFocusRef.current = document.activeElement;
-    document.body.classList.add("no-scroll");
-    const focusTimer = window.setTimeout(() => {
-      const panel = panelRef.current;
-      // A primeira interação pode acontecer antes deste timer. Preservar o
-      // foco do campo evita fechar buscas e apagar a digitação por blur.
-      if (panel && !panel.contains(document.activeElement)) panel.focus({preventScroll:true});
-    }, 0);
-    const handleKeyDown = event => {
-      if(event.defaultPrevented||document.activeElement?.closest(".app-help-panel,dialog[open]"))return;
-      const panels = [...document.querySelectorAll(".arcd-modal-panel")];
-      if (panels.at(-1) !== panelRef.current) return;
-      if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); closeRef.current?.(); }
-      if (event.key !== "Tab" || !panelRef.current) return;
-      const focusable = [...panelRef.current.querySelectorAll(
-        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
-      )].filter(element => element.offsetParent !== null);
-      if (!focusable.length) { event.preventDefault(); panelRef.current.focus(); return; }
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && (document.activeElement === first || document.activeElement === panelRef.current || !panelRef.current.contains(document.activeElement))) { event.preventDefault(); last.focus(); }
-      else if (!event.shiftKey && (document.activeElement === last || document.activeElement === panelRef.current || !panelRef.current.contains(document.activeElement))) { event.preventDefault(); first.focus(); }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.clearTimeout(focusTimer);
-      window.removeEventListener("keydown", handleKeyDown);
-      if (!document.querySelector(".arcd-modal-panel")) document.body.classList.remove("no-scroll");
-      if(previousFocusRef.current?.isConnected&&previousFocusRef.current!==document.body&&previousFocusRef.current!==document.documentElement)previousFocusRef.current.focus({preventScroll:true});
-      else if(!document.activeElement?.closest('.arcd-modal-panel')){const fallback=document.querySelector(".arcd-modal-panel")||document.querySelector(".arcd-main h1,.arcd-main h2");if(fallback){if(!fallback.hasAttribute("tabindex"))fallback.setAttribute("tabindex","-1");fallback.focus({preventScroll:true});}}
-    };
-  }, []);
-
-  return (
+  return createPortal(
     <div
       ref={overlayRef}
       className="no-print arcd-modal-overlay"
       style={{
-        position:"fixed", inset:0, zIndex:999,
+        position:"fixed", inset:0, zIndex:"var(--arcd-layer-modal)",
         background:"var(--arcd-surface-overlay)",
         backdropFilter:"none",
         display:"flex", alignItems:"center", justifyContent:"center", padding:"var(--arcd-space-4)",
@@ -520,7 +486,7 @@ export function Modal({ title, children, onClose, wide = false, panelClass = "",
       onMouseDown={e => { if(e.target===e.currentTarget) onClose?.(); }}
     >
       <div
-        ref={panelRef}
+        ref={panelRef} data-recovery-editor={editorId}
         role="dialog"
         aria-modal="true"
         aria-label={textoUi(title)}
@@ -546,10 +512,10 @@ export function Modal({ title, children, onClose, wide = false, panelClass = "",
           </Btn>
         </div>
         <div className="arcd-modal-notice" />
-        <div className="arcd-modal-body" style={{padding:"var(--arcd-panel-padding)"}}>{children}</div>
-        {footer&&<div className="arcd-modal-footer">{footer}</div>}
+        <div className="arcd-modal-body" style={{padding:"var(--arcd-panel-padding)"}}><SaveRecoveryShortcut stale={stale}/><fieldset disabled={stale} className="m-0 min-w-0 border-0 p-0">{children}</fieldset></div>
+        {footer&&<div className="arcd-modal-footer"><fieldset disabled={stale} className="m-0 min-w-0 border-0 p-0 flex flex-wrap gap-2">{footer}</fieldset></div>}
       </div>
-    </div>
+    </div>, document.body
   );
 }
 

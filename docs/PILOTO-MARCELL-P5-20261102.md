@@ -93,3 +93,6 @@ Registrar por tarefa: operador/perfil, aparelho e largura, início/fim, conclus�
 Revisão adversa posterior em 02/11/2026: correções locais de identidade, memória e contexto; aplicação com operadores continua pendente. Avaliação crítica atual: **8,0/10**. Ver [revisão adversa da P5](PILOTO-MARCELL-P5-REVISAO-20261102.md). Sem deploy.
 
 Continuação em 02/11/2026: retomada explícita da fila geral e proteção da resolução de conflitos concluídas no piloto local. Nota conservadora mantida em **8,0/10**. Persistência geral após recarga e aplicação com operadores continuam pendentes. Ver [retomada da fila e próximos passos](PILOTO-MARCELL-P5-FILA-20261102.md). Sem deploy.
+
+
+Atualização de 02/11/2026 — recuperação integral: fila geral durável após recarga, renovação da mesma conta sem perder o editor, isolamento de respostas atrasadas, conferência por campo, proteção de tentativas em outros formulários e sobreposições compartilhadas implementadas localmente. P5: correções técnicas consolidadas; piloto com operadores permanece preparado para aplicação posterior. Nota crítica interna: **8,5/10**, sem equivaler a aprovação de produção. Evidências e limites no [relatório de recuperação integral](PILOTO-MARCELL-RECUPERACAO-INTEGRAL-20261102.md). Sem deploy.

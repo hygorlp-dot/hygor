@@ -1,3 +1,5 @@
+import {SaveRecoveryContext} from './features/workflow/SaveRecoveryContext.jsx';
+import {snapshotJournal,recoveryTab,snapshotChanges} from './domains/sync/snapshot-journal.js';
 import {SaveRecovery} from './domains/sync/SaveRecovery.jsx';
 import PaymentDialog from './features/financeiro/PaymentDialog.jsx';
 import PendingOperations from './features/workflow/PendingOperations.jsx';
@@ -804,65 +806,6 @@ const DEFAULT = () => ({
 //  sumiu do meu) é removido. Campos escalares (não-lista) que eu mudei em
 //  relação à base vencem; o resto fica do servidor.
 // ---------------------------------------------------------------------------
-const mesclarLista = (servidor, meu, base) => {
-  const S = Array.isArray(servidor) ? servidor : [];
-  const M = Array.isArray(meu) ? meu : [];
-  const B = Array.isArray(base) ? base : [];
-  // Só dá para mesclar por id se os itens tiverem id. Sem id, cai no meu (a
-  // lista inteira é minha intenção) - é o comportamento antigo, seguro.
-  const temId = x => x && typeof x === "object" && "id" in x;
-  if (!M.every(temId) || !S.every(temId)) return meu !== undefined ? meu : servidor;
-
-  const idsBase = new Set(B.map(x => x.id));
-  const mapMeu  = new Map(M.map(x => [x.id, x]));
-  const mapBase = new Map(B.map(x => [x.id, x]));
-  const jsonEq  = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-
-  // Itens que EU removi: estavam na base e sumiram do meu.
-  const removidosPorMim = new Set([...idsBase].filter(id => !mapMeu.has(id)));
-
-  const saida = [];
-  const vistos = new Set();
-  // Percorre o servidor mantendo a ordem dele; aplica minhas edições.
-  S.forEach(itemS => {
-    const id = itemS.id;
-    vistos.add(id);
-    if (removidosPorMim.has(id)) return;               // eu apaguei: some
-    const itemM = mapMeu.get(id);
-    if (!itemM) { saida.push(itemS); return; }         // eu não toquei: fica do servidor
-    const itemB = mapBase.get(id);
-    // Eu mudei em relação à base? então minha versão vence para este item.
-    if (itemB && jsonEq(itemM, itemB)) saida.push(itemS); // eu não mudei; servidor pode ter mudado
-    else saida.push(itemM);                               // eu mudei: fica meu
-  });
-  // Itens que EU criei (não estavam na base nem apareceram no servidor).
-  M.forEach(itemM => {
-    if (!vistos.has(itemM.id) && !idsBase.has(itemM.id)) saida.push(itemM);
-  });
-  return saida;
-};
-
-const mesclarDados = (servidor, meu, base) => {
-  const s = servidor || {}, m = meu || {}, b = base || {};
-  const saida = { ...s };
-  Object.keys(m).forEach(chave => {
-    const vm = m[chave], vs = s[chave], vb = b[chave];
-    if (Array.isArray(vm) || Array.isArray(vs)) {
-      saida[chave] = mesclarLista(vs, vm, vb);
-    } else if (vm && typeof vm === "object") {
-      // Objeto aninhado (ex.: config): mescla campo a campo com a mesma regra -
-      // recursão passando a base do próprio objeto, para não sobrescrever o que
-      // a outra pessoa mudou e eu não toquei.
-      saida[chave] = mesclarDados(vs || {}, vm, vb || {});
-    } else {
-      // Escalar: se EU mudei em relação à base, minha versão vence; senão,
-      // mantém o servidor (que pode ter a mudança da outra pessoa).
-      saida[chave] = (JSON.stringify(vm) !== JSON.stringify(vb)) ? vm : (vs !== undefined ? vs : vm);
-    }
-  });
-  return saida;
-};
-
 const normalizeData = incoming => {
   const base = DEFAULT();
   const d = migrateSupplyData(incoming && typeof incoming === "object" ? incoming : {});
@@ -2620,9 +2563,11 @@ function CalendarioEmpresa({data,update,showToast,currentUser}){
   const [mesOffset,setMesOffset]=useState(0);
   const [diaSelecionado,setDiaSelecionado]=useState("");
   const [eventoForm,setEventoForm]=useState(null);
+  const eventSaveLock=useRef(false);
   const eventos=data.eventosEmpresa||[];
 
   const salvarEvento=async()=>{
+    if(eventSaveLock.current)return;
     const f=eventoForm;
     if(!String(f.titulo||"").trim()){showToast("Informe o título do evento.","error");return;}
     if(!f.data){showToast("Informe a data do evento.","error");return;}
@@ -2633,11 +2578,15 @@ function CalendarioEmpresa({data,update,showToast,currentUser}){
       criadoPorId:f.criadoPorId||currentUser?.id||"",criadoPor:f.criadoPor||currentUser?.nome||"",
       criadoEm:f.criadoEm||agora,
     };
-    const lista=f.id?eventos.map(e=>e.id===f.id?registro:e):[...eventos,registro];
+    const lista=eventos.some(e=>e.id===registro.id)?eventos.map(e=>e.id===registro.id?registro:e):[...eventos,registro];
+    eventSaveLock.current=true;
+    setEventoForm(previous=>previous?{...previous,id:registro.id}:previous);
+    try{
     const result=await update({...data,eventosEmpresa:lista});
-    if(result&&result.ok===false){showToast("Não foi possível salvar o evento.","error");return;}
+    if(result&&result.ok===false){showToast(result.reason||"Não foi possível salvar o evento.",result.deferred?"info":"error");return;}
     setEventoForm(null);
     showToast(f.id?"Evento atualizado.":"Evento cadastrado.");
+    }finally{eventSaveLock.current=false;}
   };
 
   const excluirEvento=async evento=>{
@@ -13504,7 +13453,10 @@ export default function App() {
   const [erroInicial, setErroInicial] = useState("");
   const [firstSetup, setFirstSetup] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
-  useEffect(()=>{workflowViews.current.clear();workflowLastTabs.current.clear();workflowLastScope.current={};setWorkflowScopes({});setWorkflowTrail([]);setWorkflowIntent(null);},[currentUser?.id]);
+  const leavingSessionRef=useRef(false);
+  const recoveryUserRef=useRef(currentUser);recoveryUserRef.current=currentUser;
+  const [recoveryOpen,setRecoveryOpen]=useState(false),[recoveryAvailable,setRecoveryAvailable]=useState(false),[recoveryReady,setRecoveryReady]=useState(false),[recoveryRevision,setRecoveryRevision]=useState(0);
+  useEffect(()=>{if(currentUser)leavingSessionRef.current=false;workflowViews.current.clear();workflowLastTabs.current.clear();workflowLastScope.current={};setWorkflowScopes({});setWorkflowTrail([]);setWorkflowIntent(null);},[currentUser?.id]);
   const [conflito,    setConflito]    = useState(null);
   const [toast,       setToast]       = useState(null);
   // Momento da ultima sincronizacao bem-sucedida com o servidor.
@@ -13514,6 +13466,9 @@ export default function App() {
   // o usuário dispensar, para ninguém achar que salvou o que não salvou.
   const [edicaoRecusada,setEdicaoRecusada] = useState(null);
   const resolvingSaveRef=useRef(false);
+  const deferredEditKeysRef=useRef(new Map()),memoryEditsRef=useRef(new Map()),protectingEditsRef=useRef(0);
+  const [memoryEditCount,setMemoryEditCount]=useState(0);
+  const recoveryReadyRef=useRef(recoveryReady);recoveryReadyRef.current=recoveryReady;
   // A lista de obras e o painel detalhado ocupam alturas diferentes. Sem este
   // reset o navegador preserva o scroll da lista e a obra pode abrir já no
   // meio do conteúdo. O layout effect executa antes da pintura, sem salto.
@@ -13603,6 +13558,10 @@ export default function App() {
   }
   if(!saveQueueRef.current){
     saveQueueRef.current=createSaveQueue({
+      capture:()=>({user:recoveryUserRef.current,tab:recoveryTab(),base:baseServidorRef.current}),
+      protect:(intended,context)=>snapshotJournal.protect({...context,intended}),
+      release:receipt=>snapshotJournal.release(receipt),
+      onStorageError:()=>showToast("Confirmação recebida, mas a recuperação local não foi limpa. Consulte a versão atual antes de reenviar.","error"),
       save:alvo=>saveDataDetailed(alvo,baseServidorRef.current),
       onState:setEstadoSalvar,
       onSuccess:({result, target})=>{
@@ -13633,7 +13592,7 @@ export default function App() {
           const confirmado=baseServidorRef.current;
           const secoes=rejectedSections(confirmado,pending);
           setTimeout(()=>{
-            saveQueueRef.current?.discard();
+            saveQueueRef.current?.discard({keepJournal:true});
             ultimoDataRef.current=confirmado;dataAtualRef.current=confirmado;setData(confirmado);
             setEdicaoRecusada({motivo:result?.reason||result?.error||"O servidor recusou a alteração.",secoes,em:new Date()});
           },0);
@@ -13663,7 +13622,7 @@ export default function App() {
 
   useEffect(()=>{
     const protegerSaida=event=>{
-      if(!saveQueueRef.current?.hasPending()&&!attendanceCommandInFlightRef.current&&!attendanceQueueRef.current?.hasPending())return;
+      if(!saveQueueRef.current?.hasPending()&&!protectingEditsRef.current&&!memoryEditsRef.current.size&&!attendanceCommandInFlightRef.current&&!attendanceQueueRef.current?.hasPending()&&(recoveryReadyRef.current||!document.querySelector('.arcd-modal-panel input:not([readonly]):not(:disabled),.arcd-modal-panel textarea:not([readonly]):not(:disabled)')))return;
       event.preventDefault();
       event.returnValue="";
     };
@@ -13672,6 +13631,7 @@ export default function App() {
   },[]);
 
   const update = useCallback(async (next) => {
+    if(leavingSessionRef.current||currentUser?.id!==recoveryUserRef.current?.id)return {ok:false,reason:"A conta da edição mudou. Entre com a conta original para conferir."};
     // Aceita atualização funcional. O resolvedor recebe sempre o espelho mais
     // recente, mesmo que o React ainda não tenha renderizado o clique anterior.
     // Isso elimina a dependência de closures antigos nos fluxos migrados.
@@ -13714,6 +13674,21 @@ export default function App() {
       return;
     }
 
+    if(!recoveryReady){setRecoveryOpen(true);return {ok:false,reason:"Confira o armazenamento antes de enviar a edição."};}
+    if((recoveryAvailable&&!saveQueueRef.current?.hasPending())||[SAVE_QUEUE_STATE.FAILED,SAVE_QUEUE_STATE.CONFLICT,SAVE_QUEUE_STATE.OFFLINE].includes(saveQueueRef.current?.getState())){
+      const editorId=document.activeElement?.closest('[data-recovery-editor]')?.dataset.recoveryEditor||'workspace';
+      const changes=snapshotChanges(rendered,next);
+      const identity=JSON.stringify([currentUser.id,editorId,Object.entries(changes).map(([key,c])=>[key,c.delta?[...c.delta.changed.map(r=>String(r.id)),...c.delta.removed.map(String)].sort():null])]);
+      let id=deferredEditKeysRef.current.get(identity);if(!id){id=crypto.randomUUID();deferredEditKeysRef.current.set(identity,id);}
+      const entry={user:currentUser,tab:`${recoveryTab()}:edit:${id}`,base:rendered,intended:normalizeData(next)};
+      memoryEditsRef.current.set(id,entry);setMemoryEditCount(memoryEditsRef.current.size);protectingEditsRef.current++;
+      try{
+        await snapshotJournal.protect(entry);
+        if(memoryEditsRef.current.get(id)===entry)memoryEditsRef.current.delete(id);
+        setRecoveryOpen(true);return {ok:false,deferred:true,reason:"Preenchimento protegido separadamente. Conclua as revisões em Resolver salvamento."};
+      }catch{setRecoveryOpen(true);return {ok:false,reason:"A nova edição está apenas na memória. Proteja ou descarte antes de continuar."};}
+      finally{protectingEditsRef.current--;setMemoryEditCount(memoryEditsRef.current.size);}
+    }
     // RECONCILIAÇÃO CONTRA O ESTADO MAIS RECENTE
     // `rendered` é exatamente a fotografia usada pelo handler do clique.
     // `ultimoDataRef` pode já conter outro cadastro ainda não renderizado.
@@ -13739,7 +13714,7 @@ export default function App() {
     // proximo a enviar. Nunca ha dois saves simultaneos - fim dos 409 do
     // proprio dispositivo contra si mesmo.
     return saveQueueRef.current.enqueue(normalized);
-  }, [data,showToast]);
+  }, [data,showToast,recoveryAvailable,recoveryReady,currentUser?.id]);
 
   // Ponte de migração para comandos por agregado. O comando é criado dentro
   // da atualização funcional, portanto `expectedVersion` é verificado contra
@@ -13749,8 +13724,11 @@ export default function App() {
   // chave idempotente. A corrente evita que dois cliques deste navegador
   // disputem a mesma versão da entidade entre si.
   const commandTailRef=useRef(Promise.resolve());
+  const operationalInFlightRef=useRef(0);
   const dispatchOperationalCommand=useCallback(commandOrFactory=>{
+    if(leavingSessionRef.current||currentUser?.id!==recoveryUserRef.current?.id)return Promise.resolve({ok:false,status:0,reason:"A conta da operação mudou. Confira com a conta original."});
     const executar=async()=>{
+      if(leavingSessionRef.current||currentUser?.id!==recoveryUserRef.current?.id)return {ok:false,status:0,reason:"A conta da operação mudou. Confira com a conta original."};
       // Não misturamos um comando versionado com um snapshot local ainda não
       // confirmado. Se a fila não puder esvaziar, preservar a edição local é
       // mais seguro que executar o comando sobre uma base desconhecida.
@@ -13760,14 +13738,16 @@ export default function App() {
       }
       const atual=dataAtualRef.current||DEFAULT();
       const command=typeof commandOrFactory==="function"?await commandOrFactory(atual):commandOrFactory;
+      if(leavingSessionRef.current||currentUser?.id!==recoveryUserRef.current?.id)return {ok:false,status:0,reason:"A conta da operação mudou. Confira com a conta original."};
       const resposta=await executarComandoOperacional(command);
+      if(leavingSessionRef.current||currentUser?.id!==recoveryUserRef.current?.id)return {ok:false,status:0,code:"SESSION_CHANGED",reason:"A conta da operação mudou. Confira com a conta original."};
       if(!resposta?.ok){
         // Só entra na fila offline durável quando a falha é de conectividade
         // (status 0/429/5xx — mesmo critério de retryable do save-queue), não
         // quando o servidor rejeitou a regra de negócio (ex.: validação),
         // caso em que repetir offline só confundiria o usuário.
         const offlineSpec=OFFLINE_QUEUEABLE_COMMANDS[command?.type];
-        const retryable=[0,429,500,502,503,504].includes(Number(resposta?.status||0));
+        const retryable=resposta?.code!=="SESSION_CHANGED"&&[0,429,500,502,503,504].includes(Number(resposta?.status||0));
         if(offlineSpec&&retryable&&campoOfflineStoreRef.current){
           const entityId=offlineSpec.entityId(command)||command.idempotencyKey;
           const queued=await campoOfflineStoreRef.current.enqueue({
@@ -13798,10 +13778,11 @@ export default function App() {
         ...(resposta.summary!=null?{summary:resposta.summary}:{}),
       };
     };
-    const pendente=commandTailRef.current.then(executar,executar);
+    operationalInFlightRef.current++;
+    const pendente=commandTailRef.current.then(executar,executar).finally(()=>{operationalInFlightRef.current=Math.max(0,operationalInFlightRef.current-1);});
     commandTailRef.current=pendente.catch(()=>undefined);
     return pendente;
-  },[update,showToast]);
+  },[update,showToast,currentUser?.id]);
 
   // Ao reconectar, reenvia os comandos guardados offline (Fase 3 do roadmap
   // de arquitetura) reusando a mesma idempotencyKey gerada no momento do
@@ -13948,7 +13929,7 @@ export default function App() {
           dataAtualRef.current=normalizados;
           const cadastro=normalizados.usuarios.find(u=>u.id===restaurada.usuario?.id);
           const usuarioCompleto={...restaurada.usuario,...cadastro,pin:undefined};
-          setData(normalizados);setCurrentUser(usuarioCompleto);setUltimaSync(new Date());
+          setData(normalizados);leavingSessionRef.current=false;setCurrentUser(usuarioCompleto);setUltimaSync(new Date());
           setTab(restoreSection(usuarioCompleto.id,allowedTabsForUser(usuarioCompleto)));
           return;
         }
@@ -14137,8 +14118,8 @@ export default function App() {
     : false;
   const syncStatus = {
     [SAVE_QUEUE_STATE.IDLE]:{
-      label:ultimaSync?`Salvo às ${ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`:"Dados sincronizados",
-      color:C.green,
+      label:recoveryAvailable?"Edição protegida pendente":ultimaSync?`Salvo às ${ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`:"Dados sincronizados",
+      color:recoveryAvailable?C.orange:C.green,
     },
     [SAVE_QUEUE_STATE.SAVING]:{label:"Salvando alterações...",color:C.yellowD},
     [SAVE_QUEUE_STATE.RETRY_SCHEDULED]:{label:"Tentando salvar novamente...",color:C.orange},
@@ -14206,26 +14187,51 @@ export default function App() {
     return () => window.removeEventListener("arcd:data-conflict", aoConflitar);
   }, []);
 
-  const resolverSalvamento=async reaplicar=>{
-    if(resolvingSaveRef.current)return;
+  const aplicarRecuperacao=async(merged,current,row)=>{
+    if(resolvingSaveRef.current||protectingEditsRef.current||memoryEditsRef.current.size)return {ok:false,reason:"Proteja os preenchimentos da memória antes de confirmar."};
     resolvingSaveRef.current=true;
     try{
-      const base=baseServidorRef.current;
-      const fresco=await loadDataWithMeta();
-      if(!fresco?.data){showToast("Não foi possível atualizar. Mantenha esta aba aberta e tente novamente.","error");return;}
-      // Só libera a pendência depois da leitura. A reaplicação volta à fila,
-      // conservando a edição caso o próximo envio também falhe.
-      const servidor=normalizeData(fresco.data);
-      const norm=reaplicar?normalizeData(mesclarDados(servidor,ultimoDataRef.current||conflito?.rejectedPayload,base)):servidor;
-      adoptServerVersion(fresco.updatedAt);
-      setConflito(null);saveQueueRef.current?.discard();
-      baseServidorRef.current=servidor;ultimoDataRef.current=norm;dataAtualRef.current=norm;setData(norm);
-      if(reaplicar)await saveQueueRef.current.enqueue(norm);
-      else showToast("Tela atualizada com a versão do servidor.");
+      snapshotJournal.adopt(row);
+      saveQueueRef.current.discard({keepJournal:true});
+      adoptServerVersion(current.updatedAt);baseServidorRef.current=normalizeData(current.data);
+      const norm=normalizeData(merged);ultimoDataRef.current=norm;dataAtualRef.current=norm;setData(norm);setConflito(null);
+      const result=await saveQueueRef.current.enqueue(norm);
+      if(result.ok){setRecoveryRevision(v=>v+1);await snapshotJournal.release(row).catch(()=>showToast("Registro confirmado. Confira a recuperação local antes de reenviar.","error"));}
+      return result;
     }finally{resolvingSaveRef.current=false;}
   };
-  const reaplicarSobreServidor=()=>resolverSalvamento(true);
-  const descartarMinhaVersao=()=>resolverSalvamento(false);
+  const protegerPreenchimentos=async()=>{
+    protectingEditsRef.current++;
+    try{
+      for(const [id,entry] of [...memoryEditsRef.current]){await snapshotJournal.protect(entry);if(memoryEditsRef.current.get(id)===entry)memoryEditsRef.current.delete(id);}
+      return {ok:true};
+    }catch{return {ok:false,reason:"Não foi possível proteger todos os preenchimentos. Mantenha esta aba aberta."};}
+    finally{protectingEditsRef.current--;setMemoryEditCount(memoryEditsRef.current.size);}
+  };
+  const descartarEdicaoDaMemoria=()=>{
+    if(!window.confirm("Descartar a edição que ainda não foi protegida? O preenchimento desta tentativa será perdido."))return;
+    memoryEditsRef.current.clear();setMemoryEditCount(0);
+    saveQueueRef.current.discard({keepJournal:true});
+    const norm=normalizeData(baseServidorRef.current);ultimoDataRef.current=norm;dataAtualRef.current=norm;setData(norm);
+    setRecoveryRevision(v=>v+1);setRecoveryOpen(false);setConflito(null);
+  };
+  const reaplicarSobreServidor=()=>setRecoveryOpen(true);
+  const descartarMinhaVersao=async target=>{
+    if(resolvingSaveRef.current||[SAVE_QUEUE_STATE.SAVING,SAVE_QUEUE_STATE.RETRY_SCHEDULED].includes(saveQueueRef.current.getState()))return;
+    if((recoveryAvailable||saveQueueRef.current.hasPending())&&!window.confirm("Descartar as edições pendentes e consultar o servidor?"))return;
+    resolvingSaveRef.current=true;
+    try{
+      const fresco=await loadDataWithMeta();
+      if(!fresco?.data){showToast("Não foi possível atualizar. A edição protegida foi mantida.","error");return;}
+      const saved=target?.owner===currentUser.id?target:await snapshotJournal.readLatest(currentUser.id,recoveryTab());
+      if(saved)await snapshotJournal.release(saved);
+      saveQueueRef.current.discard({keepJournal:true});setConflito(null);
+      adoptServerVersion(fresco.updatedAt);const norm=normalizeData(fresco.data);
+      baseServidorRef.current=norm;ultimoDataRef.current=norm;dataAtualRef.current=norm;setData(norm);
+      setRecoveryRevision(v=>v+1);setRecoveryOpen(false);
+    }catch{showToast("Não foi possível descartar a edição protegida.","error");}
+    finally{resolvingSaveRef.current=false;}
+  };
 
   // O painel de TV permanece aberto por horas. Ele atualiza a fotografia da
   // empresa sem toast e sem disparar um novo save, mantendo a tela pública
@@ -14243,8 +14249,22 @@ export default function App() {
   // Sair e trocar usuário agora fazem a mesma coisa por baixo: limpam o PIN da
   // memória e voltam pro login. Não existe mais uma "sessão do Supabase" por
   // cima - o PIN É a sessão.
+  const prepararTrocaDeConta=()=>{
+    if(saveQueueRef.current?.getState()===SAVE_QUEUE_STATE.SAVING||protectingEditsRef.current||operationalInFlightRef.current||attendanceCommandInFlightRef.current||attendanceQueueRef.current?.hasPending()){
+      showToast("Aguarde a conclusão do envio antes de trocar de conta.","error");return false;
+    }
+    if(memoryEditsRef.current.size||(saveQueueRef.current?.getFailure()?.local&&saveQueueRef.current.hasPending())){
+      setRecoveryOpen(true);showToast("Proteja ou descarte a edição da memória antes de sair.","error");return false;
+    }
+    leavingSessionRef.current=true;
+    saveQueueRef.current?.destroy();saveQueueRef.current=null;
+    attendanceQueueRef.current?.destroy();attendanceQueueRef.current=null;
+    setEstadoSalvar(SAVE_QUEUE_STATE.IDLE);setConflito(null);setRecoveryReady(false);setRecoveryAvailable(false);setRecoveryOpen(false);
+    return true;
+  };
   const sairDoSistema = async () => {
     if (!window.confirm("Sair do sistema?")) return;
+    if(!prepararTrocaDeConta())return;
     await encerrarPresenca();
     setCurrentUser(null);
     setData(null);        // os dados saem da memória junto
@@ -14253,6 +14273,7 @@ export default function App() {
 
   // Tablet compartilhado na obra: troca quem opera, sem a pergunta de confirmação.
   const trocarDeUsuario = async () => {
+    if(!prepararTrocaDeConta())return;
     await encerrarPresenca();
     setCurrentUser(null);
     setData(null);
@@ -14296,7 +14317,7 @@ export default function App() {
       const usuarioCompleto={...usuario,...cadastro,pin:undefined};
       setData(normalizados);
       setUltimaSync(new Date());
-      setCurrentUser(usuarioCompleto);
+      leavingSessionRef.current=false;setCurrentUser(usuarioCompleto);
       const allowed = allowedTabsForUser(usuarioCompleto);
       setTab(restoreSection(usuarioCompleto.id,allowed));
     };
@@ -14311,7 +14332,7 @@ export default function App() {
   }
 
   return (
-    <>
+    <SaveRecoveryContext.Provider value={{visible:recoveryAvailable&&!recoveryOpen&&![SAVE_QUEUE_STATE.SAVING,SAVE_QUEUE_STATE.RETRY_SCHEDULED].includes(estadoSalvar),open:()=>setRecoveryOpen(true),revision:recoveryRevision}}>
       <style>{G}</style>
       <div className="arcd-app-shell" data-tab={tab} style={{
         minHeight:"100vh", background:"transparent", color:C.text,
@@ -14508,7 +14529,7 @@ export default function App() {
                     background:"transparent", border:0, color:C.muted,
                     fontSize:"var(--arcd-type-control)", cursor:"pointer", lineHeight:1, padding:"0 3px",
                   }}></button>
-                  <button onClick={sairDoSistema} title="Sair do sistema" style={{
+                  <button onClick={sairDoSistema} title="Sair do sistema" aria-label="Sair do sistema" style={{
                     background:"transparent", border:0, color:C.muted,
                     fontSize:"var(--arcd-type-control)", cursor:"pointer", lineHeight:1, padding:"0 3px",
                   }}>x</button>
@@ -14618,7 +14639,7 @@ export default function App() {
             <strong>Conflito de salvamento.</strong> Outra pessoa salvou alterações. Confira antes de reaplicar: sua versão pode substituir edições do mesmo registro. Mantenha esta aba aberta até resolver.
             <div className="flex flex-wrap gap-2 mt-2"><StandardButton onClick={reaplicarSobreServidor}>Reaplicar minhas alterações</StandardButton><StandardButton variant="outline" onClick={descartarMinhaVersao}>Descartar e recarregar</StandardButton></div>
           </AlertDescription></Alert>}
-          <SaveRecovery queue={saveQueueRef.current} state={estadoSalvar}/>
+          <SaveRecovery key={currentUser.id} memoryCount={memoryEditCount} onProtectMemory={protegerPreenchimentos} onDiscardMemory={descartarEdicaoDaMemoria} onRecovered={()=>setRecoveryRevision(v=>v+1)} normalize={normalizeData} pageId={tab} queue={saveQueueRef.current} state={estadoSalvar} user={currentUser} open={recoveryOpen} onOpen={()=>setRecoveryOpen(true)} onClose={()=>setRecoveryOpen(false)} onApply={aplicarRecuperacao} onUser={setCurrentUser} onAvailable={setRecoveryAvailable} onReady={setRecoveryReady} revision={recoveryRevision} onDiscard={descartarMinhaVersao}/>
           {edicaoRecusada&&<Alert variant="destructive" data-testid="save-rejected" className="flex flex-wrap items-start justify-between gap-2 mb-3">
             <AlertDescription><b>Alteração não salva e desfeita</b> às {edicaoRecusada.em.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}: {edicaoRecusada.motivo}{edicaoRecusada.secoes.length?` (${edicaoRecusada.secoes.slice(0,4).join(", ")}${edicaoRecusada.secoes.length>4?"…":""})`:""}. A tela voltou ao último estado confirmado.</AlertDescription>
             <Btn v="ghost" size="sm" onClick={()=>setEdicaoRecusada(null)}>Entendi</Btn>
@@ -14753,6 +14774,7 @@ export default function App() {
                 visível e o restante abre em um painel acessível. */}
             <Suspense fallback={<div className="mobile-primary-nav-loading" aria-hidden="true"/>}>
               <LazyLegacyMobileNavigation
+                userLabel={currentUser.nome} onSignOut={sairDoSistema}
                 groups={visibleGroups}
                 activeGroupId={activeGroup?.id}
                 badges={groupBadge}
@@ -14771,6 +14793,6 @@ export default function App() {
       {currentUser && tab!=="tv" && (
         <ChatFlutuante currentUser={currentUser} usuarios={data?.usuarios||[]} showToast={showToast} bottomOffset={isDesktop||tab==="conferencia"?20:`calc(${navHeight+12}px + env(safe-area-inset-bottom))`}/>
       )}
-    </>
+    </SaveRecoveryContext.Provider>
   );
 }

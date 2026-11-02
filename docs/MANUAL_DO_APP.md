@@ -128,6 +128,7 @@ Conteúdo gerado de `src/features/help/help-content.js`, a mesma fonte da ajuda 
 - [Compras · Registrar pagamento](#guia-cmp_pagamento)
 - [Retomar trabalho salvo](#guia-fin_recuperacao)
 - [Retomar trabalho salvo](#guia-cmp_recuperacao)
+- [Recuperar salvamento](#guia-home_recuperacao)
 
 <a id="guia-ponto_obras"></a>
 
@@ -2922,6 +2923,32 @@ A confirmação atualiza o registro; abrir o rascunho não grava.
 
 A recarga não envia automaticamente. Não é backup: depende dos dados locais. Abas compartilham o rascunho. Sem armazenamento, o envio é bloqueado. Obra e acesso seguem o registro atual. Registro indisponível mantém o trabalho salvo; confira a origem e as permissões. Se o armazenamento falhar na retomada, mantenha a ficha aberta e confira o histórico antes de outra operação. Em abas antigas, copie edições não salvas antes de recarregar após a atualização do ERP.
 
+<a id="guia-home_recuperacao"></a>
+
+## Recuperar salvamento
+
+Retomar uma edição protegida sem perder campos nem repetir ações.
+
+### Antes de começar
+
+Use a mesma conta, navegador e endereço. A recuperação procura primeiro a edição desta aba e depois a mais recente da mesma conta. Confira a conexão.
+
+### Como fazer
+
+1. Antes de recuperar, salve ou cancele campos novos de outros formulários. Tentativas de salvar enquanto há outra pendência ficam protegidas separadamente.
+2. Use Resolver salvamento no aviso ou no formulário aberto.
+3. Se a sessão expirou, informe a senha da mesma conta em Renovar sessão; isso não grava automaticamente.
+4. Use Consultar versão atual. Confira sua edição e o servidor; escolha cada campo em conflito. Nos demais campos, Manter servidor permite retirar uma mudança da revisão.
+5. Use Salvar alterações revisadas e aguarde. Depois da recuperação, feche e reabra formulários antigos antes de editar novamente. Confira se outra edição aparece em Resolver salvamento e conclua as revisões até o aviso desaparecer.
+
+### Como conferir se deu certo
+
+A edição é enviada apenas após revisão explícita; a recarga não confirma operações.
+
+### O que merece atenção
+
+A proteção depende do armazenamento local e não é backup. Sem armazenamento, o envio fica bloqueado: mantenha a aba aberta. Verificar armazenamento retoma a conferência inicial; Proteger preenchimentos tenta gravar as tentativas que ficaram na memória; Proteger e reenviar edição tenta proteger novamente o que está na memória. Descartar edição da memória exige confirmação e perde essa tentativa; cópias já protegidas são preservadas. Sair e trocar de conta aguardam envios em andamento. Resolva o armazenamento antes de sair com uma edição apenas na memória. Concluir conferência encerra uma pendência que já consta no servidor, sem repetir a gravação. Mudança de acesso ou obra pode bloquear a retomada. Descartar edição protegida consulta o servidor e remove apenas a edição revisada; confirme com cuidado. Pagamentos e recebimentos continuam usando suas confirmações próprias.
+
 ## Aparência, botões e navegação
 
 ### Ajustar o menu lateral
@@ -2978,7 +3005,7 @@ No computador, Consultas e cadastros em Compras e Mais áreas no Financeiro abre
 
 ### Acessar outros módulos no celular
 
-Use Mais, na barra inferior, para abrir Mais módulos. Escolha o módulo desejado. Fechar menu ou Escape retorna à tela atual sem trocar a área de trabalho.
+Use Mais, na barra inferior, para abrir Mais módulos. Escolha o módulo desejado. No celular, Mais também mostra a conta e Sair do sistema. Fechar menu ou Escape retorna à tela atual sem trocar a área de trabalho.
 
 ### Usar os filtros
 
@@ -2986,7 +3013,11 @@ Mantenha a obra e o período corretos. O botão Filtros abre as opções adicion
 
 ### Conferir o salvamento
 
-Após falha, use Tentar salvar novamente no aviso da página. Aguarde a confirmação; não é preciso fazer outra edição. Sem conexão, mantenha a aba aberta até reconectar: recarregar perde edições da fila geral. Sessão, acesso e conflito exigem seguir o motivo; copie edições antes de sair. Para pagamentos e recebimentos, use Retomar trabalho salvo.
+Após falha, use Resolver salvamento no aviso da página ou no formulário aberto. Aguarde a confirmação; não é preciso fazer outra edição. Sem conexão, mantenha a aba aberta até reconectar: use Resolver salvamento para revisar edições protegidas após recarga. Sessão, acesso e conflito exigem seguir o motivo; copie edições antes de sair. Para pagamentos e recebimentos, use Retomar trabalho salvo.
+
+### Gráficos operacionais
+
+Os gráficos mostram os dados completos assim que ficam disponíveis, sem aguardar animação de entrada. Valores, séries e rótulos continuam disponíveis.
 
 ## Celular, interrupções e recuperação
 

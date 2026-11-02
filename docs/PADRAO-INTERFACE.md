@@ -156,3 +156,13 @@ A identidade da confirmação local distingue classe do documento e ID. Consulte
 Para selecionar o contexto de Ajuda, use os IDs de `src/features/help/help-topics.js` ou `useHelpTopic`. Os textos continuam na fonte única `help-content.js`; não importe os guias completos estaticamente em telas operacionais apenas para acessar o mapa de IDs. Mensagens genéricas compartilhadas, como `UI_TEXT.feedback.recordUnavailable`, pertencem à base comum de linguagem.
 
 A recuperação de falhas da fila geral usa `src/domains/sync/SaveRecovery.jsx` e os controles compartilhados. Ação de retomada só aparece quando a fila a permite; mensagens não devem prometer persistência após recarga se o fluxo guarda dados apenas em memória. Os mapas de ajuda ficam em `src/features/workflow/help-topics.js`, com reexportação compatível no endereço anterior; os textos permanecem na fonte única `help-content.js`.
+
+
+## Recuperação compartilhada — 02/11/2026
+
+- Toda tentativa de gravação geral deve passar pela fila com proteção local, escopo da conta e revisão do servidor. Não criar reenvio automático após recarga nem tratar recusa de acesso como falha transitória.
+- Modal, Dialog e Drawer compartilham ciclo de foco, Escape apenas na camada superior, bloqueio de rolagem e limites da área visível com teclado. Use essas bases; não crie camadas e atalhos paralelos.
+- Uma recuperação altera a revisão dos editores. Formulários antigos devem ser fechados e reabertos; seus campos e ações ficam bloqueados para impedir envio de dados desatualizados. Fechar permanece acessível.
+- Tentativas de salvar outro formulário durante uma pendência são protegidas separadamente, sem substituir a primeira. Se a gravação local falhar, manter a memória, impedir confirmação e oferecer proteção ou descarte explícito.
+- Gráficos operacionais mostram a geometria final imediatamente, sem animação de entrada. Valores, legendas e interações continuam disponíveis.
+- Ajuda explica o limite: proteção das tentativas de salvar não equivale a salvamento automático de todo campo nem a backup.
