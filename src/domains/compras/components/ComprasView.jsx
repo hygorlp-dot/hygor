@@ -516,7 +516,7 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
                   const mp = it.materialId && data ? melhorPrecoHist(h, fornecedores) : null;
                   return mp ? (
                     <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-success-text)",marginTop:"var(--arcd-space-half)"}}>
-                      melhor ja pago: {fmt(mp.preco)}{mp.fornecedor ? ` (${mp.fornecedor})` : ""}
+                      melhor já pago: {fmt(mp.preco)}{mp.fornecedor ? ` (${mp.fornecedor})` : ""}
                     </p>
                   ) : null;
                 })()}

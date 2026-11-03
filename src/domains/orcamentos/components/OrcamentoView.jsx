@@ -1,3 +1,4 @@
+import {contar} from '../../../design-system/copy.js';
 import {FilePicker} from '../../../design-system/patterns/FilePicker.jsx';
 import {Input as StandardInput} from '../../../components/ui/input.jsx';
 import {Button as StandardButton} from '../../../components/ui/button.jsx';
@@ -2537,12 +2538,12 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     setBuscaLinha({itemId:"", termo:""});
     setResultadosLinhaRemotos([]);
     setBuscaLinhaAviso("");
-    showToast(`${referencia.fonte || "Referencia"} ${referencia.codigo}: descricao e preco atualizados.`);
+    showToast(`${referencia.fonte || "Referência"} ${referencia.codigo}: descrição e preço atualizados.`);
   };
 
   const salvarItemCompleto = () => {
     if (!editItem || !orc) return;
-    if (!String(editItem.descricao||"").trim()) { showToast("Informe a descricao do item.","error"); return; }
+    if (!String(editItem.descricao||"").trim()) { showToast("Informe a descrição do item.","error"); return; }
     const item = {
       ...editItem,
       codigo: String(editItem.codigo||"").trim(), fonte: String(editItem.fonte||orc.fonte||"").trim(),
@@ -3484,7 +3485,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   </p>
                   <div style={{display:"flex",gap:"var(--arcd-space-1)",flexWrap:"wrap",marginTop:"var(--arcd-space-1)"}}>{ehBaseline&&<Badge color={C.green}>BASELINE ATIVA</Badge>}<Badge color={bloqueado?C.blue:C.orange}>V{o.versionNumber||1} · {bloqueado?"APROVADA":"RASCUNHO"}</Badge></div>
                   <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>
-                    {c.qtdItens} item(ns){o.areaM2>0 && ` · ${o.areaM2} m² · ${fmt(c.porM2)}/m²`}
+                    {contar(c.qtdItens,"item","itens")}{o.areaM2>0 && ` · ${o.areaM2} m² · ${fmt(c.porM2)}/m²`}
                   </p>
                 </div>
                 <div style={{textAlign:"right",flexShrink:0}}>
@@ -3783,14 +3784,14 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-3)",marginBottom:"var(--arcd-space-1)",textTransform:"uppercase"}}>Conferência dimensional</p>
             {!confResultado?.temArea ? (
               <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)",marginTop:"var(--arcd-space-2)"}}>
-                Para conferir, cadastre a <strong>area construida</strong> no orcamento (campo
-                "Area construida" na edicao) ou na obra vinculada. Sem area de referencia
-                nao da para comparar as quantidades.
+                Para conferir, cadastre a <strong>área construída</strong> no orçamento (campo
+                "Área construída" na edição) ou na obra vinculada. Sem área de referência
+                não dá para comparar as quantidades.
               </p>
             ) : confResultado.linhas.length === 0 ? (
               <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)",marginTop:"var(--arcd-space-2)"}}>
                 Nenhum item medido em m2 reconhecido (forro, piso, paredes, pintura...).
-                A conferencia atua sobre itens de area.
+                A conferência atua sobre itens de área.
               </p>
             ) : (
               <>
@@ -3825,8 +3826,8 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 </div>
 
                 <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-2)",lineHeight:"var(--arcd-line-height-normal)"}}>
-                  A conferencia e um alerta, nao uma regra: projetos com pe-direito alto, muitos
-                  vazios ou sacadas fogem dos fatores medios. Voce decide o que ajustar.
+                  A conferência é um alerta, não uma regra: projetos com pé-direito alto, muitos
+                  vazios ou sacadas fogem dos fatores médios. Você decide o que ajustar.
                 </p>
               </>
             )}

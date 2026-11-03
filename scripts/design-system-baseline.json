@@ -5,13 +5,16 @@
       "literal-color": 18,
       "literal-spacing": 11,
       "literal-typography": 6,
-      "native-control": 2
+      "native-control": 2,
+      "inline-style": 9
     },
     "src/LegacyApp.jsx": {
       "literal-spacing": 780,
       "literal-typography": 344,
       "native-control": 77,
-      "literal-color": 79
+      "literal-color": 79,
+      "inline-style": 1884,
+      "plural-parenthesis": 95
     },
     "src/client-portal/app/ClientPortalApp.jsx": {
       "native-control": 1
@@ -28,126 +31,458 @@
     "src/client-portal/auth/ClientPortalLogin.jsx": {
       "native-control": 3
     },
+    "src/client-portal/pages/ClientDashboard.jsx": {
+      "inline-style": 2,
+      "plural-parenthesis": 3
+    },
+    "src/client-portal/pages/ClientDecisionsPage.jsx": {
+      "plural-parenthesis": 2
+    },
+    "src/client-portal/pages/ClientProgressPage.jsx": {
+      "inline-style": 1
+    },
     "src/client-portal/pages/ClientTransparencyPage.jsx": {
-      "native-control": 1
+      "native-control": 1,
+      "plural-parenthesis": 2
     },
     "src/components/charts/CubChart.jsx": {
       "literal-spacing": 8,
       "literal-color": 3,
       "literal-typography": 7,
-      "native-control": 1
+      "native-control": 1,
+      "inline-style": 14
     },
     "src/components/charts/RelatoriosChartPanel.jsx": {
       "literal-spacing": 3,
       "native-control": 1,
-      "literal-typography": 1
+      "literal-typography": 1,
+      "inline-style": 2
     },
     "src/domains/administracao/LegacySettings.jsx": {
       "literal-spacing": 97,
       "literal-typography": 17,
       "literal-color": 2,
-      "native-control": 5
+      "native-control": 5,
+      "inline-style": 125,
+      "plural-parenthesis": 3
     },
     "src/domains/administracao/components/BasesPrecoAdmin.jsx": {
       "literal-spacing": 35,
       "literal-typography": 9,
       "native-control": 1,
-      "literal-color": 1
+      "literal-color": 1,
+      "inline-style": 41,
+      "plural-parenthesis": 5
     },
     "src/domains/administracao/components/CentralAdministradorView.jsx": {
       "literal-spacing": 22,
-      "literal-typography": 6
+      "literal-typography": 6,
+      "plural-parenthesis": 3,
+      "inline-style": 29
     },
     "src/domains/administracao/components/FechamentoFinanceiroAdmin.jsx": {
       "literal-spacing": 19,
-      "literal-typography": 7
+      "literal-typography": 7,
+      "inline-style": 22
     },
     "src/domains/administracao/components/FinanceiroCanonicoAdmin.jsx": {
       "literal-spacing": 27,
-      "literal-typography": 10
+      "literal-typography": 10,
+      "inline-style": 45,
+      "plural-parenthesis": 3
     },
     "src/domains/administracao/components/NucleoRelacionalAdmin.jsx": {
       "literal-spacing": 17,
       "literal-typography": 7,
-      "native-control": 1
+      "native-control": 1,
+      "plural-parenthesis": 2,
+      "inline-style": 23
     },
     "src/domains/aprovacoes/components/AprovacoesPendentesView.jsx": {
       "literal-spacing": 7,
-      "literal-typography": 1
+      "literal-typography": 1,
+      "inline-style": 9
+    },
+    "src/domains/aprovacoes/engine.js": {
+      "plural-parenthesis": 1
+    },
+    "src/domains/arquivos/ArquivosView.jsx": {
+      "plural-parenthesis": 4
+    },
+    "src/domains/arquivos/PdfReader.jsx": {
+      "plural-parenthesis": 1,
+      "inline-style": 1
     },
     "src/domains/comercial/RealEstateCommercial.jsx": {
       "native-control": 26,
-      "literal-typography": 1
+      "literal-typography": 1,
+      "plural-parenthesis": 1,
+      "inline-style": 1
     },
     "src/domains/comercial/components/ComercialView.jsx": {
       "literal-spacing": 193,
       "literal-typography": 60,
-      "native-control": 19
+      "native-control": 19,
+      "plural-parenthesis": 18,
+      "inline-style": 303
+    },
+    "src/domains/compras/LegacySupport.jsx": {
+      "inline-style": 35,
+      "plural-parenthesis": 3
+    },
+    "src/domains/compras/calculations.js": {
+      "plural-parenthesis": 5
+    },
+    "src/domains/compras/components/AdoptionPanel.jsx": {
+      "plural-parenthesis": 1
+    },
+    "src/domains/compras/components/ComprasView.jsx": {
+      "plural-parenthesis": 33,
+      "inline-style": 517
+    },
+    "src/domains/compras/components/ContratosFornecimentoView.jsx": {
+      "inline-style": 28
+    },
+    "src/domains/compras/components/MaterialPriceHistory.jsx": {
+      "inline-style": 1,
+      "plural-parenthesis": 1
+    },
+    "src/domains/compras/components/MessageRequestImport.jsx": {
+      "inline-style": 3,
+      "plural-parenthesis": 1
+    },
+    "src/domains/compras/components/ProcurementProcessStatus.jsx": {
+      "plural-parenthesis": 1
+    },
+    "src/domains/compras/components/PurchaseContractsWorkspace.jsx": {
+      "plural-parenthesis": 2
+    },
+    "src/domains/compras/components/PurchaseDossier.jsx": {
+      "plural-parenthesis": 2
+    },
+    "src/domains/compras/components/PurchaseWorkspace.jsx": {
+      "plural-parenthesis": 3
+    },
+    "src/domains/compras/components/PurchasesByWork.jsx": {
+      "plural-parenthesis": 1,
+      "inline-style": 1
+    },
+    "src/domains/compras/components/QuoteComparisonWorkspace.jsx": {
+      "plural-parenthesis": 3
+    },
+    "src/domains/compras/components/ReceiptModal.jsx": {
+      "inline-style": 15
+    },
+    "src/domains/compras/components/SupplierQuotePanel.jsx": {
+      "plural-parenthesis": 1
+    },
+    "src/domains/compras/purchase-dossier-status.js": {
+      "plural-parenthesis": 4
+    },
+    "src/domains/compras/queue-groups.js": {
+      "plural-parenthesis": 1
+    },
+    "src/domains/compras/workflow-advisories.js": {
+      "plural-parenthesis": 1
+    },
+    "src/domains/compras/workspace.js": {
+      "plural-parenthesis": 3
+    },
+    "src/domains/conciliacao/import-preview.js": {
+      "plural-parenthesis": 1
+    },
+    "src/domains/conciliacao/pix-card.js": {
+      "plural-parenthesis": 1
+    },
+    "src/domains/conciliacao/transaction-commands.js": {
+      "plural-parenthesis": 2
+    },
+    "src/domains/controladoria/executive-summary.js": {
+      "plural-parenthesis": 4
+    },
+    "src/domains/controladoria/financial-ranking.js": {
+      "plural-parenthesis": 4
     },
     "src/domains/dashboard/components/GestaoAVistaObras.jsx": {
-      "native-control": 2
+      "native-control": 2,
+      "inline-style": 3
+    },
+    "src/domains/dashboard/gestao-a-vista.js": {
+      "plural-parenthesis": 3
     },
     "src/domains/equipamentos/BillingOwnershipAnalysis.jsx": {
-      "native-control": 2
+      "native-control": 2,
+      "plural-parenthesis": 3
+    },
+    "src/domains/equipamentos/BillingTrendChart.jsx": {
+      "inline-style": 1
     },
     "src/domains/equipamentos/EquipmentBillingReports.jsx": {
-      "native-control": 12
+      "native-control": 12,
+      "plural-parenthesis": 10,
+      "inline-style": 2
+    },
+    "src/domains/equipamentos/billing-dashboard.js": {
+      "plural-parenthesis": 2
+    },
+    "src/domains/equipamentos/commands.js": {
+      "plural-parenthesis": 6
     },
     "src/domains/equipamentos/components/EquipamentosView.jsx": {
       "literal-spacing": 175,
       "literal-typography": 63,
-      "native-control": 7
+      "native-control": 7,
+      "inline-style": 257,
+      "plural-parenthesis": 15
+    },
+    "src/domains/equipamentos/components/RentalDetailDrawer.jsx": {
+      "plural-parenthesis": 1
     },
     "src/domains/equipamentos/components/RentalOperationsPanel.jsx": {
-      "native-control": 5
+      "native-control": 5,
+      "plural-parenthesis": 4
     },
     "src/domains/equipamentos/components/RentalRowMenu.jsx": {
-      "native-control": 3
+      "native-control": 3,
+      "inline-style": 1
+    },
+    "src/domains/equipamentos/rental-operations.js": {
+      "plural-parenthesis": 3
     },
     "src/domains/estoque/LegacyEditors.jsx": {
       "literal-spacing": 8,
       "literal-typography": 1,
-      "native-control": 1
+      "native-control": 1,
+      "inline-style": 10
     },
     "src/domains/estoque/components/EstoqueView.jsx": {
       "literal-spacing": 49,
       "literal-typography": 24,
-      "native-control": 2
+      "native-control": 2,
+      "inline-style": 82,
+      "plural-parenthesis": 9
+    },
+    "src/domains/licenciamento/DossierView.jsx": {
+      "plural-parenthesis": 4
+    },
+    "src/domains/licenciamento/components/LicenciamentoView.jsx": {
+      "inline-style": 80,
+      "plural-parenthesis": 1
     },
     "src/domains/medicoes/components/MedicoesView.jsx": {
       "literal-spacing": 81,
       "literal-typography": 54,
       "native-control": 5,
-      "literal-color": 2
+      "literal-color": 2,
+      "plural-parenthesis": 4,
+      "inline-style": 132
     },
     "src/domains/medicoes/components/ProgressPercentageField.jsx": {
       "native-control": 2
     },
+    "src/domains/obras/components/AditivosContrato.jsx": {
+      "inline-style": 17,
+      "plural-parenthesis": 1
+    },
+    "src/domains/obras/components/DiarioObraView.jsx": {
+      "inline-style": 119,
+      "plural-parenthesis": 4
+    },
+    "src/domains/orcamentos/components/BudgetAuditPanel.jsx": {
+      "plural-parenthesis": 2
+    },
+    "src/domains/orcamentos/components/ItemMemoryPanel.jsx": {
+      "plural-parenthesis": 2
+    },
+    "src/domains/orcamentos/components/OrcamentoView.jsx": {
+      "inline-style": 790,
+      "plural-parenthesis": 35
+    },
+    "src/domains/orcamentos/structural-provenance.js": {
+      "plural-parenthesis": 1
+    },
+    "src/domains/orcamentos/technical-audit.js": {
+      "plural-parenthesis": 4
+    },
     "src/domains/patrimonio/components/PatrimonioEmpresaView.jsx": {
       "literal-spacing": 30,
-      "native-control": 7
+      "native-control": 7,
+      "inline-style": 43,
+      "plural-parenthesis": 1
+    },
+    "src/domains/planejamento/components/PlanejamentoView.jsx": {
+      "plural-parenthesis": 20,
+      "inline-style": 405
+    },
+    "src/domains/planejamento/components/PlanningPurchaseNeeds.jsx": {
+      "plural-parenthesis": 1
+    },
+    "src/domains/planejamento/legacy-engine.js": {
+      "plural-parenthesis": 2
+    },
+    "src/domains/planejamento/purchase-needs.js": {
+      "plural-parenthesis": 1
+    },
+    "src/domains/ponto-eletronico/banco-horas.js": {
+      "plural-parenthesis": 1
+    },
+    "src/domains/ponto-eletronico/components/BancoHorasView.jsx": {
+      "plural-parenthesis": 2
+    },
+    "src/domains/ponto-eletronico/components/SyncBiometricAttendance.jsx": {
+      "plural-parenthesis": 7
+    },
+    "src/domains/ponto/components/CltAttendanceImport.jsx": {
+      "plural-parenthesis": 1
+    },
+    "src/domains/ponto/components/CltClosingSummary.jsx": {
+      "plural-parenthesis": 2
+    },
+    "src/domains/ponto/components/CltPayslips.jsx": {
+      "plural-parenthesis": 1
+    },
+    "src/domains/ponto/components/FolhaView.jsx": {
+      "plural-parenthesis": 31,
+      "inline-style": 4
+    },
+    "src/domains/ponto/components/LaborProjectionReport.jsx": {
+      "inline-style": 2,
+      "plural-parenthesis": 4
+    },
+    "src/domains/ponto/components/LaborProvisions.jsx": {
+      "plural-parenthesis": 5
+    },
+    "src/domains/ponto/components/PayModeSimulation.jsx": {
+      "plural-parenthesis": 2
+    },
+    "src/domains/ponto/payroll-closing.js": {
+      "plural-parenthesis": 3
+    },
+    "src/domains/projetos/KanbanBoard.jsx": {
+      "plural-parenthesis": 1,
+      "inline-style": 1
+    },
+    "src/domains/projetos/ProjectTimerStatus.jsx": {
+      "inline-style": 1
+    },
+    "src/domains/projetos/ProjetosView.jsx": {
+      "plural-parenthesis": 3
+    },
+    "src/domains/projetos/TasksView.jsx": {
+      "plural-parenthesis": 2
+    },
+    "src/domains/projetos/kanban-model.js": {
+      "plural-parenthesis": 1
+    },
+    "src/domains/qualidade/components/ConferenciaView.jsx": {
+      "inline-style": 93,
+      "plural-parenthesis": 4
+    },
+    "src/domains/rh/components/EmployeeCosts.jsx": {
+      "plural-parenthesis": 2
+    },
+    "src/domains/rh/components/EmployeeDossier.jsx": {
+      "plural-parenthesis": 1
+    },
+    "src/domains/rh/components/EquipeView.jsx": {
+      "plural-parenthesis": 2,
+      "inline-style": 57
+    },
+    "src/domains/rh/components/IndicadoresView.jsx": {
+      "inline-style": 10,
+      "plural-parenthesis": 1
+    },
+    "src/domains/rh/components/PayrollReadiness.jsx": {
+      "plural-parenthesis": 1
+    },
+    "src/domains/rh/components/RescisaoView.jsx": {
+      "inline-style": 50,
+      "plural-parenthesis": 4
+    },
+    "src/domains/rh/payroll-readiness.js": {
+      "plural-parenthesis": 1
     },
     "src/domains/suppliers/SupplierCategoriesField.jsx": {
-      "literal-spacing": 2
+      "literal-spacing": 2,
+      "inline-style": 5
     },
     "src/domains/suprimentos/components/MarcosCurvaASuprimentos.jsx": {
       "literal-spacing": 57,
-      "literal-typography": 6
+      "literal-typography": 6,
+      "inline-style": 79,
+      "plural-parenthesis": 4
+    },
+    "src/domains/sync/operational-commands.js": {
+      "plural-parenthesis": 1
+    },
+    "src/domains/terceirizados/components/TerceirosView.jsx": {
+      "plural-parenthesis": 17,
+      "inline-style": 173
+    },
+    "src/edit-engine/EditorForm.jsx": {
+      "inline-style": 2
     },
     "src/features/conciliacao/ConciliacaoView.jsx": {
       "native-control": 18,
       "literal-spacing": 211,
       "literal-typography": 83,
-      "literal-color": 1
+      "literal-color": 1,
+      "plural-parenthesis": 21,
+      "inline-style": 270
     },
     "src/features/conciliacao/ReconciliationReview.jsx": {
-      "native-control": 1
+      "native-control": 1,
+      "plural-parenthesis": 2
     },
     "src/features/conciliacao/ReviewSearchFilters.jsx": {
       "native-control": 3
     },
+    "src/features/financeiro/AnnualDre.jsx": {
+      "plural-parenthesis": 1
+    },
+    "src/features/financeiro/BankImportPreview.jsx": {
+      "plural-parenthesis": 3
+    },
+    "src/features/financeiro/CashForecast.jsx": {
+      "plural-parenthesis": 2
+    },
+    "src/features/financeiro/CostControlReview.jsx": {
+      "plural-parenthesis": 2
+    },
+    "src/features/financeiro/DocumentCenter.jsx": {
+      "plural-parenthesis": 1
+    },
+    "src/features/financeiro/DocumentReviewQueue.jsx": {
+      "plural-parenthesis": 4
+    },
+    "src/features/financeiro/FinancialMemorial.jsx": {
+      "plural-parenthesis": 2
+    },
+    "src/features/financeiro/FinancialPreview.jsx": {
+      "plural-parenthesis": 1
+    },
+    "src/features/financeiro/FinancialReportCenter.jsx": {
+      "plural-parenthesis": 6
+    },
+    "src/features/financeiro/LegacyDocumentTools.jsx": {
+      "plural-parenthesis": 3,
+      "inline-style": 45
+    },
+    "src/features/financeiro/PdfDocumentPreview.jsx": {
+      "inline-style": 1
+    },
+    "src/features/financeiro/PlanningCashTimeline.jsx": {
+      "plural-parenthesis": 7
+    },
+    "src/features/financeiro/PlanningCoverage.jsx": {
+      "plural-parenthesis": 1
+    },
+    "src/features/financeiro/WorkStageCosts.jsx": {
+      "plural-parenthesis": 1
+    },
     "src/features/pilot/OperationalPilot.jsx": {
-      "native-control": 1
+      "native-control": 1,
+      "plural-parenthesis": 2
     },
     "src/mobile/LegacyMobileNavigation.jsx": {
       "native-control": 2
@@ -155,11 +490,18 @@
     "src/mobile/MobileMoreMenu.jsx": {
       "native-control": 1
     },
+    "src/reports/labor-projection.js": {
+      "plural-parenthesis": 3
+    },
+    "src/reports/legacy-standard.js": {
+      "plural-parenthesis": 3
+    },
     "src/supplier-acceptance/SupplierAcceptancePage.jsx": {
       "literal-spacing": 23,
       "literal-typography": 8,
       "literal-color": 3,
-      "native-control": 4
+      "native-control": 4,
+      "inline-style": 34
     }
   }
 }

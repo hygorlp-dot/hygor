@@ -942,7 +942,7 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
             )}
             <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.5}}>
               Informe quando o valor efetivamente entrou. Costuma ser diferente do dia
-              em que voce confirma aqui.
+              em que você confirma aqui.
             </p>
             <div style={{display:"flex",gap:8}}>
               <Btn v="ghost" onClick={()=>setPagarModal(null)} full>Cancelar</Btn>

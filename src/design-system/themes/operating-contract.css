@@ -94,7 +94,6 @@
     .app-help-button__label { display:none; }
     [data-theme] .app-header-context { min-width:0;flex:1; }
     [data-theme] .app-breadcrumb { min-width:0; }
-    [data-theme] .app-header-chat-slot { display:none; }
     [data-theme] .arcd-main[data-workspace] { --arcd-control-height:2.75rem; }
     [data-theme] .arcd-main .purchase-queue-table :is(td,th) { padding-block:.625rem; }
     [data-theme] .workspace-filters[data-expanded="true"] .workspace-filters__fields { grid-template-columns:1fr; }

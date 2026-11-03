@@ -77,6 +77,7 @@ import { createPortal } from "react-dom";
 import { BRAND, MARCELL_LOGO } from "./brand/identity.js";
 import { FinancialOverviewMetrics } from "./features/financeiro/FinancialOverviewMetrics.jsx";
 import { PageHeader } from "./design-system/patterns/PageHeader.jsx";
+import { contar } from "./design-system/copy.js";
 import { WorkspaceNavigation } from "./design-system/patterns/WorkspaceNavigation.jsx";
 import { Children, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { lazyWithCssRetry as lazy } from "./lib/lazy-with-css-retry.js";
@@ -2549,7 +2550,7 @@ function DashboardTechHero({currentUser,ultimaSync,fila,onBuscar,onAtualizar,onA
     </div>}{onBuscar&&<Button variant="outline" size="icon" aria-label="Buscar" onClick={onBuscar}><Search/></Button>}
     {onAtualizar&&<Button variant="outline" size="icon" aria-label="Atualizar" onClick={onAtualizar}><RefreshCw/></Button>}</>}
     primaryAction={<Button disabled={!fila.length} onClick={()=>fila[0]&&onAbrir(fila[0].tab)}>{fila.length?"Abrir prioridade":"Nenhuma ação urgente"}</Button>}>
-    <div className="dashboard-context"><span role="status">{syncLabel}</span><span>{criticas} crítica(s) · {fila.length} ação(ões) em andamento</span>
+    <div className="dashboard-context"><span role="status">{syncLabel}</span><span>{contar(criticas,"crítica","críticas")} · {contar(fila.length,"ação em andamento","ações em andamento")}</span>
       {clima&&<span>Caruaru: {clima.temperatura} °C · vento {clima.vento} km/h</span>}
     </div>
   </PageHeader>;
@@ -2749,16 +2750,16 @@ const construirFilaOperador=(data,currentUser)=>{
     incluir("rdo-hoje","Engenharia","Diário de obra do dia",`${semRdo.slice(0,3).map(o=>o.name).join(", ")}${semRdo.length>3?` e mais ${semRdo.length-3}`:""}`,semRdo.length,2,"rdo","clipboard",C.blue);
     const equipe=(data.employees||[]).filter(e=>e.active!==false&&(!idsObras.size||idsObras.has(e.obra)));
     const semPonto=equipe.filter(e=>!isValidAttendanceStatus(attStatus(data,e.id,hoje)));
-    incluir("ponto-hoje","Campo","Apontamentos de equipe incompletos",`${semPonto.length} de ${equipe.length} profissional(is) sem situação registrada hoje`,semPonto.length,semPonto.length===equipe.length?3:2,"ponto","clock",C.orange);
+    incluir("ponto-hoje","Campo","Apontamentos de equipe incompletos",`${semPonto.length} de ${contar(equipe.length,"profissional","profissionais")} sem situação registrada hoje`,semPonto.length,semPonto.length===equipe.length?3:2,"ponto","clock",C.orange);
     const fichas=(data.qualidadeRegistros||[]).filter(q=>idsObras.has(q.obraId)&&q.status!=="aprovada"&&(role==="admin"||!q.responsavelId||q.responsavelId===userId));
     incluir("qualidade","Qualidade","FVS/FVM aguardando inspeção",`${fichas.filter(q=>q.status==="reprovada").length} ficha(s) reprovada(s) exigem correção`,fichas.length,fichas.some(q=>q.status==="reprovada")?3:1,"obras","check",C.purple);
     const patologias=(data.conferencias||[]).flatMap(c=>(c.pendencias||[]).filter(p=>p.status!=="resolvida"&&(role==="admin"||(role==="engenheiro_auditor"&&c.responsavelId===userId)||(role==="engenheiro"&&p.responsavelAjusteId===userId))).map(p=>({...p,obraId:c.obraId})));
-    incluir("patologias","Qualidade","Patologias e inconformidades abertas",`${patologias.filter(p=>p.impacto==="critico").length} crítica(s) · ${patologias.filter(p=>!(p.fotos||[]).some(f=>f.tipo==="ajuste")).length} aguardando foto`,patologias.length,patologias.some(p=>p.impacto==="critico")?3:2,"conferencia","alert",C.red);
+    incluir("patologias","Qualidade","Patologias e inconformidades abertas",`${contar(patologias.filter(p=>p.impacto==="critico").length,"crítica","críticas")} · ${patologias.filter(p=>!(p.fotos||[]).some(f=>f.tipo==="ajuste")).length} aguardando foto`,patologias.length,patologias.some(p=>p.impacto==="critico")?3:2,"conferencia","alert",C.red);
   }
 
   if(role==="admin"||role==="compras"||acessos.has("cmp")){
     const solicitacoes=(data.solicitacoesCompra||[]).filter(s=>["enviada","em_analise"].includes(s.status));
-    incluir("solicitacoes","Compras","Solicitações aguardando processamento",`${solicitacoes.filter(s=>s.prioridade==="urgente").length} urgente(s) para cotar ou transformar em pedido`,solicitacoes.length,solicitacoes.some(s=>s.prioridade==="urgente")?3:2,"cmp","cart",C.orange);
+    incluir("solicitacoes","Compras","Solicitações aguardando processamento",`${contar(solicitacoes.filter(s=>s.prioridade==="urgente").length,"urgente","urgentes")} para cotar ou transformar em pedido`,solicitacoes.length,solicitacoes.some(s=>s.prioridade==="urgente")?3:2,"cmp","cart",C.orange);
     const pedidos=(data.pedidos||[]).filter(p=>!["recebido","cancelado"].includes(p.status));
     incluir("pedidos","Compras","Pedidos ainda não concluídos",`${pedidos.filter(p=>p.status==="parcial").length} com recebimento parcial`,pedidos.length,pedidos.some(p=>p.status==="parcial")?2:1,"cmp","box",C.yellowD);
   }
@@ -2769,13 +2770,13 @@ const construirFilaOperador=(data,currentUser)=>{
     const notas=(data.notasFiscais||[]).filter(n=>n.status==="recebida");
     incluir("fiscal","Financeiro","Notas aguardando conferência",`${notas.filter(n=>n.divergencias?.length).length} documento(s) com divergência de pedido ou recebimento`,notas.length,notas.some(n=>n.divergencias?.length)?3:2,"fin","fileText",C.red);
     const med=(data.medicoes||[]).filter(m=>statusRecebimentoMedicao(m)!=="recebida"&&(!m.dataVencimento||m.dataVencimento<=hoje));
-    incluir("medicoes","Financeiro","Medições a receber",`${med.filter(m=>m.dataVencimento&&m.dataVencimento<hoje).length} vencida(s)`,med.length,med.some(m=>m.dataVencimento&&m.dataVencimento<hoje)?3:1,"medicoes","ruler",C.green);
+    incluir("medicoes","Financeiro","Medições a receber",contar(med.filter(m=>m.dataVencimento&&m.dataVencimento<hoje).length,"vencida","vencidas"),med.length,med.some(m=>m.dataVencimento&&m.dataVencimento<hoje)?3:1,"medicoes","ruler",C.green);
   }
 
   if(role==="admin"||role==="rh"||acessos.has("ponto_geral")){
     const ativos=(data.employees||[]).filter(e=>e.active!==false);
     const semPonto=ativos.filter(e=>!isValidAttendanceStatus(attStatus(data,e.id,hoje)));
-    incluir("rh-ponto","RH","Fechamento diário do ponto",`${semPonto.length} de ${ativos.length} cadastro(s) sem apontamento`,semPonto.length,semPonto.length===ativos.length?3:2,"ponto_geral","users",C.green);
+    incluir("rh-ponto","RH","Fechamento diário do ponto",`${semPonto.length} de ${contar(ativos.length,"cadastro","cadastros")} sem apontamento`,semPonto.length,semPonto.length===ativos.length?3:2,"ponto_geral","users",C.green);
     const incompletos=ativos.filter(e=>!e.pixKey||!e.dailyRate||!e.obra);
     incluir("rh-cadastro","RH","Cadastros de equipe incompletos",`${incompletos.filter(e=>!e.pixKey).length} sem PIX · ${incompletos.filter(e=>!e.obra).length} sem lotação`,incompletos.length,1,"equipe","user",C.blue);
   }
@@ -2907,7 +2908,7 @@ function Dashboard({ data, update, showToast, onTab, onAbrirObra, ultimaSync, cu
         {label:"Saldo atual",value:fmt(exec.dre.saldoCaixa),detail:"Recebimentos menos custos",icon:"wallet",color:exec.dre.saldoCaixa>=0?C.green:C.red,tab:"dre"},
         {label:"Pendências críticas",value:prioridades.filter(a=>a.sev===3).length,detail:`${prioridades.length} alertas ativos`,icon:"alert",color:prioridades.some(a=>a.sev===3)?C.red:C.orange},
         {label:"Compras pendentes",value:exec.comprasPendentes+exec.solicitacoesAbertas,detail:`${exec.solicitacoesAbertas} aguardando análise`,icon:"cart",color:C.orange,tab:"cmp"},
-        {label:"Leads em andamento",value:exec.leadsAtivos,detail:`${novosLeads} novo(s) no mês`,icon:"funnel",color:C.blue,tab:"com_funil"},
+        {label:"Leads em andamento",value:exec.leadsAtivos,detail:`${contar(novosLeads,"novo","novos")} no mês`,icon:"funnel",color:C.blue,tab:"com_funil"},
         {label:"Resultado operacional",value:fmt(exec.dre.lucroBruto),detail:`Margem ${exec.dre.margemBruta.toFixed(1)}%`,icon:"chart",color:exec.dre.lucroBruto>=0?C.green:C.red,tab:"dre_emp"},
       ].map(k=>{const acessivel=k.tab&&abasPermitidas.includes(k.tab);return k.tab&&!acessivel?null:<span key={k.label}><KpiCard {...k} animate={false} onClick={acessivel?()=>onTab(k.tab):undefined}/></span>;})}
     </section>
@@ -4679,7 +4680,7 @@ function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatch
                     {evoFin != null && (
                       <div>
                         <div style={{display:"flex",justifyContent:"space-between",marginBottom:"var(--arcd-space-half)"}}>
-                          <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Evolucao financeira (recebido / contrato)</p>
+                          <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Evolução financeira (recebido / contrato)</p>
                           <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-success-text)"}}>{evoFin.toFixed(1)}%</p>
                         </div>
                         <StatusBar pct={Math.min(evoFin,100)} color={C.green}/>
@@ -9690,7 +9691,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
           o.id === obraId ? { ...o, capaUrl:r.url,oneDriveDriveId:r.workspace?.driveId||o.oneDriveDriveId,oneDriveFolderId:r.workspace?.folderId||o.oneDriveFolderId,oneDriveFolders:r.workspace?.folders||o.oneDriveFolders } : o) });
         showToast?.("Imagem da obra atualizada.");
       } else {
-        showToast?.(r?.error || "Nao foi possivel enviar a imagem.", "error");
+        showToast?.(r?.error || "Não foi possível enviar a imagem.", "error");
       }
     } catch (e) {
       showToast?.("Falha ao processar a imagem.", "error");
@@ -10029,7 +10030,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         <div style={{background:"color-mix(in srgb, var(--arcd-danger-text) 5%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-danger-text) 40%, transparent)",borderRadius:6,
                      padding:"var(--arcd-space-2) var(--arcd-space-3)",marginBottom:"var(--arcd-space-2)"}}>
           <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-danger-text)"}}>
-            {resumo.abaixoMin} material(is) abaixo do estoque minimo
+            {resumo.abaixoMin} material(is) abaixo do estoque mínimo
           </p>
         </div>
       )}
@@ -10037,7 +10038,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         <div style={{background:"color-mix(in srgb, var(--arcd-warning-text) 5%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 40%, transparent)",borderRadius:6,
                      padding:"var(--arcd-space-2) var(--arcd-space-3)",marginBottom:"var(--arcd-space-2)"}}>
           <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-warning-text)"}}>
-            {fmt(resumo.cmp.aReceber)} comprado e ainda nao entregue
+            {fmt(resumo.cmp.aReceber)} comprado e ainda não entregue
           </p>
         </div>
       )}
@@ -10050,7 +10051,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
           <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",marginBottom:"var(--arcd-space-2)"}}>
             <Ic n="alert" s={16} color={C.blue}/>
             <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)"}}>
-              O material ja chegou na obra?
+              O material já chegou na obra?
             </p>
           </div>
           <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginBottom:"var(--arcd-space-2)",lineHeight:"var(--arcd-line-height-normal)"}}>
@@ -10288,7 +10289,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
       <Secao id="orcamento" icone="orcamento" titulo="Orçamento" cor={C.yellow} atalho="orc">
         {resumo.orc ? (<>
           <Par l="Custo orçado" v={fmt(resumo.orcTotal)}/>
-          <Par l="Ja comprado" v={fmt(resumo.cmp.comprado)} c={C.blue}/>
+          <Par l="Já comprado" v={fmt(resumo.cmp.comprado)} c={C.blue}/>
           <Par l="Saldo" v={fmt(resumo.orcTotal - resumo.cmp.comprado)}
                c={resumo.cmp.comprado > resumo.orcTotal ? C.red : C.green}/>
           {barra(resumo.orcTotal ? (resumo.cmp.comprado/resumo.orcTotal)*100 : 0,
@@ -10807,7 +10808,7 @@ export function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", curren
 
   if (!obras.length) {
     return <div style={{ padding: "var(--arcd-space-6)", textAlign: "center" }}>
-      <p style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)" }}>Cadastre uma obra para medir a evolucao.</p>
+      <p style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)" }}>Cadastre uma obra para medir a evolução.</p>
     </div>;
   }
 
@@ -10821,9 +10822,9 @@ export function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", curren
 
       {/* Resumo */}
       <div style={{ display: "grid", gridTemplateColumns: cols(2, 4, 4), gap: "var(--arcd-space-2)" }}>
-        <MiniKpi label="Avanco fisico" value={`${resumo.avancoFisico.toFixed(0)}%`} cor={C.blue} />
-        <MiniKpi label="Servicos" value={`${resumo.total}`} cor={C.text} />
-        <MiniKpi label="Medidos pelo diario" value={`${resumo.peloDiario}`} cor={C.green}
+        <MiniKpi label="Avanço físico" value={`${resumo.avancoFisico.toFixed(0)}%`} cor={C.blue} />
+        <MiniKpi label="Serviços" value={`${resumo.total}`} cor={C.text} />
+        <MiniKpi label="Medidos pelo diário" value={`${resumo.peloDiario}`} cor={C.green}
                  sub={`${resumo.total - resumo.peloDiario} manuais`} />
         <MiniKpi label="Dias trabalhados" value={`${resumo.diasTotais}`} cor={C.yellow}
                  sub="somados nos RDOs" />
@@ -10848,12 +10849,12 @@ export function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", curren
       <div style={{ background: "var(--arcd-surface-card)", border: "1px solid var(--arcd-border-default)", borderRadius: 8, overflow: "hidden" }}>
         <div style={{ padding: "var(--arcd-space-3)", borderBottom: "1px solid var(--arcd-border-default)" }}>
           <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)", textTransform: "uppercase", letterSpacing: "var(--arcd-letter-spacing-body)" }}>
-            Evolucao por servico
+            Evolução por serviço
           </p>
         </div>
         {tarefas.length === 0 ? (
           <p style={{ padding: "var(--arcd-space-5)", fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)", textAlign: "center" }}>
-            Sem servicos no planejamento desta obra.
+            Sem serviços no planejamento desta obra.
           </p>
         ) : tarefas.map(t => (
           <div key={t.id} style={{ padding: "var(--arcd-space-3)", borderTop: "1px solid var(--arcd-border-default)" }}>
@@ -10863,9 +10864,9 @@ export function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", curren
                 <div style={{ display: "flex", gap: "var(--arcd-space-2)", marginTop: "var(--arcd-space-half)", flexWrap: "wrap" }}>
                   <span style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)",
                                  color: t.origemProgresso === "diario" ? "var(--arcd-success-text)" : "var(--arcd-text-secondary)" }}>
-                    {t.origemProgresso === "diario" ? "via diario"
-                      : t.origemProgresso === "medicao_oficial" ? "medicao oficial"
-                      : t.origemProgresso === "medicao" ? "ajustado na medicao"
+                    {t.origemProgresso === "diario" ? "via diário"
+                      : t.origemProgresso === "medicao_oficial" ? "medição oficial"
+                      : t.origemProgresso === "medicao" ? "ajustado na medição"
                       : "manual"}
                   </span>
                   {t.diasTrabalhados > 0 && (
@@ -11077,7 +11078,7 @@ function Obsoletos({ data, update, showToast, onTab, dispatchCommand }) {
       };
     });
     if(!result?.ok){showToast?.(result?.reason||"O funcionário não foi reativado.","error");return;}
-    showToast?.("Funcionario reativado");
+    showToast?.("Funcionário reativado");
   };
 
   const STATUS_OBRA = {
@@ -11100,7 +11101,7 @@ function Obsoletos({ data, update, showToast, onTab, dispatchCommand }) {
       </div>
 
       <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, lineHeight: 1.5, padding: "0 2px" }}>
-        Aqui ficam obras concluidas ou pausadas e funcionarios desligados. Nada foi
+        Aqui ficam obras concluídas ou pausadas e funcionários desligados. Nada foi
         apagado - ponto, DRE e contratos seguem preservados para consulta.
       </p>
 
@@ -11143,7 +11144,7 @@ function Obsoletos({ data, update, showToast, onTab, dispatchCommand }) {
       {/* EQUIPE INATIVA */}
       {visao === "equipe" && (
         equipeInativa.length === 0
-          ? <VazioObs texto="Nenhum funcionario desligado." />
+          ? <VazioObs texto="Nenhum funcionário desligado." />
           : (
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
               {equipeInativa.map(e => (
@@ -11153,7 +11154,7 @@ function Obsoletos({ data, update, showToast, onTab, dispatchCommand }) {
                     <p className="brk" style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.text }}>{e.name}</p>
                     <div style={{ display: "flex", gap: 8, marginTop: 2, flexWrap: "wrap" }}>
                       {e.role && <span style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>{e.role}</span>}
-                      {e.endDate && <span style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>Saida {fmtDate(e.endDate)}</span>}
+                      {e.endDate && <span style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>Saída {fmtDate(e.endDate)}</span>}
                       {e.terminationReason && <span style={{ fontSize:"var(--arcd-type-label)", color: C.red }}>{e.terminationReason}</span>}
                     </div>
                   </div>
@@ -11610,7 +11611,7 @@ function Cadastros({ data, update, showToast, onTab, currentUser, dispatchComman
           <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.55}}>
             Como as despesas se agrupam no DRE. Crie as suas (ex.: <strong style={{color:C.text}}>Combustivel</strong>,
             <strong style={{color:C.text}}> EPI</strong>, <strong style={{color:C.text}}>Ferramentas</strong>).
-            Categoria em uso nao pode ser apagada - reclassifique antes.
+            Categoria em uso não pode ser apagada - reclassifique antes.
           </p>
         </div>
         <Btn onClick={()=>setCatModal({ v:"", l:"" })} full><Ic n="plus"/> Nova categoria</Btn>
@@ -13124,7 +13125,7 @@ const WA = {
 function IconeChat({ size = 26 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M12 2C6.48 2 2 6.02 2 11c0 2.4 1.05 4.58 2.77 6.2L4 22l5.1-1.53C10.03 20.8 11 21 12 21c5.52 0 10-4.02 10-9s-4.48-10-10-10z" fill="#fff"/>
+      <path d="M12 2C6.48 2 2 6.02 2 11c0 2.4 1.05 4.58 2.77 6.2L4 22l5.1-1.53C10.03 20.8 11 21 12 21c5.52 0 10-4.02 10-9s-4.48-10-10-10z" fill="currentColor"/>
     </svg>
   );
 }
@@ -13133,8 +13134,9 @@ function IconeChat({ size = 26 }) {
 // menção real (não qualquer "@" digitado à toa).
 function ChatFlutuante({ currentUser, usuarios, showToast, bottomOffset=20 }) {
   const {isMobile}=useBreakpoint();
+  // O botão mora no topo, ao lado de Ajuda. Sem o topo (ex.: Modo TV), volta a flutuar.
   const [launcherTarget,setLauncherTarget]=useState(null);
-  useLayoutEffect(()=>setLauncherTarget(isMobile?document.querySelector('[data-chat-launcher-slot]'):null),[isMobile]);
+  useLayoutEffect(()=>setLauncherTarget(document.querySelector('[data-chat-launcher-slot]')),[isMobile]);
   const [aberto, setAberto] = useState(false);
   const [gestaoAberta, setGestaoAberta] = useState(false);
   const [mensagens, setMensagens] = useState([]);
@@ -13281,21 +13283,11 @@ function ChatFlutuante({ currentUser, usuarios, showToast, bottomOffset=20 }) {
 
   if (!currentUser) return null;
   const launcher=(
-      <button onClick={() => (aberto ? setAberto(false) : abrirPainel())} title="Comunicação da equipe" aria-label={aberto?"Fechar chat da equipe":"Abrir chat da equipe"} aria-expanded={aberto}
-        className={temMencaoNaoLida ? "arcd-chat-launcher chat-mention-pulse" : "arcd-chat-launcher"}
-        style={{
-          width: launcherTarget?44:56, height: launcherTarget?44:56, borderRadius: launcherTarget?"var(--arcd-radius-control)":"50%", border: launcherTarget?"1px solid var(--arcd-border-strong)":0, background: launcherTarget?"var(--arcd-action-primary)":WA.green, cursor: "pointer",
-          display: "grid", placeItems: "center", boxShadow: launcherTarget?"none":"0 6px 18px rgba(0,0,0,.28)", position: "relative",
-        }}>
-        <IconeChat size={launcherTarget?20:26} />
-        {naoLidas > 0 && (
-          <span style={{
-            position: "absolute", top: -3, right: -3, minWidth: 20, height: 20, borderRadius: 99,
-            background: WA.red, color: "#fff", fontSize:"var(--arcd-type-label)", fontWeight:600, display: "grid", placeItems: "center",
-            padding: "0 4px", border: "2px solid #fff",
-          }}>{naoLidas > 99 ? "99+" : naoLidas}</span>
-        )}
-      </button>
+      <DesignSystemButton variant="secondary" size="icon" onClick={() => (aberto ? setAberto(false) : abrirPainel())} title="Comunicação da equipe" aria-label={aberto?"Fechar chat da equipe":"Abrir chat da equipe"} aria-expanded={aberto}
+        className={["arcd-chat-launcher",launcherTarget?"":"arcd-chat-launcher--floating",temMencaoNaoLida?"chat-mention-pulse":""].filter(Boolean).join(" ")}>
+        <IconeChat size={20} />
+        {naoLidas > 0 && <span className="arcd-chat-launcher__count">{naoLidas > 99 ? "99+" : naoLidas}</span>}
+      </DesignSystemButton>
   );
 
   return (
@@ -14673,23 +14665,10 @@ export default function App() {
                 role="status"
                 aria-live="polite"
                 title={syncStatus.label}
-                style={{
-                  display:"inline-flex",alignItems:"center",gap:6,minHeight:32,
-                  padding:"5px 9px",border:`1px solid ${syncStatus.color}44`,
-                  borderRadius:C.rMd,background:`${syncStatus.color}0B`,
-                  color:C.text,whiteSpace:"nowrap",
-                }}
+                style={{"--save-status-color":syncStatus.color}}
               >
-                <span
-                  aria-hidden="true"
-                  style={{
-                    width:7,height:7,borderRadius:"50%",background:syncStatus.color,flexShrink:0,
-                    boxShadow:estadoSalvar===SAVE_QUEUE_STATE.SAVING?`0 0 0 4px ${syncStatus.color}1F`:"none",
-                  }}
-                />
-                <span className="app-save-status-label" style={{fontSize:"var(--arcd-type-label)",fontWeight:600}}>
-                  {syncStatus.label}
-                </span>
+                <span aria-hidden="true" className="app-save-status-dot"/>
+                <span className="app-save-status-label">{syncStatus.label}</span>
               </div>
               {/* Badge do usuário - no desktop já aparece no rodapé da sidebar */}
               <div className="app-user-badge" style={{ display: isDesktop ? "none" : "flex", alignItems:"center", gap:6, padding:"4px 10px", background:C.surface, borderRadius:C.rMd, border:`1px solid ${C.border}` }}>

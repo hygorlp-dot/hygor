@@ -25,12 +25,12 @@ afterEach(() => { act(() => root.unmount()); container.remove(); onAbrirObra.moc
 
 it("mostra situação com texto, custo × avanço e entrega de cada obra", () => {
   expect(nomes()).toEqual(["P1-08", "CA1-06"]);
-  expect(container.querySelector(".gav__sub").textContent).toBe("30/10/2026 · 4 pessoa(s) em campo · custo até 09/2026");
+  expect(container.querySelector(".gav__sub").textContent).toBe("30/10/2026 · 4 pessoas em campo · custo até 09/2026");
   const primeira = container.querySelectorAll(".gav-linha:not(.gav-linha--cabecalho)")[0];
   expect(primeira.querySelector(".gav-chip").textContent).toBe("Crítico");
   expect(primeira.querySelector(".gav-custo__barra").getAttribute("aria-label")).toBe("Gasto 58% do orçado, executado 50%");
   expect(primeira.querySelector(".gav-custo__gasto").className).toContain("is-alerta");
-  expect(primeira.textContent).toContain("em 16 dia(s)");
+  expect(primeira.textContent).toContain("em 16 dias");
   const segunda = container.querySelectorAll(".gav-linha:not(.gav-linha--cabecalho)")[1];
   expect(segunda.textContent).toContain("Sem orçamento aprovado");
   expect(segunda.textContent).toContain("Sem data de entrega");

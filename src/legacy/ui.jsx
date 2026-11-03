@@ -227,9 +227,9 @@ export function CampoCNPJ({ label = "CNPJ", value, onChange, onEncontrado, disab
       onEncontrado && onEncontrado(dados);
       setOk(true);
       if (dados.situacao && dados.situacao.toUpperCase() !== "ATIVA")
-        setErro(`Atencao: situacao cadastral "${dados.situacao}".`);
+        setErro(`Atenção: situação cadastral "${dados.situacao}".`);
     } catch (e) {
-      setErro(e.message || "Nao foi possivel consultar.");
+      setErro(e.message || "Não foi possível consultar.");
     } finally {
       setCarregando(false);
     }

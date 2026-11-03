@@ -942,7 +942,7 @@ for(const atrasoDownload of [0,1500])test(`exportar para Excel baixa só o que a
   await navigate(page,"Fila");
   const fila=await lerDownload(()=>page.getByRole("button",{name:/Exportar para Excel os \d+ registro/}).click());
   const linhasFila=fila.livro.getWorksheet("Fila de trabalho").rowCount-1;
-  await expect(page.locator(".purchase-result-count")).toContainText(`${linhasFila} registro(s)`);
+  await expect(page.locator(".purchase-result-count")).toContainText(`${linhasFila} registro${linhasFila===1?"":"s"}`);
   expect(app.errors).toEqual([]);
 });
 

@@ -385,7 +385,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
     if (!(Number(e.dailyRate || 0) > 0)) campos.push("valor da diaria");
     return {
       id: e.id,
-      nome: e.name || "Funcionario sem nome",
+      nome: e.name || "Funcionário sem nome",
       semRegistro,
       nenhumRegistro: datasEsperadas.length > 0 && semRegistro.length === datasEsperadas.length,
       campos,
@@ -549,7 +549,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
     const obraId = feriado ? resolveHolidayObraId({ data, employee: r, holidayIso: d }) : (a?.obraId || getEmpObraIdOnDate(r, d));
     if (filterObra !== "all" && obraId !== filterObra) return null;
     const st = feriado ? (regraFer?.losesHoliday ? "Feriado perdido" : "Feriado pago")
-      : a?.status === "P" ? "Presente" : a?.status === "M" ? "Meio periodo"
+      : a?.status === "P" ? "Presente" : a?.status === "M" ? "Meio período"
       : a?.status === "F" ? "Falta" : ATTENDANCE_STATUS_LABEL[a?.status] || "Sem registro";
     const equivalente = a?.status === "P" ? 1 : a?.status === "M" ? 0.5 : 0;
     const custoDia=feriado?null:calculateAttendanceDayCost({employee:r,record:a,config:data.config});
