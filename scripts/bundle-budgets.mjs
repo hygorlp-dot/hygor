@@ -97,7 +97,9 @@ export const BUNDLE_BUDGETS = Object.freeze({
   // inicial cresce 3,3 KiB. Total medido 1.888.788 bytes.
   // Avanço oficial ao lado do diário e rótulo da comparação contábil:
   // 1.889.290 bytes, 10 acima. Acréscimo limitado a 1 KiB.
-  totalGzipBytes: 1_846 * 1024,
+  // Carimbo no Diário (PR #239): CI mediu 1.890.307 bytes, 3 acima do teto.
+  // Acréscimo limitado a 1 KiB, com folga para o ajuste do modal de item (#240).
+  totalGzipBytes: 1_847 * 1024,
   genericJavaScriptGzipBytes: 200 * 1024,
   staticMediaTotalBytes: 4 * 1024 * 1024,
   genericStaticMediaBytes: 1 * 1024 * 1024,
