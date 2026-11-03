@@ -43,6 +43,9 @@ root.render(
 );
 
 // Link de revisão exclusivo do servidor local; não integra o build publicado.
+if(import.meta.env.DEV&&location.origin==='http://127.0.0.1:4192'&&new URLSearchParams(location.search).get('local-review')==='users'){
+  import(/* @vite-ignore */ '/scripts/users-local-review-open.mjs').catch(()=>{});
+}
 if(import.meta.env.DEV&&location.origin==='http://127.0.0.1:4192'&&new URLSearchParams(location.search).get('local-review')==='account-cash'){
   import(/* @vite-ignore */ '/scripts/finance-account-cash-open.mjs').catch(()=>{});
 }

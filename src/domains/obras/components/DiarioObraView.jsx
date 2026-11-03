@@ -1,4 +1,7 @@
 import {contar} from '../../../design-system/copy.js';
+import {dailyProductionReportLines} from '../production-report.js';
+import {DailyProductionFields} from './DailyProductionFields.jsx';
+import {dailyWorkforce,productionBudget,suggestedBudgetItem,validateProduction} from '../../diario-obra/production.js';
 import {FilePicker} from '../../../design-system/patterns/FilePicker.jsx';
 import {Button as StandardButton} from '../../../components/ui/button.jsx';
 import {TextareaControl} from '../../../design-system/primitives/Textarea.jsx';
@@ -82,7 +85,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
   const proximoCodigoRdo = useMemo(() => Math.max(0, ...(data.rdos||[]).map(x=>Number(x.codigo||0)))+1, [data.rdos]);
   const rdo = rdoExistente || {
     id: "", obraId, data: dataRDO,
-    codigo: proximoCodigoRdo,
+    codigo: proximoCodigoRdo,productionVersion:1,
     status:"preparacao", descricao:"", pendencias:"", comentarios:"", anexos:[],
     transcricaoVoz:"",audios:[],revisaoEngenheiro:{aprovado:false,engenheiroId:"",engenheiro:"",revisadoEm:"",observacao:""},
     clima: { manha: "", tarde: "", noite: "" },
@@ -100,6 +103,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
   const recognitionRdoRef=useRef(null);
   const audioChunksRdoRef=useRef([]);
   const [servicoModal, setServicoModal] = useState(null);
+  const atividadesPrevistas=tarefas.filter(task=>task.inicio&&task.fim&&task.inicio<=dataRDO&&task.fim>=dataRDO);
   const filaSalvamentoRdoRef=useRef(Promise.resolve({ok:true}));
   useEffect(()=>{const id=sessionContext.getItem("arcd_rdo_obra");if(id&&(data.obras||[]).some(o=>o.id===id)){setObraId(id);setFiltroObraRdo(id);}sessionContext.removeItem("arcd_rdo_obra");},[data.obras]);
 
@@ -154,6 +158,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
   const concluirRdo = async () => {
     if(!["engenheiro","engenheiro_auditor"].includes(currentUser?.role)){showToast?.("Somente um engenheiro pode revisar e concluir o diário.","error");return;}
     const reportEfetivo={...rdo,...camposRdoLocaisRef.current};
+    const productionErrors=validateProduction(data,reportEfetivo);if(productionErrors.length){showToast?.(productionErrors.join(" "),"error");return;}
     const completion=fieldReportCompletion(reportEfetivo);
     if(!completion.complete){const first=completion.pending[0];document.getElementById(`rdo-etapa-${first.id}`)?.scrollIntoView({behavior:"smooth",block:"start"});showToast?.(`Antes de concluir: ${completion.pending.map(item=>item.label).join(", ")}.`,"error");return;}
     const synchronized=await sincronizarCamposRdo();if(!synchronized.ok){showToast?.("Confirme as alterações pendentes antes de concluir.","error");return;}
@@ -187,7 +192,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
     const codigo=Math.max(0,...(data.rdos||[]).map(x=>Number(x.codigo||0)))+1;
     let novaData=today(); while((data.rdos||[]).some(x=>x.obraId===item.obraId&&x.data===novaData)){const d=new Date(`${novaData}T12:00:00`);d.setDate(d.getDate()+1);novaData=d.toISOString().slice(0,10);}
     const {operationalHistory:ignoredHistory,motivoCancelamento:ignoredCancelReason,canceladoEm:ignoredCancelledAt,canceladoPor:ignoredCancelledBy,canceladoPorId:ignoredCancelledById,reabertoEm:ignoredReopenedAt,reabertoPor:ignoredReopenedBy,reabertoPorId:ignoredReopenedById,motivoReabertura:ignoredReopenReason,...conteudo}=item;
-    const copia={...conteudo,id:uid(),codigo,status:"preparacao",data:novaData,fotos:[],anexos:[],revisaoEngenheiro:{aprovado:false,engenheiroId:"",engenheiro:"",revisadoEm:"",observacao:""},responsavel:responsavelAutomatico?.nome||"",responsavelId:responsavelAutomatico?.id||"",registradoPor:currentUser?.nome||"",registradoPorId:currentUser?.id||"",criadoEm:new Date().toISOString(),atualizadoEm:new Date().toISOString(),concluidoEm:""};
+    const copia={...conteudo,productionVersion:1,servicos:[],presencas:[],efetivo:[],terceirizados:[],equipamentos:[],id:uid(),codigo,status:"preparacao",data:novaData,fotos:[],anexos:[],revisaoEngenheiro:{aprovado:false,engenheiroId:"",engenheiro:"",revisadoEm:"",observacao:""},responsavel:responsavelAutomatico?.nome||"",responsavelId:responsavelAutomatico?.id||"",registradoPor:currentUser?.nome||"",registradoPorId:currentUser?.id||"",criadoEm:new Date().toISOString(),atualizadoEm:new Date().toISOString(),concluidoEm:""};
     const result=await dispatchCommand({type:OPERATIONAL_COMMAND.FIELD_REPORT_CHANGED,idempotencyKey:`rdo-duplicar-${copia.id}-${uid()}`,expectedVersion:0,actorId:currentUser?.id||"",actorName:currentUser?.nome||"",payload:{report:copia}});
     if(!result?.ok){showToast?.(result?.reason||"Não foi possível duplicar o diário.","error");return;}
     setObraId(copia.obraId);setDataRDO(copia.data);setModoRdo("editor");showToast?.("Conteúdo copiado para um novo rascunho sem aprovação ou auditoria anterior.");
@@ -200,7 +205,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
     const clima=Object.entries(item.clima||{}).map(([p,v])=>`${p}: ${CLIMA_OPC.find(x=>x.v===v)?.l||v}`).join(" · ");
     const status=item.status==="concluido"?"Concluído":item.status==="cancelado"?"Cancelado":"Rascunho / não concluído";
     const lista=(itens,vazio="Nenhum registro")=>itens.length?`<ul>${itens.map(valor=>`<li>${escapeHtml(valor)}</li>`).join("")}</ul>`:`<p>${vazio}</p>`;
-    const servicos=(item.servicos||[]).map(s=>`${tarefas.find(t=>t.id===s.tarefaId)?.nome||s.descricao||"Serviço"}: ${Number(s.progressoAte||0)}%${s.obs?` — ${s.obs}`:""}`);
+    const servicos=(item.servicos||[]).map(s=>`${s.descricao||tarefas.find(t=>t.id===s.tarefaId)?.nome||"Serviço"} · ${dailyProductionReportLines(data,item,s).join(" · ")}${s.obs?` — ${s.obs}`:""}`);
     const terceiros=(item.terceirizados||[]).map(t=>`${(data.terceirizados||[]).find(x=>x.id===t.tercId)?.name||"Terceirizado não localizado"}: ${t.status||"não informado"}`);
     const equipamentos=(item.equipamentos||[]).map(e=>`${(data.equipamentos||[]).find(x=>x.id===e.equipId)?.nome||e.nome||"Equipamento"}: ${Number(e.horas||0)} h`);
     const anexos=[...(item.anexos||[]).map(a=>a.nome||"Documento anexado"),...(item.audios||[]).map(a=>a.nome||"Áudio do diário")];
@@ -250,6 +255,8 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
     r.servicos = existe
       ? r.servicos.map(x => x.tarefaId === s.tarefaId ? { ...x, ...servico } : x)
       : [...(r.servicos || []), servico];
+    r.productionVersion=1;
+    r.revisaoEngenheiro={aprovado:false,engenheiroId:"",engenheiro:"",revisadoEm:"",observacao:""};
     r.atualizadoEm = atualizadoEm;
     return r;
   });
@@ -259,10 +266,11 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
   });
 
   // ---- Presencas (ponto direto no diario) ----
+  const pontoDoDia=dailyWorkforce(data,obraId,dataRDO);
   const empregadosObra = (data.employees || [])
-    .filter(e => e.active !== false && (e.obra === obraId || !e.obra));
+    .filter(e => pontoDoDia.some(row=>row.employeeId===e.id)||e.active !== false && (e.obra === obraId || !e.obra));
   const presencaDe = (empId) =>
-    (rdo.presencas || []).find(p => p.empId === empId)?.status || "";
+    (rdo.presencas || []).find(p => p.empId === empId)?.status || ({P:"presente",M:"meio",F:"falta"}[pontoDoDia.find(row=>row.employeeId===empId)?.status]||"");
   const setPresencaRdo = (empId,status) => salvarRDO(r => {
     r.presencas = (r.presencas || []).filter(p => p.empId !== empId);
     if(status)r.presencas.push({empId,status});
@@ -415,7 +423,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
           <p className="brk" style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-muted)",marginTop:"var(--arcd-space-2)",minHeight:28,lineHeight:"var(--arcd-line-height-normal)"}}>{[item.descricao,item.ocorrencias,item.pendencias].filter(Boolean).join(" · ")||item.responsavel||"Sem descrição informada."}</p>
           {item.status==="cancelado"&&<p className="rdo-cancel-reason"><b>Motivo do cancelamento:</b> {item.motivoCancelamento||"Não informado"}</p>}
           {(item.fotos||[]).length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-2)"}}>{item.fotos.slice(0,4).map((foto,i)=><StandardButton variant="secondary" key={foto.url} onClick={()=>setFotoPreviewRdo({foto,item,index:i})} title="Ver foto" style={{position:"relative",overflow:"hidden",height:58}}><img src={foto.url} alt={foto.legenda||`Foto ${i+1}`} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>{i===3&&item.fotos.length>4&&<span style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"var(--arcd-surface-overlay)",color:"var(--arcd-text-inverse)",fontWeight:"var(--arcd-font-weight-semibold)"}}>+{item.fotos.length-4}</span>}</StandardButton>)}</div>}
-          <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-2)"}}>{(item.fotos||[]).length} foto(s) · {(item.anexos||[]).length} documento(s)</p>
+          <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-2)"}}>{contar((item.fotos||[]).length,'foto','fotos')} · {contar((item.anexos||[]).length,'documento','documentos')}</p>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)"}}><Btn size="sm" v="ghost" onClick={()=>abrirRdo(item)}><Ic n={fieldReportIsReadOnly(item)?"eye":"edit"}/> {fieldReportIsReadOnly(item)?"Consultar":"Abrir e editar"}</Btn><Btn size="sm" v="ghost" onClick={()=>imprimirRdo(item)}><Ic n="fileText"/> PDF</Btn><Btn size="sm" v="ghost" onClick={()=>duplicarRdo(item)}><Ic n="copy"/> Duplicar</Btn>{item.status!=="cancelado"&&<Btn size="sm" v="danger" onClick={()=>excluirRdo(item)}><Ic n="x"/> Cancelar RDO</Btn>}</div>
         </article>})}
         {!rdosFiltrados.length&&<div className="rdo-empty"><strong>Nenhum diário encontrado</strong><p>Ajuste os filtros ou limpe a pesquisa para ver outros registros.</p><Btn v="ghost" onClick={()=>{setInicioRdo("");setFimRdo("");setFiltroObraRdo("all");setFiltroStatusRdo("all");setFiltroClimaRdo("all");setBuscaRdo("");}}>Limpar filtros</Btn></div>}
@@ -433,11 +441,11 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
           {rdo.id&&!somenteLeituraRdo&&<Btn size="sm" v="danger" onClick={async()=>{if(await excluirRdo(rdo))setModoRdo("lista");}}><Ic n="x"/> Cancelar RDO</Btn>}
           {rdo.id&&<Btn size="sm" v="ghost" onClick={()=>imprimirRdo(rdo)}><Ic n="fileText"/> PDF</Btn>}
           {rdo.status==="concluido"&&currentUser?.role==="admin"&&<Btn size="sm" v="warning" onClick={reabrirRdo}><Ic n="edit"/> Reabrir como administrador</Btn>}
-          {!somenteLeituraRdo&&<Btn size="sm" v="primary" onClick={concluirRdo} disabled={!completionRdo.complete} title={!completionRdo.complete?`Pendente: ${completionRdo.pending.map(item=>item.label).join(", ")}`:"Concluir e bloquear o RDO"}><Ic n="check"/> Concluir relatório</Btn>}
+          {!somenteLeituraRdo&&<Btn size="sm" v="primary" aria-label="Concluir relatório" onClick={concluirRdo} disabled={!completionRdo.complete} title={!completionRdo.complete?`Pendente: ${completionRdo.pending.map(item=>item.label).join(", ")}`:"Concluir e bloquear o RDO"}><Ic n="check"/> Concluir relatório</Btn>}
         </div>
       </div>
       <div className="rdo-document-status" data-status={rdo.status||"preparacao"}>
-        <div><b>RDO-{String(rdo.codigo||0).padStart(3,"0")}</b><p>{somenteLeituraRdo?rdo.status==="cancelado"?"Documento cancelado e preservado no histórico.":"Documento concluído e bloqueado para edição.":`${completionRdo.pending.length} requisito(s) pendente(s) para concluir.`}</p></div><Badge color={rdo.status==="concluido"?C.green:rdo.status==="cancelado"?C.red:C.orange}>{rdo.status==="concluido"?"Concluído":rdo.status==="cancelado"?"Cancelado":"Em preparação"}</Badge>
+        <div><b>RDO-{String(rdo.codigo||0).padStart(3,"0")}</b><p>{somenteLeituraRdo?rdo.status==="cancelado"?"Documento cancelado e preservado no histórico.":"Documento concluído e bloqueado para edição.":`${contar(completionRdo.pending.length,'requisito pendente','requisitos pendentes')} para concluir.`}</p></div><Badge color={rdo.status==="concluido"?C.green:rdo.status==="cancelado"?C.red:C.orange}>{rdo.status==="concluido"?"Concluído":rdo.status==="cancelado"?"Cancelado":"Em preparação"}</Badge>
       </div>
       <div className="rdo-save-state" data-state={salvamentoRdo.status} role={salvamentoRdo.status==="error"?"alert":"status"} aria-live="polite"><span>{salvamentoRdo.status==="local"?"Alterações locais":salvamentoRdo.status==="saving"?"Sincronizando":salvamentoRdo.status==="error"?"Falha ao salvar":salvamentoRdo.status==="saved"?`Salvo às ${new Date(salvamentoRdo.at).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`:"Pronto para registrar"}</span><p>{salvamentoRdo.message||"As alterações serão confirmadas pelo servidor."}</p>{salvamentoRdo.status==="error"&&<StandardButton variant="secondary" onClick={salvarNovamenteRdo}>Tentar novamente</StandardButton>}</div>
 
@@ -479,14 +487,14 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
       )}
 
       {/* CLIMA */}
-      <Bloco id="rdo-etapa-clima" titulo="Clima do dia · obrigatório" acao={<SelectControl aria-label="Aplicar o mesmo clima aos três períodos" defaultValue="" onChange={e=>{if(e.target.value){aplicarClimaTodos(e.target.value);e.target.value="";}}} className="rdo-apply-all"><option value="">Aplicar a todos...</option>{CLIMA_OPC.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}</SelectControl>}>
+      <Bloco id="rdo-etapa-clima" titulo="Clima do dia · manhã e tarde obrigatórias" acao={<SelectControl aria-label="Aplicar o mesmo clima aos três períodos" defaultValue="" onChange={e=>{if(e.target.value){aplicarClimaTodos(e.target.value);e.target.value="";}}} className="rdo-apply-all"><option value="">Aplicar a todos...</option>{CLIMA_OPC.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}</SelectControl>}>
         <div style={{marginBottom:"var(--arcd-space-2)",padding:"var(--arcd-space-2)",borderRadius:6,background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)"}}>
           <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Responsável pelo registro · automático</p>
           <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)"}}>{rdo.responsavel||responsavelAutomatico?.nome||"Nenhum usuário identificado"}</p>
           {currentUser?.nome&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Lançado por {rdo.registradoPor||currentUser.nome}</p>}
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "var(--arcd-space-2)" }}>
-          {[["manha", "Manhã"], ["tarde", "Tarde"], ["noite", "Noite"]].map(([p, lbl]) => (
+          {[["manha", "Manhã"], ["tarde", "Tarde"], ["noite", "Noite (opcional)"]].map(([p, lbl]) => (
             <div key={p}>
               <label htmlFor={`rdo-clima-${p}`} className="rdo-field-label">{lbl}</label>
               <SelectControl id={`rdo-clima-${p}`} value={rdo.clima[p]||""} onChange={e => setClima(p, e.target.value)}
@@ -504,6 +512,9 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
       {/* SERVICOS EXECUTADOS */}
       <Bloco id="rdo-etapa-execucao" titulo="Serviços executados · obrigatório"
              acao={<Btn v="ghost" size="sm" onClick={() => setServicoModal({ novo: true })}>+ Serviço</Btn>}>
+        {atividadesPrevistas.length>0&&<div><p>Atividades previstas no planejamento para este dia — confirme o que foi realmente executado:</p>{atividadesPrevistas.filter(task=>!(rdo.servicos||[]).some(service=>service.tarefaId===task.id)).map(task=><StandardButton key={task.id} variant="secondary" onClick={()=>setServicoModal({novo:true,tarefaId:task.id})}>Levantar {task.nome}</StandardButton>)}</div>}
+        <p>O engenheiro levanta as atividades diariamente. Produção, equipe e horários alimentam as previsões após conclusão e revisão técnica.</p>
+        <p>Ponto do dia: {contar(pontoDoDia.filter(row=>['P','M'].includes(row.status)).length,'pessoa','pessoas')} com presença; {pontoDoDia.filter(row=>row.hours!==null).reduce((total,row)=>total+row.hours,0).toLocaleString('pt-BR')} horas com horários completos. Presenças já registradas aparecem na equipe sem digitação repetida.</p>
         {(rdo.servicos || []).length === 0 ? (
           <p style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)", lineHeight: "var(--arcd-line-height-normal)" }}>
             Indique quais serviços foram executados hoje. O progresso lançado aqui
@@ -513,7 +524,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
           (rdo.servicos || []).map(s => {
             const tarefa = tarefas.find(t => t.id === s.tarefaId);
             return (
-              <RecordAction type="button" key={s.tarefaId} onClick={() => setServicoModal({ servico: s })} className="rdo-service-row"
+              <div key={s.tarefaId}><RecordAction type="button" onClick={() => setServicoModal({ servico: s })} className="rdo-service-row"
                    style={{ padding: "var(--arcd-space-2) var(--arcd-space-0)", borderTop: "1px solid var(--arcd-border-default)", cursor: "pointer" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--arcd-space-2)" }}>
                   <span className="brk" style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)" }}>
@@ -538,6 +549,8 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
                   </div>
                 )}
               </RecordAction>
+              <ul aria-label={`Levantamento registrado de ${tarefa?.nome||s.descricao||"serviço"}`}>{dailyProductionReportLines(data,rdo,s).map((line,index)=><li key={index}>{line}</li>)}</ul>
+              </div>
             );
           })
         )}
@@ -691,11 +704,11 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
       </Bloco>
 
       <Bloco titulo="Reflexão técnica por IA · opcional" acao={<Btn v="info" size="sm" onClick={refletirRdo} disabled={refletindo||!(rdo.fotos||[]).length}><Ic n="brain"/> {refletindo?"Analisando imagens...":rdo.reflexaoIA?.texto?"Refletir novamente":"Refletir"}</Btn>}>
-        {!rdo.reflexaoIA?.texto?<div style={{padding:"var(--arcd-space-3)",border:"1px dashed color-mix(in srgb, var(--arcd-action-primary) 33%, transparent)",borderRadius:10,background:"color-mix(in srgb, var(--arcd-action-primary) 3%, transparent)"}}><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-muted)",lineHeight:"var(--arcd-line-height-normal)"}}>A IA cruza fotos, voz, clima, serviços, efetivo, materiais e planejamento. Ela sugere avanço, identifica riscos, atividades não previstas e pendências, mas nada é concluído sem revisão do engenheiro.</p></div>:<div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}><div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 3%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 21%, transparent)",borderRadius:10,padding:"var(--arcd-space-3)"}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",marginBottom:"var(--arcd-space-2)",flexWrap:"wrap"}}><b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)"}}>PANORAMA DO DIA</b><span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{rdo.reflexaoIA.fotosAnalisadas} foto(s) · {rdo.reflexaoIA.geradoEm?new Date(rdo.reflexaoIA.geradoEm).toLocaleString("pt-BR"):""}</span></div><div style={{whiteSpace:"pre-wrap",fontSize:"var(--arcd-type-label)",lineHeight:"var(--arcd-line-height-normal)",color:"var(--arcd-text-primary)"}}>{rdo.reflexaoIA.texto}</div></div>{rdo.reflexaoIA.analise&&<><div style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:"var(--arcd-space-2)"}}>{[["Riscos",rdo.reflexaoIA.analise.riscos,C.red],["Pendências",rdo.reflexaoIA.analise.pendencias,C.orange],["Materiais sugeridos",rdo.reflexaoIA.analise.materiais,C.purple]].map(([titulo,lista,cor])=><div key={titulo} style={{border:`1px solid ${cor}44`,borderTop:`3px solid ${cor}`,borderRadius:9,padding:"var(--arcd-space-2)",background:"var(--arcd-surface-card)"}}><b style={{fontSize:"var(--arcd-type-caption)",color:cor,textTransform:"uppercase"}}>{titulo} · {(lista||[]).length}</b>{(lista||[]).slice(0,4).map((x,i)=><p key={i} style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-muted)",lineHeight:"var(--arcd-line-height-normal)",marginTop:"var(--arcd-space-1)"}}>• {typeof x==="string"?x:x.descricao}</p>)}{!(lista||[]).length&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>Nada indicado.</p>}</div>)}</div><div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",border:"1px solid var(--arcd-border-default)",borderRadius:9,background:"var(--arcd-surface-muted)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Comparação com o planejamento</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",lineHeight:"var(--arcd-line-height-normal)",marginTop:"var(--arcd-space-1)"}}>{rdo.reflexaoIA.analise.comparacaoPlanejamento||"Sem comparação conclusiva."}</p>{(rdo.reflexaoIA.analise.atividadesNaoPrevistas||[]).map((x,i)=><p key={i} style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)",marginTop:"var(--arcd-space-1)"}}>⚠ Atividade não prevista: {x}</p>)}</div><Btn v="ghost" onClick={aplicarSugestoesRdo}><Ic n="check"/> Incorporar riscos e pendências ao rascunho</Btn></>}</div>}
+        {!rdo.reflexaoIA?.texto?<div style={{padding:"var(--arcd-space-3)",border:"1px dashed color-mix(in srgb, var(--arcd-action-primary) 33%, transparent)",borderRadius:10,background:"color-mix(in srgb, var(--arcd-action-primary) 3%, transparent)"}}><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-muted)",lineHeight:"var(--arcd-line-height-normal)"}}>A IA cruza fotos, voz, clima, serviços, efetivo, materiais e planejamento. Ela sugere avanço, identifica riscos, atividades não previstas e pendências, mas nada é concluído sem revisão do engenheiro.</p></div>:<div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}><div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 3%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 21%, transparent)",borderRadius:10,padding:"var(--arcd-space-3)"}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",marginBottom:"var(--arcd-space-2)",flexWrap:"wrap"}}><b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)"}}>PANORAMA DO DIA</b><span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{contar(rdo.reflexaoIA.fotosAnalisadas,'foto','fotos')} · {rdo.reflexaoIA.geradoEm?new Date(rdo.reflexaoIA.geradoEm).toLocaleString("pt-BR"):""}</span></div><div style={{whiteSpace:"pre-wrap",fontSize:"var(--arcd-type-label)",lineHeight:"var(--arcd-line-height-normal)",color:"var(--arcd-text-primary)"}}>{rdo.reflexaoIA.texto}</div></div>{rdo.reflexaoIA.analise&&<><div style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:"var(--arcd-space-2)"}}>{[["Riscos",rdo.reflexaoIA.analise.riscos,C.red],["Pendências",rdo.reflexaoIA.analise.pendencias,C.orange],["Materiais sugeridos",rdo.reflexaoIA.analise.materiais,C.purple]].map(([titulo,lista,cor])=><div key={titulo} style={{border:`1px solid ${cor}44`,borderTop:`3px solid ${cor}`,borderRadius:9,padding:"var(--arcd-space-2)",background:"var(--arcd-surface-card)"}}><b style={{fontSize:"var(--arcd-type-caption)",color:cor,textTransform:"uppercase"}}>{titulo} · {(lista||[]).length}</b>{(lista||[]).slice(0,4).map((x,i)=><p key={i} style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-muted)",lineHeight:"var(--arcd-line-height-normal)",marginTop:"var(--arcd-space-1)"}}>• {typeof x==="string"?x:x.descricao}</p>)}{!(lista||[]).length&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>Nada indicado.</p>}</div>)}</div><div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",border:"1px solid var(--arcd-border-default)",borderRadius:9,background:"var(--arcd-surface-muted)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Comparação com o planejamento</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",lineHeight:"var(--arcd-line-height-normal)",marginTop:"var(--arcd-space-1)"}}>{rdo.reflexaoIA.analise.comparacaoPlanejamento||"Sem comparação conclusiva."}</p>{(rdo.reflexaoIA.analise.atividadesNaoPrevistas||[]).map((x,i)=><p key={i} style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)",marginTop:"var(--arcd-space-1)"}}>⚠ Atividade não prevista: {x}</p>)}</div><Btn v="ghost" onClick={aplicarSugestoesRdo}><Ic n="check"/> Incorporar riscos e pendências ao rascunho</Btn></>}</div>}
       </Bloco>
 
       <Bloco id="rdo-etapa-revisao" titulo="Revisão obrigatória do engenheiro">
-        <div style={{padding:"var(--arcd-space-3)",border:`1px solid ${rdo.revisaoEngenheiro?.aprovado?"var(--arcd-success-text)":"var(--arcd-warning-text)"}55`,borderRadius:10,background:rdo.revisaoEngenheiro?.aprovado?"color-mix(in srgb, var(--arcd-success-text) 4%, transparent)":"color-mix(in srgb, var(--arcd-warning-text) 4%, transparent)"}}><label style={{display:"flex",alignItems:"flex-start",gap:"var(--arcd-space-2)",cursor:["engenheiro","engenheiro_auditor"].includes(currentUser?.role)&&requisitosAntesRevisaoOk?"pointer":"not-allowed"}}><ChoiceControl type="checkbox" checked={!!rdo.revisaoEngenheiro?.aprovado} disabled={!['engenheiro','engenheiro_auditor'].includes(currentUser?.role)||!requisitosAntesRevisaoOk} onChange={e=>salvarRDO(r=>({...r,revisaoEngenheiro:{...r.revisaoEngenheiro,aprovado:e.target.checked,engenheiroId:e.target.checked?currentUser.id:"",engenheiro:e.target.checked?currentUser.nome:"",revisadoEm:e.target.checked?new Date().toISOString():""},atualizadoEm:new Date().toISOString()}))} style={{width:22,height:22,accentColor:"var(--arcd-success-text)",marginTop:"var(--arcd-space-0)"}}/><span><b style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)"}}>Revisei o relato, o clima, os serviços e todas as evidências disponíveis.</b><p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)",marginTop:"var(--arcd-space-1)"}}>Fotos, áudio e reflexão por IA são opcionais. O avanço físico e as pendências permanecem sob responsabilidade técnica do engenheiro.</p></span></label>{!requisitosAntesRevisaoOk&&<p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-warning-text)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-2)"}}>Complete primeiro: {completionRdo.pending.filter(item=>item.id!=="revisao").map(item=>item.label).join(", ")}.</p>}{rdo.revisaoEngenheiro?.aprovado&&<p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-success-text)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-2)"}}>Revisado por {rdo.revisaoEngenheiro.engenheiro} em {new Date(rdo.revisaoEngenheiro.revisadoEm).toLocaleString("pt-BR")}</p>}{!["engenheiro","engenheiro_auditor"].includes(currentUser?.role)&&<p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-warning-text)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-2)"}}>Aguardando revisão do engenheiro responsável.</p>}</div>
+        <div style={{padding:"var(--arcd-space-3)",border:`1px solid ${rdo.revisaoEngenheiro?.aprovado?"var(--arcd-success-text)":"var(--arcd-warning-text)"}55`,borderRadius:10,background:rdo.revisaoEngenheiro?.aprovado?"color-mix(in srgb, var(--arcd-success-text) 4%, transparent)":"color-mix(in srgb, var(--arcd-warning-text) 4%, transparent)"}}><label style={{display:"flex",alignItems:"flex-start",gap:"var(--arcd-space-2)",cursor:["engenheiro","engenheiro_auditor"].includes(currentUser?.role)&&requisitosAntesRevisaoOk?"pointer":"not-allowed"}}><ChoiceControl type="checkbox" checked={!!rdo.revisaoEngenheiro?.aprovado} disabled={!['engenheiro','engenheiro_auditor'].includes(currentUser?.role)||!requisitosAntesRevisaoOk} onChange={e=>{const aprovado=e.target.checked;salvarRDO(r=>({...r,revisaoEngenheiro:{...r.revisaoEngenheiro,aprovado,engenheiroId:aprovado?currentUser.id:"",engenheiro:aprovado?currentUser.nome:"",revisadoEm:aprovado?new Date().toISOString():""},atualizadoEm:new Date().toISOString()}));}} style={{width:22,height:22,accentColor:"var(--arcd-success-text)",marginTop:"var(--arcd-space-0)"}}/><span><b style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)"}}>Revisei o relato, o clima, os serviços e todas as evidências disponíveis.</b><p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)",marginTop:"var(--arcd-space-1)"}}>Fotos, áudio e reflexão por IA são opcionais. O avanço físico e as pendências permanecem sob responsabilidade técnica do engenheiro.</p></span></label>{!requisitosAntesRevisaoOk&&<p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-warning-text)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-2)"}}>Complete primeiro: {completionRdo.pending.filter(item=>item.id!=="revisao").map(item=>item.label).join(", ")}.</p>}{rdo.revisaoEngenheiro?.aprovado&&<p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-success-text)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-2)"}}>Revisado por {rdo.revisaoEngenheiro.engenheiro} em {new Date(rdo.revisaoEngenheiro.revisadoEm).toLocaleString("pt-BR")}</p>}{!["engenheiro","engenheiro_auditor"].includes(currentUser?.role)&&<p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-warning-text)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-2)"}}>Aguardando revisão do engenheiro responsável.</p>}</div>
       </Bloco>
 
       </fieldset>
@@ -703,6 +716,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
       {/* MODAL SERVICO */}
       {servicoModal && (
         <ModalServicoRDO
+          data={data} report={rdo} initialTaskId={servicoModal.tarefaId||""}
           servico={servicoModal.servico}
           tarefas={tarefas}
           jaLancados={(rdo.servicos || []).map(s => s.tarefaId)}
@@ -710,7 +724,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
           terceirizados={terceirizadosObra}
           presencas={rdo.presencas || []}
           presencasTerc={rdo.terceirizados || []}
-          onSalvar={(s) => { upsertServico(s); setServicoModal(null); }}
+          onSalvar={async(s) => { const result=await upsertServico(s);if(result?.ok)setServicoModal(null); }}
           onRemover={servicoModal.servico ? () => { removerServico(servicoModal.servico.tarefaId); setServicoModal(null); } : null}
           onClose={() => setServicoModal(null)}
         />
@@ -722,13 +736,17 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
 // Editor de servico executado: escolhe a tarefa, a etapa, lanca o progresso
 // acumulado e marca quem executou (proprios + terceirizados). Maxima ligacao
 // entre o diario, o planejamento e os contratos.
-function ModalServicoRDO({ servico, tarefas, jaLancados, empregados = [], terceirizados = [], presencas = [], presencasTerc = [], onSalvar, onRemover, onClose }) {
-  const [tarefaId, setTarefaId] = useState(servico?.tarefaId || "");
+function ModalServicoRDO({ data, report, initialTaskId="", servico, tarefas, jaLancados, empregados = [], terceirizados = [], presencas = [], presencasTerc = [], onSalvar, onRemover, onClose }) {
+  const [tarefaId, setTarefaId] = useState(servico?.tarefaId || initialTaskId);
   const [prog, setProg] = useState(String(servico?.progressoAte ?? 0));
   const [obs, setObs] = useState(servico?.obs || "");
   const [equipe, setEquipe] = useState(servico?.equipe || []);
   const [tercIds, setTercIds] = useState(servico?.tercIds || []);
   const [erro,setErro]=useState("");
+  const budget=productionBudget(data,report.obraId);
+  const [production,setProduction]=useState(()=>{if(servico)return {...servico};const item=suggestedBudgetItem(tarefas.find(row=>row.id===initialTaskId),budget);return {budgetId:budget?.id||'',budgetItemId:item?.id||'',budgetQuantity:item?.quantidade??'',unidade:item?.unidade||'',quantidadeDia:'',horasPorPessoa:{}};});
+  const setProductionPatch=patch=>setProduction(previous=>({...previous,...patch}));
+  const selectTask=id=>{setTarefaId(id);if(id!==tarefaId){const item=suggestedBudgetItem(tarefas.find(row=>row.id===id),budget);setProduction({budgetQuantity:item?.quantidade??'',budgetId:budget?.id||'',budgetItemId:item?.id||'',unidade:item?.unidade||'',quantidadeDia:'',horasPorPessoa:{}});}};
 
   const disponiveis = tarefas.filter(t =>
     t.id === tarefaId || !jaLancados.includes(t.id));
@@ -736,7 +754,7 @@ function ModalServicoRDO({ servico, tarefas, jaLancados, empregados = [], tercei
 
   // Sugere quem já está marcado como presente no dia - o caso comum é a equipe
   // presente ser a que executou. O usuário refina se precisar.
-  const presentesIds = new Set(presencas.filter(p => p.status !== "falta").map(p => p.empId));
+  const presentesIds = new Set([...presencas.filter(p => ["presente","meio"].includes(p.status)).map(p => p.empId),...dailyWorkforce(data,report.obraId,report.data).filter(row=>["P","M"].includes(row.status)).map(row=>row.employeeId)]);
   const tercPresentesIds = new Set(presencasTerc.filter(t => t.status !== "falta").map(t => t.tercId));
 
   const toggle = (lista, setLista, id) =>
@@ -746,15 +764,19 @@ function ModalServicoRDO({ servico, tarefas, jaLancados, empregados = [], tercei
     if (!tarefaId) return;
     if(Number(prog||0)<=0&&!String(obs||"").trim()){setErro("Informe avanço maior que 0% ou descreva o serviço realizado sem avanço físico.");return;}
     setErro("");
-    onSalvar({ tarefaId, etapaId: tarefa?.etapaId || "", descricao: tarefa?.nome || "",
+    const payload={...production, tarefaId, etapaId: tarefa?.etapaId || "", descricao: tarefa?.nome || "",
                progressoAte: Math.max(0, Math.min(100, Number(prog) || 0)),
-               equipe, tercIds, obs });
+               equipe, tercIds, obs };
+    payload.horasPorPessoa=Object.fromEntries(Object.entries(payload.horasPorPessoa||{}).filter(([id])=>equipe.includes(id)));
+    const check={...report,productionVersion:1,servicos:[...(report.servicos||[]).filter(row=>row.tarefaId!==tarefaId),payload]};
+    const errors=validateProduction(data,check,{onlyTaskId:tarefaId});if(errors.length){setErro(errors.join(' '));return;}
+    onSalvar(payload);
   };
 
   return (
     <Modal title={servico ? "Serviço executado" : "Novo serviço"} onClose={onClose}>
       <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
-        <Sel label="Serviço (do planejamento)" value={tarefaId} onChange={setTarefaId}
+        <Sel label="Serviço (do planejamento)" value={tarefaId} onChange={selectTask}
              options={[{ v: "", l: "Escolha..." }, ...disponiveis.map(t => ({ v: t.id, l: t.nome }))]} />
         {tarefa && (tarefa.etapaNome || tarefa.custo > 0) && (
           <div style={{ background: "color-mix(in srgb, var(--arcd-action-primary) 7%, transparent)", border: "1px solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)",
@@ -770,6 +792,7 @@ function ModalServicoRDO({ servico, tarefas, jaLancados, empregados = [], tercei
           </p>
         </div>
 
+        <StandardButton variant="secondary" onClick={()=>setEquipe([...presentesIds])}>Vincular equipe presente do ponto</StandardButton>
         {/* Equipe própria */}
         {empregados.length > 0 && (
           <div>
@@ -806,6 +829,7 @@ function ModalServicoRDO({ servico, tarefas, jaLancados, empregados = [], tercei
           </div>
         )}
 
+        <DailyProductionFields data={data} report={report} budget={budget} production={production} onChange={setProductionPatch} equipe={equipe} tarefaId={tarefaId} onProgress={setProg}/>
         <Inp label="Observação (opcional)" value={obs} onChange={setObs} multiline />
         {erro&&<p role="alert" style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-danger-text)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{erro}</p>}
         <div style={{ display: "flex", gap: "var(--arcd-space-2)" }}>

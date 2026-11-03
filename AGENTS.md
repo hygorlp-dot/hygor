@@ -35,3 +35,9 @@ Esta regra se aplica a todo o projeto, inclusive aos subdiretórios.
 - Após revisar o conteúdo, atualize a data de revisão e execute `npm run manual:generate`. Inclua `docs/MANUAL_DO_APP.md` na alteração. `npm run manual:check`, também incluído no lint, verifica cobertura de abas e sincronização do arquivo com a ajuda.
 - O verificador não substitui revisão humana do conteúdo: registre na validação quando uma mudança técnica não exigir alteração de instruções ao usuário.
 - Preserve o contexto, os filtros e os dados ao abrir a ajuda; navegar no manual não deve gravar registros nem abrir telas operacionais automaticamente. O índice do app deve respeitar as áreas de acesso do usuário.
+
+## Contrato de interface MARCELL — novas introduções
+
+- Por solicitação do usuário em 01/11/2026, toda nova tela, componente, texto, botão, dimensão, espaçamento e fluxo deve seguir o padrão compartilhado MARCELL. Reutilizar componentes e tokens, sem criar estilos locais para contornar a base.
+- A consolidação local vigente está no checkout `C:/dev/repositorio-mrc`, consolidado a partir de `8bfa833d` e das alterações locais preservadas. Consulte seu `docs/PADRAO-INTERFACE.md` e `DESIGN.md` antes de continuar esse trabalho. Não sobrescrever alterações deste checkout com uma versão anterior do workspace.
+- Nesse checkout, a escala comum é `src/design-system/foundations.js`, textos genéricos são `src/design-system/copy.js` e `npm run design:check` integra o lint. Não aumentar a baseline do legado para liberar novas exceções. Revisar desktop, celular, ajuda e manual em cada alteração relevante.

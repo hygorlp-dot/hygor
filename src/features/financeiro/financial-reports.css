@@ -1,11 +1,12 @@
 .financial-reports{display:flex;flex-direction:column;gap:var(--arcd-space-4);min-width:0;color:var(--arcd-text-primary)}
 .financial-reports h2{font-size:var(--arcd-type-section-title);font-weight:var(--arcd-font-weight-semibold)}.financial-reports h3{font-size:var(--arcd-type-card-title);font-weight:var(--arcd-font-weight-semibold)}
 .financial-reports p,.financial-reports label,.financial-reports summary{font-size:var(--arcd-type-label);line-height:1.5;overflow-wrap:anywhere}
-.financial-reports header{display:grid;gap:var(--arcd-space-1)}
+.financial-reports header:not(.arcd-page-header){display:grid;gap:var(--arcd-space-1)}
 .financial-reports__filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:var(--arcd-space-3);border:0;padding:0;min-width:0}
 .financial-reports__filters legend{font-size:var(--arcd-type-body);font-weight:var(--arcd-font-weight-semibold);margin-bottom:var(--arcd-space-3)}
 .financial-reports__filters label{display:flex;flex-direction:column;gap:var(--arcd-space-1);min-width:0}
-.financial-reports select{min-height:44px;padding:var(--arcd-space-2);border:1px solid var(--arcd-border-strong);border-radius:var(--arcd-radius-control);background:var(--arcd-surface-card);color:var(--arcd-text-primary);max-width:100%;width:100%}
+.financial-reports select:not(.arcd-select){min-height:var(--arcd-control-height);padding:var(--arcd-space-2);border:1px solid var(--arcd-border-strong);border-radius:var(--arcd-radius-control);background:var(--arcd-surface-card);color:var(--arcd-text-primary);max-width:100%;width:100%}
+.financial-reports :is(th,td)[data-align=start]{text-align:left;white-space:normal;overflow-wrap:break-word}
 .financial-reports select:focus-visible,.financial-reports summary:focus-visible,.financial-reports .scroll-x:focus-visible{outline:2px solid var(--arcd-focus-ring);outline-offset:2px}
 .financial-reports__filters .financial-reports__checkbox{flex-direction:row;align-items:center;min-height:44px}.financial-reports__checkbox input{width:24px;height:24px;flex-shrink:0}
 .financial-reports__basis{display:grid;gap:var(--arcd-space-2);padding-block:var(--arcd-space-4);border-block:1px solid var(--arcd-border-default)}

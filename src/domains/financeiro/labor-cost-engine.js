@@ -92,9 +92,15 @@ export const createLaborCostEngine = ({
     const byWork = new Map();
     const bucket = obraId => {
       let item = byWork.get(obraId);
-      if (!item) { item = { laborCost:0, benefitCost:0, chargesCost:0 }; byWork.set(obraId, item); }
+      if (!item) { item = { laborCost:0, benefitCost:0, chargesCost:0, roles:new Map() }; byWork.set(obraId, item); }
       return item;
     };
+    const roleBucket=(item,employee,date)=>{
+      const role=String(archivedCltAllocation(data,employee.id,date)?.role||attendanceForDate(data,employee.id,date)?.role||employee.role||'Função não informada').trim().normalize('NFC').toLocaleLowerCase('pt-BR')||'função não informada';
+      if(!item.roles.has(role))item.roles.set(role,{role,laborCost:0,benefitCost:0,source:'Ponto / cadastro'});
+      return item.roles.get(role);
+    };
+    const addBenefits=(item,employee,date,amount)=>{item.benefitCost+=amount;roleBucket(item,employee,date).benefitCost+=amount;};
 
     // Encargos e provisões (labor-charges.js) entram no custo de mão de obra
     // da competência: CLT pelo fator de encargos, diarista pelo percentual
@@ -104,6 +110,7 @@ export const createLaborCostEngine = ({
       const charges = amount * (factorByMode[remunerationModeOnDate(employee, date)] || 0);
       item.laborCost += amount + charges;
       item.chargesCost += charges;
+      roleBucket(item,employee,date).laborCost+=amount+charges;
     };
     // CLT com salário mensal no cadastro (decisão do dono, 28/10/2026): o
     // custo é o salário, não a diária × presença. Cada dia útil do mês (com
@@ -145,7 +152,7 @@ export const createLaborCostEngine = ({
           addLabor(item, employee, date, salario / diasUteisDoMes(date));
           if (!feriado&&!archived&&remunerationModeOnDate(employee, date) !== "mei") {
             const record = attendanceForDate(data, employee.id, date);
-            item.benefitCost += calculateAttendanceDayCost({ employee, record, config:data?.config }).benefitCost;
+            addBenefits(item,employee,date,calculateAttendanceDayCost({ employee, record, config:data?.config }).benefitCost);
           }
           return;
         }
@@ -160,7 +167,7 @@ export const createLaborCostEngine = ({
         if (!cost.laborCost && !cost.benefitCost) return;
         const item = bucket(resolveEmployeeAttendanceObraId({ data, employee, date }));
         addLabor(item, employee, date, cost.laborCost);
-        item.benefitCost += cost.benefitCost;
+        addBenefits(item,employee,date,cost.benefitCost);
       });
 
       // Feriado: paga a obra do último dia trabalhado antes dele.
@@ -177,21 +184,21 @@ export const createLaborCostEngine = ({
     return byWork;
   };
 
-  const calculateCurrentCost = (data, obraId, days = []) => {
+  const calculateCurrentCost = (data, obraId, days = [], {includeRoles=false}={}) => {
     const item = costsByWorkForPeriod(data, days).get(String(obraId ?? "")) || { laborCost:0, benefitCost:0, chargesCost:0 };
-    return { laborCost:item.laborCost, benefitCost:item.benefitCost, chargesCost:item.chargesCost, totalCost:item.laborCost + item.benefitCost };
+    return { laborCost:item.laborCost, benefitCost:item.benefitCost, chargesCost:item.chargesCost, totalCost:item.laborCost + item.benefitCost,...(includeRoles?{roleCosts:[...(item.roles?.values()||[])]}: {}) };
   };
 
-  const calculateWorkLaborCost = (data, obraId, days = []) => {
+  const calculateWorkLaborCost = (data, obraId, days = [], {includeRoles=false}={}) => {
     if (cachedData !== data) {
       cachedData = data;
       cache = new Map();
     }
-    const key = `${obraId}|${days[0] || ""}|${days[days.length - 1] || ""}|${days.length}`;
+    const key = `${obraId}|${days[0] || ""}|${days[days.length - 1] || ""}|${days.length}|${includeRoles}`;
     const cached = cache.get(key);
     if (cached) return cached;
 
-    const current = calculateCurrentCost(data, obraId, days);
+    const current = calculateCurrentCost(data, obraId, days,{includeRoles});
     const selectedDates = new Set(days);
     let archivedLabor = 0;
     let archivedBenefits = 0;
@@ -209,6 +216,7 @@ export const createLaborCostEngine = ({
       laborCost:current.laborCost + archivedLabor,
       benefitCost:current.benefitCost + archivedBenefits,
       totalCost:current.totalCost + archivedLabor + archivedBenefits,
+      ...(includeRoles?{roleCosts:[...current.roleCosts,...(archivedLabor||archivedBenefits?[{role:'Histórico sem função',laborCost:archivedLabor,benefitCost:archivedBenefits,source:'Arquivo sem discriminação por função'}]:[])]}:{}),
     };
     cache.set(key, result);
     return result;

@@ -1,6 +1,8 @@
+import {LoadingState} from '../../design-system/patterns/LoadingState.jsx';
 import {SelectControl} from '../../design-system/primitives/Select.jsx';
 import {ChoiceControl} from '../../design-system/primitives/ChoiceControl.jsx';
-import {useEffect,useMemo,useState} from 'react';
+import {Suspense,useEffect,useMemo,useState} from 'react';
+import {lazyWithCssRetry as lazy} from '../../lib/lazy-with-css-retry.js';
 import {Button} from '../../components/ui/button.jsx';
 import {Input} from '../../components/ui/input.jsx';
 import {Alert,AlertDescription} from '../../components/ui/alert.jsx';
@@ -11,7 +13,12 @@ import './financial-reports.css';
 const money=value=>(value/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const endOfMonth=month=>/^\d{4}-\d{2}$/.test(month)?new Date(Date.UTC(Number(month.slice(0,4)),Number(month.slice(5,7)),0)).toISOString().slice(0,10):'';
 
-export default function FinancialReportCenter({data,calcPeriod,view,onViewChange,obraId,onObraChange,onOpen,loadSpreadsheet}) {
+const WorkFinancialReport=lazy(()=>import('./WorkFinancialReport.jsx'));
+export default function FinancialReportCenter(props){
+ const {view,onViewChange}=props;
+ return <div className="financial-reports"><label>Visão dos relatórios<SelectControl aria-label="Visão dos relatórios" value={view.presentation||'standard'} onChange={e=>onViewChange(v=>({...v,presentation:e.target.value}))}><option value="standard">Central de relatórios</option><option value="work">Financeiro completo por obra</option></SelectControl></label>{view.presentation==='work'?<Suspense fallback={<LoadingState label="relatório da obra"/>}><WorkFinancialReport {...props}/></Suspense>:<StandardFinancialReportCenter {...props}/>}</div>;
+}
+function StandardFinancialReportCenter({data,calcPeriod,view,onViewChange,obraId,onObraChange,onOpen,loadSpreadsheet}) {
  const [exporting,setExporting]=useState(false),[exportError,setExportError]=useState('');
  const filters=useMemo(()=>({...view,obraId}),[view,obraId]);
  const bundle=useMemo(()=>createReportLedger(data,calcPeriod,filters),[data,calcPeriod,obraId,view.kind,view.start,view.end,view.asOf]);

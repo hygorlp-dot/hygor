@@ -21,7 +21,7 @@
   [data-theme] .arcd-main .mrc-screen-header.purchase-header .arcd-page-header__actions { display:contents; }
   [data-theme] .arcd-main .arcd-filter-bar[data-layout=grid] {
     display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,12rem),1fr));
-    align-items:end;gap:var(--arcd-layout-gap);min-width:0;
+    align-items:var(--arcd-filter-align,end);gap:var(--arcd-layout-gap);min-width:0;
     background:var(--arcd-toolbar-surface);padding:var(--arcd-toolbar-padding);
     border-radius:var(--arcd-radius-lg);
   }

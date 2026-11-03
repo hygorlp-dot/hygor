@@ -75,6 +75,10 @@
 // +3,6 KB gzip medidos (2,5 KB JS + 0,8 KB CSS). Teto +4 KiB.
 // Conferência RH e escala de 44h: margem adicional de 4 KiB para o novo fluxo.
 // Limites individuais preservados; validar o total após juntar a main.
+// 02/11/2026: consolidação de previsões já publicadas + indicadores contábeis
+// sobre a interface vigente IBM Plex Sans. Medido: 1.887.889 bytes gzip.
+// Total 1845 KiB; somente o núcleo operacional financeiro recebe teto 204 KiB
+// (207.545 bytes medidos). Demais chunks, mídia e baseline visual preservados.
 export const BUNDLE_BUDGETS = Object.freeze({
   // 31/10/2026: versão consolidada com leitor PDF carregado sob demanda,
   // financeiro operacional e projetos de engenharia. Medição de produção:
@@ -86,11 +90,19 @@ export const BUNDLE_BUDGETS = Object.freeze({
   // fichas rápidas, alocação de adiantamentos) + travas de alocação. CI mediu
   // 1.790.031 bytes, 79 acima do teto. Acréscimo limitado a 1 KiB; limites por
   // chunk e de mídia permanecem iguais.
-  totalGzipBytes: 1_749 * 1024,
+  // 03/11/2026: parte B do release consolidado (base contábil, Previsões,
+  // linha de base e SPI, relatório por obra, membros) volta ao teto que estava
+  // em produção em 02/11. Medido sobre o #234: +96 KiB gzip, quase tudo sob
+  // demanda (núcleo financeiro +45,6, Previsões +26,7, ajuda +11,9); a carga
+  // inicial cresce 3,3 KiB. Total medido 1.888.788 bytes.
+  // Avanço oficial ao lado do diário e rótulo da comparação contábil:
+  // 1.889.290 bytes, 10 acima. Acréscimo limitado a 1 KiB.
+  totalGzipBytes: 1_846 * 1024,
   genericJavaScriptGzipBytes: 200 * 1024,
   staticMediaTotalBytes: 4 * 1024 * 1024,
   genericStaticMediaBytes: 1 * 1024 * 1024,
   chunks: [
+    { label: "financial-operational-core", pattern: /^fi-.*\.js$/, maxGzipBytes: 204 * 1024 },
     { label: "LegacyApp", pattern: /^LegacyApp-.*\.js$/, maxGzipBytes: 570 * 1024 },
     // Exceção temporária registrada: planilhas ainda dependem de exceljs.
     { label: "spreadsheet-tools", pattern: /^spreadsheet-tools-.*\.js$/, maxGzipBytes: 275 * 1024 },

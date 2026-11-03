@@ -15,10 +15,34 @@ export default function PdfDocumentPreview({url, name, onError}) {
   const [rendering, setRendering] = useState(true);
 
   useEffect(() => {
-    let cancelled = false;
-    const task = getDocument({url, isEvalSupported:false});
-    task.promise.then(document => { if (!cancelled) setPdf(document); }).catch(error => { if (!cancelled) onError(error); });
-    return () => { cancelled = true; task.destroy(); };
+    let cancelled = false, task, settled = false, destroyed = false;
+    const controller = new AbortController();
+    const destroy = () => {
+      if (!task || destroyed) return;
+      destroyed = true;
+      Promise.resolve(task.destroy()).catch(() => {});
+    };
+    setPdf(null);
+    (async () => {
+      try {
+        const response = await fetch(url, {signal: controller.signal});
+        if (!response.ok) throw new Error('Não foi possível carregar o PDF.');
+        const bytes = await response.arrayBuffer();
+        if (cancelled) return;
+        task = getDocument({data: new Uint8Array(bytes), isEvalSupported: false});
+        const document = await task.promise;
+        settled = true;
+        if (cancelled) destroy();
+        else setPdf(document);
+      } catch (error) {
+        settled = true;
+        if (!cancelled) onError(error);
+        else destroy();
+      }
+    })();
+    // Não interromper a inicialização em memória do worker. A conclusão
+    // acima encerra a tarefa cancelada, sem atualizar um componente fechado.
+    return () => { cancelled = true; controller.abort(); if (settled) destroy(); };
   }, [url, onError]);
 
   useEffect(() => {

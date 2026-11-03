@@ -69,13 +69,7 @@ export const spreadsheetBrowserConfig=()=>({
   // Um único construtor Buffer também no otimizador de desenvolvimento:
   // misturar os shims CJS/ESM quebra o instanceof usado pelo ExcelJS.
   build:{rollupOptions:{transform:{inject:bufferInject}}},
-  optimizeDeps:{include:[
-    "exceljs","buffer","fflate","setimmediate",
-    "@fast-csv/format/build/src/CsvFormatterStream.js",
-    "@fast-csv/format/build/src/FormatterOptions.js",
-    "@fast-csv/parse/build/src/CsvParserStream.js",
-    "@fast-csv/parse/build/src/ParserOptions.js",
-  ],rolldownOptions:{plugins:[encryptorPlugin()],transform:{inject:bufferInject}}},
+  optimizeDeps:{include:["exceljs"],rolldownOptions:{plugins:[encryptorPlugin()],transform:{inject:bufferInject}}},
   resolve:{
     dedupe:["readable-stream","string_decoder","safe-buffer","buffer"],
     alias:[

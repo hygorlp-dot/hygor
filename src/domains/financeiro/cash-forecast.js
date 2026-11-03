@@ -20,5 +20,5 @@ export function forecastCash(data,ledger,{today,obraId='all',days=30,openingCent
   const incoming=items.filter(e=>e.sign===1).reduce((s,e)=>s+e.amountCents,0),outgoing=items.filter(e=>e.sign===-1).reduce((s,e)=>s+e.amountCents,0);
   if(hasOpening)balance+=incoming-outgoing;return {date,items,incoming,outgoing,balance};
  });
- return {rows,undated,overdue,unassigned,account,excludedAccountCount:allEntries.length-entries.length,hasOpening,lowest:hasOpening?rows.reduce((a,b)=>b.balance<a.balance?b:a,rows[0]):null,firstNegative:hasOpening?rows.find(r=>r.balance<0):undefined,openingCents:hasOpening?openingCents:null};
+ return {rows,scheduled,undated,overdue,unassigned,account,excludedAccountCount:allEntries.length-entries.length,hasOpening,lowest:hasOpening?rows.reduce((a,b)=>b.balance<a.balance?b:a,rows[0]):null,firstNegative:hasOpening?rows.find(r=>r.balance<0):undefined,openingCents:hasOpening?openingCents:null};
 }

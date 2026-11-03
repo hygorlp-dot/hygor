@@ -258,6 +258,8 @@ export const validateBudgetBaselinePolicy=(previous={},next={},user={})=>{
 const baselineApproved=item=>String(item?.status||"").toLowerCase()==="aprovada";
 const baselineSuperseded=item=>["substituida","substituída","superseded"].includes(String(item?.status||"").toLowerCase());
 export const validatePlanningBaselinePolicy=(previous={},next={},user={})=>{
+  const oldVersioned=(previous.scheduleBaselines||[]).filter(row=>row.schemaVersion===2),newVersioned=(next.scheduleBaselines||[]).filter(row=>row.schemaVersion===2);
+  if(!sameJson(oldVersioned,newVersioned))return 'Linhas de base versionadas só podem ser alteradas pelos comandos de proposta e aprovação. Histórico aprovado é imutável.';
   if(!Object.prototype.hasOwnProperty.call(next,"scheduleBaselines"))return "";
   const before=byRecordId(previous.scheduleBaselines),after=byRecordId(next.scheduleBaselines);
   const approvalRole=["admin","diretoria"].includes(user.role);

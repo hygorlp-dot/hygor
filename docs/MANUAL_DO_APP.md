@@ -24,6 +24,12 @@ Conteúdo gerado de `src/features/help/help-content.js`, a mesma fonte da ajuda 
 
 ## Índice das telas
 
+- [Financeiro · Previsões gerenciais](#guia-fin_previsoes)
+- [Previsões · Relatório para diretoria](#guia-fin_previsoes_executive)
+- [Previsões · Indicadores da obra](#guia-fin_previsoes_kpis)
+- [Previsões · Caixa de 13 semanas](#guia-fin_previsoes_cash)
+- [Previsões · Custo final por obra](#guia-fin_previsoes_cost)
+- [Previsões · Mão de obra](#guia-fin_previsoes_labor)
 - [Ponto diário · Pessoal de obra](#guia-ponto_obras)
 - [Ponto diário · Administrativo](#guia-ponto_central)
 - [Gestão do ponto · Pessoal de obra](#guia-ponto_geral_obras)
@@ -89,6 +95,8 @@ Conteúdo gerado de `src/features/help/help-content.js`, a mesma fonte da ajuda 
 - [Cadastros](#guia-cad)
 - [IA](#guia-ia)
 - [Configurar Gemini](#guia-ia_config)
+- [Ajustes · Minha equipe](#guia-config_membros)
+- [Financeiro · Relatório completo por obra](#guia-fin_relatorios_obra)
 - [Ajustes](#guia-config)
 - [Telas antigas](#guia-obsoletos)
 - [FVS / FVM](#guia-obra_qualidade)
@@ -129,6 +137,177 @@ Conteúdo gerado de `src/features/help/help-content.js`, a mesma fonte da ajuda 
 - [Retomar trabalho salvo](#guia-fin_recuperacao)
 - [Retomar trabalho salvo](#guia-cmp_recuperacao)
 - [Recuperar salvamento](#guia-home_recuperacao)
+- [Planejamento · Linha de base aprovada e SPI](#guia-plan_baseline)
+- [Previsões · Indicadores contábeis](#guia-fin_previsoes_accounting)
+- [Previsões · Bases contábeis e conferência](#guia-fin_previsoes_accounting_base)
+
+<a id="guia-fin_previsoes"></a>
+
+## Financeiro · Previsões gerenciais
+
+Antecipar caixa, custo final e necessidade de equipe, conferir indicadores e preparar o relatório para a diretoria.
+
+### Antes de começar
+
+Use perfil administrador ou financeiro e confira a obra e a data de referência.
+
+### Como fazer
+
+1. Em Financeiro, abra Mais áreas e escolha Previsões gerenciais. No celular, use Áreas do financeiro.
+2. Escolha Caixa de 13 semanas, Custo final por obra, Previsão de mão de obra, Indicadores da obra, Relatório para diretoria ou Indicadores contábeis. No celular, use Consulta de previsões. O relatório abre no Resumo do CEO; expanda Obra e referência para conferir ou mudar esse contexto.
+3. Confira as fontes, preencha as premissas e consulte a memória antes de interpretar o resultado.
+4. Exporte o CSV para guardar o cenário. Em Relatório para diretoria, no cabeçalho Relatório executivo por obra, abra Exportar relatório e escolha Exportar relatório executivo CSV ou Preparar apresentação / PDF em qualquer seção válida. A segunda opção abre o documento para impressão. A ajuda acompanha a consulta aberta.
+5. Para rentabilidade, liquidez e endividamento da empresa inteira, escolha Indicadores contábeis e Todas as obras e empresa. Importe e confira o balancete em Bases e conferência; a Ajuda acompanha a seção. Bases contábeis ficam registradas no histórico, separadas dos cenários de previsão da sessão.
+
+### Como conferir se deu certo
+
+As seis consultas mostram o recorte escolhido, os dados de origem e as pendências para conferência.
+
+### O que merece atenção
+
+Cenários ficam na sessão aberta deste usuário; recarregar a página ou sair do sistema os descarta. Exporte a memória antes de fechar. Não criam títulos, pagamentos ou contratações. Dados atuais são recalculados; a data de referência não reconstrói o que era conhecido no passado. Sem base suficiente, o resultado fica indisponível ou identificado como parcial.
+
+<a id="guia-fin_previsoes_executive"></a>
+
+## Previsões · Relatório para diretoria
+
+Reunir os gastos registrados, previsões e indicadores das obras em um relatório conferível para a diretoria.
+
+### Antes de começar
+
+Use perfil administrador ou financeiro. Confira orçamento de controle, início da obra, custos por etapa, documentos, ponto, diários revisados e planejamento. Separe o saldo inicial confirmado se quiser consultar saldos futuros.
+
+### Como fazer
+
+1. Em Previsões gerenciais, escolha Relatório para diretoria. O cabeçalho mostra Relatório executivo por obra e a consulta abre no Resumo do CEO. Expanda Obra e referência para conferir Obra da previsão e Data de referência da previsão; Todas as obras e empresa compara as obras disponíveis. O total de despesas da empresa sem rateio aparece somente no recorte geral autorizado; escolher uma obra não mostra esse total.
+2. Abra Ajustar período e saldo e preencha Início do relatório executivo. O intervalo pode abranger até 12 competências mensais. Custos e receitas usam os meses inteiros; pagamentos usam as datas exatas. Gastos incorridos acumulados incluem também os meses anteriores ao início informado.
+3. Se tiver o valor confirmado, preencha Saldo inicial do caixa executivo (R$) para as obras e a referência escolhidas. Sem ele, entradas e saídas continuam disponíveis, mas saldo e necessidade de cobertura ficam indisponíveis. Trocar obra ou referência exige conferir novamente o saldo.
+4. No Resumo do CEO, leia os três totais, o aviso de cobertura e a quantidade de pendências junto aos valores. Confira a referência, o acumulado, a necessidade máxima de cobertura e o menor saldo diário das 13 semanas. Em Sinais financeiros da carteira, confira o saldo vencido a receber, as compras comprometidas a faturar e a variação do custo executado, junto à base e à quantidade de obras comparáveis. Use Conferir pendências para abrir Pendências para decisão: confira obra, área, data e registro quando disponíveis e a Providência indicada. Corrija na área de origem e consulte novamente; esse botão não corrige os registros. Em Sinais de prazo por obra, compare atraso confirmado, falta de levantamento, entregas próximas e cobertura. Pendências de prazo também aparecem em Conferir pendências, com origem e providência.
+5. Em Seções do relatório executivo, escolha Caixa, Custos ou Execução; no celular, use o seletor com esse nome. Em Caixa, confira Posição da inadimplência. Abra Conferir atrasos e títulos a receber para ver as faixas de 1 a 30, 31 a 60, 61 a 90 e mais de 90 dias e a Memória dos recebíveis, com saldo e origem. Confira também Resultado e caixa realizado no período e Evolução mensal da carteira. Leia as competências inteiras dos custos e receitas e as datas exatas dos pagamentos e recebimentos. Abra Conferir as 13 semanas do caixa para a memória semanal. Volte ao Resumo do CEO para comparar as obras e conferir as pendências.
+6. Em Custos, use Obra do detalhamento executivo para escolher a obra. Confira Compromissos financeiros da obra e abra Conferir compras a faturar para ver o pedido de origem e o saldo. Em Variação de custo por valor agregado, confira o valor agregado, o custo incorrido e as variações CV e VAC com sua leitura ou motivo de indisponibilidade. Depois confira Gastos acumulados por categoria, Gastos incorridos por função e Gastos e pagamentos de terceirizados. Compare pedreiro, ajudante e as demais funções da equipe própria; confira cada prestador, contrato e especialidade dos terceiros. Abra Evolução e comparação dos gastos por função e Evolução e comparação dos gastos por terceirizado. Confira a evolução mensal e compare o período escolhido com o mesmo número de competências imediatamente anteriores. Depois revise as etapas e abra Todos os gastos registrados e Títulos em aberto e pagamentos do período para conferir as origens. Em Execução, confira a equipe prevista, os indicadores e Produtividade e dispersão da obra.
+7. Em Indicadores da obra ou em Relatório para diretoria → Execução, confira Prazo da obra. Leia Atividades vencidas com saldo confirmado, Vencidas sem medição confirmada, Entregas nos próximos 7 dias e Cobertura das atividades pelo diário. O recorte é a Data de referência da previsão; o período inicial não limita o último avanço acumulado consultado.
+8. Abra Conferir atividades, marcos e semanas. Em Memória do prazo por atividade, confira identificação, datas vigentes, avanço, diário e data da medição. Corrija as datas no Planejamento e faça o levantamento no Diário de obra; conclua o relatório com revisão técnica para que a medição seja reaproveitada. Consultar os indicadores não grava nem conclui o diário.
+9. Confira Marcos do planejamento e Confiabilidade semanal do planejamento. Uma data de marco passada exige confirmação da entrega na origem. O percentual de planos concluídos (PPC) usa compromissos elegíveis no prazo, apenas de semanas inteiras encerradas e verificadas; bloqueados e fechamentos pendentes ficam separados.
+10. No cabeçalho Relatório executivo por obra, abra Exportar relatório. Escolha Exportar relatório executivo CSV para baixar as 25 seções do relatório, incluindo SPI, SPI itens, Prazos, Atividades prazo, Marcos prazo, Inadimplência, Compromissos, Variação custo, Funções, Terceirizados, Evolução pessoal e Comparação pessoal, ou Preparar apresentação / PDF para abrir o documento. No documento, use Imprimir / salvar PDF para escolher a impressão ou o PDF no navegador. O painel de opções fecha após a escolha. Exportar relatório fica disponível em qualquer seção quando o recorte é válido; não é preciso voltar ao Resumo do CEO para exportar. Ambos incluem todas as obras do recorte e as pendências com providências, independentemente da seção aberta; Obra do detalhamento executivo altera somente o detalhe na tela.
+11. Em SPI da obra, confira a versão aprovada, o valor planejado (PV), o valor agregado (EV), SPI e SV. Abra Conferir memória do SPI para conferir item, peso orçamentário, diário e data de medição. Para preparar, aprovar ou consultar outra versão, use Linha de base aprovada e SPI no Planejamento. O relatório usa a última aprovação até a referência; a fotografia legada não calcula SPI.
+
+### Como conferir se deu certo
+
+A diretoria recebe o comparativo das obras, gastos por categoria, função e etapa, terceirizados por prestador e contrato, evolução mensal e comparação dos custos de pessoal, caixa de 13 semanas, equipe, indicadores, memória dos gastos, títulos, pagamentos e pendências, com inadimplência, compromissos de compra e variação de custo, referência e limites identificados. Os indicadores de prazo e sua memória acompanham os dados de origem carregados, sem formulário adicional.
+
+### O que merece atenção
+
+Sem avisos detectados no cálculo não comprova fechamento nem que todos os gastos foram registrados. A contagem identifica avisos de conferência, não obrigações corrigidas automaticamente. Data não informada e avisos de cobertura sem registro exigem conferência das fontes; não representam uma origem individual comprovada. O relatório usa os registros atualmente carregados; não recupera arquivos históricos nem comprova que todos os gastos foram cadastrados. Custo, pagamento, pedido e recebimento físico são visões diferentes e não devem ser somados. Gastos incorridos por função mostram o custo já apurado da equipe própria, com encargos e benefícios incluídos no demonstrativo de resultado (DRE); não acrescente esse detalhamento ao total por categoria. A função vem do registro do dia quando disponível e, na falta dele, do cadastro atual. Histórico e lançamentos sem função permanecem identificados; confira a origem quando houver diferença. Previsão executiva de mão de obra estima a equipe e o custo restantes, não o gasto já realizado. Em Gastos e pagamentos de terceirizados, Incorrido acumulado é custo reconhecido por medição ou documento; Pago no período e Cliente direto no período usam as datas dos pagamentos, enquanto Saldo a pagar é a posição na referência. Uma nota vinculada à medição não deve gerar custo duas vezes. Sem custo reconhecido nas fontes significa falta de reconhecimento na base carregada, não comprova gasto zero. A evolução de pessoal usa custos por competências mensais inteiras, com encargos e benefícios da equipe própria; pagamentos não entram nessa comparação. Se faltar base em um dos períodos, o valor correspondente aparece como Não disponível. Ausência de registro não comprova custo zero. Diferença e Variação só ficam disponíveis quando a referência é o último dia do mês e há valores nos dois períodos; o percentual também exige custo anterior positivo. No mês de referência em andamento, os valores são provisórios. Diferença de gasto não comprova economia ou ganho de produtividade: confira também equipe, produção e escopo. Mês encerrado no calendário não comprova fechamento contábil. Pagamento direto do cliente ao fornecedor fica separado das saídas do caixa da empresa. Custo final = incorrido + restante + risco + mudanças adicionais; compras a faturar já estão no restante. Revisão antiga, orçamento vazio ou inválido, início inválido, valores ou totais fora do limite seguro e divergência na memória impedem o total confiável. Gastos ou compras sem etapa exigem apropriação ou revisão válida explícita de Sem apropriação para evitar sobreposição do orçamento; se uma obra estiver pendente, o total da carteira fica indisponível e o subtotal das obras calculáveis aparece identificado. Inadimplência usa o saldo ainda aberto na referência: vencimento anterior à referência é atraso; vence hoje e a vencer ficam fora do atraso. O percentual divide o vencido pelo total aberto com vencimento válido, incluindo os títulos futuros. Sem base positiva, o percentual fica indisponível. Títulos sem vencimento válido ficam separados e não são considerados em dia. A posição usa os registros carregados e não reconstrói o que se sabia historicamente. Compras a faturar são saldos de pedidos na referência, separados dos títulos a pagar. Não comprovam todos os compromissos futuros: contratos sem medição, folha futura e serviços sem obrigação cadastrada não estão completos nessa posição. Não some pedidos, títulos e incorrido. CV, variação de custo, é valor agregado menos custo incorrido; negativo indica custo acima do valor agregado, positivo não comprova lucro. Exige mês encerrado, medição integral e orçamento e custos comparáveis, como o CPI. A carteira só mostra CV completo quando todas as obras são comparáveis. VAC, variação ao término, é orçamento menos custo final previsto; negativo indica previsão acima do orçamento. Seu sinal é o inverso de Desvio previsto, que usa custo final menos orçamento. CV nesta tabela é variação monetária de custo; CV em Produtividade e dispersão é coeficiente de variação, uma medida estatística diferente. Resultado é receita reconhecida menos custo do período; margem exige receita positiva e não representa lucro final do contrato. CPI, índice de eficiência de custo, divide valor agregado pelo incorrido e exige último dia do mês, orçamento completo, medição integral e mesmo escopo de custos e avanço; sem isso fica indisponível. SPI exige valor planejado e avanço compatíveis com a mesma versão aprovada. PPC é o percentual de compromissos cumpridos no prazo nas semanas completas verificadas; bloqueados ficam separados. RUP é horas-pessoa por unidade produzida; não some unidades nem produção compartilhada entre funções. A previsão de mão de obra é dimensionamento condicional aos registros e ao calendário, sem garantia de equipe futura e sem soma automática ao custo final. Falta de base não é zero. CSV usa proporções de zero a um. Consultar, exportar e imprimir não altera registros; confira as pendências antes de compartilhar. Atividades com datas ou identificação inválidas exigem correção no Planejamento; ficam fora das contagens de vencimento e próximas entregas. Prazo usa o último avanço acumulado em diário concluído e revisado, até a referência, vinculado pela identificação exata da atividade. Progresso digitado no Planejamento não substitui essa evidência. Sem medição não significa avanço zero nem atraso confirmado. Diários duplicados ou medição inválida exigem conferência. Dias de atraso são corridos desde o fim vigente; não estimam atraso de conclusão da obra. A data de conclusão é o primeiro registro de 100% do ciclo atual e pode ser posterior à execução. Desvio positivo contra a fotografia da base significa postergação das datas, não atraso realizado. A fotografia atual pode ser substituída e não reconstrói versões passadas. SPI (índice de desempenho de prazo) usa a linha de base aprovada e versionada; sem medição compatível integral ou valor planejado positivo fica indisponível com motivo.
+
+<a id="guia-fin_previsoes_kpis"></a>
+
+## Previsões · Indicadores da obra
+
+Conferir produção, avanço acumulado, cumprimento do plano e qualidade dos registros da obra.
+
+### Antes de começar
+
+Use perfil administrador ou financeiro. Confira orçamento de controle, diários concluídos e revisados, ponto com horários completos e compromissos com avanços confirmados no Planejamento.
+
+### Como fazer
+
+1. Em Previsões gerenciais, escolha Indicadores da obra. Em Obra da previsão, selecione uma obra; Todas as obras e empresa não reúne os indicadores.
+2. Confira Data de referência da previsão, que também encerra o período. Em Janela dos indicadores, escolha Últimos 7 dias, Últimos 28 dias ou Últimos 90 dias. Para outro início, preencha Período inicial dos indicadores; o limite é 366 dias.
+3. Leia Avanço ponderado do orçamento, PPC das semanas verificadas e Cobertura dos diários nos dias com presença. Não disponível indica base insuficiente; confira avisos e subtotais antes de interpretar.
+4. Em Produtividade por serviço e função, abra Amostra para conferir dias, diários, horas, produção e Ponto de origem. Compare a RUP com o período anterior de mesma duração.
+5. Confira Avanço acumulado com peso do orçamento e Cumprimento do planejamento semanal. Abra Compromissos e motivos para verificar meta, prazo e avanços de origem.
+6. Em Registro diário e pendências, confira os dias sem diário revisado e horários incompletos. Abra Pendências e exclusões da base e Memória, fórmulas e limites dos indicadores.
+7. Em Indicadores da obra ou em Relatório para diretoria → Execução, confira Prazo da obra. Leia Atividades vencidas com saldo confirmado, Vencidas sem medição confirmada, Entregas nos próximos 7 dias e Cobertura das atividades pelo diário. O recorte é a Data de referência da previsão; o período inicial não limita o último avanço acumulado consultado.
+8. Abra Conferir atividades, marcos e semanas. Em Memória do prazo por atividade, confira identificação, datas vigentes, avanço, diário e data da medição. Corrija as datas no Planejamento e faça o levantamento no Diário de obra; conclua o relatório com revisão técnica para que a medição seja reaproveitada. Consultar os indicadores não grava nem conclui o diário.
+9. Confira Marcos do planejamento e Confiabilidade semanal do planejamento. Uma data de marco passada exige confirmação da entrega na origem. O percentual de planos concluídos (PPC) usa compromissos elegíveis no prazo, apenas de semanas inteiras encerradas e verificadas; bloqueados e fechamentos pendentes ficam separados.
+10. Use Exportar indicadores da obra para guardar o CSV com período, fontes, fórmulas e pendências. Corrija os registros nas áreas de origem quando necessário.
+11. Em SPI da obra, confira a versão aprovada, o valor planejado (PV), o valor agregado (EV), SPI e SV. Abra Conferir memória do SPI para conferir item, peso orçamentário, diário e data de medição. Para preparar, aprovar ou consultar outra versão, use Linha de base aprovada e SPI no Planejamento. O relatório usa a última aprovação até a referência; a fotografia legada não calcula SPI.
+
+### Como conferir se deu certo
+
+Cada resultado mostra sua própria base e os registros que permitem conferi-lo. Avanço físico é acumulado até a referência; produtividade e cobertura usam o período escolhido. A comparação da produtividade usa o intervalo anterior de mesma duração. Os indicadores de prazo e sua memória acompanham os dados de origem carregados, sem formulário adicional.
+
+### O que merece atenção
+
+RUP é razão unitária de produção: soma das horas-pessoa dividida pela quantidade dos mesmos dias válidos; menor RUP significa menos horas por unidade. Horas de dias com produção zero permanecem nessa soma. A média simples das RUP diárias pode ser diferente da RUP agregada, ponderada pela quantidade. Desvio padrão amostral usa n menos 1; desvio e coeficiente de variação (CV, desvio dividido pela média) exigem pelo menos dois dias com produção e média positiva. Dias com produção zero ficam fora dessa dispersão. Essas estatísticas não são previsão nem comprovam causa. Não some unidades diferentes nem a produção compartilhada entre funções. PPC significa percentual de compromissos cumpridos como prometido: considera semanas inteiras de segunda a domingo encerradas, com fechamento verificável de todos os elegíveis. Quantidade confirmada depois da data prometida não conta como cumprimento no prazo; bloqueados ficam separados e fora da base conforme a política atual do Planejamento. Sem plano ou medição suficiente, o resultado fica indisponível, não zero. Cobertura dos diários usa somente dias com presença confirmada; não mede todos os dias previstos da obra. Dados atualmente carregados e suas correções são usados; a consulta não recupera arquivos históricos nem reconstrói o que era conhecido no passado. Consultar e exportar não altera ponto, diário, produção ou registros financeiros. No CSV, proporções usam escala de zero a um. Atividades com datas ou identificação inválidas exigem correção no Planejamento; ficam fora das contagens de vencimento e próximas entregas. Prazo usa o último avanço acumulado em diário concluído e revisado, até a referência, vinculado pela identificação exata da atividade. Progresso digitado no Planejamento não substitui essa evidência. Sem medição não significa avanço zero nem atraso confirmado. Diários duplicados ou medição inválida exigem conferência. Dias de atraso são corridos desde o fim vigente; não estimam atraso de conclusão da obra. A data de conclusão é o primeiro registro de 100% do ciclo atual e pode ser posterior à execução. Desvio positivo contra a fotografia da base significa postergação das datas, não atraso realizado. A fotografia atual pode ser substituída e não reconstrói versões passadas. SPI (índice de desempenho de prazo) usa a linha de base aprovada e versionada; sem medição compatível integral ou valor planejado positivo fica indisponível com motivo.
+
+<a id="guia-fin_previsoes_cash"></a>
+
+## Previsões · Caixa de 13 semanas
+
+Consultar entradas e saídas previstas em treze intervalos consecutivos de sete dias.
+
+### Antes de começar
+
+Confira a obra, a data de referência e a conta prevista dos títulos.
+
+### Como fazer
+
+1. Informe o Saldo inicial do cenário (R$) para este recorte. Se quiser testar sem dinheiro inicial, use Simular saldo inicial zero.
+2. Escolha o Atraso simulado de recebimentos e o Tratamento dos títulos vencidos. Vencidos ficam separados até você escolher simulá-los na referência.
+3. Leia entradas, saídas, saldos e necessidade máxima de cobertura. O menor saldo é calculado por dia; um total semanal positivo pode esconder falta de dinheiro durante a semana.
+4. Use Ver títulos para abrir a memória da semana; confira vencidos e títulos sem data nas ações próprias.
+5. Use Exportar caixa de 13 semanas para baixar o recorte e as premissas.
+
+### Como conferir se deu certo
+
+A tabela cobre 91 dias e informa os títulos que compõem cada semana. Saldo e necessidade aparecem somente com saldo inicial confirmado para obra, conta e data.
+
+### O que merece atenção
+
+A conta é a destinação prevista no título, não uma inferência do pagamento anterior. Mudar obra, conta ou referência exige conferir novamente o saldo inicial. A projeção inclui apenas títulos existentes; folha futura, tributos, pedidos e serviços sem obrigação cadastrada não são estimados automaticamente. Recebimentos não são garantidos; datas não são ajustadas ao calendário bancário.
+
+<a id="guia-fin_previsoes_cost"></a>
+
+## Previsões · Custo final por obra
+
+Comparar o custo final estimado das obras com o orçamento de controle.
+
+### Antes de começar
+
+Confira a obra e a data de referência; tenha orçamento de controle, início da obra e estimativas restantes conferidos.
+
+### Como fazer
+
+1. Leia orçamento, custo incorrido, compras pendentes, restante, risco, mudanças adicionais e custo final por obra.
+2. Escolha a Obra da memória de custo final e leia os alertas e a composição por etapa.
+3. Use Conferir em Custos por etapa para revisar a estimativa na área de origem. Use Voltar às previsões gerenciais para retomar a consulta.
+4. Use Exportar custo final por obra para guardar o relatório e seus avisos.
+
+### Como conferir se deu certo
+
+O custo final é incorrido + restante + reserva de risco + impactos de mudanças adicionais. O restante já inclui as compras pendentes; pedidos e pagamentos não entram novamente.
+
+### O que merece atenção
+
+Incorrido segue a competência até o mês da referência. A referência automática usa o maior entre zero, orçamento menos incorrido e compras ainda não faturadas; não é previsão estatística. Revisão com base alterada ou etapa removida exige reconferência e deixa o custo final indisponível nas previsões gerenciais. Sem orçamento de controle com itens válidos, início válido para o acumulado ou com quantidade, preço, valor ou total fora do limite seguro, o custo final também permanece indisponível. Gastos ou compras sem etapa exigem apropriação ou revisão válida explícita de Sem apropriação, pois a referência automática pode repetir o orçamento. Restante abaixo das compras pendentes pede revisão. Os registros de origem são preservados; subtotais não comprovam cobertura integral.
+
+<a id="guia-fin_previsoes_labor"></a>
+
+## Previsões · Mão de obra
+
+Antecipar horas e equipe usando os registros diários da obra.
+
+### Antes de começar
+
+Escolha uma obra com orçamento de controle, ponto atualizado e diário revisado pelo engenheiro.
+
+### Como fazer
+
+1. A fonte padrão é Automático · ponto e diário de obras. Não precisa repetir quantidade, função, jornada, equipe ou produtividade na previsão.
+2. Leia Origem e pendências da integração. Jornada indisponível deve ser conferida pelo RH no cadastro e no ponto; Aguardando levantamento diário exige que o engenheiro registre, vincule e revise as atividades na origem. Sem orçamento de controle, defina essa base antes de esperar o cálculo. Quantidade restante vem do avanço acumulado revisado; produtividade usa a soma das horas do ponto dividida pela produção registrada nos mesmos dias, serviços e funções. Para cada função, entram somente os dias em que ela teve horas apropriadas maiores que zero; a produção de um dia em que essa função não trabalhou não reduz sua necessidade prevista. As datas da amostra e o ponto de origem seguem esse mesmo recorte.
+3. Confira Levantamento por serviço e função e as referências dos diários. Equipe é a última presença observada na obra nos últimos 14 dias, sem garantir disponibilidade futura.
+4. Ajuste apenas o intervalo e o calendário da simulação. Feriados do calendário de Planejamento/Folha são excluídos automaticamente na fonte integrada.
+5. Confira dimensionamento, déficit e histograma. Exporte previsão de mão de obra para guardar fontes, premissas e resultados.
+6. Para testar hipóteses separadas dos registros, escolha Simulação manual separada em Fonte das premissas da mão de obra.
+
+### Como conferir se deu certo
+
+Os resultados se atualizam com os dados carregados do diário e do ponto. Corrigir os registros de origem recalcula a previsão; reabrir ou cancelar um diário retira sua produção da base confirmada.
+
+### O que merece atenção
+
+Diários em preparação, duplicados ou sem revisão não confirmam produtividade. Presença sem horários completos, função ausente, terceiros sem horas e divisão de jornada pendente ficam identificados. Custo-hora usa somente parcelas apuradas e completas do ciclo corrente no motor da folha, divididas por horas do ponto; não representa todos os custos futuros do contrato. Este dimensionamento é paramétrico, sem previsão estatística validada. Distribuição uniforme, sem nivelar frentes; ausências e alocações futuras precisam de planejamento. Nenhuma consulta altera ponto, folha ou cria pagamentos. Simulações manuais são descartadas ao recarregar.
 
 <a id="guia-ponto_obras"></a>
 
@@ -484,6 +663,7 @@ Confirme a obra e o orçamento usado no planejamento.
 1. Selecione as atividades e revise os vínculos com o orçamento.
 2. Defina datas e duração no cronograma.
 3. Acompanhe o realizado e compare com a linha de base, quando houver.
+4. Para aprovação e versões preservadas, abra Linha de base aprovada e SPI. Prepare uma proposta, confira os itens e calendário e solicite aprovação ao administrador ou à diretoria. A Ajuda passa a mostrar o guia específico enquanto essa área estiver aberta. Fotografias legadas de datas não calculam SPI.
 
 ### Como conferir se deu certo
 
@@ -552,25 +732,30 @@ Ao usar o controle de tempo, confira a sessão ativa e encerre-a ao concluir a a
 
 ## Diário de obra
 
-Registrar o que aconteceu em cada dia da obra.
+Levantar diariamente as atividades e a produção da obra, sem repetir dados já cadastrados.
 
 ### Antes de começar
 
-Selecione a obra e confira a data do diário.
+O engenheiro deve conferir a obra, a data, o planejamento, o orçamento de controle e o ponto do dia.
 
 ### Como fazer
 
-1. Abra o registro do dia.
-2. Informe atividades, equipe, ocorrências e fotos solicitadas.
-3. Revise o relato, salve e confira o registro na data correta.
+1. Abra Novo relatório ou o diário em preparação.
+2. Leia as atividades previstas no planejamento e use Levantar para abrir a atividade, ou + Serviço para outra atividade.
+3. Selecione o serviço. Quando houver um único item na etapa, o vínculo orçamentário e a unidade vêm preenchidos. Caso contrário, escolha Item do orçamento da atividade uma vez.
+4. Use Vincular equipe presente do ponto e confira quem realmente executou. Registre Quantidade executada hoje, inclusive zero se não houve produção aceita. O acumulado anterior revisado sugere o novo percentual; confira o Progresso acumulado.
+5. Horas do ponto vêm dos horários completos, com intervalo descontado. Se a pessoa participou de várias atividades, distribua Horas nesta atividade sem superar sua jornada. Horários pendentes devem ser resolvidos no ponto.
+6. Salve o serviço e confira a confirmação do servidor. Complete o relato e o clima de manhã e tarde; o clima noturno é opcional. Faça a revisão técnica e use Concluir relatório. Apenas o engenheiro pode revisar e concluir.
+7. Após concluir, use Consultar no histórico para conferir Produção do dia, Unidade registrada, Item do orçamento, Progresso acumulado e horas de cada pessoa. PDF abre a impressão com os mesmos dados. Horas de atividade única identificam o ponto consultado e a data; divisões explícitas aparecem como apropriação registrada. Registros antigos mostram Não informado quando não possuem o dado.
+8. Em Previsões gerenciais, os dados confirmados alimentam automaticamente saldo a executar, produtividade e dimensionamento.
 
 ### Como conferir se deu certo
 
-O diário descreve o dia de trabalho com suas evidências.
+O levantamento fica vinculado à atividade, ao item do orçamento, às pessoas e à data. As previsões consultam somente os diários concluídos e revisados.
 
 ### O que merece atenção
 
-RDO significa Relatório Diário de Obra. Sugestões de IA precisam de revisão antes de salvar.
+RDO significa Relatório Diário de Obra. O ponto não comprova qual atividade foi executada nem sua quantidade; o engenheiro registra esses fatos. Diário com ponto incompleto pode ser documentado, mas sua produtividade fica pendente. Alterar serviços invalida a revisão anterior. Reabertura ou cancelamento retira a produção da previsão. Duplicar um diário cria um rascunho sem copiar produção, equipe ou uso de equipamento de outro dia. Fotos, voz e sugestões de IA exigem revisão e não viram medição confirmada automaticamente.
 
 <a id="guia-conferencia"></a>
 
@@ -1918,6 +2103,56 @@ O sistema informa se a integração está disponível.
 
 Se a conexão falhar, confira a configuração com o administrador; não publique credenciais.
 
+<a id="guia-config_membros"></a>
+
+## Ajustes · Minha equipe
+
+Consultar os membros e administrar os acessos da empresa.
+
+### Antes de começar
+
+Confira o perfil e as obras que cada pessoa deve acessar. Alterações de acesso exigem administrador.
+
+### Como fazer
+
+1. Em Ajustes, use Minha equipe. Busque por nome ou e-mail e refine Situação do membro e Perfil do membro.
+2. Como administrador, use Adicionar membro ou clique no nome para editar. Confira Dados do membro e Permissões de acesso.
+3. Revise as telas marcadas, o perfil e a restrição de obra. Use Salvar e aguarde a confirmação.
+4. No menu Ações do membro, localize Ativar login ou Redefinir senha, Definir PIN, Liberar todas as obras e Ativar membro ou Inativar membro, conforme o registro.
+
+### Como conferir se deu certo
+
+O cadastro mostra o perfil e a situação esperados após a confirmação.
+
+### O que merece atenção
+
+PIN é o código de identificação do operador. Inativar o acesso do membro não registra desligamento do funcionário. Última atividade depende das sessões disponíveis; use Atualizar on-line para consultar novamente.
+
+<a id="guia-fin_relatorios_obra"></a>
+
+## Financeiro · Relatório completo por obra
+
+Conferir custos, receitas e composição de uma obra sem registrar operações.
+
+### Antes de começar
+
+Escolha a obra e o intervalo de competências. Competência é o mês em que o valor é reconhecido no resultado.
+
+### Como fazer
+
+1. Em Relatórios financeiros, escolha Financeiro completo por obra em Visão dos relatórios.
+2. Selecione Obra do relatório, Competência inicial da obra e Competência final da obra. Use Aplicar período da obra.
+3. Clique nos totais ou em Custos por etapa para abrir o memorial e conferir a origem. Feche a consulta para voltar ao relatório.
+4. Use Exportar CSV da obra, Exportar Excel da obra ou Imprimir / salvar PDF da obra para compartilhar o período aplicado.
+
+### Como conferir se deu certo
+
+Os totais, memoriais e arquivos representam a mesma obra e o último período aplicado.
+
+### O que merece atenção
+
+Custos reconhecidos e pagamentos são análises diferentes. Componentes ausentes não são estimados e o rateio da administração central não está incluído. Confira a base gerencial e as pendências antes de usar o resultado. Exportar ou abrir um memorial não confirma pagamento.
+
 <a id="guia-config"></a>
 
 ## Ajustes
@@ -2950,11 +3185,96 @@ A edição é enviada apenas após revisão explícita; a recarga não confirma 
 
 A proteção depende do armazenamento local e não é backup. Sem armazenamento, o envio fica bloqueado: mantenha a aba aberta. Verificar armazenamento retoma a conferência inicial; Proteger preenchimentos tenta gravar as tentativas que ficaram na memória; Proteger e reenviar edição tenta proteger novamente o que está na memória. Descartar edição da memória exige confirmação e perde essa tentativa; cópias já protegidas são preservadas. Sair e trocar de conta aguardam envios em andamento. Resolva o armazenamento antes de sair com uma edição apenas na memória. Concluir conferência encerra uma pendência que já consta no servidor, sem repetir a gravação. Mudança de acesso ou obra pode bloquear a retomada. Descartar edição protegida consulta o servidor e remove apenas a edição revisada; confirme com cuidado. Pagamentos e recebimentos continuam usando suas confirmações próprias.
 
+<a id="guia-plan_baseline"></a>
+
+## Planejamento · Linha de base aprovada e SPI
+
+Aprovar uma versão conferível de datas, calendário e orçamento para comparar o planejado com o executado.
+
+### Antes de começar
+
+Confira a obra, um único plano, o orçamento de controle aprovado e bloqueado, as datas e o calendário. Para cada item com valor deve existir uma única atividade executiva na etapa ou ancestral mais próximo; não há rateio automático.
+
+### Como fazer
+
+1. No Planejamento, abra Linha de base aprovada e SPI. Confira a proposta atual e a premissa: os valores são distribuídos linearmente pelos dias trabalhados do calendário congelado.
+2. Preencha Justificativa da proposta ou revisão com pelo menos 10 caracteres e use Preparar proposta de linha de base. Engenharia e planejamento podem propor; propor ainda não libera o SPI.
+3. Em Versão da linha de base, escolha a proposta. Abra Conferir itens e calendário congelados e confira quantidade, unidade, atividade, datas, peso orçamentário, dias da semana e feriados. Leia a justificativa e o Histórico das linhas de base.
+4. Como administrador ou diretoria, use Aprovar linha de base V seguida do número. Se datas, calendário ou orçamento mudaram desde a proposta, prepare uma nova proposta: a aprovação desatualizada é bloqueada. A aprovação registra autor e data pelo servidor, sem campo para retroagir.
+5. Para revisar, ajuste a origem, registre a justificativa e prepare outra proposta. A nova aprovação passa a valer para consultas a partir do dia de aprovação; versões anteriores continuam íntegras e consultáveis. Uma proposta ligada a versão ultrapassada não pode ser aprovada.
+6. Selecione uma versão aprovada e ajuste Referência do SPI para conferir SPI da versão consultada. No Financeiro, abra Previsões gerenciais → Indicadores da obra ou Relatório para diretoria → Execução; confira SPI da obra e Conferir memória do SPI. A consulta automática usa a última aprovação até a referência.
+
+### Como conferir se deu certo
+
+O histórico preserva as versões e a justificativa de cada revisão. SPI compara valor agregado e valor planejado da mesma base; tela, CSV e apresentação mostram versão, origens e motivos de indisponibilidade.
+
+### O que merece atenção
+
+SPI é o índice de desempenho de prazo: valor agregado (EV) dividido pelo valor planejado (PV). Abaixo de 1 indica valor agregado inferior ao planejado; acima de 1, superior. Não mede atraso em dias, caminho crítico ou previsão estatística de término. SV é EV menos PV em reais orçamentários. PV usa dias trabalhados, com distribuição linear e arredondamento acumulado por item; ao fim conserva o orçamento inteiro. EV usa pesos congelados e avanço acumulado dos mesmos itens em diário concluído e revisado. Item, atividade, orçamento, unidade e quantidade de referência precisam coincidir. Falta de medição ou duplicidade não viram zero; SPI exige cobertura integral dos itens com valor e PV positivo. Atividades sem valor não influenciam o índice. A aprovação usa o dia civil de Brasília e não reconstrói o que a equipe sabia no passado; diários são os registros atualmente carregados. Fotografias legadas de datas não são convertidas automaticamente em versões aprovadas e não calculam SPI. Não é possível editar ou apagar uma versão aprovada pelo fluxo de proposta e aprovação.
+
+<a id="guia-fin_previsoes_accounting"></a>
+
+## Previsões · Indicadores contábeis
+
+Conferir rentabilidade, capacidade de pagamento e participação do capital de terceiros na empresa inteira.
+
+### Antes de começar
+
+Use administrador ou financeiro ativo com acesso geral, sem restrição a uma obra. Prepare o balancete completo da mesma entidade, antes dos lançamentos de encerramento do resultado, com todas as contas analíticas e meses inteiros já encerrados.
+
+### Como fazer
+
+1. Em Previsões gerenciais, selecione Indicadores contábeis e Todas as obras e empresa em Obra da previsão. Confira Data de referência da previsão; somente bases com término até essa data ficam disponíveis.
+2. Escolha a Base contábil. Confira entidade, período, documento, revisão, situação e responsável. Se faltar uma base, abra Bases e conferência e siga a ajuda específica dessa seção.
+3. Em Resumo contábil, leia Margem líquida, Liquidez corrente e Capital de terceiros / ativo. As tabelas de Rentabilidade, Liquidez e Endividamento mostram resultado, numerador, denominador, fórmula e motivo de indisponibilidade.
+4. Em Memória contábil, confira Balanço de conferência, DRE contábil do período e Memória das contas contábeis, com código, grupo, movimentação e linha do CSV.
+5. Use Exportar indicadores contábeis CSV ou Preparar apresentação contábil / PDF. Confira o recorte antes de compartilhar. As oito seções do CSV incluem origem, indicadores, contas, grupos, pendências, balanço, DRE e conciliação. Os números exportados usam ponto decimal; proporções usam escala de zero a um. O balancete de entrada usa o formato brasileiro indicado no modelo.
+
+### Como conferir se deu certo
+
+Bases conferidas liberam onze indicadores calculados sobre a mesma entidade e período. Rascunho, divergência de consistência ou denominador sem valor positivo deixam o resultado indisponível, com motivo.
+
+### O que merece atenção
+
+ROA é retorno sobre o ativo e ROE é retorno sobre o patrimônio líquido (PL). Nesta tela, ambos dividem o lucro líquido do período pelo saldo final, sem médias e sem anualização. Margens bruta e líquida usam receita líquida. Liquidez seca restrita usa somente caixa, equivalentes livres e recebíveis financeiros de curto prazo; a corrente usa todo o ativo circulante. Liquidez geral inclui realizável a longo prazo. Endividamento usa passivo circulante e não circulante, sem incluir o PL no numerador. PL inclui contas de patrimônio e resultado acumulado ainda não encerrado. Prejuízo pode produzir rentabilidade negativa; denominador zero ou negativo não vira zero nem infinito. Não há meta universal ou classificação automática de empresa saudável. Os índices exigem cobertura contábil completa; títulos do ERP e caixa de 13 semanas não substituem o balanço. Conferência interna não é auditoria, parecer ou demonstração contábil publicada. Consultar, abrir ajuda e exportar não grava lançamentos. A referência usa os registros atuais e não reconstrói o conhecimento do passado.
+
+<a id="guia-fin_previsoes_accounting_base"></a>
+
+## Previsões · Bases contábeis e conferência
+
+Importar, conferir e preservar as revisões do balancete que sustenta os indicadores da empresa.
+
+### Antes de começar
+
+Peça à contabilidade o balancete antes dos lançamentos de encerramento do resultado, com saldos iniciais, débitos, créditos e saldos finais. Use somente contas analíticas, sem totais nem contas sintéticas duplicando valores. Período máximo: doze meses inteiros já encerrados.
+
+### Como fazer
+
+1. Em Indicadores contábeis, abra Bases e conferência e depois Importar balancete. Use Baixar modelo do balancete CSV e o Guia dos grupos contábeis do CSV para preparar a classificação.
+2. Substitua todos os zeros ilustrativos do modelo pelas contas reais. Salve CSV UTF-8, separador ponto e vírgula, até 512 KB e 2.000 contas. Preserve o cabeçalho codigo;conta;grupo;saldo_inicial;debitos;creditos;saldo_final. Informe reais no padrão 1.234,56, saldos devedores positivos e credores negativos. Débitos e créditos são não negativos; zero deve estar explícito.
+3. Use Selecionar balancete CSV. Confira Entidade do balancete, Documento de origem contábil, Início do período contábil e Fim do período contábil. Informe Justificativa da importação ou revisão com pelo menos dez caracteres. Importar base contábil grava um rascunho, sem liberar indicadores.
+4. Leia Conferência dos saldos contábeis e Pendências da base contábil. Cada conta precisa fechar saldo inicial mais débitos menos créditos igual a saldo final; débitos e créditos totais precisam coincidir e saldos totais fechar em zero. Confira a natureza dos grupos e o balanço, incluindo resultado ainda não encerrado no PL.
+5. Leia Comparação contabilidade e ERP. Se houver diferença, ausência de base comparável ou pendências do ERP, preencha Justificativa da conciliação com o ERP com pelo menos dez caracteres. Isso não cria ajustes nem lançamentos.
+6. Confirme a caixa sobre entidade, contas analíticas, classificação, resultado antes do encerramento e saldos conferidos. Use Conferir base e liberar indicadores. Se os fatos do ERP mudarem durante a conferência, atualize e confira a comparação novamente.
+7. Abra Histórico das bases contábeis para consultar Revisões contábeis preservadas. Para corrigir, ajuste o arquivo na contabilidade e importe nova revisão. Use Base contábil para comparar consultas das versões anteriores.
+
+### Como conferir se deu certo
+
+O sistema registra origem, período, contas, revisão, autor, data e comparação com o ERP. A revisão conferida permanece preservada; importar outra não apaga a anterior.
+
+### O que merece atenção
+
+Balancete já encerrado não sustenta a DRE deste fluxo: use o arquivo anterior ao encerramento. A DRE usa movimentação do período; o balanço usa saldos finais. O PL dos índices soma as contas de patrimônio ao resultado acumulado em aberto, que pode incluir períodos anteriores. Saldo inicial e final são conferidos em centavos. Conferir a aritmética não comprova por si só a cobertura integral: o responsável precisa confirmar entidade, grupos, prazos e todas as contas. Não misture empresas ou períodos. Base inconsistente pode ser guardada como rascunho, mas não pode ser conferida. Bases conferidas não podem ser editadas ou apagadas pelo fluxo. Se o ERP mudar depois, aparece aviso e a comparação registrada é preservada; importe uma revisão se necessário. Administrador ou financeiro com restrição por obra não pode acessar as bases da empresa. O arquivo é lido e normalizado em contas na base do app; não é enviado a serviços externos para interpretação. Nada é publicado automaticamente.
+
 ## Aparência, botões e navegação
 
 ### Ajustar o menu lateral
 
 No computador, arraste a borda direita do menu. Pelo teclado, use Tab para chegar à borda, setas para ajustar e Home/End para os limites. Enter ou duplo clique restaura a largura inicial. Minimizar menu lateral conserva o ajuste ao expandir. A preferência fica neste navegador e vale em todos os módulos, sem alterar dados. No celular, use a navegação inferior e Mais.
+
+### Leitura de PDF
+
+Ao fechar a visualização de um PDF em carregamento, a transferência é cancelada. Para tentar novamente, reabra o documento. Se o leitor apresentar erro, confira o acesso ao arquivo e use o link do documento original quando disponível. Consultar o arquivo não aprova a nota nem confirma pagamento.
 
 ### Carregamento de telas
 
