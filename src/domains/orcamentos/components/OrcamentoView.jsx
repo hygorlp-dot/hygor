@@ -4759,8 +4759,8 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 
             <div style={{maxHeight:340,overflowY:"auto",display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>
               {resultados.map((r,i)=>(
-                <StandardButton variant="secondary" key={`${r.codigo}-${i}`} onClick={()=>{setQtdModal(r);setQtd("");setBuscaModal(false);}} style={{borderLeft:`1px solid ${r._fav?"var(--arcd-action-primary)":(r.fonte==="ORSE"?"var(--arcd-action-primary)":"var(--arcd-action-primary)")}`,textAlign:"left"}}>
-                  <div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"flex-start"}}>
+                <StandardButton variant="secondary" key={`${r.codigo}-${i}`} onClick={()=>{setQtdModal(r);setQtd("");setBuscaModal(false);}} style={{borderLeft:`1px solid ${r._fav?"var(--arcd-action-primary)":(r.fonte==="ORSE"?"var(--arcd-action-primary)":"var(--arcd-action-primary)")}`,textAlign:"left",flexShrink:0,justifyContent:"flex-start"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"flex-start",flex:1,minWidth:0}}>
                     <div style={{flex:1,minWidth:0}}>
                       <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)",lineHeight:"var(--arcd-line-height-normal)"}}>{r.descricao}</p>
                       <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",display:"flex",alignItems:"center",gap:"var(--arcd-space-half)",flexWrap:"wrap"}}>
