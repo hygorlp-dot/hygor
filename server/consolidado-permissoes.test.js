@@ -77,15 +77,22 @@ describe("linha de base aprovada do planejamento", () => {
 });
 
 describe("RDO resumido para o financeiro", () => {
-  const rdo = { id: "rdo-1", obraId: "obra-a", data: "2026-11-01", status: "concluido", version: 3, fotos: ["foto.jpg"], observacoes: "texto interno", equipe: [{ nome: "Fulano" }] };
+  // Formato real do RDO (campos de diarioObra): o financeiro precisa da
+  // produção para o relatório por obra, nunca de fotos, presenças ou falas.
+  const rdo = {
+    id: "rdo-1", obraId: "obra-a", data: "2026-11-01", status: "concluido", version: 3, productionVersion: 1,
+    servicos: [{ tarefaId: "t-1", quantidade: 12, unidade: "m²", horas: 16 }],
+    revisaoEngenheiro: { status: "revisado", em: "2026-11-02" },
+    fotos: ["foto.jpg"], anexos: ["laudo.pdf"], presencas: [{ employeeId: "e-1", horas: 8 }], efetivo: 4,
+    ocorrencias: ["chuva"], comentarios: [{ autor: "Ana", texto: "interno" }], transcricaoVoz: "fala gravada", reflexaoIA: { texto: "resumo" },
+  };
   const payload = { obras: data.obras, rdos: [rdo, { ...rdo, id: "rdo-2", obraId: "obra-b" }] };
 
   it("financeiro da obra recebe só os campos de produção do RDO da própria obra", () => {
     const out = projectDataForUser(payload, { role: "financeiro", obraId: "obra-a" }).rdos;
     expect(out.map(r => r.id)).toEqual(["rdo-1"]);
-    expect(out[0]).not.toHaveProperty("fotos");
-    expect(out[0]).not.toHaveProperty("observacoes");
-    expect(out[0]).not.toHaveProperty("equipe");
+    expect(Object.keys(out[0]).sort()).toEqual(["data", "id", "obraId", "productionVersion", "revisaoEngenheiro", "servicos", "status", "version"]);
+    for (const field of ["fotos", "anexos", "presencas", "efetivo", "ocorrencias", "comentarios", "transcricaoVoz", "reflexaoIA"]) expect(out[0]).not.toHaveProperty(field);
   });
 
   it("compras continua sem RDO", () => {
