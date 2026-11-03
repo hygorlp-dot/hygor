@@ -749,7 +749,7 @@ test("'Chegou' na tela da obra abre o mesmo recebimento de Compras, preenchido e
     await corpo.locator(".nav-item").filter({hasText:/^Obras$/}).click();
   }
   await page.getByRole('heading',{name:'Residencial Alameda',exact:true}).click();
-  await expect(page.getByText("O material ja chegou na obra?")).toBeVisible();
+  await expect(page.getByText("O material já chegou na obra?")).toBeVisible();
   await page.getByRole("button",{name:"Chegou",exact:true}).click();
 
   const dialog=page.getByRole("dialog");
