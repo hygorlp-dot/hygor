@@ -1,5 +1,6 @@
 import { FUSO_OBRA } from "./painel.js";
 import { TIPOS_EVENTO_JORNADA } from "./evento.js";
+import {detectarDuplicidadesBatidas,AVISO_DUPLICIDADE} from './duplicidade-batidas.js';
 
 export const SITUACOES_EQUIPE = Object.freeze({
   atividade: "Em atividade", intervalo: "Em intervalo", falta: "Falta confirmada",
@@ -57,6 +58,9 @@ export function montarEquipeObras({ employees = [], obras = [], marcacoes = [], 
       } else if (atualHoje) { jornada.push(m); situacao = "conferir"; pendencias.push("Evento sem entrada identificada na janela consultada."); }
       if (ultimo && ultimo.marcadoEm === m.marcadoEm && ultimo.eventId !== m.eventId) { situacao = "conferir"; pendencias.push("Mais de um evento no mesmo instante."); }
       ultimo = m;
+    }
+    if(detectarDuplicidadesBatidas(hoje).length){
+      situacao='conferir';pendencias.push(AVISO_DUPLICIDADE);jornada=hoje;
     }
     const ultimoDaJornada = jornada.at(-1);
     if (situacao === "encerrada" && ultimoDaJornada && diaNoFuso(ultimoDaJornada.marcadoEm, fuso) !== dia) { situacao = "sem_registro"; jornada = []; inicio = null; obraId = ""; }
