@@ -15,6 +15,7 @@ import { marcellReportHtml } from "../../../reports/marcell-report.js";
 // ===================================================================
 
 import { useState } from "react";
+import { useSyncedWorkObra } from "../../../features/workflow/work-context.js";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
 import { enviarArquivoOneDriveEmPartes } from "../../../api";
 import {Badge, Btn, Ic, Inp, Modal, PageHero, Sel} from "../../../legacy/ui.jsx";
@@ -40,6 +41,7 @@ export default function Licenciamento({ data, showToast, obraIdFixo="", currentU
   const condominios=(data.condominios||[]).filter(x=>x.ativo!==false);
   const obrasAtivas=(data.obras||[]).filter(o=>o.status!=="done");
   const obraId=obraIdFixo||obraSel||obrasAtivas[0]?.id||(data.obras||[])[0]?.id||"";
+  useSyncedWorkObra(obraId,setObraSel,{allowedIds:(data.obras||[]).map(o=>o.id),fixed:obraIdFixo});
   const obra=(data.obras||[]).find(o=>o.id===obraId);
   const condominio=condominios.find(x=>x.id===obra?.condominioId);
   const tipoSugerido=condominio?.checklistTipo==="terras_alpha_caruaru"?"terras_alpha_caruaru":"simplificada";

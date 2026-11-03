@@ -10,6 +10,7 @@
 
 import { exigeTarefaNoConsumo, tarefasParaConsumo } from "../task-allocation";
 import { useCallback, useMemo, useState } from "react";
+import { useSyncedWorkObra } from "../../../features/workflow/work-context.js";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
 import { Btn, Ic, Inp, Modal, Sel } from "../../../legacy/ui.jsx";
 import { C } from "../../../legacy/palette.js";
@@ -172,6 +173,7 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
   const saldos      = useMemo(() => calcSaldos(data.movEstoque), [data.movEstoque]);
   const obras       = data.obras || [];
   const obraAtual   = obraIdFixo || obraSel || obras[0]?.id || "";
+  useSyncedWorkObra(obraAtual,setObraSel,{allowedIds:obras.map(o=>o.id),fixed:obraIdFixo});
 
   // ── Reposicao automatica por estoque minimo ─────────────────────
   // O minimo deixou de ser cosmetico: tudo que esta abaixo dele em qualquer

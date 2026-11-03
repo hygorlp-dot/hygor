@@ -11,6 +11,7 @@ import {ChoiceControl} from '../../../design-system/primitives/ChoiceControl.jsx
 // ===================================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSyncedWorkObra } from "../../../features/workflow/work-context.js";
 import {
   CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "../../../components/charts/LazyRecharts";
@@ -75,6 +76,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
   const [notaTercModal,setNotaTercModal]=useState(null);
   const [notaTercId,setNotaTercId]=useState("");
   const [filterObra,  setFilterObra]  = useState(obraIdFixo||"all");
+  useSyncedWorkObra(filterObra,setFilterObra,{allowedIds:(data.obras||[]).map(o=>o.id),fixed:obraIdFixo,allValue:"all"});
   const [filterSpec,  setFilterSpec]  = useState("all");
   const [searchTerc,  setSearchTerc]  = useState("");
   const [expanded,    setExpanded]    = useState(null);
