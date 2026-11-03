@@ -2,6 +2,7 @@
 name: MARCELL
 description: Gestão de obras com temas consistentes e leitura operacional clara; direção SAP disponível em MARCELL Operacional.
 operational-reference: SAP
+local-pilot: MARCELL Preciso — 01/11/2026
 colors:
   operational-primary: "#0057D2"
   operational-canvas: "#F5F6F7"
@@ -32,7 +33,7 @@ colors:
   operational-control-border: "#8A96A5"
 typography:
   saas-body:
-    fontFamily: 'Inter, Helvetica Neue, Arial, sans-serif'
+    fontFamily: 'IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '0.875rem'
     lineHeight: 1.5
   print-document:
@@ -40,15 +41,15 @@ typography:
     fontSize: '11px'
     lineHeight: 1.4
   pilot-metric:
-    fontFamily: 'Source Sans 3, Helvetica Neue, Arial, sans-serif'
+    fontFamily: 'IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '1.375rem'
     lineHeight: 1.35
   pilot-metric-compact:
-    fontFamily: 'Source Sans 3, Helvetica Neue, Arial, sans-serif'
+    fontFamily: 'IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '1.25rem'
     lineHeight: 1.35
   pilot-touch-control:
-    fontFamily: 'Source Sans 3, Helvetica Neue, Arial, sans-serif'
+    fontFamily: 'IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '1rem'
     lineHeight: 1.5
   display:
@@ -57,45 +58,45 @@ typography:
     fontWeight: 400
     lineHeight: 1.2
   navigation:
-    fontFamily: 'Source Sans 3, Helvetica Neue, Arial, sans-serif'
+    fontFamily: 'IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '0.75rem'
     fontWeight: 400
   dashboard-title:
-    fontFamily: 'Source Sans 3, Helvetica Neue, Arial, sans-serif'
+    fontFamily: 'IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '1.5rem'
     fontWeight: 600
   headline:
-    fontFamily: 'Source Sans 3, Helvetica Neue, Arial, sans-serif'
+    fontFamily: 'IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '1.5rem'
     fontWeight: 600
     lineHeight: 1.35
     letterSpacing: '-0.02em'
   title:
-    fontFamily: 'Source Sans 3, Helvetica Neue, Arial, sans-serif'
+    fontFamily: 'IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '1.125rem'
     fontWeight: 600
     lineHeight: 1.35
   card-title:
-    fontFamily: 'Source Sans 3, Helvetica Neue, Arial, sans-serif'
+    fontFamily: 'IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '0.875rem'
     fontWeight: 600
     lineHeight: 1.35
   body:
-    fontFamily: 'Source Sans 3, Helvetica Neue, Arial, sans-serif'
+    fontFamily: 'IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '0.9375rem'
     fontWeight: 400
     lineHeight: 1.5
     letterSpacing: '0.01rem'
   label:
-    fontFamily: 'Source Sans 3, Helvetica Neue, Arial, sans-serif'
+    fontFamily: 'IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '0.875rem'
     fontWeight: 400
     letterSpacing: '0.01rem'
   caption:
-    fontFamily: 'Source Sans 3, Helvetica Neue, Arial, sans-serif'
+    fontFamily: 'IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '0.8125rem'
   kpi:
-    fontFamily: 'Source Sans 3, Helvetica Neue, Arial, sans-serif'
+    fontFamily: 'IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '1.5rem'
     fontWeight: 600
 rounded:
@@ -477,3 +478,16 @@ FilePicker aceita `inputProps` para recursos nativos como `capture`, rótulo ace
 ### Revisão dos atalhos do RH — 01/11/2026
 
 O painel de pendências da Folha consome os controles e a tipografia da base, sem nova família visual. As abas FlowTabs passam a quebrar em linhas no desktop em toda a ERP, preservando o seletor no celular. Alterações futuras de linguagem visual pertencem aos tokens/componentes compartilhados e devem alcançar o sistema inteiro. Validação e limites em `docs/ATALHOS-RH-20261101.md`.
+
+### Entrada e cadastro no ponto — 01/11/2026
+
+Nome de registro usa RecordAction; comandos não devem ser repetidos quando o nome já oferece a mesma navegação. No ponto, a coluna compacta leva ao cadastro e o vínculo/desligamento fica antes dos campos de edição. A espera inicial usa marca, Spinner e tokens comuns. Ver `docs/PONTO-CADASTRO-DESLIGAMENTO-20261101.md` para escopo e validações.
+
+## Piloto P1 — MARCELL Preciso
+
+Direção aprovada na entrevista: lateral azul-marinho ajustável, conteúdo claro, ações em azul e dourado reservado à marca. O tema `marcell` passa a se chamar MARCELL Preciso e é o padrão para novos navegadores, com densidade Compacta; preferências existentes de tema e densidade continuam válidas. Toda a ERP usa IBM Plex Sans nos papéis operacionais, pesos 400/500/600, com números tabulares. Documentos e Modo TV conservam seus papéis próprios. Não aplicar fonte ou cor diretamente nos módulos para contornar a base. Piloto local, sem deploy.
+
+
+## Composição de listas operacionais — 02/11/2026
+
+Compras e Financeiro adotam WorkspaceHeading e WorkspaceCommandBar: título e navegação juntos, uma barra com escopo/consulta/ações e resumo compacto antes da lista. A composição vem da base compartilhada, preserva IBM Plex Sans e tokens semânticos, mantém lateral azul-marinho MARCELL e se reorganiza para toque no celular. Valores, alertas, permissões e ações do registro permanecem explícitos. Nenhuma transição financeira muda por efeito de layout.

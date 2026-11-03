@@ -24,7 +24,7 @@ it('abre a planilha real, reordena uma etapa e desfaz pelo controle geral',async
   await act(async()=>undo.click());
   expect(latest.orcamentos[0].etapas.map(s=>s.id)).toEqual(['s1','s2']);
   await act(async()=>[...container.querySelectorAll('button')].find(b=>b.textContent==='Gerenciar pavimentos').click());
-  const form=container.querySelector('form.floor-create-form');
+  const form=document.body.querySelector('form.floor-create-form');
   const inputs=form.querySelectorAll('input');
   const enter=async(input,value)=>act(async()=>{
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,value);

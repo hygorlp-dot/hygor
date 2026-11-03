@@ -1,6 +1,6 @@
 # Manual de uso do app MARCELL
 
-Revisão do conteúdo: 01/11/2026.
+Revisão do conteúdo: 02/11/2026.
 
 Este guia explica o uso das telas em linguagem simples. No aplicativo, clique em **Ajuda**, no cabeçalho, para ler o fluxo da página aberta. Em **Manual completo**, pesquise uma tarefa ou tela. As áreas exibidas no aplicativo respeitam seu perfil de acesso.
 
@@ -41,7 +41,6 @@ Conteúdo gerado de `src/features/help/help-content.js`, a mesma fonte da ajuda 
 - [Planejamento](#guia-plan)
 - [Marcos e Curva A](#guia-plan_suprimentos)
 - [Projetos](#guia-projetos)
-- [Arquivos e permissões](#guia-arquivos)
 - [Diário de obra](#guia-rdo)
 - [Conferência](#guia-conferencia)
 - [Medição da evolução](#guia-med)
@@ -87,7 +86,6 @@ Conteúdo gerado de `src/features/help/help-content.js`, a mesma fonte da ajuda 
 - [Equipamentos](#guia-equip)
 - [Locação de equipamentos](#guia-equip_fin)
 - [Patrimônio da empresa](#guia-patrimonio)
-- [Licenciamento](#guia-licenca)
 - [Cadastros](#guia-cad)
 - [IA](#guia-ia)
 - [Configurar Gemini](#guia-ia_config)
@@ -120,9 +118,17 @@ Conteúdo gerado de `src/features/help/help-content.js`, a mesma fonte da ajuda 
 - [Relatórios comerciais](#guia-com_relatorios)
 - [Financeiro · Previsão de custo final](#guia-fin_previsao)
 - [Obra · Mudanças e aditivos](#guia-obra_aditivos)
+- [Arquivos e permissões](#guia-arquivos)
 - [Arquivos · Revisões, busca e comparação](#guia-arquivos_revisoes)
 - [Arquivos · Dossiê de licenciamento](#guia-arquivos_dossie)
+- [Licenciamento](#guia-licenca)
 - [Compras · Contratos e medições](#guia-cmp_contratos)
+- [Compras · Ficha rápida](#guia-cmp_ficha)
+- [Financeiro · Ficha rápida](#guia-fin_ficha)
+- [Compras · Registrar pagamento](#guia-cmp_pagamento)
+- [Retomar trabalho salvo](#guia-fin_recuperacao)
+- [Retomar trabalho salvo](#guia-cmp_recuperacao)
+- [Recuperar salvamento](#guia-home_recuperacao)
 
 <a id="guia-ponto_obras"></a>
 
@@ -542,35 +548,6 @@ O projeto apresenta a informação atualizada na área correta.
 
 Ao usar o controle de tempo, confira a sessão ativa e encerre-a ao concluir a atividade.
 
-<a id="guia-arquivos"></a>
-
-## Arquivos e permissões
-
-Reunir documentos por obra, com pastas, links, uploads e controle de acesso.
-
-### Antes de começar
-
-Confirme a obra em Obra dos arquivos e escolha Arquivos e pastas em Área da documentação.
-
-### Como fazer
-
-1. Abra ou crie a pasta e a subpasta de destino.
-2. Use Adicionar documento para enviar um arquivo de até 3 MB ou cadastrar um link; confira título e revisão antes de salvar.
-3. Selecione o documento e abra Visualizar para consultar o original no MARCELL ou adicionar uma nova revisão.
-4. Como administrador, entre na pasta e use Permissões desta pasta: herde o acesso ou escolha Sem acesso, Leitura ou Leitura e edição para cada pessoa.
-
-### Como conferir se deu certo
-
-O documento aparece na pasta correta, com revisões e histórico; pessoas sem acesso não recebem os registros da pasta.
-
-### O que merece atenção
-
-Subpastas acumulam restrições das pastas superiores; administradores mantêm acesso. Anexos dos módulos seguem o acesso de origem. As permissões da central não alteram o compartilhamento de links externos no provedor.
-
-### Exemplo ilustrativo
-
-Para atualizar uma planta, confira a pasta da obra e a revisão existente. Consulte o histórico para distinguir a planta atual da anterior.
-
 <a id="guia-rdo"></a>
 
 ## Diário de obra
@@ -599,21 +576,22 @@ RDO significa Relatório Diário de Obra. Sugestões de IA precisam de revisão 
 
 ## Conferência
 
-Registrar vistorias e acompanhar a correção de pendências.
+Registrar vistorias e validar correções.
 
 ### Antes de começar
 
-Confira a obra e quem é o responsável pela vistoria.
+Confira obra e responsável pela vistoria.
 
 ### Como fazer
 
-1. O vistoriador cria a vistoria e registra as pendências com evidências.
-2. A pessoa atribuída à correção envia a foto da solução.
-3. O vistoriador analisa a evidência e declara o resultado.
+1. Abra a foto. Em Ferramentas e zoom, escolha ferramenta, cor e espessura.
+2. Desfazer recupera Limpar anotações. Salvar preserva o original; no formulário, confirme também Salvar achado.
+3. Fechar ou Escape pede confirmação das alterações. Continuar editando mantém o rascunho. Ao fechar o editor, o foco do teclado volta à miniatura que abriu a foto, quando ela continua disponível.
+4. A pessoa atribuída envia a correção; o vistoriador valida.
 
 ### Como conferir se deu certo
 
-A pendência mostra a situação correspondente à revisão realizada.
+Confira a situação da pendência após validar.
 
 ### O que merece atenção
 
@@ -699,9 +677,10 @@ Confirme a obra e o material necessário.
 
 ### Como fazer
 
-1. Confira a necessidade da obra, o estoque e os pedidos em aberto. Registre ou localize a solicitação.
-2. Compare as propostas e condições, registre a decisão e acompanhe o pedido. Aprovações pendentes ficam sinalizadas, sem impedir o andamento.
-3. Registre a entrega física para dar entrada no estoque. Vincule a nota e registre os pagamentos reais quando ocorrerem; essas etapas podem acontecer em outra ordem.
+1. Na Fila de trabalho, escolha Tabela ou Kanban em Visualização. Busca, obra, etapa e prazo são os mesmos; exportar considera todo o recorte. A visão fica salva por usuário neste navegador; filtros e agrupamento são preservados ao navegar na sessão. No Mapa gerencial, Abrir Kanban da fila abre esse mesmo quadro.
+2. Clique no código para consultar a ficha rápida; use a próxima ação para continuar. Confira a necessidade da obra, o estoque e os pedidos em aberto. Registre ou localize a solicitação.
+3. Compare as propostas e condições, registre a decisão e acompanhe o pedido. Aprovações pendentes ficam sinalizadas, sem impedir o andamento.
+4. Registre a entrega física para dar entrada no estoque. Vincule a nota e registre os pagamentos reais quando ocorrerem; essas etapas podem acontecer em outra ordem.
 
 ### Como conferir se deu certo
 
@@ -709,7 +688,7 @@ Você sabe em que etapa a compra está e qual é a próxima ação.
 
 ### O que merece atenção
 
-Os avisos orientam sem travar etapas. Cada registro conserva sua situação: receber não paga, pagar não aprova a conferência fiscal e consultar a ficha não altera dados.
+No Kanban, arrastar só prepara etapas válidas; confira o formulário e confirme. A ação do cartão também funciona sem arrastar. Concluídos ficam no histórico. Os avisos orientam sem travar etapas. Cada registro conserva sua situação: receber não paga, pagar não aprova a conferência fiscal e consultar a ficha não altera dados.
 
 ### Exemplo ilustrativo
 
@@ -784,27 +763,27 @@ A análise não aprova nem compra materiais. O print exige Drive conectado; se o
 
 ## Compras · Pedido por texto ou print
 
-Preparar uma solicitação a partir de uma conversa copiada.
+Preparar uma solicitação a partir de uma conversa.
 
 ### Antes de começar
 
-Copie somente o trecho necessário do pedido. A inteligência artificial (IA) deve estar configurada; para guardar o print, conecte o Drive da obra.
+Tenha a IA configurada. Para guardar o print, conecte o Drive da obra.
 
 ### Como fazer
 
 1. Em Nova solicitação, abra Colar pedido do WhatsApp.
-2. Cole o texto em Texto do pedido ou print colado. Para imagem, cole com Ctrl+V no campo ou use Selecionar print. Aceita PNG, JPG ou WEBP de até 2 MB e texto de até 6.000 caracteres.
-3. Clique em Analisar pedido. Leia os materiais, quantidades, unidades e avisos. Se a análise falhar, tente novamente ou preencha manualmente.
-4. Use Usar itens no rascunho. Os materiais são acrescentados; obra e data já preenchidas são preservadas. O original fica protegido contra substituição; ajuste os materiais no formulário. Para outra conversa, inicie outra solicitação. Corrija campos ausentes e confira o orçamento.
-5. Use Formalizar e enviar para Compras. O print é enviado ao Drive antes de salvar. Se houver falha, os dados permanecem no formulário; tente novamente. O original fica disponível em Pedido original da conversa.
+2. Cole em Texto do pedido ou print colado. Para imagem, use Ctrl+V ou Selecionar print: PNG, JPG ou WEBP até 2 MB. Texto: até 6.000 caracteres.
+3. Clique em Analisar pedido. Confira materiais, quantidades, unidades e avisos. Se falhar, tente novamente ou preencha manualmente.
+4. Use Usar itens no rascunho. Os itens são acrescentados, mantendo obra e data. Corrija dados ausentes e confira o orçamento. O original fica protegido; para outra conversa, inicie outra solicitação.
+5. Use Formalizar e enviar para Compras. O print vai ao Drive antes da gravação. Em caso de falha, o formulário permanece aberto para tentar novamente. Consulte Pedido original da conversa no registro.
 
 ### Como conferir se deu certo
 
-Você preparou uma solicitação com rastreabilidade do pedido original e confirmação pelo fluxo existente.
+A solicitação conserva o pedido original e a confirmação do fluxo existente.
 
 ### O que merece atenção
 
-Leitura de imagem pode errar. Não aceite quantidades, embalagens ou unidades sem conferir. As mensagens são enviadas à IA configurada do ERP; recorte informações pessoais desnecessárias. Não há envio automático de mensagens, aprovação, pedido ao fornecedor ou pagamento.
+A IA pode errar: confira quantidades, embalagens e unidades. Recorte informações pessoais desnecessárias; o conteúdo vai à IA configurada no ERP. Não há envio de mensagens, aprovação, pedido ao fornecedor ou pagamento automático.
 
 <a id="guia-cmp_cotacoes"></a>
 
@@ -952,7 +931,7 @@ Confira a entrega, o pedido e a pessoa que recebeu.
 
 1. Localize o pedido aguardando recebimento.
 2. Informe somente as quantidades que chegaram e registre a conferência solicitada.
-3. Confirme e confira o recebido, o saldo pendente e o estoque.
+3. Use Dar entrada no estoque e confira o recebido, o saldo pendente e o estoque. Sem confirmação, repita o botão ou, após recarregar, use Retomar trabalho salvo.
 
 ### Como conferir se deu certo
 
@@ -1046,9 +1025,9 @@ Escolha Pessoal de obra, Administrativo ou Todos; depois confira a obra e o per�
 
 ### Como fazer
 
-1. Localize o dia e a pessoa na grade ou lista.
-2. Confira a situação e os registros disponíveis.
-3. Use apenas as ações permitidas ao seu perfil e confira a confirmação do sistema.
+1. Confira a data. O nome abre a ficha conforme seu acesso.
+2. Marque Presente, Meio dia ou Falta. Mais opções reúne outras situações, jornada e observações. Férias, atestado e folga são registros válidos e aparecem no cartão.
+3. Transferir e Desligar ficam no cartão quando permitidos. Confira e confirme; Cancelar não grava.
 
 ### Como conferir se deu certo
 
@@ -1110,25 +1089,26 @@ No aparelho, o fluxo é entrada, intervalo, retorno e saída. Falta de sincroniz
 
 ## Equipes
 
-Consultar e manter o cadastro dos funcionários.
+Gerir vínculos e desligamentos.
 
 ### Antes de começar
 
-Pesquise pelo nome ou documento antes de criar um cadastro.
+Localize a pessoa. Acesso de RH ou administrador.
 
 ### Como fazer
 
-1. Localize o funcionário ou inicie um novo cadastro autorizado.
-2. Confira identificação, função, vínculo e lotação solicitados.
-3. Salve e abra novamente o cadastro para conferir os dados.
+1. Use Desligar na linha do funcionário, sem abrir Detalhes.
+2. Informe Último dia trabalhado e Tipo de desligamento. Use Confirmar desligamento; Cancelar não grava.
+3. Rever saída altera agendamentos; Ver saída consulta uma saída registrada.
+4. O nome abre a ficha. Confira Vínculo e desligamento no início. Ficha em PDF abre o documento; salve outras edições pelo cadastro.
 
 ### Como conferir se deu certo
 
-O funcionário consta com os dados e a situação corretos.
+O cadastro mostra a saída confirmada.
 
 ### O que merece atenção
 
-Lotação é o vínculo administrativo; ela não comprova onde o funcionário bateu o ponto.
+O último dia é inclusivo. Ponto e pagamentos são preservados; outras edições não são salvas.
 
 <a id="guia-equipe_obras"></a>
 
@@ -1240,7 +1220,7 @@ Para conferir a folha de outubro, selecione a competência de outubro e revise o
 
 ## Rescisão
 
-Preparar a conferência do desligamento de um funcionário.
+Conferir parcelas e descontos da rescisão.
 
 ### Antes de começar
 
@@ -1248,17 +1228,17 @@ Tenha a pessoa, a data e o motivo do desligamento.
 
 ### Como fazer
 
-1. Abra a rescisão do funcionário correto.
-2. Preencha os dados solicitados e confira as parcelas e descontos apresentados.
-3. Revise os documentos e confirme somente após a conferência responsável.
+1. Confira funcionário, parcelas e descontos.
+2. Limpar cálculo pede confirmação. Continuar editando mantém o rascunho; o histórico é preservado.
+3. Revise com o RH antes de Salvar no histórico.
 
 ### Como conferir se deu certo
 
-O registro contém os dados e documentos do desligamento conferido.
+Confira o registro salvo no histórico.
 
 ### O que merece atenção
 
-Confira as informações com o responsável pelo RH antes da confirmação.
+Confirme os valores com o RH.
 
 <a id="guia-rh_indic"></a>
 
@@ -1360,25 +1340,26 @@ Nota, obrigação, pagamento e conciliação são etapas distintas. Consulte a o
 
 ## Financeiro · Hoje
 
-Priorizar as tarefas financeiras do dia.
+Conferir os compromissos e seus saldos por vencimento.
 
 ### Antes de começar
 
-Confira a data e o recorte de obra.
+Confira data e obra. Saldo em aberto não é saldo de caixa.
 
 ### Como fazer
 
-1. Leia as filas e as pendências apresentadas.
-2. Abra o item e confira vencimento, valor e origem.
-3. Siga para a área indicada para tratar a pendência e confira o retorno.
+1. Em Movimentação, escolha A pagar ou A receber.
+2. Escolha o prazo: Vencidos, Hoje, Próximos 7 dias, Depois ou Sem vencimento. Todos os prazos reúne o recorte. No celular, use Fila de vencimentos.
+3. Em Visualização, alterne Tabela e Kanban; os registros e valores do recorte são preservados. A direção e a visão ficam salvas por usuário neste navegador; filtros de prazo são da sessão. No quadro, as colunas apenas representam as datas.
+4. Use a ação do registro para revisar a origem ou registrar a operação permitida. Clique no nome para abrir a ficha rápida; Consultar detalhamento mostra a origem e os documentos. Feche a consulta para retomar a fila.
 
 ### Como conferir se deu certo
 
-Você sabe quais tarefas exigem ação e em que área concluí-las.
+Você localiza o compromisso, o saldo e a ação permitida no mesmo recorte.
 
 ### O que merece atenção
 
-Um alerta indica algo a conferir; não é autorização automática para pagar.
+Trocar visão ou coluna não paga, recebe nem altera vencimentos. Pagamentos, recebimentos físicos e conferência fiscal são independentes. Confira adiantamentos e liquidações parciais antes de repetir uma operação.
 
 <a id="guia-fin_documentos"></a>
 
@@ -1453,25 +1434,27 @@ Uma nota importada ainda precisa de revisão. Confira se já existe antes de cad
 
 ## Financeiro · Pagamentos
 
-Conferir obrigações e acompanhar a quitação.
+Registrar pagamentos.
 
 ### Antes de começar
 
-Confira fornecedor, documento, vencimento e obra.
+Confira Fornecedor, obra, documento, saldo e pagamentos anteriores. Se aparecer Não informado, confira a origem do documento.
 
 ### Como fazer
 
-1. Localize a obrigação e confira documento, obra, saldo e pagamentos já registrados no pedido e na nota.
-2. Leia os avisos, selecione a origem real do pagamento e informe data, valor e comprovante disponível. A conferência pendente não impede o registro.
-3. Confirme uma única vez e confira o histórico. Encaminhe as pendências documentais ao responsável e faça a conciliação quando houver movimento bancário.
+1. Preencha Origem real do pagamento, Valor pago e Data. Selecione o comprovante; Remover comprovante retira o arquivo.
+2. Em Alocar pagamento já realizado, selecione Pagamento do pedido, informe Valor a alocar e use Alocar adiantamento. Respeite os dois saldos.
+3. Para corrigir, use Desfazer alocação, preencha Motivo para desfazer a alocação e confirme. O saldo volta ao adiantamento, sem devolução bancária.
+4. Use Registrar pagamento para uma nova saída real e aguarde. Pagar não conclui entrega nem conferência fiscal. Informe o motivo do adiantamento, se possível.
+5. Após recarregar, use Retomar trabalho salvo. Reabra o rascunho ou retome a confirmação original.
 
 ### Como conferir se deu certo
 
-O registro mostra o pagamento confirmado ou a pendência que ainda existe.
+O saldo e o histórico mostram a confirmação; registrar no ERP não transfere dinheiro.
 
 ### O que merece atenção
 
-O pagamento pode seguir com avisos. Adiantamento não deve ser repetido na nota, e pagar não aprova a conferência fiscal. A automação mantém casos pendentes para revisão; a decisão manual continua disponível ao perfil autorizado.
+Alocar preserva data e total pagos; a classificação muda nessa data e o histórico registra o vínculo. Período fechado ou rateio entre obras impede alocação. Desfaça vínculos antes de estornar ou reclassificar a origem. Confirmação pendente bloqueia outra operação no registro. O rascunho inclui o comprovante neste navegador.
 
 ### Exemplo ilustrativo
 
@@ -1703,8 +1686,9 @@ Confira banco, conta e período do extrato.
 ### Como fazer
 
 1. Importe ou abra o extrato e confira as linhas.
-2. Analise cada sugestão comparando valor, data, contraparte e documento.
-3. Confirme o vínculo apenas após a conferência e acompanhe o saldo e as pendências.
+2. Use Buscar na conciliação, Tipo de movimento e Filtrar categoria para localizar as linhas; Selecionar todas marca as linhas elegíveis e não confirma vínculos.
+3. Analise cada sugestão comparando valor, data, contraparte e documento.
+4. Confirme o vínculo apenas após a conferência e acompanhe o saldo e as pendências.
 
 ### Como conferir se deu certo
 
@@ -1794,21 +1778,21 @@ Um relatório com filtro diferente pode apresentar outro total. Confira o cabeç
 
 ## Equipamentos
 
-Acompanhar equipamentos usados nas obras.
+Controlar equipamentos nas obras.
 
 ### Antes de começar
 
-Identifique o equipamento e a obra responsável.
+Confira o equipamento e a obra.
 
 ### Como fazer
 
-1. Pesquise o equipamento antes de cadastrar.
-2. Confira situação, localização e dados do registro.
-3. Registre a movimentação ou atualização permitida e confira o histórico.
+1. Em Frota, pesquise o equipamento; seu nome abre o cadastro.
+2. Use Salvar equipamento para confirmar alterações ou Excluir equipamento, com confirmação.
+3. Locar, Transferir e Manutenção ficam no cartão. Confira os dados antes de confirmar.
 
 ### Como conferir se deu certo
 
-O equipamento está identificado na localização e situação corretas.
+Confira situação e localização após confirmar.
 
 ### O que merece atenção
 
@@ -1826,9 +1810,9 @@ Tenha o equipamento, fornecedor, obra e período da locação.
 
 ### Como fazer
 
-1. Localize o contrato ou registro de locação.
-2. Confira período, valores, devolução e documentos.
-3. Acompanhe as obrigações e confira a situação financeira na origem.
+1. Em Frota, o nome abre o cadastro; Locar, Transferir e Manutenção ficam no cartão.
+2. Em Locações, confira contrato, período, devolução e documentos.
+3. Confira os pagamentos na origem financeira.
 
 ### Como conferir se deu certo
 
@@ -1842,7 +1826,7 @@ Devolver um equipamento não comprova quitação dos valores da locação.
 
 ## Patrimônio da empresa
 
-Consultar os bens da empresa e sua responsabilidade.
+Localizar bens e responsáveis.
 
 ### Antes de começar
 
@@ -1850,42 +1834,17 @@ Tenha identificação do bem e responsável atual.
 
 ### Como fazer
 
-1. Pesquise o bem para evitar duplicidade.
-2. Confira identificação, localização, responsável e documentos.
-3. Registre a atualização permitida e confira o histórico.
+1. Pesquise o bem; seu nome abre o cadastro.
+2. Use Mover na linha para alterar local ou responsável e Registrar movimentação para confirmar. Cancelar não grava.
+3. Mais ações reúne Histórico e Alterar status…. Confira documentos e identificação antes de salvar.
 
 ### Como conferir se deu certo
 
-O bem pode ser localizado e seu responsável está identificado.
+Confira local e responsável após salvar.
 
 ### O que merece atenção
 
 Patrimônio identifica o bem; estoque acompanha materiais e quantidades.
-
-<a id="guia-licenca"></a>
-
-## Licenciamento
-
-Acompanhar as exigências e etapas de aprovação da obra com evidências documentais.
-
-### Antes de começar
-
-Selecione a obra e confira o tipo de licença, os órgãos e o condomínio envolvidos.
-
-### Como fazer
-
-1. Abra o checklist e confira as exigências do cadastro da licença.
-2. Anexe os documentos nos itens corretos e atualize a situação conforme a evidência.
-3. Em Arquivos, escolha Dossiê de licenciamento para cadastrar responsável, validade e aplicabilidade, revisar anexos e consultar a documentação faltante.
-4. Prepare o ZIP final quando estiver completo ou um ZIP parcial INCOMPLETO com a relação de pendências; confira o pacote antes de encaminhar ao órgão.
-
-### Como conferir se deu certo
-
-Cada etapa mostra a situação e os anexos correspondentes, compartilhados com o dossiê em Arquivos.
-
-### O que merece atenção
-
-Anexar um documento ou concluir a conferência interna não comprova aprovação do órgão. O ZIP é baixado para conferência e envio manual; o sistema não protocola a documentação automaticamente.
 
 <a id="guia-cad"></a>
 
@@ -2709,6 +2668,35 @@ O cliente pede outro piso: proposta de R$ 12 mil e cinco dias. A execução come
 - **Mudança recusada ou cancelada com custo restante:** Confira o custo ainda necessário e escolha explicitamente se ele continua adicional, já está incluído ou fica fora da previsão.
 - **Aditivo e previsão parecem repetir o custo:** O aviso pode vir de inclusão declarada, premissas ou variação do restante igual ao impacto de um ou vários aditivos da mesma etapa. O app não altera os valores automaticamente. Confira os registros e ajuste a opção de impacto ou registre que o custo permanece separado.
 
+<a id="guia-arquivos"></a>
+
+## Arquivos e permissões
+
+Reunir documentos por obra, com pastas, links, uploads e controle de acesso.
+
+### Antes de começar
+
+Confirme a obra em Obra dos arquivos e escolha Arquivos e pastas em Área da documentação.
+
+### Como fazer
+
+1. Abra ou crie a pasta e a subpasta de destino.
+2. Use Adicionar documento para enviar um arquivo de até 3 MB ou cadastrar um link; confira título e revisão antes de salvar.
+3. Selecione o documento e abra Visualizar para consultar o original no MARCELL ou adicionar uma nova revisão.
+4. Como administrador, entre na pasta e use Permissões desta pasta: herde o acesso ou escolha Sem acesso, Leitura ou Leitura e edição para cada pessoa.
+
+### Como conferir se deu certo
+
+O documento aparece na pasta correta, com revisões e histórico; pessoas sem acesso não recebem os registros da pasta.
+
+### O que merece atenção
+
+Subpastas acumulam restrições das pastas superiores; administradores mantêm acesso. Anexos dos módulos seguem o acesso de origem. As permissões da central não alteram o compartilhamento de links externos no provedor.
+
+### Exemplo ilustrativo
+
+Para atualizar uma planta, confira a pasta da obra e a revisão existente. Consulte o histórico para distinguir a planta atual da anterior.
+
 <a id="guia-arquivos_revisoes"></a>
 
 ## Arquivos · Revisões, busca e comparação
@@ -2761,6 +2749,31 @@ O ZIP contém os arquivos nativos com nomes padronizados e índice. O pacote par
 
 Anexo ausente, vencimento, situação pendente ou aplicabilidade indefinida impedem o final. O pacote é montado no navegador com limite de 100 MB; arquivos não lidos no parcial constam nas pendências. A exportação baixa o ZIP e não o envia automaticamente à Prefeitura ou ao cartório. A conferência interna não equivale à aprovação do órgão. Edição e exportação exigem administrador ou engenheiro autorizado.
 
+<a id="guia-licenca"></a>
+
+## Licenciamento
+
+Acompanhar as exigências e etapas de aprovação da obra com evidências documentais.
+
+### Antes de começar
+
+Selecione a obra e confira o tipo de licença, os órgãos e o condomínio envolvidos.
+
+### Como fazer
+
+1. Use o lápis Editar exigência para abrir o item correto do checklist.
+2. Anexe os documentos nos itens corretos e atualize a situação conforme a evidência.
+3. Em Arquivos, escolha Dossiê de licenciamento para cadastrar responsável, validade e aplicabilidade, revisar anexos e consultar a documentação faltante.
+4. Prepare o ZIP final quando estiver completo ou um ZIP parcial INCOMPLETO com a relação de pendências; confira o pacote antes de encaminhar ao órgão.
+
+### Como conferir se deu certo
+
+Cada etapa mostra a situação e os anexos correspondentes, compartilhados com o dossiê em Arquivos.
+
+### O que merece atenção
+
+Anexar um documento ou concluir a conferência interna não comprova aprovação do órgão. O ZIP é baixado para conferência e envio manual; o sistema não protocola a documentação automaticamente.
+
 <a id="guia-cmp_contratos"></a>
 
 ## Compras · Contratos e medições
@@ -2786,7 +2799,170 @@ O contrato e seu histórico ficam identificados no recorte escolhido.
 
 Alterar o formulário não salva automaticamente. O acesso aos serviços e às medições depende do perfil; contrato de fornecimento não confirma entrega nem pagamento.
 
+<a id="guia-cmp_ficha"></a>
+
+## Compras · Ficha rápida
+
+Consultar e continuar uma compra sem reconstruir a pesquisa.
+
+### Antes de começar
+
+Confira a obra e os filtros da fila.
+
+### Como fazer
+
+1. Clique no código na Tabela ou no Kanban. A ficha abre à direita; no celular, ocupa a tela.
+2. Confira etapa, prazo e responsável. Em pedidos, compare Valor do pedido, Pago e Saldo a pagar; adiantamentos aparecem em aviso.
+3. Use a próxima ação. Cancelar um formulário curto retoma a ficha; na área completa, use Voltar para para retomar a origem.
+4. Voltar à fila, Fechar ou Escape encerram a consulta, mantendo busca, filtros e página.
+
+### Como conferir se deu certo
+
+Consultar não grava; a operação exige confirmação no formulário.
+
+### O que merece atenção
+
+Receber não paga. Sem confirmação, repita o mesmo botão na ficha aberta. Após recarregar, use Retomar trabalho salvo para a confirmação pendente.
+
+<a id="guia-fin_ficha"></a>
+
+## Financeiro · Ficha rápida
+
+Conferir o compromisso e a ação permitida.
+
+### Antes de começar
+
+Confira obra, movimentação e prazo em Hoje.
+
+### Como fazer
+
+1. Clique no nome na Tabela ou no Kanban.
+2. Compare Valor original, Liquidado e Saldo em aberto. Vencimento inválido fica em Sem vencimento.
+3. Se houver pagamento do pedido sem vínculo, use Alocar adiantamento e revise antes de pagar.
+4. Use a próxima ação. Na conferência fiscal, feche a ficha fiscal e use Voltar à fila financeira para retomar a origem.
+5. Consultar detalhamento abre origem e documentos; Fechar memorial retoma a ficha. Voltar à fila, Fechar ou Escape encerram a consulta.
+
+### Como conferir se deu certo
+
+O recorte da sessão é conservado; consultar não registra pagamento.
+
+### O que merece atenção
+
+A ação depende do perfil e da obra. Registrar pagamento não executa transferência bancária. Se o título sair do recorte, volte à fila para conferir os saldos.
+
+<a id="guia-cmp_pagamento"></a>
+
+## Compras · Registrar pagamento
+
+Registrar pagamentos.
+
+### Antes de começar
+
+Confira Fornecedor, obra, documento, saldo e pagamentos anteriores. Se aparecer Não informado, confira a origem do documento.
+
+### Como fazer
+
+1. Preencha Origem real do pagamento, Valor pago e Data. Selecione o comprovante; Remover comprovante retira o arquivo.
+2. Em Alocar pagamento já realizado, selecione Pagamento do pedido, informe Valor a alocar e use Alocar adiantamento. Respeite os dois saldos.
+3. Para corrigir, use Desfazer alocação, preencha Motivo para desfazer a alocação e confirme. O saldo volta ao adiantamento, sem devolução bancária.
+4. Use Registrar pagamento para uma nova saída real e aguarde. Pagar não conclui entrega nem conferência fiscal. Informe o motivo do adiantamento, se possível.
+5. Após recarregar, use Retomar trabalho salvo. Reabra o rascunho ou retome a confirmação original.
+
+### Como conferir se deu certo
+
+O saldo e o histórico mostram a confirmação; registrar no ERP não transfere dinheiro.
+
+### O que merece atenção
+
+Alocar preserva data e total pagos; a classificação muda nessa data e o histórico registra o vínculo. Período fechado ou rateio entre obras impede alocação. Desfaça vínculos antes de estornar ou reclassificar a origem. Confirmação pendente bloqueia outra operação no registro. O rascunho inclui o comprovante neste navegador.
+
+<a id="guia-fin_recuperacao"></a>
+
+## Retomar trabalho salvo
+
+Recuperar trabalho salvo.
+
+### Antes de começar
+
+Entre com o mesmo usuário, navegador e endereço do app.
+
+### Como fazer
+
+1. Use Retomar trabalho salvo e confira obra e registro.
+2. Rascunho não enviado: use Reabrir rascunho e revise antes de confirmar.
+3. Confirmação enviada, sem resposta: confira o histórico e use Retomar confirmação para reenviar a operação original.
+
+### Como conferir se deu certo
+
+A confirmação atualiza o registro; abrir o rascunho não grava.
+
+### O que merece atenção
+
+A recarga não envia automaticamente. Não é backup: depende dos dados locais. Abas compartilham o rascunho. Sem armazenamento, o envio é bloqueado. Obra e acesso seguem o registro atual. Registro indisponível mantém o trabalho salvo; confira a origem e as permissões. Se o armazenamento falhar na retomada, mantenha a ficha aberta e confira o histórico antes de outra operação. Em abas antigas, copie edições não salvas antes de recarregar após a atualização do ERP.
+
+<a id="guia-cmp_recuperacao"></a>
+
+## Retomar trabalho salvo
+
+Recuperar trabalho salvo.
+
+### Antes de começar
+
+Entre com o mesmo usuário, navegador e endereço do app.
+
+### Como fazer
+
+1. Use Retomar trabalho salvo e confira obra e registro.
+2. Rascunho não enviado: use Reabrir rascunho e revise antes de confirmar.
+3. Confirmação enviada, sem resposta: confira o histórico e use Retomar confirmação para reenviar a operação original.
+
+### Como conferir se deu certo
+
+A confirmação atualiza o registro; abrir o rascunho não grava.
+
+### O que merece atenção
+
+A recarga não envia automaticamente. Não é backup: depende dos dados locais. Abas compartilham o rascunho. Sem armazenamento, o envio é bloqueado. Obra e acesso seguem o registro atual. Registro indisponível mantém o trabalho salvo; confira a origem e as permissões. Se o armazenamento falhar na retomada, mantenha a ficha aberta e confira o histórico antes de outra operação. Em abas antigas, copie edições não salvas antes de recarregar após a atualização do ERP.
+
+<a id="guia-home_recuperacao"></a>
+
+## Recuperar salvamento
+
+Retomar uma edição protegida sem perder campos nem repetir ações.
+
+### Antes de começar
+
+Use a mesma conta, navegador e endereço. A recuperação procura primeiro a edição desta aba e depois a mais recente da mesma conta. Confira a conexão.
+
+### Como fazer
+
+1. Antes de recuperar, salve ou cancele campos novos de outros formulários. Tentativas de salvar enquanto há outra pendência ficam protegidas separadamente.
+2. Use Resolver salvamento no aviso ou no formulário aberto.
+3. Se a sessão expirou, informe a senha da mesma conta em Renovar sessão; isso não grava automaticamente.
+4. Use Consultar versão atual. Confira sua edição e o servidor; escolha cada campo em conflito. Nos demais campos, Manter servidor permite retirar uma mudança da revisão.
+5. Use Salvar alterações revisadas e aguarde. Depois da recuperação, feche e reabra formulários antigos antes de editar novamente. Confira se outra edição aparece em Resolver salvamento e conclua as revisões até o aviso desaparecer.
+
+### Como conferir se deu certo
+
+A edição é enviada apenas após revisão explícita; a recarga não confirma operações.
+
+### O que merece atenção
+
+A proteção depende do armazenamento local e não é backup. Sem armazenamento, o envio fica bloqueado: mantenha a aba aberta. Verificar armazenamento retoma a conferência inicial; Proteger preenchimentos tenta gravar as tentativas que ficaram na memória; Proteger e reenviar edição tenta proteger novamente o que está na memória. Descartar edição da memória exige confirmação e perde essa tentativa; cópias já protegidas são preservadas. Sair e trocar de conta aguardam envios em andamento. Resolva o armazenamento antes de sair com uma edição apenas na memória. Concluir conferência encerra uma pendência que já consta no servidor, sem repetir a gravação. Mudança de acesso ou obra pode bloquear a retomada. Descartar edição protegida consulta o servidor e remove apenas a edição revisada; confirme com cuidado. Pagamentos e recebimentos continuam usando suas confirmações próprias.
+
 ## Aparência, botões e navegação
+
+### Ajustar o menu lateral
+
+No computador, arraste a borda direita do menu. Pelo teclado, use Tab para chegar à borda, setas para ajustar e Home/End para os limites. Enter ou duplo clique restaura a largura inicial. Minimizar menu lateral conserva o ajuste ao expandir. A preferência fica neste navegador e vale em todos os módulos, sem alterar dados. No celular, use a navegação inferior e Mais.
+
+### Carregamento de telas
+
+Na entrada e nas áreas internas, o indicador pode não aparecer em aberturas rápidas. Aguarde sem repetir a ação; carregar não confirma gravação. Em caso de erro, siga a orientação da tela. Fechar permite cancelar a preparação de um diálogo.
+
+### Cadastro pelo ponto
+
+Em Equipes, Ponto por obra e Gestão do ponto, o nome abre o cadastro para RH e administradores; outros perfis abrem o PDF. Confira Vínculo e desligamento no início do cadastro. Corrija o ponto pela célula do dia, sem limpar a linha inteira.
 
 ### Arquivos de obra e orçamento
 
@@ -2802,11 +2978,15 @@ Nas células de texto, Enter confirma a edição e Escape descarta o texto que a
 
 ### Exportar a fila de Compras
 
-Na Fila de trabalho, use Exportar para Excel junto à contagem de registros, também no celular. A planilha acompanha a busca, os filtros e a obra da consulta. Confira o recorte antes de baixar; exportar não altera os registros.
+Na Fila de trabalho, use Exportar para Excel na barra de comandos, também no celular. A planilha acompanha a busca, os filtros e a obra da consulta. Confira o recorte antes de baixar; exportar não altera os registros.
 
 ### Selecionar anexos pelo teclado
 
 Use Selecionar arquivo, Selecionar imagens e documentos ou Selecionar comprovante, conforme a tela. Os botões também funcionam com Tab e Enter. Confira o nome, os formatos e o limite indicados antes de salvar; escolher um arquivo não confirma pagamento nem aceita uma sugestão da IA.
+
+### Usar a barra de comandos
+
+Em Compras, escolha Obra, preencha Buscar na fila e ajuste Visualização ou Filtros na mesma barra que reúne Exportar para Excel, Nova solicitação e Mais ações de Compras. Os indicadores abaixo filtram prioridades e mostram quantidades e valores; Atenção ao prazo significa hoje e próximos três dias. Em Financeiro, Hoje reúne Obra, Movimentação e Visualização; no celular, Fila de vencimentos fica nessa barra. Em Pagamentos, a barra reúne Obra, Situação, Pesquisar pagamentos, Ver notas fiscais e Receber documento fiscal. Em Caixa por conta, escolha Obra e Conta bancária do caixa na barra; Abrir fila de revisão assistida permanece disponível. Em Documentos, use Obra, Competência ou mês de emissão, Pesquisar documento ou fornecedor e Conferência junto a Receber documento fiscal. Os nomes dos registros abrem a ficha; use a próxima ação para operar. As áreas continuam disponíveis junto ao título no computador e no seletor no celular. A barra se reorganiza em linhas nas telas menores; filtros, valores e permissões são preservados.
 
 ### Reconhecer o padrão das telas
 
@@ -2814,11 +2994,11 @@ O cabeçalho mostra a finalidade da tela e as ações principais. Confira a obra
 
 ### Comparar propostas na prévia local
 
-Na página separada Estudo de Compras, use Precisão, Obra ou Foco para comparar a organização visual. Como comparar explica as diferenças. A troca preserva os filtros e a tela aberta; não escolhe um tema definitivo. Os dados da prévia são fictícios. Os atalhos 1, 2 e 3 funcionam quando o foco está fora do ERP. O botão Ajuda continua disponível dentro da tela.
+Na página separada Estudo de Compras, use Precisão, Obra, Foco ou Mesa de trabalho para comparar a organização visual. Como comparar explica as diferenças. A troca preserva os filtros e a tela aberta; não escolhe um tema definitivo. Os dados da prévia são fictícios. Em Mesa de trabalho, o seletor Menu compara a lateral clara com a azul-marinho. O estudo altera apenas a prévia local e mantém as ações existentes. Os atalhos 1 a 4 funcionam quando o foco está fora do ERP. O botão Ajuda continua disponível dentro da tela.
 
 ### Escolher a aparência
 
-Use o botão Alterar aparência, identificado pelo ícone de paleta no cabeçalho, para escolher MARCELL Operacional, MARCELL Claro ou MARCELL Institucional e ajustar a densidade. MARCELL Operacional organiza cabeçalho, navegação e registros em faixas claras, com ações em azul. A preferência fica neste navegador; a troca mantém seus filtros e dados.
+Use o botão Alterar aparência, identificado pelo ícone de paleta no cabeçalho, para escolher MARCELL Operacional, MARCELL Claro ou MARCELL Preciso e ajustar a densidade. O padrão é MARCELL Preciso com densidade Compacta: menu azul-marinho, conteúdo claro e ações em azul. A fonte é IBM Plex Sans. Compacta reduz espaços e preserva o toque no celular. Em todo o ERP, campos de uma linha e botões comuns seguem a densidade escolhida, com rótulos alinhados. Áreas de observação e células de planilha conservam o espaço necessário. A preferência fica neste navegador; a troca mantém seus filtros e dados.
 
 ### Identificar a área selecionada
 
@@ -2830,7 +3010,7 @@ No computador, Consultas e cadastros em Compras e Mais áreas no Financeiro abre
 
 ### Acessar outros módulos no celular
 
-Use Mais, na barra inferior, para abrir Mais módulos. Escolha o módulo desejado. Fechar menu ou Escape retorna à tela atual sem trocar a área de trabalho.
+Use Mais, na barra inferior, para abrir Mais módulos. Escolha o módulo desejado. No celular, Mais também mostra a conta e Sair do sistema. Fechar menu ou Escape retorna à tela atual sem trocar a área de trabalho.
 
 ### Usar os filtros
 
@@ -2838,7 +3018,11 @@ Mantenha a obra e o período corretos. O botão Filtros abre as opções adicion
 
 ### Conferir o salvamento
 
-O indicador no cabeçalho informa a situação do salvamento; ele não é um botão. Alterações ainda não salvas exige aguardar e conferir a confirmação. Em caso de erro ou conflito, siga a orientação apresentada antes de repetir a operação.
+Após falha, use Resolver salvamento no aviso da página ou no formulário aberto. Aguarde a confirmação; não é preciso fazer outra edição. Sem conexão, mantenha a aba aberta até reconectar: use Resolver salvamento para revisar edições protegidas após recarga. Sessão, acesso e conflito exigem seguir o motivo; copie edições antes de sair. Para pagamentos e recebimentos, use Retomar trabalho salvo.
+
+### Gráficos operacionais
+
+Os gráficos mostram os dados completos assim que ficam disponíveis, sem aguardar animação de entrada. Valores, séries e rótulos continuam disponíveis.
 
 ## Celular, interrupções e recuperação
 

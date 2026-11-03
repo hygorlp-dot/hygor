@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {buildFinancialLedger} from './ledger.js';
+import {buildFinancialLedger,selectCashFlow} from './ledger.js';
 import {todayQueues,overviewEntries,financialEntry} from './workspace.js';
 
 const data={obras:[{id:'a',name:'Obra A'},{id:'b',name:'Obra B'}],
@@ -43,4 +43,26 @@ describe('workspace financeiro',()=>{
     const e=financialEntry({...data,usuarios:[{secret:'não copiar'}]},{sourceType:'pagamento_nota',sourceId:'nf',amountCents:3000});
     expect(e.record.numero).toBe('123');expect(JSON.stringify(e)).not.toContain('não copiar');
   });
+});
+
+it('particiona vencidos, hoje, sete dias, depois e sem vencimento sem duplicação',()=>{
+ const dates=['2026-01-19','2026-01-20','2026-01-21','2026-01-27','2026-01-28',''];
+ const d={obras:[{id:'a',name:'Obra A'}],notasFiscais:dates.map((vencimento,i)=>({id:`nf-${i}`,obraId:'a',status:'aprovada',emissao:'2026-01-01',valorBruto:100,vencimento,pagamentos:i===0?[{id:'partial',data:'2026-01-10',valor:30}]:[]}))};
+ const queues=todayQueues(d,buildFinancialLedger(d),'a','2026-01-20');
+ expect(queues.find(q=>q.id==='overdue').amountCents).toBe(7000);expect(queues.find(q=>q.id==='payToday').items).toHaveLength(1);expect(queues.find(q=>q.id==='nextWeek').items).toHaveLength(2);expect(queues.find(q=>q.id==='later').items).toHaveLength(1);expect(queues.find(q=>q.id==='undated').items).toHaveLength(1);
+ const ids=queues.flatMap(q=>q.items.map(item=>item.id));expect(new Set(ids).size).toBe(ids.length);expect(ids).toHaveLength(6);
+});
+
+it('nota posterior ao adiantamento conserva o saldo canônico e avisa a falta de vínculo',()=>{
+ const advance={id:'advance',valor:300,data:'2026-01-02',origem:'empresa',tipo:'adiantamento'};
+ const d={obras:[{id:'a'}],pedidos:[{id:'p',obraId:'a',status:'enviado',data:'2026-01-01',itens:[{qtd:10,precoUnit:100}],pagamentos:[advance]}],notasFiscais:[{id:'n',pedidoId:'p',obraId:'a',status:'aprovada',emissao:'2026-01-03',vencimento:'2026-01-04',valorBruto:1000}]};
+ const entry=()=>todayQueues(d,buildFinancialLedger(d),'a','2026-01-10').find(q=>q.id==='overdue').items[0];
+ expect(entry()).toMatchObject({amountCents:100000,metadata:{pagamentoPedidoNaoAlocado:true}});expect(selectCashFlow(buildFinancialLedger(d),{obraId:'a'}).cashOutCents).toBe(30000);
+ // Somente o vínculo explícito do mesmo pagamento baixa a nota, sem nova saída.
+ d.notasFiscais[0].pagamentos=[advance];expect(entry()).toMatchObject({amountCents:70000,metadata:{pagamentoPedidoNaoAlocado:false}});expect(selectCashFlow(buildFinancialLedger(d),{obraId:'a'}).cashOutCents).toBe(30000);
+});
+
+it('não transporta aviso de pagamento de outra obra para uma parcela do rateio',()=>{
+ const d={obras:[{id:'a'},{id:'b'}],pedidos:[{id:'p',obraId:'a',status:'enviado',data:'2026-01-01',itens:[{qtd:10,precoUnit:100}],pagamentos:[{id:'pg',valor:300,data:'2026-01-02',origem:'empresa'}]}],notasFiscais:[{id:'n',pedidoId:'p',obraId:'a',status:'aprovada',emissao:'2026-01-03',vencimento:'2026-01-04',valorBruto:1000,rateios:[{id:'ra',obraId:'a',valor:500},{id:'rb',obraId:'b',valor:500}]}]};
+ const item=todayQueues(d,buildFinancialLedger(d),'b','2026-01-10').find(q=>q.id==='overdue').items[0];expect(item).toMatchObject({obraId:'b',amountCents:50000,metadata:{pagamentoPedidoNaoAlocado:false}});
 });

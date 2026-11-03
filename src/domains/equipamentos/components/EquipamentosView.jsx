@@ -13,7 +13,7 @@ import { FlowTabs, useWorkflow } from "../../../features/workflow/WorkflowNaviga
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { lazyWithCssRetry as lazy } from "../../../lib/lazy-with-css-retry.js";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
-import { Badge, Btn, CampoCNPJ, Ic, Inp, MiniKpi, Modal, PageHero, Sel } from "../../../legacy/ui.jsx";
+import { LoadingState, Badge, Btn, CampoCNPJ, Ic, Inp, MiniKpi, Modal, PageHero, Sel } from "../../../legacy/ui.jsx";
 import { C } from "../../../legacy/palette.js";
 import { escapeHtml, MONTHS, fmt, fmtDate, fmtDateFull, maiusculoOrcamento, today, uid } from "../../../legacy/format.js";
 import { abrirRelatorioPadrao, montarRelatorioPadraoHtml } from "../../../reports/legacy-standard.js";
@@ -41,6 +41,7 @@ import {
 import { buildRentalPeriodicCharge } from "../rental-charges";
 import { CHECKPOINT_BY_STATE, CHECKPOINT_LABEL } from "../rental-actions";
 import RentalOperationsPanel from "./RentalOperationsPanel";
+import { RecordAction } from "../../../design-system/primitives/RecordAction.jsx";
 
 const LazyEquipmentBillingReports = lazy(() => import("../EquipmentBillingReports"));
 
@@ -946,7 +947,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                   <div className="equipment-fleet-card__body">
                   <div style={{display:"flex",justifyContent:"space-between",gap:8,marginBottom:6}}>
                     <div style={{minWidth:0}}>
-                      <p className="equipment-fleet-card__name" style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{e.nome}</p>
+                      <RecordAction className="equipment-fleet-card__name" aria-label={`Abrir cadastro de ${e.nome}`} onClick={()=>setEquipModal(e)}>{e.nome}</RecordAction>
                       <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{e.categoria||"Sem categoria"}{e.patrimonio?` · ${e.patrimonio}`:""}</p>
                     </div>
                     <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:st.c,background:`${st.c}14`,padding:"2px 7px",borderRadius:99,flexShrink:0,textTransform:"uppercase",height:"fit-content"}}>{st.l}</span>
@@ -991,7 +992,6 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                     </>);
                   })()}
                   <div className="equipment-card-actions">
-                    <Btn size="sm" v="ghost" onClick={()=>setEquipModal(e)} title={`Editar ${e.nome}`}><Ic n="edit"/> Editar</Btn>
                     <Btn size="sm" v="ghost" onClick={()=>setLocModal({...locVazio, equipamentoId:e.id, valorDiaria:e.valorDiaria, custoDiaria:e.custoDiaria, obraId:e.obraAtualId})}>Locar</Btn>
                     <Btn size="sm" v="ghost" onClick={()=>{
                       const lot=physicalRegistry.lots.find(item=>String(item.legacySourceId||item.sourceEquipmentId||"")===String(e.id));
@@ -1001,10 +1001,6 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                       setTransfModal({...transfVazio,equipamentoId:e.id,equipmentLotId:lot?.id||"",equipmentUnitIds:unit?[unit.id]:[],deLocationId:position?.locationId||"depot"});
                     }}>Transferir</Btn>
                     <Btn size="sm" v="ghost" onClick={()=>setManutModal({...manutVazio, equipamentoId:e.id})}>Manutenção</Btn>
-                    <Btn size="sm" v="danger" disabled={!!salvandoEquipamento} onClick={()=>excluirEquip(e)}
-                      title="Excluir equipamento da frota" ariaLabel={`Excluir ${e.nome}`}>
-                      <Ic n="trash"/> Excluir
-                    </Btn>
                   </div>
                   </div>
                 </article>
@@ -1271,7 +1267,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
       </>}
 
       {/* ---------- RELATÓRIO MENSAL ---------- */}
-      {aba==="relatorio" && <Suspense fallback={<div className="equipment-report-empty"><strong>Preparando relatórios</strong><p>Organizando dados gerenciais e memórias por obra...</p></div>}>
+      {aba==="relatorio" && <Suspense fallback={<LoadingState label="relatórios de equipamentos"/>}>
         <LazyEquipmentBillingReports currentUser={currentUser} obraIdFixo={obraIdFixo}
           data={data}
           period={ym}
@@ -1315,7 +1311,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                 <Inp label="Pesquisar equipamento" value={buscaSinapiEquip} onChange={setBuscaSinapiEquip} placeholder="Código, betoneira, compactador, gerador..."/>
               </div>
               {(carregandoSinapiEquip||avisoSinapiEquip||resultadosSinapiEquip.length>0)&&<div style={{marginTop:7,maxHeight:210,overflowY:"auto",background:C.card,border:`1px solid ${C.border}`,borderRadius:5}}>
-                {carregandoSinapiEquip&&<p style={{fontSize:"var(--arcd-type-label)",color:C.blue,padding:9}}>Consultando equipamentos no SINAPI...</p>}
+                {carregandoSinapiEquip&&<LoadingState label="equipamentos no SINAPI"/>}
                 {avisoSinapiEquip&&<p style={{fontSize:"var(--arcd-type-label)",color:C.orange,padding:9,lineHeight:1.45}}>{avisoSinapiEquip}</p>}
                 {resultadosSinapiEquip.map((item,index)=>{
                   const base=basesSinapiEquip.find(b=>b.id===baseSinapiEquipId);

@@ -34,3 +34,13 @@ it('resolve a etapa de compras quando ela está dentro de uma obra',()=>{
  mount(<HelpProvider><Area/><Read/></HelpProvider>);
  expect(container.querySelector('output').textContent).toBe('cmp_recebimentos');
 });
+
+it('restaura o guia da área ao fechar a ficha, mesmo após o pai trocar de tópico',()=>{
+ function Area({topic}){useHelpTopic('fin',topic);return null;}
+ function Ficha(){useHelpTopic('fin','fin_ficha',10);return null;}
+ function Current(){return <output>{useCurrentHelpTopic('fin')}</output>;}
+ const view=(open,topic)=><HelpProvider>{open&&<Ficha/>}<Area topic={topic}/><Current/></HelpProvider>;
+ mount(view(true,'fin_hoje'));expect(container.querySelector('output').textContent).toBe('fin_ficha');
+ act(()=>root.render(view(true,'fin_documentos')));expect(container.querySelector('output').textContent).toBe('fin_ficha');
+ act(()=>root.render(view(false,'fin_documentos')));expect(container.querySelector('output').textContent).toBe('fin_documentos');
+});

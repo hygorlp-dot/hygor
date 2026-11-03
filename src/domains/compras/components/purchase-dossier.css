@@ -8,7 +8,6 @@
 .purchase-document-key { overflow-wrap: anywhere; }
 .purchase-document-row { display: flex; flex-wrap: wrap; gap: var(--arcd-space-2); align-items: center; padding: var(--arcd-space-2) 0; }
 .purchase-document-row span { flex: 1 1 180px; overflow-wrap: anywhere; }
-.purchase-document-preview { width: 100%; height: 60vh; border: 1px solid var(--border, var(--arcd-border-default)); }
 .purchase-cost-scroll { max-width: 100%; overflow-x: auto; }
 .purchase-cost-scroll table { border-collapse: collapse; min-width: 780px; width: 100%; font-size: var(--arcd-type-label); }
 .purchase-cost-scroll th, .purchase-cost-scroll td { text-align: left; padding: var(--arcd-space-2); border-bottom: 1px solid var(--border, var(--arcd-border-default)); vertical-align: top; }

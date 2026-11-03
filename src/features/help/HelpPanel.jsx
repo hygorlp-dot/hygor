@@ -4,7 +4,7 @@ import {Button} from '../../design-system/primitives/Button.jsx';
 import {Input} from '../../design-system/primitives/Input.jsx';
 import {HELP_BY_ID, HELP_GUIDES, HELP_GLOSSARY, HELP_INTERRUPTION_GUIDE, HELP_INTERFACE_GUIDE, HELP_REVIEWED_AT, searchHelp} from './help-content.js';
 
-function topicOwner(id){if(id.startsWith('ponto_geral_'))return 'ponto_geral';if(id==='ponto_obras'||id==='ponto_central')return 'ponto';if(id.startsWith('folha_'))return 'folha';if(id.startsWith('arquivos_'))return 'arquivos';return id.startsWith('obra_')?'obras':id.startsWith('cmp_')?'cmp':id.startsWith('fin_')?'fin':id;}
+function topicOwner(id){if(id==='home_recuperacao')return 'home';if(id.startsWith('ponto_geral_'))return 'ponto_geral';if(id==='ponto_obras'||id==='ponto_central')return 'ponto';if(id.startsWith('folha_'))return 'folha';if(id.startsWith('arquivos_'))return 'arquivos';return id.startsWith('obra_')?'obras':id.startsWith('cmp_')?'cmp':id.startsWith('fin_')?'fin':id;}
 
 export default function HelpPanel({id,topicId,pageId,allowedTabs=[],onClose}){
  const panel=useRef(null),title=useRef(null),articleTitle=useRef(null);
@@ -47,7 +47,7 @@ export default function HelpPanel({id,topicId,pageId,allowedTabs=[],onClose}){
     {current.exceptions&&<><h4>Quando o fluxo acontece de outro jeito</h4>{current.exceptions.map(([situation,action])=><details className="app-help-details" key={situation}><summary>{situation}</summary><p>{action}</p></details>)}</>}
    </article>:<p>Esta tela ainda não tem um guia específico. Consulte o manual e informe ao responsável pelo sistema qual orientação está faltando.</p>}
    <details className="app-help-details"><summary>Não encontrei um botão ou meu registro</summary><p>Algumas ações dependem do seu perfil e da situação do registro. Confira a obra, o período, a busca e os filtros. Se a função continuar indisponível, peça ao administrador para conferir seu acesso.</p></details>
-   <details className="app-help-details"><summary>Não sei se minha alteração foi salva</summary><p>Confira o indicador de salvamento no cabeçalho e a mensagem da ação. Se houver erro ou conflito, leia a orientação antes de repetir. Abra o registro novamente para conferir o resultado e evitar duplicidade.</p></details>
+   <details className="app-help-details"><summary>Não sei se minha alteração foi salva</summary><p>{HELP_INTERFACE_GUIDE.find(([title])=>title==='Conferir o salvamento')?.[1]}</p></details>
    <details className="app-help-details"><summary>Celular, interrupções e recuperação</summary><dl>{HELP_INTERRUPTION_GUIDE.map(([situation,action])=><div key={situation}><dt>{situation}</dt><dd>{action}</dd></div>)}</dl></details>
    <details className="app-help-details"><summary>Aparência e navegação</summary><dl>{HELP_INTERFACE_GUIDE.map(([situation,action])=><div key={situation}><dt>{situation}</dt><dd>{action}</dd></div>)}</dl></details>
    <details className="app-help-details"><summary>Entenda os termos do sistema</summary><dl>{HELP_GLOSSARY.map(([term,meaning])=><div key={term}><dt>{term}</dt><dd>{meaning}</dd></div>)}</dl></details>

@@ -1,3 +1,5 @@
+import {availableOrderPayments,orderPaymentLinks} from './order-payment-links.js';
+import {isFinancialDate} from './dates.js';
 import {
   saldoPagamentoPedido,
   totalPedido,
@@ -15,6 +17,7 @@ import { validatePurchasePayment } from "./purchase-payment-validation.js";
 
 export const PAYABLE_PAYMENT_COMMAND=Object.freeze({
   PAYABLE_PAYMENT_RECORDED:"PAGAMENTO_OBRIGACAO_REGISTRADO",
+  ORDER_PAYMENT_ALLOCATED:"ADIANTAMENTO_PEDIDO_ALOCADO",
   PURCHASE_PAYMENT_RECLASSIFIED:"PAGAMENTO_COMPRA_RECLASSIFICADO",
   PAYABLE_PAYMENT_REVERSED:"PAGAMENTO_OBRIGACAO_ESTORNADO",
 });
@@ -67,7 +70,7 @@ const blockLinkedTransaction=(data,payment)=>
 
 export const payablePaymentCommandObraId=(data={},command={})=>{
   const payload=command.payload||{};
-  const type=payload.targetType||"pedido";
+  const type=command.type===PAYABLE_PAYMENT_COMMAND.ORDER_PAYMENT_ALLOCATED?"nota":payload.targetType||"pedido";
   return String(targetBy(data,type,payload.targetId)?.obraId||payload.obraId||"");
 };
 
@@ -81,6 +84,7 @@ const appendAdjustment=(target,{id,reason,summary,actor,now})=>({
 
 const buildPayment=(raw,actor,now)=>({
   ...raw,
+  pedidoPagamentoId:"",
   id:String(raw.id||""),data:String(raw.data||""),valor:Number(raw.valor),
   origem:String(raw.origem||""),conciliado:Boolean(raw.transacaoId)&&raw.origem==="empresa",
   transacaoId:raw.origem==="empresa"?String(raw.transacaoId||""):"",
@@ -226,7 +230,9 @@ const reclassifyPayment=(data,command,now)=>{
   if(baseError)return fail(baseError);
   const payment=paymentBy(target,payload.paymentId);
   if(!payment||!active(payment))return fail("Pagamento não encontrado ou já estornado.");
-  const newOrigin=String(payload.newOrigin||"");
+  if(type==='pedido'&&orderPaymentLinks(data,target,payment).some(l=>l.modern))return fail('Desfaça as alocações deste pagamento antes de alterá-lo ou estorná-lo.');
+  if(payment.pedidoPagamentoId)return fail('A origem pertence ao pagamento original. Desfaça a alocação antes de alterá-la.');
+  const newOrigin=String(payload.newOrigin||'');
   if(!validOrigin(newOrigin))return fail("Nova origem do pagamento inválida.");
   if(payment.origem===newOrigin)return {ok:true,data,entityId:payment.id};
   const transactionError=blockLinkedTransaction(data,payment);
@@ -309,11 +315,12 @@ const reversePayment=(data,command,now)=>{
   if(baseError)return fail(baseError);
   const payment=paymentBy(target,payload.paymentId);
   if(!payment||!active(payment))return fail("Pagamento não encontrado ou já estornado.");
+  if(type==='pedido'&&orderPaymentLinks(data,target,payment).some(l=>l.modern))return fail('Desfaça as alocações deste pagamento antes de alterá-lo ou estorná-lo.');
   const reason=String(payload.reason||"").trim();
   if(!reason)return fail("Informe o motivo do estorno do pagamento.");
-  if(isDateInClosedPeriod(data,payment.data))return fail("O período financeiro deste pagamento está fechado.");
+  if([payment.data,...(payment.pedidoPagamentoId?[target.emissao]:[])].some(date=>isDateInClosedPeriod(data,date)))return fail("O período financeiro deste pagamento está fechado.");
   const transactionError=blockLinkedTransaction(data,payment);
-  if(transactionError)return fail(transactionError);
+  if(transactionError&&!payment.pedidoPagamentoId)return fail(transactionError);
   const reversed={
     ...payment,status:"estornado",motivoEstorno:reason,estornadoEm:now,
     estornadoPorId:actor.id,estornadoPor:actorName(actor),
@@ -367,8 +374,29 @@ const reversePayment=(data,command,now)=>{
   return {ok:true,data:next,entityId:payment.id};
 };
 
+const allocateOrderPayment=(data,command,now)=>{
+ const p=command.payload||{},note=targetBy(data,'nota',p.targetId),actor=actorOf(command);
+ if(command.expectedVersion==null)return fail('Informe a versão atual da nota.');
+ const error=validateBase({data,command,target:note,type:'nota',actor});if(error)return fail(error);
+ const source=availableOrderPayments(data,note).find(x=>x.payment.id===p.paymentId);
+ if(!source)return fail('Pagamento sem saldo disponível para alocar nesta nota.');
+ if(Number(p.orderVersion)!==versionOf(source.order))return fail('O pedido mudou. Revise o saldo do adiantamento antes de confirmar.');
+ if((note.rateios||[]).some(r=>active(r)&&r.obraId&&r.obraId!==note.obraId))return fail('A nota tem rateio entre obras. Revise a distribuição antes de alocar.');
+ const value=Number(p.valor),cents=Math.round(value*100),date=String(source.payment.data||'');
+ if(!Number.isFinite(value)||cents<=0||Math.abs(value-cents/100)>.000001||cents>source.availableCents||value>saldoPagamentoNota(note)+.001)return fail('A alocação deve ser positiva e respeitar os saldos do pagamento e da nota.');
+ if(!isFinancialDate(date)||date>now.slice(0,10)||(note.emissao||'')>now.slice(0,10))return fail('Confira as datas do pagamento original e da emissão da nota.');
+ if([date,source.payment.data,note.emissao].filter(Boolean).some(d=>isDateInClosedPeriod(data,d)))return fail('Há período fechado na origem ou na alocação. Revise o fechamento antes de continuar.');
+ const id=String(p.allocationId||'');if(!id||paymentIdUsed(data,id))return fail('Identificação da alocação inválida ou repetida.');
+ const allocation={id,valor:cents/100,data:date,status:'ativo',version:1,tipo:'alocacao_adiantamento',pedidoPagamentoId:source.payment.id,pedidoId:source.order.id,origem:source.payment.origem||source.order.origemPagamento||"empresa",transacaoId:source.payment.transacaoId||"",conciliado:!!source.payment.conciliado,dataAlocacao:now.slice(0,10),dataPagamentoOriginal:source.payment.data,referencia:source.payment.referencia||'',observacao:'Alocação de pagamento existente, sem nova saída de caixa.',registradoPorId:actor.id,registradoPor:actorName(actor),registradoEm:now};
+ const paid=activePayments(note).reduce((sum,pay)=>sum+Number(pay.valor),0)+allocation.valor;
+ const changedNote={...note,pagamentos:[...(note.pagamentos||[]),allocation],status:paid>=totalOf('nota',note)-.01?'paga':note.status,version:versionOf(note)+1,updatedAt:now};
+ const order={...source.order,version:versionOf(source.order)+1,updatedAt:now,ajustes:[...(source.order.ajustes||[]),{id,usuarioId:actor.id,usuario:actorName(actor),criadoEm:now,motivo:'Vínculo de pagamento existente à nota',totalAnterior:totalPedido(source.order),totalNovo:totalPedido(source.order),resumo:`Alocação de ${allocation.valor} à nota ${note.numero||note.id}`} ]};
+ return {ok:true,data:{...data,notasFiscais:replace(data.notasFiscais,note.id,changedNote),pedidos:replace(data.pedidos,order.id,order)},entityId:id};
+};
+
 export const applyPayablePaymentCommand=(data={},command={},now=new Date().toISOString())=>{
   if(!PAYABLE_PAYMENT_COMMAND_TYPES.has(command.type))return null;
+  if(command.type===PAYABLE_PAYMENT_COMMAND.ORDER_PAYMENT_ALLOCATED)return allocateOrderPayment(data,command,now);
   if(command.type===PAYABLE_PAYMENT_COMMAND.PAYABLE_PAYMENT_RECORDED){
     return recordPayment(data,command,now);
   }

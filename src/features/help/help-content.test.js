@@ -10,6 +10,7 @@ describe('manual e ajuda contextual',()=>{
   for(const id of ROLE_TABS.admin)expect(HELP_BY_ID[id]?.steps.length,id).toBeGreaterThanOrEqual(3);
   for(const id of [...Object.values(FINANCE_HELP),...Object.values(PURCHASE_HELP),...Object.values(WORK_HELP)])expect(HELP_BY_ID[id],id).toBeDefined();
  });
+ it('documenta recuperação e alocação nas duas áreas',()=>{for(const area of ['fin','cmp'])expect(HELP_BY_ID[`${area}_recuperacao`]?.attention).toContain('Não é backup');for(const id of ['fin_pagamentos','cmp_pagamento'])expect(HELP_BY_ID[id].steps.join(' ')).toContain('Alocar adiantamento');});
  it('mantém o manual gerado sincronizado com o conteúdo do app',()=>{
   expect(readFileSync('docs/MANUAL_DO_APP.md','utf8')).toBe(renderAppManual());
  });

@@ -73,3 +73,10 @@ describe("busca e prazo compreensíveis", () => {
     expect(purchaseDeadline("2026-10-27", "2026-10-23")).toMatchObject({tone:"success"});
   });
 });
+
+it('expõe pagamento parcial e adiantamento, ignorando registros excluídos',()=>{
+ const state=data();state.pedidos[1].pagamentos=[{valor:20,tipo:'adiantamento'}];state.pedidos[2].deletedAt='2026-11-01';state.cotacoes[0].deletedAt='2026-11-01';state.solicitacoesCompra[0].ativo=false;
+ const model=buildPurchaseWorkspace(state,['a'],'2026-11-01');expect(model.rows.find(r=>r.id==='unpaid')).toMatchObject({paid:20,balance:30,advances:1,detail:expect.stringContaining('Pagamento parcial')});expect(model.rows.map(r=>r.id)).not.toEqual(expect.arrayContaining(['paid','c1','r1']));expect(model.rows.map(r=>r.id)).toContain('r3');
+});
+
+it('não normaliza uma data impossível para um prazo aparentemente válido',()=>{expect(purchaseDeadline('2026-02-31','2026-11-01')).toMatchObject({label:'Sem prazo',tone:'neutral'});});

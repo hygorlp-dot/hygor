@@ -1,0 +1,73 @@
+/* Composição compartilhada; valores, cores e controles vêm da base da ERP. */
+[data-theme] .arcd-main .workspace-heading{display:flex;align-items:center;flex-wrap:wrap;gap:var(--arcd-space-2) var(--arcd-space-4);min-width:0;border-bottom:1px solid var(--arcd-border-default);}
+[data-theme] .arcd-main .workspace-heading h1{font-size:var(--arcd-type-section-title) !important;font-weight:var(--arcd-heading-weight);line-height:1.35;margin:0;flex:0 0 auto;}
+[data-theme] .workspace-heading>.workspace-navigation{flex:1;min-width:0;}
+[data-theme] .workspace-heading .workspace-navigation__desktop{border:0;align-items:center;}
+[data-theme] .workspace-heading .workspace-navigation__desktop>nav{padding:var(--arcd-space-1) 0;}
+[data-theme] .arcd-main .workspace-heading .purchase-navigation{padding:0 !important;}
+[data-theme] .arcd-main .workspace-command-bar{display:flex;align-items:flex-end;flex-wrap:wrap;gap:var(--arcd-space-2);min-width:0;padding:var(--arcd-space-2) 0;}
+.workspace-command-bar__scope{flex:0 1 13rem;min-width:0;}
+.workspace-command-bar__scope :is(.purchase-context-bar,.compras-project-picker){width:100%;max-width:100%;}
+.workspace-command-bar__scope>*{margin:0;}
+.workspace-command-bar__controls{display:flex;flex:1 1 16rem;align-items:flex-end;flex-wrap:wrap;gap:var(--arcd-space-2);min-width:0;}
+.workspace-command-bar__controls>.arcd-field{flex:1 1 10rem;min-width:0;}
+.workspace-command-bar__controls>.mrc-queue-view{flex:0 1 8rem;}
+.workspace-command-bar__controls .workspace-filters{display:contents;}
+.workspace-command-bar__controls .workspace-filters__fields{flex-basis:100%;}
+.workspace-command-bar__controls .workspace-filters__toggle{display:inline-flex !important;}
+.workspace-command-bar__actions{display:flex;gap:var(--arcd-space-2);align-items:center;flex-wrap:wrap;min-width:0;}
+.workspace-command-bar__actions .purchase-header-actions{display:flex;gap:var(--arcd-space-2);}
+[data-theme] .arcd-main .purchase-workspace.mrc-command-workspace{gap:var(--arcd-space-2);}
+[data-theme] .arcd-main .mrc-command-workspace .purchase-queue-panel{border-radius:0;}
+[data-theme] .arcd-main .mrc-command-workspace .purchase-queue-metrics{border:0;border-radius:0;border-bottom:1px solid var(--arcd-border-default);}
+[data-theme] .arcd-main .mrc-command-workspace .purchase-queue-metrics button{display:flex;flex-direction:row;flex-wrap:wrap;align-items:baseline;gap:var(--arcd-space-1) var(--arcd-space-2);min-height:var(--arcd-control-height);padding:var(--arcd-space-2) var(--arcd-space-3);}
+[data-theme] .arcd-main .mrc-command-workspace .purchase-queue-metrics strong{font-size:var(--arcd-type-body);}
+[data-theme] .arcd-main .mrc-command-workspace .purchase-queue-metrics small{font-size:var(--arcd-type-caption);}
+[data-theme] .arcd-main .mrc-command-workspace .purchase-order-count-row{padding:var(--arcd-space-1) var(--arcd-space-3);}
+[data-theme] .arcd-main .finance-today.mrc-command-workspace{gap:var(--arcd-space-2);padding-top:0;}
+[data-theme] .arcd-main .finance-today.mrc-command-workspace .finance-today__filters{display:flex;flex-wrap:wrap;gap:var(--arcd-space-1);}
+[data-theme] .arcd-main .finance-today.mrc-command-workspace .finance-today__filters button{display:flex;flex-direction:row;align-items:center;gap:var(--arcd-space-2);min-height:var(--arcd-control-height);padding:var(--arcd-space-2);}
+[data-theme] .arcd-main .finance-today.mrc-command-workspace .finance-today__filters button>strong{font-size:var(--arcd-type-body);}
+[data-theme] .arcd-main .mrc-command-workspace .finance-today__results{gap:var(--arcd-space-1) var(--arcd-space-3);}
+[data-theme] .arcd-main .mrc-command-workspace .finance-today__results h2{font-size:var(--arcd-type-card-title);}
+.workspace-command-bar .finance-today__mobile{display:none;}
+@media(max-width:1100px){.workspace-command-bar__actions{flex-basis:100%;}}
+@media(max-width:767px){
+ [data-theme] .arcd-main .workspace-heading{gap:var(--arcd-space-2);align-items:end;padding-bottom:var(--arcd-space-2);}
+ [data-theme] .workspace-heading>.workspace-navigation{flex-basis:10rem;}
+ .workspace-command-bar__scope{flex-basis:100%;}
+ .workspace-command-bar__controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));flex-basis:100%;}
+ .workspace-command-bar__controls>.arcd-field:has(input){grid-column:1/-1;}
+ .workspace-command-bar__controls .workspace-filters__fields{grid-column:1/-1;}
+ .workspace-command-bar__actions{width:100%;}
+ .workspace-command-bar__actions .purchase-header-actions{flex:1;}
+ .workspace-command-bar__actions .purchase-header-actions>button:not([aria-haspopup]):not([aria-label]){flex:1;}
+ [data-theme] .arcd-main .mrc-command-workspace .purchase-queue-metrics{grid-template-columns:repeat(2,minmax(0,1fr));}
+ [data-theme] .arcd-main .mrc-command-workspace .purchase-queue-metrics button:nth-child(4){display:flex;}
+ [data-theme] .arcd-main .finance-today.mrc-command-workspace .finance-today__filters{display:none;}
+ .workspace-command-bar .finance-today__mobile{display:block;min-width:0;grid-column:1/-1;}
+}
+
+[data-theme] .arcd-main .workspace-heading .workspace-navigation__desktop>nav{flex-wrap:nowrap;overflow-x:auto;}
+[data-theme] .arcd-main .workspace-heading .workspace-navigation__tab{flex:0 0 auto !important;padding:var(--arcd-space-2) !important;border:0 !important;border-radius:0 !important;background:transparent !important;}
+[data-theme] .arcd-main .workspace-heading .workspace-navigation__tab[aria-current=page]{box-shadow:inset 0 -2px var(--arcd-action-primary);color:var(--arcd-action-primary);}
+[data-theme] .arcd-main .compras-view .purchase-area-heading[data-compact]:not(:has(button)){position:absolute;}
+[data-theme] .arcd-main .mrc-command-workspace .purchase-queue-metrics small{display:inline;}
+.workspace-list-status{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:var(--arcd-space-2);}
+.workspace-list-status h2{font-size:var(--arcd-type-card-title);}
+.workspace-list-status p{font-size:var(--arcd-type-caption);color:var(--arcd-text-secondary);}
+
+[data-theme] .arcd-main .workspace-heading .workspace-navigation__tab:hover{background:var(--arcd-surface-muted) !important;}
+
+.workspace-command-bar__controls>label{display:flex;flex-direction:column;gap:var(--arcd-space-1);flex:1 1 10rem;min-width:0;font-size:var(--arcd-type-label);}
+@media(max-width:767px){.workspace-command-bar__controls>label:has(input[type=search]){grid-column:1/-1;}}
+
+@media(max-width:767px){
+ .workspace-command-bar__controls:has(>.arcd-field:last-child:nth-child(2) input)>.arcd-field{grid-column:1/-1;}
+ .workspace-command-bar__controls>label:has(input[type=month]),.workspace-command-bar__controls>label:last-child:has(select){grid-column:1/-1;}
+ .workspace-command-bar__actions:not(:has(.purchase-header-actions))>button{flex:1 1 12rem;}
+}
+
+/* O alinhamento inclui a altura real: padding não pode aumentar o controle. */
+[data-theme] .arcd-main .workspace-command-bar .mrc-button{min-height:var(--arcd-control-height) !important;padding-block:0;}
+[data-theme] .arcd-main .workspace-command-bar :is(.arcd-field,.workspace-command-bar__controls>label){gap:var(--arcd-space-2);}

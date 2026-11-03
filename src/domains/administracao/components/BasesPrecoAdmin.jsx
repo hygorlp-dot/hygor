@@ -16,7 +16,7 @@
 // ===================================================================
 
 import { useEffect, useMemo, useState } from "react";
-import { Badge, Btn, Ic, Inp, Sel } from "../../../legacy/ui.jsx";
+import { LoadingState, Badge, Btn, Ic, Inp, Sel } from "../../../legacy/ui.jsx";
 import { C } from "../../../legacy/palette.js";
 import { SINAPI_UFS } from "../../orcamentos/legacy-reference.js";
 import { lerSinapiEmSegundoPlano } from "../../../legacy/files.js";
@@ -344,7 +344,7 @@ export default function BasesPrecoAdmin({ currentUser, data, update }) {
         <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.text, marginBottom: 8 }}>
           Bases cadastradas · {bases.length} registro(s){duplicadas ? ` · ${duplicadas} repetição(ões)` : ""}
         </p>
-        {carregando ? <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>Carregando...</p>
+        {carregando ? <LoadingState label="bases de preços"/>
           : bases.length === 0 ? <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>Nenhuma base cadastrada ainda.</p>
           : <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
             {bases.map(base => {

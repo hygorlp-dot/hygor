@@ -26,6 +26,8 @@ const comercialSource=readFileSync(resolve(process.cwd(), "src/domains/comercial
 // contrato de comando dela agora mora aqui, não em `source`.
 const medicoesSource=readFileSync(resolve(process.cwd(), "src/domains/medicoes/components/MedicoesView.jsx"), "utf8");
 
+const paymentSource=readFileSync(resolve(process.cwd(), "src/features/financeiro/PaymentDialog.jsx"), "utf8");
+
 describe("contrato de autoria do DRE", () => {
   it("entrega o usuário autenticado até o cancelamento auditável", () => {
     expect(source).toContain('type:OPERATIONAL_COMMAND.PROJECT_EXPENSE_CREATED');
@@ -37,7 +39,16 @@ describe("contrato de autoria do DRE", () => {
     expect(source).toContain('type:OPERATIONAL_COMMAND.WORK_CASH_MOVEMENT_CANCELLED');
     expect(source).toContain('<CaixaObra    data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />');
     expect(source).not.toContain('update({...data, caixaObra:[...(data.caixaObra||[]), payload]})');
-    expect(source).toContain('type:OPERATIONAL_COMMAND.PAYABLE_PAYMENT_RECORDED');
+    // Pagamento é compartilhado entre Financeiro e Compras; autoria via usuário autenticado.
+    expect(paymentSource).toContain('PAYABLE_PAYMENT_COMMAND as CMD');
+    expect(paymentSource).toContain('type:CMD.PAYABLE_PAYMENT_RECORDED');
+    expect(paymentSource).toContain('actorId:user.id,actorName:user.nome');
+    for(const view of [source,comprasSource]){
+      const paymentMount=view.match(/<PaymentDialog\b[\s\S]*?\/>/)?.[0];
+      expect(paymentMount).toBeDefined();
+      expect(paymentMount).toContain('user={currentUser}');
+      expect(paymentMount).toContain('dispatch={dispatchCommand}');
+    }
     expect(comprasSource).toContain('type:OPERATIONAL_COMMAND.PURCHASE_PAYMENT_RECLASSIFIED');
     expect(comprasSource).toContain('targetType:"pedido",targetId:pedido.id,paymentId:pagamentoId,newOrigin:novaOrigem');
     expect(comprasSource).not.toContain('targetType:"pedido",targetId:pedido.id,paymentId,newOrigin:novaOrigem');

@@ -1,3 +1,4 @@
+import {LoadingState} from '../../design-system/patterns/LoadingState.jsx';
 import {SelectControl} from '../../design-system/primitives/Select.jsx';
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { lazyWithCssRetry as lazy } from "../../lib/lazy-with-css-retry.js";
@@ -26,7 +27,7 @@ function XmlOriginal({url, onError}) {
     })().catch(error => { if (!controller.signal.aborted) onError(error); });
     return () => controller.abort();
   }, [url, onError]);
-  return text === null ? <p role="status">Carregando XML original…</p> : <pre className="invoice-original__xml" tabIndex={0} aria-label="XML original">{text}</pre>;
+  return text === null ? <LoadingState label="XML original"/> : <pre className="invoice-original__xml" tabIndex={0} aria-label="XML original">{text}</pre>;
 }
 
 export function OriginalDocument({document, driveId, resolveFile}) {
@@ -64,7 +65,7 @@ export function OriginalDocument({document, driveId, resolveFile}) {
   return <>
     <div className="invoice-original__heading"><h3>Documento original</h3>{(url || originalUrl) && <FinancialDocumentLink href={url||originalUrl} reference={documentEvidenceInfo(document,driveId).reference} resolveFile={resolveFile}>Abrir original em nova aba</FinancialDocumentLink>}</div>
     <p className="invoice-original__name">{name}</p>
-    {failure ? <Alert role="status" data-document-error={failure.code}><AlertDescription><p>{failure.message}</p><Button variant="outline" size="sm" onClick={() => setAttempt(value => value + 1)}>Tentar novamente</Button></AlertDescription></Alert> : !url ? <p role="status">Preparando documento original…</p> : drivePreview ? <iframe title="Visualização do documento no Google Drive" className="invoice-original__frame" src={`https://drive.google.com/file/d/${drivePreview[1]}/preview`}/> : kind === 'pdf' ? <Suspense fallback={<p role="status">Preparando leitor de PDF…</p>}><PdfDocumentPreview url={url} name={name} onError={fail}/></Suspense> : kind === 'image' ? <div className="invoice-original__surface"><img src={url} alt={name} referrerPolicy="no-referrer" onError={fail}/></div> : kind === 'xml' ? <XmlOriginal url={url} onError={fail}/> : <p role="status">Este formato não tem visualização interna. Abra o original em nova aba e mantenha a ficha aberta para conferir.</p>}
+    {failure ? <Alert role="status" data-document-error={failure.code}><AlertDescription><p>{failure.message}</p><Button variant="outline" size="sm" onClick={() => setAttempt(value => value + 1)}>Tentar novamente</Button></AlertDescription></Alert> : !url ? <p role="status">Preparando documento original…</p> : drivePreview ? <iframe title="Visualização do documento no Google Drive" className="invoice-original__frame" src={`https://drive.google.com/file/d/${drivePreview[1]}/preview`}/> : kind === 'pdf' ? <Suspense fallback={<LoadingState label="leitor de PDF"/>}><PdfDocumentPreview url={url} name={name} onError={fail}/></Suspense> : kind === 'image' ? <div className="invoice-original__surface"><img src={url} alt={name} referrerPolicy="no-referrer" onError={fail}/></div> : kind === 'xml' ? <XmlOriginal url={url} onError={fail}/> : <p role="status">Este formato não tem visualização interna. Abra o original em nova aba e mantenha a ficha aberta para conferir.</p>}
     <p className="invoice-original__hint">Confira o original junto aos dados do registro. Trocar o arquivo mantém os dados existentes.</p>
   </>;
 }

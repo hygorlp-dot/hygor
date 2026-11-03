@@ -12,7 +12,12 @@ export default defineConfig(({mode})=>mergeConfig({
     watch: {ignored: ["**/artifacts/**", "**/analises/**", "**/.impeccable/**", "**/test-results*/**", "**/playwright-report/**", "**/output/**"]},
   },
   resolve: {
-    alias: {"@": fileURLToPath(new URL("./src", import.meta.url))},
+    // Gráficos operacionais exibem o estado final, preservando o contrato
+    // de renderização do Recharts sem carregar seu motor de interpolação.
+    alias: [
+      {find:"@",replacement:fileURLToPath(new URL("./src",import.meta.url))},
+      {find:/^react-smooth$/,replacement:fileURLToPath(new URL("./src/components/charts/ChartFinalState.jsx",import.meta.url))},
+    ],
   },
   // O formato padrão de worker do Vite é "iife" - incompatível com
   // `new Worker(url, {type:"module"})`, que sinapi-parser.worker.js e
@@ -42,7 +47,7 @@ export default defineConfig(({mode})=>mergeConfig({
         chunkFileNames(chunk) {
           const name=chunk.name;
           const preserve=["LegacyApp","spreadsheet-tools","charts","vendor","ClientPortalApp"].includes(name)||/worker/i.test(name);
-          const prefix=preserve?name:name==="rolldown-runtime"?"r":name.slice(0,3);
+          const prefix=preserve?name:name==="rolldown-runtime"?"r":name.slice(0,2);
           return `assets/${prefix}-[hash].js`;
         },
         manualChunks(id) {
@@ -63,6 +68,8 @@ export default defineConfig(({mode})=>mergeConfig({
           if (id.includes("exceljs")) return "spreadsheet-tools";
           if (
             id.includes("/src/domains/financeiro/")
+            // Sincronização e finanças compartilham deltas, comandos e validações.
+            || (id.includes("/src/domains/sync/")&&!id.endsWith(".jsx"))
             || id.includes("/src/domains/dre/")
             || id.includes("/src/domains/conciliacao/")
             || (id.includes('/src/domains/compras/')&&!id.includes('/components/')&&!id.endsWith('/LegacySupport.jsx')&&!id.endsWith('/export-sheets.js'))

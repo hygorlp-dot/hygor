@@ -81,13 +81,13 @@ test("RH escolhe diária ou CLT no cadastro, com salário mensal e vigência",as
   await page.keyboard.press("Control+k");
   const search=page.getByPlaceholder("Buscar obra, lead, pedido, funcionário, tela...");
   await search.fill("Equipes");await search.locator("xpath=../..").getByRole("button").filter({hasText:"Equipes"}).click();
-  await page.getByRole("button",{name:"Editar",exact:true}).first().click();
+  await page.locator(".team-row__employee").first().click();
   const dialog=page.getByRole("dialog");
   await dialog.getByRole("combobox",{name:"Modalidade de remuneração",exact:true}).selectOption("daily");
   await dialog.getByLabel("Modalidade válida a partir de",{exact:true}).fill("2026-09-25");
   await dialog.getByRole("button",{name:"Salvar",exact:true}).click();await expect(dialog).toHaveCount(0);
   expect(getState().employees[0].remunerationMode).toBe("daily");
-  await page.getByRole("button",{name:"Editar",exact:true}).first().click();
+  await page.locator(".team-row__employee").first().click();
   await dialog.getByRole("combobox",{name:"Modalidade de remuneração",exact:true}).selectOption("clt");
   await dialog.getByLabel("Modalidade válida a partir de",{exact:true}).fill("2026-10-01");
   await dialog.getByLabel("Salário contratual mensal *",{exact:true}).fill("2600");
@@ -103,7 +103,7 @@ test("RH cadastra MEI com valor fixo e a folha da quinzena paga metade, sem pont
   await page.keyboard.press("Control+k");
   const search=page.getByPlaceholder("Buscar obra, lead, pedido, funcionário, tela...");
   await search.fill("Equipes");await search.locator("xpath=../..").getByRole("button").filter({hasText:"Equipes"}).click();
-  await page.getByRole("button",{name:"Editar",exact:true}).first().click();
+  await page.locator(".team-row__employee").first().click();
   const dialog=page.getByRole("dialog");
   await dialog.getByRole("combobox",{name:"Modalidade de remuneração",exact:true}).selectOption("mei");
   // MEI não usa diária, VT, VR nem os campos do holerite CLT.
@@ -299,7 +299,7 @@ test("pelo ponto: escolhe CLT com cadastro completo e abre o holerite correto",a
 
 
 async function openEmployeeEditor(page){
-  await page.keyboard.press("Control+k");const search=page.getByPlaceholder("Buscar obra, lead, pedido, funcionário, tela...");await search.fill("Equipes");await search.locator("xpath=../..").getByRole("button").filter({hasText:"Equipes"}).click();await page.getByRole("button",{name:"Editar",exact:true}).first().click();return page.getByRole("dialog");
+  await page.keyboard.press("Control+k");const search=page.getByPlaceholder("Buscar obra, lead, pedido, funcionário, tela...");await search.fill("Equipes");await search.locator("xpath=../..").getByRole("button").filter({hasText:"Equipes"}).click();await page.locator(".team-row__employee").first().click();return page.getByRole("dialog");
 }
 
 test("editar legado: Salvar sempre visível, zeros mantidos e cadastro sem exigir CLT",async({page})=>{
@@ -311,7 +311,7 @@ test("editar legado: Salvar sempre visível, zeros mantidos e cadastro sem exigi
   await dialog.getByLabel("Telefone",{exact:true}).fill("81988887777");
   await save.click();await expect(dialog).toHaveCount(0);
   expect(getState().employees[0]).toMatchObject({dailyRate:120,vtDaily:0,vrDaily:0,monthlySalary:0});expect(getState().employees[0].phone.replace(/\D/g,"")).toBe("81988887777");expect(getState().financialSettlements).toEqual([{id:"preservar",amount:600}]);
-  await page.getByRole("button",{name:"Editar",exact:true}).first().click();await page.getByRole("dialog").screenshot({path:test.info().outputPath("editar-legado-footer.png")});
+  await page.locator(".team-row__employee").first().click();await page.getByRole("dialog").screenshot({path:test.info().outputPath("editar-legado-footer.png")});
 });
 
 test("editar funcionário reaproveita o perfil salvo e mantém o formulário após falha",async({page})=>{

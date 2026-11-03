@@ -8,3 +8,7 @@ textarea[data-mrc-control]{min-height:var(--arcd-textarea-min-height,6rem);resiz
 [data-mrc-control][readonly]{background:var(--arcd-surface-page)}
 [data-theme] :is(input,select,textarea)[data-mrc-control]{font-size:var(--arcd-type-control)!important}
 @media(max-width:767px){[data-theme] :is(input,select)[data-mrc-control]{min-height:var(--arcd-touch-target,2.75rem)}[data-theme] :is(input,select,textarea)[data-mrc-control]{font-size:var(--arcd-type-control-touch)!important}}
+
+/* Uma linha: mesma caixa em todas as famílias; editores de tabela preservam seu contrato. */
+input[data-mrc-control]:not([type=file]):not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]),select[data-mrc-control]:not([multiple]):not([size]){box-sizing:border-box;height:var(--arcd-control-height,40px);padding-block:0;}
+@media(max-width:767px){input[data-mrc-control]:not([type=file]):not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]),select[data-mrc-control]:not([multiple]):not([size]){height:max(var(--arcd-control-height,40px),var(--arcd-touch-target,2.75rem));}}

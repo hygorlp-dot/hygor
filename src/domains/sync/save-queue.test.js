@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createSaveQueue, SAVE_QUEUE_STATE } from "./save-queue";
 
-const deferred=()=>{let resolve;const promise=new Promise(r=>{resolve=r;});return{promise,resolve};};
+const deferred=()=>{let resolve,reject;const promise=new Promise((r,j)=>{resolve=r;reject=j;});return{promise,resolve,reject};};
 
 describe("fila serializada de salvamento", () => {
   it("preserva o snapshot mais recente chegado durante um salvamento", async () => {
@@ -164,4 +164,56 @@ describe("fila serializada de salvamento", () => {
     expect(calls).toEqual([{eventos:["primeiro"]},{eventos:["primeiro","segundo"]}]);
     expect(queue.hasPending()).toBe(false);
   });
+  it("não publica falha de salvamento ao encerrar uma fila ociosa",async()=>{
+    const states=[];
+    const queue=createSaveQueue({save:async()=>({ok:true}),onState:state=>states.push(state)});
+    queue.destroy();
+    expect(states).toEqual([]);
+    expect(await queue.waitForIdle()).toEqual({ok:false,state:SAVE_QUEUE_STATE.FAILED});
+  });
+
+  it("ignora respostas tardias de uma fila encerrada e resolve a espera",async()=>{
+    for(const rejected of [false,true]){
+      const request=deferred();const events=[];
+      const queue=createSaveQueue({save:()=>request.promise,onState:state=>events.push(state),onSuccess:()=>events.push('success'),onFailed:()=>events.push('failure')});
+      const waiting=queue.enqueue({id:'encerrada'});
+      queue.destroy();
+      if(rejected)request.reject(new Error('resposta tardia'));
+      else request.resolve({ok:true});
+      expect(await waiting).toEqual({ok:false,state:SAVE_QUEUE_STATE.FAILED});
+      expect(events).toEqual([SAVE_QUEUE_STATE.SAVING]);
+      expect(queue.hasPending()).toBe(false);
+    }
+  });
+
+  it("retoma manualmente o snapshot após esgotar tentativas, sem concorrência",async()=>{
+    let calls=0;const last=deferred();const snapshots=[];
+    const queue=createSaveQueue({maxRetries:0,save:async snapshot=>{snapshots.push(snapshot);return ++calls===1?{ok:false,status:503}:last.promise;}});
+    const snapshot={fornecedores:[{id:'f1',nome:'Edição preservada'}]};
+    await queue.enqueue(snapshot);
+    expect(queue.canRetry()).toBe(true);
+    queue.resume();queue.resume();
+    expect(queue.canRetry()).toBe(false);
+    expect(calls).toBe(2);
+    last.resolve({ok:true});
+    expect((await queue.waitForIdle()).ok).toBe(true);
+    expect(snapshots).toEqual([snapshot,snapshot]);
+  });
+  it("não oferece nova tentativa para sessão, recusa, conflito, fila vazia ou encerrada",async()=>{
+    for(const status of [401,403,409,422]){
+      let calls=0;const queue=createSaveQueue({save:async()=>{calls++;return{ok:false,status};}});
+      await queue.enqueue({id:'bloqueado'});
+      expect(queue.canRetry()).toBe(false);queue.resume();expect(calls).toBe(1);
+    }
+    const queue=createSaveQueue({save:async()=>({ok:false,status:503}),maxRetries:0});
+    expect(queue.canRetry()).toBe(false);
+    await queue.enqueue({id:'descartado'});queue.discard();expect(queue.canRetry()).toBe(false);
+    await queue.enqueue({id:'encerrado'});queue.destroy();expect(queue.canRetry()).toBe(false);
+  });
+  it("permite retomada explícita de timeout sem repetição automática",async()=>{
+    let calls=0;const queue=createSaveQueue({save:async()=>++calls===1?{ok:false,status:408}:{ok:true}});
+    await queue.enqueue({id:'timeout'});expect(calls).toBe(1);expect(queue.canRetry()).toBe(true);
+    queue.resume();expect((await queue.waitForIdle()).ok).toBe(true);expect(calls).toBe(2);
+  });
+
 });

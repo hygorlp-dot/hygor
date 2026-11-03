@@ -42,12 +42,17 @@ for(const tab of tabs)test(`${tab.id} · ${tab.label}`,async({page},info)=>{
 });
 
 test('Compras: alinhamento, seleção, foco, menus e ação principal',async({page},info)=>{
-  const errors=await enter(page,'cmp');await expect(page.locator('.purchase-header')).toBeVisible();
-  const header=page.locator('.purchase-header');
+  const errors=await enter(page,'cmp');await expect(page.getByRole('group',{name:'Comandos de Compras',exact:true})).toBeVisible();
+  const header=page.getByRole('group',{name:'Comandos de Compras',exact:true});
   const create=header.getByRole('button',{name:'Nova solicitação',exact:true});
   if(page.viewportSize().width>=1100){
     const field=await header.getByLabel('Obra',{exact:true}).boundingBox(),action=await create.boundingBox();
     expect(Math.abs(field.y+field.height-action.y-action.height)).toBeLessThanOrEqual(2);
+    const controls=await header.locator('input,select,button').evaluateAll(elements=>elements.filter(el=>el.getClientRects().length).map(el=>{const r=el.getBoundingClientRect();return {top:r.top,height:r.height};}));
+    expect(Math.max(...controls.map(r=>r.height))-Math.min(...controls.map(r=>r.height))).toBeLessThanOrEqual(1);
+    expect(Math.max(...controls.map(r=>r.top))-Math.min(...controls.map(r=>r.top))).toBeLessThanOrEqual(1);
+    const labels=await header.locator('.arcd-field__label').evaluateAll(elements=>elements.filter(el=>el.getClientRects().length).map(el=>el.getBoundingClientRect().top));
+    expect(Math.max(...labels)-Math.min(...labels)).toBeLessThanOrEqual(1);
     const nav=page.getByRole('navigation',{name:'Fluxo de compras',exact:true});
     const current=nav.getByRole('button',{name:'Fila de trabalho',exact:true});
     await expect(current).toHaveAttribute('aria-current','page');
@@ -87,4 +92,15 @@ test('cabeçalho mantém alturas alinhadas nas densidades e no celular estreito'
     expect(Math.max(...heights)-Math.min(...heights)).toBeLessThanOrEqual(1);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)).toBe(false);
   }
+});
+
+
+for(const [id,selector] of [['equipe','.team-toolbar'],['ponto_geral','.ponto-geral-filters'],['patrimonio','.patrimony-filters'],['conc','.reconciliation-toolbar']])test(`Alinhamento global · ${id}`,async({page})=>{
+ const errors=await enter(page,id);
+ const controls=await page.locator(`${selector} [data-mrc-control]`).evaluateAll(elements=>elements.filter(e=>e.getClientRects().length).map(e=>{const r=e.getBoundingClientRect();return {top:r.top,height:r.height};}));
+ expect(controls.length).toBeGreaterThanOrEqual(2);
+ expect(Math.max(...controls.map(r=>r.height))-Math.min(...controls.map(r=>r.height))).toBeLessThanOrEqual(1);
+ if(page.viewportSize().width>=1100)expect(Math.max(...controls.map(r=>r.top))-Math.min(...controls.map(r=>r.top))).toBeLessThanOrEqual(1);
+ else expect(Math.min(...controls.map(r=>r.height))).toBeGreaterThanOrEqual(44);
+ expect(errors).toEqual([]);
 });

@@ -45,7 +45,7 @@ import {
 } from "../../../components/charts/LazyRecharts";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
 import { PageHeader, ConfirmDialog } from "../../../design-system/patterns";
-import { Badge, Btn, Ic, Inp, Modal, Sel } from "../../../legacy/ui.jsx";
+import { LoadingState, Badge, Btn, Ic, Inp, Modal, Sel } from "../../../legacy/ui.jsx";
 import { C } from "../../../legacy/palette.js";
 import { XLSX, carregarXLSX } from "../../../legacy/files.js";
 import { jsonDaRespostaIA } from "../../../features/financeiro/LegacyDocumentTools.jsx";
@@ -3851,7 +3851,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             {atualizandoPrecos ? "Atualizando..." : "Atualizar preços dos itens"}
           </Btn>
         </div>
-        {basesCarregando ? <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Carregando bases cadastradas...</p>
+        {basesCarregando ? <LoadingState label="bases cadastradas"/>
         : basesVinculadas.length > 0 ? (
           <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>
             {basesVinculadas.map(base => { const cor=base.fonte==="ORSE"?C.purple:C.blue; return (

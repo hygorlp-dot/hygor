@@ -1,3 +1,4 @@
+import {Spinner} from '../../design-system/primitives/Spinner.jsx';
 import {lazy, Suspense, useId, useRef, useState} from 'react';
 import {CircleHelp} from 'lucide-react';
 import {Button} from '../../design-system/primitives/Button.jsx';
@@ -14,6 +15,6 @@ export function HelpButton({pageId,allowedTabs,label="Ajuda"}){
   <Button ref={trigger} variant="outline" className="app-help-button" aria-label={label} aria-expanded={open} aria-controls={open?panelId:undefined} onClick={()=>setOpen(value=>!value)}>
    <CircleHelp data-icon="inline-start" aria-hidden="true"/><span className="app-help-button__label">{label}</span>
   </Button>
-  {open&&<Suspense fallback={<span role="status">Abrindo ajuda…</span>}><HelpPanel key={topicId} id={panelId} topicId={topicId} pageId={pageId} allowedTabs={allowedTabs} onClose={()=>{setOpen(false);trigger.current?.focus();}}/></Suspense>}
+  {open&&<Suspense fallback={<Spinner label="Abrindo ajuda…"/>}><HelpPanel key={topicId} id={panelId} topicId={topicId} pageId={pageId} allowedTabs={allowedTabs} onClose={()=>{setOpen(false);trigger.current?.focus();}}/></Suspense>}
  </>;
 }

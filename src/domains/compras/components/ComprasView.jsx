@@ -1,3 +1,7 @@
+import {WorkspaceCommandBar,WorkspaceHeading} from '../../../design-system/patterns/WorkspaceCommandBar.jsx';
+import PaymentDialog from '../../../features/financeiro/PaymentDialog.jsx';
+import {dispatchConfirmedAttempt} from '../../../features/workflow/command-attempt.js';
+import {useQueuePreferences} from '../../../features/workflow/useQueuePreferences.js';
 import {FilePicker} from '../../../design-system/patterns/FilePicker.jsx';
 import MessageRequestImport,{MessageRequestSource} from './MessageRequestImport.jsx';
 import {RecordAction} from '../../../design-system/primitives/RecordAction.jsx';
@@ -8,7 +12,7 @@ import {useUnsavedChanges} from "../../../features/workflow/useUnsavedChanges.js
 import {WorkflowWarnings} from './ProcurementProcessStatus.jsx';
 import {planningPurchaseNeeds,planningRequestDraft} from "../../planejamento/purchase-needs.js";
 import {useHelpTopic} from '../../../features/help/HelpContext.jsx';
-import {PURCHASE_HELP} from '../../../features/help/help-content.js';
+import {PURCHASE_HELP} from '../../../features/help/help-topics.js';
 import {useWorkspaceState,useWorkspaceScroll} from "../../../features/workflow/workspace-session.jsx";
 import SupplierResponseQueue from "./SupplierResponseQueue";
 import {OrderTermsFields} from "./OrderConditions";
@@ -39,7 +43,7 @@ import {
   Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "../../../components/charts/LazyRecharts";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
-import { ArcdChartTooltip, Badge, Btn, ChartPanel, Ic, Inp, Modal, Sel, TabRow } from "../../../legacy/ui.jsx";
+import { LoadingState, ArcdChartTooltip, Badge, Btn, ChartPanel, Ic, Inp, Modal, Sel, TabRow } from "../../../legacy/ui.jsx";
 import { C, C_ARCD_SETOR } from "../../../legacy/palette.js";
 import { FornecedorEditorPilot, ModalCotacaoWhatsApp, fornecedoresParaMateriais, guardaPreco, linkWhatsApp, melhorPrecoHist, mensagemWhatsAppCobranca, mensagemWhatsAppCompra, oportunidadesConsolidacao, pedidosEmAtraso, slaSolicitacao, UNIDADES_PADRAO, CATS_MATERIAL } from "../LegacySupport.jsx";
 import { LinksDocumentosAuditaveis, ModalLegendaDocumento, ModoIADocumento } from "../../../features/financeiro/LegacyDocumentTools.jsx";
@@ -56,7 +60,7 @@ import {
   origemPagamentoLabel, situacaoCaixaObra,
   historicoPrecoTodos, mapaGerencialCompras,
 } from "../calculations";
-import { canManagePurchases } from "../permissions";
+import { canManagePurchases, canActOnPurchaseQueue } from "../permissions";
 import { buildPurchaseWorkspace, matchesPurchaseSearch } from "../workspace";
 import { usePurchaseSave } from "../use-purchase-save";
 import { PurchaseNavigation, PurchaseWorkspace, PURCHASE_AREA_LABELS } from "./PurchaseWorkspace";
@@ -737,7 +741,6 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     return()=>window.cancelAnimationFrame(frame);
   },[registroFoco,retornosCompra]);
   const [aba,     setAba]     = useSessionState("aba",["engenheiro","engenheiro_auditor"].includes(currentUser?.role)?"solicitacoes":currentUser?.role==="financeiro"?"financeiro":"fila");
-  useHelpTopic('cmp',PURCHASE_HELP[aba]||'cmp');
   const [obraSel, setObraSel] = useSessionState("obraSel",obraIdFixo||currentUser?.obraId||savedScope?.obraId||"");
   const [busca,   setBusca]   = useSessionState("busca","");
   const [filtroPedidos,setFiltroPedidos]=useSessionState("filtroPedidos",FILTROS_PEDIDOS_VAZIOS);
@@ -765,6 +768,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   const [anexoCotacao,setAnexoCotacao]=useState(null);
   const [subindoAnexoCotacao,setSubindoAnexoCotacao]=useState(false);
   const [pagModal,setPagModal]=useState(null);
+  useHelpTopic("cmp",pagModal?"cmp_pagamento":PURCHASE_HELP[aba]||"cmp",pagModal?20:0);
   const [excluirCompraModal,setExcluirCompraModal]=useState(null);
   const [subindoComprovantePagamento,setSubindoComprovantePagamento]=useState(false);
   const [cancelandoCompra,setCancelandoCompra]=useState(false);
@@ -775,7 +779,10 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   const [fimCotacao,setFimCotacao]=useSessionState("fimCotacao","");
   const [cotacaoExpandida,setCotacaoExpandida]=useSessionState("cotacaoExpandida","");
   const [escopoMapa,setEscopoMapa]=useSessionState("escopoMapa",obraIdFixo||currentUser?.obraId||savedScope?.obraId?"obra":"empresa");
-  const [filtroKanban,setFiltroKanban]=useSessionState("filtroKanban","ativos");
+  const [queuePreferences,setQueuePreferences]=useQueuePreferences(currentUser?.id,"cmp",{layout:"table"});
+  const filaLayout=queuePreferences.layout;
+  const setFilaLayout=layout=>setQueuePreferences({...queuePreferences,layout});
+  useEffect(()=>{if(aba==="kanban"){setFilaLayout("kanban");setAba("fila");}},[aba]);
 
   const obras = useMemo(()=>(data.obras || []).filter(o=>!currentUser?.obraId||o.id===currentUser.obraId),[data.obras,currentUser?.obraId]);
   const obraAtual   = obraIdFixo || obraSel || obras[0]?.id || "";
@@ -980,51 +987,6 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     });
   },[cotacoes,buscaCotacao,statusCotacao,inicioCotacao,fimCotacao,materialPorId,fornecedorPorId,solicitacaoPorId]);
   const pedidoPorId     = useMemo(() => new Map((data.pedidos||[]).map(p => [p.id, p])), [data.pedidos]);
-  const kanbanCompras=useMemo(()=>{
-    const hoje=new Date(`${today()}T12:00:00`).getTime();
-    const risco=(dataPrazo,concluido=false)=>{
-      if(concluido)return{nivel:"concluido",cor:C.green,rotulo:"Concluído"};
-      if(!dataPrazo)return{nivel:"sem_prazo",cor:C.muted,rotulo:"Sem prazo"};
-      const dias=Math.ceil((new Date(`${String(dataPrazo).slice(0,10)}T12:00:00`).getTime()-hoje)/86400000);
-      if(dias<0)return{nivel:"atrasado",cor:C.red,rotulo:`${Math.abs(dias)}d atrasado`};
-      if(dias<=3)return{nivel:"atencao",cor:C.yellowD,rotulo:dias===0?"Vence hoje":`${dias}d restantes`};
-      return{nivel:"no_prazo",cor:C.green,rotulo:`${dias}d restantes`};
-    };
-    const cotacaoAtivaPorSolicitacao=new Set((data.cotacoes||[]).filter(c=>c.status!=="cancelada").map(c=>c.solicitacaoId).filter(Boolean));
-    const pedidosAtivos=(data.pedidos||[]).filter(p=>p.obraId===obraAtual&&p.status!=="cancelado");
-    const colunas=[
-      {id:"demanda",titulo:"Demandas",sub:"Aguardam análise",cor:C.blue,cards:[]},
-      {id:"cotacao",titulo:"Cotações",sub:"Comparação de propostas",cor:C.purple,cards:[]},
-      {id:"pedido",titulo:"Pedidos a enviar",sub:"Rascunho",cor:C.orange,cards:[]},
-      {id:"entrega",titulo:"Aguardando entrega",sub:"Enviado ao fornecedor",cor:C.yellowD,cards:[]},
-      {id:"concluido",titulo:"Concluídos",sub:"Recebimento confirmado",cor:C.green,cards:[]},
-    ];
-    const porId=new Map(colunas.map(c=>[c.id,c]));
-    (data.solicitacoesCompra||[]).filter(s=>s.obraId===obraAtual&&!["cancelada","pedido_gerado"].includes(s.status)&&!cotacaoAtivaPorSolicitacao.has(s.id)).forEach(s=>{
-      const prazo=s.necessidade||s.dataNecessidade||s.prazo||"";
-      porId.get("demanda").cards.push({id:s.id,tipo:"solicitacao",codigo:s.numero||"Solicitação",titulo:(s.itens||[])[0]?.descricaoRef||s.observacao||"Materiais da obra",detalhe:`${(s.itens||[]).length} item(ns) · ${s.prioridade||"normal"}`,prazo,risco:risco(prazo),registro:s});
-    });
-    (data.cotacoes||[]).filter(c=>c.obraId===obraAtual&&c.status==="aberta"&&(cotacaoMultiItens(c)?itensPendentesDaCotacao(c).length>0:!c.pedidoId)).forEach(c=>{
-      const sol=solicitacaoPorId.get(c.solicitacaoId);const prazo=sol?.necessidade||sol?.dataNecessidade||"";
-      porId.get("cotacao").cards.push({id:c.id,tipo:"cotacao",codigo:c.numero||"Cotação",titulo:cotacaoMultiItens(c)&&c.itens.length>1?`${c.itens.length} itens · ${materialPorId.get(c.materialId)?.descricao||"Material"}`:materialPorId.get(c.materialId)?.descricao||"Material",detalhe:`${(c.propostas||[]).length} proposta(s) · ${cotacaoMultiItens(c)?`${itensPendentesDaCotacao(c).length} item(ns) a decidir`:`${Number(c.qtd||0).toLocaleString("pt-BR")} ${unidMat(c.materialId)}`}`,prazo,risco:risco(prazo),registro:c});
-    });
-    pedidosAtivos.forEach(p=>{
-      // A coluna depende da entrega, não do pagamento (compra a prazo é o
-      // normal). O pagamento aparece no próprio cartão.
-      const status=statusPedido(p),concluido=status==="recebido";
-      const coluna=concluido?"concluido":status==="rascunho"?"pedido":"entrega";
-      const pagamento=statusPagamentoPedido(p)==="pago"?"pago":`a pagar ${fmtCompact(saldoPagamentoPedido(p))}`;
-      const prazo=p.previsao||p.dataEntrega||"";
-      const itens=(p.itens||[]);const primeiro=itens[0];
-      porId.get(coluna).cards.push({id:p.id,tipo:"pedido",codigo:p.numero||"Pedido",titulo:primeiro?(materialPorId.get(primeiro.materialId)?.descricao||primeiro.descricaoRef||"Material"):"Pedido de compra",detalhe:`${fornecedorPorId.get(p.fornecedorId)?.nome||"Fornecedor não definido"}${itens.length>1?` · +${itens.length-1} item(ns)`:""} · ${pagamento}`,valor:totalPedido(p),prazo,risco:risco(prazo,concluido),registro:p});
-    });
-    colunas.forEach(col=>col.cards.sort((a,b)=>{
-      const ordem={atrasado:0,atencao:1,sem_prazo:2,no_prazo:3,concluido:4};
-      return ordem[a.risco.nivel]-ordem[b.risco.nivel]||String(a.prazo||"9999").localeCompare(String(b.prazo||"9999"));
-    }));
-    return colunas;
-  },[data.solicitacoesCompra,data.cotacoes,data.pedidos,obraAtual,solicitacaoPorId,materialPorId,fornecedorPorId,unidMat,C]);
-
   const inicioPeriodoHistorico=useMemo(()=>{
     if(periodoHistorico==="todos")return "";
     const d=new Date(`${today()}T12:00:00`);
@@ -1442,60 +1404,9 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     avisarPendencias(result);
   };
 
-  const abrirPagamento=p=>setPagModal({pedido:p,valor:String(saldoPagamentoPedido(p).toFixed(2)),data:today(),origem:p.origemPagamento||"empresa",transacaoId:"",referencia:"",observacao:"",conciliado:false,comprovanteFile:null,comprovanteLegenda:""});
-  const registrarPagamento=async()=>{
-    const f=pagModal,pedido=f?.pedido,valor=Number(String(f?.valor||"").replace(",","."));
-    if(!pedido||!(valor>0)){showToast("Informe o valor pago.","error");return;}
-    const saldo=saldoPagamentoPedido(pedido);
-    if(valor>saldo+.01){showToast(`O pagamento supera o saldo de ${fmt(saldo)}.`,"error");return;}
-    if(!canManagePurchases(currentUser?.role)){showToast("Seu perfil não possui permissão para registrar pagamentos de compras.","error");return;}
-    const obra=(data.obras||[]).find(o=>o.id===pedido.obraId);
-    const caixa=situacaoCaixaObra(data,pedido.obraId);
-    if(f.origem==="caixa_obra"&&!obra?.hasCaixa)showToast("Caixa ainda não ativado. Confira a configuração e os movimentos registrados.","warn");
-    if(f.origem==="caixa_obra"&&valor>caixa.saldo+.001)showToast("O registro deixará o caixa negativo. Confira aportes e a origem real do pagamento.","warn");
-    const conferencia=conferenciaPagamentoPedido(data,pedido.id);
-    if(conferencia&&valor>conferencia.liberadoCents/100+.005&&(!f.adiantamento||!String(f.motivoAdiantamento||"").trim())){
-      showToast("Pagamento anterior à conferência completa. Será registrado como adiantamento; complete a entrega, a nota e a observação depois.","warn");
-    }
-    setSubindoComprovantePagamento(true);
-    try{
-    const pagamentoId=uid();let comprovantes=[];let workspace=null;
-    if(f.comprovanteFile){
-      const file=f.comprovanteFile,dataUrl=await arquivoComoDataUrl(file);
-      const resp=await enviarArquivoOneDrive({dataUrl,obraName:obra?.name||"Obra",driveId:obra?.oneDriveDriveId,folderId:obra?.oneDriveFolderId,folders:obra?.oneDriveFolders,category:"financeiro",subfolder:`Pagamentos de compras/${pedido.numero||"Pedido"}/${String(f.data||today()).slice(0,7)}`,date:f.data||today(),fileName:file.name});
-      if(!resp.ok&&!resp.url)throw new Error(resp.error||"Falha ao salvar o comprovante no OneDrive.");
-      comprovantes=[{id:resp.item?.id||uid(),nome:resp.item?.name||file.name,legenda:String(f.comprovanteLegenda||file.name).trim(),url:resp.item?.webUrl||resp.url,path:resp.path||"",tipo:file.type||"",tamanho:Number(file.size||0),enviadoEm:new Date().toISOString(),enviadoPorId:currentUser?.id||"",enviadoPor:currentUser?.nome||""}];
-      workspace=resp.workspace||null;
-    }
-    const transacao=(data.transacoes||[]).find(t=>t.id===f.transacaoId);
-    const pagamento={id:pagamentoId,data:f.data||today(),valor,origem:f.origem,conciliado:!!f.conciliado||!!transacao,
-      transacaoId:f.transacaoId||"",referencia:f.referencia||transacao?.descricao||"",observacao:f.observacao||"",
-      comprovantes,
-      registradoPorId:currentUser?.id||"",registradoPor:currentUser?.nome||"",registradoEm:new Date().toISOString()};
-    const result=await dispatchCommand(atual=>{
-      const vigente=(atual.pedidos||[]).find(item=>item.id===pedido.id);
-      return {
-        type:OPERATIONAL_COMMAND.PAYABLE_PAYMENT_RECORDED,
-        idempotencyKey:`purchase-payment-create-${pagamentoId}-${uid()}`,
-        expectedVersion:Number(vigente?.version||0),
-        actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-        payload:{
-          targetType:"pedido",targetId:pedido.id,payment:pagamento,
-          workCashMovementId:f.origem==="caixa_obra"?uid():"",
-          workspace,adiantamento:!!f.adiantamento,motivoAdiantamento:String(f.motivoAdiantamento||"").trim(),
-        },
-      };
-    });
-    if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o pagamento.");
-    const pedidoConfirmado=(result.data?.pedidos||[]).find(item=>item.id===pedido.id);
-    const quitado=saldoPagamentoPedido(pedidoConfirmado||pedido)<=.01;
-    const saldoProjetado=caixa.saldo-valor;
-    setPagModal(null);
-    if(f.origem==="caixa_obra"&&saldoProjetado<=caixa.limiteBaixo)showToast(`Pagamento registrado, mas o caixa ficou baixo: ${fmt(saldoProjetado)}. Recomenda-se novo aporte (reserva mínima ${fmt(caixa.limiteBaixo)}).`,"warn");
-    else showToast(quitado?`Pedido ${pedido.numero} quitado.`:`Pagamento parcial registrado. Saldo: ${fmt(saldo-valor)}.`);
-    }catch(err){showToast(err.message||"Não foi possível registrar o pagamento.","error");}
-    finally{setSubindoComprovantePagamento(false);}
-  };
+  const receiptAttempts=useRef(new Map());
+  const receiptAttempt=id=>{if(!receiptAttempts.current.has(id))receiptAttempts.current.set(id,{owner:currentUser?.id});return receiptAttempts.current.get(id);};
+  const abrirPagamento=p=>{if(!canActOnPurchaseQueue(currentUser,{type:'order',stage:'pedidos',obraId:p.obraId})){showToast('Seu perfil não permite registrar pagamento nesta obra.','error');return;}setPagModal({id:p.id,type:'pedido'});};
 
   const reclassificarOrigemPagamento=async(pedido,pagamentoId,novaOrigem)=>{
     const pagamento=(pedido.pagamentos||[]).find(pg=>pg.id===pagamentoId);
@@ -1566,6 +1477,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   // chegar antes, durante ou depois da quitação (compra a prazo é o caso
   // normal). O saldo em aberto continua visível, só não bloqueia mais.
   const receber = async (pedido, recebidos) => {
+    if(!canActOnPurchaseQueue(currentUser,{type:"order",stage:"recebimentos",obraId:pedido.obraId}))return {ok:false,status:403,reason:"Seu perfil não permite receber materiais nesta obra."};
     // recebidos: { [itemId]: qtd que chegou AGORA }. R6: a mesma regra do
     // "Chegou" da tela da obra (montarRecebimento).
     const montado=montarRecebimento(pedido,recebidos,{quando:new Date().toISOString().slice(0,10),novoId:uid,
@@ -1581,14 +1493,15 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       showToast("O recebimento seguro exige conexão com o servidor.","error");
       return;
     }
-    const result=await dispatchCommand(atual=>{
+    Object.assign(receiptAttempt(pedido.id),{owner:currentUser.id,context:{pageId:'cmp',obraId:pedido.obraId,obra:(data.obras||[]).find(w=>w.id===pedido.obraId)?.name,label:`Recebimento · ${pedido.numero||pedido.id}`}});
+    const result=await dispatchConfirmedAttempt(receiptAttempt(pedido.id),dispatchCommand,atual=>{
       const vigente=(atual.pedidos||[]).find(item=>item.id===pedido.id);
       return {type:OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED,
         idempotencyKey:`pedido-recebimento-${pedido.id}-${uid()}`,
         expectedVersion:Number(vigente?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
         payload:{pedidoId:pedido.id,receivedQuantities:montado.receivedQuantities,stockEntries:entradas}};
     });
-    if(!result?.ok){showToast(result?.reason||"Não foi possível registrar o recebimento.","error");return;}
+    if(!result?.ok){showToast(result?.reason||"Não foi possível registrar o recebimento.","error");return result;}
     const pedidoConfirmado=(result.data?.pedidos||[]).find(item=>item.id===pedido.id)||pedido;
 
     setRecModal(null);
@@ -1599,6 +1512,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
         : `Recebimento parcial registrado. ${entradas.length} item(ns) no estoque.`
     );
     avisarPendencias(result);
+    return result;
   };
 
   const cancelarPedido = async(p) => {
@@ -1873,10 +1787,13 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   };
 
   const moverCardKanban=(chave,destino)=>{
-    const [tipo,id]=String(chave||"").split(":");
-    const origem=kanbanCompras.find(col=>col.cards.some(card=>card.tipo===tipo&&card.id===id));
-    const card=origem?.cards.find(item=>item.tipo===tipo&&item.id===id);
-    if(!card||origem.id===destino)return;
+    if(!podeProcessar)return;
+    const row=fluxoCompras.rows.find(item=>`${item.type}:${item.id}`===chave);
+    if(!row)return;
+    const origem={id:({solicitacoes:'demanda',cotacoes:'cotacao',aprovacoes:'aprovacoes',pedidos:'pedido',recebimentos:'entrega'})[row.stage]};
+    if(origem.id===destino)return;
+    if(origem.id==='aprovacoes'||destino==='aprovacoes'){showToast('Consulte Ver aprovação para revisar a decisão. Arrastar não aprova a compra.','warn');return;}
+    const card={tipo:({request:'solicitacao',quote:'cotacao',order:'pedido'})[row.type],registro:row.record,id:row.id};
     const ordem=["demanda","cotacao","pedido","entrega","concluido"];
     const atual=ordem.indexOf(origem.id),proxima=ordem.indexOf(destino);
     if(proxima!==atual+1){
@@ -1931,11 +1848,13 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     disabled={!!exportando||!planilhas.some(p=>p.linhas.length)} onClick={()=>exportarExcel(assunto,planilhas)}
     aria-label={rotulo}>{exportando===assunto?"Gerando planilha…":"Exportar para Excel"}</Button>;
   const abrirRegistroFluxo=row=>{
+    if(!canActOnPurchaseQueue(currentUser,row)){showToast("Seu perfil permite consultar este registro, mas não executar esta ação.","error");return;}
     if(row.type==="order"){
       if(row.stage==="recebimentos"){setRecModal(row.record);return;}
       if(podeProcessar){setPedModal({...row.record,motivoAjuste:"",itens:(row.record.itens||[]).map(i=>({...i,qtd:String(i.qtd),precoUnit:String(i.precoUnit)}))});return;}
       irParaPedidos(row.code);return;
     }
+    guardarOrigemCompra({...row,label:row.code});
     if(row.type==="quote"){
       setAba("cotacoes");setBuscaCotacao("");setStatusCotacao("todas");setInicioCotacao("");setFimCotacao("");
       setCotacaoExpandida(row.id);setRegistroFoco(row.id);return;
@@ -1952,7 +1871,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     ["forn","Cadastro de fornecedores"],["contratos","Contratos e medições"],["hist_fornecedor","Histórico por fornecedor"],["precos","Evolução de insumos"]
   ];
   const irParaArea=id=>{
-    setAba(id);setRegistroFoco("");setRetornosCompra([]);
+    if(id==="kanban"){setFilaLayout("kanban");setAba("fila");}else setAba(id);setRegistroFoco("");setRetornosCompra([]);
     window.requestAnimationFrame(()=>document.getElementById("compras-area-atual")?.focus({preventScroll:true}));
   };
   const guardarOrigemCompra=source=>setRetornosCompra(previous=>[...previous.slice(-7),{
@@ -2019,12 +1938,8 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   const abrirNovaCotacao=()=>setCotModal({id:"",obraId:obraAtual,orcNivel1Id:"",data:today(),
     itens:[itemVazioCotacao()],propostas:[propostaVaziaCotacao(),propostaVaziaCotacao()]});
 
-  if(pilotOpen)return <Suspense fallback={<p role="status">Carregando piloto…</p>}><OperationalPilot data={data} mode="compras" scope={{workId:obraIdFixo||(!todasObras?obraAtual:"")}} notes={pilotNotes} onNotes={setPilotNotes} onClose={()=>setPilotOpen(false)}/></Suspense>;
-
-  return (
-    <div className="anim compras-view" style={{display:"flex",flexDirection:"column",gap:isDesktop?12:10}}>
-      <PageHeader className="workspace-header purchase-header" title="Compras" description="Solicitações, pedidos e entregas."
-        secondaryActions={<div className="purchase-context-bar">
+  const comandosDaLista=["fila","aprovacoes","recebimentos"].includes(aba);
+  const escopoComandos=<div className="purchase-context-bar">
           <div className="compras-project-picker">{obraIdFixo
             ? <Inp label="Obra" value={obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
             : <Select label="Obra" value={todasObras?"all":obraAtual} onChange={event=>{const v=event.target.value;
@@ -2032,8 +1947,8 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                 if(v==="all"){setEscopoMapa("empresa");return;}
                 setEscopoMapa("obra");setObraSel(v);
               }} options={[{value:"all",label:"Todas as obras"},...obras.map(o=>({value:o.id,label:o.name}))]}/>}</div>
-        </div>}
-        primaryAction={<div className="purchase-header-actions">
+        </div>;
+  const acoesComandos=<div className="purchase-header-actions">
           {aba==="cotacoes"&&<Button variant="secondary" size="icon" aria-label="Voltar à fila" title="Voltar à fila" onClick={()=>irParaArea("fila")}><ArrowLeft aria-hidden="true" size={18}/></Button>}
           <Button onClick={aba==="cotacoes"?abrirNovaCotacao:aba==="pedidos"?abrirNovoPedido:abrirNovaSolicitacao}>{aba==="cotacoes"?"Adicionar cotação":aba==="pedidos"?"Novo pedido":"Nova solicitação"}</Button>
           <OrderActionMenu label="Mais ações de Compras" comuns={[
@@ -2042,11 +1957,15 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
             ...(["cotacoes","pedidos"].includes(aba)?[{id:"solicitar",label:"Nova solicitação"}]:[]),
             ...(aba!=="fila"&&aba!=="cotacoes"?[{id:"fila",label:"Voltar à fila"}]:[]),
           ]} onSelect={id=>{if(id==="piloto")setPilotOpen(true);else if(id==="analisar")abrirModoAnalise();else if(id==="solicitar")abrirNovaSolicitacao();else irParaArea("fila");}}/>
-        </div>}>
-        {save.state!=="idle"&&<p role="status" aria-live="polite" className="purchase-save-state" data-state={save.state}>{save.message}</p>}
-      </PageHeader>
-      <PurchaseNavigation area={aba} onNavigate={irParaArea} counts={fluxoCompras.counts}
-        orderCount={(data.pedidos||[]).filter(p=>obraIdsMapa.includes(p.obraId)).length} financeCount={resumoFinanceiro.pendentes} otherAreas={abasSecundarias}/>
+        </div>;
+  if(pilotOpen)return <Suspense fallback={<LoadingState label="piloto"/>}><OperationalPilot data={data} mode="compras" scope={{workId:obraIdFixo||(!todasObras?obraAtual:"")}} notes={pilotNotes} onNotes={setPilotNotes} onClose={()=>setPilotOpen(false)}/></Suspense>;
+
+  return (
+    <div className="anim compras-view" style={{display:"flex",flexDirection:"column",gap:isDesktop?12:10}}>
+      <WorkspaceHeading title="Compras" navigation={<PurchaseNavigation area={aba} onNavigate={irParaArea} counts={fluxoCompras.counts}
+        orderCount={(data.pedidos||[]).filter(p=>obraIdsMapa.includes(p.obraId)).length} financeCount={resumoFinanceiro.pendentes} otherAreas={abasSecundarias}/>}/>
+      {save.state!=="idle"&&<p role="status" aria-live="polite" className="purchase-save-state" data-state={save.state}>{save.message}</p>}
+      {!comandosDaLista&&<WorkspaceCommandBar label="Comandos de Compras" scope={escopoComandos} actions={acoesComandos}/>}
       {retornoCompra&&retornoCompra.scope===obraIdsMapa.join('|')&&<nav className="purchase-flow-return" aria-label="Retorno à origem da compra"><p>Origem: {retornoCompra.label}. O recorte anterior será restaurado ao voltar.</p><Button variant="secondary" onClick={voltarOrigemCompra}>Voltar para {retornoCompra.label}</Button></nav>}
       {/* Na fila, aprovações e recebimentos o painel abaixo já tem título próprio:
           o nome da área fica só para leitor de tela e como destino do foco. */}
@@ -2055,56 +1974,12 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
         <h3>{PURCHASE_AREA_LABELS[aba]||comprasAbas.find(([id])=>id===aba)?.[1]}</h3>
         {aba!=="fila"&&aba!=="cotacoes"&&<Button variant="ghost" size="sm" onClick={()=>irParaArea("fila")}>Voltar à fila</Button>}
       </div>
-      {["fila","aprovacoes","recebimentos"].includes(aba)&&<PurchaseWorkspace model={fluxoCompras} area={aba} scope={escopoFluxo}
-        filters={filtrosFluxo} onFiltersChange={setFiltrosFluxo} onOpen={abrirRegistroFluxo}
+      {["fila","aprovacoes","recebimentos"].includes(aba)&&<PurchaseWorkspace model={fluxoCompras} area={aba} scope={escopoFluxo} scopeKey={`${aba}:${obraIdsMapa.join("|")}`}
+        scopeControl={escopoComandos} commandActions={acoesComandos} canAct={row=>canActOnPurchaseQueue(currentUser,row)} filters={filtrosFluxo} onFiltersChange={setFiltrosFluxo} onOpen={abrirRegistroFluxo}
+        layout={filaLayout} onLayoutChange={setFilaLayout} onMove={podeProcessar?(key,stage)=>moverCardKanban(key,({solicitacoes:'demanda',cotacoes:'cotacao',aprovacoes:'aprovacoes',pedidos:'pedido',recebimentos:'entrega'})[stage]):undefined}
         supplierName={nomeForn} supplierChargeLink={linkCobrancaDoGrupo}
         exportButton={linhas=>botaoExportar(aba,[planilhaFila(linhas)],`Exportar para Excel os ${linhas.length} registro(s) da lista`)}
         afterMetrics={porObra&&porObra.linhas.length>1?<PurchasesByWork model={porObra} onOpenWork={id=>abrirObra(id,"fila")}/>:null}/>}
-
-      {aba==="kanban"&&<div className="purchase-kanban-view">
-        <section className="purchase-kanban-head">
-          <div><p>Controle visual de abastecimento</p><h3>Kanban de compras</h3><span>Os cartões avançam conforme solicitação, cotação, pagamento e recebimento são registrados.</span></div>
-          <div className="purchase-kanban-filters">
-            {[["ativos","Fluxo ativo"],["criticos","Atrasados e atenção"],["todos","Todos"]].map(([id,label])=><StandardButton variant="secondary" key={id} type="button" aria-pressed={filtroKanban===id} data-active={filtroKanban===id} onClick={()=>setFiltroKanban(id)}>{label}</StandardButton>)}
-          </div>
-        </section>
-        <div className="purchase-andon-legend" aria-label="Legenda de prazos">
-          <span><i style={{background:"var(--arcd-success-text)"}}/>No prazo</span><span><i style={{background:"var(--arcd-action-primary)"}}/>Até 3 dias</span><span><i style={{background:"var(--arcd-danger-text)"}}/>Atrasado</span><span><i style={{background:"var(--arcd-text-secondary)"}}/>Sem prazo</span>
-        </div>
-        <div className="purchase-kanban-board">
-          {kanbanCompras.map(coluna=>{
-            const cards=coluna.cards.filter(card=>{
-              if(filtroKanban==="criticos")return["atrasado","atencao"].includes(card.risco.nivel);
-              if(filtroKanban==="ativos")return coluna.id!=="concluido";
-              return true;
-            });
-            const valor=cards.reduce((s,c)=>s+Number(c.valor||0),0);
-            return <section className="purchase-kanban-column" key={coluna.id} style={{"--column-color":coluna.cor}}
-              onDragOver={e=>{e.preventDefault();e.currentTarget.dataset.dragover="true";}}
-              onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget))delete e.currentTarget.dataset.dragover;}}
-              onDrop={e=>{e.preventDefault();delete e.currentTarget.dataset.dragover;moverCardKanban(e.dataTransfer.getData("text/arcd-kanban"),coluna.id);}}>
-              <header><div><span>{coluna.titulo}</span><small>{coluna.sub}</small></div><b>{cards.length}</b></header>
-              {!!valor&&<div className="purchase-kanban-column-total">{fmtCompact(valor)}</div>}
-              <div className="purchase-kanban-cards">
-                {cards.map(card=><RecordAction type="button" draggable className="purchase-kanban-card" key={`${card.tipo}-${card.id}`} style={{"--risk-color":card.risco.cor}}
-                  onDragStart={e=>{e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/arcd-kanban",`${card.tipo}:${card.id}`);e.currentTarget.dataset.dragging="true";}}
-                  onDragEnd={e=>{delete e.currentTarget.dataset.dragging;}}
-                  onClick={()=>{
-                  if(card.tipo==="solicitacao")setSolModal({...card.registro,itens:(card.registro.itens||[]).map(i=>({...i}))});
-                  else if(card.tipo==="cotacao")setCotModal(formularioDaCotacao(card.registro));
-                  else setPedModal({...card.registro,itens:(card.registro.itens||[]).map(i=>({...i}))});
-                }}>
-                  <div className="purchase-kanban-card-top"><span>{card.codigo}</span><b style={{color:card.risco.cor}}>{card.risco.rotulo}</b></div>
-                  <h4>{card.titulo}</h4><p>{card.detalhe}</p>
-                  <footer><span>{card.prazo?`Prazo ${fmtDate(card.prazo)}`:"Defina o prazo"}</span>{card.valor>0&&<strong>{fmtCompact(card.valor)}</strong>}</footer>
-                </RecordAction>)}
-                {!cards.length&&<div className="purchase-kanban-empty">Nenhum cartão nesta etapa</div>}
-              </div>
-            </section>;
-          })}
-        </div>
-        <p className="purchase-kanban-help"><b>Regra Andon:</b> vermelho exige ação imediata; amarelo deve ser tratado antes de entrar em atraso. Clique em um cartão para atualizar o registro de origem.</p>
-      </div>}
 
       {aba==="mapa"&&<div className="compras-management-map" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
         <section style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-3)",flexWrap:"wrap",padding:"var(--arcd-space-3) var(--arcd-space-4)",background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:10}}>
@@ -2144,44 +2019,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
         </section>
         {porObra&&porObra.linhas.length>1&&<PurchasesByWork model={porObra} titulo="Compras por obra" onOpenWork={id=>abrirObra(id,"fila")}/>}
         </>:<>
-        <section className="purchase-dashboard-kanban">
-          <div className="purchase-kanban-head">
-            <div><p>Controle visual Andon</p><h3>Fluxo de compras e prazos</h3><span>Prioridades organizadas da necessidade ao recebimento, sem ocultar os indicadores gerenciais.</span></div>
-            <div style={{display:"flex",gap:"var(--arcd-space-1)",flexWrap:"wrap"}}><div className="purchase-kanban-filters">
-              {[["ativos","Fluxo ativo"],["criticos","Críticos"],["todos","Todos"]].map(([id,label])=><StandardButton variant="secondary" key={id} type="button" aria-pressed={filtroKanban===id} data-active={filtroKanban===id} onClick={()=>setFiltroKanban(id)}>{label}</StandardButton>)}
-            </div><Btn size="sm" v="ghost" onClick={()=>irParaArea("kanban")}>Ampliar Kanban →</Btn></div>
-          </div>
-          <div className="purchase-andon-legend"><span><i style={{background:"var(--arcd-success-text)"}}/>No prazo</span><span><i style={{background:"var(--arcd-action-primary)"}}/>Até 3 dias</span><span><i style={{background:"var(--arcd-danger-text)"}}/>Atrasado</span><span><i style={{background:"var(--arcd-text-secondary)"}}/>Sem prazo</span></div>
-          <div className="purchase-dashboard-deadlines">
-            {[
-              ["Atrasados",kanbanCompras.flatMap(c=>c.cards).filter(c=>c.risco.nivel==="atrasado").length,C.red],
-              ["Atenção em 3 dias",kanbanCompras.flatMap(c=>c.cards).filter(c=>c.risco.nivel==="atencao").length,C.yellowD],
-              ["No prazo",kanbanCompras.flatMap(c=>c.cards).filter(c=>c.risco.nivel==="no_prazo").length,C.green],
-              ["Sem data definida",kanbanCompras.flatMap(c=>c.cards).filter(c=>c.risco.nivel==="sem_prazo").length,C.muted],
-            ].map(([label,valor,cor])=><div key={label}><b style={{color:cor}}>{valor}</b><span>{label}</span></div>)}
-          </div>
-          <div className="purchase-kanban-board purchase-kanban-board-compact">
-            {kanbanCompras.map(coluna=>{
-              const cards=coluna.cards.filter(card=>filtroKanban==="criticos"?["atrasado","atencao"].includes(card.risco.nivel):filtroKanban==="ativos"?coluna.id!=="concluido":true);
-              return <section className="purchase-kanban-column" key={coluna.id} style={{"--column-color":coluna.cor}}
-                onDragOver={e=>{e.preventDefault();e.currentTarget.dataset.dragover="true";}}
-                onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget))delete e.currentTarget.dataset.dragover;}}
-                onDrop={e=>{e.preventDefault();delete e.currentTarget.dataset.dragover;moverCardKanban(e.dataTransfer.getData("text/arcd-kanban"),coluna.id);}}>
-                <header><div><span>{coluna.titulo}</span><small>{coluna.sub}</small></div><b>{cards.length}</b></header>
-                <div className="purchase-kanban-cards">{cards.slice(0,5).map(card=><RecordAction type="button" draggable className="purchase-kanban-card" key={`${card.tipo}-${card.id}`} style={{"--risk-color":card.risco.cor}}
-                  onDragStart={e=>{e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/arcd-kanban",`${card.tipo}:${card.id}`);e.currentTarget.dataset.dragging="true";}}
-                  onDragEnd={e=>{delete e.currentTarget.dataset.dragging;}}
-                  onClick={()=>{
-                  if(card.tipo==="solicitacao")setSolModal({...card.registro,itens:(card.registro.itens||[]).map(i=>({...i}))});
-                  else if(card.tipo==="cotacao")setCotModal(formularioDaCotacao(card.registro));
-                  else setPedModal({...card.registro,itens:(card.registro.itens||[]).map(i=>({...i}))});
-                }}><div className="purchase-kanban-card-top"><span>{card.codigo}</span><b style={{color:card.risco.cor}}>{card.risco.rotulo}</b></div><h4>{card.titulo}</h4><p>{card.detalhe}</p><footer><span>{card.prazo?fmtDate(card.prazo):"Defina o prazo"}</span>{card.valor>0&&<strong>{fmtCompact(card.valor)}</strong>}</footer></RecordAction>)}
-                  {!cards.length&&<div className="purchase-kanban-empty">Nenhum cartão</div>}{cards.length>5&&<StandardButton variant="secondary" className="purchase-kanban-more" onClick={()=>irParaArea("kanban")}>+ {cards.length-5} cartão(ões)</StandardButton>}
-                </div>
-              </section>;
-            })}
-          </div>
-        </section>
+        <section className="purchase-dashboard-kanban"><h3>Fluxo de compras e prazos</h3><p>Consulte a fila em tabela ou Kanban com as mesmas obras, busca e prazos.</p><Button variant="secondary" onClick={()=>irParaArea('kanban')}>Abrir Kanban da fila</Button></section>
         <section style={{display:"grid",gridTemplateColumns:isDesktop?"minmax(0,1fr) minmax(0,1fr)":"1fr",gap:"var(--arcd-space-2)"}}>
           <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:10,padding:"var(--arcd-space-3) var(--arcd-space-3)"}}>
             <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Maturidade do controle</p>
@@ -2922,31 +2760,8 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
         </div></Modal>;})()}
       {recModal  && <ModalRecebimento pedido={recModal} onClose={()=>setRecModal(null)}
                                       onReceber={receber} nomeMat={nomeMat}
-                                      nomeForn={nomeForn} notice={<PurchaseSaveNotice save={save}/>}/>}
-      {pagModal&&<Modal title={`Pagamento · ${pagModal.pedido.numero}`} onClose={()=>setPagModal(null)}><div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-2)",background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:8,padding:"var(--arcd-space-2) var(--arcd-space-2)"}}><div><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",fontWeight:"var(--arcd-font-weight-semibold)"}}>Total do pedido</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{fmt(totalPedido(pagModal.pedido))}</p></div><div><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",fontWeight:"var(--arcd-font-weight-semibold)"}}>Saldo antes deste pagamento</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-danger-text)"}}>{fmt(saldoPagamentoPedido(pagModal.pedido))}</p></div></div>
-        <Sel label="Origem real do pagamento *" value={pagModal.origem} onChange={v=>setPagModal(f=>({...f,origem:v,transacaoId:v==="empresa"?f.transacaoId:""}))} options={[{v:"empresa",l:"Conta bancária da empresa"},{v:"caixa_obra",l:"Caixa da obra"},{v:"cliente_direto",l:"Cliente pagou diretamente"}]}/>
-        {pagModal.origem==="caixa_obra"&&(()=>{const cx=situacaoCaixaObra(data,pagModal.pedido.obraId),valor=Number(String(pagModal.valor||"").replace(",","."))||0,projetado=cx.saldo-valor,negativo=projetado<-.001,baixo=!negativo&&projetado<=cx.limiteBaixo;return <div style={{background:negativo?"color-mix(in srgb, var(--arcd-danger-text) 5%, transparent)":baixo?"color-mix(in srgb, var(--arcd-warning-text) 5%, transparent)":"color-mix(in srgb, var(--arcd-success-text) 5%, transparent)",border:`1px solid ${negativo?"var(--arcd-danger-text)":baixo?"var(--arcd-warning-text)":"var(--arcd-success-text)"}`,borderRadius:9,padding:"var(--arcd-space-2) var(--arcd-space-2)"}}><div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"var(--arcd-space-2)"}}>{[["Saldo disponível",cx.saldo,cx.saldo>0?C.green:C.red],["Após pagamento",projetado,negativo?C.red:baixo?C.orange:C.green],["Reserva mínima",cx.limiteBaixo,C.muted]].map(([l,v,c])=><div key={l}><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",fontWeight:"var(--arcd-font-weight-semibold)"}}>{l}</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:c,marginTop:"var(--arcd-space-half)"}}>{fmt(v)}</p></div>)}</div>{!((data.obras||[]).find(o=>o.id===pagModal.pedido.obraId)?.hasCaixa)&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-danger-text)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-2)"}}>Caixa não ativado no cadastro desta obra.</p>}{negativo&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-danger-text)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-2)"}}>Aviso: o saldo ficará negativo. Confira aportes e a origem real do pagamento.</p>}{baixo&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-warning-text)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-2)"}}>Alerta de caixa baixo: o pagamento é possível, mas deixará a reserva abaixo do nível recomendado.</p>}</div>;})()}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-2)"}}><Inp label="Valor pago *" type="number" value={pagModal.valor} onChange={v=>setPagModal(f=>({...f,valor:v}))}/><Inp label="Data *" type="date" value={pagModal.data} onChange={v=>setPagModal(f=>({...f,data:v}))}/></div>
-        {pagModal.origem==="empresa"&&<Sel label="Vincular à transação bancária (opcional)" value={pagModal.transacaoId} onChange={v=>setPagModal(f=>({...f,transacaoId:v,conciliado:!!v}))} options={[{v:"",l:"Sem transação vinculada"},...(data.transacoes||[]).filter(t=>Number(t.valor)<0).slice().sort((a,b)=>(b.data||"").localeCompare(a.data||"")).slice(0,80).map(t=>({v:t.id,l:`${fmtDate(t.data)} · ${fmt(Math.abs(Number(t.valor||0)))} · ${t.descricao||"Saída bancária"}`}))]}/>}
-        <Inp label="Comprovante / referência" value={pagModal.referencia} onChange={v=>setPagModal(f=>({...f,referencia:v}))} placeholder="PIX, boleto, recibo ou identificação do cliente"/>
-        <FilePicker buttonLabel="Selecionar comprovante" accept=".pdf,image/jpeg,image/png,image/webp" onChange={e=>{const file=e.target.files?.[0];e.target.value="";if(!file)return;if(file.size>5.5*1024*1024){showToast("O comprovante deve ter no máximo 5,5 MB.","error");return;}setPagModal(f=>({...f,comprovanteFile:file,comprovanteLegenda:String(file.name||"").replace(/\.[^.]+$/,"")}));}} style={{padding:"var(--arcd-space-3) var(--arcd-space-3)",border:`1.5px dashed ${pagModal.comprovanteFile?"var(--arcd-success-text)":"var(--arcd-action-primary)"}66`,borderRadius:9,textAlign:"center",cursor:"pointer",background:pagModal.comprovanteFile?"color-mix(in srgb, var(--arcd-success-text) 3%, transparent)":"var(--arcd-surface-muted)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:pagModal.comprovanteFile?"var(--arcd-success-text)":"var(--arcd-action-primary)"}}>{pagModal.comprovanteFile?pagModal.comprovanteFile.name:"Anexar comprovante de pagamento"}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>PDF, JPG, PNG ou WEBP · salvo no OneDrive da obra</p></FilePicker>
-        {pagModal.comprovanteFile&&<Inp label="Legenda do comprovante" value={pagModal.comprovanteLegenda} onChange={v=>setPagModal(f=>({...f,comprovanteLegenda:v}))} placeholder="Ex.: PIX pago ao fornecedor"/>}
-        <label style={{display:"flex",gap:"var(--arcd-space-2)",alignItems:"center",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",cursor:"pointer"}}><ChoiceControl type="checkbox" checked={!!pagModal.conciliado} onChange={e=>setPagModal(f=>({...f,conciliado:e.target.checked}))}/><span>Pagamento/comprovante já conferido e conciliado</span></label>
-        {(()=>{
-          // C1.4: o servidor só libera até o conferido (recebido e com nota)
-          // mais a tolerância; o resto é adiantamento, com motivo.
-          const conf=conferenciaPagamentoPedido(data,pagModal.pedido.id);if(!conf)return null;
-          const valor=Number(String(pagModal.valor||"").replace(",","."))||0,liberado=conf.liberadoCents/100,acima=valor>liberado+0.005;
-          return <div style={{background:acima?"color-mix(in srgb, var(--arcd-warning-text) 5%, transparent)":"var(--arcd-surface-muted)",border:`1px solid ${acima?"var(--arcd-warning-text)":"var(--arcd-border-default)"}`,borderRadius:8,padding:"var(--arcd-space-2) var(--arcd-space-2)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
-            <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>Conferido: recebido {fmt(conf.receivedCents/100)} · notas {fmt(conf.invoicedCents/100)} · referência de conferência <b>{fmt(liberado)}</b></p>
-            {acima&&<label style={{display:"flex",gap:"var(--arcd-space-2)",alignItems:"center",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",cursor:"pointer"}}><ChoiceControl type="checkbox" checked={!!pagModal.adiantamento} onChange={e=>setPagModal(f=>({...f,adiantamento:e.target.checked}))}/><span>Identificar como adiantamento ao fornecedor</span></label>}
-            {acima&&pagModal.adiantamento&&<Inp label="Motivo do adiantamento (recomendado)" value={pagModal.motivoAdiantamento||""} onChange={v=>setPagModal(f=>({...f,motivoAdiantamento:v}))} placeholder="Ex.: sinal de 30% exigido pelo fornecedor"/>}
-          </div>;
-        })()}
-        <Inp label="Observação" value={pagModal.observacao} onChange={v=>setPagModal(f=>({...f,observacao:v}))} multiline/>
-        <div style={{display:"flex",gap:"var(--arcd-space-2)"}}><Btn v="ghost" full onClick={()=>setPagModal(null)} disabled={subindoComprovantePagamento}>Cancelar</Btn><Btn full onClick={registrarPagamento} disabled={subindoComprovantePagamento}><Ic n="check"/> {subindoComprovantePagamento?"Salvando comprovante...":"Registrar pagamento"}</Btn></div>
-      </div></Modal>}
+                                      nomeForn={nomeForn} attempt={receiptAttempt(recModal.id)} notice={<PurchaseSaveNotice save={save}/>}/>}
+      {pagModal&&<PaymentDialog data={data} user={currentUser} type="pedido" id={pagModal.id} pageId="cmp" dispatch={dispatchCommand} onClose={()=>setPagModal(null)} onSaved={()=>showToast('Pagamento registrado e confirmado pelo servidor.')}/>}
       {excluirCompraModal&&<Modal title={`Excluir compra · ${excluirCompraModal.pedido.numero}`} onClose={()=>setExcluirCompraModal(null)}><div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
         <div style={{padding:"var(--arcd-space-3) var(--arcd-space-3)",border:"1px solid var(--arcd-danger-text)",borderRadius:8,background:"color-mix(in srgb, var(--arcd-danger-text) 4%, transparent)"}}>
           <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-danger-text)"}}>Esta exclusão remove a compra dos controles operacionais.</p>
