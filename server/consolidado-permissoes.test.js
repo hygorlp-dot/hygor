@@ -81,8 +81,8 @@ describe("RDO resumido para o financeiro", () => {
   // produção para o relatório por obra, nunca de fotos, presenças ou falas.
   const rdo = {
     id: "rdo-1", obraId: "obra-a", data: "2026-11-01", status: "concluido", version: 3, productionVersion: 1,
-    servicos: [{ tarefaId: "t-1", quantidade: 12, unidade: "m²", horas: 16 }],
-    revisaoEngenheiro: { status: "revisado", em: "2026-11-02" },
+    servicos: [{ tarefaId: "t-1", quantidade: 12, unidade: "m²", horas: 16, obs: "texto livre do serviço" }],
+    revisaoEngenheiro: { status: "revisado", em: "2026-11-02", observacao: "texto livre da revisão" },
     fotos: ["foto.jpg"], anexos: ["laudo.pdf"], presencas: [{ employeeId: "e-1", horas: 8 }], efetivo: 4,
     ocorrencias: ["chuva"], comentarios: [{ autor: "Ana", texto: "interno" }], transcricaoVoz: "fala gravada", reflexaoIA: { texto: "resumo" },
   };
@@ -92,6 +92,8 @@ describe("RDO resumido para o financeiro", () => {
     const out = projectDataForUser(payload, { role: "financeiro", obraId: "obra-a" }).rdos;
     expect(out.map(r => r.id)).toEqual(["rdo-1"]);
     expect(Object.keys(out[0]).sort()).toEqual(["data", "id", "obraId", "productionVersion", "revisaoEngenheiro", "servicos", "status", "version"]);
+    expect(out[0].servicos).toEqual([{ tarefaId: "t-1", quantidade: 12, unidade: "m²", horas: 16 }]);
+    expect(out[0].revisaoEngenheiro).toEqual({ status: "revisado", em: "2026-11-02" });
     for (const field of ["fotos", "anexos", "presencas", "efetivo", "ocorrencias", "comentarios", "transcricaoVoz", "reflexaoIA"]) expect(out[0]).not.toHaveProperty(field);
   });
 

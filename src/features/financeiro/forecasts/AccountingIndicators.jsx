@@ -18,6 +18,7 @@ import {accountingExportSheets,accountingMetricText,accountingPrintHtml,ACCOUNTI
 import {shiftDay} from '../../../domains/financeiro/cash-forecast.js';
 import {marcellReportHtml} from '../../../reports/marcell-report.js';
 import {uid} from '../../../legacy/format.js';
+import {contar} from '../../../design-system/copy.js';
 
 function download(name,text){const url=URL.createObjectURL(new Blob(['\uFEFF'+text],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 export default function AccountingIndicators({data,asOf,state={},onChange,dispatchCommand,onExport}){
@@ -75,7 +76,7 @@ export default function AccountingIndicators({data,asOf,state={},onChange,dispat
     ]}/>
     <ReportTable title="Pendências da base contábil" headers={['Origem','Linha do CSV','Pendência']} rows={report.statement.issues.map(issue=>[issue.source,issue.line||'Subtotal',issue.message])}/>
     <ReportTable title="Comparação contabilidade e ERP" headers={['Base','Resultado','Leitura']} rows={[
-     ['Contabilidade',money(report.statement.income?.net),'Lucro ou prejuízo líquido da base importada.'],['ERP operacional',money(comparisonShown?.result),`${comparisonShown?.eventCount??0} eventos do razão nas competências do período; não comprova cobertura contábil integral.`],['Diferença contabilidade − ERP',money(difference),'Não cria lançamento nem ajusta a contabilidade ou o ERP.'],
+     ['Contabilidade',money(report.statement.income?.net),'Lucro ou prejuízo líquido da base importada.'],['ERP operacional',money(comparisonShown?.result),`Resultado da DRE consolidada, com mão de obra do ponto e equipamentos; ${contar(comparisonShown?.eventCount??0,'mês','meses')} com fatos no período. Não comprova cobertura contábil integral.`],['Diferença contabilidade − ERP',money(difference),'Não cria lançamento nem ajusta a contabilidade ou o ERP.'],
     ]}/>
     {selected.status==='conferida'?<><p>Comparação registrada na conferência: {selected.reconciliationNote||'Sem diferença identificada nos valores comparáveis.'}</p>{selected.erpComparison?.fingerprint!==comparison?.fingerprint&&<Alert variant="warning"><AlertDescription>Os fatos do ERP mudaram desde a conferência. A base contábil e a comparação registradas foram preservadas; confira se é necessária uma revisão.</AlertDescription></Alert>}</>:<>
      <Textarea label="Justificativa da conciliação com o ERP" value={reconciliation} onChange={event=>setReconciliation(event.target.value)} description="Explique diferenças, ajustes contábeis, cobertura ou ausência de base comparável. Obrigatória quando há diferença ou pendência do ERP."/>

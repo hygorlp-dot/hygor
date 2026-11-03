@@ -3,6 +3,8 @@ import {accountingPrintHtml,accountingExportSheets} from './accounting-report-ex
 import {data as original,accountingCsv} from '../../../scripts/fixtures/accounting-data.mjs';
 import {ACCOUNTING_COMMAND,parseAccountingCsv,accountingStatement,accountingIndicators,accountingErpComparison,applyAccountingCommand,validateAccountingSnapshotPolicy,accountingReportSheets} from './accounting-indicators.js';
 import {applyOperationalCommand} from '../sync/operational-commands.js';
+import {calcDREConsolidado} from './legacy-calculations.js';
+import {buildFinancialLedger,selectDRE} from './ledger.js';
 import {validateOperationalCommandScope} from '../../../server/operational-command-policy.js';
 import {projectDataForUser} from '../../../server/data-projection.js';
 const fixture=()=>structuredClone(original);
@@ -41,6 +43,20 @@ describe('base contábil importada e conferível',()=>{
   const draft=applyOperationalCommand(fixture(),importCommand()),first=review(draft.data).data,copy=JSON.stringify(first.accountingBases[0]);
   const next=importCommand('base-two');next.expectedVersion=1;const second=applyOperationalCommand(first,next);expect(second.ok).toBe(true);expect(second.data.accountingBases[1]).toMatchObject({revision:2,revisionOf:'base-one'});expect(JSON.stringify(second.data.accountingBases[0])).toBe(copy);
   expect(validateAccountingSnapshotPolicy(first,{...first,accountingBases:[]})).toMatch(/histórico/);expect(validateAccountingSnapshotPolicy(first,first)).toBe('');expect(applyOperationalCommand(draft.data,importCommand()).idempotent).toBe(true);
+ });
+ // A comparação contábil × ERP usa o resultado da própria DRE consolidada:
+ // com mão de obra do ponto e equipamentos, que o razão puro não contém.
+ it('compara com o resultado da DRE consolidada, incluindo mão de obra do ponto',()=>{
+  const data=fixture(),comparison=accountingErpComparison(data,'2026-10-01','2026-10-31');
+  const dre=calcDREConsolidado(data,2026,9),cents=value=>Math.round(Number(value||0)*100);
+  expect(comparison.result).toBe(cents(dre.lucroBruto));
+  expect(comparison.result).not.toBe(0);
+  expect(comparison.revenue).toBe(cents(dre.faturamento));
+  expect(comparison.cost).toBe(cents(dre.totalCustos));
+  const semPonto=selectDRE(buildFinancialLedger(data),{startDate:'2026-10',endDate:'2026-10'});
+  expect(comparison.cost).toBeGreaterThan(semPonto.costCents);
+  const outroPonto=structuredClone(data);for(const days of Object.values(outroPonto.attendance||{}))for(const day of Object.values(days))if(day?.status==='P')day.status='F';
+  expect(accountingErpComparison(outroPonto,'2026-10-01','2026-10-31').fingerprint).not.toBe(comparison.fingerprint);
  });
  it('exige reconciliação quando o ERP difere ou não possui base e detecta concorrência de fatos',()=>{
   const data=applyOperationalCommand(fixture(),importCommand()).data;expect(review(data,'base-one',{reconciliationNote:''}).reason).toMatch(/Explique/);expect(review(data,'base-one',{erpFingerprint:'stale'}).reason).toMatch(/mudaram/);
