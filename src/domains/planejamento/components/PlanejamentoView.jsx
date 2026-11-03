@@ -44,6 +44,7 @@ import { compareCpmResults } from "../legacy-canonical-diff.js";
 import { numeracaoEap } from "../export-hierarchy.js";
 import { dataCurtaComAno, faixasMensais } from "../export-timeline.js";
 import { chamarIA } from "../../../api";
+import {useSyncedWorkObra} from '../../../features/workflow/work-context.js';
 
 // Cores do cronograma impresso (DESIGN.md "ARCD Carbon"): verde/azul/vermelho
 // só como estado; "a iniciar" neutro (aço), não o ouro da marca.
@@ -61,6 +62,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
     !!getPlanningBudget(data, o.id, (data.planos||[]).find(p=>p.obraId===o.id)).budget
     ||(data.planos||[]).some(p=>p.obraId===o.id));
   const [obraId, setObraId] = useSessionState("obraId",()=>obraIdFixo||scopes.plan?.obraId||(obrasComOrc.some(o=>o.id===obraContextoSalvo())?obraContextoSalvo():(obrasComOrc[0]?.id||"")));
+  useSyncedWorkObra(obraId,setObraId,{allowedIds:obrasComOrc.map(o=>o.id),fixed:obraIdFixo});
 
   useRememberWorkflowScope(obraIdFixo?"obras":"plan",{obraId});
   useEffect(()=>{

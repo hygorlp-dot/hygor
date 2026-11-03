@@ -43,7 +43,7 @@ export const ROLES = [
 
 export const ACCESS_SECTORS=[
   {id:"engenharia",label:"Engenharia",color:"#1565C0",tabs:[
-    ["obras","Obras"],["orc","Orçamento"],["plan","Planejamento"],["plan_suprimentos","Marcos e Curva A"],["rdo","Diário de obra"],["conferencia","Conferência"],["med","Medição técnica"],
+    ["obras","Obras"],["orc","Orçamento"],["plan","Planejamento"],["plan_suprimentos","Marcos e Curva A"],["rdo","Diário de obra"],["conferencia","Conferência"],["med","Avanço físico"],
     ["equip","Equipamentos"],["licenca","Licenciamento"],["obsoletos","Obsoletos"],
   ]},
   {id:"compras",label:"Compras",color:"#D97706",tabs:[
@@ -51,7 +51,7 @@ export const ACCESS_SECTORS=[
   ]},
   {id:"financeiro",label:"Financeiro",color:"#6A1B9A",tabs:[
     ["dre_emp","DRE Empresa"],["dre","DRE Obras"],["fin","Gestão financeira"],["conc","Conciliação"],
-    ["equip_fin","Locação de equipamentos"],["medicoes","Medições financeiras"],["caixa","Caixa da obra"],["relat","Relatórios"],
+    ["equip_fin","Locação de equipamentos"],["medicoes","Medições a faturar"],["caixa","Caixa da obra"],["relat","Relatórios"],
   ]},
   {id:"rh",label:"Recursos Humanos",color:"#0F766E",tabs:[
     ["equipe","Equipes"],["equipe_obras","Equipe nas Obras"],["ponto","Ponto por obra"],["ponto_geral","Gestão geral do ponto"],["ponto_app","Ponto eletrônico (app)"],["terc","Terceirizados"],["folha","Folha de pagamento"],["resc","Rescisões"],["rh_indic","Indicadores"],["conc","Conciliação da folha"],
@@ -636,7 +636,7 @@ export const TAB_META_BASE = {
   plan_suprimentos: { label:"Marcos e Curva A", icon:"trending" },
   rdo:    { label: "Diário de obra", icon: "clipboard"},
   conferencia: { label: "Conferência", icon: "check"},
-  med:    { label: "Medição",        icon: "ruler"},
+  med:    { label: "Avanço físico",  icon: "ruler"},
   ponto:  { label: "Ponto por obra", icon: "clock"},
   ponto_geral: { label: "Gestão do ponto", icon: "calendar"},
   ponto_app: { label: "Ponto eletrônico (app)", icon: "smartphone"},
@@ -658,7 +658,7 @@ export const TAB_META_BASE = {
   fornecedores: { label: "Fornecedores", icon: "handshake" },
   suprimentos: { label: "Curva e preços", icon: "trending" },
   cad:      { label: "Cadastros",   icon: "settings" },
-  medicoes: { label: "Medições",   icon: "ruler" },
+  medicoes: { label: "Medições a faturar", icon: "ruler" },
   caixa:    { label: "Caixa da obra", icon: "wallet" },
   relat:    { label: "Relatórios", icon: "trending" },
   ia:     { label: "IA",         icon: "ia"  },

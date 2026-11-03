@@ -9,5 +9,6 @@ export function WorkspaceCommandBar({label,scope,children,actions}){
  </div>;
 }
 export function WorkspaceHeading({title,navigation}){
- return <header className="workspace-heading"><h1>{title}</h1>{navigation}</header>;
+ // Mesmo contrato de cabeçalho das demais telas (.mrc-screen-header, título de 24 px).
+ return <header className="workspace-heading mrc-screen-header"><h1 className="arcd-page-header__title">{title}</h1>{navigation}</header>;
 }

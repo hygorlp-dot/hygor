@@ -10,8 +10,8 @@ const PROFILE = {
 
 const groups = [
   ["Visão gerencial", ["Dashboard", "DRE empresa", "DRE obras", "Relatórios", "Modo TV", "Comunicação", "Minhas aprovações"]],
-  ["Financeiro", ["Gestão financeira", "Medições", "Caixa da obra", "Conciliação"]],
-  ["Obras e projetos", ["Obras", "Orçamento", "Planejamento", "Marcos e Curva A", "Diário de obra", "Medição", "Conferência", "Licenciamento"]],
+  ["Financeiro", ["Gestão financeira", "Medições a faturar", "Caixa da obra", "Conciliação"]],
+  ["Obras e projetos", ["Obras", "Orçamento", "Planejamento", "Marcos e Curva A", "Diário de obra", "Avanço físico", "Conferência", "Licenciamento"]],
   // "Curva e preços" foi "Suprimentos" até 25/08/2026 (a51568c) e "Cotações" até
   // 27/10/2026 (R3): a cotação de compra é a aba "Cotar" dentro de Compras.
   ["Compras e suprimentos", ["Compras", "Fornecedores", "Curva e preços", "Estoque"]],

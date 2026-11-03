@@ -1,4 +1,6 @@
 import {WorkspaceCommandBar,WorkspaceHeading} from './design-system/patterns/WorkspaceCommandBar.jsx';
+import {WorkContextStamp} from './features/workflow/WorkContextStamp.jsx';
+import {setWorkContextObra,useSyncedWorkObra} from './features/workflow/work-context.js';
 import {SaveRecoveryContext} from './features/workflow/SaveRecoveryContext.jsx';
 import {snapshotJournal,recoveryTab,snapshotChanges} from './domains/sync/snapshot-journal.js';
 import {SaveRecovery} from './domains/sync/SaveRecovery.jsx';
@@ -2768,7 +2770,7 @@ function DashboardEngenheiro({data,update,showToast,onTab,currentUser,ultimaSync
   const aguardandoValidacao=ehAuditor?abertas.filter(x=>x.p.status==="aguardando_validacao").length:0;
   const aguardandoCorrecao=!ehAuditor?abertas.filter(x=>["aberta","em_ajuste"].includes(x.p.status)).length:0;
   const fila=useMemo(()=>construirFilaOperador(data,currentUser),[data,currentUser]);
-  const abrir=c=>{sessionContext.setItem("arcd_obra_contexto",c.obraId);sessionContext.setItem("arcd_conferencia_obra",c.obraId);onTab("conferencia");};
+  const abrir=c=>{setWorkContextObra(c.obraId);sessionContext.setItem("arcd_conferencia_obra",c.obraId);onTab("conferencia");};
   const impacto={baixo:C.green,medio:C.orange,alto:"#E26A2C",critico:C.red};
   return <div className="anim dashboard-tech-motion" style={{display:"flex",flexDirection:"column",gap:16}}>
     <DashboardTechHero data={data} currentUser={currentUser} ultimaSync={ultimaSync} fila={fila} onAbrir={onTab} saveState={saveState}/>
@@ -9798,7 +9800,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
 
   const abrirModuloDaObra = destino => {
     if(!destino)return;
-    sessionContext.setItem("arcd_obra_contexto",obraId);
+    setWorkContextObra(obraId);
     const chaves={rdo:"arcd_rdo_obra",conferencia:"arcd_conferencia_obra",plan:"arcd_plan_obra",orc:"arcd_orc_obra",med:"arcd_med_obra",cmp:"arcd_compras_obra",est:"arcd_estoque_obra",dre:"arcd_dre_obra",ponto:"arcd_ponto_obra",equipe:"arcd_equipe_obra",terc:"arcd_terceiros_obra",equip:"arcd_equipamentos_obra",licenca:"arcd_licenca_obra"};
     if(chaves[destino])sessionContext.setItem(chaves[destino],obraId);
     setAbaConteudo(destino);
@@ -10507,6 +10509,7 @@ export function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", curren
   const { cols } = useBreakpoint();
   const obras = (data.obras || []).filter(o => o.status !== "done");
   const [obraId, setObraId] = useState(()=>obraIdFixo||(obras.some(o=>o.id===obraContextoSalvo())?obraContextoSalvo():(obras[0]?.id||"")));
+  useSyncedWorkObra(obraId,setObraId,{allowedIds:obras.map(o=>o.id),fixed:obraIdFixo});
 
   const orc   = orcamentoDaObra(data, obraId);
   const plano = useMemo(() =>
@@ -10691,7 +10694,7 @@ export function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", curren
 
   return (
     <div className="anim measurement-surface" style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
-      {!obraIdFixo&&<PageHeader className="workspace-header" title="Medição da obra" description="Avanço físico e evolução dos serviços executados."/>}
+      {!obraIdFixo&&<PageHeader className="workspace-header" title="Avanço físico" description="Medição técnica da evolução dos serviços executados na obra."/>}
       {obraIdFixo
         ? <Inp label="Obra" value={(data.obras||[]).find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
         : <Sel label="Obra" value={obraId} onChange={setObraId}
@@ -14574,6 +14577,7 @@ export default function App() {
                   </>
                 )}</>}
               </div>
+              <WorkContextStamp obras={obrasMenuEngenharia}/>
             </div>
 
             {/* Usuário logado + ponto rápido */}
