@@ -12,7 +12,7 @@ export function WorkContextStamp({obras=[]}){
   return <label className="work-context-stamp" data-testid="work-context-stamp">
     <span>Obra em foco</span>
     <SelectControl value={value} onChange={event=>setWorkContextObra(event.target.value)}>
-      <option value="">Escolha a obra</option>
+      <option value="">Todas as obras</option>
       {obras.map(obra=><option key={obra.id} value={obra.id}>{obra.name}</option>)}
     </SelectControl>
   </label>;
