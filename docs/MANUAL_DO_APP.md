@@ -49,7 +49,7 @@ Conteúdo gerado de `src/features/help/help-content.js`, a mesma fonte da ajuda 
 - [Projetos](#guia-projetos)
 - [Diário de obra](#guia-rdo)
 - [Conferência](#guia-conferencia)
-- [Medição da evolução](#guia-med)
+- [Avanço físico](#guia-med)
 - [Estoque](#guia-est)
 - [Compras](#guia-cmp)
 - [Compras · Solicitar](#guia-cmp_solicitacoes)
@@ -86,7 +86,7 @@ Conteúdo gerado de `src/features/help/help-content.js`, a mesma fonte da ajuda 
 - [Financeiro · Homologação](#guia-fin_homologacao)
 - [Financeiro · Modo IA](#guia-fin_ia)
 - [Conciliação](#guia-conc)
-- [Medições](#guia-medicoes)
+- [Medições a faturar](#guia-medicoes)
 - [Caixa da obra](#guia-caixa)
 - [Relatórios](#guia-relat)
 - [Equipamentos](#guia-equip)
@@ -784,7 +784,7 @@ Enviar foto de correção não encerra a pendência. A validação cabe ao visto
 
 <a id="guia-med"></a>
 
-## Medição da evolução
+## Avanço físico
 
 Acompanhar a quantidade de serviço executada na obra.
 
@@ -1889,7 +1889,7 @@ O extrato mostra uma saída de R$ 150,00. Antes de vincular, confira se o pagame
 
 <a id="guia-medicoes"></a>
 
-## Medições
+## Medições a faturar
 
 Acompanhar valores medidos e recebimentos dos contratos.
 

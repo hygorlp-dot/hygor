@@ -493,7 +493,7 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
   return (
     <div className="anim" style={{display:"flex",flexDirection:"column",gap:14}}>
 
-      <PageHeader className="workspace-header" title="Medições por obra" description="Parcela fixa, avanço físico e lançamentos de faturamento."/>
+      <PageHeader className="workspace-header" title="Medições a faturar" description="Parcela fixa, avanço físico e lançamentos de faturamento."/>
 
       {/* Painel de vencimentos - todas as obras */}
       {(() => {

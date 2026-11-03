@@ -10691,7 +10691,7 @@ export function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", curren
 
   return (
     <div className="anim measurement-surface" style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
-      {!obraIdFixo&&<PageHeader className="workspace-header" title="Medição da obra" description="Avanço físico e evolução dos serviços executados."/>}
+      {!obraIdFixo&&<PageHeader className="workspace-header" title="Avanço físico" description="Medição técnica da evolução dos serviços executados na obra."/>}
       {obraIdFixo
         ? <Inp label="Obra" value={(data.obras||[]).find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
         : <Sel label="Obra" value={obraId} onChange={setObraId}
