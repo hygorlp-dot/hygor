@@ -37,3 +37,26 @@ test('a obra do carimbo vale para Planejamento e Avanço físico, nos dois senti
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
   expect(errors).toEqual([]);
 });
+
+test('Compras e Financeiro seguem o carimbo, inclusive em "Todas as obras"',async({page})=>{
+  const errors=await enter(page,'cmp');
+  const comprasObra=page.getByRole('group',{name:'Comandos de Compras'}).getByLabel('Obra',{exact:true});
+  await expect(comprasObra).toHaveValue('all');await expect(stamp(page)).toHaveValue('');
+  await stamp(page).selectOption('b');
+  await expect(comprasObra).toHaveValue('b');
+  async function open(label){
+    await page.keyboard.press('Control+k');
+    const search=page.getByPlaceholder('Buscar obra, lead, pedido, funcionário, tela...');
+    await search.fill(label);
+    await search.locator('xpath=../..').getByRole('button').filter({hasText:label}).first().click();
+  }
+  await open('Gestão financeira');
+  const finObra=page.getByRole('group',{name:'Comandos do Financeiro'}).getByLabel('Obra',{exact:true});
+  await expect(finObra).toHaveValue('b');
+  // "Todas as obras" na tela limpa o carimbo; o carimbo vazio volta Compras a "Todas".
+  await finObra.selectOption('all');
+  await expect(stamp(page)).toHaveValue('');
+  await open('Compras');
+  await expect(comprasObra).toHaveValue('all');
+  expect(errors).toEqual([]);
+});

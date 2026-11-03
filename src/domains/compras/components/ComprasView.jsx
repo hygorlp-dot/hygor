@@ -37,6 +37,7 @@ import { DreIntegration, useRememberWorkflowScope, useWorkflow } from "../../../
 // ===================================================================
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {useSyncedWorkObra} from '../../../features/workflow/work-context.js';
 import { lazyWithCssRetry as lazy } from "../../../lib/lazy-with-css-retry.js";
 import { ArrowLeft } from "lucide-react";
 import {
@@ -799,6 +800,9 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     setObraSel(next);setEscopoMapa(next?"obra":"empresa");
   },[intent?.sequence,obraIdFixo]);
   const todasObras = escopoMapa==="empresa"&&!obraIdFixo;
+  const escopoCarimbo=todasObras?"all":obraAtual;
+  const definirEscopoCarimbo=useCallback(v=>{if(v==="all"){setEscopoMapa("empresa");return;}setEscopoMapa("obra");setObraSel(v);},[setEscopoMapa,setObraSel]);
+  useSyncedWorkObra(escopoCarimbo,definirEscopoCarimbo,{allowedIds:obras.map(o=>o.id),fixed:obraIdFixo,allValue:"all"});
   const materiais   = useMemo(() => (data.materiais||[]).filter(m => m.ativo !== false), [data.materiais]);
   const fornecedores= useMemo(() => (data.fornecedores||[]).filter(f => f.ativo !== false), [data.fornecedores]);
   // Historico de preco de TODOS os materiais numa unica passada por

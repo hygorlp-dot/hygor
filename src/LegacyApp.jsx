@@ -4321,6 +4321,7 @@ function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatch
   const [year,  setYear]  = useSessionState("year",now.getFullYear());
   const [month, setMonth] = useSessionState("month",now.getMonth());
   const [filterObra, setFilterObra] = useSessionState("filterObra","all");
+  useSyncedWorkObra(filterObra,setFilterObra,{allowedIds:(data.obras||[]).map(o=>o.id),allValue:"all"});
   useEffect(()=>{rememberScope?.("fin",{obraId:filterObra==="all"?"":filterObra,year,month,period:"mes"});},[filterObra,year,month,rememberScope]);
   useEffect(()=>{
     if(intent?.tabId!=="fin"||intent.action==="resume")return;
