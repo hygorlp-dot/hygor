@@ -40,6 +40,10 @@ describe("experiência operacional do Diário de Obra",()=>{
     expect(diary).toContain("A troca foi bloqueada porque há alterações que ainda não foram salvas.");
     expect(diary).toContain("filaSalvamentoRdoRef.current");
   });
+  it("a troca de obra vinda do carimbo passa pela mesma trava e devolve o carimbo se barrada",()=>{
+    expect(diary).toContain('trocarContextoRdo("obra",carimboObra).then(ok=>{if(!ok)setWorkContextObra(obraId);})');
+    expect(diary).toContain("return false;}if(tipo===\"obra\")setObraId(valor);else setDataRDO(valor);return true;");
+  });
   it("gera documento com status, execução, pessoas, equipamentos, revisão e auditoria",()=>{
     for(const label of ["Serviços executados","Efetivo e presenças","Terceirizados","Equipamentos","Revisão técnica","Histórico auditável","Rascunho / não concluído","Cancelado"]){expect(diary).toContain(label);}
   });

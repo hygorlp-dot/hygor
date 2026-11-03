@@ -42,6 +42,20 @@ describe('carimbo de contexto da obra',()=>{
     expect(texto('tela')).toBe('a');
   });
 
+  it('abrir uma tela que não aceita a obra do carimbo não troca o carimbo',()=>{
+    setWorkContextObra('z');
+    act(()=>root.render(<Tela/>));
+    expect(texto('tela')).toBe('a');expect(workContextObraId()).toBe('z');
+  });
+
+  it('a tela que volta a seguir o carimbo (fixed desliga) não grava a obra em que estava',()=>{
+    setWorkContextObra('b');
+    act(()=>root.render(<Tela allValue="all" inicial="all" fixed="editor"/>));
+    expect(texto('tela')).toBe('all');
+    act(()=>root.render(<Tela allValue="all" inicial="all"/>));
+    expect(texto('tela')).toBe('b');expect(workContextObraId()).toBe('b');
+  });
+
   it('no detalhe de uma obra a obra fixa manda e o carimbo não muda',()=>{
     setWorkContextObra('b');
     act(()=>root.render(<Tela fixed="a" inicial="a"/>));
@@ -57,7 +71,7 @@ describe('carimbo de contexto da obra',()=>{
   it('tela de várias obras: carimbo vazio é "todas" e "todas" limpa o carimbo',()=>{
     setWorkContextObra('b');
     act(()=>root.render(<Tela allValue="all" inicial="all"/>));
-    expect(texto('tela')).toBe('b');
+    expect(texto('tela')).toBe('b');expect(texto('carimbo')).toBe('b');
     act(()=>setWorkContextObra(''));
     expect(texto('tela')).toBe('all');
     act(()=>setWorkContextObra('a'));

@@ -25,14 +25,16 @@ export const useWorkContextObra=()=>useSyncExternalStore(subscribe,workContextOb
 // - Telas de várias obras passam allValue (por exemplo "all"): carimbo vazio
 //   é "Todas as obras" e escolher "Todas" na tela limpa o carimbo.
 // - Telas de uma obra só não passam allValue: com o carimbo vazio a tela abre
-//   na obra dela, mas essa escolha automática não vai para o carimbo; só a
-//   troca feita pela pessoa vai (senão abrir o Planejamento tiraria o
-//   Financeiro de "Todas as obras").
+//   na obra dela.
+// Só a troca da obra local vai para o carimbo. A obra com que a tela abre, ou
+// em que estava quando `fixed` desliga, não vai: senão abrir o Planejamento
+// tiraria o Financeiro de "Todas as obras", e abrir o Financeiro em "Todas"
+// apagaria o carimbo antes de a tela segui-lo.
 // No detalhe de uma obra (fixed) nada muda: a obra fixa manda.
 export function useSyncedWorkObra(obraId,setObraId,{allowedIds=[],fixed='',allValue=null}={}){
   const stamped=useWorkContextObra();
   const allowed=allowedIds.join('|');
-  const initial=useRef(obraId);
+  const previous=useRef(obraId);
   useEffect(()=>{
     if(fixed||stamped===obraId)return;
     if(!stamped){if(allValue!==null&&obraId!==allValue)setObraId(allValue);return;}
@@ -40,10 +42,11 @@ export function useSyncedWorkObra(obraId,setObraId,{allowedIds=[],fixed='',allVa
     // Só reage à troca do carimbo; a obra local entra pela segunda via.
   },[stamped,fixed,allowed]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(()=>{
-    if(fixed)return;
+    const changed=previous.current!==obraId;
+    previous.current=obraId;
+    if(fixed||!changed)return;
     if(allValue!==null&&obraId===allValue){setWorkContextObra('');return;}
     if(!obraId||!allowedIds.includes(obraId))return;
-    if(allValue===null&&!workContextObraId()&&obraId===initial.current)return;
     setWorkContextObra(obraId);
   },[obraId,fixed,allowed]); // eslint-disable-line react-hooks/exhaustive-deps
 }
