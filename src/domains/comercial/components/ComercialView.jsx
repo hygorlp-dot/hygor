@@ -12,7 +12,7 @@ import { marcellReportHtml } from "../../../reports/marcell-report.js";
 
 import { Suspense, useMemo, useState } from "react";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
-import { Btn, Ic, Inp, Modal, Sel, SelBtn, PageHero } from "../../../legacy/ui.jsx";
+import { LoadingState, Btn, Ic, Inp, Modal, Sel, SelBtn, PageHero } from "../../../legacy/ui.jsx";
 import { C, KB } from "../../../legacy/palette.js";
 import { COM_ETAPAS, COM_IMOBILIARIO_SECTIONS, COM_JORNADA, COM_PERDAS, COM_ROUTE_SECTION, COM_TEMPERATURA, cicloMedioVenda, comDateTime, comDias, comEtapaLabel, comFaseDaEtapa, conversaoPorFase, momentosIndicacao, npsResumo, rankingIndicadores, taxaIndicacao } from "../legacy-model.js";
 import { LazyRealEstateCommercial } from "../LegacyRealEstate.jsx";
@@ -1464,7 +1464,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
   return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
     {showRealEstateHub&&<><PageHeader className="workspace-header" title="Venda de imóveis" description="Disponibilidade, reservas e vendas do portfólio."/><WorkspaceNavigation label="Áreas dos imóveis" active={activeCommercialSection} onChange={id=>openCommercialSection(COM_IMOBILIARIO_SECTIONS.find(section=>section.id===id))} items={COM_IMOBILIARIO_SECTIONS}/></>}
     {activeSubNav&&<WorkspaceNavigation label="Áreas do comercial" active={commercialView} onChange={onTab} items={activeSubNav.map(section=>({id:section.id,label:section.l}))}/>}
-    {showRealEstateHub?<Suspense fallback={<div style={{padding:30,textAlign:"center",color:C.muted}}>Carregando gestão imobiliária...</div>}><LazyRealEstateCommercial section={activeCommercialSection} commercial={com} appData={data} currentUser={currentUser} showToast={showToast} onSave={(next,message)=>persistirComercial(next,{mensagem:message})} onUploadFile={anexarArquivoImobiliario} onLegacyNavigate={onTab}/></Suspense>:conteudo}
+    {showRealEstateHub?<Suspense fallback={<LoadingState label="gestão imobiliária"/>}><LazyRealEstateCommercial section={activeCommercialSection} commercial={com} appData={data} currentUser={currentUser} showToast={showToast} onSave={(next,message)=>persistirComercial(next,{mensagem:message})} onUploadFile={anexarArquivoImobiliario} onLegacyNavigate={onTab}/></Suspense>:conteudo}
     {npsForm&&<Modal title="Pesquisa de satisfação na entrega" onClose={()=>setNpsForm(null)}>
       <div style={{display:"flex",flexDirection:"column",gap:12}}>
         <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.5}}>

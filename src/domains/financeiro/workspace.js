@@ -29,7 +29,7 @@ export function positionEntries(data,position){
 }
 export function todayQueues(data,ledger,obraId,today){
   const filters={...(obraId==='all'?{}:{obraId}),asOfDate:today};
-  const payable=positionEntries(data,selectAccountsPayable(ledger,filters));
+  const payable=positionEntries(data,selectAccountsPayable(ledger,filters)).map(item=>({...item,metadata:{...item.metadata,pagamentoPedidoNaoAlocado:item.record?.obraId===item.obraId&&hasUnallocatedOrderPayment(ledger,item.record,today)}}));
   const receivable=positionEntries(data,selectAccountsReceivable(ledger,filters));
   const end=new Date(`${today}T12:00:00`);end.setDate(end.getDate()+7);
   const until=`${end.getFullYear()}-${String(end.getMonth()+1).padStart(2,'0')}-${String(end.getDate()).padStart(2,'0')}`;
@@ -40,6 +40,7 @@ export function todayQueues(data,ledger,obraId,today){
     {id:'overdue',label:'Vencidos',items:all.filter(p=>p.dueDate&&p.dueDate<today)},
     {id:'nextWeek',label:'Próximos 7 dias',items:all.filter(p=>p.dueDate>today&&p.dueDate<=until)},
     {id:'undated',label:'Sem vencimento',items:all.filter(p=>!p.dueDate)},
+    {id:'later',label:'Depois',items:all.filter(p=>p.dueDate>until)},
   ].map(q=>({...q,items:q.items.sort((a,b)=>String(a.dueDate).localeCompare(String(b.dueDate))),amountCents:q.items.reduce((s,p)=>s+p.amountCents,0)}));
 }
 export function overviewEntries(data,selected,obraId,key){
@@ -57,3 +58,6 @@ export function overviewEntries(data,selected,obraId,key){
   }
   return entries;
 }
+
+export const UNALLOCATED_ORDER_PAYMENT='Há pagamento no pedido ainda sem vínculo com a nota. Confira o histórico antes de pagar novamente; esse valor não foi descontado do saldo.';
+export const hasUnallocatedOrderPayment=(ledger,record,today)=>!!record?.pedidoId&&(ledger.events||[]).some(event=>event.unallocated&&event.amountCents>0&&event.sourceType==='pedido'&&String(event.sourceId)===String(record.pedidoId)&&event.obraId===record.obraId&&(!event.date||event.date<=today));

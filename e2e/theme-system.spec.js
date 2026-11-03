@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {DEFAULT_THEME} from '../src/design-system/themes/themeRegistry.js';
 import {data,profile} from '../scripts/fixtures/workflow-priorities-data.mjs';
 import {openFinanceModule,selectFinanceArea} from '../scripts/finance-browser-navigation.mjs';
 
@@ -31,7 +32,7 @@ async function fits(page){expect(await page.evaluate(()=>document.documentElemen
 
 test('troca tema na tarefa, conserva busca e preferência após recarga',async({page},info)=>{
   const errors=await enter(page);await purchases(page);await fits(page);
-  await expect(page.locator('html')).toHaveAttribute('data-theme','saas');
+  await expect(page.locator('html')).toHaveAttribute('data-theme',DEFAULT_THEME);
   const search=page.getByLabel('Buscar na fila',{exact:true});await search.fill('cimento');
   const before=await page.locator('.purchase-queue-table tbody').innerText();
   for(const theme of ['marcell','saas']){
@@ -39,7 +40,7 @@ test('troca tema na tarefa, conserva busca e preferência após recarga',async({
     expect(await page.locator('.purchase-queue-table tbody').innerText()).toBe(before);await fits(page);
     const colors=await page.evaluate(()=>{const button=document.querySelector('.mrc-button[data-mrc-role="primary"]');return {nav:document.querySelector('.arcd-sidebar')?getComputedStyle(document.querySelector('.arcd-sidebar')).backgroundColor:null,button:button?getComputedStyle(button).backgroundColor:null};});
     if(page.viewportSize().width>=1100)expect(colors.nav).toBe(theme==='saas'?'rgb(255, 255, 255)':'rgb(13, 27, 46)');
-    await expect(page.locator('.mrc-button[data-mrc-role="primary"]').first()).toHaveCSS('background-color',theme==='saas'?'rgb(35, 91, 176)':'rgb(13, 27, 46)');
+    await expect(page.locator('.mrc-button[data-mrc-role="primary"]').first()).toHaveCSS('background-color','rgb(35, 91, 176)');
     await page.screenshot({path:info.outputPath(`compras-${theme}.png`),fullPage:true});
   }
   await page.reload();await expect(page.locator('html')).toHaveAttribute('data-theme','saas');await expect(page.locator('html')).toHaveAttribute('data-density','compact');

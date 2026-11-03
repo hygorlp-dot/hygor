@@ -19,6 +19,7 @@ describe('contrato visual dos temas',()=>{
     it(`${theme.label} mantém contraste de texto e ações nos pares previstos`,()=>{
       const pairs=[['text-primary','surface-page'],['text-secondary','surface-card'],['text-muted','surface-page'],['action-primary-text','action-primary'],['nav-text','nav-surface'],['nav-active-text','nav-active-surface'],...['success','warning','danger','info'].map(tone=>[`${tone}-text`,`${tone}-surface`])];
       for(const [text,surface] of pairs)expect(contrast(theme.tokens[`--arcd-${text}`],theme.tokens[`--arcd-${surface}`]),`${text} / ${surface}`).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(theme.tokens['--arcd-nav-focus'],theme.tokens['--arcd-nav-surface']),'foco da lateral').toBeGreaterThanOrEqual(3);
     });
   }
 });

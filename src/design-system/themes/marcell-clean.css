@@ -257,13 +257,13 @@
   [data-theme] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog) th {
     background: transparent !important;
     color: var(--arcd-text-secondary);
-    font-weight: 400 !important;
+    font-weight: 500 !important;
   }
   [data-theme] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog) :is(td, th) {
     padding-top: 12px;
     padding-bottom: 12px;
   }
-  [data-theme] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog) tfoot { font-weight: 700; }
+  [data-theme] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog) tfoot { font-weight: 600; }
 }
 
 /* Patrimônio da empresa: tabela alinhada com uma ação direta e menu. */
@@ -409,4 +409,6 @@
   .gav-linha { grid-template-columns: minmax(0, 1fr); grid-template-areas: "obra" "situacao" "etapa" "custo" "equipe" "entrega"; }
   .gav-linha > :nth-child(2), .gav-linha > :nth-child(6) { justify-self: start; }
   .gav-entrega { flex-wrap: wrap; }
+  /* Coluna única: o nome da obra quebra linha em vez de virar reticências. */
+  .gav-obra__nome { white-space: normal; overflow-wrap: anywhere; }
 }

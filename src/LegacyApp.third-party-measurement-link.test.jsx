@@ -94,7 +94,7 @@ test("sem planejamento, vários contratos exigem escolher o terceirizado da obra
   container = document.createElement("div"); document.body.append(container); root = createRoot(container);
   await act(async () => root.render(<MedicaoEvolucao data={multiple} obraIdFixo="ca106" update={vi.fn()} onAbrirTerceiro={abrirTerceiro} />));
   await act(async () => [...container.querySelectorAll("button")].find(b=>b.textContent.includes("Confirmar medição")).click());
-  const dialog = container.querySelector('[role="dialog"]');
+  const dialog = document.body.querySelector('[role="dialog"]');
   expect(dialog.textContent).toContain("Escolha o contrato");
   expect(dialog.textContent).not.toContain("Outra obra");
   expect(abrirTerceiro).not.toHaveBeenCalled();
@@ -107,7 +107,7 @@ test("sem contratos, o botão explica o cadastro necessário", async () => {
   container = document.createElement("div"); document.body.append(container); root = createRoot(container);
   await act(async () => root.render(<MedicaoEvolucao data={{...data,terceirizados:[]}} obraIdFixo="ca106" update={vi.fn()} />));
   await act(async () => [...container.querySelectorAll("button")].find(b=>b.textContent.includes("Confirmar medição")).click());
-  expect(container.querySelector('[role="dialog"]').textContent).toContain("Nenhum contrato de terceirizado por medição nesta obra");
+  expect(document.body.querySelector('[role="dialog"]').textContent).toContain("Nenhum contrato de terceirizado por medição nesta obra");
 }, 60000);
 
 test("com serviços, Confirmar medição abre o boletim como antes", async () => {
@@ -117,7 +117,7 @@ test("com serviços, Confirmar medição abre o boletim como antes", async () =>
   await act(async () => root.render(<MedicaoEvolucao data={plannedData} obraIdFixo="ca106" update={vi.fn()} />));
   expect(container.querySelector('[aria-label="Como iniciar a medição"]')).toBeNull();
   await act(async () => [...container.querySelectorAll("button")].find(b => b.textContent.includes("Confirmar medição")).click());
-  expect(container.textContent).toContain("Confirmar e congelar");
+  expect(document.body.querySelector('[role="dialog"]').textContent).toContain("Confirmar e congelar");
   expect(container.textContent).toContain("Instalações");
 }, 60000);
 

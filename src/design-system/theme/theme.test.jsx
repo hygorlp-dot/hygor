@@ -36,7 +36,7 @@ describe("ARCD Theme Engine", () => {
     expect(container.querySelector('[data-testid="theme"]').textContent).toBe(DEFAULT_THEME);
     expect(container.querySelector('[data-testid="density"]').textContent).toBe(DEFAULT_DENSITY);
     expect(document.documentElement.dataset.theme).toBe(DEFAULT_THEME);
-    expect(document.documentElement.dataset.density).toBe("comfortable");
+    expect(document.documentElement.dataset.density).toBe(DEFAULT_DENSITY);
     expect(localStorage.getItem(THEME_STORAGE_KEYS.theme)).toBe(DEFAULT_THEME);
   });
 

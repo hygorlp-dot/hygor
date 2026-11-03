@@ -50,6 +50,8 @@ try { sessao={...sessao,...JSON.parse(sessionStorage.getItem("arcd_auth_session"
 let ultimoUpdatedAt = null;
 let renovacaoEmCurso = null;
 let presenceAuthBlocked = false;
+let sessionEpoch=0;
+const sessionChanged=()=>({ok:false,status:0,code:"SESSION_CHANGED",error:"A conta mudou durante a operação. Confira o resultado com a conta original antes de reenviar."});
 
 const novaSessaoId = () => {
   if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
@@ -57,11 +59,13 @@ const novaSessaoId = () => {
 };
 
 export const abrirSessao = (userId, pin) => {
+  sessionEpoch++;renovacaoEmCurso=null;
   sessao = { userId, pin, accessToken:null,refreshToken:null,sessionId: novaSessaoId() };
   presenceAuthBlocked=false;
 };
 
 const abrirSessaoEmail=(userId,accessToken,refreshToken)=>{
+  sessionEpoch++;renovacaoEmCurso=null;
   sessao={userId,pin:null,accessToken,refreshToken,sessionId:novaSessaoId()};
   presenceAuthBlocked=false;
   try{sessionStorage.setItem("arcd_auth_session",JSON.stringify(sessao));}catch(_){}
@@ -85,17 +89,18 @@ const tokenExpiraEmBreve = (token, margemSegundos=30) => {
 const renovarSessaoEmail = async () => {
   if(!sessao.refreshToken)return false;
   if(renovacaoEmCurso)return renovacaoEmCurso;
-  renovacaoEmCurso=(async()=>{
+  const epoch=sessionEpoch,refreshToken=sessao.refreshToken;
+  const task=(async()=>{
     const controller=new AbortController();
     const timer=window.setTimeout(()=>controller.abort(),15000);
     try{
       const response=await fetch(ROTA,{
         method:"POST",signal:controller.signal,
         headers:{"content-type":"application/json"},
-        body:JSON.stringify({action:"auth-refresh",refreshToken:sessao.refreshToken}),
+        body:JSON.stringify({action:"auth-refresh",refreshToken}),
       });
       const refreshed=await response.json().catch(()=>({}));
-      if(!response.ok||!refreshed.accessToken)return false;
+      if(epoch!==sessionEpoch||!response.ok||!refreshed.accessToken)return false;
       sessao={...sessao,accessToken:refreshed.accessToken,refreshToken:refreshed.refreshToken||sessao.refreshToken};
       presenceAuthBlocked=false;
       try{sessionStorage.setItem("arcd_auth_session",JSON.stringify(sessao));}catch(_){}
@@ -103,11 +108,13 @@ const renovarSessaoEmail = async () => {
     }catch{return false;}
     finally{window.clearTimeout(timer);}
   })();
-  try{return await renovacaoEmCurso;}
-  finally{renovacaoEmCurso=null;}
+  renovacaoEmCurso=task;
+  try{return await task;}
+  finally{if(renovacaoEmCurso===task)renovacaoEmCurso=null;}
 };
 
 const fecharSessao = () => {
+  sessionEpoch++;renovacaoEmCurso=null;
   sessao = { userId: null, pin: null, accessToken:null,refreshToken:null,sessionId:null };
   presenceAuthBlocked=false;
   try{sessionStorage.removeItem("arcd_auth_session");}catch(_){}
@@ -119,6 +126,7 @@ export const temSessao = () => {
 };
 
 const chamar = async (body) => {
+  const epoch=sessionEpoch;
   const inicioDaChamada = performance.now();
   const requisitar = async payload => {
     const controller=new AbortController();
@@ -138,13 +146,16 @@ const chamar = async (body) => {
       ? "O servidor demorou mais de 45 segundos para responder. Verifique a conexão e tente novamente."
       : "Não foi possível conectar ao servidor." };
   }
+  if(epoch!==sessionEpoch)return sessionChanged();
   if(r.status===401&&sessao.refreshToken&&!String(body.action||"").startsWith("auth-")){
     if(await renovarSessaoEmail()) {
+      if(epoch!==sessionEpoch)return sessionChanged();
       try { r=await requisitar({...body,accessToken:sessao.accessToken}); }
       catch(error) { return {status:0,error:error?.name==="AbortError"?"O servidor demorou mais de 45 segundos para responder. Tente novamente.":"Não foi possível conectar ao servidor."}; }
     }
   }
   const json = await lerObjetoJson(r);
+  if(epoch!==sessionEpoch)return sessionChanged();
   registrarTempo(body.action, r, inicioDaChamada);
   if(!json)return respostaInvalida(r);
   const retryAfterHeader=Number(r.headers?.get?.("retry-after")||0);
@@ -158,10 +169,12 @@ const chamar = async (body) => {
 // aqui evita que cada tela esqueça o PIN/token e garante renovação da sessão
 // de e-mail antes de repetir a requisição.
 const chamarRotaAutenticada = async (rota, payload = {}) => {
+  const epoch=sessionEpoch;
   if (!temSessao()) return { ok:false, status:401, error:"Sessão encerrada." };
   if(sessao.accessToken&&sessao.refreshToken&&tokenExpiraEmBreve(sessao.accessToken)){
     await renovarSessaoEmail();
   }
+  if(epoch!==sessionEpoch)return sessionChanged();
   const executar = async () => {
     const controller=new AbortController();
     const timer=window.setTimeout(()=>controller.abort(),45000);
@@ -179,16 +192,19 @@ const chamarRotaAutenticada = async (rota, payload = {}) => {
     }finally{window.clearTimeout(timer);}
   };
   let tentativa=await executar();
+  if(epoch!==sessionEpoch)return sessionChanged();
   if(!tentativa.response)return {ok:false,status:0,error:tentativa.error};
   let response=tentativa.response;
   if (response.status === 401 && sessao.refreshToken) {
     if(await renovarSessaoEmail()){
+      if(epoch!==sessionEpoch)return sessionChanged();
       tentativa=await executar();
       if(!tentativa.response)return {ok:false,status:0,error:tentativa.error};
       response=tentativa.response;
     }
   }
   const json=await lerObjetoJson(response);
+  if(epoch!==sessionEpoch)return sessionChanged();
   if(!json)return respostaInvalida(response);
   return { ok:response.ok, status:response.status, ...json };
 };
@@ -288,11 +304,11 @@ export const renewEditingSession=async({email,password,userId})=>{
  const r=await chamar({action:'auth-login',email,password});
  if(r.status!==200||!r.accessToken||!r.data||String(r.usuario?.id)!==String(userId))return {ok:false,error:r.error||'Renove o acesso com a mesma conta que iniciou a edição.'};
  abrirSessaoEmail(r.usuario.id,r.accessToken,r.refreshToken);
- return {ok:true};
+ return {ok:true,usuario:r.usuario};
 };
 export const readRecoveryData=async()=>{
  const r=await chamar({action:'load',...credenciais()});
- return r.status===200&&r.data?{ok:true,data:r.data,updatedAt:r.updatedAt}:{ok:false,status:r.status,error:r.error||'Não foi possível consultar a versão atual.'};
+ return r.status===200&&r.data?{ok:true,data:r.data,usuario:r.usuario,updatedAt:r.updatedAt}:{ok:false,status:r.status,error:r.error||'Não foi possível consultar a versão atual.'};
 };
 
 export const restaurarSessaoEmail=async()=>{
@@ -409,6 +425,7 @@ export const logout = fecharSessao;
 // ── Presença on-line ───────────────────────────────────────────────
 // Cada aba usa um sessionId próprio e grava em uma linha separada do dataset.
 const chamarPresenca = async (action, extra = {}, keepalive = false) => {
+  const epoch=sessionEpoch;
   if (!temSessao()) return { ok: false, erro: "Sessão encerrada." };
   if(presenceAuthBlocked)return {
     ok:false,status:401,erro:"A presença on-line aguardará a renovação da sessão.",suspended:true,
@@ -422,14 +439,17 @@ const chamarPresenca = async (action, extra = {}, keepalive = false) => {
         body:JSON.stringify({...credenciais(),...payload}),
         keepalive:true,
       });
+      if(epoch!==sessionEpoch)return sessionChanged();
       if(response.status===401)presenceAuthBlocked=true;
       const json=await response.json().catch(()=>({}));
+      if(epoch!==sessionEpoch)return sessionChanged();
       return {ok:response.ok,status:response.status,erro:json.error,...json};
     }catch{
       return {ok:false,status:0,erro:"Não foi possível atualizar a presença."};
     }
   }
   const result=await chamarRotaAutenticada("/api/presence",payload);
+  if(epoch!==sessionEpoch)return sessionChanged();
   if(result.status===401)presenceAuthBlocked=true;
   if(result.ok)presenceAuthBlocked=false;
   return {...result,erro:result.error};

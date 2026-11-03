@@ -1,4 +1,7 @@
-import { useState } from "react";
+import {UNCONFIRMED_COMMAND} from '../../../features/workflow/command-attempt.js';
+import {HelpButton} from '../../../features/help/HelpButton.jsx';
+import {useHelpTopic} from '../../../features/help/HelpContext.jsx';
+import { useState, useRef } from "react";
 import { Btn, Ic, Inp, Modal } from "../../../legacy/ui.jsx";
 import { C } from "../../../legacy/palette.js";
 import { fmt } from "../../../legacy/format.js";
@@ -8,11 +11,13 @@ import { purchaseUnitOf, referenceQuantityOf } from "../unit-conversion";
 
 // R6: o mesmo modal para "Receber" (Compras) e "Chegou" (tela da obra). Já vem
 // preenchido com tudo o que falta; quem recebeu só uma parte ajusta aqui.
-export function ModalRecebimento({ pedido, onClose, onReceber, nomeMat, nomeForn, notice = null, titulo = "" }) {
+export function ModalRecebimento({ pedido, onClose, onReceber, nomeMat, nomeForn, notice = null, titulo = "", attempt = null }) {
+  useHelpTopic("cmp","cmp_recebimentos",20);
   const [salvando,setSalvando]=useState(false);
-  const confirmar=async()=>{if(salvando)return;setSalvando(true);try{await onReceber(pedido,qtds);}finally{setSalvando(false);}};
+  const lock=useRef(false),[error,setError]=useState('');
+  const confirmar=async()=>{if(lock.current)return;lock.current=true;setSalvando(true);setError('');try{const result=await onReceber(pedido,qtds);if(result?.ok===false)setError(result.reason||'Recebimento não confirmado. Confira o aviso e mantenha esta ficha aberta.');}catch{setError(UNCONFIRMED_COMMAND);}finally{lock.current=false;setSalvando(false);}};
   const [qtds, setQtds] = useState(() =>
-    Object.fromEntries(Object.entries(quantidadesQueFaltam(pedido)).map(([id, falta]) => [id, String(falta)]))
+    Object.fromEntries(Object.entries(attempt?.command?.payload?.receivedQuantities||quantidadesQueFaltam(pedido)).map(([id, falta]) => [id, String(falta)]))
   );
 
   const set = (id, v) => setQtds(q => ({ ...q, [id]: v }));
@@ -28,6 +33,8 @@ export function ModalRecebimento({ pedido, onClose, onReceber, nomeMat, nomeForn
 
   return (
     <Modal title={titulo||`Receber - ${pedido.numero}`} onClose={()=>!salvando&&onClose()} wide panelClass="purchase-form-panel">
+      <HelpButton pageId="cmp" allowedTabs={["cmp"]}/>
+      {!salvando&&attempt?.command&&<p role="status">{UNCONFIRMED_COMMAND}</p>}
       <fieldset disabled={salvando} style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
         <div style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
           <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{nomeForn(pedido.fornecedorId)}</p>
@@ -55,7 +62,7 @@ export function ModalRecebimento({ pedido, onClose, onReceber, nomeMat, nomeForn
               {l.falta > 0 && `  falta: ${l.falta}`}
               {` · saldo após esta entrada: ${Math.max(0,l.falta-l.chegou)} ${purchaseUnitOf(l)}`}
             </p>
-            <Inp label={`Chegou agora (${purchaseUnitOf(l)})`} type="number" min="0" disabled={salvando}
+            <Inp label={`Chegou agora (${purchaseUnitOf(l)})`} type="number" min="0" disabled={salvando||!!attempt?.command}
                  value={qtds[l.id]} onChange={v=>set(l.id, v)}/>
             {purchaseUnitOf(l)!==String(l.unidadeRef||"").toUpperCase()&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>{l.chegou.toLocaleString("pt-BR")} {purchaseUnitOf(l)} equivalem a {referenceQuantityOf(l,l.chegou).toLocaleString("pt-BR",{maximumFractionDigits:4})} {l.unidadeRef} no estoque.</p>}
             {l.excede && (
@@ -86,6 +93,7 @@ export function ModalRecebimento({ pedido, onClose, onReceber, nomeMat, nomeForn
           </Btn>
         </div>
       </fieldset>
+      {error&&<p role="alert">{error}</p>}
       {notice}
     </Modal>
   );

@@ -1,3 +1,11 @@
+import {WorkspaceCommandBar,WorkspaceHeading} from './design-system/patterns/WorkspaceCommandBar.jsx';
+import {SaveRecoveryContext} from './features/workflow/SaveRecoveryContext.jsx';
+import {snapshotJournal,recoveryTab,snapshotChanges} from './domains/sync/snapshot-journal.js';
+import {SaveRecovery} from './domains/sync/SaveRecovery.jsx';
+import PaymentDialog from './features/financeiro/PaymentDialog.jsx';
+import PendingOperations from './features/workflow/PendingOperations.jsx';
+import {useQueuePreferences} from './features/workflow/useQueuePreferences.js';
+import {SidebarResize, useSidebarWidth} from './design-system/patterns/SidebarResize.jsx';
 import {SelectControl} from './design-system/primitives/Select.jsx';
 import {RecordAction} from './design-system/primitives/RecordAction.jsx';
 import {ChoiceControl} from './design-system/primitives/ChoiceControl.jsx';
@@ -9,7 +17,7 @@ export { C, C_ARCD_SETOR, TYPO, KB } from "./legacy/palette.js";
 import { uid, today, fmt, fmtCompact, fmtDate, fmtDateFull, monthName, MONTHS, fullMonth, fmtMesAno, escapeHtml, compactNumber, maiusculoOrcamento, proximoCodigoArcd, obraContextoSalvo, compLabel, rotuloRamo, numeroCodigoArcd, formatarCodigoArcd } from "./legacy/format.js";
 export { uid, today, fmt, fmtCompact, fmtDate, fmtDateFull, monthName, MONTHS, fullMonth, fmtMesAno, escapeHtml, compactNumber, maiusculoOrcamento, proximoCodigoArcd, obraContextoSalvo, compLabel, rotuloRamo } from "./legacy/format.js";
 import { prazoObra } from "./domains/obras/legacy-deadline.js";
-import { Ic, Btn, Inp, Sel, SelBtn, Badge, ArcdChartTooltip, ChartPanel, PageHero, TabRow, Divider, Modal, MiniKpi, Bloco, CampoCNPJ, textoUi, conteudoUi, ChartLegend, buscarCNPJ, SIGLAS_UI } from "./legacy/ui.jsx";
+import { LoadingState, Ic, Btn, Inp, Sel, SelBtn, Badge, ArcdChartTooltip, ChartPanel, PageHero, TabRow, Divider, Modal, MiniKpi, Bloco, CampoCNPJ, textoUi, conteudoUi, ChartLegend, buscarCNPJ, SIGLAS_UI } from "./legacy/ui.jsx";
 export { Ic, Btn, Inp, Sel, SelBtn, Badge, ArcdChartTooltip, ChartPanel, PageHero, TabRow, Divider, Modal, MiniKpi, Bloco, CampoCNPJ } from "./legacy/ui.jsx";
 import { XLSX, carregarXLSX, lerSinapiEmSegundoPlano, arquivoComoDataUrl, comprimirImagem } from "./legacy/files.js";
 export { XLSX, carregarXLSX, lerSinapiEmSegundoPlano, arquivoComoDataUrl, comprimirImagem } from "./legacy/files.js";
@@ -44,7 +52,7 @@ import {validatePurchasePayment} from './domains/financeiro/purchase-payment-val
 import { sessionContext } from "./lib/session-context.js";
 import {HelpButton} from './features/help/HelpButton.jsx';
 import {useHelpTopic} from './features/help/HelpContext.jsx';
-import {FINANCE_HELP, WORK_HELP} from './features/help/help-content.js';
+import {FINANCE_HELP, WORK_HELP} from './features/help/help-topics.js';
 import {Textarea as SharedTextarea} from "./design-system/primitives/Textarea.jsx";
 import {Button as SharedUiButton} from "./components/ui/button.jsx";
 import {legacyButtonRole} from "./design-system/primitives/button-contract.js";
@@ -800,65 +808,6 @@ const DEFAULT = () => ({
 //  sumiu do meu) é removido. Campos escalares (não-lista) que eu mudei em
 //  relação à base vencem; o resto fica do servidor.
 // ---------------------------------------------------------------------------
-const mesclarLista = (servidor, meu, base) => {
-  const S = Array.isArray(servidor) ? servidor : [];
-  const M = Array.isArray(meu) ? meu : [];
-  const B = Array.isArray(base) ? base : [];
-  // Só dá para mesclar por id se os itens tiverem id. Sem id, cai no meu (a
-  // lista inteira é minha intenção) - é o comportamento antigo, seguro.
-  const temId = x => x && typeof x === "object" && "id" in x;
-  if (!M.every(temId) || !S.every(temId)) return meu !== undefined ? meu : servidor;
-
-  const idsBase = new Set(B.map(x => x.id));
-  const mapMeu  = new Map(M.map(x => [x.id, x]));
-  const mapBase = new Map(B.map(x => [x.id, x]));
-  const jsonEq  = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-
-  // Itens que EU removi: estavam na base e sumiram do meu.
-  const removidosPorMim = new Set([...idsBase].filter(id => !mapMeu.has(id)));
-
-  const saida = [];
-  const vistos = new Set();
-  // Percorre o servidor mantendo a ordem dele; aplica minhas edições.
-  S.forEach(itemS => {
-    const id = itemS.id;
-    vistos.add(id);
-    if (removidosPorMim.has(id)) return;               // eu apaguei: some
-    const itemM = mapMeu.get(id);
-    if (!itemM) { saida.push(itemS); return; }         // eu não toquei: fica do servidor
-    const itemB = mapBase.get(id);
-    // Eu mudei em relação à base? então minha versão vence para este item.
-    if (itemB && jsonEq(itemM, itemB)) saida.push(itemS); // eu não mudei; servidor pode ter mudado
-    else saida.push(itemM);                               // eu mudei: fica meu
-  });
-  // Itens que EU criei (não estavam na base nem apareceram no servidor).
-  M.forEach(itemM => {
-    if (!vistos.has(itemM.id) && !idsBase.has(itemM.id)) saida.push(itemM);
-  });
-  return saida;
-};
-
-const mesclarDados = (servidor, meu, base) => {
-  const s = servidor || {}, m = meu || {}, b = base || {};
-  const saida = { ...s };
-  Object.keys(m).forEach(chave => {
-    const vm = m[chave], vs = s[chave], vb = b[chave];
-    if (Array.isArray(vm) || Array.isArray(vs)) {
-      saida[chave] = mesclarLista(vs, vm, vb);
-    } else if (vm && typeof vm === "object") {
-      // Objeto aninhado (ex.: config): mescla campo a campo com a mesma regra -
-      // recursão passando a base do próprio objeto, para não sobrescrever o que
-      // a outra pessoa mudou e eu não toquei.
-      saida[chave] = mesclarDados(vs || {}, vm, vb || {});
-    } else {
-      // Escalar: se EU mudei em relação à base, minha versão vence; senão,
-      // mantém o servidor (que pode ter a mudança da outra pessoa).
-      saida[chave] = (JSON.stringify(vm) !== JSON.stringify(vb)) ? vm : (vs !== undefined ? vs : vm);
-    }
-  });
-  return saida;
-};
-
 const normalizeData = incoming => {
   const base = DEFAULT();
   const d = migrateSupplyData(incoming && typeof incoming === "object" ? incoming : {});
@@ -2616,9 +2565,11 @@ function CalendarioEmpresa({data,update,showToast,currentUser}){
   const [mesOffset,setMesOffset]=useState(0);
   const [diaSelecionado,setDiaSelecionado]=useState("");
   const [eventoForm,setEventoForm]=useState(null);
+  const eventSaveLock=useRef(false);
   const eventos=data.eventosEmpresa||[];
 
   const salvarEvento=async()=>{
+    if(eventSaveLock.current)return;
     const f=eventoForm;
     if(!String(f.titulo||"").trim()){showToast("Informe o título do evento.","error");return;}
     if(!f.data){showToast("Informe a data do evento.","error");return;}
@@ -2629,11 +2580,15 @@ function CalendarioEmpresa({data,update,showToast,currentUser}){
       criadoPorId:f.criadoPorId||currentUser?.id||"",criadoPor:f.criadoPor||currentUser?.nome||"",
       criadoEm:f.criadoEm||agora,
     };
-    const lista=f.id?eventos.map(e=>e.id===f.id?registro:e):[...eventos,registro];
+    const lista=eventos.some(e=>e.id===registro.id)?eventos.map(e=>e.id===registro.id?registro:e):[...eventos,registro];
+    eventSaveLock.current=true;
+    setEventoForm(previous=>previous?{...previous,id:registro.id}:previous);
+    try{
     const result=await update({...data,eventosEmpresa:lista});
-    if(result&&result.ok===false){showToast("Não foi possível salvar o evento.","error");return;}
+    if(result&&result.ok===false){showToast(result.reason||"Não foi possível salvar o evento.",result.deferred?"info":"error");return;}
     setEventoForm(null);
     showToast(f.id?"Evento atualizado.":"Evento cadastrado.");
+    }finally{eventSaveLock.current=false;}
   };
 
   const excluirEvento=async evento=>{
@@ -2938,7 +2893,7 @@ function Dashboard({ data, update, showToast, onTab, onAbrirObra, ultimaSync, cu
       <NoticiasSetor carregando={resumoDiario.carregando} noticias={resumoDiario.noticias}/>
       <NoticiasSetor carregando={resumoDiario.carregando} noticias={resumoDiario.noticiasCbicPe} titulo="CBIC Pernambuco" subtitulo="Sinduscon-PE e câmara regional"/>
     </section>
-    <Suspense fallback={null}>
+    <Suspense fallback={<LoadingState label="índices da construção"/>}>
       <LazyCubChart cub={resumoDiario.cub} carregando={resumoDiario.carregando}/>
     </Suspense>
 
@@ -3605,12 +3560,12 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
           </div>
 
           {/* Gráfico: Faturamento vs Lucro 6 meses */}
-          <Suspense fallback={<div className="arcd-page-loading">Carregando gráfico...</div>}>
+          <Suspense fallback={<LoadingState label="gráfico"/>}>
             <LazyDreFaturamentoResultadoChart hist={hist}/>
           </Suspense>
 
           {/* Distribuição de custos */}
-          <Suspense fallback={<div className="arcd-page-loading">Carregando gráfico...</div>}>
+          <Suspense fallback={<LoadingState label="gráfico"/>}>
             <LazyDreDistribuicaoCustosChart dre={dre}/>
           </Suspense>
 
@@ -3677,7 +3632,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
             ))}
           </div>
           {/* Gráfico margem */}
-          <Suspense fallback={<div className="arcd-page-loading">Carregando gráfico...</div>}>
+          <Suspense fallback={<LoadingState label="gráfico"/>}>
             <LazyDreMargemChart hist={hist}/>
           </Suspense>
         </div>
@@ -3968,14 +3923,11 @@ function CentralFiscal({data,update,showToast,currentUser,obraIdFiltro="all",onO
 }
 
 function CentralPagamentosFinanceiro({data,showToast,currentUser,onNovaNota,onAbrirFiscal,onReviewInvoice,dispatchCommand,obraId="all",onObraChange,onMemorial,view,onViewChange,onBank,C=C_ARCD_SETOR}){
-  const {formGrid}=useBreakpoint();
   const setObraId=onObraChange;
   const filtro=view.filter,busca=view.query;
   const setFiltro=filter=>onViewChange(previous=>({...previous,filter}));
   const setBusca=query=>onViewChange(previous=>({...previous,query}));
   const [pagamento,setPagamento]=useState(null);
-  const [salvando,setSalvando]=useState(false);
-  const paymentExit=useUnsavedChanges(pagamento,()=>setPagamento(null),{identity:pagamento?.item?.id||"payment",busy:salvando});
   const podeOperar=["admin","financeiro"].includes(currentUser?.role);
   const obras=data.obras||[],pedidos=data.pedidos||[],notas=data.notasFiscais||[];
   const ledgerPagamentos=useMemo(()=>buildFinancialLedger(data),[data]);
@@ -4048,59 +4000,19 @@ function CentralPagamentosFinanceiro({data,showToast,currentUser,onNovaNota,onAb
     {numero:5,label:"Pagas",valor:totalPagas,cor:C.green,filtro:"pagas"},
     {numero:6,label:"A conciliar",valor:totalAConciliar,cor:C.orange,filtro:"conciliar"},
   ];
-  const transacoesUsadas=new Set([...pedidos.flatMap(p=>p.pagamentos||[]),...notas.flatMap(n=>n.pagamentos||[])].map(pg=>pg.transacaoId).filter(Boolean));
-  const transacoesDisponiveis=(data.transacoes||[]).filter(t=>Number(t.valor)<0&&t.status!=="ignorado"&&!transacoesUsadas.has(t.id)).sort((a,b)=>String(b.data||"").localeCompare(String(a.data||""))).slice(0,100);
   const estadoVisual={vencida:{l:"Vencida",c:C.red},autorizada:{l:"Autorizada",c:C.green},parcial:{l:"Parcial",c:C.orange},conferencia:{l:"Em conferência",c:C.blue},sem_nota:{l:"Aguardando NF",c:C.purple},paga:{l:"Paga",c:C.green}};
-  const abrirPagamento=item=>setPagamento({item,valor:String(item.saldo.toFixed(2)),data:today(),origem:item.registro.origemPagamento||"empresa",transacaoId:"",referencia:"",observacao:"",conciliado:false,comprovanteFile:null,comprovanteLegenda:""});
-  const registrarPagamento=async()=>{
-    const f=pagamento,item=f?.item,valor=Number(String(f?.valor||"").replace(",","."));
-    if(!podeOperar){showToast("Somente o Financeiro ou a Administração pode realizar pagamentos.","error");return;}
-    if(!item||!(valor>0)){showToast("Informe o valor pago.","error");return;}
-    if(valor>item.saldo+.01){showToast(`O pagamento supera o saldo de ${fmt(item.saldo)}.`,"error");return;}
-    if(item.estado==="conferencia")showToast("Pagamento com conferência fiscal pendente. Revise a ficha fiscal para regularizar.","warn");
-    if(item.tipo==="pedido")showToast("Pedido sem nota vinculada. O adiantamento ficará sinalizado até a conferência.","warn");
-    const obra=obras.find(o=>o.id===item.obraId),caixa=situacaoCaixaObra(data,item.obraId);
-    if(f.origem==="caixa_obra"&&!obra?.hasCaixa)showToast("Caixa ainda não ativado. Confira a configuração e os movimentos registrados.","warn");
-    if(f.origem==="caixa_obra"&&valor>caixa.saldo+.001)showToast("O registro deixará o caixa negativo. Confira aportes e a origem real do pagamento.","warn");
-    const transacaoSelecionada=(data.transacoes||[]).find(t=>t.id===f.transacaoId);
-    if(transacaoSelecionada&&Math.abs(Math.abs(Number(transacaoSelecionada.valor||0))-valor)>.02){showToast(`A transação selecionada é de ${fmt(Math.abs(Number(transacaoSelecionada.valor||0)))} e não confere com o pagamento de ${fmt(valor)}. Faça a conciliação por rateio no módulo Conciliação.`,"error");return;}
-    setSalvando(true);
-    try{
-      const pagamentoId=uid();let comprovantes=[];let workspace=null;
-      if(f.comprovanteFile){const file=f.comprovanteFile,dataUrl=await arquivoComoDataUrl(file);const pasta=item.tipo==="nota"?`Notas fiscais/${item.numero}/Comprovantes`:`Pagamentos de compras/${item.numero}/Comprovantes`;const resp=await enviarArquivoOneDrive({dataUrl,obraName:obra?.name||"Obra",driveId:obra?.oneDriveDriveId,folderId:obra?.oneDriveFolderId,folders:obra?.oneDriveFolders,category:"financeiro",subfolder:pasta,date:f.data||today(),fileName:file.name});if(!resp.ok&&!resp.url)throw new Error(resp.error||"Falha ao salvar o comprovante no OneDrive.");comprovantes=[{id:resp.item?.id||uid(),nome:resp.item?.name||file.name,legenda:String(f.comprovanteLegenda||file.name).trim(),url:resp.item?.webUrl||resp.url,path:resp.path||"",tipo:file.type||"",tamanho:Number(file.size||0),enviadoEm:new Date().toISOString(),enviadoPorId:currentUser?.id||"",enviadoPor:currentUser?.nome||""}];workspace=resp.workspace||null;}
-      const transacao=transacaoSelecionada;const conciliado=!!f.conciliado||!!transacao;
-      const novoPagamento={id:pagamentoId,data:f.data||today(),valor,origem:f.origem,conciliado,transacaoId:f.transacaoId||"",referencia:f.referencia||transacao?.descricao||"",observacao:f.observacao||"",comprovantes};
-      const result=await dispatchCommand(atual=>{
-        const vigente=((item.tipo==="nota"?atual.notasFiscais:atual.pedidos)||[])
-          .find(registro=>registro.id===item.registro.id);
-        return {
-          type:OPERATIONAL_COMMAND.PAYABLE_PAYMENT_RECORDED,
-          idempotencyKey:`payable-payment-create-${pagamentoId}-${uid()}`,
-          expectedVersion:Number(vigente?.version||0),
-          actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-          payload:{
-            targetType:item.tipo,targetId:item.registro.id,payment:novoPagamento,
-            workCashMovementId:f.origem==="caixa_obra"?uid():"",
-            workspace,
-          },
-        };
-      });
-      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o pagamento.");
-      const saldoCaixa=caixa.saldo-valor;setPagamento(null);
-      if(f.origem==="caixa_obra"&&saldoCaixa<=caixa.limiteBaixo)showToast(`Pagamento registrado. Atenção: o caixa ficou baixo em ${fmt(saldoCaixa)}.`,"warn");else showToast(item.saldo-valor<=.01?`${item.numero} quitada e encaminhada para conciliação.`:`Pagamento parcial registrado. Saldo restante: ${fmt(item.saldo-valor)}.`);
-    }catch(err){showToast(err.message||"Não foi possível registrar o pagamento.","error");}finally{setSalvando(false);}
-  };
+  const abrirPagamento=item=>setPagamento({type:item.tipo,id:item.registro.id});
   if(!podeOperar)return <div style={{padding:30,textAlign:"center",border:`1px solid ${C.border}`,borderRadius:12,color:C.red}}>Central operacional exclusiva do Financeiro e da Administração.</div>;
-  return <div className="anim payment-workspace">
+  return <div className="anim payment-workspace mrc-command-workspace">
     {view.invoiceId&&<div className="financial-origin-return" role="status"><p>Mostrando somente a obrigação do documento selecionado. Os valores do resumo continuam no escopo da obra.</p><Button variant="outline" onClick={()=>onViewChange(previous=>({...previous,invoiceId:''}))}>Mostrar todos os documentos</Button></div>}
-    <PageHeader headingLevel={2} className="payment-heading" title="Pagamentos" description="Títulos, liberações e conciliação."
-      secondaryActions={<Btn size="sm" v="ghost" onClick={onAbrirFiscal}><Ic n="file"/> Ver notas fiscais</Btn>}
-      primaryAction={<Btn size="sm" onClick={onNovaNota}><Ic n="plus"/> Receber documento fiscal</Btn>}/>
+    <WorkspaceCommandBar label="Comandos de pagamentos" scope={<Sel label="Obra" value={obraId} onChange={setObraId} options={[{v:"all",l:"Todas as obras"},...obras.map(o=>({v:o.id,l:o.name}))]}/>} actions={<><Btn size="sm" v="ghost" onClick={onAbrirFiscal}><Ic n="file"/> Ver notas fiscais</Btn><Btn size="sm" onClick={onNovaNota}><Ic n="plus"/> Receber documento fiscal</Btn></>}>
+      <Sel label="Situação" value={filtro} onChange={setFiltro} options={[{v:"fila",l:"Fila operacional"},{v:"vencidas",l:"Vencidas"},{v:"autorizadas",l:"Autorizadas a pagar"},{v:"conferencia",l:"Em conferência"},{v:"sem_nota",l:"Pedidos sem documento fiscal"},{v:"conciliar",l:"Pagos a conciliar"},{v:"pagas",l:"Pagas"},{v:"todas",l:"Todas"}]}/><Inp label="Pesquisar pagamentos" value={busca} onChange={setBusca} placeholder="Documento, pedido, fornecedor ou obra"/>
+    </WorkspaceCommandBar>
     <PaymentOverview metrics={resumoFinanceiro} stages={etapasFluxo} filter={filtro} onStage={setFiltro} onMetric={openPaymentMetric} formatMoney={fmt}/>
-    <section className="payment-queue-controls" aria-label="Fila de pagamentos"><header><div><h3>Fila de obrigações</h3><p>Prioridade por vencimento, aprovação e conciliação.</p></div><p role="status">{visiveis.length} resultado(s)</p></header><div className="payment-queue-controls__fields"><Sel label="Obra" value={obraId} onChange={setObraId} options={[{v:"all",l:"Todas as obras"},...obras.map(o=>({v:o.id,l:o.name}))]}/><Sel label="Situação" value={filtro} onChange={setFiltro} options={[{v:"fila",l:"Fila operacional"},{v:"vencidas",l:"Vencidas"},{v:"autorizadas",l:"Autorizadas a pagar"},{v:"conferencia",l:"Em conferência"},{v:"sem_nota",l:"Pedidos sem documento fiscal"},{v:"conciliar",l:"Pagos a conciliar"},{v:"pagas",l:"Pagas"},{v:"todas",l:"Todas"}]}/><Inp label="Pesquisar pagamentos" value={busca} onChange={setBusca} placeholder="Documento, pedido, fornecedor ou obra"/></div></section>
+    <div className="workspace-list-status"><h2>Fila de obrigações</h2><p role="status">{visiveis.length} resultado(s)</p></div>
 
-    <div style={{display:"flex",flexDirection:"column",gap:7}}>{visiveis.map(item=>{const ev=estadoVisual[item.estado]||estadoVisual.conferencia,semConc=item.pagamentos.some(pg=>!pg.conciliado),vencida=item.estado==="vencida";return <article key={item.id} style={{background:C.card,border:`1px solid ${vencida?`${C.red}77`:C.border}`,borderLeft:`1px solid ${ev.c}`,borderRadius:9,overflow:"hidden",boxShadow:C.shHair}}><div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:10,alignItems:"start",padding:"10px 11px"}}><div style={{minWidth:0}}><div style={{display:"flex",gap:5,alignItems:"center",flexWrap:"wrap"}}><Badge color={ev.c}>{ev.l}</Badge><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:item.tipo==="nota"?C.blue:C.purple}}>{item.tipo==="nota"?"DOCUMENTO FISCAL":"PEDIDO SEM NF"}</span>{semConc&&<Badge color={C.orange}>A CONCILIAR</Badge>}</div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginTop:5,overflowWrap:"anywhere"}}>{item.numero} · {item.fornecedor}</p><div style={{display:"flex",gap:7,alignItems:"center",flexWrap:"wrap",marginTop:4,fontSize:"var(--arcd-type-caption)",color:C.muted}}><span><b style={{color:C.text}}>Obra:</b> {obraNome(item.obraId)}</span><span><b style={{color:C.text}}>Emissão:</b> {item.emissao?fmtDate(item.emissao):"-"}</span><span style={{color:vencida?C.red:C.muted}}><b style={{color:vencida?C.red:C.text}}>Vencimento:</b> {item.vencimento?fmtDate(item.vencimento):"não informado"}</span></div></div><div style={{minWidth:105,textAlign:"right",background:C.surface,border:`1px solid ${C.line}`,borderRadius:7,padding:"7px 8px"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>{item.saldo>.01?"Saldo a pagar":"Total pago"}</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:item.saldo>.01?C.red:C.green,marginTop:2}}>{fmt(item.saldo>.01?item.saldo:item.total)}</p>{item.saldo>.01&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>de {fmt(item.total)}</p>}</div></div>{item.estado==="sem_nota"&&<div style={{margin:"0 11px 8px",padding:"6px 8px",borderRadius:6,background:`${C.purple}0B`,color:C.purple,fontSize:"var(--arcd-type-caption)",fontWeight:600}}>Documento fiscal ainda não vinculado. Pagamentos antecipados permanecem sinalizados para auditoria.</div>}{item.estado==="conferencia"&&<div style={{margin:"0 11px 8px",padding:"6px 8px",borderRadius:6,background:`${C.blue}0B`,color:C.blue,fontSize:"var(--arcd-type-caption)",fontWeight:600}}>Aguardando conferência do pedido, recebimento, valores, retenções e rateio.</div>}{item.pagamentos.length>0&&<div style={{display:"flex",gap:5,flexWrap:"wrap",padding:"0 11px 8px"}}>{item.pagamentos.map(pg=><span key={pg.id} style={{fontSize:"var(--arcd-type-caption)",color:pg.conciliado?C.green:C.orange,background:pg.conciliado?`${C.green}0B`:`${C.orange}0B`,border:`1px solid ${pg.conciliado?C.green:C.orange}44`,borderRadius:99,padding:"3px 7px"}}>{fmt(pg.valor)} · {origemPagamentoLabel(pg.origem)} · {pg.conciliado?"conciliado":"pendente"}{(pg.comprovantes||[]).map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{color:C.blue,marginLeft:5,fontWeight:600}}>comprovante ↗</a>)}</span>)}</div>}<footer style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",padding:"7px 11px",borderTop:`1px solid ${C.line}`,background:C.surface}}><div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",minWidth:0}}>{item.documentos.map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:"var(--arcd-type-caption)",color:C.blue,fontWeight:600,textDecoration:"none"}}><Ic n="file" s={11}/>{a.legenda||a.nome} ↗</a>)}{!item.documentos.length&&<span style={{fontSize:"var(--arcd-type-caption)",color:C.orange,fontWeight:600}}>Sem anexo cadastrado</span>}</div><span style={{flex:1}}/><Btn size="sm" v="ghost" onClick={()=>onMemorial?.({title:item.numero,items:[{...financialEntry(data,{sourceType:item.tipo==="nota"?"nota_fiscal":"pedido",sourceId:item.registro.id,obraId:item.obraId,amountCents:Math.round(item.total*100)}),metadata:{saldo:item.saldo,vencimento:item.vencimento}}],context:"Documento e histórico de pagamentos"})}>Ver memorial</Btn>{item.estado==="sem_nota"&&<Btn size="sm" v="ghost" onClick={onNovaNota}>Receber documento fiscal</Btn>}{item.estado==="conferencia"&&<Btn size="sm" v="ghost" onClick={()=>onReviewInvoice?onReviewInvoice(item.registro):onAbrirFiscal()}>Conferir documento</Btn>}{item.tipo==="nota"&&hasInvoiceBankPayment(item.registro)&&onBank&&<Btn size="sm" v="ghost" onClick={()=>onBank(item.registro.id)}>Revisar conciliação</Btn>}{item.saldo>.01&&<Btn size="sm" onClick={()=>abrirPagamento(item)}><Ic n="receipt"/> Realizar pagamento</Btn>}</footer></article>;})}{!visiveis.length&&<div style={{padding:"28px 16px",textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:10,background:C.surface}}><Ic n="check" s={22} color={C.green}/><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginTop:6}}>Nenhuma obrigação neste filtro</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>A fila está atualizada com os pedidos e documentos fiscais cadastrados.</p></div>}</div>
-    {pagamento&&<Modal title={`Realizar pagamento · ${pagamento.item.numero}`} onClose={paymentExit.requestClose}><div style={{display:"flex",flexDirection:"column",gap:10}}><WorkflowWarnings warnings={validatePurchasePayment(data,{type:pagamento.item.tipo,target:pagamento.item.registro,value:Number(pagamento.valor),actorRole:currentUser?.role}).warnings||[]}/><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,padding:"9px 10px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:8}}><div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600,textTransform:"uppercase"}}>Total</p><b style={{fontSize:"var(--arcd-type-body)"}}>{fmt(pagamento.item.total)}</b></div><div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600,textTransform:"uppercase"}}>Saldo</p><b style={{fontSize:"var(--arcd-type-body)",color:C.red}}>{fmt(pagamento.item.saldo)}</b></div></div><Sel label="Origem real do pagamento *" value={pagamento.origem} onChange={v=>setPagamento(f=>({...f,origem:v,transacaoId:v==="empresa"?f.transacaoId:"",conciliado:v==="empresa"?f.conciliado:false}))} options={[{v:"empresa",l:"Conta bancária da empresa"},{v:"caixa_obra",l:"Caixa da obra"},{v:"cliente_direto",l:"Cliente pagou diretamente"}]}/>{pagamento.origem==="caixa_obra"&&(()=>{const cx=situacaoCaixaObra(data,pagamento.item.obraId),valor=Number(String(pagamento.valor||"").replace(",","."))||0,projetado=cx.saldo-valor,negativo=projetado<-.001,baixo=!negativo&&projetado<=cx.limiteBaixo,ativa=!!obras.find(o=>o.id===pagamento.item.obraId)?.hasCaixa;return <div style={{padding:"9px 10px",border:`1px solid ${!ativa||negativo?C.red:baixo?C.orange:C.green}`,borderRadius:8,background:!ativa||negativo?`${C.red}0B`:baixo?`${C.orange}0B`:`${C.green}0B`}}><div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>{[["Disponível",cx.saldo],["Após pagar",projetado],["Reserva",cx.limiteBaixo]].map(([l,v])=><div key={l}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{l}</p><b style={{fontSize:"var(--arcd-type-label)",color:v<0?C.red:C.text}}>{fmt(v)}</b></div>)}</div>{!ativa&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.red,fontWeight:600,marginTop:6}}>Caixa não ativado para esta obra.</p>}{negativo&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.red,fontWeight:600,marginTop:6}}>Aviso: o caixa ficará negativo. Confira os aportes e a origem do pagamento.</p>}{baixo&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.orange,fontWeight:600,marginTop:6}}>Alerta: o saldo ficará abaixo da reserva recomendada.</p>}</div>;})()}<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}><Inp label="Valor pago *" type="number" value={pagamento.valor} onChange={v=>setPagamento(f=>({...f,valor:v}))}/><Inp label="Data *" type="date" value={pagamento.data} onChange={v=>setPagamento(f=>({...f,data:v}))}/></div>{pagamento.origem==="empresa"&&<Sel label="Transação bancária para conciliar" value={pagamento.transacaoId} onChange={v=>setPagamento(f=>({...f,transacaoId:v,conciliado:!!v}))} options={[{v:"",l:"Vincular depois na conciliação"},...transacoesDisponiveis.map(t=>({v:t.id,l:`${fmtDate(t.data)} · ${fmt(Math.abs(Number(t.valor||0)))} · ${t.descricao||"Saída bancária"}`}))]}/>}<Inp label="Referência do pagamento" value={pagamento.referencia} onChange={v=>setPagamento(f=>({...f,referencia:v}))} placeholder="PIX, boleto, TED ou identificação"/><label style={{padding:"11px",border:`1.5px dashed ${pagamento.comprovanteFile?C.green:C.blue}66`,borderRadius:8,textAlign:"center",cursor:"pointer",background:pagamento.comprovanteFile?`${C.green}08`:C.surface}}><b style={{fontSize:"var(--arcd-type-label)",color:pagamento.comprovanteFile?C.green:C.blue}}>{pagamento.comprovanteFile?pagamento.comprovanteFile.name:"Anexar comprovante"}</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>PDF ou imagem · salvo no diretório financeiro da obra</p><input type="file" accept=".pdf,image/jpeg,image/png,image/webp" style={{display:"none"}} onChange={e=>{const file=e.target.files?.[0];e.target.value="";if(!file)return;if(file.size>5.5*1024*1024){showToast("O comprovante deve ter no máximo 5,5 MB.","error");return;}setPagamento(f=>({...f,comprovanteFile:file,comprovanteLegenda:String(file.name||"").replace(/\.[^.]+$/,"" )}));}}/></label>{pagamento.comprovanteFile&&<Inp label="Legenda do comprovante" value={pagamento.comprovanteLegenda} onChange={v=>setPagamento(f=>({...f,comprovanteLegenda:v}))}/>}<label style={{display:"flex",gap:7,alignItems:"center",fontSize:"var(--arcd-type-label)",color:C.text}}><input type="checkbox" checked={!!pagamento.conciliado} onChange={e=>setPagamento(f=>({...f,conciliado:e.target.checked}))}/><span>Pagamento já conferido e conciliado</span></label><Inp label="Observação" value={pagamento.observacao} onChange={v=>setPagamento(f=>({...f,observacao:v}))} multiline/><div style={{display:"flex",gap:7}}><Btn v="ghost" full onClick={paymentExit.requestClose} disabled={salvando}>Cancelar</Btn><Btn full onClick={registrarPagamento} disabled={salvando}><Ic n="check"/> {salvando?"Salvando e auditando...":"Confirmar pagamento"}</Btn></div></div></Modal>}{pagamento&&<UnsavedChangesPrompt guard={paymentExit}/>}
+    <div style={{display:"flex",flexDirection:"column",gap:7}}>{visiveis.map(item=>{const ev=estadoVisual[item.estado]||estadoVisual.conferencia,semConc=item.pagamentos.some(pg=>!pg.conciliado),vencida=item.estado==="vencida";return <article key={item.id} style={{background:C.card,border:`1px solid ${vencida?`${C.red}77`:C.border}`,borderLeft:`1px solid ${ev.c}`,borderRadius:9,overflow:"hidden",boxShadow:C.shHair}}><div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:10,alignItems:"start",padding:"10px 11px"}}><div style={{minWidth:0}}><div style={{display:"flex",gap:5,alignItems:"center",flexWrap:"wrap"}}><Badge color={ev.c}>{ev.l}</Badge><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:item.tipo==="nota"?C.blue:C.purple}}>{item.tipo==="nota"?"DOCUMENTO FISCAL":"PEDIDO SEM NF"}</span>{semConc&&<Badge color={C.orange}>A CONCILIAR</Badge>}</div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginTop:5,overflowWrap:"anywhere"}}>{item.numero} · {item.fornecedor}</p><div style={{display:"flex",gap:7,alignItems:"center",flexWrap:"wrap",marginTop:4,fontSize:"var(--arcd-type-caption)",color:C.muted}}><span><b style={{color:C.text}}>Obra:</b> {obraNome(item.obraId)}</span><span><b style={{color:C.text}}>Emissão:</b> {item.emissao?fmtDate(item.emissao):"-"}</span><span style={{color:vencida?C.red:C.muted}}><b style={{color:vencida?C.red:C.text}}>Vencimento:</b> {item.vencimento?fmtDate(item.vencimento):"não informado"}</span></div></div><div style={{minWidth:105,textAlign:"right",background:C.surface,border:`1px solid ${C.line}`,borderRadius:7,padding:"7px 8px"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>{item.saldo>.01?"Saldo a pagar":"Total pago"}</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:item.saldo>.01?C.red:C.green,marginTop:2}}>{fmt(item.saldo>.01?item.saldo:item.total)}</p>{item.saldo>.01&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>de {fmt(item.total)}</p>}</div></div>{item.estado==="sem_nota"&&<div style={{margin:"0 11px 8px",padding:"6px 8px",borderRadius:6,background:`${C.purple}0B`,color:C.purple,fontSize:"var(--arcd-type-caption)",fontWeight:600}}>Documento fiscal ainda não vinculado. Pagamentos antecipados permanecem sinalizados para auditoria.</div>}{item.estado==="conferencia"&&<div style={{margin:"0 11px 8px",padding:"6px 8px",borderRadius:6,background:`${C.blue}0B`,color:C.blue,fontSize:"var(--arcd-type-caption)",fontWeight:600}}>Aguardando conferência do pedido, recebimento, valores, retenções e rateio.</div>}{item.pagamentos.length>0&&<div style={{display:"flex",gap:5,flexWrap:"wrap",padding:"0 11px 8px"}}>{item.pagamentos.map(pg=><span key={pg.id} style={{fontSize:"var(--arcd-type-caption)",color:pg.conciliado?C.green:C.orange,background:pg.conciliado?`${C.green}0B`:`${C.orange}0B`,border:`1px solid ${pg.conciliado?C.green:C.orange}44`,borderRadius:99,padding:"3px 7px"}}>{fmt(pg.valor)} · {origemPagamentoLabel(pg.origem)} · {pg.conciliado?"conciliado":"pendente"}{(pg.comprovantes||[]).map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{color:C.blue,marginLeft:5,fontWeight:600}}>comprovante ↗</a>)}</span>)}</div>}<footer style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",padding:"7px 11px",borderTop:`1px solid ${C.line}`,background:C.surface}}><div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",minWidth:0}}>{item.documentos.map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:"var(--arcd-type-caption)",color:C.blue,fontWeight:600,textDecoration:"none"}}><Ic n="file" s={11}/>{a.legenda||a.nome} ↗</a>)}{!item.documentos.length&&<span style={{fontSize:"var(--arcd-type-caption)",color:C.orange,fontWeight:600}}>Sem anexo cadastrado</span>}</div><span style={{flex:1}}/><Btn size="sm" v="ghost" onClick={()=>onMemorial?.({title:item.numero,items:[{...financialEntry(data,{sourceType:item.tipo==="nota"?"nota_fiscal":"pedido",sourceId:item.registro.id,obraId:item.obraId,amountCents:Math.round(item.total*100)}),metadata:{saldo:item.saldo,vencimento:item.vencimento}}],context:"Documento e histórico de pagamentos"})}>Ver memorial</Btn>{item.estado==="sem_nota"&&<Btn size="sm" v="ghost" onClick={onNovaNota}>Receber documento fiscal</Btn>}{item.estado==="conferencia"&&<Btn size="sm" v="ghost" onClick={()=>onReviewInvoice?onReviewInvoice(item.registro):onAbrirFiscal()}>Conferir documento</Btn>}{item.tipo==="nota"&&hasInvoiceBankPayment(item.registro)&&onBank&&<Btn size="sm" v="ghost" onClick={()=>onBank(item.registro.id)}>Revisar conciliação</Btn>}{item.saldo>.01&&<Btn size="sm" onClick={()=>abrirPagamento(item)}><Ic n="receipt"/> Registrar pagamento</Btn>}</footer></article>;})}{!visiveis.length&&<div style={{padding:"28px 16px",textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:10,background:C.surface}}><Ic n="check" s={22} color={C.green}/><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginTop:6}}>Nenhuma obrigação neste filtro</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>A fila está atualizada com os pedidos e documentos fiscais cadastrados.</p></div>}</div>
+    {pagamento&&<PaymentDialog data={data} user={currentUser} type={pagamento.type} id={pagamento.id} pageId="fin" dispatch={dispatchCommand} onClose={()=>setPagamento(null)} onSaved={()=>showToast('Pagamento registrado e confirmado pelo servidor.')}/>}
   </div>;
 }
 
@@ -4247,7 +4159,7 @@ function HomologacaoFinanceira({data,showToast,C=C_ARCD_SETOR}){
   const contagens=relatorio?.contagens||{};
   return <div className="anim" style={{display:"flex",flexDirection:"column",gap:10}}>
     <PageHero headingLevel={2} eyebrow="FIN-002 · controle de migração" title="Homologação em sombra" description="Compara cada fato financeiro do legado com o razão canônico antes de bloquear as escritas antigas." actions={<div style={{display:"flex",gap:6}}><Btn v="ghost" onClick={carregar} disabled={carregando}>Atualizar relatório</Btn><Btn v="success" onClick={sincronizar} disabled={sincronizando||carregando}>{sincronizando?"Carregando fatos...":"Executar carga idempotente"}</Btn></div>}/>
-    {carregando&&<div style={{padding:24,textAlign:"center",border:`1px solid ${C.border}`,borderRadius:8,color:C.muted}}>Consultando o razão canônico...</div>}
+    {carregando&&<LoadingState label="o razão canônico"/>}
     {!carregando&&!relatorio&&<div style={{padding:18,border:`1px solid ${C.red}`,borderRadius:8,color:C.red}}><b>Banco ainda não preparado</b><p style={{fontSize:"var(--arcd-type-label)",margin:"5px 0 10px"}}>{erro||"Relatório indisponível."}</p><Btn onClick={preparar} disabled={migrando}>{migrando?"Aplicando migration...":"Preparar banco com segurança"}</Btn></div>}
     {relatorio&&<><div style={{padding:"11px 13px",border:`1px solid ${relatorio.prontoParaAtivar?C.green:C.orange}`,borderLeft:`1px solid ${relatorio.prontoParaAtivar?C.green:C.orange}`,borderRadius:8,background:relatorio.prontoParaAtivar?`${C.green}08`:`${C.orange}08`}}>
       <b style={{fontSize:"var(--arcd-type-body)",color:relatorio.prontoParaAtivar?C.green:C.orange}}>{relatorio.prontoParaAtivar?"Divergência zero · pronto para o gate FIN-003":"Motor permanece em sombra"}</b>
@@ -4335,9 +4247,11 @@ function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatch
   useWorkspaceScroll("fin");
   const [areaFinanceira,setAreaFinanceira]=useSessionState("areaFinanceira","hoje");
   useHelpTopic('fin',FINANCE_HELP[areaFinanceira]||'fin');
-  const [todayQueue,setTodayQueue]=useSessionState("todayQueue","payToday");
+  const [todayQueue,setTodayQueue]=useSessionState("todayQueue","all");
+  const [todayPreferences,setTodayPreferences]=useQueuePreferences(currentUser?.id,"fin",{direction:"A pagar",layout:"table"});
   const [taskReturn,setTaskReturn]=useState(null);
   const [todayPurchase,setTodayPurchase]=useState(null);
+  const [todayPayment,setTodayPayment]=useState(null);
   const [documentView,setDocumentView]=useSessionState("documentView",{query:"",filter:"all",selected:null});
   const [paymentView,setPaymentView]=useSessionState('paymentView',{filter:'fila',query:'',invoiceId:''});
   const [financialReturn,setFinancialReturn]=useSessionState('financialReturn',null);
@@ -4553,18 +4467,17 @@ function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatch
 
   const podeAcessarAdministrativoFinanceiro=["admin","financeiro"].includes(currentUser?.role);
   const abasFinanceiras=[["hoje","Hoje"],["caixa","Caixa por conta"],["visao","Visão financeira"],...(podeAcessarAdministrativoFinanceiro?[["etapas","Custos por etapa"],["documentos","Documentos"],["relatorios","Relatórios financeiros"],["pagamentos","Pagamentos"],["administrativo","Administrativo"],["fiscal","Notas fiscais"]]:[]),...(currentUser?.role==="admin"?[["fechamento","Fechamento"],["homologacao","Homologação"]]:[]),["ia","Modo IA"]];
-  const navegacaoFinanceira=<><PageHeader className="workspace-header" title="Financeiro" description="Contas, documentos e fluxo financeiro."
-    secondaryActions={["hoje","caixa","etapas","documentos"].includes(areaFinanceira)?<div className="workspace-header__scope">{workFilter}</div>:null}/>
-    <WorkspaceNavigation className="financial-navigation" label="Áreas do financeiro" active={areaFinanceira} onChange={setAreaFinanceira}
+  const navegacaoFinanceira=<><WorkspaceHeading title="Financeiro" navigation={<WorkspaceNavigation className="financial-navigation" label="Áreas do financeiro" active={areaFinanceira} onChange={setAreaFinanceira}
     items={abasFinanceiras.filter(([id])=>["hoje","pagamentos","caixa","documentos"].includes(id)).map(([id,label])=>({id,label}))}
     toolsLabel="Mais áreas"
-    tools={abasFinanceiras.filter(([id])=>!["hoje","pagamentos","caixa","documentos"].includes(id)).map(([id,label])=>({id,label}))}/>
+    tools={abasFinanceiras.filter(([id])=>!["hoje","pagamentos","caixa","documentos"].includes(id)).map(([id,label])=>({id,label}))}/>}/>
+    {areaFinanceira==="etapas"&&<WorkspaceCommandBar label="Comandos do Financeiro" scope={workFilter}/>}
     {financialReturn&&!taskReturn&&!fiscalReturn&&!documentReturn&&<nav className="financial-origin-return" aria-label="Retorno à conferência financeira"><p>Retome a origem com o recorte anterior.</p><Button variant="outline" onClick={backFinancialOrigin}>{financialReturn.area==="fechamento"?"Voltar à conferência do fechamento":financialReturn.area==="documentos"?"Voltar à central de documentos":"Voltar à rotina financeira de origem"}</Button></nav>}{taskReturn&&<Btn v="ghost" onClick={()=>{positionToRestore.current=taskReturn.positions;setFilterObra(taskReturn.obraId);setDocumentMonth(taskReturn.month);setDocumentView(taskReturn.view);setAreaFinanceira(taskReturn.area);setTaskReturn(null);}}>{taskReturn.label}</Btn>}</>;
-  if(areaFinanceira==="caixa")return <div className="financial-overview">{navegacaoFinanceira}<CashWorkspace currentUser={currentUser} data={data} ledger={financialView.selected.ledger} today={currentDate} obraId={filterObra} onOpen={setMemorial} view={cashView} onViewChange={setCashView} scenario={cashScenario} onScenarioChange={setCashScenario}/>{memorialPanel}</div>;
-  if(areaFinanceira==="hoje")return <div className="financial-overview">{navegacaoFinanceira}<FinanceToday active={todayQueue} onActiveChange={setTodayQueue} queues={queues} today={currentDate} work={filterObra==="all"?"Todas as obras":obraName(filterObra)} onOpen={setMemorial} resolveAction={item=>financeNextAction(data,item,currentUser)} onAction={openTodayAction}/><Btn v="ghost" onClick={()=>setAreaFinanceira("caixa")}>Abrir caixa por conta e previsão</Btn>{memorialPanel}{todayPurchase&&<PurchaseDossier data={data} selection={todayPurchase} currentUser={currentUser} onReviewInvoice={invoice=>openTodayAction({sourceType:'nota_fiscal',sourceId:invoice.id,obraId:invoice.obraId})} onClose={()=>setTodayPurchase(null)}/>}</div>;
+  if(areaFinanceira==="caixa")return <div className="financial-overview">{navegacaoFinanceira}<CashWorkspace scopeControl={workFilter} currentUser={currentUser} data={data} ledger={financialView.selected.ledger} today={currentDate} obraId={filterObra} onOpen={setMemorial} view={cashView} onViewChange={setCashView} scenario={cashScenario} onScenarioChange={setCashScenario}/>{memorialPanel}</div>;
+  if(areaFinanceira==="hoje")return <div className="financial-overview">{navegacaoFinanceira}<FinanceToday scopeControl={workFilter} scope={filterObra} preferences={todayPreferences} onPreferencesChange={setTodayPreferences} active={todayQueue} onActiveChange={setTodayQueue} queues={queues} today={currentDate} work={filterObra==="all"?"Todas as obras":obraName(filterObra)} onOpen={setMemorial} onAllocate={item=>setTodayPayment(item.sourceId)} resolveAction={item=>financeNextAction(data,item,currentUser)} onAction={openTodayAction}/><Btn v="ghost" onClick={()=>setAreaFinanceira("caixa")}>Abrir caixa por conta e previsão</Btn>{memorialPanel}{todayPayment&&<PaymentDialog data={data} user={currentUser} type="nota" id={todayPayment} pageId="fin" dispatch={dispatchCommand} onClose={()=>setTodayPayment(null)} onSaved={()=>showToast('Operação financeira confirmada.')}/>}{todayPurchase&&<PurchaseDossier data={data} selection={todayPurchase} currentUser={currentUser} onReviewInvoice={invoice=>openTodayAction({sourceType:'nota_fiscal',sourceId:invoice.id,obraId:invoice.obraId})} onClose={()=>setTodayPurchase(null)}/>}</div>;
   if(areaFinanceira==="etapas"&&podeAcessarAdministrativoFinanceiro)return <div className="financial-overview">{navegacaoFinanceira}<WorkStageCosts data={data} ledger={stageLedger.ledger} missingStart={stageLedger.missingStart} obraId={filterObra} asOf={currentDate} onOpen={setMemorial} view={costReviewView} onViewChange={setCostReviewView} dispatchCommand={dispatchCommand} currentUser={currentUser}/>{memorialPanel}</div>;
   if(areaFinanceira==="relatorios"&&podeAcessarAdministrativoFinanceiro)return <div className="financial-overview">{navegacaoFinanceira}<FinancialReportCenter data={data} calcPeriod={calcVisaoFinanceira} view={reportView} onViewChange={setReportView} obraId={filterObra} onObraChange={setFilterObra} onOpen={setMemorial} loadSpreadsheet={async()=>{await carregarXLSX();return XLSX;}}/>{memorialPanel}</div>;
-  if(areaFinanceira==="documentos"&&podeAcessarAdministrativoFinanceiro)return <div className="financial-overview">{navegacaoFinanceira}{documentReturn&&<Btn v="ghost" onClick={backToMemorial}>Voltar ao memorial de origem</Btn>}<DocumentCenter onPayments={openInvoicePayments} onBank={podeAcessarAba(currentUser,"conc")?openInvoiceBank:undefined} currentUser={currentUser} onObra={setFilterObra} view={documentView} onViewChange={setDocumentView} data={data} obraId={filterObra} competence={documentMonth} onCompetence={setDocumentMonth} onOpen={setMemorial} onReview={conferirNota} onReceive={abrirNovaNota}/>{memorialPanel}</div>;
+  if(areaFinanceira==="documentos"&&podeAcessarAdministrativoFinanceiro)return <div className="financial-overview">{navegacaoFinanceira}{documentReturn&&<Btn v="ghost" onClick={backToMemorial}>Voltar ao memorial de origem</Btn>}<DocumentCenter scopeControl={workFilter} onPayments={openInvoicePayments} onBank={podeAcessarAba(currentUser,"conc")?openInvoiceBank:undefined} currentUser={currentUser} onObra={setFilterObra} view={documentView} onViewChange={setDocumentView} data={data} obraId={filterObra} competence={documentMonth} onCompetence={setDocumentMonth} onOpen={setMemorial} onReview={conferirNota} onReceive={abrirNovaNota}/>{memorialPanel}</div>;
   if(areaFinanceira==="pagamentos"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>{navegacaoFinanceira}{memorialPanel}<CentralPagamentosFinanceiro view={paymentView} onViewChange={setPaymentView} onBank={podeAcessarAba(currentUser,"conc")?openInvoiceBank:undefined} obraId={filterObra} onObraChange={setFilterObra} onMemorial={setMemorial} data={data} showToast={showToast} currentUser={currentUser} onNovaNota={abrirNovaNota} onAbrirFiscal={abrirFiscal} onReviewInvoice={invoice=>openTodayAction({sourceType:"nota_fiscal",sourceId:invoice.id,obraId:invoice.obraId})} dispatchCommand={dispatchCommand} C={C}/></div>;
   if(areaFinanceira==="administrativo"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>{navegacaoFinanceira}<FinanceiroAdministrativo data={data} update={update} showToast={showToast} currentUser={currentUser} C={C}/></div>;
   if(areaFinanceira==="fiscal"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>{navegacaoFinanceira}{fiscalReturn&&<Btn v="ghost" onClick={()=>{positionToRestore.current=fiscalReturn.positions;setFilterObra(fiscalReturn.obraId);setFiscalReturn(null);setAreaFinanceira("documentos");}}>Voltar à central de documentos</Btn>}{memorialPanel}<CentralFiscal abrirNotaId={notaParaConferir} onNotaAberta={confirmarNotaAberta} obraIdFiltro={filterObra} onObraChange={setFilterObra} onMemorial={setMemorial} data={data} update={update} showToast={showToast} currentUser={currentUser} abrirCadastro={abrirCadastroFiscal} onCadastroAberto={confirmarAberturaFiscal} dispatchCommand={dispatchCommand}/></div>;
@@ -4602,7 +4515,7 @@ function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatch
       <RankingFinanceiro data={data} year={year} month={month} obraId={filterObra==="all"?"":filterObra} onSelecionarObra={setFilterObra} C={C}/>
 
       {/* Gráficos: receita vs custo e cadência quinzenal */}
-      <Suspense fallback={<div className="arcd-page-loading">Carregando gráficos...</div>}>
+      <Suspense fallback={<LoadingState label="gráficos"/>}>
         <LazyFinanceiroCharts chartData={chartData} quinzenalChart={quinzenalChart} C={C}/>
       </Suspense>
       </details>
@@ -5774,14 +5687,14 @@ function WorkerMovementModal({ data, showToast, employee, initialMode = "transfe
           <Sel label="Nova obra *" value={newObra} onChange={setNewObra} options={[{ v: "", l: "Selecione" }, ...activeObras.filter(o => o.id !== employee.obra).map(o => ({ v: o.id, l: o.name }))]} />
         ) : (
           <>
-            <Inp label="Data de término *" type="date" value={endDate} onChange={setEndDate} />
+            <Inp label="Último dia trabalhado *" type="date" value={endDate} onChange={setEndDate} />
             <Inp label="Motivo" value={reason} onChange={setReason} />
           </>
         )}
         <div style={{ display: "flex", gap: "var(--arcd-space-2)" }}>
           <Btn v="ghost" onClick={onClose} full>Cancelar</Btn>
           <Btn v={mode === "transfer" ? "warning" : "danger"} onClick={mode === "transfer" ? saveTransfer : saveDismissal} full>
-            <Ic n="check" /> {mode === "transfer" ? "Confirmar transferência" : "Confirmar demissão"}
+            <Ic n="check" /> {mode === "transfer" ? "Confirmar transferência" : "Confirmar desligamento"}
           </Btn>
         </div>
       </div>
@@ -5850,15 +5763,15 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
   useHelpTopic('ponto_geral',laborGroup==='all'?'ponto_geral':`ponto_geral_${laborGroup}`);
   const agora = new Date();
   const refInicial = agora.getDate() <= 5 ? new Date(agora.getFullYear(), agora.getMonth()-1, 1) : agora;
-  const [year,setYear]=useState(refInicial.getFullYear());
-  const [month,setMonth]=useState(refInicial.getMonth());
-  const [q,setQ]=useState(agora.getDate()>=6&&agora.getDate()<=20?"1":"2");
-  const [filterObra,setFilterObra]=useState("all");
-  const [busca,setBusca]=useState("");
+  const [year,setYear]=useWorkspaceState('ponto_geral','year',refInicial.getFullYear());
+  const [month,setMonth]=useWorkspaceState('ponto_geral','month',refInicial.getMonth());
+  const [q,setQ]=useWorkspaceState('ponto_geral','q',agora.getDate()>=6&&agora.getDate()<=20?"1":"2");
+  const [filterObra,setFilterObra]=useWorkspaceState('ponto_geral','filterObra',"all");
+  const [busca,setBusca]=useWorkspaceState('ponto_geral','busca',"");
   const [obraCell,setObraCell]=useState(null);   // "empId::date" da célula com troca de obra aberta
   const pendingCellsRef=useRef(new Map());
   const [,setPendingCellsRevision]=useState(0);
-  const {intent:rhIntent}=useWorkflow();
+  const {intent:rhIntent,navigate:navigateEmployee}=useWorkflow();
   useEffect(()=>{
     if(rhIntent?.tabId!=='ponto_geral'||rhIntent.action!=='rh-readiness')return;
     const employee=data.employees.find(e=>String(e.id)===rhIntent.record?.employeeId);if(!employee)return;
@@ -5998,31 +5911,6 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
 
   // Sem preenchimento automático de presença: cada dia é marcado manualmente,
   // clicando na própria célula - evita presença lançada sem verificação real.
-  const limparLinha=async emp=>{
-    if(bloqueadoPorArquivo())return;
-    if(!window.confirm(`Limpar os lançamentos visíveis de ${emp.name}?`))return;
-    let bloqueados=0;
-    const patches=days.flatMap(date=>{
-      const ant=getAtt(data,emp.id,date);
-      if(!ant)return [];
-      const obraId=obraDoRegistro(emp,date,ant);
-      if(obraId&&!canEditAttendance(data,obraId,date,currentUser?.id)){bloqueados++;return [];}
-      return [{employeeId:emp.id,date,selectedObraId:obraId,record:{...ant,status:null,obraId}}];
-    });
-    if(!patches.length){
-      showToast(bloqueados?"Os lançamentos visíveis estão bloqueados.":"Não há lançamentos para limpar.",bloqueados?"error":"success");
-      return;
-    }
-    const operationId=pointOperationId();
-    markPending(operationId,patches);
-    const result=await dispatchAttendanceCommand({
-      action:"attendance-batch-upsert",operationId,patches,
-    });
-    clearPending(operationId,patches);
-    if(!result?.ok){showToast(result?.reason||"Os lançamentos não foram removidos.","error");return;}
-    showToast(bloqueados?`${bloqueados} dia(s) bloqueado(s) foram preservados; os demais foram removidos.`:"Lançamentos do período removidos.");
-  };
-
   const periodo=`${fmtDateFull(diasCiclo[0])} a ${fmtDateFull(diasCiclo[diasCiclo.length-1])}`;
   const rotuloCurto=st=>st==="M"?"½":isValidAttendanceStatus(st)?st:"·";
   return <div className="anim ponto-geral" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
@@ -6044,7 +5932,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
         <Inp label="Buscar funcionário" value={busca} onChange={setBusca} placeholder="Nome, cargo ou obra..."/>
       </FilterBar>
       <p className="ponto-geral-count">{employees.length} funcionário(s) neste filtro · marcação dia a dia, clicando na célula</p>
-      {!arqMeta&&["admin","rh"].includes(currentUser?.role)&&<Suspense fallback={null}><ImportarDoREP data={data} employees={employees} days={days}
+      {!arqMeta&&["admin","rh"].includes(currentUser?.role)&&<Suspense fallback={<LoadingState label="importação de ponto"/>}><ImportarDoREP data={data} employees={employees} days={days}
         getRecord={attendanceFor} canEdit={(obraId,date)=>canEditAttendance(data,obraId,date,currentUser?.id)} obraName={obraName}
         dispatchAttendanceCommand={dispatchAttendanceCommand} newOperationId={pointOperationId} showToast={showToast}/></Suspense>}
     </div>
@@ -6092,27 +5980,16 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
     </div>
 
     <div className="ponto-geral-table-wrap" style={{overflow:"auto",border:"1px solid var(--arcd-border-default)",borderRadius:8,background:"var(--arcd-surface-card)",maxHeight:"70vh"}}>
-      <table className="ponto-geral-table" style={{borderCollapse:"separate",borderSpacing:0,minWidth:Math.max(900,354+days.length*64),width:"100%",fontSize:"var(--arcd-type-label)"}}>
+      <table className="ponto-geral-table" style={{borderCollapse:"separate",borderSpacing:0,minWidth:Math.max(900,284+days.length*64),width:"100%",fontSize:"var(--arcd-type-label)"}}>
         <thead><tr>
-          <th className="ponto-col-funcionario" style={{position:"sticky",left:0,zIndex:7,minWidth:290,background:"var(--arcd-surface-muted)",color:"var(--arcd-text-primary)",padding:"var(--arcd-space-2) var(--arcd-space-3)",textAlign:"left",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",letterSpacing:"var(--arcd-letter-spacing-body)",borderBottom:"1px solid var(--arcd-border-default)"}}>FUNCIONÁRIO E AÇÕES</th>
+          <th className="ponto-col-funcionario" style={{position:"sticky",left:0,zIndex:7,minWidth:220,background:"var(--arcd-surface-muted)",color:"var(--arcd-text-primary)",padding:"var(--arcd-space-2) var(--arcd-space-3)",textAlign:"left",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",letterSpacing:"var(--arcd-letter-spacing-body)",borderBottom:"1px solid var(--arcd-border-default)"}}>Funcionário</th>
           <th className="ponto-col-total" style={{minWidth:64,background:"var(--arcd-surface-muted)",color:"var(--arcd-text-primary)",padding:"var(--arcd-space-2)",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",borderBottom:"1px solid var(--arcd-border-default)"}}>DIAS</th>
           {days.map(date=>{const feriado=feriados.includes(date);return <th className={`ponto-col-dia${feriado?" ponto-feriado":""}`} key={date} title={feriado?(nomesFeriados.get(date)||"Feriado"):""} style={{minWidth:64,background:feriado?"color-mix(in srgb, var(--arcd-danger-text) 8%, transparent)":"var(--arcd-surface-muted)",color:feriado?"var(--arcd-danger-text)":"var(--arcd-text-primary)",padding:"var(--arcd-space-1)",borderLeft:"1px solid var(--arcd-border-default)",borderBottom:"1px solid var(--arcd-border-default)"}}><div style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{diaLabel(date)}</div><div style={{fontSize:"var(--arcd-type-caption)",fontWeight:feriado?600:600,opacity:feriado?1:.6}}>{semana(date)}</div>{feriado&&<span className="ponto-feriado-label">Feriado</span>}</th>;})}
         </tr></thead>
         <tbody>{employees.map(emp=>{const equivalentes=days.reduce((s,d)=>{const st=attendanceFor(emp.id,d)?.status;return s+(st==="P"?1:st==="M"?.5:0);},0);return <tr key={emp.id} style={{borderTop:"1px solid var(--arcd-border-default)"}}>
           <td className="ponto-col-funcionario" style={{position:"sticky",left:0,zIndex:2,background:"var(--arcd-surface-card)",padding:"var(--arcd-space-2) var(--arcd-space-3)",borderTop:"1px solid var(--arcd-border-default)",minWidth:290}}>
-            <div className="ponto-employee-cell" style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)"}}>
-              <div style={{minWidth:0}}>
-                <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-1)",minWidth:0}}>
-                  <StandardButton variant="secondary" type="button" onClick={()=>{sessionContext.setItem("arcd_editar_funcionario",emp.id);onTab?.("equipe");}} title="Editar cadastro do funcionário" style={{display:"block",whiteSpace:"normal",overflowWrap:"anywhere",textAlign:"left",textDecorationColor:"transparent",textUnderlineOffset:2}} onMouseEnter={e=>e.currentTarget.style.textDecorationColor=C.blue} onMouseLeave={e=>e.currentTarget.style.textDecorationColor="transparent"}>{emp.name}</StandardButton>
-                  {emp.active===false&&<Badge color={C.muted}>Demitido</Badge>}
-                </div>
-                <div style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-0)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{emp.role||"Funcionário"} · {obraName(emp.obra)}</div>
-              </div>
-              <div className="ponto-row-actions" style={{display:"flex",gap:"var(--arcd-space-1)",flexShrink:0}}>
-                <Btn v="ghost" size="sm" title="Ver ficha do funcionário" onClick={()=>gerarFichaFuncionarioPDF(data,emp,showToast)}><Ic n="file" s={11}/> Ficha</Btn>
-                <Btn v="ghost" size="sm" title="Limpar todos os lançamentos desta linha" onClick={()=>limparLinha(emp)}><Ic n="x" s={11}/> Limpar</Btn>
-              </div>
-            </div>
+            <RecordAction className="ponto-employee-name" type="button" onClick={()=>{if(!['admin','rh'].includes(currentUser?.role)){gerarFichaFuncionarioPDF(data,emp,showToast);return;}sessionContext.setItem("arcd_editar_funcionario",emp.id);if(navigateEmployee)navigateEmployee('equipe',{year,month,obraId:filterObra==='all'?'':filterObra});else onTab?.("equipe");}} title="Abrir ficha do funcionário">{emp.name}</RecordAction>
+            <div className="ponto-employee-role">{emp.active===false&&'Desligado · '}{emp.role||'Funcionário'} · {obraName(emp.obra)}</div>
           </td>
           <td className="ponto-col-total" style={{textAlign:"center",fontWeight:"var(--arcd-font-weight-semibold)",fontSize:"var(--arcd-type-table)",color:"var(--arcd-action-primary)",borderTop:"1px solid var(--arcd-border-default)",fontFamily:"var(--arcd-font-sans)"}}>{equivalentes.toFixed(1).replace(".0","")}</td>
           {days.map(date=>{
@@ -6125,7 +6002,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
                 <RecordAction onClick={()=>salvarCelula(emp,date,{status:proxStatus(st)})}
                   aria-busy={pending}
                   title={pending?"Salvando...":ATTENDANCE_STATUS_LABEL[st]||"Sem registro"}
-                  style={{width:"100%",height:30,border:`1.5px solid ${st?corStatus(st):"var(--arcd-border-default)"}`,borderRadius:"var(--arcd-radius-control)",
+                  style={{width:"100%",height:30,textAlign:"center",border:`1.5px solid ${st?corStatus(st):"var(--arcd-border-default)"}`,borderRadius:"var(--arcd-radius-control)",
                           background:st?corStatus(st):"var(--arcd-surface-page)",color:st?"var(--arcd-text-inverse)":"var(--arcd-text-secondary)",
                           fontWeight:"var(--arcd-font-weight-semibold)",cursor:"pointer",fontSize:"var(--arcd-type-control)",fontFamily:"var(--arcd-font-sans)",
                           boxShadow:pending?"0 0 0 2px color-mix(in srgb, var(--arcd-action-primary) 20%, transparent)":"none",opacity:pending ? .82 : 1}}>
@@ -6215,9 +6092,9 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
   useHelpTopic('ponto',laborGroup==='all'?'ponto':`ponto_${laborGroup}`);
   const obraInicial=obraIdFixo||currentUser?.obraId||
     (currentUser?.role==="engenheiro"&&data.obras.length===1?data.obras[0].id:"all");
-  const [selDate, setSelDate] = useState(today());
-  const [filterObra, setFilterObra] = useState(obraInicial);
-  const {intent:rhIntent}=useWorkflow();
+  const [selDate, setSelDate] = useWorkspaceState('ponto','date',today(),obraIdFixo);
+  const [filterObra, setFilterObra] = useWorkspaceState('ponto','work',obraInicial,obraIdFixo);
+  const {intent:rhIntent,navigate:navigateEmployee}=useWorkflow();
   useEffect(()=>{
     if(rhIntent?.tabId!=='ponto'||rhIntent.action!=='rh-readiness')return;
     const employee=data.employees.find(e=>String(e.id)===rhIntent.record?.employeeId);if(!employee)return;
@@ -6511,8 +6388,8 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
     const st = attStatus(data, e.id, selDate);
     if (st) counts[st] = (counts[st] || 0) + 1;
   });
-  const semReg = Math.max(0, list.length - counts.P - counts.M - counts.F);
-  const registeredCount = counts.P + counts.M + counts.F;
+  const registeredCount = Object.entries(counts).reduce((total,[st,n])=>total+(isValidAttendanceStatus(st)?n:0),0);
+  const semReg = list.length - registeredCount;
 
   return (
     <div className="anim obra-attendance">
@@ -6635,16 +6512,19 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
         const obraIdPonto=obraDoPonto(e);
         const cardLocked = isAttendanceLocked(data, obraIdPonto, selDate) && !canEditAttendance(data, obraIdPonto, selDate, currentUser?.id);
         const aberto = expandedCard === e.id;
+        const statusChoices=[["P","check","Presente"],["M","money","Meio dia"],["F","x","Falta"],["FE","calendar","Férias"],["AT","file","Atestado"],["FG","clock","Folga"]];
+        const statusButton=([st,icon,label])=><RecordAction key={st} type="button" onClick={()=>setAtt(e.id,st)} className="obra-attendance-card__status" data-tone={st} data-selected={status===st} aria-pressed={status===st}><Ic n={icon} s={14}/> {label}</RecordAction>;
 
         return (
           <article key={e.id} className="obra-attendance-card" data-status={status||"empty"} data-locked={cardLocked}>
             <header className="obra-attendance-card__header">
               <div className="obra-attendance-card__identity">
-                <p className="obra-attendance-card__name" title={e.name}>{e.name}</p>
+                <RecordAction className="obra-attendance-card__name" title="Abrir ficha do funcionário" onClick={()=>{if(!['admin','rh'].includes(currentUser?.role)){gerarFichaFuncionarioPDF(data,e,showToast);return;}sessionContext.setItem('arcd_editar_funcionario',e.id);if(navigateEmployee)navigateEmployee('equipe',{obraId:filterObra==='all'?'':filterObra});else onTab?.('equipe');}}>{e.name}</RecordAction>
                 <p className="obra-attendance-card__meta">{obraName(e.obra)}{(roleDoDia || e.role) ? ` · ${roleDoDia || e.role}` : ""}{roleDoDia && roleDoDia !== e.role ? " (hoje)" : ""}</p>
               </div>
               <div className="obra-attendance-card__badges">
                 {cardLocked && <Badge color={C.red}><Ic n="lock" s={10} /> Bloqueado</Badge>}
+                {["FE","AT","FG"].includes(status)&&<Badge color={C.blue}>{ATTENDANCE_STATUS_LABEL[status]}</Badge>}
                 {timekeeping.valid&&!timekeeping.empty&&<Badge color={C.blue}>{formatMinutes(timekeeping.workedMinutes)}</Badge>}
                 {timekeeping.valid&&timekeeping.delayMinutes>0&&<Badge color={C.orange}>{timekeeping.delayMinutes} min atraso</Badge>}
                 {ot > 0 && <Badge color={C.purple}>{ot}h extra</Badge>}
@@ -6659,22 +6539,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
               <>
                 {/* Ação principal: presença. Três botões grandes e claros. */}
                 <div className="obra-attendance-card__statuses" role="group" aria-label={`Ponto de ${e.name}`}>
-                  {[
-                    ["P", "check", "Presente"],
-                    ["M", "money", "Meio dia"],
-                    ["F", "x", "Falta"],
-                    ["FE", "calendar", "Férias"],
-                    ["AT", "file", "Atestado"],
-                    ["FG", "clock", "Folga"],
-                  ].map(([st, icon, label]) => (
-                    <RecordAction key={st} type="button" onClick={() => setAtt(e.id, st)}
-                      className="obra-attendance-card__status"
-                      data-tone={st}
-                      data-selected={status === st}
-                      aria-pressed={status === st}>
-                      <Ic n={icon} s={14} /> {label}
-                    </RecordAction>
-                  ))}
+                  {statusChoices.slice(0,3).map(statusButton)}
                 </div>
 
                 {/* Ações secundárias recolhidas: raras no dia a dia, não competem
@@ -6687,18 +6552,19 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
                 </RecordAction>
                 {aberto && (
                   <div className="obra-attendance-card__details">
+                    <div className="obra-attendance-card__statuses" role="group" aria-label={`Outras situações de ${e.name}`}>{statusChoices.slice(3).map(statusButton)}</div>
                     <div className="obra-attendance-card__secondary">
                       <Btn v="ghost" size="sm" full onClick={() => openTimekeeping(e)}><Ic n="calendar" /> Jornada</Btn>
                       <Btn v="ghost" size="sm" full onClick={() => { if (requireDailyCheck()) return; if (requireUnlocked(e)) return; setOtModal(e.id); setOtHours(String(ot)); }}><Ic n="clock" /> Hora extra</Btn>
                       <Btn v="ghost" size="sm" full onClick={() => { if (requireDailyCheck()) return; if (requireUnlocked(e)) return; setNoteModal(e.id); setNoteText(note); }}><Ic n="edit" /> Observação</Btn>
                       <Btn v="ghost" size="sm" full onClick={() => { if (requireDailyCheck()) return; if (requireUnlocked(e)) return; setRoleModal(e.id); setRoleText(roleDoDia || e.role || ""); }}><Ic n="edit" /> Função do dia</Btn>
                     </div>
-                    {podeMovimentarEquipe && <div className="obra-attendance-card__workforce">
-                      <Btn v="warning" size="sm" full onClick={() => setMovementModal({ emp: e, mode: "transfer" })}><Ic n="building" /> Transferir</Btn>
-                      <Btn v="danger" size="sm" full onClick={() => setMovementModal({ emp: e, mode: "dismiss" })}><Ic n="x" /> Demitir</Btn>
-                    </div>}
                   </div>
                 )}
+                {podeMovimentarEquipe && <div className="obra-attendance-card__workforce">
+                  <Btn v="ghost" size="sm" full onClick={() => setMovementModal({ emp: e, mode: "transfer" })}>Transferir</Btn>
+                  <Btn v="danger" size="sm" full onClick={() => setMovementModal({ emp: e, mode: "dismiss" })}>Desligar</Btn>
+                </div>}
               </>
             )}
           </article>
@@ -7486,7 +7352,7 @@ function RelatoriosMensais({ data, showToast }) {
         <ReportMetric label="Registros críticos" value={totals.faltas+totals.semRegistro} detail={`${totals.faltas} faltas · ${totals.semRegistro} sem registro`} color={(totals.faltas+totals.semRegistro)>0?C.red:C.green} icon="alert"/>
       </div>
 
-      <Suspense fallback={<div className="arcd-page-loading">Carregando gráfico...</div>}>
+      <Suspense fallback={<LoadingState label="gráfico"/>}>
         <LazyRelatoriosChartPanel byObra={byObra} chartMode={chartMode} setChartMode={setChartMode} highlightObra={highlightObra} setHighlightObra={setHighlightObra}/>
       </Suspense>
 
@@ -9909,7 +9775,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
       </div>
       <div style={{borderTop:"1px solid var(--arcd-border-default)",paddingTop:"var(--arcd-space-3)",minWidth:0}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",marginBottom:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Conteúdo da pasta</p>{!carregandoPasta&&<span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",whiteSpace:"nowrap"}}>{pastas.length} pasta(s) · {arquivos.length||arquivosFallback.length} arquivo(s)</span>}</div>
-        {carregandoPasta?<div style={{padding:"var(--arcd-space-5) var(--arcd-space-2)",textAlign:"center",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)"}}>Carregando pastas e arquivos...</div>:<>
+        {carregandoPasta?<LoadingState label="pastas e arquivos"/>:<>
           {!!pastas.length&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,210px),1fr))",gap:"var(--arcd-space-2)",marginBottom:"var(--arcd-space-2)"}}>{pastas.map(pasta=><StandardButton variant="secondary" key={pasta.id} onClick={()=>abrirPastaInterna(pasta)} title={`Abrir ${pasta.name}`} style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",minWidth:0,width:"100%",textAlign:"left"}}><span style={{flex:"0 0 auto",color:"var(--arcd-action-primary)"}}><Ic n="folder"/></span><span style={{flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{pasta.name}</span><span style={{flex:"0 0 auto",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-body)"}}>›</span></StandardButton>)}</div>}
           {!!arquivos.length&&<div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>{arquivos.map(doc=>linkDocumentoObra(doc))}</div>}
           {!arquivos.length&&!!arquivosFallback.length&&<div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>{arquivosFallback.map(doc=>linkDocumentoObra(doc))}</div>}
@@ -10081,7 +9947,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
 
       {/* Confirmacao da chegada: o mesmo modal do "Receber" de Compras (R6) */}
       {chegadaModal && (
-        <Suspense fallback={null}>
+        <Suspense fallback={<Modal title={`Confirmar chegada - pedido ${chegadaModal.numero}`} onClose={()=>!chegadaEnviando&&setChegadaModal(null)}><LoadingState label="recebimento"/></Modal>}>
           <ModalRecebimentoCompras pedido={chegadaModal} titulo={`Confirmar chegada - pedido ${chegadaModal.numero}`}
             onClose={() => !chegadaEnviando && setChegadaModal(null)} onReceber={confirmarChegada}
             nomeMat={id => (data.materiais||[]).find(m => m.id === id)?.descricao || "Material"}
@@ -10328,23 +10194,23 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         {atualizacoesObra.length===0?<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhuma atualização registrada ainda.</p>:<div style={{display:"flex",flexDirection:"column"}}>{atualizacoesObra.map((e,i)=>{const d=new Date(e.at);const hora=d.getHours()===0&&d.getMinutes()===0?"":d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});const cor=e.tipo==="removeu"?C.red:e.tipo==="criou"?C.green:e.tipo==="operacao"?C.orange:C.blue;return <div key={e.id} style={{display:"grid",gridTemplateColumns:"34px minmax(0,1fr) auto",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-0)",borderTop:i?"1px solid var(--arcd-border-default)":"none",alignItems:"start"}}><span style={{width:30,height:30,borderRadius:99,display:"grid",placeItems:"center",background:`${cor}12`,color:cor,fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{String(e.responsavel||"S").split(/\s+/).slice(0,2).map(n=>n[0]).join("").toUpperCase()}</span><div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",lineHeight:"var(--arcd-line-height-normal)"}}>{e.texto}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Responsável: <strong style={{color:"var(--arcd-text-primary)"}}>{e.responsavel}</strong></p></div><div style={{textAlign:"right",whiteSpace:"nowrap"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{d.toLocaleDateString("pt-BR")}</p>{hora&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{hora}</p>}{e.valor>0&&<p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-success-text)",marginTop:"var(--arcd-space-half)"}}>{fmt(e.valor)}</p>}</div></div>;})}</div>}
       </Secao>
       </>:<div style={{paddingTop:"var(--arcd-space-1)"}}>
-        {abaConteudo==="orc"&&<Suspense fallback={<div className="arcd-page-loading">Carregando orçamento...</div>}><Orcamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} todasObras={data.obras} todosOrcamentosGlobais={data.orcamentos} todosPlanosGlobais={data.planos}/></Suspense>}
-        {abaConteudo==="plan"&&<Suspense fallback={<div className="arcd-page-loading">Carregando planejamento...</div>}><Planejamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand}/></Suspense>}
-        {abaConteudo==="rdo"&&<Suspense fallback={<div className="arcd-page-loading">Carregando diário de obra...</div>}><DiarioObra data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/></Suspense>}
+        {abaConteudo==="orc"&&<Suspense fallback={<LoadingState label="orçamento"/>}><Orcamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} todasObras={data.obras} todosOrcamentosGlobais={data.orcamentos} todosPlanosGlobais={data.planos}/></Suspense>}
+        {abaConteudo==="plan"&&<Suspense fallback={<LoadingState label="planejamento"/>}><Planejamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand}/></Suspense>}
+        {abaConteudo==="rdo"&&<Suspense fallback={<LoadingState label="diário de obra"/>}><DiarioObra data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/></Suspense>}
         {abaConteudo==="qualidade"&&<Qualidade data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/>}
         {abaConteudo==="seguranca"&&<SegurancaObra data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/>}
-        {abaConteudo==="conferencia"&&<Suspense fallback={<div className="arcd-page-loading">Carregando conferência...</div>}><Conferencia data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/></Suspense>}
+        {abaConteudo==="conferencia"&&<Suspense fallback={<LoadingState label="conferência"/>}><Conferencia data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/></Suspense>}
         {abaConteudo==="med"&&<MedicaoEvolucao data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand}
           onAbrirPlanejamento={()=>abrirModuloDaObra("plan")}
           onAbrirTerceiro={(contratoId,novaMedicao)=>{setTerceiroAlvo({contratoId,novaMedicao,nonce:Date.now()});setGrupoMenuObra("rh");abrirModuloDaObra("terc");}}/>}
-        {abaConteudo==="cmp"&&<Suspense fallback={<div className="arcd-page-loading">Carregando compras...</div>}><Compras data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/></Suspense>}
-        {abaConteudo==="est"&&<Suspense fallback={<div className="arcd-page-loading">Carregando estoque...</div>}><Estoque data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/></Suspense>}
+        {abaConteudo==="cmp"&&<Suspense fallback={<LoadingState label="compras"/>}><Compras data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/></Suspense>}
+        {abaConteudo==="est"&&<Suspense fallback={<LoadingState label="estoque"/>}><Estoque data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/></Suspense>}
         {abaConteudo==="dre"&&<DRE data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/>}
         {abaConteudo==="ponto"&&<Ponto data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchCommand}/>}
-        {abaConteudo==="equipe"&&<Suspense fallback={<div className="arcd-page-loading">Carregando equipe...</div>}><EquipeView data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} dispatchCommand={dispatchCommand} currentUser={currentUser} onTab={onTab}/></Suspense>}
-        {abaConteudo==="terc"&&<Suspense fallback={<div className="arcd-page-loading">Carregando terceiros...</div>}><Terceiros data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand} contratoInicial={terceiroAlvo}/></Suspense>}
-        {abaConteudo==="equip"&&<Suspense fallback={<div className="arcd-page-loading">Carregando equipamentos...</div>}><Equipamentos data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchCommand} obraIdFixo={obraId}/></Suspense>}
-        {abaConteudo==="licenca"&&<Suspense fallback={<div className="arcd-page-loading">Carregando licenciamento...</div>}><Licenciamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand}/></Suspense>}
+        {abaConteudo==="equipe"&&<Suspense fallback={<LoadingState label="equipe"/>}><EquipeView data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} dispatchCommand={dispatchCommand} currentUser={currentUser} onTab={onTab}/></Suspense>}
+        {abaConteudo==="terc"&&<Suspense fallback={<LoadingState label="terceiros"/>}><Terceiros data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand} contratoInicial={terceiroAlvo}/></Suspense>}
+        {abaConteudo==="equip"&&<Suspense fallback={<LoadingState label="equipamentos"/>}><Equipamentos data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchCommand} obraIdFixo={obraId}/></Suspense>}
+        {abaConteudo==="licenca"&&<Suspense fallback={<LoadingState label="licenciamento"/>}><Licenciamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand}/></Suspense>}
         {abaConteudo==="portal"&&ehAdmin&&<div style={{display:"grid",gap:"var(--arcd-space-3)"}}>
           <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderLeft:`1px solid ${portal.ativo?"var(--arcd-success-text)":"var(--arcd-text-secondary)"}`,borderRadius:12,padding:"var(--arcd-space-4)"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-3)",flexWrap:"wrap"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>Experiência do cliente</p><h2 style={{fontSize:"var(--arcd-type-section-title)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)"}}>Portal transparente da obra</h2><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)",maxWidth:690,lineHeight:"var(--arcd-line-height-normal)"}}>Escolha exatamente o que o cliente poderá consultar. Dados bancários, PIX, folha, margem, conciliação e observações internas permanecem protegidos.</p></div><Btn v={portal.ativo?"danger":"success"} onClick={()=>atualizarPortal({ativo:!portal.ativo})}><Ic n={portal.ativo?"x":"check"}/> {portal.ativo?"Desativar acesso":"Ativar portal"}</Btn></div>
@@ -10800,7 +10666,7 @@ export function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", curren
 
   if (terceiroLocal) return <div className="measurement-surface">
     <Btn v="ghost" onClick={()=>setTerceiroLocal(null)}>Voltar à medição da obra</Btn>
-    <Suspense fallback={<p>Carregando medição do terceirizado...</p>}>
+    <Suspense fallback={<LoadingState label="medição do terceirizado"/>}>
       <Terceiros data={data} update={update} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser}
         dispatchCommand={dispatchCommand} contratoInicial={terceiroLocal} />
     </Suspense>
@@ -12635,7 +12501,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
 
       {/* Gráfico histórico */}
       <div className="dre-company-panel dre-company-trend">
-        <Suspense fallback={<div className="arcd-page-loading">Carregando gráfico...</div>}>
+        <Suspense fallback={<LoadingState label="gráfico"/>}>
           <LazyDreEmpresaHistoricoChart historico={historico}/>
         </Suspense>
       </div>
@@ -12951,7 +12817,7 @@ function PainelTV({data,ultimaSync,onAtualizar,allowedTabs=[]}){
 
     <footer className="arcd-tv-footer" style={{position:"relative",zIndex:1,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,color:"rgba(245,243,238,.46)",fontSize:"var(--arcd-type-caption)"}}><span>Sincronização automática · {ultimaSync?ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}):"agora"}</span><div style={{display:"flex",alignItems:"center",gap:6}}><button onClick={()=>setPagina(p=>(p-1+totalPaginas)%totalPaginas)} aria-label="Página anterior" style={{width:28,height:24,border:`1px solid rgba(245,243,238,.15)`,borderRadius:5,background:"transparent",color:C.surface,cursor:"pointer"}}>‹</button>{Array.from({length:totalPaginas},(_,i)=><button key={i} onClick={()=>setPagina(i)} aria-label={`Página ${i+1}`} style={{width:i===pagina?18:6,height:6,border:0,borderRadius:99,background:i===pagina?C.yellow:"rgba(245,243,238,.22)",cursor:"pointer",transition:"width .2s"}}/>)}<span style={{margin:"0 2px"}}>{pagina+1}/{totalPaginas}</span><button onClick={()=>setPagina(p=>(p+1)%totalPaginas)} aria-label="Próxima página" style={{width:28,height:24,border:`1px solid rgba(245,243,238,.15)`,borderRadius:5,background:"transparent",color:C.surface,cursor:"pointer"}}>›</button></div></footer>
     </TabsContent>
-    {podeVerEquipe&&<TabsContent value="equipe" style={{flex:1}}><Suspense fallback={<p role="status">Carregando equipe…</p>}><EquipeObrasTV /></Suspense></TabsContent>}
+    {podeVerEquipe&&<TabsContent value="equipe" style={{flex:1}}><Suspense fallback={<LoadingState label="equipe"/>}><EquipeObrasTV /></Suspense></TabsContent>}
     </Tabs>
   </div>;
 }
@@ -13579,7 +13445,10 @@ export default function App() {
   const [erroInicial, setErroInicial] = useState("");
   const [firstSetup, setFirstSetup] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
-  useEffect(()=>{workflowViews.current.clear();workflowLastTabs.current.clear();workflowLastScope.current={};setWorkflowScopes({});setWorkflowTrail([]);setWorkflowIntent(null);},[currentUser?.id]);
+  const leavingSessionRef=useRef(false);
+  const recoveryUserRef=useRef(currentUser);recoveryUserRef.current=currentUser;
+  const [recoveryOpen,setRecoveryOpen]=useState(false),[recoveryAvailable,setRecoveryAvailable]=useState(false),[recoveryReady,setRecoveryReady]=useState(false),[recoveryRevision,setRecoveryRevision]=useState(0);
+  useEffect(()=>{if(currentUser)leavingSessionRef.current=false;workflowViews.current.clear();workflowLastTabs.current.clear();workflowLastScope.current={};setWorkflowScopes({});setWorkflowTrail([]);setWorkflowIntent(null);},[currentUser?.id]);
   const [conflito,    setConflito]    = useState(null);
   const [toast,       setToast]       = useState(null);
   // Momento da ultima sincronizacao bem-sucedida com o servidor.
@@ -13588,6 +13457,10 @@ export default function App() {
   // Última gravação recusada pelo servidor (desfeita na tela): fica visível até
   // o usuário dispensar, para ninguém achar que salvou o que não salvou.
   const [edicaoRecusada,setEdicaoRecusada] = useState(null);
+  const resolvingSaveRef=useRef(false);
+  const deferredEditKeysRef=useRef(new Map()),memoryEditsRef=useRef(new Map()),protectingEditsRef=useRef(0);
+  const [memoryEditCount,setMemoryEditCount]=useState(0);
+  const recoveryReadyRef=useRef(recoveryReady);recoveryReadyRef.current=recoveryReady;
   // A lista de obras e o painel detalhado ocupam alturas diferentes. Sem este
   // reset o navegador preserva o scroll da lista e a obra pode abrir já no
   // meio do conteúdo. O layout effect executa antes da pintura, sem salto.
@@ -13677,6 +13550,10 @@ export default function App() {
   }
   if(!saveQueueRef.current){
     saveQueueRef.current=createSaveQueue({
+      capture:()=>({user:recoveryUserRef.current,tab:recoveryTab(),base:baseServidorRef.current}),
+      protect:(intended,context)=>snapshotJournal.protect({...context,intended}),
+      release:receipt=>snapshotJournal.release(receipt),
+      onStorageError:()=>showToast("Confirmação recebida, mas a recuperação local não foi limpa. Consulte a versão atual antes de reenviar.","error"),
       save:alvo=>saveDataDetailed(alvo,baseServidorRef.current),
       onState:setEstadoSalvar,
       onSuccess:({result, target})=>{
@@ -13696,7 +13573,7 @@ export default function App() {
         }
         setUltimaSync(new Date());
       },
-      onConflict:()=>showToast("Outra pessoa salvou ao mesmo tempo. Suas alterações aguardam resolução do conflito.","error"),
+      onConflict:()=>showToast("Alterações não salvas. Confira o aviso na página.","error"),
       onRetry:({result,delay})=>showToast(`${result?.reason||"Não foi possível conectar ao servidor."} Nova tentativa em ${Math.round(delay/1000)}s.`,"error"),
       onFailed:({result,offline,pending})=>{
         if(isServerRejection({result,offline})&&baseServidorRef.current){
@@ -13707,14 +13584,14 @@ export default function App() {
           const confirmado=baseServidorRef.current;
           const secoes=rejectedSections(confirmado,pending);
           setTimeout(()=>{
-            saveQueueRef.current?.discard();
+            saveQueueRef.current?.discard({keepJournal:true});
             ultimoDataRef.current=confirmado;dataAtualRef.current=confirmado;setData(confirmado);
             setEdicaoRecusada({motivo:result?.reason||result?.error||"O servidor recusou a alteração.",secoes,em:new Date()});
           },0);
           showToast(`Alteração não salva e desfeita: ${result?.reason||"recusada pelo servidor"}`,"error");
           return;
         }
-        showToast(offline?"Sem conexão. As alterações seguem guardadas e serão retomadas ao reconectar.":(result?.reason||"Alterações não sincronizadas. Confira a conexão e faça uma nova ação para tentar novamente."),"error");
+        showToast("Alterações não salvas. Confira o aviso na página.","error");
       },
     });
   }
@@ -13737,7 +13614,7 @@ export default function App() {
 
   useEffect(()=>{
     const protegerSaida=event=>{
-      if(!saveQueueRef.current?.hasPending()&&!attendanceCommandInFlightRef.current&&!attendanceQueueRef.current?.hasPending())return;
+      if(!saveQueueRef.current?.hasPending()&&!protectingEditsRef.current&&!memoryEditsRef.current.size&&!attendanceCommandInFlightRef.current&&!attendanceQueueRef.current?.hasPending()&&(recoveryReadyRef.current||!document.querySelector('.arcd-modal-panel input:not([readonly]):not(:disabled),.arcd-modal-panel textarea:not([readonly]):not(:disabled)')))return;
       event.preventDefault();
       event.returnValue="";
     };
@@ -13746,6 +13623,7 @@ export default function App() {
   },[]);
 
   const update = useCallback(async (next) => {
+    if(leavingSessionRef.current||currentUser?.id!==recoveryUserRef.current?.id)return {ok:false,reason:"A conta da edição mudou. Entre com a conta original para conferir."};
     // Aceita atualização funcional. O resolvedor recebe sempre o espelho mais
     // recente, mesmo que o React ainda não tenha renderizado o clique anterior.
     // Isso elimina a dependência de closures antigos nos fluxos migrados.
@@ -13788,6 +13666,21 @@ export default function App() {
       return;
     }
 
+    if(!recoveryReady){setRecoveryOpen(true);return {ok:false,reason:"Confira o armazenamento antes de enviar a edição."};}
+    if((recoveryAvailable&&!saveQueueRef.current?.hasPending())||[SAVE_QUEUE_STATE.FAILED,SAVE_QUEUE_STATE.CONFLICT,SAVE_QUEUE_STATE.OFFLINE].includes(saveQueueRef.current?.getState())){
+      const editorId=document.activeElement?.closest('[data-recovery-editor]')?.dataset.recoveryEditor||'workspace';
+      const changes=snapshotChanges(rendered,next);
+      const identity=JSON.stringify([currentUser.id,editorId,Object.entries(changes).map(([key,c])=>[key,c.delta?[...c.delta.changed.map(r=>String(r.id)),...c.delta.removed.map(String)].sort():null])]);
+      let id=deferredEditKeysRef.current.get(identity);if(!id){id=crypto.randomUUID();deferredEditKeysRef.current.set(identity,id);}
+      const entry={user:currentUser,tab:`${recoveryTab()}:edit:${id}`,base:rendered,intended:normalizeData(next)};
+      memoryEditsRef.current.set(id,entry);setMemoryEditCount(memoryEditsRef.current.size);protectingEditsRef.current++;
+      try{
+        await snapshotJournal.protect(entry);
+        if(memoryEditsRef.current.get(id)===entry)memoryEditsRef.current.delete(id);
+        setRecoveryOpen(true);return {ok:false,deferred:true,reason:"Preenchimento protegido separadamente. Conclua as revisões em Resolver salvamento."};
+      }catch{setRecoveryOpen(true);return {ok:false,reason:"A nova edição está apenas na memória. Proteja ou descarte antes de continuar."};}
+      finally{protectingEditsRef.current--;setMemoryEditCount(memoryEditsRef.current.size);}
+    }
     // RECONCILIAÇÃO CONTRA O ESTADO MAIS RECENTE
     // `rendered` é exatamente a fotografia usada pelo handler do clique.
     // `ultimoDataRef` pode já conter outro cadastro ainda não renderizado.
@@ -13813,7 +13706,7 @@ export default function App() {
     // proximo a enviar. Nunca ha dois saves simultaneos - fim dos 409 do
     // proprio dispositivo contra si mesmo.
     return saveQueueRef.current.enqueue(normalized);
-  }, [data,showToast]);
+  }, [data,showToast,recoveryAvailable,recoveryReady,currentUser?.id]);
 
   // Ponte de migração para comandos por agregado. O comando é criado dentro
   // da atualização funcional, portanto `expectedVersion` é verificado contra
@@ -13823,8 +13716,11 @@ export default function App() {
   // chave idempotente. A corrente evita que dois cliques deste navegador
   // disputem a mesma versão da entidade entre si.
   const commandTailRef=useRef(Promise.resolve());
+  const operationalInFlightRef=useRef(0);
   const dispatchOperationalCommand=useCallback(commandOrFactory=>{
+    if(leavingSessionRef.current||currentUser?.id!==recoveryUserRef.current?.id)return Promise.resolve({ok:false,status:0,reason:"A conta da operação mudou. Confira com a conta original."});
     const executar=async()=>{
+      if(leavingSessionRef.current||currentUser?.id!==recoveryUserRef.current?.id)return {ok:false,status:0,reason:"A conta da operação mudou. Confira com a conta original."};
       // Não misturamos um comando versionado com um snapshot local ainda não
       // confirmado. Se a fila não puder esvaziar, preservar a edição local é
       // mais seguro que executar o comando sobre uma base desconhecida.
@@ -13833,15 +13729,17 @@ export default function App() {
         if(!drained.ok||saveQueueRef.current?.hasPending())return {ok:false,state:drained.state,reason:drained.reason||"Há alterações locais aguardando sincronização. Use o indicador de salvamento para resolver a pendência e tente novamente."};
       }
       const atual=dataAtualRef.current||DEFAULT();
-      const command=typeof commandOrFactory==="function"?commandOrFactory(atual):commandOrFactory;
+      const command=typeof commandOrFactory==="function"?await commandOrFactory(atual):commandOrFactory;
+      if(leavingSessionRef.current||currentUser?.id!==recoveryUserRef.current?.id)return {ok:false,status:0,reason:"A conta da operação mudou. Confira com a conta original."};
       const resposta=await executarComandoOperacional(command);
+      if(leavingSessionRef.current||currentUser?.id!==recoveryUserRef.current?.id)return {ok:false,status:0,code:"SESSION_CHANGED",reason:"A conta da operação mudou. Confira com a conta original."};
       if(!resposta?.ok){
         // Só entra na fila offline durável quando a falha é de conectividade
         // (status 0/429/5xx — mesmo critério de retryable do save-queue), não
         // quando o servidor rejeitou a regra de negócio (ex.: validação),
         // caso em que repetir offline só confundiria o usuário.
         const offlineSpec=OFFLINE_QUEUEABLE_COMMANDS[command?.type];
-        const retryable=[0,429,500,502,503,504].includes(Number(resposta?.status||0));
+        const retryable=resposta?.code!=="SESSION_CHANGED"&&[0,429,500,502,503,504].includes(Number(resposta?.status||0));
         if(offlineSpec&&retryable&&campoOfflineStoreRef.current){
           const entityId=offlineSpec.entityId(command)||command.idempotencyKey;
           const queued=await campoOfflineStoreRef.current.enqueue({
@@ -13872,10 +13770,11 @@ export default function App() {
         ...(resposta.summary!=null?{summary:resposta.summary}:{}),
       };
     };
-    const pendente=commandTailRef.current.then(executar,executar);
+    operationalInFlightRef.current++;
+    const pendente=commandTailRef.current.then(executar,executar).finally(()=>{operationalInFlightRef.current=Math.max(0,operationalInFlightRef.current-1);});
     commandTailRef.current=pendente.catch(()=>undefined);
     return pendente;
-  },[update,showToast]);
+  },[update,showToast,currentUser?.id]);
 
   // Ao reconectar, reenvia os comandos guardados offline (Fase 3 do roadmap
   // de arquitetura) reusando a mesma idempotencyKey gerada no momento do
@@ -14022,7 +13921,7 @@ export default function App() {
           dataAtualRef.current=normalizados;
           const cadastro=normalizados.usuarios.find(u=>u.id===restaurada.usuario?.id);
           const usuarioCompleto={...restaurada.usuario,...cadastro,pin:undefined};
-          setData(normalizados);setCurrentUser(usuarioCompleto);setUltimaSync(new Date());
+          setData(normalizados);leavingSessionRef.current=false;setCurrentUser(usuarioCompleto);setUltimaSync(new Date());
           setTab(restoreSection(usuarioCompleto.id,allowedTabsForUser(usuarioCompleto)));
           return;
         }
@@ -14188,7 +14087,9 @@ export default function App() {
   // Layout responsivo
   const { isDesktop, pick } = useBreakpoint();
   const operationalWorkspace=tab!=="tv";
-  const SIDEBAR_W = sidebarCompacta ? 68 : 224;
+  const [sidebarWidth, setSidebarWidth] = useSidebarWidth();
+  const [sidebarResizing, setSidebarResizing] = useState(false);
+  const SIDEBAR_W = sidebarCompacta ? 68 : sidebarWidth;
   // No desktop a navegação vira sidebar → não há barra inferior ocupando espaço
   const navHeight  = isDesktop ? 0 : (hasSubTabs&&!operationalWorkspace ? 132 : 80);
   // Em monitor ultrawide (21:9, 34"), esticar o conteúdo até a borda deixa a
@@ -14209,12 +14110,12 @@ export default function App() {
     : false;
   const syncStatus = {
     [SAVE_QUEUE_STATE.IDLE]:{
-      label:ultimaSync?`Salvo às ${ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`:"Dados sincronizados",
-      color:C.green,
+      label:recoveryAvailable?"Edição protegida pendente":ultimaSync?`Salvo às ${ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`:"Dados sincronizados",
+      color:recoveryAvailable?C.orange:C.green,
     },
     [SAVE_QUEUE_STATE.SAVING]:{label:"Salvando alterações...",color:C.yellowD},
     [SAVE_QUEUE_STATE.RETRY_SCHEDULED]:{label:"Tentando salvar novamente...",color:C.orange},
-    [SAVE_QUEUE_STATE.OFFLINE]:{label:"Sem conexão · alterações protegidas",color:C.orange},
+    [SAVE_QUEUE_STATE.OFFLINE]:{label:"Sem conexão · não salvo",color:C.orange},
     [SAVE_QUEUE_STATE.CONFLICT]:{label:"Conflito de salvamento",color:C.red},
     [SAVE_QUEUE_STATE.FAILED]:{label:"Alterações ainda não salvas",color:C.red},
   }[estadoSalvar]||{label:"Verificando salvamento...",color:C.muted};
@@ -14278,55 +14179,50 @@ export default function App() {
     return () => window.removeEventListener("arcd:data-conflict", aoConflitar);
   }, []);
 
-  const reaplicarSobreServidor = async () => {
-    const meu = conflito?.rejectedPayload;
-    const base = baseServidorRef.current;   // versão que EU tinha ao começar a editar
-    setConflito(null);
-    saveQueueRef.current?.discard();
-    const fresco = await loadDataWithMeta();
-    if (!fresco?.data) { showToast("Não consegui recarregar. Tente de novo.", "error"); return; }
-
-    adoptServerVersion(fresco.updatedAt, fresco.data);
-
-    if (meu) {
-      // Merge por seção e por id, em vez de "last write wins" cego. Cada módulo
-      // é uma lista de itens com id: quem A e B tocaram em itens DIFERENTES
-      // coexiste; só o mesmo item editado pelos dois é que a minha versão vence
-      // (e disso o aviso já deixou você ciente). Assim, A mexer em obras e B em
-      // terceirizados não faz ninguém perder trabalho.
-      const merged = mesclarDados(fresco.data, meu, base);
-      const norm = normalizeData(merged);
-      const result = await saveDataDetailed(norm,normalizeData(fresco.data));
-      if (result.ok) {
-        const confirmed=normalizeData(result.merged&&result.data?result.data:norm);
-        baseServidorRef.current=confirmed;ultimoDataRef.current=confirmed;dataAtualRef.current=confirmed;
-        setData(confirmed);setUltimaSync(new Date());
-        showToast("Suas alterações foram mescladas com as da outra pessoa.");
-      } else {
-        showToast(result.reason||"Ainda em conflito. Recarregue a página.","error");
-      }
-    } else {
-      const norm = normalizeData(fresco.data);
-      baseServidorRef.current = norm;
-      ultimoDataRef.current = norm;
-      dataAtualRef.current = norm;
-      setData(norm);
-    }
+  const aplicarRecuperacao=async(merged,current,row)=>{
+    if(resolvingSaveRef.current||protectingEditsRef.current||memoryEditsRef.current.size)return {ok:false,reason:"Proteja os preenchimentos da memória antes de confirmar."};
+    resolvingSaveRef.current=true;
+    try{
+      snapshotJournal.adopt(row);
+      saveQueueRef.current.discard({keepJournal:true});
+      adoptServerVersion(current.updatedAt);baseServidorRef.current=normalizeData(current.data);
+      const norm=normalizeData(merged);ultimoDataRef.current=norm;dataAtualRef.current=norm;setData(norm);setConflito(null);
+      const result=await saveQueueRef.current.enqueue(norm);
+      if(result.ok){setRecoveryRevision(v=>v+1);await snapshotJournal.release(row).catch(()=>showToast("Registro confirmado. Confira a recuperação local antes de reenviar.","error"));}
+      return result;
+    }finally{resolvingSaveRef.current=false;}
   };
-
-  const descartarMinhaVersao = async () => {
-    setConflito(null);
-    saveQueueRef.current?.discard();
-    const fresco = await loadDataWithMeta();
-    if (fresco?.data) {
-      adoptServerVersion(fresco.updatedAt, fresco.data);
-      const norm = normalizeData(fresco.data);
-      baseServidorRef.current = norm;
-      ultimoDataRef.current = norm;
-      dataAtualRef.current = norm;
-      setData(norm);
-      showToast("Tela atualizada com a versão do servidor.");
-    }
+  const protegerPreenchimentos=async()=>{
+    protectingEditsRef.current++;
+    try{
+      for(const [id,entry] of [...memoryEditsRef.current]){await snapshotJournal.protect(entry);if(memoryEditsRef.current.get(id)===entry)memoryEditsRef.current.delete(id);}
+      return {ok:true};
+    }catch{return {ok:false,reason:"Não foi possível proteger todos os preenchimentos. Mantenha esta aba aberta."};}
+    finally{protectingEditsRef.current--;setMemoryEditCount(memoryEditsRef.current.size);}
+  };
+  const descartarEdicaoDaMemoria=()=>{
+    if(!window.confirm("Descartar a edição que ainda não foi protegida? O preenchimento desta tentativa será perdido."))return;
+    memoryEditsRef.current.clear();setMemoryEditCount(0);
+    saveQueueRef.current.discard({keepJournal:true});
+    const norm=normalizeData(baseServidorRef.current);ultimoDataRef.current=norm;dataAtualRef.current=norm;setData(norm);
+    setRecoveryRevision(v=>v+1);setRecoveryOpen(false);setConflito(null);
+  };
+  const reaplicarSobreServidor=()=>setRecoveryOpen(true);
+  const descartarMinhaVersao=async target=>{
+    if(resolvingSaveRef.current||[SAVE_QUEUE_STATE.SAVING,SAVE_QUEUE_STATE.RETRY_SCHEDULED].includes(saveQueueRef.current.getState()))return;
+    if((recoveryAvailable||saveQueueRef.current.hasPending())&&!window.confirm("Descartar as edições pendentes e consultar o servidor?"))return;
+    resolvingSaveRef.current=true;
+    try{
+      const fresco=await loadDataWithMeta();
+      if(!fresco?.data){showToast("Não foi possível atualizar. A edição protegida foi mantida.","error");return;}
+      const saved=target?.owner===currentUser.id?target:await snapshotJournal.readLatest(currentUser.id,recoveryTab());
+      if(saved)await snapshotJournal.release(saved);
+      saveQueueRef.current.discard({keepJournal:true});setConflito(null);
+      adoptServerVersion(fresco.updatedAt);const norm=normalizeData(fresco.data);
+      baseServidorRef.current=norm;ultimoDataRef.current=norm;dataAtualRef.current=norm;setData(norm);
+      setRecoveryRevision(v=>v+1);setRecoveryOpen(false);
+    }catch{showToast("Não foi possível descartar a edição protegida.","error");}
+    finally{resolvingSaveRef.current=false;}
   };
 
   // O painel de TV permanece aberto por horas. Ele atualiza a fotografia da
@@ -14345,8 +14241,22 @@ export default function App() {
   // Sair e trocar usuário agora fazem a mesma coisa por baixo: limpam o PIN da
   // memória e voltam pro login. Não existe mais uma "sessão do Supabase" por
   // cima - o PIN É a sessão.
+  const prepararTrocaDeConta=()=>{
+    if(saveQueueRef.current?.getState()===SAVE_QUEUE_STATE.SAVING||protectingEditsRef.current||operationalInFlightRef.current||attendanceCommandInFlightRef.current||attendanceQueueRef.current?.hasPending()){
+      showToast("Aguarde a conclusão do envio antes de trocar de conta.","error");return false;
+    }
+    if(memoryEditsRef.current.size||(saveQueueRef.current?.getFailure()?.local&&saveQueueRef.current.hasPending())){
+      setRecoveryOpen(true);showToast("Proteja ou descarte a edição da memória antes de sair.","error");return false;
+    }
+    leavingSessionRef.current=true;
+    saveQueueRef.current?.destroy();saveQueueRef.current=null;
+    attendanceQueueRef.current?.destroy();attendanceQueueRef.current=null;
+    setEstadoSalvar(SAVE_QUEUE_STATE.IDLE);setConflito(null);setRecoveryReady(false);setRecoveryAvailable(false);setRecoveryOpen(false);
+    return true;
+  };
   const sairDoSistema = async () => {
     if (!window.confirm("Sair do sistema?")) return;
+    if(!prepararTrocaDeConta())return;
     await encerrarPresenca();
     setCurrentUser(null);
     setData(null);        // os dados saem da memória junto
@@ -14355,6 +14265,7 @@ export default function App() {
 
   // Tablet compartilhado na obra: troca quem opera, sem a pergunta de confirmação.
   const trocarDeUsuario = async () => {
+    if(!prepararTrocaDeConta())return;
     await encerrarPresenca();
     setCurrentUser(null);
     setData(null);
@@ -14378,7 +14289,7 @@ export default function App() {
           <div style={{ textAlign:"center" }}>
             <div style={{ width:44, height:44, border:`4px solid ${C.border}`, borderTopColor:C.yellow, borderRadius:"50%", animation:"spin 1s linear infinite", margin:"0 auto 14px" }}/>
             <BrandMark/>
-            <p style={{ color:C.muted, marginTop:14 }}>Carregando operação...</p>
+            <LoadingState label="operação"/>
           </div>
         </div>
       </>
@@ -14398,7 +14309,7 @@ export default function App() {
       const usuarioCompleto={...usuario,...cadastro,pin:undefined};
       setData(normalizados);
       setUltimaSync(new Date());
-      setCurrentUser(usuarioCompleto);
+      leavingSessionRef.current=false;setCurrentUser(usuarioCompleto);
       const allowed = allowedTabsForUser(usuarioCompleto);
       setTab(restoreSection(usuarioCompleto.id,allowed));
     };
@@ -14413,23 +14324,23 @@ export default function App() {
   }
 
   return (
-    <>
+    <SaveRecoveryContext.Provider value={{visible:recoveryAvailable&&!recoveryOpen&&![SAVE_QUEUE_STATE.SAVING,SAVE_QUEUE_STATE.RETRY_SCHEDULED].includes(estadoSalvar),open:()=>setRecoveryOpen(true),revision:recoveryRevision}}>
       <style>{G}</style>
       <div className="arcd-app-shell" data-tab={tab} style={{
         minHeight:"100vh", background:"transparent", color:C.text,
         paddingBottom: isDesktop ? 8 : `calc(${navHeight + 8}px + env(safe-area-inset-bottom))`,
         paddingLeft: isDesktop ? SIDEBAR_W : 0,   // abre espaço p/ a sidebar
-        transition: "padding-left .18s ease",
+        transition: sidebarResizing ? "none" : "padding-left .18s ease",
       }}>
 
         {/*  SIDEBAR (só desktop)  */}
         {isDesktop && (
-          <aside className="no-print arcd-sidebar" style={{
+          <aside id="menu-lateral" className="no-print arcd-sidebar" data-resizing={sidebarResizing || undefined} style={{
             position:"fixed", top:0, left:0, bottom:0, width:SIDEBAR_W, zIndex:90,
             background:C.bg, borderRight:`1px solid ${C.border}`,
             display:"flex", flexDirection:"column",
             boxShadow:"none",
-            transition:"width .18s ease",
+            transition:sidebarResizing ? "none" : "width .18s ease",
           }}>
             {/* Marca */}
             <div style={{
@@ -14610,7 +14521,7 @@ export default function App() {
                     background:"transparent", border:0, color:C.muted,
                     fontSize:"var(--arcd-type-control)", cursor:"pointer", lineHeight:1, padding:"0 3px",
                   }}></button>
-                  <button onClick={sairDoSistema} title="Sair do sistema" style={{
+                  <button onClick={sairDoSistema} title="Sair do sistema" aria-label="Sair do sistema" style={{
                     background:"transparent", border:0, color:C.muted,
                     fontSize:"var(--arcd-type-control)", cursor:"pointer", lineHeight:1, padding:"0 3px",
                   }}>x</button>
@@ -14618,6 +14529,7 @@ export default function App() {
               </div>
               )}
             </div>
+            {!sidebarCompacta && <SidebarResize width={sidebarWidth} onChange={setSidebarWidth} onResizing={setSidebarResizing}/>}
           </aside>
         )}
 
@@ -14699,44 +14611,21 @@ export default function App() {
         </header>
 
         {/*  CONTEÚDO  */}
-        {/* Banner de conflito de gravação */}
-        {conflito && (
-          <div style={{
-            maxWidth:maxConteudo, margin:"0 auto",
-            padding: isDesktop ? "12px 22px 0" : "12px 14px 0",
-          }}>
-            <div style={{
-              background:`${C.orange}0E`, border:`1.5px solid ${C.orange}`,
-              borderRadius:8, padding:"12px 14px",
-            }}>
-              <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.orange,fontFamily:"var(--arcd-font-sans)"}}>
-                ! Seu salvamento foi recusado
-              </p>
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4,lineHeight:1.55}}>
-                Outra pessoa salvou alterações enquanto você trabalhava. <strong style={{color:C.text}}>
-                Nada seu foi perdido</strong> - o que você fez está guardado aqui.
-                Você pode reaplicar por cima da versão nova, ou descartar e recomeçar da versão do servidor.
-              </p>
-              <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap"}}>
-                <Btn size="sm" onClick={reaplicarSobreServidor}>
-                  <Ic n="check"/> Reaplicar minhas alterações
-                </Btn>
-                <Btn size="sm" v="ghost" onClick={descartarMinhaVersao}>
-                  Descartar e recarregar
-                </Btn>
-              </div>
-            </div>
-          </div>
-        )}
         </div>
 
         <main className="arcd-main" data-workspace={operationalWorkspace?tab:undefined} style={{ maxWidth:maxConteudo, margin:"0 auto", padding: isDesktop ? "24px 24px" : 14 }}>
-          {edicaoRecusada&&<div role="alert" data-testid="save-rejected" style={{display:"flex",gap:10,alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",marginBottom:12,padding:"10px 12px",border:`1px solid ${C.red}55`,background:`${C.red}0D`,borderRadius:C.rMd,color:C.text}}>
-            <span style={{fontSize:"var(--arcd-type-label)",lineHeight:1.5}}><b>Alteração não salva e desfeita</b> às {edicaoRecusada.em.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}: {edicaoRecusada.motivo}{edicaoRecusada.secoes.length?` (${edicaoRecusada.secoes.slice(0,4).join(", ")}${edicaoRecusada.secoes.length>4?"…":""})`:""}. A tela voltou ao último estado confirmado.</span>
+          {conflito&&<Alert variant="warning" className="mb-3"><AlertDescription>
+            <strong>Conflito de salvamento.</strong> Outra pessoa salvou alterações. Confira antes de reaplicar: sua versão pode substituir edições do mesmo registro. Mantenha esta aba aberta até resolver.
+            <div className="flex flex-wrap gap-2 mt-2"><StandardButton onClick={reaplicarSobreServidor}>Reaplicar minhas alterações</StandardButton><StandardButton variant="outline" onClick={descartarMinhaVersao}>Descartar e recarregar</StandardButton></div>
+          </AlertDescription></Alert>}
+          <SaveRecovery key={currentUser.id} memoryCount={memoryEditCount} onProtectMemory={protegerPreenchimentos} onDiscardMemory={descartarEdicaoDaMemoria} onRecovered={()=>setRecoveryRevision(v=>v+1)} normalize={normalizeData} pageId={tab} queue={saveQueueRef.current} state={estadoSalvar} user={currentUser} open={recoveryOpen} onOpen={()=>setRecoveryOpen(true)} onClose={()=>setRecoveryOpen(false)} onApply={aplicarRecuperacao} onUser={setCurrentUser} onAvailable={setRecoveryAvailable} onReady={setRecoveryReady} revision={recoveryRevision} onDiscard={descartarMinhaVersao}/>
+          {edicaoRecusada&&<Alert variant="destructive" data-testid="save-rejected" className="flex flex-wrap items-start justify-between gap-2 mb-3">
+            <AlertDescription><b>Alteração não salva e desfeita</b> às {edicaoRecusada.em.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}: {edicaoRecusada.motivo}{edicaoRecusada.secoes.length?` (${edicaoRecusada.secoes.slice(0,4).join(", ")}${edicaoRecusada.secoes.length>4?"…":""})`:""}. A tela voltou ao último estado confirmado.</AlertDescription>
             <Btn v="ghost" size="sm" onClick={()=>setEdicaoRecusada(null)}>Entendi</Btn>
-          </div>}
+          </Alert>}
           {tab!=="projetos"&&allowedTabs.includes("projetos")&&(data.engineeringProjects||[]).some(project=>(project.sessions||[]).some(session=>session.userId===currentUser.id&&!session.endedAt))&&<Suspense fallback={null}><ProjectTimerStatus projects={data.engineeringProjects} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} onOpen={()=>setTab("projetos")} /></Suspense>}
           <WorkflowContext.Provider value={{navigate:navigateWorkflow,intent:workflowIntent,scopes:workflowScopes,rememberScope:rememberWorkflowScope,views:workflowViews.current,goBack:returnWorkflow,returnTo:workflowTrail.length?{label:`Voltar a ${workflowTrail.at(-1).obraId?(data.obras||[]).find(o=>o.id===workflowTrail.at(-1).obraId)?.name||"Obra":TAB_META[workflowTrail.at(-1).tabId]?.label||"tela anterior"}`}:null}}>
+          <PendingOperations key={currentUser.id} user={currentUser} data={data} dispatch={dispatchOperationalCommand}/>
           <WorkflowReturn/>
 
           {tab === "home"   && (["engenheiro","engenheiro_auditor"].includes(currentUser?.role)
@@ -14745,9 +14634,9 @@ export default function App() {
                               onBuscar={()=>setBuscaAberta(true)} onAtualizar={descartarMinhaVersao} saveState={estadoSalvar} />)}
           {tab === "tv" && <PainelTV data={data} ultimaSync={ultimaSync} onAtualizar={atualizarPainelTV} allowedTabs={allowedTabs}/>}
           {tab === "chat" && <Comunicacao data={data} currentUser={currentUser} showToast={showToast}/>}
-          {tab === "admin_central" && <Suspense fallback={<div className="arcd-page-loading">Carregando central do administrador...</div>}><CentralAdministrador data={data} update={update} showToast={showToast} currentUser={currentUser}/></Suspense>}
-          {tab === "aprov_pend" && <Suspense fallback={<div className="arcd-page-loading">Carregando aprovações...</div>}><AprovacoesPendentesView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
-          {tab.startsWith("com_") && <Suspense fallback={<div className="arcd-page-loading">Carregando comercial...</div>}><Comercial data={data} update={update} dispatchCommand={dispatchOperationalCommand} showToast={showToast} currentUser={currentUser} view={tab} onTab={irPara} /></Suspense>}
+          {tab === "admin_central" && <Suspense fallback={<LoadingState label="central do administrador"/>}><CentralAdministrador data={data} update={update} showToast={showToast} currentUser={currentUser}/></Suspense>}
+          {tab === "aprov_pend" && <Suspense fallback={<LoadingState label="aprovações"/>}><AprovacoesPendentesView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
+          {tab.startsWith("com_") && <Suspense fallback={<LoadingState label="comercial"/>}><Comercial data={data} update={update} dispatchCommand={dispatchOperationalCommand} showToast={showToast} currentUser={currentUser} view={tab} onTab={irPara} /></Suspense>}
           {tab === "obras"  && (obraAberta
             ? <ObraDetalhe data={data} obraId={obraAberta} update={update} showToast={showToast}
                            currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}
@@ -14757,38 +14646,38 @@ export default function App() {
                            onTab={irPara} />
             : <Obras       data={data} update={update} showToast={showToast} dispatchCommand={dispatchOperationalCommand}
                            currentUser={currentUser} onAbrirObra={setObraAberta} />)}
-          {tab === "orc"    && <Suspense fallback={<div className="arcd-page-loading">Carregando orçamento...</div>}><Orcamento   data={data} update={update} showToast={showToast} currentUser={currentUser} /></Suspense>}
-          {tab === "projetos" && <Suspense fallback={<div className="arcd-page-loading">Carregando projetos...</div>}><ProjetosEngenharia data={data} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} showToast={showToast} onRefresh={async()=>{const fresh=await loadDataWithMeta();if(!fresh?.data)throw new Error("Falha ao atualizar projetos.");await update({__adotarServidorPatch:true,sections:{engineeringProjects:fresh.data.engineeringProjects||[]},updatedAt:fresh.updatedAt});}} /></Suspense>}
-          {tab === "arquivos" && <Suspense fallback={<div className="arcd-page-loading">Carregando arquivos...</div>}><ArquivosObra data={data} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} onRefresh={async()=>{const fresh=await loadDataWithMeta();if(!fresh?.data)throw new Error("Falha ao atualizar arquivos.");await update({__adotarServidorPatch:true,sections:{workFileCabinets:fresh.data.workFileCabinets||[]},updatedAt:fresh.updatedAt});}} /></Suspense>}
-          {tab === "plan"   && <Suspense fallback={<div className="arcd-page-loading">Carregando planejamento...</div>}><Planejamento data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
-          {tab === "plan_suprimentos" && <Suspense fallback={<div className="arcd-page-loading">Carregando suprimentos...</div>}><LazyMarcosCurvaASuprimentos data={data} update={update} showToast={showToast} currentUser={currentUser} /></Suspense>}
-          {tab === "rdo"    && <Suspense fallback={<div className="arcd-page-loading">Carregando diário de obra...</div>}><DiarioObra data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
-          {tab === "conferencia" && <Suspense fallback={<div className="arcd-page-loading">Carregando conferência...</div>}><Conferencia data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
+          {tab === "orc"    && <Suspense fallback={<LoadingState label="orçamento"/>}><Orcamento   data={data} update={update} showToast={showToast} currentUser={currentUser} /></Suspense>}
+          {tab === "projetos" && <Suspense fallback={<LoadingState label="projetos"/>}><ProjetosEngenharia data={data} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} showToast={showToast} onRefresh={async()=>{const fresh=await loadDataWithMeta();if(!fresh?.data)throw new Error("Falha ao atualizar projetos.");await update({__adotarServidorPatch:true,sections:{engineeringProjects:fresh.data.engineeringProjects||[]},updatedAt:fresh.updatedAt});}} /></Suspense>}
+          {tab === "arquivos" && <Suspense fallback={<LoadingState label="arquivos"/>}><ArquivosObra data={data} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} onRefresh={async()=>{const fresh=await loadDataWithMeta();if(!fresh?.data)throw new Error("Falha ao atualizar arquivos.");await update({__adotarServidorPatch:true,sections:{workFileCabinets:fresh.data.workFileCabinets||[]},updatedAt:fresh.updatedAt});}} /></Suspense>}
+          {tab === "plan"   && <Suspense fallback={<LoadingState label="planejamento"/>}><Planejamento data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
+          {tab === "plan_suprimentos" && <Suspense fallback={<LoadingState label="suprimentos"/>}><LazyMarcosCurvaASuprimentos data={data} update={update} showToast={showToast} currentUser={currentUser} /></Suspense>}
+          {tab === "rdo"    && <Suspense fallback={<LoadingState label="diário de obra"/>}><DiarioObra data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
+          {tab === "conferencia" && <Suspense fallback={<LoadingState label="conferência"/>}><Conferencia data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "med"    && <MedicaoEvolucao data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} onAbrirPlanejamento={()=>irPara("plan")}/>}
           {tab === "obsoletos" && <Obsoletos    data={data} update={update} showToast={showToast} onTab={irPara} dispatchCommand={dispatchOperationalCommand} />}
-          {tab === "equipe" && <Suspense fallback={<div className="arcd-page-loading">Carregando equipe...</div>}><EquipeView data={data} update={update} showToast={showToast} dispatchCommand={dispatchOperationalCommand} currentUser={currentUser} onTab={irPara} /></Suspense>}
-          {tab === "terc"   && <Suspense fallback={<div className="arcd-page-loading">Carregando terceiros...</div>}><Terceiros data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
+          {tab === "equipe" && <Suspense fallback={<LoadingState label="equipe"/>}><EquipeView data={data} update={update} showToast={showToast} dispatchCommand={dispatchOperationalCommand} currentUser={currentUser} onTab={irPara} /></Suspense>}
+          {tab === "terc"   && <Suspense fallback={<LoadingState label="terceiros"/>}><Terceiros data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand} onTab={irPara}/>}
           {tab === "equipe_obras" && <EquipeObras key={currentUser?.id} onTab={irPara} allowedTabs={allowedTabs}/>}
           {tab === "ponto_geral" && <PontoGeral data={data} update={update} showToast={showToast} currentUser={currentUser} onTab={irPara} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand}/>}
           {tab === "ponto_app" && <PontoEletronico data={data} showToast={showToast} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand} onTab={irPara}/>}
-          {tab === "folha"  && <Suspense fallback={<div className="arcd-page-loading">Carregando folha...</div>}><Folha       data={data} showToast={showToast} onTab={irPara} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
-          {tab === "resc"   && <Suspense fallback={<div className="arcd-page-loading">Carregando rescisão...</div>}><RescisaoView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
-          {tab === "rh_indic" && <Suspense fallback={<div className="arcd-page-loading">Carregando indicadores...</div>}><IndicadoresView data={data} /></Suspense>}
+          {tab === "folha"  && <Suspense fallback={<LoadingState label="folha"/>}><Folha       data={data} showToast={showToast} onTab={irPara} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
+          {tab === "resc"   && <Suspense fallback={<LoadingState label="rescisão"/>}><RescisaoView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
+          {tab === "rh_indic" && <Suspense fallback={<LoadingState label="indicadores"/>}><IndicadoresView data={data} /></Suspense>}
           {tab === "dre_emp"  && <DREEmpresa onOpenWork={allowedTabs.includes("obras")?obraId=>irPara("obras",obraId):undefined} data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "dre"      && <DRE          data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "fin"      && <Financeiro onOpenWork={allowedTabs.includes("obras")?obraId=>irPara("obras",obraId):undefined} data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
-          {tab === "conc"     && <Suspense fallback={<div className="arcd-page-loading">Carregando conciliação...</div>}><Conciliacao  data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
-          {tab === "est"      && <Suspense fallback={<div className="arcd-page-loading">Carregando estoque...</div>}><Estoque data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
-          {tab === "equip"    && <Suspense fallback={<div className="arcd-page-loading">Carregando equipamentos...</div>}><Equipamentos data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
-          {tab === "equip_fin"&& <Suspense fallback={<div className="arcd-page-loading">Carregando equipamentos...</div>}><Equipamentos data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} contexto="financeiro"/></Suspense>}
-          {tab === "patrimonio"&& <Suspense fallback={<div className="arcd-page-loading">Carregando patrimônio...</div>}><PatrimonioEmpresa data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
-          {tab === "licenca"  && <Suspense fallback={<div className="arcd-page-loading">Carregando licenciamento...</div>}><Licenciamento data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
-          {tab === "cmp"      && <Suspense fallback={<div className="arcd-page-loading">Carregando compras...</div>}><Compras      data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
+          {tab === "conc"     && <Suspense fallback={<LoadingState label="conciliação"/>}><Conciliacao  data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
+          {tab === "est"      && <Suspense fallback={<LoadingState label="estoque"/>}><Estoque data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
+          {tab === "equip"    && <Suspense fallback={<LoadingState label="equipamentos"/>}><Equipamentos data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
+          {tab === "equip_fin"&& <Suspense fallback={<LoadingState label="equipamentos"/>}><Equipamentos data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} contexto="financeiro"/></Suspense>}
+          {tab === "patrimonio"&& <Suspense fallback={<LoadingState label="patrimônio"/>}><PatrimonioEmpresa data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
+          {tab === "licenca"  && <Suspense fallback={<LoadingState label="licenciamento"/>}><Licenciamento data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
+          {tab === "cmp"      && <Suspense fallback={<LoadingState label="compras"/>}><Compras      data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
           {tab === "fornecedores" && <RankingFornecedores data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
           {tab === "suprimentos" && <CotacoesMaterial data={data} update={update} showToast={showToast} onTab={irPara}/>}
           {tab === "cad"      && <Cadastros    data={data} update={update} showToast={showToast} onTab={irPara} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
-          {tab === "medicoes" && <Suspense fallback={<div className="arcd-page-loading">Carregando medições...</div>}><MedicoesView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
+          {tab === "medicoes" && <Suspense fallback={<LoadingState label="medições"/>}><MedicoesView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "caixa"    && <CaixaObra    data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "relat"    && <Relatorios   data={data} showToast={showToast} currentUser={currentUser} />}
           {tab === "ia"     && <AgenteIA    data={data} showToast={showToast} onTab={irPara} />}
@@ -14864,6 +14753,7 @@ export default function App() {
                 visível e o restante abre em um painel acessível. */}
             <Suspense fallback={<div className="mobile-primary-nav-loading" aria-hidden="true"/>}>
               <LazyLegacyMobileNavigation
+                userLabel={currentUser.nome} onSignOut={sairDoSistema}
                 groups={visibleGroups}
                 activeGroupId={activeGroup?.id}
                 badges={groupBadge}
@@ -14882,6 +14772,6 @@ export default function App() {
       {currentUser && tab!=="tv" && (
         <ChatFlutuante currentUser={currentUser} usuarios={data?.usuarios||[]} showToast={showToast} bottomOffset={isDesktop||tab==="conferencia"?20:`calc(${navHeight+12}px + env(safe-area-inset-bottom))`}/>
       )}
-    </>
+    </SaveRecoveryContext.Provider>
   );
 }

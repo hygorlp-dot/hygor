@@ -5,6 +5,10 @@ import { applyOperationalCommand } from "../src/domains/sync/operational-command
 // Local-only review server. All /api requests terminate in this process.
 let data = structuredClone(initialData);
 const server = await createServer({
+  // Checkouts locais compartilham node_modules por junction; o cache não pode
+  // misturar runtimes React compilados para raízes diferentes.
+  cacheDir:"artifacts/vite-local-preview",
+  resolve:{dedupe:["react","react-dom"]},
   server:{ host:"127.0.0.1", port:Number(process.env.MARCELL_PREVIEW_PORT||4196), strictPort:true, watch:{ignored:["**/artifacts/**"]} },
   plugins:[{ name:"marcell-pilot-isolated-data", configureServer(vite) {
     vite.middlewares.use("/api", async (req, res) => {
@@ -17,6 +21,7 @@ const server = await createServer({
         else if (body.action === "operational-command") {
           result = applyOperationalCommand(data, body.command);
           if (result.ok) data = result.data;
+          else res.statusCode = 409; // Domínio rejeitou: não simular resposta incerta.
         } else if (["financial-dre-report","financial-company-dre-report"].includes(body.action)) result = { ok:true, current:null, history:[] };
         else if (body.action === "save-sections") data = { ...data, ...body.sections };
         else if (body.action === "save" && body.payload) data = body.payload;

@@ -1,3 +1,6 @@
+import {active,toCents,statusOf,notaReconhecivel} from './facts.js';
+export {active,toCents,notaReconhecivel} from './facts.js';
+import {orderPaymentLinks} from './order-payment-links.js';
 /**
  * Razão gerencial derivado. Não é persistido: os fatos continuam em seus
  * módulos de origem e são convertidos aqui em efeitos financeiros canônicos.
@@ -6,21 +9,12 @@
 import { companyExpenseCategory } from "../dre/expense-taxonomy.js";
 import { classifyReceiptForDre, receiptRecognitionDate } from "../dre/receipt-classification.js";
 
-export const toCents = value => Math.round(Number(value || 0) * 100);
 export const fromCents = value => Number(value || 0) / 100;
 
 // Arquivamento só muda a organização da interface: jamais anula um fato
 // econômico. Cancelamento, rejeição e estorno, por sua vez, são estados sem
 // efeito na projeção derivada. A normalização evita que acentos ou a variante
 // inglesa alterem o resultado financeiro.
-const INACTIVE = new Set([
-  "cancelado", "cancelada", "cancelled", "canceled",
-  "rejeitado", "rejeitada", "rejected",
-  "rascunho", "draft",
-  "estornado", "estornada", "reversed", "reverted",
-  "excluido", "excluida", "deleted",
-]);
-const RECOGNIZABLE_INVOICE = new Set(["recebida", "aprovada", "paga", "conferida", "reconhecida"]);
 // "enviado" é o status real que purchase-order-commands.js grava para todo
 // pedido ativo (normalizeOrder só persiste "rascunho"/"enviado"/"cancelado"
 // via purchase-cancellation-command.js) — sem ele aqui, nenhum pedido nunca
@@ -30,9 +24,6 @@ const isoDate = value => /^\d{4}-\d{2}-\d{2}$/.test(String(value || "").slice(0,
   ? String(value).slice(0, 10) : "";
 const competenceOf = value => /^\d{4}-\d{2}$/.test(String(value || "").slice(0, 7))
   ? String(value).slice(0, 7) : "";
-const statusOf = item => String(item?.status || "").trim()
-  .normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-export const active = item => item?.deletedAt == null && item?.ativo !== false && !INACTIVE.has(statusOf(item));
 const positiveCents = (...values) => {
   for (const value of values) {
     const cents = toCents(value);
@@ -63,12 +54,6 @@ const thirdMeasurementAmount = measurement => positiveCents(measurement?.total, 
 // dinheiro nunca passou pela conta da empresa: não é saída de caixa dela.
 // Vira o efeito próprio `third_party_payment` (visível, fora do caixa).
 const paidByClient = origin => String(origin || "") === "cliente_direto";
-
-export const notaReconhecivel = invoice => {
-  if (!active(invoice)) return false;
-  const status = statusOf(invoice);
-  return !status || RECOGNIZABLE_INVOICE.has(status);
-};
 
 export const recebimentosDaMedicao = measurement => {
   const explicit = Array.isArray(measurement?.recebimentos)
@@ -152,7 +137,7 @@ export const buildFinancialLedger = (data = {}, options = {}) => {
     if (invoice.medicaoTercId) thirdMeasurementByInvoice.set(invoice.id, invoice.medicaoTercId);
     (notaReconhecivel(invoice) ? invoice.pagamentos || [] : []).filter(active).forEach(payment => {
       if (payment.id) invoicePaymentIds.add(payment.id);
-      if (payment.transacaoId) invoicePaymentTransactions.add(payment.transacaoId);
+      if (payment.transacaoId && !payment.pedidoPagamentoId) invoicePaymentTransactions.add(payment.transacaoId);
     });
   });
   (data.medicoesTerc || []).forEach(measurement => {
@@ -201,7 +186,8 @@ export const buildFinancialLedger = (data = {}, options = {}) => {
       const sourceSection = { recebimento_avulso:"payments", outra_despesa:"outrasDesp", despesa_empresa:"despesasEmpresa", medicao:"recebimentoMedicao" }[event.sourceType];
       const explicitSplit = generated.length > 1 && sourceSection && generated.some(item => item?.tipo === sourceSection
         && String(item.id) === String(event.sourceSubId || event.sourceId));
-      const key = `${event.effect}|${event.transactionId}|${event.amountCents}${explicitSplit ? `|rateio:${event.sourceType}:${event.sourceId}:${event.sourceSubId}` : ""}`;
+      const orderSplit=event.metadata?.orderPaymentSplit;
+      const key = `${event.effect}|${event.transactionId}|${event.amountCents}${orderSplit?`|order-split:${event.sourceType}:${event.sourceId}:${event.sourceSubId}`:""}${explicitSplit ? `|rateio:${event.sourceType}:${event.sourceId}:${event.sourceSubId}` : ""}`;
       if (cashTransactions.has(key)) {
         issue("DUPLICATE_TRANSACTION_EFFECT", event.sourceType, { id: event.sourceId, obraId: event.obraId },
           `A transação ${event.transactionId} já produziu o mesmo efeito de caixa.`, {
@@ -293,18 +279,21 @@ export const buildFinancialLedger = (data = {}, options = {}) => {
       if ((payment.id && invoicePaymentIds.has(payment.id))
         || (payment.transacaoId && invoicePaymentTransactions.has(payment.transacaoId))) return;
       const paymentId = sourceId(payment, `${id}|${payment.data}|${payment.valor}|${payment.transacaoId}`);
-      add({
+      const links=orderPaymentLinks(data,order,payment);
+      const remainder=Math.max(0,positiveCents(payment.valor,payment.amount)-links.filter(l=>l.modern).reduce((sum,l)=>sum+l.valorCents,0));
+      if(remainder>0)add({
         ...base, id: `pedido:${id}:payment:${paymentId}:cash`,
         effect: paidByClient(payment.origem || order.origemPagamento) ? "third_party_payment" : "cash_out",
-        amountCents: positiveCents(payment.valor, payment.amount), date: payment.data,
+        amountCents: remainder, date: payment.data,
         sourceSubId: paymentId, transactionId: payment.transacaoId || "",
         unallocated: true,
         metadata: {
           obligationMissing:true, conciliado:!!payment.conciliado,
           origem:payment.origem || order.origemPagamento || "",
+          orderPaymentSplit:links.some(l=>l.modern),
         },
       });
-      issue("PAYMENT_UNALLOCATED", "pedido", order, "Pagamento de pedido sem documento de competência vinculado.", { severity: "info" });
+      if(remainder>0)issue("PAYMENT_UNALLOCATED", "pedido", order, "Pagamento de pedido sem documento de competência vinculado.", { severity: "info" });
     });
   });
 
@@ -360,10 +349,10 @@ export const buildFinancialLedger = (data = {}, options = {}) => {
         settlesSourceId: linkedThirdMeasurement
           ? sourceId(linkedThirdMeasurement, linkedThirdMeasurementId)
           : id,
-        metadata:{ conciliado:!!payment.conciliado, origem:payment.origem || "" },
+        metadata:{ conciliado:!!payment.conciliado, origem:payment.origem || "", orderPaymentSplit:!!payment.pedidoPagamentoId, pagamentoPedidoId:payment.pedidoPagamentoId||"" },
       };
       add({ ...base, id: `nota_fiscal:${id}:payment:${paymentId}:cash`, effect: paidByClient(payment.origem) ? "third_party_payment" : "cash_out" });
-      add({ ...base, id: `nota_fiscal:${id}:payment:${paymentId}:settle`, effect: "payable_decrease" });
+      add({ ...base, date:payment.pedidoPagamentoId&&date>base.date?date:base.date, id: `nota_fiscal:${id}:payment:${paymentId}:settle`, effect: "payable_decrease" });
     });
   });
 

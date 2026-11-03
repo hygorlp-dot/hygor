@@ -97,7 +97,7 @@ test("Obras e Administração Central separam Folha e Gestão do ponto sem alter
   await page.getByRole("combobox", { name: "Filtrar por lotação", exact: true }).selectOption("__administrativo__");
   const engineer = page.locator(".team-row").filter({ hasText: "Engenheira local QA" });
   await expect(engineer).toBeVisible();
-  await engineer.getByRole("button", { name: "Editar", exact: true }).click();
+  await engineer.locator(".team-row__employee").click();
   await expect(page.getByRole("dialog").getByRole("combobox", { name: "Obra", exact: true })).toHaveValue("work");
   if (process.env.MRC_PR229_COMPAT === "1") {
     const schedule = page.getByRole("group", { name: "Escala de trabalho definida pelo RH" });

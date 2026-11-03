@@ -8,7 +8,8 @@ import PontoEletronicoView from "./PontoEletronicoView.jsx";
 vi.mock("../../../api", () => ({ chamarPontoEletronico: vi.fn() }));
 vi.mock("../usePontoEletronico.js", () => ({ usePontoEletronico: vi.fn() }));
 vi.mock("./BancoHorasView.jsx", () => ({ default: ({ obraId }) => <p>Consulta do banco de horas: {obraId}</p> }));
-vi.mock("../../../legacy/ui.jsx", () => ({
+vi.mock("../../../legacy/ui.jsx", async () => ({
+  LoadingState: (await import("../../../design-system/patterns/LoadingState.jsx")).LoadingState,
   C: { green: "#2e6652", orange: "#855a24", red: "#a63b3b", muted: "#536171", blue: "#355874" },
   Ic: () => <svg aria-hidden="true" />,
   Badge: ({ children }) => <span>{children}</span>,
@@ -89,7 +90,8 @@ describe("consulta de batidas", () => {
   it("não transforma carga inicial nem falha de consulta em zero ou ausência de batida", async () => {
     snapshot = dadosDoHook({ marcacoes: recurso(null, { success: false, loading: true, lastUpdated: null }) });
     renderizar();
-    expect(container.textContent).toContain("Carregando as batidas deste dia");
+    await act(async()=>new Promise(resolve=>setTimeout(resolve,220)));
+    expect(container.querySelector('.mrc-loading-state').textContent).toContain("batidas deste dia");
     expect(container.querySelector(".pe-day-totals")).toBeNull();
     expect(container.querySelector(".punch-conference__table table")).toBeNull();
     expect(container.textContent).not.toContain("Nenhum funcionário ativo lotado");

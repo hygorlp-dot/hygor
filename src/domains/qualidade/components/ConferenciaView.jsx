@@ -1,3 +1,7 @@
+import {Spinner} from '../../../design-system/primitives/Spinner.jsx';
+import {ColorSwatch} from '../../../design-system/primitives/ColorSwatch.jsx';
+import {useUnsavedChanges} from '../../../features/workflow/useUnsavedChanges.js';
+import UnsavedChangesPrompt from '../../../features/workflow/UnsavedChangesPrompt.jsx';
 import {FilePicker} from '../../../design-system/patterns/FilePicker.jsx';
 import {Button as StandardButton} from '../../../components/ui/button.jsx';
 import {SelectControl} from '../../../design-system/primitives/Select.jsx';
@@ -159,11 +163,17 @@ function EditorFotoTecnica({src,legendaInicial="",podeAnotar=true,titulo="Evidê
   const [cor,setCor]=useState("#E53935");
   const [espessura,setEspessura]=useState(6);
   const [acoes,setAcoes]=useState([]);
+  const [historico,setHistorico]=useState([]);
   const [rascunho,setRascunho]=useState(null);
   const [zoom,setZoom]=useState(1);
+  const [toolsOpen,setToolsOpen]=useState(()=>window.innerHeight>=600&&window.innerWidth>=360);
   const [legenda,setLegenda]=useState(legendaInicial||"");
   const [erro,setErro]=useState("");
   const [salvando,setSalvando]=useState(false);
+  const [erroSalvar,setErroSalvar]=useState("");
+  const exit=useUnsavedChanges(podeAnotar?{acoes,legenda,rascunho}:null,onClose,{identity:src,busy:salvando});
+  const registrar=next=>{setHistorico(h=>[...h,acoes]);setAcoes(next);};
+  const desfazer=()=>{setAcoes(historico.at(-1)||[]);setHistorico(h=>h.slice(0,-1));};
   const definirRascunho=v=>{rascunhoRef.current=v;setRascunho(v);};
 
   useEffect(()=>{setErro("");const img=new Image();img.onload=()=>{const escala=Math.min(1,1600/Math.max(img.naturalWidth||1,img.naturalHeight||1));imagemRef.current=img;setDimensao({w:Math.max(1,Math.round(img.naturalWidth*escala)),h:Math.max(1,Math.round(img.naturalHeight*escala))});};img.onerror=()=>setErro("A imagem não pôde ser aberta.");img.src=src;},[src]);
@@ -180,23 +190,29 @@ function EditorFotoTecnica({src,legendaInicial="",podeAnotar=true,titulo="Evidê
   const redesenhar=useCallback(()=>{const canvas=canvasRef.current,img=imagemRef.current;if(!canvas||!img)return;canvas.width=dimensao.w;canvas.height=dimensao.h;const ctx=canvas.getContext("2d");ctx.clearRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height);acoes.forEach(a=>desenharAcao(ctx,a));desenharAcao(ctx,rascunho);},[acoes,rascunho,dimensao,desenharAcao]);
   useEffect(redesenhar,[redesenhar]);
   const ponto=e=>{const r=canvasRef.current.getBoundingClientRect();return{x:(e.clientX-r.left)*dimensao.w/r.width,y:(e.clientY-r.top)*dimensao.h/r.height};};
-  const iniciar=e=>{if(!podeAnotar||erro)return;const p=ponto(e);if(ferramenta==="texto"){const texto=window.prompt("Texto da anotação:");if(texto?.trim())setAcoes(a=>[...a,{tipo:"texto",inicio:p,texto:texto.trim().slice(0,80),cor,espessura}]);return;}e.currentTarget.setPointerCapture?.(e.pointerId);definirRascunho(ferramenta==="lapis"?{tipo:"lapis",pontos:[p],cor,espessura}:{tipo:ferramenta,inicio:p,fim:p,cor,espessura});};
+  const iniciar=e=>{if(!podeAnotar||erro||salvando||!imagemRef.current)return;const p=ponto(e);if(ferramenta==="texto"){const texto=window.prompt("Texto da anotação:");if(texto?.trim())registrar([...acoes,{tipo:"texto",inicio:p,texto:texto.trim().slice(0,80),cor,espessura}]);return;}e.currentTarget.setPointerCapture?.(e.pointerId);definirRascunho(ferramenta==="lapis"?{tipo:"lapis",pontos:[p],cor,espessura}:{tipo:ferramenta,inicio:p,fim:p,cor,espessura});};
   const mover=e=>{const atual=rascunhoRef.current;if(!atual)return;const p=ponto(e);definirRascunho(atual.tipo==="lapis"?{...atual,pontos:[...atual.pontos,p]}:{...atual,fim:p});};
-  const finalizar=()=>{const atual=rascunhoRef.current;if(!atual)return;setAcoes(a=>[...a,atual]);definirRascunho(null);};
-  const salvar=async()=>{if(!canvasRef.current||erro)return;setSalvando(true);try{const dataUrl=canvasRef.current.toDataURL("image/jpeg",.86);await onSave?.({dataUrl,legenda:legenda.trim()||legendaInicial||"Evidência técnica anotada",temAnotacoes:acoes.length>0});}catch(e){setErro(e.message||"Não foi possível salvar a anotação.");}finally{setSalvando(false);}};
-  const larguraBase=Math.min(dimensao.w,900);
+  const finalizar=()=>{const atual=rascunhoRef.current;if(!atual)return;registrar([...acoes,atual]);definirRascunho(null);};
+  const salvar=async()=>{if(!canvasRef.current||!imagemRef.current||erro||salvando)return;setErroSalvar("");setSalvando(true);try{const dataUrl=canvasRef.current.toDataURL("image/jpeg",.86);await onSave?.({dataUrl,legenda:legenda.trim()||legendaInicial||"Evidência técnica anotada",temAnotacoes:acoes.length>0});}catch(e){setErroSalvar(e.message||"Não foi possível salvar a anotação.");}finally{setSalvando(false);}};
 
-  return <div style={{position:"fixed",inset:0,zIndex:10020,background:"var(--arcd-surface-overlay)",backdropFilter:"blur(7px)",display:"grid",placeItems:"center",padding:"var(--arcd-space-3)"}} onMouseDown={e=>{if(e.target===e.currentTarget)onClose?.();}}>
-    <div style={{width:"min(1180px,98vw)",height:"min(900px,96vh)",background:"var(--arcd-surface-page)",border:"1px solid var(--arcd-border-default)",borderRadius:12,boxShadow:"var(--arcd-shadow-lg)",display:"flex",flexDirection:"column",overflow:"hidden"}}>
-      <header style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:"1px solid var(--arcd-border-default)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",background:"var(--arcd-surface-muted)"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{titulo}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-0)"}}>{podeAnotar?"Amplie, marque o ponto exato e salve uma cópia auditável.":"Visualização ampliada da evidência."}</p></div><StandardButton variant="secondary" onClick={onClose} title="Fechar" style={{width:28,height:28}}><Ic n="x" s={13}/></StandardButton></header>
-      <div style={{padding:"var(--arcd-space-2)",borderBottom:"1px solid var(--arcd-border-default)",display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",flexWrap:"wrap",background:"var(--arcd-surface-page)"}}>
-        {podeAnotar?<div style={{display:"flex",gap:"var(--arcd-space-1)",flexWrap:"wrap"}}>{[["lapis","Desenho"],["seta","Seta"],["circulo","Círculo"],["texto","Texto"]].map(([v,l])=><StandardButton variant="secondary" key={v} onClick={()=>setFerramenta(v)}>{l}</StandardButton>)}<span style={{width:1,background:"var(--arcd-border-default)",margin:"var(--arcd-space-0) var(--arcd-space-half)"}}/>{["#E53935",C.yellow,"#1261A0","#FFFFFF","#121212"].map(c=><StandardButton variant="secondary" key={c} onClick={()=>setCor(c)} aria-label={`Cor ${c}`} style={{width:25,height:25}}/>)}<SelectControl value={espessura} onChange={e=>setEspessura(Number(e.target.value))} aria-label="Espessura" style={{border:"1px solid var(--arcd-border-default)",borderRadius:6,background:"var(--arcd-surface-muted)",fontSize:"var(--arcd-type-control)",padding:"var(--arcd-space-half) var(--arcd-space-1)"}}><option value="3">Fino</option><option value="6">Médio</option><option value="10">Grosso</option></SelectControl><StandardButton variant="secondary" onClick={()=>setAcoes(a=>a.slice(0,-1))} disabled={!acoes.length} style={{opacity:acoes.length?1:.45}}>Desfazer</StandardButton><StandardButton variant="secondary" onClick={()=>setAcoes([])} disabled={!acoes.length} style={{opacity:acoes.length?1:.45}}>Limpar</StandardButton></div>:<span/>}
-        <div style={{display:"flex",gap:"var(--arcd-space-1)",alignItems:"center"}}><span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Zoom</span>{[[.75,"−"],[1,"Ajustar"],[1.5,"+"],[2,"2×"]].map(([v,l])=><StandardButton aria-pressed={zoom===v} variant="secondary" key={v} onClick={()=>setZoom(v)}>{l}</StandardButton>)}</div>
-      </div>
-      <div style={{flex:1,overflow:"auto",background:"var(--arcd-surface-inverse)",display:"flex",alignItems:"flex-start",justifyContent:zoom<=1?"center":"flex-start",padding:"var(--arcd-space-2)"}}>{erro?<div style={{margin:"auto",color:"white",fontSize:"var(--arcd-type-label)"}}>{erro}</div>:<canvas ref={canvasRef} onPointerDown={iniciar} onPointerMove={mover} onPointerUp={finalizar} onPointerCancel={finalizar} style={{display:"block",width:zoom===1?"min(100%, 900px)":`${Math.round(larguraBase*zoom)}px`,maxWidth:zoom===1?"100%":"none",height:"auto",touchAction:podeAnotar?"none":"pan-x pan-y",cursor:podeAnotar?(ferramenta==="texto"?"text":"crosshair"):"zoom-in",boxShadow:"var(--arcd-shadow-lg)"}}/>}</div>
-      <footer style={{padding:"var(--arcd-space-2)",borderTop:"1px solid var(--arcd-border-default)",display:"flex",gap:"var(--arcd-space-2)",alignItems:"flex-end",background:"var(--arcd-surface-muted)",flexWrap:"wrap"}}><div style={{flex:1,minWidth:220}}><Inp label="Legenda da evidência" value={legenda} onChange={setLegenda} disabled={!podeAnotar} placeholder="Ex.: fissura destacada junto ao vão da janela"/></div><Btn v="ghost" onClick={onClose}>Fechar</Btn>{podeAnotar&&<Btn onClick={salvar} disabled={salvando||!!erro}><Ic n="edit"/>{salvando?"Salvando...":acaoSalvar}</Btn>}</footer>
-    </div>
-  </div>;
+  return <>
+    <Modal title={titulo} onClose={exit.requestClose} wide panelClass="photo-editor" footer={<div className="photo-editor__footer"><Inp label="Legenda da evidência" value={legenda} onChange={setLegenda} disabled={!podeAnotar||salvando} />{podeAnotar&&<Btn onClick={salvar} loading={salvando} disabled={!!erro||!imagemRef.current}>{acaoSalvar}</Btn>}</div>}>
+      <p>{podeAnotar?"Salve uma cópia para preservar o original.":"Visualização ampliada da evidência."}</p>
+      <details className="photo-editor__tools" open={toolsOpen} onToggle={e=>setToolsOpen(e.currentTarget.open)}><summary>Ferramentas e zoom</summary><fieldset disabled={salvando} className="photo-editor__toolbar" aria-label="Ferramentas da foto">
+        {podeAnotar&&<>
+          <div role="group" aria-label="Ferramenta" className="photo-editor__group">{[["lapis","Desenho"],["seta","Seta"],["circulo","Círculo"],["texto","Texto"]].map(([v,l])=><StandardButton variant="secondary" aria-pressed={ferramenta===v} key={v} onClick={()=>setFerramenta(v)}>{l}</StandardButton>)}</div>
+          <div role="group" aria-label="Cores da anotação" className="photo-editor__group">{[["#E53935","vermelha"],[C.yellow,"dourada"],["#1261A0","azul"],["#FFFFFF","branca"],["#121212","preta"]].map(([c,l])=><ColorSwatch key={c} color={c} label={l} selected={cor===c} onClick={()=>setCor(c)}/>)}</div>
+          <SelectControl value={espessura} onChange={e=>setEspessura(Number(e.target.value))} aria-label="Espessura"><option value="3">Fino</option><option value="6">Médio</option><option value="10">Grosso</option></SelectControl>
+          <StandardButton variant="secondary" onClick={desfazer} disabled={!historico.length}>Desfazer</StandardButton>
+          <StandardButton variant="secondary" onClick={()=>registrar([])} disabled={!acoes.length}>Limpar anotações</StandardButton>
+        </>}
+        <div role="group" aria-label="Zoom" className="photo-editor__group">{[[.75,"Reduzir"],[1,"Ajustar"],[1.5,"Ampliar"],[2,"2×"]].map(([v,l])=><StandardButton aria-pressed={zoom===v} variant="secondary" key={v} onClick={()=>setZoom(v)}>{l}</StandardButton>)}</div>
+      </fieldset></details>
+      {erroSalvar&&<p role="alert">{erroSalvar}</p>}
+      <div className="photo-editor__canvas">{erro?<p role="alert">{erro}</p>:<canvas ref={canvasRef} aria-label="Foto para anotação" onPointerDown={iniciar} onPointerMove={mover} onPointerUp={finalizar} onPointerCancel={()=>definirRascunho(null)} style={{width:`calc(min(100%, 900px, var(--photo-height) * ${dimensao.w/dimensao.h}) * ${zoom})`,marginInline:zoom<=1?"auto":0,touchAction:podeAnotar?"none":"pan-x pan-y",cursor:podeAnotar?(ferramenta==="texto"?"text":"crosshair"):"default"}}/>}</div>
+    </Modal>
+    <UnsavedChangesPrompt guard={exit}/>
+  </>;
 }
 
 export default function Conferencia({ data, showToast, currentUser, obraIdFixo="", dispatchCommand=null }) {
@@ -405,8 +421,8 @@ export default function Conferencia({ data, showToast, currentUser, obraIdFixo="
   const abrirFotoTecnica=async(p,foto)=>{
     const podeAnotar=podeGerirVistoria||(ehResponsavelAjuste(p)&&foto.tipo==="ajuste"&&p.status!=="resolvida");
     setFotoTecnica({carregando:true,pendencia:p,foto,podeAnotar});
-    try{const src=await imagemTecnicaComoDataUrl(foto.url);setFotoTecnica({pendencia:p,foto,src,podeAnotar,legenda:foto.legenda||"Evidência técnica"});}
-    catch(err){setFotoTecnica({pendencia:p,foto,src:foto.url,podeAnotar:false,legenda:foto.legenda||"Evidência técnica"});showToast?.(`${err.message||"Falha ao carregar a foto"} A visualização continua disponível, mas a anotação foi bloqueada.`,"error");}
+    try{const src=await imagemTecnicaComoDataUrl(foto.url);setFotoTecnica(atual=>atual?.foto===foto?{pendencia:p,foto,src,podeAnotar,legenda:foto.legenda||"Evidência técnica"}:atual);}
+    catch(err){setFotoTecnica(atual=>atual?.foto===foto?{pendencia:p,foto,src:foto.url,podeAnotar:false,legenda:foto.legenda||"Evidência técnica"}:atual);showToast?.(`${err.message||"Falha ao carregar a foto"} A visualização continua disponível, mas a anotação foi bloqueada.`,"error");}
   };
   const salvarCopiaAnotada=async({dataUrl,legenda,temAnotacoes})=>{
     const origem=fotoTecnica?.foto,p=fotoTecnica?.pendencia;if(!origem||!p||!temAnotacoes){if(!temAnotacoes)showToast?.("Faça ao menos uma marcação antes de salvar a cópia.","error");return;}
@@ -566,7 +582,7 @@ export default function Conferencia({ data, showToast, currentUser, obraIdFixo="
     {pendenciaForm&&(
       <ModalPendenciaConferencia form={pendenciaForm} setForm={setPendenciaForm} etapasNivel1={etapasNivel1} responsaveis={responsaveis} obra={obraAtual} conferencia={conferencia} currentUser={currentUser} onSalvar={salvarPendencia} onClose={()=>setPendenciaForm(null)} showToast={showToast}/>
     )}
-    {fotoTecnica?.carregando&&<div style={{position:"fixed",inset:0,zIndex:10020,background:"var(--arcd-surface-overlay)",display:"grid",placeItems:"center",color:"white"}}><div style={{textAlign:"center"}}><div style={{width:28,height:28,border:"3px solid color-mix(in srgb, var(--arcd-text-inverse) 25%, transparent)",borderTopColor:"var(--arcd-action-primary)",borderRadius:99,animation:"spin 1s linear infinite",margin:"var(--arcd-space-0) auto var(--arcd-space-2)"}}/><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>Abrindo evidência técnica...</p></div></div>}
+    {fotoTecnica?.carregando&&<Modal title="Abrindo evidência" onClose={()=>setFotoTecnica(null)}><Spinner label="Carregando imagem"/></Modal>}
     {fotoTecnica?.src&&<EditorFotoTecnica
       src={fotoTecnica.src} legendaInicial={fotoTecnica.legenda} podeAnotar={fotoTecnica.podeAnotar}
       titulo={fotoTecnica.novaCorrecao?"Foto da correção · revisar e anotar":"Evidência da pendência técnica"}
@@ -603,7 +619,7 @@ function ModalPendenciaConferencia({form,setForm,etapasNivel1,responsaveis,obra,
     }catch(err){showToast?.(err.message||"Falha ao enviar foto.","error");}
     finally{setSubindo(false);input.value="";}
   };
-  const abrirEditor=async foto=>{setFotoEditor({carregando:true,foto});try{const src=await imagemTecnicaComoDataUrl(foto.url);setFotoEditor({foto,src});}catch(err){setFotoEditor(null);showToast?.(err.message||"Não foi possível abrir a imagem.","error");}};
+  const abrirEditor=async foto=>{setFotoEditor({carregando:true,foto});try{const src=await imagemTecnicaComoDataUrl(foto.url);setFotoEditor(atual=>atual?.foto===foto?{foto,src}:atual);}catch(err){setFotoEditor(null);showToast?.(err.message||"Não foi possível abrir a imagem.","error");}};
   const salvarAnotada=async({dataUrl,legenda,temAnotacoes})=>{if(!fotoEditor?.foto||!temAnotacoes){showToast?.("Faça ao menos uma marcação antes de salvar.","error");return;}setSubindo(true);try{const origem=fotoEditor.foto,criadoEm=new Date().toISOString();const resp=await enviarArquivoOneDrive({dataUrl,obraId:obra?.id,obraName:obra?.name||"Obra",driveId:obra?.oneDriveDriveId,folderId:obra?.oneDriveFolderId,folders:obra?.oneDriveFolders,category:"conferencia",date:conferencia.data,fileName:`vistoria-anotada-${Date.now()}.jpg`});if(!resp.url)throw new Error(resp.error||"Falha no envio.");const nova={id:resp.item?.id||uid(),url:resp.url,legenda:legenda||`${origem.legenda||"Evidência"} · anotada`,path:resp.path||"",tipo:"registro",enviadoPorId:currentUser?.id||"",enviadoPor:currentUser?.nome||"",criadoEm,anotada:true,originalFotoId:origem.id||"",anotadoPorId:currentUser?.id||"",anotadoPor:currentUser?.nome||"",anotadoEm:criadoEm};setForm(f=>({...f,fotos:[...(f.fotos||[]),nova]}));setFotoEditor(null);showToast?.("Cópia anotada adicionada à pendência.");}catch(err){showToast?.(err.message||"Falha ao salvar a anotação.","error");}finally{setSubindo(false);}};
   const confirmarArquivoFoto=()=>{if(!archivePhoto||!archiveReason.trim()){showToast?.("Informe o motivo do arquivamento.","error");return;}setForm(f=>({...f,fotos:f.fotos.map(item=>item.id===archivePhoto.id?{...item,status:"arquivada",motivoArquivamento:archiveReason.trim(),arquivadaEm:new Date().toISOString(),arquivadaPorId:currentUser?.id||"",arquivadaPor:currentUser?.nome||""}:item)}));setArchivePhoto(null);setArchiveReason("");};
   return <Modal title={form.id?"Editar pendência":"Novo achado da vistoria"} onClose={onClose} wide panelClass="conference-finding-modal"><div className="conference-finding-form" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
@@ -614,7 +630,7 @@ function ModalPendenciaConferencia({form,setForm,etapasNivel1,responsaveis,obra,
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:"var(--arcd-space-2)"}}><Sel label="Engenheiro responsável pelo ajuste *" value={form.responsavelAjusteId} onChange={v=>setForm(f=>({...f,responsavelAjusteId:v,responsavelAjusteNome:responsaveis.find(r=>r.id===v)?.nome||""}))} options={[{v:"",l:"Selecione..."},...responsaveis.map(r=>({v:r.id,l:`${r.nome} · ${r.tipo}`}))]}/><Inp label="Prazo combinado" type="date" value={form.prazo} onChange={v=>setForm(f=>({...f,prazo:v}))}/></div>
     <div className="conference-photo-field"><p className="conference-label">Evidências fotográficas</p><div className="conference-photo-list">{(form.fotos||[]).map(foto=><div key={foto.id||foto.url} className={foto.status==="arquivada"?"conference-photo is-archived":"conference-photo"}><StandardButton variant="secondary" onClick={()=>abrirEditor(foto)} aria-label={`Ampliar e anotar ${foto.legenda||"evidência fotográfica"}`}><img loading="lazy" src={foto.url} alt={foto.legenda||"Evidência da vistoria"}/>{foto.status==="arquivada"&&<span>Arquivada</span>}</StandardButton>{foto.status!=="arquivada"&&<StandardButton variant="secondary" className="conference-photo__archive" onClick={()=>{setArchivePhoto(foto);setArchiveReason("");}} aria-label={`Arquivar ${foto.legenda||"evidência"}`} title="Arquivar evidência"><Ic n="trash" s={13}/></StandardButton>}{foto.status==="arquivada"&&foto.motivoArquivamento&&<small>Motivo: {foto.motivoArquivamento}</small>}</div>)}<div className="conference-photo-actions"><FilePicker buttonLabel="Usar câmera" accept="image/*" onChange={subirFoto} disabled={subindo} inputProps={{"capture":"environment","onClick":e=>{e.currentTarget.value="";}}} className="conference-camera-button"></FilePicker><FilePicker buttonLabel="Selecionar fotos" accept="image/*" multiple onChange={subirFoto} disabled={subindo} inputProps={{"onClick":e=>{e.currentTarget.value="";}}} className="conference-camera-button conference-gallery-button"></FilePicker></div></div><p className="conference-photo-help">Arquivar mantém a evidência e registra o motivo. Toque na miniatura para ampliar e marcar.</p></div>
     <div className="conference-form-actions" style={{display:"flex",gap:"var(--arcd-space-2)",justifyContent:"flex-end"}}><Btn v="ghost" onClick={onClose}>Cancelar</Btn><Btn onClick={()=>onSalvar(form)}><Ic n="check"/> Salvar achado</Btn></div>
-    {fotoEditor?.carregando&&<div style={{position:"fixed",inset:0,zIndex:10020,background:"var(--arcd-surface-overlay)",display:"grid",placeItems:"center",color:"white",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>Abrindo evidência...</div>}
+    {fotoEditor?.carregando&&<Modal title="Abrindo evidência" onClose={()=>setFotoEditor(null)}><Spinner label="Carregando imagem"/></Modal>}
     {fotoEditor?.src&&<EditorFotoTecnica
       src={fotoEditor.src} legendaInicial={fotoEditor.foto?.legenda||"Registro da vistoria"}
       titulo="Anotar evidência da vistoria" onClose={()=>setFotoEditor(null)} onSave={salvarAnotada}

@@ -1,0 +1,20 @@
+.mrc-work-board{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(13rem,1fr);gap:var(--arcd-layout-gap);overflow-x:auto;max-width:100%;padding:var(--arcd-space-3);align-items:start;scrollbar-color:var(--arcd-border-strong) var(--arcd-surface-muted)}
+.mrc-work-board:focus-visible{outline:2px solid var(--arcd-focus-ring);outline-offset:-2px}
+.mrc-work-board__column{min-width:0;background:var(--arcd-surface-subtle);border:1px solid var(--arcd-border-default);border-radius:var(--arcd-radius-control)}
+.mrc-work-board__column>header{padding:var(--arcd-space-3);border-bottom:1px solid var(--arcd-border-default)}
+.mrc-work-board__column h3{font-size:var(--arcd-type-card-title)!important;font-weight:600;margin:0}
+.mrc-work-board__column p{font-size:var(--arcd-type-caption);color:var(--arcd-text-secondary);margin:var(--arcd-space-1) 0}
+.mrc-work-board__column ul{list-style:none;padding:var(--arcd-space-2);display:grid;gap:var(--arcd-space-2);margin:0}
+.mrc-work-board__column li{padding:var(--arcd-space-3);background:var(--arcd-surface-card);border:1px solid var(--arcd-border-default);border-radius:var(--arcd-radius-control);min-width:0;overflow-wrap:anywhere}
+.mrc-work-board__column li[draggable=true]{cursor:grab}
+.mrc-work-board__column li:focus-within{border-color:var(--arcd-focus-ring)}
+.mrc-work-board__column li>*{display:block;margin-bottom:var(--arcd-space-2)}
+.mrc-work-board__column .mrc-button{display:inline-flex;max-width:100%;white-space:normal}
+.mrc-work-board__empty{padding:var(--arcd-space-3)}
+.mrc-queue-controls{display:flex;flex-wrap:wrap;gap:var(--arcd-layout-gap);padding:var(--arcd-space-3)}
+.mrc-queue-controls>*{flex:1 1 10rem;min-width:0}
+@media(max-width:767px){.mrc-work-board{grid-auto-columns:min(18rem,calc(100vw - 4rem))}.mrc-queue-controls>*{flex-basis:calc(50% - var(--arcd-layout-gap))}}
+
+.mrc-queue-note{padding-inline:var(--arcd-space-3);font-size:var(--arcd-type-caption);color:var(--arcd-text-secondary)}
+[data-theme] .mrc-queue-filterbar:has(.mrc-queue-view){grid-template-columns:minmax(12rem,1fr) minmax(9rem,12rem) auto!important}
+@media(max-width:767px){[data-theme] .mrc-queue-filterbar:has(.mrc-queue-view){grid-template-columns:minmax(0,1fr) auto!important}.mrc-queue-filterbar:has(.mrc-queue-view)>.arcd-field:first-child{grid-column:1/-1}}

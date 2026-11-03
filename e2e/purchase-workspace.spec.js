@@ -27,7 +27,7 @@ async function openPurchases(page){
   // A recarga restaura Compras. Não procurar um item de navegação de uma
   // seção já aberta (nem desfazer o contexto que o teste quer conferir).
   if(await shell.getAttribute("data-tab")==="cmp"){
-    await expect(page.locator(".purchase-header")).toBeVisible({timeout:15000});
+    await expect(page.locator(".compras-view .workspace-heading")).toBeVisible({timeout:15000});
     return;
   }
   if(page.viewportSize().width<1100){
@@ -39,7 +39,7 @@ async function openPurchases(page){
     if(!await body.isVisible())await group.click();
     await body.locator(".nav-item").filter({hasText:/^Compras$/}).click();
   }
-  await expect(page.locator(".purchase-header")).toBeVisible({timeout:15000});
+  await expect(page.locator(".compras-view .workspace-heading")).toBeVisible({timeout:15000});
 }
 
 async function enter(page,{role="admin",failFirstRequest=false,prepare=null}={}) {
@@ -302,7 +302,7 @@ test("receber parcialmente a prazo atualiza estoque e saldo sem registrar pagame
   expect(app.state().pedidos.find(order=>order.id==="delivery").itens[0].qtdRecebida).toBe(4);
   expect(app.state().pedidos.find(order=>order.id==="delivery").pagamentos).toEqual([]);
   expect(app.state().movEstoque.filter(movement=>movement.pedidoId==="delivery").reduce((sum,movement)=>sum+movement.qtd,0)).toBe(4);
-  await page.reload({waitUntil:"domcontentloaded"});await expect(page.locator(".purchase-header")).toBeVisible();await selectWork(page);await navigate(page,"Receber");
+  await page.reload({waitUntil:"domcontentloaded"});await expect(page.locator(".compras-view .workspace-heading")).toBeVisible();await selectWork(page);await navigate(page,"Receber");
   await page.getByRole("button",{name:"Receber materiais · PC-001"}).click();
   await expect(page.getByRole("dialog").getByLabel("Chegou agora (UN)")).toHaveValue("6");
   expect(app.errors).toEqual([]);
@@ -558,8 +558,8 @@ test("cabeçalho compacto mostra a primeira linha da fila em 1000 px e o menu n�
   await page.setViewportSize({width:1280,height:1000});
   const app=await enter(page);
   await selectWork(page);
-  // Obra, aviso de salvamento e ações ficam no próprio cabeçalho.
-  await expect(page.locator(".purchase-header .purchase-context-bar").getByLabel("Obra",{exact:true})).toHaveValue("a");
+  // Obra e ações ficam na barra de comandos, logo abaixo do título.
+  await expect(page.getByRole("group",{name:"Comandos de Compras"}).getByLabel("Obra",{exact:true})).toHaveValue("a");
   const primeira=page.locator(".purchase-queue-table tbody tr").first();
   await expect(primeira).toBeVisible();
   const caixa=await primeira.boundingBox();

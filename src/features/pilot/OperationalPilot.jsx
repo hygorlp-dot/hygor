@@ -1,3 +1,4 @@
+import {LoadingState} from '../../design-system/patterns/LoadingState.jsx';
 import { Suspense, useMemo, useRef, useState } from "react";
 import { lazyWithCssRetry as lazy } from "../../lib/lazy-with-css-retry.js";
 import { Button } from "../../components/ui/button";
@@ -45,7 +46,7 @@ export default function OperationalPilot({ data, mode, scope, automationRows, no
       {current.transaction&&<p>{money(current.transaction.valor)} · {current.date} · {labels[current.prediction]}</p>}
       {current.candidate&&current.prediction!=="executed"&&<ReconciliationEvidence transaction={current.transaction} candidate={current.candidate} identities={identities} data={snapshot.data} fmt={money}/>}
       <Button variant="outline" onClick={()=>setDetails(value=>!value)}>{details?"Recolher documentos do caso":"Consultar ficha e documentos"}</Button>
-      {details&&(mode==="compras"?<Suspense fallback={<p role="status">Carregando ficha…</p>}><PurchaseDossier inline data={snapshot.data} selection={{pedidoId:current.sourceId}} onClose={()=>setDetails(false)}/></Suspense>:<ReconciliationDocuments key={current.id} data={snapshot.data} transaction={current.transaction} selection={current.candidate?{candidate:current.candidate}:{bank:true}} onClose={()=>setDetails(false)}/>)}
+      {details&&(mode==="compras"?<Suspense fallback={<LoadingState label="ficha"/>}><PurchaseDossier inline data={snapshot.data} selection={{pedidoId:current.sourceId}} onClose={()=>setDetails(false)}/></Suspense>:<ReconciliationDocuments key={current.id} data={snapshot.data} transaction={current.transaction} selection={current.candidate?{candidate:current.candidate}:{bank:true}} onClose={()=>setDetails(false)}/>)}
       <fieldset><legend>Resultado da conferência</legend>{[["agree","Conferido sem ajuste"],["correct","Ajuste necessário"],["unknown","Não foi possível concluir"]].map(([value,label])=><label key={value}><input type="radio" name="pilot-decision" checked={decision===value} onChange={()=>setDecision(value)}/>{label}</label>)}</fieldset>
       <label>Motivo ou observação<Input value={reason} onChange={event=>setReason(event.target.value)} maxLength={1000}/></label>
       {error&&<p role="alert">{error}</p>}<Button onClick={save}>Registrar avaliação do piloto</Button><p>A avaliação não aplica correções e não aprova pagamentos.</p>

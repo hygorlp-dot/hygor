@@ -1,3 +1,4 @@
+import {Badge as StatusBadge} from '../../../design-system/primitives/Badge.jsx';
 import {sessionContext} from '../../../lib/session-context.js';
 import {SelectControl} from '../../../design-system/primitives/Select.jsx';
 import {Button as StandardButton} from '../../../components/ui/button.jsx';
@@ -133,6 +134,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
     frequency:"quinzenal",firstDueDate:today(),
   });
 
+  const openEmployee=employee=>{setForm({...employeeEditDraft(employee),trainings:{...EMPTY_TRAININGS,...(employee.trainings||{})}});setFormErrors({});setEmployeeSaveError('');setModal(true);};
   useEffect(() => {
     const empId = sessionContext.getItem("arcd_editar_funcionario");
     if (!empId) return;
@@ -140,11 +142,11 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
     sessionContext.removeItem("arcd_editar_funcionario");
     if (!employee) return;
     setStatusFilter(employeeLifecycleStatus(employee, today()));
-    setForm({...employeeEditDraft(employee),trainings:{...EMPTY_TRAININGS,...(employee.trainings||{})}});
-    setModal(true);
-    setEmployeeSaveError('');
+    openEmployee(employee);
   }, [data.employees]);
 
+  const savedEmployee=data.employees.find(e=>e.id===form.id);
+  const savedLifecycle=savedEmployee?employeeLifecycleStatus(savedEmployee,today()):'ativo';
   const F = key => value => setForm(f => ({ ...f, [key]: value }));
   const obraName = id => data.obras.find(o => o.id === id)?.name || "-";
   const advanceActive = advance => !["cancelado","cancelada","estornado","estornada"]
@@ -219,7 +221,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
     const emp = data.employees.find(e => e.id === id);
     if (!emp) return;
     setDismissalModal(emp);
-    setDismissalForm({endDate:today(),reason:"demissao_sem_justa_causa",notes:""});
+    setDismissalForm(emp.endDate?{endDate:emp.endDate,reason:RESCISSION_TYPE_TO_DISMISSAL[emp.terminationType]||"outro",notes:emp.terminationNotes||""}:{endDate:today(),reason:"demissao_sem_justa_causa",notes:""});
   };
 
   const confirmDismissal = async () => {
@@ -260,6 +262,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
     setPendingAction("");
     if(!result?.ok){showToast(result?.reason||"O desligamento não foi confirmado pelo servidor.","error");return;}
     setDismissalModal(null);
+    setModal(false);
     setExpandedId(null);
     setStatusFilter(scheduled?"desligamento_agendado":"desligado");
     showToast(scheduled?`Desligamento de ${emp.name} agendado. Último dia: ${fmtDateFull(dismissalForm.endDate)}.`:`${emp.name} desligado. Último dia trabalhado: ${fmtDateFull(dismissalForm.endDate)}.`);
@@ -433,8 +436,8 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
         return (
           <article key={e.id} className={`team-row team-row--${lifecycle}`}>
             <div className="team-row__main">
-              <RecordAction type="button" className="team-row__employee" onClick={() => setExpandedId(exp ? null : e.id)} aria-expanded={exp} aria-controls={detailId}>
-                <span className="team-row__initials">{e.name.split(/\s+/).slice(0,2).map(n=>n[0]).join("").toUpperCase()}</span><span><strong>{e.name}</strong><small>{podeGerenciarEquipe?`${fmt(e.dailyRate)}/dia`:"Dados trabalhistas restritos"}</small></span><Ic n={exp?"chevronUp":"chevronDown"} s={13}/>
+              <RecordAction type="button" className="team-row__employee" onClick={()=>podeGerenciarEquipe?openEmployee(e):gerarFichaFuncionarioPDF(data,e,showToast)} aria-label={`Abrir ficha de ${e.name}`}>
+                <span className="team-row__initials">{e.name.split(/\s+/).slice(0,2).map(n=>n[0]).join("").toUpperCase()}</span><span><strong>{e.name}</strong><small>{podeGerenciarEquipe?`${fmt(e.dailyRate)}/dia`:"Dados trabalhistas restritos"}</small></span>
               </RecordAction>
               <span className="team-row__cell" data-label="Função">{e.role||"Não informada"}</span>
               <span className="team-row__cell" data-label="Lotação">{laborArea(e)==="central"?"Administração Central":(e.obra?obraName(e.obra):"Sem lotação")}</span>
@@ -446,7 +449,12 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
                 </div>
               </span>
               <span className="team-row__cell" data-label="Situação"><Badge color={lifecycleColor[lifecycle]}>{lifecycleLabel[lifecycle]}</Badge></span>
-              <div className="team-row__actions"><Btn v="ghost" size="sm" onClick={() => gerarFichaFuncionarioPDF(data, e, showToast)}><Ic n="file"/> Ficha</Btn>{podeGerenciarEquipe&&<Btn v="ghost" size="sm" onClick={() => { setForm({...employeeEditDraft(e),trainings:{...EMPTY_TRAININGS,...(e.trainings||{})}}); setFormErrors({}); setEmployeeSaveError(''); setModal(true); }}><Ic n="edit"/> Editar</Btn>}</div>
+              <div className="team-row__actions">
+                {podeGerenciarEquipe&&lifecycle==='ativo'&&<Btn v="danger" size="sm" disabled={!!pendingAction} onClick={()=>archiveEmp(e.id)}>Desligar</Btn>}
+                {podeGerenciarEquipe&&lifecycle==='desligamento_agendado'&&<Btn v="warning" size="sm" disabled={!!pendingAction} onClick={()=>archiveEmp(e.id)}>Rever saída</Btn>}
+                {podeGerenciarEquipe&&lifecycle==='desligado'&&<Btn v="secondary" size="sm" onClick={()=>openEmployee(e)}>Ver saída</Btn>}
+                <Btn v="ghost" size="sm" onClick={()=>setExpandedId(exp?null:e.id)} aria-expanded={exp} aria-controls={detailId}>Detalhes <Ic n={exp?'chevUp':'chevron'} s={13}/></Btn>
+              </div>
             </div>
 
             {exp && (
@@ -468,8 +476,6 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
 
                 {podeGerenciarEquipe&&<div className="team-detail-actions">
                   {e.obra && lifecycle==="ativo" && <Btn v="ghost" size="sm" onClick={() => setUnlinkModal(e)}><Ic n="x" /> Desvincular da obra</Btn>}
-                  {lifecycle==="ativo" && <Btn v="danger" size="sm" onClick={() => archiveEmp(e.id)}><Ic n="x" /> Registrar desligamento</Btn>}
-                  {lifecycle==="desligamento_agendado"&&<Btn v="warning" size="sm" onClick={()=>{setDismissalModal(e);setDismissalForm({endDate:e.endDate,reason:RESCISSION_TYPE_TO_DISMISSAL[e.terminationType]||"outro",notes:e.terminationNotes||""});}}><Ic n="edit"/> Corrigir agendamento</Btn>}
                   {["desligado","desligamento_agendado"].includes(lifecycle)&&<Btn v="success" size="sm" loading={pendingAction===`reactivate-${e.id}`} onClick={()=>reactivateEmp(e)}><Ic n="refresh"/> Reativar</Btn>}
                   {lifecycle!=="arquivado"&&<Btn v="danger" size="sm" onClick={() => {setArchiveModal(e);setArchiveReason("");}}><Ic n="trash" /> Arquivar cadastro</Btn>}
                 </div>}
@@ -501,6 +507,12 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
 
       {modal && (
         <Modal title={form.id ? "Editar funcionário" : "Novo funcionário"} onClose={() => {if(!savingEmployee)setModal(false);}} wide panelClass="employee-edit-modal" footer={<><p className="employee-edit-feedback" role={employeeSaveError?'alert':'status'}>{employeeSaveError||(savingEmployee?'Salvando funcionário…':'')}</p><div className="employee-edit-actions"><Btn v="ghost" disabled={savingEmployee} onClick={()=>setModal(false)}>Cancelar</Btn><Btn disabled={savingEmployee} onClick={saveEmp}><Ic n="check"/> {savingEmployee?'Salvando…':'Salvar'}</Btn></div></>}>
+          {savedEmployee&&<section className="employee-employment" aria-label="Vínculo e desligamento">
+            <header><h3>Vínculo e desligamento</h3><StatusBadge tone={savedLifecycle==='ativo'?'success':savedLifecycle==='desligamento_agendado'?'warning':'neutral'}>{lifecycleLabel[savedLifecycle]}</StatusBadge></header>
+            <dl><div><dt>Último dia trabalhado</dt><dd>{savedEmployee.endDate?fmtDateFull(savedEmployee.endDate):'Sem desligamento registrado'}</dd></div><div><dt>Motivo do desligamento</dt><dd>{savedEmployee.terminationReason||'Não informado'}</dd></div></dl>
+            {savedEmployee.terminationNotes&&<p>{savedEmployee.terminationNotes}</p>}
+            <div className="employee-employment__actions">{podeGerenciarEquipe&&savedLifecycle==='ativo'&&<Btn v="danger" disabled={savingEmployee} onClick={()=>archiveEmp(savedEmployee.id)}>Registrar desligamento</Btn>}<Btn v="secondary" disabled={savingEmployee} onClick={()=>gerarFichaFuncionarioPDF(data,savedEmployee,showToast)}>Ficha em PDF</Btn></div>
+          </section>}
           <fieldset disabled={savingEmployee} style={{border:0,padding:0,margin:0,minWidth:0}} aria-label="Dados do funcionário">
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-4)" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-2)" }}>
@@ -579,6 +591,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
               <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{dismissalModal.name}</p>
               <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{dismissalModal.role||"Função não informada"} · {dismissalModal.workArea==="administrativo"?"Administração Central":obraName(dismissalModal.obra)}</p>
             </div>
+            {modal&&<p>O desligamento usa os dados salvos. Outras alterações deste cadastro não serão salvas ao confirmar.</p>}
             <Inp label="Último dia trabalhado *" type="date" min={dismissalModal.startDate} value={dismissalForm.endDate} onChange={value=>setDismissalForm(form=>({...form,endDate:value}))}/>
             <Sel label="Tipo de desligamento *" value={dismissalForm.reason} onChange={value=>setDismissalForm(form=>({...form,reason:value}))} options={[
               {v:"demissao_sem_justa_causa",l:"Demissão sem justa causa"},

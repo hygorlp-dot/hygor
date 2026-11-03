@@ -1,40 +1,23 @@
-import { useEffect, useId, useRef } from "react";
+import {useDialogLifecycle} from './useDialogLifecycle.js';
+import {useRecoveredEditor,SaveRecoveryShortcut} from '../../features/workflow/SaveRecoveryContext.jsx';
+import { useId, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "./Button.jsx";
 import "./styles.css";
 
-export function Dialog({ id, open, onOpenChange, title, children, triggerRef, closeLabel = "Fechar", className = "" }) {
+export function DialogSurface({ id, open, onOpenChange, title, children, triggerRef, closeLabel = "Fechar", className = "", drawer = false }) {
   const dialogRef = useRef(null);
   const titleId = useId();
-  const previousFocus = useRef(null);
-  const previousOverflow = useRef("");
-  const onChangeRef=useRef(onOpenChange);
-  onChangeRef.current=onOpenChange;
-  useEffect(() => {
-    if (!open) return undefined;
-    previousFocus.current = document.activeElement;
-    previousOverflow.current = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const timer = window.setTimeout(() => dialogRef.current?.focus(), 0);
-    const onKeyDown = event => {
-      const dialog=dialogRef.current;
-      if([...document.querySelectorAll('.arcd-dialog')].at(-1)!==dialog)return;
-      if(event.key==='Escape'){event.stopPropagation();onChangeRef.current?.(false);return;}
-      if(event.key!=='Tab')return;
-      const targets=[...dialog.querySelectorAll('button:not(:disabled),a[href],input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex]:not([tabindex="-1"])')].filter(el=>el.tabIndex>=0&&el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden'&&el.getAttribute('aria-disabled')!=='true');
-      if(!targets.length){event.preventDefault();dialog.focus();return;}
-      const active=document.activeElement,first=targets[0],last=targets.at(-1);
-      if(event.shiftKey&&(active===first||active===dialog||!dialog.contains(active))){event.preventDefault();last.focus();}
-      else if(!event.shiftKey&&(active===last||active===dialog||!dialog.contains(active))){event.preventDefault();first.focus();}
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => { window.clearTimeout(timer); window.removeEventListener("keydown", onKeyDown); document.body.style.overflow = previousOverflow.current; (triggerRef?.current || previousFocus.current)?.focus?.(); };
-  }, [open, triggerRef]);
+  const overlayRef=useRef(null);
+  const {stale,editorId}=useRecoveredEditor(open);
+  useDialogLifecycle(open,dialogRef,()=>onOpenChange?.(false),triggerRef,overlayRef);
   if (!open) return null;
-  return createPortal(<div className="arcd-dialog-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) onOpenChange?.(false); }}>
-    <section id={id} ref={dialogRef} className={`arcd-dialog ${className}`.trim()} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
-      <header className="arcd-dialog__header"><h2 id={titleId} className="arcd-dialog__title">{title}</h2><Button variant="ghost" size="icon" aria-label={closeLabel} title={closeLabel} onClick={() => onOpenChange?.(false)}>×</Button></header>
-      <div className="arcd-dialog__body">{children}</div>
-    </section>
+  const Surface=drawer?'aside':'section';
+  const content=<><header className="arcd-dialog__header"><h2 id={titleId} className="arcd-dialog__title">{title}</h2><Button variant="ghost" size="icon" aria-label={closeLabel} title={closeLabel} onClick={() => onOpenChange?.(false)}>×</Button></header><div className="arcd-dialog__body"><SaveRecoveryShortcut stale={stale}/><fieldset disabled={stale} className="m-0 min-w-0 border-0 p-0">{children}</fieldset></div></>;
+  return createPortal(<div ref={overlayRef} className="arcd-dialog-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) onOpenChange?.(false); }}>
+    <Surface id={id} ref={dialogRef} data-recovery-editor={editorId} className={`${drawer?'arcd-drawer':'arcd-dialog'} ${className}`.trim()} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
+      {drawer?<div className="arcd-drawer__content">{content}</div>:content}
+    </Surface>
   </div>, document.body);
 }
+export const Dialog=DialogSurface;

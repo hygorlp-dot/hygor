@@ -82,7 +82,11 @@ export const BUNDLE_BUDGETS = Object.freeze({
   // limites individuais e de mídia permanecem preservados.
   // 31/10/2026: ExcelJS modular e dependências compartilhadas permitem
   // restabelecer o teto anterior à consolidação (build: 1.767.928 bytes).
-  totalGzipBytes: 1_748 * 1024,
+  // 03/11/2026 (PR #234): branch MARCELL Preciso na main (barras de comando,
+  // fichas rápidas, alocação de adiantamentos) + travas de alocação. CI mediu
+  // 1.790.031 bytes, 79 acima do teto. Acréscimo limitado a 1 KiB; limites por
+  // chunk e de mídia permanecem iguais.
+  totalGzipBytes: 1_749 * 1024,
   genericJavaScriptGzipBytes: 200 * 1024,
   staticMediaTotalBytes: 4 * 1024 * 1024,
   genericStaticMediaBytes: 1 * 1024 * 1024,
