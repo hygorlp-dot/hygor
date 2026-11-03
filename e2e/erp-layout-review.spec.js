@@ -10,7 +10,7 @@ const tabs=[...source.matchAll(/\b(\w+)\s*:\s*\{\s*label:\s*"([^"]+)"/g)].map(([
 async function enter(page,id){
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.clock.setFixedTime(new Date('2026-11-01T12:00:00-03:00'));
-  await page.addInitScript(({id,user,theme})=>{sessionStorage.setItem(`arcd-section:${user}`,id);localStorage.setItem('arcd-theme',theme);},{id,user:profile.id,theme:process.env.MARCELL_TEST_THEME||'saas'});
+  await page.addInitScript(({id,user,theme})=>{sessionStorage.setItem(`arcd-section:${user}`,id);localStorage.setItem('arcd-theme',theme);},{id,user:profile.id,theme:process.env.MARCELL_TEST_THEME||'marcell'});
   await page.route('https://**/*',r=>r.abort());
   await page.route('**/api/**',r=>r.fulfill({json:{ok:true,items:[],bases:[],presencas:[],connected:false,reply:''}}));
   await page.route('**/api/data',r=>r.fulfill({json:{ok:true,usuarios:[profile],precisaSetup:false,usuario:profile,data,current:null,history:[],accessToken:'layout-local-only',refreshToken:'layout-local-only',updatedAt:'2026-11-01T15:00:00Z'}}));
@@ -26,7 +26,7 @@ for(const tab of tabs)test(`${tab.id} · ${tab.label}`,async({page},info)=>{
   await expect(page.getByRole('button',{name:'Ajuda',exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:'Alterar aparência',exact:true})).toBeVisible();
   const geometry=await page.evaluate(()=>({width:innerWidth,page:document.documentElement.scrollWidth,header:document.querySelector('.arcd-topbar')?.scrollWidth,headerWidth:document.querySelector('.arcd-topbar')?.clientWidth,actualTab:document.querySelector('.arcd-app-shell')?.dataset.tab,
-    screenHeaders:[...document.querySelectorAll('main .mrc-screen-header')].map(el=>({title:el.querySelector('h1,h2,h3')?.textContent,background:getComputedStyle(el).backgroundColor,padding:getComputedStyle(el).padding,fontSize:el.querySelector('h1,h2,h3')?getComputedStyle(el.querySelector('h1,h2,h3')).fontSize:null})),
+    screenHeaders:[...document.querySelectorAll('main .mrc-screen-header')].map(el=>({primaryActions:el.querySelectorAll('[data-mrc-role="primary"],.arcd-btn[data-variant="primary"]').length,title:el.querySelector('h1,h2,h3')?.textContent,background:getComputedStyle(el).backgroundColor,padding:getComputedStyle(el).padding,fontSize:el.querySelector('h1,h2,h3')?getComputedStyle(el.querySelector('h1,h2,h3')).fontSize:null})),
     overflow:[...document.querySelectorAll('main button,main input,main select')].filter(el=>{const r=el.getBoundingClientRect();return r.width&&r.height&&r.right>innerWidth+1;}).slice(0,8).map(el=>({text:el.textContent?.slice(0,60)||el.getAttribute('aria-label'),class:el.className}))}));
   await info.attach('geometry',{body:JSON.stringify(geometry,null,2),contentType:'application/json'});
   await writeFile(info.outputPath('geometry.json'),JSON.stringify(geometry,null,2));
@@ -34,9 +34,15 @@ for(const tab of tabs)test(`${tab.id} · ${tab.label}`,async({page},info)=>{
   expect.soft(geometry.page,JSON.stringify(geometry.overflow)).toBeLessThanOrEqual(geometry.width+1);
   expect.soft(geometry.header).toBeLessThanOrEqual(geometry.headerWidth+1);
   expect.soft(geometry.actualTab).toBe(tab.id);
-  if(process.env.MARCELL_TEST_THEME==='operacional'&&tab.id!=='tv'){
-    expect.soft(geometry.screenHeaders.length,`Cabeçalho padronizado ausente em ${tab.id}`).toBeGreaterThan(0);
-    if(geometry.screenHeaders.length){expect.soft(geometry.screenHeaders[0].fontSize).toBe('24px');expect.soft(geometry.screenHeaders[0].background).toBe('rgb(255, 255, 255)');}
+  // Etapa 1 do redesign: um único cabeçalho padrão por tela (a TV é painel de
+  // parede), título de 24 px e no máximo uma ação primária, em qualquer tema.
+  if(tab.id!=='tv'){
+    expect.soft(geometry.screenHeaders.length,`Cabeçalho padrão em ${tab.id}`).toBe(1);
+    if(geometry.screenHeaders.length){
+      expect.soft(geometry.screenHeaders[0].fontSize,`Título do cabeçalho em ${tab.id}`).toBe('24px');
+      expect.soft(geometry.screenHeaders[0].primaryActions,`Ações primárias no cabeçalho de ${tab.id}`).toBeLessThanOrEqual(1);
+    }
+    if(process.env.MARCELL_TEST_THEME==='operacional'&&geometry.screenHeaders.length)expect.soft(geometry.screenHeaders[0].background).toBe('rgb(255, 255, 255)');
   }
   expect(errors).toEqual([]);
 });

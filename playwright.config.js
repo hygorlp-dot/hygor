@@ -44,6 +44,8 @@ export default defineConfig({
     {name:'banco-horas-mobile',testMatch:/banco-horas-almoco\.spec\.js/,use:{browserName:'chromium',viewport:{width:390,height:844},isMobile:true,hasTouch:true}},
     {name:'biometric-sync-desktop',testMatch:/biometric-sync\.spec\.js/,use:{browserName:'chromium',viewport:{width:1440,height:1000}}},
     {name:'biometric-sync-mobile',testMatch:/biometric-sync\.spec\.js/,use:{browserName:'chromium',viewport:{width:390,height:844},isMobile:true,hasTouch:true}},
+    {name:'erp-layout-review-desktop',testMatch:/erp-layout-review\.spec\.js/,use:{browserName:'chromium',viewport:{width:1440,height:1000}}},
+    {name:'erp-layout-review-mobile',testMatch:/erp-layout-review\.spec\.js/,use:{browserName:'chromium',viewport:{width:390,height:844},isMobile:true,hasTouch:true}},
     {name:'ponto-duplicidade-desktop',testMatch:/ponto-duplicidade\.spec\.js/,use:{browserName:'chromium',viewport:{width:1440,height:1000}}},
     {name:'ponto-duplicidade-mobile',testMatch:/ponto-duplicidade\.spec\.js/,use:{browserName:'chromium',viewport:{width:390,height:844},isMobile:true,hasTouch:true}},
     {name:"labor-projection-desktop",testMatch:/labor-projection\.spec\.js/,use:{browserName:"chromium",viewport:{width:1440,height:1000}}},
