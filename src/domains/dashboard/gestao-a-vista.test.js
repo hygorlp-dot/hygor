@@ -5,13 +5,13 @@ describe("regra de situação (aprovada em 30/10/2026)", () => {
   const base = { desvio: null, diasEntrega: null, pendenciasPonto: 0 };
   it("crítico acima de 5 pontos ou prazo vencido", () => {
     expect(situacaoDaObra({ ...base, desvio: 5.1 }).situacao).toBe("critico");
-    expect(situacaoDaObra({ ...base, diasEntrega: -1 })).toMatchObject({ situacao: "critico", motivo: "Prazo vencido há 1 dia(s)" });
+    expect(situacaoDaObra({ ...base, diasEntrega: -1 })).toMatchObject({ situacao: "critico", motivo: "Prazo vencido há 1 dia" });
   });
   it("atenção de 2 a 5 pontos, entrega em menos de 30 dias ou ponto pendente", () => {
     expect(situacaoDaObra({ ...base, desvio: 5 }).situacao).toBe("atencao");
     expect(situacaoDaObra({ ...base, desvio: 2 }).situacao).toBe("atencao");
     expect(situacaoDaObra({ ...base, diasEntrega: 29 }).situacao).toBe("atencao");
-    expect(situacaoDaObra({ ...base, pendenciasPonto: 2 }).motivo).toBe("2 pessoa(s) sem ponto no último dia útil");
+    expect(situacaoDaObra({ ...base, pendenciasPonto: 2 }).motivo).toBe("2 pessoas sem ponto no último dia útil");
   });
   it("em dia abaixo de 2 pontos, sem prazo próximo nem pendência; dado ausente não vira alerta", () => {
     expect(situacaoDaObra({ ...base, desvio: 1.9, diasEntrega: 30 }).situacao).toBe("ok");
