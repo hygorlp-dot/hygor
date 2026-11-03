@@ -287,7 +287,7 @@ export const idsSucessoras = (tarefas, tarefaId) =>
 export const montarCronogramaIA = (orc, respostas, calBase) => {
   const todasEtapas = ordemEtapasOrcamento(orc)
     .map(id => (orc?.etapas || []).find(e => e.id === id)).filter(Boolean);
-  if (!todasEtapas.length) return { tarefas: [], resumo: null, avisos: ["O orcamento nao tem etapas para planejar."] };
+  if (!todasEtapas.length) return { tarefas: [], resumo: null, avisos: ["O orçamento não tem etapas para planejar."] };
   // Titulos puros nao consomem prazo proprio: suas datas sao o roll-up dos
   // filhos. Distribuir dias para eles duplicava tempo e distorcia o limite.
   const etapas = todasEtapas.filter(e => !etapaEhTitulo(orc, e.id));
@@ -373,8 +373,8 @@ export const montarCronogramaIA = (orc, respostas, calBase) => {
   const temFundacao = comFase.some(c => c.fase?.chave === "fundacao");
   const temEstrutura = comFase.some(c => c.fase?.chave === "estrutura");
   if (temEstrutura && !temFundacao) avisos.push("Ha estrutura mas nenhuma etapa de fundacao foi identificada - verifique.");
-  if (paralelo) avisos.push("Servicos compativeis foram sobrepostos para ganhar prazo - garanta equipe suficiente para as frentes simultaneas.");
-  if (inicio !== inicioInformado) avisos.push(`A data inicial caiu em dia nao trabalhado e foi ajustada para ${fmtDate(inicio)}.`);
+  if (paralelo) avisos.push("Serviços compatíveis foram sobrepostos para ganhar prazo - garanta equipe suficiente para as frentes simultâneas.");
+  if (inicio !== inicioInformado) avisos.push(`A data inicial caiu em dia não trabalhado e foi ajustada para ${fmtDate(inicio)}.`);
   if (prazoDiasUteis < comFase.length && !paralelo) avisos.push("O prazo possui menos dias uteis que etapas; revise o prazo ou permita frentes paralelas.");
   if (cal.pularFeriados && (cal.feriados || []).length) avisos.push(`${(cal.feriados || []).filter(f => f.data >= inicio && f.data <= fimAlvo).length} feriado(s) da janela foram retirados dos dias de trabalho.`);
 

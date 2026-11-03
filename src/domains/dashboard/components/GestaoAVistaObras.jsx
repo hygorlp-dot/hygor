@@ -1,3 +1,4 @@
+import {contar} from '../../../design-system/copy.js';
 import {useState} from "react";
 import { Ic } from "../../../legacy/ui.jsx";
 import {SITUACAO_REGRA as R,SITUACOES} from "../gestao-a-vista.js";
@@ -44,7 +45,7 @@ function Entrega({linha}){
   const d=linha.diasEntrega;
   return <div className="gav-entrega">
     <span>{dataBr(linha.entrega)}</span>
-    <span className={d<0?"is-critico":d<R.atencaoDiasEntrega?"is-atencao":""}>{d<0?`vencida há ${-d} dia(s)`:d===0?"hoje":`em ${d} dia(s)`}</span>
+    <span className={d<0?"is-critico":d<R.atencaoDiasEntrega?"is-atencao":""}>{d<0?`vencida há ${contar(-d,"dia","dias")}`:d===0?"hoje":`em ${contar(d,"dia","dias")}`}</span>
   </div>;
 }
 
@@ -55,7 +56,7 @@ export default function GestaoAVistaObras({resumo,hoje,onAbrirObra,custoStatus="
     <header className="gav__topo">
       <div>
         <h3 id="gav-titulo" className="gav__titulo">Suas obras hoje</h3>
-        <p className="gav__sub">{dataBr(hoje)} · {resumo.equipeHoje} pessoa(s) em campo{custoStatus==="ok"&&resumo.custoAte?` · custo até ${resumo.custoAte.split("-").reverse().join("/")}`:""}</p>
+        <p className="gav__sub">{dataBr(hoje)} · {contar(resumo.equipeHoje,"pessoa","pessoas")} em campo{custoStatus==="ok"&&resumo.custoAte?` · custo até ${resumo.custoAte.split("-").reverse().join("/")}`:""}</p>
       </div>
       <div className="gav-placar" role="group" aria-label="Filtrar obras por situação">
         {ORDEM.map(s=><button key={s} type="button" className={`gav-placar__item is-${s}`} aria-pressed={filtro===s} onClick={()=>setFiltro(f=>f===s?null:s)}>

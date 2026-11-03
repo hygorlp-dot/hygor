@@ -1,3 +1,4 @@
+import {contar} from '../../../design-system/copy.js';
 import {FilePicker} from '../../../design-system/patterns/FilePicker.jsx';
 import {Button as StandardButton} from '../../../components/ui/button.jsx';
 import {TextareaControl} from '../../../design-system/primitives/Textarea.jsx';
@@ -329,11 +330,11 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
       const resp = await enviarArquivoOneDrive({dataUrl,obraName:obraAtual?.name||"Obra",driveId:obraAtual?.oneDriveDriveId,folderId:obraAtual?.oneDriveFolderId,folders:obraAtual?.oneDriveFolders,category:"diario",date:dataRDO,fileName:`foto-${Date.now()}.jpg`});
       if (resp.url) {
         salvarRDO(r => { r.fotos = [...(r.fotos || []), { url: resp.url, legenda: "", path: resp.path || "" }]; return r; });
-        showToast?.("Foto adicionada ao diario");
+        showToast?.("Foto adicionada ao diário");
       } else if (resp.error === "bucket_ausente") {
         showToast?.("Crie o bucket 'diario-obra' no Supabase Storage primeiro");
       } else {
-        showToast?.(resp.error || "Nao foi possivel subir a foto");
+        showToast?.(resp.error || "Não foi possível subir a foto");
       }
     } catch (err) {
       showToast?.("Falha ao processar a foto");
@@ -388,7 +389,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
 
   if (!obras.length) {
     return <div style={{ padding: "var(--arcd-space-6)", textAlign: "center" }}>
-      <p style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)" }}>Cadastre uma obra para abrir o diario.</p>
+      <p style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)" }}>Cadastre uma obra para abrir o diário.</p>
     </div>;
   }
 
@@ -397,7 +398,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
       <PageHero
         eyebrow="Engenharia de campo"
         title="Diário de Obra"
-        description={`${(data.rdos||[]).length} relatório(s) registrados`}
+        description={contar((data.rdos||[]).length,"relatório registrado","relatórios registrados")}
         actions={<Btn onClick={novoRdo}><Ic n="plus"/> Novo relatório</Btn>}
       />
       <div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:"var(--arcd-space-2)",background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:8,padding:"var(--arcd-space-2)"}}>
@@ -505,8 +506,8 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
              acao={<Btn v="ghost" size="sm" onClick={() => setServicoModal({ novo: true })}>+ Serviço</Btn>}>
         {(rdo.servicos || []).length === 0 ? (
           <p style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)", lineHeight: "var(--arcd-line-height-normal)" }}>
-            Indique quais servicos foram executados hoje. O progresso lancado aqui
-            alimenta a medicao de evolucao da obra automaticamente.
+            Indique quais serviços foram executados hoje. O progresso lançado aqui
+            alimenta a medição de evolução da obra automaticamente.
           </p>
         ) : (
           (rdo.servicos || []).map(s => {
@@ -516,7 +517,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
                    style={{ padding: "var(--arcd-space-2) var(--arcd-space-0)", borderTop: "1px solid var(--arcd-border-default)", cursor: "pointer" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--arcd-space-2)" }}>
                   <span className="brk" style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)" }}>
-                    {tarefa?.nome || s.descricao || "Servico"}
+                    {tarefa?.nome || s.descricao || "Serviço"}
                   </span>
                   <span style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-action-primary)", flexShrink: 0 }}>{s.progressoAte}%</span>
                 </div>
@@ -547,7 +548,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
         <p className="rdo-help">Escolha um estado explícito para cada pessoa. O registro alimenta o ponto sem sair do diário.</p>
         {empregadosObra.length>8&&<StandardInput className="rdo-list-search" value={buscaEquipeRdo} onChange={e=>setBuscaEquipeRdo(e.target.value)} placeholder="Pesquisar funcionário..." aria-label="Pesquisar funcionário no efetivo"/>}
         {empregadosObra.length === 0 ? (
-          <p style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)" }}>Nenhum funcionario lotado nesta obra.</p>
+          <p style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)" }}>Nenhum funcionário lotado nesta obra.</p>
         ) : (
           <div className="rdo-attendance-list">
             {empregadosObra.filter(emp=>!buscaEquipeRdo||emp.name.toLocaleLowerCase("pt-BR").includes(buscaEquipeRdo.toLocaleLowerCase("pt-BR"))).map(emp => {
@@ -751,9 +752,9 @@ function ModalServicoRDO({ servico, tarefas, jaLancados, empregados = [], tercei
   };
 
   return (
-    <Modal title={servico ? "Servico executado" : "Novo servico"} onClose={onClose}>
+    <Modal title={servico ? "Serviço executado" : "Novo serviço"} onClose={onClose}>
       <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
-        <Sel label="Servico (do planejamento)" value={tarefaId} onChange={setTarefaId}
+        <Sel label="Serviço (do planejamento)" value={tarefaId} onChange={setTarefaId}
              options={[{ v: "", l: "Escolha..." }, ...disponiveis.map(t => ({ v: t.id, l: t.nome }))]} />
         {tarefa && (tarefa.etapaNome || tarefa.custo > 0) && (
           <div style={{ background: "color-mix(in srgb, var(--arcd-action-primary) 7%, transparent)", border: "1px solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)",
@@ -765,7 +766,7 @@ function ModalServicoRDO({ servico, tarefas, jaLancados, empregados = [], tercei
         <div>
           <Inp label="Progresso acumulado (%)" type="number" value={prog} onChange={setProg} min="0" max="100" />
           <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", marginTop: "var(--arcd-space-1)" }}>
-            O total ja executado deste servico (nao so o de hoje). E o que a medicao usa.
+            O total já executado deste serviço (não só o de hoje). É o que a medição usa.
           </p>
         </div>
 
@@ -805,7 +806,7 @@ function ModalServicoRDO({ servico, tarefas, jaLancados, empregados = [], tercei
           </div>
         )}
 
-        <Inp label="Observacao (opcional)" value={obs} onChange={setObs} multiline />
+        <Inp label="Observação (opcional)" value={obs} onChange={setObs} multiline />
         {erro&&<p role="alert" style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-danger-text)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{erro}</p>}
         <div style={{ display: "flex", gap: "var(--arcd-space-2)" }}>
           <Btn full onClick={salvar} disabled={!tarefaId}>Salvar</Btn>

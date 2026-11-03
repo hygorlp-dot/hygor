@@ -749,7 +749,7 @@ test("'Chegou' na tela da obra abre o mesmo recebimento de Compras, preenchido e
     await corpo.locator(".nav-item").filter({hasText:/^Obras$/}).click();
   }
   await page.getByRole('heading',{name:'Residencial Alameda',exact:true}).click();
-  await expect(page.getByText("O material ja chegou na obra?")).toBeVisible();
+  await expect(page.getByText("O material já chegou na obra?")).toBeVisible();
   await page.getByRole("button",{name:"Chegou",exact:true}).click();
 
   const dialog=page.getByRole("dialog");
@@ -942,7 +942,7 @@ for(const atrasoDownload of [0,1500])test(`exportar para Excel baixa só o que a
   await navigate(page,"Fila");
   const fila=await lerDownload(()=>page.getByRole("button",{name:/Exportar para Excel os \d+ registro/}).click());
   const linhasFila=fila.livro.getWorksheet("Fila de trabalho").rowCount-1;
-  await expect(page.locator(".purchase-result-count")).toContainText(`${linhasFila} registro(s)`);
+  await expect(page.locator(".purchase-result-count")).toContainText(`${linhasFila} registro${linhasFila===1?"":"s"}`);
   expect(app.errors).toEqual([]);
 });
 

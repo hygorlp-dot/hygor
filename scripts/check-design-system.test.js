@@ -3,11 +3,21 @@ import {inspectUiSource,growthAgainstBaseline} from './check-design-system.mjs';
 
 describe('contrato de introdução de interface',()=>{
   it('aceita componentes compartilhados e tokens',()=>{
-    expect(inspectUiSource('<PageHeader title="Obras"/><Button>Salvar</Button><div style={{gap:"var(--arcd-space-4)",margin:0,color:"var(--arcd-text-primary)"}}/>')).toEqual([]);
+    expect(inspectUiSource('<PageHeader title="Obras"/><Button>Salvar</Button><div className="obra-resumo"/>')).toEqual([]);
+  });
+  it('conta estilo inline mesmo com tokens, porque o layout passa a ser decidido na tela',()=>{
+    expect(inspectUiSource('<div style={{gap:"var(--arcd-space-4)",margin:0}}/><div style={estilo}/>').map(f=>f.rule)).toEqual(['inline-style','inline-style']);
+  });
+  it('aceita valor dinâmico passado só como variável CSS',()=>{
+    expect(inspectUiSource('<div className="barra" style={{"--progresso":`${pct}%`}}/>')).toEqual([]);
+  });
+  it('detecta plural entre parênteses em texto, string e template',()=>{
+    const findings=inspectUiSource('<p>3 crítica(s)</p>; const a="material(is)"; const b=`${n} ação(ões) em andamento`; const ok="função (somente leitura)";');
+    expect(findings.map(f=>f.rule)).toEqual(['plural-parenthesis','plural-parenthesis','plural-parenthesis']);
   });
   it('detecta controles próprios e apresentação fixa na tela',()=>{
     const findings=inspectUiSource('<button style={{fontSize:15,gap:12,color:"#fff"}}>Salvar</button>');
-    expect(findings.map(f=>f.rule)).toEqual(['native-control','literal-typography','literal-spacing','literal-color']);
+    expect(findings.map(f=>f.rule)).toEqual(['native-control','literal-typography','literal-spacing','literal-color','inline-style']);
     expect(findings.every(f=>f.line===1)).toBe(true);
   });
   it('inspeciona apenas atributos JSX, sem confundir dados do negócio',()=>{

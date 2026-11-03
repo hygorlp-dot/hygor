@@ -1,3 +1,4 @@
+import {contar} from '../../../design-system/copy.js';
 import {RecordAction} from '../../../design-system/primitives/RecordAction.jsx';
 import { useState } from "react";
 import { ArrowRight, CheckCircle2, ClipboardList, Search } from "lucide-react";
@@ -76,7 +77,7 @@ export function PurchaseWorkspace({ model, area, filters, onFiltersChange, onOpe
         </WorkspaceFilters>
       </div>
       <div className="purchase-order-count-row">
-        <p className="purchase-result-count" role="status">{rows.length} registro(s){filtered ? ` de ${source.length}` : ""}{moneyHint(resumoDaFila(rows).valor)} · {groups.length ? `${groups.length} grupo(s), mais atrasados primeiro` : "prioridades por prazo"}</p>
+        <p className="purchase-result-count" role="status">{contar(rows.length,"registro","registros")}{filtered ? ` de ${source.length}` : ""}{moneyHint(resumoDaFila(rows).valor)} · {groups.length ? `${groups.length} grupo(s), mais atrasados primeiro` : "prioridades por prazo"}</p>
         {filtered && <Button variant="ghost" size="sm" onClick={clear}>Limpar filtros</Button>}
         {exportButton && <div className="purchase-export-action">{exportButton(rows)}</div>}
       </div>

@@ -359,7 +359,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
       upsertTarefa({id:t.id,inicio,fim:somaDiasUteis(inicio,duracaoAtual,cal)});
     } else if (campo === "fim") {
       const fim = ajustarParaDiaUtil(valor, cal, -1);
-      if (!fim || fim < t.inicio) { showToast?.("A data final nao pode ser anterior ao inicio.","error"); return; }
+      if (!fim || fim < t.inicio) { showToast?.("A data final não pode ser anterior ao início.","error"); return; }
       upsertTarefa({id:t.id,fim});
     } else if (campo === "dias") {
       const n = Math.max(1, Math.min(3660, Math.round(Number(valor)||1)));
@@ -456,7 +456,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
       if (!j.ok) throw new Error(j.error || `IA respondeu ${j.status}`);
       setIaModal({ texto: j.reply || j.text || j.message || "Sem resposta da IA." });
     } catch (e) {
-      setIaModal({ texto: "Nao foi possivel falar com a IA agora. Tente novamente." });
+      setIaModal({ texto: "Não foi possível falar com a IA agora. Tente novamente." });
     } finally {
       setIaCarregando(false);
     }
@@ -569,7 +569,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
       if (!j.ok) throw new Error(j.error || `IA respondeu ${j.status}`);
       setQuestIA(j.reply || j.text || j.message || "Sem resposta da IA.");
     } catch (e) {
-      setQuestIA("Nao foi possivel falar com a IA agora - a proposta local acima ja e valida.");
+      setQuestIA("Não foi possível falar com a IA agora - a proposta local acima já é válida.");
     }
   };
 
@@ -603,7 +603,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
   // as demais respeitam colsCrono. Larguras diferentes no desktop e no celular.
   const COLS_CRONO_DEF = [
     { id:"atividade",   label:"Atividade / custo", w:isDesktop?220:150, fixa:true },
-    { id:"inicio",      label:"Data inicio",       w:isDesktop?120:132 },
+    { id:"inicio",      label:"Data início",       w:isDesktop?120:132 },
     { id:"fim",         label:"Data fim",          w:isDesktop?120:132 },
     { id:"dias",        label:"Dias trab.",        w:isDesktop?76:70 },
     { id:"custo",       label:"Custo",             w:isDesktop?100:92 },
@@ -870,7 +870,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                            background:"var(--arcd-surface-page)",border:"1.5px solid var(--arcd-border-default)",borderRadius:6,
                            boxShadow:`0 8px 24px ${C.shadow}`,padding:"var(--arcd-space-2) var(--arcd-space-3)",minWidth:180}}>
                 <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",marginBottom:"var(--arcd-space-2)"}}>Colunas do cronograma</p>
-                {[["inicio","Data inicio"],["fim","Data fim"],["dias","Dias trabalhados"],["custo","Custo"],["progresso","Progresso"],["antecessora","Antecessora"],["sucessora","Sucessora"]].map(([k,l])=>(
+                {[["inicio","Data início"],["fim","Data fim"],["dias","Dias trabalhados"],["custo","Custo"],["progresso","Progresso"],["antecessora","Antecessora"],["sucessora","Sucessora"]].map(([k,l])=>(
                   <label key={k} style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-1) var(--arcd-space-0)",cursor:"pointer",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>
                     <ChoiceControl type="checkbox" checked={!!colsCrono[k]}
                       onChange={()=>setColsCrono(c=>({...c,[k]:!c[k]}))}
@@ -905,7 +905,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
         <MiniKpi label="Progresso" value={`${progresso.toFixed(0)}%`} cor={C.blue} />
         <MiniKpi label="Planejado" value={fmt(resumo.planejado)} cor={C.yellow} />
         <MiniKpi label="Executado" value={fmt(resumo.executado)} cor={C.green} />
-        <MiniKpi label="Cobertura do orcamento" value={`${resumo.coberto.toFixed(0)}%`}
+        <MiniKpi label="Cobertura do orçamento" value={`${resumo.coberto.toFixed(0)}%`}
                  cor={resumo.coberto >= 99 ? C.green : C.orange}
                  sub={resumo.coberto < 99 ? "faltam etapas" : "completo"} />
       </div>
@@ -952,7 +952,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
         <details className="planning-legend"><summary>Legenda e orientações</summary><div style={{display:"flex",gap:"var(--arcd-space-3)",alignItems:"center",flexWrap:"wrap",padding:"var(--arcd-space-1) var(--arcd-space-3)",
                      borderBottom:"1px solid var(--arcd-border-default)",background:"var(--arcd-surface-muted)"}}>
           <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Legenda tecnica</span>
-          <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)"}}><i style={{display:"inline-block",width:9,height:9,background:"color-mix(in srgb, var(--arcd-danger-text) 13%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-danger-text) 33%, transparent)",marginRight:"var(--arcd-space-1)"}}/>Nao trabalhado</span>
+          <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)"}}><i style={{display:"inline-block",width:9,height:9,background:"color-mix(in srgb, var(--arcd-danger-text) 13%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-danger-text) 33%, transparent)",marginRight:"var(--arcd-space-1)"}}/>Não trabalhado</span>
           <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)"}}><i style={{display:"inline-block",width:9,height:9,background:"color-mix(in srgb, var(--arcd-action-primary) 9%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 33%, transparent)",marginRight:"var(--arcd-space-1)"}}/>Fim de semana trabalhado</span>
           <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)"}}><i style={{display:"inline-block",width:9,height:9,background:"color-mix(in srgb, var(--arcd-warning-text) 27%, transparent)",border:"1px solid var(--arcd-warning-text)",marginRight:"var(--arcd-space-1)"}}/>Feriado</span>
           <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)"}}><i style={{display:"inline-block",height:10,borderLeft:"1px solid var(--arcd-danger-text)",marginRight:"var(--arcd-space-1)"}}/>Hoje</span>
@@ -969,7 +969,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
           <div style={{ padding: "var(--arcd-space-6)", textAlign: "center" }}>
             <p style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)", lineHeight: "var(--arcd-line-height-normal)" }}>
               Nenhuma tarefa ainda. Toque em <b>+ Etapa</b> para trazer as etapas
-              do orcamento para o cronograma.
+              do orçamento para o cronograma.
             </p>
           </div>
         ) : (
@@ -1121,7 +1121,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                   const bg = d.feriado ? `${C.orange}30` : d.naoTrabalhado ? `${C.red}12` : d.fimSemana ? `${C.blue}12` : "transparent";
                   const mostrar = zoom === "dia" || (zoom === "semana" && (d.dow === 1 || d.feriado));
                   return <div key={d.data}
-                    title={`${fmtDateFull(d.data)}${d.feriado ? ` - ${d.feriado.nome}` : d.naoTrabalhado ? " - nao trabalhado" : " - dia de trabalho"}`}
+                    title={`${fmtDateFull(d.data)}${d.feriado ? ` - ${d.feriado.nome}` : d.naoTrabalhado ? " - não trabalhado" : " - dia de trabalho"}`}
                     style={{position:"absolute",left:d.x,top:18,width:pxPorDia,height:ALTURA_REGUA-18,
                       background:bg,borderRight:"1px solid var(--arcd-border-default)",overflow:"hidden",textAlign:"center"}}>
                     {mostrar && <><span style={{display:"block",fontSize:zoom==="dia"?"var(--arcd-type-caption)":"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",
@@ -1363,20 +1363,20 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
       {/* Fisico-financeiro em destaque: previsao de custo final e eficiencia */}
       {ff.linhas.length > 0 && (
         <div style={{ display: "grid", gridTemplateColumns: cols(2, 4, 4), gap: "var(--arcd-space-2)" }}>
-          <MiniKpi label="Avanco fisico" value={`${ff.total.pctFisico.toFixed(0)}%`} cor={C.blue}
+          <MiniKpi label="Avanço físico" value={`${ff.total.pctFisico.toFixed(0)}%`} cor={C.blue}
                    sub="valor agregado / previsto" />
           <MiniKpi label="Custo realizado" value={fmt(ff.total.realizado)} cor={C.purple}
                    sub={ff.total.semCustoLancado ? `${ff.total.semCustoLancado} tarefa(s) com avanço e sem custo lançado` : "lançado nas tarefas"} />
           {totalMaterialAplicado(tarefasComCusto) > 0 && <MiniKpi label="Material aplicado" value={fmt(totalMaterialAplicado(tarefasComCusto))} cor={C.blue}
                    sub="consumido do estoque nas tarefas" />}
-          <MiniKpi label="Previsao de custo final"
+          <MiniKpi label="Previsão de custo final"
                    value={ff.total.previsaoFinal == null ? "Sem custo lançado" : fmt(ff.total.previsaoFinal)}
                    cor={ff.total.previsaoFinal == null ? C.muted : ff.total.previsaoFinal > ff.total.previsto ? C.red : C.green}
                    sub={ff.total.previsaoFinal == null ? "lance o custo real para projetar" : ff.total.previsaoFinal > ff.total.previsto ? "acima do orcado" : "dentro do orcado"} />
           <MiniKpi label="Eficiencia (CPI)"
                    value={ff.total.cpi == null ? "-" : ff.total.cpi.toFixed(2)}
                    cor={ff.total.cpi == null ? C.muted : ff.total.cpi >= 1 ? C.green : C.red}
-                   sub={ff.total.cpi == null ? "sem custo lançado para medir" : ff.total.cpi >= 1 ? "no custo ou abaixo" : "gastando mais que o avanco"} />
+                   sub={ff.total.cpi == null ? "sem custo lançado para medir" : ff.total.cpi >= 1 ? "no custo ou abaixo" : "gastando mais que o avanço"} />
         </div>
       )}
 
@@ -1387,7 +1387,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
         <div style={{ background: "var(--arcd-surface-card)", border: "1px solid var(--arcd-border-default)", borderRadius: 8, overflow: "hidden" }}>
           {/* Abas */}
           <div style={{ padding: "var(--arcd-space-2) var(--arcd-space-2) var(--arcd-space-0)" }}>
-            <TabRow tabs={[["mensal","Financeiro mensal"],["curvaS","Curva S"],["ff","Fisico-financeiro"],["lob","Linha de balanço"],["base","Planejado × Realizado"]]} active={aba} onChange={setAba}/>
+            <TabRow tabs={[["mensal","Financeiro mensal"],["curvaS","Curva S"],["ff","Físico-financeiro"],["lob","Linha de balanço"],["base","Planejado × Realizado"]]} active={aba} onChange={setAba}/>
           </div>
 
           <div style={{ padding: "var(--arcd-space-3)" }}>
@@ -1427,7 +1427,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                 : (
                   <div>
                     <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", marginBottom: "var(--arcd-space-3)", lineHeight: "var(--arcd-line-height-normal)" }}>
-                      Avanco fisico acumulado esperado ao longo do tempo (% do custo total).
+                      Avanço físico acumulado esperado ao longo do tempo (% do custo total).
                     </p>
                     <CurvaSGrafico dados={dadosS} real={ffMensalReal} />
                     <p style={{ fontSize:"var(--arcd-type-label)", color:"var(--arcd-text-secondary)", marginTop:"var(--arcd-space-2)", lineHeight:"var(--arcd-line-height-normal)" }}>
@@ -1485,11 +1485,11 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                   <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", marginBottom: "var(--arcd-space-2)", lineHeight: "var(--arcd-line-height-normal)" }}>
                     {ffModo === "previsto"
                       ? "Custo previsto de cada etapa distribuido pelos meses (rateio por dias uteis do planejamento). Cada celula: valor e % da etapa naquele mes."
-                      : "Custo realizado por etapa (lancado; so o lancado; etapa sem custo lancado fica zerada), distribuido pelos meses."}
+                      : "Custo realizado por etapa (lançado; só o lançado; etapa sem custo lançado fica zerada), distribuído pelos meses."}
                   </p>
 
                   {ffM.linhas.length === 0 ? (
-                    <p style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)" }}>Defina datas e custos nas tarefas para ver o fisico-financeiro mensal.</p>
+                    <p style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)" }}>Defina datas e custos nas tarefas para ver o físico-financeiro mensal.</p>
                   ) : (
                     <div style={{ overflowX: "auto", border:"1px solid var(--arcd-border-default)", borderRadius:8 }}>
                       <table style={{ borderCollapse: "collapse", fontSize:"var(--arcd-type-label)", minWidth: 520, width:"100%" }}>
@@ -1529,7 +1529,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                         </tbody>
                         <tfoot>
                           <tr style={{ background:"var(--arcd-surface-muted)", borderTop:"2px solid var(--arcd-border-default)" }}>
-                            <td style={{ padding:"var(--arcd-space-2)", position:"sticky", left:0, background:"var(--arcd-surface-muted)", zIndex:1, fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-text-primary)" }}>Total do periodo</td>
+                            <td style={{ padding:"var(--arcd-space-2)", position:"sticky", left:0, background:"var(--arcd-surface-muted)", zIndex:1, fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-text-primary)" }}>Total do período</td>
                             <td style={{ padding:"var(--arcd-space-2)", textAlign:"right", borderLeft:"1px solid var(--arcd-border-default)" }}>
                               <div style={{ fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-action-primary)" }}>{fmtCompact(ffM.totalGeral)}</div>
                               <div style={{ fontSize:"var(--arcd-type-caption)", color:"var(--arcd-text-secondary)" }}>100%</div>
@@ -1555,7 +1555,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                     <MiniFF label="Previsto total" v={fmt(ff.total.previsto)} c={C.text} />
                     <MiniFF label="Valor agregado" v={fmt(ff.total.valorAgregado)} c={C.blue} />
                     <MiniFF label="Realizado" v={fmt(ff.total.realizado)} c={C.purple} />
-                    <MiniFF label="Previsao final" v={ff.total.previsaoFinal == null ? "Sem custo lançado" : fmt(ff.total.previsaoFinal)}
+                    <MiniFF label="Previsão final" v={ff.total.previsaoFinal == null ? "Sem custo lançado" : fmt(ff.total.previsaoFinal)}
                             c={ff.total.previsaoFinal == null ? C.muted : ff.total.previsaoFinal > ff.total.previsto ? C.red : C.green} />
                   </div>
                 </div>
@@ -1764,8 +1764,8 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
       {tarefaModal?.modo === "addEtapa" && (
         <Modal title="Adicionar etapa ao cronograma" onClose={() => setTarefaModal(null)}>
           <p style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)", marginBottom: "var(--arcd-space-3)", lineHeight: "var(--arcd-line-height-normal)" }}>
-            Estas etapas do orcamento ainda nao estao no cronograma. Ao adicionar,
-            a tarefa ja vem com o custo da etapa.
+            Estas etapas do orçamento ainda não estão no cronograma. Ao adicionar,
+            a tarefa já vem com o custo da etapa.
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-1)" }}>
             {etapasLivres.map(e => (
@@ -1822,10 +1822,10 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
               <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",marginBottom:"var(--arcd-space-2)"}}>Quantidade de folhas</p>
               {[1,2].map(n=><label key={n} style={{display:"flex",gap:"var(--arcd-space-2)",alignItems:"flex-start",padding:"var(--arcd-space-2) var(--arcd-space-0)",cursor:"pointer",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>
                 <ChoiceControl type="radio" name="folhasA2" checked={exportA2Folhas===n} onChange={()=>setExportA2Folhas(n)} style={{marginTop:"var(--arcd-space-half)",accentColor:"var(--arcd-action-primary)"}}/>
-                <span><b>{n} folha{n>1?"s":""} A2 em paisagem</b><small style={{display:"block",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",lineHeight:"var(--arcd-line-height-normal)"}}>{n===1?"Todo o periodo comprimido em uma folha.":"O periodo e dividido ao meio, com melhor legibilidade."}</small></span>
+                <span><b>{n} folha{n>1?"s":""} A2 em paisagem</b><small style={{display:"block",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",lineHeight:"var(--arcd-line-height-normal)"}}>{n===1?"Todo o período comprimido em uma folha.":"O período e dividido ao meio, com melhor legibilidade."}</small></span>
               </label>)}
               <div style={{marginTop:"var(--arcd-space-3)",padding:"var(--arcd-space-2)",background:"var(--arcd-surface-muted)",borderRadius:6,fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)"}}>
-                Periodo: <b style={{color:"var(--arcd-text-primary)"}}>{fmtDate(GANTT_INI)} a {fmtDate(somaDias(GANTT_INI,totalDias-1))}</b><br/>Atividades: <b style={{color:"var(--arcd-text-primary)"}}>{tarefas.length}</b>
+                Período: <b style={{color:"var(--arcd-text-primary)"}}>{fmtDate(GANTT_INI)} a {fmtDate(somaDias(GANTT_INI,totalDias-1))}</b><br/>Atividades: <b style={{color:"var(--arcd-text-primary)"}}>{tarefas.length}</b>
               </div>
             </div>
           </div>
@@ -1847,7 +1847,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
       {vincPreview && (
         <Modal title="Vinculos propostos pela IA" onClose={()=>setVincPreview(null)} wide>
           <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)",marginBottom:"var(--arcd-space-2)"}}>
-            A ordem do orcamento nao sera alterada. A sucessora e calculada a partir das antecessoras para manter um unico vinculo consistente.
+            A ordem do orçamento não será alterada. A sucessora é calculada a partir das antecessoras para manter um único vínculo consistente.
           </p>
           <div style={{border:"1px solid var(--arcd-border-default)",borderRadius:6,overflow:"hidden",maxHeight:420,overflowY:"auto"}}>
             {vincPreview.linhas.map((l,i)=><div key={l.id} style={{padding:"var(--arcd-space-2)",borderBottom:i<vincPreview.linhas.length-1?"1px solid var(--arcd-border-default)":"none"}}>
@@ -1895,9 +1895,9 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
         <Modal title="Cronograma proposto pela IA" onClose={() => setQuestPreview(null)} wide>
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
             <div style={{ display: "grid", gridTemplateColumns: cols(2,3,3), gap: "var(--arcd-space-2)" }}>
-              <MiniKpi label="Inicio" value={fmtDate(questPreview.resumo.inicio)} cor={C.blue} />
+              <MiniKpi label="Início" value={fmtDate(questPreview.resumo.inicio)} cor={C.blue} />
               <MiniKpi label="Fim previsto" value={fmtDate(questPreview.resumo.fim)} cor={C.yellow} />
-              <MiniKpi label="Duracao"
+              <MiniKpi label="Duração"
                        value={`${questPreview.resumo.diasCorridos + 1} corridos / ${questPreview.resumo.diasUteisProjeto} trabalho`}
                        cor={questPreview.resumo.dentroDoPrazo ? C.green : C.red}
                        sub={questPreview.resumo.dentroDoPrazo ? "dentro do prazo" : "acima do prazo desejado"} />
@@ -1913,7 +1913,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
               <div style={{ background: "color-mix(in srgb, var(--arcd-warning-text) 5%, transparent)", border: "1px solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)",
                             borderRadius: 6, padding: "var(--arcd-space-2) var(--arcd-space-3)" }}>
                 <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-warning-text)", marginBottom: "var(--arcd-space-1)" }}>
-                  Observacoes de boa pratica
+                  Observações de boa prática
                 </p>
                 {questPreview.avisos.map((a, i) => (
                   <p key={i} style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-muted)", lineHeight: "var(--arcd-line-height-normal)", marginBottom: "var(--arcd-space-half)" }}>- {a}</p>
@@ -1944,8 +1944,8 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
             )}
 
             <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", lineHeight: "var(--arcd-line-height-normal)" }}>
-              A ordem e os dados permanecem iguais aos do orcamento. Ao aplicar, entram no Gantt as datas,
-              duracoes e dependencias tecnicas; tudo continua ajustavel pelo operador.
+              A ordem e os dados permanecem iguais aos do orçamento. Ao aplicar, entram no Gantt as datas,
+              durações e dependências técnicas; tudo continua ajustável pelo operador.
             </p>
 
             <div style={{ display: "flex", gap: "var(--arcd-space-2)", flexWrap: "wrap" }}>
@@ -1980,21 +1980,21 @@ function QuestionarioPlanejamento({ orc, plano, onGerar, onClose }) {
     <Modal title="Planejar obra com IA" onClose={onClose}>
       <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
         <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", lineHeight: "var(--arcd-line-height-normal)" }}>
-          Responda algumas perguntas. O planejamento preserva exatamente a ordem do orcamento
-          e distribui apenas datas e duracoes conforme o calendario de trabalho, as boas praticas
+          Responda algumas perguntas. O planejamento preserva exatamente a ordem do orçamento
+          e distribui apenas datas e durações conforme o calendário de trabalho, as boas práticas
           e o prazo limite informado.
         </p>
 
         {nEtapas === 0 ? (
           <div style={{ background: "color-mix(in srgb, var(--arcd-warning-text) 5%, transparent)", border: "1px solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)", borderRadius: 6, padding: "var(--arcd-space-3)" }}>
             <p style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-warning-text)", fontWeight:"var(--arcd-font-weight-semibold)", lineHeight: "var(--arcd-line-height-normal)" }}>
-              Esta obra ainda nao tem etapas no orcamento. Crie o orcamento com etapas antes de planejar.
+              Esta obra ainda não tem etapas no orçamento. Crie o orçamento com etapas antes de planejar.
             </p>
           </div>
         ) : (
           <>
             <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-muted)" }}>
-              {nEtapas} etapa(s) do orcamento serao organizadas no cronograma.
+              {nEtapas} etapa(s) do orçamento serão organizadas no cronograma.
             </p>
 
             <Inp label="Quando a obra comeca?" type="date" value={resp.inicio} onChange={set("inicio")} />
@@ -2005,9 +2005,9 @@ function QuestionarioPlanejamento({ orc, plano, onGerar, onClose }) {
             <Sel label="Dias trabalhados na semana" value={resp.diasSemana} onChange={set("diasSemana")}
                  options={[{ v:"6", l:"Segunda a sabado" }, { v:"5", l:"Segunda a sexta" }]} />
 
-            <Sel label="Utilizar os feriados ja cadastrados no aplicativo? *"
+            <Sel label="Utilizar os feriados já cadastrados no aplicativo? *"
                  value={resp.usarFeriados} onChange={set("usarFeriados")}
-                 options={[{v:"",l:"Selecione..."},{v:"sim",l:"Sim, retirar dos dias de trabalho"},{v:"nao",l:"Nao, considerar dias normais"}]} />
+                 options={[{v:"",l:"Selecione..."},{v:"sim",l:"Sim, retirar dos dias de trabalho"},{v:"nao",l:"Não, considerar dias normais"}]} />
 
             <Sel label="Ritmo da equipe" value={resp.ritmo} onChange={set("ritmo")}
                  options={[
@@ -2016,8 +2016,8 @@ function QuestionarioPlanejamento({ orc, plano, onGerar, onClose }) {
                    { v:"apertado", l:"Apertado (equipe reforcada)" },
                  ]} />
 
-            <Sel label="Sobrepor servicos compativeis para ganhar tempo?" value={resp.paralelo} onChange={set("paralelo")}
-                 options={[{ v:"sim", l:"Sim, quando fizer sentido" }, { v:"nao", l:"Nao, um de cada vez" }]} />
+            <Sel label="Sobrepor serviços compatíveis para ganhar tempo?" value={resp.paralelo} onChange={set("paralelo")}
+                 options={[{ v:"sim", l:"Sim, quando fizer sentido" }, { v:"nao", l:"Não, um de cada vez" }]} />
 
             <div style={{ display: "flex", gap: "var(--arcd-space-2)" }}>
               <Btn v="ghost" onClick={onClose} full>Cancelar</Btn>
@@ -2174,7 +2174,7 @@ function ModalTarefa({ tarefa, cal, tarefas, onSalvar, onRemover, onClose, onMat
         {tarefa.custo > 0 && (
           <div style={{ background: "color-mix(in srgb, var(--arcd-action-primary) 7%, transparent)", border: "1px solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)",
                         borderRadius: 6, padding: "var(--arcd-space-2) var(--arcd-space-3)" }}>
-            <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>Custo da etapa (do orcamento)</p>
+            <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>Custo da etapa (do orçamento)</p>
             <p style={{ fontSize: "var(--arcd-type-card-title)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-action-primary)" }}>{fmt(tarefa.custo)}</p>
           </div>
         )}
@@ -2182,17 +2182,17 @@ function ModalTarefa({ tarefa, cal, tarefas, onSalvar, onRemover, onClose, onMat
           <div style={{ background: "color-mix(in srgb, var(--arcd-danger-text) 5%, transparent)", border: "1px solid color-mix(in srgb, var(--arcd-danger-text) 33%, transparent)",
                         borderRadius: 6, padding: "var(--arcd-space-2) var(--arcd-space-3)" }}>
             <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-danger-text)" }}>
-              A etapa do orcamento ligada a esta tarefa foi removida. Reassocie ou apague a tarefa.
+              A etapa do orçamento ligada a esta tarefa foi removida. Reassocie ou apague a tarefa.
             </p>
           </div>
         )}
-        <Inp label="Inicio" type="date" value={ini} onChange={setIni} />
+        <Inp label="Início" type="date" value={ini} onChange={setIni} />
         <Inp label="Fim" type="date" value={fim} onChange={setFim} />
         {ini && fim && fim < ini && (
-          <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-danger-text)" }}>O fim nao pode ser anterior ao inicio.</p>
+          <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-danger-text)" }}>O fim não pode ser anterior ao início.</p>
         )}
         {((ini && !ehDiaUtil(ini,cal)) || (fim && !ehDiaUtil(fim,cal))) && (
-          <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-warning-text)" }}>Ao salvar, as datas serao ajustadas para os dias trabalhados mais proximos.</p>
+          <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-warning-text)" }}>Ao salvar, as datas serão ajustadas para os dias trabalhados mais próximos.</p>
         )}
         <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 4%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 20%, transparent)",borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
           <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>Avanço físico confirmado</p>
@@ -2235,7 +2235,7 @@ function ModalTarefa({ tarefa, cal, tarefas, onSalvar, onRemover, onClose, onMat
           </div>
         )}
         <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)"}}>
-          Os vinculos manuais respeitam a ordem do orcamento: antecessoras anteriores e sucessoras posteriores, evitando ciclos.
+          Os vínculos manuais respeitam a ordem do orçamento: antecessoras anteriores e sucessoras posteriores, evitando ciclos.
         </p>
         <div style={{ display: "flex", gap: "var(--arcd-space-2)", marginTop: "var(--arcd-space-1)" }}>
           <Btn full onClick={salvar}>Salvar</Btn>
@@ -2343,7 +2343,7 @@ function ModalMarco({ marco, onSalvar, onRemover, onClose }) {
         <label style={{ display: "flex", alignItems: "center", gap: "var(--arcd-space-2)", cursor: "pointer" }}>
           <ChoiceControl type="checkbox" checked={feito} onChange={e => setFeito(e.target.checked)}
                  style={{ width: 18, height: 18, accentColor: "var(--arcd-success-text)" }} />
-          <span style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-primary)" }}>Ja concluido</span>
+          <span style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-primary)" }}>Já concluído</span>
         </label>
         <div style={{ display: "flex", gap: "var(--arcd-space-2)", marginTop: "var(--arcd-space-1)" }}>
           <Btn full onClick={() => onSalvar({ id: marco.id, nome, tipo, data: dataM, feito, nota })}>Salvar</Btn>

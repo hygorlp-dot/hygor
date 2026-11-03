@@ -103,7 +103,7 @@ try {
     });
     const page=await context.newPage();page.setDefaultTimeout(12000);
     await login(page);
-    for(const screen of ['Obras','Equipes','Diario de obra','Conferência','Gestão do ponto','Folha'])await openScreen(page,screen);
+    for(const screen of ['Obras','Equipes','Diário de obra','Conferência','Gestão do ponto','Folha'])await openScreen(page,screen);
     report.failureChecks.push('blocked browser storage: core work and payroll screens still open');
     await context.close();
   }
