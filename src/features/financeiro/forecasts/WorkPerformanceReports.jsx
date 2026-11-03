@@ -10,6 +10,7 @@ import {workPerformanceReport,workPerformanceCsv} from '../../../domains/obras/p
 import {shiftDay} from '../../../domains/financeiro/cash-forecast.js';
 import {forecastMoney as money,forecastDate as date} from './forecast-format.js';
 import {contar} from '../../../design-system/copy.js';
+import {avancoFisicoOficial} from '../../../domains/dre/calculations.js';
 
 const number=value=>value===null||value===undefined||!Number.isFinite(value)?'Não disponível':value.toLocaleString('pt-BR',{maximumFractionDigits:4});
 const percent=value=>value===null||value===undefined?'Não disponível':`${(value*100).toLocaleString('pt-BR',{maximumFractionDigits:2})}%`;
@@ -18,6 +19,7 @@ const status={concluido:'Cumprido no prazo',nao_concluido:'Não cumprido no praz
 export default function WorkPerformanceReports({data,workId,asOf,state={},onChange,onExport}){
  const start=state.start??shiftDay(asOf,-27);
  const report=useMemo(()=>workPerformanceReport(data,{obraId:workId,start,end:asOf}),[data,workId,start,asOf]);
+ const official=avancoFisicoOficial(data,workId);
  const shortcut=[7,28,90].find(days=>shiftDay(asOf,1-days)===start)||'custom';
  return <>
   <h3>Indicadores e relatórios da obra</h3>
@@ -28,7 +30,8 @@ export default function WorkPerformanceReports({data,workId,asOf,state={},onChan
   </FilterBar>
   {report.error?<Alert variant="warning"><AlertDescription>{report.error}</AlertDescription></Alert>:<>
    <dl className="financial-reports__totals" aria-label="Indicadores principais da obra">
-    <div><dt>Avanço ponderado do orçamento</dt><dd>{percent(report.physical.progress)}</dd></div>
+    <div><dt>Avanço pelo diário (peso do orçamento)</dt><dd>{percent(report.physical.progress)}</dd></div>
+    <div><dt>Avanço oficial da medição</dt><dd>{percent(official==null?null:official/100)}</dd></div>
     <div><dt>PPC das semanas verificadas</dt><dd>{percent(report.planning.value)}</dd></div>
     <div><dt>Cobertura dos diários nos dias com presença</dt><dd>{percent(report.coverage.ratio)}</dd></div>
    </dl>
