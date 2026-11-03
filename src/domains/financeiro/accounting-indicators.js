@@ -1,13 +1,8 @@
 import {isFinancialDate} from './dates.js';
 import {shiftDay} from './cash-forecast.js';
-import {buildFinancialLedger} from './ledger.js';
-import {toCents} from './facts.js';
-import {createLaborCostEngine} from './labor-cost-engine.js';
-import {createDreCalculations} from '../dre/calculations.js';
-import {calcEquipCustoObra,calcEquipFaturamentoEmpresa} from '../equipamentos/calculations.js';
-import {getDays,getQ,getPayrollHolidays,prIsWeekdayIso,isEmployeeEmployedOnDate,getAtt,getHolidayPayRule} from '../ponto/attendance-engine.js';
+import {buildFinancialLedger,selectDRE} from './ledger.js';
 
-export const ACCOUNTING_VERSION='2026-11-03.1';
+export const ACCOUNTING_VERSION='2026-11-02.1';
 export const ACCOUNTING_COMMAND=Object.freeze({ACCOUNTING_BASE_IMPORTED:'BASE_CONTABIL_IMPORTADA',ACCOUNTING_BASE_REVIEWED:'BASE_CONTABIL_CONFERIDA'});
 export const ACCOUNTING_COMMAND_TYPES=new Set(Object.values(ACCOUNTING_COMMAND));
 export const ACCOUNTING_GROUPS=Object.freeze([
@@ -90,24 +85,10 @@ export function accountingStatement(accounts=[]){
  return {issues,totals,groups,balance,income};
 }
 
-// Mesma montagem do motor da tela (calculation-engine), só com imports que o
-// Node resolve: a conferência é recalculada no servidor e a impressão digital
-// precisa bater com a da tela.
-let companyDre=null;
-const dreConsolidada=(data,year,month)=>{
- companyDre??=createDreCalculations({getDays,getQ,monthName:m=>String(m+1),calcEquipCustoObra,calcEquipFaturamentoEmpresa,
-  calcObraLaborCost:createLaborCostEngine({getPayrollHolidays,isWeekdayIso:prIsWeekdayIso,isEmployeeEmployedOnDate,getAttendance:getAtt,getHolidayPayRule}).calculateWorkLaborCost}).calcDREConsolidado;
- return companyDre(data,year,month);
-};
-const monthsBetween=(start,end)=>{const out=[];for(let y=Number(start.slice(0,4)),m=Number(start.slice(5,7));`${y}-${String(m).padStart(2,'0')}`<=end.slice(0,7);m===12?(y++,m=1):m++)out.push([y,m-1]);return out;};
-
-// "Resultado ERP" é o resultado da DRE consolidada da empresa, mês a mês: com
-// mão de obra do ponto e equipamentos, que o razão puro não contém.
 export function accountingErpComparison(data,start,end){
- const rows=monthsBetween(start,end).map(([year,month])=>{const dre=dreConsolidada(data,year,month);return [`${year}-${String(month+1).padStart(2,'0')}`,toCents(dre.faturamento),toCents(dre.totalCustos),toCents(dre.lucroBruto)];});
- const ledger=buildFinancialLedger(data),total=index=>rows.reduce((acc,row)=>acc+row[index],0);
- const hasFacts=rows.some(row=>row[1]||row[2]);
- return {revenue:hasFacts?total(1):null,cost:hasFacts?total(2):null,result:hasFacts?total(3):null,eventCount:rows.filter(row=>row[1]||row[2]).length,issues:ledger.issues?.length||0,fingerprint:JSON.stringify(rows)};
+ const ledger=buildFinancialLedger(data),dre=selectDRE(ledger,{startDate:start.slice(0,7),endDate:end.slice(0,7)});
+ const events=ledger.events.filter(event=>event.competence>=start.slice(0,7)&&event.competence<=end.slice(0,7)&&['revenue','revenue_reversal','cost','cost_reversal'].includes(event.effect));
+ return {revenue:events.length?dre.revenueCents:null,cost:events.length?dre.costCents:null,result:events.length?dre.resultCents:null,eventCount:events.length,issues:ledger.issues?.length||0,fingerprint:JSON.stringify(events.map(row=>[row.id,row.competence,row.effect,row.amountCents]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))))};
 }
 
 export function accountingIndicators(base){

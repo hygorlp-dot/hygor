@@ -95,8 +95,8 @@ export const BUNDLE_BUDGETS = Object.freeze({
   // em produção em 02/11. Medido sobre o #234: +96 KiB gzip, quase tudo sob
   // demanda (núcleo financeiro +45,6, Previsões +26,7, ajuda +11,9); a carga
   // inicial cresce 3,3 KiB. Total medido 1.888.788 bytes.
-  // Comparação contábil pela DRE consolidada e avanço oficial ao lado do
-  // diário: 1.890.029 bytes, 749 acima. Acréscimo limitado a 1 KiB.
+  // Avanço oficial ao lado do diário e rótulo da comparação contábil:
+  // 1.889.290 bytes, 10 acima. Acréscimo limitado a 1 KiB.
   totalGzipBytes: 1_846 * 1024,
   genericJavaScriptGzipBytes: 200 * 1024,
   staticMediaTotalBytes: 4 * 1024 * 1024,
