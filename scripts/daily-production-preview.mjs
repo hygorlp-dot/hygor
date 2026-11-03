@@ -5,6 +5,8 @@ import {data as performanceFixture} from './fixtures/work-performance-data.mjs';
 import {data as executiveFixture} from './fixtures/executive-report-data.mjs';
 const fixture=process.env.MARCELL_ACCOUNTING_DEMO==='1'?(await import('./fixtures/accounting-data.mjs')).data:process.env.MARCELL_SPI_DEMO==='1'?(await import('./fixtures/spi-data.mjs')).data:process.env.MARCELL_SCHEDULE_DEMO==='1'?(await import('./fixtures/schedule-indicators-data.mjs')).data:process.env.MARCELL_FINANCIAL_KPI_DEMO==='1'?financialFixture:process.env.MARCELL_EXECUTIVE_DEMO==='1'?executiveFixture:process.env.MARCELL_KPI_DEMO==='1'?performanceFixture:dailyFixture;
 let data=structuredClone(fixture),applyOperationalCommand,projectCompanyData;
+// Specs freeze the browser clock; the server must stamp approvals on the same day, or reports at that reference skip them.
+const demoNow=process.env.MARCELL_DEMO_NOW?new Date(process.env.MARCELL_DEMO_NOW).toISOString():'';
 const port=Number(process.env.MARCELL_DAILY_PORT||4222),users=[profile,engineer,...(process.env.MARCELL_ACCOUNTING_DEMO==='1'?[(await import('./fixtures/accounting-data.mjs')).accountingFinance,(await import('./fixtures/accounting-data.mjs')).scopedFinance]:[])];
 const server=await createServer({server:{host:'127.0.0.1',port,strictPort:true,watch:{ignored:['**/artifacts/**']}},plugins:[{name:'local-daily-production-api',configureServer(vite){
   vite.middlewares.use('/api',async(req,res)=>{
@@ -21,7 +23,7 @@ const server=await createServer({server:{host:'127.0.0.1',port,strictPort:true,w
         const command=body.command;
         if(!['RDO_CAMPO_ALTERADO','RDO_CAMPO_REABERTO','RDO_CAMPO_CANCELADO',...(process.env.MARCELL_SPI_DEMO==='1'?['BASE_PLANEJAMENTO_PROPOSTA','BASE_PLANEJAMENTO_APROVADA']:[]),...(process.env.MARCELL_ACCOUNTING_DEMO==='1'?['BASE_CONTABIL_IMPORTADA','BASE_CONTABIL_CONFERIDA']:[])].includes(command?.type))return send({ok:false,error:'Somente diários fictícios podem ser alterados nesta demonstração.'},403);
         if(command.payload?.report?.status==='concluido'&&usuario.role!=='engenheiro')return send({ok:false,error:'Use o perfil da engenharia para concluir.'},403);
-        if(command?.type?.startsWith('BASE_PLANEJAMENTO_')||command?.type?.startsWith('BASE_CONTABIL_')){const scope=await server.ssrLoadModule('/server/operational-command-policy.js');const auth=scope.validateOperationalCommandScope({user:usuario,data,command});if(!auth.ok)return send({ok:false,error:auth.error},403);command.now=new Date().toISOString();}
+        if(command?.type?.startsWith('BASE_PLANEJAMENTO_')||command?.type?.startsWith('BASE_CONTABIL_')){const scope=await server.ssrLoadModule('/server/operational-command-policy.js');const auth=scope.validateOperationalCommandScope({user:usuario,data,command});if(!auth.ok)return send({ok:false,error:auth.error},403);command.now=demoNow||new Date().toISOString();}
         const previous=data;
         const result=applyOperationalCommand(data,{...command,actorId:usuario.id,actorName:usuario.nome,actorRole:usuario.role});
         if(!result.ok)return send(result,422);data=result.data;
