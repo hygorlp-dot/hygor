@@ -60,3 +60,23 @@ test('Compras e Financeiro seguem o carimbo, inclusive em "Todas as obras"',asyn
   await expect(comprasObra).toHaveValue('all');
   expect(errors).toEqual([]);
 });
+
+test('o Diário segue o carimbo na lista e no editor',async({page})=>{
+  const errors=await enter(page,'rdo');
+  await expect(screenObra(page)).toHaveValue('all');
+  await stamp(page).selectOption('b');
+  await expect(screenObra(page)).toHaveValue('b');
+  // "Todas" no filtro da lista limpa o carimbo; escolher de novo volta a obra.
+  await screenObra(page).selectOption('all');
+  await expect(stamp(page)).toHaveValue('');
+  await stamp(page).selectOption('b');
+  // O relatório novo abre na obra do carimbo, e trocar o carimbo troca a obra do editor.
+  await page.locator('main').getByRole('button',{name:'Novo relatório'}).click();
+  await expect(screenObra(page)).toHaveValue('b');
+  await stamp(page).selectOption('a');
+  await expect(screenObra(page)).toHaveValue('a');
+  // Trocar a obra no editor muda o carimbo.
+  await screenObra(page).selectOption('b');
+  await expect(stamp(page)).toHaveValue('b');
+  expect(errors).toEqual([]);
+});

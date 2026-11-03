@@ -10,6 +10,7 @@ import {RecordAction} from '../../../design-system/primitives/RecordAction.jsx';
 import {Input as StandardInput} from '../../../components/ui/input.jsx';
 import {ChoiceControl} from '../../../design-system/primitives/ChoiceControl.jsx';
 import { sessionContext } from "../../../lib/session-context.js";
+import { setWorkContextObra, useSyncedWorkObra, useWorkContextObra } from "../../../features/workflow/work-context.js";
 import { marcellReportHtml } from "../../../reports/marcell-report.js";
 // ===================================================================
 // DiarioObraView — tela do Diário de Obra (RDO), extraída de
@@ -151,8 +152,20 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
   const sincronizarCamposRdo=async()=>{const entries=Object.entries(camposRdoLocaisRef.current);if(!entries.length)return {ok:true};entries.forEach(([campo])=>{const timer=timersCamposRdoRef.current.get(campo);if(timer)window.clearTimeout(timer);});const results=await Promise.all(entries.map(([campo,valor])=>salvarCampoRdoPendente(campo,valor)));return {ok:results.every(result=>result?.ok)};};
   useEffect(()=>()=>timersCamposRdoRef.current.forEach(timer=>window.clearTimeout(timer)),[]);
   useEffect(()=>{timersCamposRdoRef.current.forEach(timer=>window.clearTimeout(timer));timersCamposRdoRef.current.clear();camposRdoLocaisRef.current={};setCamposRdoLocais({});},[obraId,dataRDO]);
-  const trocarContextoRdo=async(tipo,valor)=>{const result=await sincronizarCamposRdo();const pending=await filaSalvamentoRdoRef.current;if(!result.ok||!pending?.ok){showToast?.("A troca foi bloqueada porque há alterações que ainda não foram salvas.","error");return;}if(tipo==="obra")setObraId(valor);else setDataRDO(valor);};
+  const trocarContextoRdo=async(tipo,valor)=>{const result=await sincronizarCamposRdo();const pending=await filaSalvamentoRdoRef.current;if(!result.ok||!pending?.ok){showToast?.("A troca foi bloqueada porque há alterações que ainda não foram salvas.","error");return false;}if(tipo==="obra")setObraId(valor);else setDataRDO(valor);return true;};
 
+  // Carimbo de contexto: na lista, o filtro de obra segue o carimbo (vazio é
+  // "Todas"). No editor, a obra aberta vai para o carimbo, e a troca vinda do
+  // carimbo passa pela mesma trava de alterações não salvas do seletor; se a
+  // trava barrar, o carimbo volta para a obra aberta.
+  useSyncedWorkObra(filtroObraRdo,setFiltroObraRdo,{allowedIds:(data.obras||[]).map(o=>o.id),allValue:"all",fixed:obraIdFixo||(modoRdo==="lista"?"":"editor")});
+  const carimboObra=useWorkContextObra();
+  const editorNoCarimbo=modoRdo==="editor"&&!obraIdFixo;
+  useEffect(()=>{if(editorNoCarimbo&&obras.some(o=>o.id===obraId))setWorkContextObra(obraId);},[editorNoCarimbo,obraId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(()=>{
+    if(!editorNoCarimbo||!carimboObra||carimboObra===obraId||!obras.some(o=>o.id===carimboObra))return;
+    trocarContextoRdo("obra",carimboObra).then(ok=>{if(!ok)setWorkContextObra(obraId);});
+  },[carimboObra]); // eslint-disable-line react-hooks/exhaustive-deps
   const abrirRdo = item => { setObraId(item.obraId); setDataRDO(item.data); setModoRdo("editor"); };
   const novoRdo = () => { setObraId(filtroObraRdo!=="all"?filtroObraRdo:(obraId||obras[0]?.id||"")); setDataRDO(today()); setModoRdo("editor"); };
   const concluirRdo = async () => {
