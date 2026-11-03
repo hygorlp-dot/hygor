@@ -15,6 +15,7 @@ import { validateExistingPaymentLink, updatePaymentAssociation, stampChangedPurc
 import { situacaoTituloFolha, validarLiquidacaoFolha } from "./payroll.js";
 import { isDateInClosedPeriod, isCompetenceInClosedPeriod } from "../financeiro/workflows.js";
 import { classifyReceiptForDre } from "../dre/receipt-classification.js";
+import { orderPaymentLinks } from "../financeiro/order-payment-links.js";
 
 // Nenhuma conciliação pode alterar um fato datado dentro de um período já
 // fechado sem reabertura formal (§ integridade financeira não é opcional).
@@ -499,6 +500,14 @@ export const desfazerConciliacao = (data, transacaoId, operador, motivo = "") =>
     const source=(data[generated.tipo]||[]).find(item=>item.id===generated.id);
     const affectsDre=generated.tipo!=="payments"||classifyReceiptForDre(source).recognizeRevenue;
     if(source&&affectsDre&&isCompetenceInClosedPeriod(data,source.competencia))return {data,resumo:{ok:false,motivo:"A competência do lançamento está fechada. Reabra o período antes de desfazer a conciliação."}};
+  }
+  // Pagamento de pedido alocado a notas não pode ser estornado por aqui: a
+  // nota continuaria quitada e com saída de caixa sem pagamento por trás.
+  for(const generated of gerados){
+    if(!["pagamentoPedido","pagamentoNota"].includes(generated?.tipo))continue;
+    const order=(data.pedidos||[]).find(p=>(p.pagamentos||[]).some(pg=>pg.id===generated.id));
+    const payment=order?.pagamentos.find(pg=>pg.id===generated.id);
+    if(payment&&orderPaymentLinks(data,order,payment).some(link=>link.modern))return {data,resumo:{ok:false,motivo:"Desfaça as alocações deste pagamento nas notas antes de desfazer a conciliação."}};
   }
   // Existing payments survive unmatching. Only undo their bank association.
   if(!gerados.length||gerados.every(item=>typeof item==="string")){
