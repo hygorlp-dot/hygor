@@ -72,6 +72,7 @@ import FinancialMemorial from "./features/financeiro/FinancialMemorial.jsx";
 import {financeNextAction} from './domains/financeiro/next-action.js';
 import {PurchaseDossier} from './domains/compras/components/PurchaseDossier.jsx';
 import FinancialReportCenter from "./features/financeiro/FinancialReportCenter.jsx";
+const ForecastWorkspace=lazy(()=>import("./features/financeiro/ForecastWorkspace.jsx"));
 import InvoiceConference from "./features/financeiro/InvoiceConference.jsx";
 import FinancialPreview from "./features/financeiro/FinancialPreview.jsx";
 import {previewCompanyRecurrences} from "./domains/financeiro/recurrence-preview.js";
@@ -2243,6 +2244,12 @@ const normalizeData = incoming => {
       obraId: r.obraId || "",
       data:   r.data   || "",   // YYYY-MM-DD
       codigo: Number(r.codigo || rdoIndex + 1),
+      productionVersion:r.productionVersion===1?1:undefined,
+      version:Number(r.version||0),operationalHistory:Array.isArray(r.operationalHistory)?r.operationalHistory:[],
+      createdAt:r.createdAt||r.criadoEm||'',updatedAt:r.updatedAt||r.atualizadoEm||'',
+      motivoCancelamento:r.motivoCancelamento||'',canceladoEm:r.canceladoEm||'',canceladoPor:r.canceladoPor||'',canceladoPorId:r.canceladoPorId||'',
+      reabertoEm:r.reabertoEm||'',reabertoPor:r.reabertoPor||'',reabertoPorId:r.reabertoPorId||'',motivoReabertura:r.motivoReabertura||'',
+
       status: r.status || "preparacao", // preparacao | concluido | cancelado
       praticabilidade: r.praticabilidade || "praticavel",
       periodos: Array.isArray(r.periodos) ? r.periodos : ["manha","tarde"],
@@ -2261,6 +2268,7 @@ const normalizeData = incoming => {
       // progresso acumulado total (progressoAte). Guardamos os dois para a
       // medicao poder somar dias trabalhados.
       servicos: Array.isArray(r.servicos) ? r.servicos.map(s => ({
+        budgetQuantity:s.budgetQuantity??"",budgetId:s.budgetId||"",budgetItemId:s.budgetItemId||"",unidade:s.unidade||"",quantidadeDia:s.quantidadeDia??"",horasPorPessoa:s.horasPorPessoa&&typeof s.horasPorPessoa==="object"?s.horasPorPessoa:{},
         tarefaId:     s.tarefaId     || "",
         etapaId:      s.etapaId      || "",
         descricao:    s.descricao    || "",
@@ -4259,6 +4267,8 @@ function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatch
   const [costReviewView,setCostReviewView]=useSessionState("costReviewView",{});
   const [cashScenario,setCashScenario]=useSessionState("cashScenario",{days:30,opening:"",delay:0,overdue:false});
   const [cashView,setCashView]=useSessionState("cashView",{account:"",accountPositions:{}});
+  const [forecastView,setForecastView]=useSessionState("forecastView",{area:"cash",asOf:today(),cash:{},labor:{}});
+  const [forecastReturn,setForecastReturn]=useState(false);
   const [reportView,setReportView]=useSessionState("reportView",()=>{const date=today(),month=date.slice(0,7);return {kind:"result",group:"work",start:month+"-01",end:new Date(Date.UTC(Number(month.slice(0,4)),Number(month.slice(5,7)),0)).toISOString().slice(0,10),asOf:date,direction:"all",category:"all",account:"all",status:"all",query:"",includeUndated:false};});
   const [documentReturn,setDocumentReturn]=useState(null);
   const [fiscalReturn,setFiscalReturn]=useState(false);
@@ -4466,16 +4476,17 @@ function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatch
   );
 
   const podeAcessarAdministrativoFinanceiro=["admin","financeiro"].includes(currentUser?.role);
-  const abasFinanceiras=[["hoje","Hoje"],["caixa","Caixa por conta"],["visao","Visão financeira"],...(podeAcessarAdministrativoFinanceiro?[["etapas","Custos por etapa"],["documentos","Documentos"],["relatorios","Relatórios financeiros"],["pagamentos","Pagamentos"],["administrativo","Administrativo"],["fiscal","Notas fiscais"]]:[]),...(currentUser?.role==="admin"?[["fechamento","Fechamento"],["homologacao","Homologação"]]:[]),["ia","Modo IA"]];
+  const abasFinanceiras=[["hoje","Hoje"],["caixa","Caixa por conta"],["visao","Visão financeira"],...(podeAcessarAdministrativoFinanceiro?[["etapas","Custos por etapa"],["previsoes","Previsões gerenciais"],["documentos","Documentos"],["relatorios","Relatórios financeiros"],["pagamentos","Pagamentos"],["administrativo","Administrativo"],["fiscal","Notas fiscais"]]:[]),...(currentUser?.role==="admin"?[["fechamento","Fechamento"],["homologacao","Homologação"]]:[]),["ia","Modo IA"]];
   const navegacaoFinanceira=<><WorkspaceHeading title="Financeiro" navigation={<WorkspaceNavigation className="financial-navigation" label="Áreas do financeiro" active={areaFinanceira} onChange={setAreaFinanceira}
     items={abasFinanceiras.filter(([id])=>["hoje","pagamentos","caixa","documentos"].includes(id)).map(([id,label])=>({id,label}))}
     toolsLabel="Mais áreas"
     tools={abasFinanceiras.filter(([id])=>!["hoje","pagamentos","caixa","documentos"].includes(id)).map(([id,label])=>({id,label}))}/>}/>
     {areaFinanceira==="etapas"&&<WorkspaceCommandBar label="Comandos do Financeiro" scope={workFilter}/>}
     {financialReturn&&!taskReturn&&!fiscalReturn&&!documentReturn&&<nav className="financial-origin-return" aria-label="Retorno à conferência financeira"><p>Retome a origem com o recorte anterior.</p><Button variant="outline" onClick={backFinancialOrigin}>{financialReturn.area==="fechamento"?"Voltar à conferência do fechamento":financialReturn.area==="documentos"?"Voltar à central de documentos":"Voltar à rotina financeira de origem"}</Button></nav>}{taskReturn&&<Btn v="ghost" onClick={()=>{positionToRestore.current=taskReturn.positions;setFilterObra(taskReturn.obraId);setDocumentMonth(taskReturn.month);setDocumentView(taskReturn.view);setAreaFinanceira(taskReturn.area);setTaskReturn(null);}}>{taskReturn.label}</Btn>}</>;
+  if(areaFinanceira==="previsoes"&&podeAcessarAdministrativoFinanceiro)return <div className="financial-overview">{navegacaoFinanceira}<Suspense fallback={<p role="status">Preparando previsões gerenciais…</p>}><ForecastWorkspace dispatchCommand={dispatchCommand} data={data} currentUser={currentUser} calcPeriod={calcVisaoFinanceira} today={currentDate} view={forecastView} onViewChange={setForecastView} obraId={filterObra} onObraChange={setFilterObra} onOpen={setMemorial} onCosts={obraId=>{setFilterObra(obraId);setForecastReturn(true);setAreaFinanceira("etapas");}} /></Suspense>{memorialPanel}</div>;
   if(areaFinanceira==="caixa")return <div className="financial-overview">{navegacaoFinanceira}<CashWorkspace scopeControl={workFilter} currentUser={currentUser} data={data} ledger={financialView.selected.ledger} today={currentDate} obraId={filterObra} onOpen={setMemorial} view={cashView} onViewChange={setCashView} scenario={cashScenario} onScenarioChange={setCashScenario}/>{memorialPanel}</div>;
   if(areaFinanceira==="hoje")return <div className="financial-overview">{navegacaoFinanceira}<FinanceToday scopeControl={workFilter} scope={filterObra} preferences={todayPreferences} onPreferencesChange={setTodayPreferences} active={todayQueue} onActiveChange={setTodayQueue} queues={queues} today={currentDate} work={filterObra==="all"?"Todas as obras":obraName(filterObra)} onOpen={setMemorial} onAllocate={item=>setTodayPayment(item.sourceId)} resolveAction={item=>financeNextAction(data,item,currentUser)} onAction={openTodayAction}/><Btn v="ghost" onClick={()=>setAreaFinanceira("caixa")}>Abrir caixa por conta e previsão</Btn>{memorialPanel}{todayPayment&&<PaymentDialog data={data} user={currentUser} type="nota" id={todayPayment} pageId="fin" dispatch={dispatchCommand} onClose={()=>setTodayPayment(null)} onSaved={()=>showToast('Operação financeira confirmada.')}/>}{todayPurchase&&<PurchaseDossier data={data} selection={todayPurchase} currentUser={currentUser} onReviewInvoice={invoice=>openTodayAction({sourceType:'nota_fiscal',sourceId:invoice.id,obraId:invoice.obraId})} onClose={()=>setTodayPurchase(null)}/>}</div>;
-  if(areaFinanceira==="etapas"&&podeAcessarAdministrativoFinanceiro)return <div className="financial-overview">{navegacaoFinanceira}<WorkStageCosts data={data} ledger={stageLedger.ledger} missingStart={stageLedger.missingStart} obraId={filterObra} asOf={currentDate} onOpen={setMemorial} view={costReviewView} onViewChange={setCostReviewView} dispatchCommand={dispatchCommand} currentUser={currentUser}/>{memorialPanel}</div>;
+  if(areaFinanceira==="etapas"&&podeAcessarAdministrativoFinanceiro)return <div className="financial-overview">{navegacaoFinanceira}{forecastReturn&&<Button variant="secondary" onClick={()=>{setForecastReturn(false);setAreaFinanceira("previsoes");}}>Voltar às previsões gerenciais</Button>}<WorkStageCosts data={data} ledger={stageLedger.ledger} missingStart={stageLedger.missingStart} obraId={filterObra} asOf={currentDate} onOpen={setMemorial} view={costReviewView} onViewChange={setCostReviewView} dispatchCommand={dispatchCommand} currentUser={currentUser}/>{memorialPanel}</div>;
   if(areaFinanceira==="relatorios"&&podeAcessarAdministrativoFinanceiro)return <div className="financial-overview">{navegacaoFinanceira}<FinancialReportCenter data={data} calcPeriod={calcVisaoFinanceira} view={reportView} onViewChange={setReportView} obraId={filterObra} onObraChange={setFilterObra} onOpen={setMemorial} loadSpreadsheet={async()=>{await carregarXLSX();return XLSX;}}/>{memorialPanel}</div>;
   if(areaFinanceira==="documentos"&&podeAcessarAdministrativoFinanceiro)return <div className="financial-overview">{navegacaoFinanceira}{documentReturn&&<Btn v="ghost" onClick={backToMemorial}>Voltar ao memorial de origem</Btn>}<DocumentCenter scopeControl={workFilter} onPayments={openInvoicePayments} onBank={podeAcessarAba(currentUser,"conc")?openInvoiceBank:undefined} currentUser={currentUser} onObra={setFilterObra} view={documentView} onViewChange={setDocumentView} data={data} obraId={filterObra} competence={documentMonth} onCompetence={setDocumentMonth} onOpen={setMemorial} onReview={conferirNota} onReceive={abrirNovaNota}/>{memorialPanel}</div>;
   if(areaFinanceira==="pagamentos"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>{navegacaoFinanceira}{memorialPanel}<CentralPagamentosFinanceiro view={paymentView} onViewChange={setPaymentView} onBank={podeAcessarAba(currentUser,"conc")?openInvoiceBank:undefined} obraId={filterObra} onObraChange={setFilterObra} onMemorial={setMemorial} data={data} showToast={showToast} currentUser={currentUser} onNovaNota={abrirNovaNota} onAbrirFiscal={abrirFiscal} onReviewInvoice={invoice=>openTodayAction({sourceType:"nota_fiscal",sourceId:invoice.id,obraId:invoice.obraId})} dispatchCommand={dispatchCommand} C={C}/></div>;

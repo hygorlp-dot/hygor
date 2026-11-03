@@ -5,6 +5,7 @@
 .arcd-page-header__title { margin: var(--arcd-space-2) 0 0; color: var(--arcd-color-text); font-size: var(--arcd-type-page-title); font-weight: var(--arcd-font-weight-semibold); letter-spacing: var(--arcd-letter-spacing-tight); line-height: var(--arcd-line-height-tight); }
 .arcd-page-header__description { max-width: 48rem; margin: var(--arcd-space-2) 0 0; color: var(--arcd-color-text-muted); font-size: var(--arcd-type-body); }
 .arcd-page-header__actions, .arcd-filter-bar { display: flex; align-items: flex-end; gap: var(--arcd-space-2); flex-wrap: wrap; }
+.arcd-filter-bar[data-align=start] { --arcd-filter-align:start;align-items:flex-start; }
 .arcd-form-section { border: 1px solid var(--arcd-color-border); border-radius: var(--arcd-radius-lg); background: var(--arcd-color-surface); padding: var(--arcd-space-5); }
 .arcd-form-section__title { margin: 0; color: var(--arcd-color-text); font-size: var(--arcd-font-size-lg); }
 .arcd-form-section__description { margin: var(--arcd-space-1) 0 var(--arcd-space-5); color: var(--arcd-color-text-muted); font-size: var(--arcd-font-size-sm); }

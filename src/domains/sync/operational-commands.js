@@ -1,3 +1,6 @@
+import {applyAccountingCommand,ACCOUNTING_COMMAND} from '../financeiro/accounting-indicators.js';
+import {applyBaselineCommand,BASELINE_COMMAND} from '../planejamento/approved-baseline.js';
+import {validateProduction,productionSignature} from '../diario-obra/production.js';
 // Comandos operacionais são a fronteira transitória entre o LegacyApp e uma
 // persistência por agregado. Eles são puros para poderem ser exercitados sem
 // navegador e, principalmente, não fazem "last write wins" para a mesma
@@ -114,6 +117,8 @@ import {
 import { applyEngineeringCommand, ENGINEERING_COMMAND } from "../projetos/commands.js";
 import { applyFileCommand, FILE_COMMAND } from "../arquivos/commands.js";
 export const OPERATIONAL_COMMAND = Object.freeze({
+  ...ACCOUNTING_COMMAND,
+  ...BASELINE_COMMAND,
   ...CLOSING_CORRECTION_COMMAND,
   ...FILE_COMMAND,
   ...ENGINEERING_COMMAND,
@@ -246,6 +251,13 @@ export const applyOperationalCommand=(data,command)=>{
     return {ok:true,idempotent:true,data,...(receipt?.summary?{summary:receipt.summary}:{})};
   }
   const now=command.now||new Date().toISOString();
+  const accountingResult=applyAccountingCommand(data,command,now);
+  if(accountingResult){if(!accountingResult.ok)return accountingResult;return {...accountingResult,data:appendReceipt(accountingResult.data,command,accountingResult.entityId,now)};}
+  const baselineResult=applyBaselineCommand(data,command,now);
+  if(baselineResult){
+    if(!baselineResult.ok)return baselineResult;
+    return {...baselineResult,data:appendReceipt(baselineResult.data,command,baselineResult.entityId,now)};
+  }
   const closingCorrection=applyClosingCorrection(data,command,now);
   if(closingCorrection){
     if(!closingCorrection.ok)return closingCorrection;
@@ -698,15 +710,18 @@ export const applyOperationalCommand=(data,command)=>{
     const current=(data?.rdos||[]).find(item=>item.id===report.id);
     if(current&&["concluido","cancelado"].includes(current.status))return fail("O diário está encerrado. Somente uma reabertura administrativa permite novas alterações.");
     const effective=current?{...current,...report}:report;
+    const productionChanged=current&&report.servicos&&productionSignature(current.servicos)!==productionSignature(report.servicos);
+    if(productionChanged)effective.revisaoEngenheiro={aprovado:false,engenheiroId:'',engenheiro:'',revisadoEm:'',observacao:''};
     if(!String(effective.obraId||"").trim()||!/^\d{4}-\d{2}-\d{2}$/.test(String(effective.data||"")))return fail("Diário de obra exige obra e data válida.");
     if(effective.status==="concluido"){
+      const productionErrors=validateProduction(data,effective);if(productionErrors.length)return fail(productionErrors.join(" "));
       const completion=fieldReportCompletion(effective);
       if(!completion.complete)return fail(`Conclua os requisitos do diário: ${completion.pending.map(item=>item.label).join(", ")}.`);
     }
     if(current){
       const versionError=requiresVersion(current,command.expectedVersion,"O diário de obra");
       if(versionError)return fail(versionError);
-      const updated={...current,...report,id:current.id,createdAt:current.createdAt||current.criadoEm||now,criadoEm:current.criadoEm||current.createdAt||now,updatedAt:now,atualizadoEm:now,version:versionOf(current)+1};
+      const updated={...current,...effective,id:current.id,createdAt:current.createdAt||current.criadoEm||now,criadoEm:current.criadoEm||current.createdAt||now,updatedAt:now,atualizadoEm:now,version:versionOf(current)+1};
       const next={...data,rdos:(data.rdos||[]).map(item=>item.id===current.id?updated:item)};
       return {ok:true,data:appendReceipt(next,command,current.id,now)};
     }

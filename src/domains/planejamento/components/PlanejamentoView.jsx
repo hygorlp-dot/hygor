@@ -1,3 +1,4 @@
+import ApprovedBaselinePanel from './ApprovedBaselinePanel.jsx';
 import {ChoiceControl} from '../../../design-system/primitives/ChoiceControl.jsx';
 import {Input as StandardInput} from '../../../components/ui/input.jsx';
 import {Button as StandardButton} from '../../../components/ui/button.jsx';
@@ -900,6 +901,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
         Etapas, custos e datas são preliminares. A aprovação financeira continua exigindo uma baseline explícita.
       </div>}
 
+      <ApprovedBaselinePanel key={obraId} data={data} obraId={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand}/>
       {/* Resumo financeiro: o elo com o orcamento */}
       <div className="planning-summary" style={{ display: "grid", gridTemplateColumns: cols(2, 4, 4), gap: "var(--arcd-space-2)" }}>
         <MiniKpi label="Progresso" value={`${progresso.toFixed(0)}%`} cor={C.blue} />
@@ -1643,7 +1645,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
 
                 <Divider />
                 <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)", textTransform: "uppercase", letterSpacing: "var(--arcd-letter-spacing-body)", margin: "var(--arcd-space-3) var(--arcd-space-0) var(--arcd-space-2)" }}>
-                  Contra a linha de base (replanejamento)
+                  Fotografia legada de datas (não calcula SPI)
                 </p>
                 {!compBase.temBaseline ? (
                   <div style={{ textAlign: "center", padding: "var(--arcd-space-4) var(--arcd-space-3)" }}>
@@ -1653,7 +1655,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                       desvio contra o plano original — atrasos, adiantamentos e estouro
                       de custo.
                     </p>
-                    <Btn onClick={salvarBaseline}>Salvar linha de base agora</Btn>
+                    <Btn onClick={salvarBaseline}>Salvar fotografia de datas</Btn>
                   </div>
                 ) : (
                   <div>
@@ -1662,8 +1664,8 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                         Linha de base de <b>{fmtDate(plano.baselineData)}</b> · {compBase.linhas.length} tarefa(s)
                       </p>
                       <div style={{ display: "flex", gap: "var(--arcd-space-1)" }}>
-                        <Btn size="sm" v="ghost" onClick={salvarBaseline}>Refazer</Btn>
-                        <Btn size="sm" v="ghost" onClick={limparBaseline}>Remover</Btn>
+                        <Btn size="sm" v="ghost" onClick={salvarBaseline}>Refazer fotografia</Btn>
+                        <Btn size="sm" v="ghost" onClick={limparBaseline}>Remover fotografia</Btn>
                       </div>
                     </div>
 

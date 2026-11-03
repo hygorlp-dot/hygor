@@ -1,3 +1,4 @@
+import {useHelpTopic} from '../../features/help/HelpContext.jsx';
 // Declarações extraídas literalmente da entrada legada; não importar LegacyApp aqui.
 import { uid, today, fmtDateFull } from "../../legacy/format.js";
 import { C } from "../../legacy/palette.js";
@@ -18,6 +19,8 @@ import { useBreakpoint } from "../../hooks/useBreakpoint";
 import { podeAdministrarPoliticas } from "../aprovacoes/index.js";
 import { validarPolitica } from "../aprovacoes/index.js";
 import { podeGerenciarDelegacoes } from "../aprovacoes/index.js";
+import UserDirectory from "./components/UserDirectory.jsx";
+import {Tabs,TabsList,TabsTrigger,TabsContent} from "../../components/ui/tabs.jsx";
 import { moduleForTab } from "../../navigation/erp-navigation.js";
 
 
@@ -65,8 +68,10 @@ export const ACCESS_SECTORS=[
 //  Gestão de Usuários (dentro de Config)
 
 export function GestaoUsuarios({ data, update, showToast, currentUser }) {
+  useHelpTopic("config","config_membros",10);
   const emptyU = { id:"", nome:"", role:"engenheiro", email:"", obraId:"", maxDesconto:10, active:true, accessTabs:[...ROLE_TABS.engenheiro] };
   const [modal,   setModal]   = useState(false);
+  const [editorTab,setEditorTab]=useState("dados");
   const [pinModal,setPinModal] = useState(null); // userId
   const [form,    setForm]    = useState(emptyU);
   const [newPin,  setNewPin]  = useState("");
@@ -169,79 +174,24 @@ export function GestaoUsuarios({ data, update, showToast, currentUser }) {
 
   return (
     <div style={{display:"flex",flexDirection:"column",gap:12}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <div>
-          <p style={{fontFamily:"var(--arcd-font-sans)",fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:C.text,textTransform:"uppercase",letterSpacing:.5}}>Usuários do Sistema</p>
-          <p style={{fontSize:"var(--arcd-type-body)",color:C.muted,marginTop:2}}>{(data.usuarios||[]).length} cadastrados</p>
-        </div>
-        {currentUser?.role==="admin"&&<div style={{display:"flex",gap:6}}><Btn size="sm" v="ghost" onClick={carregarPresencas} disabled={presencaBusy}><Ic n="clock"/> {presencaBusy?"Atualizando...":"Atualizar on-line"}</Btn><Btn size="sm" onClick={()=>{setForm(emptyU);setModal(true);}}><Ic n="plus"/> Novo</Btn></div>}
-      </div>
-
-      {currentUser?.role==="admin"&&presencaErro&&<p style={{fontSize:"var(--arcd-type-label)",color:C.red,background:`${C.red}0B`,border:`1px solid ${C.red}33`,borderRadius:6,padding:"7px 9px"}}>{presencaErro}</p>}
-
-      {(data.usuarios||[]).length===0&&(
-        <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:6,padding:20,textAlign:"center",color:C.muted}}>
-          Nenhum usuário cadastrado. Crie o admin primeiro.
-        </div>
-      )}
-
-      {(data.usuarios||[]).map(u=>{
-        const role=ROLES.find(r=>r.v===u.role)||ROLES[0];
-        const hasPIN=!!u.pin;
-        const acessos=allowedTabsForUser(u);
-        const setores=u.role==="admin"?["TODOS OS SETORES"]:ACCESS_SECTORS.filter(s=>s.tabs.some(([id])=>acessos.includes(id))).map(s=>s.label.toUpperCase());
-        const sessoes=presencasPorUsuario.get(u.id)||[];
-        const sessoesOnline=sessoes.filter(p=>p.online);
-        const ultima=sessoesOnline[0]||sessoes[0];
-        return(
-          <div key={u.id} style={{
-            background:C.bg,border:`1.5px solid ${C.border}`,borderLeft:`1px solid ${role.color}`,
-            borderRadius:6,padding:"12px 14px",
-            boxShadow:`0 1px 4px ${C.shadow}`,
-            opacity:u.active===false?0.55:1,
-          }}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
-              <div className="settings-user-details">
-                <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  <p style={{fontWeight:600,fontSize:"var(--arcd-type-body)",color:C.text}}>{u.nome}</p>
-                  {u.id===currentUser?.id&&<span style={{fontSize:"var(--arcd-type-label)",background:C.yellow,color:"#fff",padding:"2px 6px",borderRadius:4,fontWeight:600}}>VOCÊ</span>}
-                  {currentUser?.role==="admin"&&<span style={{fontSize:"var(--arcd-type-caption)",background:sessoesOnline.length?`${C.green}18`:C.surface,color:sessoesOnline.length?C.green:C.muted,border:`1px solid ${sessoesOnline.length?C.green:C.border}`,padding:"2px 6px",borderRadius:99,fontWeight:600,display:"inline-flex",alignItems:"center",gap:4}}><span style={{width:6,height:6,borderRadius:"50%",background:sessoesOnline.length?C.green:C.muted}}/>{sessoesOnline.length?`ONLINE${sessoesOnline.length>1?` · ${sessoesOnline.length} SESSÕES`:""}`:"OFFLINE"}</span>}
-                  {!hasPIN&&<span style={{fontSize:"var(--arcd-type-label)",background:C.orange,color:"#fff",padding:"2px 6px",borderRadius:4,fontWeight:600}}>SEM PIN</span>}
-                </div>
-                <p style={{fontSize:"var(--arcd-type-label)",color:role.color,fontWeight:600,marginTop:2}}>{role.l}</p>
-                {u.email&&<p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:1}}>{u.email}</p>}
-                <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3}}>{role.desc}</p>
-                <p style={{fontSize:"var(--arcd-type-caption)",color:u.obraId?C.orange:C.green,marginTop:3,fontWeight:600}}>Obras: {u.obraId?((data.obras||[]).find(o=>o.id===u.obraId)?.name||"restrição inválida — obra removida"):"todas as obras"}</p>
-                {currentUser?.role==="admin"&&<p style={{fontSize:"var(--arcd-type-caption)",color:sessoesOnline.length?C.green:C.muted,marginTop:4}}>{sessoesOnline.length?`${TAB_META[ultima?.tab]?.label||ultima?.tab||"No aplicativo"} · ${ultima?.device||"Dispositivo"}`:`Última atividade: ${fmtUltimaAtividade(ultima?.lastSeen)}`}</p>}
-                <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:6}}>{setores.map(nome=><span key={nome} style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.blue,background:`${C.blue}0C`,border:`1px solid ${C.blue}35`,padding:"2px 5px",borderRadius:4}}>{nome}</span>)}</div>
-              </div>
-              {currentUser?.role==="admin"&&(
-                <div className="settings-user-actions" style={{display:"flex",gap:4,flexShrink:0}}>
-                  <Btn size="sm" v={u.authUserId?"success":"ghost"} onClick={()=>{if(!u.email){showToast("Cadastre o e-mail do operador antes de ativar a conta.","error");return;}setContaModal(u.id);setSenhaTemp("");setSenhaTemp2("");}}>{u.authUserId?"Senha":"Ativar login"}</Btn>
-                  <Btn size="sm" v="ghost" onClick={()=>setPinModal(u.id)}>PIN</Btn>
-                  <Btn size="sm" v="ghost" onClick={()=>{setForm({...u,accessTabs:[...allowedTabsForUser(u)]});setModal(true);}}><Ic n="edit"/></Btn>
-                  {u.obraId&&<Btn size="sm" v="success" onClick={()=>{update({...data,usuarios:(data.usuarios||[]).map(x=>x.id===u.id?{...x,obraId:""}:x)});showToast(`${u.nome} agora pode acessar todas as obras.`);}}>Todas obras</Btn>}
-                  <Btn size="sm" v={u.active===false?"success":"dark"} onClick={()=>toggleActive(u.id)}>
-                    {u.active===false?"Ativar":"Inativar"}
-                  </Btn>
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      })}
+      <UserDirectory users={data.usuarios||[]} works={data.obras||[]} roles={ROLES} currentUser={currentUser} presences={presencasPorUsuario} onRefresh={carregarPresencas} refreshing={presencaBusy} presenceError={presencaErro} formatActivity={fmtUltimaAtividade}
+        onAdd={()=>{setForm(emptyU);setEditorTab("dados");setModal(true);}}
+        onEdit={u=>{setForm({...u,accessTabs:[...allowedTabsForUser(u)]});setEditorTab("dados");setModal(true);}}
+        onLogin={u=>{if(!u.email){showToast("Cadastre o e-mail do operador antes de ativar a conta.","error");return;}setContaModal(u.id);setSenhaTemp("");setSenhaTemp2("");}}
+        onPin={u=>setPinModal(u.id)} onToggle={toggleActive}
+        onAllWorks={u=>{update({...data,usuarios:(data.usuarios||[]).map(x=>x.id===u.id?{...x,obraId:""}:x)});showToast(`${u.nome} agora pode acessar todas as obras.`);}} />
 
       {/* Modal: cadastro de usuário */}
       {modal&&(
         <Modal title={form.id?"Editar usuário":"Novo usuário"} onClose={()=>setModal(false)} wide>
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <Inp label="Nome completo *" value={form.nome} onChange={F("nome")} placeholder="Nome do usuário"/>
+            <Tabs value={editorTab} onValueChange={setEditorTab}><TabsList aria-label="Cadastro do membro"><TabsTrigger value="dados">Dados do membro</TabsTrigger><TabsTrigger value="permissoes">Permissões de acesso</TabsTrigger></TabsList><TabsContent value="dados"><div style={{display:"flex",flexDirection:"column",gap:12}}><Inp label="Nome completo *" value={form.nome} onChange={F("nome")} placeholder="Nome do usuário"/>
             <Sel label="Perfil-base *" value={form.role} onChange={mudarPerfil} options={ROLES.map(r=>({v:r.v,l:r.l}))}/>
             <Inp label="E-mail" value={form.email} onChange={F("email")} placeholder="email@empresa.com"/>
             <Inp label="Limite de desconto comercial (%)" type="number" value={form.maxDesconto??10} onChange={F("maxDesconto")} placeholder="10"/>
             <Sel label="Restringir a obra (opcional)" value={form.obraId} onChange={F("obraId")}
               options={[{v:"",l:"Todas as obras"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
-            <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 12px"}}>
+            </div></TabsContent><TabsContent value="permissoes"><div style={{display:"flex",flexDirection:"column",gap:12}}><div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 12px"}}>
               <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>
                 O perfil-base preenche uma sugestão. O acesso efetivo é definido pelas telas marcadas abaixo.
               </p>
@@ -253,7 +203,7 @@ export function GestaoUsuarios({ data, update, showToast, currentUser }) {
                 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:5,marginTop:7}}>{setor.tabs.map(([id,label])=>{const marcado=(form.accessTabs||[]).includes(id);return <label key={id} style={{display:"flex",alignItems:"center",gap:7,border:`1px solid ${marcado?setor.color:C.border}`,background:marcado?`${setor.color}0B`:C.bg,borderRadius:6,padding:"6px 8px",cursor:"pointer"}}><input type="checkbox" checked={marcado} onChange={()=>toggleTela(id)}/><span style={{fontSize:"var(--arcd-type-label)",color:marcado?C.text:C.muted,fontWeight:marcado?600:500}}>{label}</span></label>;})}</div>
               </div>;})}
             </div>}
-            <div style={{display:"flex",gap:8}}>
+            </div></TabsContent></Tabs><div style={{display:"flex",gap:8}}>
               <Btn v="ghost" onClick={()=>setModal(false)} full>Cancelar</Btn>
               <Btn onClick={saveUser} full><Ic n="check"/> Salvar</Btn>
             </div>

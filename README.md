@@ -2,11 +2,17 @@
 
 ## Documentação operacional
 
+- [Manual de uso MARCELL e ajuda por tela](docs/MANUAL_DO_APP.md)
+- [Referências e manutenção da ajuda contextual](docs/REFERENCIAS_AJUDA_CONTEXTUAL.md)
 - [Manual completo do sistema](docs/MANUAL_COMPLETO_ARCD.md)
 - [Auditoria funcional, técnica e de produto](docs/AUDITORIA_SISTEMA_ARCD.md)
 - [Arquitetura do sistema](docs/ARQUITETURA_ARCD.md)
 - [ADR-001 — Monólito modular](docs/ADR-001-MONOLITO-MODULAR.md)
 - [Prompt de revisão independente para Claude Code](docs/PROMPT_REVISAO_CLAUDE_CODE.md)
+
+A ajuda do cabeçalho e o manual de uso compartilham `src/features/help/help-content.js`.
+Revise esse conteúdo em toda mudança de funcionamento do app, gere o documento com
+`npm run manual:generate` e confira com `npm run manual:check` (também executado no lint).
 
 > **Seus dados atuais estão seguros.** As chaves de armazenamento
 > (`company_id = "arcd"`, `key = "arced_ponto_v1"`) são as mesmas do código

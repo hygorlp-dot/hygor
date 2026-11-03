@@ -1,0 +1,2 @@
+import {defineConfig} from '@playwright/test';
+export default defineConfig({testDir:'./e2e',testMatch:/spi-baseline\.spec\.js/,outputDir:'artifacts/spi/e2e',workers:1,timeout:90000,use:{baseURL:'http://127.0.0.1:4241',screenshot:'only-on-failure',actionTimeout:10000},webServer:{command:'node scripts/daily-production-preview.mjs',env:{MARCELL_DAILY_PORT:'4241',MARCELL_EXECUTIVE_DEMO:'1',MARCELL_SPI_DEMO:'1'},url:'http://127.0.0.1:4241',reuseExistingServer:false,timeout:120000}});

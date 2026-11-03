@@ -16,7 +16,7 @@ async function enter(page,{withoutBudget=false}={}){
   if(body.action==='profiles')return route.fulfill({json:{usuarios:[user],precisaSetup:false}});
   if(body.action==='operational-command'){
    commands.push(body.command);
-   const result=applyOperationalCommand(state,{...body.command,actorId:user.id,actorName:user.nome,actorRole:user.role});
+   const result=applyOperationalCommand(state,{...body.command,actorId:user.id,actorName:user.nome,actorRole:user.role,now:"2026-10-31T15:00:00.000Z"});
    if(result.ok)state=result.data;
    return route.fulfill({status:result.ok?200:409,json:{...result,updatedAt:'2026-10-31T15:00:01Z'}});
   }
@@ -111,13 +111,16 @@ test('possível duplicidade avisa, salva sem bloqueio e permite conferência ou 
  await warning().scrollIntoViewIfNeeded();await page.screenshot({path:test.info().outputPath('duplicidade-aviso-sem-bloqueio.png')});
  const coverage=page.getByRole('combobox',{name:'Cobertura do aditivo 1',exact:true});
  await coverage.selectOption('separate');await expect(warning()).toHaveCount(0);
- await page.getByLabel('Justificativa da conferência do aditivo 1',{exact:true}).fill('Os R$ 78 mil são de outros serviços; piso deve continuar separado.');
+ await expect(page.getByRole('button',{name:'Confirmar previsão',exact:true})).toBeEnabled();
  await page.getByRole('button',{name:'Confirmar previsão',exact:true}).click();await expect.poll(()=>app.state().obras[0].costPlanning.version).toBe(3);
+ await expect(page.getByText('Conferência do aditivo 1 salva sem justificativa individual.',{exact:false})).toBeVisible();
+ await page.getByLabel('Justificativa da conferência do aditivo 1',{exact:true}).fill('Os R$ 78 mil são de outros serviços; piso deve continuar separado.');
+ await page.getByRole('button',{name:'Confirmar previsão',exact:true}).click();await expect.poll(()=>app.state().obras[0].costPlanning.version).toBe(4);
  await expect(amendments.getByRole('status',{name:'Possíveis duplicidades de custo'})).toHaveCount(0);await expect(total).toHaveText(/171.000,00/);
  await remaining.fill('79000');await expect(coverage).toHaveValue('unreviewed');await remaining.fill('78000');
  await coverage.selectOption('included');await expect(warning()).toContainText('declara este impacto dentro do restante');
  await page.getByLabel('Justificativa da conferência do aditivo 1',{exact:true}).fill('Piso incorporado à composição dos R$ 78 mil.');
- await page.getByRole('button',{name:'Confirmar previsão',exact:true}).click();await expect.poll(()=>app.state().obras[0].costPlanning.version).toBe(4);
+ await page.getByRole('button',{name:'Confirmar previsão',exact:true}).click();await expect.poll(()=>app.state().obras[0].costPlanning.version).toBe(5);
  await amendments.getByRole('button',{name:'Editar',exact:true}).click();
  await modal.getByRole('combobox',{name:'Como considerar na previsão',exact:true}).selectOption('ja_incluido');
  await modal.getByRole('button',{name:'Salvar mudança',exact:true}).click();await expect(modal).toHaveCount(0);

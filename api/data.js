@@ -1,3 +1,5 @@
+import {ACCOUNTING_COMMAND_TYPES,validateAccountingSnapshotPolicy} from '../src/domains/financeiro/accounting-indicators.js';
+import {BASELINE_COMMAND,BASELINE_COMMAND_TYPES} from '../src/domains/planejamento/approved-baseline.js';
 import {quoteLinkKey,issueQuoteLink,verifyQuoteLink,quoteLinkAccess,publicQuoteView} from "../server/supplier-quote-link.js";
 import {storeSupplierResponse} from "../src/domains/compras/supplier-quote-response.js";
 import { reconcileImportedStatement } from "../server/reconciliation-after-import.js";
@@ -197,6 +199,9 @@ export const authorizeFinancialCommand = (commandType, role) => {
 const RECONCILIATION_COMMANDS=new Set(Object.values(RECONCILIATION_COMMAND));
 const ATTENDANCE_COMMANDS=new Set(Object.values(ATTENDANCE_COMMAND));
 export const OPERATIONAL_COMMAND_ROLES = {
+  ...Object.fromEntries([...ACCOUNTING_COMMAND_TYPES].map(type=>[type,['admin','financeiro']])),
+  [BASELINE_COMMAND.SCHEDULE_BASELINE_PROPOSED]:['admin','diretoria','engenheiro','engenheiro_auditor','planejamento'],
+  [BASELINE_COMMAND.SCHEDULE_BASELINE_APPROVED]:['admin','diretoria'],
   [OPERATIONAL_COMMAND.CLOSING_SOURCE_CORRECTED]:['admin','financeiro'],
   ...Object.fromEntries([...ENGINEERING_COMMAND_TYPES].map(type=>[type,ENGINEERING_ROLES])),
   ...Object.fromEntries([...FILE_COMMAND_TYPES].map(type=>[type,FILE_ROLES])),
@@ -2831,7 +2836,7 @@ export default async function handler(req, res) {
     if(action==="operational-command"){
       const rawCommand=req.body?.command||{};
       // Engineering durations always use server time, never a supplied browser clock.
-      const command=(ENGINEERING_COMMAND_TYPES.has(rawCommand.type)||FILE_COMMAND_TYPES.has(rawCommand.type)||DOSSIER_COMMAND_TYPES.has(rawCommand.type)||rawCommand.type===OPERATIONAL_COMMAND.CLOSING_SOURCE_CORRECTED||rawCommand.type===OPERATIONAL_COMMAND.ORDER_PAYMENT_ALLOCATED)?{...rawCommand,now:new Date().toISOString()}:rawCommand;
+      const command=(ACCOUNTING_COMMAND_TYPES.has(rawCommand.type)||BASELINE_COMMAND_TYPES.has(rawCommand.type)||ENGINEERING_COMMAND_TYPES.has(rawCommand.type)||FILE_COMMAND_TYPES.has(rawCommand.type)||DOSSIER_COMMAND_TYPES.has(rawCommand.type)||rawCommand.type===OPERATIONAL_COMMAND.CLOSING_SOURCE_CORRECTED||rawCommand.type===OPERATIONAL_COMMAND.ORDER_PAYMENT_ALLOCATED)?{...rawCommand,now:new Date().toISOString()}:rawCommand;
       if(command.type===OPERATIONAL_COMMAND.CLOSING_SOURCE_CORRECTED){command.actorId=usuario.id;command.actorName=usuario.nome;}
       const authz=authorizeOperationalCommand(command.type,usuario.role);
       if(!authz.ok)return res.status(authz.status).json({error:authz.error});
@@ -3627,6 +3632,8 @@ export default async function handler(req, res) {
             if(erroExclusao)return {kind:"error",status:409,error:erroExclusao};
             const erroBaseline=validateBudgetBaselinePolicy(current,value,usuario);
             if(erroBaseline)return {kind:"error",status:403,error:erroBaseline};
+            const erroBaseContabil=validateAccountingSnapshotPolicy(current,value);
+            if(erroBaseContabil)return {kind:"error",status:403,error:erroBaseContabil};
             const erroBaselinePlano=validatePlanningBaselinePolicy(current,value,usuario);
             if(erroBaselinePlano)return {kind:"error",status:403,error:erroBaselinePlano};
             if(chaves.includes("conferencias")){
@@ -3713,6 +3720,8 @@ export default async function handler(req, res) {
       if(erroExclusao)return res.status(409).json({error:erroExclusao});
       const erroBaseline=validateBudgetBaselinePolicy(atual,{...atual,...sections},usuario);
       if(erroBaseline)return res.status(403).json({error:erroBaseline});
+      const erroBaseContabil=validateAccountingSnapshotPolicy(atual,{...atual,...sections});
+      if(erroBaseContabil)return res.status(403).json({error:erroBaseContabil});
       const erroBaselinePlano=validatePlanningBaselinePolicy(atual,{...atual,...sections},usuario);
       if(erroBaselinePlano)return res.status(403).json({error:erroBaselinePlano});
       const erroConciliacaoBancaria=validateBankReconciliationPolicy(atual,{...atual,...sections},usuario);
@@ -3826,6 +3835,8 @@ export default async function handler(req, res) {
       if(erroExclusao)return res.status(409).json({error:erroExclusao});
       const erroBaseline=validateBudgetBaselinePolicy(atual,incomingPayload,usuario);
       if(erroBaseline)return res.status(403).json({error:erroBaseline});
+      const erroBaseContabil=validateAccountingSnapshotPolicy(atual,incomingPayload);
+      if(erroBaseContabil)return res.status(403).json({error:erroBaseContabil});
       const erroBaselinePlano=validatePlanningBaselinePolicy(atual,incomingPayload,usuario);
       if(erroBaselinePlano)return res.status(403).json({error:erroBaselinePlano});
       const erroConciliacaoBancaria=validateBankReconciliationPolicy(atual,incomingPayload,usuario);

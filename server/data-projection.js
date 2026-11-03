@@ -1,3 +1,4 @@
+import {canUseCompanyAccounting} from '../src/domains/financeiro/accounting-indicators.js';
 import {
   resolveEmployeeAttendanceObraId,
 } from "../src/domains/ponto/permissions.js";
@@ -89,10 +90,13 @@ const isRhLaborTransaction=(transaction,employees)=>{
 };
 
 export const projectDataForUser = (payload = {}, user = {}) => {
-  if (user.role === "admin") return payload;
+  if(user.role==='admin'){if(canUseCompanyAccounting(user))return payload;const {accountingBases:_companyAccounting,...safe}=payload;return safe;}
   const allowedSections = new Set(ROLE_SECTIONS[user.role] || []);
+  if(podeAcessarAba(user,'plan')||podeAcessarAba(user,'fin'))for(const section of ['scheduleBaselines','planos','orcamentos','budgetBaselines'])allowedSections.add(section);
+  if(user.role==='financeiro'&&podeAcessarAba(user,'fin'))allowedSections.add('rdos');
   const allowedObras = new Set(user.obraId ? [String(user.obraId)] : []);
   const out = {};
+  if(canUseCompanyAccounting(user)&&podeAcessarAba(user,'fin'))out.accountingBases=payload.accountingBases||[];
   if(podeAcessarAba(user,"arquivos")){
     out.workFileCabinets=(payload.workFileCabinets||[]).filter(item=>!allowedObras.size||allowedObras.has(String(item.obraId))).map(item=>projectFileCabinet(item,user));
   }
@@ -119,6 +123,7 @@ export const projectDataForUser = (payload = {}, user = {}) => {
     const value = payload[key];
     if (value === undefined) continue;
     if (key === "obras") { out.obras = (value || []).filter(item => hasObra({ obraId:item.id }, allowedObras)).map(sanitizeObra); continue; }
+    if(key==='rdos'&&user.role==='financeiro'){out.rdos=filterByObra(value,allowedObras).map(({id,obraId,data,status,version,productionVersion,revisaoEngenheiro,servicos})=>({id,obraId,data,status,version,productionVersion,revisaoEngenheiro,servicos}));continue;}
     if (key === "employees") {
       out.employees=(value||[])
         .filter(item=>employeeHasScopedAttendance(payload,item,allowedObras))

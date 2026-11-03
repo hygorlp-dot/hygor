@@ -1,5 +1,8 @@
 import { useEffect } from "react";
 import "../src/index.css";
+import "../src/design-system/themes/marcell-clean.css";
+import "../src/design-system/themes/marcell-pilot.css";
+import "../src/design-system/themes/marcell-workspaces.css";
 
 function ThemeCanvas({ Story, theme, density }) {
   useEffect(() => {
@@ -19,8 +22,8 @@ function ThemeCanvas({ Story, theme, density }) {
 export const globalTypes = {
   theme: {
     description: "Tema ARCD",
-    defaultValue: "carbon",
-    toolbar: { items: ["carbon", "light", "dark", "high-contrast"] },
+    defaultValue: "marcell",
+    toolbar: { items: ["marcell", "carbon", "light", "dark", "high-contrast"] },
   },
   density: {
     description: "Densidade ARCD",
