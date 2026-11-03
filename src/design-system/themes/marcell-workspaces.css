@@ -350,6 +350,10 @@
 }
 /* Chat no topo, ao lado de Ajuda; flutua só onde não há topo (Modo TV). */
 .app-header-chat-slot{display:flex;align-items:center}
+/* Texto ampliado (200%) não muda a largura em px, então a quebra do topo não pode
+   depender de media query: as ações descem para a linha de baixo em vez de vazar. */
+[data-theme] .arcd-app-shell .app-header-inner{flex-wrap:wrap}
+[data-theme] .arcd-app-shell .app-header-actions{min-width:0;max-width:100%;flex-shrink:1;flex-wrap:wrap;justify-content:flex-end}
 .arcd-chat-launcher{position:relative}
 .arcd-chat-launcher--floating{width:3.5rem;height:3.5rem;border-radius:50%;box-shadow:var(--arcd-shadow-lg)}
 .arcd-chat-launcher__count{position:absolute;top:-.25rem;right:-.25rem;min-width:1.25rem;height:1.25rem;padding:0 .25rem;border-radius:9999px;display:grid;place-items:center;background:var(--arcd-danger-text);color:var(--arcd-text-inverse);font-size:var(--arcd-type-caption);font-weight:var(--arcd-font-weight-semibold);line-height:1}
