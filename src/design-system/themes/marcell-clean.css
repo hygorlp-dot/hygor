@@ -337,7 +337,9 @@
 
 /* Painel "Suas obras hoje" (gestão à vista). Cores de situação fixas:
    verde = em dia, âmbar = atenção, vermelho = crítico; sempre com texto/ícone. */
-.gav { position: relative; z-index: 1; background: var(--arcd-surface-card); border: 1px solid var(--arcd-border, #E6E3DC); border-radius: 12px; padding: 18px 20px 14px; }
+/* O card é o container da tabela: a troca para linhas empilhadas depende da largura
+   dele em rem, então vale também para texto ampliado, que não muda a largura em px. */
+.gav { position: relative; z-index: 1; background: var(--arcd-surface-card); border: 1px solid var(--arcd-border, #E6E3DC); border-radius: 12px; padding: 18px 20px 14px; container-type: inline-size; }
 .gav__topo { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px; margin-bottom: 14px; }
 .gav__titulo { color: var(--arcd-text-primary); } /* tamanho e peso seguem a escala de títulos do tema */
 .gav__sub { margin-top: 3px; font-size: .8125rem; color: var(--arcd-text-secondary); font-variant-numeric: tabular-nums; }
@@ -350,7 +352,8 @@
 .gav-placar__item.is-critico { background: var(--arcd-danger-surface); color: var(--arcd-danger-text); }
 .gav-placar__item[aria-pressed="true"] { border-color: currentColor; }
 .gav-placar__item:focus-visible, .gav-obra__nome:focus-visible { outline: 2px solid var(--arcd-text-primary); outline-offset: 2px; }
-.gav-linha { display: grid; grid-template-columns: minmax(170px, 1.5fr) 104px minmax(150px, 1.2fr) 70px minmax(170px, 1.3fr) 118px; gap: 16px; align-items: center; padding: 12px 0; border-top: 1px solid var(--arcd-border-subtle); font-size: var(--arcd-type-table); }
+/* Colunas em rem crescem junto com o texto; situação e entrega cabem "Atenção" e "30/03/2027". */
+.gav-linha { display: grid; grid-template-columns: minmax(8rem, 1.4fr) 6.5rem minmax(5rem, 1fr) 3rem minmax(6rem, 1.1fr) 6.5rem; gap: .75rem; align-items: center; padding: 12px 0; border-top: 1px solid var(--arcd-border-subtle); font-size: var(--arcd-type-table); }
 .gav-linha--cabecalho { padding: 0 0 8px; border-top: 0; font-size: .75rem; font-weight: 600; color: var(--arcd-text-secondary); }
 .gav-obra { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .gav-obra__nome { all: unset; cursor: pointer; font-weight: 600; color: var(--arcd-text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -384,6 +387,9 @@
 @media (max-width: 1023px) {
   .gav { padding: 14px; }
   .gav-placar { width: 100%; }
+}
+/* Abaixo da soma mínima das seis colunas (38,75rem), cada obra vira um bloco. */
+@container (max-width: 39rem) {
   .gav-linha--cabecalho { display: none; }
   .gav-linha { grid-template-columns: 1fr auto; grid-template-areas: "obra situacao" "etapa etapa" "custo custo" "equipe entrega"; gap: 8px 12px; }
   .gav-linha > :nth-child(1) { grid-area: obra; }
@@ -394,4 +400,13 @@
   .gav-linha > :nth-child(6) { grid-area: entrega; justify-self: end; }
   .gav-entrega { flex-direction: row; gap: 6px; font-size: .75rem; }
   .gav-equipe::before { content: "Equipe hoje: "; font-weight: 400; color: var(--arcd-text-secondary); }
+}
+/* Estreito (texto ampliado, celular pequeno): o selo não divide a linha com o nome
+   e o placar vira uma lista, em vez de três caixas espremidas lado a lado. */
+@container (max-width: 18rem) {
+  .gav-placar { grid-template-columns: minmax(0, 1fr); width: 100%; }
+  .gav-placar__item { flex-direction: row; align-items: baseline; gap: .5rem; min-height: 0; }
+  .gav-linha { grid-template-columns: minmax(0, 1fr); grid-template-areas: "obra" "situacao" "etapa" "custo" "equipe" "entrega"; }
+  .gav-linha > :nth-child(2), .gav-linha > :nth-child(6) { justify-self: start; }
+  .gav-entrega { flex-wrap: wrap; }
 }

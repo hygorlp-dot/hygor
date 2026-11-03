@@ -1042,6 +1042,14 @@ canvas {
   .dashboard-executive-grid { grid-template-columns: 1fr !important; }
 }
 
+/* Ações rápidas: quantas colunas couberem com 10rem cada. Em rem, a grade perde
+   colunas quando o texto é ampliado, em vez de estourar a largura da tela. */
+.dashboard-quick-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+  gap: 8px;
+}
+
 .dashboard-quick-action {
   transition: border-color .15s ease, background .15s ease;
 }

@@ -38,6 +38,8 @@ export default defineConfig({
     {name:"clt-mobile",testMatch:/clt-payslips\.spec\.js/,use:{browserName:"chromium",viewport:{width:390,height:844},isMobile:true,hasTouch:true}},
     {name:"payroll-closing-desktop",testMatch:/payroll-closing\.spec\.js/,use:{browserName:"chromium",viewport:{width:1440,height:1000}}},
     {name:"payroll-closing-mobile",testMatch:/payroll-closing\.spec\.js/,use:{browserName:"chromium",viewport:{width:390,height:844},isMobile:true,hasTouch:true}},
+    {name:"dashboard-zoom-desktop",testMatch:/dashboard-texto-ampliado\.spec\.js/,use:{browserName:"chromium",viewport:{width:1440,height:1000}}},
+    {name:"dashboard-zoom-mobile",testMatch:/dashboard-texto-ampliado\.spec\.js/,use:{browserName:"chromium",viewport:{width:390,height:844},isMobile:true,hasTouch:true}},
     {name:"erp-navigation-desktop",testMatch:/erp-navigation\.spec\.js/,use:{browserName:"chromium",viewport:{width:1440,height:1000}}},
     {name:"erp-navigation-mobile",testMatch:/erp-navigation\.spec\.js/,use:{browserName:"chromium",viewport:{width:390,height:844},isMobile:true,hasTouch:true}},
     {name:"annual-dre-desktop",testMatch:/annual-dre\.spec\.js/,use:{browserName:"chromium",viewport:{width:1440,height:1000}}},
