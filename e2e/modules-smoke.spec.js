@@ -370,7 +370,7 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         await expect(page.getByText("Análise, concorrentes e reativação futura")).toBeVisible();
       }
       if(["Gestão do ponto","Terceirizados"].includes(item)) {
-        const selector=item==="Gestão do ponto"?".ponto-employee-cell button":".terceiros-kanban-card__actions button";
+        const selector=item==="Gestão do ponto"?"button.ponto-employee-name":".terceiros-kanban-card__actions button";
         for(const width of [1440,390]) {
           await page.setViewportSize({width,height:900});
           const buttons=page.locator(selector);

@@ -48,8 +48,11 @@ export function useQueuePosition(screen,instance){
  const {views}=useWorkflow(),ref=useRef(null),address=JSON.stringify([screen,instance,'queuePosition']);
  useLayoutEffect(()=>{
   const main=document.querySelector('main');
-  const frame=requestAnimationFrame(()=>{const saved=views?.get(address);if(!saved)return;window.scrollTo(0,saved.window);if(main)main.scrollTop=saved.main;for(const region of ref.current?.querySelectorAll('[role="region"]')||[]){const pos=saved.regions.find(p=>p.name===region.getAttribute('aria-label'));if(pos){region.scrollTop=pos.top;region.scrollLeft=pos.left;}}});
-  return()=>{cancelAnimationFrame(frame);views?.set(address,{window:window.scrollY,main:main?.scrollTop||0,regions:[...ref.current?.querySelectorAll('[role="region"]')||[]].map(node=>({name:node.getAttribute('aria-label'),top:node.scrollTop,left:node.scrollLeft}))});};
+  // Montagem desfeita antes do primeiro quadro não restaurou nada: gravar agora
+  // apagaria a posição guardada com a rolagem zerada da tela recém-montada.
+  let restored=false;
+  const frame=requestAnimationFrame(()=>{restored=true;const saved=views?.get(address);if(!saved)return;window.scrollTo(0,saved.window);if(main)main.scrollTop=saved.main;for(const region of ref.current?.querySelectorAll('[role="region"]')||[]){const pos=saved.regions.find(p=>p.name===region.getAttribute('aria-label'));if(pos){region.scrollTop=pos.top;region.scrollLeft=pos.left;}}});
+  return()=>{cancelAnimationFrame(frame);if(!restored)return;views?.set(address,{window:window.scrollY,main:main?.scrollTop||0,regions:[...ref.current?.querySelectorAll('[role="region"]')||[]].map(node=>({name:node.getAttribute('aria-label'),top:node.scrollTop,left:node.scrollLeft}))});};
  },[views,address]);
  return ref;
 }
