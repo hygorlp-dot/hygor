@@ -47,6 +47,14 @@ async function marcacoes(dispositivoId, qtd, { anterior = HASH_INICIAL, inicio =
 }
 
 describe("ponto eletrônico - servidor", () => {
+  it('proposta preserva tipos do registro fiscal e não combina duas entradas como jornada',async()=>{
+    const events=['10:21','13:23'].map((h,i)=>({company_id:'arcd',event_id:`dup-${i}`,employee_id:'e1',obra_id:'obra-a',tipo_registro:'ponto',marcado_em:`2026-10-01T${h}:00.000Z`,payload:{versaoJornada:1,tipoEvento:'entrada'}}));
+    db.tabelas.ponto_eventos.push(...events);const before=JSON.stringify(db.tabelas.ponto_eventos);
+    const r=await tratar({action:'ponto-apropriacao-propor',body:{accessToken:'ok',employeeId:'e1',data:'2026-10-01'}});
+    expect(r.status).toBe(200);expect(r.json.intervalos).toEqual([]);
+    expect(r.json.avisos[0].tipo).toBe('possivel_duplicidade');expect(r.json.marcacoes.map(m=>m.tipoEvento)).toEqual(['entrada','entrada']);
+    expect(JSON.stringify(db.tabelas.ponto_eventos)).toBe(before);
+  });
   it("só ações 'ponto-*' são despachadas para cá", () => {
     expect(ehAcaoPonto("ponto-sincronizar")).toBe(true);
     expect(ehAcaoPonto("load")).toBe(false);

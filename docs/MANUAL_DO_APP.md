@@ -1104,7 +1104,7 @@ O aparelho e seus registros estão identificados para acompanhamento.
 
 ### O que merece atenção
 
-No aparelho, o fluxo é entrada, intervalo, retorno e saída. Falta de sincronização pode atrasar a exibição no ERP.
+No aparelho, o fluxo é entrada, intervalo, retorno e saída. Falta de sincronização pode atrasar a exibição no ERP. Batidas repetidas aparecem como possível repetição; as originais são preservadas e não formam jornada automaticamente. O RH deve conferir os horários e justificar o tratamento antes de integrar o dia.
 
 <a id="guia-equipe"></a>
 
