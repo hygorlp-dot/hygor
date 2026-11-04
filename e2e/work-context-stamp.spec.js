@@ -132,3 +132,17 @@ test('o nome da obra no topo aparece inteiro, também no celular',async({page})=
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
   expect(errors).toEqual([]);
 });
+
+test('Relatórios mensais de mão de obra seguem o carimbo, inclusive em "Todas as obras"',async({page})=>{
+  const errors=await enter(page,'relat');
+  const escopo=page.locator('main').getByLabel('Escopo da análise',{exact:true});
+  await expect(escopo).toHaveValue('all');
+  await stamp(page).selectOption('b');
+  await expect(escopo).toHaveValue('b');
+  // Trocar o escopo na tela atualiza o carimbo; "Todas as obras" limpa.
+  await escopo.selectOption('a');
+  await expect(stamp(page)).toHaveValue('a');
+  await escopo.selectOption('all');
+  await expect(stamp(page)).toHaveValue('');
+  expect(errors).toEqual([]);
+});
