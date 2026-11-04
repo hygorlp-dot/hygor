@@ -51,6 +51,15 @@ test("painel responsivo: filtros, detalhes, atualização e reconexão", async (
   await page.context().setOffline(false);
   await expect.poll(() => consultas).toBeGreaterThan(antes);
   await page.getByLabel("Buscar funcionário ou obra").fill("");
+  // Carimbo de contexto: a obra do topo filtra a equipe, e "Todas as obras" no filtro limpa o carimbo.
+  const carimbo = page.getByTestId("work-context-stamp").locator("select");
+  const filtroObra = page.locator(".equipe-obras").getByLabel("Obra", { exact: true });
+  await carimbo.selectOption("b");
+  await expect(filtroObra).toHaveValue("b");
+  await expect(page.getByRole("button", { name: /Ver jornada de José/ })).toHaveCount(0);
+  await filtroObra.selectOption("");
+  await expect(carimbo).toHaveValue("");
+  await expect(page.getByRole("button", { name: /Ver jornada de José/ })).toBeVisible();
   await expect(page.locator(".equipe-obras")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("equipe-obras.png"), fullPage: true });

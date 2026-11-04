@@ -7,6 +7,11 @@ const baselinePath='scripts/design-system-baseline.json';
 const typography=/^(fontSize|fontFamily|fontWeight|lineHeight|letterSpacing)$/;
 const spacing=/^(gap|rowGap|columnGap|padding(?:Top|Right|Bottom|Left|Inline|Block)?|margin(?:Top|Right|Bottom|Left|Inline|Block)?)$/;
 const isLiteral=node=>ts.isStringLiteral(node)||ts.isNumericLiteral(node)||ts.isNoSubstitutionTemplateLiteral(node);
+// "crítica(s)", "ação(ões)", "material(is)": texto de sistema. Use contar() de design-system/copy.js.
+const parentheticalPlural=/\p{L}\((?:s|es|is|ns|ões|ães)\)/u;
+// Valor dinâmico passado como variável CSS ({"--progresso":"40%"}) é permitido;
+// o layout fica na classe, que lê a variável.
+const onlyCustomProperties=object=>object.properties.length>0&&object.properties.every(p=>ts.isPropertyAssignment(p)&&/^['"]--/.test(p.name.getText()));
 
 // Detecta exceções diretas em JSX. CSS, estilos indiretos e qualidade de fluxo
 // continuam exigindo revisão humana; a checagem não substitui inspeção visual.
@@ -15,6 +20,12 @@ export function inspectUiSource(source,file='screen.jsx'){
   const findings=[];
   const add=(rule,node)=>findings.push({rule,line:ast.getLineAndCharacterOfPosition(node.getStart(ast)).line+1});
   function visit(node){
+    const text=ts.isJsxText(node)||ts.isStringLiteral(node)||ts.isNoSubstitutionTemplateLiteral(node)||ts.isTemplateHead(node)||ts.isTemplateMiddle(node)||ts.isTemplateTail(node);
+    if(text&&parentheticalPlural.test(node.text))add('plural-parenthesis',node);
+    if(ts.isJsxAttribute(node)&&node.name.getText(ast)==='style'&&node.initializer&&ts.isJsxExpression(node.initializer)){
+      const value=node.initializer.expression;
+      if(!(value&&ts.isObjectLiteralExpression(value)&&onlyCustomProperties(value)))add('inline-style',node);
+    }
     if(ts.isJsxOpeningElement(node)||ts.isJsxSelfClosingElement(node)){
       const tag=node.tagName.getText(ast);
       if(['button','input','select','textarea'].includes(tag)){

@@ -2,6 +2,7 @@ import {scheduleSpi} from '../planejamento/approved-baseline.js';
 import {isFinancialDate} from '../financeiro/dates.js';
 import {shiftDay} from '../financeiro/cash-forecast.js';
 import {productionBudget,productionNumber} from '../diario-obra/production.js';
+import {contar} from '../../design-system/copy.js';
 
 export const SCHEDULE_INDICATORS_VERSION='2026-11-02.1';
 const days=(start,end)=>Math.round((Date.parse(`${end}T12:00:00Z`)-Date.parse(`${start}T12:00:00Z`))/86400000);
@@ -50,7 +51,7 @@ export function scheduleIndicators(data,{obraId,asOf}){
   const lateDays=valid&&complete?Math.max(0,days(task.fim,evidence.completedAt)):valid&&expired&&evidence.progress!==null?days(task.fim,asOf):null;
   const row={id:task.id,name:task.nome||task.id,start:task.inicio||'',finish:task.fim||'',valid,...evidence,state,lateDays,overdue:expired&&!complete&&evidence.progress!==null,unverified:expired&&evidence.progress===null,upcoming:valid&&!complete&&task.fim>=asOf&&task.fim<=next,baselineFinish:base?.fim||'',finishDrift:valid&&base?days(base.fim,task.fim):null};
   if(!valid||evidence.reason)issues.push({date:evidence.sourceDate,source:evidence.sourceId||task.id,message:`${row.name}: ${!valid?'Confira início, fim e identificação da atividade no Planejamento.':evidence.reason}`});
-  if(row.overdue)issues.push({date:task.fim,source:task.id,message:`${row.name}: prazo vigente vencido há ${lateDays} dia(s) corrido(s), com avanço confirmado de ${evidence.progress}%.`});
+  if(row.overdue)issues.push({date:task.fim,source:task.id,message:`${row.name}: prazo vigente vencido há ${contar(lateDays,'dia corrido','dias corridos')}, com avanço confirmado de ${evidence.progress}%.`});
   return row;
  });
  const valid=rows.filter(row=>row.valid),allDated=rows.length>0&&valid.length===rows.length;

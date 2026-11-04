@@ -9,6 +9,8 @@ import {EmptyState} from '../../../design-system/patterns/FeedbackState.jsx';
 import {workPerformanceReport,workPerformanceCsv} from '../../../domains/obras/performance-reports.js';
 import {shiftDay} from '../../../domains/financeiro/cash-forecast.js';
 import {forecastMoney as money,forecastDate as date} from './forecast-format.js';
+import {contar} from '../../../design-system/copy.js';
+import {avancoFisicoOficial} from '../../../domains/dre/calculations.js';
 
 const number=value=>value===null||value===undefined||!Number.isFinite(value)?'Não disponível':value.toLocaleString('pt-BR',{maximumFractionDigits:4});
 const percent=value=>value===null||value===undefined?'Não disponível':`${(value*100).toLocaleString('pt-BR',{maximumFractionDigits:2})}%`;
@@ -17,6 +19,7 @@ const status={concluido:'Cumprido no prazo',nao_concluido:'Não cumprido no praz
 export default function WorkPerformanceReports({data,workId,asOf,state={},onChange,onExport}){
  const start=state.start??shiftDay(asOf,-27);
  const report=useMemo(()=>workPerformanceReport(data,{obraId:workId,start,end:asOf}),[data,workId,start,asOf]);
+ const official=avancoFisicoOficial(data,workId);
  const shortcut=[7,28,90].find(days=>shiftDay(asOf,1-days)===start)||'custom';
  return <>
   <h3>Indicadores e relatórios da obra</h3>
@@ -27,12 +30,13 @@ export default function WorkPerformanceReports({data,workId,asOf,state={},onChan
   </FilterBar>
   {report.error?<Alert variant="warning"><AlertDescription>{report.error}</AlertDescription></Alert>:<>
    <dl className="financial-reports__totals" aria-label="Indicadores principais da obra">
-    <div><dt>Avanço ponderado do orçamento</dt><dd>{percent(report.physical.progress)}</dd></div>
+    <div><dt>Avanço pelo diário (peso do orçamento)</dt><dd>{percent(report.physical.progress)}</dd></div>
+    <div><dt>Avanço oficial da medição</dt><dd>{percent(official==null?null:official/100)}</dd></div>
     <div><dt>PPC das semanas verificadas</dt><dd>{percent(report.planning.value)}</dd></div>
     <div><dt>Cobertura dos diários nos dias com presença</dt><dd>{percent(report.coverage.ratio)}</dd></div>
    </dl>
    <p>{date(start)} a {date(asOf)}. Comparação da produtividade: {date(report.previousStart)} a {date(report.previousEnd)}, com a mesma duração.</p>
-   <p>Diários revisados em {report.coverage.reviewedDays} de {report.coverage.daysWithPresence} dias com presença confirmada. A cobertura não mede todos os dias previstos da obra. Horas vinculadas em amostras válidas: {number(report.coverage.linkedHours)} de {number(report.coverage.knownHours)} Hh completas de ponto ({percent(report.coverage.linkedRatio)}); {report.coverage.incompletePeopleDays} presença(s) de pessoa/dia com horários incompletos.</p>
+   <p>Diários revisados em {report.coverage.reviewedDays} de {report.coverage.daysWithPresence} dias com presença confirmada. A cobertura não mede todos os dias previstos da obra. Horas vinculadas em amostras válidas: {number(report.coverage.linkedHours)} de {number(report.coverage.knownHours)} Hh completas de ponto ({percent(report.coverage.linkedRatio)}); {contar(report.coverage.incompletePeopleDays,'presença','presenças')} de pessoa/dia com horários incompletos.</p>
    {(report.physical.progress===null||report.planning.partial||report.coverage.incompletePeopleDays>0)&&<Alert variant="warning"><AlertDescription>
     {report.physical.progress===null&&<p>Avanço total indisponível: falta orçamento válido ou medição de parte dos itens. Cobertura do valor orçado medido: {percent(report.physical.coverage)}. No escopo com medição, o avanço ponderado é {percent(report.physical.measuredProgress)}; esse subtotal não representa toda a obra.</p>}
     {report.planning.partial&&<p>Há semanas encerradas com fechamento pendente. O PPC do resumo usa apenas semanas completas e verificadas; consulte as pendências antes de comparar resultados.</p>}
@@ -48,7 +52,7 @@ export default function WorkPerformanceReports({data,workId,asOf,state={},onChan
     {report.productivity.map(row=><details key={row.id}><summary>Amostra · {row.name} · {row.role}</summary>
      <p>Produção por hora: {number(row.productivity)} {row.unit}/Hh. RUP do período anterior: {number(row.previousRup)} Hh/{row.unit}. Variação negativa indica redução de horas por unidade; não comprova causa ou ganho estatisticamente significativo.</p>
      <p>RUP diária: mínimo {number(row.stats.min)}, máximo {number(row.stats.max)}, média simples {number(row.stats.mean)}; desvio padrão amostral {number(row.stats.sampleDeviation)}; coeficiente de variação (CV) {percent(row.stats.variationCoefficient)}. Desvio e CV exigem ao menos dois dias com produção e média positiva. A RUP agregada é ponderada pela quantidade e pode diferir dessa média simples.</p>
-     <p>{row.zeroProductionDays} dia(s) com produção zero: suas horas entram na RUP agregada, mas esses dias ficam fora da dispersão de razões diárias. Funções presentes na mesma atividade compartilham a quantidade de referência; não some a produção entre funções.</p>
+     <p>{contar(row.zeroProductionDays,'dia','dias')} com produção zero: suas horas entram na RUP agregada, mas esses dias ficam fora da dispersão de razões diárias. Funções presentes na mesma atividade compartilham a quantidade de referência; não some a produção entre funções.</p>
      <ul>{row.days.map(day=><li key={`${day.reportId}:${day.date}`}>{date(day.date)} · diário {day.reportId}: {number(day.quantity)} {row.unit}, {number(day.hours)} Hh.<details><summary>Ponto de origem</summary><ul>{day.points.map(point=><li key={point.employeeId}>{data.employees?.find(person=>person.id===point.employeeId)?.name||point.employeeId} · {number(point.hours)} Hh apropriadas · registro {point.employeeId}@{day.date}</li>)}</ul><p>Os horários completos de origem acompanham o CSV exportado.</p></details></li>)}</ul>
     </details>)}
    </>:<EmptyState title="Produtividade ainda não disponível" description="O engenheiro deve registrar produção, vínculo orçamentário e equipe no diário; o ponto precisa de horários completos. Após revisão e conclusão, as amostras válidas aparecem aqui."/>}

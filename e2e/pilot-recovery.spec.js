@@ -194,7 +194,7 @@ test('Recuperação integral: segunda edição fica protegida enquanto a primeir
 
 test('Recuperação integral: troca de conta não expõe nem reenvia a edição anterior',async({page},info)=>{
  const app=await failCalendarSave(page,503);page.on('dialog',dialog=>dialog.accept());
- async function exit(){if(info.project.name==='mobile')await page.getByRole('button',{name:'Abrir mais módulos',exact:true}).click();await page.getByRole('button',{name:'Sair do sistema',exact:true}).click();await expect(page.locator('#login-email')).toBeVisible();}
+ async function exit(){if(page.viewportSize().width<768)await page.getByRole('button',{name:'Abrir mais módulos',exact:true}).click();await page.getByRole('button',{name:'Sair do sistema',exact:true}).click();await expect(page.locator('#login-email')).toBeVisible();}
  async function login(){await page.locator('#login-email').fill(app.account.email);await page.locator('#login-senha').fill('local');await page.getByRole('button',{name:'Acessar central MARCELL',exact:true}).click();}
  await exit();app.account.id='other-user';app.account.nome='Outra conta';await login();
  await expect(page.getByRole('heading',{name:'Visão gerencial',exact:true})).toBeVisible();await expect(page.getByTestId('save-recovery')).toHaveCount(0);expect(app.saves).toHaveLength(4);
@@ -206,7 +206,7 @@ test('Recuperação integral: falha ao proteger segunda edição bloqueia confir
  const app=await failCalendarSave(page,503);
  await page.evaluate(()=>{const put=IDBObjectStore.prototype.put;window.__blockRecoveryWrites=true;IDBObjectStore.prototype.put=function(...args){if(this.transaction.db.name==='marcell-workspace-edits-v1'&&window.__blockRecoveryWrites)throw new DOMException('Sem espaço no ensaio','QuotaExceededError');return put.apply(this,args);};});
  await page.getByRole('button',{name:'Novo evento',exact:true}).click();const editor=page.getByRole('dialog').last();await editor.getByLabel('Título *',{exact:true}).fill('Segunda edição sem espaço');await editor.getByRole('button',{name:'Salvar',exact:true}).click();
- const recovery=page.getByRole('dialog').last();await expect(recovery).toContainText('1 preenchimento(s)');await recovery.getByRole('button',{name:'Consultar versão atual',exact:true}).click();await expect(recovery.getByRole('button',{name:'Salvar alterações revisadas',exact:true})).toBeDisabled();expect(app.saves).toHaveLength(4);
- await recovery.getByRole('button',{name:'Proteger preenchimentos',exact:true}).click();await expect(recovery).toContainText('1 preenchimento(s)');expect(app.saves).toHaveLength(4);
+ const recovery=page.getByRole('dialog').last();await expect(recovery).toContainText('1 preenchimento ainda está');await recovery.getByRole('button',{name:'Consultar versão atual',exact:true}).click();await expect(recovery.getByRole('button',{name:'Salvar alterações revisadas',exact:true})).toBeDisabled();expect(app.saves).toHaveLength(4);
+ await recovery.getByRole('button',{name:'Proteger preenchimentos',exact:true}).click();await expect(recovery).toContainText('1 preenchimento ainda está');expect(app.saves).toHaveLength(4);
  await page.evaluate(()=>{window.__blockRecoveryWrites=false;});await recovery.getByRole('button',{name:'Proteger preenchimentos',exact:true}).click();await expect(recovery.getByRole('button',{name:'Proteger preenchimentos',exact:true})).toHaveCount(0);await expect(recovery.getByRole('button',{name:'Salvar alterações revisadas',exact:true})).toBeEnabled();expect(app.saves).toHaveLength(4);app.check();
 });

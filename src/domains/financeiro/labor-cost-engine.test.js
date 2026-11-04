@@ -30,6 +30,38 @@ describe("motor financeiro de mão de obra", () => {
     }
   });
 
+  // O detalhamento por função (relatório por obra) é só uma leitura do mesmo
+  // cálculo: folha e DRE continuam chamando sem includeRoles e não podem mudar.
+  it("detalhamento por função não altera o total e fecha com ele", () => {
+    const engine = createLaborCostEngine(dependencies());
+    const data = {
+      config:{},
+      employees:[
+        { id:"e1", obra:"o1", role:"Pedreiro", dailyRate:100, vtDaily:10 },
+        { id:"e2", obra:"o1", role:"Servente", dailyRate:80, vtDaily:8 },
+        { id:"e3", obra:"o1", dailyRate:60 },
+      ],
+      attendance:{
+        e1:{ "2026-07-01":{ status:"P", obraId:"o1" }, "2026-07-02":{ status:"P", obraId:"o1" } },
+        e2:{ "2026-07-01":{ status:"P", obraId:"o1" } },
+        e3:{ "2026-07-02":{ status:"P", obraId:"o1" } },
+      },
+      archivedLaborCosts:{ q1:{ byDate:{ "2026-07-01":{ o1:{ laborCost:50, benefitCost:5 } } } } },
+    };
+    const days = ["2026-07-01", "2026-07-02"];
+    const plain = engine.calculateWorkLaborCost(data, "o1", days);
+    const detailed = engine.calculateWorkLaborCost(data, "o1", days, { includeRoles:true });
+    expect(plain).toEqual({ laborCost:390, benefitCost:33, chargesCost:0, totalCost:423 });
+    expect(plain).not.toHaveProperty("roleCosts");
+    const { roleCosts, ...totals } = detailed;
+    expect(totals).toEqual(plain);
+    const sum = roleCosts.reduce((acc, row) => ({ laborCost:acc.laborCost + row.laborCost, benefitCost:acc.benefitCost + row.benefitCost }), { laborCost:0, benefitCost:0 });
+    expect(sum).toEqual({ laborCost:plain.laborCost, benefitCost:plain.benefitCost });
+    expect(roleCosts.map(row => row.role).sort()).toEqual(["Histórico sem função", "função não informada", "pedreiro", "servente"]);
+    // A chamada sem detalhamento depois da detalhada não recebe o cache dela.
+    expect(engine.calculateWorkLaborCost(data, "o1", days)).toEqual(plain);
+  });
+
   it("separa custo corrente por obra e soma arquivo histórico sem duplicar", () => {
     const engine = createLaborCostEngine(dependencies());
     const data = {

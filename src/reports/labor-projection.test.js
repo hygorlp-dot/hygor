@@ -138,7 +138,7 @@ describe("exportações da projeção de mão de obra", () => {
 
   it("exige escolha da logomarca antes de abrir a exportação PDF", () => {
     const spy = vi.spyOn(window, "open").mockReturnValue(null);
-    expect(() => exportLaborProjectionPdf(laborProjectionFixture())).toThrow("A escolha da logomarca ainda está carregando");
+    expect(() => exportLaborProjectionPdf(laborProjectionFixture())).toThrow("Aguarde a logomarca");
     spy.mockRestore();
   });
 });

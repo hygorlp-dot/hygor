@@ -86,11 +86,20 @@ export const BUNDLE_BUDGETS = Object.freeze({
   // limites individuais e de mídia permanecem preservados.
   // 31/10/2026: ExcelJS modular e dependências compartilhadas permitem
   // restabelecer o teto anterior à consolidação (build: 1.767.928 bytes).
-  // 02/11/2026: consolidação preserva Minha equipe, com permissões em abas,
-  // e Financeiro completo por obra, com memoriais e exportações. Custo medido
-  // do conjunto: cerca de 9,5 KiB gzip sobre 8bfa833d; ajuste de 12 KiB.
-  // Limites individuais, mídia e baseline de design permanecem inalterados.
-  totalGzipBytes: 1_845 * 1024,
+  // 03/11/2026 (PR #234): branch MARCELL Preciso na main (barras de comando,
+  // fichas rápidas, alocação de adiantamentos) + travas de alocação. CI mediu
+  // 1.790.031 bytes, 79 acima do teto. Acréscimo limitado a 1 KiB; limites por
+  // chunk e de mídia permanecem iguais.
+  // 03/11/2026: parte B do release consolidado (base contábil, Previsões,
+  // linha de base e SPI, relatório por obra, membros) volta ao teto que estava
+  // em produção em 02/11. Medido sobre o #234: +96 KiB gzip, quase tudo sob
+  // demanda (núcleo financeiro +45,6, Previsões +26,7, ajuda +11,9); a carga
+  // inicial cresce 3,3 KiB. Total medido 1.888.788 bytes.
+  // Avanço oficial ao lado do diário e rótulo da comparação contábil:
+  // 1.889.290 bytes, 10 acima. Acréscimo limitado a 1 KiB.
+  // Carimbo no Diário (PR #239): CI mediu 1.890.307 bytes, 3 acima do teto.
+  // Acréscimo limitado a 1 KiB, com folga para o ajuste do modal de item (#240).
+  totalGzipBytes: 1_847 * 1024,
   genericJavaScriptGzipBytes: 200 * 1024,
   staticMediaTotalBytes: 4 * 1024 * 1024,
   genericStaticMediaBytes: 1 * 1024 * 1024,

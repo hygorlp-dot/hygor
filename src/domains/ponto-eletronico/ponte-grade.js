@@ -7,6 +7,7 @@
 // e nada é gravado sem essa confirmação. Quando a Fase 03 do ponto fizer a
 // folha ler direto do REP-P, este módulo deixa de existir.
 import { proporApropriacoes } from "./apropriacao.js";
+import {AVISO_DUPLICIDADE} from './duplicidade-batidas.js';
 
 const FUSO = "America/Recife";
 const partes = iso => {
@@ -32,7 +33,7 @@ const intervalosDoDia = (apropriacoes, batidas) => {
     return { origem:"apropriacao", avisos:[], intervalos:apropriacoes.map(a => ({ inicio:a.inicio, fim:a.fim, obraId:a.obraApropriadaId })) };
   }
   const { intervalos, avisos } = proporApropriacoes(batidas.map(b => ({
-    eventId:b.eventId, marcadoEm:b.marcadoEm, obraCapturaId:b.obraCapturaId || b.obraId,
+    ...b, obraCapturaId:b.obraCapturaId || b.obraId,
   })));
   return { origem:"batidas", avisos, intervalos:intervalos.map(i => ({ inicio:i.inicio, fim:i.fim, obraId:i.obraApropriadaId })) };
 };
@@ -74,7 +75,7 @@ export function proporGradeDoREP({ marcacoes = [], apropriacoes = [], jornadaHor
       workedMinutes:trabalhados,
       ot:Math.max(0, Math.floor((trabalhados - jornadaMin) / 15) * 15) / 60,
       avisos:[
-        ...avisos.map(a => a.tipo === "sem_saida" ? `Batida sem saída às ${partes(a.marcadoEm).hora}` : a.tipo),
+        ...avisos.map(a => a.tipo === 'possivel_duplicidade'?AVISO_DUPLICIDADE:a.tipo === "sem_saida" ? `Batida sem saída às ${partes(a.marcadoEm).hora}` : a.tipo),
         ...(obras.length > 1 ? [`Trabalhou em ${obras.length} obras; a grade fica com a de mais horas`] : []),
       ],
     };

@@ -1,3 +1,4 @@
+import {contar} from '../../design-system/copy.js';
 import {WorkspaceCommandBar} from '../../design-system/patterns/WorkspaceCommandBar.jsx';
 import {Alert,AlertDescription} from '../../components/ui/alert.jsx';
 import {UNALLOCATED_ORDER_PAYMENT} from '../../domains/financeiro/workspace.js';
@@ -38,11 +39,11 @@ export default function FinanceToday({queues,today,work,scope=work,scopeControl,
     <div className="finance-today__mobile"><Select label="Fila de vencimentos" value={queue.id} onChange={event=>setActive(event.target.value)}
       options={visible.map(q=>({value:q.id,label:`${q.label} (${q.items.length})`}))}/></div>
     </WorkspaceCommandBar>
-    {overdue?.items.length>0&&!['all','overdue'].includes(queue.id)&&<div className="finance-today__attention" role="status"><p><strong>{overdue.items.length} título(s) vencido(s) · {money(overdue.amountCents)}</strong> para conferir neste recorte.</p><Button variant="outline" onClick={()=>setActive('overdue')}>Conferir vencidos</Button></div>}
+    {overdue?.items.length>0&&!['all','overdue'].includes(queue.id)&&<div className="finance-today__attention" role="status"><p><strong>{contar(overdue.items.length,"título vencido","títulos vencidos")} · {money(overdue.amountCents)}</strong> para conferir neste recorte.</p><Button variant="outline" onClick={()=>setActive('overdue')}>Conferir vencidos</Button></div>}
     <div className="finance-today__filters" role="group" aria-label="Filtrar fila de hoje">{visible.map(q=><Button key={q.id} variant={active===q.id?'default':'outline'} aria-pressed={active===q.id} onClick={()=>setActive(q.id)}>
       <span>{q.label} · {q.items.length}</span><strong>{money(q.amountCents)}</strong>
     </Button>)}</div>
-    <div className="finance-today__results"><h2 id="finance-today-title">{queue.label}</h2><strong className="finance-today__total">{money(queue.amountCents)}</strong><p>{queue.items.length} título(s) · saldo em aberto, sem representar saldo de caixa. Posição em {today.split('-').reverse().join('/')} · {work}.</p></div>
+    <div className="finance-today__results"><h2 id="finance-today-title">{queue.label}</h2><strong className="finance-today__total">{money(queue.amountCents)}</strong><p>{contar(queue.items.length,"título","títulos")} · saldo em aberto, sem representar saldo de caixa. Posição em {today.split('-').reverse().join('/')} · {work}.</p></div>
     {prefs.layout==='kanban'?<>
       <p className="mrc-queue-note">Quadro por vencimento. Use a ação do registro para continuar.</p>
       <WorkQueueBoard label="Compromissos por vencimento" groups={ordered.filter(q=>queue.id==='all'||q.id===queue.id).map(q=>({...q,summary:money(q.amountCents)}))} itemKey={item=>String(item.id)} renderItem={renderItem}/>

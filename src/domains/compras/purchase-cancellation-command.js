@@ -2,6 +2,7 @@ import { active } from "../financeiro/ledger.js";
 import { calcSaldos, custoMedioPonderado, saldoDe } from "../estoque/calculations.js";
 import { cancelWorkCashMovementFromPayment } from "../financeiro/work-cash-commands.js";
 import { isDateInClosedPeriod } from "../financeiro/workflows.js";
+import { orderPaymentLinks } from "../financeiro/order-payment-links.js";
 import { totalPagoPedido } from "./calculations.js";
 
 export const PURCHASE_CANCELLATION_COMMAND=Object.freeze({
@@ -55,6 +56,11 @@ export const applyPurchaseCancellationCommand=(
   if(!reason)return fail("Informe o motivo do cancelamento da compra.");
   if(isDateInClosedPeriod(data,order.data)){
     return fail("O período financeiro desta compra está fechado.");
+  }
+  // Estornar o pagamento do pedido deixaria a alocação quitando a nota sem
+  // pagamento por trás; a alocação precisa ser desfeita primeiro.
+  if((order.pagamentos||[]).filter(active).some(payment=>orderPaymentLinks(data,order,payment).some(link=>link.modern))){
+    return fail("Desfaça as alocações dos adiantamentos deste pedido nas notas antes de cancelar a compra.");
   }
 
   const invoicePaymentIds=new Set((data.notasFiscais||[])

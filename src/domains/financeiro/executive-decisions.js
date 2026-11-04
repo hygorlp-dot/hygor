@@ -1,9 +1,10 @@
+import {contar} from '../../design-system/copy.js';
 // Presentation of existing findings only: never changes financial calculations.
 export function executiveDecisions(report){
  const items=[];
  const add=(row,area,message,action,{date='',source=''}={})=>items.push({obraId:row.work.id,work:row.work.name,area,message,action,date,source});
  for(const row of report.rows){
-  const cashMessages=new Set([`${row.forecast.overdue.length} título(s) vencido(s) separado(s) do caixa futuro.`,`${row.forecast.undated.length} título(s) sem vencimento válido fora do caixa previsto.`]);
+  const cashMessages=new Set([`${contar(row.forecast.overdue.length,'título vencido separado','títulos vencidos separados')} do caixa futuro.`,`${contar(row.forecast.undated.length,'título','títulos')} sem vencimento válido fora do caixa previsto.`]);
   for(const message of row.warnings){
    if(cashMessages.has(message))continue;
    const labor=message==='Previsão de mão de obra com pendências de origem ou cobertura parcial.';

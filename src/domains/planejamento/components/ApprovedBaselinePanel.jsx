@@ -11,6 +11,7 @@ import {useHelpTopic} from '../../../features/help/HelpContext.jsx';
 import {useWorkspaceState} from '../../../features/workflow/workspace-session.jsx';
 import {BASELINE_COMMAND,baselineRecords,approvedVersions,proposeBaselineSnapshot,scheduleSpi} from '../approved-baseline.js';
 import {uid,today} from '../../../legacy/format.js';
+import {contar} from '../../../design-system/copy.js';
 
 const money=value=>value==null?'Não disponível':(value/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const date=value=>!value?'Não informada':value.includes('T')?new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo'}).format(new Date(value)):value.slice(0,10).split('-').reverse().join('/');
@@ -43,7 +44,7 @@ export default function ApprovedBaselinePanel({data,obraId,currentUser,dispatchC
    {!proposal.ok&&<Alert variant="warning"><AlertDescription>{proposal.reason} Ajuste a origem antes de preparar a proposta.</AlertDescription></Alert>}
    {canPropose&&<>
     <Textarea label="Justificativa da proposta ou revisão" value={state.reason} onChange={event=>update({reason:event.target.value})} description="Explique a aprovação inicial ou a mudança de datas, calendário e escopo. Mínimo de 10 caracteres."/>
-    <p>Proposta atual: {proposal.ok?`${proposal.snapshot.activities.length} atividades, ${proposal.snapshot.items.length} item(ns) com valor; orçamento ${money(proposal.snapshot.budgetCents)}.`:'Base ainda não calculável.'} O valor planejado será distribuído linearmente pelos dias trabalhados do calendário congelado; esta é uma premissa de planejamento que deve ser conferida antes de aprovar.</p>
+    <p>Proposta atual: {proposal.ok?`${proposal.snapshot.activities.length} atividades, ${contar(proposal.snapshot.items.length,'item','itens')} com valor; orçamento ${money(proposal.snapshot.budgetCents)}.`:'Base ainda não calculável.'} O valor planejado será distribuído linearmente pelos dias trabalhados do calendário congelado; esta é uma premissa de planejamento que deve ser conferida antes de aprovar.</p>
     <Button disabled={busy||!proposal.ok||state.reason.trim().length<10} onClick={()=>command(BASELINE_COMMAND.SCHEDULE_BASELINE_PROPOSED)}>Preparar proposta de linha de base</Button>
    </>}
    {records.length?<>

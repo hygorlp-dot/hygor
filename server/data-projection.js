@@ -123,7 +123,10 @@ export const projectDataForUser = (payload = {}, user = {}) => {
     const value = payload[key];
     if (value === undefined) continue;
     if (key === "obras") { out.obras = (value || []).filter(item => hasObra({ obraId:item.id }, allowedObras)).map(sanitizeObra); continue; }
-    if(key==='rdos'&&user.role==='financeiro'){out.rdos=filterByObra(value,allowedObras).map(({id,obraId,data,status,version,productionVersion,revisaoEngenheiro,servicos})=>({id,obraId,data,status,version,productionVersion,revisaoEngenheiro,servicos}));continue;}
+    if(key==='rdos'&&user.role==='financeiro'){out.rdos=filterByObra(value,allowedObras).map(({id,obraId,data,status,version,productionVersion,revisaoEngenheiro,servicos})=>({id,obraId,data,status,version,productionVersion,
+      // Texto livre de obra fica com engenharia e admin (decisão de 03/11/2026).
+      revisaoEngenheiro:revisaoEngenheiro&&(({observacao:_texto,...resto})=>resto)(revisaoEngenheiro),
+      servicos:(servicos||[]).map(({obs:_texto,...resto})=>resto)}));continue;}
     if (key === "employees") {
       out.employees=(value||[])
         .filter(item=>employeeHasScopedAttendance(payload,item,allowedObras))

@@ -6,10 +6,10 @@ let arcdLoading;
 export function loadReportIdentity(id) {
   if(id!=='arcd')return Promise.resolve(MARCELL_REPORT_IDENTITY);
   if(!arcdLoading)arcdLoading=fetch(arcdAsset).then(async response=>{
-    if(!response.ok)throw new Error('Não foi possível carregar a logomarca ARCD. Tente novamente.');
+    if(!response.ok)throw new Error('Falha ao carregar ARCD. Tente novamente.');
     const blob=await response.blob();
-    const logo=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error('Não foi possível preparar a logomarca ARCD.'));reader.readAsDataURL(blob);});
-    if(!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(logo))throw new Error('A logomarca ARCD não pôde ser lida. Tente novamente.');
+    const logo=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error('Falha ao ler ARCD.'));reader.readAsDataURL(blob);});
+    if(!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(logo))throw new Error('Imagem ARCD inválida. Tente novamente.');
     return {id:'arcd',name:'ARCD',logo};
   }).catch(error=>{arcdLoading=undefined;throw error;});
   return arcdLoading;

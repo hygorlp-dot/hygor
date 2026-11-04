@@ -21,7 +21,7 @@ it('não deduz almoço padrão de turno curto nem de intervalos já tratados pel
  expect(r.linhas[0].dias[0]).toMatchObject({trabalhadosMinutos:480,intervaloPadraoMinutos:0,origem:'apropriacao'});
 });
 it('preserva pausa registrada mesmo abaixo de um minuto, sem substituir por almoço padrão',()=>{
- const source=punches(['07:00','12:00','12:00','17:00']);source[2].marcadoEm=`${day}T12:00:20-03:00`;
+ const source=punches(['07:00','12:00','12:00','17:00']).map((b,i)=>({...b,tipoEvento:['entrada','intervalo','retorno','saida'][i]}));source[2].marcadoEm=`${day}T12:00:20-03:00`;
  expect(report([],{marcacoes:source}).linhas[0].dias[0]).toMatchObject({temIntervaloRegistrado:true,intervaloPadraoMinutos:0});
 });
 it('18h45 entre duas entradas e saídas viram 16h45 líquidos, respeitando quinta 9h e sexta 8h da escala vigente',()=>{

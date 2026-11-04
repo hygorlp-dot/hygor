@@ -4,6 +4,7 @@
 // registros nunca criam débito; dias incompletos não entram nos totais.
 import { formatMinutes } from "../ponto/timekeeping.js";
 import { proporApropriacoes, validarApropriacao } from "./apropriacao.js";
+import {AVISO_DUPLICIDADE} from './duplicidade-batidas.js';
 import { dataLocal, FUSO_OBRA } from "./painel.js";
 import {scheduleOnDate} from '../rh/work-schedule.js';
 import {avaliarToleranciaBancoHoras} from './tolerancia-banco-horas.js';
@@ -235,7 +236,8 @@ export function construirBancoHoras({ employees = [], config = {}, marcacoes = [
         }
         const proposta = proporApropriacoes(batidas);
         intervalos = proposta.intervalos.map(i => intervalo(i.inicio, i.fim, i.obraApropriadaId, { eventos: i.eventos, mudouDeObra: i.mudouDeObra }));
-        if (proposta.avisos.length) incluirAviso(pendencias, aviso("sem_saida", "Há batida sem saída; o dia inteiro fica fora do saldo até o tratamento."));
+        if (proposta.avisos.some(a=>a.tipo==='possivel_duplicidade'))incluirAviso(pendencias,aviso('batidas_repetidas',AVISO_DUPLICIDADE));
+        if (proposta.avisos.some(a=>a.tipo==='sem_saida')) incluirAviso(pendencias, aviso("sem_saida", "Há batida sem saída; o dia inteiro fica fora do saldo até o tratamento."));
         if (intervalos.some(i => i.mudouDeObra)) alertas.push(aviso("mudanca_obra", "A sequência entre obras foi interpretada pela chegada à próxima obra; confira os intervalos."));
       }
       if (temRegistro) problemas.filter(p => origem === "batidas" || p.codigo === "data_invalida_apropriacao")

@@ -31,6 +31,7 @@ import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { conferenceCompletionCheck, conferenceProgress, conferenceQualityScore, filterConferenceFindings } from "../conference-workflow";
 import { orcamentoDaObra } from "../../planejamento/legacy-engine";
 import { uploadWithRetry } from "../../documentos/upload-retry";
+import {useSyncedWorkObra} from '../../../features/workflow/work-context.js';
 
 // ==============================================================
 //  CONFERENCIA TECNICA
@@ -219,6 +220,7 @@ export default function Conferencia({ data, showToast, currentUser, obraIdFixo="
   const { cols, isDesktop } = useBreakpoint();
   const obras=useMemo(()=>(data.obras||[]).filter(o=>o.status!=="done"),[data.obras]);
   const [obraFiltro,setObraFiltro]=useState(()=>obraIdFixo||(obras.some(o=>o.id===obraContextoSalvo())?obraContextoSalvo():(obras[0]?.id||"")));
+  useSyncedWorkObra(obraFiltro,setObraFiltro,{allowedIds:obras.map(o=>o.id),fixed:obraIdFixo});
   const [statusFiltro,setStatusFiltro]=useState("abertas");
   const [selecionadaId,setSelecionadaId]=useState("");
   const [pendenciaForm,setPendenciaForm]=useState(null);

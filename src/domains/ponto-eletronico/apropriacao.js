@@ -1,4 +1,5 @@
 // APROPRIAÇÃO da jornada por obra - tratamento do ponto, FORA da ARP. Puro.
+import {detectarDuplicidadesBatidas} from './duplicidade-batidas.js';
 //
 // A batida guarda a obra de CAPTURA (onde o aparelho estava) e nunca muda.
 // A apropriação diz a qual obra cada INTERVALO de trabalho é atribuído; um
@@ -20,6 +21,8 @@ export function proporApropriacoes(marcacoes) {
     .sort((a, b) => String(a.marcadoEm).localeCompare(String(b.marcadoEm)));
   const intervalos = [];
   const avisos = [];
+  const duplicidades=detectarDuplicidadesBatidas(ordenadas);
+  if(duplicidades.length)return {intervalos,avisos:duplicidades.map(d=>({tipo:'possivel_duplicidade',eventId:d.repetida.eventId||d.repetida.id,marcadoEm:d.repetida.marcadoEm}))};
   let aberta = null;
   for (const m of ordenadas) {
     if (!aberta) { aberta = m; continue; }

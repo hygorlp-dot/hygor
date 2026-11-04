@@ -1,6 +1,7 @@
 import {LoadingState} from '../../../design-system/patterns/LoadingState.jsx';
 import {Button as StandardButton} from '../../../components/ui/button.jsx';
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSyncedWorkObra } from "../../../features/workflow/work-context.js";
 import { Building2, RefreshCw, Wifi, WifiOff, UserRound, Clock, AlertCircle } from "lucide-react";
 import { useEquipeObras } from "../useEquipeObras";
 import { Card } from "../../../components/ui/card";
@@ -35,6 +36,7 @@ export default function EquipeObrasView({ onTab, allowedTabs = [] }) {
   const { snapshot, erro, carregando, online, carregar } = useEquipeObras();
   const [busca, setBusca] = useState("");
   const [obraId, setObraId] = useState("");
+  useSyncedWorkObra(obraId, setObraId, { allowedIds: (snapshot?.obras || []).map(o => o.id), allValue: "" });
   const [situacao, setSituacao] = useState("");
   const [selecionado, setSelecionado] = useState(null);
   const filtrado = useMemo(() => filtrarEquipeObras(snapshot?.pessoas || [], snapshot?.obras || [], { busca, obraId, situacao }), [snapshot, busca, obraId, situacao]);

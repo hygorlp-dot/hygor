@@ -12,6 +12,16 @@ function fixture(){return {
  employees:[],attendance:{},terceirizados:[],medicoesTerc:[],payments:[],equipamentos:[],locacoesEquip:[]};}
 const run=(data,options={})=>executiveWorkReport(data,{workIds:['a'],start:'2026-10-01',asOf:'2026-10-31',generatedAt:'2026-11-02T15:00:00Z',...options});
 describe('Dossiê executivo para a diretoria',()=>{
+ // Decisão de 03/11: o avanço oficial (o da DRE e do painel) aparece ao lado do
+ // avanço pelo diário, sem substituir o diário no valor agregado e no CPI.
+ it('mostra o avanço oficial da medição ao lado do avanço pelo diário, sem mudar o CPI',()=>{
+  const base=run(fixture()).rows[0];expect(base.officialPhysical).toBeNull();
+  const data=fixture();data.medicoesObra=[{id:'mt',obraId:'a',status:'aprovada',avancoFisico:25}];
+  const row=run(data).rows[0];
+  expect(row.officialPhysical).toBe(0.25);expect(row.physical).toBe(base.physical);expect(row.cpi).toBe(base.cpi);expect(row.earned).toBe(base.earned);
+  const sheets=executiveReportSheets(run(data));expect(sheets.Carteira[0]).toContain('Avanço oficial da medição');expect(sheets.Carteira[1]).toContain(0.25);
+  expect(executiveReportPrintHtml(run(data))).toContain('Avanço oficial da medição');
+ });
  it('concilia custo, categoria, etapa e anexo sem somar pedido e pagamentos novamente',()=>{const report=run(fixture()),row=report.rows[0];expect(row.incurred).toBe(40000);expect(row.entries.reduce((sum,entry)=>sum+entry.amountCents,0)).toBe(40000);expect(row.categories.reduce((sum,item)=>sum+item.amountCents,0)).toBe(40000);expect(row.cost.report.totals.incurred).toBe(40000);expect(row.finalCost).toBe(100000);expect(row.cost.report.totals.remaining).toBe(60000);expect(row.reconciled).toBe(true);expect(row.periodPaid).toBe(20000);expect(row.periodClientPaid).toBe(5000);expect(row.payable[0].amountCents).toBe(15000);expect(row.receivable[0].amountCents).toBe(70000);expect(row.revenue).toBe(100000);expect(row.result).toBe(60000);expect(row.margin).toBe(.6);});
  it('preserva competências inteiras e usa datas exatas para caixa, sem misturar os cortes',()=>{const report=run(fixture(),{start:'2026-10-10',asOf:'2026-10-15'}),row=report.rows[0];expect(row.periodCost).toBe(40000);expect(row.periodPaid).toBe(0);expect(row.periodClientPaid).toBe(0);expect(row.paid).toBe(20000);expect(row.cpi).toBeNull();expect(row.cpiReason).toContain('cortes diferentes');expect(report.trend[0].cost).toBe(row.periodCost);expect(report.trend[0].paid).toBe(row.periodPaid);});
  it('CPI exige mês encerrado e mesmo orçamento, custo e avanço integral',()=>{const report=run(fixture());expect(report.rows[0].physical).toBe(.4);expect(report.rows[0].earned).toBe(40000);expect(report.rows[0].cpi).toBe(1);const data=fixture();data.orcamentos[0].itens.push({id:'unmeasured',tipo:'servico',quantidade:10,precoUnit:100,etapaId:'s'});expect(run(data).rows[0].cpi).toBeNull();expect(run(data).rows[0].physical).toBeNull();});

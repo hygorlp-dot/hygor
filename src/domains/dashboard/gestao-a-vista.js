@@ -6,6 +6,7 @@
 // (mesma regra do DRE), com o cronograma só como alternativa identificada;
 // etapas = cronograma do Planejamento; entrega = fim do contrato.
 import { calculateBudget, getActiveBudgetBaseline, getPlanningBudget } from "../orcamentos/calculations.js";
+import { contar } from "../../design-system/copy.js";
 import { montarTarefas, progressoPlano } from "../planejamento/legacy-engine.js";
 import { avancoFisicoOficial } from "../dre/calculations.js";
 import { remunerationModeOnDate } from "../rh/remuneration-mode.js";
@@ -27,10 +28,10 @@ const statusDe = registro => (typeof registro === "string" ? registro : registro
 
 export function situacaoDaObra({ desvio, diasEntrega, pendenciasPonto }, regra = SITUACAO_REGRA) {
   if (desvio !== null && desvio > regra.criticoDesvio) return { situacao: "critico", motivo: `Custo ${fmtPontos(desvio)} à frente do avanço` };
-  if (diasEntrega !== null && diasEntrega < 0) return { situacao: "critico", motivo: `Prazo vencido há ${-diasEntrega} dia(s)` };
+  if (diasEntrega !== null && diasEntrega < 0) return { situacao: "critico", motivo: `Prazo vencido há ${contar(-diasEntrega, "dia", "dias")}` };
   if (desvio !== null && desvio >= regra.atencaoDesvio) return { situacao: "atencao", motivo: `Custo ${fmtPontos(desvio)} à frente do avanço` };
-  if (diasEntrega !== null && diasEntrega < regra.atencaoDiasEntrega) return { situacao: "atencao", motivo: `Entrega em ${diasEntrega} dia(s)` };
-  if (pendenciasPonto > 0) return { situacao: "atencao", motivo: `${pendenciasPonto} pessoa(s) sem ponto no último dia útil` };
+  if (diasEntrega !== null && diasEntrega < regra.atencaoDiasEntrega) return { situacao: "atencao", motivo: `Entrega em ${contar(diasEntrega, "dia", "dias")}` };
+  if (pendenciasPonto > 0) return { situacao: "atencao", motivo: `${contar(pendenciasPonto, "pessoa", "pessoas")} sem ponto no último dia útil` };
   return { situacao: "ok", motivo: "Sem pendências" };
 }
 const fmtPontos = valor => `${Math.round(valor).toLocaleString("pt-BR")} ponto${Math.round(valor) === 1 ? "" : "s"}`;

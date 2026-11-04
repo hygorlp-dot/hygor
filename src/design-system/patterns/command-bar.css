@@ -1,6 +1,6 @@
 /* Composição compartilhada; valores, cores e controles vêm da base da ERP. */
 [data-theme] .arcd-main .workspace-heading{display:flex;align-items:center;flex-wrap:wrap;gap:var(--arcd-space-2) var(--arcd-space-4);min-width:0;border-bottom:1px solid var(--arcd-border-default);}
-[data-theme] .arcd-main .workspace-heading h1{font-size:var(--arcd-type-section-title) !important;font-weight:var(--arcd-heading-weight);line-height:1.35;margin:0;flex:0 0 auto;}
+[data-theme] .arcd-main .workspace-heading h1{font-size:var(--arcd-type-page-title) !important;font-weight:var(--arcd-heading-weight);line-height:1.35;margin:0;flex:0 0 auto;}
 [data-theme] .workspace-heading>.workspace-navigation{flex:1;min-width:0;}
 [data-theme] .workspace-heading .workspace-navigation__desktop{border:0;align-items:center;}
 [data-theme] .workspace-heading .workspace-navigation__desktop>nav{padding:var(--arcd-space-1) 0;}

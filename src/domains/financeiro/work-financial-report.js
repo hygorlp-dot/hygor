@@ -2,6 +2,7 @@ import {selectDRE,selectCashFlow,selectAccountsPayable,selectAccountsReceivable}
 import {financialEntry,positionEntries} from './workspace.js';
 import {reportCategoryLabel} from './report-center.js';
 import {safeReportText} from './report-export.js';
+import {contar} from '../../design-system/copy.js';
 
 const monthValid=value=>/^\d{4}-(0[1-9]|1[0-2])$/.test(value||'');
 export const workReportEnd=month=>monthValid(month)?new Date(Date.UTC(Number(month.slice(0,4)),Number(month.slice(5)),0)).toISOString().slice(0,10):'';
@@ -51,7 +52,7 @@ export function buildWorkFinancialReport(data,calcPeriod,{obraId,start,end},gene
 export function workFinancialSheets(report){
  const s=report.summary;
  const details=items=>[['Identificador','Competência','Data','Descrição','Categoria','Etapa','Contraparte','Documento','Origem','Valor (R$)'],...items.map(e=>[e.id,e.competence||'',e.date||'',e.description,label(e.category),e.stage||'',e.counterparty||'',e.documentNumber||'',e.sourceType,e.amountCents/100])];
- return {Recorte:[['Obra',report.work.name],['Competência inicial',report.start],['Competência final',report.end],['Posição dos títulos',report.lastDate],['Gerado em',report.generatedAt],['Base',report.basis],['Mão de obra','Equipe própria e encargos reconhecidos, benefícios e rescisões; terceiros separados. Encargos já incorporados não são somados novamente.'],['Qualidade',`${report.issues.length} alerta(s) do razão; ${report.unassigned} custo(s) sem etapa. Componentes ausentes não foram estimados.`]],
+ return {Recorte:[['Obra',report.work.name],['Competência inicial',report.start],['Competência final',report.end],['Posição dos títulos',report.lastDate],['Gerado em',report.generatedAt],['Base',report.basis],['Mão de obra','Equipe própria e encargos reconhecidos, benefícios e rescisões; terceiros separados. Encargos já incorporados não são somados novamente.'],['Qualidade',`${contar(report.issues.length,'alerta','alertas')} do razão; ${contar(report.unassigned,'custo','custos')} sem etapa. Componentes ausentes não foram estimados.`]],
   Resumo:[['Indicador','Valor (R$)'],...Object.entries({Custos:s.cost,'Mão de obra própria e componentes':s.labor,Terceiros:s.thirdParty,Receita:s.revenue,'Resultado gerencial':s.result,Entradas:s.cashIn,Saídas:s.cashOut,'Pagos diretamente pelo cliente':s.clientPaid,'A pagar na posição':s.payable,'A receber na posição':s.receivable}).map(([k,v])=>[k,v/100])],
   Categorias:[['Categoria','Custo (R$)'],...report.categories.map(g=>[g.label,g.amountCents/100])],
   Mensal:[['Competência','Custo (R$)','Mão de obra própria (R$)','Terceiros (R$)','Receita (R$)'],...report.monthly.map(m=>[m.id,m.amountCents/100,m.labor/100,m.thirdParty/100,m.revenue/100])],

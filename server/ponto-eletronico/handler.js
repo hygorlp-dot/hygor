@@ -409,11 +409,12 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, l
       const employeeId = texto(body.employeeId), dia = texto(body.data);
       if (!employeeId || !/^\d{4}-\d{2}-\d{2}$/.test(dia)) return erro(400, "Informe o funcionário e o dia (AAAA-MM-DD).");
       const { de, ate } = intervaloDoDia(dia);
-      const { data: eventos, error } = await db.from("ponto_eventos").select("event_id,marcado_em,obra_id,tipo_registro,dispositivo_id")
+      const { data: eventos, error } = await db.from("ponto_eventos").select("event_id,employee_id,marcado_em,obra_id,tipo_registro,dispositivo_id,payload")
         .eq("company_id", company).eq("employee_id", employeeId).eq("tipo_registro", "ponto").gte("marcado_em", de).lte("marcado_em", ate)
         .order("marcado_em", { ascending: true });
       if (error) throw error;
-      const marcacoes = (eventos || []).map(e => ({ eventId: e.event_id, marcadoEm: e.marcado_em, obraCapturaId: e.obra_id, dispositivoId: e.dispositivo_id }));
+      const marcacoes = (eventos || []).map(e => ({ eventId: e.event_id, employeeId:e.employee_id,marcadoEm: e.marcado_em, obraCapturaId: e.obra_id, dispositivoId: e.dispositivo_id,
+        tipoEvento:e.payload?.versaoJornada===1?e.payload.tipoEvento:null }));
       return ok({ employeeId, data: dia, marcacoes, ...proporApropriacoes(marcacoes) });
     },
 

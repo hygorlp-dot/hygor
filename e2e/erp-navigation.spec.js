@@ -68,15 +68,15 @@ test("identidade MARCELL carrega as fontes locais e a marca oficial no acesso",a
   await expect(signature).toHaveAttribute("src","/brand/marcell/full-ouro.svg");
   await expect(page.getByRole("button",{name:"Acessar central MARCELL"})).toBeVisible();
   await page.evaluate(()=>document.fonts.ready);
-  expect(await page.evaluate(()=>[...document.fonts].filter(font=>font.family.includes("Inter")&&font.status==="loaded").length)).toBeGreaterThan(0);
-  await expect(page.locator("#login-email")).toHaveCSS("font-family",/Inter/);
+  expect(await page.evaluate(()=>[...document.fonts].filter(font=>font.family.includes("IBM Plex Sans")&&font.status==="loaded").length)).toBeGreaterThan(0);
+  await expect(page.locator("#login-email")).toHaveCSS("font-family",/IBM Plex Sans/);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)).toBe(false);
 });
 
 test("tema MARCELL migra a aparência e mantém leitura com ampliação",async({page})=>{
   await page.addInitScript(()=>localStorage.setItem("arcd-theme","architectural"));
   const app=await enter(page,"admin");
-  await expect(page.locator("html")).toHaveAttribute("data-theme","saas");
+  await expect(page.locator("html")).toHaveAttribute("data-theme","marcell");
   await page.keyboard.press("Control+k");
   const search=page.getByPlaceholder("Buscar obra, lead, pedido, funcionário, tela...");
   await search.fill("Gestão financeira");
@@ -97,7 +97,7 @@ test("tema MARCELL migra a aparência e mantém leitura com ampliação",async({
   await page.keyboard.press("Control+k");await search.fill("Folha");
   await search.locator("xpath=../..").getByRole("button").filter({hasText:"Folha"}).first().click();
   await expect(page.locator(".payroll-summary-strip__net strong")).toHaveCSS("color","rgb(255, 255, 255)");
-  await expect(page.locator(".payroll-summary-strip__net small")).toHaveCSS("color","rgb(220, 225, 231)");
+  await expect(page.locator(".payroll-summary-strip__net small")).toHaveCSS("color","rgb(217, 221, 226)"); // --arcd-border-default do Preciso
   expect(app.errors).toEqual([]);expect(app.financialUnchanged()).toBe(true);
 });
 
@@ -118,7 +118,7 @@ test("tipografia mantém hierarquia em páginas, campos e modais",async({page})=
   const supplierFields=page.locator("main input:visible");
   expect(await supplierFields.count()).toBeGreaterThan(0);
   for(const field of await supplierFields.all()){
-    await expect(field).toHaveCSS("font-family",/Inter/);
+    await expect(field).toHaveCSS("font-family",/IBM Plex Sans/);
     await expect(field).toHaveCSS("font-size",touch?"16px":"14px");
   }
   await open("Obras");
@@ -138,13 +138,13 @@ test("tipografia mantém hierarquia em páginas, campos e modais",async({page})=
   expect(noticeBounds.y+noticeBounds.height).toBeLessThanOrEqual(firstFieldBounds.y);
 
   for(const field of await dialog.locator('input:not([type="checkbox"]):not([type="radio"]):visible,select:visible,textarea:visible').all()){
-    await expect(field).toHaveCSS("font-family",/Inter/);
+    await expect(field).toHaveCSS("font-family",/IBM Plex Sans/);
     await expect(field).toHaveCSS("font-size",touch?"16px":"14px");
   }
   await page.keyboard.press("Escape");
   await open("Folha");
   await expect(page.locator(".payroll-summary-strip__net small")).toHaveCSS("font-size","13px");
-  await expect(page.locator(".payroll-summary-strip__net strong")).toHaveCSS("font-family",/Inter/);
+  await expect(page.locator(".payroll-summary-strip__net strong")).toHaveCSS("font-family",/IBM Plex Sans/);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)).toBe(false);
   await open("Ajustes");
   await page.evaluate(()=>document.documentElement.style.fontSize="200%");

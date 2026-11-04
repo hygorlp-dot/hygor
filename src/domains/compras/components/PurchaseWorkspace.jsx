@@ -1,3 +1,4 @@
+import {contar} from '../../../design-system/copy.js';
 import {WorkspaceCommandBar} from '../../../design-system/patterns/WorkspaceCommandBar.jsx';
 import {isFinancialDate} from '../../financeiro/dates.js';
 import {RecordPanel} from '../../../features/workflow/RecordPanel.jsx';
@@ -86,7 +87,7 @@ export function PurchaseWorkspace({ model, area, filters, onFiltersChange, onOpe
     <div className="purchase-queue-panel">
 
       <div className="purchase-order-count-row">
-        <p className="purchase-result-count" role="status">{rows.length} registro(s){filtered ? ` de ${source.length}` : ""}{moneyHint(resumoDaFila(rows).valor)} · {groups.length && layout==='table' ? `${groups.length} grupo(s), mais atrasados primeiro` : "prioridades por prazo"}</p>
+        <p className="purchase-result-count" role="status">{contar(rows.length,"registro","registros")}{filtered ? ` de ${source.length}` : ""}{moneyHint(resumoDaFila(rows).valor)} · {groups.length && layout==='table' ? `${groups.length} grupo(s), mais atrasados primeiro` : "prioridades por prazo"}</p>
         {filtered && <Button variant="ghost" size="sm" onClick={clear}>Limpar filtros</Button>}
       </div>
       {rows.length ? layout==='kanban'?<>
@@ -121,7 +122,7 @@ export function PurchaseWorkspace({ model, area, filters, onFiltersChange, onOpe
       {selected?<>
         <h4>{selected.title}</h4><p>{selected.detail}</p>
         <dl className="mrc-record-panel__facts">{[['Registro',selected.code],['Obra',selected.obra],['Etapa',stageLabels[selected.stage]],['Prazo',`${selected.deadline.label} · ${dateLabel(selected.date)}`],['Responsável / contato',selected.responsible],['Valor do pedido',selected.total==null?'Não informado':money(selected.total)],...(selected.type==='order'?[['Pago',money(selected.paid)],['Saldo a pagar',money(selected.balance)]]:[])].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
-        {selected.advances>0&&<p role="status">{selected.advances} adiantamento(s) registrado(s). Confira o histórico antes de registrar outro pagamento. A chegada da nota não quita nem paga novamente o pedido.</p>}
+        {selected.advances>0&&<p role="status">{contar(selected.advances,"adiantamento registrado","adiantamentos registrados")}. Confira o histórico antes de registrar outro pagamento. A chegada da nota não quita nem paga novamente o pedido.</p>}
         <section><h4>Próxima ação</h4><p>Entrega e pagamento são acompanhados separadamente. Confira os dados antes de confirmar a operação.</p></section>
         <div className="mrc-record-panel__actions">{canAct(selected)?<Button onClick={()=>onOpen(selected)}>{selected.action}</Button>:<p>Seu perfil permite somente consultar esta etapa.</p>}<Button variant="secondary" onClick={()=>setSelection(null)}>Voltar à fila</Button></div>
       </>:<p role="status">O registro saiu desta fila ou não está disponível para a obra selecionada. Volte à fila para consultar os registros atuais.</p>}

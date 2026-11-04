@@ -3,6 +3,7 @@ import {Alert,AlertDescription} from '../../components/ui/alert.jsx';
 import {Button} from '../../components/ui/button.jsx';
 import {Select} from '../../design-system/primitives/Select.jsx';
 import {Modal} from '../../legacy/ui.jsx';
+import {contar} from '../../design-system/copy.js';
 import {SessionRenewalFields} from '../../features/financeiro/RecordRecoveryPanel.jsx';
 import {renewEditingSession,readRecoveryData} from '../../api.js';
 import {snapshotJournal,recoveryTab,canRecoverSnapshot,expandSnapshot} from './snapshot-journal.js';
@@ -73,7 +74,7 @@ export function SaveRecovery({queue,state,user,open,onOpen,onClose,onApply,onUse
     onUser(result.usuario||user);setAuthRequired(false);setSessionRenewed(true);setCurrent(null);setError('');setNotice('Acesso renovado. Consulte a versão atual antes de salvar.');
    }}/>}
    {(memoryCount||queue.getFailure()?.local)&&<>
-    <p>{memoryCount?`${memoryCount} preenchimento(s) ainda estão apenas na memória.`:'Edição somente na memória.'} Verifique o armazenamento.</p>
+    <p>{memoryCount?`${contar(memoryCount,'preenchimento ainda está','preenchimentos ainda estão')} apenas na memória.`:'Edição somente na memória.'} Verifique o armazenamento.</p>
     <Button disabled={busy||sending} onClick={async()=>{
      setBusy(true);
      try{

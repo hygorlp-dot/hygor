@@ -639,7 +639,7 @@ describe("montarCronogramaIA", () => {
 
   it("sem etapas no orçamento, devolve aviso e nenhuma tarefa", () => {
     const resultado = legacy.montarCronogramaIA({ etapas: [], itens: [] }, {}, {});
-    expect(resultado).toEqual({ tarefas: [], resumo: null, avisos: ["O orcamento nao tem etapas para planejar."] });
+    expect(resultado).toEqual({ tarefas: [], resumo: null, avisos: ["O orçamento não tem etapas para planejar."] });
   });
 
   it("etapas-título não consomem prazo próprio: datas vêm do roll-up dos filhos", () => {

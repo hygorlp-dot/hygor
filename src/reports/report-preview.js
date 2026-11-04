@@ -10,13 +10,13 @@ export function registerReportIdentityPresenter(present) {
 }
 
 export function openReportPreview(html, {autoPrint=false,adjustableTables=false}={}) {
-  if(typeof html!=='string'||!/<body\b/i.test(html))throw new Error('O relatório não está pronto para gerar. Confira os dados e tente novamente.');
-  if(!presenter)throw new Error('A escolha da logomarca ainda está carregando. Tente gerar o relatório novamente.');
+  if(typeof html!=='string'||!/<body\b/i.test(html))throw new Error('Confira os dados do relatório e tente novamente.');
+  if(!presenter)throw new Error('Aguarde a logomarca e tente novamente.');
   if(pending)return Promise.resolve(null);
   const trigger=document.activeElement;
   let finish;
   const promise=new Promise(resolve=>{finish=resolve;});
-  const request={promise,trigger,cancel(){if(pending!==request)return;pending=undefined;finish(null);},generate(identity){
+  const request={trigger,cancel(){if(pending!==request)return;pending=undefined;finish(null);},generate(identity){
     if(pending!==request)return null;
     // Called synchronously by the confirmation click, retaining popup permission.
     const preview=window.open('','_blank');

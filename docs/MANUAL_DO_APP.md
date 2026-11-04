@@ -49,7 +49,7 @@ Conteúdo gerado de `src/features/help/help-content.js`, a mesma fonte da ajuda 
 - [Projetos](#guia-projetos)
 - [Diário de obra](#guia-rdo)
 - [Conferência](#guia-conferencia)
-- [Medição da evolução](#guia-med)
+- [Avanço físico](#guia-med)
 - [Estoque](#guia-est)
 - [Compras](#guia-cmp)
 - [Compras · Solicitar](#guia-cmp_solicitacoes)
@@ -86,7 +86,7 @@ Conteúdo gerado de `src/features/help/help-content.js`, a mesma fonte da ajuda 
 - [Financeiro · Homologação](#guia-fin_homologacao)
 - [Financeiro · Modo IA](#guia-fin_ia)
 - [Conciliação](#guia-conc)
-- [Medições](#guia-medicoes)
+- [Medições a faturar](#guia-medicoes)
 - [Caixa da obra](#guia-caixa)
 - [Relatórios](#guia-relat)
 - [Equipamentos](#guia-equip)
@@ -785,7 +785,7 @@ Enviar foto de correção não encerra a pendência. A validação cabe ao visto
 
 <a id="guia-med"></a>
 
-## Medição da evolução
+## Avanço físico
 
 Acompanhar a quantidade de serviço executada na obra.
 
@@ -1269,7 +1269,7 @@ O aparelho e seus registros estão identificados para acompanhamento.
 
 ### O que merece atenção
 
-No aparelho, o fluxo é entrada, intervalo, retorno e saída. Falta de sincronização pode atrasar a exibição no ERP.
+No aparelho, o fluxo é entrada, intervalo, retorno e saída. Falta de sincronização pode atrasar a exibição no ERP. Batidas repetidas aparecem como possível repetição; as originais são preservadas e não formam jornada automaticamente. O RH deve conferir os horários e justificar o tratamento antes de integrar o dia.
 
 <a id="guia-equipe"></a>
 
@@ -1890,7 +1890,7 @@ O extrato mostra uma saída de R$ 150,00. Antes de vincular, confira se o pagame
 
 <a id="guia-medicoes"></a>
 
-## Medições
+## Medições a faturar
 
 Acompanhar valores medidos e recebimentos dos contratos.
 
@@ -3271,34 +3271,33 @@ Balancete já encerrado não sustenta a DRE deste fluxo: use o arquivo anterior 
 
 ## Relatórios · Identidade do documento
 
-Escolher a logomarca que aparecerá no cabeçalho e na marca-d’água do relatório.
+Escolher MARCELL ou ARCD para o cabeçalho e a marca-d’água do relatório.
 
 ### Antes de começar
 
-Confira primeiro a obra, o período e os filtros da consulta. Tenha acesso ao relatório do módulo.
+Confira a obra, o período e os filtros no módulo de origem.
 
 ### Como fazer
 
-1. Use a ação de impressão, PDF ou preparação de apresentação da tela.
-2. Na janela Identidade do relatório, selecione MARCELL ou ARCD em Logomarca do relatório. A opção inicial é MARCELL em cada nova geração.
-3. Confira a Prévia da logomarca. Aguarde o carregamento; Gerar relatório fica disponível quando a imagem estiver pronta.
-4. Use Gerar relatório para abrir o documento com a identidade escolhida. Na prévia do documento, use Imprimir / salvar PDF ou os controles de impressão oferecidos pelo relatório. Os fluxos que já imprimiam automaticamente continuam após a confirmação da marca.
-5. Use Cancelar, Fechar ou Escape para voltar à consulta. Para trocar a marca de um documento já aberto, gere uma nova prévia e escolha novamente.
-6. Se houver erro na imagem, use Tentar carregar logomarca novamente. Se a janela for bloqueada, permita abrir janelas para este site e use Gerar relatório outra vez.
+1. Use a ação de impressão, PDF ou apresentação.
+2. Em Identidade do relatório, escolha MARCELL ou ARCD em Logomarca do relatório. Cada geração começa em MARCELL.
+3. Confira a Prévia da logomarca. Aguarde habilitar Gerar relatório e confirme. O documento abre para impressão ou PDF; os relatórios com impressão automática mantêm esse comportamento.
+4. Cancelar, Fechar ou Escape retorna sem gravar ou mudar filtros. Para trocar a marca, gere outra prévia.
+5. Se a imagem falhar, use Tentar carregar logomarca novamente. Se a janela for bloqueada, permita abrir janelas para este site e repita Gerar relatório.
 
 ### Como conferir se deu certo
 
-A logomarca escolhida aparece no cabeçalho e na marca-d’água. O documento conserva seus dados, fotos, totais, identificação da empresa e orientação de papel.
+Imagem incorporada ao documento, preservando dados, fotos, totais e papel.
 
 ### O que merece atenção
 
-A escolha vale apenas para aquele documento e não muda a identidade do aplicativo ou o cadastro da empresa. Abrir a janela, escolher a marca e cancelar não grava registros. As logomarcas ficam incorporadas ao relatório para impressão. A fonte dos dados continua sendo o módulo de origem; a prévia não confirma pagamentos, aprovações ou assinaturas. CSV, planilhas, anexos já existentes e ZIP de dossiês não recebem logomarca nem esta janela.
+Vale para aquele documento; não altera a empresa nem confirma operações. CSV, planilhas, anexos existentes e ZIP não usam esta janela.
 
 ## Aparência, botões e navegação
 
 ### Escolher a logomarca dos relatórios
 
-Ao preparar uma impressão ou PDF, escolha MARCELL ou ARCD em Identidade do relatório. Confira a Prévia da logomarca e use Gerar relatório. Cancelar ou Escape volta à consulta, mantendo os filtros. A seleção vale para aquele documento. Planilhas, arquivos CSV, anexos existentes e ZIP de documentos mantêm seus fluxos próprios.
+Em Identidade do relatório, escolha MARCELL ou ARCD, confira a Prévia da logomarca e use Gerar relatório. Cancelar mantém os filtros. A escolha vale para aquele documento.
 
 ### Ajustar o menu lateral
 

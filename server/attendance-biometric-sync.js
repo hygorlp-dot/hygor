@@ -8,6 +8,7 @@ import { closedCompetenceForDate } from './closed-dre-mutation-guard.js';
 import {matchesLaborArea} from '../src/domains/rh/labor-area.js';
 import {createHash} from 'node:crypto';
 import {normalizeAttendanceRecord} from '../src/domains/ponto/records.js';
+import {detectarDuplicidadesBatidas,AVISO_DUPLICIDADE} from '../src/domains/ponto-eletronico/duplicidade-batidas.js';
 
 export function validSyncRange(command) {
   return validDate(command.startsOn) && validDate(command.endsOn) && command.endsOn >= command.startsOn &&
@@ -37,6 +38,7 @@ export function planBiometricSync(data, command, events, now) {
     const rawCurrent=data.attendance?.[employeeId]?.[date],current=normalizeAttendanceRecord(rawCurrent);
     const schedule=scheduleOnDate(employee,date);
     const reasons=[];
+    if(detectarDuplicidadesBatidas(batidas).length)reasons.push(AVISO_DUPLICIDADE);
     if(!employee)reasons.push('Funcionário não encontrado no cadastro.');
     else if(employee.startDate>date||employee.endDate&&employee.endDate<date||employee.active===false&&!employee.endDate)reasons.push('Sem vínculo ativo nesta data.');
     if(date>today||batidas.some(e=>Date.parse(e.marcadoEm)>Date.parse(now)))reasons.push('Há batidas com data ou horário futuro; conferir no RH.');
