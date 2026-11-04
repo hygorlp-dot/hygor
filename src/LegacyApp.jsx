@@ -7325,6 +7325,9 @@ function RelatoriosMensais({ data, showToast }) {
 
   const [chartMode, setChartMode] = useState("custos");
   const [highlightObra, setHighlightObra] = useState("");
+  // O escopo e o destaque andam juntos, tanto na escolha da tela quanto na vinda do carimbo.
+  const escolherEscopoObra = v => { setFilterObra(v); setHighlightObra(v === "all" ? "" : v); };
+  useSyncedWorkObra(filterObra, escolherEscopoObra, { allowedIds: (data.obras || []).map(o => o.id), allValue: "all" });
 
   return (
     <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -7357,7 +7360,7 @@ function RelatoriosMensais({ data, showToast }) {
 
       {/*  INDICADORES (view padrão)  */}
       {view === "custos" && <>
-      <div className="no-print" style={{display:"flex",alignItems:"end",gap:8,flexWrap:"wrap"}}><div style={{flex:"1 1 250px"}}><Sel label="Escopo da análise" value={filterObra} onChange={v=>{setFilterObra(v);setHighlightObra(v==="all"?"":v);}} options={[{ v: "all", l: "Todas as obras" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]}/></div><Btn onClick={exportObraCosts} v="ghost"><Ic n="download" s={14}/> Exportar base</Btn></div>
+      <div className="no-print" style={{display:"flex",alignItems:"end",gap:8,flexWrap:"wrap"}}><div style={{flex:"1 1 250px"}}><Sel label="Escopo da análise" value={filterObra} onChange={escolherEscopoObra} options={[{ v: "all", l: "Todas as obras" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]}/></div><Btn onClick={exportObraCosts} v="ghost"><Ic n="download" s={14}/> Exportar base</Btn></div>
 
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(165px,1fr))",gap:8}}>
         <ReportMetric label="Mão de obra" value={fmt(totals.laborCost)} detail={`${totals.trabalhadores} profissionais ativos`} color={C.yellow} icon="users"/>
