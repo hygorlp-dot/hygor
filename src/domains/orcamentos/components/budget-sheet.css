@@ -275,3 +275,8 @@ textarea.budget-cell { display: block; resize: none; overflow: hidden; white-spa
   font-weight: var(--arcd-font-weight-semibold) !important;
 }
 .budget-line-row, .budget-title-row { box-sizing: border-box; }
+
+/* Lista de orçamentos: com obra no carimbo, a obra em foco vem primeiro e os demais seguem abaixo. */
+.budget-list-group{display:flex;flex-direction:column;gap:var(--arcd-space-3);}
+.budget-list-group__title{margin:0;font-size:var(--arcd-type-label);font-weight:var(--arcd-font-weight-semibold);color:var(--arcd-text-secondary);text-transform:uppercase;letter-spacing:var(--arcd-letter-spacing-body);}
+.budget-list-group__empty{margin:0;font-size:var(--arcd-type-body);color:var(--arcd-text-secondary);}
