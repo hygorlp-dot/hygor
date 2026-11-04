@@ -70,6 +70,7 @@ Conteúdo gerado de `src/features/help/help-content.js`, a mesma fonte da ajuda 
 - [Folha](#guia-folha)
 - [Rescisão](#guia-resc)
 - [Indicadores de RH](#guia-rh_indic)
+- [Simulador de custo mensal](#guia-custo_rh)
 - [DRE empresa](#guia-dre_emp)
 - [DRE obras](#guia-dre)
 - [Gestão financeira](#guia-fin)
@@ -1448,6 +1449,31 @@ Você consegue relacionar o indicador aos dados de origem.
 ### O que merece atenção
 
 Compare períodos e grupos equivalentes; dados ainda não sincronizados podem afetar a leitura.
+
+<a id="guia-custo_rh"></a>
+
+## Simulador de custo mensal
+
+Estimar quanto custa por mês um profissional, um servente e a dupla, com encargos, provisões, benefícios da CCT e SST.
+
+### Antes de começar
+
+Tenha os pisos da CCT vigente e confirme com o contador as premissas destacadas em amarelo.
+
+### Como fazer
+
+1. Em Premissas, ajuste salários, dias trabalhados, benefícios e rotatividade.
+2. Leia em Custo Mensal o custo total, o multiplicador sobre o salário e o custo por hora produtiva.
+3. Use Caixa Mensal para separar o desembolso do mês do valor a reservar em provisões.
+4. Confira em Visão do Trabalhador o contracheque estimado.
+
+### Como conferir se deu certo
+
+Você tem o custo mensal por trabalhador e por hora para compor preços e orçamentos.
+
+### O que merece atenção
+
+É uma simulação: as premissas ficam salvas só neste navegador e não alteram a folha. Restaurar premissas volta aos valores da planilha de referência.
 
 <a id="guia-dre_emp"></a>
 

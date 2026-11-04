@@ -17,7 +17,7 @@ const groups = [
   ["Compras e suprimentos", ["Compras", "Fornecedores", "Curva e preços", "Estoque"]],
   ["Equipamentos e locações", ["Locação de equipamentos", "Equipamentos"]],
   ["Pessoas e terceiros", ["Equipes", "Ponto por obra", "Gestão do ponto", "Ponto eletrônico (app)",
-    "Terceirizados", "Folha", "Rescisão", "Indicadores"]],
+    "Terceirizados", "Folha", "Rescisão", "Indicadores", "Custo mensal"]],
   ["Comercial", ["Comercial da empresa", "Venda de imóveis", "Pipeline", "Relacionamentos",
     "Propostas e contratos", "Gestão comercial"]],
   ["Administração", ["Central do administrador", "Cadastros", "Ajustes", "IA", "Configurar Gemini", "Telas antigas"]],
@@ -437,6 +437,32 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         await page.getByRole("dialog",{name:"Cancelar contrato e preservar histórico"}).getByRole("button",{name:"Cancelar contrato"}).click();
         await expect(page.getByText("Contrato cancelado e preservado no histórico.")).toBeVisible();
         await expect(contractCard).toHaveCount(0);
+      }
+      if(item==="Custo mensal") {
+        await expect(page.getByRole("heading",{name:"Custo mensal por trabalhador — Profissional e Servente"})).toBeVisible();
+        await expect(page.getByText("R$ 8.585,84",{exact:true})).toBeVisible();
+        await expect(page.getByText("R$ 53,46",{exact:true})).toBeVisible();
+        if(process.env.ARCD_VISUAL_CAPTURE) {
+          await page.screenshot({path:"/tmp/arcd-custo-mensal-desktop.png",fullPage:true});
+          await page.setViewportSize({width:390,height:844});
+          await page.screenshot({path:"/tmp/arcd-custo-mensal-mobile.png",fullPage:true});
+          await page.setViewportSize({width:1440,height:900});
+        }
+        const simulador=page.getByRole("navigation",{name:"Seções do simulador"});
+        await simulador.getByRole("button",{name:"Premissas"}).click();
+        await page.getByLabel("Dias trabalhados no mês (base para alimentação e VT)").fill("26");
+        await expect(page.getByText("R$ 8.848,40",{exact:true})).toBeVisible();
+        if(process.env.ARCD_VISUAL_CAPTURE) await page.screenshot({path:"/tmp/arcd-custo-mensal-premissas-desktop.png",fullPage:true});
+        await page.getByRole("button",{name:"Restaurar premissas"}).click();
+        await expect(page.getByText("R$ 8.585,84",{exact:true})).toBeVisible();
+        for(const secao of ["Caixa Mensal","Visão do Trabalhador","Notas"]) {
+          await simulador.getByRole("button",{name:secao}).click();
+          if(process.env.ARCD_VISUAL_CAPTURE) await page.screenshot({path:`/tmp/arcd-custo-mensal-${secao.split(" ")[0].toLowerCase()}-desktop.png`,fullPage:true});
+        }
+        await expect(page.getByText("2.021,95",{exact:true})).toHaveCount(0);
+        await simulador.getByRole("button",{name:"Visão do Trabalhador"}).click();
+        await expect(page.getByText("2.021,95",{exact:true})).toBeVisible();
+        await expect(page.getByText("1.527,11",{exact:true})).toBeVisible();
       }
       if(item==="Conciliação"&&process.env.ARCD_VISUAL_CAPTURE) {
         await page.screenshot({path:"/tmp/arcd-conciliacao-desktop.png",fullPage:true});
