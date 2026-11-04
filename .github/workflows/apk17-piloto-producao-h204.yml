@@ -56,6 +56,11 @@ jobs:
       - name: Instalar dependencias da raiz
         run: npm ci --ignore-scripts --include=dev
 
+      - name: Testes do terminal autonomo e cadastro global
+        env:
+          NODE_ENV: test
+        run: npx vitest run apps/ponto-obra
+
       - name: Instalar dependencias do app
         working-directory: apps/ponto-obra
         run: npm ci --ignore-scripts
@@ -79,9 +84,6 @@ jobs:
           set -euo pipefail
           node -e 'const fs=require("fs");const path=require("path");const dir=process.env.RUNNER_TEMP;const signing=JSON.parse(process.env.SIGNING_JSON);signing.path=path.join(dir,"ponto-camera-fix.jks");fs.writeFileSync(signing.path,Buffer.from(process.env.KEYSTORE_B64,"base64"),{mode:0o600});fs.writeFileSync(path.join(dir,"ponto-camera-fix-signing.json"),JSON.stringify(signing),{mode:0o600});'
           echo "PONTO_SIGNING_FILE=$RUNNER_TEMP/ponto-camera-fix-signing.json" >> "$GITHUB_ENV"
-
-      - name: Testes do terminal autonomo e cadastro global
-        run: npx vitest run apps/ponto-obra
 
       - name: Compilar e verificar APK 18 Camera Corrigida
         working-directory: apps/ponto-obra

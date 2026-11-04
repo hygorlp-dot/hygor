@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 // Executa os hooks reais da TelaPonto sem carregar CameraX/TFLite no Node.
 // Somente a árvore JSX é omitida; eventos, timers e funções vêm do arquivo real.
-import React,{act} from 'react';
-import {createRoot} from 'react-dom/client';
+import {createRequire} from 'node:module';
+import path from 'node:path';
 import {readFileSync} from 'node:fs';
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import {FASE,falhaNaTela,fusoDoCadastro,falaDeConfirmacao} from './apresentacao.js';
@@ -11,6 +11,14 @@ import {estadoPermissaoCamera,mensagemParaTrabalhador} from './falhas.js';
 import {PARAMETROS_FACIAIS as P} from './calibracao.js';
 import {RESULTADO as RESULTADO_CALIBRACAO} from './calibracao-campo.js';
 import {capturarFotoComPrazo} from './captura-camera.js';
+
+// O teste roda no React DOM do repositório, não no React Native do app.
+// Após npm ci no app, a resolução relativa encontraria React 19, enquanto
+// react-dom continuaria vindo da raiz (React 18). Mantenha o par da raiz.
+const requireRoot=createRequire(path.resolve('package.json'));
+const React=requireRoot('react');
+const {act}=React;
+const {createRoot}=requireRoot('react-dom/client');
 
 let root,container,latest,app,photo,analyse,record,remove,props;
 const source=readFileSync('apps/ponto-obra/src/telas/TelaPonto.js','utf8');
