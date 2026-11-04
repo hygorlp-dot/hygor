@@ -3271,27 +3271,28 @@ Balancete já encerrado não sustenta a DRE deste fluxo: use o arquivo anterior 
 
 ## Relatórios · Identidade do documento
 
-Escolher MARCELL ou ARCD para o cabeçalho e a marca-d’água do relatório.
+Escolher a logomarca do relatório.
 
 ### Antes de começar
 
-Confira a obra, o período e os filtros no módulo de origem.
+Confira obra, período e filtros.
 
 ### Como fazer
 
-1. Use a ação de impressão, PDF ou apresentação.
-2. Em Identidade do relatório, escolha MARCELL ou ARCD em Logomarca do relatório. Cada geração começa em MARCELL.
-3. Confira a Prévia da logomarca. Aguarde habilitar Gerar relatório e confirme. O documento abre para impressão ou PDF; os relatórios com impressão automática mantêm esse comportamento.
-4. Cancelar, Fechar ou Escape retorna sem gravar ou mudar filtros. Para trocar a marca, gere outra prévia.
-5. Se a imagem falhar, use Tentar carregar logomarca novamente. Se a janela for bloqueada, permita abrir janelas para este site e repita Gerar relatório.
+1. Use a ação de impressão ou PDF.
+2. Em Identidade do relatório, escolha MARCELL ou ARCD em Logomarca do relatório. MARCELL é a opção inicial.
+3. Confira a Prévia da logomarca e aguarde habilitar Gerar relatório.
+4. Confirme para abrir o documento; use Imprimir / salvar PDF. Alguns relatórios imprimem automaticamente.
+5. Cancelar ou Escape mantém os filtros. Para trocar a marca, gere outra prévia.
+6. Se necessário, use Tentar carregar logomarca novamente ou permita abrir janelas para este site.
 
 ### Como conferir se deu certo
 
-Imagem incorporada ao documento, preservando dados, fotos, totais e papel.
+Cabeçalho e marca-d’água com a imagem escolhida. Dados, totais e papel são preservados.
 
 ### O que merece atenção
 
-Vale para aquele documento; não altera a empresa nem confirma operações. CSV, planilhas, anexos existentes e ZIP não usam esta janela.
+Vale para aquele documento; não grava operações nem altera a empresa. CSV, planilhas, anexos e ZIP não usam esta janela.
 
 ## Aparência, botões e navegação
 

@@ -3,13 +3,13 @@ import {data,profile} from '../scripts/fixtures/workflow-priorities-data.mjs';
 
 // Carimbo de contexto (Etapa 1): a obra escolhida no topo vale para as telas
 // que o seguem, e trocar a obra nessas telas atualiza o carimbo.
-async function enter(page,tab){
+async function enter(page,tab,dados=data){
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.clock.setFixedTime(new Date('2026-11-01T12:00:00-03:00'));
   await page.addInitScript(({tab,user})=>{sessionStorage.setItem(`arcd-section:${user}`,tab);localStorage.setItem('arcd-theme','marcell');},{tab,user:profile.id});
   await page.route('https://**/*',r=>r.abort());
   await page.route('**/api/**',r=>r.fulfill({json:{ok:true,items:[],bases:[],presencas:[],connected:false,reply:''}}));
-  await page.route('**/api/data',r=>r.fulfill({json:{ok:true,usuarios:[profile],precisaSetup:false,usuario:profile,data,current:null,history:[],accessToken:'stamp-local-only',refreshToken:'stamp-local-only',updatedAt:'2026-11-01T15:00:00Z'}}));
+  await page.route('**/api/data',r=>r.fulfill({json:{ok:true,usuarios:[profile],precisaSetup:false,usuario:profile,data:dados,current:null,history:[],accessToken:'stamp-local-only',refreshToken:'stamp-local-only',updatedAt:'2026-11-01T15:00:00Z'}}));
   await page.goto('/');await page.locator('#login-email').fill(profile.email);await page.locator('#login-senha').fill('stamp-local-only');
   await page.getByRole('button',{name:'Acessar central MARCELL',exact:true}).click();await expect(page.locator('.arcd-main')).toBeVisible();
   await expect(page.locator('.arcd-main .arcd-page-loading')).toHaveCount(0);
@@ -144,5 +144,31 @@ test('Relatórios mensais de mão de obra seguem o carimbo, inclusive em "Todas 
   await expect(stamp(page)).toHaveValue('a');
   await escopo.selectOption('all');
   await expect(stamp(page)).toHaveValue('');
+  expect(errors).toEqual([]);
+});
+
+test('Orçamento destaca a obra em foco sem esconder os outros orçamentos',async({page})=>{
+  // Um orçamento sem obra (fase comercial) precisa continuar visível com o carimbo ligado.
+  const dados=structuredClone(data);
+  dados.orcamentos.push({...structuredClone(dados.orcamentos[0]),id:'budget-prospect',obraId:'',nome:'Proposta sem obra'});
+  dados.obras.find(o=>o.id==='c').status='active'; // obra ativa sem orçamento
+  const errors=await enter(page,'orc',dados);
+  const grupo=nome=>page.getByRole('region',{name:nome,exact:true});
+  const nomes=async nome=>(await grupo(nome).getByText(/orçamento executivo|Proposta sem obra/).allTextContents());
+  await expect(page.getByText('Proposta sem obra',{exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:/^Obra em foco/})).toHaveCount(0);
+  await stamp(page).selectOption('b');
+  await expect(grupo('Obra em foco · Residencial Horizonte')).toBeVisible();
+  expect(await nomes('Obra em foco · Residencial Horizonte')).toEqual(['Horizonte — orçamento executivo']);
+  expect(await nomes('Outros orçamentos')).toEqual(['Residencial Alameda — orçamento executivo','Proposta sem obra']);
+  // Obra sem orçamento: diz isso e mantém todos os orçamentos logo abaixo.
+  await stamp(page).selectOption('c');
+  await expect(grupo('Obra em foco · Edifício Jardim das Palmeiras — áreas comuns')).toContainText('Nenhum orçamento vinculado a esta obra.');
+  expect(await nomes('Outros orçamentos')).toHaveLength(3);
+  // Sem carimbo, a lista volta a ser uma só.
+  await stamp(page).selectOption('');
+  await expect(page.getByRole('heading',{name:'Outros orçamentos'})).toHaveCount(0);
+  await expect(page.getByText('Proposta sem obra',{exact:true})).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
   expect(errors).toEqual([]);
 });
