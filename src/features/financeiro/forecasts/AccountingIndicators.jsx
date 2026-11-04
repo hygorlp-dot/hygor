@@ -1,3 +1,4 @@
+import {openReportPreview} from '../../../reports/report-preview.js';
 import {useMemo,useState} from 'react';
 import {PageHeader} from '../../../design-system/patterns/PageHeader.jsx';
 import {SummaryCard} from '../../../design-system/patterns/SummaryCard.jsx';
@@ -16,7 +17,6 @@ import {forecastMoney as money,forecastDate as date} from './forecast-format.js'
 import {ACCOUNTING_COMMAND,ACCOUNTING_GROUPS,ACCOUNTING_HEADERS,accountingBases,accountingIndicators,parseAccountingCsv,accountingErpComparison} from '../../../domains/financeiro/accounting-indicators.js';
 import {accountingExportSheets,accountingMetricText,accountingPrintHtml,ACCOUNTING_BALANCE_LABELS,ACCOUNTING_INCOME_LABELS} from '../../../domains/financeiro/accounting-report-export.js';
 import {shiftDay} from '../../../domains/financeiro/cash-forecast.js';
-import {marcellReportHtml} from '../../../reports/marcell-report.js';
 import {uid} from '../../../legacy/format.js';
 
 function download(name,text){const url=URL.createObjectURL(new Blob(['\uFEFF'+text],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
@@ -44,7 +44,7 @@ export default function AccountingIndicators({data,asOf,state={},onChange,dispat
    else{update({selected:id,section:'bases'});setCoverage(false);setReconciliation('');setMessage(type===ACCOUNTING_COMMAND.ACCOUNTING_BASE_IMPORTED?'Base importada como rascunho. Confira os saldos e a origem antes de liberar os indicadores.':'Conferência registrada. Os indicadores disponíveis usam esta revisão preservada.');}
   }catch(error){setMessage(error.message||'Falha ao gravar a base. Tente novamente.');}finally{setBusy(false);}
  }
- function print(){setMessage('');try{const popup=window.open('','_blank');if(!popup)throw new Error('Permita abrir a janela de impressão para salvar o PDF.');popup.opener=null;popup.document.open();popup.document.write(marcellReportHtml(accountingPrintHtml(selected,report)));popup.document.close();}catch(error){setMessage(error.message||'Não foi possível preparar a apresentação.');}}
+ function print(){setMessage('');try{openReportPreview(accountingPrintHtml(selected,report));}catch(error){setMessage(error.message||'Não foi possível preparar a apresentação.');}}
  const metrics=Object.fromEntries(report.metrics.map(row=>[row.id,row]));
  return <>
   <PageHeader headingLevel={2} title="Indicadores contábeis da empresa" description="Rentabilidade, liquidez e endividamento sobre balancete identificado e conferido. A posição é da empresa inteira; não há rateio por obra." secondaryActions={selected&&<><Button variant="secondary" onClick={()=>onExport(Object.entries(accountingExportSheets(selected,report)).flatMap(([name,rows])=>[[name],...rows,[]]))}>Exportar indicadores contábeis CSV</Button><Button variant="secondary" onClick={print}>Preparar apresentação contábil / PDF</Button></>}/>

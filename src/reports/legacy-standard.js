@@ -1,3 +1,4 @@
+import {openReportPreview} from './report-preview.js';
 // Declarações extraídas literalmente da entrada legada; não importar LegacyApp aqui.
 import { monthName, fmtDateFull, fmt, escapeHtml } from "../legacy/format.js";
 import { MARCELL_LOGO } from "../brand/identity.js";
@@ -6,7 +7,6 @@ import { prIsWeekdayIso } from "../domains/ponto/attendance-engine";
 import { isEmployeeEmployedOnDate } from "../domains/ponto/attendance-engine";
 import { attStatus } from "../domains/ponto/attendance-engine";
 import { isLeaveStatus } from "../domains/ponto/attendance-status";
-import { marcellReportHtml } from "./marcell-report.js";
 
 
 // Resolvedores concretos do motor de aprovação para o app ARCD: como este
@@ -267,8 +267,6 @@ ${assinaturasHtml}
 // Abre o HTML do relatório numa aba nova e já dispara a impressão - mesmo
 // comportamento (e mesmo aviso de pop-up bloqueado) usado pela Folha.
 export function abrirRelatorioPadrao(html, showToast) {
-  const w = window.open("", "_blank");
-  if (!w) { showToast?.("Não foi possível abrir a impressão. Permita pop-ups para este aplicativo e tente novamente.", "error"); return; }
-  w.document.open(); w.document.write(marcellReportHtml(html)); w.document.close(); w.focus();
-  window.setTimeout(() => w.print(), 300);
+  try{return openReportPreview(html,{autoPrint:true});}
+  catch(error){showToast?.(error.message,"error");return null;}
 }

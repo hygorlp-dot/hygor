@@ -20,3 +20,7 @@
 .arcd-feedback-state__title { margin: 0; font-size: var(--arcd-font-size-lg); }
 .arcd-feedback-state__description { max-width: 36rem; margin: 0; color: var(--arcd-color-text-muted); font-size: var(--arcd-font-size-sm); }
 @media (max-width: 48rem) { .arcd-module { padding: var(--arcd-space-4); } .arcd-page-header__actions { width: 100%; } .arcd-page-header__actions > * { flex: 1; } }
+
+.arcd-identity-preview{display:grid;justify-items:center;gap:var(--arcd-space-3);margin:var(--arcd-space-4) 0;padding:var(--arcd-panel-padding);border:1px solid var(--arcd-border-default);border-radius:var(--arcd-radius-control);background:var(--arcd-surface-card)}
+.arcd-identity-preview img{display:block;max-width:100%;max-height:calc(var(--arcd-control-height) * 4);object-fit:contain}
+.arcd-identity-preview figcaption{font-size:var(--arcd-type-label);color:var(--arcd-text-secondary);text-align:center}

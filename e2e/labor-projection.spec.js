@@ -1,3 +1,4 @@
+import {confirmReportIdentity} from './report-identity-helper.js';
 import { expect, test } from "@playwright/test";
 import {selectWorkspaceArea} from './helpers/workspace-navigation.js';
 import ExcelJS from "exceljs";
@@ -138,7 +139,7 @@ test("RH consulta a quinzena, filtra e exporta a mesma fotografia em PDF e Excel
   const callsBeforeExport = app.requests.length;
   const popupEvent = context.waitForEvent("page");
   await report.getByRole("button", { name: "PDF", exact: true }).click();
-  const popup = await popupEvent;
+  await confirmReportIdentity(page);const popup = await popupEvent;
   await expect(popup.locator("body")).toContainText("Pessoa de campo QA");
   await expect(popup.locator("body")).toContainText(money(app.snapshot().totals.projectedCost));
   await expect(popup.locator("body")).toContainText("fonte-sintetica-verificada");
@@ -191,7 +192,7 @@ test("Financeiro acessa Relatórios e exporta só agregados sem abrir a Folha", 
   await page.keyboard.press("Escape");
   const popupEvent = context.waitForEvent("page");
   await report.getByRole("button", { name: "PDF", exact: true }).click();
-  const popup = await popupEvent;
+  await confirmReportIdentity(page);const popup = await popupEvent;
   await expect(popup.locator("body")).toContainText("detalhe individual e a memória diária são restritos");
   await expect(popup.locator("body")).not.toContainText("Pessoa de campo QA");
   await popup.close();

@@ -1,3 +1,4 @@
+import {openReportPreview} from '../../../reports/report-preview.js';
 import {WorkspaceCommandBar,WorkspaceHeading} from '../../../design-system/patterns/WorkspaceCommandBar.jsx';
 import PaymentDialog from '../../../features/financeiro/PaymentDialog.jsx';
 import {dispatchConfirmedAttempt} from '../../../features/workflow/command-attempt.js';
@@ -23,7 +24,6 @@ import {quantityLabel} from '../record-flow';
 import MaterialPriceHistory from "./MaterialPriceHistory";
 import { CommercialTerms, CostComparison } from "./PurchaseFinalCost";
 import { PurchaseDossier } from "./PurchaseDossier";
-import { marcellReportHtml } from "../../../reports/marcell-report.js";
 import { DreIntegration, useRememberWorkflowScope, useWorkflow } from "../../../features/workflow/WorkflowNavigation.jsx";
 // ===================================================================
 // ComprasView — tela de Compras extraída de LegacyApp.jsx
@@ -1761,13 +1761,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     }finally{setGerandoLinkAceite(false);}
   };
   const imprimirPedido=p=>{
-    const janela=window.open("","_blank");
-    if(!janela){showToast("Permita a abertura de janelas para gerar o PDF do pedido.","error");return false;}
-    janela.document.write(marcellReportHtml(conteudoEnvioPedido(p).html));
-    janela.document.close();
-    janela.focus();
-    janela.print();
-    return true;
+    return openReportPreview(conteudoEnvioPedido(p).html,{autoPrint:true});
   };
   const salvarAceitePedido=async()=>{
     const f=aceitePedido;if(!f)return;
@@ -2723,7 +2717,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
           <div style={{display:"flex",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
             {forn?.telefone?<a href={linkWhatsApp(forn.telefone,texto)} target="_blank" rel="noreferrer" style={{textDecoration:"none"}} onClick={()=>registrarEnvioPedido(p,"whatsapp",forn.telefone)}><Btn size="sm">WhatsApp</Btn></a>:<Btn size="sm" disabled title="Fornecedor sem telefone">WhatsApp</Btn>}
             {forn?.email?<a href={linkEmailPedido(forn.email,assunto,texto)} style={{textDecoration:"none"}} onClick={()=>registrarEnvioPedido(p,"email",forn.email)}><Btn size="sm" v="ghost">E-mail</Btn></a>:<Btn size="sm" v="ghost" disabled title="Fornecedor sem e-mail">E-mail</Btn>}
-            <Btn size="sm" v="ghost" onClick={()=>{if(imprimirPedido(p))registrarEnvioPedido(p,"impresso");}}>Imprimir / PDF</Btn>
+            <Btn size="sm" v="ghost" onClick={async()=>{if(await imprimirPedido(p))registrarEnvioPedido(p,"impresso");}}>Imprimir / PDF</Btn>
             {!p.aceiteFornecedor?.nome&&<Btn size="sm" v="ghost" disabled={gerandoLinkAceite||!!link} loading={gerandoLinkAceite&&"Gerando..."} onClick={()=>gerarLinkAceite(p)}>{link?"Link de aceite incluído":"Gerar link de aceite"}</Btn>}
           </div>
           {link&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>O fornecedor confirma pelo link, sem login, até {fmtDate(String(link.expiraEm).slice(0,10))}. Se o pedido for alterado, o link deixa de valer e é preciso gerar outro.</p>}

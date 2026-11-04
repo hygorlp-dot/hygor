@@ -1,8 +1,8 @@
+import {openReportPreview} from '../../../reports/report-preview.js';
 import {ChoiceControl} from '../../../design-system/primitives/ChoiceControl.jsx';
 import {SelectControl} from '../../../design-system/primitives/Select.jsx';
 import {RecordAction} from '../../../design-system/primitives/RecordAction.jsx';
 import { sessionContext } from "../../../lib/session-context.js";
-import { marcellReportHtml } from "../../../reports/marcell-report.js";
 import { DreIntegration, FlowTabs, useRememberWorkflowScope, useWorkflow } from "../../../features/workflow/WorkflowNavigation.jsx";
 // ===================================================================
 // FolhaView — tela de Folha de pagamento extraída de LegacyApp.jsx
@@ -700,15 +700,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
         </body>
       </html>
     `;
-    const w = window.open("", "_blank");
-    if (!w) {
-      showToast("Não foi possível abrir a impressão. Permita pop-ups para este aplicativo e tente novamente.", "error");
-      return;
-    }
-    w.document.open();
-    w.document.write(marcellReportHtml(html, { adjustableTables: true }));
-    w.document.close();
-    w.focus();
+    openReportPreview(html,{adjustableTables:true});
     // A prévia permite ajustar colunas e linhas antes de imprimir.
   };
 

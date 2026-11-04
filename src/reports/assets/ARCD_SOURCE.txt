@@ -1,0 +1,5 @@
+Logomarca ARCD original do próprio repositório.
+Origem: commit c560413d, public/logo-arcd.png.
+Recuperada em 04/11/2026 para a seleção de identidade dos relatórios.
+Arquivo preservado, sem redesenho, recoloração ou recorte.
+SHA-256: 51bc9e55c8e162558fb69f5efb0c0fcbdeaf3c3f3c2e8971d4b3680e65e06898

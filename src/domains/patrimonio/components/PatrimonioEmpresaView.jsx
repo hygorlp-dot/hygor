@@ -1,7 +1,7 @@
+import {openReportPreview} from '../../../reports/report-preview.js';
 import {FilterBar} from "../../../design-system/patterns/FilterBar.jsx";
 import {RecordAction} from "../../../design-system/primitives/RecordAction.jsx";
 import {useEffect,useMemo,useState} from "react";
-import {marcellReportHtml} from "../../../reports/marcell-report.js";
 import { Badge, Btn, Ic, Inp, Modal, PageHero, Sel } from "../../../legacy/ui.jsx";
 import { C } from "../../../legacy/palette.js";
 import { uid } from "../../../legacy/format.js";
@@ -161,11 +161,6 @@ export default function PatrimonioEmpresaView({data,showToast,dispatchCommand}){
     if(!filtered.length){showToast("Nenhum patrimônio no recorte atual para gerar o relatório.","error");return;}
     const statusLabel=status==="todos"?"Todos os bens":status==="ativos"?"Bens ativos":(STATUS.find(item=>item.v===status)?.l||status);
     const filtro="Recorte: "+statusLabel+(search.trim()?' · Busca: "'+search.trim()+'"':"");
-    // A janela abre antes das buscas para não ser barrada como pop-up.
-    const w=window.open("","_blank");
-    if(!w){showToast("Permita pop-ups para gerar o relatório de patrimônio.","error");return;}
-    w.opener=null;
-    w.document.write("<p style=\"font-family:sans-serif;padding:24px\">Preparando relatório e fotos…</p>");
     const photos=await loadPatrimonyPhotos(filtered,obterDocumentoPatrimonio);
     const html=buildPatrimonyReportHtml({
       assets:filtered,
@@ -173,9 +168,7 @@ export default function PatrimonioEmpresaView({data,showToast,dispatchCommand}){
       filterLabel:filtro,
       photos,
     });
-    w.document.open();
-    w.document.write(marcellReportHtml(html));
-    w.document.close();
+    openReportPreview(html);
   };
   return <div className="anim patrimony-workspace" style={{display:"flex",flexDirection:"column",gap:12}}>
     <PageHero eyebrow="Administração" title="Patrimônio da empresa" description="Bens corporativos da empresa, com nota fiscal, identificação física, localização atual e histórico." stats={[{label:"Bens ativos",value:String(active.length),color:C.green},{label:"Valor de aquisição",value:money(total)},{label:"Com nota/documento",value:String(docs)+"/"+String(active.length),color:docs===active.length?C.green:C.orange}]} actions={<div style={{display:"flex",gap:8,flexWrap:"wrap"}}><Btn v="ghost" onClick={gerarRelatorio}><Ic n="fileText"/> Relatório</Btn><Btn v="ghost" onClick={()=>setImporting(true)}><Ic n="receipt"/> Importar NF</Btn><Btn onClick={()=>setEditor(vazio())}><Ic n="plus"/> Novo bem</Btn></div>}/>

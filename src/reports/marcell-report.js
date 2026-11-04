@@ -14,15 +14,24 @@ function atualizarAssinatura(html) {
 
 // Presentation only: the existing report remains responsible for its data,
 // totals, columns, paper size, signatures and legal company identification.
-export function marcellReportHtml(html, { adjustableTables = false } = {}) {
-  if (/<body\b[^>]*\bdata-marcell-report=/i.test(html)) return html;
+export function marcellReportHtml(html, { adjustableTables = false, identity } = {}) {
+  const arcd=identity?.id==='arcd'&&/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(identity.logo||'');
+  const logoSrc=arcd?identity.logo:MARCELL_LOGO,name=arcd?'ARCD':'MARCELL';
+  const logoAlt=arcd?'ARCD':'MARCELL - Engenharia e construção';
+  if (/<body\b[^>]*\bdata-marcell-report=/i.test(html)) {
+    if(!identity)return html;
+    return html.replace(/(<img\b[^>]*class="mrc-report-logo"[^>]*src=")[^"]*("[^>]*alt=")[^"]*/g,`$1${logoSrc}$2${logoAlt}`)
+      .replace(/(<div class="mrc-report-watermark"[^>]*><img src=")[^"]*/g,`$1${logoSrc}`)
+      .replace(/(<body\b[^>]*?)\sdata-report-identity="[^"]*"/i,'$1')
+      .replace(/<body\b/i,`<body data-report-identity="${arcd?'arcd':'marcell'}"`);
+  }
   const a2 = /@page\s*\{\s*size\s*:\s*A2\b/i.test(html);
   const dense = /<title>Memória de Cálculo/i.test(html);
   const columns = Math.max(0, ...[...html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)].map(([, row]) =>
     [...row.matchAll(/<th\b([^>]*)>/gi)].reduce((n, [, attrs]) => n + Number(attrs.match(/colspan=["']?(\d+)/i)?.[1] || 1), 0)));
   const wide = !a2 && columns > 12;
   const format = a2 ? "a2" : wide ? "wide" : dense ? "dense" : "standard";
-  const logo = `<img class="mrc-report-logo" src="${MARCELL_LOGO}" alt="MARCELL - Engenharia e construção">`;
+  const logo = `<img class="mrc-report-logo" src="${logoSrc}" alt="${logoAlt}">`;
   const brand = `<div class="mrc-report-brand">${logo}</div>`;
   let branded = false;
   let result = atualizarAssinatura(html).replace(/<div class="(?:logo|logo-box)">(?:MARCELL|ArcD)<\/div>/g, () => {
@@ -66,7 +75,7 @@ body[data-marcell-report] :is(.kpi span,.meta small){font-weight:400!important;l
 body[data-marcell-report] .kpi b{font-size:15px!important;font-weight:600}
 body[data-marcell-report] :is(.footer,.foot,footer){color:#536171!important;font-size:9px!important}
 body[data-marcell-report] .mrc-report-brand{display:flex;align-items:center;break-inside:avoid;margin:0 0 10px;padding:0;background:transparent}
-body[data-marcell-report] .mrc-report-logo{display:block!important;width:108px!important;height:auto!important;max-width:108px!important;max-height:none!important;object-fit:contain!important;padding:0!important;border:0!important}
+body[data-marcell-report] .mrc-report-logo{display:block!important;width:108px!important;height:auto!important;max-width:108px!important;max-height:36.675px!important;object-fit:contain!important;padding:0!important;border:0!important}
 body[data-marcell-report] .mrc-report-watermark{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:65%;max-width:420px;opacity:.045;pointer-events:none;z-index:0;line-height:0}
 body[data-marcell-report] .mrc-report-watermark img{display:block;width:100%;height:auto;object-fit:contain}
 body[data-marcell-report][data-marcell-format="dense"] :is(td,th){font-size:8px!important;padding:4px 3px;white-space:normal;overflow-wrap:normal}
@@ -95,8 +104,8 @@ body[data-adjustable-tables] .section :is(h3,p){break-after:avoid}
 @media screen{body[data-marcell-report]{max-width:1400px;margin-inline:auto}body[data-marcell-report] button{font-size:12px!important;font-weight:400!important;background:#0d1b2e!important;color:white!important;border:1px solid #0d1b2e;padding:9px 14px;border-radius:4px}body[data-marcell-report] :is(td,th){overflow-wrap:break-word}}
 </style>`;
   result = result.replace(/<\/head>/i, `${css}</head>`);
-  const watermark = `<div class="mrc-report-watermark" aria-hidden="true"><img src="${MARCELL_LOGO}" alt=""></div>`;
-  result = result.replace(/<body\b([^>]*)>/i, `<body$1 data-marcell-report="true" data-marcell-format="${format}"${adjustableTables ? ' data-adjustable-tables="true"' : ""}>${watermark}${branded || a2 ? "" : brand}`);
+  const watermark = `<div class="mrc-report-watermark" aria-hidden="true"><img src="${logoSrc}" alt=""></div>`;
+  result = result.replace(/<body\b([^>]*)>/i, `<body$1 data-report-identity="${arcd?'arcd':'marcell'}" data-marcell-report="true" data-marcell-format="${format}"${adjustableTables ? ' data-adjustable-tables="true"' : ""}>${watermark}${branded || a2 ? "" : brand}`);
   if (a2) result = result.replace(/<section class="page">/g, `<section class="page">${brand}`);
   // Printing from any existing button/automatic path waits for the actual
   // fonts and embedded brand. No totals or report content are recomputed.

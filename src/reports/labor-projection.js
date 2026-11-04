@@ -1,3 +1,4 @@
+import {openReportPreview} from './report-preview.js';
 import { marcellReportHtml } from "./marcell-report.js";
 
 const moneyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -183,13 +184,7 @@ export function buildLaborProjectionPdfHtml(report) {
 
 export function exportLaborProjectionPdf(report) {
   const html = buildLaborProjectionPdfHtml(report);
-  const preview = window.open("", "_blank");
-  if (!preview) throw new Error("Permita a abertura de janelas para visualizar e salvar o PDF.");
-  preview.opener = null;
-  preview.document.open();
-  preview.document.write(html);
-  preview.document.close();
-  return preview;
+  return openReportPreview(html);
 }
 
 export async function exportLaborProjectionExcel(report) {

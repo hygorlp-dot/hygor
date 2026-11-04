@@ -1,3 +1,4 @@
+import {confirmReportIdentity} from './report-identity-helper.js';
 import { expect, test } from "@playwright/test";
 
 // Ações críticas que quebraram em produção em 29-30/09/2026 SEM derrubar a
@@ -99,7 +100,7 @@ async function abrirOrcamento(page) {
 
 // Conteúdo que o app escreveu na janela de exportação.
 async function conteudoDaJanela(page, disparar) {
-  const [janela] = await Promise.all([page.waitForEvent("popup"), disparar()]);
+  const pending = page.waitForEvent("popup");await disparar();await confirmReportIdentity(page);const janela=await pending;
   await expect.poll(async () => (await janela.content()).length, { timeout:10_000 }).toBeGreaterThan(2_000);
   return janela;
 }

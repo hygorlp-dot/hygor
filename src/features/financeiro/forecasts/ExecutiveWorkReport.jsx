@@ -1,3 +1,4 @@
+import {openReportPreview} from '../../../reports/report-preview.js';
 import ScheduleIndicators from './ScheduleIndicators.jsx';
 import {ForecastReportTable as ReportTable} from './ForecastReportTable.jsx';
 import {Popover,PopoverTrigger,PopoverContent} from '../../../components/ui/popover.jsx';
@@ -13,7 +14,6 @@ import {FilterBar} from '../../../design-system/patterns/FilterBar.jsx';
 import {Alert,AlertDescription} from '../../../components/ui/alert.jsx';
 import {executiveWorkReport,executiveReportCsvRows} from '../../../domains/financeiro/executive-report.js';
 import {executiveReportPrintHtml} from '../../../domains/financeiro/executive-report-export.js';
-import {marcellReportHtml} from '../../../reports/marcell-report.js';
 import {forecastMoney as money,forecastDate as date,forecastMonth as month} from './forecast-format.js';
 
 const percent=value=>value==null||!Number.isFinite(value)?'Não disponível':`${(value*100).toLocaleString('pt-BR',{maximumFractionDigits:2})}%`;
@@ -49,7 +49,7 @@ export default function ExecutiveWorkReport({data,workIds,asOf,scope,includeComp
  const lowest=report.error||!report.cash.hasOpening?null:Math.min(...report.cash.weeks.map(week=>week.lowest));
  const period=<>Custos e receitas: competências inteiras de {month(start.slice(0,7))} a {month(asOf.slice(0,7))}. Pagamentos e recebimentos realizados: {date(start)} a {date(asOf)}.</>;
  const showDecisions=()=>{if(decisionsRef.current){decisionsRef.current.open=true;decisionsRef.current.querySelector('summary')?.focus();decisionsRef.current.scrollIntoView({block:'start'});}};
- function print(){setExportError('');try{const popup=window.open('','_blank');if(!popup)throw new Error('Permita abrir a janela para imprimir ou salvar o PDF.');popup.opener=null;popup.document.open();popup.document.write(marcellReportHtml(executiveReportPrintHtml(report)));popup.document.close();}catch(error){setExportError(error.message||'Não foi possível preparar o relatório. Tente novamente.');}}
+ function print(){setExportError('');try{openReportPreview(executiveReportPrintHtml(report));}catch(error){setExportError(error.message||'Não foi possível preparar o relatório. Tente novamente.');}}
  return <>
   <PageHeader headingLevel={2} title="Relatório executivo por obra" secondaryActions={!report.error&&<Popover open={exportsOpen} onOpenChange={setExportsOpen}><PopoverTrigger asChild><Button variant="secondary">Exportar relatório</Button></PopoverTrigger><PopoverContent align="end" aria-label="Exportações do relatório"><div className="financial-reports__exports"><Button variant="secondary" onClick={()=>{onExport(executiveReportCsvRows(report));setExportsOpen(false);}}>Exportar relatório executivo CSV</Button><Button variant="secondary" onClick={()=>{print();setExportsOpen(false);}}>Preparar apresentação / PDF</Button></div></PopoverContent></Popover>}/>
   {exportError&&<Alert variant="destructive"><AlertDescription>{exportError}</AlertDescription></Alert>}

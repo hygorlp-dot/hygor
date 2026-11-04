@@ -1,3 +1,4 @@
+import {openReportPreview} from '../../../reports/report-preview.js';
 import ApprovedBaselinePanel from './ApprovedBaselinePanel.jsx';
 import {ChoiceControl} from '../../../design-system/primitives/ChoiceControl.jsx';
 import {Input as StandardInput} from '../../../components/ui/input.jsx';
@@ -10,7 +11,6 @@ import {useWorkspaceState,useWorkspaceScroll} from "../../../features/workflow/w
 import { PageHeader } from "../../../design-system/patterns/PageHeader";
 import { Button } from "../../../design-system/primitives/Button.jsx";
 import { aplicarCustoApropriado, custoApropriadoPorTarefa, totalMaterialAplicado } from "../cost-allocation";
-import { marcellReportHtml } from "../../../reports/marcell-report.js";
 // ===================================================================
 // PlanejamentoView — tela de Planejamento extraída de LegacyApp.jsx
 //
@@ -725,10 +725,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
     // Bug real (29/09/2026): com "noopener" o navegador devolve null ao app -
     // a aba abria em branco (about:blank) e nada era escrito nela. Mesmo padrão
     // do Diário/Licenciamento: abre, corta o vínculo com a janela e escreve.
-    const w=window.open("","_blank");
-    if(!w){showToast?.("O navegador bloqueou a janela de exportacao. Permita pop-ups e tente novamente.","warn");return;}
-    w.opener=null;
-    w.document.open();w.document.write(marcellReportHtml(html));w.document.close();
+    openReportPreview(html);
     setExportA2Modal(false);
   };
 

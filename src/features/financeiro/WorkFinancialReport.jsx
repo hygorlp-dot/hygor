@@ -1,3 +1,4 @@
+import {openReportPreview} from '../../reports/report-preview.js';
 import {useHelpTopic} from '../help/HelpContext.jsx';
 import {SelectControl} from '../../design-system/primitives/Select.jsx';
 import {useMemo,useState} from 'react';
@@ -6,7 +7,6 @@ import {Input} from '../../components/ui/input.jsx';
 import {Alert,AlertDescription} from '../../components/ui/alert.jsx';
 import {buildWorkFinancialReport,workFinancialSheets,workFinancialCsv,workFinancialPrint} from '../../domains/financeiro/work-financial-report.js';
 import {safeReportText} from '../../domains/financeiro/report-export.js';
-import {marcellReportHtml} from '../../reports/marcell-report.js';
 import './work-financial-report.css';
 
 const money=v=>(v/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
@@ -19,7 +19,7 @@ export default function WorkFinancialReport({data,calcPeriod,view,onViewChange,o
  const exporting=async format=>{
   if(report.error||busy)return;setBusy(true);setError('');
   try{
-   if(format==='print'){const popup=window.open('','_blank');if(!popup)throw new Error('Permita abrir a janela para imprimir ou salvar o PDF.');popup.opener=null;popup.document.open();popup.document.write(marcellReportHtml(workFinancialPrint(report)));popup.document.close();}
+   if(format==='print'){openReportPreview(workFinancialPrint(report));}
    else if(format==='csv'){const url=URL.createObjectURL(new Blob([workFinancialCsv(report)],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=`obra-${report.work.id}-${report.start}-${report.end}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
    else{const xlsx=await loadSpreadsheet(),book=xlsx.utils.book_new();for(const [name,rows]of Object.entries(workFinancialSheets(report))){const sheet=xlsx.utils.aoa_to_sheet(rows.map(r=>r.map(v=>typeof v==='string'?safeReportText(v):v)));sheet['!cols']=rows[0].map(()=>({wch:24}));xlsx.utils.book_append_sheet(book,sheet,name);}await xlsx.writeFile(book,`obra-${report.work.id}-${report.start}-${report.end}.xlsx`);}
   }catch(e){setError(e.message||'Não foi possível exportar.');}finally{setBusy(false);}

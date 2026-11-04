@@ -1,3 +1,4 @@
+import {confirmReportIdentity} from './report-identity-helper.js';
 import { test, expect } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
@@ -44,7 +45,7 @@ test("exportação real da folha remove a assinatura antiga salva na configuraç
   await busca.locator("xpath=../..").getByRole("button").filter({ hasText: "Folha" }).click();
   const popup = page.waitForEvent("popup");
   await page.getByRole("button", { name: "Gerar PDF", exact: true }).click();
-  const report = await popup;
+  await confirmReportIdentity(page);const report = await popup;
   await report.evaluate(() => window.__marcellReportReady);
   await expect(report.locator("body")).not.toContainText(/ArcD Construtech|ArcD Obras/i);
   await expect(report.locator("body")).toContainText("Folha de Pagamento");
@@ -83,7 +84,7 @@ test("exportação real da folha remove a assinatura antiga salva na configuraç
   expect(await report.evaluate(() => window.__printCount)).toBe(0);
   await report.close();
   const reopen = page.waitForEvent("popup"); await page.getByRole("button", { name: "Gerar PDF", exact: true }).click();
-  const adjusted = await reopen; await adjusted.evaluate(() => window.__marcellReportReady);
+  await confirmReportIdentity(page);const adjusted = await reopen; await adjusted.evaluate(() => window.__marcellReportReady);
   expect(await adjusted.locator("table col").first().evaluate(c => c.style.width)).toBe(savedWidth);
   await adjusted.getByRole("button", { name: "Restaurar automático", exact: true }).click();
   expect(await adjusted.locator("td").allTextContents()).toEqual(values);

@@ -1,3 +1,4 @@
+import {openReportPreview} from '../../../reports/report-preview.js';
 import {ChoiceControl} from '../../../design-system/primitives/ChoiceControl.jsx';
 import { sessionContext } from "../../../lib/session-context.js";
 import { useEffect,useState } from "react";
@@ -66,7 +67,7 @@ export function CltPayslips({data,employees=data.employees||[],onDirtyChange,cur
       setRevision(v=>v+1);setDraft(d=>({...d,advances:selected.map(a=>({id:a.id,amount:a.amount,date:a.date}))}));setDirty(false);setStatus("Salvo");showToast("Demonstrativo salvo. Pagamentos e DRE preservados.");
     }catch(error){setStatus("Falha ao salvar");showToast(error.message,"error");}finally{setSaving(false);}
   };
-  const print=html=>{const popup=window.open("","_blank");if(!popup){showToast("Permita abrir a janela do relatório.","error");return;}popup.document.write(html);popup.document.close();};
+  const print=html=>{try{openReportPreview(html);}catch(error){showToast(error.message,"error");}};
   const number=(key,label)=><Inp key={key} label={label} type="number" disabled={!!draft.attendanceSource&&!draft.attendanceSource.manualReason&&ATTENDANCE_FIELDS.includes(key)} value={String(draft[key]??"")} onChange={v=>update(key,v)}/>;
   const toggle=(key,label)=><label className="clt-check"><ChoiceControl type="checkbox" checked={!!draft[key]} onChange={e=>update(key,e.target.checked)}/>{label}</label>;
   return <section className="clt-payslips" aria-label="Holerites CLT">

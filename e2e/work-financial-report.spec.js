@@ -1,3 +1,4 @@
+import {confirmReportIdentity} from './report-identity-helper.js';
 import {expect,test} from '@playwright/test';
 import {readFile} from 'node:fs/promises';
 import ExcelJS from 'exceljs';
@@ -16,7 +17,7 @@ for(const width of [1440,390])test(`relatório completo por obra e exportações
  await report.getByLabel('Competência inicial da obra').fill('2025-10');await expect(report).toContainText('Período em edição');await report.getByRole('button',{name:'Aplicar período da obra'}).click();await expect(report.locator('tbody tr')).toHaveCount(13);await expect(report.getByRole('button',{name:/^Custo total reconhecido/})).toContainText('230,00');
  const csvDownload=page.waitForEvent('download');await report.getByRole('button',{name:'Exportar CSV da obra',exact:true}).click();const csv=await readFile(await(await csvDownload).path(),'utf8');expect(csv).toContain('Obra Alfa QA');expect(csv).toContain('2025-10');expect(csv).toContain('"Custos";"230"');expect(csv).not.toContain('Obra Beta QA');
  if(width===1440){const download=page.waitForEvent('download');await report.getByRole('button',{name:'Exportar Excel da obra'}).click();const book=new ExcelJS.Workbook();await book.xlsx.readFile(await(await download).path());expect(book.getWorksheet('Custos').rowCount).toBe(4);expect(book.getWorksheet('Resumo').getCell('B2').value).toBe(230);}
- const popupPromise=page.waitForEvent('popup');await report.getByRole('button',{name:'Imprimir / salvar PDF da obra'}).click();const popup=await popupPromise;await expect(popup.locator('body')).toContainText('Obra Alfa QA');await expect(popup.locator('body')).toContainText('2025-10');await popup.close();
+ const popupPromise=page.waitForEvent('popup');await report.getByRole('button',{name:'Imprimir / salvar PDF da obra'}).click();await confirmReportIdentity(page);const popup=await popupPromise;await expect(popup.locator('body')).toContainText('Obra Alfa QA');await expect(popup.locator('body')).toContainText('2025-10');await popup.close();
  await report.getByLabel('Obra do relatório').selectOption('b');await expect(report.getByRole('button',{name:/^Custo total reconhecido/})).toContainText('890,00');await report.getByLabel('Obra do relatório').selectOption('a');
  await selectFinanceArea(page,'Caixa por conta');await selectFinanceArea(page,'Relatórios financeiros');await expect(page.getByLabel('Visão dos relatórios')).toHaveValue('work');await expect(report).toContainText('2025-10 a 2026-10');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);await page.screenshot({path:`artifacts/financeiro/obra-completa-${width}.png`,fullPage:true});

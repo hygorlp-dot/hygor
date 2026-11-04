@@ -1,7 +1,7 @@
+import {openReportPreview} from '../../../reports/report-preview.js';
 import {useUnsavedChanges} from '../../../features/workflow/useUnsavedChanges.js';
 import UnsavedChangesPrompt from '../../../features/workflow/UnsavedChangesPrompt.jsx';
 import {Button as StandardButton} from '../../../components/ui/button.jsx';
-import { marcellReportHtml } from "../../../reports/marcell-report.js";
 // ===================================================================
 // RescisaoView — tela "Cálculo de Rescisão", extraída de
 // src/LegacyApp.jsx em 2026-08-20, mesma técnica já usada para os
@@ -258,9 +258,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
 
 <div class="footer">Documento gerado pelo MARCELL · ${new Date().toLocaleString("pt-BR")} · Via do empregador / Via do trabalhador</div>
 </body></html>`;
-    const w = window.open("","_blank");
-    w.document.write(marcellReportHtml(html));
-    w.document.close();
+    openReportPreview(html);
   };
 
   // Valor por extenso (simplificado até 999.999,99)

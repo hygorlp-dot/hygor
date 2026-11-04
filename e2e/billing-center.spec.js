@@ -1,3 +1,4 @@
+import {confirmReportIdentity} from './report-identity-helper.js';
 import { expect, test } from "@playwright/test";
 import { buildBillingData } from "../src/domains/equipamentos/billing-dashboard.fixture.js";
 import { applyOperationalCommand } from "../src/domains/sync/operational-commands.js";
@@ -62,7 +63,7 @@ test("cobrança ao cliente: edição salva, PDF atualizado da obra e total alinh
   await page.getByRole("tab", { name:"Visão geral" }).click();
   const opened = page.waitForEvent("popup");
   await page.getByRole("button", { name:"PDF de cobrança ao cliente", exact:true }).click();
-  const report = await opened;
+  await confirmReportIdentity(page);const report = await opened;
   await expect(report.locator("body")).toContainText("Relatório de cobrança de equipamentos");
   await expect(report.locator("body")).toContainText("Terras Alpha");
   await expect(report.locator("body")).not.toContainText("Oásis Home Park");
@@ -125,7 +126,7 @@ test("central de cobranças: competência, filtros, pendência, memória, PDF e 
   // 9. abrir relatório PDF (documento separado, gerado como antes)
   const popupPromise = page.waitForEvent("popup");
   await page.getByRole("button", { name:"Relatório gerencial PDF" }).click();
-  const popup = await popupPromise;
+  await confirmReportIdentity(page);const popup = await popupPromise;
   await expect(popup.locator("body")).toContainText("Setembro 2026");
   await popup.close();
 

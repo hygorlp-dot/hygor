@@ -136,9 +136,9 @@ describe("exportações da projeção de mão de obra", () => {
     expect(workbook.getWorksheet("Obras e Administração Central").getCell("A2").formula).toBeUndefined();
   });
 
-  it("informa bloqueio de janela na exportação PDF", () => {
+  it("exige escolha da logomarca antes de abrir a exportação PDF", () => {
     const spy = vi.spyOn(window, "open").mockReturnValue(null);
-    expect(() => exportLaborProjectionPdf(laborProjectionFixture())).toThrow("Permita a abertura de janelas");
+    expect(() => exportLaborProjectionPdf(laborProjectionFixture())).toThrow("A escolha da logomarca ainda está carregando");
     spy.mockRestore();
   });
 });

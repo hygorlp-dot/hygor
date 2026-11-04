@@ -1,3 +1,4 @@
+import {openReportPreview} from '../../../reports/report-preview.js';
 import {FilePicker} from '../../../design-system/patterns/FilePicker.jsx';
 import {Input as StandardInput} from '../../../components/ui/input.jsx';
 import {Button as StandardButton} from '../../../components/ui/button.jsx';
@@ -8,7 +9,6 @@ import {TextareaControl} from '../../../design-system/primitives/Textarea.jsx';
 import {useWorkspaceState,useWorkspaceScroll} from "../../../features/workflow/workspace-session.jsx";
 import {useRememberWorkflowScope,useWorkflow} from "../../../features/workflow/WorkflowNavigation.jsx";
 import { WorkspaceNavigation } from "../../../design-system/patterns/WorkspaceNavigation";
-import { marcellReportHtml } from "../../../reports/marcell-report.js";
 import { copiedFloorRecoveries, recoverCopiedFloor } from '../copied-floor-recovery';
 import ItemMemoryPanel from './ItemMemoryPanel';
 import BoxMemoryPanel from './BoxMemoryPanel';
@@ -3292,7 +3292,7 @@ ${blocoBDI}
 </section>
 <div class="footer">${escapeHtml(empresaPDF)} · gerado em ${new Date().toLocaleString("pt-BR")} · preços congelados na data-base ${escapeHtml(dataBaseLegivel)}</div>
 </body></html>`;
-    const w = window.open("","_blank"); w.document.write(marcellReportHtml(html)); w.document.close();
+    openReportPreview(html);
   };
 
   // Exportações da tabela de Sapatas (Memória de Cálculo - Fundação) - pedido
@@ -3404,7 +3404,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 </table>
 <div class="footer">${escapeHtml(data.config?.companyName||"MARCELL")} · gerado em ${new Date().toLocaleString("pt-BR")}</div>
 </body></html>`;
-    const w = window.open("","_blank"); w.document.write(marcellReportHtml(html)); w.document.close();
+    openReportPreview(html);
   };
 
   //  VIEW: LISTA

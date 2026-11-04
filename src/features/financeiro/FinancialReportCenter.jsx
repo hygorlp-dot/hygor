@@ -1,3 +1,4 @@
+import {openReportPreview} from '../../reports/report-preview.js';
 import {LoadingState} from '../../design-system/patterns/LoadingState.jsx';
 import {SelectControl} from '../../design-system/primitives/Select.jsx';
 import {ChoiceControl} from '../../design-system/primitives/ChoiceControl.jsx';
@@ -8,7 +9,6 @@ import {Input} from '../../components/ui/input.jsx';
 import {Alert,AlertDescription} from '../../components/ui/alert.jsx';
 import {REPORT_TYPES,GROUP_LABELS,createReportLedger,buildFinancialReport,reportCategoryLabel} from '../../domains/financeiro/report-center.js';
 import {financialReportSheets,reportCsv,reportPrintHtml,safeReportText} from '../../domains/financeiro/report-export.js';
-import {marcellReportHtml} from '../../reports/marcell-report.js';
 import './financial-reports.css';
 const money=value=>(value/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const endOfMonth=month=>/^\d{4}-\d{2}$/.test(month)?new Date(Date.UTC(Number(month.slice(0,4)),Number(month.slice(5,7)),0)).toISOString().slice(0,10):'';
@@ -37,9 +37,7 @@ function StandardFinancialReportCenter({data,calcPeriod,view,onViewChange,obraId
   try{
    const name=`financeiro-${view.kind}-${view.start}-${view.end}`;
    if(format==='print'){
-    const popup=window.open('','_blank');
-    if(!popup)throw new Error('Permita abrir a janela para imprimir ou salvar o PDF.');
-    popup.opener=null;popup.document.open();popup.document.write(marcellReportHtml(reportPrintHtml(snapshot)));popup.document.close();
+    openReportPreview(reportPrintHtml(snapshot));
    }else if(format==='csv'){
     const url=URL.createObjectURL(new Blob([reportCsv(snapshot)],{type:'text/csv;charset=utf-8'}));
     const link=document.createElement('a');link.href=url;link.download=`${name}.csv`;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);

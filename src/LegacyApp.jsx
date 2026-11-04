@@ -1,3 +1,5 @@
+import {openReportPreview} from './reports/report-preview.js';
+import {ReportIdentityDialog} from './reports/ReportIdentityDialog.jsx';
 import {WorkspaceCommandBar,WorkspaceHeading} from './design-system/patterns/WorkspaceCommandBar.jsx';
 import {SaveRecoveryContext} from './features/workflow/SaveRecoveryContext.jsx';
 import {snapshotJournal,recoveryTab,snapshotChanges} from './domains/sync/snapshot-journal.js';
@@ -81,7 +83,6 @@ import {documentRegister} from "./domains/financeiro/document-register.js";
 import {captureFinancePosition,restoreFinancePosition} from "./features/financeiro/navigation-context.js";
 import {todayQueues,overviewEntries,financialEntry,positionEntries} from "./domains/financeiro/workspace.js";
 import {AttendancePayMode} from "./domains/rh/components/AttendancePayMode.jsx";
-import { marcellReportHtml } from "./reports/marcell-report.js";
 import { createPortal } from "react-dom";
 import { BRAND, MARCELL_LOGO } from "./brand/identity.js";
 import { FinancialOverviewMetrics } from "./features/financeiro/FinancialOverviewMetrics.jsx";
@@ -3423,7 +3424,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
 
 <div class="footer">Gerado por MARCELL · ${new Date().toLocaleString("pt-BR")}</div>
 </body></html>`;
-    const w=window.open("","_blank"); w.document.write(marcellReportHtml(html)); w.document.close();
+    openReportPreview(html);
   };
 
   //  Excel do DRE
@@ -12124,7 +12125,7 @@ Regras: não inclua faturamento, folha, compras ou custos de execução das obra
 <h2 class="sec">Limitações e dados a conferir</h2>${lista(analiseIA.inconsistenciasDados)}
 <h2 class="sec">Veredicto do CFO</h2><p>${escapeHtml(analiseIA.conclusao||"")}</p>
 <p class="foot">Relatório gerencial baseado nos dados disponíveis no MARCELL. Não substitui validação contábil, fiscal ou documental.</p></body></html>`;
-    const w=window.open("","_blank");w.document.write(marcellReportHtml(html));w.document.close();
+    openReportPreview(html);
   };
 
   // A cópia só é enviada depois da revisão das obrigações selecionadas.
@@ -12291,7 +12292,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
 </tbody></table>
 <div class="footer">Gerado por MARCELL Ponto PRO · ${new Date().toLocaleString("pt-BR")} - uso gerencial, não substitui o balanço contábil oficial</div>
 </body></html>`;
-    const w=window.open("","_blank"); w.document.write(marcellReportHtml(html)); w.document.close();
+    openReportPreview(html);
   };
 
   //  Linha DRE reutilizável
@@ -14797,6 +14798,7 @@ export default function App() {
         </nav>
         )}
       </div>
+      <ReportIdentityDialog pageId={tab} allowedTabs={allowedTabs}/>
       <Toast toast={toast}/>
       {buscaAberta && currentUser && (
         <BuscaGlobal indice={indiceBusca} allowedTabs={allowedTabs} onIr={irPara} onFechar={()=>setBuscaAberta(false)}/>

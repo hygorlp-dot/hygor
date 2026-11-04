@@ -1,6 +1,6 @@
 # Manual de uso do app MARCELL
 
-Revisão do conteúdo: 02/11/2026.
+Revisão do conteúdo: 04/11/2026.
 
 Este guia explica o uso das telas em linguagem simples. No aplicativo, clique em **Ajuda**, no cabeçalho, para ler o fluxo da página aberta. Em **Manual completo**, pesquise uma tarefa ou tela. As áreas exibidas no aplicativo respeitam seu perfil de acesso.
 
@@ -140,6 +140,7 @@ Conteúdo gerado de `src/features/help/help-content.js`, a mesma fonte da ajuda 
 - [Planejamento · Linha de base aprovada e SPI](#guia-plan_baseline)
 - [Previsões · Indicadores contábeis](#guia-fin_previsoes_accounting)
 - [Previsões · Bases contábeis e conferência](#guia-fin_previsoes_accounting_base)
+- [Relatórios · Identidade do documento](#guia-report_identity)
 
 <a id="guia-fin_previsoes"></a>
 
@@ -3266,7 +3267,38 @@ O sistema registra origem, período, contas, revisão, autor, data e comparaçã
 
 Balancete já encerrado não sustenta a DRE deste fluxo: use o arquivo anterior ao encerramento. A DRE usa movimentação do período; o balanço usa saldos finais. O PL dos índices soma as contas de patrimônio ao resultado acumulado em aberto, que pode incluir períodos anteriores. Saldo inicial e final são conferidos em centavos. Conferir a aritmética não comprova por si só a cobertura integral: o responsável precisa confirmar entidade, grupos, prazos e todas as contas. Não misture empresas ou períodos. Base inconsistente pode ser guardada como rascunho, mas não pode ser conferida. Bases conferidas não podem ser editadas ou apagadas pelo fluxo. Se o ERP mudar depois, aparece aviso e a comparação registrada é preservada; importe uma revisão se necessário. Administrador ou financeiro com restrição por obra não pode acessar as bases da empresa. O arquivo é lido e normalizado em contas na base do app; não é enviado a serviços externos para interpretação. Nada é publicado automaticamente.
 
+<a id="guia-report_identity"></a>
+
+## Relatórios · Identidade do documento
+
+Escolher a logomarca que aparecerá no cabeçalho e na marca-d’água do relatório.
+
+### Antes de começar
+
+Confira primeiro a obra, o período e os filtros da consulta. Tenha acesso ao relatório do módulo.
+
+### Como fazer
+
+1. Use a ação de impressão, PDF ou preparação de apresentação da tela.
+2. Na janela Identidade do relatório, selecione MARCELL ou ARCD em Logomarca do relatório. A opção inicial é MARCELL em cada nova geração.
+3. Confira a Prévia da logomarca. Aguarde o carregamento; Gerar relatório fica disponível quando a imagem estiver pronta.
+4. Use Gerar relatório para abrir o documento com a identidade escolhida. Na prévia do documento, use Imprimir / salvar PDF ou os controles de impressão oferecidos pelo relatório. Os fluxos que já imprimiam automaticamente continuam após a confirmação da marca.
+5. Use Cancelar, Fechar ou Escape para voltar à consulta. Para trocar a marca de um documento já aberto, gere uma nova prévia e escolha novamente.
+6. Se houver erro na imagem, use Tentar carregar logomarca novamente. Se a janela for bloqueada, permita abrir janelas para este site e use Gerar relatório outra vez.
+
+### Como conferir se deu certo
+
+A logomarca escolhida aparece no cabeçalho e na marca-d’água. O documento conserva seus dados, fotos, totais, identificação da empresa e orientação de papel.
+
+### O que merece atenção
+
+A escolha vale apenas para aquele documento e não muda a identidade do aplicativo ou o cadastro da empresa. Abrir a janela, escolher a marca e cancelar não grava registros. As logomarcas ficam incorporadas ao relatório para impressão. A fonte dos dados continua sendo o módulo de origem; a prévia não confirma pagamentos, aprovações ou assinaturas. CSV, planilhas, anexos já existentes e ZIP de dossiês não recebem logomarca nem esta janela.
+
 ## Aparência, botões e navegação
+
+### Escolher a logomarca dos relatórios
+
+Ao preparar uma impressão ou PDF, escolha MARCELL ou ARCD em Identidade do relatório. Confira a Prévia da logomarca e use Gerar relatório. Cancelar ou Escape volta à consulta, mantendo os filtros. A seleção vale para aquele documento. Planilhas, arquivos CSV, anexos existentes e ZIP de documentos mantêm seus fluxos próprios.
 
 ### Ajustar o menu lateral
 

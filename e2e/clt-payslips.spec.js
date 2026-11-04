@@ -1,3 +1,4 @@
+import {confirmReportIdentity} from './report-identity-helper.js';
 import {expect,test} from "@playwright/test";
 import {selectWorkspaceArea} from './helpers/workspace-navigation.js';
 import {applyOperationalCommand} from "../src/domains/sync/operational-commands.js";
@@ -63,13 +64,13 @@ test("RH: mensal CLT, vínculo de adiantamento, persistência, recibos e PDF sem
   await expect(page.getByLabel("Salário contratual mensal (R$)",{exact:true})).toHaveValue("2406.8");
   await page.getByLabel("Competência mensal",{exact:true}).fill("2026-09");
   await expect(page.getByLabel("Matrícula",{exact:true})).toHaveValue("001");
-  const opened=page.waitForEvent("popup");await page.getByRole("button",{name:"Exportar holerite PDF"}).click();const report=await opened;
+  const opened=page.waitForEvent("popup");await page.getByRole("button",{name:"Exportar holerite PDF"}).click();await confirmReportIdentity(page);const report=await opened;
   await report.evaluate(()=>window.__marcellReportReady);
   await expect(report.locator("body")).toContainText("1.614,50");
   await expect(report.locator(".mrc-report-logo")).toHaveCount(1);
   await report.pdf({path:test.info().outputPath("holerite-clt.pdf"),preferCSSPageSize:true,printBackground:true});await report.close();
   await page.getByText("Recibos dos adiantamentos quinzenais registrados",{exact:true}).click();
-  const receiptOpened=page.waitForEvent("popup");await page.getByRole("button",{name:"Recibo 2026-09-20",exact:true}).click();const receipt=await receiptOpened;
+  const receiptOpened=page.waitForEvent("popup");await page.getByRole("button",{name:"Recibo 2026-09-20",exact:true}).click();await confirmReportIdentity(page);const receipt=await receiptOpened;
   await expect(receipt.locator("body")).toContainText("600,00");await receipt.close();
   expect(commands).toHaveLength(1);expect(errors).toEqual([]);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
@@ -151,7 +152,7 @@ test("provisões: total mensal, por funcionário, saldo informado e exportação
   await page.getByLabel("Competência das provisões",{exact:true}).fill("2026-10");await page.getByLabel("Competência das provisões",{exact:true}).fill("2026-09");
   await region.getByRole("button",{name:"Ajustar Operário QA",exact:true}).click();
   await expect(page.getByLabel("Base mensal para provisões (R$)",{exact:true})).toHaveValue("3000");
-  const opened=page.waitForEvent("popup");await page.getByRole("button",{name:"Exportar provisões PDF",exact:true}).click();const report=await opened;
+  const opened=page.waitForEvent("popup");await page.getByRole("button",{name:"Exportar provisões PDF",exact:true}).click();await confirmReportIdentity(page);const report=await opened;
   await report.evaluate(()=>window.__marcellReportReady);await expect(report.locator("body")).toContainText("744,67");await expect(report.locator("body")).toContainText("1.244,67");
   await report.pdf({path:test.info().outputPath("provisoes.pdf"),preferCSSPageSize:true,printBackground:true});await report.close();
   expect(commands).toHaveLength(1);expect(getState().financialSettlements).toEqual([{id:"preservar",amount:600}]);
@@ -216,10 +217,10 @@ test("ponto fechado: classificação, importação rastreável e campos protegid
   await expect(page.getByRole("button",{name:"Exportar holerite PDF",exact:true})).toBeEnabled();
   expect(getState().employees[0].cltPayroll.drafts["2026-09"].attendanceSource.importedBy).toBe("RH QA");
   expect(getState().employees[0].cltPayroll.profile.attendancePolicy.dsrPolicy).toBe("weekly");
-  const opened=page.waitForEvent("popup");await page.getByRole("button",{name:"Exportar holerite PDF",exact:true}).click();const report=await opened;
+  const opened=page.waitForEvent("popup");await page.getByRole("button",{name:"Exportar holerite PDF",exact:true}).click();await confirmReportIdentity(page);const report=await opened;
   await expect(report.locator("body")).toContainText("Eventos originados do ponto");await report.close();
   await page.getByText(/Fechamento do mês/).click();
-  const batchOpened=page.waitForEvent("popup");await page.getByRole("button",{name:"Imprimir holerites aprovados em lote"}).click();const batch=await batchOpened;await batch.evaluate(()=>window.__marcellReportReady);await expect(batch.locator("body")).toContainText("Operário QA");await batch.pdf({path:test.info().outputPath("holerites-lote.pdf"),preferCSSPageSize:true});await batch.close();
+  const batchOpened=page.waitForEvent("popup");await page.getByRole("button",{name:"Imprimir holerites aprovados em lote"}).click();await confirmReportIdentity(page);const batch=await batchOpened;await batch.evaluate(()=>window.__marcellReportReady);await expect(batch.locator("body")).toContainText("Operário QA");await batch.pdf({path:test.info().outputPath("holerites-lote.pdf"),preferCSSPageSize:true});await batch.close();
   expect(getState().financialSettlements).toEqual([{id:"preservar",amount:600}]);
   await page.locator(".clt-payslips").screenshot({path:test.info().outputPath("ponto-importado.png")});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
@@ -229,7 +230,7 @@ test("custos consolidados: fontes separadas e PDF sem inventar dados ausentes",a
   const {commands,getState}=await enter(page);
   await selectWorkspaceArea(page,'Áreas da folha','Custos por funcionário');
   await expect(page.getByRole("region",{name:"Custos por funcionário",exact:true})).toContainText("Não apurado");
-  const opened=page.waitForEvent("popup");await page.getByRole("button",{name:"Exportar custos PDF"}).click();const report=await opened;await report.evaluate(()=>window.__marcellReportReady);await expect(report.locator("body")).toContainText("Não apurado");await report.pdf({path:test.info().outputPath("custos-funcionario.pdf"),preferCSSPageSize:true});await report.close();
+  const opened=page.waitForEvent("popup");await page.getByRole("button",{name:"Exportar custos PDF"}).click();await confirmReportIdentity(page);const report=await opened;await report.evaluate(()=>window.__marcellReportReady);await expect(report.locator("body")).toContainText("Não apurado");await report.pdf({path:test.info().outputPath("custos-funcionario.pdf"),preferCSSPageSize:true});await report.close();
   expect(commands).toHaveLength(0);expect(getState().financialSettlements).toEqual([{id:"preservar",amount:600}]);
   await page.getByRole("region",{name:"Custos por funcionário",exact:true}).screenshot({path:test.info().outputPath("custos.png")});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
