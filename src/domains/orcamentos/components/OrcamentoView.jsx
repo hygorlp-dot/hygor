@@ -8,6 +8,7 @@ import {RecordAction} from '../../../design-system/primitives/RecordAction.jsx';
 import {TextareaControl} from '../../../design-system/primitives/Textarea.jsx';
 import {useWorkspaceState,useWorkspaceScroll} from "../../../features/workflow/workspace-session.jsx";
 import {useRememberWorkflowScope,useWorkflow} from "../../../features/workflow/WorkflowNavigation.jsx";
+import {useWorkContextObra} from "../../../features/workflow/work-context.js";
 import { WorkspaceNavigation } from "../../../design-system/patterns/WorkspaceNavigation";
 import { marcellReportHtml } from "../../../reports/marcell-report.js";
 import { copiedFloorRecoveries, recoverCopiedFloor } from '../copied-floor-recovery';
@@ -573,6 +574,14 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
 
   const todosOrcamentos=data.orcamentos||[];
   const orcamentos = obraIdFixo?todosOrcamentos.filter(o=>o.obraId===obraIdFixo):todosOrcamentos;
+  // Carimbo: os orçamentos da obra em foco vêm primeiro; os demais (inclusive os
+  // sem obra, da fase comercial) continuam na lista logo abaixo.
+  const carimboObra=useWorkContextObra();
+  const obraEmFoco=obraIdFixo?null:(data.obras||[]).find(o=>o.id===carimboObra)||null;
+  const gruposOrcamento=!orcamentos.length?[]:!obraEmFoco?[{id:"todos",itens:orcamentos}]:[
+    {id:"foco",titulo:`Obra em foco · ${obraEmFoco.name}`,itens:orcamentos.filter(o=>o.obraId===obraEmFoco.id),vazio:"Nenhum orçamento vinculado a esta obra."},
+    {id:"outros",titulo:"Outros orçamentos",itens:orcamentos.filter(o=>o.obraId!==obraEmFoco.id)},
+  ].filter(g=>g.itens.length||g.vazio);
   const orc = orcamentos.find(o => o.id === selOrc);
   const [addFloorOpen, setAddFloorOpen] = useState(false);
   const floors = memoryFloors(orc?.memoriaCalculo);
@@ -3467,7 +3476,10 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           </div>
         )}
 
-        {orcamentos.map(o => {
+        {gruposOrcamento.map(grupo => <section key={grupo.id} className="budget-list-group" aria-label={grupo.titulo||"Orçamentos"}>
+          {grupo.titulo&&<h2 className="budget-list-group__title">{grupo.titulo}</h2>}
+          {grupo.vazio&&!grupo.itens.length&&<p className="budget-list-group__empty">{grupo.vazio}</p>}
+          {grupo.itens.map(o => {
           const c = calcOrcamento(o);
           const obraNome = data.obras.find(x=>x.id===o.obraId)?.name;
           const ehBaseline=(data.budgetBaselines||[]).some(b=>b.ativo!==false&&b.tipo==="controle"&&b.budgetId===o.id);
@@ -3502,7 +3514,8 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               </div>
             </div>
           );
-        })}
+          })}
+        </section>)}
 
         {/* Modal novo orçamento */}
         {novoModal && (
