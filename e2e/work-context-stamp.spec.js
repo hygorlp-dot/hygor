@@ -116,3 +116,19 @@ test('Estoque, Licenciamento, Marcos e Curva A e Terceirizados seguem o carimbo'
   await expect(screenObra(page)).toHaveValue('b');
   expect(errors).toEqual([]);
 });
+
+test('o nome da obra no topo aparece inteiro, também no celular',async({page})=>{
+  const errors=await enter(page,'cmp');
+  await stamp(page).selectOption('b');
+  // Largura natural = a de uma cópia sem limite de largura (cabe a maior obra da lista).
+  const largura=await stamp(page).evaluate(el=>{
+    const copia=el.cloneNode(true);copia.style.cssText='position:absolute;visibility:hidden;width:auto;max-width:none;min-width:0;flex:none';
+    el.parentNode.appendChild(copia);const natural=copia.getBoundingClientRect().width;copia.remove();
+    return {natural:Math.ceil(natural),atual:Math.floor(el.getBoundingClientRect().width)};
+  });
+  expect(largura.atual,`seletor com ${largura.atual}px, precisa de ${largura.natural}px`).toBeGreaterThanOrEqual(largura.natural-1);
+  const caixa=await page.getByTestId('work-context-stamp').boundingBox();
+  expect(caixa.x+caixa.width).toBeLessThanOrEqual(page.viewportSize().width);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+  expect(errors).toEqual([]);
+});
