@@ -140,8 +140,8 @@ try {
     ambiente: servidor.ambiente, apiUrl: servidor.apiUrl, varianteHomologacao: varianteHomologacao || null, backendConfirmadoEm: inicioConsulta,
     certificadoSha256, commit, fonteComAlteracoesLocais: sujo, fonteSha256: env.PONTO_SOURCE_FINGERPRINT,
     compiladoEm: new Date().toISOString(), arquiteturas: arquiteturas.split(","),
-    custoNuvem: 0, compilador: "Gradle local 9.3.1", buildTools: "36.0.0", ndk: "27.1.12297006",
-    modelos, permissoes, verificacoes: { assinatura: true, pacoteHomologacao: true, endpointEmbutido: true, backendIsolado: true, permissoesFinais: true, atualizacaoCompativel: !!anterior, testeFisico: false },
+    compilador: "Gradle 9.3.1", buildTools: "36.0.0", ndk: "27.1.12297006",
+    modelos, permissoes, verificacoes: { assinatura: true, pacoteHomologacao: !pilotoProducao, pacotePilotoProducao: pilotoProducao, endpointEmbutido: true, backendIsolado: !pilotoProducao && ambienteConfirmado, permissoesFinais: true, atualizacaoCompativel: !!anterior, testeFisico: false },
   };
   writeFileSync(path.join(saida, `${prefixo}-${versao}.json`), JSON.stringify({...evidencias,pilotoProducao,variantePilotoProducao:variantePilotoProducao||null}, null, 2) + "\n");
   writeFileSync(path.join(saida, `${nome}.sha256`), `${sha256}  ${nome}\n`);

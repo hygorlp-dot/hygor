@@ -1,7 +1,8 @@
 {
   "git": {
     "deploymentEnabled": {
-      "codex/fulano-siclano-integracao": false
+      "codex/fulano-siclano-integracao": false,
+      "build/ponto-h204-camera-fix-apk18": false
     }
   },
   "buildCommand": "npm run build",

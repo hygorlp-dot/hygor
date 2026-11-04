@@ -3,7 +3,7 @@ name: Qualidade
 on:
   workflow_dispatch:
   push:
-    branches: ["**"]
+    branches-ignore: ["build/ponto-h204-camera-fix-apk18"]
   pull_request:
 
 jobs:

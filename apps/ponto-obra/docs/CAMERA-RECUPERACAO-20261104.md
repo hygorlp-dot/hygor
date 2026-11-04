@@ -28,3 +28,15 @@ Entrega local: 244 testes aprovados em 25 arquivos (`C:/Users/hygor/ponto-camera
 Esta alteração ainda não chegou ao aparelho: sem novo APK compilado, instalado ou teste físico. Não houve push, build remoto, deploy da Vercel ou alteração do APK 17 original. Uma publicação do site não atualiza esse código Android.
 
 Para atualizar a instalação preservando o banco local, é necessário manter pacote e certificado de assinatura. O workflow histórico do APK 17 gera uma chave efêmera no runner; portanto não se deve pressupor que uma chave nova permita atualizar a instalação atual. O material de assinatura original precisa ser confirmado antes de produzir uma atualização instalável. Não remover a instalação nem limpar seus dados para contornar a assinatura.
+
+## Entrega paralela autorizada — APK 18
+
+O usuário confirmou Samsung SM-A057M, Android 15, APK 17 (1.1.2), sequência local 38. O SHA256 do arquivo original é 8299637650527347e90fbd7592b38c423ea859c1b4de810fe2cd4c5da9c8ebfa, igual ao build 40598263505 de 402e400d. A chave efêmera original não foi localizada.
+
+Foi autorizada uma instalação ao lado da atual, com novo pareamento. Configuração: pacote br.com.arcd.pontoobra.piloto.h204fix, versão 1.1.3 (18), nome MARCELL Ponto · Câmera corrigida, produção no endpoint existente. Não desinstalar APK 17 nem limpar seu armazenamento. Não migrar ou reescrever sua cadeia local de batidas.
+
+A chave nova foi criada e guardada fora do repositório, em diretório privado com ACL exclusiva do usuário, e configurada em segredos do GitHub Actions. Ela deve ser preservada para atualizar o APK 18 futuramente. O workflow específico não exporta chave ou senha nos artefatos. A branch de compilação é build/ponto-h204-camera-fix-apk18; o deploy Vercel está desabilitado nessa branch e a suíte web geral não é disparada. A compilação móvel executa os 244 testes e as verificações nativas do script existente.
+
+Antes do build: 244 testes em 25 arquivos aprovados novamente (ponto-camera-apk18-tests.log), configuração do novo pacote validada, actionlint e git diff --check aprovados. Compilação e teste físico ainda pendentes neste checkpoint. Nenhuma operação em pagamentos, ponto de produção ou pareamento foi executada.
+
+Limite da suíte ERP: o hook genérico tentou rodar todos os testes do site nesta base de outubro. Após cerca de seis minutos, oito workers próprios continuavam consumindo CPU sem concluir; a execução foi encerrada, sem tocar nos testes de outras conversas. Lint e fronteiras arquiteturais haviam passado, mas não se afirma aprovação da suíte ERP nem de seu build. Para a branch exclusivamente móvel, com deploy web bloqueado, usa-se a suíte completa Android (244 testes já aprovados), repetida no workflow nativo. O push de compilação dispensa somente esse hook genérico; não dispensa testes móveis, validação de assinatura, pacote, modelos, permissões ou endpoint.

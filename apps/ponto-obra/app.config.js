@@ -39,10 +39,10 @@ module.exports = ({ config }) => {
       android: { ...config.android, package: `${config.android.package}${SUFIXO_PACOTE_HOMOLOGACAO}${varianteHomologacao ? `.${varianteHomologacao}` : ""}`, versionCode },
       plugins: [...(config.plugins || []), "./plugins/with-homolog-signing"],
     } : pilotoProducao ? {
-      name: `${config.name} (PILOTO PRODUÇÃO ${variantePilotoProducao.toUpperCase()})`,
-      version: "1.1.2",
+      name: variantePilotoProducao === "h204fix" ? "MARCELL Ponto · Câmera corrigida" : `${config.name} (PILOTO PRODUÇÃO ${variantePilotoProducao.toUpperCase()})`,
+      version: variantePilotoProducao === "h204fix" ? "1.1.3" : "1.1.2",
       android: { ...config.android, package: `${config.android.package}.piloto.${variantePilotoProducao}`, versionCode },
-      // Chave efêmera e pacote separado: fala com produção, mas nunca substitui
+      // Chave própria e pacote separado: fala com produção, mas nunca substitui
       // o app oficial nem é elegível a publicação na loja.
       plugins: [...(config.plugins || []), "./plugins/with-homolog-signing"],
     } : {}),
