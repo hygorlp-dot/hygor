@@ -4,6 +4,7 @@ import {WorkspaceNavigation} from "../../../design-system/patterns/WorkspaceNavi
 import {Button as SharedButton} from "../../../design-system/primitives/Button.jsx";
 import {Select} from "../../../design-system/primitives/Select.jsx";
 import { useMemo, useState } from "react";
+import { useSyncedWorkObra } from "../../../features/workflow/work-context.js";
 import { getPlanningBudget } from "../../orcamentos/calculations";
 import {
   buildBudgetMaterialDemand, createAbcSnapshot, createSupplyPlan, defaultSupplySettings,
@@ -24,6 +25,7 @@ const Button = ({secondary=false,...props}) => <SharedButton variant={secondary?
 export default function MarcosCurvaASuprimentos({ data, update, showToast, currentUser, obraIdFixo = "" }) {
   const works = data.obras || [];
   const [obraId, setObraId] = useState(() => obraIdFixo || works[0]?.id || "");
+  useSyncedWorkObra(obraId, setObraId, { allowedIds: works.map(work => work.id), fixed: obraIdFixo });
   const [view, setView] = useState("visao");
   const [selectedId, setSelectedId] = useState("");
   const [profileId, setProfileId] = useState("nacional");
