@@ -3,7 +3,12 @@
 .work-context-stamp>span{font-size:var(--arcd-type-label);font-weight:600;color:var(--arcd-text-secondary);white-space:nowrap;}
 .work-context-stamp>strong{font-size:var(--arcd-type-body);font-weight:600;color:var(--arcd-text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .work-context-stamp>.arcd-select{min-width:0;max-width:16rem;}
+/* No celular a linha do topo já tem marca, tela e cinco ações: espremida ali a obra
+   mostrava só a primeira letra. O carimbo desce para uma linha própria, na largura
+   toda (o contexto vira "contents" para o carimbo ser item da linha do topo). */
 @media (max-width:767px){
-  .work-context-stamp>span{display:none;}
-  .work-context-stamp>.arcd-select{max-width:11rem;}
+  .arcd-topbar .app-header-context:has(>.work-context-stamp){display:contents!important;}
+  .arcd-topbar .app-header-context:has(>.work-context-stamp)>.app-breadcrumb{flex:1 1 0;}
+  .arcd-topbar .work-context-stamp{order:1;flex:1 0 100%;}
+  .work-context-stamp>.arcd-select{flex:1;max-width:none;}
 }
