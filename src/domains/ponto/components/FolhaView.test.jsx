@@ -2,11 +2,12 @@ import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, expect, it, vi } from 'vitest';
 import Folha from './FolhaView';
+import { setWorkContextObra, workContextObraId } from '../../../features/workflow/work-context.js';
 import { archivedCltScenario } from '../../../fixtures/archived-clt.js';
 import { rebuildArchivedLaborCosts } from '../../../../server/financial-archived-costs-source.js';
 
 let root, container;
-afterEach(() => { if(root) act(()=>root.unmount()); container?.remove(); vi.useRealTimers(); });
+afterEach(() => { if(root) act(()=>root.unmount()); container?.remove(); vi.useRealTimers(); setWorkContextObra(''); });
 
 it('separa pessoal de obra e administrativo e impede fechamento parcial da empresa',()=>{
   vi.useFakeTimers();vi.setSystemTime(new Date(2026,9,23,12));
@@ -104,4 +105,39 @@ it('dia sem obra no ponto segue o histórico do cadastro (obraHistory), como a D
   filter('antiga'); expect(total()).toMatch(/R\$\s*500,00/);
   filter('nova'); expect(total()).toMatch(/R\$\s*500,00/);
   filter('all'); expect(total()).toMatch(/1\.000,00/);
+});
+
+// Carimbo de contexto: a obra do topo só filtra a folha; o valor da obra é o
+// mesmo de quando ela é escolhida na própria tela. Quem é vinculado a uma obra
+// continua nela, sem seguir o topo.
+it('a obra do carimbo filtra a folha sem mudar o valor, e o usuário vinculado fica na própria obra', () => {
+  vi.useFakeTimers(); vi.setSystemTime(new Date(2026,9,23,12));
+  const employees=[{id:'e1',name:'Pedreiro da Alameda',role:'Pedreiro',dailyRate:100,obra:'o1',active:true},{id:'e2',name:'Servente do Horizonte',role:'Servente',dailyRate:80,obra:'o2',active:true}];
+  const data={config:{},employees,obras:[{id:'o1',name:'Alameda'},{id:'o2',name:'Horizonte'}],
+    attendance:{e1:{'2026-10-21':{status:'P',obraId:'o1'}},e2:{'2026-10-21':{status:'P',obraId:'o2'},'2026-10-22':{status:'P',obraId:'o2'}}},advances:[],changeLog:[]};
+  const montar=user=>{container=document.createElement('div');document.body.append(container);root=createRoot(container);act(()=>root.render(<Folha data={data} currentUser={user} showToast={()=>{}}/>));};
+  const desmontar=()=>{act(()=>root.unmount());container.remove();root=null;};
+  const filtro=()=>[...container.querySelectorAll('select')].find(s=>[...s.options].some(o=>o.value==='o1')&&[...s.options].some(o=>o.value==='all'));
+  const escolher=value=>act(()=>{const s=filtro();s.value=value;s.dispatchEvent(new Event('change',{bubbles:true}));});
+  const total=()=>container.querySelector('.payroll-summary-strip__net strong').textContent;
+
+  montar({id:'rh',role:'rh'});
+  escolher('o2');
+  const totalEscolhido=total();
+  expect(workContextObraId()).toBe('o2');
+  escolher('all');
+  expect(workContextObraId()).toBe('');
+  desmontar();
+
+  setWorkContextObra('o2');
+  montar({id:'rh',role:'rh'});
+  expect(filtro().value).toBe('o2');
+  expect(container.textContent).toContain('Servente do Horizonte');
+  expect(container.textContent).not.toContain('Pedreiro da Alameda');
+  expect(total()).toBe(totalEscolhido);
+  desmontar();
+
+  montar({id:'enc',role:'rh',obraId:'o1'});
+  expect(filtro().value).toBe('o1');
+  expect(workContextObraId()).toBe('o2');
 });
