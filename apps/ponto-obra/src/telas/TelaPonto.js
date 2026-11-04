@@ -15,12 +15,14 @@ import { FASE, falaDeConfirmacao, falhaNaTela, formatarData, formatarHora, fusoD
 import { analisarFoto, apagarFotoLocal } from "../servicos/rosto-nativo";
 import { brilhoMaximo, brilhoNormal, falar, vibrar } from "../servicos/feedback";
 import { RESULTADO as RESULTADO_CALIBRACAO } from "../logica/calibracao-campo";
+import { capturarFotoComPrazo } from "../logica/captura-camera";
 import { Botao, BotaoTexto, COMPROVANTE_MS, COR, COR_DO_TOM, Corpo, ESPACO, Icone, Mensagem, MolduraCamera, RAIO, Rotulo, Status, Tela, Texto, TituloSecao } from "../ui";
 import Comprovante from "./Comprovante";
 
 const CAMERA_ESPERA_MAX_MS = 15_000;
 const ATRASO_CAPTURA_AUTOMATICA_MS = 750;
 const RELOGIO_TELA_MS = 30_000;
+const SUSPENSAO_CAMERA_MS = 500;
 
 export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar, situacao, abrirEncarregado, voz = true, medir = () => {}, calibrar = null }) {
   const camera = useRef(null);
@@ -33,11 +35,31 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
   const timerSucesso = useRef(null);
   const timerCamera = useRef(null);
   const timerAuto = useRef(null);
+  const timerSuspensao = useRef(null);
   const autoDisparou = useRef(false);
+  const cameraPronta = useRef(false);
+  const cameraProntaEm = useRef(null);
+  const terminalAtivoRef = useRef(terminalAtivo);
+  const capturarRef = useRef(null);
+  const suspendeuTerminal = useRef(AppState.currentState !== "active");
   const estadoApp = useRef(AppState.currentState);
   const estadoCamera = estadoPermissaoCamera(permissao);
 
-  useEffect(() => { fluxoRef.current = fluxo; }, [fluxo]);
+  const definirFluxo = useCallback(novo => { fluxoRef.current = novo; setFluxo(novo); }, []);
+  const alterarTerminal = useCallback(ativo => {
+    terminalAtivoRef.current = ativo;
+    if (!ativo) { cameraPronta.current = false; cameraProntaEm.current = null; }
+    setTerminalAtivo(ativo);
+  }, []);
+  const programarCaptura = useCallback(() => {
+    if (!terminalAtivoRef.current || !cameraPronta.current || autoDisparou.current || fluxoRef.current?.etapa !== "pronto" || AppState.currentState !== "active") return;
+    autoDisparou.current = true;
+    clearTimeout(timerAuto.current);
+    timerAuto.current = setTimeout(() => {
+      if (AppState.currentState === "active" && terminalAtivoRef.current && cameraPronta.current && camera.current && fluxoRef.current?.etapa === "pronto") capturarRef.current?.();
+    }, Math.max(0, ATRASO_CAPTURA_AUTOMATICA_MS - (Date.now() - cameraProntaEm.current)));
+  }, []);
+
   useEffect(() => {
     const t = setInterval(() => setAgora(relogio.agora()), RELOGIO_TELA_MS);
     return () => clearInterval(t);
@@ -46,18 +68,24 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
     clearTimeout(timerSucesso.current);
     clearTimeout(timerCamera.current);
     clearTimeout(timerAuto.current);
+    clearTimeout(timerSuspensao.current);
   }, []);
 
   const ativarTerminal = useCallback(() => {
+    clearTimeout(timerSuspensao.current);
     const etapa = fluxoRef.current?.etapa;
     if (etapa === "analisando" || etapa === "sucesso") return;
-    clearTimeout(timerCamera.current);
-    clearTimeout(timerAuto.current);
-    autoDisparou.current = false;
     setErroCamera("");
-    if (etapa === "falha") setFluxo({ etapa: "pronto", fase: FASE.PRONTO });
-    setTerminalAtivo(true);
-  }, []);
+    if (etapa === "falha") definirFluxo({ etapa: "pronto", fase: FASE.PRONTO });
+    if (!terminalAtivoRef.current) {
+      clearTimeout(timerAuto.current);
+      autoDisparou.current = false;
+      alterarTerminal(true);
+    }
+    // A câmera pode continuar montada após uma interrupção breve. Nesse
+    // caso não haverá outro onCameraReady: rearma a captura já preparada.
+    programarCaptura();
+  }, [alterarTerminal, definirFluxo, programarCaptura]);
 
   // Tela apagada / app em background: câmera desmontada. Ao voltar para
   // foreground (inclusive ao acordar o telefone no piloto), o terminal arma
@@ -67,18 +95,29 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
     const sub = AppState.addEventListener("change", next => {
       const anterior = estadoApp.current;
       estadoApp.current = next;
+      clearTimeout(timerSuspensao.current);
       if (next !== "active") {
-        clearTimeout(timerCamera.current);
         clearTimeout(timerAuto.current);
         autoDisparou.current = false;
-        setTerminalAtivo(false);
-        brilhoNormal();
+        // Não captura em background. Evita desmontar/remontar a preview
+        // a cada interrupção transitória de atividade do Android.
+        timerSuspensao.current = setTimeout(() => {
+          if (AppState.currentState === "active") return;
+          suspendeuTerminal.current = true;
+          clearTimeout(timerCamera.current);
+          alterarTerminal(false);
+          brilhoNormal();
+        }, SUSPENSAO_CAMERA_MS);
         return;
       }
-      if (anterior !== "active") ativarTerminal();
+      const retomouSuspensao = suspendeuTerminal.current;
+      suspendeuTerminal.current = false;
+      // Uma notificação/atividade transitória não inicia outra tentativa
+      // depois de uma falha ou de um comprovante já concluído.
+      if (anterior !== "active" && (retomouSuspensao || terminalAtivoRef.current)) ativarTerminal();
     });
     return () => sub.remove();
-  }, [ativarTerminal]);
+  }, [ativarTerminal, alterarTerminal]);
 
   // Se o app abriu antes de terminar a carga do FaceNet, arma assim que os
   // modelos ficarem prontos.
@@ -92,11 +131,12 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
     clearTimeout(timerCamera.current);
     timerCamera.current = setTimeout(() => {
       autoDisparou.current = false;
-      setTerminalAtivo(false);
+      clearTimeout(timerAuto.current);
+      alterarTerminal(false);
       brilhoNormal();
     }, CAMERA_ESPERA_MAX_MS);
     return () => clearTimeout(timerCamera.current);
-  }, [terminalAtivo, fluxo.etapa]);
+  }, [terminalAtivo, fluxo.etapa, alterarTerminal]);
 
   // Pede só uma vez sozinho; negada de vez, o Android não mostra mais o
   // pedido - aí o caminho é o botão das configurações.
@@ -116,26 +156,26 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
   const temResponsavel = resumo.temResponsavel;
   const fuso = fusoDoCadastro(cadastro);
 
-  const fase = (f, nome = "") => setFluxo({ etapa: "analisando", fase: f, nome });
+  const fase = (f, nome = "") => definirFluxo({ etapa: "analisando", fase: f, nome });
   const falha = f => {
     clearTimeout(timerCamera.current);
     clearTimeout(timerAuto.current);
     autoDisparou.current = false;
-    setTerminalAtivo(false);
+    alterarTerminal(false);
     if (f.tipo === "erro") vibrar("falha");
-    setFluxo({ etapa: "falha", fase: FASE.PRONTO, falha: falhaNaTela(f) });
+    definirFluxo({ etapa: "falha", fase: FASE.PRONTO, falha: falhaNaTela(f) });
   };
   const voltarAoInicio = () => {
     clearTimeout(timerSucesso.current);
     clearTimeout(timerCamera.current);
     clearTimeout(timerAuto.current);
     autoDisparou.current = false;
-    setTerminalAtivo(false);
-    setFluxo({ etapa: "pronto", fase: FASE.PRONTO });
+    alterarTerminal(false);
+    definirFluxo({ etapa: "pronto", fase: FASE.PRONTO });
   };
   const foto = async () => {
-    if (!camera.current) throw new Error("câmera não está pronta");
-    return camera.current.takePictureAsync({ quality: 0.8, shutterSound: false });
+    if (!camera.current || !cameraPronta.current || !terminalAtivoRef.current || AppState.currentState !== "active") throw new Error("câmera não está pronta");
+    return capturarFotoComPrazo(camera.current, { quality: 0.8, shutterSound: false }, apagarFotoLocal);
   };
 
   const baterPonto = async () => {
@@ -186,8 +226,8 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
       fase(FASE.CONFIRMADO, funcionario.nome);
       etapa = "batida";
       const comprovante = await registrar({ pessoa: { tipo: "funcionario", ...funcionario }, identificacao: { metodo: "facial", confianca: id.confianca }, foto: fotoFrente });
-      setTerminalAtivo(false);
-      setFluxo({ etapa: "sucesso", fase: FASE.PRONTO, comprovante });
+      alterarTerminal(false);
+      definirFluxo({ etapa: "sucesso", fase: FASE.PRONTO, comprovante });
       medir({ batidaMs: Date.now() - inicio });
       vibrar("registro");
       if (voz) falar(falaDeConfirmacao(comprovante.nome, Date.parse(comprovante.marcadoEm), fuso));
@@ -201,14 +241,12 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
       brilhoNormal();
     }
   };
+  capturarRef.current = baterPonto;
 
   const aoCameraPronta = () => {
-    if (!terminalAtivo || autoDisparou.current || fluxoRef.current?.etapa !== "pronto") return;
-    autoDisparou.current = true;
-    clearTimeout(timerAuto.current);
-    timerAuto.current = setTimeout(() => {
-      if (AppState.currentState === "active" && camera.current && fluxoRef.current?.etapa === "pronto") baterPonto();
-    }, ATRASO_CAPTURA_AUTOMATICA_MS);
+    if (!terminalAtivoRef.current) return;
+    if (!cameraPronta.current) { cameraPronta.current = true; cameraProntaEm.current = Date.now(); }
+    programarCaptura();
   };
 
   if (fluxo.etapa === "sucesso") {

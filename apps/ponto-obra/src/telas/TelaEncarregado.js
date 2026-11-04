@@ -18,6 +18,7 @@ import { PASSO_CADASTRO, formatarDataHora, fusoDoCadastro, passoDoCadastro, rotu
 import { analisarFoto, apagarFotoLocal, lerFotoBase64, prepararFotoDaBatida } from "../servicos/rosto-nativo";
 import { falaDeConfirmacao } from "../logica/apresentacao";
 import { falar, vibrar } from "../servicos/feedback";
+import { capturarFotoComPrazo } from "../logica/captura-camera";
 import {
   Botao, BotaoSecundario, BotaoTexto, COR, COR_DO_TOM, Cabecalho, Campo, Corpo, ESPACO, EstadoCentral, Icone, LinhaAjuste,
   Mensagem, MolduraCamera, Passos, Rotulo, Secao, Superficie, TOQUE, Tela, Texto, Titulo,
@@ -295,7 +296,7 @@ function RegistroPeloEncarregado({ pessoas, titulo, registrar, responsavel, volt
     // com problema não impede a batida: registra sem foto e avisa.
     let foto = { falhou: true };
     if (comCamera && camera.current) {
-      try { foto = await camera.current.takePictureAsync({ quality: 0.8, shutterSound: false }); } catch { foto = { falhou: true }; }
+      try { foto = await capturarFotoComPrazo(camera.current, { quality: 0.8, shutterSound: false }, apagarFotoLocal); } catch { foto = { falhou: true }; }
     }
     try {
       const c = await registrar({ pessoa, identificacao: { metodo: "encarregado", encarregadoId: responsavel.userId }, foto });

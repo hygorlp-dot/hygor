@@ -36,3 +36,12 @@ com item pulado.
 - [ ] Ao sol, a 50 cm: status e botão legíveis.
 - [ ] Fonte do sistema no maior tamanho: nada corta na tela de ponto e no comprovante.
 - [ ] TalkBack lê o status e o botão de bater o ponto.
+
+## 7. Recuperação da câmera — correção de 04/11/2026
+- [ ] Ao iniciar, manter o rosto enquadrado: uma tentativa gera no máximo um comprovante.
+- [ ] Uma interrupção breve do Android não alterna continuamente câmera e Pronto para registrar.
+- [ ] Sair do app e permanecer em outro aplicativo desliga a câmera; voltar inicia uma nova sessão de câmera antes de capturar.
+- [ ] Câmera sem resposta mostra a falha após a espera limitada; toque para tentar novamente ou use Encarregado → Registrar funcionário com PIN.
+- [ ] Em Registrar funcionário, falha ou demora da foto permite concluir o registro identificado pelo responsável, sinalizado sem foto.
+- [ ] Uma foto atrasada de uma tentativa encerrada não cria outra batida.
+- [ ] Conferir fila antes/depois e atualizar o APK com o mesmo pacote e assinatura, preservando as batidas existentes. Não desinstalar ou limpar os dados para contornar erro de atualização.
