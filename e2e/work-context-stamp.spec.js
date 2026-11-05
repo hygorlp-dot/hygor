@@ -194,13 +194,43 @@ test('Ponto geral e Ponto eletrônico seguem o carimbo; o lançamento diário n�
   await expect(obraApp).toHaveValue('b');
   await obraApp.selectOption('a');
   await expect(stamp(page)).toHaveValue('a');
-  // Ponto por obra: a obra da tela é onde a presença é gravada, então ela não segue o topo.
+  // Ponto por obra: a obra da tela é onde a presença é gravada, então ela não segue
+  // o topo, e o topo nem aparece para não sugerir o contrário.
   await page.keyboard.press('Control+k');
   await search.fill('Ponto por obra');
   await search.locator('xpath=../..').getByRole('button').filter({hasText:'Ponto por obra'}).first().click();
   const obraLancamento=page.locator('main').getByLabel('Obra',{exact:true});
   await expect(obraLancamento).toHaveValue('all');
+  await expect(page.getByTestId('work-context-stamp')).toHaveCount(0);
   await obraLancamento.selectOption('b');
+  expect(await page.evaluate(()=>sessionStorage.getItem('arcd_obra_contexto'))).toBe('a');
+  expect(errors).toEqual([]);
+});
+
+test('o topo mostra a obra que a tela usa de fato e some onde não vale',async({page})=>{
+  const errors=await enter(page,'home');
+  const caixa=page.getByTestId('work-context-stamp');
+  // Dashboard não segue o carimbo: sem topo.
+  await expect(page.locator('.arcd-main')).toBeVisible();
+  await expect(caixa).toHaveCount(0);
+  async function open(label){
+    await page.keyboard.press('Control+k');
+    const search=page.getByPlaceholder('Buscar obra, lead, pedido, funcionário, tela...');
+    await search.fill(label);
+    await search.locator('xpath=../..').getByRole('button').filter({hasText:label}).first().click();
+  }
+  // Estoque (uma obra por vez) com o carimbo vazio abre na primeira obra: o topo
+  // mostra essa obra, e não "Todas as obras", que a tela não aceita.
+  await open('Estoque');
+  const obraEstoque=page.locator('main').getByLabel('Obra',{exact:true}).first();
+  await expect(obraEstoque).toHaveValue('a');
   await expect(stamp(page)).toHaveValue('a');
+  await expect(stamp(page).locator('option',{hasText:'Todas as obras'})).toHaveCount(0);
+  // Trocar no topo leva a tela junto.
+  await stamp(page).selectOption('b');
+  await expect(obraEstoque).toHaveValue('b');
+  // Compras aceita "Todas": a opção volta.
+  await open('Compras');
+  await expect(stamp(page).locator('option',{hasText:'Todas as obras'})).toHaveCount(1);
   expect(errors).toEqual([]);
 });
