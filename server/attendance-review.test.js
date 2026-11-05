@@ -26,8 +26,8 @@ describe("escala e conferência do RH",()=>{
     const next=appendWorkSchedule(employee,{code:SCHEDULE_44,effectiveFrom:"2026-11-01"},"rh",now);
     expect(next.history).toHaveLength(2);expect(employee.workSchedules).toHaveLength(1);
   });
-  it("duas batidas e uma saída isolada nunca fecham automaticamente a jornada",()=>{
-    expect(inspectDay(events().filter((_,i)=>i===0||i===3),employee,date).situacao).toBe("conferir");
+  it("duas batidas formam jornada; saída isolada continua pendente",()=>{
+    expect(inspectDay(events().filter((_,i)=>i===0||i===3),employee,date).situacao).toBe("aguardando_rh");
     expect(inspectDay([events()[3]],employee,date).situacao).toBe("conferir");
     expect(inspectDay(events().map(e=>({...e,tipoEvento:null})),employee,date).situacao).toBe("conferir");
     expect(inspectDay(events(),employee,date).situacao).toBe("aguardando_rh");

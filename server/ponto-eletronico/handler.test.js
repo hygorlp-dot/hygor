@@ -173,3 +173,12 @@ describe("identificação do aparelho no servidor", () => {
     expect(limparAparelho(null)).toEqual({});
   });
 });
+
+it('falha na integração automática preserva recibo e reentrega tenta novamente',async()=>{
+ let attempts=0;
+ tratar=criarTratadorPonto({db,company:'arcd',lerDados:async()=>DADOS,agora:()=>new Date('2026-10-01T10:00:00Z'),autenticarUsuario:async()=>ADMIN,
+  integrarJornadas:async events=>{attempts++;expect(events).toHaveLength(1);if(attempts===1)throw new Error('transação indisponível');return {pending:false};}});
+ const p=await parear(),lote=await marcacoes(p.dispositivoId,1),request={action:'ponto-enviar-marcacoes',headers:{authorization:`Bearer ${p.token}`},body:{marcacoes:lote}};
+ const first=await tratar(request);expect(first.json.aceitas).toBe(1);expect(first.json.integracao).toEqual({pending:true});
+ const retry=await tratar(request);expect(retry.json.integracao).toEqual({pending:false});expect(attempts).toBe(2);
+});

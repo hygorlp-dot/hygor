@@ -132,7 +132,7 @@ describe("consulta de batidas", () => {
     expect(container.querySelectorAll(".punch-conference__table table tbody tr")).toHaveLength(1);
     expect(container.querySelector(".punch-conference__table table").textContent).toContain("Ana da Silva");
     preencher(controle("Buscar funcionário"), "nome inexistente");
-    expect(container.textContent).toContain("Nenhum funcionário encontrado para os filtros selecionados.");
+    expect(container.textContent).toContain("Nenhum funcionário encontrado.");
     expect(chamarPontoEletronico).not.toHaveBeenCalled();
   });
 

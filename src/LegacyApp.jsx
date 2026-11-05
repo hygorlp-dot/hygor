@@ -5787,6 +5787,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
   const [month,setMonth]=useWorkspaceState('ponto_geral','month',refInicial.getMonth());
   const [q,setQ]=useWorkspaceState('ponto_geral','q',agora.getDate()>=6&&agora.getDate()<=20?"1":"2");
   const [filterObra,setFilterObra]=useWorkspaceState('ponto_geral','filterObra',"all");
+  useSyncedWorkObra(filterObra,setFilterObra,{allowedIds:(data.obras||[]).map(o=>o.id),allValue:"all"});
   const [busca,setBusca]=useWorkspaceState('ponto_geral','busca',"");
   const [obraCell,setObraCell]=useState(null);   // "empId::date" da célula com troca de obra aberta
   const pendingCellsRef=useRef(new Map());
@@ -6527,6 +6528,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
           intervaloSaida:att?.intervaloSaida,
           intervaloRetorno:att?.intervaloRetorno,
           saida:att?.saida,
+          pontoReview:att?.pontoReview,
           jornadaInicio:e.workStart || data.config?.payrollWorkStart || "07:00",
         });
         const obraIdPonto=obraDoPonto(e);

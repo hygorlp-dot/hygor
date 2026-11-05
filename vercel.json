@@ -27,6 +27,7 @@
     }
   ],
   "rewrites": [
+    { "source": "/meu-ponto", "destination": "/index.html" },
     {
       "source": "/api/client/:route*",
       "destination": "/api/client?route=:route*"

@@ -54,6 +54,7 @@ import { obterProjecaoMaoObra } from "../../../api.js";
 import {LaborAreaTabs} from '../../rh/components/LaborAreaTabs.jsx';
 import {laborArea,laborAreaLabel,matchesLaborArea} from '../../rh/labor-area.js';
 import {useWorkspaceState} from '../../../features/workflow/workspace-session.jsx';
+import {useSyncedWorkObra} from '../../../features/workflow/work-context.js';
 import {useHelpTopic} from '../../../features/help/HelpContext.jsx';
 
 function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
@@ -73,6 +74,9 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
   const [month, setMonth] = useState(entryScope?Number(entryScope.competence.slice(5,7))-1:savedScope?.month??refInicial.getMonth());
   const [q, setQ] = useState(savedScope?.cycle||(now.getDate() >= 6 && now.getDate() <= 20 ? "1" : "2"));
   const [filterObra, setFilterObra] = useState(currentUser?.obraId||savedScope?.obraId||"all");
+  // Carimbo: a obra só filtra a exibição; o cálculo da folha não muda. Quem é
+  // vinculado a uma obra continua na própria obra, sem seguir o topo.
+  useSyncedWorkObra(filterObra,setFilterObra,{allowedIds:(data.obras||[]).map(o=>o.id),allValue:"all",fixed:currentUser?.obraId||""});
   useRememberWorkflowScope("folha",{obraId:filterObra==="all"?"":filterObra,year,month,period:"mes",cycle:q});
   const [expandedId, setExpandedId] = useState(entryScope?.employeeId||null);
   const [relatorioPendente, setRelatorioPendente] = useState("");

@@ -72,6 +72,7 @@ export const calculateAttendanceDayCost = ({
     intervaloSaida:record.intervaloSaida,
     intervaloRetorno:record.intervaloRetorno,
     saida:record.saida,
+    pontoReview:record.pontoReview,
     jornadaInicio:record.archivedWorkStart
       ?? employee.workStart
       ?? config.payrollWorkStart

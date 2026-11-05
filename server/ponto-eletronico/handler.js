@@ -29,6 +29,9 @@ import { situacaoRepP } from "../../src/domains/ponto-eletronico/rep-p.js";
 import { proporApropriacoes, validarApropriacao } from "../../src/domains/ponto-eletronico/apropriacao.js";
 import { intervaloDoDia } from "../../src/domains/ponto-eletronico/painel.js";
 import { consultarBancoHoras } from "./consulta-banco-horas.js";
+import { consultarDocumentosFiscais } from "./fiscal/endpoint.js";
+import { ErroFiscal } from "./fiscal/campos.js";
+import { autorizarAutomacao, comprovantesIndividuais, executarAutomacaoFiscal } from "./fiscal/acesso.js";
 import { criarArp } from "./arp/arp.js";
 import { POLITICA_PADRAO, criarFonteHora } from "./tempo/fonte-hora.js";
 
@@ -119,7 +122,7 @@ const caminhoFotoMarcacao = (obraId, marcadoEm, id) => `marcacoes/${obraId}/${St
 // existe para os testes fixarem o relógio do host.
 // verificarHoraNtp: async () => medição (tempo/ntp.js verificarHora), usada
 // pela ação ponto-tempo-verificar.
-export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, lerDadosPainel = lerDados, agora: agoraDoHost, fonteHora, verificarHoraNtp, politicaHora = POLITICA_PADRAO }) {
+export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, lerDadosPainel = lerDados, integrarJornadas, agora: agoraDoHost, fonteHora, verificarHoraNtp, politicaHora = POLITICA_PADRAO, lerConfigFiscal = async () => null, servicosAssinatura, lerServicosAssinatura = async () => servicosAssinatura, lerSegredoAutomacao = () => undefined }) {
   const fonte = fonteHora || criarFonteHora({
     relogioHost: agoraDoHost ? () => agoraDoHost().getTime() : () => Date.now(),
     politica: politicaHora,
@@ -131,6 +134,12 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, l
     },
   });
   const agora = () => fonte.agora();
+  // Uma falha na integração não desfaz nem impede o recibo da batida original.
+  const integrar = async eventos => {
+    if(!integrarJornadas)return undefined;
+    try {return await integrarJornadas(eventos);}
+    catch {return {pending:true};}
+  };
   const arp = criarArp({ db, company, fonteHora: fonte, hashFn: sha256 });
 
   // Estabelecimento do aparelho: o já fixado nele, ou o da obra (vínculo do
@@ -222,6 +231,64 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, l
         .eq("company_id", company).eq("id", texto(body.dispositivoId));
       if (error) throw error;
       return ok({ revogado: true });
+    },
+
+    async "ponto-comprovantes-individuais"({ body }) {
+      try { return await comprovantesIndividuais({ companyId: company, body, servicos: await lerServicosAssinatura() }); }
+      catch { return erro(403, "Acesso individual indisponível. Solicite orientação ao RH."); }
+    },
+
+    async "ponto-fiscal-automacao"({ body, headers }) {
+      if (!autorizarAutomacao(headers, lerSegredoAutomacao())) return erro(403, "Automação não autorizada.");
+      try {
+        const dados = body.operacao === "emitir" ? await lerDadosPainel() : {};
+        return await executarAutomacaoFiscal({ db, companyId: company, body, config: await lerConfigFiscal(),
+          agora: agora().toISOString(), dadosPonto: { employees: dados?.employees || [] }, servicos: await lerServicosAssinatura() });
+      } catch (error) {
+        if (error instanceof ErroFiscal) return erro(422, "Emissão automática pendente de configuração ou conferência.", { codigo: error.codigo });
+        return erro(503, "Emissão automática temporariamente indisponível.");
+      }
+    },
+
+    async "ponto-comprovantes-gestao"({ body }) {
+      const { usuario, falha } = await doUsuario(body, PAPEIS_FISCAL);
+      if (falha) return falha;
+      if (!podeAcessarAba(usuario, "ponto_app") || (usuario.role !== "admin" && usuario.obraId)) return erro(403, "Acesso restrito ao RH com acesso global.");
+      if (!["situacao", "acesso", "revogar", "contato"].includes(body.operacao)) return erro(400, "Operação inválida.");
+      try {
+        const servicos = await lerServicosAssinatura();
+        if (!servicos?.recibos) return erro(422, "O cofre privado de comprovantes ainda não está configurado.");
+        const payload = { companyId: company };
+        if (body.operacao !== "situacao") {
+          const dados = await lerDadosPainel();
+          if (!dados?.employees?.some(e => String(e.id) === body.employeeId)) return erro(404, "Funcionário não encontrado.");
+          payload.employeeId = body.employeeId;
+          if (body.operacao === "contato") {
+            if (body.confirmado !== true || !/^55[1-9][0-9]{9,10}$/.test(body.telefone || "")) return erro(400, "Confira e confirme o número com DDI e DDD.");
+            payload.telefone = body.telefone; payload.responsavel = String(usuario.id);
+          }
+        }
+        return ok(await servicos.recibos(body.operacao, payload));
+      } catch { return erro(422, "Não foi possível acessar o cofre. Nenhum pagamento ou batida foi alterado."); }
+    },
+
+    async "ponto-fiscal"({ body }) {
+      const { usuario, falha } = await doUsuario(body, PAPEIS_FISCAL);
+      if (falha) return falha;
+      if (!podeAcessarAba(usuario, "ponto_app")) return erro(403, "Sem acesso à aba Ponto eletrônico.");
+      const dados = await lerDadosPainel();
+      let configFiscal, servicosFiscais;
+      try { configFiscal = await lerConfigFiscal(); servicosFiscais = await lerServicosAssinatura(); }
+      catch (error) {
+        if (error instanceof ErroFiscal) return erro(422, "A configuração fiscal precisa ser conferida pelo administrador.", { codigo: error.codigo });
+        throw error;
+      }
+      return consultarDocumentosFiscais({
+        db, companyId: company, usuario, body, tipo: texto(body.tipo),
+        config: configFiscal, agora: agora().toISOString(),
+        servicosAssinatura: servicosFiscais,
+        dadosPonto: { employees: dados?.employees || [], attendance: dados?.attendance || {} },
+      });
     },
 
     async "ponto-marcacoes"({ body }) {
@@ -501,6 +568,13 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, l
     },
 
     // ---------------- aparelho da obra ----------------
+    async "ponto-coletor-conectividade"({ body, headers }) {
+      const { dispositivo, falha } = await doAparelho(headers, body);
+      if (falha) return falha;
+      if (!/^[a-f0-9-]{36}$/i.test(texto(body.desafio))) return erro(400, "Desafio de conexão inválido.");
+      return ok({ conectado: true, desafio: body.desafio, dispositivoId: dispositivo.id });
+    },
+
     async "ponto-parear"({ body }) {
       const codigo = texto(body.codigo).replace(/\D/g, "");
       if (codigo.length !== 8) return erro(400, "O código tem 8 números.");
@@ -615,6 +689,7 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, l
         if (errD) throw errD;
         return ok({
           resultados,
+          integracao: await integrar(body.eventos),
           cadeiaLocal: { ultimaSequencia: Number(d?.ultima_sequencia_local || 0), ultimoHash: d?.ultimo_hash_local || HASH_INICIAL },
           servidorMs: hora.serverTimeMs, tempo: hora,
         });
@@ -639,6 +714,7 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, l
         resultado = Array.isArray(data) ? data[0] : data;
       }
       return ok({
+        integracao: await integrar(lote),
         aceitas: Number(resultado.aceitas || 0), ultimoNsr: Number(resultado.ultimo_nsr || 0), ultimoHash: resultado.ultimo_hash,
         erro: cadeia.erro || resultado.erro || null, nsrComErro: cadeia.nsrComErro, servidorMs: agora().getTime(),
       });

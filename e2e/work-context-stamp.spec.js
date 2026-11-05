@@ -172,3 +172,35 @@ test('Orçamento destaca a obra em foco sem esconder os outros orçamentos',asyn
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
   expect(errors).toEqual([]);
 });
+
+test('Ponto geral e Ponto eletrônico seguem o carimbo; o lançamento diário não',async({page})=>{
+  const errors=await enter(page,'ponto_geral');
+  const obraGeral=page.locator('main').getByLabel('Obra',{exact:true});
+  await expect(obraGeral).toHaveValue('all');
+  await stamp(page).selectOption('b');
+  await expect(obraGeral).toHaveValue('b');
+  await obraGeral.selectOption('all');
+  await expect(stamp(page)).toHaveValue('');
+  await obraGeral.selectOption('a');
+  await expect(stamp(page)).toHaveValue('a');
+  // Ponto eletrônico (uma obra por vez) abre na obra do carimbo, não na que tem mais
+  // gente (a), e devolve a troca.
+  await stamp(page).selectOption('b');
+  await page.keyboard.press('Control+k');
+  const search=page.getByPlaceholder('Buscar obra, lead, pedido, funcionário, tela...');
+  await search.fill('Ponto eletrônico');
+  await search.locator('xpath=../..').getByRole('button').filter({hasText:'Ponto eletrônico'}).first().click();
+  const obraApp=page.locator('main .pe-work-selector').getByLabel('Obra',{exact:true});
+  await expect(obraApp).toHaveValue('b');
+  await obraApp.selectOption('a');
+  await expect(stamp(page)).toHaveValue('a');
+  // Ponto por obra: a obra da tela é onde a presença é gravada, então ela não segue o topo.
+  await page.keyboard.press('Control+k');
+  await search.fill('Ponto por obra');
+  await search.locator('xpath=../..').getByRole('button').filter({hasText:'Ponto por obra'}).first().click();
+  const obraLancamento=page.locator('main').getByLabel('Obra',{exact:true});
+  await expect(obraLancamento).toHaveValue('all');
+  await obraLancamento.selectOption('b');
+  await expect(stamp(page)).toHaveValue('a');
+  expect(errors).toEqual([]);
+});
