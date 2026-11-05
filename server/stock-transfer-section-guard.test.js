@@ -18,3 +18,13 @@ describe("save-sections não mexe em transferência entre obras (E1.1)", () => {
     expect(stockTransferSectionViolation([saida], [{ ...saida, tipo: "consumo" }])).toBe("t1");
   });
 });
+
+describe("save-sections não mexe em ajuste de inventário (E1.2)", () => {
+  it("recusa criar ou apagar ajuste gerado por contagem, aceita ajuste avulso", () => {
+    const ajusteInventario = { id: "i1-cim", obraId: "a", tipo: "ajuste_saida", qtd: 4, inventarioId: "i1" };
+    const sobra = { id: "i1-aco", obraId: "a", tipo: "ajuste", qtd: 2, inventarioId: "i1" };
+    expect(stockTransferSectionViolation([], [ajusteInventario])).toBe("i1-cim");
+    expect(stockTransferSectionViolation([sobra], [])).toBe("i1-aco");
+    expect(stockTransferSectionViolation([], [{ id: "av", obraId: "a", tipo: "ajuste", qtd: 1 }])).toBe("");
+  });
+});

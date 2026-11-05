@@ -232,6 +232,35 @@
   .stock-transfer-arrival { display: flex; flex-direction: column; gap: 12px; }
   .stock-transfer-arrival p { margin: 0; font-size: var(--arcd-type-body); color: var(--arcd-text-primary); line-height: 1.5; }
   .stock-transfer-arrival .stock-transfer-arrival__note { font-size: var(--arcd-type-label); color: var(--arcd-text-secondary); }
+  /* E1.2: inventário com ajuste. */
+  .stock-inventory { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .stock-inventory > section { border: 1px solid var(--arcd-border-default); border-radius: var(--arcd-radius-md); padding: 12px; min-width: 0; }
+  .stock-inventory h3 { margin: 0; font-size: var(--arcd-type-card-title); font-weight: 600; color: var(--arcd-text-primary); }
+  .stock-inventory header p, .stock-inventory__pending > p { margin: 4px 0 0; font-size: var(--arcd-type-label); color: var(--arcd-text-secondary); line-height: 1.5; }
+  .stock-inventory__pending { border-left: 3px solid var(--arcd-color-warning); }
+  .stock-inventory__pending ul, .stock-inventory__history ul { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: var(--arcd-type-label); }
+  .stock-inventory__actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .stock-inventory__scroll { overflow-x: auto; margin-top: 8px; }
+  .stock-inventory__table { width: 100%; border-collapse: collapse; font-size: var(--arcd-type-label); }
+  .stock-inventory__table th, .stock-inventory__table td { height: auto; padding: 6px 8px; border-bottom: 1px solid var(--arcd-border-subtle); text-align: left; vertical-align: middle; }
+  .stock-inventory__table thead th { color: var(--arcd-text-secondary); font-weight: 600; white-space: nowrap; }
+  .stock-inventory__table tbody th { font-weight: 600; min-width: 120px; }
+  @media (max-width: 600px) { .stock-inventory__table td input { min-width: 72px; max-width: 96px; } }
+  .stock-inventory__table tbody th small { display: block; font-weight: 400; color: var(--arcd-text-secondary); }
+  .stock-inventory__table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .stock-inventory__table td input { min-width: 88px; max-width: 140px; }
+  .stock-inventory [data-tone="danger"] { color: var(--arcd-color-danger); font-weight: 600; }
+  .stock-inventory [data-tone="success"] { color: var(--arcd-color-success); font-weight: 600; }
+  .stock-inventory__form { display: grid; grid-template-columns: minmax(0, 200px) minmax(0, 1fr); gap: 12px; margin-top: 12px; }
+  .stock-inventory__summary { margin: 8px 0; font-size: var(--arcd-type-label); color: var(--arcd-text-secondary); }
+  .stock-inventory__summary[data-tone="warning"] { color: var(--arcd-color-warning); font-weight: 600; }
+  .stock-inventory__empty { margin: 8px 0 0; font-size: var(--arcd-type-label); color: var(--arcd-text-secondary); }
+  .stock-inventory__history li { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px 12px; flex-wrap: wrap; padding-top: 6px; border-top: 1px solid var(--arcd-border-subtle); }
+  .stock-inventory__history li > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .stock-inventory__history small { color: var(--arcd-text-secondary); font-size: var(--arcd-type-caption); }
+  .stock-inventory__chip { padding: 2px 6px; border-radius: var(--arcd-radius-sm); background: var(--arcd-color-surface-muted); font-size: var(--arcd-type-caption); font-weight: 600; white-space: nowrap; }
+  .stock-inventory__chip[data-tone="warning"] { color: var(--arcd-color-warning); }
+  @media (max-width: 600px) { .stock-inventory__form { grid-template-columns: minmax(0, 1fr); } }
   .arcd-main[data-workspace] .equipment-workflow-context { display: block; width: min(100%, 320px); margin: 0; padding: 0; border: 0; background: transparent; }
   .arcd-main[data-workspace] .equipment-toolbar { grid-template-columns: minmax(0, 1fr); padding: 0; border: 0; background: transparent; }
   .equipment-fleet-card__name { overflow-wrap: anywhere; }

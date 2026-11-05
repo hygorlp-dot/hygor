@@ -20,6 +20,7 @@ import { historicoPreco } from "../../compras/calculations";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { TIPOS_MOV, TIPOS_MOV_AVULSO, SINAL_MOV, calcSaldos, custoMedioPonderado, saldoDe, baixarPorComposicao, calcCurvaABC, calcCurvaABCServicos, materiaisAbaixoMinimo, transferenciasEmTransito } from "../calculations";
 import { STOCK_COMMAND } from "../commands";
+import { InventoryPanel } from "./InventoryPanel";
 import { PageHeader } from "../../../design-system/patterns/PageHeader.jsx";
 import { WorkspaceNavigation } from "../../../design-system/patterns/WorkspaceNavigation.jsx";
 
@@ -450,6 +451,41 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
     showToast("Chegada confirmada. O material entrou no estoque e o custo passou para esta obra.");
   };
 
+  //  Inventário com ajuste (E1.2)
+  const [inventarioOcupado,setInventarioOcupado]=useState(false);
+  const registrarInventario = async (contagem) => {
+    if (!contagem.contagens.length) { showToast("Informe a quantidade contada de ao menos um material.", "error"); return false; }
+    if (!dispatchCommand) { showToast("Registrar o inventário exige conexão com o servidor.", "error"); return false; }
+    setInventarioOcupado(true);
+    try {
+      const id = uid();
+      const result = await dispatchCommand({
+        type: STOCK_COMMAND.INVENTORY_SUBMITTED, idempotencyKey: `inventario-${id}-${uid()}`,
+        actorId: currentUser?.id || "", actorName: currentUser?.nome || "",
+        payload: { inventory: { id, ...contagem } },
+      });
+      if (!result?.ok) { showToast(result?.reason || "Não foi possível registrar a contagem.", "error"); return false; }
+      const salvo = (result.data?.inventarios || []).find(item => item.id === id);
+      showToast(salvo?.status === "aguardando_aprovacao"
+        ? "Contagem registrada. A diferença passa da alçada e foi para o Administrador aprovar."
+        : "Contagem registrada e estoque ajustado.");
+      return true;
+    } finally { setInventarioOcupado(false); }
+  };
+  const decidirInventario = async (inventarioId, aprovar, motivo) => {
+    if (!dispatchCommand) { showToast("Decidir o inventário exige conexão com o servidor.", "error"); return; }
+    setInventarioOcupado(true);
+    try {
+      const result = await dispatchCommand({
+        type: STOCK_COMMAND.INVENTORY_DECIDED, idempotencyKey: `inventario-decisao-${inventarioId}-${uid()}`,
+        actorId: currentUser?.id || "", actorName: currentUser?.nome || "",
+        payload: { inventarioId, aprovar, motivo },
+      });
+      if (!result?.ok) { showToast(result?.reason || "Não foi possível decidir a contagem.", "error"); return; }
+      showToast(aprovar ? "Contagem aprovada e estoque ajustado." : "Contagem recusada. O estoque não mudou.");
+    } finally { setInventarioOcupado(false); }
+  };
+
   //  Composição
   const salvarComposicao = async (form) => {
     if (!form.nome.trim()) { showToast("Dê um nome ao serviço.", "error"); return; }
@@ -606,7 +642,7 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
       )}
 
       <WorkspaceNavigation label="Áreas do estoque" active={aba} onChange={setAba}
-        items={[{id:"saldo",label:"Saldo"},{id:"movs",label:"Movimentos"}]}
+        items={[{id:"saldo",label:"Saldo"},{id:"movs",label:"Movimentos"},{id:"inventario",label:"Inventário"}]}
         tools={[{id:"materiais",label:"Insumos"},{id:"comp",label:"Composições"},{id:"abc",label:"Curva ABC"}]} toolsLabel="Cadastros e análises"/>
       <Inp label="Buscar insumo" value={busca} onChange={setBusca} placeholder="Nome ou código do insumo..."/>
 
@@ -643,6 +679,10 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
             </div>
           ))
       )}
+
+      {/*  INVENTÁRIO (E1.2)  */}
+      {aba === "inventario" && <InventoryPanel data={data} obraId={obraAtual} nomeObra={nomeObra(obraAtual)} materiais={materiais}
+        currentUser={currentUser} onSubmit={registrarInventario} onDecide={decidirInventario} busy={inventarioOcupado}/>}
 
       {/*  MOVIMENTOS  */}
       {aba === "movs" && (

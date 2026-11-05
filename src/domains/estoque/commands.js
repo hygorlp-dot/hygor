@@ -1,5 +1,6 @@
 import { SINAL_MOV, TIPOS_MOV_AVULSO, baixarPorComposicao, calcSaldos, custoMedioPonderado, entradaDaTransferencia, saldoDe } from "./calculations.js";
 import { isDateInClosedPeriod } from "../financeiro/workflows.js";
+import { INVENTORY_STATUS, ajustesDoInventario, inventarioPendenteDaObra, linhasDoInventario, precisaAprovacao, resumoDoInventario } from "./inventory.js";
 import { resolverTarefaDoConsumo } from "./task-allocation.js";
 
 export const STOCK_COMMAND = Object.freeze({
@@ -10,6 +11,8 @@ export const STOCK_COMMAND = Object.freeze({
   COMPOSITION_DELETED: "COMPOSICAO_EXCLUIDA",
   TRANSFER_SENT: "TRANSFERENCIA_ESTOQUE_ENVIADA",
   TRANSFER_RECEIVED: "TRANSFERENCIA_ESTOQUE_RECEBIDA",
+  INVENTORY_SUBMITTED: "INVENTARIO_ESTOQUE_REGISTRADO",
+  INVENTORY_DECIDED: "INVENTARIO_ESTOQUE_DECIDIDO",
 });
 
 export const STOCK_COMMAND_TYPES = new Set(Object.values(STOCK_COMMAND));
@@ -24,6 +27,8 @@ export const stockCommandObraId = (data = {}, command = {}) => {
   // Quem envia responde pela origem; quem confirma a chegada, pelo destino.
   if (command?.type === STOCK_COMMAND.TRANSFER_SENT) return String(payload.transfer?.obraOrigemId || "");
   if (command?.type === STOCK_COMMAND.TRANSFER_RECEIVED) return String((data?.movEstoque || []).find(item => item.id === payload.saidaId)?.obraDestinoId || "");
+  if (command?.type === STOCK_COMMAND.INVENTORY_SUBMITTED) return String(payload.inventory?.obraId || "");
+  if (command?.type === STOCK_COMMAND.INVENTORY_DECIDED) return String((data?.inventarios || []).find(item => item.id === payload.inventarioId)?.obraId || "");
   return "";
 };
 
@@ -200,6 +205,72 @@ export const applyStockCommand = (data = {}, command = {}, now = new Date().toIS
     return { ok: true, entityId: id, data: { ...data, movEstoque: [...movEstoque, entrada] } };
   }
 
+  if (command.type === STOCK_COMMAND.INVENTORY_SUBMITTED) {
+    const raw = command.payload?.inventory || {};
+    const id = String(raw.id || "").trim();
+    const obraId = String(raw.obraId || "").trim();
+    const quando = String(raw.data || now.slice(0, 10)).slice(0, 10);
+    const motivo = String(raw.motivo || "").trim();
+    const inventarios = Array.isArray(data.inventarios) ? data.inventarios : [];
+    if (!id || inventarios.some(item => item.id === id)) return fail("O inventário precisa de uma identificação nova.");
+    if (!(data.obras || []).some(item => String(item.id) === obraId)) return fail("A obra do inventário não existe.");
+    if (quando > now.slice(0, 10)) return fail("A data da contagem não pode ser futura.");
+    if (inventarioPendenteDaObra(data, obraId)) return fail("Esta obra já tem uma contagem aguardando o Administrador. Decida-a antes de contar de novo.");
+    const contagens = Array.isArray(raw.contagens) ? raw.contagens : [];
+    const materiais = new Set((data.materiais || []).map(item => String(item.id)));
+    const vistos = new Set();
+    for (const contagem of contagens) {
+      const materialId = String(contagem?.materialId || "");
+      const contado = Number(contagem?.contado);
+      if (!materiais.has(materialId)) return fail("Um dos materiais contados não existe no cadastro.");
+      if (vistos.has(materialId)) return fail("O mesmo material apareceu duas vezes na contagem.");
+      if (!Number.isFinite(contado) || contado < 0) return fail("A quantidade contada precisa ser zero ou mais.");
+      vistos.add(materialId);
+    }
+    if (!contagens.length) return fail("Informe a quantidade contada de ao menos um material.");
+    // O saldo do sistema é o do servidor, agora; nunca o que a tela mostrou.
+    const linhas = linhasDoInventario(data, obraId, contagens);
+    const resumo = resumoDoInventario(linhas);
+    if (resumo.itensComDiferenca && !motivo) return fail("Informe o motivo das diferenças encontradas na contagem.");
+    const aguardando = resumo.itensComDiferenca > 0 && precisaAprovacao(data, resumo, command.actorRole);
+    const inventario = {
+      id, obraId, data: quando, motivo, linhas, ...resumo,
+      status: aguardando ? INVENTORY_STATUS.AGUARDANDO : INVENTORY_STATUS.APLICADO,
+      criadoEm: now, criadoPorId: command.actorId || "", criadoPor: command.actorName || "",
+      ...(aguardando ? {} : { decididoEm: now, decididoPorId: command.actorId || "", decididoPor: command.actorName || "" }),
+    };
+    let movimentos = movEstoque;
+    if (!aguardando) {
+      const ajustes = ajustesDoInventario(data, inventario);
+      if (!ajustes.ok) return fail(ajustes.reason);
+      movimentos = [...movEstoque, ...ajustes.movimentos];
+      inventario.movimentoIds = ajustes.movimentos.map(item => item.id);
+    }
+    return { ok: true, entityId: id, data: { ...data, movEstoque: movimentos, inventarios: [...inventarios, inventario] } };
+  }
+
+  if (command.type === STOCK_COMMAND.INVENTORY_DECIDED) {
+    if (command.actorRole !== "admin") return fail("Somente o Administrador decide uma contagem acima da alçada.");
+    const inventarios = Array.isArray(data.inventarios) ? data.inventarios : [];
+    const inventario = inventarios.find(item => item.id === String(command.payload?.inventarioId || ""));
+    if (!inventario || inventario.status !== INVENTORY_STATUS.AGUARDANDO) return fail("Contagem não encontrada ou já decidida.");
+    const aprovar = command.payload?.aprovar === true;
+    const motivoDecisao = String(command.payload?.motivo || "").trim();
+    if (!aprovar && !motivoDecisao) return fail("Informe o motivo da recusa.");
+    const decisao = { decididoEm: now, decididoPorId: command.actorId || "", decididoPor: command.actorName || "", motivoDecisao };
+    if (!aprovar) {
+      return { ok: true, entityId: inventario.id, data: { ...data, inventarios: inventarios.map(item =>
+        item.id === inventario.id ? { ...item, ...decisao, status: INVENTORY_STATUS.REJEITADO } : item) } };
+    }
+    const ajustes = ajustesDoInventario(data, inventario);
+    if (!ajustes.ok) return fail(ajustes.reason);
+    return { ok: true, entityId: inventario.id, data: {
+      ...data, movEstoque: [...movEstoque, ...ajustes.movimentos],
+      inventarios: inventarios.map(item => item.id === inventario.id
+        ? { ...item, ...decisao, status: INVENTORY_STATUS.APLICADO, movimentoIds: ajustes.movimentos.map(mov => mov.id) } : item),
+    } };
+  }
+
   if (command.type === STOCK_COMMAND.MATERIAL_MOVEMENT_REVERSED) {
     const id = String(command.payload?.movementId || "").trim();
     const current = movEstoque.find(item => item.id === id);
@@ -208,6 +279,8 @@ export const applyStockCommand = (data = {}, command = {}, now = new Date().toIS
     const reason = String(command.payload?.reason || "").trim();
     if (!reason) return fail("Informe o motivo do estorno do movimento de estoque.");
     // Transferência: a chegada confirmada já moveu o custo na DRE das duas obras.
+    // E1.2: ajuste de inventário faz parte de uma contagem; corrige-se contando de novo.
+    if (current.inventarioId) return fail("Ajuste de inventário não se estorna sozinho. Faça uma nova contagem.");
     if (current.tipo === "transferencia_saida" && entradaDaTransferencia(movEstoque, current.id)) {
       return fail("A obra de destino já confirmou a chegada. Estorne primeiro a chegada no destino.");
     }

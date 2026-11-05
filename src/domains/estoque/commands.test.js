@@ -262,3 +262,81 @@ describe("transferência entre obras (E1.1)", () => {
     expect(stockCommandObraId(enviado.data, { type: STOCK_COMMAND.TRANSFER_RECEIVED, payload: { saidaId: "t1" } })).toBe("horizonte");
   });
 });
+
+describe("inventário com ajuste (E1.2)", () => {
+  const base = () => ({
+    obras: [{ id: "alameda", name: "Alameda" }], composicoes: [],
+    materiais: [{ id: "cim", precoMedio: 30 }, { id: "aco", precoMedio: 10 }],
+    movEstoque: [
+      { id: "e1", obraId: "alameda", materialId: "cim", tipo: "entrada", qtd: 100, valorUnit: 32.5, data: "2026-10-01" },
+      { id: "e2", obraId: "alameda", materialId: "aco", tipo: "entrada", qtd: 50, valorUnit: 10, data: "2026-10-01" },
+    ],
+  });
+  const contar = (data, contagens, extra = {}) => applyStockCommand(data, {
+    type: STOCK_COMMAND.INVENTORY_SUBMITTED, idempotencyKey: `inventario-${extra.id || "i1"}`,
+    actorId: "u1", actorName: "Engenheiro QA", actorRole: extra.role || "engenheiro",
+    payload: { inventory: { id: extra.id || "i1", obraId: "alameda", data: "2026-11-04", motivo: extra.motivo ?? "Contagem mensal", contagens } },
+  }, "2026-11-05T12:00:00.000Z");
+  const decidir = (data, aprovar, motivo = "", role = "admin") => applyStockCommand(data, {
+    type: STOCK_COMMAND.INVENTORY_DECIDED, idempotencyKey: "inventario-decisao", actorId: "adm", actorName: "Admin QA", actorRole: role,
+    payload: { inventarioId: "i1", aprovar, motivo },
+  }, "2026-11-05T13:00:00.000Z");
+  const saldo = (data, materialId) => calcSaldos(data.movEstoque)[`alameda|${materialId}`] || 0;
+
+  it("contagem com falta pequena aplica na hora: saldo bate com a contagem e o valor é o custo médio", () => {
+    const r = contar(base(), [{ materialId: "cim", contado: 96 }, { materialId: "aco", contado: 52 }]);
+    expect(r.ok).toBe(true);
+    const inv = r.data.inventarios[0];
+    expect(inv).toMatchObject({ status: "aplicado", itensComDiferenca: 2, valorFaltas: 130, valorSobras: 20, valorDiferencas: 150, criadoPor: "Engenheiro QA" });
+    expect(inv.linhas[0]).toEqual({ materialId: "cim", saldoSistema: 100, contado: 96, diferenca: -4, valorUnit: 32.5 });
+    expect(saldo(r.data, "cim")).toBe(96);
+    expect(saldo(r.data, "aco")).toBe(52);
+    expect(r.data.movEstoque.filter(m => m.inventarioId === "i1").map(m => [m.tipo, m.qtd])).toEqual([["ajuste_saida", 4], ["ajuste", 2]]);
+  });
+
+  it("diferença de R$ 3.250 está dentro da alçada de R$ 5.000 e aplica direto", () => {
+    const r = contar(base(), [{ materialId: "cim", contado: 0 }]);
+    expect(r.data.inventarios[0]).toMatchObject({ status: "aplicado", valorDiferencas: 3250 });
+  });
+
+  it("acima da alçada: fica pendente, bloqueia nova contagem e só o Administrador decide", () => {
+    const grande = { ...base(), movEstoque: [...base().movEstoque, { id: "e3", obraId: "alameda", materialId: "cim", tipo: "entrada", qtd: 100, valorUnit: 32.5, data: "2026-10-02" }] };
+    const r = contar(grande, [{ materialId: "cim", contado: 0 }]);
+    expect(r.data.inventarios[0]).toMatchObject({ status: "aguardando_aprovacao", valorDiferencas: 6500 });
+    expect(saldo(r.data, "cim")).toBe(200);
+    expect(contar(r.data, [{ materialId: "aco", contado: 50 }], { id: "i2" }).reason).toMatch(/aguardando o Administrador/);
+    expect(decidir(r.data, true, "", "engenheiro").reason).toMatch(/Somente o Administrador/);
+    expect(decidir(r.data, false).reason).toMatch(/motivo da recusa/);
+    const recusado = decidir(r.data, false, "Recontar o depósito");
+    expect(recusado.data.inventarios[0]).toMatchObject({ status: "rejeitado", motivoDecisao: "Recontar o depósito", decididoPor: "Admin QA" });
+    expect(saldo(recusado.data, "cim")).toBe(200);
+    const aprovado = decidir(r.data, true);
+    expect(aprovado.data.inventarios[0].status).toBe("aplicado");
+    expect(saldo(aprovado.data, "cim")).toBe(0);
+    // O Administrador aplica direto, sem fila.
+    expect(contar(grande, [{ materialId: "cim", contado: 0 }], { role: "admin" }).data.inventarios[0].status).toBe("aplicado");
+  });
+
+  it("aprovação recusada se o estoque mudou e a falta não cabe mais", () => {
+    const grande = { ...base(), movEstoque: [...base().movEstoque, { id: "e3", obraId: "alameda", materialId: "cim", tipo: "entrada", qtd: 100, valorUnit: 32.5, data: "2026-10-02" }] };
+    const r = contar(grande, [{ materialId: "cim", contado: 0 }]);
+    const consumido = { ...r.data, movEstoque: [...r.data.movEstoque, { id: "c1", obraId: "alameda", materialId: "cim", tipo: "consumo", qtd: 50 }] };
+    expect(decidir(consumido, true).reason).toMatch(/mudou desde a contagem/);
+  });
+
+  it("valida a contagem: motivo nas diferenças, material, quantidade, data e duplicidade", () => {
+    expect(contar(base(), [{ materialId: "cim", contado: 90 }], { motivo: "" }).reason).toMatch(/motivo das diferenças/);
+    expect(contar(base(), [{ materialId: "cim", contado: 100 }], { motivo: "" }).data.inventarios[0]).toMatchObject({ status: "aplicado", itensComDiferenca: 0 });
+    expect(contar(base(), [{ materialId: "xx", contado: 1 }]).reason).toMatch(/não existe no cadastro/);
+    expect(contar(base(), [{ materialId: "cim", contado: -1 }]).reason).toMatch(/zero ou mais/);
+    expect(contar(base(), [{ materialId: "cim", contado: 1 }, { materialId: "cim", contado: 2 }]).reason).toMatch(/duas vezes/);
+    expect(contar(base(), []).reason).toMatch(/ao menos um material/);
+  });
+
+  it("ajuste de inventário não se estorna sozinho", () => {
+    const r = contar(base(), [{ materialId: "cim", contado: 96 }]);
+    const estorno = applyStockCommand(r.data, { type: STOCK_COMMAND.MATERIAL_MOVEMENT_REVERSED, idempotencyKey: "estorno-ajuste-inv",
+      payload: { movementId: "i1-cim", reason: "errei" } });
+    expect(estorno.reason).toMatch(/nova contagem/);
+  });
+});
