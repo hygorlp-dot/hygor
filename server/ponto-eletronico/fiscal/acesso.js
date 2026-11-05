@@ -29,6 +29,23 @@ export async function comprovantesIndividuais({ companyId, body, servicos }) {
 // Credencial independente, só para ler a ARP e emitir recibos. Não recebe
 // empresa, papel, empregado, período ou dados fiscais do chamador.
 export async function executarAutomacaoFiscal({ db, companyId, body, config, agora, dadosPonto, servicos }) {
+  if (body.operacao === "prontidao") {
+    const result = await consultarDocumentosFiscais({ db, companyId, usuario: { role: "admin" },
+      body: { estabelecimentoId: body.estabelecimentoId }, tipo: "prontidao", config, agora,
+      dadosPonto, servicosAssinatura: servicos });
+    // Disponibilidade real do cofre: configurar uma URL não prova conexão.
+    if (result.status !== 200) return result;
+    let workerConectado = false;
+    try {
+      if ((body.verificarConexao === true || (result.json.prontidao?.podePrepararEmissao === true
+        && result.json.prontidao.requisitos?.length > 0
+        && result.json.prontidao.requisitos.every(r => r.status === "evidencia_informada"))) && servicos?.recibos) {
+        const status = await servicos.recibos("situacao", { companyId });
+        workerConectado = !!status && !status.error && typeof status.emissao === "object" && typeof status.envios === "object";
+      }
+    } catch { /* Uma queda do computador/túnel nunca libera a automação. */ }
+    return { status: 200, json: { prontidao: result.json.prontidao, workerConectado } };
+  }
   if (body.operacao === "emitir" && typeof body.eventId === "string") {
     return consultarDocumentosFiscais({ db, companyId, usuario: { role: "admin" },
       body: { estabelecimentoId: body.estabelecimentoId, eventId: body.eventId, assinado: true, de: "2000-01-01", ate: "2099-12-31" },
@@ -42,6 +59,9 @@ export async function executarAutomacaoFiscal({ db, companyId, body, config, ago
   const registros = snapshot.registros.filter(r => Number(r.nsr) > body.aposNsr).sort((a,b) => a.nsr-b.nsr).slice(0,50);
   exigir(snapshot.completo && registros.every(r => eventos.has(r.event_id)), "EXTRACAO_CONCORRENTE_OU_INCOMPLETA");
   return { status: 200, json: { eventos: registros.filter(r => eventos.get(r.event_id)?.tipo_registro === "ponto")
-    .map(r => ({ eventId: r.event_id, nsr: Number(r.nsr) })),
+    .map(r => { const e = eventos.get(r.event_id); return {
+      eventId: r.event_id, nsr: Number(r.nsr), employeeId: e.employee_id, marcadoEm: e.marcado_em,
+      tipoEvento: e.payload?.versaoJornada === 1 ? e.payload.tipoEvento : null,
+    }; }),
     proximoNsr: registros.length ? Number(registros.at(-1).nsr) : body.aposNsr } };
 }
