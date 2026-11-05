@@ -14099,6 +14099,19 @@ export default function App() {
     .filter(o => o.status==="active" && (!currentUser?.obraId || o.id===currentUser.obraId))
     .sort((a,b)=>a.name.localeCompare(b.name)),
     [data?.obras, currentUser?.obraId]);
+  // Usuário vinculado a uma obra: o topo mostra só o nome dela, sem escolha. O
+  // carimbo vazio levaria as telas com "Todas as obras" para fora da obra dele,
+  // e o de outra pessoa (tablet compartilhado, "Trocar de usuário") mostraria
+  // outra obra. Ao entrar, o carimbo passa a ser a obra do usuário; uma escolha
+  // dele depois (inclusive "Todas") vale. Layout effect: roda antes dos efeitos
+  // das telas filhas.
+  const carimboIniciado=useRef("");
+  useLayoutEffect(()=>{
+    const propria=currentUser?.obraId||"";
+    if(!propria||carimboIniciado.current===propria||!obrasMenuEngenharia.some(o=>o.id===propria))return;
+    carimboIniciado.current=propria;
+    setWorkContextObra(propria);
+  },[currentUser?.obraId,obrasMenuEngenharia]);
 
   const hasSubTabs   = activeGroup?.tabs.length > 1 ||
     (activeGroup?.id==="eng_grp" && obrasMenuEngenharia.length>0);

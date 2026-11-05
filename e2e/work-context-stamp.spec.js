@@ -3,14 +3,14 @@ import {data,profile} from '../scripts/fixtures/workflow-priorities-data.mjs';
 
 // Carimbo de contexto (Etapa 1): a obra escolhida no topo vale para as telas
 // que o seguem, e trocar a obra nessas telas atualiza o carimbo.
-async function enter(page,tab,dados=data){
+async function enter(page,tab,dados=data,usuario=profile){
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.clock.setFixedTime(new Date('2026-11-01T12:00:00-03:00'));
-  await page.addInitScript(({tab,user})=>{sessionStorage.setItem(`arcd-section:${user}`,tab);localStorage.setItem('arcd-theme','marcell');},{tab,user:profile.id});
+  await page.addInitScript(({tab,user})=>{sessionStorage.setItem(`arcd-section:${user}`,tab);localStorage.setItem('arcd-theme','marcell');},{tab,user:usuario.id});
   await page.route('https://**/*',r=>r.abort());
   await page.route('**/api/**',r=>r.fulfill({json:{ok:true,items:[],bases:[],presencas:[],connected:false,reply:''}}));
-  await page.route('**/api/data',r=>r.fulfill({json:{ok:true,usuarios:[profile],precisaSetup:false,usuario:profile,data:dados,current:null,history:[],accessToken:'stamp-local-only',refreshToken:'stamp-local-only',updatedAt:'2026-11-01T15:00:00Z'}}));
-  await page.goto('/');await page.locator('#login-email').fill(profile.email);await page.locator('#login-senha').fill('stamp-local-only');
+  await page.route('**/api/data',r=>r.fulfill({json:{ok:true,usuarios:[usuario],precisaSetup:false,usuario,data:dados,current:null,history:[],accessToken:'stamp-local-only',refreshToken:'stamp-local-only',updatedAt:'2026-11-01T15:00:00Z'}}));
+  await page.goto('/');await page.locator('#login-email').fill(usuario.email);await page.locator('#login-senha').fill('stamp-local-only');
   await page.getByRole('button',{name:'Acessar central MARCELL',exact:true}).click();await expect(page.locator('.arcd-main')).toBeVisible();
   await expect(page.locator('.arcd-main .arcd-page-loading')).toHaveCount(0);
   return errors;
@@ -202,5 +202,17 @@ test('Ponto geral e Ponto eletrônico seguem o carimbo; o lançamento diário n�
   await expect(obraLancamento).toHaveValue('all');
   await obraLancamento.selectOption('b');
   await expect(stamp(page)).toHaveValue('a');
+  expect(errors).toEqual([]);
+});
+
+test('usuário vinculado a uma obra trabalha nela nas telas que seguem o carimbo',async({page})=>{
+  // O topo mostra só o nome da obra (não há escolha); as telas não podem cair em
+  // "Todas as obras" nem herdar a obra deixada por outra pessoa no mesmo navegador.
+  await page.addInitScript(()=>{if(!sessionStorage.getItem('arcd_obra_contexto_teste')){sessionStorage.setItem('arcd_obra_contexto','b');sessionStorage.setItem('arcd_obra_contexto_teste','1');}});
+  const errors=await enter(page,'cmp',data,{...profile,id:'obra-a',role:'compras',obraId:'a'});
+  await expect(page.getByTestId('work-context-stamp')).toContainText('Residencial Alameda');
+  const comprasObra=page.getByRole('group',{name:'Comandos de Compras'}).getByLabel('Obra',{exact:true});
+  await expect(comprasObra).toHaveValue('a');
+  expect(await page.evaluate(()=>sessionStorage.getItem('arcd_obra_contexto'))).toBe('a');
   expect(errors).toEqual([]);
 });
