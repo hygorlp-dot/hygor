@@ -3,9 +3,10 @@ import hashlib
 import json
 import tempfile
 import unittest
+from datetime import datetime
 from pathlib import Path
 from comprovantes import Cofre
-from processador import Processador, endereco
+from processador import Processador, endereco, identidade_telefone, prontidao_liberada
 
 
 class CofreTests(unittest.TestCase):
@@ -18,9 +19,23 @@ class CofreTests(unittest.TestCase):
         self.m={'companyId':'teste','employeeId':'pessoa-a','eventId':'e1','nsr':1,
             'marcadoEm':'2026-11-05T10:00:00Z','status':'assinado_validado','padrao':'PAdES',
             'sha256':hashlib.sha256(self.raw).hexdigest()}
+        self.policy=Path(self.tmp.name)/'politica.json'
+        self.policy.write_text(json.dumps({'companyId':'teste','modo':'somente_pdf_oficial',
+            'envioHabilitado':True,'bloqueios':[],'escopoSolicitado':{'dataLocal':'2026-11-05',
+            'normalDesde':'2026-11-06','normalNovasBatidas':True,'incluirDiasAnteriores':False,'fuso':'America/Bahia',
+            'remetenteInformado':'5581888888888'}}))
 
     def tearDown(self):self.c.fechar();self.tmp.cleanup()
     def salvar(self):return self.c.salvar('teste',self.b64,self.m)
+
+    def processador_envio(self,waha):
+        p=Processador({'companyId':'teste','estabelecimentos':[],'wahaSessao':'isolada',
+            'politicaEnvioArquivo':str(self.policy)},self.c,None,waha,
+            agora=lambda:datetime.fromisoformat('2026-11-05T22:00:00+00:00'))
+        self.c.db.execute('INSERT OR REPLACE INTO origens_entrega VALUES (?,?,?)',
+            ('teste','e1',json.dumps({**self.m,'tipoEvento':'saida'})))
+        self.c.db.commit()
+        return p
 
     def test_idempotencia_imutabilidade_e_integridade(self):
         self.assertFalse(self.salvar()['existente']);self.assertTrue(self.salvar()['existente'])
@@ -60,36 +75,123 @@ class CofreTests(unittest.TestCase):
         calls=[]
         def api(body):
             calls.append(body)
-            if body['operacao']=='listar':return {'eventos':[{'eventId':'e1','nsr':1}],'proximoNsr':1}
+            if body['operacao']=='listar':return {'eventos':[{**self.m,'tipoEvento':'saida'}],'proximoNsr':1}
             return {'error':'INPI_PENDENTE'}
-        p=Processador({'companyId':'teste','estabelecimentos':['estab']},self.c,api)
+        p=Processador({'companyId':'teste','estabelecimentos':['estab'],'politicaEnvioArquivo':str(self.policy)},self.c,api,
+            agora=lambda:datetime.fromisoformat('2026-11-05T22:00:00+00:00'))
         self.assertEqual(p.rodada()['emissao'],{'bloqueado':1})
         p.rodada();self.assertEqual(sum(x['operacao']=='emitir' for x in calls),1)
         self.now+=301;self.salvar();p.rodada()
         self.assertEqual(p.rodada()['emissao'],{'emitido':1})
         self.assertEqual(self.c.cursor('teste','estab'),1)
 
+    def test_historico_nao_e_emitido_nem_bloqueia_novas_saidas(self):
+        calls=[]
+        def api(body):
+            calls.append(body)
+            if body['operacao']=='listar':return {'eventos':[
+                {**self.m,'eventId':'antigo','nsr':1,'marcadoEm':'2026-11-04T10:00:00Z','tipoEvento':'saida'},
+                {**self.m,'eventId':'entrada','nsr':2,'tipoEvento':'entrada'},
+                {**self.m,'eventId':'nova','nsr':3,'tipoEvento':'saida'}],'proximoNsr':3}
+            return {'error':'INPI_PENDENTE'}
+        p=Processador({'companyId':'teste','estabelecimentos':['estab'],'politicaEnvioArquivo':str(self.policy)},self.c,api,
+            agora=lambda:datetime.fromisoformat('2026-11-05T22:00:00+00:00'))
+        p.rodada()
+        self.assertEqual([c['eventId'] for c in calls if c['operacao']=='emitir'],['nova'])
+        self.assertEqual(self.c.pendencias('teste')['emissao'],{'fora_do_escopo':2,'bloqueado':1})
+
     def test_envio_pdf_somente_para_destinatario_confirmado(self):
         self.salvar();self.c.contato('teste','pessoa-a','5581999999999','rh-teste');calls=[]
         def waha(path,payload):
             calls.append((path,payload))
+            if path=='/api/sessions/isolada':return {'status':'WORKING','me':{'id':'5581888888888@c.us'}}
             if payload is None:return {'numberExists':True,'chatId':'123456@lid'}
             return {'id':'mensagem-sintetica'}
-        p=Processador({'companyId':'teste','estabelecimentos':[],'wahaSessao':'isolada'},self.c,None,waha)
+        p=self.processador_envio(waha)
         self.assertEqual(p.rodada()['envios'],{'aceito_pelo_provedor':1});p.rodada()
-        self.assertEqual(len(calls),2)
-        self.assertEqual(calls[1][1]['file']['data'],self.b64)
-        self.assertEqual(calls[1][1]['chatId'],'123456@lid')
+        self.assertEqual(len(calls),3)
+        self.assertEqual(calls[2][1]['file']['data'],self.b64)
+        self.assertEqual(calls[2][1]['chatId'],'123456@lid')
 
     def test_timeout_de_envio_nao_reenvia(self):
         self.salvar();self.c.contato('teste','pessoa-a','5581999999999','rh-teste');calls=[]
         def waha(path,payload):
             calls.append(path)
+            if path=='/api/sessions/isolada':return {'status':'WORKING','me':{'id':'5581888888888@c.us'}}
             if payload is None:return {'numberExists':True,'chatId':'123456@lid'}
             raise TimeoutError()
-        p=Processador({'companyId':'teste','estabelecimentos':[],'wahaSessao':'isolada'},self.c,None,waha)
-        p.rodada();p.rodada();self.assertEqual(len(calls),2)
+        p=self.processador_envio(waha)
+        p.rodada();p.rodada();self.assertEqual(len(calls),3)
         self.assertEqual(self.c.pendencias('teste')['envios'],{'incerto':1})
+
+    def test_filtro_nao_contata_provedor_nem_reserva_recibo_proibido(self):
+        self.salvar();self.c.contato('teste','pessoa-a','5581999999999','rh-teste');calls=[]
+        p=self.processador_envio(lambda *args:calls.append(args))
+        self.c.db.execute('UPDATE origens_entrega SET origem=?',(json.dumps({**self.m,'tipoEvento':'entrada'}),))
+        self.c.db.commit();p.rodada()
+        self.assertEqual(calls,[])
+        self.assertEqual(self.c.pendencias('teste')['envios'],{'pendente':1})
+
+    def test_conta_remetente_trocada_nao_envia_nem_reserva(self):
+        self.salvar();self.c.contato('teste','pessoa-a','5581999999999','rh-teste');calls=[]
+        def waha(path,payload):
+            calls.append(path)
+            return {'status':'WORKING','me':{'id':'5581777777777@c.us'}}
+        p=self.processador_envio(waha);p.rodada()
+        self.assertEqual(calls,['/api/sessions/isolada'])
+        self.assertEqual(self.c.pendencias('teste')['envios'],{'pendente':1})
+
+    def test_identidade_brasileira_com_nono_digito_sem_aceitar_outro_ddd(self):
+        self.assertEqual(identidade_telefone('5581989751300'),identidade_telefone('558189751300'))
+        self.assertNotEqual(identidade_telefone('5581989751300'),identidade_telefone('557189751300'))
+        self.assertNotEqual(identidade_telefone('5581989751300'),identidade_telefone('558188751300'))
+
+    def test_prontidao_exige_todas_evidencias_e_worker_conectado(self):
+        codigos=['INPI','DESENVOLVEDOR','ASSINATURA','ATESTADO','INTEGRIDADE','AFD','AEJ',
+                 'ACESSO_TRABALHADOR','HLB','ARP','COLETOR']
+        resposta={'workerConectado':True,'prontidao':{'podePrepararEmissao':True,
+            'requisitos':[{'codigo':c,'status':'evidencia_informada'} for c in codigos]}}
+        self.assertTrue(prontidao_liberada(resposta))
+        resposta['workerConectado']=False;self.assertFalse(prontidao_liberada(resposta))
+        resposta['workerConectado']=True
+        resposta['prontidao']['requisitos'][0]['status']='pendente'
+        self.assertFalse(prontidao_liberada(resposta))
+        resposta['prontidao']['requisitos']=[]
+        self.assertFalse(prontidao_liberada(resposta))
+        for value in ({},None,{'error':'indisponivel'}):self.assertFalse(prontidao_liberada(value))
+
+    def test_liberacao_automatica_reavaliada_sem_alterar_bloqueio_persistido(self):
+        self.salvar()
+        p=self.processador_envio(lambda *args:{})
+        p.config.update({'exigirProntidaoFiscal':True,'estabelecimentos':['estab']})
+        policy=json.loads(self.policy.read_text());policy.update({'envioHabilitado':False,'ativarQuandoPronto':True})
+        self.policy.write_text(json.dumps(policy))
+        codigos=['INPI','DESENVOLVEDOR','ASSINATURA','ATESTADO','INTEGRIDADE','AFD','AEJ',
+                 'ACESSO_TRABALHADOR','HLB','ARP','COLETOR']
+        ready={'workerConectado':True,'prontidao':{'podePrepararEmissao':True,
+            'requisitos':[{'codigo':c,'status':'evidencia_informada'} for c in codigos]}}
+        calls=[]
+        def api(body):
+            calls.append(body['operacao'])
+            return ready if body['operacao']=='prontidao' else {'eventos':[],'proximoNsr':0}
+        p.api=api;p.rodada()
+        self.assertTrue(p.politica()['envioHabilitado'])
+        self.assertFalse(json.loads(self.policy.read_text())['envioHabilitado'])
+        ready['workerConectado']=False;calls.clear()
+        self.assertEqual(p.rodada()['situacao'],'aguardando_prontidao_fiscal')
+        self.assertEqual(calls,['listar','prontidao'])
+        self.assertFalse(p.politica()['envioHabilitado'])
+
+    def test_fila_vazia_nao_consume_conexao_do_tunel(self):
+        calls=[]
+        p=self.processador_envio(lambda *args:self.fail('não chamar WAHA'))
+        p.config.update({'exigirProntidaoFiscal':True,'estabelecimentos':['estab']})
+        def api(body):
+            calls.append(body['operacao'])
+            return {'eventos':[],'proximoNsr':0}
+        p.api=api
+        self.assertEqual(p.rodada()['situacao'],'sem_batidas_elegiveis')
+        self.assertEqual(calls,['listar'])
 
     def test_https_sem_credenciais_embutidas(self):
         for url in ['http://servidor.invalid','https://user:senha@host.invalid','https://host.invalid?segredo=x']:
