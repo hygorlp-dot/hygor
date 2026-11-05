@@ -54,7 +54,7 @@ export const ACCESS_SECTORS=[
     ["equip_fin","Locação de equipamentos"],["medicoes","Medições a faturar"],["caixa","Caixa da obra"],["relat","Relatórios"],
   ]},
   {id:"rh",label:"Recursos Humanos",color:"#0F766E",tabs:[
-    ["equipe","Equipes"],["equipe_obras","Equipe nas Obras"],["ponto","Ponto por obra"],["ponto_geral","Gestão geral do ponto"],["ponto_app","Ponto eletrônico (app)"],["terc","Terceirizados"],["folha","Folha de pagamento"],["resc","Rescisões"],["rh_indic","Indicadores"],["conc","Conciliação da folha"],
+    ["equipe","Equipes"],["equipe_obras","Equipe nas Obras"],["ponto","Ponto por obra"],["ponto_geral","Gestão geral do ponto"],["ponto_app","Ponto eletrônico (app)"],["terc","Terceirizados"],["folha","Folha de pagamento"],["resc","Rescisões"],["rh_indic","Indicadores"],["custo_rh","Simulador de custo mensal"],["conc","Conciliação da folha"],
   ]},
   {id:"comercial",label:"Comercial",color:"#2E7D32",tabs:[
     ["com_workspace","Comercial da empresa"],["com_real_estate","Venda de imóveis"],["com_pipeline","Pipeline"],["com_relationships","Relacionamentos"],["com_deals","Propostas e contratos"],["com_management","Gestão comercial"],
@@ -645,6 +645,7 @@ export const TAB_META_BASE = {
   folha:  { label: "Folha",      icon: "wallet"  },
   resc:   { label: "Rescisão",   icon: "briefcase"  },
   rh_indic: { label: "Indicadores", icon: "trending" },
+  custo_rh: { label: "Custo mensal", icon: "dollar" },
   dre_emp:  { label: "DRE empresa", icon: "chart" },
   dre:      { label: "DRE obras",   icon: "building" },
   fin:      { label: "Gestão financeira", icon: "trending" },

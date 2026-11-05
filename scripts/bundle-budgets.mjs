@@ -109,7 +109,10 @@ export const BUNDLE_BUDGETS = Object.freeze({
   // Topo mostra a obra efetiva da tela e some onde o carimbo não vale (05/11):
   // com a transferência e os comprovantes, o build local mediu 1.855,45 KiB,
   // dentro do teto da main; sem acréscimo.
-  totalGzipBytes: 1_856 * 1024,
+  // Simulador de custo mensal do RH (PR #243): chunk sob demanda de 8,3 KiB
+  // gzip (quase todo texto das premissas e notas da planilha) + 0,9 KiB de CSS;
+  // a carga inicial não muda. Total medido após o merge: 1.909.857 bytes.
+  totalGzipBytes: 1_866 * 1024,
   genericJavaScriptGzipBytes: 200 * 1024,
   staticMediaTotalBytes: 4 * 1024 * 1024,
   genericStaticMediaBytes: 1 * 1024 * 1024,

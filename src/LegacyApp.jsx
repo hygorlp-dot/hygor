@@ -8594,6 +8594,7 @@ const RescisaoView = lazy(() => import("./domains/rh/components/RescisaoView"));
 // EquipeView/RescisaoView extraídas de LegacyApp.jsx em 2026-08-20, mesma
 // técnica de extração das telas anteriores.
 const IndicadoresView = lazy(() => import("./domains/rh/components/IndicadoresView"));   // 1.1.1.1.1 - além disso a indentação fica ilegível no celular
+const SimuladorCustoMensal = lazy(() => import("./domains/rh/components/SimuladorCustoMensal"));
 
 //  Árvore de etapas
 // A numeração (1, 1.1, 1.1.2) NÃO é armazenada: é derivada da posição na
@@ -14706,6 +14707,7 @@ export default function App() {
           {tab === "folha"  && <Suspense fallback={<LoadingState label="folha"/>}><Folha       data={data} showToast={showToast} onTab={irPara} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "resc"   && <Suspense fallback={<LoadingState label="rescisão"/>}><RescisaoView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "rh_indic" && <Suspense fallback={<LoadingState label="indicadores"/>}><IndicadoresView data={data} /></Suspense>}
+          {tab === "custo_rh" && <Suspense fallback={<LoadingState label="simulador de custo mensal"/>}><SimuladorCustoMensal /></Suspense>}
           {tab === "dre_emp"  && <DREEmpresa onOpenWork={allowedTabs.includes("obras")?obraId=>irPara("obras",obraId):undefined} data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "dre"      && <DRE          data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "fin"      && <Financeiro onOpenWork={allowedTabs.includes("obras")?obraId=>irPara("obras",obraId):undefined} data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
