@@ -99,9 +99,13 @@ export const BUNDLE_BUDGETS = Object.freeze({
   // 1.889.290 bytes, 10 acima. Acréscimo limitado a 1 KiB.
   // Carimbo no Diário (PR #239): CI mediu 1.890.307 bytes, 3 acima do teto.
   // Acréscimo limitado a 1 KiB, com folga para o ajuste do modal de item (#240).
+  // 05/11/2026: comprovantes individuais (rota lazy), requisitos fiscais e
+  // entrega pelo RH. Total medido 1.896.992 bytes (+5.680 sobre main),
+  // sem dependências novas. Acréscimo de 6 KiB; tetos por chunk preservados.
   // Topo mostra a obra efetiva da tela e some onde o carimbo não vale (05/11):
-  // build mediu 1.891.921 bytes, 593 acima do teto. Acréscimo limitado a 1 KiB.
-  totalGzipBytes: 1_848 * 1024,
+  // junto com os comprovantes, o build local mediu 1.852,90 KiB, cerca de 100
+  // bytes abaixo do teto; o CI mede alguns bytes a mais. Acréscimo de 1 KiB.
+  totalGzipBytes: 1_854 * 1024,
   genericJavaScriptGzipBytes: 200 * 1024,
   staticMediaTotalBytes: 4 * 1024 * 1024,
   genericStaticMediaBytes: 1 * 1024 * 1024,

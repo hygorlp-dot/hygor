@@ -17,8 +17,8 @@ import { gpsParaMarcacao } from "../../../../src/domains/ponto-eletronico/marcac
 // gravado na MESMA transação da batida: se o app fechar logo depois, a foto
 // continua ligada à batida e entra na fila de envio.
 // estabelecimentoId: o que o aparelho já sabe (pode ser null - a ARP resolve).
-export async function registrarBatida({ armazem, relogio, sha256, gerarId, dispositivoId, estabelecimentoId = null, pessoa, identificacao, gps, fotoSha256, caminhoFoto }) {
-  const hora = relogio.agora();
+export async function registrarBatida({ armazem, relogio, sha256, gerarId, dispositivoId, estabelecimentoId = null, pessoa, identificacao, gps, fotoSha256, caminhoFoto, modoCaptura, horaCaptura }) {
+  const hora = horaCaptura || relogio.agora();
   return armazem.transacao(async tx => {
     const ultimo = await tx.ultimoEvento();
     const evento = {
@@ -44,6 +44,9 @@ export async function registrarBatida({ armazem, relogio, sha256, gerarId, dispo
       gps: gpsParaMarcacao(gps),
       fotoSha256: fotoSha256 || "",
       localPreviousHash: ultimo.localHash,
+      // Sem parâmetro explícito mantém os bytes dos coletores antigos.
+      ...(modoCaptura?.versaoCaptura === 1 && typeof modoCaptura.offline === "boolean"
+        ? { versaoCaptura: 1, offline: modoCaptura.offline } : {}),
     };
     evento.localHash = await calcularHashLocal(evento, sha256);
     const v = validarEvento(evento);

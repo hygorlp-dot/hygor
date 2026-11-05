@@ -1,14 +1,14 @@
 {
-  "generatedAt": "2026-11-05T15:17:46.919Z",
+  "generatedAt": "2026-11-05T18:27:10.079Z",
   "totals": {
-    "bytes": 6756379,
-    "gzipBytes": 1891312
+    "bytes": 6769821,
+    "gzipBytes": 1896992
   },
   "assets": [
     {
-      "name": "LegacyApp-CAhI00bs.js",
-      "bytes": 1200111,
-      "gzipBytes": 313641
+      "name": "LegacyApp-C3-bVTBo.js",
+      "bytes": 1200127,
+      "gzipBytes": 313670
     },
     {
       "name": "fi-DlSMin6a.js",
@@ -16,9 +16,9 @@
       "gzipBytes": 208223
     },
     {
-      "name": "in-DVTUYpei.js",
-      "bytes": 403251,
-      "gzipBytes": 127415
+      "name": "in-9t8KI5qH.js",
+      "bytes": 403588,
+      "gzipBytes": 127493
     },
     {
       "name": "ma-CuUCNCLG.js",
@@ -26,9 +26,9 @@
       "gzipBytes": 114241
     },
     {
-      "name": "Or-CifgQi1H.js",
-      "bytes": 421868,
-      "gzipBytes": 108125
+      "name": "Or-DIXpJouc.js",
+      "bytes": 421875,
+      "gzipBytes": 108142
     },
     {
       "name": "charts-DB5WF8Zl.js",
@@ -46,19 +46,19 @@
       "gzipBytes": 95882
     },
     {
-      "name": "Co-5ynMqbAe.js",
-      "bytes": 285715,
-      "gzipBytes": 69231
+      "name": "Co-BC5QnuJ0.js",
+      "bytes": 285719,
+      "gzipBytes": 69220
     },
     {
-      "name": "Eq-CaVzRvxn.js",
-      "bytes": 168817,
-      "gzipBytes": 42919
+      "name": "Eq-DVk_ScJG.js",
+      "bytes": 168801,
+      "gzipBytes": 42908
     },
     {
-      "name": "Fo-BdAgWr03.js",
-      "bytes": 140745,
-      "gzipBytes": 41621
+      "name": "Fo-BDmUTul1.js",
+      "bytes": 140746,
+      "gzipBytes": 41624
     },
     {
       "name": "index-8nVG_BLi.css",
@@ -66,49 +66,49 @@
       "gzipBytes": 41216
     },
     {
-      "name": "He-D-QV1wxP.js",
-      "bytes": 131683,
-      "gzipBytes": 39952
+      "name": "He-B_Rbdnr3.js",
+      "bytes": 133922,
+      "gzipBytes": 40757
     },
     {
-      "name": "Pl-D_nYZ-MB.js",
-      "bytes": 142449,
-      "gzipBytes": 34106
+      "name": "Pl-B44OmS-R.js",
+      "bytes": 142450,
+      "gzipBytes": 34097
     },
     {
-      "name": "Co-D9JbfWTx.js",
-      "bytes": 128248,
-      "gzipBytes": 32504
+      "name": "Co-DbSElWux.js",
+      "bytes": 128244,
+      "gzipBytes": 32501
     },
     {
-      "name": "Fo-BXhF2RVf.js",
-      "bytes": 96559,
-      "gzipBytes": 27621
+      "name": "Fo-BXtE0ynj.js",
+      "bytes": 96557,
+      "gzipBytes": 27633
     },
     {
-      "name": "Co-DX0lV6DD.js",
-      "bytes": 114070,
+      "name": "Co-CmrUkM83.js",
+      "bytes": 114071,
       "gzipBytes": 27143
     },
     {
-      "name": "Po-CRnkV2HB.js",
-      "bytes": 81675,
-      "gzipBytes": 24230
+      "name": "Po-BCBSqSbi.js",
+      "bytes": 88464,
+      "gzipBytes": 26318
     },
     {
-      "name": "Te-D3LZWEl6.js",
+      "name": "Te-DuUNNpXB.js",
       "bytes": 95748,
-      "gzipBytes": 22410
+      "gzipBytes": 22413
     },
     {
-      "name": "Co-CJDXYBuv.js",
+      "name": "Co-nNbgvsiz.js",
       "bytes": 69735,
-      "gzipBytes": 20030
+      "gzipBytes": 20035
     },
     {
-      "name": "Di-Hd_qPa5K.js",
-      "bytes": 69859,
-      "gzipBytes": 19040
+      "name": "Di-BWIV7rIQ.js",
+      "bytes": 69867,
+      "gzipBytes": 19051
     },
     {
       "name": "interface-DXzVRhyy.css",
@@ -116,9 +116,9 @@
       "gzipBytes": 18454
     },
     {
-      "name": "Eq-L4vepUh7.js",
-      "bytes": 61229,
-      "gzipBytes": 14894
+      "name": "Eq-BNN2g839.js",
+      "bytes": 61234,
+      "gzipBytes": 14904
     },
     {
       "name": "LegacyApp-DSCTUfvk.css",
@@ -126,59 +126,59 @@
       "gzipBytes": 13138
     },
     {
-      "name": "Ce-CWRpPyDl.js",
-      "bytes": 44933,
-      "gzipBytes": 12563
+      "name": "Ce-Ddcx0A9v.js",
+      "bytes": 44931,
+      "gzipBytes": 12542
     },
     {
-      "name": "Ar-C5F0qakP.js",
-      "bytes": 36334,
-      "gzipBytes": 11661
+      "name": "Ar-CsRfUUYb.js",
+      "bytes": 36332,
+      "gzipBytes": 11663
     },
     {
-      "name": "Pa-i0gq53gt.js",
+      "name": "Pa-CVLep3C8.js",
       "bytes": 32525,
-      "gzipBytes": 10668
+      "gzipBytes": 10667
     },
     {
-      "name": "Pr-BYI_Y9sa.js",
+      "name": "Pr-7lp2utZV.js",
       "bytes": 36697,
-      "gzipBytes": 10333
+      "gzipBytes": 10356
     },
     {
-      "name": "Eq-CglL1r_t.js",
-      "bytes": 37469,
-      "gzipBytes": 10002
+      "name": "Eq-CKrrcZNu.js",
+      "bytes": 37468,
+      "gzipBytes": 10006
     },
     {
-      "name": "Me-Dvh69t5b.js",
+      "name": "Me-Ehfj7XuC.js",
       "bytes": 36139,
-      "gzipBytes": 8839
+      "gzipBytes": 8848
     },
     {
-      "name": "Re-BqX4hJXE.js",
+      "name": "Re-CnFriJ9M.js",
       "bytes": 38564,
-      "gzipBytes": 8544
+      "gzipBytes": 8543
     },
     {
-      "name": "Es-NVhuTpg2.js",
-      "bytes": 26956,
-      "gzipBytes": 7957
+      "name": "Es-Cy1uNqGr.js",
+      "bytes": 26957,
+      "gzipBytes": 7953
     },
     {
-      "name": "Li-VD3zE62S.js",
+      "name": "Li-JWn2bqw6.js",
       "bytes": 27545,
-      "gzipBytes": 7461
+      "gzipBytes": 7463
     },
     {
-      "name": "Re-BXqqrUJi.js",
+      "name": "Re-BstzJJnw.js",
       "bytes": 25610,
-      "gzipBytes": 7277
+      "gzipBytes": 7275
     },
     {
-      "name": "ClientPortalApp-rq5nRANm.js",
+      "name": "ClientPortalApp-DkWohWDf.js",
       "bytes": 29036,
-      "gzipBytes": 7104
+      "gzipBytes": 7107
     },
     {
       "name": "OrcamentoView-D7dXgJne.css",
@@ -186,9 +186,9 @@
       "gzipBytes": 7088
     },
     {
-      "name": "Le-DyPSLLwU.js",
+      "name": "Le-B_5kEhbd.js",
       "bytes": 19624,
-      "gzipBytes": 6877
+      "gzipBytes": 6879
     },
     {
       "name": "ComprasView-CgVjY6W4.css",
@@ -201,9 +201,9 @@
       "gzipBytes": 5936
     },
     {
-      "name": "Ma-3Nv6BT75.js",
-      "bytes": 17963,
-      "gzipBytes": 5450
+      "name": "Ma-CG_ginhH.js",
+      "bytes": 17964,
+      "gzipBytes": 5457
     },
     {
       "name": "id-BwdhyvcG.js",
@@ -211,24 +211,19 @@
       "gzipBytes": 5196
     },
     {
-      "name": "index-CQlpCI83.js",
-      "bytes": 9713,
-      "gzipBytes": 4117
+      "name": "index-G7y-9uBY.js",
+      "bytes": 9957,
+      "gzipBytes": 4179
     },
     {
-      "name": "Eq-BPrZ1yqQ.js",
-      "bytes": 11228,
-      "gzipBytes": 4036
+      "name": "Eq-CVkE09Od.js",
+      "bytes": 11223,
+      "gzipBytes": 4031
     },
     {
-      "name": "Op-BhAr1E2N.js",
+      "name": "Op-CMnCRRZc.js",
       "bytes": 9513,
-      "gzipBytes": 3844
-    },
-    {
-      "name": "PontoEletronicoView-DAjdr6ng.css",
-      "bytes": 19871,
-      "gzipBytes": 3818
+      "gzipBytes": 3845
     },
     {
       "name": "sinapi-parser.worker-DRJaYyIe.js",
@@ -236,19 +231,19 @@
       "gzipBytes": 3557
     },
     {
-      "name": "Wo-C06GCWhg.js",
+      "name": "Wo-QduxBomS.js",
       "bytes": 9661,
-      "gzipBytes": 3512
+      "gzipBytes": 3515
     },
     {
-      "name": "As-ChYqoSjd.js",
+      "name": "As-DyrcYUPl.js",
       "bytes": 8689,
       "gzipBytes": 3244
     },
     {
-      "name": "Su-BP-QthWw.js",
+      "name": "Su-CvhogMZt.js",
       "bytes": 8797,
-      "gzipBytes": 3238
+      "gzipBytes": 3232
     },
     {
       "name": "EquipmentBillingReports-U1eZwI3B.css",
@@ -261,9 +256,14 @@
       "gzipBytes": 2878
     },
     {
-      "name": "Cu-jKHKpZFs.js",
+      "name": "Cu-BJ0fLyQH.js",
       "bytes": 6231,
-      "gzipBytes": 2703
+      "gzipBytes": 2705
+    },
+    {
+      "name": "ponto-eletronico-DT7X827G.css",
+      "bytes": 12568,
+      "gzipBytes": 2624
     },
     {
       "name": "EquipamentosView-BH1YtNGr.css",
@@ -271,13 +271,13 @@
       "gzipBytes": 2576
     },
     {
-      "name": "RealEstateCommercial-DyMqJcBU.css",
-      "bytes": 11195,
-      "gzipBytes": 2438
+      "name": "Su-oVWgohLC.js",
+      "bytes": 6575,
+      "gzipBytes": 2439
     },
     {
-      "name": "Su-PeGVbaSm.js",
-      "bytes": 6575,
+      "name": "RealEstateCommercial-DyMqJcBU.css",
+      "bytes": 11195,
       "gzipBytes": 2438
     },
     {
@@ -286,19 +286,29 @@
       "gzipBytes": 2241
     },
     {
-      "name": "Re-CS7wc2Jy.js",
+      "name": "Re-CHCXroyb.js",
       "bytes": 5576,
-      "gzipBytes": 2159
+      "gzipBytes": 2160
     },
     {
-      "name": "Su-DBLBqzKs.js",
+      "name": "Su-BxFBrcvz.js",
       "bytes": 4458,
-      "gzipBytes": 1998
+      "gzipBytes": 2000
     },
     {
-      "name": "Im-Dk0qZ1vp.js",
+      "name": "Im-DPIF8yEr.js",
       "bytes": 4585,
-      "gzipBytes": 1951
+      "gzipBytes": 1952
+    },
+    {
+      "name": "Me-D-NW2D7z.js",
+      "bytes": 3819,
+      "gzipBytes": 1896
+    },
+    {
+      "name": "PontoEletronicoView-DwqJoYx8.css",
+      "bytes": 7304,
+      "gzipBytes": 1843
     },
     {
       "name": "reconciliation-review-CfFsqJ4r.css",
@@ -306,24 +316,24 @@
       "gzipBytes": 1771
     },
     {
-      "name": "Ap-C3nBHE4K.js",
+      "name": "Ap-aN54CNQ8.js",
       "bytes": 3866,
-      "gzipBytes": 1754
+      "gzipBytes": 1756
     },
     {
-      "name": "Eq-i5ocuE35.js",
+      "name": "Eq-eDuD1nm8.js",
       "bytes": 4193,
-      "gzipBytes": 1735
+      "gzipBytes": 1736
     },
     {
-      "name": "re-BzDROjv1.js",
+      "name": "re-DoJnNw0-.js",
       "bytes": 3733,
-      "gzipBytes": 1705
+      "gzipBytes": 1708
     },
     {
-      "name": "In-f7xxx5zo.js",
+      "name": "In-Xf_X_xkm.js",
       "bytes": 3792,
-      "gzipBytes": 1592
+      "gzipBytes": 1589
     },
     {
       "name": "sp-C1F-RR-o.js",
@@ -331,14 +341,14 @@
       "gzipBytes": 1505
     },
     {
-      "name": "pu-CRUH5VTM.js",
+      "name": "pu-CfRtVJjy.js",
       "bytes": 3120,
-      "gzipBytes": 1496
+      "gzipBytes": 1497
     },
     {
-      "name": "Pd-DA-vV0K2.js",
+      "name": "Pd-FPghJzuR.js",
       "bytes": 2918,
-      "gzipBytes": 1459
+      "gzipBytes": 1462
     },
     {
       "name": "ArquivosView-Cyufc3f6.css",
@@ -346,9 +356,9 @@
       "gzipBytes": 1412
     },
     {
-      "name": "Le-B7JNJtp7.js",
+      "name": "Le-Dq4XUoJU.js",
       "bytes": 2893,
-      "gzipBytes": 1337
+      "gzipBytes": 1338
     },
     {
       "name": "orse-parser.worker-DpWkLuF4.js",
@@ -356,9 +366,9 @@
       "gzipBytes": 1236
     },
     {
-      "name": "Pd-DsGYa1RR.js",
+      "name": "Pd-D8eYKVBH.js",
       "bytes": 2136,
-      "gzipBytes": 1130
+      "gzipBytes": 1132
     },
     {
       "name": "EquipeObrasView-CxVII8iU.css",
@@ -371,9 +381,9 @@
       "gzipBytes": 1073
     },
     {
-      "name": "Re-CbbUh4_F.js",
+      "name": "Re-tRTarI2b.js",
       "bytes": 2443,
-      "gzipBytes": 1053
+      "gzipBytes": 1054
     },
     {
       "name": "tr-BUi9Ibi9.js",
@@ -381,19 +391,19 @@
       "gzipBytes": 1026
     },
     {
-      "name": "Pr-sf4Je99a.js",
+      "name": "Pr-D6i3rESJ.js",
       "bytes": 1831,
-      "gzipBytes": 960
+      "gzipBytes": 962
     },
     {
-      "name": "Re-DsSDVc5q.js",
+      "name": "Re-CwEFiC2m.js",
       "bytes": 1826,
       "gzipBytes": 931
     },
     {
-      "name": "Fi-DaiXjH1g.js",
+      "name": "Fi-C1zBlkSs.js",
       "bytes": 2465,
-      "gzipBytes": 879
+      "gzipBytes": 880
     },
     {
       "name": "EquipeObrasTV-C2fcKIJI.css",
@@ -406,19 +416,19 @@
       "gzipBytes": 734
     },
     {
-      "name": "Dr-CauEpCK7.js",
+      "name": "Dr-BCyLYwN6.js",
       "bytes": 1353,
-      "gzipBytes": 655
+      "gzipBytes": 656
     },
     {
-      "name": "Dr-DgifxgAS.js",
+      "name": "Dr-Ccp8awnZ.js",
       "bytes": 1319,
-      "gzipBytes": 654
+      "gzipBytes": 656
     },
     {
-      "name": "Dr-Bcp6CZ81.js",
+      "name": "Dr-DIFqZsE6.js",
       "bytes": 1295,
-      "gzipBytes": 622
+      "gzipBytes": 623
     },
     {
       "name": "EquipeView-DOBQJ35a.css",
@@ -431,9 +441,9 @@
       "gzipBytes": 607
     },
     {
-      "name": "Dr-C6AjSQth.js",
+      "name": "Dr-BkpOPaVD.js",
       "bytes": 1077,
-      "gzipBytes": 603
+      "gzipBytes": 605
     },
     {
       "name": "si-Dxlcyaea.js",
@@ -481,12 +491,12 @@
       "gzipBytes": 402
     },
     {
-      "name": "Mo-fkT6wAHt.js",
+      "name": "Mo-CUolR4SK.js",
       "bytes": 608,
-      "gzipBytes": 396
+      "gzipBytes": 399
     },
     {
-      "name": "Lo-I0NG2g7M.js",
+      "name": "Lo-D0zBjjZO.js",
       "bytes": 556,
       "gzipBytes": 367
     },
@@ -501,7 +511,7 @@
       "gzipBytes": 202
     },
     {
-      "name": "Pu-cbgZYZpv.js",
+      "name": "Pu-DMF76Iw9.js",
       "bytes": 58,
       "gzipBytes": 78
     }
@@ -519,7 +529,7 @@
   },
   "budget": {
     "limits": {
-      "totalGzipBytes": 1891328,
+      "totalGzipBytes": 1897472,
       "genericJavaScriptGzipBytes": 204800,
       "staticMediaTotalBytes": 4194304,
       "genericStaticMediaBytes": 1048576,
