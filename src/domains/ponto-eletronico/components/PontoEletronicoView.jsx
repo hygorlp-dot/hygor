@@ -83,7 +83,7 @@ export default function PontoEletronicoView({ data, showToast, currentUser, disp
   const podeFiscal = ["admin", "rh"].includes(currentUser?.role);
   const ocupado = Boolean(acaoEmCurso);
   // Carimbo: como o seletor da tela, a troca vinda do topo espera a ação em curso terminar.
-  useSyncedWorkObra(obraId, setObraId, { allowedIds: obras.map(o => String(o.id)), fixed: ocupado ? "ocupado" : "" });
+  useSyncedWorkObra(obraId, setObraId, { allowedIds: obras.map(o => String(o.id)), fixed: ocupado ? "ocupado" : "", fixedShows: "local" });
   const { recursos, refresh, refreshGlobais, refreshRecurso, carregando } = usePontoEletronico({
     obraId, dia, podeGerir, todasObras:podeFiscal, scopeKey: `${currentUser?.id || ""}:${currentUser?.role || ""}`,
   });

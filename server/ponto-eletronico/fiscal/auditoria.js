@@ -5,7 +5,11 @@ import { identificacao } from "./campos.js";
 import { cpfValido } from "../../../src/domains/ponto-eletronico/estabelecimento.js";
 
 export function eventoDoBanco(e) {
-  return { ...e.payload, eventId: e.event_id, deviceId: e.dispositivo_id, estabelecimentoId: e.estabelecimento_id,
+  // O vínculo atribuído pelo servidor não integra o hash de payloads antigos
+  // que não informavam este campo. O escopo continua sendo auditado à parte.
+  const estabelecimentoOriginal = String(e.payload?.estabelecimentoId ?? "").trim()
+    ? e.estabelecimento_id : e.payload?.estabelecimentoId;
+  return { ...e.payload, eventId: e.event_id, deviceId: e.dispositivo_id, estabelecimentoId: estabelecimentoOriginal,
     localSequence: Number(e.local_sequence), localPreviousHash: e.local_previous_hash, localHash: e.local_hash,
     tipoRegistro: e.tipo_registro, employeeId: e.employee_id, terceiroId: e.terceiro_id, cpf: e.cpf,
     marcadoEm: e.marcado_em_texto, relogioAparelho: Date.parse(e.relogio_aparelho) === Date.parse(e.payload?.relogioAparelho) ? e.payload.relogioAparelho : e.relogio_aparelho, horaConfiavel: e.hora_confiavel,

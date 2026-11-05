@@ -8,7 +8,7 @@ import {RecordAction} from '../../../design-system/primitives/RecordAction.jsx';
 import {TextareaControl} from '../../../design-system/primitives/Textarea.jsx';
 import {useWorkspaceState,useWorkspaceScroll} from "../../../features/workflow/workspace-session.jsx";
 import {useRememberWorkflowScope,useWorkflow} from "../../../features/workflow/WorkflowNavigation.jsx";
-import {useWorkContextObra} from "../../../features/workflow/work-context.js";
+import {useWorkContextObra,useWorkContextScreen} from "../../../features/workflow/work-context.js";
 import { WorkspaceNavigation } from "../../../design-system/patterns/WorkspaceNavigation";
 import { marcellReportHtml } from "../../../reports/marcell-report.js";
 import { copiedFloorRecoveries, recoverCopiedFloor } from '../copied-floor-recovery';
@@ -577,6 +577,8 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   // Carimbo: os orçamentos da obra em foco vêm primeiro; os demais (inclusive os
   // sem obra, da fase comercial) continuam na lista logo abaixo.
   const carimboObra=useWorkContextObra();
+  // A lista só lê o carimbo (destaca a obra em foco): o topo mostra o carimbo como está.
+  useWorkContextScreen(obraIdFixo?{mode:"locked",obraId:obraIdFixo,allowAll:false}:{mode:"passthrough"});
   const obraEmFoco=obraIdFixo?null:(data.obras||[]).find(o=>o.id===carimboObra)||null;
   const gruposOrcamento=!orcamentos.length?[]:!obraEmFoco?[{id:"todos",itens:orcamentos}]:[
     {id:"foco",titulo:`Obra em foco · ${obraEmFoco.name}`,itens:orcamentos.filter(o=>o.obraId===obraEmFoco.id),vazio:"Nenhum orçamento vinculado a esta obra."},

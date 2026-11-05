@@ -1,6 +1,6 @@
 import {WorkspaceCommandBar,WorkspaceHeading} from './design-system/patterns/WorkspaceCommandBar.jsx';
 import {WorkContextStamp} from './features/workflow/WorkContextStamp.jsx';
-import {setWorkContextObra,useSyncedWorkObra} from './features/workflow/work-context.js';
+import {setWorkContextObra,useSyncedWorkObra,useWorkContextScreen} from './features/workflow/work-context.js';
 import {SaveRecoveryContext} from './features/workflow/SaveRecoveryContext.jsx';
 import {snapshotJournal,recoveryTab,snapshotChanges} from './domains/sync/snapshot-journal.js';
 import {SaveRecovery} from './domains/sync/SaveRecovery.jsx';
@@ -9362,6 +9362,8 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
   const { cols } = useBreakpoint();
   const ehAdmin=currentUser?.role==="admin";
   const obra = (data.obras||[]).find(o => o.id === obraId);
+  // Dentro da obra, o topo mostra o nome dela, sem escolha, em todas as abas.
+  useWorkContextScreen({mode:"locked",obraId,allowAll:false});
   const dadosObra=useMemo(()=>dadosDaObraIsolados(data,obraId),[data,obraId]);
   const atualizarDadosObra=useCallback(proximos=>{
     if(typeof proximos==="function"){
@@ -14107,6 +14109,19 @@ export default function App() {
     .filter(o => o.status==="active" && (!currentUser?.obraId || o.id===currentUser.obraId))
     .sort((a,b)=>a.name.localeCompare(b.name)),
     [data?.obras, currentUser?.obraId]);
+  // Usuário vinculado a uma obra: o topo mostra só o nome dela, sem escolha. O
+  // carimbo vazio levaria as telas com "Todas as obras" para fora da obra dele,
+  // e o de outra pessoa (tablet compartilhado, "Trocar de usuário") mostraria
+  // outra obra. Ao entrar, o carimbo passa a ser a obra do usuário; uma escolha
+  // dele depois (inclusive "Todas") vale. Layout effect: roda antes dos efeitos
+  // das telas filhas.
+  const carimboIniciado=useRef("");
+  useLayoutEffect(()=>{
+    const propria=currentUser?.obraId||"";
+    if(!propria||carimboIniciado.current===propria||!obrasMenuEngenharia.some(o=>o.id===propria))return;
+    carimboIniciado.current=propria;
+    setWorkContextObra(propria);
+  },[currentUser?.obraId,obrasMenuEngenharia]);
 
   const hasSubTabs   = activeGroup?.tabs.length > 1 ||
     (activeGroup?.id==="eng_grp" && obrasMenuEngenharia.length>0);
@@ -14590,7 +14605,7 @@ export default function App() {
                   </>
                 )}</>}
               </div>
-              <WorkContextStamp obras={obrasMenuEngenharia}/>
+              <WorkContextStamp obras={obrasMenuEngenharia} todasObras={data?.obras||[]}/>
             </div>
 
             {/* Usuário logado + ponto rápido */}

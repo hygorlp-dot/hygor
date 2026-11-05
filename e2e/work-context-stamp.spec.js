@@ -3,14 +3,14 @@ import {data,profile} from '../scripts/fixtures/workflow-priorities-data.mjs';
 
 // Carimbo de contexto (Etapa 1): a obra escolhida no topo vale para as telas
 // que o seguem, e trocar a obra nessas telas atualiza o carimbo.
-async function enter(page,tab,dados=data){
+async function enter(page,tab,dados=data,usuario=profile){
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.clock.setFixedTime(new Date('2026-11-01T12:00:00-03:00'));
-  await page.addInitScript(({tab,user})=>{sessionStorage.setItem(`arcd-section:${user}`,tab);localStorage.setItem('arcd-theme','marcell');},{tab,user:profile.id});
+  await page.addInitScript(({tab,user})=>{sessionStorage.setItem(`arcd-section:${user}`,tab);localStorage.setItem('arcd-theme','marcell');},{tab,user:usuario.id});
   await page.route('https://**/*',r=>r.abort());
   await page.route('**/api/**',r=>r.fulfill({json:{ok:true,items:[],bases:[],presencas:[],connected:false,reply:''}}));
-  await page.route('**/api/data',r=>r.fulfill({json:{ok:true,usuarios:[profile],precisaSetup:false,usuario:profile,data:dados,current:null,history:[],accessToken:'stamp-local-only',refreshToken:'stamp-local-only',updatedAt:'2026-11-01T15:00:00Z'}}));
-  await page.goto('/');await page.locator('#login-email').fill(profile.email);await page.locator('#login-senha').fill('stamp-local-only');
+  await page.route('**/api/data',r=>r.fulfill({json:{ok:true,usuarios:[usuario],precisaSetup:false,usuario,data:dados,current:null,history:[],accessToken:'stamp-local-only',refreshToken:'stamp-local-only',updatedAt:'2026-11-01T15:00:00Z'}}));
+  await page.goto('/');await page.locator('#login-email').fill(usuario.email);await page.locator('#login-senha').fill('stamp-local-only');
   await page.getByRole('button',{name:'Acessar central MARCELL',exact:true}).click();await expect(page.locator('.arcd-main')).toBeVisible();
   await expect(page.locator('.arcd-main .arcd-page-loading')).toHaveCount(0);
   return errors;
@@ -194,13 +194,55 @@ test('Ponto geral e Ponto eletrônico seguem o carimbo; o lançamento diário n�
   await expect(obraApp).toHaveValue('b');
   await obraApp.selectOption('a');
   await expect(stamp(page)).toHaveValue('a');
-  // Ponto por obra: a obra da tela é onde a presença é gravada, então ela não segue o topo.
+  // Ponto por obra: a obra da tela é onde a presença é gravada, então ela não segue
+  // o topo, e o topo nem aparece para não sugerir o contrário.
   await page.keyboard.press('Control+k');
   await search.fill('Ponto por obra');
   await search.locator('xpath=../..').getByRole('button').filter({hasText:'Ponto por obra'}).first().click();
   const obraLancamento=page.locator('main').getByLabel('Obra',{exact:true});
   await expect(obraLancamento).toHaveValue('all');
+  await expect(page.getByTestId('work-context-stamp')).toHaveCount(0);
   await obraLancamento.selectOption('b');
+  expect(await page.evaluate(()=>sessionStorage.getItem('arcd_obra_contexto'))).toBe('a');
+  expect(errors).toEqual([]);
+});
+
+test('o topo mostra a obra que a tela usa de fato e some onde não vale',async({page})=>{
+  const errors=await enter(page,'home');
+  const caixa=page.getByTestId('work-context-stamp');
+  // Dashboard não segue o carimbo: sem topo.
+  await expect(page.locator('.arcd-main')).toBeVisible();
+  await expect(caixa).toHaveCount(0);
+  async function open(label){
+    await page.keyboard.press('Control+k');
+    const search=page.getByPlaceholder('Buscar obra, lead, pedido, funcionário, tela...');
+    await search.fill(label);
+    await search.locator('xpath=../..').getByRole('button').filter({hasText:label}).first().click();
+  }
+  // Estoque (uma obra por vez) com o carimbo vazio abre na primeira obra: o topo
+  // mostra essa obra, e não "Todas as obras", que a tela não aceita.
+  await open('Estoque');
+  const obraEstoque=page.locator('main').getByLabel('Obra',{exact:true}).first();
+  await expect(obraEstoque).toHaveValue('a');
   await expect(stamp(page)).toHaveValue('a');
+  await expect(stamp(page).locator('option',{hasText:'Todas as obras'})).toHaveCount(0);
+  // Trocar no topo leva a tela junto.
+  await stamp(page).selectOption('b');
+  await expect(obraEstoque).toHaveValue('b');
+  // Compras aceita "Todas": a opção volta.
+  await open('Compras');
+  await expect(stamp(page).locator('option',{hasText:'Todas as obras'})).toHaveCount(1);
+  expect(errors).toEqual([]);
+});
+
+test('usuário vinculado a uma obra trabalha nela nas telas que seguem o carimbo',async({page})=>{
+  // O topo mostra só o nome da obra (não há escolha); as telas não podem cair em
+  // "Todas as obras" nem herdar a obra deixada por outra pessoa no mesmo navegador.
+  await page.addInitScript(()=>{if(!sessionStorage.getItem('arcd_obra_contexto_teste')){sessionStorage.setItem('arcd_obra_contexto','b');sessionStorage.setItem('arcd_obra_contexto_teste','1');}});
+  const errors=await enter(page,'cmp',data,{...profile,id:'obra-a',role:'compras',obraId:'a'});
+  await expect(page.getByTestId('work-context-stamp')).toContainText('Residencial Alameda');
+  const comprasObra=page.getByRole('group',{name:'Comandos de Compras'}).getByLabel('Obra',{exact:true});
+  await expect(comprasObra).toHaveValue('a');
+  expect(await page.evaluate(()=>sessionStorage.getItem('arcd_obra_contexto'))).toBe('a');
   expect(errors).toEqual([]);
 });
