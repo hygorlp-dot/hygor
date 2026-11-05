@@ -118,6 +118,8 @@ import { sanitizeClientError, sanitizeServerError } from "../server/client-error
 import { assuntoLimitePinUsuario, normalizarIdentificador, resolverUsuarioPorIdentificador, respostaPerfisPublica } from "../server/login-identity.js";
 import { authenticateAppUser } from "../server/app-auth.js";
 import { criarTratadorPonto, ehAcaoPonto } from "../server/ponto-eletronico/handler.js";
+import { lerConfiguracaoFiscal } from "../server/ponto-eletronico/fiscal/config.js";
+import { criarServicosAssinaturaHttp } from "../server/ponto-eletronico/fiscal/servico-http.js";
 import { enviarUdpComDgram, verificarHora } from "../server/ponto-eletronico/tempo/ntp.js";
 import dgram from "node:dgram";
 
@@ -682,7 +684,23 @@ const lerBasePonto = async () => {
 // gravada por "ponto-tempo-verificar" (rotina agendada ou admin).
 const tratarAcaoPonto = criarTratadorPonto({
   db, company: COMPANY, lerDados: lerBasePonto,
+  lerConfigFiscal: () => lerConfiguracaoFiscal(),
+  lerServicosAssinatura: () => criarServicosAssinaturaHttp(),
+  lerSegredoAutomacao: () => process.env.PONTO_FISCAL_AUTOMACAO_TOKEN,
   lerDadosPainel: async () => (await lerLinha()).payload || {},
+  integrarJornadas: async eventos => {
+    // Datas apenas delimitam a releitura; horários e identidades usados no cálculo
+    // vêm das tabelas da empresa, dentro da transação de ponto existente.
+    if(!process.env.POSTGRES_URL_NON_POOLING)return {pending:true};
+    const dates=[...new Set(eventos.slice(0,500).map(e=>new Date(e.marcadoEm)).filter(d=>Number.isFinite(d.getTime())).map(d=>d.toLocaleDateString('en-CA',{timeZone:'America/Bahia'})))];
+    let pending=dates.length>32;
+    for(const date of dates.slice(0,32)){
+      const outcome=await executarComandoPontoBloqueado({usuario:{id:'system:ponto',nome:'Integração automática',role:'rh'},
+        command:{action:ATTENDANCE_COMMAND.SYNC,automatic:true,startsOn:date,endsOn:date,operationId:crypto.randomUUID()},operationNow:new Date().toISOString()});
+      if(outcome.kind==='error')pending=true;
+    }
+    return {pending};
+  },
   verificarHoraNtp: () => verificarHora({ enviarUdp: enviarUdpComDgram(dgram) }),
   autenticarUsuario: body => authenticateAppUser(
     { userId: body.userId, pin: body.pin, accessToken: body.accessToken }, { scope: "ponto-eletronico" }),
@@ -1814,6 +1832,12 @@ export default async function handler(req, res) {
     // App "Ponto de Obra" (REP-P): ações próprias, sem rota nova na Vercel.
     // A gestão de ponto atual (attendance) não passa por aqui.
     if(ehAcaoPonto(action)){
+      const comprovanteIndividual=action==="ponto-comprovantes-individuais";
+      if(comprovanteIndividual){
+        res.setHeader("Cache-Control","no-store");
+        const limite=await rateLimitCentral(`ponto-comprovantes|${ip}`,"status");
+        if(limite?.blocked)return res.status(429).json({error:"Muitas tentativas. Aguarde alguns minutos."});
+      }
       // O código de pareamento tem 8 números: sem limite, dá para tentar em
       // série. Mesmo contador persistente do login, com assunto próprio.
       const pareamento=action==="ponto-parear";
@@ -1822,6 +1846,7 @@ export default async function handler(req, res) {
         if(limite?.blocked)return res.status(429).json({error:"Muitas tentativas de pareamento. Aguarde alguns minutos."});
       }
       const resposta=await tratarAcaoPonto({action,body:req.body||{},headers:req.headers||{},cron:cronAutorizado(req)});
+      if(comprovanteIndividual)await rateLimitCentral(`ponto-comprovantes|${ip}`,resposta.status===200?"success":"failure");
       if(pareamento)await rateLimitCentral(`ponto-parear|${ip}`,resposta.status===200?"success":"failure");
       return res.status(resposta.status).json(resposta.json);
     }

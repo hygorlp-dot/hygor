@@ -1,4 +1,5 @@
-import { proporGradeDoREP } from '../src/domains/ponto-eletronico/ponte-grade.js';
+import {calculateScheduledBreak} from '../src/domains/ponto/timekeeping.js';
+import { proporGradeDoREP, situacaoPelaJornada } from '../src/domains/ponto-eletronico/ponte-grade.js';
 import { sourceSignature, recordSignature, EVENT_TYPES } from '../src/domains/ponto-eletronico/conferencia.js';
 import { scheduleOnDate } from '../src/domains/rh/work-schedule.js';
 import { validDate } from '../src/domains/rh/date-validation.js';
@@ -46,7 +47,6 @@ export function planBiometricSync(data, command, events, now) {
     if(!batidas.every(e=>e.metodo==='facial'&&e.horaConfiavel&&!e.relogioAlterado))reasons.push('Identificação ou horário exige conferência do RH.');
     if(![2,4].includes(batidas.length)||batidas.some((e,i)=>i&&e.marcadoEm<=batidas[i-1].marcadoEm))reasons.push('Batidas incompletas, duplicadas ou sequência fora do padrão.');
     const typed=batidas.some(e=>e.tipoEvento);
-    if(!typed&&batidas.length!==4)reasons.push('Batidas antigas sem tipo: o RH precisa conferir os horários.');
     const expected=batidas.length===2?['entrada','saida']:EVENT_TYPES;
     if(typed&&batidas.some((e,i)=>e.tipoEvento!==expected[i]))reasons.push('Sequência de entrada, intervalo e saída inconsistente.');
     if(obras.length!==1||!obras[0]||!(data.obras||[]).some(o=>String(o.id)===obras[0]))reasons.push('Obra ausente ou jornada em várias obras; conferir apropriação.');
@@ -57,17 +57,23 @@ export function planBiometricSync(data, command, events, now) {
     if(activePayrollTitlesForPeriod(data,q).length)reasons.push('Folha fechada; o RH deve tratar a reabertura antes de alterar o ponto.');
     if(closedCompetenceForDate(data,date))reasons.push('Competência do DRE fechada; sincronização bloqueada.');
     const signature=sourceSignature(batidas);
-    const unchanged=current?.pontoReview?.sourceSignature===signature;
+    const unchanged=current?.pontoReview?.sourceSignature===signature && JSON.stringify(current.pontoReview.schedule)===JSON.stringify(schedule) && (batidas.length!==2 || !!current.pontoReview.scheduledBreak);
+    if(command.automatic && current?.pontoReview && !unchanged)reasons.push('O dia já foi integrado ou conferido; alterações exigem revisão do RH.');
     let record=null;
     if(!reasons.length){
       const proposed=proporGradeDoREP({marcacoes:batidas,jornadaHorasPorFuncionario:{[employeeId]:schedule.minutes/60}})[0];
+      if(proposed && batidas.length===2){
+        const calculation=calculateScheduledBreak(proposed.entrada,proposed.saida,schedule);
+        if(!calculation.valid)reasons.push('Entrada e saída não formam jornada válida na escala.');
+        else Object.assign(proposed,{workedMinutes:calculation.workedMinutes,status:situacaoPelaJornada(calculation.workedMinutes,schedule.minutes),ot:Math.max(0,Math.floor((calculation.workedMinutes-schedule.minutes)/15)*15)/60,scheduledBreak:calculation.scheduledBreak});
+      }
       if(!proposed?.status||proposed.avisos.length)reasons.push('Jornada incompleta; conferir no Ponto eletrônico.');
       else record={...current,status:proposed.status,obraId,entrada:proposed.entrada,intervaloSaida:proposed.intervaloSaida,
         intervaloRetorno:proposed.intervaloRetorno,saida:proposed.saida,workedMinutes:proposed.workedMinutes,ot:proposed.ot,
         atrasoMin:Math.max(0,(Number(proposed.entrada.slice(0,2))*60+Number(proposed.entrada.slice(3)))-(Number(schedule.entrada.slice(0,2))*60+Number(schedule.entrada.slice(3)))),
         archivedWorkdayHours:schedule.minutes/60,archivedWorkStart:schedule.entrada,
-        note:'Sincronizado pelo RH a partir das batidas biométricas.',
-        pontoReview:{sourceSignature:signature,eventIds:batidas.map(e=>String(e.eventId||e.id)),schedule,method:'biometric-sync'}};
+        note:command.automatic?'Integrado automaticamente a partir das batidas biométricas.':'Sincronizado pelo RH a partir das batidas biométricas.',
+        pontoReview:{sourceSignature:signature,eventIds:batidas.map(e=>String(e.eventId||e.id)),schedule,method:'biometric-sync',...(proposed.scheduledBreak?{scheduledBreak:proposed.scheduledBreak}:{}),automatic:!!command.automatic}};
     }
     items.push({employeeId,date,obraId,name:employee?.name||employeeId,sourceSignature:signature,scheduleSignature:JSON.stringify(schedule),expectedRecord:createHash('sha256').update(recordSignature(rawCurrent)).digest('hex'),
       state:reasons.length?'pending':unchanged?'synced':'ready',reasons,record,previous:current||null});

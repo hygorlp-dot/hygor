@@ -10,7 +10,7 @@
 .punch-caption { font-size:var(--arcd-type-caption); color:var(--arcd-text-secondary); }
 .punch-conference__events { display:flex; flex-wrap:wrap; gap:var(--arcd-space-2); }
 .punch-review { display:grid; gap:var(--arcd-space-4); }
-.punch-review__clocks { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:var(--arcd-space-4); border:0; padding:0; margin:0; }
+.punch-review__clocks { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--arcd-space-4); border:0; padding:0; margin:0; }
 .punch-review__clocks legend { margin-bottom:var(--arcd-space-3); font-weight:var(--arcd-font-weight-semibold); }
 .work-schedule-fields { padding:var(--arcd-space-4); border:1px solid var(--arcd-border-default); margin:var(--arcd-space-4) 0; }
 .work-schedule-fields__actions { display:flex; flex-wrap:wrap; align-items:end; gap:var(--arcd-space-3); }

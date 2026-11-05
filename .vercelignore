@@ -50,3 +50,12 @@ release-preservation.json
 
 # Comparações visuais são exclusivas do ambiente local.
 prototypes/
+
+/tmp/
+/output/
+**/__pycache__/
+*.pfx
+*.p12
+*.pem
+*.key
+*.apk

@@ -40,3 +40,7 @@ PRODUCT.md
 test-results-*/
 # PDFs e imagens locais de conferência visual
 /output/pdf/
+/output/ponto-fiscal/
+/tmp/ponto-fiscal/
+/tmp/pdfs/
+/scripts/ponto-assinatura/__pycache__/

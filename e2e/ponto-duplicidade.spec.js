@@ -11,9 +11,9 @@ test('batidas próximas permanecem consultáveis; integração exige tratamento 
  const save=page.getByRole('button',{name:'Confirmar e integrar à Gestão do ponto',exact:true});
  await expect(save).toBeDisabled();await expect(page.getByLabel('Entrada',{exact:true})).toHaveValue('');await expect(page.getByLabel('Saída',{exact:true})).toHaveValue('');
  expect(await page.evaluate(()=>window.submissions)).toBe(0);
- for(const [label,value] of [['Entrada','07:21'],['Saída para intervalo','12:00'],['Retorno do intervalo','13:00'],['Saída','17:00']])await page.getByLabel(label,{exact:true}).fill(value);
+ for(const [label,value] of [['Entrada','07:21'],['Saída','17:00']])await page.getByLabel(label,{exact:true}).fill(value);
  await expect(save).toBeDisabled();await page.getByLabel('Justificativa obrigatória').fill('Entrada repetida; horários conferidos explicitamente pelo RH.');
- await save.click();await expect(page.getByText('Conferido e integrado',{exact:true})).toBeVisible();
+ await save.click();await expect(page.getByText('Integrado à Gestão do ponto',{exact:true})).toBeVisible();
  expect(await page.evaluate(()=>window.saved.attendance.e['2026-11-03'].pontoReview.eventIds)).toEqual(['e0','e1']);
  expect(await page.evaluate(()=>window.saved.payments)).toEqual([{amount:7160}]);expect(await page.evaluate(()=>window.eventsAfter===window.originalEvents)).toBe(true);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);

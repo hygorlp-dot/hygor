@@ -1,3 +1,4 @@
+import {calculateAttendanceDayCost} from '../src/domains/ponto/payroll.js';
 import {describe,it,expect} from 'vitest';
 import {planBiometricSync,validSyncRange} from './attendance-biometric-sync.js';
 import {applyAttendanceCommand} from './attendance-command.js';
@@ -59,9 +60,9 @@ describe('sincronização biométrica pelo RH',()=>{
   if(kind==='payroll')d.titulosFolha=[{periodKey:'2026-10-Q2',status:'pago'}];
   const item=planBiometricSync(d,input,es,now)[0];expect(item.state).toBe('pending');expect(item.reasons.length).toBeGreaterThan(0);
  });
- it('suporta quatro batidas antigas, sem fabricar intervalo de apenas duas batidas antigas',()=>{
+ it('suporta quatro batidas antigas e duas batidas sem criar marcações de intervalo',()=>{
   const es=events().map(e=>({...e,tipoEvento:null}));expect(planBiometricSync(data(),input,es,now)[0].state).toBe('ready');
-  expect(planBiometricSync(data(),input,es.slice(0,2),now)[0].state).toBe('pending');
+  expect(planBiometricSync(data(),input,es.slice(0,2),now)[0].state).toBe('ready');
  });
  it('usa obra da captura, não a lotação fixa, e limita o recorte de consulta',()=>{
   expect(planBiometricSync(data(),{...input,obraId:'o'},events(),now)).toHaveLength(1);
@@ -76,4 +77,25 @@ describe('sincronização biométrica pelo RH',()=>{
   d.quinzenasArquivadas={'2026-10-Q2':{}};
   expect(planBiometricSync(d,{startsOn:nextDate,endsOn:nextDate},es,'2026-11-04T20:00:00Z')[0].reasons).toContain('Quinzena arquivada; restaure antes de sincronizar.');
  });
+});
+
+it.each([['2026-11-03','07:21','16:55',514,540],['2026-11-06','07:00','16:00',480,480],['2026-11-06','07:00','17:00',540,480],['2026-11-03','07:00','11:00',240,540],['2026-11-03','12:30','16:00',180,540]])('integra %s %s–%s com intervalo previsto e escala histórica', (day,start,end,minutes,expected)=>{
+ const d=data();d.attendance={};
+ const es=[start,end].map((clock,i)=>({...events()[i],eventId:`two-${i}`,tipoEvento:null,marcadoEm:new Date(`${day}T${clock}:00-03:00`).toISOString()}));
+ const cmd={action:'attendance-sync-punches',automatic:true,operationId:'20000000-0000-4000-8000-000000000009',startsOn:day,endsOn:day};
+ const result=applyAttendanceCommand(d,rh,cmd,'2026-11-07T21:00:00Z',es);
+ expect(result.ok).toBe(true);
+ const record=result.data.attendance.e[day];
+ expect(record).toMatchObject({entrada:start,saida:end,intervaloSaida:'',intervaloRetorno:'',workedMinutes:minutes,archivedWorkdayHours:expected/60,pontoReview:{automatic:true,scheduledBreak:{source:'work-schedule'}}});
+ expect(calculateAttendanceDayCost({employee:d.employees[0],record}).workedMinutes).toBe(minutes);
+ expect(es).toHaveLength(2);expect(es.every(e=>e.tipoEvento===null)).toBe(true);
+ expect(applyAttendanceCommand(result.data,rh,{...cmd,operationId:'20000000-0000-4000-8000-000000000010'},'2026-11-07T21:00:00Z',es).idempotent).toBe(true);
+});
+it('automático ignora pendências, não sobrescreve revisão RH nem reabre fechamentos',()=>{
+ const d=data(),es=events(),cmd={action:'attendance-sync-punches',automatic:true,operationId:'20000000-0000-4000-8000-000000000011',...input};
+ d.attendance.e[date].pontoReview={sourceSignature:'revisado',schedule:{},revision:2};
+ expect(applyAttendanceCommand(d,rh,cmd,now,es)).toMatchObject({ok:true,idempotent:true,result:{attendance:[]}});
+ expect(applyAttendanceCommand(d,eng,cmd,now,es).status).toBe(403);
+ delete d.attendance.e[date].pontoReview;d.attendanceLocks={[`${date}__o`]:{locked:true}};
+ expect(applyAttendanceCommand(d,rh,cmd,now,es).result.attendance).toEqual([]);
 });

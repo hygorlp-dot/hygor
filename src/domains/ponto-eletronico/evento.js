@@ -54,6 +54,8 @@ export function canonicalizarEvento(e) {
   // Extensão canônica opt-in: eventos antigos continuam byte a byte iguais.
   // O payload já é armazenado integralmente pela ARP e pelo SQLite.
   if (e?.versaoJornada === 1) campos.push("jornada-v1", texto(e.tipoEvento));
+  // Extensão opt-in: protege o modo de captura sem alterar hashes legados.
+  if (e?.versaoCaptura === 1) campos.push("captura-v1", e.offline ? "1" : "0");
   return campos.join("|");
 }
 
@@ -65,6 +67,8 @@ export const ehEventoV2 = e => Number(e?.formatVersion) === FORMATO_EVENTO;
 
 export function validarEvento(e) {
   const erros = [];
+  if (e?.versaoCaptura !== undefined && e.versaoCaptura !== 1) erros.push("versaoCaptura inválida");
+  if (e?.versaoCaptura === 1 && typeof e.offline !== "boolean") erros.push("offline obrigatório na captura v1");
   if (!ehEventoV2(e)) erros.push(`formatVersion deve ser ${FORMATO_EVENTO}`);
   if (e?.versaoJornada !== undefined && e.versaoJornada !== 1) erros.push("versaoJornada inválida");
   if (e?.tipoEvento !== undefined && (e.versaoJornada !== 1 || !Object.hasOwn(TIPOS_EVENTO_JORNADA, e.tipoEvento))) erros.push("tipoEvento inválido ou sem versão de jornada");

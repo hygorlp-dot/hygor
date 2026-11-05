@@ -155,3 +155,14 @@ describe("fonte de hora", () => {
     expect(st.json.verificacoes[0]).toMatchObject({ ok: false, erro: "UDP bloqueado" });
   });
 });
+
+it('formato 2 chama integração depois do registro e mantém recibo quando ela falha',async()=>{
+ const integration=vi.fn(async()=>{throw new Error('indisponível');});tratar=criar({integrarJornadas:integration});
+ const {json:{estabelecimento}}=await como('admin','ponto-estabelecimento-salvar',{estabelecimento:{nome:'E'}});
+ await como('admin','ponto-estabelecimento-vincular-obra',{obraId:'obra-a',estabelecimentoId:estabelecimento.id});
+ const d=await parear(),event=await eventoDe(d,1);
+ const result=await d.api('ponto-enviar-marcacoes',{eventos:[event]});
+ expect(result.json.resultados[0]).toMatchObject({status:'registrado',nsr:1});
+ expect(result.json.integracao).toEqual({pending:true});expect(integration).toHaveBeenCalledWith([event]);
+ expect((await pg.query('select * from ponto_eventos')).rows).toHaveLength(1);
+});

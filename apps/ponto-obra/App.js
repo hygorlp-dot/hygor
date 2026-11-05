@@ -22,6 +22,7 @@ import * as Crypto from "expo-crypto";
 import * as Location from "expo-location";
 import { abrirArmazem, arquivarBanco } from "./src/dados/armazem-sqlite";
 import { registrarBatida } from "./src/logica/terminal";
+import { verificarModoCaptura } from "./src/logica/captura";
 import { gpsRecente, montarCorpoSincronizacao, rodadaDeSincronizacao } from "./src/logica/sincronizacao";
 import { classificarResposta, mensagemDeErro } from "./src/logica/falhas";
 import { montarDiagnostico } from "./src/logica/diagnostico";
@@ -190,9 +191,11 @@ export default function App() {
     try {
       // Estabelecimento que o aparelho já conhece (pode não haver: a ARP resolve).
       const estabelecimentoId = (await armazem.cadastro().catch(() => null))?.estabelecimento?.id || null;
+      const horaCaptura = relogio.agora();
+      const modoCaptura = await verificarModoCaptura({ api, dispositivoId: sessao.dispositivoId, gerarId: Crypto.randomUUID });
       m = await registrarBatida({
         armazem, relogio, sha256: sha256Texto, gerarId: Crypto.randomUUID, dispositivoId: sessao.dispositivoId, estabelecimentoId,
-        pessoa, identificacao, gps: gpsRecente(ref.current.gps, Date.now()), fotoSha256: preparada?.sha256, caminhoFoto: preparada?.uri,
+        pessoa, identificacao, gps: gpsRecente(ref.current.gps, Date.now()), fotoSha256: preparada?.sha256, caminhoFoto: preparada?.uri, horaCaptura, modoCaptura,
       });
     } catch (e) {
       if (preparada) apagarFotoLocal(preparada.uri);   // foto sem batida não serve para nada
