@@ -79,6 +79,7 @@ import {
   podeGerarLinkAceite, verificarTokenAceite, visaoPublicaPedido,
 } from "../server/supplier-acceptance-link.js";
 import { RENTAL_COMMAND_ROLES } from "../src/domains/equipamentos/rental-command-roles.js";
+import { stockTransferSectionViolation } from "../server/stock-transfer-section-guard.js";
 import {
   requiresFinancialOperationalPersistence,
 } from "../server/operational-command-persistence.js";
@@ -3578,6 +3579,14 @@ export default async function handler(req, res) {
         error:`A seção ${legacyPointWrite} exige o comando granular do servidor.`,
         code:"ATTENDANCE_GRANULAR_REQUIRED",
       });
+      // E1.1: transferência entre obras só pelos comandos (move custo na DRE).
+      if(chaves.includes("movEstoque")){
+        const transferenciaAlterada=stockTransferSectionViolation(atual?.movEstoque,sections.movEstoque);
+        if(transferenciaAlterada)return res.status(409).json({
+          error:"Transferência entre obras só pode ser enviada, recebida ou estornada pela tela de Estoque.",
+          code:"STOCK_TRANSFER_COMMAND_REQUIRED",
+        });
+      }
       // Mesmo em sombra, toda mutação financeira atualiza a projeção
       // canônica na mesma transação do blob. Assim o DRE pode ler o razão sem
       // ficar defasado; FIN-003 continua sendo apenas o bloqueio das escritas

@@ -70,6 +70,10 @@ const sanitizeRescission = (rescission, role) => {
 };
 const hasObra = (item, allowed) => !allowed.size || [
   item?.obraId,item?.obra,item?.obraAtualId,item?.paraObraId,item?.deObraId,
+  // E1.1: as duas pontas da transferência de material entre obras. Sem isso, o
+  // engenheiro do destino não vê a saída e não consegue confirmar a chegada, e
+  // o razão da tela descarta a transferência (precisa do par saída + chegada).
+  item?.obraDestinoId,item?.obraOrigemId,
 ].some(value=>value!=null&&value!==""&&allowed.has(String(value)));
 const filterByObra = (value, allowed) => Array.isArray(value) ? value.filter(item => hasObra(item, allowed)) : value;
 const resolvedRecordObraId=(payload,employee,date,record)=>resolveEmployeeAttendanceObraId({

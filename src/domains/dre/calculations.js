@@ -177,6 +177,11 @@ export const createDreCalculations = ({
     const rescTotal = sumCategory("rescisao");
     const outrasTotal = sumSource("outra_despesa")+fromCents(events.filter(event=>event.effect==="cost"&&event.sourceType==="canonical_title"&&!["terceirizado","rescisao"].includes(event.category)).reduce((sum,event)=>sum+event.amountCents,0));
     const comprasCost = sumSource("nota_fiscal");
+    // E1.1: material transferido entre obras, líquido (+ recebido, − enviado).
+    // Linha própria na DRE para que as linhas somem o total de custos.
+    const transferCost = fromCents(events
+      .filter(event => event.sourceType === "transferencia_estoque" && ["cost", "cost_reversal"].includes(event.effect))
+      .reduce((sum, event) => sum + (event.effect === "cost_reversal" ? -1 : 1) * event.amountCents, 0));
     const equipCost = fromCents(supplemental.equipmentCents);
     const aReceber = fromCents(receivable.balanceCents);
     const contasPagar = fromCents(payable.balanceCents);
@@ -209,7 +214,7 @@ export const createDreCalculations = ({
       obra, ym:ctx.ym, periodo, days:ctx.days, per0:ctx.per0, perF:ctx.perF,
       faturamento, recebido, aReceber, medDoMes,
       moData:supplemental.labor, tercCost, tercPago, tercEmpresaObra,
-      rescTotal, outrasTotal, outrasDesp, equipCost, comprasCost,
+      rescTotal, outrasTotal, outrasDesp, equipCost, comprasCost, transferCost,
       totalCustos, lucroBruto, margemBruta:dre.margin,
       saldoCaixa, margemCaixa:recebido ? saldoCaixa/recebido*100 : 0,
       contratoTotal, faturadoAcum, recebidoAcum,
@@ -274,6 +279,7 @@ export const createDreCalculations = ({
       laborCost:sum("laborCost","moData"), benefitCost:sum("benefitCost","moData"),
       tercCost:sum("tercCost"), tercEmpresa:sum("tercEmpresaObra"), tercEmpresaObras:sum("tercEmpresaObra"),
       rescTotal:sum("rescTotal"), outrasTotal:sum("outrasTotal"), comprasCost:sum("comprasCost"),
+      transferCost:sum("transferCost"),
       equipCostObras:sum("equipCost"), equipReceita:equipmentRevenue,
       equipReceitaBruta:Number(equipment.receitaBruta??equipmentRevenue),
       equipDescontos:Number(equipment.descontos||0),
@@ -399,7 +405,9 @@ export const createDreCalculations = ({
         totalLaborAll:laborCost + benefitCost + dre.tercCost,
         tercCost:dre.tercCost,
         comprasCost:dre.comprasCost,
-        materialCost:dre.comprasCost,
+        transferCost:dre.transferCost,
+        // Mesma regra de material de calcProjecaoContratoObra: NF + transferência.
+        materialCost:dre.comprasCost + dre.transferCost,
         equipCost:dre.equipCost,
         outrasTotal:dre.outrasTotal,
         rescTotal:dre.rescTotal,
@@ -428,8 +436,9 @@ export const createDreCalculations = ({
       ...(obraId === "all" ? {} : { obraId }),
       startDate:selected.per0, endDate:selected.perF,
     });
+    // Material enviado a outra obra (E1.1) reduz custo, mas não é estorno.
     const reversalMovements = periodMovements.filter(movement =>
-      ["revenue_reversal", "cost_reversal"].includes(movement.natureza));
+      ["revenue_reversal", "cost_reversal"].includes(movement.natureza) && movement.origem !== "transferencia_estoque");
     const cancelledStatuses = new Set(["cancelado", "cancelada", "estornado", "excluido", "excluida"]);
     const cancelledCount = [
       ...(data.medicoes || []), ...(data.notasFiscais || []), ...(data.pedidos || []),

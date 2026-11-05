@@ -425,6 +425,24 @@ describe("transferência de material entre obras (E1.1)", () => {
     expect(regras.calcDREConsolidado(dados, 2026, 10).totalCustos).toBe(regras.calcDREConsolidado(semTransferencia, 2026, 10).totalCustos);
   });
 
+  test("as linhas da DRE somam o total: NF + material transferido", () => {
+    const dados = cenarioTransferencia();
+    const origem = regras.calcDREObra(dados, "alameda", 2026, 10);
+    const destino = regras.calcDREObra(dados, "horizonte", 2026, 10);
+    expect([origem.transferCost, destino.transferCost]).toEqual([-325, 325]);
+    for (const dre of [origem, destino]) {
+      expect(dre.comprasCost + dre.transferCost + dre.outrasTotal + dre.tercCost + dre.rescTotal + dre.equipCost).toBe(dre.totalCustos);
+    }
+    expect(regras.calcDREConsolidado(dados, 2026, 10).transferCost).toBe(0);
+  });
+
+  test("material enviado a outra obra reduz custo, mas não aparece como estorno", () => {
+    const visao = regras.calcVisaoFinanceira(cenarioTransferencia(), 2026, 10, "alameda");
+    const totais = Object.values(visao).find(valor => valor && typeof valor === "object" && "reversalCount" in valor) || visao;
+    expect(totais.reversalCount).toBe(0);
+    expect(totais.reversals).toBe(0);
+  });
+
   test("chegada estornada não move custo; e o material transferido entra na base da taxa de administração", () => {
     const dados = cenarioTransferencia();
     const estornada = { ...dados, movEstoque: dados.movEstoque.map(m => m.id === "t1-chegada" ? { ...m, status: "estornado" } : m) };

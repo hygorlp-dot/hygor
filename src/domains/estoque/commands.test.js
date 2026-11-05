@@ -225,6 +225,14 @@ describe("transferência entre obras (E1.1)", () => {
     expect(receber(fechado, "t1").reason).toMatch(/período financeiro fechado/);
   });
 
+  it("recusa material sem custo e datas futuras", () => {
+    const semCusto = { ...comEstoque(), materiais: [{ id: "cim", precoMedio: 0 }], movEstoque: [{ id: "a1", obraId: "alameda", materialId: "cim", tipo: "ajuste", qtd: 20 }] };
+    expect(enviar(semCusto, { id: "t1", qtd: 5 }).reason).toMatch(/não tem custo médio/);
+    expect(enviar(comEstoque(), { id: "t1", qtd: 5, data: "2026-10-21" }).reason).toMatch(/envio não pode ser futura/);
+    const enviado = enviar(comEstoque(), { id: "t1", qtd: 10 });
+    expect(receber(enviado.data, "t1", { data: "2026-11-04" }).reason).toMatch(/chegada não pode ser futura/);
+  });
+
   it("movimento avulso não cria transferência", () => {
     const result = applyStockCommand(comEstoque(), { type: STOCK_COMMAND.MATERIAL_MOVEMENT_RECORDED, idempotencyKey: "mov-transf-avulsa",
       payload: { movement: { id: "x", obraId: "alameda", materialId: "cim", tipo: "transferencia_entrada", qtd: 5 } } });

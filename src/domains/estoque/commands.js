@@ -165,6 +165,9 @@ export const applyStockCommand = (data = {}, command = {}, now = new Date().toIS
     // O valor é sempre o custo médio do insumo calculado aqui, nunca o que a tela mandou.
     const material = (data.materiais || []).find(item => String(item.id) === materialId);
     const custo = custoMedioPonderado(movEstoque, materialId) ?? Number(material?.precoMedio || 0);
+    // Sem custo, o material mudaria de obra sem levar o valor na DRE.
+    if (!(Number(custo) > 0)) return fail("Este material não tem custo médio. Registre uma entrada com valor ou o preço médio no cadastro antes de transferir.");
+    if (quando > now.slice(0, 10)) return fail("A data do envio não pode ser futura.");
     const saida = {
       id, obraId: origem, obraDestinoId: destino, materialId, tipo: "transferencia_saida",
       qtd, valorUnit: Math.round(Number(custo || 0) * 10000) / 10000, data: quando,
@@ -183,6 +186,8 @@ export const applyStockCommand = (data = {}, command = {}, now = new Date().toIS
     if (!id || movEstoque.some(item => item.id === id)) return fail("A chegada precisa de uma identificação nova.");
     const quando = String(command.payload?.data || now.slice(0, 10)).slice(0, 10);
     if (quando < String(saida.data || "")) return fail("A chegada não pode ser antes do envio.");
+    // A data define o mês da DRE: não aceita lançar custo em mês futuro.
+    if (quando > now.slice(0, 10)) return fail("A data da chegada não pode ser futura.");
     // A chegada move o custo na DRE das duas obras na data dela.
     if (isDateInClosedPeriod(data, quando)) return fail("Esta data está em um período financeiro fechado. Use uma data de período aberto.");
     const entrada = {

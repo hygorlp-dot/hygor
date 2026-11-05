@@ -10,7 +10,9 @@ export function buildDreMemorial(data,base,ym){
   const add=(source,item)=>{(result[source]??=[]).push(item);};
   const workName=id=>(data.obras||[]).find(work=>work.id===id)?.name||id||"Empresa (sem obra)";
   const fromEvent=event=>{
-    const record=(data[collections[event.sourceType]]||[]).find(item=>String(item.id)===event.sourceId)||event.metadata?.titleDetails;
+    // Transferência entre obras (E1.1): cada ponta aponta para o próprio movimento (saída ou chegada).
+    const recordId=event.sourceType==="transferencia_estoque"&&event.sourceSubId?event.sourceSubId:event.sourceId;
+    const record=(data[collections[event.sourceType]]||[]).find(item=>String(item.id)===recordId)||event.metadata?.titleDetails;
     const invoices=(data.notasFiscais||[]).filter(invoice=>
       (record?.notaFiscalId&&invoice.id===record.notaFiscalId)||
       (event.sourceType==="medicao_terceiro"&&invoice.medicaoTercId===event.sourceId));
@@ -27,14 +29,14 @@ export function buildDreMemorial(data,base,ym){
   for(const row of base.obras||[]){
     for(const event of row.dreEvents||[]){
       if(["revenue","revenue_reversal"].includes(event.effect))add("faturamentoObras",fromEvent(event));
-      if(event.effect==="cost_reversal"){add("costResidual",fromEvent(event));continue;}
+      if(event.effect==="cost_reversal"){add(event.sourceType==="transferencia_estoque"?"outrasDiretas":"costResidual",fromEvent(event));continue;}
       if(event.effect!=="cost")continue;
       let classified=0;
       const classify=source=>{add(source,fromEvent(event));classified++;};
       if(event.sourceType==="ponto")classify(event.category==="beneficios"?"benefTotal":"laborTotal");
       if(event.category==="terceirizado")classify("tercTotal");
       if(event.category==="rescisao")classify("rescTotal");
-      if(["outra_despesa","nota_fiscal","equipamento"].includes(event.sourceType)||
+      if(["outra_despesa","nota_fiscal","equipamento","transferencia_estoque"].includes(event.sourceType)||
         (event.sourceType==="canonical_title"&&!["terceirizado","rescisao"].includes(event.category)))classify("outrasDiretas");
       if(classified!==1)add("costResidual",{...fromEvent(event),amountCents:event.amountCents*(1-classified),note:classified>1?"Ajuste das categorias sobrepostas do demonstrativo; não é um novo lançamento.":"Custo reconhecido sem categoria individual no demonstrativo."});
     }
