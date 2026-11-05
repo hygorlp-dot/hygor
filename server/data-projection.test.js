@@ -208,3 +208,23 @@ describe("SEC-001 · projeção de leitura por obra",()=>{
     expect(projected.transferenciasEquip.map(item=>item.id)).toEqual(["tr-a"]);
   });
 });
+
+// E1.1: engenheiro restrito a uma obra recebe as duas pontas da transferência,
+// para confirmar a chegada e para a DRE da tela bater com a do servidor.
+describe("transferência de material entre obras na projeção por obra", () => {
+  it("o engenheiro do destino vê a saída da origem e o da origem vê a chegada no destino", () => {
+    const payload = {
+      obras: [{ id: "obra-a" }, { id: "obra-b" }, { id: "obra-c" }],
+      movEstoque: [
+        { id: "e1", obraId: "obra-a", tipo: "entrada", qtd: 20 },
+        { id: "t1", obraId: "obra-a", obraDestinoId: "obra-b", tipo: "transferencia_saida", qtd: 10 },
+        { id: "t1c", obraId: "obra-b", obraOrigemId: "obra-a", transferenciaSaidaId: "t1", tipo: "transferencia_entrada", qtd: 10 },
+        { id: "x", obraId: "obra-c", tipo: "entrada", qtd: 5 },
+      ],
+    };
+    const ids = user => projectDataForUser(payload, user).movEstoque.map(m => m.id);
+    expect(ids({ id: "u-b", role: "engenheiro", obraId: "obra-b" })).toEqual(["t1", "t1c"]);
+    expect(ids({ id: "u-a", role: "engenheiro", obraId: "obra-a" })).toEqual(["e1", "t1", "t1c"]);
+    expect(ids({ id: "u-c", role: "engenheiro", obraId: "obra-c" })).toEqual(["x"]);
+  });
+});

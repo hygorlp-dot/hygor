@@ -120,7 +120,7 @@ const companyDre = (data,year,month,engine=calculations,includeMemorial=false) =
   const totalDeducoes=descontoLocacoes+deducoesTributarias,receitaLiquida=faturamentoTotal-totalDeducoes;
   const laborTotal=base.laborCost,benefTotal=base.benefitCost,tercTotal=base.tercCost;
   const rescTotal=base.rescTotal;
-  const outrasDiretas=base.outrasTotal+base.comprasCost+base.equipCostObras;
+  const outrasDiretas=base.outrasTotal+base.comprasCost+Number(base.transferCost||0)+base.equipCostObras;
   const repasseEquipamentosTerceiros=Number(base.equipRepasseTerceiros||0);
   const manutencaoLocacoes=Number(base.equipManutencao||0);
   const custoLocacoes=repasseEquipamentosTerceiros+manutencaoLocacoes;
@@ -157,7 +157,7 @@ const companyDre = (data,year,month,engine=calculations,includeMemorial=false) =
     const receita=Number(row.faturamento||0),despesa=Number(row.totalCustos||0),resultado=Number(row.lucroBruto||0);
     return {id:row.obra?.id,name:row.obra?.name,status:row.obra?.status,receita:round(receita),receitaMed:round(receita),
       receitaLivre:0,recebido:round(row.recebido||0),laborCost:row.moData?.laborCost||0,benefitCost:row.moData?.benefitCost||0,
-      terc:round(row.tercCost||0),outras:round((row.outrasTotal||0)+(row.comprasCost||0)+(row.equipCost||0)),
+      terc:round(row.tercCost||0),outras:round((row.outrasTotal||0)+(row.comprasCost||0)+(row.transferCost||0)+(row.equipCost||0)),
       despesa:round(despesa),resultado:round(resultado),margemPct:receita?round(resultado/receita*100):null};
   }).filter(item=>item.receita||item.despesa).sort((a,b)=>b.resultado-a.resultado);
   return Object.fromEntries(Object.entries({

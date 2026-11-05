@@ -18,7 +18,7 @@ import { ModalComposicao, ModalMaterial } from "../LegacyEditors.jsx";
 import { fmt, fmtDate, maiusculoOrcamento, proximoCodigoArcd, today, uid } from "../../../legacy/format.js";
 import { historicoPreco } from "../../compras/calculations";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
-import { TIPOS_MOV, SINAL_MOV, calcSaldos, saldoDe, baixarPorComposicao, calcCurvaABC, calcCurvaABCServicos, materiaisAbaixoMinimo } from "../calculations";
+import { TIPOS_MOV, TIPOS_MOV_AVULSO, SINAL_MOV, calcSaldos, custoMedioPonderado, saldoDe, baixarPorComposicao, calcCurvaABC, calcCurvaABCServicos, materiaisAbaixoMinimo, transferenciasEmTransito } from "../calculations";
 import { STOCK_COMMAND } from "../commands";
 import { PageHeader } from "../../../design-system/patterns/PageHeader.jsx";
 import { WorkspaceNavigation } from "../../../design-system/patterns/WorkspaceNavigation.jsx";
@@ -39,7 +39,7 @@ function ModalMovimento({ form, setForm, onSave, obras, materiais, data }) {
     <Modal title="Movimento de estoque" onClose={()=>setForm(null)} wide>
       <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:11}}>
         <Sel label="Tipo *" value={form.tipo} onChange={F("tipo")}
-             options={TIPOS_MOV.map(t=>({v:t.v,l:t.l}))}/>
+             options={TIPOS_MOV_AVULSO.map(t=>({v:t.v,l:t.l}))}/>
         <Sel label="Obra *" value={form.obraId} onChange={F("obraId")}
              options={[{v:"",l:"Selecione..."}, ...obras.map(o=>({v:o.id,l:o.name}))]}/>
         <Sel label="Material *" value={form.materialId} onChange={F("materialId")}
@@ -158,6 +158,66 @@ function ModalExecutar({ onClose, onRun, composicoes, obras, obraAtual, materiai
   );
 }
 
+// E1.1: transferência entre obras. Sai da origem na hora e fica em trânsito até
+// a obra de destino confirmar a chegada; o valor é o custo médio (o servidor
+// recalcula e grava). Na chegada, o custo sai da DRE da origem e entra na do destino.
+function ModalTransferencia({ form, setForm, onSave, obras, materiais, saldos, movEstoque }) {
+  const { formGrid } = useBreakpoint();
+  const F = k => v => setForm(f => ({ ...f, [k]: v }));
+  const comSaldo = materiais.filter(m => saldoDe(saldos, form.obraOrigemId, m.id) > 0);
+  const material = materiais.find(m => m.id === form.materialId);
+  const disponivel = saldoDe(saldos, form.obraOrigemId, form.materialId);
+  const custo = custoMedioPonderado(movEstoque, form.materialId) ?? Number(material?.precoMedio || 0);
+  const qtd = Number(form.qtd || 0);
+  return (
+    <Modal title="Transferir material para outra obra" onClose={()=>setForm(null)} wide>
+      <div className="stock-transfer-form" data-columns={formGrid(2)==="1fr"?1:2}>
+        <Sel label="Obra de origem *" value={form.obraOrigemId} onChange={v=>setForm(f=>({...f,obraOrigemId:v,materialId:""}))}
+             options={[{v:"",l:"Selecione..."}, ...obras.map(o=>({v:o.id,l:o.name}))]}/>
+        <Sel label="Obra de destino *" value={form.obraDestinoId} onChange={F("obraDestinoId")}
+             options={[{v:"",l:"Selecione..."}, ...obras.filter(o=>o.id!==form.obraOrigemId).map(o=>({v:o.id,l:o.name}))]}/>
+        <Sel label="Material *" value={form.materialId} onChange={F("materialId")}
+             options={[{v:"",l:comSaldo.length?"Selecione...":"Sem material com saldo nesta obra"}, ...comSaldo.map(m=>({v:m.id,l:`${m.descricao} · ${saldoDe(saldos, form.obraOrigemId, m.id).toLocaleString("pt-BR")} ${m.unidade}`}))]}/>
+        <Inp label={`Quantidade *${material ? ` (${material.unidade})` : ""}`} type="number" value={form.qtd} onChange={F("qtd")} placeholder="0"/>
+        <Inp label="Data do envio" type="date" value={form.data} onChange={F("data")}/>
+        <Inp label="Observação" value={form.descricao} onChange={F("descricao")} placeholder="Motivo, caminhão, responsável..."/>
+        {material && <p className="stock-transfer-summary" role="status" data-tone={qtd>disponivel?"danger":undefined}>
+          {qtd>disponivel
+            ? `Saldo insuficiente: há ${disponivel.toLocaleString("pt-BR")} ${material.unidade} na origem.`
+            : `Custo médio ${fmt(custo)}/${material.unidade}${qtd>0?` · ${fmt(qtd*custo)} saem da obra de origem e entram na de destino quando a chegada for confirmada`:""}.`}
+        </p>}
+        <div className="stock-transfer-actions">
+          <Btn v="ghost" onClick={()=>setForm(null)} full>Cancelar</Btn>
+          <Btn onClick={()=>onSave(form)} full><Ic n="check"/> Enviar</Btn>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function ModalChegadaTransferencia({ saida, onClose, onConfirm, nomeObra, material }) {
+  const [quando, setQuando] = useState(today());
+  return (
+    <Modal title="Confirmar chegada do material" onClose={onClose}>
+      <div className="stock-transfer-arrival">
+        <p>
+          <b>{saida.qtd.toLocaleString("pt-BR")} {material?.unidade || ""} de {material?.descricao || "material"}</b> enviados
+          por <b>{nomeObra(saida.obraId)}</b> em {fmtDate(saida.data)} para <b>{nomeObra(saida.obraDestinoId)}</b>.
+        </p>
+        <p className="stock-transfer-arrival__note">
+          Ao confirmar, o material entra no estoque desta obra e {fmt(Number(saida.qtd||0)*Number(saida.valorUnit||0))} passam
+          da DRE de {nomeObra(saida.obraId)} para a de {nomeObra(saida.obraDestinoId)}, no mês da chegada.
+        </p>
+        <Inp label="Data da chegada" type="date" value={quando} onChange={setQuando}/>
+        <div className="stock-transfer-actions">
+          <Btn v="ghost" onClick={onClose} full>Cancelar</Btn>
+          <Btn onClick={()=>onConfirm(saida, quando)} full><Ic n="check"/> Chegou</Btn>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 export default function Estoque({ data, update, showToast, currentUser, obraIdFixo="", dispatchCommand=null }) {
 
   const [aba,      setAba]      = useState("saldo");   // saldo|movs|materiais|comp|abc
@@ -168,6 +228,8 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
   const [movModal, setMovModal] = useState(null);
   const [srvModal, setSrvModal] = useState(false);     // executar serviço
   const [compModal,setCompModal]= useState(null);
+  const [transfModal,setTransfModal]=useState(null);
+  const [chegadaModal,setChegadaModal]=useState(null);
 
   const materiais   = useMemo(() => (data.materiais||[]).filter(m => m.ativo !== false), [data.materiais]);
   const saldos      = useMemo(() => calcSaldos(data.movEstoque), [data.movEstoque]);
@@ -352,6 +414,42 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
     showToast("Movimento estornado e preservado para auditoria. O saldo foi recalculado; se a entrada veio de um pedido, o recebimento dele foi reaberto.");
   };
 
+  //  Transferência entre obras (E1.1)
+  const emTransito = useMemo(() => transferenciasEmTransito(data.movEstoque, obraAtual), [data.movEstoque, obraAtual]);
+  const enviarTransferencia = async (form) => {
+    if (!form.obraOrigemId || !form.obraDestinoId) { showToast("Selecione a obra de origem e a de destino.", "error"); return; }
+    if (form.obraOrigemId === form.obraDestinoId) { showToast("Escolha uma obra de destino diferente da origem.", "error"); return; }
+    if (!form.materialId) { showToast("Selecione o material.", "error"); return; }
+    const qtd = Number(form.qtd);
+    if (!(qtd > 0)) { showToast("A quantidade precisa ser maior que zero.", "error"); return; }
+    const disp = saldoDe(saldos, form.obraOrigemId, form.materialId);
+    if (qtd > disp + 0.0001) { showToast(`Saldo insuficiente: há ${disp.toFixed(2)} disponível na origem.`, "error"); return; }
+    if (!dispatchCommand) { showToast("Transferir material exige conexão com o servidor.", "error"); return; }
+    const id = uid();
+    const result = await dispatchCommand({
+      type: STOCK_COMMAND.TRANSFER_SENT,
+      idempotencyKey: `transferencia-envio-${id}-${uid()}`,
+      actorId: currentUser?.id || "", actorName: currentUser?.nome || "",
+      payload: { transfer: { id, obraOrigemId: form.obraOrigemId, obraDestinoId: form.obraDestinoId, materialId: form.materialId,
+        qtd, data: form.data || today(), descricao: form.descricao || "" } },
+    });
+    if (!result?.ok) { showToast(result?.reason || "Não foi possível registrar a transferência.", "error"); return; }
+    setTransfModal(null);
+    showToast(`Material enviado para ${nomeObra(form.obraDestinoId)}. Ele fica em trânsito até a obra confirmar a chegada.`);
+  };
+  const confirmarChegada = async (saida, quando) => {
+    if (!dispatchCommand) { showToast("Confirmar a chegada exige conexão com o servidor.", "error"); return; }
+    const result = await dispatchCommand({
+      type: STOCK_COMMAND.TRANSFER_RECEIVED,
+      idempotencyKey: `transferencia-chegada-${saida.id}-${uid()}`,
+      actorId: currentUser?.id || "", actorName: currentUser?.nome || "",
+      payload: { saidaId: saida.id, entradaId: uid(), data: quando || today() },
+    });
+    if (!result?.ok) { showToast(result?.reason || "Não foi possível confirmar a chegada.", "error"); return; }
+    setChegadaModal(null);
+    showToast("Chegada confirmada. O material entrou no estoque e o custo passou para esta obra.");
+  };
+
   //  Composição
   const salvarComposicao = async (form) => {
     if (!form.nome.trim()) { showToast("Dê um nome ao serviço.", "error"); return; }
@@ -453,7 +551,7 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
     <div className="anim stock-workspace" style={{display:"flex",flexDirection:"column",gap:12}}>
       <PageHeader className="workspace-header" headingLevel={obraIdFixo?2:1} title="Estoque" description="Controle físico dos materiais por obra, com alerta de reposição abaixo do mínimo."
         primaryAction={<Btn onClick={()=>setSrvModal(true)}><Ic n="check"/> Executei um serviço</Btn>}
-        secondaryActions={<Btn v="ghost" onClick={()=>setMovModal({tipo:"entrada",obraId:obraAtual,materialId:"",qtd:"",valorUnit:"",data:new Date().toISOString().slice(0,10),descricao:"",etapa:""})}><Ic n="plus"/> Movimento avulso</Btn>}/>
+        secondaryActions={<><Btn v="ghost" onClick={()=>setTransfModal({obraOrigemId:obraAtual,obraDestinoId:"",materialId:"",qtd:"",data:today(),descricao:""})}><Ic n="chevR"/> Transferir para outra obra</Btn><Btn v="ghost" onClick={()=>setMovModal({tipo:"entrada",obraId:obraAtual,materialId:"",qtd:"",valorUnit:"",data:new Date().toISOString().slice(0,10),descricao:"",etapa:""})}><Ic n="plus"/> Movimento avulso</Btn></>}/>
 
 
       <div className="stock-overview">
@@ -489,6 +587,22 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
             Uma solicitação por obra, com o déficit já calculado. O setor de Compras recebe o alerta imediatamente.
           </p>
         </div>
+      )}
+
+      {emTransito.length>0&&(
+        <section className="stock-transit" aria-label="Transferências em trânsito">
+          <h3>{emTransito.length === 1 ? "1 transferência em trânsito" : `${emTransito.length} transferências em trânsito`}</h3>
+          <ul>{emTransito.map(t => {
+            const m = matPorId(t.materialId), chega = t.obraDestinoId === obraAtual;
+            return <li key={t.id}>
+              <div><b>{t.qtd.toLocaleString("pt-BR")} {m?.unidade || ""} · {m?.descricao || "Material"}</b>
+                <small>{nomeObra(t.obraId)} → {nomeObra(t.obraDestinoId)} · enviado em {fmtDate(t.data)} · {fmt(Number(t.qtd||0)*Number(t.valorUnit||0))}</small></div>
+              {chega
+                ? <Btn size="sm" onClick={()=>setChegadaModal(t)} ariaLabel={`Confirmar chegada de ${m?.descricao || "material"} vindo de ${nomeObra(t.obraId)}`}><Ic n="check"/> Confirmar chegada</Btn>
+                : <Btn size="sm" v="ghost" onClick={()=>excluirMov(t.id)} ariaLabel={`Cancelar envio de ${m?.descricao || "material"} para ${nomeObra(t.obraDestinoId)}`}>Cancelar envio</Btn>}
+            </li>;
+          })}</ul>
+        </section>
       )}
 
       <WorkspaceNavigation label="Áreas do estoque" active={aba} onChange={setAba}
@@ -546,7 +660,7 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
                   <div style={{minWidth:0}}>
                     <p className="brk" style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{m?.descricao || "-"}</p>
                     <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
-                      {t.l}  {fmtDate(x.data)}
+                      {t.l}{x.tipo === "transferencia_saida" ? ` · para ${nomeObra(x.obraDestinoId)}` : x.tipo === "transferencia_entrada" ? ` · de ${nomeObra(x.obraOrigemId)}` : ""}  {fmtDate(x.data)}
                       {x.servicoId && "  baixa automática"}
                     </p>
                     {x.descricao && (
@@ -701,7 +815,8 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
         <p style={{fontSize:"var(--arcd-type-label)",color:C.subtle,lineHeight:1.55}}>
           <strong style={{color:C.blue}}>Controle físico.</strong> O custo do material já entra no DRE
           pela Conciliação, no momento da compra. O estoque não lança nada de novo - se lançasse,
-          o mesmo material contaria duas vezes.
+          o mesmo material contaria duas vezes. A única exceção é a transferência entre obras: quando a obra
+          de destino confirma a chegada, o valor (quantidade × custo médio) sai da DRE da origem e entra na do destino.
         </p>
       </div>
       </details>
@@ -711,6 +826,10 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
                                  unidades={data.unidades||[]}/>}
       {movModal   && <ModalMovimento   form={movModal}  setForm={setMovModal}  onSave={salvarMov}
                                        obras={obras} materiais={materiais} data={data}/>}
+      {transfModal && <ModalTransferencia form={transfModal} setForm={setTransfModal} onSave={enviarTransferencia}
+                                       obras={obras} materiais={materiais} saldos={saldos} movEstoque={data.movEstoque}/>}
+      {chegadaModal && <ModalChegadaTransferencia saida={chegadaModal} onClose={()=>setChegadaModal(null)}
+                                       onConfirm={confirmarChegada} nomeObra={nomeObra} material={matPorId(chegadaModal.materialId)}/>}
       {compModal  && <ModalComposicao  form={compModal} setForm={setCompModal} onSave={salvarComposicao}
                                        materiais={materiais} unidades={data.unidades||[]}/>}
       {srvModal   && <ModalExecutar    onClose={()=>setSrvModal(false)} onRun={executarServico}

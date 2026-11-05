@@ -15,6 +15,8 @@ import { usePontoEletronico } from "../usePontoEletronico.js";
 import { useSyncedWorkObra } from "../../../features/workflow/work-context.js";
 import ConferenciaBatidas from "./ConferenciaBatidas.jsx";
 import BancoHorasView from "./BancoHorasView.jsx";
+import DocumentosFiscais from "./DocumentosFiscais.jsx";
+import AcessoComprovantes from "./AcessoComprovantes.jsx";
 import "./ponto-eletronico.css";
 
 const VAZIO = Object.freeze([]);
@@ -379,6 +381,8 @@ export default function PontoEletronicoView({ data, showToast, currentUser, disp
                 <div className="pe-actions">{estabDaObra && <Btn v="ghost" onClick={() => abrirEstabelecimento(estabDaObra)} disabled={ocupado}>Editar estabelecimento</Btn>}<Btn v="ghost" onClick={() => abrirEstabelecimento()} disabled={ocupado}><Ic n="plus" />Novo estabelecimento</Btn></div>
               </>}
             </>}
+            {podeFiscal && !currentUser?.obraId && <DocumentosFiscais key={`${currentUser?.id}:${estabDaObra?.id || ""}`} estabelecimentoId={estabDaObra?.id} dia={dia} />}
+            {podeFiscal && !currentUser?.obraId && <AcessoComprovantes key={`acesso:${currentUser?.id}`} employees={data?.employees || []} />}
           </div>
         </details>
         {podeGerir && <details className="pe-disclosure" id="pe-responsaveis">
@@ -452,6 +456,9 @@ export default function PontoEletronicoView({ data, showToast, currentUser, disp
           <div><dt>Recebido pelo servidor</dt><dd>{instanteLegivel(detalhe.marcacao.recebidoEm)}</dd></div>
           {detalhe.marcacao.gps && <div><dt>Localização</dt><dd><a href={`https://maps.google.com/?q=${detalhe.marcacao.gps.lat},${detalhe.marcacao.gps.lng}`} target="_blank" rel="noreferrer">Ver localização do registro no mapa</a> · Precisão {Math.round(detalhe.marcacao.gps.precisao || 0)} m</dd></div>}
         </dl>
+        {podeFiscal && !currentUser?.obraId && detalhe.marcacao.tipoRegistro === "ponto" && detalhe.marcacao.estabelecimentoId && <DocumentosFiscais
+          key={`${currentUser?.id}:${detalhe.marcacao.estabelecimentoId}:${detalhe.marcacao.eventId || detalhe.marcacao.id}`}
+          estabelecimentoId={detalhe.marcacao.estabelecimentoId} eventId={detalhe.marcacao.eventId || detalhe.marcacao.id} dia={dataLocal(detalhe.marcacao.marcadoEm)} />}
       </div>
     </Modal>}
   </div>;

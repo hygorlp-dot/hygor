@@ -1,3 +1,4 @@
+import {calculateScheduledBreak} from '../src/domains/ponto/timekeeping.js';
 import { inspectDay, CLOCK_FIELDS, sourceSignature, recordSignature } from "../src/domains/ponto-eletronico/conferencia.js";
 import { calculateTimekeeping } from "../src/domains/ponto/timekeeping.js";
 
@@ -18,8 +19,11 @@ export function prepareAttendanceReview(data, user, command, now, events) {
   if(current?.obraId && String(current.obraId)!==String(command.selectedObraId))return fail("O lançamento existente pertence a outra obra. Mantenha a obra original nesta conferência.");
   if (command.expectedRecord !== recordSignature(current)) return fail("O lançamento foi alterado por outra pessoa. Atualize antes de conferir.");
   const clocks = Object.fromEntries(CLOCK_FIELDS.map(k => [k, String(command.clocks?.[k] || "")]));
-  if (!CLOCK_FIELDS.every((k,i) => /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(clocks[k]) && (!i || clocks[k] > clocks[CLOCK_FIELDS[i-1]]))) return fail("Informe os quatro horários tratados em ordem: entrada, intervalo, retorno e saída.", 400);
-  const calculation = calculateTimekeeping({ ...clocks, jornadaInicio: day.schedule.entrada });
+  const scheduledBreak=command.breakMode==='schedule';
+  const fields=scheduledBreak?['entrada','saida']:CLOCK_FIELDS;
+  if(scheduledBreak){clocks.intervaloSaida='';clocks.intervaloRetorno='';}
+  if (!fields.every((k,i) => /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(clocks[k]) && (!i || clocks[k] > clocks[fields[i-1]]))) return fail(scheduledBreak?"Informe entrada e saída em ordem.":"Informe os quatro horários tratados em ordem: entrada, intervalo, retorno e saída.", 400);
+  const calculation = scheduledBreak?calculateScheduledBreak(clocks.entrada,clocks.saida,day.schedule):calculateTimekeeping({ ...clocks, jornadaInicio: day.schedule.entrada });
   if (!calculation.valid || calculation.empty) return fail(calculation.error || "Jornada inválida.", 400);
   const reason = String(command.reason || "").trim().slice(0,2000);
   const adjusted = CLOCK_FIELDS.some(k => clocks[k] !== day.clocks[k]);
@@ -34,7 +38,7 @@ export function prepareAttendanceReview(data, user, command, now, events) {
     note: reason,
     archivedWorkdayHours: day.schedule.minutes / 60, archivedWorkStart: day.schedule.entrada,
     pontoReview: { sourceSignature: sourceSignature(day.batidas), eventIds: day.batidas.map(b => String(b.eventId || b.id)),
-      schedule: day.schedule, reviewedBy: String(user.id), reviewedByName: user.nome || user.email || "RH",
+      schedule: day.schedule, ...(calculation.scheduledBreak?{scheduledBreak:calculation.scheduledBreak}:{}), reviewedBy: String(user.id), reviewedByName: user.nome || user.email || "RH",
       reviewedAt: now, reason, adjusted, revision: Number(current?.pontoReview?.revision || 0) + 1 },
   } };
 }

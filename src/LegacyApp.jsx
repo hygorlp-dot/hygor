@@ -2943,7 +2943,9 @@ function FinanceiroObraPainel({data,showToast,currentUser=null,obraId,dispatchCo
     .map(item=>({
       ...item,grupo:rotuloCategoria(data,item.categoria),pessoa:"",
       tipo:["revenue","revenue_reversal"].includes(item.natureza)?"receita":
-        ["cost","cost_reversal"].includes(item.natureza)?"custo":
+        // Redução de custo (ex.: material enviado a outra obra, E1.1) é crédito, não custo.
+        item.natureza==="cost_reversal"?"reducao":
+        item.natureza==="cost"?"custo":
         item.natureza==="cash_in"?"entrada":"saida",
       status:"realizado",origem:item.origem,valor:item.valor,
     })).sort((a,b)=>String(b.data||"").localeCompare(String(a.data||""))),
@@ -2985,7 +2987,7 @@ function FinanceiroObraPainel({data,showToast,currentUser=null,obraId,dispatchCo
     }
   };
   const Metric=({label,value,detail,tone="neutral"})=><div className={`obra-fin-metric ${tone}`}><span>{label}</span><strong>{fmt(value)}</strong><small>{detail}</small></div>;
-  const Tabela=({lista})=><div className="obra-fin-table-wrap"><table className="obra-fin-table"><thead><tr><th>Movimentação</th><th>Origem</th><th>Data</th><th>Natureza</th><th>Valor</th></tr></thead><tbody>{lista.map(m=><tr key={m.id}><td data-label="Movimentação"><b>{m.descricao}</b><small>{m.documento||m.grupo}</small></td><td data-label="Origem">{m.origem}</td><td data-label="Data">{m.data?fmtDate(m.data):"—"}</td><td data-label="Natureza"><span className={`obra-fin-status ${m.status}`}>{m.tipo==="receita"?"Receita reconhecida":m.tipo==="custo"?"Custo incorrido":m.tipo==="entrada"?"Entrada de caixa":"Saída de caixa"}</span></td><td data-label="Valor" className={["custo","saida"].includes(m.tipo)?"despesa":"receita"}>{["custo","saida"].includes(m.tipo)?"− ":"+ "}{fmt(m.valor)}</td></tr>)}</tbody></table>{!lista.length&&<div className="obra-fin-empty">Nenhuma movimentação encontrada neste filtro.</div>}</div>;
+  const Tabela=({lista})=><div className="obra-fin-table-wrap"><table className="obra-fin-table"><thead><tr><th>Movimentação</th><th>Origem</th><th>Data</th><th>Natureza</th><th>Valor</th></tr></thead><tbody>{lista.map(m=><tr key={m.id}><td data-label="Movimentação"><b>{m.descricao}</b><small>{m.documento||m.grupo}</small></td><td data-label="Origem">{m.origem}</td><td data-label="Data">{m.data?fmtDate(m.data):"—"}</td><td data-label="Natureza"><span className={`obra-fin-status ${m.status}`}>{m.tipo==="receita"?"Receita reconhecida":m.tipo==="custo"?"Custo incorrido":m.tipo==="reducao"?"Redução de custo":m.tipo==="entrada"?"Entrada de caixa":"Saída de caixa"}</span></td><td data-label="Valor" className={["custo","saida"].includes(m.tipo)?"despesa":"receita"}>{["custo","saida"].includes(m.tipo)?"− ":"+ "}{fmt(m.valor)}</td></tr>)}</tbody></table>{!lista.length&&<div className="obra-fin-empty">Nenhuma movimentação encontrada neste filtro.</div>}</div>;
 
   return <div className="obra-financeiro">
     <header className="obra-fin-header"><div><p>CONTROLE FINANCEIRO DA OBRA</p><h2>{obra?.name||"Obra"}</h2><span>Recebimentos, compromissos e pagamentos em uma única visão.</span></div><DesignSystemButton onClick={()=>{setDespForm({obraId,competencia:periodo,categoria:"material",descricao:"",valor:""});setDespModal(true);}}><Ic n="plus"/> Nova despesa</DesignSystemButton></header>
@@ -3282,6 +3284,7 @@ Regras: diferencie faturamento de recebimento; não conclua excesso de pessoas a
             </div>
           )}
           {d.comprasCost>0&&<DRERow label="(-) Materiais reconhecidos por nota fiscal" value={d.comprasCost} color={C.yellowD} indent={1}/>}
+          {Math.abs(d.transferCost||0)>0.004&&<DRERow label={d.transferCost>0?"(-) Material recebido de outra obra":"(+) Material enviado a outra obra"} value={Math.abs(d.transferCost)} color={C.yellowD} indent={1}/>}
           {d.rescTotal>0&&<DRERow label="(-) Rescisões" value={d.rescTotal} color={C.red} indent={1}/>}
           {d.equipCost>0&&<DRERow label="(-) Locação de equipamentos" value={d.equipCost} color={C.blue} indent={1}/>}
           {d.outrasTotal>0&&<DRERow label="(-) Outras despesas" value={d.outrasTotal} color={C.orange} indent={1}/>}
@@ -3353,6 +3356,7 @@ Regras: diferencie faturamento de recebimento; não conclua excesso de pessoas a
       <tr class="entry"><td>(-) Terceirizados${obj.tercEmpresa!==undefined?" (obras)":""}</td><td class="val neg">R$ ${fmt2(obj.tercCost||0)}</td></tr>
       ${(obj.tercEmpresa||0)>0?`<tr class="entry"><td>(-) Terceirizados (empresa)</td><td class="val neg">R$ ${fmt2(obj.tercEmpresa)}</td></tr>`:""}
       ${(obj.comprasCost||0)>0?`<tr class="entry"><td>(-) Materiais reconhecidos por nota fiscal</td><td class="val neg">R$ ${fmt2(obj.comprasCost)}</td></tr>`:""}
+      ${Math.abs(obj.transferCost||0)>0.004?`<tr class="entry"><td>${obj.transferCost>0?"(-) Material recebido de outra obra":"(+) Material enviado a outra obra"}</td><td class="val neg">R$ ${fmt2(Math.abs(obj.transferCost))}</td></tr>`:""}
       ${(obj.tercEmpresaObra||0)>0?`<tr class="entry sub"><td>&nbsp;&nbsp;Terceirizados (empresa, referência)</td><td class="val">R$ ${fmt2(obj.tercEmpresaObra)}</td></tr>`:""}
       ${(obj.rescTotal||0)>0?`<tr class="entry"><td>(-) Rescisões</td><td class="val neg">R$ ${fmt2(obj.rescTotal)}</td></tr>`:""}
       ${(obj.equipCost||0)>0?`<tr class="entry"><td>(-) Locação de equipamentos</td><td class="val neg">R$ ${fmt2(obj.equipCost)}</td></tr>`:""}
@@ -3444,6 +3448,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
       ["(-) Terceirizados",   obj.tercCost||0],
       ...((obj.tercEmpresa||0)>0 ? [["(-) Terceirizados (empresa)", obj.tercEmpresa]] : []),
       ...((obj.comprasCost||0)>0 ? [["(-) Materiais reconhecidos por nota fiscal", obj.comprasCost]] : []),
+      ...(Math.abs(obj.transferCost||0)>0.004 ? [[obj.transferCost>0?"(-) Material recebido de outra obra":"(+) Material enviado a outra obra", Math.abs(obj.transferCost)]] : []),
       ...((obj.tercEmpresaObra||0)>0 ? [["Terceirizados (empresa, referência)", obj.tercEmpresaObra]] : []),
       ["(-) Rescisões",       obj.rescTotal||0],
       ["(-) Outras despesas", obj.outrasTotal||0],
@@ -3557,6 +3562,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
             <DRERow label="(-) Terceirizados (obras)" value={dre.tercCost}     color={C.purple} indent={1}/>
             {dre.tercEmpresa>0&&<DRERow label="(-) Terceirizados (empresa)" value={dre.tercEmpresa} color={C.purple} indent={1}/>}
             {dre.comprasCost>0&&<DRERow label="(-) Materiais reconhecidos por nota fiscal" value={dre.comprasCost} color={C.yellowD} indent={1}/>}
+            {Math.abs(dre.transferCost||0)>0.004&&<DRERow label={dre.transferCost>0?"(-) Material recebido de outra obra":"(+) Material enviado a outra obra"} value={Math.abs(dre.transferCost)} color={C.yellowD} indent={1}/>}
             {dre.rescTotal>0&&<DRERow label="(-) Rescisões" value={dre.rescTotal} color={C.red} indent={1}/>}
             {dre.outrasTotal>0&&<DRERow label="(-) Outras despesas" value={dre.outrasTotal} color={C.orange} indent={1}/>}
             <DRERow label="Total custos" value={dre.totalCustos} color={C.red} bold/>
@@ -4049,7 +4055,7 @@ function FinanceiroAdministrativo({data,update,showToast,currentUser,C=C_ARCD_SE
   const despesasMov=useMemo(()=>{
     return selectFinancialMovements(dre.ledger,{...(obraId==="all"?{}:{obraId}),startDate:`${ym}-01`,endDate:dre.perF,competence:ym})
       .filter(item=>["cost","cost_reversal","cash_out"].includes(item.natureza))
-      .map(item=>({...item,tipo:item.natureza==="cash_out"?"Saída de caixa":"Custo por competência",status:item.unallocated?"não alocada":"rastreada",url:""}))
+      .map(item=>({...item,tipo:item.natureza==="cash_out"?"Saída de caixa":item.natureza==="cost_reversal"?"Redução de custo por competência":"Custo por competência",status:item.unallocated?"não alocada":"rastreada",url:""}))
       .sort((a,b)=>String(b.data||"").localeCompare(String(a.data||"")));
   },[dre,obraId,ym]);
   const movimentosVisiveis=useMemo(()=>{const termo=normalizarIdentificacaoObra(buscaMov);const base=aba==="receitas"?receitasMov:despesasMov;return base.filter(item=>!termo||normalizarIdentificacaoObra([item.tipo,item.descricao,item.status,(data.obras||[]).find(o=>o.id===item.obraId)?.name].join(" ")).includes(termo));},[aba,receitasMov,despesasMov,buscaMov,data.obras]);
@@ -4354,7 +4360,7 @@ function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatch
     const titles=["Custos comprometidos","Recebimentos não alocados","Pagamentos não alocados","Estornos e cancelamentos"];
     const keys=["committed","unallocatedReceipts","unallocatedPayments","reversals"];
     const movements=selectFinancialMovements(financialView.selected.ledger,{...(filterObra==="all"?{}:{obraId:filterObra}),startDate:financialView.selected.per0,endDate:financialView.selected.perF});
-    const items=index===0?overviewEntries(data,financialView.selected,filterObra,"committed"):movements.filter(e=>index===3?["revenue_reversal","cost_reversal"].includes(e.natureza):e.unallocated&&e.natureza===(index===1?"cash_in":"cash_out")).map(e=>financialEntry(data,e));
+    const items=index===0?overviewEntries(data,financialView.selected,filterObra,"committed"):movements.filter(e=>index===3?["revenue_reversal","cost_reversal"].includes(e.natureza)&&e.origem!=="transferencia_estoque":e.unallocated&&e.natureza===(index===1?"cash_in":"cash_out")).map(e=>financialEntry(data,e));
     setMemorial({title:titles[index],items,totalCents:Math.round(T[keys[index]]*100),context:`${fullMonth(month)} ${year} · ${index===0?"Compromissos acumulados até o fim do mês":index===3?"Estornos financeiros no período; cancelamentos sem efeito não compõem o valor":"Data do movimento"}`});
   };
   const stageLedger=useMemo(()=>areaFinanceira==="etapas"?calcLedgerAcumulado(data,(data.obras||[]).filter(w=>filterObra==="all"||w.id===filterObra).map(w=>w.id),Number(currentDate.slice(0,4)),Number(currentDate.slice(5,7))-1):null,[data,filterObra,currentDate,areaFinanceira]);
@@ -6522,6 +6528,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
           intervaloSaida:att?.intervaloSaida,
           intervaloRetorno:att?.intervaloRetorno,
           saida:att?.saida,
+          pontoReview:att?.pontoReview,
           jornadaInicio:e.workStart || data.config?.payrollWorkStart || "07:00",
         });
         const obraIdPonto=obraDoPonto(e);

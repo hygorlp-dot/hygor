@@ -47,9 +47,12 @@ const projectHasDependencies = (data, projectId) => {
     "equipamentos", "locacoesEquip", "manutencoesEquip", "rdos",
     "medicoesObra", "progressRecords", "weeklyCommitments",
       "qualidadeRegistros", "solicitacoesCompra", "cotacoes", "engineeringProjects", "workFileCabinets",
+    // E1.1: material (e custo na DRE) pode ter vindo de outra obra.
+    "movEstoque",
   ];
   return collections.some(key => (data?.[key] || []).some(item =>
     String(item?.obraId || item?.obra || item?.lastObra || "") === id
+    || String(item?.obraDestinoId || "") === id
   ));
 };
 
