@@ -1268,7 +1268,7 @@ O aparelho e seus registros estão identificados para acompanhamento.
 
 ### O que merece atenção
 
-Bata entrada e saída. Almoço 12h–13h descontado sem batidas; saída prevista seg–qui 17h, sex 16h, conforme escala vigente. Dias completos integram ao receber as batidas. Recupere pendências em Gestão do ponto > Sincronizar batidas do app. Duplicidades exigem justificativa do RH; originais e fechamentos são preservados.
+Bata entrada e saída. Almoço 12h–13h descontado sem batidas; saída prevista seg–qui 17h, sex 16h, conforme escala vigente. Dias completos integram ao receber as batidas. Recupere pendências em Gestão do ponto > Sincronizar batidas do app. Duplicidades exigem justificativa do RH; originais e fechamentos são preservados. Em Documentos fiscais, consulte a prontidão, a auditoria de integridade e as exportações AFD/AEJ. Os comprovantes assinados dependem do serviço privado configurado e das evidências fiscais reais; pendências de INPI bloqueiam a emissão oficial. Em Entrega dos comprovantes, selecione o funcionário, confira o telefone sugerido e use Confirmar WhatsApp; preencher não ativa envios. Criar acesso individual entrega uma consulta privada, revogável, de 90 dias.
 
 <a id="guia-equipe"></a>
 
@@ -3267,6 +3267,14 @@ O sistema registra origem, período, contas, revisão, autor, data e comparaçã
 Balancete já encerrado não sustenta a DRE deste fluxo: use o arquivo anterior ao encerramento. A DRE usa movimentação do período; o balanço usa saldos finais. O PL dos índices soma as contas de patrimônio ao resultado acumulado em aberto, que pode incluir períodos anteriores. Saldo inicial e final são conferidos em centavos. Conferir a aritmética não comprova por si só a cobertura integral: o responsável precisa confirmar entidade, grupos, prazos e todas as contas. Não misture empresas ou períodos. Base inconsistente pode ser guardada como rascunho, mas não pode ser conferida. Bases conferidas não podem ser editadas ou apagadas pelo fluxo. Se o ERP mudar depois, aparece aviso e a comparação registrada é preservada; importe uma revisão se necessário. Administrador ou financeiro com restrição por obra não pode acessar as bases da empresa. O arquivo é lido e normalizado em contas na base do app; não é enviado a serviços externos para interpretação. Nada é publicado automaticamente.
 
 ## Aparência, botões e navegação
+
+### Entender o modo de captura do ponto
+
+O novo código do coletor verifica uma conexão autenticada com o registrador, com espera limitada, e protege o indicador online/offline no hash da nova marcação. Falha de conexão mantém a batida local para sincronização posterior, sem deslocar seu instante pela espera da rede. Esse recurso depende de uma nova versão instalada e validada; não altera o APK18 ou registros antigos. O RH continua responsável pela conferência da jornada. O indicador de conexão não substitui a validação fiscal nem confirma pagamento.
+
+### Comprovantes individuais do ponto
+
+Em Ponto eletrônico, abra a área fiscal e Entrega dos comprovantes. Selecione o funcionário e use Criar acesso individual; entregue o endereço privado apenas a ele. O acesso expira em 90 dias e um novo acesso revoga o anterior. Revogar acesso cancela a consulta. Ao selecionar o funcionário, o campo WhatsApp sugere o Telefone do cadastro, acrescentando 55 aos números com DDD. Confira ou corrija com o funcionário e use Confirmar WhatsApp. O preenchimento não confirma o contato nem habilita o envio; não aproveite números antigos sem confirmação. Editar esse campo não altera o Telefone do cadastro. Consultar processamento mostra emissão e envios registrados. Envio aceito pelo provedor não confirma leitura. Resultado incerto exige conferir o histórico do WhatsApp antes de qualquer reenvio. O trabalhador abre /meu-ponto, usa Consultar meus comprovantes e Baixar PDF; Sair deste acesso remove o código da tela. A assinatura oficial depende do INPI, da integridade e das evidências fiscais reais. A configuração do serviço privado e do processador é feita pelo administrador; estas ações não alteram batidas, folha ou pagamentos.
 
 ### Ajustar o menu lateral
 

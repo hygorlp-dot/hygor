@@ -41,9 +41,10 @@ export async function apagarSessao() {
 // ---------- API ----------
 // Nunca lança: devolve { ok, status, ...json }. status 0 = sem conexão.
 export function criarApi(obterToken) {
-  return async function api(action, corpo = {}) {
+  return async function api(action, corpo = {}, opcoes = {}) {
     const controle = new AbortController();
-    const timer = setTimeout(() => controle.abort(), TEMPO_LIMITE_MS);
+    const limite = Number.isFinite(opcoes.tempoLimiteMs) ? Math.min(TEMPO_LIMITE_MS, Math.max(100, opcoes.tempoLimiteMs)) : TEMPO_LIMITE_MS;
+    const timer = setTimeout(() => controle.abort(), limite);
     try {
       const token = await obterToken?.();
       const r = await fetch(URL_API, {
