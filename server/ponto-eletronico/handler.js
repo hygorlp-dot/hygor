@@ -119,7 +119,7 @@ const caminhoFotoMarcacao = (obraId, marcadoEm, id) => `marcacoes/${obraId}/${St
 // existe para os testes fixarem o relógio do host.
 // verificarHoraNtp: async () => medição (tempo/ntp.js verificarHora), usada
 // pela ação ponto-tempo-verificar.
-export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, lerDadosPainel = lerDados, agora: agoraDoHost, fonteHora, verificarHoraNtp, politicaHora = POLITICA_PADRAO }) {
+export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, lerDadosPainel = lerDados, integrarJornadas, agora: agoraDoHost, fonteHora, verificarHoraNtp, politicaHora = POLITICA_PADRAO }) {
   const fonte = fonteHora || criarFonteHora({
     relogioHost: agoraDoHost ? () => agoraDoHost().getTime() : () => Date.now(),
     politica: politicaHora,
@@ -131,6 +131,12 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, l
     },
   });
   const agora = () => fonte.agora();
+  // Uma falha na integração não desfaz nem impede o recibo da batida original.
+  const integrar = async eventos => {
+    if(!integrarJornadas)return undefined;
+    try {return await integrarJornadas(eventos);}
+    catch {return {pending:true};}
+  };
   const arp = criarArp({ db, company, fonteHora: fonte, hashFn: sha256 });
 
   // Estabelecimento do aparelho: o já fixado nele, ou o da obra (vínculo do
@@ -615,6 +621,7 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, l
         if (errD) throw errD;
         return ok({
           resultados,
+          integracao: await integrar(body.eventos),
           cadeiaLocal: { ultimaSequencia: Number(d?.ultima_sequencia_local || 0), ultimoHash: d?.ultimo_hash_local || HASH_INICIAL },
           servidorMs: hora.serverTimeMs, tempo: hora,
         });
@@ -639,6 +646,7 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, l
         resultado = Array.isArray(data) ? data[0] : data;
       }
       return ok({
+        integracao: await integrar(lote),
         aceitas: Number(resultado.aceitas || 0), ultimoNsr: Number(resultado.ultimo_nsr || 0), ultimoHash: resultado.ultimo_hash,
         erro: cadeia.erro || resultado.erro || null, nsrComErro: cadeia.nsrComErro, servidorMs: agora().getTime(),
       });

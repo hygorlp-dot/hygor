@@ -309,17 +309,19 @@ export const applyAttendanceCommand=(data={},user={},command={},now=new Date().t
   if(!base.ok||base.idempotent)return base;
   if(command.action===ATTENDANCE_COMMAND.SYNC){
     if(!validSyncRange(command)||!Array.isArray(sourceEvents))return fail('Período inválido ou batidas não consultadas pelo servidor.');
-    if(!Array.isArray(command.items)||!command.items.length||command.items.length>500)return fail('Selecione entre 1 e 500 dias por sincronização.');
+    if(!command.automatic && (!Array.isArray(command.items)||!command.items.length||command.items.length>500))return fail('Selecione entre 1 e 500 dias por sincronização.');
     const plan=planBiometricSync(data,command,sourceEvents,now);
     let next=data;const changed=[],seen=new Set();
-    for(const selected of command.items){
+    const selectedItems=command.automatic?plan.filter(i=>i.state==='ready').slice(0,500):command.items;
+    if(command.automatic&&!selectedItems.length)return {ok:true,idempotent:true,data,result:{attendance:[],pending:plan.filter(i=>i.state==='pending').length}};
+    for(const selected of selectedItems){
       const key=`${selected.employeeId}__${selected.date}`;
       if(seen.has(key))return fail('Há dias repetidos no lote.');seen.add(key);
       const item=plan.find(p=>p.employeeId===String(selected.employeeId)&&p.date===selected.date);
       if(!item||item.state!=='ready')return fail(item?.reasons[0]||'Batidas já sincronizadas ou indisponíveis. Atualize a consulta.',409);
       if(item.sourceSignature!==selected.sourceSignature||item.expectedRecord!==selected.expectedRecord||item.scheduleSignature!==selected.scheduleSignature)return fail('O ponto, as batidas ou a escala mudaram. Atualize antes de sincronizar.',409);
       const record={...item.record,pontoReview:{...item.record.pontoReview,reviewedBy:String(user.id),reviewedByName:user.nome||user.email||'RH',
-        reviewedAt:now,reason:'Prioridade biométrica confirmada pelo RH',adjusted:false,revision:Number(item.previous?.pontoReview?.revision||0)+1}};
+        reviewedAt:now,reason:command.automatic?'Integração automática de jornada completa':'Prioridade biométrica confirmada pelo RH',adjusted:false,revision:Number(item.previous?.pontoReview?.revision||0)+1}};
       const validated=validatePatch({data:next,user,now,patch:{employeeId:item.employeeId,date:item.date,selectedObraId:item.obraId,record,reviewedByServer:true}});
       if(!validated.ok)return validated;
       validated.record={...validated.record,...record};next=applyValidatedPatch(next,validated);changed.push(validated);

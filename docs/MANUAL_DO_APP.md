@@ -1,6 +1,6 @@
 # Manual de uso do app MARCELL
 
-Revisão do conteúdo: 02/11/2026.
+Revisão do conteúdo: 05/11/2026.
 
 Este guia explica o uso das telas em linguagem simples. No aplicativo, clique em **Ajuda**, no cabeçalho, para ler o fluxo da página aberta. Em **Manual completo**, pesquise uma tarefa ou tela. As áreas exibidas no aplicativo respeitam seu perfil de acesso.
 
@@ -1268,7 +1268,7 @@ O aparelho e seus registros estão identificados para acompanhamento.
 
 ### O que merece atenção
 
-No aparelho, o fluxo é entrada, intervalo, retorno e saída. Falta de sincronização pode atrasar a exibição no ERP. Batidas repetidas aparecem como possível repetição; as originais são preservadas e não formam jornada automaticamente. O RH deve conferir os horários e justificar o tratamento antes de integrar o dia.
+Bata entrada e saída. Almoço 12h–13h descontado sem batidas; saída prevista seg–qui 17h, sex 16h, conforme escala vigente. Dias completos integram ao receber as batidas. Recupere pendências em Gestão do ponto > Sincronizar batidas do app. Duplicidades exigem justificativa do RH; originais e fechamentos são preservados.
 
 <a id="guia-equipe"></a>
 

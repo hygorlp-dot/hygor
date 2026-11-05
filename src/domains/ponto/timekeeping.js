@@ -27,6 +27,7 @@ export const calculateTimekeeping = ({
   intervaloRetorno = "",
   saida = "",
   jornadaInicio = "07:00",
+  pontoReview,
 } = {}) => {
   const hasAnyClock = [entrada, intervaloSaida, intervaloRetorno, saida].some(Boolean);
   if (!hasAnyClock) {
@@ -65,6 +66,11 @@ export const calculateTimekeeping = ({
     breakMinutes = breakEnd - breakStart;
   }
 
+  if(!hasBreakStart && pontoReview?.scheduledBreak?.source==='work-schedule'){
+    const planned=calculateScheduledBreak(entrada,saida,pontoReview.schedule);
+    if(!planned.valid)return planned;
+    breakMinutes=planned.breakMinutes;
+  }
   const workedMinutes = grossMinutes - breakMinutes;
   if (workedMinutes <= 0 || workedMinutes > MINUTES_PER_DAY) {
     return { valid:false, error:"A jornada calculada é inválida." };
@@ -80,3 +86,11 @@ export const calculateTimekeeping = ({
     delayMinutes,
   };
 };
+
+export function calculateScheduledBreak(entrada, saida, schedule) {
+  const result=calculateTimekeeping({entrada,saida,jornadaInicio:schedule?.entrada});
+  const start=parseClock(entrada),end=parseClock(saida),pause=parseClock(schedule?.intervaloSaida),resume=parseClock(schedule?.intervaloRetorno);
+  if(!result.valid || !schedule?.working || end<=start || pause==null || resume==null || resume<=pause)return {valid:false,error:"A jornada calculada é inválida."};
+  const minutes=Math.max(0,Math.min(end,resume)-Math.max(start,pause));
+  return {...result,valid:result.workedMinutes>minutes,workedMinutes:result.workedMinutes-minutes,breakMinutes:minutes,scheduledBreak:{source:'work-schedule',minutes}};
+}

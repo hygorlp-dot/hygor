@@ -6522,6 +6522,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
           intervaloSaida:att?.intervaloSaida,
           intervaloRetorno:att?.intervaloRetorno,
           saida:att?.saida,
+          pontoReview:att?.pontoReview,
           jornadaInicio:e.workStart || data.config?.payrollWorkStart || "07:00",
         });
         const obraIdPonto=obraDoPonto(e);

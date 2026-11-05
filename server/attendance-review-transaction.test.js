@@ -53,7 +53,7 @@ it("conferência grava lançamento e auditoria atomicamente; snapshot concorrent
   } finally {await db.close();}
 },30000);
 
-it('sincronização biométrica relê fontes e grade, troca obra sem fantasma e audita sem tocar pagamentos',async()=>{
+it.each([false,true])('sincronização biométrica automática=%s relê fontes e grade e audita sem tocar pagamentos',async(automatic)=>{
  state.db=new PGlite();const db=state.db;
  try{
   await db.exec(`create table company_app_data(company_id text,key text,value jsonb,updated_at timestamptz,updated_by text,primary key(company_id,key));
@@ -64,24 +64,24 @@ it('sincronização biométrica relê fontes e grade, troca obra sem fantasma e 
   const payload={...openCompanySource(),employees:[{id:'e',name:'Equipe',active:true,startDate:'2020-01-01',obra:'old',workSchedules:[{code:'44h-seg-sex',effectiveFrom:'2026-07-01'}]}],
    obras:[{id:'old',name:'Antiga'},{id:'o',name:'Captura'}],attendance:{e:{[date]:{status:'F',obraId:'old'}}},payments:[{id:'real',amount:7160}]};
   await db.query("insert into company_app_data values ($1,$2,$3,now(),null),($1,$4,'{}',now(),null)",[COMPANY,KEY,JSON.stringify(payload),PONTO_KEY]);
-  for(const [i,h] of ['07:00','12:00','13:00','16:00'].entries())await db.query("insert into ponto_eventos values ($1,$2,'e','o',$3,'ponto',true,false,'facial',$4)",[COMPANY,`e${i}`,new Date(`${date}T${h}:00-03:00`).toISOString(),JSON.stringify({versaoJornada:1,tipoEvento:EVENT_TYPES[i]})]);
+  for(const [i,h] of (automatic?['07:00','16:00']:['07:00','12:00','13:00','16:00']).entries())await db.query("insert into ponto_eventos values ($1,$2,'e','o',$3,'ponto',true,false,'facial',$4)",[COMPANY,`e${i}`,new Date(`${date}T${h}:00-03:00`).toISOString(),JSON.stringify(automatic?{}:{versaoJornada:1,tipoEvento:EVENT_TYPES[i]})]);
   const sql=async(parts,...values)=>(await db.query(parts.reduce((s,p,i)=>s+(i?`$${i}`:'')+p,''),values)).rows;
   const range={startsOn:date,endsOn:date,obraId:'all'},events=await readSyncEvents(sql,COMPANY,range);
   const items=planBiometricSync(payload,range,events,now);
-  const command={...range,items,action:'attendance-sync-punches',operationId:'10000000-0000-4000-8000-000000000011'};
+  const command={...range,items,automatic,action:'attendance-sync-punches',operationId:'10000000-0000-4000-8000-000000000011'};
   const args={usuario:{id:'rh',role:'rh'},command,operationNow:now,linha:{payload,rowVersions:{[DOMAIN_ROW.PONTO]:now}}};
   await db.query('update company_app_data set value=$1 where key=$2',[JSON.stringify(withJulyClosing(payload)),KEY]);
-  expect(await executarComandoPontoBloqueado(args)).toMatchObject({kind:'error',status:409});
+  expect(await executarComandoPontoBloqueado(args)).toMatchObject(automatic?{kind:'idempotent',result:{attendance:[]}}:{kind:'error',status:409});
   expect((await db.query('select * from audit_events')).rows).toHaveLength(0);
   await db.query('update company_app_data set value=$1 where key=$2',[JSON.stringify(payload),KEY]);
   const saved=await executarComandoPontoBloqueado(args);expect(saved.kind).toBe('save');
   const fresh=await readFreshAttendance(sql,COMPANY,payload);
-  expect(fresh.attendance.e[date]).toMatchObject({status:'P',obraId:'o',pontoReview:{method:'biometric-sync'}});
+  expect(fresh.attendance.e[date]).toMatchObject({status:'P',obraId:'o',workedMinutes:480,pontoReview:{method:'biometric-sync'}});
   expect((await executarComandoPontoBloqueado(args)).kind).toBe('idempotent');
   const deny=await executarComandoPontoBloqueado({...args,usuario:{id:'eng',role:'engenheiro'},command:{action:'attendance-upsert',operationId:'10000000-0000-4000-8000-000000000012',employeeId:'e',date,selectedObraId:'o',record:{status:'F'}}});
   expect(deny).toMatchObject({kind:'error',status:409});
   expect((await db.query('select * from audit_events')).rows).toHaveLength(1);
-  expect((await db.query('select * from ponto_eventos')).rows).toHaveLength(4);
+  expect((await db.query('select * from ponto_eventos')).rows).toHaveLength(automatic?2:4);
   const core=(await db.query('select value from company_app_data where key=$1',[KEY])).rows[0].value;
   expect(core.payments).toEqual(payload.payments);
  }finally{await db.close();}

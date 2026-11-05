@@ -1,3 +1,6 @@
+const isTwoPunchSequence = batidas => batidas.length===2 && batidas[0].marcadoEm<batidas[1].marcadoEm &&
+  ((!batidas[0].tipoEvento && !batidas[1].tipoEvento) || (batidas[0].tipoEvento==='entrada' && batidas[1].tipoEvento==='saida'));
+
 import { scheduleOnDate } from "../rh/work-schedule.js";
 import {detectarDuplicidadesBatidas,AVISO_DUPLICIDADE} from './duplicidade-batidas.js';
 
@@ -21,16 +24,18 @@ export function inspectDay(events, employee, date) {
     const matches = batidas.filter(e => e.tipoEvento === EVENT_TYPES[i]);
     return [field, matches.length === 1 ? localClock(matches[0].marcadoEm) : ""];
   }));
-  const complete = batidas.length === 4 && batidas.every((b,i) => b.tipoEvento === EVENT_TYPES[i]) &&
+  const twoPunches=isTwoPunchSequence(batidas) && !detectarDuplicidadesBatidas(batidas).length;
+  if(twoPunches){clocks.entrada=localClock(batidas[0].marcadoEm);clocks.saida=localClock(batidas[1].marcadoEm);}
+  const complete = twoPunches || batidas.length === 4 && batidas.every((b,i) => b.tipoEvento === EVENT_TYPES[i]) &&
     CLOCK_FIELDS.every((field,i) => !i || clocks[field] > clocks[CLOCK_FIELDS[i-1]]);
   const warnings = [];
   const duplicidades=detectarDuplicidadesBatidas(batidas);
   if(duplicidades.length)warnings.push(AVISO_DUPLICIDADE);
   if (!schedule) warnings.push("Escala ainda não definida pelo RH para este dia.");
   else if (!schedule.working && batidas.length) warnings.push("Batidas em dia sem expediente previsto.");
-  if (batidas.some(b => !EVENT_TYPES.includes(b.tipoEvento))) warnings.push("Há batidas sem tipo identificado. O RH deve informar os horários tratados.");
-  if (batidas.length && !complete) warnings.push("Registros incompletos ou sequência incompatível; confira entrada, intervalo e saída.");
+  if (!twoPunches && batidas.some(b => !EVENT_TYPES.includes(b.tipoEvento))) warnings.push("Há batidas sem tipo identificado. O RH deve informar os horários tratados.");
+  if (batidas.length && !complete) warnings.push("Registros incompletos ou sequência incompatível; confira os horários recebidos.");
   if (batidas.some(b => !b.horaConfiavel || b.relogioAlterado || b.metodo === "encarregado")) warnings.push("Há batidas que exigem conferência da identificação ou do horário.");
-  return { batidas, schedule, clocks, complete, warnings,duplicidades,
+  return { batidas, schedule, clocks, complete, twoPunches, warnings,duplicidades,
     situacao: !batidas.length ? "sem_batida" : complete && !warnings.length ? "aguardando_rh" : "conferir" };
 }

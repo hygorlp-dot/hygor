@@ -683,6 +683,19 @@ const lerBasePonto = async () => {
 const tratarAcaoPonto = criarTratadorPonto({
   db, company: COMPANY, lerDados: lerBasePonto,
   lerDadosPainel: async () => (await lerLinha()).payload || {},
+  integrarJornadas: async eventos => {
+    // Datas apenas delimitam a releitura; horários e identidades usados no cálculo
+    // vêm das tabelas da empresa, dentro da transação de ponto existente.
+    if(!process.env.POSTGRES_URL_NON_POOLING)return {pending:true};
+    const dates=[...new Set(eventos.slice(0,500).map(e=>new Date(e.marcadoEm)).filter(d=>Number.isFinite(d.getTime())).map(d=>d.toLocaleDateString('en-CA',{timeZone:'America/Bahia'})))];
+    let pending=dates.length>32;
+    for(const date of dates.slice(0,32)){
+      const outcome=await executarComandoPontoBloqueado({usuario:{id:'system:ponto',nome:'Integração automática',role:'rh'},
+        command:{action:ATTENDANCE_COMMAND.SYNC,automatic:true,startsOn:date,endsOn:date,operationId:crypto.randomUUID()},operationNow:new Date().toISOString()});
+      if(outcome.kind==='error')pending=true;
+    }
+    return {pending};
+  },
   verificarHoraNtp: () => verificarHora({ enviarUdp: enviarUdpComDgram(dgram) }),
   autenticarUsuario: body => authenticateAppUser(
     { userId: body.userId, pin: body.pin, accessToken: body.accessToken }, { scope: "ponto-eletronico" }),
