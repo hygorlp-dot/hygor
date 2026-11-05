@@ -1024,3 +1024,43 @@ test('pedido colado: falha de IA mantém texto e dados ausentes impedem formaliz
  await dialog.getByRole('button',{name:'Formalizar e enviar para Compras'}).click();
  await expect(dialog.getByLabel('Quantidade de compra *')).toHaveAttribute('aria-invalid','true');expect(app.commands).toHaveLength(0);
 });
+
+test("transferência entre obras: sai da origem, fica em trânsito e entra no destino quando a obra confirma (E1.1)",async({page})=>{
+  const app=await enter(page,{prepare:state=>{
+    state.movEstoque=[{id:"ent-a",obraId:"a",materialId:"cement",tipo:"entrada",qtd:20,valorUnit:25,data:"2026-10-05"}];
+  }});
+  const abrirEstoque=async()=>{
+    if(page.viewportSize().width<1100){await page.getByRole("button",{name:"Abrir Compras e suprimentos",exact:true}).click();}
+    const sidebar=page.locator(".arcd-sidebar");
+    const group=sidebar.locator(".nav-grp-hd").filter({hasText:/^Compras/});
+    const body=group.locator("xpath=following-sibling::*[contains(@class,'nav-body')][1]");
+    if(!await body.isVisible())await group.click();
+    await body.locator(".nav-item").filter({hasText:/^Estoque$/}).click();
+    await expect(page.locator(".stock-workspace")).toBeVisible();
+  };
+  await abrirEstoque();
+  const estoque=page.locator(".stock-workspace");
+  await estoque.locator(".stock-overview").getByLabel("Obra",{exact:true}).selectOption("a");
+  await estoque.getByRole("button",{name:/Transferir para outra obra/}).click();
+  const modal=page.getByRole("dialog",{name:"Transferir material para outra obra"});
+  await modal.getByLabel("Obra de destino *").selectOption("b");
+  await modal.getByLabel("Material *").selectOption("cement");
+  await modal.getByLabel(/Quantidade \*/).fill("10");
+  await expect(modal.locator(".stock-transfer-summary")).toContainText("R$ 250,00 saem da obra de origem");
+  await modal.getByRole("button",{name:/Enviar/}).click();
+  await expect(estoque.locator(".stock-transit h3")).toHaveText("1 transferência em trânsito");
+  await expect(estoque.getByRole("button",{name:/Cancelar envio de CIMENTO CP II para Residencial Horizonte/})).toBeVisible();
+  expect(app.commands.map(c=>c.type)).toContain(OPERATIONAL_COMMAND.TRANSFER_SENT);
+  expect(app.state().movEstoque.find(m=>m.tipo==="transferencia_saida")).toMatchObject({obraId:"a",obraDestinoId:"b",qtd:10,valorUnit:25});
+
+  // Na obra de destino, quem recebe confirma a chegada.
+  await estoque.locator(".stock-overview").getByLabel("Obra",{exact:true}).selectOption("b");
+  await estoque.getByRole("button",{name:/Confirmar chegada de CIMENTO CP II vindo de Residencial Alameda/}).click();
+  const chegada=page.getByRole("dialog",{name:"Confirmar chegada do material"});
+  await expect(chegada).toContainText("R$ 250,00 passam da DRE de Residencial Alameda para a de Residencial Horizonte");
+  await chegada.getByRole("button",{name:/Chegou/}).click();
+  await expect(estoque.locator(".stock-transit")).toHaveCount(0);
+  expect(app.state().movEstoque.find(m=>m.tipo==="transferencia_entrada")).toMatchObject({obraId:"b",obraOrigemId:"a",qtd:10});
+  await expect(estoque.locator(".stock-balance-row").filter({hasText:"CIMENTO CP II"})).toContainText("10.00");
+  expect(app.errors).toEqual([]);
+});

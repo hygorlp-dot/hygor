@@ -379,3 +379,76 @@ describe("avanço físico oficial (regra de 30/10/2026)", () => {
     expect(avancoFisicoOficial(obra(), "o1")).toBeNull();
   });
 });
+
+// E1.1 — mesmo cenário e mesmos valores de server/dre-projection.test.js:
+// 20 sacos comprados na Alameda (NF de R$ 650, custo médio R$ 32,50); 10 sacos
+// enviados ao Horizonte em 20/10 e recebidos em 03/11.
+const cenarioTransferencia = () => ({
+  obras: [{ id: "alameda", name: "Alameda" }, { id: "horizonte", name: "Horizonte" }],
+  notasFiscais: [{ id: "nf-cim", obraId: "alameda", numero: "88", status: "aprovada", emissao: "2026-10-05", valorBruto: 650 }],
+  movEstoque: [
+    { id: "e1", obraId: "alameda", materialId: "cim", tipo: "entrada", qtd: 20, valorUnit: 32.5, data: "2026-10-05" },
+    { id: "t1", obraId: "alameda", obraDestinoId: "horizonte", materialId: "cim", tipo: "transferencia_saida", qtd: 10, valorUnit: 32.5, data: "2026-10-20" },
+    { id: "t1-chegada", obraId: "horizonte", obraOrigemId: "alameda", transferenciaSaidaId: "t1", materialId: "cim", tipo: "transferencia_entrada", qtd: 10, valorUnit: 32.5, data: "2026-11-03" },
+  ],
+});
+
+describe("transferência de material entre obras (E1.1)", () => {
+  // Calendário real do mês pedido (o `regras` deste arquivo é fixo em julho).
+  const diasDoMes = (y, m) => Array.from({ length: new Date(y, m + 1, 0).getDate() },
+    (_, i) => `${y}-${String(m + 1).padStart(2, "0")}-${String(i + 1).padStart(2, "0")}`);
+  const regras = createDreCalculations({
+    getDays: diasDoMes, getQ: (y, m) => ({ q1: diasDoMes(y, m).slice(0, 15), q2: diasDoMes(y, m).slice(15) }),
+    monthName: m => String(m + 1),
+    calcObraLaborCost: () => ({ laborCost: 0, benefitCost: 0 }), calcObraTercCost: () => 0,
+    calcTercEmpresaCost: () => 0, calcObraTercEmpresaCost: () => 0, calcObraComprasCost: () => 0,
+    calcEquipCustoObra: () => 0, calcEquipFaturamentoEmpresa: () => ({ receita: 0, lucro: 0 }),
+  });
+  const transferido = dre => Number(dre.costBySource?.transferencia_estoque || 0);
+
+  test("em trânsito nada muda: em outubro o custo inteiro continua na origem", () => {
+    const dados = cenarioTransferencia();
+    expect(Number(regras.calcDREObra(dados, "alameda", 2026, 9).costBySource?.nota_fiscal || 0)).toBe(650);
+    expect(transferido(regras.calcDREObra(dados, "alameda", 2026, 9))).toBe(0);
+    expect(transferido(regras.calcDREObra(dados, "horizonte", 2026, 9))).toBe(0);
+  });
+
+  test("no mês da chegada R$ 325 saem da origem e entram no destino; a empresa não muda", () => {
+    const dados = cenarioTransferencia();
+    const origem = regras.calcDREObra(dados, "alameda", 2026, 10);
+    const destino = regras.calcDREObra(dados, "horizonte", 2026, 10);
+    expect(transferido(origem)).toBe(-325);
+    expect(transferido(destino)).toBe(325);
+    expect(Number(origem.costByCategory?.material || 0)).toBe(-325);
+    expect(Number(destino.costByCategory?.material || 0)).toBe(325);
+    const semTransferencia = { ...dados, movEstoque: dados.movEstoque.filter(m => m.tipo === "entrada") };
+    expect(regras.calcDREConsolidado(dados, 2026, 10).totalCustos).toBe(regras.calcDREConsolidado(semTransferencia, 2026, 10).totalCustos);
+  });
+
+  test("as linhas da DRE somam o total: NF + material transferido", () => {
+    const dados = cenarioTransferencia();
+    const origem = regras.calcDREObra(dados, "alameda", 2026, 10);
+    const destino = regras.calcDREObra(dados, "horizonte", 2026, 10);
+    expect([origem.transferCost, destino.transferCost]).toEqual([-325, 325]);
+    for (const dre of [origem, destino]) {
+      expect(dre.comprasCost + dre.transferCost + dre.outrasTotal + dre.tercCost + dre.rescTotal + dre.equipCost).toBe(dre.totalCustos);
+    }
+    expect(regras.calcDREConsolidado(dados, 2026, 10).transferCost).toBe(0);
+  });
+
+  test("material enviado a outra obra reduz custo, mas não aparece como estorno", () => {
+    const visao = regras.calcVisaoFinanceira(cenarioTransferencia(), 2026, 10, "alameda");
+    const totais = Object.values(visao).find(valor => valor && typeof valor === "object" && "reversalCount" in valor) || visao;
+    expect(totais.reversalCount).toBe(0);
+    expect(totais.reversals).toBe(0);
+  });
+
+  test("chegada estornada não move custo; e o material transferido entra na base da taxa de administração", () => {
+    const dados = cenarioTransferencia();
+    const estornada = { ...dados, movEstoque: dados.movEstoque.map(m => m.id === "t1-chegada" ? { ...m, status: "estornado" } : m) };
+    expect(transferido(regras.calcDREObra(estornada, "horizonte", 2026, 10))).toBe(0);
+    const comTaxa = { ...dados, obras: dados.obras.map(o => ({ ...o, adminPercentage: 10 })) };
+    expect(regras.calcProjecaoContratoObra(comTaxa, "horizonte", 2026, 10).materialCost).toBe(325);
+    expect(regras.calcProjecaoContratoObra(comTaxa, "alameda", 2026, 10).materialCost).toBe(-325);
+  });
+});

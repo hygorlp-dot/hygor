@@ -13,7 +13,7 @@ describe("FIN 9.6 — arquivos de ponto são fonte financeira autoritativa",()=>
   };
 
   it("bump da projeção invalida snapshots antigos gerados com cache arquivado",()=>{
-    expect(api).toContain('DRE_PROJECTION_VERSION = "2026-11-alocacao-adiantamento-pedido-v13"');
+    expect(api).toContain('DRE_PROJECTION_VERSION = "2026-11-transferencia-estoque-entre-obras-v14"');
   });
 
   it("relatório e carga de sombra recompõem arquivos antes do snapshot",()=>{

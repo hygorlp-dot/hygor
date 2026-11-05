@@ -428,6 +428,29 @@ export const buildFinancialLedger = (data = {}, options = {}) => {
     if (paid) add({ ...base, id: `outra_despesa:${id}:cash`, effect: "cash_out", date: expense.dataPagamento || expense.data || transactions.get(expense.transacaoId)?.data, transactionId: expense.transacaoId || "" });
   });
 
+  // E1.1: material transferido entre obras. Ao confirmar a chegada, o custo
+  // (quantidade × custo médio gravado no envio) sai da obra de origem e entra
+  // na de destino, no mês da chegada. Em trânsito, nada muda: o custo continua
+  // na origem. Sem efeito de caixa: ninguém pagou nada na transferência.
+  const transferSaidas = new Map((data.movEstoque || [])
+    .filter(item => item?.tipo === "transferencia_saida" && active(item)).map(item => [item.id, item]));
+  (data.movEstoque || []).filter(item => item?.tipo === "transferencia_entrada" && active(item)).forEach(arrival => {
+    const departure = transferSaidas.get(arrival.transferenciaSaidaId);
+    if (!departure) return;
+    const amountCents = toCents(Number(arrival.qtd || 0) * Number(arrival.valorUnit || 0));
+    if (!(amountCents > 0)) return;
+    const id = sourceId(departure, `${departure.obraId}|${arrival.obraId}|${departure.materialId}|${departure.data}`);
+    const base = {
+      amountCents, date: arrival.data, competence: competenceOf(arrival.data),
+      category: "material", sourceType: "transferencia_estoque", sourceId: id,
+      description: `Transferência de material ${departure.descricao ? `· ${departure.descricao}` : ""}`.trim(),
+      metadata: { materialId: departure.materialId, qtd: Number(arrival.qtd || 0), valorUnit: Number(arrival.valorUnit || 0),
+        obraOrigemId: departure.obraId, obraDestinoId: arrival.obraId },
+    };
+    add({ ...base, id: `transferencia_estoque:${id}:origem`, obraId: departure.obraId, sourceSubId: departure.id, effect: "cost_reversal" });
+    add({ ...base, id: `transferencia_estoque:${id}:destino`, obraId: arrival.obraId, sourceSubId: arrival.id, effect: "cost" });
+  });
+
   (data.despesasEmpresa || []).filter(active).forEach(expense => {
     const id = sourceId(expense, `${expense.competencia}|${expense.descricao}|${expense.valor}`);
     const rawCents = toCents(expense.valor);
