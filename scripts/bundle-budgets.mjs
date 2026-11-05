@@ -99,7 +99,11 @@ export const BUNDLE_BUDGETS = Object.freeze({
   // 1.889.290 bytes, 10 acima. Acréscimo limitado a 1 KiB.
   // Carimbo no Diário (PR #239): CI mediu 1.890.307 bytes, 3 acima do teto.
   // Acréscimo limitado a 1 KiB, com folga para o ajuste do modal de item (#240).
-  totalGzipBytes: 1_847 * 1024,
+  // E1.1 (PR #247, 05/11/2026): transferência de material entre obras (modais e
+  // lista "em trânsito" no Estoque, linha da DRE). Medido local: main
+  // 1.846,51 KiB → 1.848,99 KiB (+2,48 KiB); CI 1.893.523 bytes, 2.195 acima.
+  // Teto +3 KiB; limites por chunk e de mídia permanecem iguais.
+  totalGzipBytes: 1_850 * 1024,
   genericJavaScriptGzipBytes: 200 * 1024,
   staticMediaTotalBytes: 4 * 1024 * 1024,
   genericStaticMediaBytes: 1 * 1024 * 1024,
