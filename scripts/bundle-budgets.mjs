@@ -106,12 +106,16 @@ export const BUNDLE_BUDGETS = Object.freeze({
   // lista "em trânsito" no Estoque, linha da DRE). Medido local: +2,48 KiB
   // sobre a main da época. Somado ao teto dos comprovantes: +3 KiB.
   // Limites por chunk e de mídia permanecem iguais.
-  totalGzipBytes: 1_856 * 1024,
+  // E1.2 (inventário com ajuste, 05/11/2026): aba Inventário no Estoque e
+  // comandos de contagem/decisão (vivem no núcleo operacional, chunk fi-).
+  // Medido: total 1.902.228 bytes (+1.684 acima do teto), fi- 209.271 (+375).
+  // Total +2 KiB e núcleo operacional +1 KiB; demais limites iguais.
+  totalGzipBytes: 1_858 * 1024,
   genericJavaScriptGzipBytes: 200 * 1024,
   staticMediaTotalBytes: 4 * 1024 * 1024,
   genericStaticMediaBytes: 1 * 1024 * 1024,
   chunks: [
-    { label: "financial-operational-core", pattern: /^fi-.*\.js$/, maxGzipBytes: 204 * 1024 },
+    { label: "financial-operational-core", pattern: /^fi-.*\.js$/, maxGzipBytes: 205 * 1024 },
     { label: "LegacyApp", pattern: /^LegacyApp-.*\.js$/, maxGzipBytes: 570 * 1024 },
     // Exceção temporária registrada: planilhas ainda dependem de exceljs.
     { label: "spreadsheet-tools", pattern: /^spreadsheet-tools-.*\.js$/, maxGzipBytes: 275 * 1024 },

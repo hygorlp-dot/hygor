@@ -7,6 +7,8 @@ export const TIPOS_MOV = [
   // E1.1: só nascem pelos comandos de transferência, nunca pelo movimento avulso.
   { v:"transferencia_saida",   l:"Transferência para outra obra", sinal:-1, cor:"#6A1B9A", sistema:true },
   { v:"transferencia_entrada", l:"Transferência de outra obra",   sinal:+1, cor:"#6A1B9A", sistema:true },
+  // E1.2: falta encontrada no inventário. Só nasce pela contagem aplicada.
+  { v:"ajuste_saida", l:"Ajuste de inventário (falta)", sinal:-1, cor:"#C2185B", sistema:true },
 ];
 
 export const SINAL_MOV = Object.fromEntries(TIPOS_MOV.map(t => [t.v, t.sinal]));

@@ -56,7 +56,8 @@ async function enter(page,{role="admin",failFirstRequest=false,prepare=null}={})
       commands.push(body.command);
       await new Promise(resolve=>setTimeout(resolve,150));
       if(fail&&body.command.type===OPERATIONAL_COMMAND.PURCHASE_REQUEST_SAVED){fail=false;return route.fulfill({json:{ok:false,reason:"Falha simulada: tente novamente."}});}
-      const result=applyOperationalCommand(state,body.command);
+      // Como o servidor real (api/data.js), o perfil vem da sessão, não do navegador.
+      const result=applyOperationalCommand(state,{...body.command,actorRole:state.usuarios[0]?.role||""});
       if(result.ok)state=result.data;
       return route.fulfill({json:{...result,updatedAt:"2026-10-23T15:00:00Z"}});
     }
@@ -1062,5 +1063,61 @@ test("transferência entre obras: sai da origem, fica em trânsito e entra no de
   await expect(estoque.locator(".stock-transit")).toHaveCount(0);
   expect(app.state().movEstoque.find(m=>m.tipo==="transferencia_entrada")).toMatchObject({obraId:"b",obraOrigemId:"a",qtd:10});
   await expect(estoque.locator(".stock-balance-row").filter({hasText:"CIMENTO CP II"})).toContainText("10.00");
+  expect(app.errors).toEqual([]);
+});
+
+async function abrirInventario(page){
+  const sidebar=page.locator(".arcd-sidebar");
+  const group=sidebar.locator(".nav-grp-hd").filter({hasText:/^Compras/});
+  const body=group.locator("xpath=following-sibling::*[contains(@class,'nav-body')][1]");
+  if(!await body.isVisible())await group.click();
+  await body.locator(".nav-item").filter({hasText:/^Estoque$/}).click();
+  const estoque=page.locator(".stock-workspace");
+  await estoque.locator(".stock-overview").getByLabel("Obra",{exact:true}).selectOption("a");
+  await estoque.getByRole("button",{name:"Inventário",exact:true}).click();
+  return estoque;
+}
+const estoqueInventario=state=>{state.movEstoque=[{id:"ent-a",obraId:"a",materialId:"cement",tipo:"entrada",qtd:300,valorUnit:25,data:"2026-10-05"},
+  {id:"ent-b",obraId:"a",materialId:"steel",tipo:"entrada",qtd:50,valorUnit:10,data:"2026-10-05"}];};
+
+test("inventário: compras ajusta falta pequena na hora e a grande vai para o Administrador (E1.2)",async({page})=>{
+  const app=await enter(page,{role:"compras",prepare:estoqueInventario});
+  const estoque=await abrirInventario(page);
+  const painel=estoque.locator(".stock-inventory");
+
+  // Falta de 4 sacos (R$ 100): dentro da alçada, aplica direto.
+  await painel.getByLabel("Quantidade contada de CIMENTO CP II").fill("296");
+  await expect(painel.locator(".stock-inventory__summary")).toContainText("faltas R$ 100,00");
+  await expect(painel.locator(".stock-inventory__summary")).toContainText("ajusta o estoque ao registrar");
+  await painel.getByLabel(/Motivo das diferenças/).fill("Contagem mensal");
+  await painel.getByRole("button",{name:"Registrar contagem"}).click();
+  await expect(painel.locator(".stock-inventory__history")).toContainText("Aplicado");
+  expect(app.state().movEstoque.find(m=>m.inventarioId)).toMatchObject({tipo:"ajuste_saida",qtd:4,materialId:"cement"});
+
+  // Falta de 296 sacos (R$ 7.400): passa da alçada e espera o Administrador.
+  await painel.getByLabel("Quantidade contada de CIMENTO CP II").fill("0");
+  await expect(painel.locator(".stock-inventory__summary")).toContainText("vai para aprovação do Administrador");
+  await painel.getByLabel(/Motivo das diferenças/).fill("Material sumiu do canteiro");
+  await painel.getByRole("button",{name:"Registrar contagem"}).click();
+  const pendente=painel.locator(".stock-inventory__pending");
+  await expect(pendente).toContainText("aguardando o Administrador");
+  await expect(pendente.getByRole("button",{name:/Aprovar/})).toHaveCount(0);
+  expect(app.state().inventarios.map(i=>i.status)).toEqual(["aplicado","aguardando_aprovacao"]);
+  expect(app.errors).toEqual([]);
+});
+
+test("inventário: o Administrador aprova a contagem pendente e o saldo passa a bater (E1.2)",async({page})=>{
+  const app=await enter(page,{prepare:state=>{estoqueInventario(state);
+    state.inventarios=[{id:"inv-1",obraId:"a",data:"2026-10-22",motivo:"Material sumiu do canteiro",status:"aguardando_aprovacao",
+      linhas:[{materialId:"cement",saldoSistema:300,contado:0,diferenca:-300,valorUnit:25}],itensComDiferenca:1,valorFaltas:7500,valorSobras:0,valorDiferencas:7500,
+      criadoEm:"2026-10-22T12:00:00Z",criadoPor:"Compras QA"}];}});
+  const estoque=await abrirInventario(page);
+  const pendente=estoque.locator(".stock-inventory__pending");
+  await expect(pendente).toContainText("faltas R$ 7.500,00");
+  await pendente.getByRole("button",{name:"Aprovar e ajustar o estoque"}).click();
+  await expect(pendente).toHaveCount(0);
+  expect(app.state().inventarios[0]).toMatchObject({status:"aplicado",decididoPor:"Administrador QA"});
+  await estoque.getByRole("button",{name:"Saldo",exact:true}).click();
+  await expect(estoque.locator(".stock-balance-row").filter({hasText:"CIMENTO CP II"})).toHaveCount(0);
   expect(app.errors).toEqual([]);
 });
