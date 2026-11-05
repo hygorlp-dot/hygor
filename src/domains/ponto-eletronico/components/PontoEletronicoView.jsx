@@ -12,6 +12,7 @@ import {C} from "../../../legacy/palette.js";
 import { funcionariosDaObra } from "../funcionarios.js";
 import { FUSO_OBRA, dataLocal, horaLocal, situacaoAparelho } from "../painel.js";
 import { usePontoEletronico } from "../usePontoEletronico.js";
+import { useSyncedWorkObra } from "../../../features/workflow/work-context.js";
 import ConferenciaBatidas from "./ConferenciaBatidas.jsx";
 import BancoHorasView from "./BancoHorasView.jsx";
 import "./ponto-eletronico.css";
@@ -79,6 +80,8 @@ export default function PontoEletronicoView({ data, showToast, currentUser, disp
   const podeGerir = ["admin", "rh", "engenheiro"].includes(currentUser?.role);
   const podeFiscal = ["admin", "rh"].includes(currentUser?.role);
   const ocupado = Boolean(acaoEmCurso);
+  // Carimbo: como o seletor da tela, a troca vinda do topo espera a ação em curso terminar.
+  useSyncedWorkObra(obraId, setObraId, { allowedIds: obras.map(o => String(o.id)), fixed: ocupado ? "ocupado" : "" });
   const { recursos, refresh, refreshGlobais, refreshRecurso, carregando } = usePontoEletronico({
     obraId, dia, podeGerir, todasObras:podeFiscal, scopeKey: `${currentUser?.id || ""}:${currentUser?.role || ""}`,
   });
