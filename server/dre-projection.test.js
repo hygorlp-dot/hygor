@@ -67,3 +67,32 @@ describe("buildRequestedDreProjectionRows — documento emitido depois da compet
     expect(agosto.payload).toMatchObject({totalCustos: 0, faturamento: 0});
   });
 });
+
+// E1.1 — mesmo cenário e mesmos valores de src/domains/dre/calculations.test.js
+// ("transferência de material entre obras"): a DRE gravada pelo servidor move
+// R$ 325 da Alameda para o Horizonte no mês da chegada, e não no do envio.
+describe("buildRequestedDreProjectionRows — transferência de material entre obras", () => {
+  const cenario = () => ({
+    obras: [{id: "alameda", name: "Alameda"}, {id: "horizonte", name: "Horizonte"}],
+    notasFiscais: [{id: "nf-cim", obraId: "alameda", numero: "88", status: "aprovada", emissao: "2026-10-05", valorBruto: 650}],
+    movEstoque: [
+      {id: "e1", obraId: "alameda", materialId: "cim", tipo: "entrada", qtd: 20, valorUnit: 32.5, data: "2026-10-05"},
+      {id: "t1", obraId: "alameda", obraDestinoId: "horizonte", materialId: "cim", tipo: "transferencia_saida", qtd: 10, valorUnit: 32.5, data: "2026-10-20"},
+      {id: "t1-chegada", obraId: "horizonte", obraOrigemId: "alameda", transferenciaSaidaId: "t1", materialId: "cim", tipo: "transferencia_entrada", qtd: 10, valorUnit: 32.5, data: "2026-11-03"},
+    ],
+  });
+  it("outubro: custo todo na origem; novembro: −325 na origem e +325 no destino", () => {
+    const [outAlameda, outHorizonte, novAlameda, novHorizonte, novEmpresa] = buildRequestedDreProjectionRows(cenario(), [
+      {year: 2026, month: 9, period: "mes", scope: "alameda"},
+      {year: 2026, month: 9, period: "mes", scope: "horizonte"},
+      {year: 2026, month: 10, period: "mes", scope: "alameda"},
+      {year: 2026, month: 10, period: "mes", scope: "horizonte"},
+      {year: 2026, month: 10, period: "mes", scope: "empresa"},
+    ]);
+    expect(outAlameda.payload.totalCustos).toBe(650);
+    expect(outHorizonte.payload.totalCustos).toBe(0);
+    expect(novAlameda.payload.totalCustos).toBe(-325);
+    expect(novHorizonte.payload.totalCustos).toBe(325);
+    expect(novEmpresa.payload.totalCustos).toBe(0);
+  });
+});

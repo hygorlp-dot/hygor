@@ -4,9 +4,14 @@ export const TIPOS_MOV = [
   { v:"perda",     l:"Perda / quebra",         sinal:-1, cor:"#B71C1C" },
   { v:"devolucao", l:"Devolução da obra",      sinal:+1, cor:"#6B6459" },
   { v:"ajuste",    l:"Ajuste de inventário",   sinal:+1, cor:"#C2185B" },
+  // E1.1: só nascem pelos comandos de transferência, nunca pelo movimento avulso.
+  { v:"transferencia_saida",   l:"Transferência para outra obra", sinal:-1, cor:"#6A1B9A", sistema:true },
+  { v:"transferencia_entrada", l:"Transferência de outra obra",   sinal:+1, cor:"#6A1B9A", sistema:true },
 ];
 
 export const SINAL_MOV = Object.fromEntries(TIPOS_MOV.map(t => [t.v, t.sinal]));
+// Tipos que a pessoa escolhe no movimento avulso.
+export const TIPOS_MOV_AVULSO = TIPOS_MOV.filter(t => !t.sistema);
 
 const inactiveStatus = status => ["cancelado","cancelada","estornado","estornada"].includes(String(status||"").toLowerCase());
 
@@ -135,3 +140,17 @@ export const calcCurvaABCServicos = (movs, composicoes) => {
     return { ...x, pctAcum: pct, classe: pct <= 80 ? "A" : pct <= 95 ? "B" : "C" };
   });
 };
+
+// ── Transferência entre obras (E1.1) ───────────────────────────────
+// A saída (`transferencia_saida`) baixa o saldo da origem na hora; a entrada
+// (`transferencia_entrada`) só nasce quando a obra de destino confirma a
+// chegada e aponta para a saída em `transferenciaSaidaId`. Sem entrada ativa,
+// a transferência está em trânsito.
+export const entradaDaTransferencia = (movs, saidaId) => (movs || []).find(x =>
+  x?.tipo === "transferencia_entrada" && x.transferenciaSaidaId === saidaId && !inactiveStatus(x.status)) || null;
+
+export const transferenciasEmTransito = (movs, obraId = "") => (movs || [])
+  .filter(x => x?.tipo === "transferencia_saida" && !inactiveStatus(x.status)
+    && (!obraId || x.obraId === obraId || x.obraDestinoId === obraId)
+    && !entradaDaTransferencia(movs, x.id))
+  .sort((a, b) => String(a.data || "").localeCompare(String(b.data || "")));

@@ -317,7 +317,9 @@ export const createDreCalculations = ({
     const otherMaterialExcludedFromAdmin = outraDespesaMaterial
       .filter(event => event.metadata?.contaAdmin === false)
       .reduce((total, event) => total + event.amountCents / 100, 0);
-    const materialCost = materialFromInvoices + otherMaterial;
+    // E1.1: transferência entre obras (líquida: + no destino, − na origem).
+    const materialTransferred = Number(dre.costBySource?.transferencia_estoque || 0);
+    const materialCost = materialFromInvoices + otherMaterial + materialTransferred;
     const outrasTotal = Math.max(0, dre.totalCustos - laborCost - benefitCost
       - tercCost - materialCost - dre.equipCost - dre.rescTotal);
     const projection = calculateContractProjection(work, laborCost, {

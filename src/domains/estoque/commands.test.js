@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { STOCK_COMMAND, applyStockCommand } from "./commands.js";
+import { STOCK_COMMAND, applyStockCommand, stockCommandObraId } from "./commands.js";
+import { calcSaldos, transferenciasEmTransito } from "./calculations.js";
 
 const BASE = {
   obras: [{ id: "obra1", name: "Obra 1" }],
@@ -175,5 +176,81 @@ describe("comandos de estoque", () => {
       const command = { type: STOCK_COMMAND.COMPOSITION_DELETED, idempotencyKey: "del-0002", expectedVersion: 0, payload: { compositionId: "fantasma" } };
       expect(applyStockCommand(BASE, command).ok).toBe(false);
     });
+  });
+});
+
+describe("transferência entre obras (E1.1)", () => {
+  const OBRAS = { obras: [{ id: "alameda", name: "Alameda" }, { id: "horizonte", name: "Horizonte" }], materiais: [{ id: "cim", precoMedio: 1 }] };
+  const comEstoque = () => ({ ...OBRAS, composicoes: [], movEstoque: [
+    { id: "e1", obraId: "alameda", materialId: "cim", tipo: "entrada", qtd: 20, valorUnit: 30 },
+    { id: "e2", obraId: "horizonte", materialId: "cim", tipo: "entrada", qtd: 20, valorUnit: 35 },
+  ] });
+  const enviar = (data, transfer, now = "2026-10-20T12:00:00.000Z") => applyStockCommand(data, {
+    type: STOCK_COMMAND.TRANSFER_SENT, idempotencyKey: `transf-${transfer.id}-envio`, actorId: "u1", actorName: "Compras QA",
+    payload: { transfer: { obraOrigemId: "alameda", obraDestinoId: "horizonte", materialId: "cim", data: "2026-10-20", ...transfer } },
+  }, now);
+  const receber = (data, saidaId, extra = {}) => applyStockCommand(data, {
+    type: STOCK_COMMAND.TRANSFER_RECEIVED, idempotencyKey: `transf-${saidaId}-chegada`, actorId: "u2", actorName: "Obra QA",
+    payload: { saidaId, entradaId: `${saidaId}-chegada`, data: "2026-11-03", ...extra },
+  }, "2026-11-03T12:00:00.000Z");
+  const saldo = (data, obraId) => calcSaldos(data.movEstoque)[`${obraId}|cim`] || 0;
+
+  it("envio baixa a origem na hora, pelo custo médio calculado no servidor, e fica em trânsito", () => {
+    const enviado = enviar(comEstoque(), { id: "t1", qtd: 10, valorUnit: 999 });
+    expect(enviado.ok).toBe(true);
+    const saida = enviado.data.movEstoque.find(m => m.id === "t1");
+    expect(saida).toMatchObject({ tipo: "transferencia_saida", obraId: "alameda", obraDestinoId: "horizonte", qtd: 10, valorUnit: 32.5, enviadoPor: "Compras QA" });
+    expect(saldo(enviado.data, "alameda")).toBe(10);
+    expect(saldo(enviado.data, "horizonte")).toBe(20);
+    expect(transferenciasEmTransito(enviado.data.movEstoque, "horizonte").map(m => m.id)).toEqual(["t1"]);
+  });
+
+  it("chegada confirmada pelo destino entra no saldo dele e encerra o trânsito", () => {
+    const enviado = enviar(comEstoque(), { id: "t1", qtd: 10 });
+    const recebido = receber(enviado.data, "t1");
+    expect(recebido.ok).toBe(true);
+    expect(recebido.data.movEstoque.at(-1)).toMatchObject({ tipo: "transferencia_entrada", obraId: "horizonte", obraOrigemId: "alameda",
+      transferenciaSaidaId: "t1", qtd: 10, valorUnit: 32.5, data: "2026-11-03", recebidoPor: "Obra QA" });
+    expect(saldo(recebido.data, "horizonte")).toBe(30);
+    expect(transferenciasEmTransito(recebido.data.movEstoque)).toEqual([]);
+    expect(receber(recebido.data, "t1", { entradaId: "outra" }).reason).toMatch(/já foi confirmada/);
+  });
+
+  it("recusa mesma obra, saldo insuficiente, chegada antes do envio e período fechado", () => {
+    expect(enviar(comEstoque(), { id: "t1", qtd: 10, obraDestinoId: "alameda" }).reason).toMatch(/diferente da origem/);
+    expect(enviar(comEstoque(), { id: "t1", qtd: 21 }).reason).toMatch(/Saldo insuficiente na obra de origem/);
+    const enviado = enviar(comEstoque(), { id: "t1", qtd: 10 });
+    expect(receber(enviado.data, "t1", { data: "2026-10-19" }).reason).toMatch(/antes do envio/);
+    const fechado = { ...enviado.data, fechamentosFinanceiros: [{ status: "fechado", dataInicio: "2026-11-01", dataFim: "2026-11-30" }] };
+    expect(receber(fechado, "t1").reason).toMatch(/período financeiro fechado/);
+  });
+
+  it("movimento avulso não cria transferência", () => {
+    const result = applyStockCommand(comEstoque(), { type: STOCK_COMMAND.MATERIAL_MOVEMENT_RECORDED, idempotencyKey: "mov-transf-avulsa",
+      payload: { movement: { id: "x", obraId: "alameda", materialId: "cim", tipo: "transferencia_entrada", qtd: 5 } } });
+    expect(result.reason).toMatch(/Transferência entre obras tem fluxo próprio/);
+  });
+
+  it("estorno: envio em trânsito devolve à origem; depois da chegada, só estornando a chegada primeiro", () => {
+    const estornar = (data, movementId) => applyStockCommand(data, { type: STOCK_COMMAND.MATERIAL_MOVEMENT_REVERSED,
+      idempotencyKey: `estorno-${movementId}`, payload: { movementId, reason: "Enviado por engano" } }, "2026-11-04T12:00:00.000Z");
+    const enviado = enviar(comEstoque(), { id: "t1", qtd: 10 });
+    const cancelado = estornar(enviado.data, "t1");
+    expect(cancelado.ok).toBe(true);
+    expect(saldo(cancelado.data, "alameda")).toBe(20);
+    const recebido = receber(enviado.data, "t1");
+    expect(estornar(recebido.data, "t1").reason).toMatch(/Estorne primeiro a chegada/);
+    const semChegada = estornar(recebido.data, "t1-chegada");
+    expect(semChegada.ok).toBe(true);
+    expect(transferenciasEmTransito(semChegada.data.movEstoque).map(m => m.id)).toEqual(["t1"]);
+    // Destino já usou o material: não dá para desfazer a chegada.
+    const usado = { ...recebido.data, movEstoque: [...recebido.data.movEstoque, { id: "c1", obraId: "horizonte", materialId: "cim", tipo: "consumo", qtd: 25 }] };
+    expect(estornar(usado, "t1-chegada").reason).toMatch(/já foi usada na obra de destino/);
+  });
+
+  it("quem envia responde pela origem e quem confirma, pelo destino", () => {
+    const enviado = enviar(comEstoque(), { id: "t1", qtd: 10 });
+    expect(stockCommandObraId(comEstoque(), { type: STOCK_COMMAND.TRANSFER_SENT, payload: { transfer: { obraOrigemId: "alameda" } } })).toBe("alameda");
+    expect(stockCommandObraId(enviado.data, { type: STOCK_COMMAND.TRANSFER_RECEIVED, payload: { saidaId: "t1" } })).toBe("horizonte");
   });
 });

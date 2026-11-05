@@ -176,7 +176,7 @@ const keyForDomain = domain => SPLIT_ROW_KEYS[domain] || KEY;
 // migra sozinha para ela - sem exigir nenhuma ordem de deploy específica.
 const linhaEfetivaParaEscrita = (domain, rowVersions) =>
   (domain!==DOMAIN_ROW.CORE && rowVersions[domain]==null) ? DOMAIN_ROW.CORE : domain;
-const DRE_PROJECTION_VERSION = "2026-11-alocacao-adiantamento-pedido-v13";
+const DRE_PROJECTION_VERSION = "2026-11-transferencia-estoque-entre-obras-v14";
 const OPERATIONAL_RESPONSE_EXCLUDED_SECTIONS = [
   "operationalCommandReceipts",
   "changeLog",
@@ -302,6 +302,9 @@ export const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.MATERIAL_MOVEMENT_RECORDED]:["admin","compras","engenheiro","engenheiro_auditor","mestre"],
   [OPERATIONAL_COMMAND.SERVICE_EXECUTION_RECORDED]:["admin","compras","engenheiro","engenheiro_auditor","mestre"],
   [OPERATIONAL_COMMAND.MATERIAL_MOVEMENT_REVERSED]:["admin","compras","engenheiro","engenheiro_auditor"],
+  // E1.1: os mesmos perfis que estornam movimento; a chegada move custo na DRE.
+  [OPERATIONAL_COMMAND.TRANSFER_SENT]:["admin","compras","engenheiro","engenheiro_auditor"],
+  [OPERATIONAL_COMMAND.TRANSFER_RECEIVED]:["admin","compras","engenheiro","engenheiro_auditor"],
   [OPERATIONAL_COMMAND.COMPOSITION_SAVED]:["admin","compras","engenheiro","engenheiro_auditor"],
   [OPERATIONAL_COMMAND.COMPOSITION_DELETED]:["admin","compras","engenheiro","engenheiro_auditor"],
   [OPERATIONAL_COMMAND.CONFERENCE_CREATED]:["admin","engenheiro_auditor"],
@@ -368,6 +371,8 @@ const FINANCIAL_OPERATIONAL_COMMANDS=new Set([
   OPERATIONAL_COMMAND.PAYABLE_PAYMENT_RECORDED,OPERATIONAL_COMMAND.PURCHASE_PAYMENT_RECLASSIFIED,
   OPERATIONAL_COMMAND.PAYABLE_PAYMENT_REVERSED,
   OPERATIONAL_COMMAND.PURCHASE_CANCELLED,
+  // E1.1: a chegada da transferência (e o estorno dela) move custo entre obras.
+  OPERATIONAL_COMMAND.TRANSFER_RECEIVED,OPERATIONAL_COMMAND.MATERIAL_MOVEMENT_REVERSED,
   OPERATIONAL_COMMAND.BANK_TRANSACTIONS_IMPORTED,
   OPERATIONAL_COMMAND.BANK_TRANSACTIONS_IGNORED,
   OPERATIONAL_COMMAND.BANK_TRANSACTIONS_REOPENED,

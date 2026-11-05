@@ -1,6 +1,6 @@
 import { cobrancaLocacao, diasLocacaoNoPeriodo } from "../src/domains/equipamentos/calculations.js";
 
-const collections = {medicao:"medicoes",nota_fiscal:"notasFiscais",medicao_terceiro:"medicoesTerc",pagamento_terceiro_legado:"pagsTerceiros",outra_despesa:"outrasDesp",despesa_empresa:"despesasEmpresa",rescisao:"rescisoes",recebimento_avulso:"payments",caixa_obra:"caixaObra"};
+const collections = {medicao:"medicoes",nota_fiscal:"notasFiscais",medicao_terceiro:"medicoesTerc",pagamento_terceiro_legado:"pagsTerceiros",outra_despesa:"outrasDesp",despesa_empresa:"despesasEmpresa",rescisao:"rescisoes",recebimento_avulso:"payments",caixa_obra:"caixaObra",transferencia_estoque:"movEstoque"};
 const cents=value=>Math.round(Number(value||0)*100);
 
 // Store the evidence with the projection, so future closed periods retain it.

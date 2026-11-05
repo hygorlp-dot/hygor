@@ -1,4 +1,5 @@
-import { SINAL_MOV, baixarPorComposicao, calcSaldos, custoMedioPonderado, saldoDe } from "./calculations.js";
+import { SINAL_MOV, TIPOS_MOV_AVULSO, baixarPorComposicao, calcSaldos, custoMedioPonderado, entradaDaTransferencia, saldoDe } from "./calculations.js";
+import { isDateInClosedPeriod } from "../financeiro/workflows.js";
 import { resolverTarefaDoConsumo } from "./task-allocation.js";
 
 export const STOCK_COMMAND = Object.freeze({
@@ -7,6 +8,8 @@ export const STOCK_COMMAND = Object.freeze({
   MATERIAL_MOVEMENT_REVERSED: "MOVIMENTO_ESTOQUE_ESTORNADO",
   COMPOSITION_SAVED: "COMPOSICAO_SALVA",
   COMPOSITION_DELETED: "COMPOSICAO_EXCLUIDA",
+  TRANSFER_SENT: "TRANSFERENCIA_ESTOQUE_ENVIADA",
+  TRANSFER_RECEIVED: "TRANSFERENCIA_ESTOQUE_RECEBIDA",
 });
 
 export const STOCK_COMMAND_TYPES = new Set(Object.values(STOCK_COMMAND));
@@ -18,6 +21,9 @@ export const stockCommandObraId = (data = {}, command = {}) => {
   if (command?.type === STOCK_COMMAND.MATERIAL_MOVEMENT_RECORDED) return String(payload.movement?.obraId || "");
   if (command?.type === STOCK_COMMAND.SERVICE_EXECUTION_RECORDED) return String(payload.obraId || "");
   if (command?.type === STOCK_COMMAND.MATERIAL_MOVEMENT_REVERSED) return String((data?.movEstoque || []).find(item => item.id === payload.movementId)?.obraId || "");
+  // Quem envia responde pela origem; quem confirma a chegada, pelo destino.
+  if (command?.type === STOCK_COMMAND.TRANSFER_SENT) return String(payload.transfer?.obraOrigemId || "");
+  if (command?.type === STOCK_COMMAND.TRANSFER_RECEIVED) return String((data?.movEstoque || []).find(item => item.id === payload.saidaId)?.obraDestinoId || "");
   return "";
 };
 
@@ -92,6 +98,7 @@ export const applyStockCommand = (data = {}, command = {}, now = new Date().toIS
     if (!(data.obras || []).some(item => String(item.id) === obraId)) return fail("A obra do movimento de estoque não existe.");
     if (!(qtd > 0)) return fail("A quantidade precisa ser maior que zero.");
     if (movEstoque.some(item => item.id === id)) return fail("Já existe um movimento de estoque com esta identificação.");
+    if (!TIPOS_MOV_AVULSO.some(tipo => tipo.v === raw.tipo)) return fail("Tipo de movimento inválido. Transferência entre obras tem fluxo próprio.");
     const sinal = SINAL_MOV[raw.tipo] ?? 0;
     if (sinal < 0) {
       const disponivel = saldoDe(calcSaldos(movEstoque), obraId, materialId);
@@ -140,6 +147,54 @@ export const applyStockCommand = (data = {}, command = {}, now = new Date().toIS
     return { ok: true, entityId: comp.id, data: { ...data, movEstoque: [...movEstoque, ...novos] } };
   }
 
+  if (command.type === STOCK_COMMAND.TRANSFER_SENT) {
+    const raw = command.payload?.transfer || {};
+    const id = String(raw.id || "").trim();
+    const origem = String(raw.obraOrigemId || "").trim(), destino = String(raw.obraDestinoId || "").trim();
+    const materialId = String(raw.materialId || "").trim();
+    const qtd = Number(raw.qtd || 0);
+    const quando = String(raw.data || now.slice(0, 10)).slice(0, 10);
+    if (!id || !origem || !destino || !materialId) return fail("Transferência sem identificação, obras ou material.");
+    const obraExiste = obraId => (data.obras || []).some(item => String(item.id) === obraId);
+    if (!obraExiste(origem) || !obraExiste(destino)) return fail("A obra de origem ou de destino não existe.");
+    if (origem === destino) return fail("Escolha uma obra de destino diferente da origem.");
+    if (!(qtd > 0)) return fail("A quantidade precisa ser maior que zero.");
+    if (movEstoque.some(item => item.id === id)) return fail("Já existe um movimento de estoque com esta identificação.");
+    const disponivel = saldoDe(calcSaldos(movEstoque), origem, materialId);
+    if (qtd > disponivel + 0.0001) return fail(`Saldo insuficiente na obra de origem: há ${disponivel.toFixed(2)} disponível.`);
+    // O valor é sempre o custo médio do insumo calculado aqui, nunca o que a tela mandou.
+    const material = (data.materiais || []).find(item => String(item.id) === materialId);
+    const custo = custoMedioPonderado(movEstoque, materialId) ?? Number(material?.precoMedio || 0);
+    const saida = {
+      id, obraId: origem, obraDestinoId: destino, materialId, tipo: "transferencia_saida",
+      qtd, valorUnit: Math.round(Number(custo || 0) * 10000) / 10000, data: quando,
+      descricao: String(raw.descricao || "").trim(), transacaoId: "", servicoId: "", etapa: "",
+      enviadoEm: now, enviadoPorId: command.actorId || "", enviadoPor: command.actorName || "",
+    };
+    return { ok: true, entityId: id, data: { ...data, movEstoque: [...movEstoque, saida] } };
+  }
+
+  if (command.type === STOCK_COMMAND.TRANSFER_RECEIVED) {
+    const saidaId = String(command.payload?.saidaId || "").trim();
+    const id = String(command.payload?.entradaId || "").trim();
+    const saida = movEstoque.find(item => item.id === saidaId && item.tipo === "transferencia_saida");
+    if (!saida || inactiveStatus(saida.status)) return fail("Transferência não encontrada ou estornada.");
+    if (entradaDaTransferencia(movEstoque, saida.id)) return fail("A chegada desta transferência já foi confirmada.");
+    if (!id || movEstoque.some(item => item.id === id)) return fail("A chegada precisa de uma identificação nova.");
+    const quando = String(command.payload?.data || now.slice(0, 10)).slice(0, 10);
+    if (quando < String(saida.data || "")) return fail("A chegada não pode ser antes do envio.");
+    // A chegada move o custo na DRE das duas obras na data dela.
+    if (isDateInClosedPeriod(data, quando)) return fail("Esta data está em um período financeiro fechado. Use uma data de período aberto.");
+    const entrada = {
+      id, obraId: saida.obraDestinoId, obraOrigemId: saida.obraId, transferenciaSaidaId: saida.id,
+      materialId: saida.materialId, tipo: "transferencia_entrada", qtd: Number(saida.qtd || 0),
+      valorUnit: Number(saida.valorUnit || 0), data: quando,
+      descricao: saida.descricao || "", transacaoId: "", servicoId: "", etapa: "",
+      recebidoEm: now, recebidoPorId: command.actorId || "", recebidoPor: command.actorName || "",
+    };
+    return { ok: true, entityId: id, data: { ...data, movEstoque: [...movEstoque, entrada] } };
+  }
+
   if (command.type === STOCK_COMMAND.MATERIAL_MOVEMENT_REVERSED) {
     const id = String(command.payload?.movementId || "").trim();
     const current = movEstoque.find(item => item.id === id);
@@ -147,6 +202,17 @@ export const applyStockCommand = (data = {}, command = {}, now = new Date().toIS
     if (inactiveStatus(current.status)) return fail("Este movimento já foi estornado.");
     const reason = String(command.payload?.reason || "").trim();
     if (!reason) return fail("Informe o motivo do estorno do movimento de estoque.");
+    // Transferência: a chegada confirmada já moveu o custo na DRE das duas obras.
+    if (current.tipo === "transferencia_saida" && entradaDaTransferencia(movEstoque, current.id)) {
+      return fail("A obra de destino já confirmou a chegada. Estorne primeiro a chegada no destino.");
+    }
+    if (current.tipo === "transferencia_entrada") {
+      if (isDateInClosedPeriod(data, current.data)) return fail("A chegada é de um período financeiro fechado e não pode ser estornada.");
+      const semEntrada = movEstoque.map(item => item.id === id ? { ...item, status: "estornado" } : item);
+      if (saldoDe(calcSaldos(semEntrada), current.obraId, current.materialId) < -1e-6) {
+        return fail("Parte desse material já foi usada na obra de destino. Registre a devolução ou o ajuste antes de estornar a chegada.");
+      }
+    }
     const reversed = {
       ...current, status: "estornado", motivoEstorno: reason, estornadoEm: now,
       estornadoPorId: command.actorId || "", estornadoPor: command.actorName || "",
