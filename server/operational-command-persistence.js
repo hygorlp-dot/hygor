@@ -28,8 +28,18 @@ const AUDIT_ONLY_EQUIPMENT_COMMANDS=new Set([
   OPERATIONAL_COMMAND.EQUIPMENT_TRANSFERRED,
 ]);
 
+// Estoque (E1.1): a chegada de uma transferência entre obras e o estorno de
+// movimento alteram a DRE gerencial (custo sai de uma obra e entra na outra),
+// por isso passam pela proteção de competência fechada; mas não criam título,
+// pagamento nem lançamento bancário no motor financeiro.
+const AUDIT_ONLY_STOCK_COMMANDS=new Set([
+  OPERATIONAL_COMMAND.TRANSFER_RECEIVED,
+  OPERATIONAL_COMMAND.MATERIAL_MOVEMENT_REVERSED,
+]);
+
 export const requiresFinancialOperationalPersistence=(commandType,financialCommands)=>
-  financialCommands.has(commandType)&&!AUDIT_ONLY_EQUIPMENT_COMMANDS.has(commandType);
+  financialCommands.has(commandType)&&!AUDIT_ONLY_EQUIPMENT_COMMANDS.has(commandType)
+    &&!AUDIT_ONLY_STOCK_COMMANDS.has(commandType);
 
 // Com FIN-003 ativo, o comando financeiro precisa reler o blob somente depois
 // de obter o bloqueio da linha. Isso elimina a janela entre `lerLinha()` e a

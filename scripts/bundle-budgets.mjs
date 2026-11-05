@@ -102,7 +102,11 @@ export const BUNDLE_BUDGETS = Object.freeze({
   // 05/11/2026: comprovantes individuais (rota lazy), requisitos fiscais e
   // entrega pelo RH. Total medido 1.896.992 bytes (+5.680 sobre main),
   // sem dependências novas. Acréscimo de 6 KiB; tetos por chunk preservados.
-  totalGzipBytes: 1_853 * 1024,
+  // E1.1 (PR #247, 05/11/2026): transferência de material entre obras (modais e
+  // lista "em trânsito" no Estoque, linha da DRE). Medido local: +2,48 KiB
+  // sobre a main da época. Somado ao teto dos comprovantes: +3 KiB.
+  // Limites por chunk e de mídia permanecem iguais.
+  totalGzipBytes: 1_856 * 1024,
   genericJavaScriptGzipBytes: 200 * 1024,
   staticMediaTotalBytes: 4 * 1024 * 1024,
   genericStaticMediaBytes: 1 * 1024 * 1024,

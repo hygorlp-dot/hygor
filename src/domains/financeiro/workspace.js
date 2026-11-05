@@ -1,7 +1,7 @@
 import {selectDRE,selectCashFlow,selectAccountsPayable,selectAccountsReceivable,selectCommitments} from './ledger.js';
 import {isFinancialDate} from './dates.js';
 
-const collections={medicao:'medicoes',nota_fiscal:'notasFiscais',pagamento_nota:'notasFiscais',pedido:'pedidos',medicao_terceiro:'medicoesTerc',pagamento_terceiro:'medicoesTerc',pagamento_terceiro_legado:'pagsTerceiros',outra_despesa:'outrasDesp',despesa_empresa:'despesasEmpresa',rescisao:'rescisoes',recebimento_avulso:'payments',caixa_obra:'caixaObra',titulo_folha:'titulosFolha',pagamento_folha:'titulosFolha'};
+const collections={medicao:'medicoes',nota_fiscal:'notasFiscais',pagamento_nota:'notasFiscais',pedido:'pedidos',medicao_terceiro:'medicoesTerc',pagamento_terceiro:'medicoesTerc',pagamento_terceiro_legado:'pagsTerceiros',outra_despesa:'outrasDesp',despesa_empresa:'despesasEmpresa',rescisao:'rescisoes',recebimento_avulso:'payments',caixa_obra:'caixaObra',titulo_folha:'titulosFolha',pagamento_folha:'titulosFolha',transferencia_estoque:'movEstoque'};
 export function financialEntry(data,event){
   const type=event.sourceType||event.origem;
   const record=(data[collections[type]]||[]).find(r=>String(r.id)===String(event.sourceId))||event.metadata?.titleDetails||null;

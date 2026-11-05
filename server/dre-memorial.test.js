@@ -22,6 +22,18 @@ describe("memorial do DRE",()=>{
     }
     expect(report.memorial["category:aluguel"][0].amountCents).toBe(-3000);
   });
+  it("transferência entre obras entra nas outras diretas com sinal e aponta para o movimento de cada ponta (E1.1)",()=>{
+    const data={obras:[{id:"a",name:"Alameda"},{id:"b",name:"Horizonte"}],config:{},
+      movEstoque:[
+        {id:"t1",obraId:"a",obraDestinoId:"b",materialId:"cim",tipo:"transferencia_saida",qtd:10,valorUnit:32.5,data:"2026-07-02"},
+        {id:"t1c",obraId:"b",obraOrigemId:"a",transferenciaSaidaId:"t1",materialId:"cim",tipo:"transferencia_entrada",qtd:10,valorUnit:32.5,data:"2026-07-05"},
+      ]};
+    const report=project(data),values=annualSourceValues(report);
+    const itens=report.memorial.outrasDiretas.map(item=>[item.obra,item.amountCents,item.record?.id]);
+    expect(itens).toEqual(expect.arrayContaining([["Alameda",-32500,"t1"],["Horizonte",32500,"t1c"]]));
+    expect(report.memorial.costResidual||[]).toEqual([]);
+    expect(report.memorial.outrasDiretas.reduce((sum,item)=>sum+item.amountCents,0)).toBe(values.outrasDiretas);
+  });
   it("mantém o valor apropriado da nota em cada obra",()=>{
     const report=project({obras:[{id:"a",name:"A"},{id:"b",name:"B"}],notasFiscais:[{id:"n",status:"aprovada",emissao:"2026-07-10",valorBruto:100,rateios:[{id:"r1",obraId:"a",valor:40},{id:"r2",obraId:"b",valor:60}]}]});
     expect(report.memorial.outrasDiretas.map(item=>item.amountCents).sort()).toEqual([4000,6000]);

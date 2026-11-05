@@ -69,6 +69,14 @@ describe("comandos transacionais de obra", () => {
     )).toMatchObject({ ok:false });
   });
 
+  it("não exclui obra que recebeu material transferido de outra obra (E1.1)", () => {
+    const data = {
+      obras:[{ id:"obra-1", name:"B2-04", version:3 }, { id:"obra-2", name:"B3-01", version:1 }],
+      movEstoque:[{ id:"t1", obraId:"obra-2", obraDestinoId:"obra-1", tipo:"transferencia_saida", qtd:10 }],
+    };
+    expect(applyProjectCommand(data, command(PROJECT_COMMAND.PROJECT_DELETED, { projectId:"obra-1" }, 3))).toMatchObject({ ok:false });
+  });
+
   it("salva fases de forma versionada, preserva as obras e registra auditoria", () => {
     const data={
       fases:[{id:"antiga",nome:"Antiga",ordem:0}],

@@ -18,7 +18,7 @@ const ROLE_SECTIONS = Object.freeze({
   engenheiro:["obras","condominios","licencas","orcamentos","budgetBaselines","planos","rdos","conferencias","qualidadeRegistros","medicoesObra","medicoesTecnicas","medicoesTerc","materiais","estoque","movEstoque","solicitacoesCompra","pedidos","cotacoes","fornecedores","terceirizados","equipamentos","locacoesEquip","manutencoesEquip","transferenciasEquip","employees","attendance","attendanceLocks","unlockRequests","dailyCheckDate","caixaObra","baseFavoritos","composicoesEmpresa","suprimentosConfig","curvaAbcSnapshots","planosSuprimento","marcosSuprimento","alertasSuprimento","reservasEstoque"],
   engenheiro_auditor:["obras","condominios","licencas","orcamentos","budgetBaselines","planos","rdos","conferencias","qualidadeRegistros","medicoesObra","medicoesTecnicas","medicoesTerc","materiais","estoque","movEstoque","solicitacoesCompra","pedidos","cotacoes","fornecedores","terceirizados","equipamentos","locacoesEquip","manutencoesEquip","transferenciasEquip","employees","caixaObra","baseFavoritos","composicoesEmpresa","suprimentosConfig","curvaAbcSnapshots","planosSuprimento","marcosSuprimento","alertasSuprimento","reservasEstoque"],
   compras:["obras","contratosFornecimento","orcamentos","budgetBaselines","materiais","estoque","movEstoque","solicitacoesCompra","pedidos","cotacoes","fornecedores","notasFiscais","equipamentos","companyAssets","baseFavoritos","planos","suprimentosConfig","curvaAbcSnapshots","planosSuprimento","marcosSuprimento","alertasSuprimento","reservasEstoque"],
-  financeiro:["categoriasDesp","obras","contratosFornecimento","equipamentos","companyAssets","locacoesEquip","manutencoesEquip","transferenciasEquip","terceirizados","medicoesTerc","pagsTerceiros","payments","medicoes","outrasDesp","despesasEmpresa","caixaObra","notasFiscais","documentosMovimentacoes","transacoes","reconciliationLinks","orcamentos","budgetBaselines","pedidos","fornecedores","titulosFolha","pagamentosFolha","rescisoes","quinzenasArquivadas","archivedLaborCosts","employees","attendance","medicoesObra","fechamentosFinanceiros"],
+  financeiro:["categoriasDesp","obras","movEstoque","contratosFornecimento","equipamentos","companyAssets","locacoesEquip","manutencoesEquip","transferenciasEquip","terceirizados","medicoesTerc","pagsTerceiros","payments","medicoes","outrasDesp","despesasEmpresa","caixaObra","notasFiscais","documentosMovimentacoes","transacoes","reconciliationLinks","orcamentos","budgetBaselines","pedidos","fornecedores","titulosFolha","pagamentosFolha","rescisoes","quinzenasArquivadas","archivedLaborCosts","employees","attendance","medicoesObra","fechamentosFinanceiros"],
   rh:["obras","employees","attendance","attendanceLocks","unlockRequests","dailyCheckDate","advances","titulosFolha","pagamentosFolha","rescisoes","quinzenasArquivadas","archivedLaborCosts","terceirizados","transacoes","historicoConc","reconciliationCommandLog"],
   comercial:["obras","comercial"],
   visualizador:["obras"],
@@ -70,6 +70,10 @@ const sanitizeRescission = (rescission, role) => {
 };
 const hasObra = (item, allowed) => !allowed.size || [
   item?.obraId,item?.obra,item?.obraAtualId,item?.paraObraId,item?.deObraId,
+  // E1.1: as duas pontas da transferência de material entre obras. Sem isso, o
+  // engenheiro do destino não vê a saída e não consegue confirmar a chegada, e
+  // o razão da tela descarta a transferência (precisa do par saída + chegada).
+  item?.obraDestinoId,item?.obraOrigemId,
 ].some(value=>value!=null&&value!==""&&allowed.has(String(value)));
 const filterByObra = (value, allowed) => Array.isArray(value) ? value.filter(item => hasObra(item, allowed)) : value;
 const resolvedRecordObraId=(payload,employee,date,record)=>resolveEmployeeAttendanceObraId({

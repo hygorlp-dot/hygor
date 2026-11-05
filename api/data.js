@@ -79,6 +79,7 @@ import {
   podeGerarLinkAceite, verificarTokenAceite, visaoPublicaPedido,
 } from "../server/supplier-acceptance-link.js";
 import { RENTAL_COMMAND_ROLES } from "../src/domains/equipamentos/rental-command-roles.js";
+import { stockTransferSectionViolation } from "../server/stock-transfer-section-guard.js";
 import {
   requiresFinancialOperationalPersistence,
 } from "../server/operational-command-persistence.js";
@@ -178,7 +179,7 @@ const keyForDomain = domain => SPLIT_ROW_KEYS[domain] || KEY;
 // migra sozinha para ela - sem exigir nenhuma ordem de deploy específica.
 const linhaEfetivaParaEscrita = (domain, rowVersions) =>
   (domain!==DOMAIN_ROW.CORE && rowVersions[domain]==null) ? DOMAIN_ROW.CORE : domain;
-const DRE_PROJECTION_VERSION = "2026-11-alocacao-adiantamento-pedido-v13";
+const DRE_PROJECTION_VERSION = "2026-11-transferencia-estoque-entre-obras-v14";
 const OPERATIONAL_RESPONSE_EXCLUDED_SECTIONS = [
   "operationalCommandReceipts",
   "changeLog",
@@ -304,6 +305,9 @@ export const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.MATERIAL_MOVEMENT_RECORDED]:["admin","compras","engenheiro","engenheiro_auditor","mestre"],
   [OPERATIONAL_COMMAND.SERVICE_EXECUTION_RECORDED]:["admin","compras","engenheiro","engenheiro_auditor","mestre"],
   [OPERATIONAL_COMMAND.MATERIAL_MOVEMENT_REVERSED]:["admin","compras","engenheiro","engenheiro_auditor"],
+  // E1.1: os mesmos perfis que estornam movimento; a chegada move custo na DRE.
+  [OPERATIONAL_COMMAND.TRANSFER_SENT]:["admin","compras","engenheiro","engenheiro_auditor"],
+  [OPERATIONAL_COMMAND.TRANSFER_RECEIVED]:["admin","compras","engenheiro","engenheiro_auditor"],
   [OPERATIONAL_COMMAND.COMPOSITION_SAVED]:["admin","compras","engenheiro","engenheiro_auditor"],
   [OPERATIONAL_COMMAND.COMPOSITION_DELETED]:["admin","compras","engenheiro","engenheiro_auditor"],
   [OPERATIONAL_COMMAND.CONFERENCE_CREATED]:["admin","engenheiro_auditor"],
@@ -370,6 +374,8 @@ const FINANCIAL_OPERATIONAL_COMMANDS=new Set([
   OPERATIONAL_COMMAND.PAYABLE_PAYMENT_RECORDED,OPERATIONAL_COMMAND.PURCHASE_PAYMENT_RECLASSIFIED,
   OPERATIONAL_COMMAND.PAYABLE_PAYMENT_REVERSED,
   OPERATIONAL_COMMAND.PURCHASE_CANCELLED,
+  // E1.1: a chegada da transferência (e o estorno dela) move custo entre obras.
+  OPERATIONAL_COMMAND.TRANSFER_RECEIVED,OPERATIONAL_COMMAND.MATERIAL_MOVEMENT_REVERSED,
   OPERATIONAL_COMMAND.BANK_TRANSACTIONS_IMPORTED,
   OPERATIONAL_COMMAND.BANK_TRANSACTIONS_IGNORED,
   OPERATIONAL_COMMAND.BANK_TRANSACTIONS_REOPENED,
@@ -3598,6 +3604,14 @@ export default async function handler(req, res) {
         error:`A seção ${legacyPointWrite} exige o comando granular do servidor.`,
         code:"ATTENDANCE_GRANULAR_REQUIRED",
       });
+      // E1.1: transferência entre obras só pelos comandos (move custo na DRE).
+      if(chaves.includes("movEstoque")){
+        const transferenciaAlterada=stockTransferSectionViolation(atual?.movEstoque,sections.movEstoque);
+        if(transferenciaAlterada)return res.status(409).json({
+          error:"Transferência entre obras só pode ser enviada, recebida ou estornada pela tela de Estoque.",
+          code:"STOCK_TRANSFER_COMMAND_REQUIRED",
+        });
+      }
       // Mesmo em sombra, toda mutação financeira atualiza a projeção
       // canônica na mesma transação do blob. Assim o DRE pode ler o razão sem
       // ficar defasado; FIN-003 continua sendo apenas o bloqueio das escritas

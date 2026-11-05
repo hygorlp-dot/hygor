@@ -215,6 +215,23 @@
   .stock-summary dt { font-size: var(--arcd-type-label); color: var(--arcd-text-secondary); }
   .stock-summary dd { margin: 4px 0 0; font-size: var(--arcd-type-section-title); font-weight: 600; overflow-wrap: anywhere; }
   .stock-accounting-note > div { margin-top: 8px; }
+  /* E1.1: transferências entre obras aguardando a chegada. */
+  .stock-transit { border: 1px solid var(--arcd-border-default); border-left: 3px solid var(--arcd-color-info, var(--arcd-border-strong)); border-radius: var(--arcd-radius-md); background: var(--arcd-color-surface-subtle, transparent); padding: 10px 12px; min-width: 0; }
+  .stock-transit h3 { margin: 0 0 6px; font-size: var(--arcd-type-label); font-weight: 600; color: var(--arcd-text-primary); }
+  .stock-transit ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .stock-transit li { display: flex; justify-content: space-between; align-items: center; gap: 8px 12px; flex-wrap: wrap; padding-top: 6px; border-top: 1px solid var(--arcd-border-subtle); }
+  .stock-transit li:first-child { border-top: 0; padding-top: 0; }
+  .stock-transit li > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .stock-transit li b { font-size: var(--arcd-type-body); overflow-wrap: anywhere; }
+  .stock-transit li small { font-size: var(--arcd-type-caption); color: var(--arcd-text-secondary); }
+  .stock-transfer-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .stock-transfer-form[data-columns="1"] { grid-template-columns: minmax(0, 1fr); }
+  .stock-transfer-summary { grid-column: 1 / -1; margin: 0; font-size: var(--arcd-type-label); color: var(--arcd-text-secondary); line-height: 1.5; }
+  .stock-transfer-summary[data-tone="danger"] { color: var(--arcd-color-danger); font-weight: 600; }
+  .stock-transfer-actions { grid-column: 1 / -1; display: flex; gap: 8px; }
+  .stock-transfer-arrival { display: flex; flex-direction: column; gap: 12px; }
+  .stock-transfer-arrival p { margin: 0; font-size: var(--arcd-type-body); color: var(--arcd-text-primary); line-height: 1.5; }
+  .stock-transfer-arrival .stock-transfer-arrival__note { font-size: var(--arcd-type-label); color: var(--arcd-text-secondary); }
   .arcd-main[data-workspace] .equipment-workflow-context { display: block; width: min(100%, 320px); margin: 0; padding: 0; border: 0; background: transparent; }
   .arcd-main[data-workspace] .equipment-toolbar { grid-template-columns: minmax(0, 1fr); padding: 0; border: 0; background: transparent; }
   .equipment-fleet-card__name { overflow-wrap: anywhere; }
