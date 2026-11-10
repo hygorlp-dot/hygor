@@ -7,6 +7,10 @@ const parse = html => new DOMParser().parseFromString(html, "text/html");
 const sample = `<!doctype html><html><head><title>Cobrança</title><style>@page{size:A4 landscape;margin:10mm}</style></head><body><h1>Empresa legal cadastrada</h1><p>CNPJ 12.345.678/0001-90 · Obra B2-04</p><table><thead><tr><th>Descrição</th><th>Total</th></tr></thead><tbody><tr><td>Locação com desconto</td><td>R$ 1.234,56</td></tr><tr><td>Saldo negativo</td><td>-R$ 17,90</td></tr><tr><td>Sem lançamento</td><td>R$ 0,00</td></tr></tbody><tfoot><tr><td>Total</td><td>R$ 1.216,66</td></tr></tfoot></table><footer>Assinatura do responsável</footer></body></html>`;
 
 describe("identidade dos relatórios MARCELL", () => {
+  it('permite omitir a marca d’água somente no relatório que solicitar',()=>{
+    expect(parse(marcellReportHtml(sample,{watermark:false})).querySelector('.mrc-report-watermark')).toBeNull();
+    expect(parse(marcellReportHtml(sample)).querySelector('.mrc-report-watermark')).not.toBeNull();
+  });
   it("remove a assinatura antiga do cabeçalho e rodapé sem substituir dados de tabelas ou CNPJ", () => {
     const raw = sample.replace("Empresa legal cadastrada", "ArcD Construtech")
       .replace("Assinatura do responsável", "Gerado por ARCD Obras")

@@ -3280,17 +3280,18 @@ Confira o período, as jornadas e as obras que seu perfil pode consultar.
 ### Como fazer
 
 1. Em Ponto eletrônico, abra Relatórios por obra.
-2. Escolha Obra do relatório, início e fim do período (até 62 dias) e use Gerar relatório.
-3. Filtre Funcionário do relatório e escolha Batidas ou Banco de horas em Visualização do relatório.
-4. Confira os dias pendentes e use Exportar Excel ou Exportar PDF; na prévia PDF, use Imprimir / salvar PDF.
+2. Escolha obra, período (até 62 dias) e funcionário; use Gerar relatório.
+3. Confira Resumo do período, detalhamento diário por funcionário e Pendências e observações.
+4. Abra Auditoria das marcações e dos ajustes para conferir segundos e identificadores. Para incluí-la nos arquivos, marque Incluir anexo de auditoria na exportação.
+5. Use Exportar Excel ou Exportar PDF; na prévia, use Imprimir / salvar PDF.
 
 ### Como conferir se deu certo
 
-Excel e PDF incluem as duas visões com todos os registros do filtro, inclusive os que estão em outras páginas da tabela.
+O resumo é seguido das jornadas por funcionário. A exportação inclui todos os funcionários do filtro, mesmo os que estão em outra página da tela.
 
 ### O que merece atenção
 
-As batidas conservam horários e obras recebidos. A apuração usa o almoço padrão e a tolerância já existentes, sem gerar débitos por dias incompletos. Jornada e saldo são diários: quando há várias obras no mesmo dia, não existe rateio automático. O almoço sem horário não é atribuído a uma obra. Não apurado e saldo não rateado não significam zero. Consulta incompleta, falha de atualização ou datas ainda não consultadas impedem exportar. O relatório é estimado, não inclui saldo anterior ou compensações e não substitui comprovante oficial, AFD ou AEJ. Não altera pagamentos.
+Sem tipo não é transformado em entrada ou saída pela ordem: aparece Pendente de classificação, com horários originais, sem gerar horas ou débito. Períodos tratados pelo RH aparecem como Ajustado. O intervalo padrão de uma hora é identificado como presumido, sem batidas fictícias. Jornada e tolerância seguem a configuração existente. Jornadas noturnas pertencem à data de entrada e mostram as duas datas; a consulta inclui um dia de contexto de cada lado. Nos dias com várias obras, jornada e saldo não são rateados sem regra disponível. Ausência de saldo anterior e compensações aparece como Não disponível, sem saldo final consolidado. Resumo parcial soma somente jornadas válidas. O cálculo estrito deste relatório pode diferir da estimativa antiga por pares cronológicos; não altera a gestão do ponto ou a folha. Consulta incompleta, falha de atualização e datas ainda não consultadas bloqueiam exportar. Não altera pagamentos ou marcações.
 
 ## Aparência, botões e navegação
 

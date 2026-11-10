@@ -55,13 +55,14 @@ const lerMarcacao = (m, formato) => ({
   horaConfiavel: m.hora_confiavel,
   relogioAlterado: m.relogio_alterado,
   metodo: m.metodo,
+  tipoEvento: formato === 2 && String(m.versao_jornada) === '1' ? m.tipo_evento || null : null,
 });
 
-export async function consultarBancoHoras({ db, company, de, ate, employeeId = "", allowedEmployeeIds = null, consultadoEm }) {
+export async function consultarBancoHoras({ db, company, de, ate, employeeId = "", allowedEmployeeIds = null, consultadoEm, contextoJornadas = false }) {
   const periodo = validarPeriodoBancoHoras(de, ate);
   if (!periodo.ok) return { status: 400, json: { error: periodo.erro } };
-  const inicio = intervaloDoDia(periodo.de).de;
-  const fim = intervaloDoDia(periodo.ate).ate;
+  const inicio = intervaloDoDia(contextoJornadas ? deslocarDia(periodo.de, -1) : periodo.de).de;
+  const fim = intervaloDoDia(contextoJornadas ? deslocarDia(periodo.ate, 1) : periodo.ate).ate;
   // Uma apropriação pode cruzar a meia-noite (até 24 h). Os dias adjacentes
   // permitem reconhecer batidas já cobertas; não ampliam os dias totalizados.
   const inicioContexto = deslocarDia(periodo.de, -1);
@@ -84,7 +85,8 @@ export async function consultarBancoHoras({ db, company, de, ate, employeeId = "
     : autorizados ? q.in("employee_id", autorizados) : q;
 
   const marcacoes = (tabela, id) => () => {
-    const q = db.from(tabela).select(`${id},${CAMPOS_MARCACAO}`, { count: "exact" })
+    const classificacao = tabela === 'ponto_eventos' ? ',tipo_evento:payload->>tipoEvento,versao_jornada:payload->>versaoJornada' : '';
+    const q = db.from(tabela).select(`${id},${CAMPOS_MARCACAO}${classificacao}`, { count: "exact" })
       .eq("company_id", company).eq("tipo_registro", "ponto")
       .gte("marcado_em", inicio).lte("marcado_em", fim).lte("recebido_em", corte);
     return filtrarFuncionario(q).order("recebido_em", { ascending: true }).order(id, { ascending: true });

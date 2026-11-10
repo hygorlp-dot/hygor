@@ -14,7 +14,7 @@ function atualizarAssinatura(html) {
 
 // Presentation only: the existing report remains responsible for its data,
 // totals, columns, paper size, signatures and legal company identification.
-export function marcellReportHtml(html, { adjustableTables = false } = {}) {
+export function marcellReportHtml(html, { adjustableTables = false, watermark = true } = {}) {
   if (/<body\b[^>]*\bdata-marcell-report=/i.test(html)) return html;
   const a2 = /@page\s*\{\s*size\s*:\s*A2\b/i.test(html);
   const dense = /<title>Memória de Cálculo/i.test(html);
@@ -95,8 +95,8 @@ body[data-adjustable-tables] .section :is(h3,p){break-after:avoid}
 @media screen{body[data-marcell-report]{max-width:1400px;margin-inline:auto}body[data-marcell-report] button{font-size:12px!important;font-weight:400!important;background:#0d1b2e!important;color:white!important;border:1px solid #0d1b2e;padding:9px 14px;border-radius:4px}body[data-marcell-report] :is(td,th){overflow-wrap:break-word}}
 </style>`;
   result = result.replace(/<\/head>/i, `${css}</head>`);
-  const watermark = `<div class="mrc-report-watermark" aria-hidden="true"><img src="${MARCELL_LOGO}" alt=""></div>`;
-  result = result.replace(/<body\b([^>]*)>/i, `<body$1 data-marcell-report="true" data-marcell-format="${format}"${adjustableTables ? ' data-adjustable-tables="true"' : ""}>${watermark}${branded || a2 ? "" : brand}`);
+  const watermarkHtml = watermark ? `<div class="mrc-report-watermark" aria-hidden="true"><img src="${MARCELL_LOGO}" alt=""></div>` : '';
+  result = result.replace(/<body\b([^>]*)>/i, `<body$1 data-marcell-report="true" data-marcell-format="${format}"${adjustableTables ? ' data-adjustable-tables="true"' : ""}>${watermarkHtml}${branded || a2 ? "" : brand}`);
   if (a2) result = result.replace(/<section class="page">/g, `<section class="page">${brand}`);
   // Printing from any existing button/automatic path waits for the actual
   // fonts and embedded brand. No totals or report content are recomputed.

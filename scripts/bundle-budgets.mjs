@@ -112,7 +112,10 @@ export const BUNDLE_BUDGETS = Object.freeze({
   // 10/11/2026: Relatórios de batidas/banco por obra, sem novas dependências.
   // A/B no mesmo ambiente: base 1.900.064; com relatório 1.903.849 bytes gzip
   // (+3.785). Acréscimo limitado a 4 KiB; tetos individuais/mídia preservados.
-  totalGzipBytes: 1_860 * 1024,
+  // 10/11/2026: relatório compacto, classificação explícita e contexto noturno.
+  // Medido: 1.908.480 bytes gzip; +4 KiB de teto total.
+  // Sem dependências novas ou aumento dos tetos individuais e de mídia.
+  totalGzipBytes: 1_864 * 1024,
   genericJavaScriptGzipBytes: 200 * 1024,
   staticMediaTotalBytes: 4 * 1024 * 1024,
   genericStaticMediaBytes: 1 * 1024 * 1024,

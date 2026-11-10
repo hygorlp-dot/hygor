@@ -55,7 +55,10 @@ function bancoDeConsulta({ tabelas = {}, cap = Infinity, alterarResposta } = {})
         });
         const selecionadas = linhas.slice(faixa[0], Math.min(faixa[1] + 1, faixa[0] + cap));
         const data = selecionadas.map(linha => colunas === "*" ? { ...linha }
-          : Object.fromEntries(colunas.split(",").map(campo => [campo, linha[campo]])));
+          : Object.fromEntries(colunas.split(",").map(campo => {
+            const m=/^([a-z_]+):([a-z_]+)->>([a-zA-Z]+)$/.exec(campo);
+            return m?[m[1],linha[m[2]]?.[m[3]]==null?null:String(linha[m[2]][m[3]])]:[campo,linha[campo]];
+          })));
         const resposta = { data, error: null, ...(opcoes.count === "exact" ? { count: linhas.length } : {}) };
         return alterarResposta?.(consulta, resposta) || resposta;
       };
@@ -342,7 +345,7 @@ describe("ponto-banco-horas: projeção e corte temporal", () => {
     } });
     const r = await consultar(db);
     expect(r.status).toBe(200);
-    const camposMarcacao = ["id", "eventId", "formato", "employeeId", "obraId", "obraCapturaId", "tipoRegistro", "marcadoEm", "horaConfiavel", "relogioAlterado", "metodo"].sort();
+    const camposMarcacao = ["id", "eventId", "formato", "employeeId", "obraId", "obraCapturaId", "tipoRegistro", "marcadoEm", "horaConfiavel", "relogioAlterado", "metodo", "tipoEvento"].sort();
     for (const m of r.json.marcacoes) expect(Object.keys(m).sort()).toEqual(camposMarcacao);
     expect(Object.keys(r.json.apropriacoes[0]).sort()).toEqual(["id", "employeeId", "data", "inicio", "fim", "obraApropriadaId", "origem", "status", "version", "atualizadoEm"].sort());
     for (const q of db.consultas) {
@@ -354,6 +357,20 @@ describe("ponto-banco-horas: projeção e corte temporal", () => {
 });
 
 let pg;
+describe('metadados de classificação e contexto noturno do relatório',()=>{
+ it('devolve somente a classificação da versão fiscal válida, sem payload',async()=>{
+  const db=bancoDeConsulta({tabelas:{ponto_eventos:[linhaMarcacao(1,{payload:{versaoJornada:1,tipoEvento:'entrada',segredo:'nao-expor'}}),linhaMarcacao(2,{payload:{tipoEvento:'saida',segredo:'nao-expor'}})]}});
+  const r=await consultarBancoHoras({db,company:COMPANY,...PERIODO,consultadoEm:CORTE});
+  expect(r.json.marcacoes.map(m=>m.tipoEvento)).toEqual(['entrada',null]);expect(JSON.stringify(r.json)).not.toContain('nao-expor');
+  expect(db.consultas.find(q=>q.tabela==='ponto_eventos').colunas.split(',')).not.toContain('payload');
+ });
+ it('amplia somente o contexto explicitamente solicitado, mantendo autorização',async()=>{
+  const db=bancoDeConsulta({tabelas:{ponto_eventos:[linhaMarcacao(1,{marcado_em:'2026-09-30T22:00:00-03:00'}),linhaMarcacao(2,{marcado_em:'2026-10-02T06:00:00-03:00'})]}});
+  const r=await chamar(tratador(db),{contextoJornadas:true});expect(r.status).toBe(200);expect(r.json.marcacoes).toHaveLength(2);
+  const q=db.consultas.find(q=>q.tabela==='ponto_eventos');expect(q.filtros).toContainEqual(['gte','marcado_em','2026-09-30T03:00:00.000Z']);
+  expect(q.filtros).toContainEqual(['lte','marcado_em','2026-10-03T02:59:59.999Z']);
+ });
+});
 afterEach(async () => { await pg?.close(); pg = null; });
 
 describe("ponto-banco-horas com migrations reais", () => {
@@ -370,7 +387,7 @@ describe("ponto-banco-horas com migrations reais", () => {
     const evento = {
       formatVersion: FORMATO_EVENTO, eventId: randomUUID(), deviceId: aparelho.dispositivoId,
       estabelecimentoId: "", localSequence: 1, tipoRegistro: "ponto", employeeId: "e1", cpf: "",
-      marcadoEm: "2026-10-01T19:00:00.000Z", horaConfiavel: true, metodo: "facial", localPreviousHash: HASH_INICIAL,
+      marcadoEm: "2026-10-01T19:00:00.000Z", horaConfiavel: true, metodo: "facial", localPreviousHash: HASH_INICIAL, versaoJornada:1, tipoEvento:'entrada',
     };
     evento.localHash = await calcularHashLocal(evento, valor => createHash("sha256").update(valor).digest("hex"));
     const envio = await tratar({ action: "ponto-enviar-marcacoes", headers: { authorization: `Bearer ${aparelho.token}` }, body: { eventos: [evento] } });
@@ -419,11 +436,13 @@ describe("ponto-banco-horas com migrations reais", () => {
     expect(r.status).toBe(200);
     expect(r.json.cobertura).toMatchObject({ completa: true, totalMarcacoes: 2004, totalApropriacoes: 1 });
     expect(r.json.marcacoes.filter(m => m.formato === 1)).toHaveLength(2003);
-    expect(r.json.marcacoes.find(m => m.eventId === evento.eventId)).toMatchObject({ formato: 2, obraCapturaId: "obra-b" });
+    expect(r.json.marcacoes.find(m => m.eventId === evento.eventId)).toMatchObject({ formato: 2, obraCapturaId: "obra-b", tipoEvento:'entrada' });
     expect(r.json.apropriacoes).toMatchObject([{ id: ativa.id, status: "ativa", obraApropriadaId: "obra-b" }]);
     expect(paginas.filter(p => p.tabela === "ponto_marcacoes" && p.ate > 0)).toHaveLength(Math.ceil(2003 / 137));
     const restrito = await chamar(tratador(somenteLeitura, { corte, papel: "engenheiro", usuario: { obraId: "obra-a" } }));
     expect(restrito).toEqual(r); // IN no banco real preserva a captura e o tratamento na obra B.
+    const contexto = await chamar(tratador(somenteLeitura,{corte}),{contextoJornadas:true});
+    expect(contexto.status).toBe(200);expect(contexto.json.marcacoes.find(m=>m.eventId===evento.eventId)?.tipoEvento).toBe('entrada');
     expect(await retrato()).toEqual(antes);
   });
 });

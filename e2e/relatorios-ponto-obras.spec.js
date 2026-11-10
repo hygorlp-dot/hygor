@@ -1,31 +1,38 @@
 import {test,expect} from '@playwright/test';
 import ExcelJS from 'exceljs';
-test('consulta e exporta as duas visões sem gravações',async({page},info)=>{
+import {marcacoes as exemplo} from './fixtures/relatorio-ponto-dados.js';
+test('relatório compacto agrupa jornadas e exporta PDF com auditoria opcional',async({page},info)=>{
+ await page.clock.setFixedTime(new Date('2026-11-30T12:00:00Z'));
  const calls=[],errors=[];page.on('pageerror',e=>errors.push(e.message));
- const marcacoes=['07:00','16:00'].map(h=>({id:h,employeeId:'p',obraCapturaId:'a',horaConfiavel:true,metodo:'facial',marcadoEm:`2026-11-03T${h}:00-03:00`}));
+ const marcacoes=exemplo;
  await page.route('**/api/**',route=>{const b=route.request().postDataJSON();calls.push(b.action);return route.fulfill({json:{ok:true,marcacoes,apropriacoes:[],cobertura:{completa:true}}});});
  await page.goto('/e2e/fixtures/relatorios-ponto-obras.html');
  await expect(page.getByRole('cell',{name:/Pessoa sintética de conferência/}).first()).toBeVisible();
  await expect(page.getByRole('button',{name:'Exportar Excel'})).toBeEnabled();
  const downloadPromise=page.waitForEvent('download');await page.getByRole('button',{name:'Exportar Excel'}).click();
  const download=await downloadPromise,path=info.outputPath('relatorio.xlsx');await download.saveAs(path);
- const wb=new ExcelJS.Workbook();await wb.xlsx.readFile(path);expect(wb.worksheets.map(s=>s.name)).toEqual(['Consulta','Batidas','Banco de horas']);
- expect(wb.getWorksheet('Batidas').rowCount).toBe(3);expect(wb.getWorksheet('Banco de horas').getRow(2).values).toContain('8h00');
- await page.getByLabel('Visualização do relatório').selectOption('banco');
+ const wb=new ExcelJS.Workbook();await wb.xlsx.readFile(path);expect(wb.getWorksheet('Resumo').rowCount).toBe(4);
+ expect(wb.getWorksheet('Jornadas').rowCount).toBe(31);expect(JSON.stringify(wb.getWorksheet('Resumo').getSheetValues())).toContain('224h00');
  await expect(page.getByRole('cell',{name:/8h00/}).first()).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
  await page.screenshot({path:info.outputPath('banco-por-obra.png'),fullPage:true});
  const popupPromise=page.waitForEvent('popup');await page.getByRole('button',{name:'Exportar PDF'}).click();const popup=await popupPromise;
- await popup.waitForLoadState();await expect(popup.getByRole('heading',{name:'Batidas e banco de horas por obra',exact:true})).toBeVisible();
+ await popup.waitForLoadState();await expect(popup.getByRole('heading',{name:'Relatório de ponto e banco de horas',exact:true})).toBeVisible();
+ await expect(popup.locator('.mrc-report-watermark')).toHaveCount(0);await expect(popup.getByRole('heading',{name:/Anexo de auditoria/})).toHaveCount(0);
+ await expect(popup.getByText('Pendente de classificação',{exact:true}).first()).toBeVisible();
  await popup.evaluate(()=>document.fonts.ready);await popup.screenshot({path:info.outputPath('pdf-previa.png'),fullPage:true});
  await popup.pdf({path:info.outputPath('relatorio.pdf'),preferCSSPageSize:true,printBackground:true});
+ await page.getByLabel('Incluir anexo de auditoria na exportação').check();
+ const anexoPromise=page.waitForEvent('popup');await page.getByRole('button',{name:'Exportar PDF'}).click();const anexo=await anexoPromise;
+ await expect(anexo.getByRole('heading',{name:/Anexo de auditoria/})).toBeVisible();await expect(anexo.getByText(/07:00:17/).first()).toBeVisible();
+ await anexo.pdf({path:info.outputPath('relatorio-auditoria.pdf'),preferCSSPageSize:true,printBackground:true});
  await page.getByLabel('Obra do relatório').selectOption('b');await expect(page.getByRole('heading',{name:'Nenhum registro neste filtro'})).toBeVisible();
  expect(calls.every(a=>a==='ponto-banco-horas')).toBe(true);expect(errors).toEqual([]);
 });
 test('aba integrada ao app mantém navegação e ajuda no desktop e celular',async({page},info)=>{
  const user={id:'qa',nome:'RH de teste',role:'admin',email:'qa@example.test',active:true};
  const data={usuarios:[user],obras:[{id:'a',name:'Obra sintética A',status:'active'}],employees:[{id:'p',name:'Pessoa sintética',obra:'a',role:'Pedreiro',workdayHours:8,dailyRate:100,active:true,startDate:'2026-01-01'}],attendance:{},payments:[],config:{paymentHolidays:[]}};
- const marcacoes=['07:00','16:00'].map(h=>({id:h,employeeId:'p',obraCapturaId:'a',horaConfiavel:true,metodo:'facial',marcadoEm:`2026-11-03T${h}:00-03:00`}));
+ const marcacoes=['07:00','16:00'].map((h,i)=>({id:h,employeeId:'p',tipoEvento:i?'saida':'entrada',obraCapturaId:'a',horaConfiavel:true,metodo:'facial',marcadoEm:`2026-11-03T${h}:00-03:00`}));
  await page.route('**/api/**',route=>{
   const b=route.request().postDataJSON()||{};
   if(b.action==='profiles')return route.fulfill({json:{precisaSetup:false}});
@@ -38,13 +45,12 @@ test('aba integrada ao app mantém navegação e ajuda no desktop e celular',asy
  await page.getByRole('tab',{name:'Relatórios por obra',exact:true}).click();
  await expect(page.getByLabel('Obra do relatório')).toBeVisible();
  await expect(page.getByRole('cell',{name:/Pessoa sintética/}).first()).toBeVisible();
- await page.getByLabel('Visualização do relatório').selectOption('banco');
  await expect(page.getByRole('cell',{name:/8h00/}).first()).toBeVisible();
  const downloadPromise=page.waitForEvent('download');await page.getByRole('button',{name:'Exportar Excel'}).click();
  const download=await downloadPromise,arquivo=info.outputPath('relatorio-app.xlsx');await download.saveAs(arquivo);
- const workbook=new ExcelJS.Workbook();await workbook.xlsx.readFile(arquivo);expect(workbook.getWorksheet('Batidas').rowCount).toBe(3);
+ const workbook=new ExcelJS.Workbook();await workbook.xlsx.readFile(arquivo);expect(workbook.getWorksheet('Jornadas').rowCount).toBe(2);
  const popupPromise=page.waitForEvent('popup');await page.getByRole('button',{name:'Exportar PDF'}).click();const popup=await popupPromise;
- await expect(popup.getByRole('heading',{name:'Batidas e banco de horas por obra',exact:true})).toBeVisible();await popup.close();
+ await expect(popup.getByRole('heading',{name:'Relatório de ponto e banco de horas',exact:true})).toBeVisible();await popup.close();
  const abas=await page.getByRole('tablist',{name:'Consultas do ponto eletrônico'}).boundingBox();
  expect(abas.x+abas.width).toBeLessThanOrEqual(page.viewportSize().width+1);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);

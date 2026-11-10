@@ -42,6 +42,10 @@ const ehJson = v => v !== null && typeof v === "object" && !(v instanceof Date);
 // Linha do PGlite -> como o PostgREST devolveria (datas em texto ISO).
 const comoPostgrest = linha => Object.fromEntries(Object.entries(linha).map(([k, v]) => [k, v instanceof Date ? v.toISOString() : v]));
 const ident = c => `"${String(c).replace(/"/g, "")}"`;
+const projeção = c => {
+ const m = /^([a-z_]+):([a-z_]+)->>([a-zA-Z]+)$/.exec(c);
+ return m ? `${ident(m[2])}->>'${m[3]}' as ${ident(m[1])}` : ident(c);
+};
 
 export function camadaSupabase(pg) {
   const arquivos = new Map();
@@ -53,7 +57,7 @@ export function camadaSupabase(pg) {
     const executar = async () => {
       let sql;
       if (modo === "select") {
-        sql = `select ${colunas === "*" ? "*" : colunas.split(",").map(c => ident(c.trim())).join(",")} from public.${ident(tabela)}${onde()}`;
+        sql = `select ${colunas === "*" ? "*" : colunas.split(",").map(c => projeção(c.trim())).join(",")} from public.${ident(tabela)}${onde()}`;
         if (ordem.length) sql += ` order by ${ordem.join(", ")}`;
         if (limite) sql += ` limit ${Number(limite)}`;
         if (deslocamento) sql += ` offset ${Number(deslocamento)}`;

@@ -326,6 +326,7 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, l
       return consultarBancoHoras({
         db, company, de: texto(body.de), ate: texto(body.ate),
         employeeId: texto(body.employeeId), allowedEmployeeIds, consultadoEm: agora().toISOString(),
+        contextoJornadas: body.contextoJornadas === true,
       });
     },
 

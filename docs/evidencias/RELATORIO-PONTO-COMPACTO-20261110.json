@@ -1,0 +1,22 @@
+{
+  "estado": "validado_localmente_sem_publicacao",
+  "basePublicada": "0b80ab9a7c0210cce12959e75ac26f2ec7e6d1a5",
+  "testes": {"arquivos": 9, "aprovados": 155, "playwright": 4, "sqlRepetido": 49},
+  "pdf": {"principalPaginas": 2, "comAuditoriaPaginas": 5, "a4Paisagem": true, "marcaDagua": false, "rodapeSemSobreposicao": true, "segundosNoAnexo": true, "identificacaoNaContinuacao": true},
+  "impeccable": [],
+  "lint": true,
+  "typecheck": true,
+  "arquitetura": true,
+  "build": true,
+  "bundleGzipBytes": 1908480,
+  "bundleLimiteBytes": 1908736,
+  "dadosDemonstracao": "sinteticos",
+  "semTipoGeraHoras": false,
+  "saldoAnteriorInventado": false,
+  "pagamentosAlterados": 0,
+  "batidasAlteradas": 0,
+  "apksAlterados": 0,
+  "corteFiscalAtivado": false,
+  "push": false,
+  "deploy": false
+}

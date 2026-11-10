@@ -7,7 +7,7 @@ import RelatoriosObraView from './RelatoriosObraView.jsx';
 vi.mock('../../../api.js',()=>({chamarPontoEletronico:vi.fn()}));
 vi.mock('../../../reports/ponto-obras.js',()=>({exportarExcelPontoObras:vi.fn().mockResolvedValue(),exportarPdfPontoObras:vi.fn()}));
 const data={employees:[{id:'p',name:'Pessoa sintética',workdayHours:8}],obras:[{id:'a',name:'Obra A'},{id:'b',name:'Obra B'}]};
-const resposta={ok:true,apropriacoes:[],cobertura:{completa:true},marcacoes:['07:00','16:00'].map(h=>({id:h,employeeId:'p',obraCapturaId:'a',marcadoEm:`2026-11-03T${h}:00-03:00`,horaConfiavel:true}))};
+const resposta={ok:true,apropriacoes:[],cobertura:{completa:true},marcacoes:['07:00','16:00'].map((h,i)=>({id:h,employeeId:'p',obraCapturaId:'a',tipoEvento:i?'saida':'entrada',marcadoEm:`2026-11-03T${h}:00-03:00`,horaConfiavel:true}))};
 let root,container;
 const botao=texto=>[...container.querySelectorAll('button')].find(b=>b.textContent===texto);
 const controle=label=>[...container.querySelectorAll('label')].find(l=>l.querySelector('span')?.textContent===label)?.querySelector('select,input');
@@ -34,11 +34,19 @@ it('não exporta resultado antigo depois de falhar uma atualização',async()=>{
  await act(async()=>container.querySelector('form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
  expect(container.textContent).toContain('Sem acesso');expect(botao('Exportar PDF').disabled).toBe(true);
 });
-it('pagina a tabela mas exporta todos os registros do filtro',async()=>{
- const muitas=Array.from({length:120},(_,i)=>({...resposta.marcacoes[0],id:`evento-${i}`,marcadoEm:new Date(Date.parse('2026-11-03T07:00:00-03:00')+i*60000).toISOString()}));
+it('pagina os funcionários mas exporta o resumo e todas as jornadas',async()=>{
+ const employees=Array.from({length:12},(_,i)=>({...data.employees[0],id:`p${i}`,name:`Pessoa ${i}`}));
+ const muitas=employees.flatMap(e=>resposta.marcacoes.map(b=>({...b,employeeId:e.id,id:`${e.id}-${b.id}`})));
  vi.mocked(chamarPontoEletronico).mockResolvedValue({...resposta,marcacoes:muitas});
+ await act(async()=>root.render(<RelatoriosObraView data={{...data,employees}} obraId="a" dia="2026-11-03" currentUser={{id:'rh',role:'rh'}}/>));
  await act(async()=>container.querySelector('form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
- expect(container.querySelectorAll('tbody tr')).toHaveLength(100);
- await act(async()=>botao('Próxima').click());expect(container.querySelectorAll('tbody tr')).toHaveLength(20);
- await act(async()=>botao('Exportar Excel').click());expect(exportarExcelPontoObras.mock.calls[0][0].batidas).toHaveLength(120);
+ expect(container.querySelectorAll('.bh-extrato')).toHaveLength(10);
+ await act(async()=>botao('Próxima').click());expect(container.querySelectorAll('.bh-extrato')).toHaveLength(2);
+ await act(async()=>botao('Exportar Excel').click());expect(exportarExcelPontoObras.mock.calls[0][0].grupos).toHaveLength(12);
+});
+it('mantém auditoria opcional na exportação e não expõe a opção como gravação',async()=>{
+ const checkbox=container.querySelector('input[type="checkbox"]');expect(checkbox.checked).toBe(false);
+ await act(async()=>checkbox.click());await act(async()=>botao('Exportar PDF').click());
+ expect(exportarPdfPontoObras).toHaveBeenLastCalledWith(expect.any(Object),{incluirAuditoria:true});
+ expect(chamarPontoEletronico).toHaveBeenCalledWith('ponto-banco-horas',expect.objectContaining({contextoJornadas:true}));
 });
