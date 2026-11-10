@@ -15,6 +15,7 @@ import { usePontoEletronico } from "../usePontoEletronico.js";
 import { useSyncedWorkObra } from "../../../features/workflow/work-context.js";
 import ConferenciaBatidas from "./ConferenciaBatidas.jsx";
 import BancoHorasView from "./BancoHorasView.jsx";
+import RelatoriosObraView from "./RelatoriosObraView.jsx";
 import DocumentosFiscais from "./DocumentosFiscais.jsx";
 import AcessoComprovantes from "./AcessoComprovantes.jsx";
 import "./ponto-eletronico.css";
@@ -79,6 +80,7 @@ export default function PontoEletronicoView({ data, showToast, currentUser, disp
   const fiscalRef = useRef(null);
   const batidasTabRef = useRef(null);
   const bancoTabRef = useRef(null);
+  const relatoriosTabRef = useRef(null);
   const podeGerir = ["admin", "rh", "engenheiro"].includes(currentUser?.role);
   const podeFiscal = ["admin", "rh"].includes(currentUser?.role);
   const ocupado = Boolean(acaoEmCurso);
@@ -259,9 +261,10 @@ export default function PontoEletronicoView({ data, showToast, currentUser, disp
   const navegarAbas = event => {
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
     event.preventDefault();
-    const proxima = event.key === "Home" ? "batidas" : event.key === "End" ? "banco" : aba === "batidas" ? "banco" : "batidas";
+    const abas = ['batidas','banco','relatorios'];
+    const proxima = event.key === 'Home' ? abas[0] : event.key === 'End' ? abas.at(-1) : abas[(abas.indexOf(aba)+(event.key==='ArrowLeft'?2:1))%abas.length];
     setAba(proxima);
-    (proxima === "batidas" ? batidasTabRef : bancoTabRef).current?.focus();
+    ({batidas:batidasTabRef,banco:bancoTabRef,relatorios:relatoriosTabRef})[proxima].current?.focus();
   };
 
   if (!obras.length) return <div className="pe-page"><PageHeader title="Ponto eletrônico" description="Registros recebidos do app Ponto de Obra."/><EmptyState title="Nenhuma obra disponível" description="Cadastre uma obra no MARCELL para parear o primeiro aparelho de ponto."/></div>;
@@ -281,9 +284,10 @@ export default function PontoEletronicoView({ data, showToast, currentUser, disp
     <div className="pe-tabs" role="tablist" aria-label="Consultas do ponto eletrônico" onKeyDown={navegarAbas}>
       <StandardButton variant="secondary" ref={batidasTabRef} id="pe-tab-batidas" type="button" role="tab" aria-selected={aba === "batidas"} aria-controls="pe-panel-batidas" tabIndex={aba === "batidas" ? 0 : -1} onClick={() => setAba("batidas")}>Batidas</StandardButton>
       <StandardButton variant="secondary" ref={bancoTabRef} id="pe-tab-banco" type="button" role="tab" aria-selected={aba === "banco"} aria-controls="pe-panel-banco" tabIndex={aba === "banco" ? 0 : -1} onClick={() => setAba("banco")}>Banco de horas</StandardButton>
+      <StandardButton variant="secondary" ref={relatoriosTabRef} id="pe-tab-relatorios" type="button" role="tab" aria-selected={aba === "relatorios"} aria-controls="pe-panel-relatorios" tabIndex={aba === "relatorios" ? 0 : -1} onClick={() => setAba("relatorios")}>Relatórios por obra</StandardButton>
     </div>
 
-    <div className="pe-context">
+    <div className="pe-context" hidden={aba === 'relatorios'}>
       <div className="pe-work-selector"><Sel label="Obra" value={obraId} onChange={setObraId} disabled={ocupado} options={obras.map(o => ({ v: String(o.id), l: o.name }))} /></div>
       {aba === "batidas" && <>
         <div className="pe-day-selector"><Inp label="Dia" type="date" value={dia} onChange={v => v && setDia(v)} disabled={ocupado} /></div>
@@ -295,6 +299,9 @@ export default function PontoEletronicoView({ data, showToast, currentUser, disp
       </>}
     </div>
 
+    <div id="pe-panel-relatorios" role="tabpanel" aria-labelledby="pe-tab-relatorios" tabIndex={0} hidden={aba !== 'relatorios'}>
+      {aba === 'relatorios' && <RelatoriosObraView data={data} obraId={obraId} currentUser={currentUser} dia={dia}/>}
+    </div>
     <div id="pe-panel-banco" role="tabpanel" aria-labelledby="pe-tab-banco" tabIndex={0} hidden={aba !== "banco"}>
       {aba === "banco" && <BancoHorasView data={data} obraId={obraId} currentUser={currentUser} showToast={showToast} dia={dia} />}
     </div>

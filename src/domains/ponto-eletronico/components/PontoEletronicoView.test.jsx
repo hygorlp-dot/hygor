@@ -8,6 +8,7 @@ import PontoEletronicoView from "./PontoEletronicoView.jsx";
 vi.mock("../../../api", () => ({ chamarPontoEletronico: vi.fn() }));
 vi.mock("../usePontoEletronico.js", () => ({ usePontoEletronico: vi.fn() }));
 vi.mock("./BancoHorasView.jsx", () => ({ default: ({ obraId }) => <p>Consulta do banco de horas: {obraId}</p> }));
+vi.mock("./RelatoriosObraView.jsx", () => ({ default: ({ obraId }) => <p>Relatórios por obra: {obraId}</p> }));
 vi.mock("../../../legacy/ui.jsx", async () => ({
   LoadingState: (await import("../../../design-system/patterns/LoadingState.jsx")).LoadingState,
   C: { green: "#2e6652", orange: "#855a24", red: "#a63b3b", muted: "#536171", blue: "#355874" },
@@ -146,6 +147,10 @@ describe("consulta de batidas", () => {
     expect(container.querySelector("#pe-panel-batidas").hidden).toBe(true);
     expect(container.textContent).toContain("Consulta do banco de horas: obra-a");
     expect(controle("Dia")).toBeUndefined();
+    act(() => document.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true })));
+    expect(container.querySelector("#pe-tab-relatorios").getAttribute("aria-selected")).toBe("true");
+    expect(document.activeElement).toBe(container.querySelector("#pe-tab-relatorios"));
+    expect(container.querySelector("#pe-panel-relatorios").hidden).toBe(false);
     act(() => document.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: "Home", bubbles: true })));
     expect(container.querySelector("#pe-tab-batidas").getAttribute("aria-selected")).toBe("true");
     expect(controle("Dia")).toBeTruthy();

@@ -109,7 +109,10 @@ export const BUNDLE_BUDGETS = Object.freeze({
   // Topo mostra a obra efetiva da tela e some onde o carimbo não vale (05/11):
   // com a transferência e os comprovantes, o build local mediu 1.855,45 KiB,
   // dentro do teto da main; sem acréscimo.
-  totalGzipBytes: 1_856 * 1024,
+  // 10/11/2026: Relatórios de batidas/banco por obra, sem novas dependências.
+  // A/B no mesmo ambiente: base 1.900.064; com relatório 1.903.849 bytes gzip
+  // (+3.785). Acréscimo limitado a 4 KiB; tetos individuais/mídia preservados.
+  totalGzipBytes: 1_860 * 1024,
   genericJavaScriptGzipBytes: 200 * 1024,
   staticMediaTotalBytes: 4 * 1024 * 1024,
   genericStaticMediaBytes: 1 * 1024 * 1024,

@@ -140,6 +140,7 @@ Conteúdo gerado de `src/features/help/help-content.js`, a mesma fonte da ajuda 
 - [Planejamento · Linha de base aprovada e SPI](#guia-plan_baseline)
 - [Previsões · Indicadores contábeis](#guia-fin_previsoes_accounting)
 - [Previsões · Bases contábeis e conferência](#guia-fin_previsoes_accounting_base)
+- [Relatórios de batidas e banco de horas por obra](#guia-ponto_relatorios_obras)
 
 <a id="guia-fin_previsoes"></a>
 
@@ -3265,6 +3266,31 @@ O sistema registra origem, período, contas, revisão, autor, data e comparaçã
 ### O que merece atenção
 
 Balancete já encerrado não sustenta a DRE deste fluxo: use o arquivo anterior ao encerramento. A DRE usa movimentação do período; o balanço usa saldos finais. O PL dos índices soma as contas de patrimônio ao resultado acumulado em aberto, que pode incluir períodos anteriores. Saldo inicial e final são conferidos em centavos. Conferir a aritmética não comprova por si só a cobertura integral: o responsável precisa confirmar entidade, grupos, prazos e todas as contas. Não misture empresas ou períodos. Base inconsistente pode ser guardada como rascunho, mas não pode ser conferida. Bases conferidas não podem ser editadas ou apagadas pelo fluxo. Se o ERP mudar depois, aparece aviso e a comparação registrada é preservada; importe uma revisão se necessário. Administrador ou financeiro com restrição por obra não pode acessar as bases da empresa. O arquivo é lido e normalizado em contas na base do app; não é enviado a serviços externos para interpretação. Nada é publicado automaticamente.
+
+<a id="guia-ponto_relatorios_obras"></a>
+
+## Relatórios de batidas e banco de horas por obra
+
+Consultar e exportar registros recebidos, sem alterar o ponto ou a folha.
+
+### Antes de começar
+
+Confira o período, as jornadas e as obras que seu perfil pode consultar.
+
+### Como fazer
+
+1. Em Ponto eletrônico, abra Relatórios por obra.
+2. Escolha Obra do relatório, início e fim do período (até 62 dias) e use Gerar relatório.
+3. Filtre Funcionário do relatório e escolha Batidas ou Banco de horas em Visualização do relatório.
+4. Confira os dias pendentes e use Exportar Excel ou Exportar PDF; na prévia PDF, use Imprimir / salvar PDF.
+
+### Como conferir se deu certo
+
+Excel e PDF incluem as duas visões com todos os registros do filtro, inclusive os que estão em outras páginas da tabela.
+
+### O que merece atenção
+
+As batidas conservam horários e obras recebidos. A apuração usa o almoço padrão e a tolerância já existentes, sem gerar débitos por dias incompletos. Jornada e saldo são diários: quando há várias obras no mesmo dia, não existe rateio automático. O almoço sem horário não é atribuído a uma obra. Não apurado e saldo não rateado não significam zero. Consulta incompleta, falha de atualização ou datas ainda não consultadas impedem exportar. O relatório é estimado, não inclui saldo anterior ou compensações e não substitui comprovante oficial, AFD ou AEJ. Não altera pagamentos.
 
 ## Aparência, botões e navegação
 

@@ -296,4 +296,8 @@ accountingParentHelp.steps.push('Para rentabilidade, liquidez e endividamento da
 
 
 
+HELP_GUIDES.push(guide('ponto_relatorios_obras','Relatórios de batidas e banco de horas por obra','Consultar e exportar registros recebidos, sem alterar o ponto ou a folha.','Confira o período, as jornadas e as obras que seu perfil pode consultar.',
+ 'Em Ponto eletrônico, abra Relatórios por obra.|Escolha Obra do relatório, início e fim do período (até 62 dias) e use Gerar relatório.|Filtre Funcionário do relatório e escolha Batidas ou Banco de horas em Visualização do relatório.|Confira os dias pendentes e use Exportar Excel ou Exportar PDF; na prévia PDF, use Imprimir / salvar PDF.',
+ 'Excel e PDF incluem as duas visões com todos os registros do filtro, inclusive os que estão em outras páginas da tabela.',
+ 'As batidas conservam horários e obras recebidos. A apuração usa o almoço padrão e a tolerância já existentes, sem gerar débitos por dias incompletos. Jornada e saldo são diários: quando há várias obras no mesmo dia, não existe rateio automático. O almoço sem horário não é atribuído a uma obra. Não apurado e saldo não rateado não significam zero. Consulta incompleta, falha de atualização ou datas ainda não consultadas impedem exportar. O relatório é estimado, não inclui saldo anterior ou compensações e não substitui comprovante oficial, AFD ou AEJ. Não altera pagamentos.'));
 export const HELP_BY_ID = Object.fromEntries(HELP_GUIDES.map(item=>[item.id,item]));

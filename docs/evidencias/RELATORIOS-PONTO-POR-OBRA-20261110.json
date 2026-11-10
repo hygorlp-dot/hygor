@@ -1,0 +1,22 @@
+{
+  "modo": "validacao_local",
+  "skills": ["brainstorming", "impeccable", "shadcn"],
+  "impeccableDetector": [],
+  "testes": {"arquivos": 12, "aprovados": 153, "playwright": 4},
+  "viewports": ["1440x1000", "390x844"],
+  "xlsxReaberto": true,
+  "pdfGeradoERenderizado": true,
+  "layoutPdf": "A4 paisagem",
+  "lint": true,
+  "typecheck": true,
+  "manualAtualizado": true,
+  "revisaoVisualManual": true,
+  "dadosTestes": "sinteticos",
+  "escritasProducao": 0,
+  "pagamentosAlterados": 0,
+  "batidasAlteradas": 0,
+  "permissoesAlteradas": 0,
+  "apksAlterados": 0,
+  "push": false,
+  "deploy": false
+}
