@@ -119,6 +119,7 @@ import { sanitizeClientError, sanitizeServerError } from "../server/client-error
 import { assuntoLimitePinUsuario, normalizarIdentificador, resolverUsuarioPorIdentificador, respostaPerfisPublica } from "../server/login-identity.js";
 import { authenticateAppUser } from "../server/app-auth.js";
 import { criarTratadorPonto, ehAcaoPonto } from "../server/ponto-eletronico/handler.js";
+import { lerDadosEquipe } from "../server/ponto-eletronico/dados-equipe.js";
 import { lerConfiguracaoFiscal } from "../server/ponto-eletronico/fiscal/config.js";
 import { criarServicosAssinaturaHttp } from "../server/ponto-eletronico/fiscal/servico-http.js";
 import { enviarUdpComDgram, verificarHora } from "../server/ponto-eletronico/tempo/ntp.js";
@@ -694,6 +695,7 @@ const tratarAcaoPonto = criarTratadorPonto({
   lerServicosAssinatura: () => criarServicosAssinaturaHttp(),
   lerSegredoAutomacao: () => process.env.PONTO_FISCAL_AUTOMACAO_TOKEN,
   lerDadosPainel: async () => (await lerLinha()).payload || {},
+  lerDadosEquipe: () => lerDadosEquipe({ db, company: COMPANY, coreKey: KEY, pontoKey: PONTO_KEY }),
   integrarJornadas: async eventos => {
     // Datas apenas delimitam a releitura; horários e identidades usados no cálculo
     // vêm das tabelas da empresa, dentro da transação de ponto existente.

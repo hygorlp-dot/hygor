@@ -1,5 +1,6 @@
 import { montarEquipeObras, diaNoFuso } from "../../src/domains/ponto-eletronico/equipe-obras.js";
 import { FUSO_OBRA } from "../../src/domains/ponto-eletronico/painel.js";
+import { assinarFotosEquipe } from "./fotos-assinadas.js";
 
 // Lotes por tabela, nunca uma consulta por funcionário. Falhar é preferível
 // a exibir silenciosamente um retrato truncado pela paginação do PostgREST.
@@ -44,11 +45,7 @@ export async function consultarEquipeObras({ db, company, usuario, dados, agora 
   const fotos = new Map();
   for (const bio of bios.sort((a, b) => String(a.criado_em).localeCompare(String(b.criado_em)))) if (ids.has(String(bio.employee_id)) && bio.fotos?.[0]?.caminho) fotos.set(String(bio.employee_id), bio.fotos[0].caminho);
   const caminhos = [...new Set(fotos.values())];
-  const assinadas = new Map();
-  for (let i = 0; i < caminhos.length; i += 100) {
-    const { data, error } = await db.storage.from("ponto-obra").createSignedUrls(caminhos.slice(i, i + 100), 120);
-    if (!error) for (const foto of data || []) if (foto.signedUrl && !foto.error) assinadas.set(foto.path, foto.signedUrl);
-  }
+  const assinadas = await assinarFotosEquipe({ db, company, caminhos });
   pessoas = pessoas.map(p => ({ ...p, fotoUrl: assinadas.get(fotos.get(p.id)) || p.fotoUrl }));
   return { pessoas, obras, dia: diaNoFuso(agora, fuso), fuso, servidorMs: agora, modo: "consulta_periodica", janelaDias: 7,
     limitacoes: ["Batidas antigas sem tipo de evento precisam de conferência.", "O cadastro atual não possui escala semanal, tolerância de entrada ou agenda de folgas, férias e afastamentos; ausência de batida não confirma falta.", "O painel considera os últimos 7 dias de registros recebidos pelo servidor."] };

@@ -18,14 +18,14 @@
 // - marcação nunca é editada nem apagada - correção é anotação separada
 //   (fase 2), preservando a original.
 
-export const METODOS_IDENTIFICACAO = Object.freeze(["facial", "encarregado"]);
+export const METODOS_IDENTIFICACAO = /* @__PURE__ */ Object.freeze(["facial", "encarregado"]);
 
 // legacyDeviceSequence: o "nsr" de um registro formato 1. Era a numeração do
 // aparelho e continua sendo SÓ isso - nunca usar como NSR fiscal (que é por
 // estabelecimento e só existe depois da ARP).
 export const sequenciaLegadaDoAparelho = m => Number(m?.nsr);
-export const TIPOS_REGISTRO = Object.freeze(["ponto", "acesso_terceiro"]);
-export const HASH_INICIAL = "0".repeat(64);
+export const TIPOS_REGISTRO = /* @__PURE__ */ Object.freeze(["ponto", "acesso_terceiro"]);
+export const HASH_INICIAL = /* @__PURE__ */ "0".repeat(64);
 
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

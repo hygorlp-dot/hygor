@@ -46,3 +46,34 @@ describe('atualização da equipe nas obras',()=>{
     expect(current.erro).not.toBe('');
   });
 });
+
+describe('recuo automático da equipe', () => {
+  afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
+  it('espera após 402 sem ignorar Atualizar manual e depois recupera', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+    chamarPontoEletronico.mockResolvedValueOnce({ok:false,status:402}).mockResolvedValue(valid());
+    await mount();
+    await act(async () => { await vi.advanceTimersByTimeAsync(280_000); document.dispatchEvent(new Event('visibilitychange')); window.dispatchEvent(new Event('online')); });
+    expect(chamarPontoEletronico).toHaveBeenCalledTimes(1);
+    await act(async () => current.carregar());
+    expect(chamarPontoEletronico).toHaveBeenCalledTimes(2);
+    expect(current.erro).toBe('');
+    await act(async () => vi.advanceTimersByTimeAsync(20_000));
+    expect(chamarPontoEletronico).toHaveBeenCalledTimes(3);
+  });
+  it('limita tentativas recusadas e permite recuperação automática após cinco minutos', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+    chamarPontoEletronico.mockResolvedValueOnce(valid()).mockResolvedValue({ok:false,status:403});
+    await mount();
+    await act(async () => vi.advanceTimersByTimeAsync(20_000));
+    expect(current.snapshot).toBeNull();
+    await act(async () => vi.advanceTimersByTimeAsync(299_999));
+    expect(chamarPontoEletronico).toHaveBeenCalledTimes(2);
+    chamarPontoEletronico.mockResolvedValue(valid());
+    await act(async () => vi.advanceTimersByTimeAsync(1));
+    expect(chamarPontoEletronico).toHaveBeenCalledTimes(3);
+    expect(current.snapshot).not.toBeNull();
+  });
+});

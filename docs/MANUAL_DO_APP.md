@@ -1,6 +1,6 @@
 # Manual de uso do app MARCELL
 
-Revisão do conteúdo: 05/11/2026.
+Revisão do conteúdo: 12/11/2026.
 
 Este guia explica o uso das telas em linguagem simples. No aplicativo, clique em **Ajuda**, no cabeçalho, para ler o fluxo da página aberta. Em **Manual completo**, pesquise uma tarefa ou tela. As áreas exibidas no aplicativo respeitam seu perfil de acesso.
 
@@ -1260,7 +1260,7 @@ Identifique o aparelho e a obra em que ele opera.
 ### Como fazer
 
 1. Consulte os aparelhos e a situação de sincronização.
-2. Confira os registros recebidos e as pendências apresentadas.
+2. Confira registros e pendências. Em falhas, aguarde até 5 min ou use Atualizar.
 3. Siga a ação de configuração ou conferência disponível ao seu perfil.
 
 ### Como conferir se deu certo
@@ -1304,7 +1304,7 @@ Entender como a equipe está distribuída e o que precisa de conferência.
 
 ### Antes de começar
 
-Confira a data, a obra e a última sincronização.
+Confira data, obra e sincronização. Em falhas, aguarde até 5 min ou use Atualizar.
 
 ### Como fazer
 
