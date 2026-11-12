@@ -122,7 +122,7 @@ const caminhoFotoMarcacao = (obraId, marcadoEm, id) => `marcacoes/${obraId}/${St
 // existe para os testes fixarem o relógio do host.
 // verificarHoraNtp: async () => medição (tempo/ntp.js verificarHora), usada
 // pela ação ponto-tempo-verificar.
-export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, lerDadosPainel = lerDados, integrarJornadas, agora: agoraDoHost, fonteHora, verificarHoraNtp, politicaHora = POLITICA_PADRAO, lerConfigFiscal = async () => null, servicosAssinatura, lerServicosAssinatura = async () => servicosAssinatura, lerSegredoAutomacao = () => undefined }) {
+export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, lerDadosPainel = lerDados, lerDadosEquipe = lerDadosPainel, integrarJornadas, agora: agoraDoHost, fonteHora, verificarHoraNtp, politicaHora = POLITICA_PADRAO, lerConfigFiscal = async () => null, servicosAssinatura, lerServicosAssinatura = async () => servicosAssinatura, lerSegredoAutomacao = () => undefined }) {
   const fonte = fonteHora || criarFonteHora({
     relogioHost: agoraDoHost ? () => agoraDoHost().getTime() : () => Date.now(),
     politica: politicaHora,
@@ -334,7 +334,7 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, l
       const { usuario, falha } = await doUsuario(body, new Set(["admin", "rh", "engenheiro", "engenheiro_auditor"]));
       if (falha) return falha;
       if (usuario.role !== "admin" && Array.isArray(usuario.accessTabs) && !usuario.accessTabs.includes("equipe_obras")) return erro(403, "Sem acesso à aba Equipe nas Obras.");
-      return ok(await consultarEquipeObras({ db, company, usuario, dados: await lerDadosPainel(), agora: agora().getTime() }));
+      return ok(await consultarEquipeObras({ db, company, usuario, dados: await lerDadosEquipe(), agora: agora().getTime() }));
     },
 
     async "ponto-foto-url"({ body }) {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { chamarPontoEletronico } from "../../api.js";
 import { dataLocal, intervaloDoDia } from "./painel.js";
+import { criarRecuoConsulta } from "./recuo-consulta.js";
 
 export const INTERVALO_ATUALIZACAO_PONTO_MS = 20_000;
 
@@ -45,6 +46,7 @@ export function usePontoRecurso({
     let timer = null;
     let pendente = null;
     let proxima = null;
+    const recuo = criarRecuoConsulta();
     const parametros = JSON.parse(payloadKey);
     const leituraPermitida = ACOES_DE_LEITURA.has(action)
       && !Object.prototype.hasOwnProperty.call(parametros, "action");
@@ -65,9 +67,10 @@ export function usePontoRecurso({
       if (!ativa || !enabled || !leituraPermitida || pollIntervalMs <= 0 || !estaVisivel()) return;
       timer = window.setTimeout(() => {
         timer = null;
-        if (estaVisivel()) executar();
-      }, pollIntervalMs);
+        if (estaVisivel()) executarAutomatico();
+      }, Math.max(pollIntervalMs, recuo.restante()));
     };
+    const executarAutomatico = () => recuo.restante() > 0 ? agendar() : executar();
     const executar = ({ revalidar = false } = {}) => {
       if (!ativa || !enabled) return Promise.resolve(null);
       if (pendente) {
@@ -85,13 +88,15 @@ export function usePontoRecurso({
         if (!leituraPermitida) throw new Error("Este recurso aceita apenas consultas de ponto eletrônico.");
         const resposta = await chamarPontoEletronico(action, parametros);
         if (!ativa) return null;
-        if (!resposta?.ok) throw new Error(resposta?.error || "Não foi possível carregar o ponto eletrônico.");
+        if (!resposta?.ok) throw { message: resposta?.error || "Não foi possível carregar o ponto eletrônico.", status: resposta?.status };
         const dados = select(resposta);
         if (dados === undefined) throw new Error("O servidor retornou uma consulta incompleta. Atualize para tentar novamente.");
+        recuo.sucesso();
         atualizar(() => ({ key, data: dados, loading: false, success: true, error: "", lastUpdated: new Date().toISOString() }));
         return dados;
       }).catch(error => {
-        atualizar(anterior => ({ ...anterior, loading: false, error: error?.message || "Não foi possível carregar o ponto eletrônico." }));
+        recuo.falha(error?.status);
+        atualizar(anterior => ({ ...([401, 403].includes(Number(error?.status)) ? estadoInicial(key, false) : anterior), loading: false, error: error?.message || "Não foi possível carregar o ponto eletrônico." }));
         return null;
       }).finally(() => {
         pendente = null;
@@ -106,7 +111,7 @@ export function usePontoRecurso({
 
     const aoMudarVisibilidade = () => {
       pararTimer();
-      if (enabled && leituraPermitida && pollIntervalMs > 0 && estaVisivel()) executar();
+      if (enabled && leituraPermitida && pollIntervalMs > 0 && estaVisivel()) executarAutomatico();
     };
     if (pollIntervalMs > 0) document.addEventListener("visibilitychange", aoMudarVisibilidade);
     return () => {

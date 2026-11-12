@@ -282,3 +282,51 @@ describe("usePontoRecurso: polling e desmontagem", () => {
     expect(atual).toMatchObject({ success: true, loading: false, data: [{ id: "batida-a" }] });
   });
 });
+
+describe("economia nas tentativas de consulta", () => {
+  const props = { action: "ponto-marcacoes", select: selecionarMarcacoes, pollIntervalMs: 20_000 };
+  it("402 aguarda cinco minutos, inclusive após troca de aba, e sucesso retoma ritmo normal", async () => {
+    chamarPontoEletronico.mockResolvedValueOnce({ ok: false, status: 402, error: "Quota excedida" });
+    await montar(usePontoRecurso, props);
+    await avancar(20_000);
+    await mudarVisibilidade("hidden"); await mudarVisibilidade("visible");
+    await avancar(279_999);
+    expect(chamarPontoEletronico).toHaveBeenCalledTimes(1);
+    await avancar(1);
+    expect(chamarPontoEletronico).toHaveBeenCalledTimes(2);
+    expect(atual.error).toBe("");
+    await avancar(20_000);
+    expect(chamarPontoEletronico).toHaveBeenCalledTimes(3);
+  });
+  it("falhas consecutivas desaceleram sem apresentar resultado antigo como novo", async () => {
+    await montar(usePontoRecurso, props);
+    const atualizado = atual.lastUpdated;
+    chamarPontoEletronico.mockResolvedValue({ ok: false, status: 503, error: "Indisponível" });
+    await avancar(20_000);
+    await avancar(39_999); expect(chamarPontoEletronico).toHaveBeenCalledTimes(2);
+    await avancar(1); expect(chamarPontoEletronico).toHaveBeenCalledTimes(3);
+    await avancar(79_999); expect(chamarPontoEletronico).toHaveBeenCalledTimes(3);
+    await avancar(1); expect(chamarPontoEletronico).toHaveBeenCalledTimes(4);
+    expect(atual.lastUpdated).toBe(atualizado);
+    expect(atual.data).toEqual(respostas["ponto-marcacoes"].marcacoes);
+    expect(atual.error).toBe("Indisponível");
+  });
+  it.each([401, 403])("revogação %s limpa dados e limita automático, mas permite consulta manual", async status => {
+    await montar(usePontoRecurso, props);
+    chamarPontoEletronico.mockResolvedValueOnce({ ok: false, status });
+    await avancar(20_000);
+    expect(atual).toMatchObject({ data: null, success: false, lastUpdated: null });
+    await avancar(299_999); await mudarVisibilidade("hidden"); await mudarVisibilidade("visible");
+    expect(chamarPontoEletronico).toHaveBeenCalledTimes(2);
+    await act(async () => atual.refresh());
+    expect(atual.success).toBe(true);
+    await avancar(20_000); expect(chamarPontoEletronico).toHaveBeenCalledTimes(4);
+  });
+  it("Atualizar ignora a espera, sem mudar filas de gravação ou o filtro", async () => {
+    chamarPontoEletronico.mockResolvedValueOnce({ ok: false, status: 402 });
+    await montar(usePontoRecurso, { ...props, payload: { obraId: "a" } });
+    await act(async () => atual.refresh());
+    expect(chamarPontoEletronico).toHaveBeenCalledTimes(2);
+    expect(chamarPontoEletronico).toHaveBeenLastCalledWith("ponto-marcacoes", { obraId: "a" });
+  });
+});
