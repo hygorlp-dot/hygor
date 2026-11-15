@@ -18,6 +18,7 @@
 //   (migration 016) - continua aceito para não perder batida, sem NSR fiscal.
 // A hora vem da fonte de hora oficial (./tempo/), não de new Date() solto.
 import crypto from "node:crypto";
+import { criarArmazenamentoFotos } from "./fotos.js";
 import { consultarEquipeObras } from "./equipe-obras.js";
 import { projectDataForUser } from "../data-projection.js";
 import { podeAcessarAba } from "../../src/domains/administracao/abas-acesso.js";
@@ -119,7 +120,8 @@ const caminhoFotoMarcacao = (obraId, marcadoEm, id) => `marcacoes/${obraId}/${St
 // existe para os testes fixarem o relógio do host.
 // verificarHoraNtp: async () => medição (tempo/ntp.js verificarHora), usada
 // pela ação ponto-tempo-verificar.
-export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, lerDadosPainel = lerDados, agora: agoraDoHost, fonteHora, verificarHoraNtp, politicaHora = POLITICA_PADRAO }) {
+export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, lerDadosPainel = lerDados, agora: agoraDoHost, fonteHora, verificarHoraNtp, politicaHora = POLITICA_PADRAO, armazenamentoFotos }) {
+  const fotosPonto = armazenamentoFotos || criarArmazenamentoFotos({ db, company });
   const fonte = fonteHora || criarFonteHora({
     relogioHost: agoraDoHost ? () => agoraDoHost().getTime() : () => Date.now(),
     politica: politicaHora,
@@ -266,17 +268,21 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, l
       const { usuario, falha } = await doUsuario(body, new Set(["admin", "rh", "engenheiro", "engenheiro_auditor"]));
       if (falha) return falha;
       if (usuario.role !== "admin" && Array.isArray(usuario.accessTabs) && !usuario.accessTabs.includes("equipe_obras")) return erro(403, "Sem acesso à aba Equipe nas Obras.");
-      return ok(await consultarEquipeObras({ db, company, usuario, dados: await lerDadosPainel(), agora: agora().getTime() }));
+      return ok(await consultarEquipeObras({ db, company, usuario, dados: await lerDadosPainel(), agora: agora().getTime(), fotosPonto }));
     },
 
     async "ponto-foto-url"({ body }) {
-      const { falha } = await doUsuario(body, PAPEIS_CONSULTA);
+      const { usuario, falha } = await doUsuario(body, PAPEIS_CONSULTA);
       if (falha) return falha;
       const m = await localizarParaFoto(texto(body.marcacaoId));
       if (!m?.foto_sha256) return erro(404, "Marcação sem foto.");
-      const assinada = await db.storage.from(BUCKET_PONTO).createSignedUrl(caminhoFotoMarcacao(m.obra_id, m.marcado_em, m.id), 300);
-      if (assinada.error) return erro(404, "A foto ainda não chegou do aparelho.");
-      return ok({ url: assinada.data.signedUrl, expiraEmSegundos: 300 });
+      if (usuario.role !== "admin" && texto(usuario.obraId) && String(m.obra_id) !== texto(usuario.obraId)) return erro(403, "Sem acesso à foto desta obra.");
+      try {
+        const foto = await fotosPonto.url(caminhoFotoMarcacao(m.obra_id, m.marcado_em, m.id));
+        return foto ? ok(foto) : erro(404, "A foto ainda não chegou do aparelho.");
+      } catch {
+        return erro(503, "Não foi possível abrir a foto. Confira a conexão do OneDrive e tente novamente.", { code: "PONTO_FOTO_INDISPONIVEL" });
+      }
     },
 
     async "ponto-responsavel-pin"({ body }) {
@@ -654,9 +660,11 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, l
       // A foto precisa ser exatamente a que foi registrada na marcação (o hash
       // dela entrou no encadeamento) - não dá para trocar a foto depois.
       if (m.foto_sha256 !== foto.sha256) return erro(400, "Foto não corresponde à registrada na marcação.");
-      const { error: errUp } = await db.storage.from(BUCKET_PONTO)
-        .upload(caminhoFotoMarcacao(m.obra_id, m.marcado_em, m.id), foto.buffer, { contentType: "image/jpeg", upsert: false });
-      if (errUp && !/exists|duplicate/i.test(String(errUp.message || ""))) throw errUp;
+      try {
+        await fotosPonto.salvar(caminhoFotoMarcacao(m.obra_id, m.marcado_em, m.id), foto.buffer);
+      } catch {
+        return erro(503, "Foto pendente: confira a conexão do OneDrive. O aparelho tentará enviar novamente.", { code: "PONTO_FOTO_INDISPONIVEL" });
+      }
       return ok({ recebida: true });
     },
 
@@ -683,9 +691,12 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, l
         const foto = decodificarFoto(bruto);
         if (!foto || foto.invalida) return erro(400, foto?.invalida || "Foto do cadastro ausente.");
         const caminho = `biometria/${funcionario.id}/${id}-${i + 1}.jpg`;
-        const { error: errUp } = await db.storage.from(BUCKET_PONTO).upload(caminho, foto.buffer, { contentType: "image/jpeg", upsert: false });
-        if (errUp) throw errUp;
-        fotos.push({ caminho, sha256: foto.sha256 });
+        try {
+          const referencia = await fotosPonto.salvar(caminho, foto.buffer);
+          fotos.push({ ...referencia, sha256: foto.sha256 });
+        } catch {
+          return erro(503, "Cadastro não concluído: confira a conexão do OneDrive e tente novamente.", { code: "PONTO_FOTO_INDISPONIVEL" });
+        }
       }
       const { error } = await db.from("ponto_biometrias").insert({
         company_id: company, id, employee_id: funcionario.id, modelo: texto(body.modelo) || "desconhecido", vetor,

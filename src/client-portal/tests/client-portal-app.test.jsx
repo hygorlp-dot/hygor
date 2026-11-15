@@ -14,8 +14,10 @@ afterEach(() => { while(mounted.length){ const {container,root}=mounted.pop(); a
 const portalData = { project:{name:"Residência Monte Verde",progress:48,currentPhase:"Instalações",estimatedCompletion:"18 de dezembro de 2026"}, decisions:[{id:"d"}], measurements:[{id:"m"}], publishedMedia:[{id:"photo"}], weeklyUpdates:[{id:"w",period:"14–20 jul",summary:"Instalações concluídas",nextSteps:["Revestimentos"]}] };
 
 describe("ClientPortalApp", () => {
-  it("keeps the portal protected until an individual portal session exists", () => {
+  it("keeps the portal protected until an individual portal session exists", async () => {
+    vi.spyOn(globalThis,"fetch").mockResolvedValue({ok:false,status:401,json:async()=>({})});
     const container=render(<ClientPortalApp />);
+    await act(async()=>{});
     expect(container.textContent).toContain("Acesso protegido");
     expect(container.textContent).not.toContain("Residência Monte Verde");
   });
@@ -24,7 +26,7 @@ describe("ClientPortalApp", () => {
     const container=render(<ClientPortalApp session={{permissions:{viewFinancial:true}}} portalData={portalData} />);
     expect(container.textContent).toContain("Residência Monte Verde");
     expect(container.textContent).toContain("48%");
-    expect(container.textContent).toContain("decisão(ões) aguardando você");
+    expect(container.textContent).toContain("Avanço físico");
     expect(container.textContent).not.toContain("salário");
   });
 
@@ -65,11 +67,11 @@ describe("ClientPortalApp", () => {
       quotations:[{id:"quotation",material:"Cimento",quantity:10,unit:"SC",status:"Decidida",proposals:[{supplierName:"Casa dos Materiais",total:250,selected:true}]}],
     };
     window.history.replaceState({}, "", "/cliente/obra/obra-a/progresso");
-    const progress=render(<ClientPortalRouter portalData={richPortal} permissions={{viewFinancial:true}} />);
+    const progress=render(<ClientPortalRouter portalData={richPortal} permissions={{viewFinancial:true,viewProgress:true}} />);
     expect(progress.textContent).toContain("Fundação");
     expect(progress.textContent).not.toContain("Esta área aparecerá");
     window.history.replaceState({}, "", "/cliente/obra/obra-a/decisoes");
-    const decisions=render(<ClientPortalRouter portalData={richPortal} permissions={{viewFinancial:true}} />);
+    const decisions=render(<ClientPortalRouter portalData={richPortal} permissions={{viewFinancial:true,viewChanges:true}} />);
     expect(decisions.textContent).toContain("Aditivo aprovado");
     window.history.replaceState({}, "", "/cliente/obra/obra-a/financeiro");
     const financial=render(<ClientPortalRouter portalData={richPortal} permissions={{viewFinancial:true}} />);

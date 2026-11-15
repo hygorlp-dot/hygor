@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import ErrorBoundary from "./ErrorBoundary";
 import { ThemeProvider } from "./design-system/theme/ThemeProvider.jsx";
+import {isClientPortalLocation} from "./client-portal/routes.js";
 import { instalarCapturaGlobal } from "./observability/global-error-capture.js";
 import "./index.css";
 import "./design-system/themes/marcell-clean.css";
@@ -10,6 +11,7 @@ import "./design-system/themes/marcell-pilot.css";
 import "./design-system/themes/marcell-workspaces.css";
 import "./design-system/themes/operating-contract.css";
 import "./design-system/themes/module-standard.css";
+import "./design-system/themes/material.css";
 
 // Erros fora da renderização (clique, exportação, promessa sem catch) - o
 // ErrorBoundary não os vê. Vão para o mesmo relatório ARCD-XXXX.
@@ -32,7 +34,7 @@ root.render(
   React.createElement(
     React.StrictMode,
     null,
-    React.createElement(ThemeProvider, null,
+    React.createElement(ThemeProvider, {themeOverride:isClientPortalLocation(window.location)?"vidro":undefined},
       React.createElement(
         ErrorBoundary,
         null,

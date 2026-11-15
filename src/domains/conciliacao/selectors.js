@@ -11,6 +11,7 @@ import { saldoPagamentoPedido } from "../compras/calculations.js";
 import { active } from "../financeiro/ledger.js";
 import { saldoPagamentoNota } from "../financeiro/payables.js";
 import { canLinkPaymentToCompanyBank } from "./existing-payment-link.js";
+import {thirdPartyCashAmount} from '../terceirizados/technical-retention.js';
 
 const push = (mapa, chave, item) => {
   if (!chave) return;
@@ -158,12 +159,17 @@ export const criarIndicesFinanceiros = (data) => {
   });
   (data.medicoesTerc || []).forEach(m => {
     if (!disponivel(m)) return;
+    if(m.technicalRetention?.amountCents>0)return; // Conciliar a baixa existente, não pagar o retido pela fila.
     const terceiro = (data.terceirizados || []).find(item => item.id === m.tercId) || {};
     const pagos = (data.pagsTerceiros || []).filter(active).filter(item => item.medicaoTercId === m.id);
     const saldo = Number(m.total || m.valorBruto || m.valor || 0) - pagos.reduce((sum, item) => sum + Number(item.amount || item.valor || 0), 0);
     if (paraCentavos(saldo) <= 0 || (m.pagamentoId && !pagos.length)) return;
     indexar(m, { tipo: "medicaoTerc", valor: saldo, obraId: m.obraId, categoria: "terceirizado", documento: terceiro.documento,
       contraparte: terceiro.name || terceiro.nome, pixKey: terceiro.pixKey });
+  });
+  (data.pagsTerceiros||[]).filter(p=>p.technicalRetentionCents>0||p.guaranteePayment).forEach(payment=>{
+    const contract=(data.terceirizados||[]).find(c=>c.id===payment.tercId)||{};
+    indexarPagamento(payment,{tipo:'pagsTerceiros',valor:thirdPartyCashAmount(payment),obraId:payment.obraId,categoria:'terceirizado',contraparte:contract.name||contract.nome||'',documento:contract.documento||'',pixKey:contract.pixKey||''});
   });
 
   (data.medicoes || []).forEach(m => {

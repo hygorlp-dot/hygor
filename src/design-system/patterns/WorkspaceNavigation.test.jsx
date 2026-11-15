@@ -10,6 +10,12 @@ function render(element) {
   root = createRoot(container); act(() => root.render(element));
 }
 
+it("o nome da navegação inclui o contador visível, inclusive zero",()=>{
+  render(<WorkspaceNavigation label="Fluxo" active="fila" onChange={()=>{}} items={[{id:'fila',label:'Fila',count:3},{id:'aprovar',label:'Aprovações',count:0}]}/>);
+  expect(container.querySelector('[aria-current="page"]').getAttribute('aria-label')).toBe('Fila 3');
+  expect(container.querySelector('button[aria-label="Aprovações 0"]')).not.toBeNull();
+});
+
 it("desktop and mobile destinations dispatch the same stable area id", () => {
   const onChange = vi.fn();
   render(<WorkspaceNavigation label="Fluxo" active="fila" onChange={onChange}
@@ -17,7 +23,7 @@ it("desktop and mobile destinations dispatch the same stable area id", () => {
     tools={[{ id:"historico", label:"Histórico" }]}/>);
   const selector = container.querySelector("select");
   act(() => { selector.value = "historico"; selector.dispatchEvent(new Event("change", { bubbles:true })); });
-  act(() => container.querySelector('button[aria-label="Pedidos"]').click());
+  act(() => container.querySelector('button[aria-label="Pedidos 1"]').click());
   expect(onChange.mock.calls).toEqual([["historico"], ["pedidos"]]);
   expect(container.querySelector('[aria-current="page"]').textContent).toContain("Fila");
 });

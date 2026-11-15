@@ -1,3 +1,4 @@
+import {trashWorkDocument} from '../../server/work-file-trash.js';
 import { fileSignature, getOrCreateFolder, graph, refresh, rootItem, safeName, seal, setCookie, unseal, verifyAppUser, workspace } from "../../server/microsoft/graph.js";
 import { findScopedWork, knownWorkspace, scopedWorks } from "../../server/onedrive-scope.js";
 import { canWriteWorkFiles, WORK_FILE_WRITE_ACTIONS } from '../../server/work-file-permissions.js';
@@ -83,6 +84,11 @@ export default async function handler(req,res){
       const access=cabinetFileAccess(accessData,appUser,ref);
       if(access.registered&&(action==='file'||!podeAcessarAba(appUser,'arquivos')||!access.allowed))return res.status(403).json({error:'Abra este documento pelo visualizador autenticado do MARCELL.'});
       if(appContext)appContext.payload=accessData;
+    }
+    if(action==='trash-document') {
+      const data=await loadFileAccessData();
+      const result=await trashWorkDocument({data,user:appUser,body:req.body||{},graph,getToken:async()=>{const {accessToken,session}=await refresh(req);setCookie(res,'arcd_ms',seal(session));return accessToken;}});
+      res.setHeader('cache-control','private, no-store');return res.json(result);
     }
     const {accessToken,session}=await refresh(req); setCookie(res,"arcd_ms",seal(session));
     if(action==="status")return res.json({ok:true,connected:true});

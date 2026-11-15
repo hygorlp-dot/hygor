@@ -1,5 +1,46 @@
 import { describe, expect, it } from "vitest";
 import { buildClientPortalPublicationRows, clientPortalProgress } from "./client-portal-publication.js";
+import {portalFixture} from "./client-portal.fixture.js";
+it("resolve a fase pelo ID do cadastro e não usa o status técnico active como fase",()=>{
+  const source=portalFixture();
+  expect(buildClientPortalPublicationRows({data:source,projectId:"obra-local"}).find(row=>row.domain==="project_summary").payload.currentPhase).toBe("Acabamento");
+  source.obras[0].faseId="fase-ausente";
+  expect(buildClientPortalPublicationRows({data:source,projectId:"obra-local"}).find(row=>row.domain==="project_summary").payload.currentPhase).toBe("");
+});
+
+it("não antecipa recebimentos e caixa futuros na posição atual",()=>{
+  const source=portalFixture();
+  source.medicoes[0].recebimentos.push({id:"futuro",data:"2026-11-18",valor:900});
+  source.caixaObra.push({id:"aporte-futuro",obraId:"obra-local",tipo:"aporte",data:"2026-11-18",valor:5000});
+  const rows=buildClientPortalPublicationRows({data:source,projectId:"obra-local",publishedAt:"2026-11-14T15:00:00Z"});
+  expect(rows.find(row=>row.domain==="financial_summary").payload.paid).toBe(2500);
+  expect(rows.find(row=>row.domain==="cash_summary").payload.balance).toBe(9400);
+  expect(rows.filter(row=>row.domain==="payment").map(row=>row.payload.id)).toEqual(["rec-local"]);
+});
+it("usa o calendário da Bahia e não volta ao recebido legado quando os recebimentos foram cancelados",()=>{
+  const source=portalFixture();source.medicoes[0].valorRecebido=900;
+  source.medicoes[0].recebimentos=[{id:"cancelado",data:"2026-11-12",valor:900,status:"cancelado"},{id:"ainda-futuro",data:"2026-11-14",valor:300}];
+  const rows=buildClientPortalPublicationRows({data:source,projectId:"obra-local",publishedAt:"2026-11-14T01:00:00Z"});
+  expect(rows.find(row=>row.domain==="financial_summary").payload.paid).toBe(0);
+  expect(rows.filter(row=>row.domain==="payment")).toHaveLength(0);
+});
+it("retira pedidos e notas excluídos da consulta do cliente",()=>{
+  const source=portalFixture();source.pedidos[0].deletedAt="2026-11-13";source.notasFiscais[0].ativo=false;
+  const rows=buildClientPortalPublicationRows({data:source,projectId:"obra-local"});
+  expect(rows.filter(row=>row.domain==="purchase_order"||row.domain==="invoice")).toHaveLength(0);
+});
+it("vincula a nota do extrato por ID e sinaliza ambiguidade sem escolher por semelhança",()=>{
+  const source=portalFixture();
+  let rows=buildClientPortalPublicationRows({data:source,projectId:"obra-local"});
+  expect(rows.find(row=>row.domain==="cash_movement"&&row.payload.id==="caixa-local").payload).toMatchObject({invoiceNumber:"1001",invoiceDocuments:[{id:"doc-local",title:"Nota fiscal 1001.pdf",url:"https://files.example.test/nota-1001.pdf"}]});
+  delete source.caixaObra[1].notaFiscalId;
+  source.notasFiscais.push({...source.notasFiscais[0],id:"segunda-nota",numero:"1002"});
+  rows=buildClientPortalPublicationRows({data:source,projectId:"obra-local"});
+  expect(rows.find(row=>row.domain==="cash_movement"&&row.payload.id==="caixa-local").payload).toMatchObject({invoiceNumber:"",invoiceDocuments:[],invoiceLinkAmbiguous:true});
+  source.obras[0].portalCliente.publicarNotasFiscais=false;
+  rows=buildClientPortalPublicationRows({data:source,projectId:"obra-local"});
+  expect(rows.find(row=>row.domain==="cash_movement"&&row.payload.id==="caixa-local").payload).toMatchObject({invoiceNumber:"",invoiceDocuments:[]});
+});
 
 const data = {
   obras:[{
@@ -32,6 +73,15 @@ const data = {
 };
 
 describe("buildClientPortalPublicationRows", () => {
+  it("leva todos os diários concluídos por dia, inclusive sem fotos, com vínculo exato das imagens",()=>{
+    const source={...data,rdos:Array.from({length:35},(_,index)=>({id:`dia-${index}`,obraId:"obra-a",status:"concluido",codigo:index+1,data:"2026-07-20",descricao:`Relato ${index}`,comentarios:"Comentário interno proibido",presencas:[{cpf:"privado"}],servicos:[{tarefaId:"t1",quantidadeDia:2,unidade:"m²",progressoAte:30}],fotos:index===0?[{id:"foto-dia",url:"https://cliente/foto.webp"}]:[]}))};
+    source.rdos.push({id:"draft",obraId:"obra-a",status:"preparacao",data:"2026-07-21",descricao:"Rascunho privado"});
+    const rows=buildClientPortalPublicationRows({data:source,projectId:"obra-a"});
+    expect(rows.filter(row=>row.domain==="daily_report")).toHaveLength(35);
+    expect(rows.find(row=>row.domain==="media").payload.reportId).toBe("dia-0");
+    expect(rows.find(row=>row.domain==="daily_report").payload.services[0]).toMatchObject({description:"Fundação",quantity:2,unit:"m²",progress:30});
+    const serialized=JSON.stringify(rows);expect(serialized).not.toContain("Comentário interno proibido");expect(serialized).not.toContain("Rascunho privado");expect(serialized).not.toContain("cpf");
+  });
   it("publica o conjunto completo permitido sem levar registros internos", () => {
     const rows=buildClientPortalPublicationRows({data,projectId:"obra-a",publishedAt:"2026-07-26T12:00:00.000Z"});
     expect(rows.map(row=>row.domain)).toEqual(expect.arrayContaining([
@@ -67,7 +117,7 @@ describe("buildClientPortalPublicationRows", () => {
       publicarCaixaObra:false,publicarNotasFiscais:false,publicarCompras:false,publicarCotacoes:false,
     }}]};
     const rows=buildClientPortalPublicationRows({data:restricted,projectId:"obra-a"});
-    expect(rows.map(row=>row.domain)).toEqual(["project_summary","weekly_update"]);
+    expect(rows.map(row=>row.domain)).toEqual(["project_summary","publication_policy"]);
   });
 
   it("não publica nota ou cotação cancelada/estornada/rejeitada no feminino nem nota em rascunho", () => {
@@ -117,10 +167,13 @@ describe("clientPortalProgress", () => {
       {id:"b3",obraId:"o",status:"rascunho",dataMedicao:"2026-10-20",avancoFisico:90},
       {id:"x",obraId:"outra",status:"aprovada",dataMedicao:"2026-10-25",avancoFisico:99},
     ];
-    expect(clientPortalProgress({data:{medicoesObra},obraId:"o",tasks})).toEqual({value:42,source:"medicao_tecnica"});
+    expect(clientPortalProgress({data:{medicoesObra},obraId:"o",tasks})).toEqual({value:42.4,source:"medicao_tecnica"});
   });
   it("sem boletim, pondera as tarefas pelo custo, não pela média simples", () => {
     expect(clientPortalProgress({data:{},obraId:"o",tasks})).toEqual({value:55,source:"cronograma_ponderado"});
     expect(clientPortalProgress({data:{},obraId:"o",tasks:[{progresso:50},{progresso:100}]})).toEqual({value:75,source:"cronograma"});
+  });
+  it("reaproveita o avanço oficial da medição percentual antes do cronograma",()=>{
+    expect(clientPortalProgress({data:{medicoes:[{id:"m",obraId:"o",tipo:"percentual",percentualAcumulado:40,status:"emitida"}]},obraId:"o",tasks})).toEqual({value:40,source:"medicao_percentual"});
   });
 });

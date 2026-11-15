@@ -10,7 +10,7 @@ const attempts = new Map();
 const WINDOW_MS = 5 * 60 * 1000;
 const MAX_ATTEMPTS = 8;
 
-export const portalUnavailable = res => res.status(503).json({ error:"O Portal do Cliente está em preparação. Solicite acesso à equipe ARCD." });
+export const portalUnavailable = res => res.status(503).json({ error:"O Portal do Cliente está em preparação. Solicite acesso à equipe MARCELL." });
 export const requestIp = req => String(req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "unknown").split(",")[0].trim();
 export const hashIdentifier = value => crypto.createHash("sha256").update(`${COMPANY}:${String(value || "")}`).digest("hex");
 export const secureCookie = () => process.env.NODE_ENV === "production";
@@ -43,7 +43,10 @@ export async function readPortalSession(req, db = portalDb()) {
   const { data: session, error } = await db.from("client_portal_sessions")
     .select("id,portal_user_id,expires_at,revoked_at,client_portal_users!inner(id,email,status)")
     .eq("company_id",COMPANY).eq("token_hash",tokenHash).maybeSingle();
-  if (error || !session || session.revoked_at || new Date(session.expires_at).getTime()<=Date.now() || session.client_portal_users?.status!=="active") return null;
+  if(error)throw error;
+  const user=Array.isArray(session?.client_portal_users)?session.client_portal_users[0]:session?.client_portal_users;
+  const expiresAt=new Date(session?.expires_at).getTime();
+  if (!session || session.revoked_at || !Number.isFinite(expiresAt) || expiresAt<=Date.now() || user?.status!=="active") return null;
   const { data: memberships, error: membershipError } = await db.from("client_portal_project_memberships")
     .select("project_id,profile,grants,revokes").eq("company_id",COMPANY).eq("portal_user_id",session.portal_user_id).eq("active",true);
   if (membershipError) throw membershipError;
@@ -51,8 +54,7 @@ export async function readPortalSession(req, db = portalDb()) {
     projectId:String(item.project_id), profile:String(item.profile),
     permissions:clientPortalPermissions({ profile:item.profile, grant:item.grants, revoke:item.revokes }),
   }));
-  if (!projects.length) return null;
-  return { tokenHash, sessionId:session.id, user:{id:session.client_portal_users.id,email:session.client_portal_users.email}, projects };
+  return { tokenHash, sessionId:session.id, user:{id:user.id,email:user.email}, projects };
 }
 
 export function noStore(res) { res.setHeader("Cache-Control","private, no-store, max-age=0"); return res; }

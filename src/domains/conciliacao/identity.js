@@ -29,6 +29,34 @@ const add = (map, key, item) => {
   map.set(key,list);
 };
 
+// Contract IDs remain financial targets. Only the explicitly shared provider
+// identifies a person across works; conflicting identity data stays separate.
+const registrosPrestadores = (items = []) => {
+  const groups=new Map();
+  items.forEach((item,index)=>{
+    const providerId=text(item.prestadorId);
+    const key=providerId?`provider:${providerId}`:`contract:${index}`;
+    groups.set(key,[...(groups.get(key)||[]),item]);
+  });
+  return [...groups.values()].flatMap(contracts=>{
+    const records=contracts.map(item=>registro("terceirizado",item));
+    const providerId=text(contracts[0].prestadorId);
+    const compatible=providerId&&contracts.length>1
+      && values(records.map(item=>normalizarNomeIdentidade(item.nome))).length<=1
+      && values(...records.map(item=>item.documentos)).length<=1
+      && values(...records.map(item=>item.pix)).length<=1
+      && values(contracts.map(item=>text(item.tipoPessoa).toUpperCase())).length<=1;
+    if(!compatible)return records;
+    const person={...(records.find(item=>item.id===providerId)||records[0]),id:providerId};
+    for(const field of ["aliases","documentos","pix","emails","telefones","bancos","obras","contratos"]){
+      person[field]=values(...records.map(item=>item[field]));
+    }
+    person.aliases=values(person.aliases,records.map(item=>item.nome),records.map(item=>item.razaoSocial),records.map(item=>item.nomeFantasia));
+    person.contratos=values(person.contratos,contracts.map(item=>item.id));
+    return [person];
+  });
+};
+
 export const criarRegistroIdentidades = (data = {}) => {
   const registros=[];
   const incluir=(tipo, items, extraForItem=()=>({})) => (items||[]).forEach(item=>{
@@ -37,7 +65,7 @@ export const criarRegistroIdentidades = (data = {}) => {
   });
   incluir("empresa",data.contasBancarias);
   incluir("operario",data.employees);
-  incluir("terceirizado",data.terceirizados);
+  registros.push(...registrosPrestadores(data.terceirizados));
   incluir("fornecedor",data.fornecedores);
   incluir("proprietario_equipamento",data.proprietariosEquip);
   incluir("cliente",data.clientes);

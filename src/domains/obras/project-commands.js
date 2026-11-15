@@ -1,4 +1,6 @@
 import { validateProjectForm } from "./project-validation.js";
+import {isFinancialDate} from '../financeiro/dates.js';
+import {workExpenseCategories} from '../dre/work-expense-categories.js';
 
 export const PROJECT_COMMAND = Object.freeze({
   PROJECT_SAVED:"OBRA_SALVA",
@@ -13,7 +15,7 @@ const versionOf = item => Number(item?.version || 0);
 const projectById = (data, id) =>
   (data?.obras || []).find(item => String(item?.id || "") === String(id || ""));
 const validDate = value =>
-  !String(value || "") || /^\d{4}-\d{2}-\d{2}$/.test(String(value));
+  !String(value || "") || isFinancialDate(value);
 const nonNegative = value =>
   Number.isFinite(Number(value || 0)) && Number(value || 0) >= 0;
 
@@ -26,7 +28,7 @@ const editableFields = [
   "condominioNome","quadra","lote","engineerId","engineer","startDate",
   "faseId","status","areaM2","oneDriveUrl","contractType","contractValue",
   "adminPercentage","adminBaseMateriais","adminBaseMaoDeObra",
-  "adminBaseTerceirizados","billingType","parcelaMensal","contractStart",
+  "adminBaseTerceirizados","adminBaseEquipamentos","adminBaseEngenhariaCampo","adminFieldEngineeringCategoryId","billingType","parcelaMensal","contractStart",
   "contractEnd","totalParcelas","billingFrequency","diaVenc1","diaVenc2",
   "entrada","entradaDate","hasCaixa",
   "oneDriveDriveId","oneDriveFolderId","oneDriveFolders",
@@ -40,17 +42,21 @@ const editablePatch = raw => Object.fromEntries(
 
 const projectHasDependencies = (data, projectId) => {
   const id = String(projectId || "");
-  const collections = [
-    "employees", "payments", "medicoes", "outrasDesp", "caixaObra",
-    "transacoes", "notasFiscais", "pedidos", "pagsTerceiros",
-    "medicoesTerc", "pagamentosFolha", "titulosFolha", "rescisoes",
-    "equipamentos", "locacoesEquip", "manutencoesEquip", "rdos",
-    "medicoesObra", "progressRecords", "weeklyCommitments",
-      "qualidadeRegistros", "solicitacoesCompra", "cotacoes", "engineeringProjects", "workFileCabinets",
-  ];
-  return collections.some(key => (data?.[key] || []).some(item =>
-    String(item?.obraId || item?.obra || item?.lastObra || "") === id
-  ));
+  // Referências são independentes: a lotação atual não oculta a anterior,
+  // e um rateio ou lançamento de ponto pode estar aninhado em outra origem.
+  const referenceKeys=new Set(['obraId','obra','lastObra','workId','obraAtualId','fromObraId','toObraId','origemObraId','destinoObraId']);
+  const referenceLists=new Set(['obraIds','workIds','projectIds']);
+  const metadata=new Set(['obras','changeLog','operationalCommandReceipts','attendanceOperationReceipts']);
+  const seen=new WeakSet();
+  const references=value=>{
+    if(!value||typeof value!=='object'||seen.has(value))return false;
+    seen.add(value);
+    return Object.entries(value).some(([key,child])=>
+      (referenceKeys.has(key)&&typeof child!=='object'&&String(child||'')===id)
+      ||(referenceLists.has(key)&&Array.isArray(child)&&child.some(target=>String(target)===id))
+      ||references(child));
+  };
+  return Object.entries(data||{}).some(([key,value])=>!metadata.has(key)&&references(value));
 };
 
 export const projectCommandObraId = (data = {}, command = {}) => {
@@ -139,6 +145,7 @@ export const applyProjectCommand = (
     return fail("O término do contrato não pode anteceder o início.");
   }
   const validationErrors=validateProjectForm(raw,{requireComplete:false});
+  if(raw.adminFieldEngineeringCategoryId&&!workExpenseCategories(data).some(category=>category.v===raw.adminFieldEngineeringCategoryId))return fail('A categoria de engenharia de campo não existe no cadastro de despesas. Confira a origem.');
   if(Object.keys(validationErrors).length){
     return fail(Object.values(validationErrors)[0]);
   }

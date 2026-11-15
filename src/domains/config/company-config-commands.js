@@ -1,3 +1,4 @@
+import {calculateWorkforceReserve} from '../financeiro/workforce-reserve.js';
 export const COMPANY_CONFIG_COMMAND = Object.freeze({
   COMPANY_CONFIG_SAVED:"CONFIGURACAO_EMPRESA_SALVA",
 });
@@ -26,6 +27,10 @@ export const applyCompanyConfigCommand = (
     return fail("As configurações foram alteradas por outra pessoa. Atualize a tela.");
   }
   const raw = command.payload?.config || {};
+  if(raw.workforceReserve){
+    const reserve=calculateWorkforceReserve(100,raw);
+    if(reserve.errors.length)return fail(reserve.errors[0]);
+  }
   const companyName = String(raw.companyName ?? current.companyName ?? "").trim();
   if (!companyName) return fail("Informe o nome da empresa.");
   if (!emailIsValid(raw.hrEmail ?? current.hrEmail)

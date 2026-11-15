@@ -23,7 +23,7 @@ export function cabinetFileAccess(data,user,reference){
   for(const cabinet of data.workFileCabinets||[])for(const document of cabinet.documents||[]){
     if(!(document.revisions||[]).some(revision=>{if(reference.localId)return revision.url===`/api/local-files/${reference.localId}`;let driveId=revision.driveId,itemId=revision.itemId;if(!driveId||!itemId){try{const url=new URL(revision.url,'https://local.invalid');driveId=url.searchParams.get('driveId');itemId=url.searchParams.get('itemId');}catch{return false;}}return driveId&&itemId&&String(driveId)===String(reference.driveId)&&String(itemId)===String(reference.itemId);} ))continue;
     registered=true;
-    if(!user||!folderAccess(cabinet,document.folderId,user))allowed=false;
+    if(!user||document.deletedAt||document.trash||!folderAccess(cabinet,document.folderId,user))allowed=false;
   }
   return {registered,allowed:!registered||allowed};
 }

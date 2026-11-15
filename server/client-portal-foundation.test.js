@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(resolve(process.cwd(), "migrations/005_client_portal_foundation.up.sql"), "utf8");
 const api = readFileSync(resolve(process.cwd(), "api/data.js"), "utf8");
+const admin = readFileSync(resolve(process.cwd(), "server/client-portal-admin.js"), "utf8");
+const atomic = readFileSync(resolve(process.cwd(), "migrations/20261114125534_client_portal_atomic_publication.up.sql"), "utf8");
 
 describe("fundação persistente do Portal do Cliente", () => {
   it("isola usuários, vínculos, sessões, auditoria e publicações em tabelas próprias", () => {
@@ -24,10 +26,10 @@ describe("fundação persistente do Portal do Cliente", () => {
 
   it("provisiona e revoga acessos somente pelo comando administrativo autenticado", () => {
     expect(api).toContain('action === "client-portal-admin"');
-    expect(api).toContain('usuario.role!=="admin"');
-    expect(api).toContain("hashPortalPassword(password)");
-    expect(api).toContain('operation==="revoke"');
-    expect(api).toContain('event_type:"access_provisioned"');
-    expect(api).toContain('event_type:"access_revoked"');
+    expect(admin).toContain('actor?.role!=="admin"');
+    expect(admin).toContain("hashPortalPassword(password)");
+    expect(admin).toContain('operation==="revoke"');
+    expect(atomic).toContain("'access_provisioned'");
+    expect(atomic).toContain("'access_revoked'");
   });
 });

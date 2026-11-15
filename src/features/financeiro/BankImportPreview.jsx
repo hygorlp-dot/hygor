@@ -10,6 +10,6 @@ export default function BankImportPreview({data,prepared,onCancel,onConfirm,pend
   return <FinancialPreview description={`${prepared.statement.arquivo} · Conta: ${account?.nome||'Sem conta atribuída'} · ${prepared.statement.dataInicio} a ${prepared.statement.dataFim}`}
     columns={['Linha','Data','Descrição','Valor','Resultado']} rows={rows} error={prepared.error||plan.error} pending={pending} disabled={!plan.imported}
     onCancel={onCancel} onConfirm={onConfirm} confirmLabel={`Importar ${plan.imported} novo(s) movimento(s)`}>
-    <p>{plan.imported} novo(s) · {plan.duplicates} duplicado(s). Importar o extrato não cria despesas, receitas ou conciliações automaticamente. O servidor verifica duplicidades novamente.</p>
+    <p>{plan.imported} novo(s) · {plan.duplicates} duplicado(s). O servidor verifica duplicidades e pode conciliar correspondências exatas. Confira o resultado; movimentos utilizados ficam protegidos contra reversão da importação.</p>
   </FinancialPreview>;
 }

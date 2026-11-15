@@ -1122,7 +1122,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
 
           {linhas.length===0
             ? <div style={{padding:24,textAlign:"center",color:C.muted,fontSize:"var(--arcd-type-body)"}}>Nenhum equipamento no filtro.</div>
-            : <div style={{overflow:"auto",border:`1px solid ${C.border}`,borderRadius:8,background:C.card,maxHeight:"70vh"}}>
+            : <div tabIndex={0} role="region" aria-label="Demonstrativo financeiro dos equipamentos" style={{overflow:"auto",border:`1px solid ${C.border}`,borderRadius:8,background:C.card,maxHeight:"70vh"}}>
               <table style={{borderCollapse:"separate",borderSpacing:0,fontSize:"var(--arcd-type-label)"}}>
                 <thead>
                   <tr>

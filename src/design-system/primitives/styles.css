@@ -51,6 +51,7 @@
 .arcd-dialog__header { display: flex; align-items: start; justify-content: space-between; gap: var(--arcd-space-4); padding: var(--arcd-space-5); border-bottom: 1px solid var(--arcd-border-default); }
 .arcd-dialog__title { margin: 0; color: var(--arcd-text-primary); font-size: var(--arcd-type-dialog-title); font-weight: var(--arcd-font-weight-semibold); line-height: var(--arcd-line-height-tight); }
 .arcd-dialog__body { padding: var(--arcd-space-5); }
+.arcd-dialog[data-size=media] { width: min(100%, var(--arcd-dialog-media-width)); max-height: calc(var(--mrc-viewport-height,100dvh) - var(--arcd-space-8)); }
 .arcd-drawer { position: fixed; inset: 0 0 0 auto; top: var(--mrc-viewport-offset-top,0px); bottom: auto; height: var(--mrc-viewport-height,100dvh); z-index: 1001; width: min(100%, 32rem); border-left: 1px solid var(--arcd-border-default); background: var(--arcd-surface-elevated); box-shadow: var(--arcd-elevation-modal); }
 .arcd-drawer__content { height: 100%; overflow: auto; }
 @keyframes arcd-spin { to { transform: rotate(360deg); } }
@@ -59,11 +60,12 @@
   .arcd-input, .arcd-select, .arcd-textarea { font-size: var(--arcd-type-control-touch); }
   .arcd-button:not(.arcd-button--link) { min-height: var(--arcd-touch-target-min); }
   .arcd-button--icon { width: var(--arcd-touch-target-min); min-width: var(--arcd-touch-target-min); padding: 0; }
-  .arcd-check { min-height: var(--arcd-touch-target-min); }
+  .arcd-check { min-height: var(--arcd-touch-target-min); min-inline-size: var(--arcd-touch-target-min); }
   .arcd-check__box { width: 1.25rem; height: 1.25rem; }
   .arcd-switch { min-width: var(--arcd-touch-target-min); min-height: var(--arcd-touch-target-min); justify-content: center; }
   .arcd-dialog-backdrop { align-items: stretch; padding: 0; }
   .arcd-dialog { display: flex; width: 100%; max-width: none; height: var(--mrc-viewport-height,100dvh); max-height: var(--mrc-viewport-height,100dvh); flex-direction: column; border: 0; border-radius: 0; }
+  .arcd-dialog[data-size=media] { max-height: var(--mrc-viewport-height,100dvh); }
   .arcd-dialog__header { min-height: calc(var(--arcd-mobile-header-height) + env(safe-area-inset-top)); align-items: center; padding: calc(var(--arcd-space-2) + env(safe-area-inset-top)) var(--arcd-space-4) var(--arcd-space-2); }
   .arcd-dialog__title { min-width: 0; font-size: var(--arcd-type-dialog-title); overflow-wrap: anywhere; }
   .arcd-dialog__body { min-height: 0; flex: 1; overflow: auto; padding: var(--arcd-space-4) var(--arcd-space-4) calc(var(--arcd-space-5) + env(safe-area-inset-bottom)); overscroll-behavior-y: contain; }

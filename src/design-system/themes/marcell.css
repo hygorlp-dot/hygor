@@ -58,7 +58,7 @@
 [data-theme] .login-access-card label {color:var(--mrc-navy);font-size:13px;}
 [data-theme] .login-access-card [role="alert"] {color:var(--arcd-danger-text);}
 [data-theme] .login-access-card [role="alert"] :is(p,div) {color:var(--arcd-danger-text) !important;}
-[data-theme] .login-access-card .mrc-login-footer {font-size:12px;}
+[data-theme] .login-access-card .mrc-login-footer {font-size:12px;color:var(--arcd-text-secondary);}
 [data-theme] .login-access-card :is(input,select,textarea) {background:#fff;color:var(--mrc-navy);border:1px solid #7a8591;font-family:var(--arcd-font-sans);font-size:14px;min-height:44px;}
 [data-theme] .login-access-card input::placeholder {color:#637081;}
 [data-theme] .login-access-card [role="tablist"] {background:#e6e6e3;border:1px solid #d5d9de;}

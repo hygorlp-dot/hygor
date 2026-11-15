@@ -10,7 +10,9 @@ describe("mobile touch targets", () => {
     expect(styles).toContain("@media (max-width: 767px)");
     expect(styles).toContain(".arcd-button:not(.arcd-button--link) { min-height: var(--arcd-touch-target-min); }");
     expect(styles).toContain(".arcd-button--icon { width: var(--arcd-touch-target-min);");
-    expect(styles).toContain(".arcd-check { min-height: var(--arcd-touch-target-min); }");
+    const mobileCheckbox = styles.slice(styles.indexOf("@media (max-width: 767px)")).match(/\.arcd-check\s*\{([^}]+)\}/)?.[1];
+    expect(mobileCheckbox).toContain("min-height: var(--arcd-touch-target-min)");
+    expect(mobileCheckbox).toContain("min-inline-size: var(--arcd-touch-target-min)");
   });
 
   it("applies the same mobile target to legacy action controls", () => {

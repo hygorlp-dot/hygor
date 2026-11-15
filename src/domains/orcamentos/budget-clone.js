@@ -1,4 +1,5 @@
 import { blankItemMemory } from './item-memory-models';
+import {assertBudgetHierarchy} from './hierarchy.js';
 // Clonagem de orçamento (e, quando existir, do cronograma vinculado) de uma
 // obra de origem para uma obra de destino. Pedido do usuário (26/08/2026):
 // um botão para copiar orçamento/cronograma de outra obra, em vez de montar
@@ -28,19 +29,20 @@ const somaDiasSimples = (data, dias) => {
 // a estrutura/preço unitário como referência sem carregar uma quantidade
 // que quase certamente está errada para o novo local.
 export function clonarEstruturaOrcamento(orcOrigem, gerarId, { zerarQuantidades = false } = {}) {
+  assertBudgetHierarchy(orcOrigem);
   const etapaIdMap = new Map();
-  (orcOrigem.etapas || []).forEach(etapa => etapaIdMap.set(etapa.id, gerarId()));
+  (orcOrigem?.etapas || []).forEach(etapa => etapaIdMap.set(etapa.id, gerarId()));
 
-  const etapas = (orcOrigem.etapas || []).map(etapa => ({
+  const etapas = (orcOrigem?.etapas || []).map(etapa => ({
     ...etapa,
     id: etapaIdMap.get(etapa.id),
-    parentId: etapa.parentId ? (etapaIdMap.get(etapa.parentId) || "") : "",
+    parentId: etapa.parentId ? etapaIdMap.get(etapa.parentId) : "",
   }));
 
-  const itens = (orcOrigem.itens || []).map(item => ({
+  const itens = (orcOrigem?.itens || []).map(item => ({
     ...item,
     id: gerarId(),
-    etapaId: item.etapaId ? (etapaIdMap.get(item.etapaId) || "") : "",
+    etapaId: etapaIdMap.get(item.etapaId),
     quantidade: zerarQuantidades ? 0 : item.quantidade,
     ...(zerarQuantidades && item.memorialMedicao ? {memorialMedicao:blankItemMemory(item.memorialMedicao)} : {}),
     // Medidas de reservatório pertencem ao orçamento de origem (não são clonadas).

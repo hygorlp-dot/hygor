@@ -223,6 +223,7 @@ export const createLaborCostEngine = ({
   };
 
   return {
+    calculateCurrentCostsByWork:(data,days=[])=>[...costsByWorkForPeriod(data,days)].map(([obraId,item])=>({obraId,laborCost:item.laborCost,benefitCost:item.benefitCost,chargesCost:item.chargesCost,totalCost:item.laborCost+item.benefitCost})),
     calculateCurrentCost,
     calculateWorkLaborCost,
   };

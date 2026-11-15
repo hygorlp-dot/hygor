@@ -65,7 +65,7 @@ export function LegacyMobileNavigation({
           type="button"
           data-active={active}
           aria-current={active ? "page" : undefined}
-          aria-label={`Abrir ${group.label}`}
+          aria-label={`Abrir ${group.label}${group.shortLabel&&group.shortLabel!==group.label?` · ${group.shortLabel}`:''}`}
           onClick={() => onSelectGroup?.(group)}
           style={{
             "--ic-color": active ? group.color : undefined,

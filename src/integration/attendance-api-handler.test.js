@@ -181,6 +181,19 @@ describe("/api/data · persistência granular do ponto",()=>{
   });
   afterAll(()=>vi.useRealTimers());
 
+  it('orçamento: persiste seis níveis e recusa sétimo, ciclo e pai ausente pelo handler real',async()=>{
+    testState.rows[CORE_KEY].value={...initialData(),orcamentos:[]};
+    const budget={id:'six-levels',obraId:'obra-a',nome:'Seis níveis',versionStatus:'rascunho',etapas:Array.from({length:6},(_,i)=>({id:'stage-'+i,parentId:i?'stage-'+(i-1):'',nome:'Etapa '+(i+1)})),itens:[{id:'six-item',etapaId:'stage-5',unidade:'M2',quantidade:2,precoUnit:10}]};
+    const saved=await callApi({action:'save-sections',accessToken:'valid-token',expectedUpdatedAt:'2026-07-28T12:00:00.000Z',sections:{orcamentos:[budget]},baseSections:{orcamentos:[]}});
+    expect(saved.status).toBe(200);const persisted=structuredClone(testState.rows[CORE_KEY].value.orcamentos);
+    expect(persisted[0].etapas).toHaveLength(6);expect(persisted[0].itens[0].etapaId).toBe('stage-5');
+    for(const mutate of [b=>b.etapas.push({id:'stage-6',parentId:'stage-5'}),b=>b.etapas[0].parentId='stage-5',b=>b.etapas[5].parentId='missing',b=>b.itens[0].etapaId='missing']){
+      const changed=structuredClone(persisted);mutate(changed[0]);
+      const result=await callApi({action:'save-sections',accessToken:'valid-token',expectedUpdatedAt:testState.rows[CORE_KEY].updated_at,sections:{orcamentos:changed},baseSections:{orcamentos:persisted}});
+      expect(result.status,JSON.stringify(result.body)).toBe(409);expect(result.body.error).toMatch(/6 níveis|ciclo|superior|etapa válida/);expect(testState.rows[CORE_KEY].value.orcamentos).toEqual(persisted);
+    }
+  });
+
   it("orçamento: criar um novo com uma versão aprovada ecoada sem campos novos salva e não toca na aprovada",async()=>{
     const aprovado={id:"orc-v1",obraId:"obra-a",nome:"V1",versionStatus:"aprovado",status:"aprovado",lockedAt:"2026-09-30T12:50:42.313Z",
       etapas:[{id:"et-1",nome:"COBERTURA",parentId:"",pavimentoId:"cobertura",nivelM:3.15}],

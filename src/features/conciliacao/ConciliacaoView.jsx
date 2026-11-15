@@ -1,6 +1,7 @@
 import {Input as FilterInput} from '../../design-system/primitives/Input.jsx';
 import {Select as FilterSelect} from '../../design-system/primitives/Select.jsx';
 import BankImportPreview from "../financeiro/BankImportPreview.jsx";
+import BankImportReversal from './BankImportReversal.jsx';
 import "../financeiro/record-continuity.css";
 import {useWorkflow} from '../workflow/WorkflowNavigation.jsx';
 import {useWorkspaceState,useWorkspaceScroll} from '../workflow/workspace-session.jsx';
@@ -111,6 +112,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
   const execucaoConcRef = useRef(false);
   const [importando, setImportando] = useState(false);
   const [importPreview,setImportPreview]=useState(null);
+  const [reversalId,setReversalId]=useState(null);
   const [confirmingImport,setConfirmingImport]=useState(false);
   const [apropModal, setApropModal] = useState(null);   // transação em apropriação
   const [rateios,    setRateios]    = useState([]);
@@ -232,7 +234,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
 
   const transacoes = useMemo(() => {
     const extratosArquivados = new Set((data.extratos || []).filter(e => e.status === "arquivado").map(e => String(e.id)));
-    const t = (data.transacoes || []).filter(item => !extratosArquivados.has(String(item.extratoId || "")));
+    const t = (data.transacoes || []).filter(item => !item.importReversal&&!extratosArquivados.has(String(item.extratoId || "")));
     const ordem={pronta:0,revisar:1,investigar:2,sem_correspondencia:3,bloqueada:4};
     t.sort((a,b) => {
       if(filaPendente&&a.status==="pendente"&&b.status==="pendente"){
@@ -582,7 +584,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
   };
   const resumoFechamento = (f) => {
     if (!f) return null;
-    const trans = (data.transacoes||[]).filter(t => t.contaBancariaId===f.contaBancariaId && t.data>=f.dataInicio && t.data<=f.dataFim);
+    const trans = (data.transacoes||[]).filter(t => !t.importReversal&&t.contaBancariaId===f.contaBancariaId && t.data>=f.dataInicio && t.data<=f.dataFim);
     const ultimo = (data.fechamentosBancarios||[]).filter(x=>x.contaBancariaId===f.contaBancariaId && x.status==="fechado").sort((a,b)=>String(b.dataFim||"").localeCompare(String(a.dataFim||"")))[0];
     const conta = (data.contasBancarias||[]).find(c=>c.id===f.contaBancariaId);
     const saldoInicialCentavos = paraCentavos(ultimo ? deCentavos(ultimo.saldoCalculadoCentavos) : (conta?.saldoInicial||0));
@@ -621,6 +623,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
   //  Importar extrato
   const importar = async (file) => {
     if (!file) return;
+    if(file.size>2097152){showToast('O original excede 2 MB. Divida o período para preservar o arquivo junto do lote.','error');return;}
     setImportando(true);
     try {
       const nome = file.name.toLowerCase();
@@ -704,6 +707,8 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
         importadoEm: new Date().toISOString(), importadoPorId: currentUser?.id||"", importadoPor: currentUser?.nome||currentUser?.email||"",
         qtd: movimentos.length, qtdDuplicadas: 0, status: "ativo",
       };
+      const original=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.onerror=()=>reject(Error('Original indisponível'));reader.readAsDataURL(file);});
+      extrato.originalFile={size:file.size,dataUrl:'data:application/octet-stream;base64,'+original};
       movimentos.forEach(t => { t.extratoId = extrato.id; });
 
       setImportPreview({statement:extrato,transactions:movimentos,invalid});
@@ -961,13 +966,14 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
   const nomeObra = (id) => (data.obras.find(o=>o.id===id)?.name) || "-";
   const alternarSelecao=id=>setSelecionadas(lista=>lista.includes(id)?lista.filter(item=>item!==id):[...lista,id]);
   const alternarTodas=()=>setSelecionadas(todosSelecionados?[]:selecionaveis.map(t=>t.id));
-  const rotuloAcao={extrato_importado:"Extrato importado",extrato_arquivado:"Extrato arquivado",conciliada:"Conciliação confirmada",conciliacao_desfeita:"Conciliação desfeita",ignorada:"Transação ignorada",ignorada_em_lote:"Ignorada em lote",reaberta:"Transação reaberta",reaberta_em_lote:"Reaberta em lote",conciliacao_legada:"Conciliação anterior",ignorado_legado:"Ignorada anteriormente"};
+  const rotuloAcao={importacao_revertida:"Importação revertida",extrato_importado:"Extrato importado",extrato_arquivado:"Extrato arquivado",conciliada:"Conciliação confirmada",conciliacao_desfeita:"Conciliação desfeita",ignorada:"Transação ignorada",ignorada_em_lote:"Ignorada em lote",reaberta:"Transação reaberta",reaberta_em_lote:"Reaberta em lote",conciliacao_legada:"Conciliação anterior",ignorado_legado:"Ignorada anteriormente"};
   const corAcao=acao=>acao==="conciliada"||acao==="extrato_importado"?C.green:acao.includes("desfeita")||acao.includes("reaberta")?C.blue:acao.includes("ignorada")?C.orange:acao.includes("excluido")?C.red:C.muted;
 
   if(pilotOpen)return <Suspense fallback={<LoadingState label="piloto"/>}><OperationalPilot data={data} mode="conciliacao" scope={{accountId:accountFilter}} automationRows={filaAutomatica} notes={pilotNotes} onNotes={setPilotNotes} onClose={()=>setPilotOpen(false)}/></Suspense>;
 
   return (
     <div className="anim reconciliation-workspace">
+      {reversalId&&<Suspense fallback={<LoadingState label="prévia da reversão"/>}><BankImportReversal data={data} statementId={reversalId} user={currentUser} dispatchCommand={dispatchCommand} onClose={()=>setReversalId(null)}/></Suspense>}
 
       {importPreview&&<Modal title="Prévia da importação do extrato" wide onClose={()=>!confirmingImport&&setImportPreview(null)}><BankImportPreview data={data} prepared={importPreview} pending={confirmingImport} onCancel={()=>setImportPreview(null)} onConfirm={confirmarImportacao}/></Modal>}
       <PageHero
@@ -1086,6 +1092,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                     {(data.extratos||[]).filter(e=>mostrarArquivados||e.status!=="arquivado").slice().sort((a,b)=>String(b.importadoEm||"").localeCompare(String(a.importadoEm||""))).map(e=>{
                       const importedRows=(data.transacoes||[]).filter(t=>t.extratoId===e.id);
                       const conc=importedRows.filter(t=>t.status==="conciliado").length;
+                      const reversed=importedRows.filter(t=>t.importReversal).length;
                       const pending=importedRows.filter(t=>["pendente","parcial"].includes(t.status)).length;
                       return <tr key={e.id}>
                         <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-table)",fontWeight:600,borderBottom:`1px solid ${C.line}`}}>{e.banco||e.arquivo}<small style={{display:"block",fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:1}}>{e.arquivo}</small></td>
@@ -1093,8 +1100,8 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                         <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-table)",color:C.muted,borderBottom:`1px solid ${C.line}`}}>{e.dataInicio?`${fmtDate(e.dataInicio)} a ${fmtDate(e.dataFim)}`:"-"}</td>
                         <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-table)",fontWeight:600,textAlign:"right",borderBottom:`1px solid ${C.line}`}}>{e.qtd}{conc>0&&<small style={{display:"block",fontSize:"var(--arcd-type-caption)",color:C.green,fontWeight:600}}>{conc} conciliada(s)</small>}<small className="block">{pending} pendente(s)</small></td>
                         <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-table)",color:C.muted,borderBottom:`1px solid ${C.line}`}}>{e.importadoEm?new Date(e.importadoEm).toLocaleString("pt-BR"):"-"}</td>
-                        <td style={{padding:"7px 8px",borderBottom:`1px solid ${C.line}`}}><Badge color={e.status==="arquivado"?C.muted:C.green}>{e.status==="arquivado"?"Arquivado":"Ativo"}</Badge></td>
-                        <td style={{padding:"5px 7px",textAlign:"right",borderBottom:`1px solid ${C.line}`}}>{e.status!=="arquivado"&&<Btn size="sm" v="ghost" onClick={()=>arquivarExtrato(e)}>Arquivar</Btn>}</td>
+                        <td style={{padding:"7px 8px",borderBottom:`1px solid ${C.line}`}}><Badge color={e.status==="arquivado"?C.muted:C.green}>{e.status==="arquivado"?"Arquivado":reversed?reversed===importedRows.length?"Revertida":"Reversão parcial":"Ativo"}</Badge></td>
+                        <td style={{padding:"5px 7px",textAlign:"right",borderBottom:`1px solid ${C.line}`}}>{e.status!=="arquivado"&&<Btn size="sm" v="ghost" onClick={()=>arquivarExtrato(e)}>Arquivar</Btn>}<Button variant="outline" onClick={()=>setReversalId(e.id)}>Revisar reversão</Button></td>
                       </tr>;
                     })}
                   </tbody>

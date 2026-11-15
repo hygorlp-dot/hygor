@@ -15,6 +15,15 @@ describe("domínio de conciliação - centavos", () => {
 });
 
 describe("domínio de conciliação - importação", () => {
+  test("REFNUM permanece referência do OFX e não vira identificador Pix",()=>{
+    const {trans}=parseOFX('<STMTTRN><DTPOSTED>20260815<TRNAMT>-50<FITID>F1<REFNUM>077<CHECKNUM>077<MEMO>Transferência</STMTTRN>');
+    expect(trans[0]).toMatchObject({fitid:'F1',txid:'',data:'2026-08-15',valor:-50,metadadosImportacao:{refnum:'077',checknum:'077'}});
+    expect(chaveTransacao(trans[0])).toBe('fit:F1');
+  });
+  test("TXID explícito é preservado mesmo quando REFNUM tem outro valor",()=>{
+    const {trans}=parseOFX('<STMTTRN><DTPOSTED>20260815<TRNAMT>50<FITID>F2<REFNUM>077<TXID>pix-explicito</STMTTRN>');
+    expect(trans[0]).toMatchObject({fitid:'F2',txid:'pix-explicito',metadadosImportacao:{refnum:'077'}});
+  });
   test("chaveTransacao usa FITID quando existe, senão um hash da linha", () => {
     expect(chaveTransacao({ fitid: "ABC123", data: "2026-01-01", valor: 10, descricao: "x" })).toBe("fit:ABC123");
     expect(chaveTransacao({ data: "2026-01-01", valor: 10, descricao: "PIX Fulano" }))

@@ -1,0 +1,13 @@
+import React from 'react';
+import {createRoot} from 'react-dom/client';
+import App from '../src/App.jsx';
+import {ThemeProvider} from '../src/design-system/theme/ThemeProvider.jsx';
+import {Alert,AlertTitle,AlertDescription} from '../src/components/ui/alert.jsx';
+import '../src/index.css';
+import '../src/design-system/themes/marcell-clean.css';
+import '../src/design-system/themes/marcell-pilot.css';
+import '../src/design-system/themes/marcell-workspaces.css';
+import '../src/design-system/themes/operating-contract.css';
+import '../src/design-system/themes/module-standard.css';
+import '../src/design-system/themes/material.css';
+createRoot(document.getElementById('root')).render(<ThemeProvider themeOverride="vidro"><Alert><AlertTitle>Simulação local de prestação de contas</AlertTitle><AlertDescription>Obra, valores e documentos fictícios. Nenhuma cobrança emitida, mensagem enviada ou alteração no ERP real.</AlertDescription></Alert><App/></ThemeProvider>);

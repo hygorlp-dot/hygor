@@ -1,3 +1,4 @@
+import { fotosEmMemoria } from "../fotos.test-helper.js";
 // @vitest-environment node
 //
 // Ações do ARCD e da ARP no tratador real, sobre Postgres real (PGlite com as
@@ -28,6 +29,7 @@ beforeEach(async () => {
   db = camadaSupabase(pg);
   relogio = Date.parse("2026-10-01T10:00:00.000Z");
   criar = (extra = {}) => criarTratadorPonto({
+    armazenamentoFotos: fotosEmMemoria(db),
     db, company: "arcd", lerDados: async () => DADOS, agora: () => new Date(relogio),
     autenticarUsuario: async b => USUARIOS[b.accessToken] || null, ...extra,
   });
@@ -98,7 +100,7 @@ describe("consulta e foto", () => {
     // Foto do evento formato 2: aceita só a mesma, e o ARCD vê por link assinado.
     expect((await d.api("ponto-enviar-foto", { marcacaoId: novo.eventId, foto: Buffer.from([0xff, 0xd8, 9]).toString("base64") })).status).toBe(400);
     expect((await d.api("ponto-enviar-foto", { marcacaoId: novo.eventId, foto: JPEG.toString("base64") })).status).toBe(200);
-    expect((await como("eng", "ponto-foto-url", { marcacaoId: novo.eventId })).json.url).toMatch(/^https:\/\/assinado\/marcacoes\/obra-a\/2026-10-01\//);
+    expect((await como("eng", "ponto-foto-url", { marcacaoId: novo.eventId })).json.url).toMatch(/^https:\/\/onedrive.test\/marcacoes\/obra-a\/2026-10-01\//);
   });
 });
 

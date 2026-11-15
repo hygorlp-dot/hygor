@@ -1,0 +1,6 @@
+import {Dialog} from "../../design-system/primitives/Dialog.jsx";
+import {Button} from "../../design-system/primitives/Button.jsx";
+const labels={project_summary:"Resumo da obra",timeline:"Etapas do cronograma",weekly_update:"Atualizações da equipe",media:"Fotos",change_order:"Aditivos aprovados",financial_summary:"Resumo contratual",measurement:"Medições",payment:"Recebimentos",cash_summary:"Resumo do caixa",cash_movement:"Movimentações do caixa",invoice:"Notas fiscais",purchase_order:"Pedidos de compra",quotation:"Cotações",document:"Documentos"};
+export function PublicationReview({domains,onClose,onConfirm,busy}) {
+  return <Dialog open={Boolean(domains)} onOpenChange={open=>{if(!open&&!busy)onClose();}} title="Conferir publicação do cliente"><p>Confira os dados que substituirão a publicação anterior desta obra. O conteúdo será consultável pelos clientes com acesso individual e permissão para cada área.</p><dl>{Object.entries(domains||{}).map(([domain,count])=><div key={domain}><dt>{labels[domain]||domain}</dt><dd>{count}</dd></div>)}</dl><p>Se alterou as opções de publicação ou os registros da obra, salve e confira novamente antes de confirmar.</p><Button onClick={onConfirm} disabled={busy} loading={busy}>Confirmar publicação</Button><Button variant="secondary" onClick={onClose} disabled={busy}>Cancelar</Button></Dialog>;
+}

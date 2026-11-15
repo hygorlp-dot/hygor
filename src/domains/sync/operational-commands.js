@@ -1,4 +1,5 @@
 import {applyAccountingCommand,ACCOUNTING_COMMAND} from '../financeiro/accounting-indicators.js';
+import {applyContractRecordCommand,RECORD_COMMANDS} from '../comercial/contracts/record-commands.js';
 import {applyBaselineCommand,BASELINE_COMMAND} from '../planejamento/approved-baseline.js';
 import {validateProduction,productionSignature} from '../diario-obra/production.js';
 // Comandos operacionais são a fronteira transitória entre o LegacyApp e uma
@@ -117,6 +118,7 @@ import {
 import { applyEngineeringCommand, ENGINEERING_COMMAND } from "../projetos/commands.js";
 import { applyFileCommand, FILE_COMMAND } from "../arquivos/commands.js";
 export const OPERATIONAL_COMMAND = Object.freeze({
+  ...RECORD_COMMANDS,
   ...ACCOUNTING_COMMAND,
   ...BASELINE_COMMAND,
   ...CLOSING_CORRECTION_COMMAND,
@@ -246,11 +248,13 @@ const replaceLookahead=(data,id,record)=>({...data,lookaheadWindows:lookaheads(d
 
 export const applyOperationalCommand=(data,command)=>{
   if(!commandIsValid(command))return fail("Comando operacional sem chave idempotente válida.");
-  if(duplicate(data,command.idempotencyKey)){
+  if(command.type!==OPERATIONAL_COMMAND.BANK_IMPORT_REVERSED&&duplicate(data,command.idempotencyKey)){
     const receipt=receipts(data).find(item=>item.idempotencyKey===command.idempotencyKey);
     return {ok:true,idempotent:true,data,...(receipt?.summary?{summary:receipt.summary}:{})};
   }
   const now=command.now||new Date().toISOString();
+  const contractRecordResult=applyContractRecordCommand(data,command,now);
+  if(contractRecordResult){if(!contractRecordResult.ok)return contractRecordResult;return {...contractRecordResult,data:appendReceipt(contractRecordResult.data,command,contractRecordResult.entityId,now)};}
   const accountingResult=applyAccountingCommand(data,command,now);
   if(accountingResult){if(!accountingResult.ok)return accountingResult;return {...accountingResult,data:appendReceipt(accountingResult.data,command,accountingResult.entityId,now)};}
   const baselineResult=applyBaselineCommand(data,command,now);
@@ -339,6 +343,7 @@ export const applyOperationalCommand=(data,command)=>{
   const bankTransactionResult=applyBankTransactionCommand(data,command,now);
   if(bankTransactionResult){
     if(!bankTransactionResult.ok)return bankTransactionResult;
+    if(bankTransactionResult.summary?.idempotent)return bankTransactionResult;
     return {
       ok:true,summary:bankTransactionResult.summary,
       data:appendReceipt(

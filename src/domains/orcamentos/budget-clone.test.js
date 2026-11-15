@@ -53,7 +53,7 @@ describe("clonarEstruturaOrcamento", () => {
   });
 
   it("zera codigoNaoEncontrado ao clonar - a base de preços do destino pode ser outra", () => {
-    const origem = { etapas: [], itens: [{ id: "i1", etapaId: "", tipo: "item", codigo: "X", codigoNaoEncontrado: true }] };
+    const origem = { etapas: [{id:'s'}], itens: [{ id: "i1", etapaId: "s", tipo: "item", codigo: "X", codigoNaoEncontrado: true }] };
     const { itens } = clonarEstruturaOrcamento(origem, gerarIdSequencial("novo"));
     expect(itens[0].codigoNaoEncontrado).toBe(false);
   });

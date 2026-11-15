@@ -118,12 +118,29 @@ export const createBillingFromTechnicalMeasurement = (data = {}, params = {}) =>
   };
 };
 
+// Conferir as duas origens antes de autorizar ou alterar qualquer vínculo.
+// A obra ausente exige correção na origem, sem atribuição implícita.
+export const thirdPartyInvoiceLinkWork = (data = {}, {medicaoTercId,notaFiscalId} = {}) => {
+  const measurement=(data.medicoesTerc||[]).find(item=>item.id===medicaoTercId);
+  const invoice=(data.notasFiscais||[]).find(item=>item.id===notaFiscalId);
+  const obraId=String(measurement?.obraId||'');
+  if(!measurement||!invoice)return {ok:false,error:'Medição ou nota fiscal não encontrada.'};
+  if(!obraId||String(invoice.obraId||'')!==obraId
+    ||(invoice.rateios||[]).some(row=>String(row.obraId||invoice.obraId)!==obraId)){
+    return {ok:false,error:'A nota fiscal e a medição precisam pertencer à mesma obra. Confira a obra e os rateios nos documentos de origem.'};
+  }
+  return {ok:true,obraId};
+};
+
 /** Vincula uma NF de terceiro à obrigação já reconhecida pela medição. */
 export const linkThirdPartyInvoice = (data = {}, { medicaoTercId, notaFiscalId } = {}) => {
+  const work=thirdPartyInvoiceLinkWork(data,{medicaoTercId,notaFiscalId});
+  if(!work.ok)return work;
   const measurement=(data.medicoesTerc||[]).find(item=>item.id===medicaoTercId&&!inactive(item));
   const invoice=(data.notasFiscais||[]).find(item=>item.id===notaFiscalId&&!inactive(item));
   if(!measurement||!invoice)return {ok:false,error:"Medição ou nota fiscal não encontrada."};
   if(invoice.medicaoTercId&&invoice.medicaoTercId!==measurement.id)return {ok:false,error:"A nota já está vinculada a outra medição."};
+  if(measurement.technicalRetention?.amountCents>0&&(invoice.pagamentos||[]).some(active))return {ok:false,error:'A nota já tem baixas. Concilie os pagamentos antes de vinculá-la à medição com garantia.'};
   if(Math.abs(toCents(measurement.total)-invoiceTotalCents(invoice))>1)return {
     ok:false,error:"O valor da nota não confere com a medição.",
     differenceCents:invoiceTotalCents(invoice)-toCents(measurement.total),

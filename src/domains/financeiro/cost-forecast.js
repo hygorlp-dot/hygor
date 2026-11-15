@@ -1,13 +1,15 @@
 import {posicaoDoPedido} from '../compras/purchase-position.js';
-import {toCents} from './ledger.js';
+import {toCents,selectCommitments} from './ledger.js';
 
 // Distribuição proporcional ao valor dos itens: uma nota do pedido nem sempre
 // identifica a etapa de cada parcela faturada. O critério fica visível na tela.
-export function openPurchaseCommitments(data,obraId,budget,root){
+export function openPurchaseCommitments(data,obraId,budget,root,excludedOrders=new Set(),ledger){
  const result=new Map();
+ const balances=ledger?new Map(selectCommitments(ledger,{obraId}).items.filter(p=>p.sourceType==='pedido').map(p=>[String(p.sourceId),p.balanceCents])):null;
  for(const order of (data.pedidos||[]).filter(p=>p.obraId===obraId)){
+   if(excludedOrders.has(String(order.id)))continue;
    const position=posicaoDoPedido(order,data.notasFiscais||[]);
-   const total=toCents(position.aFaturar);
+   const total=balances?(balances.get(String(order.id))||0):toCents(position.aFaturar);
    if(!position.viva||!total)continue;
    const weights=new Map();
    for(const item of order.itens||[]){

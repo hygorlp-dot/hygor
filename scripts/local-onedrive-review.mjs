@@ -14,7 +14,9 @@ const itemPath = (drive, item) => `/drives/${encodeURIComponent(drive)}/items/${
 
 // This adapter belongs only to the loopback review server. No central-session
 // helpers, database writes, folder preparation or production cookies are used.
-export function createLocalOneDriveReview({clientId, clientSecret, authenticate, fetchImpl = fetch, now = Date.now}) {
+export function createLocalOneDriveReview({clientId, clientSecret, authenticate, fetchImpl = fetch, now = Date.now,resolveAccessToken,returnUrl='http://127.0.0.1:4192/?onedrive=connected',reviewWorkbookPath}) {
+  const localReturn=new URL(returnUrl);
+  if(localReturn.protocol!=='http:'||!['127.0.0.1','localhost'].includes(localReturn.hostname)||localReturn.username||localReturn.password)throw new Error('O retorno da revisão deve permanecer no computador local.');
   let session = null, refreshing = null;
   const pending = new Map();
   const signingKey = crypto.randomBytes(32);
@@ -38,6 +40,7 @@ export function createLocalOneDriveReview({clientId, clientSecret, authenticate,
       expiresAt:now() + Math.max(0, Number(result.expires_in || 0) - 60) * 1000};
   }
   async function accessToken() {
+    if(!session&&resolveAccessToken)return resolveAccessToken();
     if (!session) throw fail(401, 'Conecte o OneDrive neste ambiente local.');
     if (session.expiresAt > now()) return session.accessToken;
     if (!session.refreshToken) throw fail(401, 'A sessão local expirou. Conecte o OneDrive novamente.');
@@ -162,12 +165,24 @@ export function createLocalOneDriveReview({clientId, clientSecret, authenticate,
       res.setHeader('set-cookie', 'marcell_local_ms_state=; HttpOnly; SameSite=Lax; Path=/api/local-onedrive; Max-Age=0');
       if (url.searchParams.has('error') || !url.searchParams.get('code')) throw fail(401, 'A autorização Microsoft não foi concluída.');
       session = await tokenRequest({grant_type:'authorization_code', code:url.searchParams.get('code'), redirect_uri:LOCAL_ONEDRIVE_CALLBACK, code_verifier:attempt.verifier});
-      res.statusCode = 302; res.setHeader('location', 'http://127.0.0.1:4192/?onedrive=connected'); return res.end();
+      res.statusCode = 302; res.setHeader('location', localReturn.href); return res.end();
     } catch (error) {
       res.statusCode = error.status || 502;
       res.setHeader('content-type', 'application/json');
       return res.end(JSON.stringify({error:error.status ? error.message : 'Não foi possível conectar o OneDrive local.'}));
     }
   }
-  return {handleApi, handleOAuth};
+  async function readReviewWorkbook(){
+    // Opcional, apenas no processo de revisão do titular. Não é uma ação da
+    // API de documentos de clientes: o caminho vem da linha de comando local.
+    if(!reviewWorkbookPath||!reviewWorkbookPath.endsWith('.xlsx')||reviewWorkbookPath.split('/').some(part=>!part||part==='.'||part==='..'||part.includes('\\')))throw fail(403,'Planilha de referência não configurada.');
+    const path=reviewWorkbookPath.split('/').map(encodeURIComponent).join('/');
+    const metadata=await (await graph(`/me/drive/root:/${path}?$select=id,name,parentReference,lastModifiedDateTime`)).json();
+    if(!metadata.id||!metadata.parentReference?.driveId)throw fail(404,'A referência da planilha não está disponível.');
+    const capture={headers:{},setHeader(key,value){this.headers[key]=value;},send(bytes){this.bytes=bytes;return this;}};
+    const query=Object.fromEntries(new URL(fileLink(metadata.parentReference.driveId,metadata.id),'http://127.0.0.1').searchParams);
+    await sendFile(query,capture);
+    return {bytes:capture.bytes,mime:capture.headers['content-type'],name:metadata.name,modifiedAt:metadata.lastModifiedDateTime};
+  }
+  return {handleApi, handleOAuth,readReviewWorkbook};
 }

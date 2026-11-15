@@ -22,15 +22,17 @@ export const calculateContractProjection = (work, laborCost, extraCosts = {}) =>
   const {
     benefitCost = 0, materialCost = 0, tercCost = 0,
     outrasTotal = 0, equipCost = 0, rescTotal = 0,
-    materialCostExcludedFromAdmin = 0,
+    materialCostExcludedFromAdmin = 0, fieldEngineeringCost = 0,
   } = extraCosts;
-  const outrosCustos = outrasTotal + equipCost + rescTotal;
+  const outrosCustos = outrasTotal + equipCost + rescTotal + fieldEngineeringCost;
   const totalCost = laborCost + benefitCost + tercCost + materialCost + outrosCustos;
   const incluiMaoDeObra = work?.adminBaseMaoDeObra !== undefined
     ? !!work.adminBaseMaoDeObra : contractType === "admin_only";
   const incluiMateriais = work?.adminBaseMateriais !== undefined ? !!work.adminBaseMateriais : true;
   const incluiTerceirizados = work?.adminBaseTerceirizados !== undefined
     ? !!work.adminBaseTerceirizados : true;
+  const incluiEquipamentos = work?.adminBaseEquipamentos ?? contractType === 'admin_only';
+  const incluiEngenhariaCampo = work?.adminBaseEngenhariaCampo ?? contractType === 'admin_only';
   // Material lançado como "não entra na taxa de administração" continua
   // contando no custo total da obra, só não pode inflar a base sobre a qual
   // a taxa de administração é calculada.
@@ -38,7 +40,9 @@ export const calculateContractProjection = (work, laborCost, extraCosts = {}) =>
   const adminBase = (incluiMaoDeObra ? laborCost + benefitCost : 0)
     + (incluiMateriais ? adminEligibleMaterialCost : 0)
     + (incluiTerceirizados ? tercCost : 0)
-    + (contractType === "admin_only" ? outrosCustos : 0);
+    + (incluiEquipamentos ? equipCost : 0)
+    + (incluiEngenhariaCampo ? fieldEngineeringCost : 0)
+    + (contractType === "admin_only" ? outrasTotal + rescTotal : 0);
   let revenue = 0;
   if (contractType === "fixed_labor") revenue = contractValue;
   else if (contractType === "fixed_labor_admin") revenue = contractValue + adminBase * administrationRate;
@@ -49,6 +53,7 @@ export const calculateContractProjection = (work, laborCost, extraCosts = {}) =>
     commitment:contractValue ? laborCost / contractValue * 100 : null,
     totalCost, adminBase, adminBaseMisto:adminBase,
     incluiMaoDeObra, incluiMateriais, incluiTerceirizados, outrosCustos,
+    incluiEquipamentos, incluiEngenhariaCampo, fieldEngineeringCost,
     adminEligibleMaterialCost,
   };
 };
@@ -309,20 +314,20 @@ export const createDreCalculations = ({
     const laborCost = Number(dre.moData?.laborCost || 0);
     const benefitCost = Number(dre.moData?.benefitCost || 0);
     const tercCost = Number(dre.costByCategory?.terceirizado || 0);
-    const materialFromInvoices = Number(dre.costBySource?.nota_fiscal || 0);
     const outraDespesaMaterial = dre.dreEvents
       .filter(event => event.effect === "cost" && event.sourceType === "outra_despesa" && event.category === "material");
-    const otherMaterial = outraDespesaMaterial
-      .reduce((total, event) => total + event.amountCents / 100, 0);
     const otherMaterialExcludedFromAdmin = outraDespesaMaterial
       .filter(event => event.metadata?.contaAdmin === false)
       .reduce((total, event) => total + event.amountCents / 100, 0);
-    const materialCost = materialFromInvoices + otherMaterial;
+    const materialCost = Number(dre.costByCategory?.material||0);
+    const equipCost=Number(dre.costByCategory?.equipamento||0);
+    const engineeringCategory=work?.adminFieldEngineeringCategoryId;
+    const fieldEngineeringCost=engineeringCategory&&!['material','equipamento','mao_obra','beneficios','rescisao','terceirizado'].includes(engineeringCategory)?Number(dre.costByCategory?.[engineeringCategory]||0):0;
     const outrasTotal = Math.max(0, dre.totalCustos - laborCost - benefitCost
-      - tercCost - materialCost - dre.equipCost - dre.rescTotal);
+      - tercCost - materialCost - equipCost - dre.rescTotal - fieldEngineeringCost);
     const projection = calculateContractProjection(work, laborCost, {
       benefitCost, materialCost, tercCost, outrasTotal,
-      equipCost:dre.equipCost, rescTotal:dre.rescTotal,
+      equipCost, fieldEngineeringCost, rescTotal:dre.rescTotal,
       materialCostExcludedFromAdmin: otherMaterialExcludedFromAdmin,
     });
     const jaFechado = (data.medicoes || [])

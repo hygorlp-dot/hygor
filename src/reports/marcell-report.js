@@ -1,7 +1,6 @@
 import { adjustableTablesScript } from "./adjustable-tables.js";
 import { MARCELL_LOGO } from "../brand/identity.js";
-import regularFont from "./assets/NimbusSans-Regular.woff2?inline";
-import boldFont from "./assets/NimbusSans-Bold.woff2?inline";
+import {readReportFonts} from './report-fonts.js';
 
 // Atualiza apenas a assinatura visual dos documentos. Tabelas, scripts,
 // estilos, CNPJ e a configuração persistida continuam intactos.
@@ -14,7 +13,16 @@ function atualizarAssinatura(html) {
 
 // Presentation only: the existing report remains responsible for its data,
 // totals, columns, paper size, signatures and legal company identification.
-export function marcellReportHtml(html, { adjustableTables = false, identity } = {}) {
+export function marcellReportHtml(html, { adjustableTables = false, identity, requireFonts = false } = {}) {
+  // Builders may prepare a template before the identity dialog has finished
+  // loading. The only window-writing boundary requires real embedded fonts;
+  // this pass also completes an already branded template without duplicating it.
+  const {regularFont,boldFont}=readReportFonts({optional:!requireFonts})||{
+    regularFont:'marcell-report-font:regular',boldFont:'marcell-report-font:bold',
+  };
+  html=html.replace(/(<style\b[^>]*\bid="marcell-report-theme"[^>]*>)([\s\S]*?)(<\/style>)/i,
+    (_match,open,css,close)=>open+css.replaceAll('url("marcell-report-font:regular")',`url("${regularFont}")`)
+      .replaceAll('url("marcell-report-font:bold")',`url("${boldFont}")`)+close);
   const arcd=identity?.id==='arcd'&&/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(identity.logo||'');
   const logoSrc=arcd?identity.logo:MARCELL_LOGO,name=arcd?'ARCD':'MARCELL';
   const logoAlt=arcd?'ARCD':'MARCELL - Engenharia e construção';

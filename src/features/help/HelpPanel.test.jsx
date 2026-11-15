@@ -5,6 +5,13 @@ import HelpPanel from './HelpPanel.jsx';
 import {HelpProvider,useHelpTopic,useCurrentHelpTopic} from './HelpContext.jsx';
 
 let root,container;
+it('o índice de contratos mostra o editor e reserva o guia de modelos ao administrador',()=>{
+ mount(<HelpPanel id="contract-help" pageId="com_contratos" topicId="com_contratos" allowedTabs={['com_contratos']} onClose={()=>{}}/>);
+ act(()=>[...container.querySelectorAll('button')].find(button=>button.textContent.includes('Manual completo')).click());
+ const text=container.querySelector('.app-help-index').textContent;
+ expect(text).toContain('Preenchimento e revisão de contratos');
+ expect(text).not.toContain('Modelos e contratada');
+});
 function mount(ui){container=document.createElement('div');document.body.append(container);root=createRoot(container);act(()=>root.render(ui));}
 afterEach(()=>{act(()=>root?.unmount());container?.remove();});
 it('abre o fluxo da tela, limita o índice ao acesso e permite fechar com Escape',()=>{

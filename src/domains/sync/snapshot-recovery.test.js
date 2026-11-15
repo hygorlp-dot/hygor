@@ -1,3 +1,4 @@
+import 'fake-indexeddb/auto';
 import Dexie from 'dexie';
 import {indexedDB,IDBKeyRange} from 'fake-indexeddb';
 import {it,expect,afterEach} from 'vitest';
@@ -8,6 +9,16 @@ Dexie.dependencies.indexedDB=indexedDB;Dexie.dependencies.IDBKeyRange=IDBKeyRang
 const stores=[];const store=()=>{const s=createSnapshotJournal('recovery-'+crypto.randomUUID());stores.push(s);return s;};
 afterEach(async()=>{await Promise.all(stores.splice(0).map(s=>s.db.delete()));});
 const user={id:'a',role:'admin'},tab='one';
+it('preserva edições criadas pelo Dexie e mantém o controle de revisão na mesma base',async()=>{
+ const name=`legacy-snapshot-${crypto.randomUUID()}`,legacy=new Dexie(name);
+ legacy.version(1).stores({edits:'[owner+tab],owner'});
+ const original={owner:user.id,tab,revision:'legacy-revision',changes:{},createdAt:'2026-01-01'};
+ await legacy.table('edits').put(original);legacy.close();
+ const s=createSnapshotJournal(name);stores.push(s);expect(await s.read(user.id,tab)).toEqual(original);
+ await expect(s.protect({user,tab,base:{},intended:{}})).rejects.toThrow('Outra aba');
+ s.adopt(original);const receipt=await s.protect({user,tab,base:{},intended:{}});
+ s.db.close();await legacy.open();expect((await legacy.table('edits').get([user.id,tab])).revision).toBe(receipt.revision);legacy.close();
+});
 it('protege só a intenção, isola contas e não apaga revisão mais nova',async()=>{
  const s=store(),base={eventosEmpresa:[],obras:[{id:'o'}],attendance:{x:1}},intended={...base,eventosEmpresa:[{id:'e',titulo:'Primeiro'}],attendance:{x:2}};
  const old=await s.protect({user,tab,base,intended});

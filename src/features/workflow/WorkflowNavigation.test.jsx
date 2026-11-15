@@ -10,6 +10,12 @@ function render(element){if(!root){container=document.createElement("div");docum
 function button(text){return [...container.querySelectorAll("button")].find(b=>b.textContent===text);}
 const admin={role:"admin",id:"a"};
 const projection=value=>({status:200,source:"canonical_ledger",current:{comprasCost:value}});
+it('o fluxo conserva nome e quantidade visível sem ocultar o contador',()=>{
+  render(<FlowTabs label="Locações" steps={[{id:'mapa',label:'Mapa de ocupação',count:0}]} active="mapa" onChange={()=>{}}/>);
+  const active=container.querySelector('[aria-current="page"]');
+  expect(active.getAttribute('aria-label')).toBe('Mapa de ocupação 0');
+  expect(active.querySelector('small').getAttribute('aria-hidden')).not.toBe('true');
+});
 it("mostra ferramentas selecionadas e mantém a etapa principal acessível",()=>{
   const select=vi.fn();render(<FlowTabs label="Fluxo" steps={[{id:"a",label:"Trabalho"}]} tools={[{id:"b",label:"Configuração"}]} active="b" onChange={select}/>);
   expect(container.querySelector("details").open).toBe(true);

@@ -76,7 +76,9 @@ export const parseOFX = (texto) => {
       valor: Number(String(tag(b, "TRNAMT")).replace(",", ".")),
       fitid: tag(b, "FITID"),
       endToEndId: tag(b, "ENDTOENDID") || tag(b, "E2EID"),
-      txid: tag(b, "TXID") || tag(b, "REFNUM"),
+      // REFNUM is an OFX reference, not a Pix TXID. Keep it
+      // in the import evidence; it does not prove a shared Pix transaction.
+      txid: tag(b, "TXID"),
       tipoOperacao: tag(b, "TRNTYPE"),
       contraparteNome,
       contraparteDocumento: tag(b, "CPF") || tag(b, "CNPJ") || tag(b, "DOCUMENTO"),
@@ -128,7 +130,7 @@ export const calcConciliacao = (data) => {
     .filter(statement => statement?.status === "arquivado")
     .map(statement => String(statement.id)));
   const trans = (data?.transacoes || []).filter(transaction =>
-    !archivedStatements.has(String(transaction?.extratoId || "")));
+    !transaction.importReversal&&!archivedStatements.has(String(transaction?.extratoId || "")));
   const pend = trans.filter(t => ["pendente","parcial"].includes(t.status));
   const conc = trans.filter(t => t.status === "conciliado");
   const ign = trans.filter(t => t.status === "ignorado");

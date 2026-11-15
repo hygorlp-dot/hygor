@@ -1,0 +1,1031 @@
+{
+  "id": "administracao-custo-v1",
+  "name": "Contrato de Administração de Obra por Preço de Custo",
+  "version": 1,
+  "status": "em_revisao",
+  "sourceSha256": "fbd80790ecbe9ac5eae2148252939159f04d315b92876fb2135a0e6b217b61fe",
+  "sourcePages": 16,
+  "nodes": [
+    {
+      "kind": "paragraph",
+      "text": "CONTRATO DE ADMINISTRAÇÃO DE OBRA POR PREÇO DE CUSTO",
+      "sourcePage": 1
+    },
+    {
+      "kind": "heading",
+      "text": "PA R T E S",
+      "sourcePage": 1
+    },
+    {
+      "kind": "paragraph",
+      "text": "CONTRATANTE: {{contratante.qualificacao}}",
+      "sourcePage": 1
+    },
+    {
+      "kind": "paragraph",
+      "text": "CONTRATADA: {{contratada.qualificacao}}",
+      "sourcePage": 1
+    },
+    {
+      "kind": "paragraph",
+      "text": "CONTRATANTE e CONTRATADA, em conjunto \"Partes\" e isoladamente \"Parte\".",
+      "sourcePage": 1
+    },
+    {
+      "kind": "heading",
+      "text": "C O N S I D E R A N D O S",
+      "sourcePage": 1
+    },
+    {
+      "kind": "paragraph",
+      "text": "(i) {{obra.considerando}}",
+      "sourcePage": 1
+    },
+    {
+      "kind": "paragraph",
+      "text": "(ii) a CONTRATADA é sociedade de engenharia regularmente registrada no {{obra.conselho}}, que dispõe de corpo técnico, mão de obra e equipamentos próprios;",
+      "sourcePage": 1
+    },
+    {
+      "kind": "paragraph",
+      "text": "(iii) as Partes elegeram o regime de administração por preço de custo, no qual o risco econômico do custo da obra é do CONTRATANTE e a CONTRATADA é remunerada exclusivamente pela Taxa de Administração e, quando houver, pela locação de Equipamentos Próprios, nos termos deste instrumento;",
+      "sourcePage": 1
+    },
+    {
+      "kind": "paragraph",
+      "text": "resolvem celebrar o presente Contrato de Administração de Obra por Preço de Custo (\"Contrato\"), que se regerá pelas cláusulas seguintes e, no que for omisso, pelo Código Civil.",
+      "sourcePage": 1
+    },
+    {
+      "kind": "heading",
+      "text": "C L Á U S U L A 1 – D E F I N I Ç Õ E S E I N T E R P R E TA Ç Ã O",
+      "sourcePage": 1
+    },
+    {
+      "kind": "paragraph",
+      "text": "1.1. Os termos abaixo, grafados com inicial maiúscula, no singular ou no plural, têm o significado aqui atribuído:",
+      "sourcePage": 1
+    },
+    {
+      "kind": "table",
+      "rows": [
+        [
+          "TERMO",
+          "SIGNIFICADO"
+        ],
+        [
+          "CGR",
+          "Custo Gerencial de Referência: valor da cláusula 6.3, que serve de referência gerencial do custo da Obra e de base da multa da cláusula 13.3."
+        ],
+        [
+          "CNO",
+          "Cadastro Nacional de Obras da Receita Federal, aberto em nome do CONTRATANTE."
+        ],
+        [
+          "Custo da Obra",
+          "Conjunto das despesas definidas na cláusula 5."
+        ],
+        [
+          "Equipamentos Próprios",
+          "Bens móveis de propriedade ou posse legítima da CONTRATADA locados à Obra nos termos da cláusula 8."
+        ],
+        [
+          "ERP",
+          "Sistema de gestão próprio da CONTRATADA, acessível ao CONTRATANTE por login individual durante toda a vigência e por {{prazos.acesso_erp_dias}} após o encerramento, que é o repositório oficial de orçamento, cronograma, compras, contratos, folha, cotações, comprovantes e relatórios da Obra."
+        ],
+        [
+          "Eventos de Revisão",
+          "Fatos listados na cláusula 13.4, que autorizam a revisão do prazo, do CGR e do teto da Taxa de Administração."
+        ],
+        [
+          "Excludentes de Responsabilidade",
+          "(a) decisões, especificações ou interferências do CONTRATANTE; (b) fornecedores, prestadores, materiais ou soluções impostos pelo CONTRATANTE ou por ele adquiridos sem validação técnica escrita da CONTRATADA; (c) uso inadequado, ausência de manutenção ou intervenções posteriores à entrega; (d) desgaste natural; (e) caso fortuito ou força maior; e (f) vícios de projetos elaborados por terceiros, ressalvado o dever de análise técnica da CONTRATADA."
+        ],
+        [
+          "Caso Fortuito ou Força Maior",
+          "Evento necessário cujos efeitos não era possível evitar ou impedir (art. 393 do Código Civil), como fenômenos climáticos extremos, pandemias, atos de autoridade, greves gerais e escassez relevante de insumos no mercado."
+        ],
+        [
+          "Fundo de Reserva",
+          "Depósito de garantia previsto na cláusula 10.3."
+        ],
+        [
+          "Mão de Obra Própria",
+          "Empregados da CONTRATADA alocados na Obra, regidos pela cláusula 7."
+        ],
+        [
+          "Obra",
+          "Residência unifamiliar descrita na cláusula 2.1."
+        ],
+        [
+          "Repasse Tributário",
+          "Tributos incidentes sobre os valores faturados pela CONTRATADA, suportados pelo CONTRATANTE na forma da cláusula 9."
+        ],
+        [
+          "Taxa de Administração",
+          "Remuneração da CONTRATADA prevista na cláusula 6.1."
+        ]
+      ],
+      "sourcePage": 2
+    },
+    {
+      "kind": "paragraph",
+      "text": "1.2. Na interpretação deste Contrato: (a) os títulos das cláusulas têm função apenas indicativa; (b) as listas precedidas de \"incluindo\" são exemplificativas; (c) os prazos contam-se em dias corridos, salvo indicação expressa de dias úteis, excluindo-se o dia do começo e incluindo-se o do vencimento; e (d) a referência a lei ou norma abrange suas alterações e sucessoras.",
+      "sourcePage": 2
+    },
+    {
+      "kind": "heading",
+      "text": "C L Á U S U L A 2 – O B J E T O E R E G I M E",
+      "sourcePage": 2
+    },
+    {
+      "kind": "paragraph",
+      "text": "2.1. Objeto. {{obra.objeto}}",
+      "sourcePage": 2
+    },
+    {
+      "kind": "paragraph",
+      "text": "2.2. Regime. A Obra será executada pelo regime de administração, também denominado preço de custo, no qual a CONTRATADA administra, coordena, fiscaliza, contrata, compra e presta contas, e o CONTRATANTE suporta integralmente o Custo da Obra.",
+      "sourcePage": 3
+    },
+    {
+      "kind": "paragraph",
+      "text": "2.3. Natureza. Este Contrato não configura empreitada global ou por preço fechado, contrato turnkey, incorporação imobiliária nem garantia de custo final. A CONTRATADA não custeará a Obra com recursos próprios, ressalvada sua responsabilidade pela correção de vícios a ela imputáveis (cláusula 16.1).",
+      "sourcePage": 3
+    },
+    {
+      "kind": "heading",
+      "text": "C L Á U S U L A 3 – D O C U M E N T O S C O N T R AT U A I S",
+      "sourcePage": 3
+    },
+    {
+      "kind": "paragraph",
+      "text": "3.1. Integram este Contrato os seguintes Anexos, rubricados pelas Partes:",
+      "sourcePage": 3
+    },
+    {
+      "kind": "table",
+      "rows": [
+        [
+          "ANEXO",
+          "DOCUMENTO"
+        ],
+        [
+          "I",
+          "Projetos de Arquitetura (Executivo)"
+        ],
+        [
+          "II",
+          "Projeto de Estrutura"
+        ],
+        [
+          "III",
+          "Projetos de Instalações"
+        ],
+        [
+          "IV",
+          "Cronograma Físico-Financeiro"
+        ],
+        [
+          "V",
+          "Prazos e Garantias"
+        ]
+      ],
+      "sourcePage": 3
+    },
+    {
+      "kind": "paragraph",
+      "text": "3.2. Havendo conflito, prevalece o corpo deste Contrato sobre os Anexos, e entre estes, a ordem numérica acima. A disposição específica prevalece sobre a geral.",
+      "sourcePage": 3
+    },
+    {
+      "kind": "paragraph",
+      "text": "3.3. Este Contrato substitui quaisquer propostas, minutas e entendimentos anteriores sobre o mesmo objeto.",
+      "sourcePage": 3
+    },
+    {
+      "kind": "paragraph",
+      "text": "3.4. O CONTRATANTE declara ter recebido o Regulamento do {{obra.loteamento}} e o Estatuto da respectiva Associação. A Obra observará as restrições urbanísticas e convencionais neles previstas e depende da aprovação prévia do projeto pela Associação e pela {{obra.prefeitura}}.",
+      "sourcePage": 3
+    },
+    {
+      "kind": "heading",
+      "text": "C L Á U S U L A 4 – E S C O P O D A A D M I N I S T R A Ç Ã O",
+      "sourcePage": 3
+    },
+    {
+      "kind": "paragraph",
+      "text": "4.1. Compete à CONTRATADA, incluindo: (a) a responsabilidade técnica e a respectiva ART (ART nº {{obra.art}}); (b) a implantação, manutenção e desmobilização do canteiro; (c) a seleção, contratação, gestão e fiscalização da mão de obra própria e de terceiros; (d) a coordenação da engenharia de campo; (e) o planejamento físico-financeiro, as cotações, compras, contratações, logística e suprimentos; (f) a gestão de fornecedores, medições, notas fiscais, controle de qualidade e registros; (g) a gestão da folha, do eSocial e das obrigações trabalhistas da Mão de Obra Própria; (h) a organização, limpeza, guarda e segurança do canteiro e o cumprimento das normas regulamentadoras; e (i) a prestação de contas pelo ERP.",
+      "sourcePage": 3
+    },
+    {
+      "kind": "paragraph",
+      "text": "4.2. Os serviços indispensáveis à execução dos projetos ou exigidos por normas técnicas, órgãos públicos, concessionárias ou pela Associação do Loteamento serão geridos pela CONTRATADA e custeados pelo CONTRATANTE, ainda que não previstos no orçamento.",
+      "sourcePage": 4
+    },
+    {
+      "kind": "paragraph",
+      "text": "4.3. A escolha entre Mão de Obra Própria, empreiteiros e prestadores especializados é técnica e cabe à CONTRATADA.",
+      "sourcePage": 4
+    },
+    {
+      "kind": "heading",
+      "text": "C L Á U S U L A 5 – C U S T O D A O B R A",
+      "sourcePage": 4
+    },
+    {
+      "kind": "paragraph",
+      "text": "5.1. Constituem Custo da Obra todas as despesas necessárias, úteis ou acessórias à execução, conservação, regularização e conclusão da Obra, incluindo: (a) materiais e equipamentos incorporados; (b) Mão de Obra Própria, pelo custo integral da cláusula 7, inclusive a equipe de campo (mestre, encarregado, engenheiro de campo e apoio); (c) empreiteiros e prestadores especializados; (d) locações de terceiros e de Equipamentos Próprios (cláusula 8); (e) EPC, ferramentas, fretes, caçambas e transporte de entulho; (f) topografia, sondagens, ensaios, ligações provisórias e consumos; (g) taxas da Associação do Loteamento, taxas públicas, emolumentos e tributos da Obra; (h) certidões do imóvel e do CONTRATANTE, abertura e regularização do CNO, aferição no SERO, contribuições apuradas na DCTFWeb, emissão da certidão negativa de débitos da Obra e honorários do contador responsável pela regularização (cláusula 14.4); (i) prêmio do seguro da cláusula 17; e (j) o Repasse Tributário.",
+      "sourcePage": 4
+    },
+    {
+      "kind": "paragraph",
+      "text": "5.2. Não constituem Custo da Obra: (a) a estrutura administrativa central da CONTRATADA (escritório, sócios, contabilidade da empresa e licenças de software), remunerada pela Taxa de Administração; (b) multas, autuações, juros e condenações decorrentes de culpa da CONTRATADA; e (c) a correção de vícios a ela imputáveis.",
+      "sourcePage": 4
+    },
+    {
+      "kind": "paragraph",
+      "text": "5.3. A obrigação do CONTRATANTE de custear a Obra independe do CGR e subsiste ainda que o Custo da Obra o ultrapasse.",
+      "sourcePage": 4
+    },
+    {
+      "kind": "heading",
+      "text": "C L Á U S U L A 6 – R E M U N E R A Ç Ã O , C G R E R E T E N Ç Ã O",
+      "sourcePage": 4
+    },
+    {
+      "kind": "paragraph",
+      "text": "6.1. Taxa de Administração. O CONTRATANTE pagará à CONTRATADA Taxa de Administração de {{comercial.taxa_administracao}} sobre o Custo da Obra efetivamente incorrido e comprovado no ERP, excluídos da base de cálculo: (a) a locação de Equipamentos Próprios; (b) o prêmio do seguro da cláusula 17; e (c) o Repasse Tributário.",
+      "sourcePage": 4
+    },
+    {
+      "kind": "paragraph",
+      "text": "6.2. Pagamento. A Taxa de Administração será paga em até {{comercial.pagamento_dias}} de cada relatório de prestação de contas (cláusula 11.1), calculada sobre as despesas nele comprovadas.",
+      "sourcePage": 4
+    },
+    {
+      "kind": "paragraph",
+      "text": "6.3. CGR. As Partes fixam o CGR em {{comercial.cgr}}, correspondente a {{obra.area_construida}} m² de área construída ao parâmetro de {{comercial.valor_m2}}, estimado com base no {{comercial.referencia_cgr}}, e {{comercial.atualizacao_cgr}}. O CGR não é orçamento fechado, preço máximo, promessa de custo final nem limite de desembolso do CONTRATANTE.",
+      "sourcePage": 5
+    },
+    {
+      "kind": "paragraph",
+      "text": "6.4. Teto. A remuneração da CONTRATADA pela administração da Obra fica limitada ao teto global de {{comercial.teto}}, {{comercial.atualizacao_teto}}. Atingido o teto, não incidirá Taxa de Administração sobre o Custo da Obra subsequente, salvo termo aditivo, e a CONTRATADA continuará a administrar a Obra.",
+      "sourcePage": 5
+    },
+    {
+      "kind": "paragraph",
+      "text": "6.4.1. O teto abrange a soma de todas as parcelas da Taxa de Administração, qualquer que seja o Custo da Obra final ou a duração da Obra.",
+      "sourcePage": 5
+    },
+    {
+      "kind": "paragraph",
+      "text": "6.4.2. Não se computam no teto, por não constituírem remuneração de administração: (a) a Mão de Obra Própria (cláusula 7); (b) a locação de Equipamentos Próprios (cláusula 8); (c) o Repasse Tributário (cláusula 9); e (d) os reembolsos da cláusula 10.4.",
+      "sourcePage": 5
+    },
+    {
+      "kind": "paragraph",
+      "text": "6.5. Governança. Ao atingir {{comercial.alerta_cgr}} do CGR, a CONTRATADA apresentará relatório de projeção do custo total, indicando se haverá ultrapassagem e sua ordem de grandeza.",
+      "sourcePage": 5
+    },
+    {
+      "kind": "paragraph",
+      "text": "6.6. Revisão. O CGR e o teto somente serão revistos por termo aditivo fundado em Evento de Revisão, com descrição do fato e do impacto estimado. Custos urgentes ou indispensáveis à segurança, à conservação ou à mitigação de prejuízos podem ser executados e apresentados depois para ratificação.",
+      "sourcePage": 5
+    },
+    {
+      "kind": "paragraph",
+      "text": "6.7. Retenção de garantia. O CONTRATANTE reterá {{comercial.retencao}} de cada parcela da Taxa de Administração, liberando o total retido em até {{comercial.liberacao_retencao_dias}} de Recebimento Provisório (cláusula 16.4). Nenhuma outra retenção, caução ou seguro-garantia será exigida.",
+      "sourcePage": 5
+    },
+    {
+      "kind": "heading",
+      "text": "C L Á U S U L A 7 – M Ã O D E O B R A P R Ó P R I A",
+      "sourcePage": 5
+    },
+    {
+      "kind": "paragraph",
+      "text": "7.1. Composição do custo. A Mão de Obra Própria é registrada em nome da CONTRATADA, nos termos da legislação e da Convenção Coletiva de Trabalho da construção civil de {{obra.cidade_uf}} vigente, e seu custo integral compreende: (a) salários e adicionais legais ou convencionais; (b) encargos sobre a folha (contribuição previdenciária patronal, RAT/FAP, contribuições a terceiros, quando devidas, e FGTS); (c) provisões de 13º salário, férias acrescidas de 1/3, aviso prévio e multa rescisória do FGTS, com os respectivos encargos; (d) benefícios convencionais (alimentação, cesta, vale-transporte, ajuda de ferramenta e seguro de vida); e (e) saúde e segurança do trabalho (exames ocupacionais, treinamentos, uniformes, EPI, PGR e PCMSO).",
+      "sourcePage": 5
+    },
+    {
+      "kind": "paragraph",
+      "text": "7.2. Faturamento. A Mão de Obra Própria será faturada mensalmente pelo custo-homem-mês de cada função, apurado na forma da cláusula 7.1 e demonstrado em memória de cálculo disponibilizada no ERP, proporcional ao tempo de alocação de cada trabalhador apurado no registro de ponto e lançado no ERP. As provisões da alínea (c) da cláusula 7.1 são faturadas mês a mês e não serão objeto de conciliação, ressalvada a cláusula 7.6.",
+      "sourcePage": 6
+    },
+    {
+      "kind": "paragraph",
+      "text": "7.3. Verbas variáveis. Horas extras, trabalho em domingos e feriados e demais verbas variáveis necessárias à Obra serão faturadas pelo valor efetivamente pago, acrescido dos encargos e provisões incidentes.",
+      "sourcePage": 6
+    },
+    {
+      "kind": "paragraph",
+      "text": "7.4. Reajuste. O custo-homem-mês será reajustado de pleno direito, sem necessidade de aditivo: (a) anualmente, na data-base da categoria (1º de maio), ou na data em que for registrada a nova Convenção Coletiva ou seu termo aditivo, abrangendo pisos salariais, benefícios (café da manhã, almoço, cesta, ajuda de ferramenta e demais vantagens) e percentuais nela fixados, com efeitos retroativos à vigência ali prevista; e (b) sempre que lei alterar alíquotas, contribuições, jornada ou benefícios obrigatórios. A CONTRATADA comunicará os novos valores com memória de cálculo, com efeitos desde a vigência da norma.",
+      "sourcePage": 6
+    },
+    {
+      "kind": "paragraph",
+      "text": "7.5. Dimensionamento. O dimensionamento das equipes é decisão técnica da CONTRATADA, conforme o cronograma. Transferências entre obras serão registradas no ponto e no ERP, e a Obra arcará apenas com o período de efetiva alocação.",
+      "sourcePage": 6
+    },
+    {
+      "kind": "paragraph",
+      "text": "7.6. Desmobilização. As verbas rescisórias dos trabalhadores desmobilizados ao término da Obra ou de suas etapas, ou em razão de suspensão, redução de ritmo ou extinção deste Contrato por causa não imputável à CONTRATADA, constituem Custo da Obra. A diferença entre as verbas devidas e as provisões já faturadas será faturada com memória de cálculo e compensada com o Fundo de Reserva.",
+      "sourcePage": 6
+    },
+    {
+      "kind": "paragraph",
+      "text": "7.7. Estabilidade acidentária. O custo de estabilidade provisória decorrente de acidente de trabalho ocorrido nesta Obra constitui Custo da Obra até a realocação do trabalhador em outra obra da CONTRATADA ou o fim da estabilidade, o que ocorrer primeiro, salvo culpa da CONTRATADA.",
+      "sourcePage": 6
+    },
+    {
+      "kind": "paragraph",
+      "text": "7.8. Aproveitamento na aferição. A folha da Mão de Obra Própria será declarada no eSocial em lotação tributária vinculada ao CNO da Obra, para que as contribuições recolhidas pela CONTRATADA sejam aproveitadas na aferição da Obra e reduzam o valor devido pelo CONTRATANTE na regularização.",
+      "sourcePage": 6
+    },
+    {
+      "kind": "paragraph",
+      "text": "7.9. Comprovação. A CONTRATADA disponibilizará mensalmente no ERP a folha da Obra, as guias e os comprovantes de FGTS e DCTFWeb e o apontamento de cada trabalhador, limitados os dados pessoais ao necessário à comprovação do custo.",
+      "sourcePage": 6
+    },
+    {
+      "kind": "heading",
+      "text": "C L Á U S U L A 8 – L O C A Ç Ã O D E E Q U I PA M E N T O S P R Ó P R I O S",
+      "sourcePage": 7
+    },
+    {
+      "kind": "paragraph",
+      "text": "8.1. Faculdade e natureza. Mediante aceite do CONTRATANTE (cláusula 8.4), a CONTRATADA poderá locar à Obra Equipamentos Próprios, sem operador, tais como andaimes, escoras, betoneiras, compactadores, guinchos, cortadoras e ferramentas elétricas de médio e grande porte. A locação é acessória a este Contrato e rege-se por esta cláusula e, subsidiariamente, pelos arts. 565 a 578 do Código Civil. Esta é a única hipótese em que a CONTRATADA fornece bens à Obra.",
+      "sourcePage": 7
+    },
+    {
+      "kind": "paragraph",
+      "text": "8.2. Pesquisa mensal de mercado. Até o {{comercial.pesquisa_dia}}, a CONTRATADA realizará, para cada equipamento locado ou a locar, pesquisa de preços com as {{comercial.cotacoes_equipamentos}} locadoras independentes mais conhecidas de {{obra.cidade_uf}}, em condições equivalentes de especificação, período, frete, montagem e desmontagem, manutenção e seguro.",
+      "sourcePage": 7
+    },
+    {
+      "kind": "paragraph",
+      "text": "8.2.1. Considera-se independente a locadora que não tenha sócio, administrador ou parente até o terceiro grau em comum com a CONTRATADA ou seus sócios, nem com ela mantenha vínculo societário, de controle ou de representação.",
+      "sourcePage": 7
+    },
+    {
+      "kind": "paragraph",
+      "text": "8.2.2. Cada cotação conterá razão social, CNPJ, data, responsável, especificação e preço por período, e será arquivada no ERP em orçamento escrito, e-mail, mensagem ou captura de tela datada.",
+      "sourcePage": 7
+    },
+    {
+      "kind": "paragraph",
+      "text": "8.2.3. Inexistindo três locadoras do equipamento em {{obra.cidade_uf}}, admitem-se duas cotações, com justificativa registrada no ERP. Havendo uma ou nenhuma, aplica-se o preço da última pesquisa válida, corrigido pelo INCC-DI, por no máximo {{comercial.pesquisa_validade_meses}}.",
+      "sourcePage": 7
+    },
+    {
+      "kind": "paragraph",
+      "text": "8.3. Preço. O valor mensal da locação de cada equipamento não excederá o menor preço válido obtido na pesquisa do mês. A CONTRATADA aplicará a modalidade de período – diária, semanal, quinzenal ou mensal – ou a combinação delas que resulte no menor custo para o período efetivo de uso.",
+      "sourcePage": 7
+    },
+    {
+      "kind": "paragraph",
+      "text": "8.4. Liberdade de escolha. A locação de Equipamentos Próprios não é condição para a celebração nem para a execução deste Contrato, sendo vedada qualquer forma de venda casada (art. 39, I, do Código de Defesa do Consumidor). Cada locação depende de aceite prévio e escrito do CONTRATANTE no ERP, por equipamento, à vista do mapa de cotações. O CONTRATANTE poderá recusar a locação ou, até o {{comercial.substituicao_dia}}, substituí-la por locação junto a qualquer locadora de sua escolha, sem penalidade, sem justificativa e sem prejuízo das demais obrigações das Partes. A CONTRATADA providenciará a {{comercial.substituicao_dias}}, e a locação de terceiro integrará o Custo da Obra.",
+      "sourcePage": 7
+    },
+    {
+      "kind": "paragraph",
+      "text": "8.5. Medição. A entrada e a saída de cada equipamento do canteiro serão registradas no ERP por romaneio datado, e a locação será faturada proporcionalmente ao período de permanência. O equipamento sem uso previsto por {{comercial.inatividade_dias}} será desmobilizado ou deixará de ser faturado, salvo se a paralisação decorrer de fato imputável ao CONTRATANTE.",
+      "sourcePage": 7
+    },
+    {
+      "kind": "paragraph",
+      "text": "8.6. Manutenção e substituição. Estão incluídas no preço a manutenção preventiva e a corretiva decorrente de desgaste natural. Equipamento inoperante será reparado ou substituído em até {{comercial.manutencao_horas}}, e o período de inoperância não será faturado. Frete, montagem e desmontagem somente serão cobrados à parte se as cotações de mercado os cobrarem à parte, pelo mesmo critério.",
+      "sourcePage": 8
+    },
+    {
+      "kind": "paragraph",
+      "text": "8.7. Riscos. Correm por conta da CONTRATADA os danos causados por seus empregados ou prepostos e o desgaste natural. Perda, furto, roubo ou dano por terceiros no canteiro serão cobertos pelo seguro da cláusula 17, quando houver cobertura, e a franquia ou a parcela não coberta constituirá Custo da Obra, salvo culpa da CONTRATADA no dever de guarda.",
+      "sourcePage": 8
+    },
+    {
+      "kind": "paragraph",
+      "text": "8.8. Transparência. O relatório mensal (cláusula 11.1) trará a relação dos equipamentos locados, com períodos e valores faturados, e o mapa de cotações que comprova o atendimento da cláusula 8.3.",
+      "sourcePage": 8
+    },
+    {
+      "kind": "paragraph",
+      "text": "8.9. Faturamento. A locação será cobrada em documento próprio de locação de bens móveis, separado da Taxa de Administração e da Mão de Obra Própria. O operador, quando necessário, será faturado como Mão de Obra Própria.",
+      "sourcePage": 8
+    },
+    {
+      "kind": "paragraph",
+      "text": "8.10. Propriedade. Os Equipamentos Próprios não se incorporam à Obra e serão restituídos à CONTRATADA ao fim de cada locação ou deste Contrato. É vedada sua retenção pelo CONTRATANTE, inclusive em caso de controvérsia sobre valores.",
+      "sourcePage": 8
+    },
+    {
+      "kind": "heading",
+      "text": "C L Á U S U L A 9 – R E PA S S E T R I B U T Á R I O",
+      "sourcePage": 8
+    },
+    {
+      "kind": "paragraph",
+      "text": "9.1. Os tributos incidentes sobre a receita da CONTRATADA, no regime em que estiver enquadrada, relativos aos valores faturados ao CONTRATANTE (Mão de Obra Própria, locação de Equipamentos Próprios, reembolsos e Taxa de Administração) constituem Custo da Obra, de modo que a CONTRATADA receba, líquidos de tributos, os valores pactuados.",
+      "sourcePage": 8
+    },
+    {
+      "kind": "paragraph",
+      "text": "9.2. Cada fatura será calculada com os tributos incluídos na própria base (cálculo \"por dentro\"): Valor da fatura = Valor líquido ÷ (1 − alíquota efetiva do mês)",
+      "sourcePage": 8
+    },
+    {
+      "kind": "paragraph",
+      "text": "9.3. A alíquota efetiva do mês corresponde à soma dos tributos incidentes sobre a receita da CONTRATADA, segundo seu regime e a natureza de cada receita, e será informada a cada fatura com a respectiva memória de cálculo.",
+      "sourcePage": 8
+    },
+    {
+      "kind": "paragraph",
+      "text": "9.4. A mudança de regime da CONTRATADA e a criação, extinção ou alteração de tributos sobre a operação, inclusive a CBS e o IBS, refletirão de pleno direito no repasse, desde sua vigência. Retenções na fonte exigidas por lei serão compensadas, sem duplicidade.",
+      "sourcePage": 8
+    },
+    {
+      "kind": "paragraph",
+      "text": "9.5. A CONTRATADA emitirá documentos fiscais distintos para a Taxa de Administração, a Mão de Obra Própria e a locação, conforme a legislação aplicável.",
+      "sourcePage": 8
+    },
+    {
+      "kind": "heading",
+      "text": "C L Á U S U L A 1 0 – R E C U R S O S E PA G A M E N T O S",
+      "sourcePage": 9
+    },
+    {
+      "kind": "paragraph",
+      "text": "10.1. Fluxo de caixa. A CONTRATADA apresentará mensalmente o fluxo de caixa previsto, com base no cronograma e nas demandas de compras, contratações e folha do período.",
+      "sourcePage": 9
+    },
+    {
+      "kind": "paragraph",
+      "text": "10.2. Antecipação. O CONTRATANTE disponibilizará os recursos antecipadamente: (a) até o {{comercial.antecipacao_dia}}, a Mão de Obra Própria e a locação de Equipamentos Próprios previstas para o mês seguinte, com o Repasse Tributário; e (b) os demais custos, conforme solicitação da CONTRATADA.",
+      "sourcePage": 9
+    },
+    {
+      "kind": "paragraph",
+      "text": "10.3. Fundo de Reserva. Antes da mobilização, o CONTRATANTE depositará em favor da CONTRATADA valor equivalente a {{comercial.reserva_meses}} prevista, com o Repasse Tributário, a ser recomposto sempre que a equipe aumentar {{comercial.recomposicao_percentual}}. O Fundo de Reserva garante as obrigações do CONTRATANTE, e seu saldo será compensado na última fatura ou devolvido em até {{comercial.devolucao_reserva_dias}} de contas final.",
+      "sourcePage": 9
+    },
+    {
+      "kind": "paragraph",
+      "text": "10.4. Pagamentos diretos. Materiais, empreiteiros, locações de terceiros e demais custos serão pagos pelo CONTRATANTE diretamente aos fornecedores, ou por conta bancária da Obra de sua titularidade, conforme autorização da CONTRATADA. Pagamentos excepcionais feitos pela CONTRATADA serão reembolsados mediante comprovante, com o Repasse Tributário.",
+      "sourcePage": 9
+    },
+    {
+      "kind": "paragraph",
+      "text": "10.5. Conta. Os valores devidos à CONTRATADA serão pagos por transferência ou PIX à {{contratada.razao_social}}, em conta bancária de sua titularidade, a ser por ela indicada por escrito ao CONTRATANTE, ou pela chave PIX CNPJ {{contratada.cnpj}}.",
+      "sourcePage": 9
+    },
+    {
+      "kind": "paragraph",
+      "text": "10.6. Valores incontroversos. A impugnação de item específico (cláusula 11.3) não autoriza a retenção de valores incontroversos, da folha, de pagamentos a fornecedores ou de despesas necessárias à continuidade, vedada a compensação unilateral.",
+      "sourcePage": 9
+    },
+    {
+      "kind": "heading",
+      "text": "C L Á U S U L A 11 – P R E S TA Ç Ã O D E C O N TA S , E R P E F I S C A L I Z A Ç Ã O",
+      "sourcePage": 9
+    },
+    {
+      "kind": "paragraph",
+      "text": "11.1. Relatórios. Nos {{comercial.dias_prestacao}}, a CONTRATADA disponibilizará no ERP relatório de prestação de contas com os custos executados, notas fiscais, recibos, comprovantes de pagamento, folha da Obra, contratos e ordens de serviço do período.",
+      "sourcePage": 9
+    },
+    {
+      "kind": "paragraph",
+      "text": "11.2. Esclarecimentos. O CONTRATANTE poderá, a {{comercial.esclarecimentos_dias}}, solicitar esclarecimentos ao setor financeiro da CONTRATADA. A ausência momentânea de um documento no ERP não caracteriza inadimplemento se ele existir e for apresentado em prazo razoável.",
+      "sourcePage": 9
+    },
+    {
+      "kind": "paragraph",
+      "text": "11.3. Impugnação. O CONTRATANTE poderá impugnar lançamento específico, por escrito e fundamentadamente, em até {{comercial.impugnacao_dias_uteis}}. Decorrido o prazo sem impugnação, o relatório considera-se aprovado.",
+      "sourcePage": 9
+    },
+    {
+      "kind": "paragraph",
+      "text": "11.4. Fiscalização. O CONTRATANTE poderá, a qualquer tempo: (a) acessar o canteiro no horário de funcionamento, observadas as normas de segurança; (b) fazer-se acompanhar de profissional de sua confiança; e (c) contratar, às suas expensas, fiscalização técnica independente, com acesso a registros, ERP, canteiro, fornecedores e equipes. A CONTRATADA prestará a colaboração necessária sem ônus adicional.",
+      "sourcePage": 10
+    },
+    {
+      "kind": "paragraph",
+      "text": "11.5. Não interferência. O acesso ao ERP e a fiscalização não transferem ao CONTRATANTE a gestão da Obra. Instruções a equipes, fornecedores ou prestadores serão encaminhadas por intermédio da CONTRATADA.",
+      "sourcePage": 10
+    },
+    {
+      "kind": "heading",
+      "text": "C L Á U S U L A 1 2 – C O M P R A S E F O R N E C E D O R E S",
+      "sourcePage": 10
+    },
+    {
+      "kind": "paragraph",
+      "text": "12.1. Critério. A CONTRATADA cotará e contratará buscando o melhor custo-benefício, considerados preço, prazo, qualidade técnica, compatibilidade, garantias, histórico, logística e condições de pagamento.",
+      "sourcePage": 10
+    },
+    {
+      "kind": "paragraph",
+      "text": "12.2. Cotações. Aquisições ou contratações de valor unitário superior a {{comercial.limite_cotacoes}} serão precedidas de {{comercial.cotacoes_compras}} de fornecedores distintos, registradas no ERP, aplicando-se, no que couber, as cláusulas 8.2.1 a 8.2.3. Havendo um único fornecedor, a CONTRATADA comunicará o CONTRATANTE por escrito, que terá {{comercial.alternativa_dias_uteis}} alternativa ou autorizar a contratação.",
+      "sourcePage": 10
+    },
+    {
+      "kind": "paragraph",
+      "text": "12.3. Documentos fiscais. As notas fiscais de materiais, equipamentos e serviços de terceiros serão emitidas em nome do CONTRATANTE, com o CNO e o endereço da Obra. Para tanto, o CONTRATANTE outorga à CONTRATADA mandato para cotar, negociar, solicitar e receber, em seu nome, os materiais e serviços da Obra, sem que os respectivos valores transitem como receita da CONTRATADA.",
+      "sourcePage": 10
+    },
+    {
+      "kind": "paragraph",
+      "text": "12.4. Indicações e compras diretas. O CONTRATANTE poderá apresentar cotações e indicar fornecedores, cuja adoção depende de validação técnica da CONTRATADA. Compras e contratações diretas do CONTRATANTE serão informadas previamente e registradas no ERP.",
+      "sourcePage": 10
+    },
+    {
+      "kind": "paragraph",
+      "text": "12.5. Empreiteiros. Empreiteiros e prestadores destacarão o CNO da Obra em seus documentos fiscais e comprovarão a regularidade trabalhista e previdenciária de seus empregados, para aproveitamento na aferição.",
+      "sourcePage": 10
+    },
+    {
+      "kind": "paragraph",
+      "text": "12.6. Vantagens vedadas. É vedado à CONTRATADA receber comissões, bonificações ou vantagens de fornecedores ou prestadores em razão da Obra. Descontos obtidos serão integralmente refletidos no Custo da Obra.",
+      "sourcePage": 10
+    },
+    {
+      "kind": "heading",
+      "text": "C L Á U S U L A 1 3 – P R A Z O E E V E N T O S D E R E V I S Ã O",
+      "sourcePage": 10
+    },
+    {
+      "kind": "paragraph",
+      "text": "13.1. Prazo-base. A Obra será executada em {{prazos.meses_execucao}} contados do início efetivo, que ocorrerá quando atendidos, cumulativamente: assinatura deste Contrato, liberação do terreno, aprovação do projeto pela Associação do Loteamento e pela Prefeitura, emissão do alvará, depósito do Fundo de Reserva e mobilização do canteiro.",
+      "sourcePage": 10
+    },
+    {
+      "kind": "paragraph",
+      "text": "13.2. Tolerância. Admite-se dilatação de até {{prazos.meses_tolerancia}}.",
+      "sourcePage": 11
+    },
+    {
+      "kind": "paragraph",
+      "text": "13.3. Multa por atraso. Esgotados o prazo-base e a tolerância, isto é, encerrado o {{prazos.mes_multa}} contado do início efetivo, sem amparo em Evento de Revisão, a CONTRATADA pagará multa moratória de {{prazos.multa_atraso}} do valor do imóvel, assim considerado o CGR, por mês de atraso, pro rata die, limitada a {{prazos.limite_multa}} e descontada das parcelas vincendas da Taxa de Administração. Ultrapassado o {{prazos.mes_resolucao}} sem causa justificada, o CONTRATANTE poderá resolver o Contrato nos termos da cláusula 18.5.",
+      "sourcePage": 11
+    },
+    {
+      "kind": "paragraph",
+      "text": "13.4. Eventos de Revisão. Prorrogam o prazo pelo tempo do impacto e autorizam a revisão do CGR e do teto, mediante registro no ERP com o fato gerador e o impacto estimado: (a) atraso de pagamento ou de recomposição do Fundo de Reserva; (b) atraso do CONTRATANTE em aprovações, definições de material ou acabamento, ou na entrega de documentos; (c) alteração de projeto, escopo ou padrão de acabamento; (d) compra direta, fornecedor imposto ou interferência do CONTRATANTE; (e) atraso ou incompatibilidade de projetos de terceiros; (f) exigência de órgão público, concessionária ou da Associação do Loteamento; (g) condição de solo ou subsolo não identificada previamente; (h) chuvas acima da média histórica ou outra condição climática adversa; (i) atraso de fornecedor ou indisponibilidade de insumos no mercado; (j) greve ou paralisação da categoria; (k) alteração de lei, convenção coletiva ou tributo que afete custo ou jornada; (l) variações relevantes de mercado; e (m) Caso Fortuito ou Força Maior.",
+      "sourcePage": 11
+    },
+    {
+      "kind": "paragraph",
+      "text": "13.5. Marcos. O Anexo IV fixará {{prazos.quantidade_marcos}}: fundação; estrutura; alvenaria e cobertura; acabamento e entrega. Atraso relevante em marco, sem Evento de Revisão, obriga a CONTRATADA a apresentar plano de {{prazos.recuperacao_dias}}, sem retenção da Taxa de Administração.",
+      "sourcePage": 11
+    },
+    {
+      "kind": "heading",
+      "text": "C L Á U S U L A 1 4 – O B R I G A Ç Õ E S D A S PA R T E S",
+      "sourcePage": 11
+    },
+    {
+      "kind": "paragraph",
+      "text": "14.1. Da CONTRATADA, além das previstas nas demais cláusulas: (a) executar a Obra conforme os projetos aprovados e as normas técnicas; (b) providenciar ou acompanhar a abertura do CNO em nome do CONTRATANTE; e (c) comunicar prontamente riscos de custo e prazo, necessidades de aditivo e incompatibilidades de projeto.",
+      "sourcePage": 11
+    },
+    {
+      "kind": "paragraph",
+      "text": "14.2. Sucessão técnica. Se o Eng. {{obra.responsavel_tecnico}} ({{obra.conselho}} {{obra.crea}}) deixar a responsabilidade técnica da Obra, a CONTRATADA comunicará o CONTRATANTE com {{prazos.sucessao_dias}}, salvo força maior, e indicará substituto de qualificação equivalente ou superior, sujeito à aprovação escrita do CONTRATANTE, que não poderá recusá-lo sem fundamento. A recusa fundamentada autoriza a resolução sem multa (cláusula 18.5).",
+      "sourcePage": 11
+    },
+    {
+      "kind": "paragraph",
+      "text": "14.3. Do CONTRATANTE, além das obrigações financeiras das cláusulas 5 a 10: (a) liberar o terreno e manter a documentação do imóvel regular perante o Registro de Imóveis, a Prefeitura e a Associação do Loteamento; (b) decidir sobre aprovações, materiais e acabamentos em até {{prazos.aprovacao_dias_uteis}}; e (c) informar previamente alterações de projeto e entrada de terceiros no canteiro.",
+      "sourcePage": 12
+    },
+    {
+      "kind": "paragraph",
+      "text": "14.4. Regularização da Obra. A abertura e a manutenção do CNO, a aferição no SERO, as declarações na DCTFWeb, os recolhimentos e a obtenção da certidão negativa de débitos da Obra e das demais certidões necessárias ao habite-se e à averbação serão conduzidos, à escolha do CONTRATANTE, pelo contador indicado pela CONTRATADA ou por profissional por ele contratado, comunicada a escolha em até {{prazos.contador_dias}}. Em qualquer caso, todos os custos, tributos, emolumentos e honorários correspondentes são do CONTRATANTE, e a CONTRATADA fornecerá ao profissional escolhido, sem ônus adicional, a folha, as guias, as notas fiscais e as demais informações da Obra. Na falta de escolha no prazo, a regularização será conduzida pelo contador indicado pela CONTRATADA.",
+      "sourcePage": 12
+    },
+    {
+      "kind": "heading",
+      "text": "C L Á U S U L A 1 5 – A LT E R A Ç Õ E S E C O M U N I C A Ç Õ E S",
+      "sourcePage": 12
+    },
+    {
+      "kind": "paragraph",
+      "text": "15.1. Alterações. Alterações de projeto, escopo, especificação, fornecedor, prazo, CGR ou teto serão formalizadas por escrito, em termo aditivo, ordem de alteração aprovada no ERP ou e-mail com confirmação. Solicitações verbais só produzem efeitos após registradas e aceitas pela CONTRATADA, com indicação do impacto em custo e prazo.",
+      "sourcePage": 12
+    },
+    {
+      "kind": "paragraph",
+      "text": "15.2. Comunicações. As notificações entre as Partes serão feitas por escrito, por e-mail aos endereços indicados no preâmbulo ou pelo ERP, e reputam-se recebidas na data do envio, salvo prova em contrário. A CONTRATADA atenderá pelos canais: financeiro {{contratada.telefone_financeiro}}; engenharia {{contratada.telefone_engenharia}}; compras {{contratada.telefone_compras}}. A mudança de endereço ou canal deve ser comunicada à outra Parte, sob pena de validade das comunicações enviadas ao anterior.",
+      "sourcePage": 12
+    },
+    {
+      "kind": "heading",
+      "text": "C L Á U S U L A 1 6 – R E S P O N S A B I L I D A D E T É C N I C A , G A R A N T I A S E R E C E B I M E N T O",
+      "sourcePage": 12
+    },
+    {
+      "kind": "paragraph",
+      "text": "16.1. Responsabilidade. A CONTRATADA responde, às suas expensas, pelos vícios construtivos comprovadamente decorrentes de falha de execução, gestão, fiscalização ou responsabilidade técnica a ela imputável, inclusive quanto a fornecedores e materiais por ela selecionados, e não responde pelos efeitos das Excludentes de Responsabilidade.",
+      "sourcePage": 12
+    },
+    {
+      "kind": "paragraph",
+      "text": "16.2. Validação técnica. Material, fornecedor ou solução proposto pelo CONTRATANTE só se considera validado pela CONTRATADA mediante aprovação expressa e escrita, e seu silêncio não implica validação.",
+      "sourcePage": 12
+    },
+    {
+      "kind": "paragraph",
+      "text": "16.3. Garantias. Os prazos de garantia por sistema constam do Anexo V. Nada neste Contrato afasta a garantia de solidez e segurança do art. 618 do Código Civil, a responsabilidade por vícios redibitórios (arts. 441 a 446 do Código Civil) nem, quando aplicáveis, as normas do Código de Defesa do Consumidor.",
+      "sourcePage": 12
+    },
+    {
+      "kind": "paragraph",
+      "text": "16.4. Recebimento provisório. Concluída a Obra, as Partes farão vistoria conjunta e firmarão Termo de Recebimento Provisório, com eventual lista de pendências, que a CONTRATADA corrigirá em prazo razoável.",
+      "sourcePage": 13
+    },
+    {
+      "kind": "paragraph",
+      "text": "16.5. Recebimento definitivo. Corrigidas as pendências, a CONTRATADA notificará o CONTRATANTE, com registro fotográfico ou laudo, e entregará: (a) Manual de Uso, Operação e Manutenção (ABNT NBR 14037); (b) projetos as built, em formato editável e em PDF assinado; e (c) notas fiscais e certificados de garantia dos equipamentos relevantes. O CONTRATANTE terá {{prazos.recebimento_dias_uteis}} para apontar pendências aparentes remanescentes, findos os quais o recebimento definitivo se presume quanto a vícios aparentes, preservados os prazos legais quanto a vícios ocultos e à solidez e segurança. Revisões do as built decorrentes de alterações pedidas pelo CONTRATANTE constituem Custo da Obra.",
+      "sourcePage": 13
+    },
+    {
+      "kind": "paragraph",
+      "text": "16.6. Prestação de contas final. A prestação de contas final destina-se à conciliação, ao acerto da cláusula 7.6 com o Fundo de Reserva e à apuração do custo total, e não condiciona o pagamento de valores já vencidos.",
+      "sourcePage": 13
+    },
+    {
+      "kind": "heading",
+      "text": "C L Á U S U L A 1 7 – S E G U R O",
+      "sourcePage": 13
+    },
+    {
+      "kind": "paragraph",
+      "text": "17.1. O seguro de risco de engenharia é facultativo e será contratado se o CONTRATANTE assim desejar, mediante solicitação escrita à CONTRATADA. Nesse caso, em até {{prazos.seguro_dias}}, a CONTRATADA contratará, em seguradora autorizada pela SUSEP, seguro com: (a) cobertura básica e (b) responsabilidade civil geral e cruzada, nos valores definidos pelo CONTRATANTE na solicitação; (c) cobertura de erro de projeto, despesas extraordinárias, roubo e furto de bens no canteiro, inclusive Equipamentos Próprios, conforme disponibilidade de mercado; e (d) vigência até o habite-se. O CONTRATANTE será beneficiário e segurado adicional e receberá cópia da apólice.",
+      "sourcePage": 13
+    },
+    {
+      "kind": "heading",
+      "text": "C L Á U S U L A 1 8 – I N A D I M P L E M E N T O , S U S P E N S Ã O E E X T I N Ç Ã O",
+      "sourcePage": 13
+    },
+    {
+      "kind": "paragraph",
+      "text": "18.1. Mora do CONTRATANTE. O atraso de pagamento sujeita o valor devido a correção pelo INCC-DI, juros de {{prazos.juros_mora}} ao mês pro rata die e multa de {{prazos.multa_mora}}.",
+      "sourcePage": 13
+    },
+    {
+      "kind": "paragraph",
+      "text": "18.2. Suspensão. O atraso {{prazos.suspensao_dias}}, inclusive na recomposição do Fundo de Reserva, autoriza a CONTRATADA, mediante comunicação, a suspender compras, contratações e serviços, prorrogando-se o prazo pelo período da suspensão e da remobilização. Durante a suspensão, o custo da Mão de Obra Própria e dos Equipamentos Próprios mobilizados permanece devido. Persistindo a suspensão por {{prazos.desmobilizacao_dias}}, a CONTRATADA poderá desmobilizar, aplicando-se a cláusula 7.6.",
+      "sourcePage": 13
+    },
+    {
+      "kind": "paragraph",
+      "text": "18.3. Resilição imotivada. Qualquer Parte poderá resilir este Contrato mediante notificação com {{prazos.resilicao_dias}}. A Parte que resilir pagará à outra multa compensatória de {{prazos.multa_resilicao}} da Taxa de Administração ainda não vencido, calculado sobre o teto da cláusula 6.4. Resilindo a CONTRATADA, arcará também com o custo comprovado de remobilização e com as verbas rescisórias que excederem as provisões já faturadas.",
+      "sourcePage": 13
+    },
+    {
+      "kind": "paragraph",
+      "text": "18.4. Abandono. Equipara-se à resilição imotivada pela CONTRATADA a ausência injustificada na Obra por {{prazos.abandono_dias}}.",
+      "sourcePage": 14
+    },
+    {
+      "kind": "paragraph",
+      "text": "18.5. Resolução por inadimplemento. O inadimplemento grave e imputável de uma Parte, não sanado em {{prazos.saneamento_dias_uteis}}, quando sanável, autoriza a outra a resolver o Contrato sem multa e com direito a perdas e danos. Divergência técnica, atos de terceiros, falta de recursos do CONTRATANTE ou Evento de Revisão não configuram inadimplemento da CONTRATADA. Configuram inadimplemento grave, entre outros, a violação da cláusula 20.3 e as hipóteses das cláusulas 13.3 e 14.2.",
+      "sourcePage": 14
+    },
+    {
+      "kind": "paragraph",
+      "text": "18.6. Insolvência. Qualquer Parte poderá resolver o Contrato, independentemente de notificação, em caso de falência, recuperação judicial, insolvência civil ou dissolução da outra (art. 477 do Código Civil e Lei nº 11.101/2005).",
+      "sourcePage": 14
+    },
+    {
+      "kind": "paragraph",
+      "text": "18.7. Efeitos da extinção. Em qualquer hipótese de extinção, o CONTRATANTE pagará, além das multas cabíveis: (a) os custos incorridos e os compromissos assumidos com fornecedores; (b) a Mão de Obra Própria até a desmobilização e as verbas da cláusula 7.6, salvo nas hipóteses das cláusulas 18.3, parte final, e 18.4; (c) a locação dos Equipamentos Próprios até sua retirada; (d) a Taxa de Administração sobre os custos incorridos; e (e) o Repasse Tributário correspondente. A CONTRATADA restituirá o saldo do Fundo de Reserva, entregará a documentação da Obra e providenciará a baixa ou transferência da ART, mantida sua responsabilidade pelos vícios a ela imputáveis até a extinção.",
+      "sourcePage": 14
+    },
+    {
+      "kind": "heading",
+      "text": "C L Á U S U L A 1 9 – R E S P O N S A B I L I D A D E T R A B A L H I S TA E P R E V I D E N C I Á R I A",
+      "sourcePage": 14
+    },
+    {
+      "kind": "paragraph",
+      "text": "19.1. A CONTRATADA é a única empregadora da Mão de Obra Própria e responde pela regularidade trabalhista, previdenciária, fiscal e de segurança do trabalho dessa mão de obra e da que subcontratar, mantendo FGTS, contribuições e tributos em dia, com comprovação no ERP.",
+      "sourcePage": 14
+    },
+    {
+      "kind": "paragraph",
+      "text": "19.2. O CONTRATANTE, dono de obra de residência unifamiliar para uso próprio, não explora atividade de construção civil e não é tomador de serviços para fins trabalhistas (Orientação Jurisprudencial nº 191 da SDI-1 do TST). Se for condenado ou compelido a pagar obrigação decorrente de culpa da CONTRATADA, terá direito de regresso integral contra ela.",
+      "sourcePage": 14
+    },
+    {
+      "kind": "heading",
+      "text": "C L Á U S U L A 2 0 – C O N F I D E N C I A L I D A D E , P R O T E Ç Ã O D E D A D O S E I N T E G R I D A D E",
+      "sourcePage": 14
+    },
+    {
+      "kind": "paragraph",
+      "text": "20.1. Confidencialidade. As Partes manterão sigilo sobre projetos, valores, memórias de cálculo, condições comerciais, fornecedores, sistemas de segurança e informações pessoais ou patrimoniais do CONTRATANTE, durante a vigência e por {{prazos.sigilo_anos}} após a extinção. A CONTRATADA poderá usar imagens da Obra em portfólio e publicidade, sem identificar o CONTRATANTE, o endereço ou os sistemas de segurança, salvo autorização escrita em sentido diverso.",
+      "sourcePage": 14
+    },
+    {
+      "kind": "paragraph",
+      "text": "20.2. Proteção de dados. As Partes tratarão os dados pessoais deste Contrato conforme a Lei nº 13.709/2018, limitando o acesso aos colaboradores necessários, adotando medidas técnicas e administrativas de segurança, comunicando incidentes ao titular em até {{prazos.horas_comunicacao}} e à ANPD nos prazos regulamentares, e eliminando os dados ao fim do Contrato, salvo guarda legal.",
+      "sourcePage": 15
+    },
+    {
+      "kind": "paragraph",
+      "text": "20.3. Integridade. As Partes observarão a Lei nº 12.846/2013 e declaram não oferecer nem aceitar vantagem indevida relacionada a este Contrato. A CONTRATADA declara que não possui participação em fornecedores ou locadoras que venham a ser contratados para a Obra e comunicará por escrito qualquer situação de conflito de interesses antes da contratação.",
+      "sourcePage": 15
+    },
+    {
+      "kind": "heading",
+      "text": "C L Á U S U L A 2 1 – D I S P O S I Ç Õ E S G E R A I S",
+      "sourcePage": 15
+    },
+    {
+      "kind": "paragraph",
+      "text": "21.1. Tolerância. A tolerância quanto ao descumprimento de qualquer obrigação não importa novação, renúncia ou alteração contratual.",
+      "sourcePage": 15
+    },
+    {
+      "kind": "paragraph",
+      "text": "21.2. Nulidade parcial. A invalidade de qualquer disposição não afeta as demais, obrigando-se as Partes a substituí-la por outra válida que preserve sua finalidade econômica.",
+      "sourcePage": 15
+    },
+    {
+      "kind": "paragraph",
+      "text": "21.3. Cessão. É vedada a cessão deste Contrato sem anuência escrita da outra Parte, ressalvadas as subcontratações inerentes ao regime de administração. O Contrato obriga as Partes e seus sucessores.",
+      "sourcePage": 15
+    },
+    {
+      "kind": "paragraph",
+      "text": "21.4. Sobrevivência. Sobrevivem à extinção as cláusulas 16, 19, 20 e 22 e as obrigações de pagamento vencidas.",
+      "sourcePage": 15
+    },
+    {
+      "kind": "paragraph",
+      "text": "21.5. Título executivo e assinatura. Este Contrato constitui título executivo extrajudicial (art. 784, III, do Código de Processo Civil) e pode ser firmado por assinatura eletrônica, nos termos da Medida Provisória nº 2.200-2/2001 e da Lei nº 14.063/2020, que as Partes reconhecem como válida.",
+      "sourcePage": 15
+    },
+    {
+      "kind": "heading",
+      "text": "C L Á U S U L A 2 2 – S O L U Ç Ã O D E C O N T R O V É R S I A S E F O R O",
+      "sourcePage": 15
+    },
+    {
+      "kind": "paragraph",
+      "text": "22.1. As Partes buscarão resolver controvérsias por negociação direta e, {{prazos.negociacao_dias}}, por mediação. A arbitragem dependerá de compromisso arbitral específico. Fica eleito o foro da Comarca de {{obra.cidade_uf}}, ressalvado ao CONTRATANTE, se aplicável o Código de Defesa do Consumidor, o foro de seu domicílio (art. 101, I, do CDC).",
+      "sourcePage": 15
+    },
+    {
+      "kind": "heading",
+      "text": "A S S I N AT U R A S",
+      "sourcePage": 16
+    },
+    {
+      "kind": "signature",
+      "text": "E, por estarem justas e contratadas, as Partes firmam este Contrato, juntamente com 2 (duas) testemunhas.",
+      "sourcePage": 16
+    },
+    {
+      "kind": "signature",
+      "text": "{{assinatura.local_data}}",
+      "sourcePage": 16
+    },
+    {
+      "kind": "signature",
+      "text": "CONTRATADA",
+      "sourcePage": 16
+    },
+    {
+      "kind": "signature",
+      "text": "{{contratada.razao_social}} – CNPJ {{contratada.cnpj}}",
+      "sourcePage": 16
+    },
+    {
+      "kind": "signature",
+      "text": "p. {{contratada.representante_nome}}",
+      "sourcePage": 16
+    },
+    {
+      "kind": "signature",
+      "text": "CONTRATANTE",
+      "sourcePage": 16
+    },
+    {
+      "kind": "signature",
+      "text": "{{contratante.nome}} – CPF {{contratante.documento}}",
+      "sourcePage": 16
+    },
+    {
+      "kind": "signature",
+      "text": "Testemunhas",
+      "sourcePage": 16
+    },
+    {
+      "kind": "signature",
+      "text": "{{assinatura.testemunha_0}}",
+      "sourcePage": 16
+    },
+    {
+      "kind": "signature",
+      "text": "{{assinatura.testemunha_1}}",
+      "sourcePage": 16
+    }
+  ],
+  "suggestions": {
+    "comercial.taxa_administracao": 12,
+    "comercial.pagamento_dias": 5,
+    "comercial.cgr": 1302960,
+    "comercial.valor_m2": 4000,
+    "comercial.referencia_cgr": "CUB/PE, projeto-padrão R-1, acrescido de fundações e de acabamento de primeira linha",
+    "comercial.atualizacao_cgr": "reajustado mensalmente pela variação do INCC-DI/FGV",
+    "comercial.teto": 144000,
+    "comercial.atualizacao_teto": "fixo e irreajustável, que não sofrerá correção monetária nem acompanhará o reajuste do CGR",
+    "comercial.alerta_cgr": 75,
+    "comercial.retencao": 5,
+    "comercial.liberacao_retencao_dias": 10,
+    "comercial.pesquisa_dia": 5,
+    "comercial.cotacoes_equipamentos": 3,
+    "comercial.pesquisa_validade_meses": 2,
+    "comercial.substituicao_dia": 10,
+    "comercial.substituicao_dias": 10,
+    "comercial.inatividade_dias": 7,
+    "prazos.horas_comunicacao": 48,
+    "comercial.antecipacao_dia": 25,
+    "comercial.reserva_meses": 1,
+    "comercial.recomposicao_percentual": 20,
+    "comercial.devolucao_reserva_dias": 10,
+    "comercial.dias_prestacao": "10 e 25",
+    "comercial.esclarecimentos_dias": 15,
+    "comercial.impugnacao_dias_uteis": 15,
+    "comercial.limite_cotacoes": 5000,
+    "comercial.cotacoes_compras": 3,
+    "comercial.alternativa_dias_uteis": 5,
+    "prazos.meses_execucao": 14,
+    "prazos.meses_tolerancia": 2,
+    "prazos.multa_atraso": 0.4,
+    "prazos.limite_multa": 10,
+    "prazos.mes_resolucao": 24,
+    "prazos.quantidade_marcos": 4,
+    "prazos.recuperacao_dias": 10,
+    "prazos.sucessao_dias": 30,
+    "prazos.aprovacao_dias_uteis": 5,
+    "prazos.contador_dias": 15,
+    "prazos.recebimento_dias_uteis": 30,
+    "prazos.seguro_dias": 15,
+    "prazos.juros_mora": 1,
+    "prazos.multa_mora": 2,
+    "prazos.suspensao_dias": 7,
+    "prazos.desmobilizacao_dias": 15,
+    "prazos.resilicao_dias": 15,
+    "prazos.multa_resilicao": 10,
+    "prazos.abandono_dias": 30,
+    "prazos.saneamento_dias_uteis": 15,
+    "prazos.sigilo_anos": 5,
+    "prazos.acesso_erp_dias": 90,
+    "prazos.negociacao_dias": 30,
+    "comercial.manutencao_horas": 48
+  },
+  "formats": {
+    "comercial.taxa_administracao": "12% (doze por cento)",
+    "comercial.pagamento_dias": "5 (cinco) dias do recebimento",
+    "comercial.cgr": "R$ 1.302.960,00 (um milhão, trezentos e dois mil, novecentos e sessenta reais)",
+    "obra.area_construida": "325,74",
+    "comercial.valor_m2": "R$ 4.000,00/m²",
+    "comercial.referencia_cgr": "CUB/PE, projeto-padrão R-1, acrescido de fundações e de acabamento de primeira linha",
+    "comercial.atualizacao_cgr": "reajustado mensalmente pela variação do INCC-DI/FGV",
+    "comercial.teto": "R$ 144.000,00 (cento e quarenta e quatro mil reais)",
+    "comercial.atualizacao_teto": "fixo e irreajustável, que não sofrerá correção monetária nem acompanhará o reajuste do CGR",
+    "comercial.alerta_cgr": "75%",
+    "comercial.retencao": "5% (cinco por cento)",
+    "comercial.liberacao_retencao_dias": "10 (dez) dias da assinatura do Termo",
+    "comercial.pesquisa_dia": "dia 5 (cinco) de cada mês",
+    "comercial.cotacoes_equipamentos": "3 (três) empresas",
+    "comercial.pesquisa_validade_meses": "2 (dois) meses consecutivos",
+    "comercial.substituicao_dia": "dia 10 (dez) de cada mês",
+    "comercial.substituicao_dias": "substituição em até 10 (dez) dias",
+    "comercial.inatividade_dias": "mais de 7 (sete) dias",
+    "prazos.horas_comunicacao": "48 (quarenta e oito) horas",
+    "comercial.antecipacao_dia": "dia 25 de cada mês",
+    "comercial.reserva_meses": "1 (um) mês de Mão de Obra Própria",
+    "comercial.recomposicao_percentual": "mais de 20%",
+    "comercial.devolucao_reserva_dias": "10 (dez) dias da prestação",
+    "comercial.dias_prestacao": "dias 10 e 25 de cada mês",
+    "comercial.esclarecimentos_dias": "cada 15 (quinze) dias",
+    "comercial.impugnacao_dias_uteis": "15 (quinze) dias úteis do relatório",
+    "comercial.limite_cotacoes": "R$ 5.000,00",
+    "comercial.cotacoes_compras": "3 (três) cotações",
+    "comercial.alternativa_dias_uteis": "5 (cinco) dias úteis para indicar",
+    "prazos.meses_execucao": "14 (quatorze) meses",
+    "prazos.meses_tolerancia": "2 (dois) meses sem penalidade",
+    "prazos.mes_multa": "16º (décimo sexto) mês",
+    "prazos.multa_atraso": "0,4% (quatro décimos por cento)",
+    "prazos.limite_multa": "10% (dez por cento) do CGR",
+    "prazos.mes_resolucao": "24º (vigésimo quarto) mês",
+    "prazos.quantidade_marcos": "4 (quatro) marcos",
+    "prazos.recuperacao_dias": "recuperação em até 10 (dez) dias",
+    "prazos.sucessao_dias": "30 (trinta) dias de antecedência",
+    "prazos.aprovacao_dias_uteis": "5 (cinco) dias úteis da solicitação",
+    "prazos.contador_dias": "15 (quinze) dias da assinatura",
+    "prazos.recebimento_dias_uteis": "30 (trinta) dias úteis",
+    "prazos.seguro_dias": "15 (quinze) dias da solicitação",
+    "prazos.juros_mora": "1% (um por cento)",
+    "prazos.multa_mora": "2% (dois por cento)",
+    "prazos.suspensao_dias": "superior a 7 (sete) dias",
+    "prazos.desmobilizacao_dias": "mais de 15 (quinze) dias",
+    "prazos.resilicao_dias": "15 (quinze) dias de antecedência",
+    "prazos.multa_resilicao": "10% (dez por cento) sobre o saldo",
+    "prazos.abandono_dias": "mais de 30 (trinta) dias",
+    "prazos.saneamento_dias_uteis": "15 (quinze) dias úteis da notificação",
+    "prazos.sigilo_anos": "5 (cinco) anos",
+    "prazos.acesso_erp_dias": "90 (noventa) dias",
+    "prazos.negociacao_dias": "frustrada esta em 30 (trinta) dias",
+    "comercial.manutencao_horas": "48 (quarenta e oito) horas"
+  },
+  "importVerification": {
+    "roundTripExact": true,
+    "witnessFieldsChecked": 2,
+    "normalizedSourceSha256": "7ef28b0ac9f6699517a947bf15c25d7e9d812bf532a2d12e975a80921b93e36d",
+    "nodes": 149
+  },
+  "variables": [
+    "assinatura.local_data",
+    "assinatura.testemunha_0",
+    "assinatura.testemunha_1",
+    "comercial.alerta_cgr",
+    "comercial.alternativa_dias_uteis",
+    "comercial.antecipacao_dia",
+    "comercial.atualizacao_cgr",
+    "comercial.atualizacao_teto",
+    "comercial.cgr",
+    "comercial.cotacoes_compras",
+    "comercial.cotacoes_equipamentos",
+    "comercial.devolucao_reserva_dias",
+    "comercial.dias_prestacao",
+    "comercial.esclarecimentos_dias",
+    "comercial.impugnacao_dias_uteis",
+    "comercial.inatividade_dias",
+    "comercial.liberacao_retencao_dias",
+    "comercial.limite_cotacoes",
+    "comercial.manutencao_horas",
+    "comercial.pagamento_dias",
+    "comercial.pesquisa_dia",
+    "comercial.pesquisa_validade_meses",
+    "comercial.recomposicao_percentual",
+    "comercial.referencia_cgr",
+    "comercial.reserva_meses",
+    "comercial.retencao",
+    "comercial.substituicao_dia",
+    "comercial.substituicao_dias",
+    "comercial.taxa_administracao",
+    "comercial.teto",
+    "comercial.valor_m2",
+    "contratada.cnpj",
+    "contratada.qualificacao",
+    "contratada.razao_social",
+    "contratada.representante_nome",
+    "contratada.telefone_compras",
+    "contratada.telefone_engenharia",
+    "contratada.telefone_financeiro",
+    "contratante.documento",
+    "contratante.nome",
+    "contratante.qualificacao",
+    "obra.area_construida",
+    "obra.art",
+    "obra.cidade_uf",
+    "obra.conselho",
+    "obra.considerando",
+    "obra.crea",
+    "obra.loteamento",
+    "obra.objeto",
+    "obra.prefeitura",
+    "obra.responsavel_tecnico",
+    "prazos.abandono_dias",
+    "prazos.acesso_erp_dias",
+    "prazos.aprovacao_dias_uteis",
+    "prazos.contador_dias",
+    "prazos.desmobilizacao_dias",
+    "prazos.horas_comunicacao",
+    "prazos.juros_mora",
+    "prazos.limite_multa",
+    "prazos.mes_multa",
+    "prazos.mes_resolucao",
+    "prazos.meses_execucao",
+    "prazos.meses_tolerancia",
+    "prazos.multa_atraso",
+    "prazos.multa_mora",
+    "prazos.multa_resilicao",
+    "prazos.negociacao_dias",
+    "prazos.quantidade_marcos",
+    "prazos.recebimento_dias_uteis",
+    "prazos.recuperacao_dias",
+    "prazos.resilicao_dias",
+    "prazos.saneamento_dias_uteis",
+    "prazos.seguro_dias",
+    "prazos.sigilo_anos",
+    "prazos.sucessao_dias",
+    "prazos.suspensao_dias"
+  ]
+}

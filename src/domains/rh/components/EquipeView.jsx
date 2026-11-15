@@ -436,9 +436,10 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
         return (
           <article key={e.id} className={`team-row team-row--${lifecycle}`}>
             <div className="team-row__main">
-              <RecordAction type="button" className="team-row__employee" onClick={()=>podeGerenciarEquipe?openEmployee(e):gerarFichaFuncionarioPDF(data,e,showToast)} aria-label={`Abrir ficha de ${e.name}`}>
-                <span className="team-row__initials">{e.name.split(/\s+/).slice(0,2).map(n=>n[0]).join("").toUpperCase()}</span><span><strong>{e.name}</strong><small>{podeGerenciarEquipe?`${fmt(e.dailyRate)}/dia`:"Dados trabalhistas restritos"}</small></span>
-              </RecordAction>
+              <div className="team-row__employee">
+                <span className="team-row__initials" aria-hidden="true">{e.name.split(/\s+/).slice(0,2).map(n=>n[0]).join("").toUpperCase()}</span>
+                <span><RecordAction type="button" onClick={()=>podeGerenciarEquipe?openEmployee(e):gerarFichaFuncionarioPDF(data,e,showToast)} aria-label={`Abrir ficha de ${e.name}`}><strong>{e.name}</strong></RecordAction><small>{podeGerenciarEquipe?`${fmt(e.dailyRate)}/dia`:"Dados trabalhistas restritos"}</small></span>
+              </div>
               <span className="team-row__cell" data-label="Função">{e.role||"Não informada"}</span>
               <span className="team-row__cell" data-label="Lotação">{laborArea(e)==="central"?"Administração Central":(e.obra?obraName(e.obra):"Sem lotação")}</span>
               <span className="team-row__cell" data-label="Pendências">

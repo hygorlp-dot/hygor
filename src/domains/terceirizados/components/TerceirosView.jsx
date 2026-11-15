@@ -1,3 +1,6 @@
+import {TaskDisclosure} from '../../../design-system/patterns/TaskDisclosure.jsx';
+import TechnicalRetentions from '../../../features/financeiro/TechnicalRetentions.jsx';
+import {technicalRetentionCents} from '../technical-retention.js';
 import {Button as StandardButton} from '../../../components/ui/button.jsx';
 import {ChoiceControl} from '../../../design-system/primitives/ChoiceControl.jsx';
 // ===================================================================
@@ -54,7 +57,7 @@ import { enviarArquivoOneDrive } from "../../../api";
 import { ProgressPercentageField } from "../../medicoes/components/ProgressPercentageField.jsx";
 
 export default function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, dispatchCommand=null, contratoInicial=null }) {
-  const { formGrid } = useBreakpoint();
+  const { formGrid,isMobile } = useBreakpoint();
   const perfil=currentUser?.role;
   const podeGerenciarContratos=["admin","rh","engenheiro","engenheiro_auditor","financeiro"].includes(perfil);
   const podeGerenciarMedicoes=["admin","engenheiro","engenheiro_auditor"].includes(perfil);
@@ -64,7 +67,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
     situacao:"andamento", endDate:"", tipoPessoa:"PJ", documento:"", razaoSocial:"", inscEstadual:"", inscMunicipal:"",
     email:"", responsavel:"", cep:"", endereco:"", cidade:"", ufEnd:"", tipoContrato:"medicao",
     banco:"", agencia:"", conta:"", retISS:"", retINSS:"", retISSQuem:"fonte", retINSSQuem:"fonte" };
-  const [view,        setView]        = useState(contratoInicial?.contratoId ? "medicoes" : "kanban");
+  const [view,        setView]        = useState(contratoInicial?.contratoId ? "medicoes" : isMobile?"cadastro":"kanban");
   const [weekOffset,  setWeekOffset]  = useState(0);
   const [modal,       setModal]       = useState(false);
   const [form,        setForm]        = useState(emptyT);
@@ -430,7 +433,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
   // interfere na organização contratual por obra.
   const kanbansPorObra = useMemo(() => {
     const grupos = {};
-    kanbanTerc.forEach(t => {
+    filteredTerc.forEach(t => {
       const chave = t.obraId || "__sem_obra__";
       (grupos[chave] = grupos[chave] || []).push(t);
     });
@@ -453,7 +456,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
         // Empate: mais no início da execução (menor avanço) primeiro.
         return a.avanco - b.avanco;
       });
-  }, [kanbanTerc, avancoContrato, obraName]);
+  }, [filteredTerc, avancoContrato, obraName]);
 
   // Distribui uma lista de terceiros nas 4 colunas de situação. Reutilizável:
   // cada quadro-por-obra chama com a sua própria lista.
@@ -1044,6 +1047,23 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
         <TabRow equal tabs={tabsTerceiros} active={view} onChange={setView}/>
       </div>
 
+      {["kanban","cadastro"].includes(view)&&<>
+        <section className="terceiros-registry-toolbar" aria-label="Filtros do cadastro">
+          <div className="terceiros-registry-toolbar__heading">
+            <div>
+              <h3>Prestadores e contratos</h3>
+              <p>{filteredTerc.length} contrato(s) encontrado(s)</p>
+            </div>
+          </div>
+          <div className="terceiros-registry-filters">
+          <Inp label="Buscar prestador ou documento" value={searchTerc} onChange={setSearchTerc} placeholder="Nome, razão social, CPF ou CNPJ"/>
+          <Sel label="Especialidade" value={filterSpec} onChange={setFilterSpec} options={[{v:"all",l:"Todas as especialidades"},...SPECIALTIES.map(s=>({v:s.v,l:s.l}))]}/>
+          {obraIdFixo
+            ? <Inp label="Obra" value={data.obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
+            : <Sel label="Obra" value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as obras"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>}
+          </div>
+        </section>
+</>}
       {/*  VIEW: KANBAN  */}
       {view === "kanban" && (<>
         <p className="terceiros-kanban-help">
@@ -1217,21 +1237,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
 
       {/*  VIEW: CADASTRO  */}
       {view === "cadastro" && (<>
-        <section className="terceiros-registry-toolbar" aria-label="Filtros do cadastro">
-          <div className="terceiros-registry-toolbar__heading">
-            <div>
-              <h3>Prestadores e contratos</h3>
-              <p>{filteredTerc.length} contrato(s) encontrado(s)</p>
-            </div>
-          </div>
-          <div className="terceiros-registry-filters">
-          <Inp label="Buscar prestador ou documento" value={searchTerc} onChange={setSearchTerc} placeholder="Nome, razão social, CPF ou CNPJ"/>
-          <Sel label="Especialidade" value={filterSpec} onChange={setFilterSpec} options={[{v:"all",l:"Todas as especialidades"},...SPECIALTIES.map(s=>({v:s.v,l:s.l}))]}/>
-          {obraIdFixo
-            ? <Inp label="Obra" value={data.obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
-            : <Sel label="Obra" value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as obras"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>}
-          </div>
-        </section>
+
 
         {filteredTerc.length === 0 && (
           <section className="terceiros-empty">
@@ -1395,6 +1401,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
         {/* Fila do financeiro, entre TODOS os contratos - antes só existia
             por contrato, dentro da tela de um contrato específico. */}
         {podeGerenciarPagamentos && medicoesAguardandoAprovacao.length>0 && (
+<TaskDisclosure summary={`Aprovações pendentes · ${medicoesAguardandoAprovacao.length}`}>
           <div style={{ background:"var(--arcd-surface-card)", border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 40%, transparent)", borderRadius:4, padding:"var(--arcd-space-3) var(--arcd-space-4)" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:"var(--arcd-space-2)", flexWrap:"wrap" }}>
               <p style={{ fontSize:"var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-text-primary)", textTransform:"uppercase" }}>Medições aguardando aprovação</p>
@@ -1420,6 +1427,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
               })}
             </div>
           </div>
+</TaskDisclosure>
         )}
         <Sel label="Contrato" value={tercSel} onChange={setTercSel}
           options={[{v:"",l:"Selecione o terceirizado..."},
@@ -1514,7 +1522,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
             {[
               ["Contrato", fmt(tercAtual.contractValue), "neutral"],
               ["Medido", fmt(totalMedido), "success"],
-              ["A medir", fmt(somaEtapas - totalMedido), (somaEtapas - totalMedido) >= 0 ? "warning" : "danger"],
+              ["Saldo das etapas", fmt(somaEtapas - totalMedido), (somaEtapas - totalMedido) >= 0 ? "warning" : "danger"],
               ["Avanço físico", `${pctFisico.toFixed(1)}%`, "primary"],
             ].map(([l,v,tone]) => (
               <div className="terceiros-contract-metrics__item" data-tone={tone} key={l}>
@@ -1535,7 +1543,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
               <p style={{ fontSize:"var(--arcd-type-label)", color:"var(--arcd-warning-text)", lineHeight:"var(--arcd-line-height-normal)" }}>
                 As etapas somam <b>{fmt(somaEtapas)}</b> e o contrato é de <b>{fmt(tercAtual.contractValue)}</b> -
                 diferença de {fmt(Math.abs(somaEtapas - Number(tercAtual.contractValue||0)))}.
-                Ajuste os valores das etapas ou o valor do contrato no cadastro.
+                O saldo e o percentual exibidos usam as etapas cadastradas. Confira o contrato de origem antes de corrigir qualquer valor no cadastro.
               </p>
             </div>
           )}
@@ -1611,7 +1619,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
               const borderColor=m.status==="rejeitada"?C.red:m.status==="rascunho"?C.orange:m.pagamentoId?C.green:C.orange;
               const statusLabel=m.status==="rascunho"?"aguardando aprovação do financeiro"
                 :m.status==="rejeitada"?"rejeitada pelo financeiro"
-                :m.pagamentoId?"paga":"aguardando pagamento";
+                :m.pagamentoId?(technicalRetentionCents(m)>0?"principal baixado; confira a garantia":"paga"):"aguardando pagamento";
               return (
               <div key={m.id} style={{ background:"var(--arcd-surface-card)", border:`1px solid ${borderColor}66`,
                                        borderRadius:4, padding:"var(--arcd-space-2) var(--arcd-space-3)" }}>
@@ -1633,7 +1641,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                         : m.status==="rejeitada"
                         ? <Badge color={C.red}><Ic n="x" s={9}/> REJEITADA</Badge>
                         : <Badge color={m.pagamentoId?C.green:C.orange}>
-                            <Ic n={m.pagamentoId?"check":"clock"} s={9}/> {m.pagamentoId?"PAGO":"EM ABERTO"}
+                            <Ic n={m.pagamentoId?"check":"clock"} s={9}/> {m.pagamentoId?(technicalRetentionCents(m)>0?"Principal baixado":"PAGO"):"EM ABERTO"}
                           </Badge>}
                     </span>
                   </div>
@@ -1659,16 +1667,17 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                 </div>
                 {m.observacao && <p style={{ fontSize:"var(--arcd-type-label)", color:"var(--arcd-text-secondary)", fontStyle:"italic", marginTop:"var(--arcd-space-1)" }}>"{m.observacao}"</p>}
                 {(m.fotos||[]).length?<div style={{marginTop:"var(--arcd-space-2)"}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"center",marginBottom:"var(--arcd-space-1)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-success-text)",textTransform:"uppercase"}}>Evidência fotográfica · {(m.fotos||[]).length}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Por {m.responsavelEvidencia||m.fotos?.[0]?.enviadoPor||"engenheiro"}</p></div><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(76px,1fr))",gap:"var(--arcd-space-1)"}}>{(m.fotos||[]).map(f=><a key={f.id||f.url} href={f.url} target="_blank" rel="noopener noreferrer" title="Ampliar fotografia" style={{display:"block",aspectRatio:"1/1",borderRadius:7,overflow:"hidden",border:"1px solid var(--arcd-border-default)",background:"var(--arcd-surface-muted)"}}><img src={f.url} alt={f.legenda||"Evidência da medição"} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/></a>)}</div></div>:<div style={{marginTop:"var(--arcd-space-2)",background:"color-mix(in srgb, var(--arcd-danger-text) 4%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-danger-text) 27%, transparent)",borderRadius:7,padding:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-danger-text)"}}>Medição sem evidência fotográfica</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Registro antigo: o financeiro será alertado antes do pagamento.</p></div>}
+                <TechnicalRetentions data={data} obraId={m.obraId} measurementId={m.id} user={currentUser} dispatchCommand={dispatchCommand}/>
                 {/* Previa de retencao antes de pagar / decomposicao apos pago */}
                 {(() => {
                   // Fonte da verdade: se ja pago, os valores gravados no
                   // pagamento; se nao, a previa pela config atual do contrato.
                   const pg = m.pagamentoId ? (data.pagsTerceiros || []).find(p => p.id === m.pagamentoId) : null;
-                  const ret = calcRetencoes(m.total, tercAtual);
+                  const ret = calcRetencoes(m.total, tercAtual, technicalRetentionCents(m));
                   const iss     = pg ? Number(pg.issRetido || 0)  : ret.issRetido;
                   const inss    = pg ? Number(pg.inssRetido || 0) : ret.inssRetido;
                   const liquido = pg ? Number(pg.liquido ?? m.total) : ret.liquido;
-                  if (iss + inss <= 0 && !pg) return null;
+                  if (iss + inss <= 0 && !pg && !technicalRetentionCents(m)) return null;
                   return (
                     <div style={{ marginTop:"var(--arcd-space-2)", background:"var(--arcd-surface-muted)", border:"1px solid var(--arcd-border-default)", borderRadius:6, padding:"var(--arcd-space-2)" }}>
                       {pg && <div style={{ display:"flex", justifyContent:"space-between", fontSize:"var(--arcd-type-label)", color:"var(--arcd-text-secondary)", marginBottom:"var(--arcd-space-1)" }}>
@@ -1682,6 +1691,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                       </div>
                       {iss > 0 && <div style={{ display:"flex", justifyContent:"space-between", fontSize:"var(--arcd-type-label)", color:"var(--arcd-text-secondary)" }}>
                         <span>(-) ISS retido ({tercAtual.retISS}%)</span><span>{fmt(iss)}</span></div>}
+                      {technicalRetentionCents(m)>0&&<p>Garantia técnica retida: {fmt(technicalRetentionCents(m)/100)}</p>}
                       {inss > 0 && <div style={{ display:"flex", justifyContent:"space-between", fontSize:"var(--arcd-type-label)", color:"var(--arcd-text-secondary)" }}>
                         <span>(-) INSS retido ({tercAtual.retINSS}%)</span><span>{fmt(inss)}</span></div>}
                       <div style={{ display:"flex", justifyContent:"space-between", fontSize:"var(--arcd-type-label)", marginTop:"var(--arcd-space-half)", borderTop:"1px solid var(--arcd-border-default)", paddingTop:"var(--arcd-space-half)" }}>
@@ -1698,7 +1708,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                   {podeGerenciarPagamentos&&m.status==="rascunho"&&<Btn size="sm" v="success" onClick={()=>aprovarMedicao(m)} disabled={thirdPartyCommandPending}>Aprovar</Btn>}
                   {podeGerenciarPagamentos&&m.status==="rascunho"&&<Btn size="sm" v="danger" onClick={()=>{setMedRejeitarModal(m);setMotivoRejeicao("");}}>Rejeitar</Btn>}
                   {podeRegistrarEvidencia&&m.status==="rejeitada"&&<Btn size="sm" v="warning" onClick={()=>abrirMedicao(m)}>Corrigir e reenviar</Btn>}
-                  {!m.pagamentoId && m.status==="aprovada" && <Btn size="sm" v="success" onClick={()=>abrirPagamentoMedicao(m)}>Registrar pagamento</Btn>}
+                  {!m.pagamentoId && m.status==="aprovada" && technicalRetentionCents(m)<Math.round(Number(m.total)*100) && <Btn size="sm" v="success" onClick={()=>abrirPagamentoMedicao(m)}>Registrar pagamento</Btn>}
                   <Btn size="sm" v="ghost" onClick={()=>removerMedicao(m)}>Remover</Btn>
                 </div>
               </div>
@@ -2132,7 +2142,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
       {medPayModal && (() => {
         const t = allTerc.find(x => x.id === medPayModal.tercId);
         if (!t) return null;
-        const ret = calcRetencoes(medPayModal.total, t);
+        const ret = calcRetencoes(medPayModal.total, t, technicalRetentionCents(medPayModal));
         return (
           <Modal title={`Pagar medição ${medPayModal.numero} - ${t.name}`} onClose={()=>{setMedPayModal(null);setPaySource("");setRiscoSemFotoAceito(false);}}>
             <div className="terceiros-payment-review">
@@ -2141,6 +2151,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                 <span><small>Bruto / obrigação</small><b>{fmt(medPayModal.total)}</b></span>
                 <span><small>ISS retido</small><b>{fmt(ret.issRetido)}</b></span>
                 <span><small>INSS retido</small><b>{fmt(ret.inssRetido)}</b></span>
+                {technicalRetentionCents(medPayModal)>0&&<span><small>Garantia técnica</small><b>{fmt(technicalRetentionCents(medPayModal)/100)}</b></span>}
                 <span><small>Líquido ao prestador</small><b>{fmt(ret.liquido)}</b></span>
               </div>
               <p className="terceiros-payment-review__date">Baixa em {fmtDateFull(today())} · custo reconhecido em {fmtDateFull(medPayModal.data)}</p>

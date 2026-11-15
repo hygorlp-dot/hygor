@@ -4,10 +4,14 @@ import {selectDRE,selectCashFlow,toCents} from './ledger.js';
 import {financialEntry} from './workspace.js';
 import {costPlanningFingerprint} from './cost-control.js';
 import {openPurchaseCommitments,remainingChangeImpacts} from './cost-forecast.js';
+import {serviceForecast} from './service-forecast.js';
+import {stockForecast} from './stock-forecast.js';
 
 export function workStageCosts(data,ledger,obraId,asOf){
  const tracking=calcOrcadoComprado(data,obraId),budget=tracking.orc;
  const stages=new Map((budget?.etapas||[]).map(e=>[e.id,e]));
+ const services=serviceForecast(data,ledger,obraId,budget,asOf);
+ const stock=stockForecast(data,obraId,budget);
  const root=id=>{const seen=new Set();let e=stages.get(id);while(e?.parentId){if(seen.has(e.id))return '';seen.add(e.id);e=stages.get(e.parentId);}return e?.id||'';};
  const rows=tracking.linhas.map(l=>({id:l.it.id,label:l.it.descricao,budget:toCents(l.orcado),committed:toCents(l.comprometido),received:toCents(l.recebido),incurred:0,paid:0,clientPaid:0,entries:{budget:[],committed:[],received:[],incurred:[],paid:[],clientPaid:[]},orders:l.pedidos}));
  for(const stage of budget?.etapas||[]){if(!stage.parentId&&!rows.some(r=>r.id===stage.id))rows.push({id:stage.id,label:stage.nome||'Etapa',budget:0,committed:0,received:0,incurred:0,paid:0,clientPaid:0,entries:{budget:[],committed:[],received:[],incurred:[],paid:[],clientPaid:[]}});}
@@ -28,7 +32,7 @@ export function workStageCosts(data,ledger,obraId,asOf){
    const explicit=allocation?.etapaId||event.metadata?.etapaId||record?.etapaId||record?.orcNivel1Id;
    const invoice=event.sourceType==='pagamento_nota'?record:null;
    const ambiguous=record?.rateios?.filter(r=>r.obraId===obraId).length>1;
-   const mapped=explicit?root(explicit):(!ambiguous&&record?.rateios?.length<=1?root(record.rateios[0]?.etapaId):'')||orderStage((data.pedidos||[]).find(p=>p.id===(record?.pedidoId||(event.sourceType==='pedido'?record?.id:''))));
+   const mapped=explicit?root(explicit):services.sourceStages.get(`${event.sourceType}:${event.sourceId}`)||(!ambiguous&&record?.rateios?.length<=1?root(record.rateios[0]?.etapaId):'')||orderStage((data.pedidos||[]).find(p=>p.id===(record?.pedidoId||(event.sourceType==='pedido'?record?.id:''))));
    const row=rowFor(mapped),amount=event.amountCents*(event.effect.endsWith('_reversal')?-1:1);
    // Pagamentos não carregam o identificador de rateio da nota. Não atribuir
    // uma etapa por inferência quando a nota cruza etapas ou obras.
@@ -40,14 +44,22 @@ export function workStageCosts(data,ledger,obraId,asOf){
  cash.thirdPartyEvents.forEach(e=>allocate(e,'clientPaid'));
  const fingerprint=costPlanningFingerprint(data,obraId);
  const planning=(data.obras||[]).find(w=>w.id===obraId)?.costPlanning;
- const openCommitments=openPurchaseCommitments(data,obraId,budget,root);
+ const openCommitments=openPurchaseCommitments(data,obraId,budget,root,new Set(),ledger);
+ const independentPurchases=openPurchaseCommitments(data,obraId,budget,root,services.coveredOrders,ledger);
  const changes=remainingChangeImpacts((data.obras||[]).find(w=>w.id===obraId),root);
  // Preserve revisões cujo orçamento/etapa tenha sido substituído, sem
  // apropriar automaticamente o valor a outra etapa.
  const orphanRevisions=Object.entries(planning?.stages||{}).filter(([id])=>!rows.some(r=>r.id===id));
  for(const row of rows){
    row.openCommitted=openCommitments.get(row.id)||0;
-   row.automaticRemaining=Math.max(0,row.budget-row.incurred,row.openCommitted);
+   row.serviceCommitted=services.groups.filter(g=>g.stageId===row.id).reduce((sum,g)=>sum+g.remainingCents,0);
+   row.commitmentFloor=(independentPurchases.get(row.id)||0)+row.serviceCommitted;
+   row.entries.serviceCommitted=services.groups.filter(g=>g.stageId===row.id).map(g=>g.entry);
+   row.materialReplacement=stock.byStage.get(row.id)||0;
+   // Pedidos em trânsito já cobrem quantidades e seu saldo está no piso.
+   // Contratos podem incluir materiais: comparar os pisos sem somá-los.
+   row.materialFloor=row.materialReplacement+(independentPurchases.get(row.id)||0);
+   row.automaticRemaining=Math.max(0,row.budget-row.incurred,row.commitmentFloor,row.materialFloor);
    row.revision=planning?.stages?.[row.id]||null;
    row.reviewValid=Boolean(row.revision&&row.revision.budgetId===(budget?.id||'')&&row.revision.fingerprint===fingerprint&&row.revision.asOf===asOf&&['incurred','committed','budget'].every(k=>row.revision.basis?.[k]===row[k]));
    row.remaining=row.revision?row.revision.remainingCents:row.automaticRemaining;
@@ -58,5 +70,5 @@ export function workStageCosts(data,ledger,obraId,asOf){
    row.forecast=row.baseForecast+row.changeImpact;
    row.deviation=row.forecast-row.budget;
  }
- return {duplicationWarnings:forecastDuplicationWarnings((data.obras||[]).find(w=>w.id===obraId),budget),budget,reason:tracking.motivo,fingerprint,changes,orphanRevisions,planningVersion:Number(planning?.version||0),rows,totals:Object.fromEntries(['budget','committed','openCommitted','received','incurred','paid','clientPaid','remaining','contingency','changeImpact','baseForecast','forecast','deviation'].map(k=>[k,rows.reduce((s,r)=>s+r[k],0)]))};
+ return {services,stock,duplicationWarnings:forecastDuplicationWarnings((data.obras||[]).find(w=>w.id===obraId),budget),budget,reason:tracking.motivo,fingerprint,changes,orphanRevisions,planningVersion:Number(planning?.version||0),rows,totals:Object.fromEntries(['budget','committed','openCommitted','serviceCommitted','commitmentFloor','materialReplacement','materialFloor','received','incurred','paid','clientPaid','remaining','contingency','changeImpact','baseForecast','forecast','deviation'].map(k=>[k,rows.reduce((s,r)=>s+r[k],0)]))};
 }

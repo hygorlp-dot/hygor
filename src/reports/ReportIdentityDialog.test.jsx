@@ -5,14 +5,17 @@ import {ReportIdentityDialog} from './ReportIdentityDialog.jsx';
 import {openReportPreview} from './report-preview.js';
 import {HelpProvider} from '../features/help/HelpContext.jsx';
 import {loadReportIdentity} from './report-identities.js';
+import {loadReportFonts} from './report-fonts.js';
 
 vi.mock('./report-identities.js',()=>({MARCELL_REPORT_IDENTITY:{id:'marcell',name:'MARCELL',logo:'data:image/webp;base64,bXJj'},loadReportIdentity:vi.fn()}));
+vi.mock('./report-fonts.js',()=>({loadReportFonts:vi.fn(),readReportFonts:()=>({regularFont:'data:font/woff2;base64,cmVndWxhcg==',boldFont:'data:font/woff2;base64,Ym9sZA=='})}));
 const arcd={id:'arcd',name:'ARCD',logo:'data:image/png;base64,YXJjZA=='};
 const html='<html><head><title>Conferência</title></head><body><h1>Empresa cadastrada</h1><p>CNPJ 12.345.678/0001-90</p><table><tr><td>R$ 123,45</td></tr></table></body></html>';
 let root,host,open;
 const button=text=>[...document.querySelectorAll('button')].find(b=>b.textContent===text);
 const loaded=async()=>act(async()=>{document.querySelector('figure img')?.dispatchEvent(new Event('load'));});
 beforeEach(async()=>{
+ loadReportFonts.mockResolvedValue({});
  loadReportIdentity.mockImplementation(id=>Promise.resolve(id==='arcd'?arcd:{id:'marcell',name:'MARCELL',logo:'data:image/webp;base64,bXJj'}));
  host=document.createElement('div');document.body.append(host);root=createRoot(host);
  await act(async()=>root.render(<HelpProvider><button id="report-trigger" onClick={()=>openReportPreview(html)}>Preparar PDF</button><ReportIdentityDialog pageId="fin" allowedTabs={['fin']}/></HelpProvider>));
@@ -37,9 +40,25 @@ it('bloqueio de popup conserva a escolha para nova tentativa e permite cancelar'
  open.mockReturnValue(null);await prepare();await loaded();await act(async()=>button('Gerar relatório').click());expect(document.querySelector('[role=alert]').textContent).toContain('Permita abrir janelas');expect(document.querySelector('select').value).toBe('marcell');await act(async()=>button('Cancelar').click());
 });
 it('falha da logomarca bloqueia geração e oferece nova tentativa',async()=>{
- loadReportIdentity.mockRejectedValue(new Error('Falha de teste da logomarca'));await prepare();expect(document.querySelector('[role=alert]').textContent).toContain('Falha de teste');expect(button('Gerar relatório').disabled).toBe(true);expect(open).not.toHaveBeenCalled();expect(button('Tentar carregar logomarca novamente')).toBeDefined();
+ loadReportIdentity.mockRejectedValue(new Error('Falha de teste da logomarca'));await prepare();expect(document.querySelector('[role=alert]').textContent).toContain('Falha de teste');expect(button('Gerar relatório').disabled).toBe(true);expect(open).not.toHaveBeenCalled();expect(button('Tentar carregar novamente')).toBeDefined();
 });
 
 it('ignora segunda solicitação pendente para não duplicar efeitos do chamador',async()=>{
  await prepare();const repeated=openReportPreview(html);expect(await repeated).toBeNull();expect(open).not.toHaveBeenCalled();await loaded();await act(async()=>button('Gerar relatório').click());expect(open).toHaveBeenCalledTimes(1);
+});
+
+it('aguarda as fontes sem abrir popup nem habilitar a confirmação antecipadamente',async()=>{
+ let release;loadReportFonts.mockImplementation(()=>new Promise(resolve=>{release=resolve;}));
+ await prepare();expect(button('Gerar relatório').disabled).toBe(true);expect(open).not.toHaveBeenCalled();
+ expect(document.querySelector('[role=status]').textContent).toContain('fontes');
+ await act(async()=>release({}));await loaded();await act(async()=>button('Gerar relatório').click());expect(open).toHaveBeenCalledTimes(1);
+});
+
+it('falha de fonte conserva a marca selecionada e permite carregar novamente',async()=>{
+ loadReportFonts.mockRejectedValue(new Error('Falha das fontes de teste'));await prepare();
+ await act(async()=>{const select=document.querySelector('select');select.value='arcd';select.dispatchEvent(new Event('change',{bubbles:true}));});
+ expect(button('Gerar relatório').disabled).toBe(true);expect(open).not.toHaveBeenCalled();
+ expect(document.querySelector('[role=alert]').textContent).toContain('fontes');
+ loadReportFonts.mockResolvedValue({});await act(async()=>button('Tentar carregar novamente').click());await loaded();
+ expect(document.querySelector('select').value).toBe('arcd');await act(async()=>button('Gerar relatório').click());expect(open).toHaveBeenCalledTimes(1);
 });

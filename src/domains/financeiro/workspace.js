@@ -1,7 +1,7 @@
 import {selectDRE,selectCashFlow,selectAccountsPayable,selectAccountsReceivable,selectCommitments} from './ledger.js';
 import {isFinancialDate} from './dates.js';
 
-const collections={medicao:'medicoes',nota_fiscal:'notasFiscais',pagamento_nota:'notasFiscais',pedido:'pedidos',medicao_terceiro:'medicoesTerc',pagamento_terceiro:'medicoesTerc',pagamento_terceiro_legado:'pagsTerceiros',outra_despesa:'outrasDesp',despesa_empresa:'despesasEmpresa',rescisao:'rescisoes',recebimento_avulso:'payments',caixa_obra:'caixaObra',titulo_folha:'titulosFolha',pagamento_folha:'titulosFolha'};
+const collections={medicao:'medicoes',nota_fiscal:'notasFiscais',pagamento_nota:'notasFiscais',pedido:'pedidos',medicao_terceiro:'medicoesTerc',garantia_terceiro:'medicoesTerc',pagamento_garantia_terceiro:'medicoesTerc',pagamento_terceiro:'medicoesTerc',pagamento_terceiro_legado:'pagsTerceiros',outra_despesa:'outrasDesp',despesa_empresa:'despesasEmpresa',rescisao:'rescisoes',recebimento_avulso:'payments',caixa_obra:'caixaObra',titulo_folha:'titulosFolha',pagamento_folha:'titulosFolha'};
 export function financialEntry(data,event){
   const type=event.sourceType||event.origem;
   const record=(data[collections[type]]||[]).find(r=>String(r.id)===String(event.sourceId))||event.metadata?.titleDetails||null;
@@ -22,7 +22,7 @@ export function financialEntry(data,event){
 export function positionEntries(data,position){
   return position.items.filter(p=>p.balanceCents>0).map(p=>{
     const entry=financialEntry(data,{...p.events[0],...p,id:p.key,amountCents:p.balanceCents});
-    const originalDueDate=p.dueDate||entry.record?.dataVencimento||entry.record?.vencimento||entry.record?.previsao||'';
+    const originalDueDate=p.sourceType==='garantia_terceiro'?(p.dueDate||''):p.dueDate||entry.record?.dataVencimento||entry.record?.vencimento||entry.record?.previsao||'';
     const dueDate=isFinancialDate(originalDueDate)?originalDueDate:'';
     return {...entry,dueDate,metadata:{...entry.metadata,vencimento:originalDueDate,...(originalDueDate&&!dueDate?{vencimentoInvalido:true}:{}),valorOriginal:p.increaseCents/100,liquidado:p.decreaseCents/100,saldo:p.balanceCents/100,historico:p.events.map(e=>({data:e.date,descricao:e.description,valor:e.amountCents/100,tipo:e.effect,origem:e.sourceType,documento:e.documentNumber,transacaoId:e.transactionId}))}};
   });

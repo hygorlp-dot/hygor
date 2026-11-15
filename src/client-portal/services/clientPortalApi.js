@@ -1,12 +1,16 @@
 async function request(url, options = {}) {
   const response=await fetch(url,{credentials:"same-origin",...options});
-  const body=await response.json().catch(()=>({}));
+  const body=response.status===204 ? {} : await response.json().catch(()=>({}));
   if(!response.ok){const error=new Error(body.error || "Não foi possível concluir a operação.");error.status=response.status;throw error;}
+  if(response.status!==204 && !Object.keys(body).length)throw new Error("O serviço do portal não está disponível. Tente novamente mais tarde.");
   return body;
 }
 
 export const readClientPortalSession=()=>request("/api/client/auth/session");
-export const readClientPortalDashboard=projectId=>request(`/api/client/projects/${encodeURIComponent(projectId)}/dashboard`);
+export const readClientPortalDashboard=(projectId,{month,signal}={})=>request(`/api/client/projects/${encodeURIComponent(projectId)}/dashboard${month?`?month=${encodeURIComponent(month)}`:''}`,{signal});
+export const loginClientPortal=(email,password)=>request("/api/client/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password})});
+export const logoutClientPortal=()=>request("/api/client/auth/logout",{method:"POST"});
+export const changeClientPortalPassword=(currentPassword,password)=>request("/api/client/auth/password",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({currentPassword,password})});
 
 const normalizeLegacyPortal = source => {
   const portal=source?.portal || {};

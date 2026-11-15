@@ -16,6 +16,21 @@ function changeNativeValue(element, value) { Object.getOwnPropertyDescriptor(Obj
 afterEach(() => { while (mounted.length) { const { container, root } = mounted.pop(); act(() => root.unmount()); container.remove(); } vi.unstubAllGlobals(); });
 
 describe("DataTable", () => {
+  it('mantém busca e paginação ao ocultar e restaurar colunas de fornecedores',()=>{
+    const container=render(<DataTable data={rows} columns={columns} search={{fields:['cidade'],placeholder:'Buscar'}} pagination={{pageSize:1}}/>);
+    const button=name=>[...document.querySelectorAll('button')].find(item=>item.textContent===name);
+    act(()=>changeNativeValue(container.querySelector('input'),'Recife'));
+    act(()=>button('Próxima').click());
+    act(()=>button('Colunas').click());
+    act(()=>[...document.querySelectorAll('label')].find(item=>item.textContent.includes('Cidade')).click());
+    act(()=>button('Concluir').click());
+    expect(container.querySelectorAll('th')).toHaveLength(2);
+    expect(container.querySelector('tbody').textContent).toContain('Cimento Sul');
+    expect(container.querySelector('input').value).toBe('Recife');
+    act(()=>button('Colunas').click());act(()=>button('Restaurar colunas padrão').click());act(()=>button('Concluir').click());
+    expect(container.querySelectorAll('th')).toHaveLength(3);
+    expect(container.querySelector('tbody').textContent).toContain('Cimento Sul');
+  });
   it("renderiza colunas, registros e estado vazio", () => {
     const container = render(<DataTable data={rows} columns={columns} search={{ fields: ["nome"], placeholder: "Buscar fornecedores" }} />);
     expect(container.querySelectorAll("th")).toHaveLength(3);

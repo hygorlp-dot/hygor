@@ -1,5 +1,13 @@
 import { useMemo, useState } from "react";
 import "../styles/portal.css";
+import {PageHeader} from "../../design-system/patterns/PageHeader.jsx";
+import {Button} from "../../design-system/primitives/Button.jsx";
+import {Input} from "../../design-system/primitives/Input.jsx";
+import {Select} from "../../design-system/primitives/Select.jsx";
+import {FilterBar} from "../../design-system/patterns/FilterBar.jsx";
+import {DataTable} from "../../design-system/data/DataTable.jsx";
+import {portalCategory} from "../format.js";
+import {WorkspaceFilters} from "../../design-system/patterns/WorkspaceNavigation.jsx";
 
 const currency = value => new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(Number(value || 0));
 const date = value => {
@@ -14,18 +22,33 @@ function Empty({ children }) {
 }
 
 function CashSection({ data }) {
+  const [from,setFrom]=useState(""),[to,setTo]=useState(""),[kind,setKind]=useState("all"),[query,setQuery]=useState("");
   const summary=data.projectCashSummary?.[0];
   const movements=data.projectCashMovements || [];
+  const incoming=item=>String(item.type).toLowerCase()==="aporte";
+  const invalidPeriod=Boolean(from&&to&&from>to);
+  const filtered=movements.filter(item=>!invalidPeriod&&(!from||item.date>=from)&&(!to||item.date<=to)&&(kind==="all"||(kind==="in")===incoming(item))&&`${item.description} ${portalCategory(item.category)} ${item.invoiceNumber||""}`.toLocaleLowerCase("pt-BR").includes(query.trim().toLocaleLowerCase("pt-BR")));
+  const entries=filtered.filter(incoming).reduce((sum,item)=>sum+item.amount,0),expenses=filtered.filter(item=>!incoming(item)).reduce((sum,item)=>sum+item.amount,0);
+  const hasFilters=Boolean(from||to||kind!=="all"||query);
+  const columns=[
+    {key:"date",header:"Data",render:item=>date(item.date)},
+    {key:"description",header:"Lançamento",render:item=><div className="arcd-client-stack"><strong>{item.description||"Movimento da obra"}</strong><span className="arcd-client-muted">{portalCategory(item.category)}</span></div>},
+    {key:"amount",header:"Tipo e valor",render:item=><div className="arcd-client-stack"><span>{incoming(item)?"Entrada":"Saída"}</span><strong className="arcd-client-amount" data-kind={incoming(item)?"in":"out"}>{incoming(item)?"+":"−"} {currency(item.amount)}</strong></div>},
+    {key:"balance",header:"Saldo após o movimento",render:item=>currency(item.balance)},
+    {key:"invoiceNumber",header:"Nota fiscal",render:item=>incoming(item)?"—":item.invoiceLinkAmbiguous?<span>Mais de uma nota no pedido. Peça à equipe para conferir o vínculo deste pagamento.</span>:item.invoiceDocuments?.length?<div className="arcd-client-stack">{item.invoiceDocuments.map(document=><Button key={document.id} asChild variant="link"><a href={document.url} target="_blank" rel="noreferrer">Abrir nota fiscal {item.invoiceNumber}{item.invoiceDocuments.length>1?` · ${document.title}`:""}</a></Button>)}</div>:<span className="arcd-client-muted">{item.invoiceNumber?`Nota fiscal ${item.invoiceNumber} · anexo não liberado para este acesso.`:"Sem nota vinculada neste lançamento."}</span>},
+  ].map(column=>({...column,hideable:false,sortable:column.key==="date"}));
   return <div className="arcd-client-stack">
-    {summary ? <section className="arcd-client-financial-grid" aria-label="Resumo do caixa da obra">
-      <article><span>Aportes</span><strong>{currency(summary.totalContributions)}</strong><small>Recursos disponibilizados</small></article>
-      <article><span>Despesas</span><strong>{currency(summary.totalExpenses)}</strong><small>Movimentações publicadas</small></article>
-      <article><span>Saldo atual</span><strong>{currency(summary.balance)}</strong><small>Atualizado em {date(summary.asOf)}</small></article>
+    {summary ? <section className="arcd-client-section arcd-client-cash-overview" aria-label="Resumo do caixa da obra">
+      <div className="arcd-client-cash-balance"><div><h3>Saldo atual</h3><p className="arcd-client-muted">Atualizado em {date(summary.asOf)}</p></div><strong>{currency(summary.balance)}</strong></div>
+      <dl className="arcd-client-cash-totals"><div><dt>Entradas</dt><dd className="arcd-client-amount" data-kind="in">{currency(summary.totalContributions)}</dd></div><div><dt>Saídas</dt><dd className="arcd-client-amount" data-kind="out">{currency(summary.totalExpenses)}</dd></div></dl>
     </section> : <Empty>O resumo do caixa ainda não foi publicado.</Empty>}
-    <section className="arcd-client-section"><h2>Movimentações</h2>{movements.length ? <div className="arcd-client-ledger">{movements.map(item=><article key={item.id}>
-      <div><b>{item.description || item.category}</b><span>{date(item.date)} | {item.category || item.type}</span></div>
-      <div><strong data-kind={String(item.type).toLowerCase().includes("aporte") ? "in" : "out"}>{String(item.type).toLowerCase().includes("aporte") ? "+" : "-"} {currency(item.amount)}</strong><span>Saldo {currency(item.balance)}</span></div>
-    </article>)}</div> : <Empty>Nenhuma movimentação foi compartilhada.</Empty>}</section>
+    <section className="arcd-client-section"><h2>Extrato da obra</h2>
+      <FilterBar label="Filtros do extrato da obra"><Select label="Tipo de movimentação" value={kind} onChange={event=>setKind(event.target.value)} options={[{value:"all",label:"Entradas e saídas"},{value:"in",label:"Somente entradas"},{value:"out",label:"Somente saídas"}]}/><WorkspaceFilters activeCount={[from,to,query].filter(Boolean).length}><Input label="Data inicial do extrato" type="date" value={from} onChange={event=>setFrom(event.target.value)}/><Input label="Data final do extrato" type="date" value={to} onChange={event=>setTo(event.target.value)} error={invalidPeriod?"A data final deve ser igual ou posterior à data inicial.":undefined}/><Input label="Buscar no extrato" type="search" value={query} onChange={event=>setQuery(event.target.value)}/></WorkspaceFilters>{hasFilters&&<Button variant="secondary" onClick={()=>{setFrom("");setTo("");setKind("all");setQuery("");}}>Limpar filtros do extrato</Button>}</FilterBar>
+      {!invalidPeriod&&<p>Movimentos exibidos: {filtered.length}{hasFilters&&<> · Entradas: {currency(entries)} · Saídas: {currency(expenses)}</>}</p>}
+      {hasFilters&&<p className="arcd-client-muted">Saldos originais: os filtros alteram somente os movimentos exibidos.</p>}
+      <DataTable key={`${from}:${to}:${kind}:${query}`} data={filtered} columns={columns} mobileConfig={{title:"description",subtitle:item=>`${date(item.date)} · ${portalCategory(item.category)}`,primaryFields:["amount","balance","invoiceNumber"]}} emptyMessage={invalidPeriod?"Revise as datas para consultar o extrato.":"Nenhum movimento neste recorte. Ajuste ou limpe os filtros."}/>
+      <p className="arcd-client-muted">O saldo de cada linha é a posição original após aquele movimento. Os filtros não recalculam esse saldo nem o Saldo atual. Este é o caixa da obra, separado da conta bancária da empresa.</p>
+    </section>
   </div>;
 }
 
@@ -64,7 +87,11 @@ export function ClientTransparencyPage({ data = {}, permissions = {} }) {
   const selected=sections.some(item=>item.id===active) ? active : sections[0]?.id;
   return <div className="arcd-client-page">
     <header className="arcd-client-page__header"><p>Transparência da obra</p><h2>Caixa e suprimentos</h2><span>Consulte somente as informações liberadas pela administração da obra.</span></header>
-    {sections.length ? <><nav className="arcd-client-subnav" aria-label="Caixa e suprimentos">{sections.map(item=><button type="button" key={item.id} aria-pressed={selected===item.id} onClick={()=>setActive(item.id)}>{item.label}</button>)}</nav>
+    {sections.length ? <><nav className="arcd-client-subnav" aria-label="Caixa e suprimentos">{sections.map(item=><Button variant={selected===item.id?"secondary":"ghost"} key={item.id} aria-pressed={selected===item.id} onClick={()=>setActive(item.id)}>{item.label}</Button>)}</nav>
       {selected==="cash" ? <CashSection data={data}/> : selected==="purchases" ? <PurchaseSection data={data}/> : selected==="quotations" ? <QuotationSection data={data}/> : <InvoiceSection data={data}/>}</> : <section className="arcd-client-section"><Empty>Este acesso não possui permissão para consultar caixa ou suprimentos.</Empty></section>}
   </div>;
+}
+
+export function ClientCashPage({data}){
+ return <section className="arcd-client-page"><PageHeader headingLevel={2} title="Caixa da obra" description="Entradas, saídas e notas fiscais da obra."/><CashSection data={data}/></section>;
 }

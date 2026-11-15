@@ -38,7 +38,7 @@ try{for(const width of [1440,390]){
   return route.fulfill({json:{ok:true,items:[],bases:[],accessToken:'isolated',refreshToken:'isolated',usuario:user,data:structuredClone(data),updatedAt:'2026-10-30T15:00:00Z'}});
  });
  await page.goto(process.argv[2]||'http://127.0.0.1:4185');await page.locator('#login-email').fill(user.email);await page.locator('#login-senha').fill('isolated');await page.getByRole('button',{name:'Acessar central MARCELL'}).click();
- if(width<1100){await page.getByRole('button',{name:'Abrir Visão gerencial',exact:true}).click();await page.locator('.mobile-subnav').getByRole('button',{name:'DRE empresa',exact:true}).click();}
+ if(width<1100){await page.getByRole('button',{name:'Abrir Visão gerencial · Gestão',exact:true}).click();await page.locator('.mobile-subnav').getByRole('button',{name:'DRE empresa',exact:true}).click();}
  else{const group=page.locator('.arcd-sidebar .nav-grp-hd').filter({hasText:/^Visão gerencial/}),body=group.locator("xpath=following-sibling::*[contains(@class,'nav-body')][1]");await expect(group).toBeVisible();if(!await body.isVisible())await group.click();await body.locator('.nav-item').filter({hasText:/^DRE empresa$/}).click();}
  await page.getByRole('button',{name:'Despesas operacionais',exact:true}).click();
  await page.getByRole('button',{name:'Replicar',exact:true}).click();

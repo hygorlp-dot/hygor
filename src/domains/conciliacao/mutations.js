@@ -116,6 +116,7 @@ export const registrarPagamentoEConciliar = (data, params) => {
   }
   if(tipo==="medicao"&&value>Number(target.valorPrevisto||0)-totalRecebidoMedicao(target)+0.01)return {data,resumo:{ok:false,motivo:"O recebimento supera o saldo da medição. Classifique o excedente separadamente."}};
   if(tipo==="medicaoTerc"){
+    if(target.technicalRetention?.amountCents>0)return {data,resumo:{ok:false,motivo:'Registre o principal ou a garantia pela medição e concilie o pagamento existente.'}};
     const paid=(data.pagsTerceiros||[]).filter(active).filter(item=>item.medicaoTercId===entidadeId).reduce((sum,item)=>sum+Number(item.amount||item.valor||0),0);
     if(value>Number(target.total||target.valorBruto||target.valor||0)-paid+0.01)return {data,resumo:{ok:false,motivo:"O pagamento supera o saldo da medição de terceiro."}};
   }

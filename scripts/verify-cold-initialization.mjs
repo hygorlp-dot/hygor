@@ -11,7 +11,7 @@ import {data as fixture} from './fixtures/workflow-priorities-data.mjs';
 const mode=process.argv.includes('--mode=build')?'build':'dev';
 const stage=process.argv.find(arg=>arg.startsWith('--stage='))?.slice(8)||'all';
 const only=process.argv.find(arg=>arg.startsWith('--only='))?.slice(7);
-const directory=resolve('artifacts/import-audit');await mkdir(directory,{recursive:true});
+const directory=resolve(process.argv.find(arg=>arg.startsWith('--directory='))?.slice(12)||'artifacts/import-audit');await mkdir(directory,{recursive:true});
 const port=mode==='dev'?4272:4273,origin=`http://127.0.0.1:${port}`;
 const user={id:'cold-import-admin',nome:'Verificação local',email:'cold@audit.test',role:'admin',active:true};
 const data={...structuredClone(fixture),usuarios:[user]};
@@ -45,7 +45,7 @@ async function isolated(width=1440,tab){
  if(tab)await context.addInitScript(({key,tab})=>sessionStorage.setItem(key,tab),{key:`arcd-section:${user.id}`,tab});
  const page=await context.newPage();page.setDefaultTimeout(15000);
  page.on('pageerror',error=>errors.push(error.stack||error.message));
- page.on('console',message=>{if(message.type()==='error'&&/before initialization|ReferenceError|Erro não tratado|error occurred in|Cannot access/i.test(message.text()))errors.push(message.text());});
+ page.on('console',message=>{if(message.type()==='error'&&/before initialization|ReferenceError|Erro não tratado|error occurred in|Cannot access|Encountered two children with the same key/i.test(message.text()))errors.push(message.text());});
  return {context,page,errors,writes};
 }
 async function check(item){
@@ -81,7 +81,7 @@ async function check(item){
 try{
  // Aquece somente o compilador/otimizador do servidor. O contexto é descartado;
  // cada cenário abaixo continua sem cookies, módulos ou storage anteriores.
- const warm=await isolated();try{await warm.page.goto(origin,{waitUntil:'domcontentloaded'});await expect(warm.page.locator('#login-email')).toBeVisible({timeout:60000});}finally{await warm.context.close();}
+ const warm=await isolated();try{await warm.page.goto(origin,{waitUntil:'domcontentloaded',timeout:60000});await expect(warm.page.locator('#login-email')).toBeVisible({timeout:60000});}finally{await warm.context.close();}
  const items=[];
  if(stage!=='screens'){
   if(mode==='dev'){

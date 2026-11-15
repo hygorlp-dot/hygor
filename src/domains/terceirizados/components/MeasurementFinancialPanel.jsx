@@ -54,6 +54,7 @@ export function MeasurementFinancialPanel({model}) {
         <dl className="third-measurement-values">
           <div><dt>ISS a reter</dt><dd>{money(preview.issCents)}</dd></div>
           <div><dt>INSS a reter</dt><dd>{money(preview.inssCents)}</dd></div>
+          {!!preview.guaranteeCents&&<div><dt>Garantia técnica retida</dt><dd>{money(preview.guaranteeCents)}</dd></div>}
           <div><dt>Líquido previsto</dt><dd>{money(preview.netCents)}</dd></div>
         </dl>
         <p>Simulação; não registra pagamento.</p>

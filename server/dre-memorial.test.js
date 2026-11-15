@@ -5,6 +5,18 @@ import {canonicalDreEvents} from "./financial-dre-integration.js";
 
 const project=(data,events=[])=>buildRequestedDreProjectionRows(data,[{year:2026,month:6,scope:"company_dre",includeMemorial:true}],events)[0].payload;
 describe("memorial do DRE",()=>{
+  it("exclui manutenções canceladas do memorial sem alterar o resultado do DRE",()=>{
+    const data={equipamentos:[{id:"e1"}],manutencoesEquip:[
+      {id:"cancelada",equipamentoId:"e1",data:"2026-07-02",custo:70,status:"cancelada",pagoPor:"empresa"},
+      {id:"ativa",equipamentoId:"e1",data:"2026-07-03",custo:100,status:"programada",pagoPor:"empresa"},
+      {id:"dono",equipamentoId:"e1",data:"2026-07-03",custo:30,pagoPor:"proprietario"},
+    ]};
+    const untouched=structuredClone(data),report=project(data);
+    expect(report.memorial.manutencaoLocacoes.map(item=>item.sourceId)).toEqual(["ativa"]);
+    expect(report.memorial.manutencaoLocacoes.reduce((sum,item)=>sum+item.amountCents,0)).toBe(annualSourceValues(report).manutencaoLocacoes);
+    expect(report.manutencaoLocacoes).toBe(100);
+    expect(data).toEqual(untouched);
+  });
   it("rastreia medição, nota, anexos e estorno sem contar pagamentos novamente",()=>{
     const doc={url:"https://example.com/nota.pdf",nome:"NF 20"};
     const data={obras:[{id:"o1",name:"Obra A"}],config:{},

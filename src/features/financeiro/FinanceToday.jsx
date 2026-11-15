@@ -1,3 +1,6 @@
+import FinancialColumnsHelp from './FinancialColumnsHelp.jsx';
+import {useTableColumns,tableColumnsKey} from '../../design-system/data/useTableColumns.js';
+import {DataTableColumnMenu} from '../../design-system/data/DataTableColumnMenu.jsx';
 import {contar} from '../../design-system/copy.js';
 import {WorkspaceCommandBar} from '../../design-system/patterns/WorkspaceCommandBar.jsx';
 import {Alert,AlertDescription} from '../../components/ui/alert.jsx';
@@ -10,8 +13,10 @@ import {useState} from 'react';
 import {Button} from '../../components/ui/button.jsx';
 import {Select} from '../../design-system/primitives/Select.jsx';
 import './financial-overview.css';
+const tableFields=[{key:'record',header:'Registro / obra',hideable:false},{key:'date',header:'Vencimento'},{key:'amount',header:'Saldo em aberto'},{key:'actions',header:'Próxima ação',hideable:false}];
 const money=v=>(v/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-export default function FinanceToday({queues,today,work,scope=work,scopeControl,onOpen,onAllocate,resolveAction,onAction,active:controlledActive,onActiveChange,preferences={},onPreferencesChange}){
+export default function FinanceToday({queues,today,work,scope=work,scopeControl,onOpen,onAllocate,resolveAction,onAction,active:controlledActive,onActiveChange,preferences={},onPreferencesChange,user,config}){
+  const columns=useTableColumns(tableFields,tableColumnsKey(user,config,'fin-today'));
   const [localActive,setLocalActive]=useState('all');
   const active=controlledActive??localActive;
   const setActive=onActiveChange??setLocalActive;
@@ -36,6 +41,7 @@ export default function FinanceToday({queues,today,work,scope=work,scopeControl,
     <WorkspaceCommandBar label="Comandos do Financeiro" scope={scopeControl}>
       <Select label="Movimentação" value={prefs.direction} onChange={event=>change({direction:event.target.value})} options={['A pagar','A receber'].map(value=>({value,label:value}))}/>
       <Select label="Visualização" value={prefs.layout} onChange={event=>change({layout:event.target.value})} options={[{value:'table',label:'Tabela'},{value:'kanban',label:'Kanban'}]}/>
+    {prefs.layout==='table'&&<DataTableColumnMenu help={<FinancialColumnsHelp/>} columns={tableFields} visible={columns.visible} onChange={columns.toggle} onReset={columns.reset} sessionOnly={columns.sessionOnly}/>}
     <div className="finance-today__mobile"><Select label="Fila de vencimentos" value={queue.id} onChange={event=>setActive(event.target.value)}
       options={visible.map(q=>({value:q.id,label:`${q.label} (${q.items.length})`}))}/></div>
     </WorkspaceCommandBar>
@@ -47,7 +53,7 @@ export default function FinanceToday({queues,today,work,scope=work,scopeControl,
     {prefs.layout==='kanban'?<>
       <p className="mrc-queue-note">Quadro por vencimento. Use a ação do registro para continuar.</p>
       <WorkQueueBoard label="Compromissos por vencimento" groups={ordered.filter(q=>queue.id==='all'||q.id===queue.id).map(q=>({...q,summary:money(q.amountCents)}))} itemKey={item=>String(item.id)} renderItem={renderItem}/>
-    </>:<div className="finance-today__table-scroll" role="region" aria-label="Compromissos da tabela" tabIndex={0}><table className="finance-today__table"><caption className="sr-only">{prefs.direction} · {queue.label} · {work}</caption><thead><tr><th scope="col">Registro / obra</th><th scope="col">Vencimento</th><th scope="col">Saldo em aberto</th><th scope="col">Próxima ação</th></tr></thead><tbody>{queue.items.map(item=><tr key={item.id} data-record={String(item.id)}><td data-label="Registro / obra">{identity(item)}</td><td data-label="Vencimento">{date(item)}</td><td data-label="Saldo em aberto"><strong>{money(item.amountCents)}</strong></td><td data-label="Próxima ação">{actions(item)}</td></tr>)}</tbody></table></div>}
+    </>:<div className="finance-today__table-scroll" role="region" aria-label="Compromissos da tabela" tabIndex={0}><table className="finance-today__table"><caption className="sr-only">{prefs.direction} · {queue.label} · {work}</caption><thead><tr>{tableFields.filter(c=>columns.visible.includes(c.key)).map(c=><th key={c.key} scope="col">{c.header}</th>)}</tr></thead><tbody>{queue.items.map(item=><tr key={item.id} data-record={String(item.id)}>{columns.visible.includes('record')&&<td data-label="Registro / obra">{identity(item)}</td>}{columns.visible.includes('date')&&<td data-label="Vencimento">{date(item)}</td>}{columns.visible.includes('amount')&&<td data-label="Saldo em aberto" data-align="end"><strong>{money(item.amountCents)}</strong></td>}{columns.visible.includes('actions')&&<td data-label="Próxima ação">{actions(item)}</td>}</tr>)}</tbody></table></div>}
     {selection&&<RecordPanel key={`${scope}:${selection}`} recordKey={selection} title={selected?'Ficha financeira':'Título indisponível'} pageId="fin" onClose={()=>setSelection(null)}>
       {selected?<>
         <h4>{selected.description}</h4>

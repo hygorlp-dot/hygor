@@ -63,7 +63,7 @@ export function buildDreMemorial(data,base,ym){
   }
   const equipmentIds=new Set([...(data.equipamentos||[]).map(item=>item.id),...(data.locacoesEquip||[]).map(item=>item.equipamentoId)].filter(Boolean));
   for(const record of data.manutencoesEquip||[]){
-    if(!equipmentIds.has(record.equipamentoId)||String(record.data||"").slice(0,7)!==ym||record.pagoPor==="proprietario")continue;
+    if(!equipmentIds.has(record.equipamentoId)||record.status==="cancelada"||String(record.data||"").slice(0,7)!==ym||record.pagoPor==="proprietario")continue;
     add("manutencaoLocacoes",{id:`maintenance:${record.id}`,description:record.descricao||"Manutenção de equipamento",amountCents:cents(record.custo),obraId:record.obraId,obra:workName(record.obraId),date:record.data,competence:ym,sourceType:"manutencao",sourceId:record.id,record});
   }
   return result;

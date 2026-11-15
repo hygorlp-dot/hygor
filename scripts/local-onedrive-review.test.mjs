@@ -9,7 +9,7 @@ const context={user:{obraId:'work'},payload:{obras:[
   {id:'other',oneDriveDriveId:'drive',oneDriveFolderId:'other-root'},
 ]}};
 const json = value => new Response(JSON.stringify(value),{headers:{'content-type':'application/json'}});
-function setup({expires=3600}={}){
+function setup({expires=3600,...adapterOptions}={}){
   let time=1_000_000;
   const fetchImpl=vi.fn(async(input,options)=>{
     const url=String(input);
@@ -23,7 +23,7 @@ function setup({expires=3600}={}){
     return json({id:'other-root',parentReference:{}});
   });
   const authenticate=vi.fn(async()=>context);
-  const adapter=createLocalOneDriveReview({clientId:'public-id',clientSecret:'private-secret',authenticate,fetchImpl,now:()=>time});
+  const adapter=createLocalOneDriveReview({clientId:'public-id',clientSecret:'private-secret',authenticate,fetchImpl,now:()=>time,...adapterOptions});
   const api=async(action,body={},method='POST')=>{
     const res=response();await adapter.handleApi({method,body:{action,...body},query:method==='GET'?{action,...body}:{}},res);return res;
   };
@@ -39,6 +39,23 @@ function setup({expires=3600}={}){
 }
 
 describe('OneDrive local isolado e somente leitura',()=>{
+  it('mantém a leitura da planilha desativada sem caminho explícito e rejeita travessias',async()=>{
+    for(const path of [undefined,'../segredo.xlsx','MRC/../segredo.xlsx','MRC\\segredo.xlsx','MRC/arquivo.pdf']){
+      const h=setup({reviewWorkbookPath:path});
+      await expect(h.adapter.readReviewWorkbook()).rejects.toMatchObject({status:403});
+      expect(h.fetchImpl).not.toHaveBeenCalled();
+    }
+  });
+  it('usa a sessão local após autenticar sem abrir ou gravar a sessão central',async()=>{
+    const resolveAccessToken=vi.fn(async()=>{throw Object.assign(new Error('Sessão central indisponível'),{status:503});});
+    const h=setup({resolveAccessToken,returnUrl:'http://127.0.0.1:4199/cliente'});
+    expect((await h.api('file-link',{driveId:'drive',itemId:'file'})).statusCode).toBe(503);
+    const count=resolveAccessToken.mock.calls.length;
+    expect((await h.finish(await h.start())).headers.location).toBe('http://127.0.0.1:4199/cliente');
+    expect((await h.api('file-link',{driveId:'drive',itemId:'file'})).statusCode).toBe(200);
+    expect(resolveAccessToken).toHaveBeenCalledTimes(count);
+    expect(()=>createLocalOneDriveReview({returnUrl:'https://external.example/'})).toThrow('computador local');
+  });
   it('solicita Files.Read com PKCE, cookie HttpOnly e retorno exclusivamente local',async()=>{
     const h=setup(),start=await h.start(),target=new URL(start.headers.location);
     expect(start.statusCode).toBe(302);

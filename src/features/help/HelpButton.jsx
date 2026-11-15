@@ -6,13 +6,13 @@ import {useCurrentHelpTopic} from './HelpContext.jsx';
 import './help.css';
 
 const HelpPanel=lazy(()=>import('./HelpPanel.jsx'));
-export function HelpButton({pageId,allowedTabs,label="Ajuda"}){
+export function HelpButton({pageId,allowedTabs,label="Ajuda",showLabel=false}){
  const [open,setOpen]=useState(false);
  const trigger=useRef(null);
  const panelId=useId();
  const topicId=useCurrentHelpTopic(pageId);
  return <>
-  <Button ref={trigger} variant="outline" className="app-help-button" aria-label={label} aria-expanded={open} aria-controls={open?panelId:undefined} onClick={()=>setOpen(value=>!value)}>
+  <Button ref={trigger} variant="outline" className="app-help-button" data-label-visible={showLabel||undefined} aria-label={label} aria-expanded={open} aria-controls={open?panelId:undefined} onClick={()=>setOpen(value=>!value)}>
    <CircleHelp data-icon="inline-start" aria-hidden="true"/><span className="app-help-button__label">{label}</span>
   </Button>
   {open&&<Suspense fallback={<Spinner label="Abrindo ajuda…"/>}><HelpPanel key={topicId} id={panelId} topicId={topicId} pageId={pageId} allowedTabs={allowedTabs} onClose={()=>{setOpen(false);trigger.current?.focus();}}/></Suspense>}

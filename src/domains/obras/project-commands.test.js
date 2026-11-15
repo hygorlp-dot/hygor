@@ -14,6 +14,13 @@ const command = (type, payload, expectedVersion = 0) => ({
 });
 
 describe("comandos transacionais de obra", () => {
+  it('preserva as opções explícitas da taxa e exige categoria existente para engenharia',()=>{
+    const project={id:'admin-work',name:'Obra administrativa',contractType:'admin_only',adminPercentage:12,adminBaseEquipamentos:false,adminBaseEngenhariaCampo:false,adminFieldEngineeringCategoryId:'engenharia_campo'};
+    const data={obras:[],categoriasDesp:[{v:'engenharia_campo',l:'Engenharia de campo'}]};
+    const result=applyProjectCommand(data,command(PROJECT_COMMAND.PROJECT_SAVED,{project}));
+    expect(result.ok).toBe(true);expect(result.data.obras[0]).toMatchObject({adminBaseEquipamentos:false,adminBaseEngenhariaCampo:false,adminFieldEngineeringCategoryId:'engenharia_campo'});
+    expect(applyProjectCommand({obras:[]},command(PROJECT_COMMAND.PROJECT_SAVED,{project})).ok).toBe(false);
+  });
   it("cria e versiona os dados contratuais da obra", () => {
     const result = applyProjectCommand(
       { obras:[] },

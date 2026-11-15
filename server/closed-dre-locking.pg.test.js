@@ -2,6 +2,9 @@
 // Banco descartável do job rep-p-arp-postgres. Prova concorrência real:
 // PGlite verifica releitura, mas não oferece duas sessões concorrentes.
 import postgres from "postgres";
+import {writeFile,mkdir} from 'node:fs/promises';
+import {join} from 'node:path';
+import {buildRequestedDreProjectionRows} from './dre-projection.js';
 import {afterAll,beforeAll,beforeEach,describe,expect,it,vi} from "vitest";
 import {coreFieldsOnly,DOMAIN_ROW,pickDomainFields} from "./domain-row-routing.js";
 import {decodeAppData} from "./data-codec.js";
@@ -39,6 +42,12 @@ describe.skipIf(!URL_PG)("fechamento serializa com escritores financeiros (Postg
 
   it.each(["equipamento","ponto"])("%s espera o fechamento, relê a core e recusa escrita retroativa",async writer=>{
     const stale=openCompanySource();
+    const dreMoney=data=>{
+      const payload=buildRequestedDreProjectionRows(data,[{year:2026,month:6,period:'mes',scope:'company_dre'}])[0].payload;
+      return Object.fromEntries(['faturamentoTotal','receitaLiquida','manutencaoLocacoes','custoLocacoes','totalCSP','lucroBruto','lucroLiquido','entradasCaixa','saidasCaixa','contasPagar','contasReceber','comprometido'].map(key=>[key,Math.round(payload[key]*100)]));
+    };
+    const dreBefore=dreMoney(stale);
+    expect(dreBefore).toMatchObject({manutencaoLocacoes:25000,totalCSP:25000,lucroLiquido:-25000});
     const versions=staleCompanyLine(stale).rowVersions;
     for(const [key,value] of [
       [CORE_KEY,coreFieldsOnly(stale,versions)],
@@ -99,5 +108,12 @@ describe.skipIf(!URL_PG)("fechamento serializa com escritores financeiros (Postg
     expect(values.get(EQUIPMENT_KEY).manutencoesEquip[0].status).toBe("concluida");
     expect(values.get(POINT_KEY).attendanceOperationReceipts).toEqual([]);
     expect((await sql`select count(*)::int as count from audit_events where company_id=${COMPANY}`)[0].count).toBe(0);
+    const persisted={...values.get(CORE_KEY),...values.get(POINT_KEY),...values.get(EQUIPMENT_KEY)};
+    const dreAfter=dreMoney(persisted);
+    expect(dreAfter).toEqual(dreBefore);
+    if(process.env.QA_DRE_EVIDENCE){
+      await mkdir(process.env.QA_DRE_EVIDENCE,{recursive:true});
+      await writeFile(join(process.env.QA_DRE_EVIDENCE,`postgres-dre-${writer}.json`),JSON.stringify({writer,competence:'2026-07',storageUnit:'centavos',before:dreBefore,after:dreAfter,unchanged:true,rejectedCode:outcome.result.code},null,2));
+    }
   },15000);
 });

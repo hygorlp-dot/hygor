@@ -1,9 +1,17 @@
+import {budgetWorkDefaults} from '../work-defaults.js';
 import {openReportPreview} from '../../../reports/report-preview.js';
 import {contar} from '../../../design-system/copy.js';
+import {FormSection} from '../../../design-system/patterns/FormSection.jsx';
+import {Alert,AlertDescription} from '../../../components/ui/alert.jsx';
+import {budgetHierarchyError} from '../hierarchy.js';
+import {applyBudgetImport,budgetImportHierarchyError} from '../budget-import.js';
+import {useHelpTopic} from '../../../features/help/HelpContext.jsx';
+import {HelpButton} from '../../../features/help/HelpButton.jsx';
+import {Checkbox} from '../../../design-system/primitives/Checkbox.jsx';
 import {FilePicker} from '../../../design-system/patterns/FilePicker.jsx';
 import {Input as StandardInput} from '../../../components/ui/input.jsx';
 import {Button as StandardButton} from '../../../components/ui/button.jsx';
-import {SelectControl} from '../../../design-system/primitives/Select.jsx';
+import {Select,SelectControl} from '../../../design-system/primitives/Select.jsx';
 import {ChoiceControl} from '../../../design-system/primitives/ChoiceControl.jsx';
 import {RecordAction} from '../../../design-system/primitives/RecordAction.jsx';
 import {TextareaControl} from '../../../design-system/primitives/Textarea.jsx';
@@ -506,6 +514,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const [externoForm, setExternoForm] = useState({codigo:"",fonte:"EXTERNO",descricao:"",unidade:"UN",quantidade:"",precoUnit:"",composicao:""});
   const [etapaModal,setEtapaModal]= useState(null);   // {modo:"novo"|"sub"|"editar", paiId, etapa}
   const [etapaNome, setEtapaNome] = useState("");
+  const [stageSaving,setStageSaving]=useState(false);
   const [etapasFechadas, setEtapasFechadas] = useState({});
   // Curva ABC: painel aberto, agrupamento por codigo e classe filtrada.
   const [abcAberta,  setAbcAberta]  = useState(false);
@@ -519,11 +528,13 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   // Importacao do orcamento (codigo + qtd) cruzada com a base.
   const [impModal, setImpModal] = useState(null);   // {linhas, stats, substituir, incluirPend}
   const [impLoad,  setImpLoad]  = useState(false);
+  const [impSaving,setImpSaving]=useState(false);
   // Confirmação humana de onde estão as colunas antes de importar - a
   // detecção automática por nome de cabeçalho é só um palpite inicial
   // (achado real: uma planilha com "Nome" em vez de "Descrição" perdia o
   // nome de toda etapa e de todo item sem código, em silêncio, 26/08/2026).
   const [colMapModal, setColMapModal] = useState(null); // {headerRow, rows, hIdx, col}
+  useHelpTopic('orc',etapaModal||colMapModal||impModal?'orc_estrutura':'orc');
   const [bdiModal,  setBdiModal]  = useState(false);
   const [bdiAba,    setBdiAba]    = useState("faixa");   // "faixa" | "detalhado"
   const [bdiTipo,   setBdiTipo]   = useState("edificios");
@@ -571,6 +582,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   };
   const [form, setForm] = useState(emptyOrc);
   const F = k => v => setForm(f=>({...f,[k]:v}));
+  const selectWork = obraId => setForm(f=>budgetWorkDefaults(f,obraId,data.obras||[]));
 
   const todosOrcamentos=data.orcamentos||[];
   const orcamentos = obraIdFixo?todosOrcamentos.filter(o=>o.obraId===obraIdFixo):todosOrcamentos;
@@ -947,6 +959,8 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     if (!obraDestinoId) { showToast("Selecione a obra de destino.","error"); return; }
     const orcOrigem = orcamentosParaCopia.find(o => o.id === copiarModal.orcOrigemId);
     if (!orcOrigem) { showToast("Orçamento de origem não encontrado.","error"); return; }
+    const hierarchy=budgetHierarchyError(orcOrigem);
+    if(hierarchy){showToast(hierarchy,'error');return;}
 
     const planoOrigem = planosParaCopia.find(p => p.obraId === copiarModal.obraOrigemId);
     const planoDestinoExistente = planosParaCopia.find(p => p.obraId === obraDestinoId);
@@ -1010,6 +1024,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     const sync = structural ? syncStructuralQuantities(before,next) : null;
     if (sync) next = sync.budget;
     next = syncItemMemories(next).budget;
+    if(patch.etapas||patch.itens){const error=budgetHierarchyError(next);if(error){showToast(error,'error');return Promise.resolve({ok:false,reason:error});}}
     const receipt=budgetChangeReceipt(before,next);
     if(receipt.keys.length)setBudgetReceipt(receipt);
     const sequence = ++memorySaveSequence.current;
@@ -1021,8 +1036,10 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     dataAtualRef.current = nextData;
     const pending = update(nextData);
     Promise.resolve(pending).then(result=>{
+      if(!result?.ok&&dataAtualRef.current===nextData)dataAtualRef.current=latest;
       if(sequence===memorySaveSequence.current) setMemorySave({id:selOrc,state:result?.ok?'saved':'error',message:result?.reason});
     }).catch(error=>{
+      if(dataAtualRef.current===nextData)dataAtualRef.current=latest;
       if(sequence===memorySaveSequence.current) setMemorySave({id:selOrc,state:'error',message:error.message});
     });
     return pending;
@@ -2688,24 +2705,28 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     setEtapaNome(etapa.nome);
   };
 
-  const salvarEtapa = () => {
+  const salvarEtapa = async () => {
+    if(stageSaving)return;
     if (!etapaNome.trim()) { showToast("Informe o nome da etapa.","error"); return; }
     const { modo, paiId, etapa } = etapaModal;
 
-    if (modo === "editar") {
-      try {
+    try{
+      let nextStages;
+      if (modo === "editar") {
         const etapas = reorderBudgetStage(moveBudgetStage(orc.etapas, etapa.id, paiId, MAX_NIVEL), etapa.id, etapaModal.position);
-        salvarOrc({ etapas: etapas.map(e => e.id===etapa.id ? {...e, nome:etapaNome.trim()} : e) });
-      } catch (error) { showToast(error.message,"error"); return; }
-      showToast("Etapa atualizada. Numeração recalculada.");
-    } else {
-      if (paiId && nivelDaEtapa(orc.etapas, paiId) >= MAX_NIVEL) {
-        showToast(`Limite de ${MAX_NIVEL} níveis atingido.`,"error"); return;
+        nextStages=etapas.map(e => e.id===etapa.id ? {...e, nome:etapaNome.trim()} : e);
+      } else {
+        if (paiId && (!orc.etapas.some(e=>e.id===paiId)||nivelDaEtapa(orc.etapas, paiId) >= MAX_NIVEL)) {
+          showToast(`Limite de ${MAX_NIVEL} níveis atingido.`,"error"); return;
+        }
+        nextStages=[...orc.etapas,{id:uid(),nome:etapaNome.trim(),parentId:paiId||''}];
       }
-      salvarOrc({ etapas: [...orc.etapas, { id:uid(), nome:etapaNome.trim(), parentId:paiId || "" }] });
-      showToast(paiId ? "Subnível criado." : "Etapa criada.");
-    }
-    setEtapaModal(null); setEtapaNome("");
+      setStageSaving(true);
+      const saved=await salvarOrc({etapas:nextStages});
+      if(!saved?.ok){showToast(saved?.reason||'Não foi possível salvar a etapa. Tente novamente.','error');return;}
+      showToast(modo==='editar'?'Etapa atualizada. Numeração recalculada.':paiId?'Subnível criado.':'Etapa criada.');
+      setEtapaModal(null);setEtapaNome('');
+    }catch(error){showToast(error.message,'error');}finally{setStageSaving(false);}
   };
 
   const delEtapa = (etapa) => {
@@ -2988,46 +3009,17 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   };
 
   // Aplica a importacao: cria as etapas na ordem e pendura os itens nelas.
-  const aplicarImportacao = () => {
-    if (!impModal || !orc) return;
+  const aplicarImportacao = async () => {
+    if (!impModal || !orc || impSaving) return;
     const { linhas, substituir, incluirPend } = impModal;
-
-    const etapas = substituir ? [] : [...(orc.etapas||[])];
-    const itens  = substituir ? [] : [...(orc.itens ||[])];
-    let raizAtual = "", etapaAtual = "", pulados = 0;
-
-    linhas.forEach(l => {
-      if (l.kind === "etapa") {
-        const id = uid();
-        if (l.nivel === 2 && raizAtual) { etapas.push({ id, nome:l.nome, parentId: raizAtual }); etapaAtual = id; }
-        else { etapas.push({ id, nome:l.nome, parentId:"" }); raizAtual = id; etapaAtual = id; }
-        return;
-      }
-      // Item/titulo sem etapa declarada antes: cria uma para nao ficar orfao.
-      if (!etapaAtual) {
-        const id = uid();
-        etapas.push({ id, nome:"Itens importados", parentId:"" });
-        raizAtual = id; etapaAtual = id;
-      }
-      if (l.kind === "titulo") {
-        itens.push({ id:uid(), etapaId:etapaAtual, tipo:"titulo", codigo:"", fonte:orc.fonte,
-                     descricao:l.descricao, unidade:"un", quantidade:0, precoUnit:0 });
-        return;
-      }
-      const pendente = !l.achou || l.semPreco || l.semQtd;
-      if (pendente && !incluirPend) { pulados++; return; }
-      itens.push({
-        id: uid(), etapaId: etapaAtual, tipo:"item",
-        codigo: l.codigo, fonte: l.fonte, descricao: l.descricao,
-        unidade: l.unidade, quantidade: l.quantidade, precoUnit: l.precoUnit,
-        composicao: l.composicao || "",
-        codigoNaoEncontrado: !!l.codigoNaoEncontrado,
-      });
-    });
-
-    update({ ...data, orcamentos: todosOrcamentos.map(o => o.id===selOrc ? {...o, etapas, itens} : o) });
-    setImpModal(null);
-    showToast(`Importado: ${itens.length} linha(s) no orçamento${pulados?` - ${pulados} pendente(s) ignorada(s)`:""}.`);
+    setImpSaving(true);
+    try{
+      const {etapas,itens,skipped}=applyBudgetImport(orc,linhas,{replace:substituir,includePending:incluirPend,createId:uid});
+      const saved=await salvarOrc({etapas,itens});
+      if(!saved?.ok)throw Error(saved?.reason||'Não foi possível salvar. Confira a prévia e tente novamente.');
+      setImpModal(null);
+      showToast(`Importado: ${contar(itens.length,'linha','linhas')} no orçamento${skipped?` · ${contar(skipped,'pendência ignorada','pendências ignoradas')}`:''}.`);
+    }catch(error){setImpModal(current=>current?{...current,error:error.message}:current);}finally{setImpSaving(false);}
   };
 
   //  Exportar XLSX no layout "Exportado"
@@ -3424,9 +3416,9 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
         <PageHeader headingLevel={obraIdFixo?2:1} className="workspace-header"
           title="Orçamentos"
           description="Planilha orçamentária com BDI e exportação."
-          primaryAction={<Btn onClick={()=>{setForm({...emptyOrc,obraId:obraIdFixo});setNovoModal(true);}}><Ic n="plus"/> Novo orçamento</Btn>}
+          primaryAction={<Btn onClick={()=>{setForm(budgetWorkDefaults({...emptyOrc,obraId:""},obraIdFixo,data.obras||[]));setNovoModal(true);}}><Ic n="plus"/> Novo orçamento</Btn>}
           secondaryActions={<>
-            <Btn v="ghost" title="Como funciona esta tela" ariaLabel="Como funciona esta tela" onClick={()=>setAjudaModal(true)}><Ic n="info"/> Guia do orçamento</Btn>
+            <Btn v="ghost" title="Como funciona esta tela" ariaLabel="Guia do orçamento" onClick={()=>setAjudaModal(true)}><Ic n="info"/> Guia do orçamento</Btn>
             {obrasParaCopia.some(o=>o.id!==obraIdFixo)&&<Btn v="ghost" onClick={()=>{setForm({...emptyOrc,obraId:obraIdFixo});setCopiarModal({obraOrigemId:"",orcOrigemId:"",repetirQuantidades:true});}}><Ic n="copy"/> Copiar de outra obra</Btn>}
           </>}
         />
@@ -3525,7 +3517,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               <Inp label="Descrição" value={form.descricao} onChange={F("descricao")} placeholder="Resumo, escopo ou observações do orçamento"/>
               {obraIdFixo
                 ? <Inp label="Obra" value={data.obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
-                : <Sel label="Vincular a uma obra (opcional)" value={form.obraId} onChange={F("obraId")}
+                : <Sel label="Vincular a uma obra (opcional)" value={form.obraId} onChange={selectWork}
                     options={[{v:"",l:"- Nenhuma -"}, ...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
               }
               <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}>
@@ -4361,6 +4353,9 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
         </div>
       </div>
 
+      </>}
+
+      {/* Importação compartilhada pelas abas Orçamento e Insumos. */}
       {/* Modal: confirmar onde está cada coluna antes de qualquer linha ser lida */}
       {colMapModal && (() => {
         const { headerRow, rows, hIdx, col } = colMapModal;
@@ -4377,17 +4372,20 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           { k:"preco",     l:"Preço",       obrig:true  },
           { k:"tipo",      l:"Tipo",        obrig:false },
           { k:"unidade",   l:"Unidade",     obrig:false },
+          { k:"ordem",     l:"Numeração da etapa",obrig:false },
+          { k:"nivel",     l:"Nível da etapa",obrig:false },
         ];
         return (
           <Modal title="Onde está cada coluna?" onClose={()=>setColMapModal(null)} wide>
+            <HelpButton pageId="orc_estrutura" allowedTabs={['orc']} label="Ajuda da hierarquia"/>
             <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
               <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)"}}>
                 A detecção automática pelo nome do cabeçalho é só um palpite. Confirme (ou corrija) qual coluna da planilha é cada campo antes de importar - especialmente <b>Código</b>, <b>Descrição</b>, <b>Quantidade</b> e <b>Preço</b>.
               </p>
               <div style={{display:"grid",gridTemplateColumns:cols(1,2,2),gap:"var(--arcd-space-2)"}}>
                 {campos.map(c => (
-                  <Sel key={c.k} label={`${c.l}${c.obrig?" *":""}`} value={col[c.k]===undefined?"":String(col[c.k])}
-                       onChange={v=>setCol(c.k,v)} options={opcoesColuna}/>
+                  <Select key={c.k} label={`${c.l}${c.obrig?" *":""}`} value={col[c.k]===undefined?"":String(col[c.k])}
+                       onChange={e=>setCol(c.k,e.target.value)}>{opcoesColuna.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}</Select>
                 ))}
               </div>
               <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
@@ -4402,6 +4400,8 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
       {/* Modal: conferir a importação antes de aplicar */}
       {impModal && (() => {
         const s = impModal.stats;
+        const hierarchyError=budgetImportHierarchyError(impModal.linhas);
+        const stageRows=impModal.linhas.filter(l=>l.kind==='etapa');
         const pend = impModal.linhas.filter(l => l.kind==="item" && (!l.achou || l.semPreco || l.semQtd));
         const Nm = ({v,l,cor}) => (
           <div style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-2)"}}>
@@ -4410,8 +4410,14 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           </div>
         );
         return (
-          <Modal title="Conferir importação" onClose={()=>setImpModal(null)} wide>
+          <Modal title="Conferir importação" onClose={()=>{if(!impSaving)setImpModal(null);}} wide>
+            <HelpButton pageId="orc_estrutura" allowedTabs={['orc']} label="Ajuda da hierarquia"/>
             <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
+              <FormSection title="Hierarquia da planilha" description="Confira pais e níveis antes de importar.">
+                <ul>{stageRows.slice(0,50).map(row=><li key={row._i}>{`Linha ${row._i} · Nível ${row.nivel}${row.ordem?` · ${row.ordem}`:''} · ${row.nome}`}</li>)}</ul>
+                {stageRows.length>50&&<p>Exibindo as primeiras 50 etapas. Confira a planilha completa antes de importar.</p>}
+                {(hierarchyError||impModal.error)&&<Alert variant="warning"><AlertDescription>{hierarchyError||impModal.error}</AlertDescription></Alert>}
+              </FormSection>
               <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:"var(--arcd-space-2)"}}>
                 <Nm v={s.itens}    l="itens na planilha"/>
                 <Nm v={s.ok}       l="prontos" cor={C.green}/>
@@ -4446,36 +4452,27 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               )}
 
               {[
-                { k:"incluirPend", cor:C.yellow, t:"Importar também as linhas com pendência",
+                { k:"incluirPend", t:"Importar também as linhas com pendência",
                   s:"Entram com preço zerado para você completar depois. Desmarcado, elas são descartadas." },
-                { k:"substituir", cor:C.red, t:"Substituir o conteúdo atual do orçamento",
+                { k:"substituir", t:"Substituir o conteúdo atual do orçamento",
                   s:"Apaga etapas e itens já lançados neste orçamento. Desmarcado, a planilha é somada ao que existe." },
               ].map(o => (
-                <label key={o.k} style={{display:"flex",alignItems:"flex-start",gap:"var(--arcd-space-2)",cursor:"pointer",padding:"var(--arcd-space-2) var(--arcd-space-3)",
-                        background: impModal[o.k] ? `${o.cor}10` : "var(--arcd-surface-muted)",
-                        border:`1.5px solid ${impModal[o.k] ? o.cor : "var(--arcd-border-default)"}`,borderRadius:6}}>
-                  <div onClick={()=>setImpModal(m=>({...m,[o.k]:!m[o.k]}))}
-                       style={{width:18,height:18,borderRadius:4,flexShrink:0,marginTop:"var(--arcd-space-0)",
-                               border:`2px solid ${impModal[o.k]?o.cor:"var(--arcd-text-secondary)"}`,background:impModal[o.k]?o.cor:"transparent",
-                               display:"flex",alignItems:"center",justifyContent:"center"}}>
-                    {impModal[o.k] && <span style={{color:"var(--arcd-text-inverse)",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>ok</span>}
-                  </div>
-                  <div>
-                    <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:impModal[o.k]?o.cor:"var(--arcd-text-primary)"}}>{o.t}</p>
-                    <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",lineHeight:"var(--arcd-line-height-normal)"}}>{o.s}</p>
-                  </div>
-                </label>
+                <div key={o.k}>
+                  <Checkbox label={o.t} aria-describedby={`import-${o.k}`} checked={impModal[o.k]} disabled={impSaving} onChange={e=>setImpModal(m=>({...m,[o.k]:e.target.checked}))}/>
+                  <p id={`import-${o.k}`}>{o.s}</p>
+                </div>
               ))}
 
               <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
-                <Btn v="ghost" onClick={()=>setImpModal(null)} full>Cancelar</Btn>
-                <Btn onClick={aplicarImportacao} full><Ic n="check"/> Importar</Btn>
+                <StandardButton variant="outline" disabled={impSaving} onClick={()=>setImpModal(null)}>Cancelar</StandardButton>
+                <StandardButton disabled={impSaving||!!hierarchyError} onClick={aplicarImportacao}>{impSaving?'Importando…':'Importar'}</StandardButton>
               </div>
             </div>
           </Modal>
         );
       })()}
 
+      {orcAba==="insumos" && <>
       {/* Exportar */}
       <div style={{display:"grid",gridTemplateColumns:cols("1fr 1fr","1fr 1fr","200px 200px"),gap:"var(--arcd-space-2)"}}>
         <Btn onClick={exportPDF}  v="danger"  full><Ic n="file"/> PDF</Btn>
@@ -4714,8 +4711,9 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           title={etapaModal.modo==="editar" ? "Editar etapa e posição"
                : etapaModal.modo==="sub"    ? "Novo subnível"
                : "Nova etapa"}
-          onClose={()=>{setEtapaModal(null);setEtapaNome("");}}
+          onClose={()=>{if(!stageSaving){setEtapaModal(null);setEtapaNome("");}}}
         >
+          <HelpButton pageId="orc_estrutura" allowedTabs={['orc']} label="Ajuda da hierarquia"/>
           <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
             {etapaModal.modo==="editar" && <>
               <Inp label="Posição na lista" type="number" value={etapaModal.position}
@@ -4724,7 +4722,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               <Sel label="Etapa superior" value={etapaModal.paiId}
                 onChange={paiId=>setEtapaModal(current=>({...current,paiId,position:1}))}
                 options={[{v:"",l:"Nível 1 · Etapa principal"},
-                  ...achatarArvore(calc.arvore).filter(row=>row.tipo==="etapa" && !idsDaSubarvore(orc.etapas,etapaModal.etapa.id).includes(row.id))
+                  ...achatarArvore(calc.arvore).filter(row=>row.tipo==="etapa" && row.nivel<MAX_NIVEL && !idsDaSubarvore(orc.etapas,etapaModal.etapa.id).includes(row.id))
                     .map(row=>({v:row.id,l:`Dentro de ${row.codigo} · ${row.nome} (nível ${row.nivel+1})`}))]}/>
               <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)"}}>Os itens e subetapas serão movidos juntos. A numeração será atualizada e os vínculos da memória serão preservados.</p>
             </>}
@@ -4744,8 +4742,8 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             <Inp label="Nome da etapa *" value={etapaNome} onChange={setEtapaNome}
               placeholder={etapaModal.modo==="sub" ? "Ex.: Alvenaria de vedação" : "Ex.: PAREDES E PAINÉIS"}/>
             <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
-              <Btn v="ghost" onClick={()=>{setEtapaModal(null);setEtapaNome("");}} full>Cancelar</Btn>
-              <Btn onClick={salvarEtapa} full><Ic n="check"/> Salvar</Btn>
+              <StandardButton variant="outline" disabled={stageSaving} onClick={()=>{setEtapaModal(null);setEtapaNome("");}}>Cancelar</StandardButton>
+              <StandardButton disabled={stageSaving} onClick={salvarEtapa}>{stageSaving?'Salvando…':'Salvar'}</StandardButton>
             </div>
           </div>
         </Modal>

@@ -1,5 +1,6 @@
+import { fotosEmMemoria } from "./fotos.test-helper.js";
 import { createHash } from "node:crypto";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { criarTratadorPonto, ehAcaoPonto, hashPin, limparAparelho } from "./handler.js";
 import { bancoFalso } from "./banco-falso.test-helper.js";
 import { HASH_INICIAL, calcularHashMarcacao } from "../../src/domains/ponto-eletronico/marcacao.js";
@@ -19,11 +20,13 @@ const DADOS = {
 };
 const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4]);
 
-let db, tratar, sessao;
+let db, tratar, sessao, fotos;
 beforeEach(() => {
   db = bancoFalso();
   sessao = ADMIN;
+  fotos = fotosEmMemoria(db);
   tratar = criarTratadorPonto({
+    armazenamentoFotos: fotos,
     db, company: "arcd", lerDados: async () => DADOS, agora: () => new Date("2026-10-01T10:00:00.000Z"),
     autenticarUsuario: async body => (body.accessToken === "ok" ? sessao : null),
   });
@@ -140,6 +143,29 @@ describe("ponto eletrônico - servidor", () => {
     expect((await tratar({ action: "ponto-enviar-foto", headers: auth, body: { marcacaoId: m.id, foto: JPEG.toString("base64") } })).json).toEqual({ recebida: true });
     const url = await tratar({ action: "ponto-foto-url", body: { accessToken: "ok", marcacaoId: m.id } });
     expect(url.json.url).toContain(`marcacoes/obra-a/2026-10-01/${m.id}.jpg`);
+  });
+
+  it("não entrega foto de outra obra nem consulta o armazenamento sem autorização", async () => {
+    const p = await parear();
+    const [m] = await marcacoes(p.dispositivoId, 1, { foto: JPEG });
+    await tratar({ action: "ponto-enviar-marcacoes", headers: { authorization: `Bearer ${p.token}` }, body: { marcacoes: [m] } });
+    const leitura = vi.spyOn(fotos, "url");
+    expect((await tratar({ action: "ponto-foto-url", body: { marcacaoId: m.id } })).status).toBe(401);
+    sessao = { id: "eng", role: "engenheiro", obraId: "obra-b" };
+    expect((await tratar({ action: "ponto-foto-url", body: { accessToken: "ok", marcacaoId: m.id } })).status).toBe(403);
+    expect(leitura).not.toHaveBeenCalled();
+  });
+
+  it("não confirma cadastro facial quando o OneDrive falha", async () => {
+    const p = await parear();
+    await tratar({ action: "ponto-responsavel-pin", body: { accessToken: "ok", userId: "u-enc", pin: "2468", obras: [] } });
+    vi.spyOn(fotos, "salvar").mockRejectedValue(new Error("OneDrive indisponível"));
+    const r = await tratar({ action: "ponto-cadastrar-biometria", headers: { authorization: `Bearer ${p.token}` }, body: {
+      employeeId: "e1", vetor: Array(128).fill(0.1), fotos: [JPEG.toString("base64")], responsavelId: "u-enc",
+      consentimento: { termoVersao: "v1", aceitoEm: "2026-11-12T10:00:00Z" },
+    } });
+    expect(r.status).toBe(503);
+    expect(db.tabelas.ponto_biometrias).toEqual([]);
   });
 
   it("biometria exige consentimento, funcionário ATIVO da empresa (de qualquer obra) e responsável autorizado na obra do aparelho", async () => {

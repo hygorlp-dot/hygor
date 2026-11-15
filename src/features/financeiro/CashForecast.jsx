@@ -12,6 +12,13 @@ export default function CashForecast({data,ledger,today,obraId,onOpen,scenario,o
  const state=scenario??localScenario;
  const {days,opening,delay,overdue,account='all',openingScope}=state;
  const update=patch=>(onScenarioChange??setLocalScenario)(previous=>({...previous,...patch}));
+ const timelineWork=obraId==='all'?state.timeline?.chosen||'':obraId;
+ const timelineView=state.timelines?.[timelineWork]
+  ||(state.timeline&&(state.timeline.obraId===obraId||state.timeline.chosen===obraId)?state.timeline:undefined);
+ const saveTimeline=timeline=>{
+  const work=obraId==='all'?timeline.chosen||'':obraId;
+  update({timeline:{...timeline,obraId},timelines:{...state.timelines,[work]:{...timeline,chosen:work,obraId:work}}});
+ };
  const scope=JSON.stringify([today,obraId,account]);
  const parsed=opening==null||String(opening).trim()===''?null:Math.round(Number(opening)*100);
  const hasOpening=Number.isSafeInteger(parsed)&&openingScope===scope;
@@ -27,6 +34,6 @@ export default function CashForecast({data,ledger,today,obraId,onOpen,scenario,o
  {hasOpening&&<p>Menor saldo previsto: <strong>{money(forecast.lowest.balance)}</strong> em {forecast.lowest.date}. {forecast.firstNegative?`Primeiro saldo negativo: ${forecast.firstNegative.date}.`:'Sem saldo negativo neste cenário.'}</p>}
  <div className="cash-forecast__actions"><Button variant="outline" onClick={()=>open('Títulos vencidos',forecast.overdue)}>Vencidos: {forecast.overdue.length}</Button><Button variant="outline" onClick={()=>open('Títulos sem vencimento',forecast.undated)}>Sem vencimento: {forecast.undated.length}</Button><Button variant="outline" onClick={()=>open('Títulos sem conta prevista',forecast.unassigned,'Sem conta prevista')}>Sem conta prevista: {forecast.unassigned.length}</Button></div>
  <p>Conta é a destinação informada no título; não é inferida de pagamentos anteriores. {forecast.excludedAccountCount} título(s) fora da conta selecionada. Vencidos entram apenas pela premissa acima; títulos sem vencimento válido ficam para conferência. Nenhuma simulação altera lançamentos.</p>
- <PlanningCashTimeline key={obraId} data={data} today={today} days={days} obraId={obraId} forecast={forecast} onOpen={onOpen} currentUser={currentUser} view={state.timeline?.obraId===obraId?state.timeline:undefined} onChange={timeline=>update({timeline:{...timeline,obraId}})}/>
+ <PlanningCashTimeline key={obraId} data={data} today={today} days={days} obraId={obraId} forecast={forecast} onOpen={onOpen} currentUser={currentUser} view={timelineView} onChange={saveTimeline}/>
  <div className="scroll-x"><table className="cash-forecast-table"><caption>Agenda diária de entradas, saídas e saldo previsto · {accountLabel}</caption><thead><tr>{['Data','Entradas','Saídas','Saldo previsto','Origem'].map(t=><th key={t}>{t}</th>)}</tr></thead><tbody>{forecast.rows.map(r=><tr key={r.date}><th scope="row">{r.date.split('-').reverse().join('/')}</th><td>{money(r.incoming)}</td><td>{money(r.outgoing)}</td><td>{hasOpening?money(r.balance):'Não informado'}</td><td>{r.items.length?<Button variant="link" onClick={()=>open(`Previsão de ${r.date}`,r.items)}>Ver {r.items.length} título(s)</Button>:'Sem vencimentos'}</td></tr>)}</tbody></table></div></section>;
 }

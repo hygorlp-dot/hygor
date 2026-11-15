@@ -25,7 +25,7 @@ export const PAYABLE_PAYMENT_COMMAND_TYPES=new Set(Object.values(PAYABLE_PAYMENT
 
 const fail=reason=>({ok:false,reason});
 const versionOf=item=>Number(item?.version||0);
-const validDate=value=>/^\d{4}-\d{2}-\d{2}$/.test(String(value||""));
+const validDate=isFinancialDate;
 const validOrigin=value=>["empresa","caixa_obra","cliente_direto"].includes(value);
 const collections={pedido:"pedidos",nota:"notasFiscais"};
 const targetBy=(data,type,id)=>(data?.[collections[type]]||[]).find(item=>String(item.id)===String(id));

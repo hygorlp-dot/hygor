@@ -4,6 +4,7 @@ import { auditStructuralLinks } from './structural-auto-sync';
 import { memoryBudgetItems } from './structural-budget-matching';
 import { structuralBudgetRows } from './structural-budget-apply';
 import { memoryFloors } from './budget-floors';
+import {budgetHierarchyError} from './hierarchy.js';
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 
 export function budgetChangeReceipt(before,after){
@@ -38,6 +39,8 @@ export function repositionBudgetItem(items,id,position,stageId){
 }
 export function auditWholeBudget(budget){
   const issues=auditStructuralLinks(budget).map(issue=>({...issue,id:`memory:${issue.source}`,destination:'memory',canRemove:!!budget?.memoriaCalculo?.vinculosEstruturais?.[issue.source]}));
+  const hierarchy=budgetHierarchyError(budget);
+  if(hierarchy)issues.push({id:'budget-hierarchy',label:'Hierarquia do orçamento',message:hierarchy,destination:'budget'});
   for(const floor of memoryFloors(budget?.memoriaCalculo))if(floor.etapaId && !(budget?.etapas || []).some(s=>s.id===floor.etapaId))
     issues.push({id:`floor:${floor.id}`,floorId:floor.id,label:floor.nome,message:'Etapa do pavimento foi removida',destination:'budget'});
   issues.push(...auditItemMemories(budget));

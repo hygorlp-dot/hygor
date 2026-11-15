@@ -66,3 +66,14 @@
 
 .work-dossier-mobile { display:none; }
 @media(max-width:760px){.work-dossier-items { display:none; }.work-dossier-mobile { display:block; }}
+
+.work-files-content[data-dragging] { outline: var(--arcd-border-width-focus, 2px) solid var(--arcd-action-primary); outline-offset: var(--arcd-space-1); }
+
+.work-files-selection { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:var(--arcd-space-2); padding:var(--arcd-space-3) var(--arcd-space-4); }
+.work-files-row-name .arcd-check { flex:none; }
+.work-files-delete-list { display:grid; gap:var(--arcd-space-3); margin:0; padding:0; list-style:none; }
+.work-files-delete-list p { margin:0; overflow-wrap:anywhere; }
+@media (max-width:767px) {
+  .work-files-row { flex-direction:column; align-items:stretch; gap:var(--arcd-space-2); }
+  .work-files-row-meta { display:flex; flex-wrap:wrap; gap:var(--arcd-space-2); max-width:none; text-align:left; }
+}

@@ -1,6 +1,8 @@
 import { active, toCents } from "./ledger.js";
 import { analyzePurchaseThreeWayMatch, isDateInClosedPeriod } from "./workflows.js";
 import { divergenciasDoItem, validarItensNota } from "../compras/nfe-xml.js";
+import {invoiceImportConflicts} from './invoice-import-preview.js';
+import {isFinancialDate} from './dates.js';
 
 export const INVOICE_COMMAND=Object.freeze({
   INVOICE_SAVED:"NOTA_FISCAL_SALVA",
@@ -20,7 +22,7 @@ const invoiceById=(data,id)=>(data.notasFiscais||[])
   .find(item=>String(item.id)===String(id));
 const projectExists=(data,id)=>(data.obras||[])
   .some(item=>String(item.id)===String(id));
-const validDate=value=>!value||/^\d{4}-\d{2}-\d{2}$/.test(String(value));
+const validDate=value=>!value||isFinancialDate(value);
 const sameVersion=(item,expected)=>
   expected!=null&&versionOf(item)===Number(expected);
 const retentionKeys=["iss","inss","irrf","pis","cofins","csll","outros"];
@@ -90,10 +92,11 @@ const normalizeInvoice=(data,raw,current)=>{
   const pedido=pedidoId?(data.pedidos||[]).find(item=>String(item.id)===pedidoId):null;
   if(pedidoId&&!pedido)return {error:"O pedido relacionado não foi encontrado."};
   if(pedido&&String(pedido.obraId)!==obraId)return {error:"A nota e o pedido precisam pertencer à mesma obra."};
-  const duplicate=(data.notasFiscais||[]).find(item=>
-    String(item.id)!==id&&!inactiveStatus(item.status)&&String(raw.chave||"")
-    &&String(item.chave||"")===String(raw.chave));
-  if(duplicate)return {error:"Já existe uma nota ativa com esta chave de acesso."};
+  const supplierId=String(raw.fornecedorId||current?.fornecedorId||pedido?.fornecedorId||'');
+  const {duplicate}=invoiceImportConflicts(data,{...current,...raw,fornecedorId:supplierId},id);
+  if(duplicate)return {error:raw.chave&&String(duplicate.chave||'').trim()===String(raw.chave).trim()
+    ?'Já existe uma nota ativa com esta chave de acesso.'
+    :'Já existe uma nota ativa para o mesmo emissor, tipo, série, número e ano. Confira o documento cadastrado antes de lançar outra nota.'};
   // C3.1: itens lidos do XML, ligados (ou não) aos itens do pedido.
   const itensNota=validarItensNota(raw.itensNota,pedido);
   if(itensNota)return {error:itensNota};

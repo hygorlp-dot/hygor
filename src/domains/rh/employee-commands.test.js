@@ -108,6 +108,7 @@ describe("comando transacional de funcionários", () => {
       "dismissal",
       "salary_change",
     ]);
+    expect(new Set(result.data.changeLog.map(item=>item.id)).size).toBe(result.data.changeLog.length);
     expect(employeeCommandObraId(data, command(employee({ obra:"obra-2" }), 1)))
       .toBe("obra-2");
   });

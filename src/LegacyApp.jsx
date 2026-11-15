@@ -1,3 +1,7 @@
+import {workNavigationGroups,workNavigationTarget} from './domains/obras/work-navigation.js';
+import {DISTANCE_VIEW_COLORS} from './design-system/themes/themeRegistry.js';
+import {portalLoginUrl} from "./client-portal/routes.js";
+import {PublicationReview} from "./client-portal/components/PublicationReview.jsx";
 import {openReportPreview} from './reports/report-preview.js';
 import {ReportIdentityDialog} from './reports/ReportIdentityDialog.jsx';
 import {WorkspaceCommandBar,WorkspaceHeading} from './design-system/patterns/WorkspaceCommandBar.jsx';
@@ -323,9 +327,9 @@ const G = `
   --gold:${C.yellow};--text:${C.text};--muted:${C.muted};
   --green:${C.green};--red:${C.red};--blue:${C.blue};
   --grafite:#121212;--areia:#F5F3EE;--cinza:#BFBFBF;
-  --type-display:'Nimbus Sans','Helvetica Neue',Arial,sans-serif;
-  --type-body:'Nimbus Sans','Helvetica Neue',Arial,sans-serif;
-  --type-data:'IBM Plex Mono',ui-monospace,monospace;
+  --type-display:var(--arcd-font-sans);
+  --type-body:var(--arcd-font-sans);
+  --type-data:var(--arcd-font-mono);
   --fs-caption:var(--arcd-type-caption);--fs-label:var(--arcd-type-label);--fs-body:var(--arcd-type-body);--fs-title:var(--arcd-type-section-title);
   --fs-page-title:var(--arcd-type-page-title);
   --fs-section-title:var(--arcd-type-section-title);
@@ -916,6 +920,9 @@ const normalizeData = incoming => {
         publicarFinanceiro: !!o.portalCliente?.publicarFinanceiro,
         publicarDocumentos: o.portalCliente?.publicarDocumentos !== false,
         publicarCaixaObra: !!o.portalCliente?.publicarCaixaObra,
+        publicarAdministracaoEquipe: !!o.portalCliente?.publicarAdministracaoEquipe,
+        publicarCustos: !!o.portalCliente?.publicarCustos,
+        publicarOrcamentoEtapas: !!o.portalCliente?.publicarOrcamentoEtapas,
         publicarNotasFiscais: !!o.portalCliente?.publicarNotasFiscais,
         publicarCompras: !!o.portalCliente?.publicarCompras,
         publicarCotacoes: !!o.portalCliente?.publicarCotacoes,
@@ -2509,7 +2516,7 @@ function DashboardTechHero({currentUser,ultimaSync,fila,onBuscar,onAtualizar,onA
       <span>{periodo}</span><Button variant="ghost" size="icon" aria-label="Próximo mês" onClick={onProximo} disabled={proximoDesabilitado}><ChevronRight/></Button>
     </div>}{onBuscar&&<Button variant="outline" size="icon" aria-label="Buscar" onClick={onBuscar}><Search/></Button>}
     {onAtualizar&&<Button variant="outline" size="icon" aria-label="Atualizar" onClick={onAtualizar}><RefreshCw/></Button>}</>}
-    primaryAction={<Button disabled={!fila.length} onClick={()=>fila[0]&&onAbrir(fila[0].tab)}>{fila.length?"Abrir prioridade":"Nenhuma ação urgente"}</Button>}>
+    primaryAction={<Button disabled={!fila.length} onClick={()=>fila[0]&&onAbrir(fila[0].tab)}>{fila.length?`Abrir prioridade de ${fila[0].setor}`:"Nenhuma ação urgente"}</Button>}>
     <div className="dashboard-context"><span role="status">{syncLabel}</span><span>{contar(criticas,"crítica","críticas")} · {contar(fila.length,"ação em andamento","ações em andamento")}</span>
       {clima&&<span>Caruaru: {clima.temperatura} °C · vento {clima.vento} km/h</span>}
     </div>
@@ -3229,7 +3236,7 @@ Regras: diferencie faturamento de recebimento; não conclua excesso de pessoas a
       <p style={{fontSize:bold?"var(--arcd-type-body)":"var(--arcd-type-body)",color:bold?color:C.muted,fontWeight:bold?600:400}}>{label}</p>
       <div style={{textAlign:"right",flexShrink:0}}>
         <p style={{fontSize:bold?"var(--arcd-type-card-title)":"var(--arcd-type-body)",color,fontWeight:bold?600:600}}>{fmt(value)}</p>
-        {pct!==null&&<p style={{fontSize:"var(--arcd-type-caption)",color:color+"99",marginTop:1}}>{pct.toFixed(1)}%</p>}
+        {pct!==null&&<p style={{fontSize:"var(--arcd-type-caption)",color:color,marginTop:1}}>{pct.toFixed(1)}%</p>}
       </div>
     </div>
   );
@@ -3260,7 +3267,7 @@ Regras: diferencie faturamento de recebimento; não conclua excesso de pessoas a
           <div style={{textAlign:"right",flexShrink:0}}>
             <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Lucro Bruto</p>
             <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-section-title)",color:lucroCor,letterSpacing:.5}}>{fmt(d.lucroBruto)}</p>
-            <p style={{fontSize:"var(--arcd-type-label)",color:lucroCor+"99"}}>{d.margemBruta.toFixed(1)}%</p>
+            <p style={{fontSize:"var(--arcd-type-label)",color:lucroCor}}>{d.margemBruta.toFixed(1)}%</p>
           </div>
         </div>
 
@@ -4126,7 +4133,7 @@ function RankingFinanceiro({data,year,month,obraId="",onSelecionarObra,C=C_ARCD_
   return <section style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:11,overflow:"hidden",boxShadow:C.shHair}}>
     <div style={{padding:"11px 13px",display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start",flexWrap:"wrap",background:`linear-gradient(135deg,${C.surface},${C.card})`,borderBottom:`1px solid ${C.line}`}}><div><h3 style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:C.text,marginTop:2}}>Análise financeira das obras</h3><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Eficiência, caixa e conformidade no período selecionado.</p></div><div style={{display:"flex",gap:4,flexWrap:"wrap"}}>{[["todos","Todas"],["saudaveis","Saudáveis"],["atencao","Atenção"],["criticas","Críticas"]].map(([v,l])=><button key={v} onClick={()=>setFiltro(v)} style={{border:`1px solid ${filtro===v?C.yellow:C.border}`,background:filtro===v?`${C.yellow}16`:C.card,color:filtro===v?C.yellowD:C.muted,borderRadius:7,padding:"5px 8px",fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>{l}</button>)}</div></div>
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:1,background:C.line,borderBottom:`1px solid ${C.line}`}}>{[["Obras avaliadas",ranking.length,C.text],["Nota média",`${media}/100`,corNota(media)],["Resultado negativo",ranking.filter(r=>r.resultado<0).length,C.red],["Com alertas",ranking.filter(r=>r.alertas.length).length,C.orange]].map(([l,v,c])=><div key={l} style={{padding:"8px 10px",background:C.bg}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.4}}>{l}</p><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:c,marginTop:2}}>{v}</p></div>)}</div>
-    <div className="scroll-x"><table style={{width:"100%",minWidth:1020,borderCollapse:"collapse"}}><thead><tr>{["#","Obra","Nota","Resultado","Margem","Recebido / faturado","Saldo de caixa","NF vencida","Sem NF","A conciliar"].map(h=><th key={h} style={{padding:"7px 8px",textAlign:["#","Obra"].includes(h)?"left":"right",borderBottom:`1px solid ${C.line}`,fontSize:"var(--arcd-type-label)",color:C.muted,textTransform:"uppercase"}}>{h}</th>)}</tr></thead><tbody>{linhas.map(r=><tr key={r.id} onClick={()=>onSelecionarObra?.(r.id)} style={{cursor:onSelecionarObra?"pointer":"default",background:C.card}}><td style={{padding:"8px",fontWeight:600,color:r.posicao<=3?C.yellowD:C.muted,borderBottom:`1px solid ${C.line}`}}>{r.posicao}</td><td style={{padding:"8px",borderBottom:`1px solid ${C.line}`}}><button type="button" aria-label={`Ver análise de ${r.nome}`} onClick={event=>{event.stopPropagation();onSelecionarObra?.(r.id);}} style={{fontSize:"var(--arcd-type-control)",fontWeight:600,color:C.text,border:0,background:"transparent",textAlign:"left",padding:"4px 0",cursor:"pointer"}}>{r.nome}</button><p style={{fontSize:"var(--arcd-type-caption)",color:r.alertas.length?C.orange:C.green,marginTop:2,maxWidth:360,whiteSpace:"normal"}}>{r.alertas.length?r.alertas.join(" · "):"sem alertas relevantes"}</p></td><td style={{padding:"8px",textAlign:"right",borderBottom:`1px solid ${C.line}`}}><span style={{display:"inline-flex",alignItems:"center",gap:5}}><Badge color={corNota(r.nota)}>{conceitoNota(r)}</Badge><b style={{fontSize:"var(--arcd-type-body)",color:corNota(r.nota)}}>{r.nota}</b></span></td><td style={{padding:"8px",textAlign:"right",fontWeight:600,color:r.resultado>=0?C.green:C.red,borderBottom:`1px solid ${C.line}`}}>{fmt(r.resultado)}</td><td style={{padding:"8px",textAlign:"right",fontWeight:600,color:r.margemPct>=0?C.green:C.red,borderBottom:`1px solid ${C.line}`}}>{r.margemPct.toFixed(1)}%</td><td style={{padding:"8px",textAlign:"right",borderBottom:`1px solid ${C.line}`}}>{r.recebimentoPct.toFixed(1)}%</td><td style={{padding:"8px",textAlign:"right",fontWeight:600,color:r.saldoCaixa>=0?C.green:C.red,borderBottom:`1px solid ${C.line}`}}>{fmt(r.saldoCaixa)}</td>{[r.notasVencidas,r.pedidosSemNota,r.naoConciliados].map((v,i)=><td key={i} style={{padding:"8px",textAlign:"right",fontWeight:v?600:500,color:v?(i===0?C.red:C.orange):C.muted,borderBottom:`1px solid ${C.line}`}}>{v}</td>)}</tr>)}</tbody></table></div>
+    <div className="scroll-x" tabIndex={0} role="region" aria-label="Conferência financeira das obras"><table style={{width:"100%",minWidth:1020,borderCollapse:"collapse"}}><thead><tr>{["#","Obra","Nota","Resultado","Margem","Recebido / faturado","Saldo de caixa","NF vencida","Sem NF","A conciliar"].map(h=><th key={h} style={{padding:"7px 8px",textAlign:["#","Obra"].includes(h)?"left":"right",borderBottom:`1px solid ${C.line}`,fontSize:"var(--arcd-type-label)",color:C.muted,textTransform:"uppercase"}}>{h}</th>)}</tr></thead><tbody>{linhas.map(r=><tr key={r.id} onClick={()=>onSelecionarObra?.(r.id)} style={{cursor:onSelecionarObra?"pointer":"default",background:C.card}}><td style={{padding:"8px",fontWeight:600,color:r.posicao<=3?C.yellowD:C.muted,borderBottom:`1px solid ${C.line}`}}>{r.posicao}</td><td style={{padding:"8px",borderBottom:`1px solid ${C.line}`}}><button type="button" aria-label={`Ver análise de ${r.nome}`} onClick={event=>{event.stopPropagation();onSelecionarObra?.(r.id);}} style={{fontSize:"var(--arcd-type-control)",fontWeight:600,color:C.text,border:0,background:"transparent",textAlign:"left",padding:"4px 0",cursor:"pointer"}}>{r.nome}</button><p style={{fontSize:"var(--arcd-type-caption)",color:r.alertas.length?C.orange:C.green,marginTop:2,maxWidth:360,whiteSpace:"normal"}}>{r.alertas.length?r.alertas.join(" · "):"sem alertas relevantes"}</p></td><td style={{padding:"8px",textAlign:"right",borderBottom:`1px solid ${C.line}`}}><span style={{display:"inline-flex",alignItems:"center",gap:5}}><Badge color={corNota(r.nota)}>{conceitoNota(r)}</Badge><b style={{fontSize:"var(--arcd-type-body)",color:corNota(r.nota)}}>{r.nota}</b></span></td><td style={{padding:"8px",textAlign:"right",fontWeight:600,color:r.resultado>=0?C.green:C.red,borderBottom:`1px solid ${C.line}`}}>{fmt(r.resultado)}</td><td style={{padding:"8px",textAlign:"right",fontWeight:600,color:r.margemPct>=0?C.green:C.red,borderBottom:`1px solid ${C.line}`}}>{r.margemPct.toFixed(1)}%</td><td style={{padding:"8px",textAlign:"right",borderBottom:`1px solid ${C.line}`}}>{r.recebimentoPct.toFixed(1)}%</td><td style={{padding:"8px",textAlign:"right",fontWeight:600,color:r.saldoCaixa>=0?C.green:C.red,borderBottom:`1px solid ${C.line}`}}>{fmt(r.saldoCaixa)}</td>{[r.notasVencidas,r.pedidosSemNota,r.naoConciliados].map((v,i)=><td key={i} style={{padding:"8px",textAlign:"right",fontWeight:v?600:500,color:v?(i===0?C.red:C.orange):C.muted,borderBottom:`1px solid ${C.line}`}}>{v}</td>)}</tr>)}</tbody></table></div>
     {!linhas.length&&<div style={{padding:22,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhuma obra com movimentação financeira neste filtro.</div>}
     <details style={{padding:"8px 11px",fontSize:"var(--arcd-type-caption)",color:C.muted}}><summary style={{cursor:"pointer",fontWeight:600,color:C.blue}}>Como a nota é calculada</summary><div style={{marginTop:7,lineHeight:1.55}}><strong>Margem real — 35%:</strong> resultado depois dos custos da obra. <strong>Recebimento — 25%:</strong> quanto do faturamento virou caixa. <strong>Saúde do caixa — 20%:</strong> recebido menos custos no período. <strong>Conformidade — 20%:</strong> parte de 100 e perde pontos por notas vencidas, pedidos sem NF e pagamentos não conciliados. Obras sem qualquer movimentação no período não entram no ranking. Clique em uma linha para filtrar os demais KPIs pela obra.</div></details>
   </section>;
@@ -4489,7 +4496,7 @@ function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatch
     {financialReturn&&!taskReturn&&!fiscalReturn&&!documentReturn&&<nav className="financial-origin-return" aria-label="Retorno à conferência financeira"><p>Retome a origem com o recorte anterior.</p><Button variant="outline" onClick={backFinancialOrigin}>{financialReturn.area==="fechamento"?"Voltar à conferência do fechamento":financialReturn.area==="documentos"?"Voltar à central de documentos":"Voltar à rotina financeira de origem"}</Button></nav>}{taskReturn&&<Btn v="ghost" onClick={()=>{positionToRestore.current=taskReturn.positions;setFilterObra(taskReturn.obraId);setDocumentMonth(taskReturn.month);setDocumentView(taskReturn.view);setAreaFinanceira(taskReturn.area);setTaskReturn(null);}}>{taskReturn.label}</Btn>}</>;
   if(areaFinanceira==="previsoes"&&podeAcessarAdministrativoFinanceiro)return <div className="financial-overview">{navegacaoFinanceira}<Suspense fallback={<p role="status">Preparando previsões gerenciais…</p>}><ForecastWorkspace dispatchCommand={dispatchCommand} data={data} currentUser={currentUser} calcPeriod={calcVisaoFinanceira} today={currentDate} view={forecastView} onViewChange={setForecastView} obraId={filterObra} onObraChange={setFilterObra} onOpen={setMemorial} onCosts={obraId=>{setFilterObra(obraId);setForecastReturn(true);setAreaFinanceira("etapas");}} /></Suspense>{memorialPanel}</div>;
   if(areaFinanceira==="caixa")return <div className="financial-overview">{navegacaoFinanceira}<CashWorkspace scopeControl={workFilter} currentUser={currentUser} data={data} ledger={financialView.selected.ledger} today={currentDate} obraId={filterObra} onOpen={setMemorial} view={cashView} onViewChange={setCashView} scenario={cashScenario} onScenarioChange={setCashScenario}/>{memorialPanel}</div>;
-  if(areaFinanceira==="hoje")return <div className="financial-overview">{navegacaoFinanceira}<FinanceToday scopeControl={workFilter} scope={filterObra} preferences={todayPreferences} onPreferencesChange={setTodayPreferences} active={todayQueue} onActiveChange={setTodayQueue} queues={queues} today={currentDate} work={filterObra==="all"?"Todas as obras":obraName(filterObra)} onOpen={setMemorial} onAllocate={item=>setTodayPayment(item.sourceId)} resolveAction={item=>financeNextAction(data,item,currentUser)} onAction={openTodayAction}/><Btn v="ghost" onClick={()=>setAreaFinanceira("caixa")}>Abrir caixa por conta e previsão</Btn>{memorialPanel}{todayPayment&&<PaymentDialog data={data} user={currentUser} type="nota" id={todayPayment} pageId="fin" dispatch={dispatchCommand} onClose={()=>setTodayPayment(null)} onSaved={()=>showToast('Operação financeira confirmada.')}/>}{todayPurchase&&<PurchaseDossier data={data} selection={todayPurchase} currentUser={currentUser} onReviewInvoice={invoice=>openTodayAction({sourceType:'nota_fiscal',sourceId:invoice.id,obraId:invoice.obraId})} onClose={()=>setTodayPurchase(null)}/>}</div>;
+  if(areaFinanceira==="hoje")return <div className="financial-overview">{navegacaoFinanceira}<FinanceToday user={currentUser} config={data.config} scopeControl={workFilter} scope={filterObra} preferences={todayPreferences} onPreferencesChange={setTodayPreferences} active={todayQueue} onActiveChange={setTodayQueue} queues={queues} today={currentDate} work={filterObra==="all"?"Todas as obras":obraName(filterObra)} onOpen={setMemorial} onAllocate={item=>setTodayPayment(item.sourceId)} resolveAction={item=>financeNextAction(data,item,currentUser)} onAction={openTodayAction}/><Btn v="ghost" onClick={()=>setAreaFinanceira("caixa")}>Abrir caixa por conta e previsão</Btn>{memorialPanel}{todayPayment&&<PaymentDialog data={data} user={currentUser} type="nota" id={todayPayment} pageId="fin" dispatch={dispatchCommand} onClose={()=>setTodayPayment(null)} onSaved={()=>showToast('Operação financeira confirmada.')}/>}{todayPurchase&&<PurchaseDossier data={data} selection={todayPurchase} currentUser={currentUser} onReviewInvoice={invoice=>openTodayAction({sourceType:'nota_fiscal',sourceId:invoice.id,obraId:invoice.obraId})} onClose={()=>setTodayPurchase(null)}/>}</div>;
   if(areaFinanceira==="etapas"&&podeAcessarAdministrativoFinanceiro)return <div className="financial-overview">{navegacaoFinanceira}{forecastReturn&&<Button variant="secondary" onClick={()=>{setForecastReturn(false);setAreaFinanceira("previsoes");}}>Voltar às previsões gerenciais</Button>}<WorkStageCosts data={data} ledger={stageLedger.ledger} missingStart={stageLedger.missingStart} obraId={filterObra} asOf={currentDate} onOpen={setMemorial} view={costReviewView} onViewChange={setCostReviewView} dispatchCommand={dispatchCommand} currentUser={currentUser}/>{memorialPanel}</div>;
   if(areaFinanceira==="relatorios"&&podeAcessarAdministrativoFinanceiro)return <div className="financial-overview">{navegacaoFinanceira}<FinancialReportCenter data={data} calcPeriod={calcVisaoFinanceira} view={reportView} onViewChange={setReportView} obraId={filterObra} onObraChange={setFilterObra} onOpen={setMemorial} loadSpreadsheet={async()=>{await carregarXLSX();return XLSX;}}/>{memorialPanel}</div>;
   if(areaFinanceira==="documentos"&&podeAcessarAdministrativoFinanceiro)return <div className="financial-overview">{navegacaoFinanceira}{documentReturn&&<Btn v="ghost" onClick={backToMemorial}>Voltar ao memorial de origem</Btn>}<DocumentCenter scopeControl={workFilter} onPayments={openInvoicePayments} onBank={podeAcessarAba(currentUser,"conc")?openInvoiceBank:undefined} currentUser={currentUser} onObra={setFilterObra} view={documentView} onViewChange={setDocumentView} data={data} obraId={filterObra} competence={documentMonth} onCompetence={setDocumentMonth} onOpen={setMemorial} onReview={conferirNota} onReceive={abrirNovaNota}/>{memorialPanel}</div>;
@@ -5346,7 +5353,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
                   <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",color:st.c,background:"color-mix(in srgb, var(--arcd-text-inverse) 94%, transparent)",borderRadius:99,padding:"var(--arcd-space-1) var(--arcd-space-2)"}}>{st.l}</span>
                 </div>
                 <div style={{position:"relative"}}>
-                  <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",color:"color-mix(in srgb, var(--arcd-text-inverse) 55%, transparent)",marginBottom:"var(--arcd-space-half)"}}>{o._fase?.nome||"Fase não definida"}</p>
+                  <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",color:"var(--arcd-text-inverse)",marginBottom:"var(--arcd-space-half)"}}>{o._fase?.nome||"Fase não definida"}</p>
                   <h3 className="brk" style={{fontFamily:FONT_DISPLAY,fontSize:"var(--arcd-type-section-title)",fontWeight:"var(--arcd-font-weight-semibold)",lineHeight:"var(--arcd-line-height-normal)",color:"var(--arcd-text-inverse)",paddingRight:"var(--arcd-space-3)"}}>{o.name}</h3>
                 </div>
               </div>
@@ -5354,7 +5361,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
             <div className="works-card-body" style={{padding:"var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)",flex:1}}>
               <div className="works-card-identity" style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"var(--arcd-space-2)"}}>
                 <div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",color:"var(--arcd-text-secondary)"}}>Cliente</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:o.cliente?"var(--arcd-text-primary)":"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.cliente||"Não vinculado"}</p></div>
-                <div title={o.engineer||"Sem responsável"} style={{width:34,height:34,flexShrink:0,borderRadius:99,display:"grid",placeItems:"center",background:o.engineer?"var(--arcd-text-primary)":"var(--arcd-surface-muted)",border:`1px solid ${o.engineer?"var(--arcd-text-primary)":"var(--arcd-border-default)"}`,color:o.engineer?"var(--arcd-action-primary)":"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{(o.engineer||"?").split(" ").slice(0,2).map(n=>n[0]).join("")}</div>
+                <div title={o.engineer||"Sem responsável"} style={{width:34,height:34,flexShrink:0,borderRadius:99,display:"grid",placeItems:"center",background:o.engineer?"var(--arcd-text-primary)":"var(--arcd-surface-muted)",border:`1px solid ${o.engineer?"var(--arcd-text-primary)":"var(--arcd-border-default)"}`,color:o.engineer?"var(--arcd-text-inverse)":"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{(o.engineer||"?").split(" ").slice(0,2).map(n=>n[0]).join("")}</div>
               </div>
 
               <div className="works-card-metrics" style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:"var(--arcd-space-1)"}}>
@@ -5516,6 +5523,8 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
                     ["adminBaseMateriais","Materiais",form.adminBaseMateriais!==false],
                     ["adminBaseMaoDeObra","Mão de obra",form.adminBaseMaoDeObra===true||(form.adminBaseMaoDeObra===undefined&&form.contractType==="admin_only")],
                     ["adminBaseTerceirizados","Terceirizados",form.adminBaseTerceirizados!==false],
+                    ["adminBaseEquipamentos","Equipamentos / locação",form.adminBaseEquipamentos??form.contractType==="admin_only"],
+                    ["adminBaseEngenhariaCampo","Engenharia de campo",form.adminBaseEngenhariaCampo??form.contractType==="admin_only"],
                   ].map(([campo,label,checked])=>(
                     <label key={campo} className="works-check" data-checked={checked}>
                       <ChoiceControl type="checkbox" checked={checked} onChange={e=>setField(campo)(e.target.checked)}/>
@@ -5524,6 +5533,8 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
                   ))}
                 </div>
                 {projectErrors.adminBases&&<p className="works-field-error" role="alert">{projectErrors.adminBases}</p>}
+                <Sel label="Categoria de custo da engenharia de campo" value={form.adminFieldEngineeringCategoryId||""} onChange={setField("adminFieldEngineeringCategoryId")} options={[{v:"",l:"Não identificada — conferir classificação"},...categoriasDesp(data).filter(category=>!["material","equipamento","mao_obra","beneficios","rescisao","terceirizado"].includes(category.v))]}/>
+                <p>As opções acima alteram somente a base da taxa. Equipamentos e engenharia continuam no custo da obra. Selecione a categoria já usada nos lançamentos de engenharia; não há identificação pelo nome do profissional ou pela descrição.</p>
               </div>
             )}
             {(form.contractType === "fixed_labor" || form.contractType === "fixed_labor_admin") && (
@@ -5999,7 +6010,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
         <thead><tr>
           <th className="ponto-col-funcionario" style={{position:"sticky",left:0,zIndex:7,minWidth:220,background:"var(--arcd-surface-muted)",color:"var(--arcd-text-primary)",padding:"var(--arcd-space-2) var(--arcd-space-3)",textAlign:"left",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",letterSpacing:"var(--arcd-letter-spacing-body)",borderBottom:"1px solid var(--arcd-border-default)"}}>Funcionário</th>
           <th className="ponto-col-total" style={{minWidth:64,background:"var(--arcd-surface-muted)",color:"var(--arcd-text-primary)",padding:"var(--arcd-space-2)",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",borderBottom:"1px solid var(--arcd-border-default)"}}>DIAS</th>
-          {days.map(date=>{const feriado=feriados.includes(date);return <th className={`ponto-col-dia${feriado?" ponto-feriado":""}`} key={date} title={feriado?(nomesFeriados.get(date)||"Feriado"):""} style={{minWidth:64,background:feriado?"color-mix(in srgb, var(--arcd-danger-text) 8%, transparent)":"var(--arcd-surface-muted)",color:feriado?"var(--arcd-danger-text)":"var(--arcd-text-primary)",padding:"var(--arcd-space-1)",borderLeft:"1px solid var(--arcd-border-default)",borderBottom:"1px solid var(--arcd-border-default)"}}><div style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{diaLabel(date)}</div><div style={{fontSize:"var(--arcd-type-caption)",fontWeight:feriado?600:600,opacity:feriado?1:.6}}>{semana(date)}</div>{feriado&&<span className="ponto-feriado-label">Feriado</span>}</th>;})}
+          {days.map(date=>{const feriado=feriados.includes(date);return <th className={`ponto-col-dia${feriado?" ponto-feriado":""}`} key={date} title={feriado?(nomesFeriados.get(date)||"Feriado"):""} style={{minWidth:64,background:feriado?"color-mix(in srgb, var(--arcd-danger-text) 8%, transparent)":"var(--arcd-surface-muted)",color:feriado?"var(--arcd-danger-text)":"var(--arcd-text-primary)",padding:"var(--arcd-space-1)",borderLeft:"1px solid var(--arcd-border-default)",borderBottom:"1px solid var(--arcd-border-default)"}}><div style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{diaLabel(date)}</div><div style={{fontSize:"var(--arcd-type-caption)",fontWeight:feriado?600:600,opacity:1}}>{semana(date)}</div>{feriado&&<span className="ponto-feriado-label">Feriado</span>}</th>;})}
         </tr></thead>
         <tbody>{employees.map(emp=>{const equivalentes=days.reduce((s,d)=>{const st=attendanceFor(emp.id,d)?.status;return s+(st==="P"?1:st==="M"?.5:0);},0);return <tr key={emp.id} style={{borderTop:"1px solid var(--arcd-border-default)"}}>
           <td className="ponto-col-funcionario" style={{position:"sticky",left:0,zIndex:2,background:"var(--arcd-surface-card)",padding:"var(--arcd-space-2) var(--arcd-space-3)",borderTop:"1px solid var(--arcd-border-default)",minWidth:290}}>
@@ -6722,7 +6733,7 @@ function FluxoCaixa({ data, year, month, obraId="all" }) {
           <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.blue,textTransform:"uppercase",letterSpacing:1}}>Histórico + Projeção</p>
           <h3 style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-page-title)",letterSpacing:1.5,color:C.text}}>Fluxo de Caixa</h3><p>Referência: {fullMonth(nowM)} {nowY} · {obraId==="all"?"Todas as obras":data.obras.find(o=>o.id===obraId)?.name}. Janela de {months} meses até a referência e 3 meses seguintes. Valores posteriores ao mês atual são estimativas.</p>
         </div>
-        <Sel value={String(months)} onChange={v=>setMonths(Number(v))} options={[{v:"3",l:"3 meses"},{v:"6",l:"6 meses"},{v:"12",l:"12 meses"}]}/>
+        <Sel aria-label="Período da consulta" value={String(months)} onChange={v=>setMonths(Number(v))} options={[{v:"3",l:"3 meses"},{v:"6",l:"6 meses"},{v:"12",l:"12 meses"}]}/>
       </div>
 
       {/* KPIs */}
@@ -7342,8 +7353,8 @@ function RelatoriosMensais({ data, showToast }) {
       <div className="no-print" style={{display:"flex",flexWrap:"wrap",gap:8,alignItems:"center"}}>
         <TabRow tabs={[["custos","Painel analítico"],["relatorio","Relatório executivo"],["caixa","Caixa de obra"],["compras","Relatório de compras"],["administracao","Recebimento por administração"]]} active={view} onChange={setView}/>
         <div style={{display:"flex",gap:8,marginLeft:"auto"}}>
-          <Sel value={String(month)} onChange={v => setMonth(Number(v))} options={Array.from({ length: 12 }, (_, i) => ({ v: String(i), l: fullMonth(i) }))} />
-          <Sel value={String(year)} onChange={v => setYear(Number(v))} options={Array.from({ length: 4 }, (_, i) => new Date().getFullYear() - 1 + i).map(y => ({ v: String(y), l: String(y) }))} />
+          <Sel aria-label="Mês do relatório" value={String(month)} onChange={v => setMonth(Number(v))} options={Array.from({ length: 12 }, (_, i) => ({ v: String(i), l: fullMonth(i) }))} />
+          <Sel aria-label="Ano do relatório" value={String(year)} onChange={v => setYear(Number(v))} options={Array.from({ length: 4 }, (_, i) => new Date().getFullYear() - 1 + i).map(y => ({ v: String(y), l: String(y) }))} />
         </div>
       </div>
 
@@ -8342,7 +8353,7 @@ function Config({ data, update, showToast, currentUser, onLogout, dispatchAttend
 
       <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14 }}>
         <h3 style={{ fontFamily:"var(--arcd-font-sans)", color: C.yellow, textTransform: "uppercase", marginBottom: 10 }}>Feriados considerados</h3>
-        <Sel value={String(holidayYear)} onChange={v => setHolidayYear(Number(v))} options={Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 1 + i).map(y => ({ v: String(y), l: String(y) }))} />
+          <Sel aria-label="Ano dos feriados" value={String(holidayYear)} onChange={v => setHolidayYear(Number(v))} options={Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 1 + i).map(y => ({ v: String(y), l: String(y) }))} />
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 6, marginTop: 10 }}>
           {holidays.map(h => <Badge key={h} color={C.blue}>{fmtDateFull(h)}</Badge>)}
         </div>
@@ -8618,7 +8629,7 @@ const resumoMedicao = (tarefasFundidas) => {
   const avancoFisico = custoTotal
     ? t.reduce((s, x) => s + (x.custo || 0) * (x.progresso || 0), 0) / custoTotal
     : 0;
-  return { total: t.length, peloDiario, diasTotais, avancoFisico };
+  return { total: t.length, peloDiario, diasTotais, avancoFisico,temBaseValor:custoTotal>0 };
 };
 // A tela de Orçamento foi extraída para
 // src/domains/orcamentos/components/OrcamentoView.jsx em 2026-08-16 -
@@ -9456,6 +9467,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
   const [visualizandoComoCliente,setVisualizandoComoCliente]=useState(false);
   const [acessosPortal,setAcessosPortal]=useState([]);
   const [portalBusy,setPortalBusy]=useState(false);
+  const [portalReview,setPortalReview]=useState(null);
   const [portalForm,setPortalForm]=useState({email:"",phone:"",profile:"owner",password:""});
   const portal = obra?.portalCliente || {};
   const atualizarPortal = (campos) => {
@@ -9465,9 +9477,9 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
   const linkPortal = portal.token ? `${window.location.origin}${window.location.pathname}?portal=${encodeURIComponent(obraId)}&token=${encodeURIComponent(portal.token)}` : "";
   // O link com token continua atendendo o portal legado. O novo portal usa
   // sessão individual e nunca recebe token da obra na URL.
-  const linkNovoPortal = `${window.location.origin}/cliente/obra/${encodeURIComponent(obraId)}${portal.token?`?token=${encodeURIComponent(portal.token)}`:""}`;
+  const linkNovoPortal = portalLoginUrl(window.location);
   const copiarLinkPortal = async () => {
-    if(!portal.ativo){showToast?.("Ative o portal antes de copiar o link.","error");return;}
+    
     try{await navigator.clipboard.writeText(linkNovoPortal);showToast?.("Link direto do cliente copiado.");}
     catch{window.prompt("Copie o link do portal:",linkNovoPortal);}
   };
@@ -9486,8 +9498,8 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
     try{
       const resposta=await gerenciarAcessoPortalCliente({operation:"provision",obraId,...portalForm});
       if(resposta.status!==200)throw new Error(resposta.error||"Não foi possível criar o acesso.");
-      setAcessosPortal(resposta.accesses||[]);
-      showToast?.("Acesso individual criado e dados da obra publicados.");
+      await carregarAcessosPortal();
+      showToast?.("Acesso individual salvo. Confira os dados antes de publicar.");
     }catch(error){showToast?.(error.message,"error");}
     finally{setPortalBusy(false);}
   };
@@ -9496,7 +9508,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
     try{
       const resposta=await gerenciarAcessoPortalCliente({operation:"revoke",obraId,membershipId});
       if(resposta.status!==200)throw new Error(resposta.error||"Não foi possível revogar o acesso.");
-      setAcessosPortal(resposta.accesses||[]);
+      await carregarAcessosPortal();
       showToast?.("Acesso revogado e sessões encerradas.");
     }catch(error){showToast?.(error.message,"error");}
     finally{setPortalBusy(false);}
@@ -9506,7 +9518,29 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
     try{
       const resposta=await gerenciarAcessoPortalCliente({operation:"publish",obraId});
       if(resposta.status!==200)throw new Error(resposta.error||"Não foi possível publicar os dados.");
-      showToast?.("Dados seguros do portal atualizados.");
+      setPortalReview(null);
+      showToast?.("Dados do portal publicados.");
+    }catch(error){showToast?.(error.message,"error");}
+    finally{setPortalBusy(false);}
+  };
+
+  const conferirPublicacaoPortal=async()=>{
+    setPortalBusy(true);
+    try{
+      const resposta=await gerenciarAcessoPortalCliente({operation:"preview",obraId});
+      if(resposta.status!==200)throw new Error(resposta.error||"Não foi possível conferir a publicação.");
+      setPortalReview(resposta.domains);
+    }catch(error){showToast?.(error.message,"error");}
+    finally{setPortalBusy(false);}
+  };
+  const alternarPortal=async()=>{
+    if(!portal.ativo){atualizarPortal({ativo:true});return;}
+    setPortalBusy(true);
+    try{
+      const resposta=await gerenciarAcessoPortalCliente({operation:"suspend",obraId});
+      if(resposta.status!==200)throw new Error(resposta.error||"Não foi possível suspender o portal.");
+      atualizarPortal({ativo:false});
+      showToast?.("Publicação suspensa. O conteúdo deixou de ser consultável pelo acesso individual.");
     }catch(error){showToast?.(error.message,"error");}
     finally{setPortalBusy(false);}
   };
@@ -9731,7 +9765,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
     const tarefasCriticas=prazo.linhas.filter(l=>!l.titulo&&l.situacao==="atrasada").sort((a,b)=>Number(b.desvio||0)-Number(a.desvio||0)).slice(0,5);
     const medidoFinanceiro=(resumo?.medicoes||[]).reduce((s,m)=>s+Number(m.valorPrevisto||0),0);
     const percentualMedido=Number(obra?.contractValue||0)>0?medidoFinanceiro/Number(obra.contractValue)*100:0;
-    return{temPlano:!!plano&&executivas.length>0,tarefas:executivas,progresso:Math.round(medicao.avancoFisico||0),prazo:prazo.resumo,
+    return{temPlano:!!plano&&executivas.length>0,tarefas:executivas,progresso:Math.round(medicao.avancoFisico||0),temBaseAvanco:medicao.temBaseValor,prazo:prazo.resumo,
       inicio:janela.ini,fimPlanejado:janela.fim,fimProjetado,tarefasCriticas,custos:{orcado,comprometido,recebido,aplicado,projecao,saldo:orcado-projecao,temOrcamento:!!previsaoCustos.budget,reconferir:previsaoCustos.rows.some(r=>r.revision&&!r.reviewValid),semInicio:acumulado.missingStart?.includes(obraId),restante:previsaoCustos.totals.remaining/100,reserva:previsaoCustos.totals.contingency/100,mudancas:previsaoCustos.totals.changeImpact/100},percentualMedido};
   },[data,resumo?.orc,resumo?.orcTotal,resumo?.medicoes,obraId,obra?.contractValue,hoje]);
 
@@ -9804,8 +9838,11 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
   };
 
   const abrirModuloDaObra = destino => {
-    if(!destino)return;
+    const target=workNavigationTarget(destino,ehAdmin);
+    if(!target){showToast("Esta área não está disponível. Volte à visão geral da obra.","error");setAbaConteudo("geral");return;}
     setWorkContextObra(obraId);
+    if(target.global){onTab(target.id);return;}
+    setGrupoMenuObra(target.group);
     const chaves={rdo:"arcd_rdo_obra",conferencia:"arcd_conferencia_obra",plan:"arcd_plan_obra",orc:"arcd_orc_obra",med:"arcd_med_obra",cmp:"arcd_compras_obra",est:"arcd_estoque_obra",dre:"arcd_dre_obra",ponto:"arcd_ponto_obra",equipe:"arcd_equipe_obra",terc:"arcd_terceiros_obra",equip:"arcd_equipamentos_obra",licenca:"arcd_licenca_obra"};
     if(chaves[destino])sessionContext.setItem(chaves[destino],obraId);
     setAbaConteudo(destino);
@@ -9829,7 +9866,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
             {children}
             {atalho && (
               <StandardButton variant="secondary" className="acc-link" onClick={() => abrirModuloDaObra(atalho)}>
-                Abrir {atalho === "dre" ? "financeiro" : atalho} completo →
+                Abrir {workNavigationTarget(atalho,ehAdmin)?.label||"visão geral"}
               </StandardButton>
             )}
           </div>
@@ -9864,33 +9901,27 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
 
       {/* Navegação compacta em dois níveis. O primeiro nível acompanha a
           largura da tela; o segundo mostra apenas os módulos do grupo ativo. */}
-      {(()=>{const grupos=[
-        {id:"geral",label:"Geral",itens:[["geral","Visão geral",null]]},
-        {id:"obra",label:"Obra",itens:[["orc","Orçamento","orc"],["plan","Planejamento","plan"],["rdo","Diário de obra","rdo"],["med","Medição","med"],["seguranca","Segurança",null]]},
-        {id:"qualidade",label:"Gestão da qualidade",itens:[["qualidade","FVS / FVM",null],["conferencia","Conferência","conferencia"]]},
-        {id:"suprimentos",label:"Suprimentos",itens:[["cmp","Compras","cmp"],["est","Estoque","est"]]},
-        {id:"financeiro",label:"Financeiro",itens:[["dre","DRE da obra","dre"]]},
-        {id:"rh",label:"RH",itens:[["ponto","Ponto","ponto"],["equipe","Equipe","equipe"],["terc","Terceiros","terc"]]},
-        {id:"recursos",label:"Recursos",itens:[["equip","Equipamentos","equip"],["licenca","Licenciamento","licenca"],["arquivos","Arquivos",null],...(ehAdmin?[["portal","Portal do cliente",null]]:[])]},
-      ];const grupo=grupos.find(g=>g.id===grupoMenuObra)||grupos[0];return <div style={{marginBottom:"var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>
+      {(()=>{const grupos=workNavigationGroups(ehAdmin);const grupo=grupos.find(g=>g.id===grupoMenuObra)||grupos[0];return <div style={{marginBottom:"var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>
         <label className="work-detail-navigation__mobile"><span>Telas da obra</span><SelectControl aria-label="Telas da obra" value={abaConteudo} onChange={event=>{const id=event.target.value;const owner=grupos.find(group=>group.itens.some(item=>item[0]===id));if(!owner)return;setGrupoMenuObra(owner.id);const item=owner.itens.find(entry=>entry[0]===id);if(["geral","arquivos","portal","qualidade","seguranca"].includes(id))setAbaConteudo(id);else if(item?.[2])abrirModuloDaObra(item[2]);}}>{grupos.map(group=><optgroup key={group.id} label={group.label}>{group.itens.map(([id,label])=><option key={id} value={id}>{label}</option>)}</optgroup>)}</SelectControl></label>
-        <div className="work-detail-navigation__desktop"><TabRow label="Áreas da obra" equal tabs={grupos.map(g=>[g.id,g.label])} active={grupoMenuObra} onChange={id=>{setGrupoMenuObra(id);if(id==="geral")setAbaConteudo("geral");}}/>
+        <div className="work-detail-navigation__desktop"><TabRow label="Áreas da obra" equal tabs={grupos.map(g=>[g.id,g.label])} active={grupoMenuObra} onChange={id=>{const first=grupos.find(group=>group.id===id)?.itens[0];if(first)abrirModuloDaObra(first[0]);}}/>
         {grupo.id!=="geral"&&<TabRow label="Telas da obra" equal tabs={grupo.itens.map(([id,label])=>[id,label])} active={abaConteudo} onChange={id=>{const item=grupo.itens.find(([iid])=>iid===id);if(["arquivos","portal","qualidade","seguranca"].includes(id))setAbaConteudo(id);else if(item?.[2])abrirModuloDaObra(item[2]);}}/>}
         </div>
       </div>;})()}
       </div>
 
+      {!workNavigationTarget(abaConteudo,ehAdmin)&&<div role="alert"><p>Esta tela da obra não está disponível.</p><StandardButton onClick={()=>abrirModuloDaObra("geral")}>Voltar à visão geral</StandardButton></div>}
+      {abaConteudo==="medicoes"&&<StandardButton onClick={()=>abrirModuloDaObra("medicoes")}>Abrir medições a faturar</StandardButton>}
       {abaConteudo==="geral"?<>
       <AditivosContrato obra={obra} data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast}/>
       <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:"var(--arcd-space-2)",marginBottom:"var(--arcd-space-3)"}}>{[
-        ["Avanço físico",`${indicadoresGerais.progresso}%`,C.blue,"trending"],
+        ["Evolução por valor",indicadoresGerais.temBaseAvanco?`${indicadoresGerais.progresso}%`:"Sem base de valor",C.blue,"trending"],
         ["Pendências abertas",indicadoresGerais.pendencias,indicadoresGerais.criticas?C.red:C.orange,"alert"],
         ["Tarefas atrasadas",indicadoresGerais.atrasadas,indicadoresGerais.atrasadas?C.red:C.green,"calendar"],
         ["A receber",fmt(resumo.aReceber),resumo.aReceber?C.orange:C.green,"dollar"],
       ].map(([label,value,color,icon])=><div key={label} style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:10,padding:"var(--arcd-space-3)"}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>{label}</p><Ic n={icon} s={13} color={color}/></div><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color,marginTop:"var(--arcd-space-1)"}}>{value}</p>{label==="Pendências abertas"&&indicadoresGerais.criticas>0&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-danger-text)",marginTop:"var(--arcd-space-half)"}}>{indicadoresGerais.criticas} crítica(s)</p>}</div>)}</div>
 
       <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderLeft:`1px solid ${previsaoObra.prazo.atrasadas||previsaoObra.custos.saldo<0?"var(--arcd-danger-text)":"var(--arcd-action-primary)"}`,borderRadius:10,padding:"var(--arcd-space-3)",marginBottom:"var(--arcd-space-3)"}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}><div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Previsão executiva da obra</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Cronograma, avanço físico, medições e compromissos financeiros consolidados</p></div><Btn size="sm" v="ghost" onClick={()=>abrirModuloDaObra("plan")}>Abrir planejamento</Btn></div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}><div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Previsão executiva da obra</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>O avanço oficial vem do boletim técnico aprovado. A evolução informada no Planejamento pode ser diferente.</p></div><Btn size="sm" v="ghost" onClick={()=>abrirModuloDaObra("plan")}>Abrir planejamento</Btn></div>
         {!previsaoObra.temPlano?<div style={{marginTop:"var(--arcd-space-2)",background:"color-mix(in srgb, var(--arcd-warning-text) 4%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)",borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-warning-text)"}}>A obra ainda não possui cronograma executável.</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Crie ou sincronize o planejamento com o orçamento para habilitar previsão de prazo e avanço ponderado.</p></div>:<>
           <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)"}}>{[
             ["Avanço físico",`${previsaoObra.progresso}%`,C.blue],
@@ -10229,26 +10260,30 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         {abaConteudo==="terc"&&<Suspense fallback={<LoadingState label="terceiros"/>}><Terceiros data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand} contratoInicial={terceiroAlvo}/></Suspense>}
         {abaConteudo==="equip"&&<Suspense fallback={<LoadingState label="equipamentos"/>}><Equipamentos data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchCommand} obraIdFixo={obraId}/></Suspense>}
         {abaConteudo==="licenca"&&<Suspense fallback={<LoadingState label="licenciamento"/>}><Licenciamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand}/></Suspense>}
+        {abaConteudo==="portal"&&ehAdmin&&<PublicationReview domains={portalReview} busy={portalBusy} onClose={()=>setPortalReview(null)} onConfirm={publicarPortalSeguro}/>}
         {abaConteudo==="portal"&&ehAdmin&&<div style={{display:"grid",gap:"var(--arcd-space-3)"}}>
           <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderLeft:`1px solid ${portal.ativo?"var(--arcd-success-text)":"var(--arcd-text-secondary)"}`,borderRadius:12,padding:"var(--arcd-space-4)"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-3)",flexWrap:"wrap"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>Experiência do cliente</p><h2 style={{fontSize:"var(--arcd-type-section-title)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)"}}>Portal transparente da obra</h2><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)",maxWidth:690,lineHeight:"var(--arcd-line-height-normal)"}}>Escolha exatamente o que o cliente poderá consultar. Dados bancários, PIX, folha, margem, conciliação e observações internas permanecem protegidos.</p></div><Btn v={portal.ativo?"danger":"success"} onClick={()=>atualizarPortal({ativo:!portal.ativo})}><Ic n={portal.ativo?"x":"check"}/> {portal.ativo?"Desativar acesso":"Ativar portal"}</Btn></div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-3)",flexWrap:"wrap"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>Experiência do cliente</p><h2 style={{fontSize:"var(--arcd-type-section-title)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)"}}>Portal transparente da obra</h2><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)",maxWidth:690,lineHeight:"var(--arcd-line-height-normal)"}}>Escolha exatamente o que o cliente poderá consultar. Dados bancários, PIX, folha, margem, conciliação e observações internas permanecem protegidos.</p></div><Btn v={portal.ativo?"danger":"success"} disabled={portalBusy} onClick={alternarPortal}><Ic n={portal.ativo?"x":"check"}/> {portal.ativo?"Desativar acesso":"Ativar portal"}</Btn></div>
             <div style={{marginTop:"var(--arcd-space-3)"}}><Inp label="Mensagem de abertura" value={portal.mensagem||""} onChange={v=>atualizarPortal({mensagem:v})} placeholder="Ex.: Sua obra avança com qualidade e segurança."/></div>
             <div style={{marginTop:"var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",marginBottom:"var(--arcd-space-2)"}}>Informações publicadas</p><div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:"var(--arcd-space-2)"}}>{[
-              ["publicarFotos","Fotos aprovadas","Registros visuais dos RDOs",portal.publicarFotos!==false],
+              ["publicarFotos","Diários e fotos","Relatos, serviços e fotos dos diários concluídos",portal.publicarFotos!==false],
               ["publicarCronograma","Cronograma","Etapas, datas e progresso",portal.publicarCronograma!==false],
               ["publicarFinanceiro","Medições","Parcelas e recebimentos",!!portal.publicarFinanceiro],
               ["publicarDocumentos","Documentos","Arquivos liberados",portal.publicarDocumentos!==false],
               ["publicarCaixaObra","Caixa da obra","Saldo, aportes e despesas",!!portal.publicarCaixaObra],
+              ["publicarAdministracaoEquipe","Administração e equipe","Taxa do contrato, folha por funcionário, reservas e ponto da obra",!!portal.publicarAdministracaoEquipe],
+              ["publicarCustos","Gastos por categoria","Custo reconhecido e pagamentos, sem dados individuais",!!portal.publicarCustos],
+              ["publicarOrcamentoEtapas","Previsto e realizado por etapa","Orçamento aprovado e custos apropriados",!!portal.publicarOrcamentoEtapas],
               ["publicarNotasFiscais","Notas fiscais","Fornecedor, valores e situação",!!portal.publicarNotasFiscais],
               ["publicarCompras","Compras","Pedidos, itens e entregas",!!portal.publicarCompras],
               ["publicarCotacoes","Cotações","Propostas, preços e prazos",!!portal.publicarCotacoes],
             ].map(([k,l,sub,checked])=><label key={k} style={{display:"grid",gridTemplateColumns:"18px minmax(0,1fr)",columnGap:"var(--arcd-space-2)",alignItems:"start",padding:"var(--arcd-space-2) var(--arcd-space-3)",minHeight:58,border:`1px solid ${checked?"var(--arcd-action-primary)":"var(--arcd-border-default)"}`,borderRadius:8,background:checked?"color-mix(in srgb, var(--arcd-action-primary) 3%, transparent)":"var(--arcd-surface-muted)",cursor:"pointer",color:"var(--arcd-text-primary)"}}><ChoiceControl type="checkbox" checked={checked} onChange={e=>atualizarPortal({[k]:e.target.checked})} style={{marginTop:"var(--arcd-space-half)"}}/><span><b style={{display:"block",fontSize:"var(--arcd-type-label)"}}>{l}</b><small style={{display:"block",marginTop:"var(--arcd-space-half)",fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-medium)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)"}}>{sub}</small></span></label>)}</div></div>
-            <div style={{display:"flex",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-3)",flexWrap:"wrap"}}><Btn onClick={copiarLinkPortal} disabled={!portal.ativo}><Ic n="link"/> Copiar link sem login</Btn><Btn v="primary" onClick={()=>window.open(linkNovoPortal,"_blank","noopener,noreferrer")}><Ic n="lock"/> Abrir novo portal</Btn><Btn v="ghost" onClick={publicarPortalSeguro} disabled={portalBusy}><Ic n="refresh"/> Atualizar dados publicados</Btn>{portal.ativo&&<Btn v={visualizandoComoCliente?"primary":"ghost"} onClick={()=>setVisualizandoComoCliente(v=>!v)}><Ic n="eye"/> {visualizandoComoCliente?"Fechar visualização":"Visualizar legado"}</Btn>}<Btn v="ghost" onClick={()=>{setVisualizandoComoCliente(false);atualizarPortal({token:globalThis.crypto?.randomUUID?.()||uid()+uid()});}}><Ic n="refresh"/> Revogar link anterior</Btn></div>
-            <p style={{marginTop:"var(--arcd-space-2)",fontSize:"var(--arcd-type-label)",lineHeight:"var(--arcd-line-height-normal)",color:"var(--arcd-text-secondary)"}}>O link sem login mostra somente os dados marcados para publicação. O acesso individual acrescenta histórico, perfil e auditoria por cliente.</p>
+            <div style={{display:"flex",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-3)",flexWrap:"wrap"}}><Btn onClick={copiarLinkPortal}><Ic n="link"/> Copiar link de login</Btn><Btn v="primary" onClick={()=>window.open(linkNovoPortal,"_blank","noopener,noreferrer")}><Ic n="lock"/> Abrir login do cliente</Btn><Btn v="ghost" onClick={conferirPublicacaoPortal} disabled={portalBusy||!portal.ativo}><Ic n="refresh"/> Atualizar dados publicados</Btn>{portal.ativo&&<Btn v={visualizandoComoCliente?"primary":"ghost"} onClick={()=>setVisualizandoComoCliente(v=>!v)}><Ic n="eye"/> {visualizandoComoCliente?"Fechar visualização":"Visualizar legado"}</Btn>}<Btn v="ghost" onClick={()=>{setVisualizandoComoCliente(false);atualizarPortal({token:globalThis.crypto?.randomUUID?.()||uid()+uid()});}}><Ic n="refresh"/> Revogar link anterior</Btn></div>
+            <p style={{marginTop:"var(--arcd-space-2)",fontSize:"var(--arcd-type-label)",lineHeight:"var(--arcd-line-height-normal)",color:"var(--arcd-text-secondary)"}}>O endereço de login exige acesso individual. Salve as opções antes de Atualizar dados publicados. Criar acesso não publica conteúdo. A visualização e a revogação de link anterior abaixo atendem somente ao legado.</p>
           </div>
           <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:12,padding:"var(--arcd-space-4)"}}>
             <h3 style={{fontSize:"var(--arcd-type-card-title)",color:"var(--arcd-text-primary)"}}>Acessos individuais</h3>
-            <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Cadastre o cliente, defina a senha inicial e vincule-o somente a esta obra.</p>
+            <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Cadastre o cliente, defina a senha inicial e vincule-o a esta obra. Atualizar o mesmo e-mail troca a senha da conta em todas as obras e encerra suas sessões.</p>
             <div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-3)"}}>
               <label style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>E-mail<StandardInput value={portalForm.email} onChange={e=>setPortalForm(form=>({...form,email:e.target.value}))} type="email" placeholder="cliente@email.com" style={{display:"block",width:"100%",marginTop:"var(--arcd-space-1)",padding:"var(--arcd-space-2)",border:"1px solid var(--arcd-border-default)",borderRadius:6}}/></label>
               <label style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Telefone<StandardInput value={portalForm.phone} onChange={e=>setPortalForm(form=>({...form,phone:e.target.value}))} placeholder="(81) 99999-9999" style={{display:"block",width:"100%",marginTop:"var(--arcd-space-1)",padding:"var(--arcd-space-2)",border:"1px solid var(--arcd-border-default)",borderRadius:6}}/></label>
@@ -10263,7 +10298,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         </div>}
         {abaConteudo==="arquivos"&&<div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:14,padding:"var(--arcd-panel-padding)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)",minWidth:0}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-2)",flexWrap:"wrap",minWidth:0}}>
-            <div style={{flex:"1 1 320px",minWidth:0}}><h2 style={{fontSize:"var(--arcd-type-section-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Arquivos da obra</h2><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)",lineHeight:"var(--arcd-line-height-normal)"}}>{ehAdmin?"Navegue pelas pastas no ArcD e, quando necessário, acesse a estrutura administrativa no OneDrive.":"Navegue, crie subpastas e envie arquivos pelo ArcD. O acesso direto ao OneDrive permanece protegido."}</p></div>
+            <div style={{flex:"1 1 320px",minWidth:0}}><h2 style={{fontSize:"var(--arcd-type-section-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Pastas do OneDrive</h2><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)",lineHeight:"var(--arcd-line-height-normal)"}}>{ehAdmin?"Pastas físicas do OneDrive desta obra. Para documentos com revisões e permissões da central, use Abrir central de documentos.":"Navegue, crie subpastas e envie arquivos pelo ArcD. O acesso direto ao OneDrive permanece protegido."}</p>{podeAcessarAba(currentUser,"arquivos")&&<StandardButton onClick={()=>{setWorkContextObra(obraId);onTab("arquivos");}}>Abrir central de documentos</StandardButton>}</div>
             <div style={{display:"flex",gap:"var(--arcd-space-2)",flexWrap:"wrap",maxWidth:"100%"}}>{ehAdmin&&obra.oneDriveUrl&&<Btn v="ghost" onClick={()=>abrirOneDrive(obra.oneDriveUrl)}><Ic n="folder"/> Abrir no OneDrive</Btn>}<Btn onClick={()=>inputDocumentoRef.current?.click()} disabled={enviandoDocumento}><Ic n="file"/> {enviandoDocumento?"Enviando...":"Carregar arquivo"}</Btn><input ref={inputDocumentoRef} type="file" style={{display:"none"}} onChange={e=>{enviarDocumento(e.target.files?.[0]);e.target.value="";}}/></div>
           </div>
           {renderExploradorArquivos()}
@@ -10535,6 +10570,8 @@ export function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", curren
   const propostaBoletim = t => avancoTerceiros.has(t.id) ? avancoTerceiros.get(t.id).pct : (t.progresso || 0);
 
   const [editando, setEditando] = useState(null);
+  const [serviceSearch,setServiceSearch]=useState("");
+  const visibleServices=tarefas.filter(item=>item.nome.toLocaleLowerCase("pt-BR").includes(serviceSearch.trim().toLocaleLowerCase("pt-BR")));
   const [confModal, setConfModal] = useState(false);   // modal de confirmar medição
   const [confPct, setConfPct] = useState({});          // pct confirmado por tarefa
   const [confResp, setConfResp] = useState("");
@@ -10700,14 +10737,12 @@ export function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", curren
   return (
     <div className="anim measurement-surface" style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
       {!obraIdFixo&&<PageHeader className="workspace-header" title="Avanço físico" description="Medição técnica da evolução dos serviços executados na obra."/>}
-      {obraIdFixo
-        ? <Inp label="Obra" value={(data.obras||[]).find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
-        : <Sel label="Obra" value={obraId} onChange={setObraId}
+      {!obraIdFixo&&<Sel label="Obra" value={obraId} onChange={setObraId}
              options={obras.map(o => ({ v: o.id, l: o.name }))} />}
 
       {/* Resumo */}
       <div style={{ display: "grid", gridTemplateColumns: cols(2, 4, 4), gap: "var(--arcd-space-2)" }}>
-        <MiniKpi label="Avanço físico" value={`${resumo.avancoFisico.toFixed(0)}%`} cor={C.blue} />
+        <MiniKpi label="Evolução por valor" value={resumo.temBaseValor?`${resumo.avancoFisico.toFixed(0)}%`:"Sem base de valor"} cor={C.blue} />
         <MiniKpi label="Serviços" value={`${resumo.total}`} cor={C.text} />
         <MiniKpi label="Medidos pelo diário" value={`${resumo.peloDiario}`} cor={C.green}
                  sub={`${resumo.total - resumo.peloDiario} manuais`} />
@@ -10733,15 +10768,15 @@ export function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", curren
       {/* Tabela de evolucao */}
       <div style={{ background: "var(--arcd-surface-card)", border: "1px solid var(--arcd-border-default)", borderRadius: 8, overflow: "hidden" }}>
         <div style={{ padding: "var(--arcd-space-3)", borderBottom: "1px solid var(--arcd-border-default)" }}>
-          <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)", textTransform: "uppercase", letterSpacing: "var(--arcd-letter-spacing-body)" }}>
+          <p>O total pondera o valor dos serviços; no Planejamento, a duração. Sem valores vinculados, o total fica sem base de valor. O avanço oficial depende do boletim aprovado.</p><Inp label="Buscar serviço da medição" value={serviceSearch} onChange={setServiceSearch} placeholder="Nome do serviço"/><p style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)", textTransform: "uppercase", letterSpacing: "var(--arcd-letter-spacing-body)" }}>
             Evolução por serviço
           </p>
         </div>
-        {tarefas.length === 0 ? (
+        {visibleServices.length === 0 ? (
           <p style={{ padding: "var(--arcd-space-5)", fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)", textAlign: "center" }}>
-            Sem serviços no planejamento desta obra.
+            {serviceSearch?"Nenhum serviço corresponde à busca. Limpe o campo para ver todos.":"Sem serviços no planejamento desta obra."}
           </p>
-        ) : tarefas.map(t => (
+        ) : visibleServices.map(t => (
           <div key={t.id} style={{ padding: "var(--arcd-space-3)", borderTop: "1px solid var(--arcd-border-default)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--arcd-space-2)" }}>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -11790,7 +11825,7 @@ function CaixaObra({ data, showToast, currentUser=null, dispatchCommand=null }) 
 
       {obra && (<>
         {/* Seletor + saldo grande */}
-        <Sel value={selObra} onChange={setSelObra} options={obrasComCaixa.map(o=>({v:o.id,l:o.name}))}/>
+        <Sel aria-label="Obra do caixa" value={selObra} onChange={setSelObra} options={obrasComCaixa.map(o=>({v:o.id,l:o.name}))}/>
 
         <div style={{background:caixa.saldo>=0?`${C.green}08`:`${C.red}08`,border:`1.5px solid ${caixa.saldo>=0?C.green:C.red}`,borderRadius:8,padding:"16px 18px",textAlign:"center"}}>
           <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:1}}>Saldo em caixa - {obra.name}</p>
@@ -12311,7 +12346,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
         <p style={{fontSize:bold?"var(--arcd-type-body)":"var(--arcd-type-body)",color:bold?c:C.muted,fontWeight:bold?600:400}}>{label}</p>
         <div style={{textAlign:"right",flexShrink:0}}>
           <p style={{fontSize:bold?"var(--arcd-type-card-title)":"var(--arcd-type-body)",color:c,fontWeight:600}}>{sources?<Button variant="ghost" className="dre-monthly-memorial-trigger" disabled={razaoCarregando||!razaoEmpresa?.current} aria-label={`Consultar memorial: ${label}`} onClick={()=>setMemorialDetail({row:{label,sources},month:dre,period,value})}>{value<0?`(${fmt(Math.abs(value))})`:fmt(value)}</Button>:value<0?`(${fmt(Math.abs(value))})`:fmt(value)}</p>
-          {pct!==null&&<p style={{fontSize:"var(--arcd-type-caption)",color:c+"99",marginTop:1}}>{pct.toFixed(1)}%</p>}
+          {pct!==null&&<p style={{fontSize:"var(--arcd-type-caption)",color:c,marginTop:1}}>{pct.toFixed(1)}%</p>}
         </div>
       </div>
     );
@@ -12327,7 +12362,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
       <p style={{fontSize:"var(--arcd-type-label)"+size,fontWeight:600,color:value>=0?C.green:C.red}}>{label}</p>
       <div style={{textAlign:"right"}}>
         <p style={{fontSize:14+size,fontWeight:600,color:value>=0?C.green:C.red}}>{value<0?`(${fmt(Math.abs(value))})`:fmt(value)}</p>
-        {pct!==null&&<p style={{fontSize:"var(--arcd-type-label)",color:(value>=0?C.green:C.red)+"99"}}>{pct.toFixed(1)}%</p>}
+        {pct!==null&&<p style={{fontSize:"var(--arcd-type-label)",color:(value>=0?C.green:C.red)}}>{pct.toFixed(1)}%</p>}
       </div>
     </div>
   );
@@ -12611,7 +12646,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
 
         <div style={{display:"grid",gridTemplateColumns:cols(2),gap:8,padding:"9px 11px",borderBottom:`1px solid ${C.border}`}}>
           <Inp value={expenseSearch} onChange={setExpenseSearch} placeholder="Buscar descrição, fornecedor, documento ou cartão..." />
-          <Sel value={expenseGroupFilter} onChange={setExpenseGroupFilter} options={[
+          <Sel aria-label="Grupo da despesa" value={expenseGroupFilter} onChange={setExpenseGroupFilter} options={[
             {v:"all",l:"Todas as divisões do DRE"},
             ...GRUPOS_DESP.map(group=>({v:group.v,l:group.l})),
           ]}/>
@@ -12741,6 +12776,7 @@ const Comercial = lazy(() => import("./domains/comercial/components/ComercialVie
 // sintetiza progresso, qualidade, campo e suprimentos sem permitir que um
 // clique acidental em uma tela compartilhada altere a operação.
 function PainelTV({data,ultimaSync,onAtualizar,allowedTabs=[]}){
+  const tvColors={...C,...DISTANCE_VIEW_COLORS};
   const [visao,setVisao]=useState("panorama");
   const podeVerEquipe=allowedTabs.includes("equipe_obras");
   const raizRef=useRef(null);
@@ -12800,41 +12836,41 @@ function PainelTV({data,ultimaSync,onAtualizar,allowedTabs=[]}){
   useEffect(()=>{const fn=()=>setTelaCheia(document.fullscreenElement===raizRef.current);document.addEventListener("fullscreenchange",fn);return()=>document.removeEventListener("fullscreenchange",fn);},[]);
   const alternarTelaCheia=async()=>{if(document.fullscreenElement)await document.exitFullscreen?.();else await raizRef.current?.requestFullscreen?.();};
 
-  return <div ref={raizRef} className="anim arcd-tv" style={{minHeight:telaCheia?"100vh":"calc(100vh - 126px)",background:"radial-gradient(circle at 78% 8%,rgba(212,175,55,.13),transparent 26%),linear-gradient(142deg,#111412,#1b1c18 62%,#111210)",color:C.surface,borderRadius:telaCheia?0:16,overflow:"hidden",padding:"clamp(16px,2vw,28px)",position:"relative",display:"flex",flexDirection:"column",gap:"clamp(10px,1.3vw,17px)",boxShadow:"0 18px 60px rgba(18,18,18,.2)"}}>
+  return <div ref={raizRef} className="anim arcd-tv" style={{minHeight:telaCheia?"100vh":"calc(100vh - 126px)",background:"radial-gradient(circle at 78% 8%,rgba(212,175,55,.13),transparent 26%),linear-gradient(142deg,#111412,#1b1c18 62%,#111210)",color:tvColors.surface,borderRadius:telaCheia?0:16,overflow:"hidden",padding:"clamp(16px,2vw,28px)",position:"relative",display:"flex",flexDirection:"column",gap:"clamp(10px,1.3vw,17px)",boxShadow:"0 18px 60px rgba(18,18,18,.2)"}}>
     <img src={imagem} alt="" aria-hidden="true" style={{position:"absolute",right:"3%",top:"5%",width:"min(30vw,420px)",height:"min(30vw,420px)",objectFit:"contain",opacity:.035,pointerEvents:"none"}}/>
-    <div aria-hidden="true" className="arcd-tv-scan" style={{position:"absolute",left:0,right:0,height:1,background:`linear-gradient(90deg,transparent,${C.yellow}88,transparent)`,boxShadow:`0 0 18px ${C.yellow}`}}/>
+    <div aria-hidden="true" className="arcd-tv-scan" style={{position:"absolute",left:0,right:0,height:1,background:`linear-gradient(90deg,transparent,${tvColors.yellow}88,transparent)`,boxShadow:`0 0 18px ${tvColors.yellow}`}}/>
     <header className="arcd-tv-header" style={{position:"relative",zIndex:1,display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:18}}>
-      <div><div style={{display:"flex",alignItems:"center",gap:9}}><span style={{width:8,height:8,borderRadius:99,background:C.green,boxShadow:`0 0 18px ${C.green}`}}/><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:2,textTransform:"uppercase",color:C.yellow}}>MARCELL · Centro de operações</span></div><h1 style={{fontFamily:"var(--arcd-font-sans)",fontSize:"clamp(24px,3vw,46px)",fontWeight:600,letterSpacing:-1.2,lineHeight:1,marginTop:9}}>{visao==="equipe"&&podeVerEquipe?"Equipe nas Obras":"Panorama executivo das obras"}</h1><p style={{fontSize:"var(--arcd-type-label)",color:"rgba(245,243,238,.5)",marginTop:7}}>{visao==="equipe"&&podeVerEquipe?"Equipe por obra e registros recebidos do ponto":"Visão contínua de avanço, campo, qualidade, suprimentos e prazos"}</p></div>
-      <div style={{display:"flex",alignItems:"center",gap:10}}><div style={{textAlign:"right"}}><p style={{fontFamily:"var(--arcd-font-sans)",fontSize:"clamp(20px,2.2vw,34px)",fontWeight:600,color:C.yellow,lineHeight:1}}>{agora.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"rgba(245,243,238,.45)",marginTop:5}}>{agora.toLocaleDateString("pt-BR",{weekday:"short",day:"2-digit",month:"short"})}</p></div><button onClick={alternarTelaCheia} title="Alternar tela cheia" style={{width:40,height:40,borderRadius:11,border:`1px solid ${C.yellow}44`,background:"rgba(212,175,55,.08)",color:C.yellow,cursor:"pointer"}}><Ic n={telaCheia?"x":"eye"} s={15}/></button></div>
+      <div><div style={{display:"flex",alignItems:"center",gap:9}}><span style={{width:8,height:8,borderRadius:99,background:tvColors.green,boxShadow:`0 0 18px ${tvColors.green}`}}/><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:2,textTransform:"uppercase",color:tvColors.yellow}}>MARCELL · Centro de operações</span></div><h1 style={{fontFamily:"var(--arcd-font-sans)",fontSize:"clamp(24px,3vw,46px)",fontWeight:600,letterSpacing:-1.2,lineHeight:1,marginTop:9}}>{visao==="equipe"&&podeVerEquipe?"Equipe nas Obras":"Panorama executivo das obras"}</h1><p style={{fontSize:"var(--arcd-type-label)",color:"rgba(245,243,238,.5)",marginTop:7}}>{visao==="equipe"&&podeVerEquipe?"Equipe por obra e registros recebidos do ponto":"Visão contínua de avanço, campo, qualidade, suprimentos e prazos"}</p></div>
+      <div style={{display:"flex",alignItems:"center",gap:10}}><div style={{textAlign:"right"}}><p style={{fontFamily:"var(--arcd-font-sans)",fontSize:"clamp(20px,2.2vw,34px)",fontWeight:600,color:tvColors.yellow,lineHeight:1}}>{agora.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"rgba(245,243,238,.45)",marginTop:5}}>{agora.toLocaleDateString("pt-BR",{weekday:"short",day:"2-digit",month:"short"})}</p></div><button onClick={alternarTelaCheia} title="Alternar tela cheia" style={{width:40,height:40,borderRadius:11,border:`1px solid ${tvColors.yellow}44`,background:"rgba(212,175,55,.08)",color:tvColors.yellow,cursor:"pointer"}}><Ic n={telaCheia?"x":"eye"} s={15}/></button></div>
     </header>
 
     <Tabs value={podeVerEquipe?visao:"panorama"} onValueChange={setVisao} style={{display:"flex",flexDirection:"column",gap:16,flex:1,minHeight:0}}><TabsList className="arcd-tv-visoes" aria-label="Visão do Modo TV"><TabsTrigger value="panorama">Panorama executivo</TabsTrigger>{podeVerEquipe&&<TabsTrigger value="equipe">Equipe nas Obras</TabsTrigger>}</TabsList>
     <TabsContent value="panorama" style={{display:visao==="panorama"||!podeVerEquipe?"flex":"none",flexDirection:"column",gap:16,flex:1,minHeight:0}}>
     <div className="arcd-tv-summary" style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:isDesktop?"repeat(4,minmax(0,1fr))":"repeat(2,minmax(0,1fr))",gap:"clamp(7px,1vw,11px)"}}>{[
-      ["Obras em operação",linhas.length,"carteira ativa",C.yellow],
-      ["Planejado × executado",linhasPlanejadas.length?`${planejadoGeral}% · ${progressoGeral}%`:"—",linhasPlanejadas.length?`${progressoGeral-planejadoGeral>=0?"+":""}${progressoGeral-planejadoGeral} p.p.`:"sem cronograma",linhasPlanejadas.length&&progressoGeral>=planejadoGeral?C.green:C.yellow],
-      ["Pendências técnicas",pendenciasTotal,"conferências",pendenciasTotal?C.red:C.green],
-      ["Obras em atenção",obrasAtencao,necessidadesTotal?`${necessidadesTotal} ações mapeadas`:"operação regular",obrasAtencao?C.yellow:C.green],
+      ["Obras em operação",linhas.length,"carteira ativa",tvColors.yellow],
+      ["Planejado × executado",linhasPlanejadas.length?`${planejadoGeral}% · ${progressoGeral}%`:"—",linhasPlanejadas.length?`${progressoGeral-planejadoGeral>=0?"+":""}${progressoGeral-planejadoGeral} p.p.`:"sem cronograma",linhasPlanejadas.length&&progressoGeral>=planejadoGeral?tvColors.green:tvColors.yellow],
+      ["Pendências técnicas",pendenciasTotal,"conferências",pendenciasTotal?tvColors.red:tvColors.green],
+      ["Obras em atenção",obrasAtencao,necessidadesTotal?`${necessidadesTotal} ações mapeadas`:"operação regular",obrasAtencao?tvColors.yellow:tvColors.green],
     ].map(([l,v,s,c])=><div key={l} style={{background:"rgba(245,243,238,.055)",border:"1px solid rgba(245,243,238,.12)",borderRadius:10,padding:"clamp(9px,1vw,13px)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,textTransform:"uppercase",letterSpacing:.7,color:"rgba(245,243,238,.58)"}}>{l}</p><p style={{fontFamily:"var(--arcd-font-sans)",fontSize:"clamp(21px,2vw,32px)",fontWeight:600,color:c,lineHeight:1,marginTop:5}}>{v}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"rgba(245,243,238,.46)",marginTop:4}}>{s}</p></div>)}</div>
 
     <section className="arcd-tv-grid" aria-live="polite" style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:isDesktop?"repeat(2,minmax(0,1fr))":"minmax(0,1fr)",gap:"clamp(8px,1vw,13px)",flex:1,minHeight:0}}>
-      {visiveis.map((item,cardIndex)=>{const cor=item.severidade===3?C.red:item.severidade===2?C.yellow:item.severidade===1?C.cinza:C.green;const indiceImagem=item.imagens.length?(cicloImagem+cardIndex)%item.imagens.length:0;const foto=item.imagens[indiceImagem];return <article className="arcd-tv-work" key={item.obra.id} style={{position:"relative",overflow:"hidden",border:`1px solid ${cor}66`,borderRadius:12,background:"linear-gradient(145deg,#171a17,#0e100f)",display:"flex",flexDirection:"column",minHeight:0,boxShadow:"inset 0 0 38px rgba(0,0,0,.2)"}}>
+      {visiveis.map((item,cardIndex)=>{const cor=item.severidade===3?tvColors.red:item.severidade===2?tvColors.yellow:item.severidade===1?tvColors.cinza:tvColors.green;const indiceImagem=item.imagens.length?(cicloImagem+cardIndex)%item.imagens.length:0;const foto=item.imagens[indiceImagem];return <article className="arcd-tv-work" key={item.obra.id} style={{position:"relative",overflow:"hidden",border:`1px solid ${cor}66`,borderRadius:12,background:"linear-gradient(145deg,#171a17,#0e100f)",display:"flex",flexDirection:"column",minHeight:0,boxShadow:"inset 0 0 38px rgba(0,0,0,.2)"}}>
         {foto&&<img key={`${item.obra.id}-${foto.url}-${cicloImagem}`} className="arcd-tv-photo" src={foto.url} alt="" aria-hidden="true" loading="eager" onError={e=>{e.currentTarget.style.display="none";}} style={{position:"absolute",inset:"-2%",width:"104%",height:"104%",objectFit:"cover",objectPosition:"center",filter:"saturate(.9) contrast(1.06) brightness(.94)",pointerEvents:"none"}}/>}
         <div aria-hidden="true" style={{position:"absolute",inset:0,zIndex:1,background:"linear-gradient(90deg,rgba(6,8,9,.7) 0%,rgba(6,8,9,.4) 48%,rgba(6,8,9,.12) 100%),linear-gradient(0deg,rgba(5,6,7,.6) 0%,rgba(5,6,7,.02) 76%)"}}/>
-        <div aria-hidden="true" style={{position:"absolute",inset:0,zIndex:1,opacity:.1,backgroundImage:`linear-gradient(${C.yellow}55 1px,transparent 1px),linear-gradient(90deg,${C.yellow}55 1px,transparent 1px)`,backgroundSize:"34px 34px",maskImage:"linear-gradient(90deg,transparent 20%,#000 100%)"}}/>
-        {!foto&&<div aria-hidden="true" style={{position:"absolute",inset:0,zIndex:1,opacity:.2,backgroundImage:`linear-gradient(${C.yellow}40 1px,transparent 1px),linear-gradient(90deg,${C.yellow}40 1px,transparent 1px)`,backgroundSize:"30px 30px"}}/>}
+        <div aria-hidden="true" style={{position:"absolute",inset:0,zIndex:1,opacity:.1,backgroundImage:`linear-gradient(${tvColors.yellow}55 1px,transparent 1px),linear-gradient(90deg,${tvColors.yellow}55 1px,transparent 1px)`,backgroundSize:"34px 34px",maskImage:"linear-gradient(90deg,transparent 20%,#000 100%)"}}/>
+        {!foto&&<div aria-hidden="true" style={{position:"absolute",inset:0,zIndex:1,opacity:.2,backgroundImage:`linear-gradient(${tvColors.yellow}40 1px,transparent 1px),linear-gradient(90deg,${tvColors.yellow}40 1px,transparent 1px)`,backgroundSize:"30px 30px"}}/>}
         <span style={{position:"absolute",zIndex:3,left:0,top:0,bottom:0,width:3,background:cor,boxShadow:`0 0 18px ${cor}`}}/>
         <div className="arcd-tv-work-content" style={{position:"relative",zIndex:2,padding:"clamp(11px,1.15vw,16px)",display:"flex",flexDirection:"column",flex:1,minHeight:0}}>
-          <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"flex-start"}}><div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:1,textTransform:"uppercase",color:cor,textShadow:"0 1px 10px rgba(0,0,0,.8)"}}>{item.severidade>=3?"Atenção crítica":item.severidade===2?"Ação necessária":item.severidade===1?"Monitoramento":"Operação regular"}</p><h2 style={{fontFamily:"var(--arcd-font-sans)",fontSize:"clamp(17px,1.5vw,25px)",fontWeight:600,color:"#fff",marginTop:4,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textShadow:"0 2px 14px #000"}}>{item.obra.name}</h2><p style={{fontSize:"var(--arcd-type-caption)",color:"rgba(255,255,255,.72)",marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textShadow:"0 1px 8px #000"}}>Eng. {item.obra.engineer||"não definido"} · {item.equipe} pessoa(s) em campo</p>{foto&&<p style={{fontSize:"var(--arcd-type-caption)",color:"rgba(255,255,255,.42)",marginTop:4,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{foto.tipo==="rdo"?`RDO-${String(foto.codigo||0).padStart(3,"0")} · ${fmtDate(foto.data)} · ${foto.legenda}`:"Imagem cadastrada da obra"} · {indiceImagem+1}/{item.imagens.length}</p>}</div><div style={{textAlign:"right",flexShrink:0,padding:"5px 8px",borderRadius:9,background:"rgba(4,5,6,.52)",border:"1px solid rgba(255,255,255,.09)",backdropFilter:"blur(8px)"}}><strong style={{fontSize:"clamp(20px,2vw,31px)",fontWeight:600,color:C.yellow,textShadow:`0 0 16px ${C.yellow}55`}}>{item.progresso}%</strong><p style={{fontSize:"var(--arcd-type-caption)",color:"rgba(255,255,255,.48)",textTransform:"uppercase"}}>avanço</p></div></div>
-          <div style={{marginTop:10,padding:"7px 9px",borderRadius:9,background:"rgba(5,8,10,.58)",border:"1px solid rgba(255,255,255,.11)",backdropFilter:"blur(8px)",boxShadow:"0 7px 22px rgba(0,0,0,.2)"}}><div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",marginBottom:5}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:1,color:"rgba(255,255,255,.54)",textTransform:"uppercase"}}>Curva física · hoje</p><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:item.temPlanejamento&&item.desvioFisico>=0?C.green:C.yellow}}>{item.temPlanejamento?`${item.desvioFisico>=0?"+":""}${item.desvioFisico} p.p.`:"sem cronograma"}</span></div>{[["Planejado",item.planejado,C.cinza],["Executado",item.progresso,item.temPlanejamento&&item.progresso>=item.planejado?C.green:C.yellow]].map(([label,valor,cor])=>{const disponivel=valor!==null;return <div key={label} style={{display:"grid",gridTemplateColumns:"54px minmax(0,1fr) 30px",gap:6,alignItems:"center",marginTop:4}}><span style={{fontSize:"var(--arcd-type-caption)",color:"rgba(255,255,255,.58)"}}>{label}</span><div style={{height:4,borderRadius:99,background:"rgba(255,255,255,.14)",overflow:"hidden"}}><i style={{display:"block",height:"100%",width:`${disponivel?Math.max(0,Math.min(100,valor)):0}%`,background:cor,boxShadow:disponivel?`0 0 10px ${cor}`:"none"}}/></div><b style={{fontSize:"var(--arcd-type-caption)",color:cor,textAlign:"right"}}>{disponivel?`${valor}%`:"—"}</b></div>})}</div>
-          <div className="arcd-tv-work-stats" style={{display:"grid",gridTemplateColumns:"repeat(4,minmax(0,1fr))",gap:5,marginTop:9}}>{[["RDO",item.diarioHoje?"OK":"Pendente",item.diarioHoje?C.green:C.yellow],["Atrasos",item.atrasadas,item.atrasadas?C.red:C.green],["Qualidade",item.qualidade,item.qualidade?C.yellow:C.green],["Compras",item.compras,item.compras?C.yellow:C.green]].map(([l,v,c])=><div key={l} style={{padding:"6px 7px",borderRadius:7,background:"rgba(6,8,9,.62)",border:"1px solid rgba(255,255,255,.11)",backdropFilter:"blur(8px)",minWidth:0}}><p style={{fontSize:"var(--arcd-type-caption)",color:"rgba(255,255,255,.55)",textTransform:"uppercase",fontWeight:600}}>{l}</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:c,marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textShadow:"0 1px 7px #000"}}>{v}</p></div>)}</div>
-          <div style={{marginTop:"auto",paddingTop:10,display:"flex",gap:6,alignItems:"center",minWidth:0}}><span style={{width:6,height:6,borderRadius:99,background:cor,boxShadow:`0 0 10px ${cor}`,flexShrink:0}}/><p style={{fontSize:"var(--arcd-type-caption)",color:item.necessidades.length?"rgba(255,255,255,.82)":C.green,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textShadow:"0 1px 8px #000"}}>{item.necessidades[0]||"Sem necessidade operacional crítica"}{item.necessidades.length>1?` · +${item.necessidades.length-1}`:""}</p>{item.prazo!==null&&<span style={{marginLeft:"auto",padding:"3px 6px",borderRadius:6,background:"rgba(4,5,6,.55)",fontSize:"var(--arcd-type-caption)",color:item.prazo<0?C.red:"rgba(255,255,255,.62)",whiteSpace:"nowrap"}}>{item.prazo<0?`${Math.abs(item.prazo)}d vencido`:`${item.prazo}d restantes`}</span>}</div>
+          <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"flex-start"}}><div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:1,textTransform:"uppercase",color:cor,textShadow:"0 1px 10px rgba(0,0,0,.8)"}}>{item.severidade>=3?"Atenção crítica":item.severidade===2?"Ação necessária":item.severidade===1?"Monitoramento":"Operação regular"}</p><h2 style={{fontFamily:"var(--arcd-font-sans)",fontSize:"clamp(17px,1.5vw,25px)",fontWeight:600,color:"#fff",marginTop:4,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textShadow:"0 2px 14px #000"}}>{item.obra.name}</h2><p style={{fontSize:"var(--arcd-type-caption)",color:"rgba(255,255,255,.72)",marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textShadow:"0 1px 8px #000"}}>Eng. {item.obra.engineer||"não definido"} · {item.equipe} pessoa(s) em campo</p>{foto&&<p style={{fontSize:"var(--arcd-type-caption)",color:"rgba(255,255,255,.42)",marginTop:4,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{foto.tipo==="rdo"?`RDO-${String(foto.codigo||0).padStart(3,"0")} · ${fmtDate(foto.data)} · ${foto.legenda}`:"Imagem cadastrada da obra"} · {indiceImagem+1}/{item.imagens.length}</p>}</div><div style={{textAlign:"right",flexShrink:0,padding:"5px 8px",borderRadius:9,background:"rgba(4,5,6,.52)",border:"1px solid rgba(255,255,255,.09)",backdropFilter:"blur(8px)"}}><strong style={{fontSize:"clamp(20px,2vw,31px)",fontWeight:600,color:tvColors.yellow,textShadow:`0 0 16px ${tvColors.yellow}55`}}>{item.progresso}%</strong><p style={{fontSize:"var(--arcd-type-caption)",color:"rgba(255,255,255,.48)",textTransform:"uppercase"}}>avanço</p></div></div>
+          <div style={{marginTop:10,padding:"7px 9px",borderRadius:9,background:"rgba(5,8,10,.58)",border:"1px solid rgba(255,255,255,.11)",backdropFilter:"blur(8px)",boxShadow:"0 7px 22px rgba(0,0,0,.2)"}}><div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",marginBottom:5}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:1,color:"rgba(255,255,255,.54)",textTransform:"uppercase"}}>Curva física · hoje</p><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:item.temPlanejamento&&item.desvioFisico>=0?tvColors.green:tvColors.yellow}}>{item.temPlanejamento?`${item.desvioFisico>=0?"+":""}${item.desvioFisico} p.p.`:"sem cronograma"}</span></div>{[["Planejado",item.planejado,tvColors.cinza],["Executado",item.progresso,item.temPlanejamento&&item.progresso>=item.planejado?tvColors.green:tvColors.yellow]].map(([label,valor,cor])=>{const disponivel=valor!==null;return <div key={label} style={{display:"grid",gridTemplateColumns:"54px minmax(0,1fr) 30px",gap:6,alignItems:"center",marginTop:4}}><span style={{fontSize:"var(--arcd-type-caption)",color:"rgba(255,255,255,.58)"}}>{label}</span><div style={{height:4,borderRadius:99,background:"rgba(255,255,255,.14)",overflow:"hidden"}}><i style={{display:"block",height:"100%",width:`${disponivel?Math.max(0,Math.min(100,valor)):0}%`,background:cor,boxShadow:disponivel?`0 0 10px ${cor}`:"none"}}/></div><b style={{fontSize:"var(--arcd-type-caption)",color:cor,textAlign:"right"}}>{disponivel?`${valor}%`:"—"}</b></div>})}</div>
+          <div className="arcd-tv-work-stats" tabIndex={0} role="region" aria-label={`Indicadores de ${item.obra?.name||item.name||"obra"}`} style={{display:"grid",gridTemplateColumns:"repeat(4,minmax(0,1fr))",gap:5,marginTop:9}}>{[["RDO",item.diarioHoje?"OK":"Pendente",item.diarioHoje?tvColors.green:tvColors.yellow],["Atrasos",item.atrasadas,item.atrasadas?tvColors.red:tvColors.green],["Qualidade",item.qualidade,item.qualidade?tvColors.yellow:tvColors.green],["Compras",item.compras,item.compras?tvColors.yellow:tvColors.green]].map(([l,v,c])=><div key={l} style={{padding:"6px 7px",borderRadius:7,background:"rgba(6,8,9,.62)",border:"1px solid rgba(255,255,255,.11)",backdropFilter:"blur(8px)",minWidth:0}}><p style={{fontSize:"var(--arcd-type-caption)",color:"rgba(255,255,255,.55)",textTransform:"uppercase",fontWeight:600}}>{l}</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:c,marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textShadow:"0 1px 7px #000"}}>{v}</p></div>)}</div>
+          <div style={{marginTop:"auto",paddingTop:10,display:"flex",gap:6,alignItems:"center",minWidth:0}}><span style={{width:6,height:6,borderRadius:99,background:cor,boxShadow:`0 0 10px ${cor}`,flexShrink:0}}/><p style={{fontSize:"var(--arcd-type-caption)",color:item.necessidades.length?"rgba(255,255,255,.82)":tvColors.green,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textShadow:"0 1px 8px #000"}}>{item.necessidades[0]||"Sem necessidade operacional crítica"}{item.necessidades.length>1?` · +${item.necessidades.length-1}`:""}</p>{item.prazo!==null&&<span style={{marginLeft:"auto",padding:"3px 6px",borderRadius:6,background:"rgba(4,5,6,.55)",fontSize:"var(--arcd-type-caption)",color:item.prazo<0?tvColors.red:"rgba(255,255,255,.62)",whiteSpace:"nowrap"}}>{item.prazo<0?`${Math.abs(item.prazo)}d vencido`:`${item.prazo}d restantes`}</span>}</div>
         </div>
       </article>;})}
       {!visiveis.length&&<div style={{gridColumn:"1/-1",display:"grid",placeItems:"center",border:"1px dashed rgba(245,243,238,.15)",borderRadius:15,color:"rgba(245,243,238,.45)"}}>Nenhuma obra ativa para exibir.</div>}
     </section>
 
-    <footer className="arcd-tv-footer" style={{position:"relative",zIndex:1,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,color:"rgba(245,243,238,.46)",fontSize:"var(--arcd-type-caption)"}}><span>Sincronização automática · {ultimaSync?ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}):"agora"}</span><div style={{display:"flex",alignItems:"center",gap:6}}><button onClick={()=>setPagina(p=>(p-1+totalPaginas)%totalPaginas)} aria-label="Página anterior" style={{width:28,height:24,border:`1px solid rgba(245,243,238,.15)`,borderRadius:5,background:"transparent",color:C.surface,cursor:"pointer"}}>‹</button>{Array.from({length:totalPaginas},(_,i)=><button key={i} onClick={()=>setPagina(i)} aria-label={`Página ${i+1}`} style={{width:i===pagina?18:6,height:6,border:0,borderRadius:99,background:i===pagina?C.yellow:"rgba(245,243,238,.22)",cursor:"pointer",transition:"width .2s"}}/>)}<span style={{margin:"0 2px"}}>{pagina+1}/{totalPaginas}</span><button onClick={()=>setPagina(p=>(p+1)%totalPaginas)} aria-label="Próxima página" style={{width:28,height:24,border:`1px solid rgba(245,243,238,.15)`,borderRadius:5,background:"transparent",color:C.surface,cursor:"pointer"}}>›</button></div></footer>
+    <footer className="arcd-tv-footer" style={{position:"relative",zIndex:1,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,color:"rgba(245,243,238,.46)",fontSize:"var(--arcd-type-caption)"}}><span>Sincronização automática · {ultimaSync?ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}):"agora"}</span><div style={{display:"flex",alignItems:"center",gap:6}}><button onClick={()=>setPagina(p=>(p-1+totalPaginas)%totalPaginas)} aria-label="Página anterior" style={{width:28,height:24,border:`1px solid rgba(245,243,238,.15)`,borderRadius:5,background:"transparent",color:tvColors.surface,cursor:"pointer"}}>‹</button>{Array.from({length:totalPaginas},(_,i)=><Btn key={i} v="ghost" iconOnly onClick={()=>setPagina(i)} ariaLabel={`Página ${i+1}`} aria-pressed={i===pagina}><span aria-hidden="true" style={{width:"var(--arcd-space-2)",height:"var(--arcd-space-2)",borderRadius:"var(--arcd-radius-control)",background:i===pagina?tvColors.yellow:tvColors.muted}}/></Btn>)}<span style={{margin:"0 2px"}}>{pagina+1}/{totalPaginas}</span><button onClick={()=>setPagina(p=>(p+1)%totalPaginas)} aria-label="Próxima página" style={{width:28,height:24,border:`1px solid rgba(245,243,238,.15)`,borderRadius:5,background:"transparent",color:tvColors.surface,cursor:"pointer"}}>›</button></div></footer>
     </TabsContent>
     {podeVerEquipe&&<TabsContent value="equipe" style={{flex:1}}><Suspense fallback={<LoadingState label="equipe"/>}><EquipeObrasTV /></Suspense></TabsContent>}
     </Tabs>
@@ -13466,7 +13502,9 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const leavingSessionRef=useRef(false);
   const recoveryUserRef=useRef(currentUser);recoveryUserRef.current=currentUser;
-  const [recoveryOpen,setRecoveryOpen]=useState(false),[recoveryAvailable,setRecoveryAvailable]=useState(false),[recoveryReady,setRecoveryReady]=useState(false),[recoveryRevision,setRecoveryRevision]=useState(0);
+  const [recoveryOpen,setRecoveryOpen]=useState(false),[recoveryAvailable,setRecoveryAvailable]=useState(false),[recoveryInitialization,setRecoveryInitialization]=useState({userId:null,ready:false}),[recoveryRevision,setRecoveryRevision]=useState(0);
+  const recoveryReady=recoveryInitialization.userId===currentUser?.id&&recoveryInitialization.ready;
+  const setRecoveryReady=useCallback(ready=>setRecoveryInitialization(previous=>previous.userId===currentUser?.id&&previous.ready===ready?previous:{userId:currentUser?.id,ready}),[currentUser?.id]);
   useEffect(()=>{if(currentUser)leavingSessionRef.current=false;workflowViews.current.clear();workflowLastTabs.current.clear();workflowLastScope.current={};setWorkflowScopes({});setWorkflowTrail([]);setWorkflowIntent(null);},[currentUser?.id]);
   const [conflito,    setConflito]    = useState(null);
   const [toast,       setToast]       = useState(null);
@@ -14343,7 +14381,7 @@ export default function App() {
   }
 
   return (
-    <SaveRecoveryContext.Provider value={{visible:recoveryAvailable&&!recoveryOpen&&![SAVE_QUEUE_STATE.SAVING,SAVE_QUEUE_STATE.RETRY_SCHEDULED].includes(estadoSalvar),open:()=>setRecoveryOpen(true),revision:recoveryRevision}}>
+    <SaveRecoveryContext.Provider value={{visible:recoveryAvailable&&!recoveryOpen&&![SAVE_QUEUE_STATE.SAVING,SAVE_QUEUE_STATE.RETRY_SCHEDULED].includes(estadoSalvar),open:()=>setRecoveryOpen(true),revision:recoveryRevision,automaticSaveReady:recoveryReady&&!recoveryAvailable&&!recoveryOpen&&!memoryEditCount&&estadoSalvar===SAVE_QUEUE_STATE.IDLE}}>
       <style>{G}</style>
       <div className="arcd-app-shell" data-tab={tab} style={{
         minHeight:"100vh", background:"transparent", color:C.text,
@@ -14391,10 +14429,10 @@ export default function App() {
                 background:C.surface, border:`1px solid ${C.border}`, borderRadius:C.rMd,
                 padding:sidebarCompacta ? "8px" : "8px 10px", cursor:"pointer", color:C.muted }}
                 title={sidebarCompacta ? "Buscar (Ctrl + K)" : undefined}
-                aria-label="Buscar no sistema">
+                aria-label={sidebarCompacta?"Buscar no sistema":undefined}>
                 <Ic n="funnel" s={14} color={C.muted}/>
-                {!sidebarCompacta && <span style={{ fontSize:"var(--arcd-type-body)", flex:1, textAlign:"left" }}>Buscar...</span>}
-                {!sidebarCompacta && <span style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, border:`1px solid ${C.border}`, borderRadius:4, padding:"1px 5px" }}>⌘K</span>}
+                {!sidebarCompacta && <span style={{ fontSize:"var(--arcd-type-body)", flex:1, textAlign:"left" }}>Buscar no sistema</span>}
+                {!sidebarCompacta && <span aria-hidden="true" style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, border:`1px solid ${C.border}`, borderRadius:4, padding:"1px 5px" }}>⌘K</span>}
               </button>
             </div>
             {/* Navegação: grupos colapsáveis. Clique no cabeçalho abre/fecha;
@@ -14536,14 +14574,8 @@ export default function App() {
                   </div>
                 </div>
                 <div style={{display:"flex",gap:2,flexShrink:0}}>
-                  <button onClick={trocarDeUsuario} title="Trocar usuário (tablet compartilhado)" style={{
-                    background:"transparent", border:0, color:C.muted,
-                    fontSize:"var(--arcd-type-control)", cursor:"pointer", lineHeight:1, padding:"0 3px",
-                  }}></button>
-                  <button onClick={sairDoSistema} title="Sair do sistema" aria-label="Sair do sistema" style={{
-                    background:"transparent", border:0, color:C.muted,
-                    fontSize:"var(--arcd-type-control)", cursor:"pointer", lineHeight:1, padding:"0 3px",
-                  }}>x</button>
+                  <Btn v="ghost" iconOnly onClick={trocarDeUsuario} title="Trocar usuário (tablet compartilhado)" ariaLabel="Trocar usuário"><Ic n="users"/></Btn>
+                  <Btn v="ghost" iconOnly onClick={sairDoSistema} title="Sair do sistema" ariaLabel="Sair do sistema"><Ic n="x"/></Btn>
                 </div>
               </div>
               )}
@@ -14638,14 +14670,14 @@ export default function App() {
             <strong>Conflito de salvamento.</strong> Outra pessoa salvou alterações. Confira antes de reaplicar: sua versão pode substituir edições do mesmo registro. Mantenha esta aba aberta até resolver.
             <div className="flex flex-wrap gap-2 mt-2"><StandardButton onClick={reaplicarSobreServidor}>Reaplicar minhas alterações</StandardButton><StandardButton variant="outline" onClick={descartarMinhaVersao}>Descartar e recarregar</StandardButton></div>
           </AlertDescription></Alert>}
-          <SaveRecovery key={currentUser.id} memoryCount={memoryEditCount} onProtectMemory={protegerPreenchimentos} onDiscardMemory={descartarEdicaoDaMemoria} onRecovered={()=>setRecoveryRevision(v=>v+1)} normalize={normalizeData} pageId={tab} queue={saveQueueRef.current} state={estadoSalvar} user={currentUser} open={recoveryOpen} onOpen={()=>setRecoveryOpen(true)} onClose={()=>setRecoveryOpen(false)} onApply={aplicarRecuperacao} onUser={setCurrentUser} onAvailable={setRecoveryAvailable} onReady={setRecoveryReady} revision={recoveryRevision} onDiscard={descartarMinhaVersao}/>
+          <SaveRecovery key={`save-recovery:${currentUser.id}`} memoryCount={memoryEditCount} onProtectMemory={protegerPreenchimentos} onDiscardMemory={descartarEdicaoDaMemoria} onRecovered={()=>setRecoveryRevision(v=>v+1)} normalize={normalizeData} pageId={tab} queue={saveQueueRef.current} state={estadoSalvar} user={currentUser} open={recoveryOpen} onOpen={()=>setRecoveryOpen(true)} onClose={()=>setRecoveryOpen(false)} onApply={aplicarRecuperacao} onUser={setCurrentUser} onAvailable={setRecoveryAvailable} onReady={setRecoveryReady} revision={recoveryRevision} onDiscard={descartarMinhaVersao}/>
           {edicaoRecusada&&<Alert variant="destructive" data-testid="save-rejected" className="flex flex-wrap items-start justify-between gap-2 mb-3">
             <AlertDescription><b>Alteração não salva e desfeita</b> às {edicaoRecusada.em.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}: {edicaoRecusada.motivo}{edicaoRecusada.secoes.length?` (${edicaoRecusada.secoes.slice(0,4).join(", ")}${edicaoRecusada.secoes.length>4?"…":""})`:""}. A tela voltou ao último estado confirmado.</AlertDescription>
             <Btn v="ghost" size="sm" onClick={()=>setEdicaoRecusada(null)}>Entendi</Btn>
           </Alert>}
           {tab!=="projetos"&&allowedTabs.includes("projetos")&&(data.engineeringProjects||[]).some(project=>(project.sessions||[]).some(session=>session.userId===currentUser.id&&!session.endedAt))&&<Suspense fallback={null}><ProjectTimerStatus projects={data.engineeringProjects} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} onOpen={()=>setTab("projetos")} /></Suspense>}
           <WorkflowContext.Provider value={{navigate:navigateWorkflow,intent:workflowIntent,scopes:workflowScopes,rememberScope:rememberWorkflowScope,views:workflowViews.current,goBack:returnWorkflow,returnTo:workflowTrail.length?{label:`Voltar a ${workflowTrail.at(-1).obraId?(data.obras||[]).find(o=>o.id===workflowTrail.at(-1).obraId)?.name||"Obra":TAB_META[workflowTrail.at(-1).tabId]?.label||"tela anterior"}`}:null}}>
-          <PendingOperations key={currentUser.id} user={currentUser} data={data} dispatch={dispatchOperationalCommand}/>
+          <PendingOperations key={`pending-operations:${currentUser.id}`} user={currentUser} data={data} dispatch={dispatchOperationalCommand}/>
           <WorkflowReturn/>
 
           {tab === "home"   && (["engenheiro","engenheiro_auditor"].includes(currentUser?.role)
@@ -14668,7 +14700,7 @@ export default function App() {
                            currentUser={currentUser} onAbrirObra={setObraAberta} />)}
           {tab === "orc"    && <Suspense fallback={<LoadingState label="orçamento"/>}><Orcamento   data={data} update={update} showToast={showToast} currentUser={currentUser} /></Suspense>}
           {tab === "projetos" && <Suspense fallback={<LoadingState label="projetos"/>}><ProjetosEngenharia data={data} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} showToast={showToast} onRefresh={async()=>{const fresh=await loadDataWithMeta();if(!fresh?.data)throw new Error("Falha ao atualizar projetos.");await update({__adotarServidorPatch:true,sections:{engineeringProjects:fresh.data.engineeringProjects||[]},updatedAt:fresh.updatedAt});}} /></Suspense>}
-          {tab === "arquivos" && <Suspense fallback={<LoadingState label="arquivos"/>}><ArquivosObra data={data} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} onRefresh={async()=>{const fresh=await loadDataWithMeta();if(!fresh?.data)throw new Error("Falha ao atualizar arquivos.");await update({__adotarServidorPatch:true,sections:{workFileCabinets:fresh.data.workFileCabinets||[]},updatedAt:fresh.updatedAt});}} /></Suspense>}
+          {tab === "arquivos" && <Suspense fallback={<LoadingState label="arquivos"/>}><ArquivosObra data={data} initialWorkId={obraAberta} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} onRefresh={async()=>{const fresh=await loadDataWithMeta();if(!fresh?.data)throw new Error("Falha ao atualizar arquivos.");await update({__adotarServidorPatch:true,sections:{workFileCabinets:fresh.data.workFileCabinets||[]},updatedAt:fresh.updatedAt});}} /></Suspense>}
           {tab === "plan"   && <Suspense fallback={<LoadingState label="planejamento"/>}><Planejamento data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "plan_suprimentos" && <Suspense fallback={<LoadingState label="suprimentos"/>}><LazyMarcosCurvaASuprimentos data={data} update={update} showToast={showToast} currentUser={currentUser} /></Suspense>}
           {tab === "rdo"    && <Suspense fallback={<LoadingState label="diário de obra"/>}><DiarioObra data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
@@ -14678,7 +14710,7 @@ export default function App() {
           {tab === "equipe" && <Suspense fallback={<LoadingState label="equipe"/>}><EquipeView data={data} update={update} showToast={showToast} dispatchCommand={dispatchOperationalCommand} currentUser={currentUser} onTab={irPara} /></Suspense>}
           {tab === "terc"   && <Suspense fallback={<LoadingState label="terceiros"/>}><Terceiros data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand} onTab={irPara}/>}
-          {tab === "equipe_obras" && <EquipeObras key={currentUser?.id} onTab={irPara} allowedTabs={allowedTabs}/>}
+          {tab === "equipe_obras" && <EquipeObras key={`team-works:${currentUser?.id}`} onTab={irPara} allowedTabs={allowedTabs}/>}
           {tab === "ponto_geral" && <PontoGeral data={data} update={update} showToast={showToast} currentUser={currentUser} onTab={irPara} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand}/>}
           {tab === "ponto_app" && <PontoEletronico data={data} showToast={showToast} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand} onTab={irPara}/>}
           {tab === "folha"  && <Suspense fallback={<LoadingState label="folha"/>}><Folha       data={data} showToast={showToast} onTab={irPara} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}

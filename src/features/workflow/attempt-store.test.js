@@ -1,6 +1,7 @@
+import 'fake-indexeddb/auto';
 import Dexie from 'dexie';
-import {indexedDB,IDBKeyRange} from 'fake-indexeddb';
-import {it,expect,afterEach} from 'vitest';
+import {indexedDB,IDBKeyRange,IDBObjectStore} from 'fake-indexeddb';
+import {it,expect,afterEach,vi} from 'vitest';
 import {createAttemptStore} from './attempt-store.js';
 import {dispatchConfirmedAttempt} from './command-attempt.js';
 Dexie.dependencies.indexedDB=indexedDB;Dexie.dependencies.IDBKeyRange=IDBKeyRange;
@@ -28,10 +29,24 @@ it('preserva confirmação incerta após perda de acesso e reutiliza a identidad
 
 it('separa nota e pedido com o mesmo identificador sem confundir confirmações',async()=>{const s=store(`types-${crypto.randomUUID()}`);await s.protect('u',cmd);const note={...cmd,idempotencyKey:'note-same-id',payload:{...cmd.payload,targetType:'nota'}};await s.protect('u',note);expect(await s.pending('u')).toHaveLength(2);});
 it('mantém o comando em memória quando a proteção local falha durante uma retomada',async()=>{const s=store(`blocked-retry-${crypto.randomUUID()}`),attempt={owner:'u',store:s};await dispatchConfirmedAttempt(attempt,async f=>{await f({});return {ok:false,status:503};},()=>cmd);attempt.store={protect:async()=>{throw Error('storage unavailable');}};let sent=false;await dispatchConfirmedAttempt(attempt,async f=>{await f({});sent=true;},()=>{throw Error('must reuse');});expect(sent).toBe(false);expect(attempt.command).toEqual(cmd);attempt.store=s;const result=await dispatchConfirmedAttempt(attempt,async f=>{expect(await f({})).toEqual(cmd);return {ok:true};},()=>{throw Error('must reuse');});expect(result.ok).toBe(true);});
-it('retoma o formato anterior sem duplicar nem apagar sua confirmação',async()=>{const s=store(`legacy-key-${crypto.randomUUID()}`),key=JSON.stringify(['pending','u','financial','p']);await s.db.table('operations').put({key,owner:'u',kind:'pending',command:cmd});expect(await s.protect('u',cmd)).toBe(key);await expect(s.protect('u',{...cmd,idempotencyKey:'different'})).rejects.toThrow('Já existe');await s.resolve(key,true);expect(await s.pending('u')).toHaveLength(0);});
+it('retoma o formato anterior sem duplicar nem apagar sua confirmação',async()=>{const s=store(`legacy-key-${crypto.randomUUID()}`),key=JSON.stringify(['pending','u','financial','p']);await s.db.run('operations','readwrite',tx=>new Promise((resolve,reject)=>{const request=tx.objectStore('operations').put({key,owner:'u',kind:'pending',command:cmd});request.onsuccess=()=>resolve();request.onerror=()=>reject(request.error);}));expect(await s.protect('u',cmd)).toBe(key);await expect(s.protect('u',{...cmd,idempotencyKey:'different'})).rejects.toThrow('Já existe');await s.resolve(key,true);expect(await s.pending('u')).toHaveLength(0);});
 
 it('trata identificadores numéricos e de texto do mesmo registro como uma única confirmação',async()=>{const s=store(`numeric-${crypto.randomUUID()}`),number={...cmd,payload:{...cmd.payload,targetId:1}};await s.protect('u',number);await expect(s.protect('u',{...number,idempotencyKey:'different',payload:{...number.payload,targetId:'1'}})).rejects.toThrow('Já existe');expect(await s.pending('u')).toHaveLength(1);});
 
 it('preserva registros da versão anterior e impede que o cliente antigo continue gravando',async()=>{const name=`version-${crypto.randomUUID()}`,legacy=new Dexie(name);legacy.version(1).stores({records:'&key,owner,kind'});await legacy.table('records').put({key:JSON.stringify(['pending','u','financial','p']),owner:'u',kind:'pending',command:cmd});legacy.close();const current=store(name);expect((await current.pending('u'))[0].command).toEqual(cmd);await legacy.open();await expect(legacy.table('records').put({key:'old-write',owner:'u',kind:'pending',command:cmd})).rejects.toMatchObject({name:'DataError'});legacy.close();expect(await current.pending('u')).toHaveLength(1);});
 
-it('desfaz toda a atualização se a cópia dos registros falhar',async()=>{const name=`rollback-${crypto.randomUUID()}`,legacy=new Dexie(name);legacy.version(1).stores({records:'&key,owner,kind'});await legacy.table('records').put({key:'original',owner:'u',kind:'pending',command:cmd});legacy.close();const current=store(name);current.db.table('operations').hook('creating',()=>{throw Error('copy blocked');});await expect(current.pending('u')).rejects.toThrow('copy blocked');current.db.close();await legacy.open();expect((await legacy.table('records').get('original')).command).toEqual(cmd);legacy.close();});
+it('desfaz toda a atualização se a cópia dos registros falhar',async()=>{const name=`rollback-${crypto.randomUUID()}`,legacy=new Dexie(name);legacy.version(1).stores({records:'&key,owner,kind'});await legacy.table('records').put({key:'original',owner:'u',kind:'pending',command:cmd});legacy.close();const current=store(name);const original=IDBObjectStore.prototype.put;const failure=vi.spyOn(IDBObjectStore.prototype,'put').mockImplementation(function(...args){if(this.name==='operations')throw Error('copy blocked');return original.apply(this,args);});try{await expect(current.pending('u')).rejects.toThrow('copy blocked');}finally{failure.mockRestore();}current.db.close();await legacy.open();expect((await legacy.table('records').get('original')).command).toEqual(cmd);legacy.close();});
+
+it.each([2,3,4,5])('preserva dados existentes do Dexie v%s sem ressuscitar comandos antigos',async version=>{
+ const name=`dexie-${version}-${crypto.randomUUID()}`,legacy=new Dexie(name);
+ legacy.version(version).stores(version<3?{records:'&key,owner,kind'}:{operations:'&key,owner,kind',records:version===5?'[key+format],owner,kind':'&key,owner,kind'});
+ const currentCommand={...cmd,idempotencyKey:'current-command'};
+ await legacy.table(version<3?'records':'operations').put({key:'pending-key',owner:'u',kind:'pending',command:currentCommand});
+ if(version>=3&&version<5)await legacy.table('records').put({key:'pending-key',owner:'u',kind:'pending',command:cmd});
+ legacy.close();const current=store(name);
+ expect((await current.pending('u')).map(row=>row.command)).toEqual([currentCommand]);
+ const {pending}=current;expect(await pending('u')).toHaveLength(1);
+ current.db.close();await legacy.open();
+ expect((await legacy.table(version<3?'records':'operations').toArray())).toHaveLength(version<3?0:1);
+ legacy.close();
+});

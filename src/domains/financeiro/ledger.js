@@ -1,6 +1,7 @@
 import {active,toCents,statusOf,notaReconhecivel} from './facts.js';
 export {active,toCents,notaReconhecivel} from './facts.js';
 import {orderPaymentLinks} from './order-payment-links.js';
+import {technicalRetentionCents,thirdPartyCashAmount} from '../terceirizados/technical-retention.js';
 /**
  * Razão gerencial derivado. Não é persistido: os fatos continuam em seus
  * módulos de origem e são convertidos aqui em efeitos financeiros canônicos.
@@ -305,9 +306,17 @@ export const buildFinancialLedger = (data = {}, options = {}) => {
     const allocations = allocationRows(invoice);
     const allocatedCents = allocations.reduce((sum, row) => sum + row.amountCents, 0);
     const linkedThirdMeasurementId = thirdMeasurementByInvoice.get(invoice.id) || "";
-    const linkedThirdMeasurement = linkedThirdMeasurementId
+    const linkedCandidate = linkedThirdMeasurementId
       ? (data.medicoesTerc || []).find(item => item.id === linkedThirdMeasurementId)
       : null;
+    const linkedThirdMeasurement = linkedCandidate&&active(linkedCandidate)
+      &&String(linkedCandidate.obraId||'')===String(invoice.obraId||'')
+      &&allocations.every(row=>String(row.obraId||'')===String(linkedCandidate.obraId||''))
+      ?linkedCandidate:null;
+    if(linkedThirdMeasurementId&&!linkedThirdMeasurement){
+      issue('INVALID_THIRD_PARTY_INVOICE_LINK','nota_fiscal',invoice,
+        'A nota reconhecida aponta para medição ausente, inativa ou de outra obra. O custo da nota foi preservado; regularize os documentos de origem.',{severity:'error',measurementId:linkedThirdMeasurementId});
+    }
     if (!invoice.obraId && !invoice.rateios?.length) {
       issue("NF_WITHOUT_PROJECT", "nota_fiscal", invoice, "Nota fiscal reconhecida sem obra.", { severity: "warning" });
       issue("NF_WITHOUT_VALID_ALLOCATION", "nota_fiscal", invoice, "Nota fiscal sem rateio e sem obra para apropriação.", { severity: "error" });
@@ -370,7 +379,9 @@ export const buildFinancialLedger = (data = {}, options = {}) => {
       sourceType: "medicao_terceiro", sourceId: id, documentNumber: measurement.numero || "",
     };
     add({ ...base, id: `medicao_terceiro:${id}:cost`, effect: "cost" });
-    add({ ...base, id: `medicao_terceiro:${id}:payable`, effect: "payable_increase" });
+    const guaranteeCents=technicalRetentionCents(measurement),retention=measurement.technicalRetention;
+    add({ ...base, amountCents:amountCents-guaranteeCents,id: `medicao_terceiro:${id}:payable`, effect: "payable_increase" });
+    if(guaranteeCents)add({...base,amountCents:guaranteeCents,sourceType:'garantia_terceiro',id:`garantia_terceiro:${id}:payable`,description:`Garantia técnica · ${base.description}`,counterparty:retention.beneficiaryName||'',effect:'payable_increase',metadata:{guarantee:true,releaseDate:retention.release?.date||'',dueDate:retention.release?.dueDate||'',condition:retention.condition}});
     const nested = Array.isArray(measurement.pagamentos) ? measurement.pagamentos : [];
     const external = thirdPaymentsByMeasurement.get(measurement.id) || [];
     [...nested, ...external].filter(active).forEach(payment => {
@@ -383,8 +394,9 @@ export const buildFinancialLedger = (data = {}, options = {}) => {
         transactionId: payment.transacaoId || "", settlesSourceType: "medicao_terceiro", settlesSourceId: id,
         metadata:{ conciliado:!!payment.conciliado, origem:payment.origem || "", pagador:String(payment.pagador || "") },
       };
-      add({ ...paymentBase, id: `medicao_terceiro:${id}:payment:${paymentId}:cash`, effect: "cash_out" });
-      add({ ...paymentBase, id: `medicao_terceiro:${id}:payment:${paymentId}:settle`, effect: "payable_decrease" });
+      const financialPayment=payment.guaranteePayment?{...paymentBase,sourceType:'pagamento_garantia_terceiro',settlesSourceType:'garantia_terceiro'}:paymentBase;
+      add({ ...financialPayment,amountCents:toCents(thirdPartyCashAmount(payment)), id: `medicao_terceiro:${id}:payment:${paymentId}:cash`, effect: "cash_out" });
+      add({ ...financialPayment, id: `medicao_terceiro:${id}:payment:${paymentId}:settle`, effect: "payable_decrease" });
     });
   });
 
@@ -670,11 +682,15 @@ export const selectCorporateOperatingCosts = (ledger, filters = {}) => {
 };
 
 export const selectCashFlow = (ledger, filters = {}) => {
-  const events = ledger.events.filter(event => eventMatches(event, filters, "date") && ["cash_in", "cash_out"].includes(event.effect));
+  // An explicit cash date range takes precedence over the originating
+  // document's competence. Shared DRE filters must not hide later settlements.
+  const cashFilters = filters.startDate || filters.endDate || filters.asOfDate
+    ? { ...filters, competence:"" } : filters;
+  const events = ledger.events.filter(event => eventMatches(event, cashFilters, "date") && ["cash_in", "cash_out"].includes(event.effect));
   const cashInCents = sumEffects(events, ["cash_in"], []);
   const cashOutCents = sumEffects(events, ["cash_out"], []);
   // Pago pelo cliente direto ao fornecedor: baixa a obrigação, não mexe no saldo.
-  const thirdPartyEvents = ledger.events.filter(event => eventMatches(event, filters, "date") && event.effect === "third_party_payment");
+  const thirdPartyEvents = ledger.events.filter(event => eventMatches(event, cashFilters, "date") && event.effect === "third_party_payment");
   const thirdPartyPaidCents = sumEffects(thirdPartyEvents, ["third_party_payment"], []);
   return {
     cashInCents, cashOutCents, balanceCents: cashInCents - cashOutCents,
@@ -696,10 +712,12 @@ const selectPosition = (ledger, filters, increase, decrease) => {
   const items = [...groups.values()].map(item => {
     const balanceCents=Math.max(0,item.increaseCents-item.decreaseCents);
     const overpaidCents=Math.max(0,item.decreaseCents-item.increaseCents);
-    const dueDate=item.events.find(event=>event.metadata?.dueDate)?.metadata?.dueDate||"";
+    const guarantee=item.events.find(event=>event.metadata?.guarantee)?.metadata;
+    const guaranteeHeld=Boolean(guarantee&&(!guarantee.releaseDate||filters.asOfDate&&guarantee.releaseDate>filters.asOfDate));
+    const dueDate=guaranteeHeld?'':item.events.find(event=>event.metadata?.dueDate)?.metadata?.dueDate||"";
     const status=balanceCents<=1?"liquidado":item.decreaseCents>0?"parcial":
       dueDate&&filters.asOfDate&&dueDate<filters.asOfDate?"vencido":"aberto";
-    return {...item,balanceCents,overpaidCents,dueDate,status};
+    return {...item,balanceCents,overpaidCents,dueDate,status,guaranteeHeld};
   });
   return { items, balanceCents: items.reduce((sum, item) => sum + item.balanceCents, 0), overpaidCents: items.reduce((sum, item) => sum + item.overpaidCents, 0) };
 };

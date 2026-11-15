@@ -1,6 +1,15 @@
 import { describe,expect,it } from "vitest";
 import { projectDataForUser, publicUser } from "./data-projection.js";
 
+it('financeiro consulta cobertura com catálogo comum e movimentos/reservas somente da sua obra',()=>{
+ const data={materiais:[{id:'m',codigo:'M',descricao:'Bloco',unidade:'UN',precoMedio:10,notaInterna:'privada'}],movEstoque:[{id:'a',obraId:'a'},{id:'b',obraId:'b'}],reservasEstoque:[{id:'ra',obraId:'a'},{id:'rb',obraId:'b'}]};
+ const projected=projectDataForUser(data,{id:'f',role:'financeiro',obraId:'a'});
+ expect(projected.materiais).toEqual([expect.objectContaining({id:'m',unidade:'UN'})]);expect(projected.materiais[0]).not.toHaveProperty('notaInterna');
+ expect(projected.movEstoque.map(m=>m.id)).toEqual(['a']);expect(projected.reservasEstoque.map(r=>r.id)).toEqual(['ra']);
+ const blocked=projectDataForUser(data,{id:'f',role:'financeiro',obraId:'a',accessTabs:[]});
+ expect(blocked.movEstoque).toBeUndefined();expect(blocked.reservasEstoque).toBeUndefined();
+});
+
 const payload={
   usuarios:[
     {id:"u-a",nome:"Operador A",obraId:"obra-a",email:"a@arcd.com",pin:"hash-a",authUserId:"auth-a"},

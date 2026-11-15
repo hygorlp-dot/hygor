@@ -248,6 +248,12 @@ export const gerarCandidatosConciliacao = (transacao, data, indices, config = {}
       // A tela usa estes dados para exibir o cálculo/rateio antes de qualquer
       // confirmação. Não cria despesa no DRE: só liquida o título.
       entidadeId = title.id;
+    } else if (tipo === 'pagsTerceiros') {
+      if(isEntrada)return;
+      saldoCentavos=valorIndexado;
+      dataPrevista=item.date||item.data;
+      titulo='Pagamento da medição já registrado · '+contraparte;
+      pagamentoId=item.id;podeVincular=true;
     } else if (tipo === "pagamentoFolha") {
       if (isEntrada) return;
       tipoCandidata = "funcionario";

@@ -1,4 +1,5 @@
 import { arcdApprovalEngine } from "../aprovacoes/arcd-engine.js";
+import {isFinancialDate} from './dates.js';
 import {
   approveThirdPartyMeasurement,
   cancelThirdPartyMeasurement,
@@ -12,8 +13,12 @@ import {
 import { isDateInClosedPeriod, linkThirdPartyInvoice } from "./workflows.js";
 import { isActiveThirdPartyContract, isThirdPartyRecordActive } from "../terceirizados/lifecycle.js";
 import { calculateWithholdings } from "../terceirizados/withholdings.js";
+import {technicalRetentionCents} from '../terceirizados/technical-retention.js';
+import {buildFinancialLedger,selectAccountsPayable} from './ledger.js';
+import {TECHNICAL_RETENTION_COMMAND,applyTechnicalRetentionCommand} from './technical-retention-commands.js';
 
 export const THIRD_PARTY_COMMAND=Object.freeze({
+  ...TECHNICAL_RETENTION_COMMAND,
   THIRD_PARTY_PAYMENT_RECORDED:"PAGAMENTO_TERCEIRO_REGISTRADO",
   THIRD_PARTY_PAYMENT_REVERSED:"PAGAMENTO_TERCEIRO_ESTORNADO",
   THIRD_PARTY_MEASUREMENT_RECORDED:"MEDICAO_TERCEIRO_REGISTRADA",
@@ -30,7 +35,7 @@ export const THIRD_PARTY_COMMAND_TYPES=new Set(Object.values(THIRD_PARTY_COMMAND
 
 const fail=reason=>({ok:false,reason});
 const versionOf=item=>Number(item?.version||0);
-const validDate=value=>/^\d{4}-\d{2}-\d{2}$/.test(String(value||""));
+const validDate=isFinancialDate;
 const contractById=(data,id)=>(data.terceirizados||[])
   .find(item=>String(item.id)===String(id));
 const measurementById=(data,id)=>(data.medicoesTerc||[])
@@ -104,6 +109,7 @@ const validateContract=(data,contractId)=>{
 
 const recordPayment=(data,command,now)=>{
   const payload=command.payload||{},raw=payload.payment||{};
+  if(raw.medicaoTercId||raw.medicaoId||raw.guaranteePayment||raw.technicalRetentionCents)return fail('Use a operação da medição para pagar o principal ou a garantia.');
   const actor=actorOf(command);
   const validation=validateContract(data,raw.tercId);
   if(validation.error)return fail(validation.error);
@@ -231,6 +237,7 @@ const validateMeasurementResubmission=(data,measurement,raw)=>{
 
 const recordMeasurement=(data,command,now)=>{
   const raw=command.payload?.measurement||{},actor=actorOf(command);
+  if(raw.technicalRetention||raw.technicalRetentionHistory)return fail('Defina a garantia pelo comando específico após salvar a medição.');
   const validation=validateMeasurement(data,raw);
   if(validation.error)return fail(validation.error);
   try{
@@ -313,6 +320,7 @@ const resubmitMeasurement=(data,command,now)=>{
   const raw=payload.measurement||{};
   const validation=validateMeasurementResubmission(data,measurement,raw);
   if(validation.error)return fail(validation.error);
+  if(technicalRetentionCents(measurement)>0&&Math.round(validation.total*100)!==measurement.technicalRetention.grossBasisCents)return fail('Remova a garantia antes de corrigir o valor bruto da medição.');
   try{
     const next=resubmitThirdPartyMeasurement({
       data,actor,measurementId:id,now,
@@ -353,6 +361,15 @@ const payMeasurement=(data,command,now)=>{
   if(!["empresa","obra"].includes(pagador))return fail("Informe quem realizou o pagamento.");
   const amounts=paymentAmounts(measurement.total,contract);
   if(amounts.error)return fail(amounts.error);
+  const guaranteeCents=technicalRetentionCents(measurement);
+  if(guaranteeCents){
+    const position=selectAccountsPayable(buildFinancialLedger(data),{obraId:measurement.obraId}).items.find(item=>item.sourceType==='medicao_terceiro'&&item.sourceId===measurement.id);
+    if(!position||position.decreaseCents>0||position.balanceCents!==Math.round(Number(measurement.total)*100)-guaranteeCents)return fail('O principal já tem baixas ou saldo divergente. Confira a origem antes de pagar.');
+    if(measurement.technicalRetention.grossBasisCents!==Math.round(Number(measurement.total)*100))return fail('O bruto mudou. Confira a garantia antes do pagamento.');
+    amounts.liquido=Math.round(amounts.liquido*100-guaranteeCents)/100;
+    if(amounts.liquido<0)return fail('Tributos e garantia superam o bruto. Confira as condições do contrato.');
+  }
+  if(Math.round(Number(measurement.total)*100)-guaranteeCents<=0)return fail('Todo o valor está retido. Libere e pague pela garantia.');
   const missingEvidence=!(measurement.fotos||[]).length;
   if(missingEvidence&&payload.riskAccepted!==true){
     return fail("Confirme explicitamente o pagamento sem evidência fotográfica.");
@@ -368,6 +385,8 @@ const payMeasurement=(data,command,now)=>{
         ...payload.payment,id:paymentId,tercName:contract.name,
         specialty:contract.specialty,date,pagador,
         ...amounts,
+        technicalRetentionCents:guaranteeCents,
+        guaranteePayment:false,
         semEvidenciaFotografica:missingEvidence,
         riscoSemFotoAceitoEm:missingEvidence?now:"",
         riscoSemFotoAceitoPor:missingEvidence?actor.nome:"",
@@ -467,6 +486,8 @@ export const thirdPartyCommandObraId=(data={},command={})=>{
 export const applyThirdPartyCommand=(data={},command={},now=new Date().toISOString())=>{
   if(!THIRD_PARTY_COMMAND_TYPES.has(command.type))return null;
   if(!command.actorId)return fail("Sessão do usuário indisponível para alterar terceiros.");
+  const retention=applyTechnicalRetentionCommand(data,command,now);
+  if(retention)return retention;
   if(command.type===THIRD_PARTY_COMMAND.THIRD_PARTY_PAYMENT_RECORDED)return recordPayment(data,command,now);
   if(command.type===THIRD_PARTY_COMMAND.THIRD_PARTY_PAYMENT_REVERSED)return reversePayment(data,command,now);
   if(command.type===THIRD_PARTY_COMMAND.THIRD_PARTY_MEASUREMENT_RECORDED)return recordMeasurement(data,command,now);

@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 import { allowedTabsForUser, podeAcessarAba } from "./abas-acesso.js";
 
 describe("abas de acesso (tela e servidor)", () => {
+  it('libera contratos ao Comercial e ao destino consolidado, respeitando uma lista personalizada sem Comercial',()=>{
+    expect(podeAcessarAba({role:'comercial'},'com_contratos')).toBe(true);
+    expect(podeAcessarAba({role:'comercial',accessTabs:['com_deals']},'com_contratos')).toBe(true);
+    expect(podeAcessarAba({role:'comercial',accessTabs:['home']},'com_contratos')).toBe(false);
+  });
   it("sem usuário não libera nada no servidor", () => {
     expect(podeAcessarAba(null, "dre_emp")).toBe(false);
     expect(podeAcessarAba(undefined, "dre")).toBe(false);

@@ -1,3 +1,4 @@
+import 'fake-indexeddb/auto';
 import Dexie from "dexie";
 import { IDBKeyRange, indexedDB } from "fake-indexeddb";
 import { afterEach, describe, expect, it } from "vitest";
@@ -15,6 +16,17 @@ function makeStore(dbName = `arcd-offline-test-${crypto.randomUUID()}`) {
 afterEach(async () => { await Promise.all(stores.splice(0).map(store => store.destroy())); });
 
 describe("store persistente de operações de campo", () => {
+  it('reabre a base Dexie existente e serializa duas inclusões da mesma operação',async()=>{
+    const dbName=`legacy-field-${crypto.randomUUID()}`,legacy=new Dexie(dbName);
+    legacy.version(1).stores({operations:'&idempotencyKey, entityId, status, createdAt'});
+    const old={type:'DAILY_LOG_SAVE',entityId:'old',idempotencyKey:'old',createdAt:'2026-01-01',status:'pendente',attempts:0};
+    await legacy.table('operations').put(old);legacy.close();
+    const a=makeStore(dbName),b=makeStore(dbName),operation={type:'DAILY_LOG_SAVE',entityId:'new',idempotencyKey:'new',createdAt:'2026-02-01'};
+    const results=await Promise.all([a.enqueue(operation),b.enqueue(operation)]);
+    expect(results.filter(result=>result.idempotent)).toHaveLength(1);
+    expect(await a.list()).toEqual([old,{...operation,status:'pendente',attempts:0}]);
+    await a.close();await b.close();
+  });
   it("persiste operação permitida e impede duplicidade pela chave idempotente", async () => {
     const dbName = `arcd-offline-test-${crypto.randomUUID()}`;
     const persistentStore = makeStore(dbName);

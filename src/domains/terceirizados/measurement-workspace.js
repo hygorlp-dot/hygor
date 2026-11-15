@@ -1,5 +1,6 @@
 import { buildFinancialLedger, selectAccountsPayable } from "../financeiro/ledger.js";
 import { calculateWithholdings } from "./withholdings.js";
+import {technicalRetentionCents} from './technical-retention.js';
 
 const number = value => Number(String(value ?? "").replace(",", "."));
 const cents = value => Math.round((Number(value) || 0) * 100);
@@ -55,11 +56,12 @@ export function thirdPartyMeasurementFinancialPanels(data = {}, {asOfDate} = {})
     const position = positions.find(item=>item.sourceType==="medicao_terceiro"
       && String(item.sourceId)===String(measurement.id) && String(item.obraId)===String(measurement.obraId));
     const approval = measurementApprovalStatus(measurement);
+    const guarantee=positions.find(item=>item.sourceType==='garantia_terceiro'&&String(item.sourceId)===String(measurement.id)&&String(item.obraId)===String(measurement.obraId));
     const held = cancelled(measurement) || ["rascunho","draft","rejeitada","rejeitado"].includes(status(measurement.status));
-    const recognizedCents = held ? 0 : position?.increaseCents || 0;
-    const settledCents = position?.decreaseCents || 0;
-    const balanceCents = position?.balanceCents || 0;
-    const settlements = position?.events.filter(event=>event.effect==="payable_decrease") || [];
+    const recognizedCents = held ? 0 : (position?.increaseCents || 0)+(guarantee?.increaseCents||0);
+    const settledCents = (position?.decreaseCents || 0)+(guarantee?.decreaseCents||0);
+    const balanceCents = (position?.balanceCents || 0)+(guarantee?.balanceCents||0);
+    const settlements = [...(position?.events||[]),...(guarantee?.events||[])].filter(event=>event.effect==="payable_decrease");
     const financial = held ? {label:"Não liberada",tone:"muted"}
       : !recognizedCents ? {label:"Conferir posição",tone:"warning"}
       : balanceCents<=1 ? {label:"Baixada",tone:"success"}
@@ -78,12 +80,12 @@ export function thirdPartyMeasurementFinancialPanels(data = {}, {asOfDate} = {})
         payer:payment?.pagador || payment?.origem || event.metadata?.pagador || event.metadata?.origem || "",
         reconciled:event.metadata?.conciliado===true,transactionId:event.transactionId || ""};
     });
-    const retained = calculateWithholdings(measurement.total, contract || {});
+    const retained = calculateWithholdings(measurement.total, contract || {},technicalRetentionCents(measurement));
     const preview = !payments.length && !retained.error ? {
-      netCents:cents(retained.liquido),issCents:cents(retained.issRetido),inssCents:cents(retained.inssRetido),
+      netCents:cents(retained.liquido),issCents:cents(retained.issRetido),inssCents:cents(retained.inssRetido),guaranteeCents:technicalRetentionCents(measurement),
     } : null;
     return [measurement.id,{measurement,approval,financial,reconciliation,recognizedCents,settledCents,balanceCents,
-      overpaidCents:position?.overpaidCents || 0,invoice,payments,preview,
+      overpaidCents:(position?.overpaidCents || 0)+(guarantee?.overpaidCents||0),invoice,payments,preview,guarantee,
       dueDate:measurement.dataVencimento || invoice?.vencimento || position?.dueDate || "",
       competence:measurement.competencia || String(measurement.data || measurement.dataMedicao || "").slice(0,7),
       missingInvoice:!!measurement.notaFiscalId && !invoice}];

@@ -1,4 +1,9 @@
+import {TaskDisclosure} from '../../../design-system/patterns/TaskDisclosure.jsx';
 import {openReportPreview} from '../../../reports/report-preview.js';
+import {useAutomaticSaveReady} from '../../../features/workflow/SaveRecoveryContext.jsx';
+import {legacyPlanSyncIssue} from '../legacy-plan-sync.js';
+import {canEditPlanning} from '../permissions.js';
+import {Alert,AlertDescription} from '../../../components/ui/alert.jsx';
 import ApprovedBaselinePanel from './ApprovedBaselinePanel.jsx';
 import {ChoiceControl} from '../../../design-system/primitives/ChoiceControl.jsx';
 import {Input as StandardInput} from '../../../components/ui/input.jsx';
@@ -51,6 +56,7 @@ import {useSyncedWorkObra} from '../../../features/workflow/work-context.js';
 const COR_A2 = { concluida:"#24A148", andamento:"#0F62FE", aIniciar:"#8D8D8D", critica:"#DA1E28", etapa:"#393939" };
 
 export default function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null, dispatchCommand=null }) {
+  const automaticSaveReady=useAutomaticSaveReady();
   const { isDesktop, isMobile, cols } = useBreakpoint();
   const {intent,scopes,navigate}=useWorkflow();
   const useSessionState=(key,initial)=>useWorkspaceState("plan",key,initial,obraIdFixo);
@@ -395,8 +401,9 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
   // Exportacao automatica do orcamento para o planejamento. Inclui etapas
   // novas e grava as tarefas vinculadas na mesma ordem hierarquica do orcamento,
   // preservando datas/progresso ja ajustados pelo operador ou pela IA.
+  const syncIssue=legacyPlanSyncIssue(data,obraId,plano,orc,planejamentoOrcamento.source);
   useEffect(() => {
-    if (!orc || !obraId) return;
+    if (!automaticSaveReady||syncIssue||!canEditPlanning(currentUser?.role)||(currentUser?.obraId&&currentUser.obraId!==obraId)||!orc || !obraId) return;
     const ordem = ordemEtapasOrcamento(orc);
     if (!ordem.length) return;
     const atuais = plano.tarefas || [];
@@ -434,7 +441,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
     const existe = (data.planos||[]).some(p=>p.obraId===obraId);
     const planos = existe ? (data.planos||[]).map(p=>p.obraId===obraId?planoNovo:p) : [...(data.planos||[]),planoNovo];
     update({...data,planos});
-  }, [orc, obraId, plano, cal, data, update]);
+  }, [automaticSaveReady,syncIssue,currentUser?.role,currentUser?.obraId,orc, obraId, plano, cal, data, update]);
   // Pede a IA orientacao sobre datas e paralelismos, sem autorizar mudanca na ordem.
   const [iaCarregando, setIaCarregando] = useState(false);
   const pedirOrientacaoIA = async () => {
@@ -837,6 +844,13 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
   };
 
   // Sem obra planejável: orienta o usuário.
+  if(syncIssue){
+    return <div className="planning-workspace">
+      <PageHeader headingLevel={obraIdFixo?2:1} className="workspace-header" title="Planejamento" description="Confira os vínculos antes de alterar este cronograma."/>
+      {!obraIdFixo&&<Sel label="Obra" value={obraId} onChange={setObraId} options={obrasComOrc.map(obra=>({v:obra.id,l:obra.name}))}/>}
+      <Alert><AlertDescription>{syncIssue}</AlertDescription></Alert>
+    </div>;
+  }
   if (!obrasComOrc.length) {
     return (
       <div className="planning-workspace"><PageHeader headingLevel={obraIdFixo?2:1} className="workspace-header" title="Planejamento" description="Cronograma e acompanhamento da execução por obra."/>
@@ -858,7 +872,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
         {!obraIdFixo&&<div style={{ flex: 1, minWidth: 180 }}>
           <Sel label="Obra" value={obraId} onChange={setObraId} options={obrasComOrc.map(obra=>({v:obra.id,l:obra.name}))}/>
         </div>}
-        <div role="group" aria-label="Escala e opções do cronograma" style={{ display: "flex", gap: "var(--arcd-space-1)", alignItems: "center", flexWrap:"wrap" }}>
+<TaskDisclosure summary="Escala, calendário e colunas">        <div role="group" aria-label="Escala e opções do cronograma" style={{ display: "flex", gap: "var(--arcd-space-1)", alignItems: "center", flexWrap:"wrap" }}>
           {["dia", "semana", "mes"].map(z => (
             <Button key={z} variant="secondary" aria-pressed={zoom===z} onClick={() => setZoom(z)}>{{dia:"Dia",semana:"Semana",mes:"Mês"}[z]}</Button>
           ))}
@@ -891,19 +905,21 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
             )}
           </div>
         </div>
+</TaskDisclosure>
       </div>
       {orc&&planejamentoOrcamento.source!=="baseline"&&<div style={{
         padding:"var(--arcd-space-2) var(--arcd-space-3)",borderRadius:8,border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)",
         background:"color-mix(in srgb, var(--arcd-warning-text) 5%, transparent)",color:"var(--arcd-text-primary)",fontSize:"var(--arcd-type-label)",lineHeight:"var(--arcd-line-height-normal)",
       }}>
         <b style={{color:"var(--arcd-warning-text)"}}>Planejamento sobre orçamento em rascunho.</b>{" "}
-        Etapas, custos e datas são preliminares. A aprovação financeira continua exigindo uma baseline explícita.
+        Etapas, custos e datas são preliminares. A aprovação financeira exige uma linha de base aprovada (a versão do orçamento aceita para controle).
       </div>}
 
+      <p>Evolução informada: média dos percentuais ponderada pela duração das tarefas. Na Medição física, o total pondera os valores dos serviços. O avanço oficial depende do boletim técnico aprovado.</p>
       <ApprovedBaselinePanel key={obraId} data={data} obraId={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand}/>
       {/* Resumo financeiro: o elo com o orcamento */}
       <div className="planning-summary" style={{ display: "grid", gridTemplateColumns: cols(2, 4, 4), gap: "var(--arcd-space-2)" }}>
-        <MiniKpi label="Progresso" value={`${progresso.toFixed(0)}%`} cor={C.blue} />
+        <MiniKpi label="Evolução informada" value={`${progresso.toFixed(0)}%`} cor={C.blue} />
         <MiniKpi label="Planejado" value={fmt(resumo.planejado)} cor={C.yellow} />
         <MiniKpi label="Executado" value={fmt(resumo.executado)} cor={C.green} />
         <MiniKpi label="Cobertura do orçamento" value={`${resumo.coberto.toFixed(0)}%`}
@@ -1193,7 +1209,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                       <div style={{ position: "absolute", left: 0, top: 0, bottom: 0,
                                     width: `${t.progresso}%`, background: "color-mix(in srgb, var(--arcd-text-inverse) 28%, transparent)" }} />
                       <span style={{ position: "relative", fontSize:"var(--arcd-type-caption)", fontWeight:"var(--arcd-font-weight-semibold)",
-                                     color: "var(--arcd-text-inverse)", padding: "var(--arcd-space-0) var(--arcd-space-2)", whiteSpace: "nowrap",
+                                     color: "var(--arcd-text-inverse)", background: "var(--arcd-text-primary)", padding: "var(--arcd-space-0) var(--arcd-space-2)", whiteSpace: "nowrap",
                                      overflow: "hidden", textOverflow: "ellipsis" }}>
                         {t.titulo ? t.nome : (t.progresso > 0 ? `${t.progresso}%` : "")}
                       </span>

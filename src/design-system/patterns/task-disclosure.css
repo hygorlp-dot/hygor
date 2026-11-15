@@ -1,0 +1,4 @@
+.mrc-task-disclosure { min-width:0; }
+.mrc-task-disclosure>summary { min-height:var(--arcd-touch-target-min); align-content:center; cursor:pointer; overflow-wrap:anywhere; }
+.mrc-task-disclosure>summary:focus-visible { outline:var(--arcd-space-half) solid var(--arcd-focus-ring); outline-offset:var(--arcd-space-1); }
+.mrc-task-disclosure__body { display:grid; gap:var(--arcd-space-3); padding-block:var(--arcd-space-2); min-width:0; }

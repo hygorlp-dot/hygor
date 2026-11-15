@@ -74,7 +74,9 @@
   .workspace-navigation__desktop > nav > button[aria-current="page"] { background: var(--arcd-surface-card); border-color: var(--arcd-border-default); color: var(--arcd-text-primary); }
   .workspace-navigation__desktop small { color: var(--arcd-text-secondary); font-size: var(--arcd-type-caption); font-variant-numeric: tabular-nums; }
   .workspace-navigation__tools { position: relative; flex: 0 0 auto; max-width: 12rem; }
-  .workspace-navigation__tools > summary { padding: .625rem .5rem; min-height: var(--arcd-control-height); cursor: pointer; color: var(--arcd-text-secondary); font-size: var(--arcd-type-label); }
+  .workspace-navigation__tools > summary { display:flex; align-items:center; gap:var(--arcd-space-2); list-style:none; padding:var(--arcd-space-2); min-height: var(--arcd-control-height); cursor: pointer; color: var(--arcd-text-secondary); font-size: var(--arcd-type-label); }
+  .workspace-navigation__tools > summary::-webkit-details-marker { display:none; }
+  .workspace-navigation__tools > summary svg { flex:none; width:var(--arcd-space-4); height:var(--arcd-space-4); }
   .workspace-navigation__tools > nav { position: absolute; inset: 100% 0 auto auto; z-index: 20; display: grid; width: max-content; max-width: min(22rem, calc(100vw - 2rem)); padding: .5rem; background: var(--arcd-surface-card); border: 1px solid var(--arcd-border-default); border-radius: var(--arcd-radius-lg); box-shadow: var(--arcd-shadow-md); }
   .workspace-navigation__tools nav button { justify-content: flex-start; white-space: normal; text-align: left; }
   .workspace-filters { display: contents; }

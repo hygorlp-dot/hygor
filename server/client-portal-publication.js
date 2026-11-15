@@ -2,26 +2,38 @@ import { cotacaoMultiItens, decisoesDaCotacao, mapaDaCotacao } from "../src/doma
 import { statusPedido } from "../src/domains/compras/calculations.js";
 import { isApprovedTechnicalMeasurement } from "../src/domains/medicoes/constants.js";
 import { aditivosAprovados, valorAditivosAprovados, valorContratoVigente } from "../src/domains/obras/contract-amendments.js";
+import {documentEvidenceInfo} from "../src/domains/financeiro/document-evidence.js";
+import {protectedDocumentReference} from "../src/domains/financeiro/document-links.js";
+import {avancoFisicoOficial} from "../src/domains/dre/calculations.js";
+import {active,toCents} from "../src/domains/financeiro/facts.js";
+import {clientContractMeasurements,clientMeasurementReceipts} from "./client-portal-contract.js";
+import {uniquePortalRecords} from './client-portal-records.js';
 
 const list = value => Array.isArray(value) ? value : [];
 const text = value => typeof value === "string" ? value.trim() : "";
 const number = value => Number.isFinite(Number(value)) ? Number(value) : 0;
 const cappedPercent = value => Math.max(0, Math.min(100, number(value)));
-// Os comandos do ERP gravam "cancelada"/"estornada"/"rejeitada" (feminino) para
-// notas e cotações, "cancelado"/"estornado" para o resto: os dois têm de sair.
-const INACTIVE_STATUS = ["cancelado", "cancelada", "cancelled", "estornado", "estornada", "reversed", "rejeitado", "rejeitada"];
-const active = item => !INACTIVE_STATUS.includes(text(item?.status).toLowerCase());
+const sharedInvoice=item=>active(item)&&!item.rascunho;
 const byNewest = (a, b) => String(b?.data || b?.date || "").localeCompare(String(a?.data || a?.date || ""));
 
-function receivedAmount(measurement = {}) {
-  const receipts = list(measurement.recebimentos).filter(active);
-  if (receipts.length) return receipts.reduce((sum, receipt) => sum + number(receipt.valor), 0);
-  return number(measurement.valorRecebido);
+const safeUrl=value=>{try{const url=new URL(value);return url.protocol==="https:"&&!url.username&&!url.password?url.href:"";}catch{return "";}};
+function invoiceDocuments(invoice,obra){
+  return list(invoice.documentos).filter(doc=>doc?.publicarCliente!==false).map((doc,index)=>{
+    const id=text(doc.id)||`anexo-${index}`;
+    const info=documentEvidenceInfo(doc,obra.oneDriveDriveId);
+    const reference=info.reference;
+    const url=reference?`/api/client/projects/${encodeURIComponent(obra.id)}/files/${encodeURIComponent(invoice.id)}/${encodeURIComponent(id)}`:safeUrl(doc.clientUrl||doc.url||doc.webUrl);
+    return {id,title:text(doc.nome||doc.name||doc.legenda)||`Nota fiscal ${invoice.numero||""}`,url,...(reference?{reference}: {})};
+  });
 }
 
-function measurementPayments(measurements) {
+function receivedAmount(measurement,asOf) {
+  return clientMeasurementReceipts(measurement,asOf).reduce((sum,receipt)=>sum+toCents(receipt.valor),0)/100;
+}
+
+function measurementPayments(measurements,asOf) {
   return measurements.flatMap(measurement => {
-    const receipts = list(measurement.recebimentos).filter(active);
+    const receipts = clientMeasurementReceipts(measurement,asOf);
     if (receipts.length) {
       return receipts.map((receipt, index) => ({
         domain: "payment",
@@ -34,36 +46,24 @@ function measurementPayments(measurements) {
         },
       }));
     }
-    const amount = receivedAmount(measurement);
-    return amount > 0 ? [{
-      domain: "payment",
-      payload: {
-        id: `recebimento-${measurement.id}`,
-        description: text(measurement.descricao) || text(measurement.competencia) || "Recebimento de medição",
-        amount,
-        dueDate: text(measurement.dataPagamento) || text(measurement.dataVencimento),
-        clientStatus: "Recebido",
-      },
-    }] : [];
-  }).slice(0, 40);
+    return [];
+  });
 }
 
-// O % que o cliente vê tem de ser o mesmo do boletim técnico: o último
-// boletim aprovado já traz o avanço físico ponderado por custo. Sem boletim,
-// pondera as tarefas pelo custo previsto (a média simples fazia uma tarefa de
-// R$ 500 pesar o mesmo que a estrutura inteira).
-export function clientPortalProgress({ data = {}, obraId = "", tasks = [] } = {}) {
-  const latest = list(data.medicoesObra)
-    .filter(item => String(item?.obraId) === obraId && isApprovedTechnicalMeasurement(item) && Number.isFinite(Number(item?.avancoFisico)))
-    .sort((a, b) => String(a?.dataMedicao || a?.data || "").localeCompare(String(b?.dataMedicao || b?.data || "")))
-    .at(-1);
-  if (latest) return { value: Math.round(cappedPercent(latest.avancoFisico)), source: "medicao_tecnica" };
-  if (!tasks.length) return { value: 0, source: "sem_dados" };
+// Usa a mesma regra oficial do DRE/painel: medição técnica confirmada,
+// depois medição percentual de cobrança. Sem ambas, usa o cronograma,
+// ponderado pelos custos previstos quando há referência.
+export function clientPortalProgress({ data = {}, obraId = "", tasks = [],asOf } = {}) {
+  data={...data,medicoes:clientContractMeasurements(data,obraId,asOf||'9999-12-31'),medicoesObra:list(data.medicoesObra).filter(item=>!asOf||!item.dataMedicao||item.dataMedicao<=asOf)};
+  const official=avancoFisicoOficial(data,obraId);
+  const technical=list(data.medicoesObra).some(item=>String(item.obraId)===obraId&&active(item)&&(!item.status||isApprovedTechnicalMeasurement(item)));
+  if(official!==null)return {value:Math.round(cappedPercent(official)*100)/100,source:technical?"medicao_tecnica":"medicao_percentual"};
+  if (!tasks.length) return { value: null, source: "sem_dados" };
   const totalCost = tasks.reduce((sum, item) => sum + Math.max(0, number(item?.custo)), 0);
   const value = totalCost > 0
     ? tasks.reduce((sum, item) => sum + Math.max(0, number(item?.custo)) * cappedPercent(item?.progresso), 0) / totalCost
     : tasks.reduce((sum, item) => sum + cappedPercent(item?.progresso), 0) / tasks.length;
-  return { value: Math.round(value), source: totalCost > 0 ? "cronograma_ponderado" : "cronograma" };
+  return { value: Math.round(value*100)/100, source: totalCost > 0 ? "cronograma_ponderado" : "cronograma" };
 }
 
 /**
@@ -72,6 +72,8 @@ export function clientPortalProgress({ data = {}, obraId = "", tasks = [] } = {}
  * atravessa esta fronteira.
  */
 export function buildClientPortalPublicationRows({ data = {}, projectId, publishedAt = new Date().toISOString() } = {}) {
+  data={...data,...Object.fromEntries(['rdos','caixaObra','pedidos','notasFiscais'].map(key=>[key,uniquePortalRecords(list(data[key]).filter(item=>String(item.obraId)===String(projectId)))]))};
+  const asOf=new Intl.DateTimeFormat("en-CA",{timeZone:"America/Bahia",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(publishedAt));
   const obraId = String(projectId || "");
   const obra = list(data.obras).find(item => String(item?.id) === obraId);
   if (!obra) throw new Error("Obra não encontrada para publicação.");
@@ -79,18 +81,18 @@ export function buildClientPortalPublicationRows({ data = {}, projectId, publish
   const portal = obra.portalCliente || {};
   const plano = list(data.planos).find(item => String(item?.obraId) === obraId);
   const allTasks = list(plano?.tarefas).filter(item => !item?.titulo);
-  const tasks = allTasks.slice(0, 50);
-  const progress = clientPortalProgress({ data, obraId, tasks: allTasks }).value;
+  const tasks = allTasks;
+  const progressPosition = clientPortalProgress({ data, obraId, tasks: allTasks,asOf });
+  const progress=progressPosition.value;
   const reports = list(data.rdos)
-    .filter(item => String(item?.obraId) === obraId && ["concluido", "concluído"].includes(text(item?.status).toLowerCase()))
+    .filter(item => String(item?.obraId) === obraId && active(item) && item.publicarCliente!==false && ["concluido", "concluído"].includes(text(item?.status).toLowerCase()))
     .sort(byNewest)
-    .slice(0, 12);
-  const measurements = list(data.medicoes)
-    .filter(item => String(item?.obraId) === obraId && active(item))
+    ;
+  const measurements = clientContractMeasurements(data,obraId,asOf)
     .sort((a, b) => String(a?.competencia || "").localeCompare(String(b?.competencia || "")))
-    .slice(0, 30);
-  const measured = measurements.reduce((sum, item) => sum + number(item?.valorPrevisto), 0);
-  const paid = measurements.reduce((sum, item) => sum + receivedAmount(item), 0);
+    ;
+  const measured = measurements.reduce((sum, item) => sum + toCents(item?.valorPrevisto), 0)/100;
+  const paid = measurements.reduce((sum, item) => sum + toCents(receivedAmount(item,asOf)), 0)/100;
   const contractOriginal = number(obra.contractValue);
   const suppliers = new Map(list(data.fornecedores).map(item => [String(item?.id), text(item?.nome) || "Fornecedor"]));
   const materials = new Map(list(data.materiais).map(item => [String(item?.id), {
@@ -103,12 +105,22 @@ export function buildClientPortalPublicationRows({ data = {}, projectId, publish
     payload: {
       name: text(obra.name) || "Obra",
       coverImage: text(obra.capaUrl),
-      currentPhase: text(obra.status),
+      currentPhase: text(list(data.fases).find(fase=>fase.id===obra.faseId)?.nome),
       progress,
+      progressSource:progressPosition.source,
       estimatedCompletion: text(obra.contractEnd),
       lastUpdate: publishedAt,
+      message:text(portal.mensagem),
     },
   }];
+  rows.push({domain:"publication_policy",payload:{
+    publicarAdministracaoEquipe:portal.publicarAdministracaoEquipe===true,
+    publicarCustos:portal.publicarCustos===true,publicarOrcamentoEtapas:portal.publicarOrcamentoEtapas===true,
+    publicarCaixaObra:portal.publicarCaixaObra===true,publicarNotasFiscais:portal.publicarNotasFiscais===true,
+    publicarCompras:portal.publicarCompras===true,
+    publicarDiarios:portal.publicarFotos!==false,publicarFinanceiro:portal.publicarFinanceiro===true,
+    publicarCronograma:portal.publicarCronograma!==false,
+  }});
 
   if (portal.publicarCronograma !== false) {
     for (const item of tasks) {
@@ -128,7 +140,16 @@ export function buildClientPortalPublicationRows({ data = {}, projectId, publish
   }
 
   for (const report of reports) {
-    rows.push({
+    if(portal.publicarDiarios??portal.publicarFotos!==false)rows.push({domain:"daily_report",payload:{
+      id:text(report.id),code:String(report.codigo||""),date:text(report.data),summary:text(report.descricao),
+      weather:{morning:text(report.clima?.manha),afternoon:text(report.clima?.tarde),night:text(report.clima?.noite)},
+      services:list(report.servicos).map(service=>({
+        description:text(service.descricao)||text(allTasks.find(task=>task.id===service.tarefaId)?.nome)||"Serviço executado",
+        quantity:service.quantidadeDia===""||service.quantidadeDia==null?null:number(service.quantidadeDia),
+        unit:text(service.unidade),progress:cappedPercent(service.progressoAte),
+      })),
+    }});
+    if(portal.publicarDiarios??portal.publicarFotos!==false)rows.push({
       domain: "weekly_update",
       payload: {
         id: text(report.id),
@@ -144,13 +165,18 @@ export function buildClientPortalPublicationRows({ data = {}, projectId, publish
   if (portal.publicarFotos !== false) {
     const photos = reports.flatMap(report => list(report.fotos)
       .filter(photo => photo?.publicarCliente !== false && text(photo?.clientUrl || photo?.url))
-      .map((photo, index) => ({
+      .map((photo, index) => {
+        const id=text(photo.id) || `foto-${report.id}-${index}`;
+        const reference=protectedDocumentReference(photo.clientUrl||photo.url);
+        return ({
         domain: "media",
         payload: {
-          id: text(photo.id) || `foto-${report.id}-${index}`,
+          id,
+          reportId:text(report.id),
           type: "image",
-          clientUrl: text(photo.clientUrl || photo.url),
-          clientThumbnailUrl: text(photo.clientThumbnailUrl || photo.thumbnailUrl),
+          clientUrl: reference?`/api/client/projects/${encodeURIComponent(obraId)}/media/${encodeURIComponent(id)}`:text(photo.clientUrl || photo.url),
+          clientThumbnailUrl: reference?"":text(photo.clientThumbnailUrl || photo.thumbnailUrl),
+          ...(reference?{reference}:{}),
           caption: text(photo.legenda) || text(report.descricao) || "Registro da obra",
           date: text(report.data),
           phase: text(photo.etapa),
@@ -158,14 +184,14 @@ export function buildClientPortalPublicationRows({ data = {}, projectId, publish
           category: text(photo.categoria) || "obra",
           authorName: "Equipe ARCD",
         },
-      }))).slice(0, 24);
+      });}));
     rows.push(...photos);
   }
 
   // Aditivos aprovados aparecem em "Alterações aprovadas" (Onda 4.2): só o
   // que o cliente vê no contrato - sem justificativa interna nem autor.
   if (portal.publicarFinanceiro) {
-    rows.push(...aditivosAprovados(obra).slice(0, 40).map(item => ({
+    rows.push(...aditivosAprovados(obra).map(item => ({
       domain: "change_order",
       payload: {
         id: `aditivo-${item.id}`,
@@ -190,13 +216,13 @@ export function buildClientPortalPublicationRows({ data = {}, projectId, publish
         measured,
         approved: measured,
         paid,
-        openAmount: Math.max(0, measured - paid),
+        openAmount: measurements.reduce((sum,item)=>sum+Math.max(0,toCents(item.valorPrevisto)-toCents(receivedAmount(item,asOf))),0)/100,
         balanceToMeasure: Math.max(0, valorContratoVigente(obra) - measured),
-        asOf: publishedAt.slice(0, 10),
+        asOf,
       },
     });
     for (const item of measurements) {
-      const received = receivedAmount(item);
+      const received = receivedAmount(item,asOf);
       rows.push({
         domain: "measurement",
         payload: {
@@ -205,55 +231,64 @@ export function buildClientPortalPublicationRows({ data = {}, projectId, publish
           period: text(item.competencia),
           description: text(item.descricao),
           clientStatus: received >= number(item.valorPrevisto) && number(item.valorPrevisto) > 0 ? "Recebida" : received > 0 ? "Recebida parcialmente" : "Em aberto",
-          percentage: cappedPercent(item.percentualAcumulado || item.percentualPeriodo),
+          percentage: item.tipo==='percentual'?cappedPercent(item.percentualAcumulado??item.percentualPeriodo):null,
           clientAmount: number(item.valorPrevisto),
           dueDate: text(item.dataVencimento),
           publishedAt,
         },
       });
     }
-    rows.push(...measurementPayments(measurements));
+    rows.push(...measurementPayments(measurements,asOf));
   }
 
   if (portal.publicarCaixaObra) {
+    const invoices=portal.publicarNotasFiscais?list(data.notasFiscais).filter(invoice=>String(invoice.obraId)===obraId&&sharedInvoice(invoice)):[];
+    const invoicesById=new Map(invoices.map(invoice=>[String(invoice.id),invoice]));
+    const invoicesByOrder=new Map();
+    for(const invoice of invoices)if(invoice.pedidoId){const key=String(invoice.pedidoId);invoicesByOrder.set(key,[...(invoicesByOrder.get(key)||[]),invoice]);}
     const chronological=list(data.caixaObra)
-      .filter(item=>String(item?.obraId)===obraId && active(item))
+      .filter(item=>String(item?.obraId)===obraId && active(item) && item.data && item.data<=asOf)
       .sort((a,b)=>String(a?.data || "").localeCompare(String(b?.data || "")));
-    let balance=0;
+    let balanceCents=0;
     const movements=chronological.map(item=>{
-      const amount=number(item.valor);
-      balance+=item.tipo==="aporte" ? amount : -amount;
+      const amount=toCents(item.valor)/100;
+      balanceCents+=item.tipo==="aporte" ? toCents(item.valor) : -toCents(item.valor);
+      const candidates=item.notaFiscalId?[invoicesById.get(String(item.notaFiscalId))].filter(Boolean):item.pedidoId?invoicesByOrder.get(String(item.pedidoId))||[]:[];
+      const invoice=candidates.length===1?candidates[0]:null;
       return {
         domain:"cash_movement",
         payload:{
           id:text(item.id),
           date:text(item.data),
           type:item.tipo==="aporte" ? "Aporte" : "Despesa",
-          category:text(item.categoria) || (item.tipo==="aporte" ? "Aporte" : "Outros"),
+          category:text(item.categoria) || text(invoice?.categoria) || (item.tipo==="aporte" ? "Aporte" : "Outros"),
           // A descrição de uma despesa paga por pedido/nota traz o número do pedido e
           // o fornecedor; sem "publicarCompras" o cliente não deve ver isso.
           description:(item.pedidoId || item.notaFiscalId) && !portal.publicarCompras
             ? "Pagamento de compra de material"
-            : text(item.descricao) || (item.tipo==="aporte" ? "Aporte para a obra" : "Despesa da obra"),
+            : text(item.descricao) || (item.tipo==="aporte" ? "Aporte para a obra" : invoice?`Pagamento da nota fiscal ${text(invoice.numero)}`:"Despesa da obra"),
           amount,
-          balance,
+          balance:balanceCents/100,
+          invoiceNumber:text(invoice?.numero),
+          invoiceDocuments:invoice?invoiceDocuments(invoice,obra):[],
+          invoiceLinkAmbiguous:candidates.length>1,
         },
       };
     });
-    const totalContributions=chronological.filter(item=>item.tipo==="aporte").reduce((sum,item)=>sum+number(item.valor),0);
-    const totalExpenses=chronological.filter(item=>item.tipo!=="aporte").reduce((sum,item)=>sum+number(item.valor),0);
+    const totalContributions=chronological.filter(item=>item.tipo==="aporte").reduce((sum,item)=>sum+toCents(item.valor),0)/100;
+    const totalExpenses=chronological.filter(item=>item.tipo!=="aporte").reduce((sum,item)=>sum+toCents(item.valor),0)/100;
     rows.push({
       domain:"cash_summary",
-      payload:{id:`caixa-${obraId}`,totalContributions,totalExpenses,balance,asOf:publishedAt.slice(0,10)},
+      payload:{id:`caixa-${obraId}`,totalContributions,totalExpenses,balance:balanceCents/100,asOf},
     });
-    rows.push(...movements.reverse().slice(0,40));
+    rows.push(...movements.reverse());
   }
 
   if (portal.publicarNotasFiscais) {
     rows.push(...list(data.notasFiscais)
-      .filter(item=>String(item?.obraId)===obraId && active(item) && text(item?.status).toLowerCase()!=="rascunho")
+      .filter(item=>String(item?.obraId)===obraId && sharedInvoice(item))
       .sort((a,b)=>String(b?.emissao || "").localeCompare(String(a?.emissao || "")))
-      .slice(0,30)
+
       .map(item=>({
         domain:"invoice",
         payload:{
@@ -266,8 +301,10 @@ export function buildClientPortalPublicationRows({ data = {}, projectId, publish
           description:text(item.descricao),
           category:text(item.categoria) || "Compras e serviços",
           grossAmount:number(item.valorBruto),
-          netAmount:number(item.valorLiquido || item.valorBruto),
+          netAmount:number(item.valorLiquido??item.valorBruto),
           clientStatus:text(item.status) || "Recebida",
+          orderId:text(item.pedidoId),
+          documents:invoiceDocuments(item,obra),
         },
       })));
   }
@@ -276,7 +313,7 @@ export function buildClientPortalPublicationRows({ data = {}, projectId, publish
     rows.push(...list(data.pedidos)
       .filter(item=>String(item?.obraId)===obraId && active(item) && text(item?.status).toLowerCase()!=="rascunho")
       .sort((a,b)=>String(b?.data || "").localeCompare(String(a?.data || "")))
-      .slice(0,30)
+
       .map(item=>{
         const items=list(item.itens).map(entry=>{
           const material=materials.get(String(entry?.materialId));
@@ -312,7 +349,7 @@ export function buildClientPortalPublicationRows({ data = {}, projectId, publish
     rows.push(...list(data.cotacoes)
       .filter(item=>String(item?.obraId)===obraId && active(item))
       .sort((a,b)=>String(b?.data || "").localeCompare(String(a?.data || "")))
-      .slice(0,20)
+
       .map(item=>{
         const material=materials.get(String(item.materialId));
         // Mapa de cotação (C1.3): vários itens, preço por item; o cliente vê o
@@ -363,19 +400,23 @@ export function buildClientPortalPublicationRows({ data = {}, projectId, publish
   if (portal.publicarDocumentos !== false) {
     rows.push(...list(obra.documentosOneDrive)
       .filter(document => document?.publicarCliente === true && text(document?.clientUrl || document?.url))
-      .slice(0, 30)
-      .map((document, index) => ({
+
+      .map((document, index) => {
+        const id=text(document.id)||`documento-${index}`;
+        const reference=protectedDocumentReference(document.clientUrl||document.url);
+        return ({
         domain: "document",
         payload: {
-          id: text(document.id) || `documento-${index}`,
+          id,
           title: text(document.nome) || "Documento",
           category: text(document.categoria) || "Documento da obra",
           version: text(document.versao),
           clientStatus: "Publicado",
           publishedAt,
-          clientUrl: text(document.clientUrl || document.url),
+          clientUrl: reference?`/api/client/projects/${encodeURIComponent(obraId)}/documents/${encodeURIComponent(id)}`:text(document.clientUrl || document.url),
+          ...(reference?{reference}:{}),
         },
-      })));
+      });}));
   }
 
   return rows;

@@ -4,8 +4,10 @@ import {getActiveBudgetBaseline} from '../orcamentos/calculations.js';
 import {active,buildFinancialLedger,invoiceAmount} from './ledger.js';
 import {calcOrcadoComprado} from '../compras/budget-tracking.js';
 import {isDateInClosedPeriod,isCompetenceInClosedPeriod} from './workflows.js';
+import {SERVICE_LINK_COMMAND,applyServiceLinkCommand,serviceForecastBasis} from './service-forecast.js';
+import {stockForecastBasis} from './stock-forecast.js';
 
-export const COST_CONTROL_COMMAND=Object.freeze({COST_ALLOCATION_SAVED:'APROPRIACAO_CUSTO_SALVA',COST_FORECAST_SAVED:'PREVISAO_CONCLUSAO_SALVA'});
+export const COST_CONTROL_COMMAND=Object.freeze({COST_ALLOCATION_SAVED:'APROPRIACAO_CUSTO_SALVA',COST_FORECAST_SAVED:'PREVISAO_CONCLUSAO_SALVA',SERVICE_COMMITMENT_LINK_SAVED:SERVICE_LINK_COMMAND});
 export const COST_CONTROL_COMMAND_TYPES=new Set(Object.values(COST_CONTROL_COMMAND));
 const sources={nota_fiscal:'notasFiscais',outra_despesa:'outrasDesp',medicao_terceiro:'medicoesTerc'};
 const norm=text=>String(text||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
@@ -25,7 +27,7 @@ export function costPlanningFingerprint(data,obraId){
  const links=Object.entries(sources).flatMap(([type,key])=>(data[key]||[]).filter(r=>r.obraId===obraId||r.rateios?.some(a=>a.obraId===obraId)).map(r=>[type,String(r.id),Number(r.version||0),r.etapaId||'',r.orcNivel1Id||'',(r.rateios||[]).filter(a=>a.obraId===obraId).map(a=>[a.id||'',a.etapaId||''])]));
  const basis={budgetId:tracking.orc?.id||'',stages:(tracking.orc?.etapas||[]).map(s=>[s.id,s.parentId||'']),rows:tracking.linhas.map(r=>[r.it.id,Math.round(r.orcado*100),Math.round(r.comprometido*100),Math.round(r.recebido*100)]),unassigned:Math.round((tracking.semApropriacao||0)*100),unassignedReceived:Math.round((tracking.semApropriacaoRecebida||0)*100)};
  const stable=v=>Array.isArray(v)?v.map(stable):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,stable(v[k])])):v;
- const json=JSON.stringify(stable({startDate:work?.startDate||'',contractStart:work?.contractStart||'',events,links,basis,changes:work?.aditivosContrato||[]}));
+ const json=JSON.stringify(stable({startDate:work?.startDate||'',contractStart:work?.contractStart||'',events,links,basis,services:serviceForecastBasis(data,obraId),stock:stockForecastBasis(data,obraId,tracking.orc),changes:work?.aditivosContrato||[]}));
  let a=2166136261,b=5381;for(let i=0;i<json.length;i++){a=Math.imul(a^json.charCodeAt(i),16777619);b=Math.imul(b,33)^json.charCodeAt(i);}
  return `${json.length}-${a>>>0}-${b>>>0}`;
 }
@@ -44,6 +46,7 @@ export function allocationSuggestions(data,report,obraId){
 }
 export function applyCostControlCommand(data,command,now=new Date().toISOString()){
  if(!COST_CONTROL_COMMAND_TYPES.has(command.type))return null;
+ if(command.type===SERVICE_LINK_COMMAND)return applyServiceLinkCommand(data,command,now);
  const fail=reason=>({ok:false,reason});
  const p=command.payload||{},obraId=costControlWorkId(data,command);
  const work=(data.obras||[]).find(w=>w.id===obraId);

@@ -1,3 +1,6 @@
+import {contractCommandScope,RECORD_COMMAND_TYPES} from '../src/domains/comercial/contracts/record-commands.js';
+import {thirdPartyInvoiceLinkWork} from '../src/domains/financeiro/workflows.js';
+import {folderAccess} from '../src/domains/arquivos/access.js';
 import {ACCOUNTING_COMMAND_TYPES,canUseCompanyAccounting} from '../src/domains/financeiro/accounting-indicators.js';
 import {BASELINE_COMMAND,BASELINE_COMMAND_TYPES} from '../src/domains/planejamento/approved-baseline.js';
 import {closingCorrectionScope} from "../src/domains/financeiro/closing-correction.js";
@@ -99,7 +102,7 @@ import {
 } from "../src/domains/estoque/commands.js";
 
 import { ENGINEERING_COMMAND_TYPES } from "../src/domains/projetos/commands.js";
-import { FILE_COMMAND_TYPES } from "../src/domains/arquivos/commands.js";
+import { FILE_COMMAND_TYPES, FILE_BATCH_COMMAND } from "../src/domains/arquivos/commands.js";
 import { podeAcessarAba } from '../src/domains/administracao/abas-acesso.js';
 import { validateFileCabinetScope } from "./work-file-cabinet-policy.js";
 import { validateEngineeringScope } from "./engineering-project-policy.js";
@@ -154,6 +157,30 @@ const operationalCommandObraId=(data={},command={})=>{
 };
 
 export const validateOperationalCommandScope=({user={},data={},command={}}={})=>{
+  if(command.type===OPERATIONAL_COMMAND.THIRD_PARTY_INVOICE_LINKED){
+    const work=thirdPartyInvoiceLinkWork(data,{medicaoTercId:command.payload?.measurementId,notaFiscalId:command.payload?.invoiceId});
+    if(!work.ok)return work;
+    if(user.active===false||(user.obraId&&String(user.obraId)!==work.obraId))return {ok:false,error:'Esta obra não está disponível no seu escopo operacional.'};
+  }
+  if(command.type===OPERATIONAL_COMMAND.BANK_IMPORT_REVERSED)return user.active!==false&&user.role==='admin'&&!user.obraId&&podeAcessarAba(user,'conc')?{ok:true,obraId:'',scope:'company'}:{ok:false,error:'A reversão bancária exige administrador sem restrição de obra e acesso à Conciliação.'};
+  if(['GARANTIA_TERCEIRO_DEFINIDA','GARANTIA_TERCEIRO_LIBERADA','GARANTIA_TERCEIRO_PAGA'].includes(command.type)){
+    const obraId=thirdPartyCommandObraId(data,command);
+    return user.active!==false&&['admin','financeiro'].includes(user.role)&&(podeAcessarAba(user,'fin')||podeAcessarAba(user,'terc'))&&Boolean(obraId)&&(!user.obraId||String(user.obraId)===obraId)?{ok:true,obraId,scope:'work'}:{ok:false,error:'Seu perfil não pode operar a garantia desta obra.'};
+  }
+  if(RECORD_COMMAND_TYPES.has(command.type)){
+    if(!podeAcessarAba(user,'com_deals')&&!podeAcessarAba(user,'com_contratos'))return {ok:false,error:'Seu perfil não possui acesso aos contratos comerciais.'};
+    const access=contractCommandScope(data,command,user);
+    if(!access.ok)return {ok:false,error:access.reason};
+    const current=(data.commercialContractRecords||[]).find(r=>r.id===command.payload?.id);
+    const workId=command.payload?.record?.obraId||current?.obraId||'';
+    const refs=[...(command.payload?.files||[]),...(command.payload?.signed?[command.payload.signed]:[])];
+    for(const ref of refs){
+      const cabinet=(data.workFileCabinets||[]).find(c=>c.obraId===workId&&(c.documents||[]).some(d=>d.id===ref.documentId&&(d.revisions||[]).some(r=>r.id===ref.revisionId)));
+      const document=cabinet?.documents.find(d=>d.id===ref.documentId);
+      if(!cabinet||document.deletedAt||document.trash||!folderAccess(cabinet,document.folderId,user))return {ok:false,error:'Documento indisponível ou fora do seu acesso nos Arquivos da obra.'};
+    }
+    return access;
+  }
   if(ACCOUNTING_COMMAND_TYPES.has(command.type))return canUseCompanyAccounting(user)&&podeAcessarAba(user,'fin')?{ok:true,scope:'company',obraId:''}:{ok:false,error:'A base contábil da empresa exige administrador ou financeiro com acesso geral, sem vínculo restrito a uma obra.'};
   if(BASELINE_COMMAND_TYPES.has(command.type)){
     const obraId=String(command.payload?.obraId||'');
@@ -169,6 +196,7 @@ export const validateOperationalCommandScope=({user={},data={},command={}}={})=>
   if(FILE_COMMAND_TYPES.has(command.type))return validateFileCabinetScope({user,data,command});
   const obraId=operationalCommandObraId(data,command);
   if(COST_CONTROL_COMMAND_TYPES.has(command.type)){
+    if(command.type===OPERATIONAL_COMMAND.SERVICE_COMMITMENT_LINK_SAVED&&(user.active===false||!podeAcessarAba(user,'fin')))return {ok:false,error:'Seu perfil não pode vincular compromissos à previsão.'};
     const allowed=['admin','financeiro'].includes(user.role)&&(user.role==='admin'||!user.obraId||String(user.obraId)===obraId);
     return allowed&&Boolean(obraId)&&Boolean((data.obras||[]).find(w=>w.id===obraId))?{ok:true,obraId,scope:'work'}:{ok:false,error:'Seu perfil não pode revisar custos desta obra.'};
   }
@@ -273,3 +301,11 @@ export const validateOperationalCommandScope=({user={},data={},command={}}={})=>
     : user?.role==="admin"||!user?.obraId||String(user.obraId)===obraId;
   return allowed?{ok:true,obraId}:{ok:false,error:"Esta obra não está disponível no seu escopo operacional."};
 };
+
+// Compatibility for batches already uploaded by an open pre-fix browser.
+// Only the exact historical UUID format is canonicalized; other keys retain validation.
+export function operationalIdempotencyKey(command){
+  const key=String(command?.idempotencyKey||'');
+  return command?.type===FILE_BATCH_COMMAND&&/^files-batch:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(key)
+    ?key.replace('files-batch:','files-batch-'):key;
+}

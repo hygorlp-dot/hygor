@@ -60,3 +60,12 @@ export const cltChargeFactor = (config = {}) => {
 // da LC 123/2006, decisão do dono em 29/10/2026).
 export const laborChargeFactor = (mode, config = {}) =>
   mode === "clt" ? cltChargeFactor(config) : mode === "mei" ? 0 : laborChargesConfig(config).diaristaPercent / 100;
+
+// Parcela de reservas já dentro dos encargos do DRE. Não somar outra vez ao
+// repasse: 13º/férias, FGTS dessas verbas e reserva da multa do FGTS.
+export const includedLaborProvisionFactor=(mode,config={})=>{
+  if(mode!=='clt')return 0;
+  const c=laborChargesConfig(config),provision=c.provisionar13Ferias?1/12+1/9:0;
+  const employer=(c.inssPatronalPercent+c.ratPercent*c.fap+c.terceirosPercent)/100;
+  return provision*(1+employer)+provision*c.fgtsPercent/100+(1+provision)*c.fgtsPercent/100*c.multaFgtsPercent/100;
+};

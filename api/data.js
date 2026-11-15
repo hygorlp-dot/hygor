@@ -1,3 +1,6 @@
+import {verifiedFileTrashCommand} from '../server/work-file-trash.js';
+import {RECORD_COMMANDS} from '../src/domains/comercial/contracts/record-commands.js';
+import contractSourceModel from '../src/domains/comercial/contracts/administration-template.json' with {type:'json'};
 import {ACCOUNTING_COMMAND_TYPES,validateAccountingSnapshotPolicy} from '../src/domains/financeiro/accounting-indicators.js';
 import {BASELINE_COMMAND,BASELINE_COMMAND_TYPES} from '../src/domains/planejamento/approved-baseline.js';
 import {quoteLinkKey,issueQuoteLink,verifyQuoteLink,quoteLinkAccess,publicQuoteView} from "../server/supplier-quote-link.js";
@@ -47,7 +50,7 @@ import { backupKeyFromEnv, createBackupBundle, verifyBackupBundle } from "../ser
 import { projectDataForUser, publicUser } from "../server/data-projection.js";
 import { findSectionConflicts } from "../server/three-way-conflicts.js";
 import { mergeThreeWay } from "../server/three-way-merge.js";
-import { authorizeSectionChanges, validateBankReconciliationPolicy, validateBudgetBaselinePolicy, validateNoPhysicalDeletes, validatePlanningBaselinePolicy } from "../server/section-authorizations.js";
+import { authorizeSectionChanges, validateTechnicalRetentionPolicy, validateBankReconciliationPolicy, validateBudgetBaselinePolicy, validateNoPhysicalDeletes, validatePlanningBaselinePolicy } from "../server/section-authorizations.js";
 import { buildLegacyFinancialFacts, compareDreProjectionRows, compareFinancialScopes, summarizeCanonicalFinancialRows, summarizeLegacyFinancialFacts } from "../server/financial-shadow.js";
 import { auditCanonicalFinancialIntegrity } from "../server/financial-integrity.js";
 import { compareLegacyBankTransactions } from "../server/financial-bank-shadow.js";
@@ -73,7 +76,7 @@ import { ENGINEERING_COMMAND_TYPES, ENGINEERING_ROLES } from "../src/domains/pro
 import { FILE_COMMAND_TYPES, FILE_ROLES } from "../src/domains/arquivos/commands.js";
 import { DOSSIER_COMMAND_TYPES } from '../src/domains/licenciamento/dossier.js';
 import { applyOperationalCommand, OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
-import { validateOperationalCommandScope } from "../server/operational-command-policy.js";
+import { validateOperationalCommandScope, operationalIdempotencyKey } from "../server/operational-command-policy.js";
 import {
   avaliarAcessoAceite, chaveLinkAceite, comandoAceitePorLink, gerarTokenAceite, linkAceiteDisponivel,
   podeGerarLinkAceite, verificarTokenAceite, visaoPublicaPedido,
@@ -111,7 +114,7 @@ import { buildPurchaseRequestLiveRow } from "../server/purchase-request-live-wri
 import { buildPurchaseOrderLiveRow, buildQuotationLiveRow } from "../server/purchase-quote-order-live-write.js";
 import { financialActivationEvidenceGate, financialPersistenceMode, hasLegacyFinancialWrite, validateFinancialWritePath, validateProjectFinancialSnapshotPolicy } from "../server/financial-write-policy.js";
 import { getOrCreateFolder, graph, refresh, rootItem } from "../server/microsoft/graph.js";
-import { hashPortalPassword, normalizePortalEmail, validPortalPassword } from "../server/client-portal-auth.js";
+import { executeClientPortalAdmin } from "../server/client-portal-admin.js";
 import { applyPersistentAuthRateLimit, hashAppPin, verifyAppPin } from "../server/app-auth-security.js";
 import { buildClientPortalPublicationRows } from "../server/client-portal-publication.js";
 import { sanitizeClientError, sanitizeServerError } from "../server/client-error-report.js";
@@ -199,6 +202,13 @@ export const authorizeFinancialCommand = (commandType, role) => {
 const RECONCILIATION_COMMANDS=new Set(Object.values(RECONCILIATION_COMMAND));
 const ATTENDANCE_COMMANDS=new Set(Object.values(ATTENDANCE_COMMAND));
 export const OPERATIONAL_COMMAND_ROLES = {
+  [RECORD_COMMANDS.SAVE]:['admin','comercial'],
+  [RECORD_COMMANDS.REVIEW]:['admin','comercial'],
+  [RECORD_COMMANDS.LINK_WORK]:['admin','comercial'],
+  [RECORD_COMMANDS.REVISE]:['admin','comercial'],
+  [RECORD_COMMANDS.DECIDE]:['admin'],
+  [RECORD_COMMANDS.STATE]:['admin'],
+  [RECORD_COMMANDS.COMPANY]:['admin'],
   ...Object.fromEntries([...ACCOUNTING_COMMAND_TYPES].map(type=>[type,['admin','financeiro']])),
   [BASELINE_COMMAND.SCHEDULE_BASELINE_PROPOSED]:['admin','diretoria','engenheiro','engenheiro_auditor','planejamento'],
   [BASELINE_COMMAND.SCHEDULE_BASELINE_APPROVED]:['admin','diretoria'],
@@ -208,6 +218,7 @@ export const OPERATIONAL_COMMAND_ROLES = {
   ...Object.fromEntries([...DOSSIER_COMMAND_TYPES].map(type=>[type,['admin','engenheiro']])),
   [OPERATIONAL_COMMAND.COST_ALLOCATION_SAVED]:['admin','financeiro'],
   [OPERATIONAL_COMMAND.COST_FORECAST_SAVED]:['admin','financeiro'],
+  [OPERATIONAL_COMMAND.SERVICE_COMMITMENT_LINK_SAVED]:['admin','financeiro'],
   [OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED]:["admin","engenheiro","engenheiro_auditor"],
   [OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CANCELLED]:["admin","engenheiro","engenheiro_auditor"],
   [OPERATIONAL_COMMAND.FIELD_REPORT_CHANGED]:["admin","engenheiro","engenheiro_auditor"],
@@ -241,6 +252,7 @@ export const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.PAYABLE_PAYMENT_REVERSED]:["admin","financeiro","compras"],
   [OPERATIONAL_COMMAND.PURCHASE_CANCELLED]:["admin","financeiro","compras"],
   [OPERATIONAL_COMMAND.BANK_TRANSACTIONS_IMPORTED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.BANK_IMPORT_REVERSED]:['admin'],
   [OPERATIONAL_COMMAND.BANK_TRANSACTIONS_IGNORED]:["admin","financeiro"],
   [OPERATIONAL_COMMAND.BANK_TRANSACTIONS_REOPENED]:["admin","financeiro"],
   [OPERATIONAL_COMMAND.THIRD_PARTY_PAYMENT_RECORDED]:["admin","financeiro"],
@@ -248,6 +260,7 @@ export const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_RECORDED]:["admin","engenheiro","engenheiro_auditor"],
   [OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_CANCELLED]:["admin","engenheiro","engenheiro_auditor"],
   [OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_PAID]:["admin","financeiro"],
+  ...Object.fromEntries(["THIRD_PARTY_RETENTION_SAVED","THIRD_PARTY_RETENTION_RELEASED","THIRD_PARTY_RETENTION_PAID"].map(key=>[OPERATIONAL_COMMAND[key],["admin","financeiro"]])),
   [OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_APPROVED]:["admin","financeiro"],
   [OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_REJECTED]:["admin","financeiro"],
   [OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_RESUBMITTED]:["admin","engenheiro","engenheiro_auditor"],
@@ -369,6 +382,7 @@ const FINANCIAL_OPERATIONAL_COMMANDS=new Set([
   OPERATIONAL_COMMAND.PAYABLE_PAYMENT_REVERSED,
   OPERATIONAL_COMMAND.PURCHASE_CANCELLED,
   OPERATIONAL_COMMAND.BANK_TRANSACTIONS_IMPORTED,
+  OPERATIONAL_COMMAND.BANK_IMPORT_REVERSED,
   OPERATIONAL_COMMAND.BANK_TRANSACTIONS_IGNORED,
   OPERATIONAL_COMMAND.BANK_TRANSACTIONS_REOPENED,
   OPERATIONAL_COMMAND.THIRD_PARTY_PAYMENT_RECORDED,
@@ -376,6 +390,7 @@ const FINANCIAL_OPERATIONAL_COMMANDS=new Set([
   OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_RECORDED,
   OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_CANCELLED,
   OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_PAID,
+  OPERATIONAL_COMMAND.THIRD_PARTY_RETENTION_SAVED,OPERATIONAL_COMMAND.THIRD_PARTY_RETENTION_RELEASED,OPERATIONAL_COMMAND.THIRD_PARTY_RETENTION_PAID,
   OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_APPROVED,
   OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_REJECTED,
   OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_RESUBMITTED,
@@ -2189,74 +2204,9 @@ export default async function handler(req, res) {
     }
 
     if (action === "client-portal-admin") {
-      if(usuario.role!=="admin")return res.status(403).json({error:"Apenas administradores podem gerenciar acessos de clientes."});
-      const operation=String(req.body?.operation || "list");
-      const obraId=String(req.body?.obraId || "");
-      const obra=(atual.obras || []).find(item=>String(item.id)===obraId);
-      if(!obra)return res.status(404).json({error:"Obra não encontrada."});
-
-      const listAccess=async()=>{
-        const {data:memberships,error}=await db.from("client_portal_project_memberships")
-          .select("id,portal_user_id,profile,grants,revokes,active,created_at,client_portal_users!inner(id,email,phone,status,last_login_at)")
-          .eq("company_id",COMPANY).eq("project_id",obraId).order("created_at",{ascending:false});
-        if(error)throw error;
-        return (memberships || []).map(item=>{
-          const client=Array.isArray(item.client_portal_users)?item.client_portal_users[0]:item.client_portal_users;
-          return {
-            id:item.id,userId:item.portal_user_id,profile:item.profile,grants:item.grants||[],revokes:item.revokes||[],
-            active:item.active!==false,email:client?.email||"",phone:client?.phone||"",
-            status:client?.status||"",lastLoginAt:client?.last_login_at||"",
-          };
-        });
-      };
-
-      if(operation==="list")return res.status(200).json({ok:true,accesses:await listAccess()});
-
-      if(operation==="revoke"){
-        const membershipId=String(req.body?.membershipId || "");
-        const {data:membership,error:findError}=await db.from("client_portal_project_memberships")
-          .select("id,portal_user_id").eq("company_id",COMPANY).eq("project_id",obraId).eq("id",membershipId).maybeSingle();
-        if(findError)throw findError;
-        if(!membership)return res.status(404).json({error:"Acesso não encontrado."});
-        const now=new Date().toISOString();
-        const {error}=await db.from("client_portal_project_memberships").update({active:false,updated_at:now}).eq("id",membership.id);
-        if(error)throw error;
-        await db.from("client_portal_sessions").update({revoked_at:now}).eq("company_id",COMPANY).eq("portal_user_id",membership.portal_user_id).is("revoked_at",null);
-        await db.from("client_portal_audit_events").insert({company_id:COMPANY,portal_user_id:membership.portal_user_id,project_id:obraId,event_type:"access_revoked",metadata:{actorId:usuario.id}});
-        return res.status(200).json({ok:true,accesses:await listAccess()});
-      }
-
-      const publishProject=async()=>{
-        const now=new Date().toISOString();
-        const rows=buildClientPortalPublicationRows({data:atual,projectId:obraId,publishedAt:now});
-        await db.from("client_portal_publications").update({status:"superseded",updated_at:now}).eq("company_id",COMPANY).eq("project_id",obraId).eq("status","published");
-        const {error}=await db.from("client_portal_publications").insert(rows.map(row=>({company_id:COMPANY,project_id:obraId,domain:row.domain,status:"published",visibility:"project_users",payload:row.payload,created_by:usuario.id,published_by:usuario.id,published_at:now})));
-        if(error)throw error;
-      };
-
-      if(operation==="publish"){await publishProject();return res.status(200).json({ok:true,accesses:await listAccess()});}
-      if(operation!=="provision")return res.status(400).json({error:"Operação de portal inválida."});
-
-      const email=normalizePortalEmail(req.body?.email), password=String(req.body?.password||"");
-      const profile=String(req.body?.profile||"owner");
-      const allowedProfiles=new Set(["owner","spouse","representative","financial","external_architect","observer"]);
-      if(!email||!email.includes("@"))return res.status(400).json({error:"Informe um e-mail válido."});
-      if(!validPortalPassword(password))return res.status(400).json({error:"A senha inicial deve ter 12 caracteres, letras e números."});
-      if(!allowedProfiles.has(profile))return res.status(400).json({error:"Perfil de cliente inválido."});
-      let {data:portalUser,error:userError}=await db.from("client_portal_users").select("id").eq("company_id",COMPANY).eq("email",email).maybeSingle();
-      if(userError)throw userError;
-      const userValues={company_id:COMPANY,email,phone:String(req.body?.phone||"").trim(),password_hash:hashPortalPassword(password),status:"active",updated_at:new Date().toISOString()};
-      if(portalUser){
-        const {error}=await db.from("client_portal_users").update(userValues).eq("id",portalUser.id);if(error)throw error;
-      }else{
-        const created=await db.from("client_portal_users").insert(userValues).select("id").single();if(created.error)throw created.error;portalUser=created.data;
-      }
-      const membershipValues={company_id:COMPANY,portal_user_id:portalUser.id,project_id:obraId,profile,grants:Array.isArray(req.body?.grants)?req.body.grants:[],revokes:Array.isArray(req.body?.revokes)?req.body.revokes:[],active:true,updated_at:new Date().toISOString()};
-      const {error:membershipError}=await db.from("client_portal_project_memberships").upsert(membershipValues,{onConflict:"company_id,portal_user_id,project_id"});
-      if(membershipError)throw membershipError;
-      await publishProject();
-      await db.from("client_portal_audit_events").insert({company_id:COMPANY,portal_user_id:portalUser.id,project_id:obraId,event_type:"access_provisioned",metadata:{actorId:usuario.id,profile}});
-      return res.status(200).json({ok:true,accesses:await listAccess(),portalUrl:`/cliente/obra/${encodeURIComponent(obraId)}`});
+      const result=await executeClientPortalAdmin({db,companyId:COMPANY,data:atual,actor:usuario,body:req.body});
+      const {status,...body}=result;
+      return res.status(status).json(body);
     }
 
     // Prévia do fechamento: mesma semântica do fechamento autoritativo,
@@ -2834,12 +2784,13 @@ export default async function handler(req, res) {
     // insegura de "último snapshot vence". A rota ainda devolve a projeção
     // filtrada pelo papel para poder substituir o save legado gradualmente.
     if(action==="operational-command"){
-      const rawCommand=req.body?.command||{};
+      const rawCommand=verifiedFileTrashCommand(req.body?.command||{});
       // Engineering durations always use server time, never a supplied browser clock.
-      const command=(ACCOUNTING_COMMAND_TYPES.has(rawCommand.type)||BASELINE_COMMAND_TYPES.has(rawCommand.type)||ENGINEERING_COMMAND_TYPES.has(rawCommand.type)||FILE_COMMAND_TYPES.has(rawCommand.type)||DOSSIER_COMMAND_TYPES.has(rawCommand.type)||rawCommand.type===OPERATIONAL_COMMAND.CLOSING_SOURCE_CORRECTED||rawCommand.type===OPERATIONAL_COMMAND.ORDER_PAYMENT_ALLOCATED)?{...rawCommand,now:new Date().toISOString()}:rawCommand;
+      const command=(rawCommand.type===OPERATIONAL_COMMAND.BANK_IMPORT_REVERSED||ACCOUNTING_COMMAND_TYPES.has(rawCommand.type)||BASELINE_COMMAND_TYPES.has(rawCommand.type)||ENGINEERING_COMMAND_TYPES.has(rawCommand.type)||FILE_COMMAND_TYPES.has(rawCommand.type)||DOSSIER_COMMAND_TYPES.has(rawCommand.type)||rawCommand.type===OPERATIONAL_COMMAND.CLOSING_SOURCE_CORRECTED||rawCommand.type===OPERATIONAL_COMMAND.ORDER_PAYMENT_ALLOCATED)?{...rawCommand,now:new Date().toISOString()}:rawCommand;
       if(command.type===OPERATIONAL_COMMAND.CLOSING_SOURCE_CORRECTED){command.actorId=usuario.id;command.actorName=usuario.nome;}
       const authz=authorizeOperationalCommand(command.type,usuario.role);
       if(!authz.ok)return res.status(authz.status).json({error:authz.error});
+      command.idempotencyKey=operationalIdempotencyKey(command);
       if(!/^[a-zA-Z0-9_-]{16,200}$/.test(String(command.idempotencyKey||"")))return res.status(400).json({error:"Chave idempotente operacional inválida."});
       const scope=validateOperationalCommandScope({user:usuario,data:atual,command});
       if(!scope.ok)return res.status(scope.error.includes("vinculado")?400:403).json({error:scope.error});
@@ -2942,7 +2893,7 @@ export default async function handler(req, res) {
       for(let attempt=0;attempt<6;attempt+=1){
         const retryScope=validateOperationalCommandScope({user:usuario,data:base.payload,command});
         if(!retryScope.ok)return res.status(403).json({error:retryScope.error});
-        const result=await reconcileImportedStatement(applyOperationalCommand(base.payload,{...command,actorId:usuario.id,actorRole:usuario.role||"",actorName:usuario.nome||usuario.email||"Usuário autenticado"}),command,usuario,validarImportacaoAutomatica);
+        const result=await reconcileImportedStatement(applyOperationalCommand(base.payload,{...command,actorId:usuario.id,actorRole:usuario.role||"",actorObraId:usuario.obraId||"",actorName:usuario.nome||usuario.email||"Usuário autenticado"}),command,usuario,validarImportacaoAutomatica);
         if(!result.ok)return res.status(409).json({conflict:true,reason:result.reason,currentUpdatedAt:base.updatedAt});
         if(result.idempotent)return res.status(200).json({ok:true,idempotent:true,data:projectDataForUser(base.payload,usuario),updatedAt:base.updatedAt});
         const gravacao=await persistir(base,result.data);
@@ -3498,6 +3449,10 @@ export default async function handler(req, res) {
     }
 
     // ── 3. Carregar ────────────────────────────────────────────────
+    if(action==='commercial-contract-model'){
+      if(usuario.role!=='admin')return res.status(403).json({error:'Somente o administrador pode consultar o texto protegido dos modelos.'});
+      return res.status(200).json({ok:true,model:{id:contractSourceModel.id,version:contractSourceModel.version,nodes:contractSourceModel.nodes}});
+    }
     if (action === "load") {
       const [completo,indice] = await Promise.all([anexarCustosArquivados(atual),lerIndicePerfis().catch(()=>null)]);
       // Autocorreção: índice de login/OneDrive desatualizado (obra criada por
@@ -3567,7 +3522,7 @@ export default async function handler(req, res) {
       }
       if (!objeto(sections)) return res.status(400).json({ error: "Nenhuma seção para salvar." });
       const chaves = Object.keys(sections).filter(k => k && !k.startsWith("__")).slice(0, 120);
-      const commandOnlySections=["workFileCabinets","engineeringProjects","attendance","attendanceLocks","unlockRequests","dailyCheckDate","attendanceOperationReceipts","changeLog"];
+      const commandOnlySections=["commercialContractRecords","commercialContractCompany","workFileCabinets","engineeringProjects","attendance","attendanceLocks","unlockRequests","dailyCheckDate","attendanceOperationReceipts","changeLog"];
       const legacyPointWrite=chaves.find(key=>commandOnlySections.includes(key));
       if(legacyPointWrite)return res.status(409).json({
         error:`A seção ${legacyPointWrite} exige o comando granular do servidor.`,
@@ -3630,6 +3585,8 @@ export default async function handler(req, res) {
               Object.fromEntries(chaves.map(key=>[key,value[key]])),
             );
             if(erroExclusao)return {kind:"error",status:409,error:erroExclusao};
+            const erroGarantia=validateTechnicalRetentionPolicy(current,value);
+            if(erroGarantia)return {kind:'error',status:403,error:erroGarantia};
             const erroBaseline=validateBudgetBaselinePolicy(current,value,usuario);
             if(erroBaseline)return {kind:"error",status:403,error:erroBaseline};
             const erroBaseContabil=validateAccountingSnapshotPolicy(current,value);
@@ -3718,7 +3675,9 @@ export default async function handler(req, res) {
           ?mergeThreeWay(baseSections[key],sections[key],atual?.[key]):sections[key]])),
       );
       if(erroExclusao)return res.status(409).json({error:erroExclusao});
-      const erroBaseline=validateBudgetBaselinePolicy(atual,{...atual,...sections},usuario);
+      const erroGarantia=validateTechnicalRetentionPolicy(atual,{...atual,...sections});
+            if(erroGarantia)return res.status(403).json({error:erroGarantia});
+            const erroBaseline=validateBudgetBaselinePolicy(atual,{...atual,...sections},usuario);
       if(erroBaseline)return res.status(403).json({error:erroBaseline});
       const erroBaseContabil=validateAccountingSnapshotPolicy(atual,{...atual,...sections});
       if(erroBaseContabil)return res.status(403).json({error:erroBaseContabil});
@@ -3795,7 +3754,7 @@ export default async function handler(req, res) {
         error:"Há competência financeira fechada. Recarregue a página e salve pela operação granular do módulo.",
         code:"CLOSED_DRE_GRANULAR_REQUIRED",
       });
-      const commandOnlySections=["workFileCabinets","engineeringProjects","attendance","attendanceLocks","unlockRequests","dailyCheckDate","attendanceOperationReceipts","changeLog"];
+      const commandOnlySections=["commercialContractRecords","commercialContractCompany","workFileCabinets","engineeringProjects","attendance","attendanceLocks","unlockRequests","dailyCheckDate","attendanceOperationReceipts","changeLog"];
       const attemptedCommandOnly=commandOnlySections.find(key=>
         Object.prototype.hasOwnProperty.call(payload,key)&&!igual(payload?.[key],atual?.[key]));
       if(attemptedCommandOnly)return res.status(409).json({
@@ -3833,7 +3792,9 @@ export default async function handler(req, res) {
       if(erroAutorizacao)return res.status(403).json({error:erroAutorizacao});
       const erroExclusao=validateNoPhysicalDeletes(atual,incomingPayload);
       if(erroExclusao)return res.status(409).json({error:erroExclusao});
-      const erroBaseline=validateBudgetBaselinePolicy(atual,incomingPayload,usuario);
+      const erroGarantia=validateTechnicalRetentionPolicy(atual,incomingPayload);
+            if(erroGarantia)return res.status(403).json({error:erroGarantia});
+            const erroBaseline=validateBudgetBaselinePolicy(atual,incomingPayload,usuario);
       if(erroBaseline)return res.status(403).json({error:erroBaseline});
       const erroBaseContabil=validateAccountingSnapshotPolicy(atual,incomingPayload);
       if(erroBaseContabil)return res.status(403).json({error:erroBaseContabil});

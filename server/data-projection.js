@@ -1,3 +1,4 @@
+import {mayReadContractDocuments} from '../src/domains/comercial/contracts/record-commands.js';
 import {canUseCompanyAccounting} from '../src/domains/financeiro/accounting-indicators.js';
 import {
   resolveEmployeeAttendanceObraId,
@@ -94,8 +95,13 @@ export const projectDataForUser = (payload = {}, user = {}) => {
   const allowedSections = new Set(ROLE_SECTIONS[user.role] || []);
   if(podeAcessarAba(user,'plan')||podeAcessarAba(user,'fin'))for(const section of ['scheduleBaselines','planos','orcamentos','budgetBaselines'])allowedSections.add(section);
   if(user.role==='financeiro'&&podeAcessarAba(user,'fin'))allowedSections.add('rdos');
+  if(user.role==='financeiro'&&podeAcessarAba(user,'fin'))for(const section of ['materiais','movEstoque','reservasEstoque'])allowedSections.add(section);
   const allowedObras = new Set(user.obraId ? [String(user.obraId)] : []);
   const out = {};
+  if(user.role==='comercial'&&(podeAcessarAba(user,'com_deals')||podeAcessarAba(user,'com_contratos'))){
+    out.commercialContractRecords=(payload.commercialContractRecords||[]).filter(r=>mayReadContractDocuments(r,payload,user));
+    if(payload.commercialContractCompany){const {history:_history,...company}=payload.commercialContractCompany;out.commercialContractCompany=company;}
+  }
   if(canUseCompanyAccounting(user)&&podeAcessarAba(user,'fin'))out.accountingBases=payload.accountingBases||[];
   if(podeAcessarAba(user,"arquivos")){
     out.workFileCabinets=(payload.workFileCabinets||[]).filter(item=>!allowedObras.size||allowedObras.has(String(item.obraId))).map(item=>projectFileCabinet(item,user));
@@ -123,6 +129,11 @@ export const projectDataForUser = (payload = {}, user = {}) => {
     const value = payload[key];
     if (value === undefined) continue;
     if (key === "obras") { out.obras = (value || []).filter(item => hasObra({ obraId:item.id }, allowedObras)).map(sanitizeObra); continue; }
+    // Catálogo comum permite resolver código e unidade também no financeiro
+    // restrito à obra. Movimentos e reservas continuam recortados abaixo.
+    if(key==='materiais'&&user.role==='financeiro'){
+      out.materiais=(value||[]).map(({id,codigo,descricao,unidade,precoMedio,ativo,deletedAt,status})=>({id,codigo,descricao,unidade,precoMedio,ativo,deletedAt,status}));continue;
+    }
     if(key==='rdos'&&user.role==='financeiro'){out.rdos=filterByObra(value,allowedObras).map(({id,obraId,data,status,version,productionVersion,revisaoEngenheiro,servicos})=>({id,obraId,data,status,version,productionVersion,
       // Texto livre de obra fica com engenharia e admin (decisão de 03/11/2026).
       revisaoEngenheiro:revisaoEngenheiro&&(({observacao:_texto,...resto})=>resto)(revisaoEngenheiro),
@@ -176,6 +187,14 @@ export const projectDataForUser = (payload = {}, user = {}) => {
       continue;
     }
     if (key === "comercial") {
+      if(user.obraId){
+        const clientIds=new Set((payload.obras||[]).filter(w=>String(w.id)===String(user.obraId)).map(w=>w.clienteId).filter(Boolean));
+        const clients=(value?.clientes||[]).filter(c=>clientIds.has(c.id));
+        const leadIds=new Set(clients.map(c=>c.leadId).filter(Boolean));
+        out.comercial={...value,clientes:clients,propostas:(value?.propostas||[]).filter(p=>leadIds.has(p.leadId))};
+        for(const [name,rows] of Object.entries(out.comercial))if(Array.isArray(rows)&&!['clientes','propostas'].includes(name))out.comercial[name]=rows.filter(r=>hasObra(r,allowedObras));
+        continue;
+      }
       out.comercial = Object.fromEntries(Object.entries(value || {}).map(([name, records]) => [name, Array.isArray(records)
         ? records.filter(record => !record.responsavelId || record.responsavelId === user.id || hasObra(record, allowedObras)) : records]));
       continue;

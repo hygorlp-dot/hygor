@@ -25,7 +25,8 @@ it("a exportação A2 numera as atividades pela EAP do orçamento", () => {
   const inicio = source.indexOf("const exportarCronogramaA2");
   const trecho = source.slice(inicio, source.indexOf("setExportA2Modal(false);", inicio));
   expect(trecho).toContain("numeracaoEap(tarefas, orc?.etapas)");
-  expect(trecho).toContain("w.opener=null");
+  expect(trecho).toContain("openReportPreview(html)");
+  expect(source).toContain('import {openReportPreview}');
 });
 
 // 30/09/2026: "o cronograma não está saindo as datas" - régua de 9 marcas sem

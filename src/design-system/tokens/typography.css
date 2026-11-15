@@ -1,12 +1,14 @@
-/* Padrão MARCELL (29/10/2026): só existem dois cortes. O regular cobre até 600
-   para que os 1.300+ "fontWeight:600" herdados não virem negrito cheio; o negrito
-   fica reservado a ênfase explícita (700). Hierarquia vem de tamanho, não de peso. */
+/* Nimbus remains available for standalone documents. Operational typography
+   follows the theme registry; legacy aliases must consume the same tokens. */
+@font-face {font-family:"IBM Plex Sans";src:url("/fonts/ibm-plex/IBMPlexSans-Regular.woff2") format("woff2");font-style:normal;font-weight:400;font-display:swap;}
+@font-face {font-family:"IBM Plex Sans";src:url("/fonts/ibm-plex/IBMPlexSans-Medium.woff2") format("woff2");font-style:normal;font-weight:500;font-display:swap;}
+@font-face {font-family:"IBM Plex Sans";src:url("/fonts/ibm-plex/IBMPlexSans-SemiBold.woff2") format("woff2");font-style:normal;font-weight:600;font-display:swap;}
 @font-face {font-family:"Nimbus Sans";font-style:normal;font-weight:400 600;font-display:swap;src:url("/fonts/marcell/NimbusSans-Regular.woff2") format("woff2");}
 @font-face {font-family:"Nimbus Sans";font-style:normal;font-weight:700 900;font-display:swap;src:url("/fonts/marcell/NimbusSans-Bold.woff2") format("woff2");}
 @font-face {font-family:"P052";font-style:normal;font-weight:400;font-display:swap;src:url("/fonts/marcell/P052-Roman.woff2") format("woff2");}
 
 :root {
-  --arcd-font-sans: "Nimbus Sans", "Helvetica Neue", Arial, sans-serif;
+  --arcd-font-sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
   --arcd-font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --arcd-font-numeric: var(--arcd-font-sans);
 

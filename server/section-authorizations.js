@@ -1,4 +1,5 @@
 import { orcamentoAprovado } from "../src/domains/orcamentos/budget-approval.js";
+import {budgetHierarchyError} from '../src/domains/orcamentos/hierarchy.js';
 // Política única para mutações do blob legado. A UI pode ocultar um botão,
 // mas a autorização definitiva ocorre antes de qualquer update no servidor.
 const SECTION_ROLES = Object.freeze({
@@ -180,6 +181,27 @@ const validarOrcamentosAprovados=(antes,depois)=>{
   return "";
 };
 export const validateNoPhysicalDeletes = (previous = {}, next = {}) => {
+  if(Object.prototype.hasOwnProperty.call(next,'extratos')){
+    const after=porId(next.extratos),beforeIndex=porId(previous.extratos);
+    if((next.extratos||[]).some(item=>!beforeIndex.get(String(item.id))?.importManifest&&(item.importManifest||item.originalFile||item.importReversals?.length)))return 'Lotes bancários exigem o comando de importação autorizado.';
+    for(const before of previous.extratos||[]){
+      if(!before.importManifest)continue;
+      const current=after.get(String(before.id));
+      if(!current||['importManifest','originalFile','importReversals','hashArquivo','arquivo'].some(key=>JSON.stringify(before[key])!==JSON.stringify(current[key])))return 'Originais, lotes e reversões bancárias exigem o comando autorizado.';
+    }
+  }
+  if(Object.prototype.hasOwnProperty.call(next,'transacoes')){
+    const after=porId(next.transacoes),beforeIndex=porId(previous.transacoes);
+    if((next.transacoes||[]).some(item=>!beforeIndex.get(String(item.id))?.importStamp&&(item.importStamp||item.importReversal)))return 'A origem bancária exige o comando de importação autorizado.';
+    for(const before of previous.transacoes||[]){
+      const current=after.get(String(before.id));
+      if(before.importStamp&&(!current||before.importStamp!==current.importStamp||before.importReversal!==current.importReversal||current.status==='cancelado'&&before.status!=='cancelado'))return 'A reversão da importação exige o comando autorizado.';
+      if(before.importReversal&&(!current||Object.keys(before).some(key=>JSON.stringify(before[key])!==JSON.stringify(current[key]))))return 'Movimentos revertidos permanecem imutáveis para auditoria.';
+    }
+  }
+  for(const key of ['commercialContractRecords','commercialContractCompany']){
+    if(Object.prototype.hasOwnProperty.call(next,key)&&JSON.stringify(previous[key]??null)!==JSON.stringify(next[key]??null))return 'Contratos e cadastro da contratada exigem o comando comercial autorizado.';
+  }
   for(const key of CATALOG_SECTIONS){
     if(!Object.prototype.hasOwnProperty.call(next,key))continue;
     const erro=validarMutacaoCatalogo(previous[key],next[key],key);
@@ -205,6 +227,11 @@ export const validateNoPhysicalDeletes = (previous = {}, next = {}) => {
   if(Object.prototype.hasOwnProperty.call(next,"orcamentos")){
     const erro=validarOrcamentosAprovados(previous.orcamentos,next.orcamentos);
     if(erro)return erro;
+    const before=new Map((previous.orcamentos||[]).map(b=>[b.id,b]));
+    const shape=b=>[b?.etapas||[],(b?.itens||[]).map(i=>[i.id,i.etapaId])];
+    for(const budget of next.orcamentos||[])if(JSON.stringify(shape(before.get(budget.id)))!==JSON.stringify(shape(budget))){
+      const error=budgetHierarchyError(budget);if(error)return error;
+    }
   }
   for(const [section,child,label] of [
     ["pedidos","pagamentos","pagamentos de pedidos"],
@@ -225,6 +252,14 @@ export const validateNoPhysicalDeletes = (previous = {}, next = {}) => {
 const byRecordId=value=>new Map((Array.isArray(value)?value:[]).map(item=>[String(item?.id||""),item]).filter(([id])=>id));
 const sameJson=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 export const validateBudgetBaselinePolicy=(previous={},next={},user={})=>{
+  if(Object.prototype.hasOwnProperty.call(next,'obras')){
+    const before=new Map((previous.obras||[]).map(w=>[String(w.id),w.costPlanning]));
+    for(const work of previous.obras||[])if((Object.keys(work.costPlanning?.serviceLinks||{}).length||work.costPlanning?.serviceLinkHistory?.length)&&!(next.obras||[]).some(w=>String(w.id)===String(work.id)))return 'Obra com histórico de vínculos de compromissos não pode ser removida por snapshot.';
+    for(const work of next.obras||[]){
+      const old=before.get(String(work.id));
+      if(!sameJson(old?.serviceLinks||{},work.costPlanning?.serviceLinks||{})||!sameJson(old?.serviceLinkHistory||[],work.costPlanning?.serviceLinkHistory||[]))return 'Vínculos de compromissos e seu histórico só podem ser alterados pelo comando de previsão.';
+    }
+  }
   const previousBudgets=byRecordId(previous.orcamentos),nextBudgets=byRecordId(next.orcamentos);
   for(const [id,budget] of nextBudgets){
     const before=previousBudgets.get(id);
@@ -233,6 +268,7 @@ export const validateBudgetBaselinePolicy=(previous={},next={},user={})=>{
     if(!wasApproved&&isApproved){
       if(user.role!=="admin")return "Somente o administrador pode aprovar uma versão orçamentária.";
       if(!String(budget.lockedAt||budget.approvedAt||"").trim()||!String(budget.approvedById||budget.lockedById||"").trim())return "A aprovação da versão exige data e autor auditáveis.";
+      const error=budgetHierarchyError(budget);if(error)return error;
     }
   }
 
@@ -247,6 +283,7 @@ export const validateBudgetBaselinePolicy=(previous={},next={},user={})=>{
       active.set(key,baseline);
       const budget=nextBudgets.get(String(baseline.budgetId||""));
       if(!budget||!orcamentoAprovado(budget))return "A baseline deve apontar para uma versão orçamentária aprovada e bloqueada.";
+      if(!sameJson(before,after)){const error=budgetHierarchyError(budget);if(error)return error;}
     }
   }
   return "";
@@ -306,4 +343,29 @@ export const validateBankReconciliationPolicy=(previous={},next={},user={})=>{
     }
   }
   return "";
+};
+
+// Garantia e sua trilha só mudam pelos comandos auditados, inclusive para admin.
+export const validateTechnicalRetentionPolicy=(previous={},next={})=>{
+ const stable=v=>Array.isArray(v)?v.map(stable):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(key=>[key,stable(v[key])])):v;
+ const equal=(a,b)=>sameJson(stable(a),stable(b));
+ const normalize=m=>m?{...m,data:m.data||m.dataMedicao||'',dataMedicao:m.dataMedicao||m.data||'',numero:Number(m.numero||0),total:Number(m.total||0),
+  observacao:m.observacao||'',pagamentoId:m.pagamentoId||'',notaFiscalId:m.notaFiscalId||'',responsavelEvidenciaId:m.responsavelEvidenciaId||'',responsavelEvidencia:m.responsavelEvidencia||'',responsavelEvidenciaRole:m.responsavelEvidenciaRole||'',
+  itens:(m.itens||[]).map(i=>({etapaId:i.etapaId||'',pctAnterior:Number(i.pctAnterior||0),pctAcum:Number(i.pctAcum||0),valor:Number(i.valor||0)})),
+  fotos:(m.fotos||[]).map(f=>({id:f.id,url:f.url||'',path:f.path||f.id||'',nome:f.nome||'Evidência fotográfica',legenda:f.legenda||'',enviadoPorId:f.enviadoPorId||'',enviadoPor:f.enviadoPor||'',enviadoPorRole:f.enviadoPorRole||'',enviadoEm:f.enviadoEm||''}))}:null;
+ const records=new Map((previous.medicoesTerc||[]).map(m=>[m.id,m]));
+ const updated=new Map((next.medicoesTerc||[]).map(m=>[m.id,m]));
+ const protectedIds=new Set();
+ for(const id of new Set([...records.keys(),...updated.keys()])){
+  const before=records.get(id),after=updated.get(id);
+  if(before?.technicalRetention||after?.technicalRetention||before?.technicalRetentionHistory||after?.technicalRetentionHistory){
+   protectedIds.add(id);
+   if(!equal(normalize(before),normalize(after)))return 'Garantias e medições com garantia só podem ser alteradas pelos comandos específicos.';
+  }
+ }
+ const payments=rows=>(rows||[]).filter(p=>p.guaranteePayment||p.technicalRetentionCents>0||protectedIds.has(p.medicaoTercId)).map(p=>({...p,pagador:p.pagador==='empresa'?'empresa':'obra',issRetido:Number(p.issRetido||0),inssRetido:Number(p.inssRetido||0),liquido:p.liquido!=null?Number(p.liquido):Number(p.amount||0),conciliado:!!p.conciliado,transacaoId:p.transacaoId||'',medicaoTercId:p.medicaoTercId||''}));
+ if(!equal(payments(previous.pagsTerceiros),payments(next.pagsTerceiros)))return 'Use os comandos de pagamento, estorno e conciliação da garantia.';
+ const invoices=rows=>(rows||[]).filter(n=>protectedIds.has(n.medicaoTercId)||[...records.values()].some(m=>protectedIds.has(m.id)&&m.notaFiscalId===n.id)).map(n=>[n.id,n.pagamentos||[]]);
+ if(!equal(invoices(previous.notasFiscais),invoices(next.notasFiscais)))return 'Não altere baixas da nota de uma medição com garantia por snapshot.';
+ return '';
 };

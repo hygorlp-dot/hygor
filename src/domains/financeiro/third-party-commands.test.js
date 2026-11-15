@@ -196,7 +196,7 @@ describe("comandos de terceiros",()=>{
     const data={
       ...base(),medicoesTerc:[measurement()],
       notasFiscais:[{
-        id:"nf-1",valorBruto:500,status:"aprovada",version:0,
+        id:"nf-1",obraId:"o-1",valorBruto:500,status:"aprovada",version:0,
       }],
     };
     const result=applyThirdPartyCommand(data,command(

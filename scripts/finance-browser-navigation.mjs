@@ -1,8 +1,11 @@
+import {expect} from '@playwright/test';
+
 export async function openFinanceModule(page,label='Gestão financeira'){
  if(page.viewportSize().width<1100){
   const oldTarget=page.locator('.mobile-subnav').getByRole('button',{name:label,exact:true});
   const moduleSelect=page.getByRole('combobox',{name:'Telas de Financeiro',exact:true});
   if(!await oldTarget.isVisible()&&!await moduleSelect.isVisible())await page.getByRole('button',{name:'Abrir Financeiro',exact:true}).click();
+  await expect.poll(async()=>await moduleSelect.isVisible()||await oldTarget.isVisible()).toBe(true);
   if(await moduleSelect.isVisible())await moduleSelect.selectOption({label});else await oldTarget.click();
  }else{
   const target=page.getByRole('button',{name:label,exact:true});
@@ -12,9 +15,11 @@ export async function openFinanceModule(page,label='Gestão financeira'){
 }
 export async function selectFinanceArea(page,label){
  const select=page.getByRole('combobox',{name:'Áreas do financeiro',exact:true});
+ const navigation=page.getByRole('navigation',{name:'Áreas do financeiro',exact:true});
+ await expect.poll(async()=>await select.isVisible()||await navigation.isVisible()).toBe(true);
  if(await select.isVisible())await select.selectOption({label});
  else {
-  const primary=page.getByRole('navigation',{name:'Áreas do financeiro'}).getByRole('button',{name:label,exact:true});
+  const primary=navigation.getByRole('button',{name:label,exact:true});
   if(await primary.count()) await primary.click();
   else {
    await page.locator('.financial-navigation .workspace-navigation__tools > summary').click();

@@ -1,4 +1,5 @@
 import { bdiEfetivo, calculateBudget } from "./calculations";
+import {MAX_BUDGET_LEVELS,assertBudgetHierarchy} from './hierarchy.js';
 
 export const buildBudgetTree = (stages = [], items = []) => {
   const childrenByParent = new Map();
@@ -8,9 +9,9 @@ export const buildBudgetTree = (stages = [], items = []) => {
   });
   const itemsByStage = new Map();
   items.forEach(item => itemsByStage.set(item.etapaId, [...(itemsByStage.get(item.etapaId) || []), item]));
-  const walk = (parentId, prefix, level) => (childrenByParent.get(parentId) || []).map((stage, index) => {
+  const walk = (parentId, prefix, level, seen=new Set()) => (childrenByParent.get(parentId) || []).filter(stage=>!seen.has(stage.id)).map((stage, index) => {
     const code = prefix ? `${prefix}.${index + 1}` : String(index + 1);
-    const sub = walk(stage.id, code, level + 1);
+    const sub = walk(stage.id, code, level + 1,new Set([...seen,stage.id]));
     const ownItems = (itemsByStage.get(stage.id) || []).map((item, itemIndex) => ({
       ...item,
       codigoItem:`${code}.${sub.length + itemIndex + 1}`,
@@ -77,12 +78,13 @@ export const reorderBudgetStage = (stages, id, position) => {
   return stages.map(item => (item.parentId || "") === (stage.parentId || "") ? ordered[index++] : item);
 };
 
-export const moveBudgetStage = (stages, id, parentId = "", maxLevel = 5) => {
+export const moveBudgetStage = (stages, id, parentId = "", maxLevel = MAX_BUDGET_LEVELS) => {
   if (!stages.some(stage => stage.id === id)) throw new Error("Etapa não encontrada.");
   if (parentId && !stages.some(stage => stage.id === parentId)) throw new Error("Etapa superior não encontrada.");
   const subtree = budgetSubtreeIds(stages, id);
   if (subtree.includes(parentId)) throw new Error("Uma etapa não pode ficar dentro dela mesma ou de suas subetapas.");
   const next = stages.map(stage => stage.id === id ? {...stage, parentId} : stage);
+  assertBudgetHierarchy({etapas:next});
   if (subtree.some(child => budgetStageLevel(next, child) > maxLevel)) {
     throw new Error(`A mudança ultrapassa o limite de ${maxLevel} níveis contando as subetapas.`);
   }

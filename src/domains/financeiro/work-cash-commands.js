@@ -1,4 +1,5 @@
 import { calculateWorkCash } from "./work-cash.js";
+import {isFinancialDate} from './dates.js';
 import { active } from "./ledger.js";
 import {operationalWarning} from '../compras/workflow-advisories.js';
 
@@ -37,7 +38,7 @@ export const applyWorkCashCommand=(data={},command={},now=new Date().toISOString
     const valor=Number(raw.valor);
     if(!(valor>0)||!Number.isFinite(valor))return fail("Informe um valor positivo para o movimento.");
     const date=String(raw.data||"");
-    if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return fail("Informe uma data válida para o movimento.");
+    if(!isFinancialDate(date))return fail("Informe uma data válida para o movimento.");
     const warnings=[];
     if(!project.hasCaixa)warnings.push(operationalWarning('WORK_CASH_NOT_CONFIGURED','pagamento','Administrador / Financeiro','Movimento registrado com caixa da obra ainda não ativado.','Confira a configuração do caixa e os movimentos já existentes; não repita o lançamento.'));
     if(tipo==='despesa'&&valor>calculateWorkCash(data,obraId).saldo+0.001)warnings.push(operationalWarning('WORK_CASH_NEGATIVE','pagamento','Financeiro','O saldo do caixa fica negativo com este registro.','Confira os aportes e a origem real do pagamento. Registre somente os fatos que ocorreram.'));

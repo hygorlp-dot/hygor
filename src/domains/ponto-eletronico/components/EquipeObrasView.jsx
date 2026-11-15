@@ -1,3 +1,4 @@
+import {TaskDisclosure} from '../../../design-system/patterns/TaskDisclosure.jsx';
 import {LoadingState} from '../../../design-system/patterns/LoadingState.jsx';
 import {Button as StandardButton} from '../../../components/ui/button.jsx';
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -38,6 +39,7 @@ export default function EquipeObrasView({ onTab, allowedTabs = [] }) {
   const [obraId, setObraId] = useState("");
   useSyncedWorkObra(obraId, setObraId, { allowedIds: (snapshot?.obras || []).map(o => o.id), allValue: "" });
   const [situacao, setSituacao] = useState("");
+  const [showEmptyWorks,setShowEmptyWorks]=useState(false);
   const [selecionado, setSelecionado] = useState(null);
   const filtrado = useMemo(() => filtrarEquipeObras(snapshot?.pessoas || [], snapshot?.obras || [], { busca, obraId, situacao }), [snapshot, busca, obraId, situacao]);
   const porObra = useMemo(() => {
@@ -88,7 +90,8 @@ export default function EquipeObrasView({ onTab, allowedTabs = [] }) {
       {!snapshot.obras.length && <p>Nenhuma obra disponível para seu acesso.</p>}
       {!snapshot.pessoas.length && <p>Nenhum funcionário disponível para seu acesso.</p>}
       {!!snapshot.pessoas.length && !filtrado.pessoas.length && <p>Nenhum funcionário corresponde à busca e aos filtros.</p>}
-      <div className="equipe-obras__grade">{filtrado.obras.map(o => {
+      <TaskDisclosure summary="Obras vazias neste filtro"><Button variant="secondary" onClick={()=>setShowEmptyWorks(value=>!value)}>{showEmptyWorks?'Ocultar obras vazias':'Mostrar obras vazias'}</Button><p>Inclui obras sem funcionários no recorte consultado. Os funcionários sem registro continuam em Ausências e funcionários fora das obras. Ausência de batida não confirma falta.</p></TaskDisclosure>
+      <div className="equipe-obras__grade">{filtrado.obras.filter(o=>showEmptyWorks||obraId===o.id||(porObra.get(o.id)||[]).length>0).map(o => {
         const equipe = porObra.get(o.id) || [];
         return <Card key={o.id} className="equipe-obras__obra">
           <header>{o.fotoUrl ? <img src={o.fotoUrl} alt="" className="equipe-obras__capa" /> : <Building2 size={28} aria-hidden="true" />}<div><h2>{o.name}</h2>{o.complemento && <p>{o.complemento}</p>}<p>{equipe.filter(p => p.situacao === "atividade").length} em atividade · {equipe.filter(p => p.situacao === "intervalo").length} em intervalo</p></div></header>

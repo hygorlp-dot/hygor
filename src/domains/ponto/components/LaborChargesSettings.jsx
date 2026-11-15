@@ -6,6 +6,7 @@ import { Btn, Ic, Inp, Sel } from "../../../legacy/ui.jsx";
 import { uid } from "../../../legacy/format.js";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { cltChargeFactor, laborChargesConfig } from "../../financeiro/labor-charges";
+import {WorkforceReserveSettings} from './WorkforceReserveSettings.jsx';
 
 const pctLabel = value => `${(value * 100).toFixed(1).replace(".", ",")}%`;
 
@@ -35,7 +36,7 @@ export function LaborChargesSettings({ data, currentUser, dispatchCommand, showT
   const num = (label, key, extra = {}) => <Inp label={label} type="number" value={String(draft[key])} disabled={!canSave}
     onChange={v => set(key, Number(v))} {...extra}/>;
 
-  return <section className="payroll-union" aria-labelledby="labor-charges-title">
+  return <><section className="payroll-union" aria-labelledby="labor-charges-title">
     <header className="payroll-union__header">
       <div>
         <h3 id="labor-charges-title">Encargos e provisões no custo da obra</h3>
@@ -61,5 +62,5 @@ export function LaborChargesSettings({ data, currentUser, dispatchCommand, showT
         ? <Btn v="primary" disabled={saving} onClick={save}><Ic n="check"/>{saving ? " Salvando…" : " Salvar encargos"}</Btn>
         : <small>Somente o administrador altera os encargos.</small>}
     </footer>
-  </section>;
+  </section><WorkforceReserveSettings data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast}/></>;
 }

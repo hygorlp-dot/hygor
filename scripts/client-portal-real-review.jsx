@@ -1,0 +1,13 @@
+import React from 'react';
+import {createRoot} from 'react-dom/client';
+import App from '../src/App.jsx';
+import {ThemeProvider} from '../src/design-system/theme/ThemeProvider.jsx';
+import {Alert,AlertTitle,AlertDescription} from '../src/components/ui/alert.jsx';
+import '../src/index.css';
+import '../src/design-system/themes/marcell-clean.css';
+import '../src/design-system/themes/marcell-pilot.css';
+import '../src/design-system/themes/marcell-workspaces.css';
+import '../src/design-system/themes/operating-contract.css';
+import '../src/design-system/themes/module-standard.css';
+import '../src/design-system/themes/material.css';
+createRoot(document.getElementById('root')).render(<ThemeProvider themeOverride="vidro"><Alert><AlertTitle>Revisão local com dados reais</AlertTitle><AlertDescription>Áreas liberadas apenas nesta cópia. Cadastros e publicações do ERP preservados.</AlertDescription></Alert><App/></ThemeProvider>);

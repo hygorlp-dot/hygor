@@ -40,7 +40,9 @@ export function hashPortalSessionToken(token) {
 export function parseCookies(cookieHeader = "") {
   return Object.fromEntries(String(cookieHeader).split(";").map(part => part.trim()).filter(Boolean).map(part => {
     const separator = part.indexOf("=");
-    return separator < 0 ? [part, ""] : [part.slice(0, separator), decodeURIComponent(part.slice(separator + 1))];
+    if(separator<0)return [part,""];
+    try{return [part.slice(0,separator),decodeURIComponent(part.slice(separator+1))];}
+    catch{return [part.slice(0,separator),""];}
   }));
 }
 

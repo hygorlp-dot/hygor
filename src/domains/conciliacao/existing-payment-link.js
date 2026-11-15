@@ -1,4 +1,5 @@
 import {active} from "../financeiro/ledger.js";
+import {thirdPartyCashAmount} from '../terceirizados/technical-retention.js';
 
 // A origem real fica no pagamento. A origem prevista no pedido só é fallback
 // para registros antigos sem origem própria; "pagador: obra" dos terceiros
@@ -37,7 +38,7 @@ export const validateExistingPaymentLink=(data,{transaction,tipo,entidadeId,paga
   }
   if(!parent||!active(parent)||parent.active===false)return {error:"O fato financeiro selecionado não existe ou está inativo."};
   const value=Math.abs(Number(transaction.valor));
-  const amount=item=>Number(item.valor??item.amount??0);
+  const amount=item=>item.technicalRetentionCents>0||item.guaranteePayment?thirdPartyCashAmount(item):Number(item.valor??item.amount??0);
   candidates=candidates.filter(active).filter(item=>pagamentoId?item.id===pagamentoId:Math.abs(amount(item)-value)<=0.01);
   if(candidates.length!==1)return {error:"Selecione um único pagamento existente com valor compatível."};
   const payment=candidates[0];

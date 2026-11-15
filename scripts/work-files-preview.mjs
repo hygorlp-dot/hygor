@@ -10,6 +10,8 @@ import { cabinetFileAccess } from '../src/domains/arquivos/access.js';
 import { FILE_COMMAND, FILE_COMMAND_TYPES } from '../src/domains/arquivos/commands.js';
 import { fileMime, fileValidation } from '../src/domains/arquivos/model.js';
 import { validateOperationalCommandScope } from '../server/operational-command-policy.js';
+import {trashWorkDocument,verifiedFileTrashCommand} from '../server/work-file-trash.js';
+import {operationalIdempotencyKey} from '../server/operational-command-policy.js';
 import { samplePdf } from '../e2e/helpers/sample-pdf.js';
 
 process.chdir(fileURLToPath(new URL('../',import.meta.url)));
@@ -52,11 +54,27 @@ if(process.env.MARCELL_FILES_PREVIEW_FRESH!=='1'&&!demoLicense.itens?.taxa?.docu
   const latest=revisions.at(-1);demoLicense.itens.taxa={status:'entregue',responsible:'Ana — exemplo fictício',documentos:[{id:'demo-tax-document',nome:latest.fileName,url:latest.url,tipo:latest.mime,tamanho:latest.size,revisions}]};
   data.usuarios.push({id:'demo-engineer',nome:'Ana — engenheira de demonstração',role:'engenheiro',active:true,obraId:data.obras[0].id});
 }
+if(process.env.MARCELL_FILES_TRASH_DEMO==='1'){
+  data.obras[0].oneDriveDriveId='demo-trash-drive';data.obras[0].oneDriveFolderId='demo-work-root';
+  await mkdir(`${root}/trash`,{recursive:true});
+  for(const width of (process.env.MARCELL_FILES_BATCH_TRASH_DEMO==='1'?[390,391,392,1440,1441,1442]:[390,1440])){
+    const cabinet=data.workFileCabinets.find(item=>item.obraId===data.obras[0].id);
+    if(cabinet.documents.some(item=>item.id===`demo-trash-${width}`))continue;
+    const revisions=[];
+    for(const number of [1,2]){
+      const id=randomUUID(),bytes=samplePdf(`DOCUMENTO FICTICIO PARA EXCLUIR ${width} R0${number}`);
+      await writeFile(`${root}/uploads/${id}.bin`,bytes);
+      revisions.push({id:`trash-r${number}-${width}`,itemId:id,driveId:'demo-trash-drive',kind:'file',label:`R0${number}`,url:`/api/local-files/${id}`,fileName:`projeto-${width}-R0${number}.pdf`,size:bytes.length,mime:'application/pdf'});
+    }
+    cabinet.documents.push({id:`demo-trash-${width}`,name:`Documento para excluir ${width}.pdf`,folderId:'',revisions});
+    if(process.env.MARCELL_FILES_BATCH_TRASH_DEMO==='1'&&[392,1442].includes(width)){data.commercialContractRecords=[...(data.commercialContractRecords||[]),{obraId:data.obras[0].id,anexos:[{documentId:`demo-trash-${width}`}]}];}
+  }
+}
 await writeFile(statePath,JSON.stringify(data,null,2));
 let tail=Promise.resolve();
 const multipart=new Map();
 async function persist(next){await writeFile(`${statePath}.tmp`,JSON.stringify(next,null,2));await rename(`${statePath}.tmp`,statePath);data=next;}
-await preview({build:{outDir:'artifacts/arquivos/build'},preview:{host:'127.0.0.1',port,strictPort:true},plugins:[{name:'local-work-files',configurePreviewServer(server){
+await preview({build:{outDir:process.env.MARCELL_FILES_PREVIEW_DIST||'artifacts/arquivos/build'},preview:{host:'127.0.0.1',port,strictPort:true},plugins:[{name:'local-work-files',configurePreviewServer(server){
   server.middlewares.use('/api',async(request,response)=>{
     response.setHeader('Cache-Control','no-store');response.setHeader('Content-Type','application/json; charset=utf-8');
     const json=(status,body)=>{response.statusCode=status;response.end(JSON.stringify(body));};
@@ -76,6 +94,18 @@ await preview({build:{outDir:'artifacts/arquivos/build'},preview:{host:'127.0.0.
       let raw='';for await(const chunk of request){raw+=chunk;if(raw.length>4500000)return json(413,{error:'Requisição muito grande.'});}
       const body=raw?JSON.parse(raw):{};
       if(request.url.startsWith('/microsoft/onedrive')){
+        if(body.action==='trash-document'&&process.env.MARCELL_FILES_TRASH_DEMO==='1'){
+          const localGraph=async(_token,path,options={})=>{
+            const id=decodeURIComponent(path.split('/items/')[1]?.split('?')[0]||'');
+            if(!/^[a-f0-9-]{36}$/.test(id))throw new Error('Identificacao fora do cenario local.');
+            const bytes=await readFile(`${root}/uploads/${id}.bin`).catch(error=>{throw Object.assign(error,{status:404});});
+            if(options.method==='DELETE'){await rename(`${root}/uploads/${id}.bin`,`${root}/trash/${id}.bin`);return {status:204};}
+            return {json:async()=>({id,file:{},eTag:`local-${bytes.length}`,parentReference:{id:'demo-work-root'}})};
+          };
+          try{return json(200,await trashWorkDocument({data,user:profile,body,getToken:async()=>'local-only',graph:localGraph}));}
+          catch(error){return json(error.status||500,{ok:false,error:error.message});}
+        }
+
         if(body.action==='upload-start'&&body.category==='licenciamento'){
           if(!data.obras.some(item=>item.id===body.obraId)||!Number.isInteger(body.fileSize)||body.fileSize<=0||body.fileSize>20*1024*1024)return json(400,{error:'Arquivo inválido ou maior que 20 MB.'});
           const validation=fileValidation({name:body.fileName,size:1});if(validation)return json(400,{error:validation});
@@ -113,7 +143,9 @@ await preview({build:{outDir:'artifacts/arquivos/build'},preview:{host:'127.0.0.
       if(body.action==='operational-command'){
         const run=async()=>{
           if(!FILE_COMMAND_TYPES.has(body.command?.type)&&!ENGINEERING_COMMAND_TYPES.has(body.command?.type)&&!DOSSIER_COMMAND_TYPES.has(body.command?.type))return json(403,{error:'Comando não disponível nesta prévia.'});
-          const command={...body.command,actorId:profile.id,actorRole:profile.role,actorName:profile.nome,now:new Date().toISOString()};
+          const command=verifiedFileTrashCommand({...body.command,actorId:profile.id,actorRole:profile.role,actorName:profile.nome,now:new Date().toISOString()});
+          command.idempotencyKey=operationalIdempotencyKey(command);
+          if(!/^[a-zA-Z0-9_-]{16,200}$/.test(command.idempotencyKey))return json(400,{error:'Chave idempotente operacional invalida.'});
           const scope=validateOperationalCommandScope({user:profile,data,command});if(!scope.ok)return json(403,{error:scope.error});
           const result=applyOperationalCommand(data,command);if(!result.ok)return json(409,result);await persist(result.data);json(200,{...result,updatedAt:new Date().toISOString()});
         };const next=tail.then(run,run);tail=next.catch(()=>{});await next;return;

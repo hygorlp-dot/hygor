@@ -24,7 +24,7 @@ export function openReportPreview(html, {autoPrint=false,adjustableTables=false}
     try{
       preview.opener=null;
       preview.document.open();
-      preview.document.write(marcellReportHtml(html,{adjustableTables,identity}));
+      preview.document.write(marcellReportHtml(html,{adjustableTables,identity,requireFonts:true}));
       preview.document.close();
       preview.focus();
       if(autoPrint)window.setTimeout(()=>{if(!preview.closed)preview.print();},300);

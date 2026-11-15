@@ -22,6 +22,13 @@ afterEach(() => {
 });
 
 describe("ARCD Theme Engine", () => {
+  it("aplica o tema do portal sem substituir a preferência do ERP",()=>{
+    localStorage.setItem(THEME_STORAGE_KEYS.theme,"operacional");
+    const container=render(<ThemeProvider themeOverride="vidro"><Probe/></ThemeProvider>);
+    expect(container.querySelector('[data-testid="theme"]').textContent).toBe("vidro");
+    expect(document.documentElement.dataset.theme).toBe("vidro");
+    expect(localStorage.getItem(THEME_STORAGE_KEYS.theme)).toBe("operacional");
+  });
   it.each(["carbon","architectural","executive"])("migra a preferência %s para o executivo sem apagar densidade ou outras preferências", oldTheme => {
     localStorage.setItem(THEME_STORAGE_KEYS.theme,oldTheme);
     localStorage.setItem(THEME_STORAGE_KEYS.density,"compact");

@@ -8,9 +8,9 @@ export function WorkspaceNavigation({ label, active, onChange, items = [], group
   const selectedTool = tools.find(item => item.id === active);
   const destinations = groups.length ? groups.filter(group => group.items.length) : [{label:"Áreas de trabalho",items}];
   const selectedGroup = selectedTool ? toolsLabel : destinations.find(group=>group.items.some(item=>item.id===active))?.label;
-  const destinationButton = item => <Button key={item.id} variant="ghost" className="workspace-navigation__tab" aria-label={item.label}
+  const destinationButton = item => <Button key={item.id} variant="ghost" className="workspace-navigation__tab" aria-label={item.count!=null?`${item.label} ${item.count}`:item.label}
     aria-current={active === item.id ? "page" : undefined} onClick={() => onChange(item.id)}>
-    {item.label}{item.count != null && <small className="workspace-navigation__count" aria-hidden="true">{item.count}</small>}
+    {item.label}{item.count != null && <small className="workspace-navigation__count">{' '}{item.count}</small>}
   </Button>;
   return <div className={`workspace-navigation ${className}`.trim()}>
     <div className="workspace-navigation__mobile">

@@ -26,7 +26,7 @@ const sourceData = {
 describe("projectClientPortalData", () => {
   it("projects only explicit published fields for the authorized project", () => {
     const result = projectClientPortalData({ user, project, sourceData });
-    expect(result.project).toEqual({ id:"obra-a", name:"Residência Monte Verde", coverImage:"https://media/capa.webp", currentPhase:"", progress:48, estimatedCompletion:"", lastUpdate:"" });
+    expect(result.project).toEqual({ id:"obra-a", name:"Residência Monte Verde", coverImage:"https://media/capa.webp", currentPhase:"", progress:48, progressSource:"", estimatedCompletion:"", lastUpdate:"" });
     expect(result.weeklyUpdates).toHaveLength(1);
     expect(result.publishedMedia).toEqual([expect.objectContaining({ id:"media-public", caption:"Banheiro social" })]);
     expect(result.measurements).toEqual([expect.objectContaining({ id:"measurement", amount:25000 })]);

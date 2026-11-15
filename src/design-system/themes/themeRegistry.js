@@ -1,5 +1,11 @@
 import {foundationTokens} from '../foundations.js';
 export const DEFAULT_THEME = "marcell";
+// The distance-reading display has a dark surface in every operational theme.
+export const DISTANCE_VIEW_COLORS = Object.freeze({
+  yellow:'#E6C36A', yellowD:'#E6C36A', green:'#8DD5AE', red:'#FFB4AB',
+  blue:'#B1C9EF', orange:'#F4BE89', purple:'#C5C0FF', muted:'#CED2D5',
+  subtle:'#AEBAC4', text:'#F5F3EE', surface:'#FFFFFF',
+});
 
 // Themes change semantic roles. Components never need to know a theme's ID.
 const shared = Object.freeze({
@@ -25,9 +31,24 @@ const shared = Object.freeze({
   "--arcd-purchase-mobile-metrics-columns":"repeat(3,minmax(0,1fr))", "--arcd-purchase-fourth-metric-display":"none",
   "--arcd-toolbar-surface":"transparent", "--arcd-toolbar-padding":"0",
   "--arcd-mini-kpi-border-width":"3px",
+  "--arcd-canvas-image":"none", "--arcd-canvas-veil":"transparent", "--arcd-canvas-content":"var(--arcd-surface-page)",
+  "--arcd-material-blur":"0px", "--arcd-material-fallback":"var(--arcd-surface-card)", "--arcd-material-panel-surface":"var(--arcd-surface-card)",
 });
 const theme = (id,label,description,tokens) => Object.freeze({id,label,description,enabled:true,tokens:Object.freeze({...shared,...tokens})});
 export const themeRegistry = Object.freeze({
+  vidro:theme("vidro","MARCELL Vidro","Superfícies claras e translúcidas, com tons de pedra e azul-marinho.",{
+    "--arcd-surface-page":"#eef2f4", "--arcd-surface-card":"rgb(248 251 253 / 76%)", "--arcd-surface-elevated":"#f8fbfd",
+    "--arcd-surface-muted":"#e1e9ed", "--arcd-surface-subtle":"#f1f5f7", "--arcd-surface-inverse":"#142b3a", "--arcd-surface-overlay":"rgb(14 31 43 / 62%)",
+    "--arcd-text-primary":"#142b3a", "--arcd-text-secondary":"#2c414e", "--arcd-text-muted":"#2c414e",
+    "--arcd-border-subtle":"#dce5ea", "--arcd-border-default":"rgb(255 255 255 / 78%)", "--arcd-border-strong":"#748895",
+    "--arcd-action-primary":"#214f64", "--arcd-action-primary-hover":"#173c4d", "--arcd-action-primary-active":"#102e3d",
+    "--arcd-action-primary-subtle":"#dae8ee", "--arcd-focus-ring":"#215d79", "--arcd-nav-focus":"#b4deef",
+    "--arcd-nav-surface":"#142b3a", "--arcd-nav-text":"#d9e7ed", "--arcd-nav-active-text":"#ffffff",
+    "--arcd-nav-active-surface":"#315b70", "--arcd-nav-hover-surface":"#234455", "--arcd-nav-hover-text":"#ffffff",
+    "--arcd-nav-border":"#527181", "--arcd-nav-brand-text":"#ffffff", "--arcd-radius-lg":".875rem",
+    "--arcd-table-stripe-surface":"#edf3f6", "--arcd-material-blur":"18px", "--arcd-material-fallback":"#f1f5f7", "--arcd-material-panel-surface":"rgb(248 251 253 / 68%)",
+    "--arcd-canvas-image":"url('/brand/marcell/portal-residencia.webp')", "--arcd-canvas-veil":"rgb(14 30 43 / 22%)", "--arcd-canvas-content":"transparent",
+  }),
   operacional:theme("operacional","MARCELL Operacional","Faixas claras, hierarquia de trabalho e ações em azul, com referência SAP.",{
     "--arcd-surface-page":"#f5f6f7", "--arcd-surface-muted":"#eaecee", "--arcd-surface-subtle":"#f5f6f7",
     "--arcd-surface-inverse":"#223548", "--arcd-surface-overlay":"rgb(34 53 72 / 44%)",
@@ -65,7 +86,7 @@ export const themeRegistry = Object.freeze({
   marcell:theme("marcell","MARCELL Preciso","Menu azul-marinho e ações em azul.",{
     "--arcd-surface-page":"#f5f6f8", "--arcd-surface-muted":"#edf0f4", "--arcd-surface-subtle":"#f5f6f8",
     "--arcd-surface-inverse":"#0d1b2e", "--arcd-surface-overlay":"rgb(13 27 46 / 56%)",
-    "--arcd-text-primary":"#0d1b2e", "--arcd-text-secondary":"#536171", "--arcd-text-muted":"#637081",
+    "--arcd-text-primary":"#0d1b2e", "--arcd-text-secondary":"#536171", "--arcd-text-muted":"#536171",
     "--arcd-border-subtle":"#e8ebef", "--arcd-border-default":"#d9dde2", "--arcd-border-strong":"#8a96a5",
     "--arcd-action-primary":"#235bb0", "--arcd-action-primary-hover":"#19498e", "--arcd-action-primary-active":"#143b74",
     "--arcd-action-primary-subtle":"#edf3fc", "--arcd-focus-ring":"#235bb0", "--arcd-nav-focus":"#9cc4ff",

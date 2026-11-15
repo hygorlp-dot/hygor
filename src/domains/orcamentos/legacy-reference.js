@@ -87,7 +87,7 @@ export const ETAPAS_PADRAO = [
 // limite, e não a cada pixel arrastado.
 // narrow = celulares pequenos (iPhone SE, Android de entrada). Abaixo de 420px
 // não adianta encolher fonte: certos pares lado a lado precisam EMPILHAR.
-export const MAX_NIVEL = 5;
+export {MAX_BUDGET_LEVELS as MAX_NIVEL} from './hierarchy.js';
 
 
 //  CURVA ABC

@@ -27,6 +27,9 @@ playwright-report/
 vercel.release-equipe.json
 # PDFs e imagens locais de conferência visual
 /output/pdf/
+/output/
+/PATHFINDER-2026-10-26/
+/NUL
 
 # Dados, capturas e relatórios exclusivamente locais.
 /artifacts/

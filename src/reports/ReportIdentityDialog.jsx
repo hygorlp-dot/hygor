@@ -8,6 +8,7 @@ import {HelpButton} from '../features/help/HelpButton.jsx';
 import {useHelpTopic} from '../features/help/HelpContext.jsx';
 import {registerReportIdentityPresenter} from './report-preview.js';
 import {loadReportIdentity} from './report-identities.js';
+import {loadReportFonts} from './report-fonts.js';
 
 function IdentityChoice({request,onClose,pageId,allowedTabs}) {
   useHelpTopic(pageId,'report_identity',100);
@@ -16,7 +17,7 @@ function IdentityChoice({request,onClose,pageId,allowedTabs}) {
   const generating=useRef(false),triggerRef=useRef(request.trigger);
   useEffect(()=>{
     let active=true;setError('');setReady(false);setIdentity(null);
-    loadReportIdentity(selected).then(value=>{if(active)setIdentity(value);}).catch(failure=>{if(active)setError(failure.message);});
+    Promise.all([loadReportIdentity(selected),loadReportFonts()]).then(([value])=>{if(active)setIdentity(value);}).catch(failure=>{if(active)setError(failure.message);});
     return ()=>{active=false;};
   },[selected,retry]);
   function close(){request.cancel();onClose();}
@@ -28,9 +29,9 @@ function IdentityChoice({request,onClose,pageId,allowedTabs}) {
   return <Dialog open title="Identidade do relatório" triggerRef={triggerRef} onOpenChange={open=>{if(!open)close();}}>
     <p>Escolha a logomarca e confira a prévia antes de gerar o documento.</p>
       <Select label="Logomarca do relatório" value={selected} onChange={event=>{if(event.target.value!==selected){setReady(false);setSelected(event.target.value);}}} options={[{value:'marcell',label:'MARCELL'},{value:'arcd',label:'ARCD'}]}/>
-      {identity?<IdentityPreview key={selected+'-'+retry} src={identity.logo} name={identity.name} onLoad={()=>setReady(true)} onError={()=>{setReady(false);setError('Não foi possível exibir a logomarca. Tente carregar novamente.');}}/>:<p role="status">Carregando logomarca…</p>}
+      {identity?<IdentityPreview key={selected+'-'+retry} src={identity.logo} name={identity.name} onLoad={()=>setReady(true)} onError={()=>{setReady(false);setError('Não foi possível exibir a logomarca. Tente carregar novamente.');}}/>:!error&&<p role="status">Carregando logomarca e fontes…</p>}
       {error&&<Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
-      {error&&!ready&&<Button variant="secondary" onClick={()=>setRetry(value=>value+1)}>Tentar carregar logomarca novamente</Button>}
+      {error&&!ready&&<Button variant="secondary" onClick={()=>setRetry(value=>value+1)}>Tentar carregar novamente</Button>}
       <div className="arcd-page-header__actions">
         <HelpButton pageId="report_identity" allowedTabs={allowedTabs}/>
         <Button variant="secondary" onClick={close}>Cancelar</Button>
@@ -42,5 +43,6 @@ function IdentityChoice({request,onClose,pageId,allowedTabs}) {
 export function ReportIdentityDialog({pageId,allowedTabs}) {
   const [request,setRequest]=useState(null);
   useEffect(()=>registerReportIdentityPresenter(setRequest),[]);
+  useEffect(()=>{void loadReportFonts().catch(()=>{});},[]);
   return request?<IdentityChoice request={request} onClose={()=>setRequest(null)} pageId={pageId} allowedTabs={allowedTabs}/>:null;
 }

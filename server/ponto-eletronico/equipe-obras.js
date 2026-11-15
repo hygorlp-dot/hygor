@@ -14,7 +14,7 @@ async function lerPaginas(criarConsulta, chave) {
   throw new Error("Volume de registros acima do limite de leitura do painel.");
 }
 
-export async function consultarEquipeObras({ db, company, usuario, dados, agora }) {
+export async function consultarEquipeObras({ db, company, usuario, dados, agora, fotosPonto }) {
   const fuso = FUSO_OBRA; // Mesmo fuso da tela de ponto existente.
   const de = new Date(agora - 7 * 86400000).toISOString();
   const ate = new Date(agora).toISOString();
@@ -42,14 +42,19 @@ export async function consultarEquipeObras({ db, company, usuario, dados, agora 
   const ids = new Set(pessoas.map(p => p.id));
   const bios = await lerPaginas(() => db.from("ponto_biometrias").select("id,employee_id,fotos,criado_em").eq("company_id", company), "id");
   const fotos = new Map();
-  for (const bio of bios.sort((a, b) => String(a.criado_em).localeCompare(String(b.criado_em)))) if (ids.has(String(bio.employee_id)) && bio.fotos?.[0]?.caminho) fotos.set(String(bio.employee_id), bio.fotos[0].caminho);
-  const caminhos = [...new Set(fotos.values())];
+  for (const bio of bios.sort((a, b) => String(a.criado_em).localeCompare(String(b.criado_em)))) if (ids.has(String(bio.employee_id)) && bio.fotos?.[0]?.caminho) fotos.set(String(bio.employee_id), bio.fotos[0]);
+  const caminhos = [...new Set([...fotos.values()].filter(f => f.provedor !== "onedrive").map(f => f.caminho))];
   const assinadas = new Map();
   for (let i = 0; i < caminhos.length; i += 100) {
     const { data, error } = await db.storage.from("ponto-obra").createSignedUrls(caminhos.slice(i, i + 100), 120);
     if (!error) for (const foto of data || []) if (foto.signedUrl && !foto.error) assinadas.set(foto.path, foto.signedUrl);
   }
-  pessoas = pessoas.map(p => ({ ...p, fotoUrl: assinadas.get(fotos.get(p.id)) || p.fotoUrl }));
+  const novos = [...new Set([...fotos.values()].filter(f => f.provedor === "onedrive").map(f => f.caminho))];
+  if (novos.length && fotosPonto) {
+    try { for (const [path, url] of await fotosPonto.urls(novos)) assinadas.set(path, url); }
+    catch { /* Uma foto indisponível não impede a consulta da equipe. */ }
+  }
+  pessoas = pessoas.map(p => ({ ...p, fotoUrl: assinadas.get(fotos.get(p.id)?.caminho) || p.fotoUrl }));
   return { pessoas, obras, dia: diaNoFuso(agora, fuso), fuso, servidorMs: agora, modo: "consulta_periodica", janelaDias: 7,
     limitacoes: ["Batidas antigas sem tipo de evento precisam de conferência.", "O cadastro atual não possui escala semanal, tolerância de entrada ou agenda de folgas, férias e afastamentos; ausência de batida não confirma falta.", "O painel considera os últimos 7 dias de registros recebidos pelo servidor."] };
 }

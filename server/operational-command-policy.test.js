@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
-import { validateOperationalCommandScope } from "./operational-command-policy.js";
+import { validateOperationalCommandScope, operationalIdempotencyKey } from "./operational-command-policy.js";
 
 describe("escopo servidor de comandos operacionais",()=>{
   const data={
@@ -380,4 +380,15 @@ describe("escopo servidor de comandos operacionais",()=>{
     });
     expect(semRegra).toEqual([]);
   });
+});
+
+it('canonicaliza somente a chave historica do lote e conserva a identidade em novas tentativas',()=>{
+ const id='6cbef30a-7d96-4105-b6e5-fe4bd703cf58';
+ const legacy={type:'ARQUIVOS_LOTE_ADICIONADO',idempotencyKey:`files-batch:${id}`};
+ const canonical=operationalIdempotencyKey(legacy);
+ expect(canonical).toBe(`files-batch-${id}`);
+ expect(canonical).toMatch(/^[a-zA-Z0-9_-]{16,200}$/);
+ expect(operationalIdempotencyKey({...legacy,idempotencyKey:canonical})).toBe(canonical);
+ expect(legacy.idempotencyKey).toBe(`files-batch:${id}`);
+ for(const command of [{...legacy,type:'ARQUIVOS_DOCUMENTO_ADICIONADO'},{...legacy,idempotencyKey:'files-batch:invalid'},{...legacy,idempotencyKey:`files-batch:${id}:extra`}])expect(operationalIdempotencyKey(command)).toBe(command.idempotencyKey);
 });

@@ -1,13 +1,13 @@
 const CLIENT_PORTAL_CAPABILITIES = Object.freeze([
-  "viewProgress", "viewMedia", "viewWeeklyUpdates", "viewDecisions", "approveDecisions", "viewChanges", "approveChanges", "viewFinancial", "viewProjectCash", "viewProcurement", "approveMeasurements", "downloadDocuments", "sendMessages", "viewTeam", "openAssistance",
+  "viewProgress", "viewMedia", "viewWeeklyUpdates", "viewDecisions", "approveDecisions", "viewChanges", "approveChanges", "viewFinancial", "viewProjectCash", "viewProcurement", "viewCosts", "viewStageBudget", "viewAdministrationTeam", "approveMeasurements", "downloadDocuments", "sendMessages", "viewTeam", "openAssistance",
 ]);
 
 const ALL = Object.freeze([...CLIENT_PORTAL_CAPABILITIES]);
 const PROFILES = Object.freeze({
   owner: ALL,
   spouse: ALL,
-  representative: ["viewProgress", "viewMedia", "viewWeeklyUpdates", "viewDecisions", "approveDecisions", "viewChanges", "approveChanges", "viewFinancial", "viewProjectCash", "viewProcurement", "approveMeasurements", "downloadDocuments", "sendMessages", "viewTeam", "openAssistance"],
-  financial: ["viewProgress", "viewWeeklyUpdates", "viewFinancial", "viewProjectCash", "viewProcurement", "approveMeasurements", "downloadDocuments", "sendMessages"],
+  representative: ["viewProgress", "viewMedia", "viewWeeklyUpdates", "viewDecisions", "approveDecisions", "viewChanges", "approveChanges", "viewFinancial", "viewProjectCash", "viewProcurement", "viewCosts", "viewStageBudget", "viewAdministrationTeam", "approveMeasurements", "downloadDocuments", "sendMessages", "viewTeam", "openAssistance"],
+  financial: ["viewProgress", "viewWeeklyUpdates", "viewFinancial", "viewProjectCash", "viewProcurement", "viewCosts", "viewStageBudget", "viewAdministrationTeam", "approveMeasurements", "downloadDocuments", "sendMessages"],
   external_architect: ["viewProgress", "viewMedia", "viewWeeklyUpdates", "viewDecisions", "viewChanges", "downloadDocuments", "sendMessages", "viewTeam"],
   observer: ["viewProgress", "viewMedia", "viewWeeklyUpdates", "viewDecisions", "viewChanges", "downloadDocuments", "viewTeam"],
 });

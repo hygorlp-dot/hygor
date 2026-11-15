@@ -19,8 +19,10 @@ export function detectarColunasImportacao(rows, limite = 30) {
       const h = normalizarCabecalho(cel);
       if (!h) return;
       if (col.codigo === undefined && (h === "codigo" || h.startsWith("cod"))) col.codigo = j;
-      if (col.tipo === undefined && h === "tipo") col.tipo = j;
-      if (col.descricao === undefined && (h === "item" || h === "nome" || h.startsWith("descri"))) col.descricao = j;
+      if (col.tipo === undefined && (h === "tipo"||h==='nivel corrigido')) col.tipo = j;
+      if ((col.descricao === undefined && h === "item") || h === "nome" || h.startsWith("descri")) col.descricao = j;
+      if(col.ordem===undefined&&['ordem','item','numeracao','numero do item'].includes(h))col.ordem=j;
+      if(col.nivel===undefined&&['nivel','profundidade'].includes(h))col.nivel=j;
       if (col.unidade === undefined && (h === "un." || h === "un" || h.startsWith("unid"))) col.unidade = j;
       if (col.qtd === undefined && (h.startsWith("qtd") || h.startsWith("quant"))) col.qtd = j;
       if (col.preco === undefined && (h.includes("preco unit") || h.includes("p. unit") || h.includes("custo unit") || h === "preco" || h === "valor unitario")) col.preco = j;
@@ -46,24 +48,35 @@ export function montarLinhasImportacao({ rows, hIdx, col, basePorCodigo, precoDo
     const tipo = normalizarCabecalho(col.tipo !== undefined ? r[col.tipo] : "");
     const desc = String(col.descricao !== undefined ? r[col.descricao] : "").trim();
     const qtd = col.qtd !== undefined ? parseNumero(r[col.qtd]) : 0;
+    const sourceOrder=String(col.ordem!==undefined?r[col.ordem]??'':'').trim().replace(/\.$/,'');
     if (!cod && !desc) continue;
     if (normalizarCabecalho(desc).startsWith("total")) continue;
 
-    const ehNivel = tipo === "nivel" || (!tipo && !cod && qtd <= 0 && !!desc);
+    const explicit=tipo.match(/^(?:nivel|subnivel)\s*(\d+)$/);
+    const ehNivel = tipo === "nivel" || tipo==='lote'||!!explicit||(!tipo && !cod && qtd <= 0 && !!desc);
     const ehSub = tipo === "subnivel";
     if (ehNivel || ehSub) {
-      linhas.push({ kind: "etapa", nivel: ehSub ? 2 : 1, nome: desc || "Etapa", _i: i + 1 });
+      const ordem=sourceOrder;
+      const rawLevel=col.nivel!==undefined?String(r[col.nivel]??'').trim():'';
+      const declared=rawLevel?Number(rawLevel):explicit?Number(explicit[1]):null;
+      const depth=ordem?ordem.split('.').length:null;
+      const nivel=declared??depth??(ehSub?2:1);
+      const hierarchyError=ordem&&!/^\d+(?:\.\d+)*$/.test(ordem)?'Numeração de etapa inválida.':
+       declared!==null&&depth!==null&&declared!==depth?'Nível e numeração divergentes.':
+       ehSub&&nivel<2||tipo==='lote'&&nivel!==1||explicit&&declared!==Number(explicit[1])?'Tipo e nível divergentes.':'';
+      linhas.push({ kind: "etapa", nivel, ...(ordem?{ordem}:{}), ...(hierarchyError?{hierarchyError}:{}),nome: desc || "Etapa", _i: i + 1 });
       continue;
     }
-    if (tipo === "titulo") { linhas.push({ kind: "titulo", descricao: desc, _i: i + 1 }); continue; }
+    if (tipo === "titulo") { linhas.push({ kind: "titulo", descricao: desc, ...(sourceOrder?{ordem:sourceOrder}:{}), _i: i + 1 }); continue; }
 
     const b = cod ? basePorCodigo.get(cod) : null;
     const preco = b ? precoDoItem(b, orc) : 0;
     linhas.push({
       kind: "item",
+      ...(sourceOrder?{ordem:sourceOrder}:{}),
       codigo: cod,
       descricao: b ? b.descricao : (desc || "(código não localizado — sem descrição)"),
-      unidade: b ? (b.unidade || "UN") : "UN",
+      unidade: b ? (b.unidade || "UN") : (col.unidade!==undefined?String(r[col.unidade]??'').trim():'')||"UN",
       fonte: b ? (b.fonte || orc.fonte) : "NÃO LOCALIZADO",
       quantidade: qtd,
       precoUnit: preco,

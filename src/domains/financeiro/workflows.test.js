@@ -102,6 +102,27 @@ describe("terceiro → medição → NF",()=>{
 });
 
 describe("fechamento mensal imutável",()=>{
+  test("confere caixa pela data do pagamento mesmo quando a competência é anterior",()=>{
+    const data={
+      obras:[{id:"o1"}],
+      medicoes:[{id:"m1",obraId:"o1",competencia:"2026-06",valorPrevisto:500,
+        recebimentos:[{id:"r1",valor:500,data:"2026-07-24"}]}],
+      pedidos:[{id:"p1",obraId:"o1",data:"2026-06-25",status:"enviado",
+        itens:[{qtd:1,precoUnit:275}],
+        pagamentos:[{id:"pg1",valor:275,data:"2026-07-24",origem:"empresa"}]}],
+    };
+    const june=createMonthlyClosingSnapshot(data,{competencia:"2026-06"});
+    const july=createMonthlyClosingSnapshot(data,{competencia:"2026-07"});
+    expect(june.ok).toBe(true);expect(july.ok).toBe(true);
+    expect(june.closing.snapshot).toMatchObject({revenueCents:50000,cashInCents:0,cashOutCents:0});
+    expect(july.closing.snapshot).toMatchObject({revenueCents:0,cashInCents:50000,cashOutCents:27500,cashBalanceCents:22500});
+    expect(july.closing.conference.checks).toEqual(expect.arrayContaining([
+      expect.objectContaining({code:"CASH_IN_DETAIL_MATCH",expectedCents:50000,actualCents:50000,ok:true}),
+      expect.objectContaining({code:"CASH_OUT_DETAIL_MATCH",expectedCents:27500,actualCents:27500,ok:true}),
+      expect.objectContaining({code:"CASH_BALANCE_EQUATION",expectedCents:22500,actualCents:22500,ok:true}),
+    ]));
+  });
+
   test("eventIds respeitam a data de corte e não carregam fatos futuros",()=>{
     const supplementalEvents=[
       {

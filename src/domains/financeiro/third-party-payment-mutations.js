@@ -1,4 +1,7 @@
 import { isThirdPartyRecordActive } from "../terceirizados/lifecycle.js";
+import {technicalRetentionCents} from '../terceirizados/technical-retention.js';
+import {notaReconhecivel} from './facts.js';
+import {isFinancialDate} from './dates.js';
 
 const inactive = item => !isThirdPartyRecordActive(item);
 const userName = actor => actor?.nome || actor?.email || "Usuário autenticado";
@@ -12,7 +15,7 @@ export const createThirdPartyPayment = ({ data, payment, actor, id, now = new Da
   const pagador=String(payment?.pagador || "");
   if (!tercId) throw new Error("Selecione o contrato do terceiro.");
   if (!(amount > 0) || !Number.isFinite(amount)) throw new Error("Informe um valor positivo para o pagamento.");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Informe uma data válida para o pagamento.");
+  if (!isFinancialDate(date)) throw new Error("Informe uma data válida para o pagamento.");
   if (!["empresa","obra"].includes(pagador)) throw new Error("Informe quem realizou o pagamento.");
   if (pagador === "obra" && !payment?.obraId) throw new Error("Informe a obra que realizou o pagamento.");
   const nome=userName(actor);
@@ -38,7 +41,7 @@ export const reverseThirdPartyPayment = ({ data, paymentId, reason, actor, now =
   return {
     ...data,
     pagsTerceiros:pagamentos.map(item=>item.id!==paymentId?item:{...item,status:"estornado",motivoCancelamento,canceladoEm:now,canceladoPorId:actor.id,canceladoPor:nome,updatedAt:now,updatedById:actor.id,updatedBy:nome,version:Number(item.version||0)+1}),
-    medicoesTerc:(Array.isArray(data?.medicoesTerc)?data.medicoesTerc:[]).map(item=>item.pagamentoId!==paymentId?item:{...item,pagamentoId:"",pagamentoEstornadoEm:now,pagamentoEstornadoPorId:actor.id,updatedAt:now,updatedById:actor.id,updatedBy:nome,version:Number(item.version||0)+1}),
+    medicoesTerc:(Array.isArray(data?.medicoesTerc)?data.medicoesTerc:[]).map(item=>item.pagamentoId!==paymentId&&!(payment.guaranteePayment&&item.id===payment.medicaoTercId)?item:{...item,...(item.pagamentoId===paymentId?{pagamentoId:""}:{}),pagamentoEstornadoEm:now,pagamentoEstornadoPorId:actor.id,updatedAt:now,updatedById:actor.id,updatedBy:nome,version:Number(item.version||0)+1}),
   };
 };
 
@@ -57,7 +60,7 @@ export const createThirdPartyMeasurement = ({ data, measurement, actor, id, now 
   const total=Number(measurement?.total);
   const itens=Array.isArray(measurement?.itens) ? measurement.itens : [];
   if (!tercId || !obraId) throw new Error("A medição precisa ter contrato e obra vinculados.");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Informe uma data válida para a medição.");
+  if (!isFinancialDate(date)) throw new Error("Informe uma data válida para a medição.");
   if (!(total > 0) || !Number.isFinite(total) || !itens.length) throw new Error("A medição precisa ter etapas executadas e valor positivo.");
   const nome=userName(actor);
   const registro={
@@ -119,7 +122,7 @@ export const resubmitThirdPartyMeasurement = ({ data, measurementId, measurement
   const date=String(measurement?.data || "");
   const total=Number(measurement?.total);
   const itens=Array.isArray(measurement?.itens) ? measurement.itens : [];
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Informe uma data válida para a medição.");
+  if (!isFinancialDate(date)) throw new Error("Informe uma data válida para a medição.");
   if (!(total > 0) || !Number.isFinite(total) || !itens.length) throw new Error("A medição precisa ter etapas executadas e valor positivo.");
   const nome=userName(actor);
   return {...data,medicoesTerc:medicoes.map(item=>item.id!==measurementId?item:{
@@ -139,6 +142,10 @@ export const cancelThirdPartyMeasurement = ({ data, measurementId, reason, actor
   const medicao=medicoes.find(item=>item.id===measurementId);
   if (!medicao) throw new Error("Medição de terceiro não encontrada.");
   if (inactive(medicao)) throw new Error("Esta medição já está cancelada.");
+  if((data.notasFiscais||[]).some(invoice=>notaReconhecivel(invoice)
+    &&(invoice.id===medicao.notaFiscalId||invoice.medicaoTercId===measurementId))){
+    throw new Error('Regularize a nota fiscal reconhecida antes de cancelar a medição. O documento, o custo e o histórico precisam permanecer coerentes.');
+  }
   const possuiPagamento=(data?.pagsTerceiros || []).some(item=>(item.medicaoTercId===measurementId||item.medicaoId===measurementId)&&!inactive(item));
   if (medicao.pagamentoId || possuiPagamento) throw new Error("Estorne o pagamento antes de cancelar a medição.");
   const nome=userName(actor);
@@ -152,7 +159,7 @@ export const payThirdPartyMeasurement = ({ data, measurementId, payment, actor, 
   const medicao=(data?.medicoesTerc || []).find(item=>item.id===measurementId&&!inactive(item));
   if (!medicao) throw new Error("Medição de terceiro não encontrada ou cancelada.");
   if (medicao.pagamentoId) throw new Error("Esta medição já possui pagamento registrado.");
-  const result=createThirdPartyPayment({data,payment:{...payment,obraId:medicao.obraId,tercId:medicao.tercId,medicaoTercId:medicao.id,amount:medicao.total},actor,id,now});
+  const result=createThirdPartyPayment({data,payment:{...payment,obraId:medicao.obraId,tercId:medicao.tercId,medicaoTercId:medicao.id,amount:(Math.round(Number(medicao.total)*100)-technicalRetentionCents(medicao))/100},actor,id,now});
   return {
     ...result,
     pagsTerceiros:(result.pagsTerceiros||[]).map(item=>item.id===id

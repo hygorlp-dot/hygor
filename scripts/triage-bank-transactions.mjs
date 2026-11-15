@@ -1,0 +1,18 @@
+import {readFile,writeFile,mkdir} from 'node:fs/promises';
+import path from 'node:path';
+import {triageBankTransactions,triageCsv} from './lib/bank-triage.mjs';
+import {prepareBankAccountProposal} from './bank-account-proposal.mjs';
+const arg=name=>process.argv.find(a=>a.startsWith(`--${name}=`))?.slice(name.length+3);
+const input=arg('input'),snapshotPath=arg('snapshot'),output=arg('output'),previousPath=arg('previous-review');
+if(!input||!snapshotPath||!output)throw new Error('Use --input=arquivo-local --snapshot=arquivo-local --output=pasta-privada; opcional --previous-review=arquivo-local.');
+const data=JSON.parse(await readFile(input,'utf8')),snapshot=JSON.parse(await readFile(snapshotPath,'utf8'));
+const previous=previousPath?JSON.parse(await readFile(previousPath,'utf8')):null;
+const report=triageBankTransactions(data,{tables:snapshot.tables,previousReviewIds:(previous?.cases||[]).map(row=>row.id)});
+const proposal=prepareBankAccountProposal(data);
+const summary={capturedAt:snapshot.capturedAt,generatedAt:new Date().toISOString(),localOnly:true,remoteWrites:0,published:false,...report.summary,accountReview:proposal.counts};
+summary.repeatedContentReview={groups:proposal.duplicateReview.repeatedContent.length,movements:proposal.duplicateReview.repeatedContent.flatMap(group=>group.members).length,confirmedBusinessDuplicates:0};
+const cases=[...report.cases].sort((a,b)=>a.priority.localeCompare(b.priority)||Math.abs(b.amountCents)-Math.abs(a.amountCents)||a.id.localeCompare(b.id));
+await mkdir(output,{recursive:true});
+for(const [name,value] of Object.entries({'summary.json':summary,'cases.json':cases,'account-context-review.json':proposal,'duplicate-review.json':proposal.duplicateReview}))await writeFile(path.join(output,name),JSON.stringify(value,null,2)+'\n');
+await writeFile(path.join(output,'cases.csv'),triageCsv(cases));
+console.log(JSON.stringify(summary,null,2));

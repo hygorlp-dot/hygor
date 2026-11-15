@@ -1,10 +1,6 @@
-const MORE_ITEMS = Object.freeze([
-  {id:"transparency",label:"Caixa e suprimentos",permissions:["viewProjectCash","viewProcurement"]},
-  {id:"documents",label:"Documentos",permissions:["downloadDocuments"]},
-]);
-
-export function ClientPortalMoreMenu({ open, onOpenChange, onNavigate, permissions = {} }) {
-  if (!open) return null;
-  const items=MORE_ITEMS.filter(item=>!item.permissions || item.permissions.some(permission=>permissions[permission]));
-  return <div className="arcd-client-more__backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) onOpenChange?.(false); }}><section className="arcd-client-more" role="dialog" aria-modal="true" aria-label="Mais opções"><header><h2>Mais</h2><button type="button" className="arcd-client-icon-button" aria-label="Fechar mais opções" onClick={() => onOpenChange?.(false)}>×</button></header><div>{items.map(item => <button key={item.id} type="button" onClick={() => { onNavigate?.(item.id); onOpenChange?.(false); }}>{item.label}</button>)}</div></section></div>;
+import {Dialog} from "../../design-system/primitives/Dialog.jsx";
+import {Button} from "../../design-system/primitives/Button.jsx";
+import {PORTAL_PAGES,canOpenPortalPage} from "../navigation.js";
+export function ClientPortalMoreMenu({open,onOpenChange,onNavigate,permissions={}}) {
+  return <Dialog open={open} onOpenChange={onOpenChange} title="Mais opções do portal"><nav className="arcd-client-stack" aria-label="Mais opções">{PORTAL_PAGES.slice(4).filter(item=>canOpenPortalPage(item,permissions)).map(item=><Button key={item.id} variant="secondary" onClick={()=>{onNavigate(item.id);onOpenChange(false);}}>{item.label}</Button>)}</nav></Dialog>;
 }

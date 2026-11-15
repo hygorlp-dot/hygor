@@ -6,5 +6,5 @@ const WORK_FILE_WRITERS = new Set([
 export const canWriteWorkFiles = user => !!user && user.active !== false && WORK_FILE_WRITERS.has(user.role);
 
 export const WORK_FILE_WRITE_ACTIONS = new Set([
-  'upload','upload-start','upload-chunk','create-folder','create-workspace',
+  'trash-document','upload','upload-start','upload-chunk','create-folder','create-workspace',
 ]);

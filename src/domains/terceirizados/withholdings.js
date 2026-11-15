@@ -14,12 +14,12 @@ const retentionCents = (grossCents, contractor, field) => {
   return Math.round(grossCents * rate / 100);
 };
 
-export function calculateWithholdings(grossAmount, contractor) {
+export function calculateWithholdings(grossAmount, contractor,technicalCents=0) {
   const grossCents = Math.round(Number(grossAmount || 0) * 100);
   const issCents = retentionCents(grossCents, contractor, "retISS");
   const inssCents = retentionCents(grossCents, contractor, "retINSS");
   const retainedCents = issCents + inssCents;
-  if (!Number.isFinite(retainedCents) || retainedCents > grossCents) {
+  if (!Number.isFinite(retainedCents) || !Number.isSafeInteger(technicalCents)||technicalCents<0||retainedCents+technicalCents > grossCents) {
     return {
       bruto: grossCents / 100,
       issRetido: 0,
@@ -35,6 +35,7 @@ export function calculateWithholdings(grossAmount, contractor) {
     issRetido: issCents / 100,
     inssRetido: inssCents / 100,
     retido: retainedCents / 100,
-    liquido: (grossCents - retainedCents) / 100,
+    liquido: (grossCents - retainedCents - technicalCents) / 100,
+    ...(technicalCents?{garantiaRetida:technicalCents/100}:{}),
   };
 }

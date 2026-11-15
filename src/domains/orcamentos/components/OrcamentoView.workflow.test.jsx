@@ -4,6 +4,22 @@ import { afterEach,expect,it,vi } from 'vitest';
 import Orcamento from './OrcamentoView';
 let root,container;
 afterEach(()=>{act(()=>root?.unmount());container?.remove();vi.restoreAllMocks();vi.unstubAllGlobals();});
+it('mantém o sexto nível após falha e repete a gravação sem duplicar a etapa',async()=>{
+  window.matchMedia=()=>({matches:false,addEventListener(){},removeEventListener(){}});
+  vi.stubGlobal('IntersectionObserver',class {observe(){} disconnect(){} unobserve(){}});
+  window.scrollTo=vi.fn();Element.prototype.scrollIntoView=vi.fn();
+  const initial={obras:[{id:'o',name:'Obra'}],employees:[],attendance:{},config:{},orcamentos:[{id:'b',obraId:'o',etapas:Array.from({length:5},(_,i)=>({id:'s'+i,nome:'Etapa '+i,parentId:i?'s'+(i-1):''})),itens:[]}],budgetBaselines:[{obraId:'o',tipo:'controle',budgetId:'b'}]};
+  let fail=true,latest=initial;
+  function App(){const [data,setData]=useState(initial);return <Orcamento data={data} obraIdFixo="o" currentUser={{role:'admin'}} showToast={()=>{}} update={async next=>{if(fail){fail=false;return {ok:false,reason:'Falha de teste'};}latest=next;setData(next);return {ok:true};}}/>;}
+  container=document.createElement('div');document.body.append(container);root=createRoot(container);await act(async()=>root.render(<App/>));
+  await act(async()=>container.querySelector('[aria-label="Mais ações da etapa 1.1.1.1.1"]').click());
+  await act(async()=>[...container.querySelectorAll('[role=menuitem]')].find(b=>b.textContent==='Criar subnível').click());
+  const input=document.body.querySelector('[role=dialog] input');
+  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Acabamento');input.dispatchEvent(new Event('input',{bubbles:true}));});
+  const save=()=>[...document.body.querySelectorAll('[role=dialog] button')].find(b=>b.textContent==='Salvar');
+  await act(async()=>save().click());expect(input.value).toBe('Acabamento');expect(document.body.querySelector('[role=dialog]')).not.toBeNull();
+  await act(async()=>save().click());expect(latest.orcamentos[0].etapas).toHaveLength(6);expect(document.body.querySelector('[role=dialog]')).toBeNull();
+});
 it('abre a planilha real, reordena uma etapa e desfaz pelo controle geral',async()=>{
   window.matchMedia=()=>({matches:false,addEventListener(){},removeEventListener(){}});
   vi.stubGlobal('IntersectionObserver',class {observe(){} disconnect(){} unobserve(){}});

@@ -1,8 +1,16 @@
 export const FILE_MAX_BYTES = 3 * 1024 * 1024;
+export const FILE_BATCH_MAX = 20;
 export const FILE_EXTENSIONS = ['pdf','png','jpg','jpeg','webp','gif','txt','csv','doc','docx','xls','xlsx','ppt','pptx','dwg','dxf','rvt','rfa','ifc','zip'];
 export const FILE_ACCEPT = FILE_EXTENSIONS.map(ext => `.${ext}`).join(',');
 export const fileMime = name => ({pdf:'application/pdf',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',webp:'image/webp',gif:'image/gif',txt:'text/plain',csv:'text/csv',zip:'application/zip'}[String(name).split('.').pop().toLowerCase()]||'application/octet-stream');
 export const DEFAULT_FOLDERS = ['Contratos e ART / RRT','Projetos','Licenciamento','Financeiro','Diário e fotos','Medições','Entrega final'];
+export const DEFAULT_PROJECT_FOLDERS = ['Projetos de Arquitetura','Projetos de Engenharia'];
+export const sameFolderName = (a,b) => String(a).trim().toLocaleLowerCase('pt-BR')===String(b).trim().toLocaleLowerCase('pt-BR');
+export function defaultFoldersMissing(folders) {
+  if(DEFAULT_FOLDERS.some(name=>!folders.some(f=>!f.parentId&&sameFolderName(f.name,name))))return true;
+  const projects=folders.filter(f=>!f.parentId&&sameFolderName(f.name,'Projetos'));
+  return projects.length!==1||DEFAULT_PROJECT_FOLDERS.some(name=>!folders.some(f=>f.parentId===projects[0].id&&sameFolderName(f.name,name)));
+}
 export function fileValidation(file) {
   if (!file?.size || file.size > FILE_MAX_BYTES) return 'Selecione um arquivo de até 3 MB. Para arquivos maiores, adicione um link da nuvem.';
   if (!FILE_EXTENSIONS.includes(String(file.name).split('.').pop().toLowerCase())) return 'Formato não permitido. Use PDF, imagem, documento, planilha, CAD, BIM ou ZIP.';

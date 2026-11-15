@@ -81,15 +81,18 @@ const equipmentCompany = (data,ym) => {
     receitaBruta:total.receita+total.descontos,receitaProprios:0,receitaTerceiros:0};
 };
 
-const makeCalculations=(canonicalEvents=[])=>createDreCalculations({
+const makeCalculations=(canonicalEvents=[],asOf="")=>createDreCalculations({
   canonicalEvents,
-  getDays,getQ,monthName:month=>String(month+1),
+  getDays:asOf?(year,month)=>getDays(year,month).filter(day=>day<=asOf):getDays,getQ,monthName:month=>String(month+1),
   calcObraLaborCost:laborCost,calcObraTercCost:thirdWork,
   calcTercEmpresaCost:thirdCompany,calcObraTercEmpresaCost:thirdCompanyWork,
   calcObraComprasCost:purchases,calcEquipCustoObra,
   calcEquipFaturamentoEmpresa:equipmentCompany,
 });
 const calculations=makeCalculations();
+// Consulta gerencial: usa a mesma base administrativa do DRE, sem emitir medição.
+export const readWorkAdministrationProjection=(data,obraId,year,month,canonicalEvents=[],asOf='')=>
+  makeCalculations(canonicalEvents,asOf).calcProjecaoContratoObra(data,obraId,year,month);
 
 const expenseCategories=COMPANY_EXPENSE_CATEGORIES.map(category=>[
   category.id,category.group,
@@ -264,3 +267,7 @@ export const buildAccumulatedWorkCosts = (data,{year,month,obraIds=[]},canonical
   const engine=canonicalEvents.length?makeCalculations(canonicalEvents):calculations;
   return engine.calcCustoAcumuladoObras(data,obraIds,year,month);
 };
+
+// Mesma origem do DRE e da consulta interna de custos por etapa; só servidor.
+export const buildAccumulatedWorkLedger = (data,{year,month,obraIds=[],asOf=""},canonicalEvents=[]) =>
+  (canonicalEvents.length||asOf?makeCalculations(canonicalEvents,asOf):calculations).calcLedgerAcumulado(data,obraIds,year,month);

@@ -18,8 +18,8 @@ export function FlowTabs({label,steps,tools=[],active,onChange,toolsLabel="Consu
   const selected=[...steps,...tools].find(item=>item.id===active);
   return <section className="workflow-tabs" aria-label={label}>
     <div className="workflow-tabs__mobile"><Select label={label} value={active} onChange={event=>onChange(event.target.value)}><optgroup label="Áreas de trabalho">{steps.map(item=><option key={item.id} value={item.id}>{item.label}{item.count!=null?` · ${item.count}`:""}</option>)}</optgroup>{tools.length>0&&<optgroup label={toolsLabel}>{tools.map(item=><option key={item.id} value={item.id}>{item.label}</option>)}</optgroup>}</Select></div>
-    <nav aria-label={label}>{steps.map(item=><Button variant="ghost" key={item.id} type="button" aria-current={active===item.id?"page":undefined} onClick={()=>onChange(item.id)} aria-label={item.label}>
-      <span>{item.label}</span>{item.count!=null&&<small aria-hidden="true">{item.count}</small>}
+    <nav aria-label={label}>{steps.map(item=><Button variant="ghost" key={item.id} type="button" aria-current={active===item.id?"page":undefined} onClick={()=>onChange(item.id)} aria-label={item.count!=null?`${item.label} ${item.count}`:item.label}>
+      <span>{item.label}</span>{item.count!=null&&<small>{' '}{item.count}</small>}
     </Button>)}</nav>
     {tools.length>0&&<details className="workflow-tools" key={active} open={tools.some(item=>item.id===active)}><summary>{toolsLabel}{tools.some(item=>item.id===active)?` · ${selected.label}`:""}</summary><div>{tools.map(item=><Button variant="secondary" key={item.id} type="button" aria-current={active===item.id?"page":undefined} onClick={()=>onChange(item.id)}>{item.label}{item.count!=null?` · ${item.count}`:""}</Button>)}</div></details>}
     {selected?.description&&<p className="workflow-description">{selected.description}</p>}

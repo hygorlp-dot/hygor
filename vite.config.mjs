@@ -3,9 +3,16 @@ import react from "@vitejs/plugin-react";
 import {fileURLToPath, URL} from "node:url";
 import {spreadsheetBrowserConfig} from "./scripts/spreadsheet-browser-config.mjs";
 import {sharedSinapiWorker} from "./scripts/shared-sinapi-worker.mjs";
+import {sharedChartHelpers} from './scripts/shared-chart-helpers.mjs';
+import {sharedUiHelpers} from './scripts/shared-ui-helpers.mjs';
+import {operationalChartScales} from './scripts/operational-chart-scales.mjs';
+import {legacyScreenChunks} from './scripts/legacy-screen-chunks.mjs';
 
 export default defineConfig(({mode})=>mergeConfig({
-  plugins: [react(),sharedSinapiWorker()],
+  plugins: [legacyScreenChunks(),react(),sharedSinapiWorker(),sharedChartHelpers(),sharedUiHelpers(),operationalChartScales()],
+  // Restrinja a descoberta ao aplicativo: builds e evidências HTML em
+  // artifacts não são entradas de desenvolvimento.
+  optimizeDeps: {entries:["index.html"]},
   // Evidências e builds locais não são fontes da aplicação. Observá-los
   // dispara recargas contínuas enquanto outras verificações estão rodando.
   server: {

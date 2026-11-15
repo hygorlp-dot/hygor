@@ -1,7 +1,14 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeAll, afterAll } from "vitest";
 import { marcellReportHtml } from "./marcell-report.js";
+import {loadReportFonts} from './report-fonts.js';
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+
+beforeAll(async()=>{
+ vi.stubGlobal('fetch',async url=>({ok:true,arrayBuffer:async()=>Uint8Array.from(readFileSync(resolve('public'+url))).buffer}));
+ await loadReportFonts();
+});
+afterAll(()=>vi.unstubAllGlobals());
 
 const parse = html => new DOMParser().parseFromString(html, "text/html");
 const sample = `<!doctype html><html><head><title>Cobrança</title><style>@page{size:A4 landscape;margin:10mm}</style></head><body><h1>Empresa legal cadastrada</h1><p>CNPJ 12.345.678/0001-90 · Obra B2-04</p><table><thead><tr><th>Descrição</th><th>Total</th></tr></thead><tbody><tr><td>Locação com desconto</td><td>R$ 1.234,56</td></tr><tr><td>Saldo negativo</td><td>-R$ 17,90</td></tr><tr><td>Sem lançamento</td><td>R$ 0,00</td></tr></tbody><tfoot><tr><td>Total</td><td>R$ 1.216,66</td></tr></tfoot></table><footer>Assinatura do responsável</footer></body></html>`;

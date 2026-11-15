@@ -130,6 +130,11 @@ export const buildBudgetMaterialDemand = ({ budget, materials = [], tasks = [] }
         composicaoIds:[], itemOrcamentoIds:[], etapaIds:[], tarefaIds:[], vinculo:"confirmado", pendencias:[],
         forcadoParaA:Boolean(material?.curvaAEstrategica || material?.forcadoParaA), motivoCriticidade:material?.motivoCriticidade || "",
       };
+      const normalizeUnit = value => String(value || "").trim().toUpperCase().replace(/^UND$/,"UN");
+      if (input?.unidade && normalizeUnit(input.unidade) !== normalizeUnit(old.unidade)) {
+        old.vinculo = "pendente";
+        old.pendencias.push({ tipo:"unidade", itemOrcamentoId:item.id || "", confianca:0, candidatos:[] });
+      }
       old.quantidade += quantity;
       old.custoTotal += quantity * unitPrice;
       [input?.composicaoId, item?.composicaoId].filter(Boolean).forEach(value => { if (!old.composicaoIds.includes(value)) old.composicaoIds.push(value); });

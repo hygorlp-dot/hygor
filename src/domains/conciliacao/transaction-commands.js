@@ -1,6 +1,8 @@
 import { activeCashAllocations, reconciliationHold } from "./cash-allocations.js";
+import {BANK_IMPORT_REVERSED,applyBankReversal,bankImportStamp,validBankOriginal} from './import-reversal.js';
 
 export const BANK_TRANSACTION_COMMAND=Object.freeze({
+  BANK_IMPORT_REVERSED,
   BANK_TRANSACTIONS_IMPORTED:"TRANSACOES_BANCARIAS_IMPORTADAS",
   BANK_TRANSACTIONS_IGNORED:"TRANSACOES_BANCARIAS_IGNORADAS",
   BANK_TRANSACTIONS_REOPENED:"TRANSACOES_BANCARIAS_REABERTAS",
@@ -74,10 +76,10 @@ const validateTargets=(data,payload,expectedStatus)=>{
   return {targets:resolved,ids};
 };
 
-const applyImport=(data,command,now,actor)=>{
-  const payload=command.payload||{};
+export const prepareBankImport=(data,payload={})=>{
   const rawStatement=payload.statement||{};
   const rawTransactions=Array.isArray(payload.transactions)?payload.transactions:[];
+  if(rawStatement.originalFile&&!validBankOriginal(rawStatement.originalFile))return fail('Original bancário inválido ou maior que 2 MB.');
   if(!rawStatement.id||!safeText(rawStatement.arquivo,260)){
     return fail("O extrato bancário não possui identificação ou nome de arquivo.");
   }
@@ -90,8 +92,7 @@ const applyImport=(data,command,now,actor)=>{
   if(existingStatement){
     if(String(existingStatement.hashArquivo||"")===String(rawStatement.hashArquivo||"")){
       return {
-        ok:true,data,entityId:statementId,
-        summary:{imported:0,duplicates:rawTransactions.length},
+        ok:true,statementId,imported:[],duplicates:rawTransactions.length,
       };
     }
     return fail("Já existe outro extrato com esta identificação.");
@@ -125,13 +126,18 @@ const applyImport=(data,command,now,actor)=>{
     imported.push({
       ...raw,id,extratoId:statementId,data:date,descricao:description,
       descricaoOriginal:safeText(raw.descricaoOriginal||description,1000),
-      valor:value,chave:key,status:"pendente",rateios:[],gerados:[],
-      vinculo:null,obs:"",ignoradoMotivo:"",
-      direcao:value>0?"entrada":"saida",
-      version:1,createdAt:now,createdById:actor.id,createdBy:actor.name,
-      updatedAt:now,updatedById:actor.id,updatedBy:actor.name,
+      valor:value,chave:key,
     });
   }
+  return {ok:true,statementId,imported,duplicates};
+};
+
+export const applyBankImport=(data,command,now=new Date().toISOString(),actor=actorOf(command))=>{
+  const prepared=prepareBankImport(data,command.payload||{});
+  if(!prepared.ok)return prepared;
+  const {statementId,duplicates}=prepared,rawStatement=command.payload.statement;
+  const imported=prepared.imported.map(raw=>({...raw,status:'pendente',rateios:[],gerados:[],importReversal:'',vinculo:null,obs:'',ignoradoMotivo:'',direcao:raw.valor>0?'entrada':'saida',
+    version:1,createdAt:now,createdById:actor.id,createdBy:actor.name,updatedAt:now,updatedById:actor.id,updatedBy:actor.name}));
 
   if(!imported.length){
     return {
@@ -139,6 +145,8 @@ const applyImport=(data,command,now,actor)=>{
       summary:{imported:0,duplicates},
     };
   }
+
+  for(const transaction of imported)transaction.importStamp=bankImportStamp(transaction);
 
   const dates=imported.map(item=>item.data).sort();
   const statement={
@@ -149,6 +157,7 @@ const applyImport=(data,command,now,actor)=>{
     hashArquivo:safeText(rawStatement.hashArquivo,500),
     dataInicio:dates[0],dataFim:dates.at(-1),
     qtd:imported.length,qtdDuplicadas:duplicates,status:"ativo",
+    importManifest:{ids:imported.map(t=>String(t.id))},importReversals:[],
     importadoEm:now,importadoPorId:actor.id,importadoPor:actor.name,
     version:1,updatedAt:now,updatedById:actor.id,updatedBy:actor.name,
   };
@@ -209,8 +218,9 @@ export const applyBankTransactionCommand=(data={},command={},now=new Date().toIS
   if(!BANK_TRANSACTION_COMMAND_TYPES.has(command.type))return null;
   const actor=actorOf(command);
   if(!actor.id)return fail("Sessão do usuário indisponível para alterar transações bancárias.");
+  if(command.type===BANK_IMPORT_REVERSED)return applyBankReversal(data,command,now);
   if(command.type===BANK_TRANSACTION_COMMAND.BANK_TRANSACTIONS_IMPORTED){
-    return applyImport(data,command,now,actor);
+    return applyBankImport(data,command,now,actor);
   }
   if(command.type===BANK_TRANSACTION_COMMAND.BANK_TRANSACTIONS_IGNORED){
     return applyStatusChange(data,command,now,actor,{

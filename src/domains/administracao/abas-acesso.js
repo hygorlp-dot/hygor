@@ -9,7 +9,7 @@ export const ROLE_TABS = {
   compras:     ["home","tv","cmp","fornecedores","suprimentos","plan_suprimentos","est","patrimonio","cad","ia"],
   rh:          ["home","tv","ponto","ponto_geral","ponto_app","equipe","equipe_obras","terc","folha","resc","rh_indic","conc","cad","ia"],
   financeiro:  ["home","tv","equip_fin","patrimonio","plan","cmp","fornecedores","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia"],
-  comercial:   ["home","tv","com_workspace","com_real_estate","com_pipeline","com_relationships","com_deals","com_management","com_funil","com_leads","com_propostas","com_negociacoes","com_agenda","com_parceiros","com_metas","com_relatorios","ia"],
+  comercial:   ["home","tv","com_workspace","com_real_estate","com_pipeline","com_relationships","com_deals","com_contratos","com_management","com_funil","com_leads","com_propostas","com_negociacoes","com_agenda","com_parceiros","com_metas","com_relatorios","ia"],
   visualizador:["home","tv"],
 };
 
@@ -25,7 +25,8 @@ export const allowedTabsForUser=user=>{
   // disponíveis mesmo em cadastros antigos cuja lista personalizada de abas
   // foi criada antes da existência do painel corporativo.
   const herdadas=user.role==="financeiro"?["equip_fin","patrimonio"]:user.role==="compras"?["patrimonio"]:user.role==="engenheiro"?["ponto"]:user.role==="rh"?["terc","conc"]:[];
-  return [...new Set(["home","tv","chat","aprov_pend",...base,...herdadas])]
+  const contratos=user.role==='comercial'&&base.includes('com_deals')?['com_contratos']:[];
+  return [...new Set(["home","tv","chat","aprov_pend",...base,...herdadas,...contratos])]
     .filter(tab=>valid.has(tab)&&tab!=="config")
     .filter(tab=>!(user.obraId&&tab==="patrimonio"))
     .filter(tab=>user.role!=="engenheiro_auditor"||!["ponto","ponto_geral"].includes(tab));

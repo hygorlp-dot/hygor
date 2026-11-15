@@ -36,7 +36,20 @@ describe('Central de arquivos da obra',()=>{
     expect(applyOperationalCommand(initial(),command(C.DOCUMENT_ADDED,{...document,folderId:'foreign'})).ok).toBe(false);
   });
   it('aplica modelo sem duplicar pastas existentes',()=>{
-    const first=applyOperationalCommand(initial(),command(C.TEMPLATE_APPLIED));const second=applyOperationalCommand(first.data,command(C.TEMPLATE_APPLIED,{},1));expect(second.data.workFileCabinets[0].folders).toHaveLength(7);
+    const first=applyOperationalCommand(initial(),command(C.TEMPLATE_APPLIED));const second=applyOperationalCommand(first.data,command(C.TEMPLATE_APPLIED,{},1));expect(second.data.workFileCabinets[0].folders).toHaveLength(9);
+  });
+  it('completa Projetos por identidade da pasta e preserva documentos, permissões e finanças',()=>{
+    const data=initial();data.despesas=[{id:'cost',valor:100}];data.movEstoque=[{id:'stock',quantidade:2}];
+    data.workFileCabinets=[{obraId:'a',version:0,folders:[{id:'existing',name:'PROJETOS',parentId:''},{id:'arch',name:'Projetos de Arquitetura',parentId:'existing'},{id:'custom',name:'CONTRATO',parentId:''}],documents:[{id:'doc',folderId:'arch',revisions:[]}],history:[]}];
+    const original=structuredClone(data);const result=applyOperationalCommand(data,command(C.TEMPLATE_APPLIED));expect(result.ok).toBe(true);
+    const cabinet=result.data.workFileCabinets[0];expect(cabinet.documents).toEqual(original.workFileCabinets[0].documents);
+    expect(cabinet.folders.filter(f=>f.parentId==='existing').map(f=>f.name).sort()).toEqual(['Projetos de Arquitetura','Projetos de Engenharia']);
+    expect(cabinet.folders.find(f=>f.id==='custom')).toEqual(original.workFileCabinets[0].folders[2]);
+    const {operationalCommandReceipts,...businessData}=result.data;expect(operationalCommandReceipts).toHaveLength(1);expect({...businessData,workFileCabinets:[]}).toEqual({...original,workFileCabinets:[]});expect(data).toEqual(original);
+  });
+  it('não completa subpastas sem permissão de escrita em Projetos',()=>{
+    const data=initial();data.workFileCabinets=[{obraId:'a',version:0,folders:[{id:'p',name:'Projetos',parentId:'',access:{restricted:true,readers:['u'],editors:[]}}],documents:[],history:[]}];
+    expect(applyOperationalCommand(data,command(C.TEMPLATE_APPLIED)).ok).toBe(false);expect(data.workFileCabinets[0].folders).toHaveLength(1);
   });
   it.each(['javascript:alert(1)','data:text/html,x','https://u:secret@example.org/x','/secret','/api/local-files/../../secret'])('rejeita endereço inseguro %s',url=>{expect(fileUrl(url)).toBeNull();expect(applyOperationalCommand(initial(),command(C.DOCUMENT_ADDED,{...document,url})).ok).toBe(false);});
   it('valida formato e tamanho dos uploads no reducer',()=>{

@@ -3,6 +3,9 @@ name: MARCELL
 description: Gestão de obras com temas consistentes e leitura operacional clara; direção SAP disponível em MARCELL Operacional.
 operational-reference: SAP
 local-pilot: MARCELL Preciso — 01/11/2026
+reviewed-at: 2026-11-15
+default-theme: marcell
+default-density: compact
 colors:
   operational-primary: "#0057D2"
   operational-canvas: "#F5F6F7"
@@ -13,22 +16,23 @@ colors:
   slate: "#78818B"
   white: "#FFFFFF"
   secondary-text: "#536171"
-  muted-surface: "#E8E5DF"
+  muted-surface: "#EDF0F4"
   border: "#D9DDE2"
-  control-border: "#7A8591"
-  focus: "#7B6030"
-  selected-surface: "#EEE5D5"
-  action-hover: "#18304C"
+  control-border: "#8A96A5"
+  focus: "#235BB0"
+  selected-surface: "#EDF3FC"
+  action-primary: "#235BB0"
+  action-hover: "#19498E"
   sidebar-hover: "#1B2C42"
-  sidebar-active: "#243348"
+  sidebar-active: "#244B7D"
   sidebar-text: "#C4CFDA"
-  success: "#2E6652"
-  warning: "#855A24"
-  danger: "#A63B3B"
-  info: "#355874"
+  success: "#24634B"
+  warning: "#805517"
+  danger: "#A2323B"
+  info: "#285C91"
   dashboard-news-header: "#EDF3F7"
   dashboard-actions-header: "#F8F3E9"
-  operational-canvas: "#F5F6F8"
+  precise-canvas: "#F5F6F8"
   operational-muted: "#EDF0F4"
   operational-control-border: "#8A96A5"
 typography:
@@ -64,7 +68,7 @@ typography:
   dashboard-title:
     fontFamily: 'IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '1.5rem'
-    fontWeight: 600
+    fontWeight: 500
   headline:
     fontFamily: 'IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '1.5rem'
@@ -78,12 +82,12 @@ typography:
     lineHeight: 1.35
   card-title:
     fontFamily: 'IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
-    fontSize: '0.875rem'
+    fontSize: '0.9375rem'
     fontWeight: 600
     lineHeight: 1.35
   body:
     fontFamily: 'IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
-    fontSize: '0.9375rem'
+    fontSize: '0.875rem'
     fontWeight: 400
     lineHeight: 1.5
     letterSpacing: '0.01rem'
@@ -102,6 +106,7 @@ typography:
 rounded:
   sm: '0.375rem'
   md: '0.375rem'
+  control: '0.375rem'
   lg: '0.5rem'
   control: '0.5rem'
   pill: '9999px'
@@ -117,11 +122,11 @@ spacing:
   '12': '3rem'
 components:
   button-primary:
-    backgroundColor: '{colors.navy}'
+    backgroundColor: '{colors.action-primary}'
     textColor: '{colors.white}'
     rounded: '{rounded.md}'
     padding: '0 1rem'
-    height: '2.75rem'
+    height: 'var(--arcd-control-height)'
   button-primary-hover:
     backgroundColor: '{colors.action-hover}'
     textColor: '{colors.white}'
@@ -130,7 +135,7 @@ components:
     textColor: '{colors.navy}'
     rounded: '{rounded.md}'
     padding: '0 1rem'
-    height: '2.75rem'
+    height: 'var(--arcd-control-height)'
   button-ghost:
     backgroundColor: 'transparent'
     textColor: '{colors.navy}'
@@ -143,7 +148,7 @@ components:
     padding: '0.5rem 0.75rem'
   navigation-active:
     backgroundColor: '{colors.sidebar-active}'
-    textColor: '{colors.gold}'
+    textColor: '{colors.white}'
   badge-neutral:
     backgroundColor: '{colors.muted-surface}'
     textColor: '{colors.secondary-text}'
@@ -158,19 +163,31 @@ components:
 
 # Design System: MARCELL
 
-## Direção SAP — MARCELL Operacional, 01/11/2026
+## Contrato vigente — conferido em 15/11/2026
 
-O usuário escolheu a referência SAP do awesome-design-md. A opção MARCELL Operacional usa fonte 72 local, azul funcional, faixas claras de cabeçalho e navegação e hierarquia de tabelas e ações. Os papéis de cores e geometria ficam no registro de temas, compartilhados por todos os componentes. Referências, licenças, adaptações para ERP e revisão visual: `docs/DESIGN-SAP-MARCELL-20261101.md`. Os temas Claro e Institucional permanecem disponíveis, assim como as preferências já salvas. Esta etapa é local, sem novo deploy.
+Este documento descreve a implementação atual; as notas históricas abaixo não a substituem. Novas interfaces usam os componentes compartilhados, os tokens e `docs/PADRAO-INTERFACE.md`. Esta revisão alinha a documentação, sem migrar fontes, temas, dados, regras ou permissões.
 
-## Direção vigente — temas SaaS, 31/10/2026
+- Tema padrão: **MARCELL Preciso** (`marcell`), com lateral azul-marinho, conteúdo cinza claro e ações azuis. Densidade inicial: **Compacta**. Preferências salvas continuam sendo respeitadas.
+- Temas disponíveis no registro: MARCELL Preciso, MARCELL Claro (`saas`), MARCELL Operacional (`operacional`) e MARCELL Vidro (`vidro`). Todos usam **IBM Plex Sans** como fonte operacional. As aliases legadas `--type-body` e `--type-display` consomem `--arcd-font-sans`; `--type-data` consome `--arcd-font-mono`. A conferência no navegador confirmou o corpo em IBM Plex Sans nos quatro temas. Vidro é aplicado ao portal sem substituir a preferência do ERP.
+- Fonte única da escala: `src/design-system/foundations.js`; cores, família e diferenças de tema: `src/design-system/themes/themeRegistry.js`; alturas e espaçamento: `src/design-system/tokens/density.css` e `spacing.css`. `src/design-system/theme/themeValidation.js` define a densidade inicial.
+- A base semântica de botões é `src/design-system/primitives/button-contract.css`; cabeçalhos compartilhados seguem `module-standard.css` e `--arcd-heading-weight`. A camada `marcell-clean.css` ainda aplica peso 500 a títulos legados e de diálogos. Essa diferença de cascata não autoriza novos estilos por módulo: novas telas devem consumir o cabeçalho compartilhado.
+- O modo TV tem superfície escura e paleta central própria para leitura à distância (`DISTANCE_VIEW_COLORS`), sem alterar cores do tema operacional. Relatórios e PDFs usam Nimbus Sans incorporada. A mensagem institucional no acesso desktop mantém P052.
+- Os relatórios reaproveitam os arquivos públicos WOFF2 de Nimbus Sans, sem outra cópia base64 no JavaScript inicial. `report-fonts.js` prepara e guarda as fontes no navegador quando o armazenamento permite; a confirmação aguarda a logomarca e as fontes. Os construtores podem montar um modelo antes desse preparo, mas a abertura em `report-preview.js` exige as duas fontes incorporadas ao HTML final. O documento salvo continua independente de URLs de fonte. Falha no preparo deve conservar a escolha e oferecer nova tentativa, sem abrir uma janela incompleta.
+- Texto, tema, ajuda e carregamento não criam fatos financeiros. Divisão de código e mudanças de apresentação devem preservar contexto, filtros, competência, origem e valores do DRE.
+
+## Histórico — direção SAP, 01/11/2026
+
+O usuário escolheu a referência SAP do awesome-design-md. A versão inicial de MARCELL Operacional usava fonte 72; a implementação atual usa IBM Plex Sans, preservando azul funcional, faixas claras e hierarquia de trabalho. O registro de temas é a fonte dos papéis e da geometria. Referências e decisões daquela etapa: `docs/DESIGN-SAP-MARCELL-20261101.md`. Os nomes e valores históricos não devem ser copiados para novas interfaces.
+
+## Histórico — temas SaaS, 31/10/2026
 
 Revisão de consistência de 01/11/2026: áreas de trabalho usam botões delimitados, contagem separada e seleção com fundo/borda, além de hover e foco. Ações e campos de cabeçalho se alinham pela base dos controles; o status de salvamento é informativo e acompanha a altura das ações. Mais módulos no celular usa o Dialog compartilhado, fora da navegação inferior, com bloqueio de fundo e foco por teclado. Evidências e limites estão em `docs/REVISAO-GERAL-ERP-20261101.md`.
 
-O usuário rejeitou a direção visual anterior e pediu simplicidade de fluxo e temas consistentes. O contrato atual está em `src/design-system/themes/themeRegistry.js`: MARCELL Claro (padrão sem preferência salva, Inter, navegação branca, ações azuis) e MARCELL Institucional (Source Sans 3, navegação marinho, seleção ouro). Uma preferência existente é respeitada. Valores de cor e tipografia do contrato prevalecem sobre as receitas históricas documentadas abaixo.
+O usuário rejeitou a direção visual anterior e pediu simplicidade de fluxo e temas consistentes. Naquela etapa foram usados Inter no tema Claro e Source Sans 3 no Institucional. Esses valores foram substituídos pelo contrato atual: IBM Plex Sans em todos os temas operacionais e MARCELL Preciso como padrão. As preferências são normalizadas pelo registro e pela validação de temas; receitas históricas não prevalecem sobre essa base.
 
 As receitas compartilhadas usam tokens semânticos, com ponte comum para shadcn, controles legados e primitivos. Densidade é independente do tema; o toque preserva 44 px. Não fixar cores de tema em páginas. No Financeiro, quatro entradas de rotina antecedem Mais áreas; em Compras, busca visível, filtros adicionais sob demanda e registros móveis compactos. Marca, documentos impressos e modo TV preservam seus requisitos. Pesquisa, limites e critérios: `docs/DESIGN-SAAS-TEMAS-20261031.md`.
 
-## Piloto operacional aprovado — 30/10/2026
+## Histórico — piloto operacional aprovado, 30/10/2026
 
 Dashboard, Compras e Financeiro adotam a direção **gestão com precisão** em
 `src/design-system/themes/marcell-pilot.css`. Na primeira versão, a marca, o monograma, Nimbus Sans
@@ -200,7 +217,7 @@ Evidências e instruções de revisão estão em `docs/PILOTO-VISUAL-MARCELL.md`
 
 **Creative North Star: "Ambiente operacional MARCELL"**
 
-A identidade oficial situa a equipe na MARCELL: navegação azul-marinho, marca em ouro e áreas de trabalho claras em areia e branco. A operação mantém leitura direta, densidade controlada e padrões familiares para consultar obras, comparar valores e concluir ações.
+A identidade oficial situa a equipe na MARCELL: no padrão Preciso, navegação azul-marinho, marca em ouro e áreas de trabalho em cinza claro e branco. A operação mantém leitura direta, densidade controlada e padrões familiares para consultar obras, comparar valores e concluir ações.
 
 A assinatura completa apresenta a empresa no acesso; o monograma atende espaços compactos. Os vetores oficiais preservam desenho, proporção e cores. A mensagem institucional do acesso recebe a serifada editorial; telas de trabalho mantêm a família operacional.
 
@@ -215,43 +232,43 @@ A assinatura completa apresenta a empresa no acesso; o monograma atende espaços
 O azul-marinho ancora marca, texto e ações; ouro assina a identidade sobre azul, e os neutros mantêm a leitura do trabalho.
 
 ### Primary
-- **Azul-marinho:** navegação lateral, painel institucional do acesso, texto principal e ação primária.
-- **Ouro:** assinatura oficial e item ativo sobre navegação azul; o foco operacional usa a derivação escura `focus`.
+- **Azul-marinho:** navegação lateral, painel institucional do acesso e texto principal no padrão Preciso. A ação primária usa o azul funcional do tema.
+- **Ouro:** assinatura oficial e identidade. Seleção e foco operacional usam os papéis semânticos do tema; no Preciso, a seleção da lateral é azul com texto branco, e o foco usa azul.
 
 ### Neutral
-- **Areia:** fundo principal do aplicativo e do formulário de acesso.
+- **Cinza claro:** fundo principal no padrão Preciso. Areia permanece na identidade e em composições históricas; não substitui `--arcd-surface-page`.
 - **Branco:** cartões, campos e texto sobre a ação primária.
 - **Ardósia:** elementos gráficos secundários; textos auxiliares usam `secondary-text`, mais escuro.
 - **Superfície neutra e divisores:** agrupamento, cabeçalhos de tabela e limites entre informações.
 
 Sucesso, atenção, erro e informação usam seus próprios tokens semânticos. Texto e ícone acompanham estados quando apropriado; ausência de dado não significa zero.
 
-**The Functional Color Rule.** Ouro identifica a marca e a seleção; sucesso, atenção e erro mantêm sua semântica própria.
+**The Functional Color Rule.** Ouro identifica a marca; seleção, sucesso, atenção e erro seguem seus papéis semânticos. Cada tema define os valores, sem versões locais por módulo.
 
 ## Typography
 
 **Display Font:** P052, com Georgia e serif de reserva.
-**Body Font:** Source Sans 3, com Helvetica Neue, Arial e sans-serif de reserva.
+**Body Font:** IBM Plex Sans, com Helvetica Neue, Arial e sans-serif de reserva.
 **Label/Mono Font:** IBM Plex Mono e fontes monoespaçadas de sistema para identificadores técnicos.
 
-Source Sans 3 sustenta títulos, corpo, controles e números financeiros na operação web. P052 aparece na mensagem institucional do acesso desktop. As fontes MARCELL são servidas localmente por WOFF2; a procedência e as licenças da Source Sans 3 acompanham `public/fonts/source-sans-3`; a distribuição URW Base 35 / Artifex continua em `public/fonts/marcell` para a identidade institucional e os impressos.
+IBM Plex Sans é a fonte operacional de títulos, corpo, controles e números financeiros no registro dos temas. Os pesos 400, 500 e 600 são servidos localmente em `public/fonts/ibm-plex`, com `font-display:swap`; suas declarações ficam em `tokens/typography.css`, junto da base de compatibilidade. Em 15/11/2026, as aliases do CSS legado passaram a consumir os tokens compartilhados. A revisão conferiu estilos computados e carregamento da fonte em Dashboard, Financeiro e Planejamento, nos quatro temas e em desktop/celular. Novas interfaces consomem os componentes e tokens compartilhados. P052 permanece na mensagem institucional do acesso desktop. Os arquivos históricos Source Sans 3 não definem o contrato operacional. Nimbus Sans permanece incorporada aos relatórios; as fontes URW/Artifex continuam nos diretórios de identidade e impressão. Os pesos e a escala existentes não foram alterados nesta consolidação.
 
 ### Hierarchy
 - **Display:** mensagem institucional do acesso, com tamanho fluido definido no frontmatter.
 - **Headline:** título de página (24 px); o acesso reduz o título para 24 px no celular.
 - **Title:** seção e título de modal (18 px).
-- **Card title:** título de cartão (14 px).
+- **Card title:** token de título de cartão (15 px); composições históricas do dashboard têm escala própria de 14 px.
 - **Body:** corpo, tabela e controle operacional (14 px).
-- **Label:** rótulo (13 px); **caption:** apoio (12 px).
+- **Label:** rótulo (14 px); **caption:** apoio (13 px). Não repetir escalas históricas menores em novas interfaces.
 - **KPI:** valor principal (24 px), com algarismos tabulares.
 
-**The Operational Type Rule.** Valores financeiros usam Source Sans 3 e algarismos tabulares; monoespaçada identifica códigos, PIX, CPF, patrimônio e NSR.
+**The Operational Type Rule.** Valores financeiros usam a família operacional IBM Plex Sans e algarismos tabulares; monoespaçada pode identificar códigos, PIX, CPF, patrimônio e NSR. `FONT_DISPLAY` do legado também aponta para `--arcd-font-sans` nas telas operacionais.
 
 Campos usam 16 px em telas até 767 px. O modo TV admite títulos maiores para leitura à distância. Não reduzir texto para fazê-lo caber nem cortar valores monetários.
 
 ## Layout
 
-O ritmo usa múltiplos de 4 px. A densidade confortável define controles de 44 px, linhas de tabela de 42 px, preenchimento de painel de 16 px e intervalo de 14 px. Compacta e espaçosa são variantes existentes; contexto de campo amplia controles para 52 px. No celular, alvos de toque preservam pelo menos 44 px.
+O ritmo usa os tokens de espaçamento. A densidade padrão Compacta define controles de 36 px, linhas de 34 px, painel de 12 px e intervalo de 10 px. Confortável usa 44/42/16/14 px; Espaçosa usa 48/48/20/18 px, nessa mesma ordem. O contexto de campo usa controles de 52 px e linhas de 50 px. No celular, os contratos de toque preservam pelo menos 44 px, independentemente da densidade salva.
 
 O acesso desktop usa duas colunas: painel de marca e formulário com largura máxima de 430 px. Até 900 px, passa a uma coluna, com assinatura oficial no topo e sem a frase editorial. No sistema autenticado, a navegação lateral azul atende desktop e a navegação inferior compacta atende celular. Tabelas extensas mantêm rolagem interna; cartões de registro adaptam dados à largura disponível.
 
@@ -269,13 +286,13 @@ Superfícies operacionais são planas, diferenciadas por fundo, bordas e proximi
 
 ## Shapes
 
-Bordas finas (1 px), cantos discretos de 6 px em botões e cartões compactos e 8 px em campos, tabelas e diálogos. Badges e interruptores usam forma de cápsula. No celular, diálogos de tela inteira perdem borda e arredondamento.
+Bordas finas (1 px). No padrão Preciso, `--arcd-radius-control` define 6 px para controles e `--arcd-radius-lg` define 8 px para painéis maiores; outros temas têm valores próprios no registro. Não fixar raios locais para contornar a base. Badges e interruptores usam seus componentes compartilhados. No celular, diálogos de tela inteira perdem borda e arredondamento conforme o contrato do diálogo.
 
 ## Components
 
 ### Buttons
 
-Ações diretas, com altura ligada à densidade e rótulo regular; seleção e ações destrutivas usam peso 500. O primário usa azul-marinho e branco; secundário usa branco e borda de controle; ghost usa fundo transparente. O hover escurece a ação primária ou aplica superfície neutra. A família legada de botões do tema usa um hover azul próprio (`#1E3552`); os primitivos usam `action-hover`. Desabilitados reduzem opacidade e retiram o cursor de ação. Foco visível usa contorno de 3 px e afastamento de 2 px. Transições de estado usam 120 ms; movimento reduzido usa 1 ms.
+Ações diretas, com altura ligada à densidade. O contrato compartilhado usa peso 500, enquanto a camada legada `marcell-clean.css` mantém rótulos regulares em algumas superfícies. O primário usa `--arcd-action-primary` e texto branco; no Preciso, azul `#235BB0`. Secundário e ghost seguem seus papéis, sem cores próprias do módulo. Hover usa `--arcd-action-primary-hover`; desabilitados conservam a indicação de indisponibilidade. Foco visível usa contorno de 3 px e afastamento de 3 px no contrato compartilhado. O título explicativo não substitui o texto de uma ação visível; botões só com ícone precisam de nome acessível.
 
 ### Chips
 
@@ -287,11 +304,11 @@ Fundo branco, borda de divisor e cantos discretos. Cartões de registro no celul
 
 ### Inputs / Fields
 
-Campos claros, borda de controle e cantos de 8 px; descrição e erro permanecem junto ao campo. Hover reforça a borda; foco visível mantém contorno. Erro combina borda e superfície semânticas. Somente leitura e desabilitado usam superfícies neutras e texto secundário. Alertas de modal ocupam espaço no fluxo para não cobrir campos editáveis.
+Campos usam superfície, borda, raio e altura dos tokens do tema/densidade; descrição e erro permanecem junto ao campo. Hover reforça a borda; foco visível mantém contorno. Erro combina borda e superfície semânticas. Somente leitura e desabilitado usam os estados compartilhados. Alertas de modal ocupam espaço no fluxo para não cobrir campos editáveis.
 
 ### Navigation
 
-A lateral usa azul-marinho, texto claro e separadores discretos. Hover altera a superfície e o texto; ativo recebe superfície azul e texto/borda em ouro. A marca usa o monograma oficial. A navegação inferior usa areia no celular. Uma navegação por nível e alvos claros preservam reconhecimento e acesso por teclado.
+No padrão Preciso, a lateral usa azul-marinho e texto claro; o ativo recebe superfície azul e texto branco. Claro e Operacional têm lateral clara. O monograma oficial é preservado. A navegação inferior do celular usa os papéis do tema. Contadores fazem parte do nome acessível do destino, sem alterar seu ID. Uma navegação por nível e alvos claros preservam reconhecimento e acesso por teclado.
 
 ### Dashboard executivo
 
@@ -301,7 +318,7 @@ Cabeçalhos em azul suave (#EDF3F7) para notícias e areia dourada (#F8F3E9) par
 
 ### Telas internas
 
-O mesmo refinamento se estende aos módulos por `marcell-clean.css`, carregado depois da base. Títulos de página 24/500, seções 18/500, cartões 14/500 e diálogos 18/500; botões e rótulos regulares. Tabelas usam corpo de 13 px no computador e 14 px no celular, cabeçalhos de 12/500 e linhas em azul suave. Totais e alertas mantêm destaque e cor semântica. Os valores existentes nunca são abreviados por esta camada.
+O refinamento se estende aos módulos por `marcell-clean.css`. A camada aplica peso 500 aos títulos legados e diálogos; cabeçalhos compartilhados de maior especificidade usam `--arcd-heading-weight`, atualmente 600. Tamanhos novos seguem `foundations.js`: página 24 px, seção/diálogo 18 px, cartão 15 px, corpo/controle/rótulo 14 px e apoio 13 px. Existem composições históricas menores; sua existência não autoriza repeti-las. Totais e alertas mantêm destaque e cor semântica. Os valores existentes nunca são abreviados por esta camada.
 
 Formulários preservam os estados de erro, foco, desabilitado e somente leitura. Campos no celular têm 16 px e altura mínima de 44 px; descrições e metadados não ficam abaixo de 12 px. Cabeçalhos dos modais usam #EDF3F7, título com quebra e botão de fechar sem compressão. Escala em rem, botões com quebra de rótulo e adaptação existente das tabelas preservam o uso com texto ampliado. TV e impressão mantêm suas escalas próprias. Esta camada altera apresentação, sem alterar dados, cálculos, vínculos ou permissões.
 
@@ -319,7 +336,7 @@ Identificação legal cadastrada, conteúdos, valores, assinaturas e colunas nã
 - **Do** usar a assinatura e o monograma oficiais em suas versões adequadas ao fundo.
 - **Do** preservar contraste, foco visível, estados textuais e alvos de toque.
 - **Do** manter valores completos, algarismos tabulares e informações de relatório legíveis.
-- **Do** usar Source Sans 3 na operação e P052 na mensagem institucional do acesso.
+- **Do** usar IBM Plex Sans na operação e P052 somente na mensagem institucional do acesso.
 
 ### Don't:
 - **Don't** redesenhar, distorcer ou aplicar filtros aos vetores oficiais.
@@ -332,11 +349,11 @@ Identificação legal cadastrada, conteúdos, valores, assinaturas e colunas nã
 A folha usa larguras proporcionais ao conteúdo; funcionário, cargo e obra recebem o espaço remanescente, e contagens e valores recebem a largura necessária aos seus dados. Fonte padrão de 10 px, entrelinha 1,2 e espaçamento vertical de 2 px mantêm a densidade sem truncar valores. A prévia oferece controles por tabela e coluna, fonte, linhas e separação de anexos. O padrão pode ser salvo no navegador; controles são excluídos da impressão. A marca MRC permanece em todas as páginas.
 
 
-## Expansão operacional — 31/10/2026
+## Histórico — expansão operacional, 31/10/2026
 
 A direção aprovada passou a todos os módulos da operação web. `marcell-workspaces.css`, carregado após o piloto, define a composição e a nova tipografia. TV e documentos impressos mantêm sua escala específica.
 
-- **Fonte:** Source Sans 3 variável, servida localmente, pesos reais 400/500/600. Origem Adobe; OFL e procedência em `public/fonts/source-sans-3`. Sem requisição ao Google Fonts. Títulos 24 px/600; seções 18 px/600; corpo 15 px; rótulos e controles 14 px; legendas 13 px. Controles de edição no celular usam pelo menos 16 px.
+- **Fonte naquela etapa:** Source Sans 3 variável, servida localmente. A família foi substituída por IBM Plex Sans; novos tamanhos e controles seguem a escala vigente de `foundations.js` e os papéis do registro. A documentação e as licenças antigas não determinam a aparência atual.
 - **Layout:** conteúdo ocupa a largura disponível depois da navegação lateral. Padding de 24 px no desktop e 14 px no celular; agrupamentos com 8–12 px. O espaçamento separa tarefas e preserva proximidade entre campos relacionados.
 - **Controles:** 40 px no desktop, 36 px no modo compacto, 48 px no espaçoso, 44 px de toque no celular. Planilhas mantêm densidade própria no desktop e rolagem interna.
 - **Fluxo:** identidade e ação principal → contexto e filtros → lista/planilha/cronograma → análises complementares. Não colocar sequências de indicadores ou configurações antes da área de trabalho.
@@ -491,3 +508,8 @@ Direção aprovada na entrevista: lateral azul-marinho ajustável, conteúdo cla
 ## Composição de listas operacionais — 02/11/2026
 
 Compras e Financeiro adotam WorkspaceHeading e WorkspaceCommandBar: título e navegação juntos, uma barra com escopo/consulta/ações e resumo compacto antes da lista. A composição vem da base compartilhada, preserva IBM Plex Sans e tokens semânticos, mantém lateral azul-marinho MARCELL e se reorganiza para toque no celular. Valores, alertas, permissões e ações do registro permanecem explícitos. Nenhuma transição financeira muda por efeito de layout.
+
+
+## MARCELL Vidro — portal do cliente, 14/11/2026
+
+Tema aprovado pelo usuário para o portal: vidro fosco claro e residência contemporânea fictícia ao fundo. Tokens de cor/material em themeRegistry.js; receita compartilhada em themes/material.css. Painel principal com opacidade de 68%, cartões e campos com 76%, desfoque de 18 px e texto azul-marinho de alto contraste. A escala, os controles e as abas permanecem MARCELL. Fotografias dos diários continuam inteiras, independentes do fundo ilustrativo. O portal aplica o tema sem gravar outra preferência de aparência do ERP. Superfície sólida quando não há desfoque ou quando o usuário reduz transparência. Procedência do asset e prompt em docs/TEMA-PORTAL-VIDRO-LOCAL.md.

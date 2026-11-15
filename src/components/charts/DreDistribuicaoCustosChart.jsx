@@ -19,7 +19,7 @@ export default function DreDistribuicaoCustosChart({ dre }) {
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie data={dados} dataKey="value" nameKey="name" innerRadius={40} outerRadius={70} paddingAngle={2} isAnimationActive={false}>
-            {[C.orange,C.muted,C.purple,C.red,C.yellow].map((c,i)=><Cell key={i} fill={c}/>)}
+            {dados.map(item=><Cell key={item.name} fill={item.fill} aria-label={`${item.name}: ${fmt(item.value)}`}/>)}
           </Pie>
           <Tooltip content={<ArcdChartTooltip formatter={v=>fmt(v)}/>}/>
         </PieChart>

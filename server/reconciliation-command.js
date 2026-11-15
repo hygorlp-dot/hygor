@@ -152,6 +152,7 @@ const allocateTransaction = (data, transaction, payload, actor) => {
 export const applyReconciliationCommand = (data, command = {}, actor = {}) => {
   const payload=command.payload || {};
   const transactionId=String(payload.transactionId || "");
+  if((data.transacoes||[]).some(t=>t.importReversal&&[transactionId,payload.originalTransactionId,payload.counterpartyTransactionId].includes(String(t.id))))return invalid(data,'Movimento de importação revertida: somente consulta e auditoria.');
   if(!positiveId(transactionId))return invalid(data,"Identificador da transação inválido.");
   const hold = reconciliationHold(findTransaction(data, transactionId));
   if(hold)return invalid(data,hold);

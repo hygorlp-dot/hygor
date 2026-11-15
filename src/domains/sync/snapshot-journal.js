@@ -1,4 +1,4 @@
-import Dexie from 'dexie';
+import {createLocalDatabase,createStore,idbResult} from '../../lib/local-indexed-db.js';
 import {buildSectionDelta,expandSectionDelta} from './section-delta.js';
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const excluded=new Set(['attendance','attendanceLocks','unlockRequests','dailyCheckDate','attendanceOperationReceipts','operationalCommandReceipts','changeLog']);
@@ -35,23 +35,27 @@ export function canRecoverSnapshot(row,user,current){
 }
 export function createSnapshotJournal(name='marcell-workspace-edits-v1'){
  const changed=()=>{if(typeof window!=='undefined')window.dispatchEvent(new Event('marcell-workspace-journal'));};
- const db=new Dexie(name);db.version(1).stores({edits:'[owner+tab],owner'});const edits=db.table('edits'),known=new Map();
+ const db=createLocalDatabase(name,10,database=>{createStore(database,'edits',['owner','tab'],['owner']);}),known=new Map();
+ const read=(owner,tab)=>db.run('edits','readonly',tx=>idbResult(tx.objectStore('edits').get([owner,tab])));
  const key=(owner,tab)=>JSON.stringify([owner,tab]);
  return {db,
   adopt:row=>known.set(key(row.owner,row.tab),row.revision),
-  read:(owner,tab)=>edits.get([owner,tab]),
-  async readLatest(owner,tab){return await edits.get([owner,tab])||(await edits.where('owner').equals(owner).sortBy('createdAt')).at(-1);},
+  read,
+  async readLatest(owner,tab){return db.run('edits','readonly',async tx=>{
+   const edits=tx.objectStore('edits'),current=await idbResult(edits.get([owner,tab]));
+   return current||(await idbResult(edits.index('owner').getAll(owner))).sort((a,b)=>String(a.createdAt||'').localeCompare(String(b.createdAt||''))).at(-1);
+  });},
   async protect({user,tab,base,intended}){
    const row={owner:user.id,tab,scope:recoveryScope(user),revision:crypto.randomUUID(),changes:snapshotChanges(base,intended),createdAt:new Date().toISOString()};
    // Dados de autenticação nunca pertencem a uma intenção de edição.
    if(/"(?:password|senha|accessToken|refreshToken)"\s*:/.test(JSON.stringify(row.changes)))throw Error('A edição contém credenciais e não pode ser recuperada por esta fila.');
-   await db.transaction('rw',edits,async()=>{
-    const existing=await edits.get([row.owner,tab]);
+   await db.run('edits','readwrite',async tx=>{
+    const edits=tx.objectStore('edits'),existing=await idbResult(edits.get([row.owner,tab]));
     if(existing&&existing.revision!==known.get(key(row.owner,tab)))throw Error('Outra aba ou uma edição anterior está protegida. Revise antes de substituir.');
-    await edits.put(row);known.set(key(row.owner,tab),row.revision);
-   });changed();return {owner:row.owner,tab,revision:row.revision};
+    await idbResult(edits.put(row));
+   });known.set(key(row.owner,tab),row.revision);changed();return {owner:row.owner,tab,revision:row.revision};
   },
-  async release(receipt){if(!receipt)return;await db.transaction('rw',edits,async()=>{const row=await edits.get([receipt.owner,receipt.tab]);if(row?.revision===receipt.revision)await edits.delete([receipt.owner,receipt.tab]);});changed();},
+  async release(receipt){if(!receipt)return;await db.run('edits','readwrite',async tx=>{const edits=tx.objectStore('edits'),row=await idbResult(edits.get([receipt.owner,receipt.tab]));if(row?.revision===receipt.revision)await idbResult(edits.delete([receipt.owner,receipt.tab]));});changed();},
  };
 }
 export const snapshotJournal=createSnapshotJournal();

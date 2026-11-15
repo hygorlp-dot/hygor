@@ -89,6 +89,8 @@
     [data-theme] .arcd-choice-button { min-height:2.75rem; }
     [data-theme] .app-help-button { width:2.75rem;padding-inline:0;flex-shrink:0; }
     .app-help-button__label { display:none; }
+    [data-theme] .app-help-button[data-label-visible=true] { width:auto;padding-inline:var(--arcd-space-3); }
+    .app-help-button[data-label-visible=true] .app-help-button__label { display:inline; }
     [data-theme] .app-header-context { min-width:0;flex:1; }
     [data-theme] .app-breadcrumb { min-width:0; }
     [data-theme] .arcd-main[data-workspace] { --arcd-control-height:2.75rem; }

@@ -1,4 +1,6 @@
 import {afterAll,beforeAll,beforeEach,describe,expect,it,vi} from "vitest";
+import {decodeAppData} from '../../server/data-codec.js';
+import {serviceLinkSources} from '../domains/financeiro/service-forecast.js';
 
 const CORE_KEY="arced_ponto_v1";
 const LOOKAHEAD_KEY="arced_ponto_v1__lookahead";
@@ -126,6 +128,68 @@ const opCommand=(type,payload,extra={})=>({
 });
 
 describe("/api/data · roteamento de OPERATIONAL_COMMAND por linha separada",()=>{
+  it('reverte lote bancário pelo handler autenticado, persiste original e autoria, rejeita snapshot e versão antiga',async()=>{
+    const originalFile={size:1,dataUrl:'data:application/octet-stream;base64,YQ=='};
+    const imported=await callApi(opCommand('TRANSACOES_BANCARIAS_IMPORTADAS',{statement:{id:'bank-batch',arquivo:'original.ofx',originalFile},transactions:[{id:'bank-tx',data:'2026-08-19',descricao:'Movimento sem uso',valor:-321,chave:'bank-key'}]}));
+    expect(imported.status,JSON.stringify(imported.body)).toBe(200);
+    const request=opCommand('IMPORTACAO_BANCARIA_REVERTIDA',{statementId:'bank-batch',expectedVersion:1,reason:'Arquivo incorreto conferido',targets:[{id:'bank-tx',expectedVersion:1}]},{actorId:'forged',actorRole:'admin',actorName:'Forjado',now:'2000-01-01T00:00:00Z'});
+    const stale=structuredClone(request);stale.command.idempotencyKey='bank-stale-attempt-0001';stale.command.payload.expectedVersion=0;
+    expect((await callApi(stale)).status).toBe(409);
+    const result=await callApi(request);expect(result.status,JSON.stringify(result.body)).toBe(200);
+    const saved=decodeAppData(testState.rows[CORE_KEY].value);
+    expect(saved.transacoes[0]).toMatchObject({status:'cancelado',version:2});expect(saved.extratos[0].originalFile).toEqual(originalFile);
+    expect(saved.extratos[0].importReversals[0]).toMatchObject({actorId:'admin-a',actor:'Administradora A',at:'2026-08-20T12:00:00.000Z'});
+    expect((await callApi(request)).status).toBe(200);
+    const tampered=structuredClone(saved);tampered.extratos[0].originalFile.dataUrl='changed';
+    const blocked=await callApi({action:'save-sections',accessToken:'valid-token',sections:{extratos:tampered.extratos}});
+    expect([403,409]).toContain(blocked.status);expect(decodeAppData(testState.rows[CORE_KEY].value).extratos[0].originalFile).toEqual(originalFile);
+  });
+  it('recusa reversão bancária por perfil financeiro, restrição de obra ou referência utilizada após prévia',async()=>{
+    const d=testState.rows[CORE_KEY].value;
+    await callApi(opCommand('TRANSACOES_BANCARIAS_IMPORTADAS',{statement:{id:'batch',arquivo:'a.ofx',originalFile:{size:1,dataUrl:'data:application/octet-stream;base64,YQ=='}},transactions:[{id:'tx',data:'2026-08-19',descricao:'Pendente',valor:-100,chave:'key'}]}));
+    const request=opCommand('IMPORTACAO_BANCARIA_REVERTIDA',{statementId:'batch',expectedVersion:1,reason:'Conferência necessária',targets:[{id:'tx',expectedVersion:1}]});
+    for(const fields of [{role:'financeiro',obraId:''},{role:'admin',obraId:'work'}]){
+      const current=decodeAppData(testState.rows[CORE_KEY].value);Object.assign(current.usuarios[0],fields);testState.rows[CORE_KEY].value=current;
+      expect((await callApi(request)).status).toBe(403);
+    }
+    const current=decodeAppData(testState.rows[CORE_KEY].value);Object.assign(current.usuarios[0],{role:'admin',obraId:''});current.payments=[{id:'paid',transacaoId:'tx',valor:100}];testState.rows[CORE_KEY].value=current;
+    expect((await callApi(request)).status).toBe(409);expect(decodeAppData(testState.rows[CORE_KEY].value).transacoes[0].status).toBe('pendente');
+  });
+  it('consulta o modelo protegido sem emitir documentos e recusa Comercial',async()=>{
+    const allowed=await callApi({action:'commercial-contract-model',accessToken:'valid-token'});
+    expect(allowed.status).toBe(200);expect(allowed.body.model.nodes.filter(n=>n.kind==='heading'&&n.text.startsWith('C L Á U S U L A'))).toHaveLength(22);
+    testState.rows[CORE_KEY].value.usuarios[0].role='comercial';
+    const denied=await callApi({action:'commercial-contract-model',accessToken:'valid-token'});
+    expect(denied.status).toBe(403);
+  });
+  it('persiste e reabre instrumento comercial na linha principal com auditoria e recibo',async()=>{
+    const body=opCommand('COMERCIAL_INSTRUMENTO_SALVO',{id:'contract-handler-test',record:{titulo:'Contrato de teste local',dados:{},partes:[]}});
+    const result=await callApi(body);
+    expect(result.status).toBe(200);
+    expect(result.body.sections.commercialContractRecords[0]).toMatchObject({id:'contract-handler-test',number:'CONT-00001',version:1,status:'rascunho'});
+    const persisted=decodeAppData(testState.rows[CORE_KEY].value);
+    expect(persisted.commercialContractRecords[0].titulo).toBe('Contrato de teste local');
+    expect(persisted.operationalCommandReceipts.some(r=>r.idempotencyKey===body.command.idempotencyKey)).toBe(true);
+    expect(testState.rpcCalls[0].p_actor_id).toBe('admin-a');
+    const repeat=await callApi(body);expect(repeat.status).toBe(200);expect(repeat.body.idempotent).toBe(true);
+    const reread=decodeAppData(testState.rows[CORE_KEY].value);expect(reread.commercialContractRecords).toHaveLength(1);
+  });
+  it('recusa atualização comercial com versão antiga sem sobrescrever a linha persistida',async()=>{
+    await callApi(opCommand('COMERCIAL_INSTRUMENTO_SALVO',{id:'contract-conflict',record:{titulo:'Original',dados:{}}}));
+    const result=await callApi(opCommand('COMERCIAL_INSTRUMENTO_SALVO',{id:'contract-conflict',record:{titulo:'Edição antiga',dados:{}}},{idempotencyKey:'stale-contract-key'}));
+    expect(result.status).toBe(409);expect(decodeAppData(testState.rows[CORE_KEY].value).commercialContractRecords[0].titulo).toBe('Original');
+  });
+  it('gravação completa sem os campos comerciais preserva contratos; tentativa explícita de mudar é recusada',async()=>{
+    await callApi(opCommand('COMERCIAL_INSTRUMENTO_SALVO',{id:'preserved-contract',record:{titulo:'Preservado',dados:{}}}));
+    const loaded=await callApi({action:'load',accessToken:'valid-token'});
+    const data=loaded.body.data;
+    const omitted={...data};delete omitted.commercialContractRecords;
+    const response=await callApi({action:'save',accessToken:'valid-token',payload:omitted});
+    expect(response.status,JSON.stringify(response.body)).toBe(200);
+    expect(decodeAppData(testState.rows[CORE_KEY].value).commercialContractRecords[0].titulo).toBe('Preservado');
+    const rejected=await callApi({action:'save',accessToken:'valid-token',payload:{...data,commercialContractRecords:[]}});
+    expect(rejected.status).toBe(409);
+  });
   beforeAll(async()=>{
     process.env.SUPABASE_URL="https://opcmd.test";
     process.env.SUPABASE_SERVICE_ROLE_KEY="service-role-test";
@@ -163,6 +227,67 @@ describe("/api/data · roteamento de OPERATIONAL_COMMAND por linha separada",()=
     fakeDb.from.mockClear();
   });
   afterAll(()=>vi.useRealTimers());
+
+  it('persiste vínculo da previsão no core com autoria autenticada, replay e reabertura',async()=>{
+    const d=testState.rows[CORE_KEY].value;
+    d.obras=[{id:'work',name:'Obra'}];d.orcamentos=[{id:'b',obraId:'work',etapas:[{id:'s',nome:'Estrutura'}],itens:[]}];
+    d.budgetBaselines=[{obraId:'work',tipo:'controle',ativo:true,budgetId:'b'}];
+    d.terceirizados=[{id:'t',obraId:'work',tipoContrato:'medicao',contractValue:1000,active:true}];
+    const request=opCommand('VINCULO_PREVISAO_TERCEIRO_SALVO',{obraId:'work',contractId:'t',budgetId:'b',stageId:'s',orderIds:[],sources:serviceLinkSources(d,'t',[]),note:'Conferência da contratação'}, {actorId:'forged',actorRole:'engenheiro'});
+    const first=await callApi(request);expect(first.status,JSON.stringify(first.body)).toBe(200);
+    const saved=decodeAppData(testState.rows[CORE_KEY].value).obras[0].costPlanning;
+    expect(saved.serviceLinks.t).toMatchObject({stageId:'s',byId:'admin-a',version:1});expect(saved.serviceLinkHistory).toHaveLength(1);
+    const repeated=await callApi(request);expect(repeated.body.idempotent).toBe(true);
+    expect(decodeAppData(testState.rows[CORE_KEY].value).obras[0].costPlanning).toEqual(saved);
+  });
+
+  it('persiste garantia com autor autenticado, conserva o bruto e recusa regravação por snapshot',async()=>{
+    const d=testState.rows[CORE_KEY].value;
+    d.obras=[{id:'work',name:'Casa'}];d.terceirizados=[{id:'t',obraId:'work',name:'Execução',active:true}];
+    d.medicoesTerc=[{id:'m',tercId:'t',obraId:'work',status:'aprovada',data:'2026-08-01',total:1000,version:1}];
+    const request=opCommand('GARANTIA_TERCEIRO_DEFINIDA',{measurementId:'m',amountCents:10000,condition:'Aceite técnico conferido',reason:'Garantia prevista no documento de origem'},{expectedVersion:1,actorId:'forged',actorRole:'engenheiro'});
+    const result=await callApi(request);expect(result.status,JSON.stringify(result.body)).toBe(200);
+    const persisted=decodeAppData(testState.rows[CORE_KEY].value);
+    expect(persisted.medicoesTerc[0]).toMatchObject({total:1000,version:2,technicalRetention:{amountCents:10000,byId:'admin-a',beneficiaryId:'t'}});
+    expect((await callApi(request)).body.idempotent).toBe(true);
+    const loaded=await callApi({action:'load',accessToken:'valid-token'}),modified=structuredClone(loaded.body.data);
+    modified.medicoesTerc[0].technicalRetention.amountCents=1;
+    const blocked=await callApi({action:'save-sections',accessToken:'valid-token',sections:{medicoesTerc:modified.medicoesTerc}});
+    expect(blocked.status,JSON.stringify(blocked.body)).toBe(403);
+    const stale=structuredClone(request);stale.command.idempotencyKey='retention-stale-attempt-0001';expect((await callApi(stale)).status).toBe(409);
+    expect(decodeAppData(testState.rows[CORE_KEY].value).medicoesTerc[0].technicalRetention.amountCents).toBe(10000);
+    const release=await callApi(opCommand('GARANTIA_TERCEIRO_LIBERADA',{measurementId:'m',date:'2026-08-20',dueDate:'2026-08-21',evidence:'Termo de aceite conferido',conditionConfirmed:true,reason:'Condição de garantia cumprida'},{expectedVersion:2}));
+    expect(release.status,JSON.stringify(release.body)).toBe(200);
+    const payment=await callApi(opCommand('GARANTIA_TERCEIRO_PAGA',{measurementId:'m',payment:{id:'guarantee-api-payment',date:'2026-08-20',pagador:'empresa'},reason:'Transferência da garantia confirmada'},{expectedVersion:3}));
+    expect(payment.status,JSON.stringify(payment.body)).toBe(200);
+    const reopened=decodeAppData(testState.rows[CORE_KEY].value);
+    expect(reopened.pagsTerceiros[0]).toMatchObject({id:'guarantee-api-payment',amount:100,liquido:100,guaranteePayment:true,medicaoTercId:'m',createdById:'admin-a'});
+    expect(reopened.medicoesTerc[0].technicalRetentionHistory.map(entry=>entry.kind)).toEqual(['defined','released','paid']);
+  });
+
+  it('garantia exige perfil, aba e obra no handler, desconsiderando papel forjado no comando',async()=>{
+    const d=testState.rows[CORE_KEY].value;d.obras=[{id:'work'}];d.terceirizados=[{id:'t',obraId:'work',active:true}];d.medicoesTerc=[{id:'m',tercId:'t',obraId:'work',status:'aprovada',data:'2026-08-01',total:1000,version:1}];
+    const request=opCommand('GARANTIA_TERCEIRO_DEFINIDA',{measurementId:'m',amountCents:10000,condition:'Aceite técnico conferido',reason:'Condições contratuais conferidas'},{expectedVersion:1,actorRole:'admin'});
+    for(const fields of [{role:'engenheiro'},{role:'financeiro',obraId:'other'},{role:'financeiro',obraId:'work',accessTabs:['home']}]){
+      Object.assign(d.usuarios[0],fields);expect((await callApi(request)).status).toBe(403);expect(testState.rpcCalls).toHaveLength(0);
+    }
+    Object.assign(d.usuarios[0],{role:'financeiro',obraId:'work',accessTabs:['fin']});expect((await callApi(request)).status).toBe(200);
+  });
+
+  it('nega vínculo sem perfil, aba ou escopo e permite financeiro da obra com conflito de versão protegido',async()=>{
+    const d=testState.rows[CORE_KEY].value;
+    d.obras=[{id:'work',name:'Obra'}];d.orcamentos=[{id:'b',obraId:'work',etapas:[{id:'s',nome:'Estrutura'}],itens:[]}];
+    d.budgetBaselines=[{obraId:'work',tipo:'controle',ativo:true,budgetId:'b'}];d.terceirizados=[{id:'t',obraId:'work',tipoContrato:'medicao',contractValue:1000,active:true}];
+    const request=opCommand('VINCULO_PREVISAO_TERCEIRO_SALVO',{obraId:'work',contractId:'t',budgetId:'b',stageId:'s',orderIds:[],sources:serviceLinkSources(d,'t',[]),note:'Conferência da contratação'},{actorRole:'admin'});
+    for(const fields of [{role:'engenheiro'},{role:'financeiro',obraId:'other'},{role:'financeiro',obraId:'work',accessTabs:['home']}]){
+      Object.assign(d.usuarios[0],fields);const denied=await callApi(request);expect(denied.status,JSON.stringify(denied.body)).toBe(403);expect(testState.rpcCalls).toHaveLength(0);
+    }
+    Object.assign(d.usuarios[0],{role:'financeiro',obraId:'work',accessTabs:['fin']});
+    expect((await callApi(request)).status).toBe(200);
+    const stale=structuredClone(request);stale.command.idempotencyKey='another-version-attempt';
+    expect((await callApi(stale)).status).toBe(409);
+    expect(decodeAppData(testState.rows[CORE_KEY].value).obras[0].costPlanning.serviceLinkHistory).toHaveLength(1);
+  });
 
   it("grava EQUIPMENT_SAVED na linha de equipamentos, sem tocar a linha core",async()=>{
     const result=await callApi(opCommand("EQUIPAMENTO_SALVO",{equipment:{id:"eq-1",nome:"Betoneira"}}));

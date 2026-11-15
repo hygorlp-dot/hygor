@@ -5,8 +5,9 @@ import { DEFAULT_DENSITY, normalizeDensity, normalizeTheme } from "./themeValida
 
 const ThemeContext = createContext(null);
 
-export function ThemeProvider({ children }) {
-  const [theme, setThemeState] = useState(() => normalizeTheme(readThemePreference(THEME_STORAGE_KEYS.theme) || DEFAULT_THEME));
+export function ThemeProvider({ children, themeOverride }) {
+  const [preference, setThemeState] = useState(() => normalizeTheme(readThemePreference(THEME_STORAGE_KEYS.theme) || DEFAULT_THEME));
+  const theme=normalizeTheme(themeOverride||preference);
   const [density, setDensityState] = useState(() => normalizeDensity(readThemePreference(THEME_STORAGE_KEYS.density) || DEFAULT_DENSITY));
   const setTheme = value => setThemeState(normalizeTheme(value));
   const setDensity = value => setDensityState(normalizeDensity(value));
@@ -15,9 +16,9 @@ export function ThemeProvider({ children }) {
     document.documentElement.dataset.theme = theme;
     const tokens = themeRegistry[theme].tokens;
     for (const [token,value] of Object.entries(tokens)) document.documentElement.style.setProperty(token,value);
-    writeThemePreference(THEME_STORAGE_KEYS.theme, theme);
+    if(!themeOverride)writeThemePreference(THEME_STORAGE_KEYS.theme, theme);
     return () => { for (const token of Object.keys(tokens)) document.documentElement.style.removeProperty(token); };
-  }, [theme]);
+  }, [theme,themeOverride]);
   useEffect(() => {
     document.documentElement.dataset.density = density;
     writeThemePreference(THEME_STORAGE_KEYS.density, density);

@@ -34,7 +34,9 @@ export const employeeCommandObraId = (data = {}, command = {}) => {
 };
 
 const appendChange = (events, event) => {
-  if (event) events.push(event);
+  // One save can produce a transfer, a dismissal and a salary change.
+  // They are distinct audit events even when actor and timestamp coincide.
+  if (event) events.push({...event,id:`${event.id}-${event.type}`});
 };
 
 const employeeChangeLog = ({ data, before, employee, actorName, now }) => {

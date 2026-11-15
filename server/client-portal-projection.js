@@ -4,6 +4,12 @@ const PUBLISHED = new Set(["published", "publicado"]);
 const list = value => Array.isArray(value) ? value : [];
 const string = value => typeof value === "string" ? value : "";
 const number = value => Number.isFinite(Number(value)) ? Number(value) : 0;
+const clientUrl=value=>{
+  if(typeof value!=="string")return "";
+  if(/^\/api\/client\/projects\//.test(value)&&!/[\r\n\\]/.test(value))return value;
+  if(/^\/brand\//.test(value)&&!/[\r\n\\]/.test(value))return value;
+  try{const url=new URL(value);return url.protocol==="https:"&&!url.username&&!url.password?url.href:"";}catch{return "";}
+};
 const projectIdOf = record => String(record?.projectId || record?.obraId || record?.obra || "");
 const published = record => PUBLISHED.has(string(record?.status).trim().toLowerCase());
 const belongsTo = (record, projectId) => projectIdOf(record) === String(projectId);
@@ -46,7 +52,8 @@ const portalProject = project => ({
   id: string(project?.id), name: string(project?.portalName || project?.name),
   coverImage: string(project?.portalCoverImage || project?.portal?.coverImage),
   currentPhase: string(project?.portalCurrentPhase || project?.portal?.currentPhase),
-  progress: number(project?.portalProgress ?? project?.portal?.progress),
+  progress: nullableNumber(project?.portalProgress ?? project?.portal?.progress),
+  progressSource:string(project?.progressSource || project?.portal?.progressSource),
   estimatedCompletion: string(project?.portalEstimatedCompletion || project?.portal?.estimatedCompletion),
   lastUpdate: string(project?.portalLastUpdate || project?.portal?.lastUpdate),
 });
@@ -55,17 +62,28 @@ const weeklyUpdate = item => ({ id:string(item.id), period:string(item.period), 
 const timelineItem = item => ({ id:string(item.id), phase:string(item.phase || item.name), status:string(item.clientStatus || item.status), plannedStart:string(item.plannedStart), plannedEnd:string(item.plannedEnd), actualStart:string(item.actualStart), actualEnd:string(item.actualEnd), progress:number(item.progress), variance:string(item.variance), justification:string(item.clientJustification), lastUpdate:string(item.lastUpdate) });
 // Nunca reutiliza `url`: a mídia interna pode apontar para armazenamento sem
 // política de cliente. A API de mídia deverá entregar somente URLs temporárias.
-const mediaItem = item => ({ id:string(item.id), type:string(item.type), url:string(item.clientUrl), thumbnailUrl:string(item.clientThumbnailUrl || item.thumbnailUrl), caption:string(item.caption || item.legenda), date:string(item.date), phase:string(item.phase), environment:string(item.environment), category:string(item.category), authorName:string(item.authorName) });
+const mediaItem = item => ({ id:string(item.id), reportId:string(item.reportId), type:string(item.type), url:clientUrl(item.clientUrl), thumbnailUrl:clientUrl(item.clientThumbnailUrl || item.thumbnailUrl), caption:string(item.caption || item.legenda), date:string(item.date), phase:string(item.phase), environment:string(item.environment), category:string(item.category), authorName:string(item.authorName) });
 const decisionItem = item => ({ id:string(item.id), title:string(item.title), description:string(item.description), dueDate:string(item.dueDate), status:string(item.status), options:list(item.options).map(option => ({ id:string(option.id), label:string(option.label), description:string(option.description), financialImpact:number(option.financialImpact), scheduleImpactDays:number(option.scheduleImpactDays) })), financialImpact:number(item.financialImpact), scheduleImpactDays:number(item.scheduleImpactDays), technicalRecommendation:string(item.technicalRecommendation), publishedAt:string(item.publishedAt) });
-const measurementItem = item => ({ id:string(item.id), number:string(item.number || item.codigo), period:string(item.period || item.competencia), description:string(item.description || item.descricao), status:string(item.clientStatus || item.status), percentage:number(item.percentage || item.percentual), amount:number(item.clientAmount), dueDate:string(item.dueDate || item.vencimento), publishedAt:string(item.publishedAt), documentUrl:string(item.clientDocumentUrl) });
-const paymentItem = item => ({ id:string(item.id), description:string(item.description), amount:number(item.amount), dueDate:string(item.dueDate), status:string(item.clientStatus || item.status), receiptUrl:string(item.clientReceiptUrl) });
-const documentItem = item => ({ id:string(item.id), title:string(item.title || item.nome), category:string(item.category), version:string(item.version), status:string(item.status), publishedAt:string(item.publishedAt), expiresAt:string(item.expiresAt), url:string(item.clientUrl) });
+const measurementItem = item => ({ id:string(item.id), number:string(item.number || item.codigo), period:string(item.period || item.competencia), description:string(item.description || item.descricao), status:string(item.clientStatus || item.status), percentage:nullableNumber(item.percentage ?? item.percentual), amount:number(item.clientAmount), dueDate:string(item.dueDate || item.vencimento), publishedAt:string(item.publishedAt), documentUrl:clientUrl(item.clientDocumentUrl) });
+const paymentItem = item => ({ id:string(item.id), description:string(item.description), amount:number(item.amount), dueDate:string(item.dueDate), status:string(item.clientStatus || item.status), receiptUrl:clientUrl(item.clientReceiptUrl) });
+const documentItem = item => ({ id:string(item.id), title:string(item.title || item.nome), category:string(item.category), version:string(item.version), status:string(item.status), publishedAt:string(item.publishedAt), expiresAt:string(item.expiresAt), url:clientUrl(item.clientUrl) });
 const messageItem = item => ({ id:string(item.id), subject:string(item.subject), contextType:string(item.contextType), contextId:string(item.contextId), body:string(item.body), createdAt:string(item.createdAt), senderName:string(item.senderName), attachments:list(item.attachments).filter(published).map(mediaItem).filter(item => item.url) });
 const teamItem = item => ({ id:string(item.id), name:string(item.name || item.nome), role:string(item.role || item.funcao), photoUrl:string(item.photoUrl), contactChannel:string(item.clientContactChannel) });
 const financialSummary = item => ({ id:string(item.id), contractOriginal:number(item.contractOriginal), approvedChanges:number(item.approvedChanges), contractCurrent:number(item.contractCurrent), measured:number(item.measured), approved:number(item.approved), paid:number(item.paid), openAmount:number(item.openAmount), balanceToMeasure:number(item.balanceToMeasure), asOf:string(item.asOf), status:string(item.status) });
 const projectCashSummary = item => ({ id:string(item.id), totalContributions:number(item.totalContributions), totalExpenses:number(item.totalExpenses), balance:number(item.balance), asOf:string(item.asOf) });
-const projectCashMovement = item => ({ id:string(item.id), date:string(item.date), type:string(item.type), category:string(item.category), description:string(item.description), amount:number(item.amount), balance:number(item.balance) });
+const projectCashMovement = (item,canProcure,canDownload) => ({ id:string(item.id), date:string(item.date), type:string(item.type), category:string(item.category), description:string(item.description), amount:number(item.amount), balance:number(item.balance),invoiceNumber:canProcure?string(item.invoiceNumber):"",invoiceDocuments:canProcure&&canDownload?list(item.invoiceDocuments).map(document=>({id:string(document.id),title:string(document.title),url:clientUrl(document.url)})).filter(document=>document.url):[],invoiceLinkAmbiguous:canProcure&&item.invoiceLinkAmbiguous===true });
 const invoiceItem = item => ({ id:string(item.id), type:string(item.type), number:string(item.number), issuedAt:string(item.issuedAt), dueDate:string(item.dueDate), supplierName:string(item.supplierName), description:string(item.description), category:string(item.category), grossAmount:number(item.grossAmount), netAmount:number(item.netAmount), status:string(item.clientStatus || item.status) });
+const nullableNumber=value=>value===null||value===undefined?null:number(value);
+const administrationTeam=item=>({
+ id:string(item.id),month:string(item.month),asOf:string(item.asOf),partial:item.partial===true,available:item.available===true,
+ administration:{applicable:item.administration?.applicable===true,...Object.fromEntries(['rate','registeredBase','registeredCalculated','additionalReserve','additionalCharges','base','calculated','issued','toIssue','aboveCalculated'].map(key=>[key,nullableNumber(item.administration?.[key])])),categories:Object.fromEntries(['labor','materials','thirdParties','equipment','fieldEngineering','other'].map(key=>[key,item.administration?.categories?.[key]===true]))},
+ workforce:Object.fromEntries(['recognized','individualized','unassigned','closedNet','reserve','includedReserve','additionalReserve','additionalCharges','passThrough','pendingReserves'].map(key=>[key,nullableNumber(item.workforce?.[key])])),
+ members:list(item.members).map(row=>({id:string(row.id),name:string(row.name),role:string(row.role),...Object.fromEntries(['gross','benefits','charges','recognized','closedNet','includedReserve','additionalReserve','additionalCharges','passThrough'].map(key=>[key,nullableNumber(row[key])])),provisions:{included:row.provisions?.included===true,source:string(row.provisions?.source),...Object.fromEntries(['thirteenth','vacation','fgts','fine','other','monthly','chargesOnReserve','notice','noticeFgts','noticeAccrual','rounding'].map(key=>[key,nullableNumber(row.provisions?.[key])]))},attendance:list(row.attendance).map(day=>({date:string(day.date),status:string(day.status),start:string(day.start),breakStart:string(day.breakStart),breakEnd:string(day.breakEnd),end:string(day.end),overtime:number(day.overtime)}))})),
+});
+const costSummary=item=>({id:string(item.id),asOf:string(item.asOf),available:item.available===true,recognized:nullableNumber(item.recognized),paid:nullableNumber(item.paid),laborToDate:nullableNumber(item.laborToDate),laborBenefitsToDate:nullableNumber(item.laborBenefitsToDate),categories:list(item.categories).map(row=>({category:string(row.category),recognized:number(row.recognized),paid:number(row.paid)}))});
+const dailyReport=item=>({id:string(item.id),code:string(item.code),date:string(item.date),summary:string(item.summary),weather:{morning:string(item.weather?.morning),afternoon:string(item.weather?.afternoon),night:string(item.weather?.night)},services:list(item.services).map(service=>({description:string(service.description),quantity:nullableNumber(service.quantity),unit:string(service.unit),progress:number(service.progress)}))});
+const contractPosition=item=>({id:string(item.id),asOf:string(item.asOf),frequency:string(item.frequency),measurementKind:string(item.measurementKind),contractCurrent:number(item.contractCurrent),accumulatedPercentage:nullableNumber(item.accumulatedPercentage),accumulatedAmount:nullableNumber(item.accumulatedAmount),openInstallments:list(item.openInstallments).map(entry=>({id:string(entry.id),description:string(entry.description),dueDate:string(entry.dueDate),amount:number(entry.amount),paid:number(entry.paid),balance:number(entry.balance),accumulatedPercentage:nullableNumber(entry.accumulatedPercentage),periodPercentage:nullableNumber(entry.periodPercentage)}))});
+const stageBudget=item=>({id:string(item.id),asOf:string(item.asOf),available:item.available===true,hasBudget:item.hasBudget===true,budgetName:string(item.budgetName),rows:list(item.rows).map(row=>({id:string(row.id),name:string(row.name),budget:nullableNumber(row.budget),recognized:nullableNumber(row.recognized),paid:number(row.paid),committed:number(row.committed)}))});
 const purchaseOrderItem = item => ({ id:string(item.id), number:string(item.number), date:string(item.date), expectedAt:string(item.expectedAt), supplierName:string(item.supplierName), status:string(item.clientStatus || item.status), total:number(item.total), items:list(item.items).map(entry=>({ description:string(entry.description), unit:string(entry.unit), quantity:number(entry.quantity), receivedQuantity:number(entry.receivedQuantity), unitPrice:number(entry.unitPrice) })) });
 const quotationItem = item => ({ id:string(item.id), date:string(item.date), status:string(item.clientStatus || item.status), material:string(item.material), unit:string(item.unit), quantity:number(item.quantity), proposals:list(item.proposals).map(entry=>({ supplierName:string(entry.supplierName), unitPrice:number(entry.unitPrice), total:number(entry.total), leadTimeDays:number(entry.leadTimeDays), selected:entry.selected===true })) });
 const supportItem = item => ({ id:string(item.id), number:string(item.number), status:string(item.status), category:string(item.category), environment:string(item.environment), openedAt:string(item.openedAt), updatedAt:string(item.updatedAt), slaDueAt:string(item.slaDueAt) });
@@ -91,7 +109,10 @@ export function projectClientPortalData(input = {}) {
   const c=context(input);
   return {
     project:projectClientProjectSummary(c),
+    administrationTeam:c.can('viewAdministrationTeam')?publishedRecords(c.sourceData,'administrationTeam',c.projectId,c.user).map(administrationTeam):[],
     weeklyUpdates:projectClientWeeklyUpdates(c),
+    dailyReports:c.can("viewWeeklyUpdates")||c.can("viewMedia")?publishedRecords(c.sourceData,"dailyReports",c.projectId,c.user).map(dailyReport):[],
+    contractPositions:c.can("viewFinancial")?publishedRecords(c.sourceData,"contractPositions",c.projectId,c.user).map(contractPosition):[],
     timeline:projectClientTimeline(c),
     decisions:projectClientDecisions(c),
     approvedChanges:projectClientChangeOrders(c),
@@ -99,8 +120,10 @@ export function projectClientPortalData(input = {}) {
     measurements:projectClientMeasurements(c),
     payments:c.can("viewFinancial") ? publishedRecords(c.sourceData,"clientPayments",c.projectId,c.user).map(paymentItem) : [],
     projectCashSummary:c.can("viewProjectCash") ? publishedRecords(c.sourceData,"projectCashSummaries",c.projectId,c.user).map(projectCashSummary) : [],
-    projectCashMovements:c.can("viewProjectCash") ? publishedRecords(c.sourceData,"projectCashMovements",c.projectId,c.user).map(projectCashMovement) : [],
-    invoices:c.can("viewProcurement") ? publishedRecords(c.sourceData,"clientInvoices",c.projectId,c.user).map(invoiceItem) : [],
+    projectCashMovements:c.can("viewProjectCash") ? publishedRecords(c.sourceData,"projectCashMovements",c.projectId,c.user).map(item=>projectCashMovement(item,c.can("viewProcurement"),c.can("downloadDocuments"))) : [],
+    invoices:c.can("viewProcurement") ? publishedRecords(c.sourceData,"clientInvoices",c.projectId,c.user).map(item=>({...invoiceItem(item),orderId:string(item.orderId),documents:c.can("downloadDocuments")?list(item.documents).map(doc=>({id:string(doc.id),title:string(doc.title),url:clientUrl(doc.url)})):[]})) : [],
+    costSummaries:c.can("viewCosts")?publishedRecords(c.sourceData,"costSummaries",c.projectId,c.user).map(costSummary):[],
+    stageBudgets:c.can("viewStageBudget")?publishedRecords(c.sourceData,"stageBudgets",c.projectId,c.user).map(stageBudget):[],
     purchaseOrders:c.can("viewProcurement") ? publishedRecords(c.sourceData,"clientPurchaseOrders",c.projectId,c.user).map(purchaseOrderItem) : [],
     quotations:c.can("viewProcurement") ? publishedRecords(c.sourceData,"clientQuotations",c.projectId,c.user).map(quotationItem) : [],
     publishedDocuments:projectClientDocuments(c),

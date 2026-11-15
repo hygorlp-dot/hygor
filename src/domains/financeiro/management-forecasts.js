@@ -4,7 +4,7 @@ import {workStageCosts} from './work-stage-costs.js';
 import {calcLedgerAcumulado} from './legacy-calculations.js';
 import {safeReportText} from './report-export.js';
 
-export const FORECAST_VERSION='2026-11-02.2';
+export const FORECAST_VERSION='2026-11-13.1';
 const sum=(rows,key)=>rows.reduce((total,row)=>total+(row[key]||0),0);
 export function weeksFrom(start){
   if(!isFinancialDate(start))throw new Error('Informe uma data de referência válida.');
@@ -33,6 +33,12 @@ export function costForecastBundle(data,{workIds,asOf}){
     if(report.rows.some(row=>row.revision&&!row.reviewValid))warnings.push('Há revisão de custo com base alterada; reconfira os valores em Custos por etapa.');
     if(report.orphanRevisions.length)warnings.push('Há revisões de etapas fora do orçamento atual.');
     if(report.duplicationWarnings.length)warnings.push('Há indícios de sobreposição de estimativas; confira os avisos em Custos por etapa.');
+    if(report.services.issues.length)warnings.push('Há contratos de terceiros sem vínculo válido na previsão. Confira os compromissos em Custos por etapa.');
+    warnings.push(...report.services.groups.flatMap(group=>group.notices));
+    const stockPending=report.stock.issues.filter(issue=>!report.rows.find(row=>row.id===issue.stageId)?.reviewValid);
+    if(stockPending.length)warnings.push('Cobertura do estoque exige conciliação ou revisão explícita da etapa em Custos por etapa.');
+    if(report.rows.some(row=>row.revision&&row.remaining<row.materialFloor))warnings.push('Restante revisado abaixo do piso de materiais: confira as economias e a cobertura na origem.');
+    if(report.services.groups.some(group=>report.stock.rows.some(row=>row.stageId===group.stageId)))warnings.push('Materiais e contratos na mesma etapa: os pisos são comparados, sem soma de escopos possivelmente sobrepostos; confira a estimativa.');
     if(report.rows.some(row=>row.remaining+row.contingency+row.changeImpact<0))warnings.push('Impactos negativos superam o custo restante de uma etapa.');
     if(report.rows.some(row=>row.id==='unassigned'&&(row.incurred||row.openCommitted||row.revision)))warnings.push('Há valores sem apropriação por etapa; confirme a cobertura da estimativa.');
     const budgetItems=(report.budget?.itens||[]).filter(item=>item.tipo!=='titulo');
@@ -40,12 +46,12 @@ export function costForecastBundle(data,{workIds,asOf}){
     const stale=report.rows.some(row=>row.revision&&!row.reviewValid)||report.orphanRevisions.length>0;
     const unassignedUnreviewed=report.rows.some(row=>row.id==='unassigned'&&(row.incurred||row.openCommitted)&&!row.reviewValid);
     if(unassignedUnreviewed)warnings.push('Gastos ou compras sem etapa exigem apropriação ou revisão explícita antes do custo final; a referência automática pode sobrepor o orçamento.');
-    const invalidAmounts=report.rows.some(row=>['budget','incurred','remaining','contingency','changeImpact','forecast'].some(key=>!Number.isSafeInteger(row[key]))||row.remaining<0||row.contingency<0||row.remaining+row.contingency+row.changeImpact<0||row.revision&&row.remaining<row.openCommitted);
+    const invalidAmounts=report.rows.some(row=>['budget','incurred','remaining','contingency','changeImpact','forecast'].some(key=>!Number.isSafeInteger(row[key]))||row.remaining<0||row.contingency<0||row.remaining+row.contingency+row.changeImpact<0||row.revision&&row.remaining<row.commitmentFloor);
     if(invalidBudget)warnings.push('Orçamento com quantidade, preço ou valor inválido: custo final indisponível.');
-    if(invalidAmounts)warnings.push('Estimativa com valores inválidos ou restante abaixo das compras pendentes: reconfira a revisão.');
+    if(invalidAmounts)warnings.push('Estimativa com valores inválidos ou restante abaixo dos compromissos pendentes: reconfira a revisão.');
     const safeTotals=Object.values(report.totals).every(Number.isSafeInteger);
     if(!safeTotals)warnings.push('Totais fora do limite seguro de centavos: custo final indisponível.');
-    const complete=Boolean(report.budget)&&!missingHistory&&!invalidBudget&&!invalidAmounts&&!stale&&!unassignedUnreviewed&&safeTotals;
+    const complete=Boolean(report.budget)&&!missingHistory&&!invalidBudget&&!invalidAmounts&&!stale&&!unassignedUnreviewed&&safeTotals&&!report.services.issues.length&&!stockPending.length;
     return {work,report,warnings,complete,forecast:complete?report.totals.forecast:null,deviation:complete?report.totals.deviation:null,status:stale||unassignedUnreviewed?'Reconferir estimativa':!complete?'Base incompleta':warnings.length?'Reconferir estimativa':report.rows.every(row=>!row.budget||row.reviewValid)?'Revisada':'Referência automática'};
   });
   return {...accumulated,reports};

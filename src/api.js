@@ -227,6 +227,7 @@ export const consultarPreviaFechamentoFinanceiro = ({startsOn,endsOn}) =>
   chamar({ action:"financial-closing-preview", ...credenciais(), startsOn, endsOn });
 export const gerarLinkAceitePedido = orderId => chamar({ action:"pedido-aceite-link", ...credenciais(), orderId });
 export const executarComandoOperacional = command => chamar({ action:"operational-command", ...credenciais(), command });
+export const consultarModeloContrato = () => chamar({action:'commercial-contract-model',...credenciais()});
 export const executarComandoConciliacao = command => chamar({ action:"reconciliation-command", ...credenciais(), command });
 export const executarComandoPonto = command => chamar({ ...credenciais(), ...command });
 export const consultarSombraFinanceira = () => chamar({ action:"financial-shadow-report", ...credenciais() });
@@ -621,6 +622,7 @@ const chamarOneDrive = async (action, payload = {}) => {
   if(!json)return respostaInvalida(r);
   return { ok:r.ok, status:r.status, ...json };
 };
+export const excluirDocumentoOneDrive = payload => chamarOneDrive('trash-document',payload);
 export const statusOneDrive = () => chamarOneDrive("status");
 export const criarEstruturaOneDrive = obraName => chamarOneDrive("create-workspace", { obraName });
 export const sincronizarEstruturasOneDrive = obras => chamarOneDrive("sync-workspaces", { obras });

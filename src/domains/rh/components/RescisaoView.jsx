@@ -391,7 +391,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
         ].map(([key, label, def]) => (
           <label key={key} style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",cursor:"pointer",padding:"var(--arcd-space-2)",background:form[key]?"color-mix(in srgb, var(--arcd-success-text) 5%, transparent)":"transparent",borderRadius:8,border:`1px solid ${form[key]?"var(--arcd-success-text)"+"33":"var(--arcd-border-default)"}`}}>
             <div onClick={()=>F(key)(!form[key])} style={{width:20,height:20,border:`2px solid ${form[key]?"var(--arcd-success-text)":"var(--arcd-text-secondary)"}`,background:form[key]?"var(--arcd-success-text)":"transparent",borderRadius:5,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,cursor:"pointer"}}>
-              {form[key] && <span style={{color:"var(--arcd-text-primary)",fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",lineHeight:"var(--arcd-line-height-normal)"}}>ok</span>}
+              {form[key] && <span style={{color:"var(--arcd-text-inverse)",fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",lineHeight:"var(--arcd-line-height-normal)"}}>ok</span>}
             </div>
             <div style={{flex:1}}>
               <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:form[key]?"var(--arcd-text-primary)":"var(--arcd-text-secondary)"}}>{label}</p>

@@ -18,22 +18,25 @@ const pathLabel=(path,data,expanded)=>path.map((key,index)=>{
 }).join(' · ');
 
 export function SaveRecovery({queue,state,user,open,onOpen,onClose,onApply,onUser,onAvailable,onReady,revision,onDiscard,pageId,normalize,onRecovered,onDiscardMemory,memoryCount,onProtectMemory}){
- const [row,setRow]=useState(null),[error,setError]=useState('');
+ const [row,setRow]=useState(null),[error,setError]=useState(''),[initialized,setInitialized]=useState(false);
  const [current,setCurrent]=useState(null),[choices,setChoices]=useState({});
  const [busy,setBusy]=useState(false),[authRequired,setAuthRequired]=useState(false),[sessionRenewed,setSessionRenewed]=useState(false),[notice,setNotice]=useState('');
  useHelpTopic(pageId,open?'home_recuperacao':pageId,open?50:-100);
  useEffect(()=>{
-  let active=true;
+  let active=true,sequence=0;
   const load=()=>{
-   try{snapshotJournal.readLatest(user.id,recoveryTab()).then(r=>{if(active){setRow(r||null);onReady(true);}}).catch(()=>{if(active)setError('Falha ao ler a edição local. Mantenha esta aba aberta.');});}
-   catch{if(active)setError('Armazenamento local indisponível. Mantenha esta aba aberta.');}
+   const request=++sequence;
+   try{snapshotJournal.readLatest(user.id,recoveryTab()).then(r=>{if(active&&request===sequence){setRow(r||null);setInitialized(true);}}).catch(()=>{if(active&&request===sequence){setInitialized(false);setError('Falha ao ler a edição local. Mantenha esta aba aberta.');}});}
+   catch{if(active){setInitialized(false);setError('Armazenamento local indisponível. Mantenha esta aba aberta.');}}
   };
   load();window.addEventListener('marcell-workspace-journal',load);window.addEventListener('focus',load);
   return()=>{active=false;window.removeEventListener('marcell-workspace-journal',load);window.removeEventListener('focus',load);};
  },[user.id,revision,onReady]);
  const sending=['saving','retry_scheduled'].includes(state);
  const available=!!memoryCount||!!row||state==='failed'||state==='conflict'||!!error;
- useEffect(()=>onAvailable(available),[available,onAvailable]);
+ // Publish these two facts in the same effect: readiness must never arrive
+ // one render before the protected edit that blocks an automatic save.
+ useEffect(()=>{onAvailable(available);onReady(initialized);},[available,initialized,onAvailable,onReady]);
  useEffect(()=>{if(open){setCurrent(null);setChoices({});}},[open]);
  const consult=async()=>{
   setBusy(true);setError('');setNotice('');setCurrent(null);
@@ -99,7 +102,7 @@ export function SaveRecovery({queue,state,user,open,onOpen,onClose,onApply,onUse
     <Button disabled={busy||sending||!!memoryCount||!review.ready} onClick={save}>{review.changes.length?'Salvar alterações revisadas':'Concluir conferência'}</Button>
    </>}
    {!row&&!queue.hasPending()&&!memoryCount&&<Button variant="outline" disabled={busy} onClick={async()=>{
-    try{snapshotJournal.db.close();await snapshotJournal.db.open();await snapshotJournal.readLatest(user.id,recoveryTab());onReady(true);setError('');onClose();}
+    try{snapshotJournal.db.close();await snapshotJournal.db.open();const saved=await snapshotJournal.readLatest(user.id,recoveryTab());setRow(saved||null);setInitialized(true);setError('');if(!saved)onClose();}
     catch{setError('Armazenamento indisponível. Mantenha esta aba aberta.');}
    }}>Verificar armazenamento</Button>}
    {row&&<Button variant="outline" disabled={busy||sending||queue.getFailure()?.local} onClick={()=>onDiscard(row)}>Descartar edição protegida</Button>}

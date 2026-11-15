@@ -4,8 +4,10 @@ import {saldoPagamentoPedido} from "../compras/calculations.js";
 import {saldoPagamentoNota} from "./payables.js";
 import {avaliarPagamentoPedido} from "../compras/payment-conference.js";
 import {operationalWarning} from '../compras/workflow-advisories.js';
+import {technicalRetentionCents,retentionInvoiceMeasurement,RETENTION_PAYMENT_GUIDANCE} from '../terceirizados/technical-retention.js';
 
 export const validatePurchasePayment=(data,{type,target,value,adiantamento,motivo,actorRole})=>{
+  if(type==='nota'&&technicalRetentionCents(retentionInvoiceMeasurement(data,target)))return {error:RETENTION_PAYMENT_GUIDANCE};
   if(!target||!active(target)&&!(type==='pedido'&&target.status==='rascunho'&&target.ativo!==false&&!target.deletedAt))return {error:"A obrigação está cancelada ou inativa."};
   if(!(value>0)||!Number.isFinite(value))return {error:"Informe um valor positivo para o pagamento."};
   const balance=type==="nota"?saldoPagamentoNota(target):saldoPagamentoPedido(target);

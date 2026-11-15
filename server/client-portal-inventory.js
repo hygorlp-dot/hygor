@@ -32,3 +32,11 @@ export const PORTAL_PROHIBITED_FIELD_FRAGMENTS = Object.freeze([
   "salary", "salario", "payroll", "folha", "cpf", "pix", "bank", "reconciliation",
   "dre", "margin", "internalcost", "internalnotes", "servicerole", "token", "secret",
 ]);
+
+// Autorização explícita do usuário em 14/11/2026: agregados por categoria/etapa.
+// Mantém proibidos o razão bruto, salários individuais, margem e dados bancários.
+export const CLIENT_PORTAL_AGGREGATE_INVENTORY=Object.freeze([
+  {domain:'administração e equipe',source:'administrationTeam',profiles:['viewAdministrationTeam'],fields:['month','asOf','administration','workforce','members[id,name,role,gross,benefits,charges,recognized,closedNet,passThrough,includedReserve,additionalReserve,provisions,attendance[date,status,start,breakStart,breakEnd,end,overtime]]'],publication:'Autorização do usuário em 14/11/2026: detalhes individuais da obra com liberação publicarAdministracaoEquipe e perfil financeiro; sem CPF, PIX, salário de outra obra, diagnóstico, notas internas ou documentos pessoais. Repasse inclui provisões, descontando a reserva já reconhecida.'},
+  {domain:"custos por categoria",source:"costSummaries",profiles:["viewCosts"],fields:["asOf","available","recognized","paid","categories[category,recognized,paid]"],publication:"publicarCustos aprovado na obra; mesma origem canônica do ERP, consulta atual"},
+  {domain:"orçamento por etapa",source:"stageBudgets",profiles:["viewStageBudget"],fields:["asOf","available","hasBudget","budgetName","rows[id,name,budget,recognized,paid,committed]"],publication:"publicarOrcamentoEtapas aprovado; vínculos explícitos e orçamento de controle vigente"},
+]);

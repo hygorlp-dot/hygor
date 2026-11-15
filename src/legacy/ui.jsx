@@ -202,7 +202,7 @@ export function conteudoUi(children) {
 export function Btn({ children, onClick, v = "primary", size = "md", full = false, disabled = false, loading = false, iconOnly = false, type = "button", style = {}, className = "", title, ariaLabel, ...props }) {
   return <SharedUiButton {...props} type={type} variant={legacyButtonRole(v)} size={iconOnly?"icon":size}
     className={`arcd-btn ${className}`.trim()} data-variant={v} data-size={size} data-icon-only={iconOnly}
-    title={title} aria-label={ariaLabel||props['aria-label']||title} disabled={disabled} loading={loading}
+    title={title} aria-label={ariaLabel||props['aria-label']||(iconOnly?title:undefined)} disabled={disabled} loading={loading}
     loadingLabel={typeof loading==="string"?textoUi(loading):"Processando…"} onClick={onClick}
     style={{width:full?"100%":"auto","--ic-color":"currentColor",...style}}>{conteudoUi(children)}</SharedUiButton>;
 }
@@ -256,9 +256,9 @@ export function CampoCNPJ({ label = "CNPJ", value, onChange, onEncontrado, disab
 }
 
 
-export function Sel({ label, value, onChange, options = [], disabled = false, error = "" }) {
+export function Sel({ label, value, onChange, options = [], disabled = false, error = "", 'aria-label': ariaLabel }) {
   return <DesignSystemSelect fieldClassName="arcd-legacy-field" className="arcd-field-control" label={label?textoUi(label):undefined}
-    aria-label={label?textoUi(label):undefined} value={value??""} onChange={event=>onChange(event.target.value)} disabled={disabled} error={error}>
+    aria-label={ariaLabel||(label?textoUi(label):undefined)} value={value??""} onChange={event=>onChange(event.target.value)} disabled={disabled} error={error}>
     {options.map(option=><option key={String(option.v)} value={option.v} disabled={option.disabled}>{option.l}</option>)}
   </DesignSystemSelect>;
 }

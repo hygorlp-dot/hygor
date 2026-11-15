@@ -1,3 +1,5 @@
+import {TaskDisclosure} from '../../../design-system/patterns/TaskDisclosure.jsx';
+import {useSyncedWorkObra,workContextObraId} from '../../../features/workflow/work-context.js';
 import { PageHeader } from "../../../design-system/patterns/PageHeader";
 // ===================================================================
 // MedicoesView — tela de Medições extraída de LegacyApp.jsx
@@ -30,7 +32,7 @@ const BILLING_LABELS = {
 function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null }) {
   const { cols } = useBreakpoint();
   const now   = new Date();
-  const [selObra,  setSelObra]  = useState(data.obras[0]?.id || "");
+  const [selObra,  setSelObra]  = useState(()=>data.obras.some(o=>o.id===workContextObraId())?workContextObraId():data.obras[0]?.id||"");
   const [modal,    setModal]    = useState(false);
   const [editId,   setEditId]   = useState(null);
   const [gerarModal, setGerarModal] = useState(false);
@@ -43,6 +45,8 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
   // primeira resposta nao desmonta o assistente antes de perguntar as demais.
   const [conciliar,  setConciliar]  = useState(null);
   const [measurementCommandPending,setMeasurementCommandPending]=useState(false);
+  const editing=modal||gerarModal||pagarModal||conciliar||measurementCommandPending;
+  useSyncedWorkObra(selObra,setSelObra,{allowedIds:data.obras.map(o=>o.id),fixed:editing?selObra:''});
 
   const emptyM = {
     competencia: `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`,
@@ -494,6 +498,8 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
     <div className="anim" style={{display:"flex",flexDirection:"column",gap:14}}>
 
       <PageHeader className="workspace-header" title="Medições a faturar" description="Parcela fixa, avanço físico e lançamentos de faturamento."/>
+      <Sel label="Obra das medições" value={selObra} disabled={Boolean(editing)} onChange={v=>{setSelObra(v);}} options={data.obras.map(o=>({v:o.id,l:o.name+" · "+BILLING_LABELS[o.billingType]}))}/>
+      <p>Estas medições geram cobranças ao cliente. A medição física e a medição dos terceirizados são conferidas na obra.</p>
 
       {/* Painel de vencimentos - todas as obras */}
       {(() => {
@@ -515,6 +521,7 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
         const vencidas = proximasAll.filter(m=>m.diff<0);
 
         return (
+<TaskDisclosure summary={`Cobranças próximas e vencidas · ${proximasAll.length} · ${fmt(totalPendente)}`}>
           <div style={{background:vencidas.length>0?`${C.red}06`:`${C.orange}06`,border:`1.5px solid ${vencidas.length>0?C.red:C.orange}`,borderRadius:8,overflow:"hidden"}}>
             <div style={{padding:"10px 14px",borderBottom:`1px solid ${vencidas.length>0?C.red+"33":C.orange+"33"}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <p style={{fontWeight:600,fontSize:"var(--arcd-type-body)",color:vencidas.length>0?C.red:C.orange}}>
@@ -523,7 +530,7 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
               <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{fmt(totalPendente)}</p>
             </div>
             {proximasAll.map(m=>(
-              <div key={m.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 14px",borderBottom:`1px solid ${C.line}33`}}>
+              <div key={m.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",overflowWrap:"anywhere",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-3)",borderBottom:`1px solid ${C.line}33`}}>
                 <div>
                   <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{m.obraName}</p>
                   <p style={{fontSize:"var(--arcd-type-label)",color:m.diff<0?C.red:m.diff<=3?C.orange:C.muted}}>
@@ -532,18 +539,18 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
                     {m.descricao?`  ${m.descricao}`:""}
                   </p>
                 </div>
-                <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
+                <div style={{display:"flex",gap:"var(--arcd-space-2)",alignItems:"center",flexWrap:"wrap"}}>
                   <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:m.diff<0?C.red:C.text}}>{fmt(m.valorPrevisto)}</p>
-                  <Btn size="sm" v="success" onClick={()=>setPagarModal({ m, data: today() })}>ok</Btn>
+                  <Btn size="sm" v="success" onClick={()=>setPagarModal({ m, data: today() })}>Registrar recebimento</Btn>
                 </div>
               </div>
             ))}
           </div>
+
+</TaskDisclosure>
         );
       })()}
 
-      {/* Seletor de obra */}
-      <Sel value={selObra} onChange={v=>{setSelObra(v);}} options={data.obras.map(o=>({v:o.id,l:o.name+" · "+BILLING_LABELS[o.billingType]}))}/>
 
       {obra && (<>
         {/* Card da obra com período do contrato */}
@@ -568,7 +575,7 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
               {obra.billingType==="mensal_fixo" && obra.parcelaMensal>0 && obra.contractStart && (
                 <Btn size="sm" v="primary" onClick={()=>setGerarModal(true)}> Gerar parcelas</Btn>
               )}
-              <Btn size="sm" onClick={openNew}><Ic n="plus"/> Nova</Btn>
+              <Btn size="sm" onClick={openNew}><Ic n="plus"/> Nova medição a faturar</Btn>
             </div>
           </div>
 
@@ -617,7 +624,7 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
               ["Faturado",   fmt(totalPrevisto), C.yellow],
               ["Recebido",   fmt(totalRecebido), C.green],
               ["Pendente",   fmt(totalPendente), totalPendente>0?C.orange:C.muted],
-              ["Saldo cto.", fmt(saldo),         saldo>=0?C.blue:C.red],
+              ["Saldo do contrato", fmt(saldo),         saldo>=0?C.blue:C.red],
             ].map(([l,v,c])=>(
               <div key={l} style={{background:C.surface,padding:"7px 10px",borderRadius:6}}>
                 <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>{l}</p>

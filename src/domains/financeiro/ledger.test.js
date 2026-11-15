@@ -4,6 +4,24 @@ import {
   recebimentosDaMedicao, toCents,
 } from "./ledger";
 
+test("caixa com corte por data inclui liquidações de outra competência e respeita a obra",()=>{
+  const ledger=buildFinancialLedger({
+    obras:[{id:"o1"},{id:"o2"}],
+    medicoes:[
+      {id:"m1",obraId:"o1",competencia:"2026-06",valorPrevisto:600,recebimentos:[
+        {id:"r1",valor:500,data:"2026-07-24"},{id:"r2",valor:100,data:"2026-08-01"}]},
+      {id:"m2",obraId:"o2",competencia:"2026-06",valorPrevisto:800,
+        recebimentos:[{id:"r3",valor:800,data:"2026-07-24"}]},
+    ],
+    pedidos:[{id:"p1",obraId:"o1",data:"2026-06-25",status:"enviado",itens:[{qtd:1,precoUnit:275}],
+      pagamentos:[{id:"pg1",valor:275,data:"2026-07-24",origem:"empresa"}]}],
+  });
+  const cash=selectCashFlow(ledger,{obraId:"o1",competence:"2026-07",startDate:"2026-07-01",endDate:"2026-07-31"});
+  expect(cash).toMatchObject({cashInCents:50000,cashOutCents:27500,balanceCents:22500});
+  expect(selectDRE(ledger,{obraId:"o1",competence:"2026-07"}).revenueCents).toBe(0);
+  expect(selectCashFlow(ledger,{obraId:"o1",competence:"2026-07",asOfDate:"2026-07-31"}).cashInCents).toBe(50000);
+});
+
 const julyFixture = () => ({
   obras:[{id:"obra-1",name:"B2-04",cliente:"Cliente"}],
   medicoes:[{

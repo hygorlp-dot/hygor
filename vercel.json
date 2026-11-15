@@ -28,6 +28,11 @@
   ],
   "rewrites": [
     {
+      "source": "/",
+      "has": [{"type":"host","value":"portaldocliente.marcelleng.com.br"}],
+      "destination": "/index.html"
+    },
+    {
       "source": "/api/client/:route*",
       "destination": "/api/client?route=:route*"
     },
