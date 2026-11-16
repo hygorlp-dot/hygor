@@ -4,7 +4,7 @@ Fonte: [reauditoria da versão publicada](C:/dev/repositorio-mrc/docs/REAUDITORI
 
 ## Etapa 1 — Contraste e orientação dos bloqueios
 
-**Implementada e validada localmente. Não publicada.**
+**Implementada, validada e publicada.** Deploy `dpl_Dkh3utSTR1P71kU59BZskqgdvtvf`, versão `e297fbe5c62c532af71ffa53eadf15af8aa0a29e`, em https://erp.marcelleng.com.br/. Publicação autorizada posteriormente pelo usuário com “deploy”. Conferência e limites em [registro da publicação](C:/dev/repositorio-mrc/docs/DEPLOY-ROADMAP-USABILIDADE-20261115.md).
 
 - **U01:** removida a regra antiga de hover de `.arcd-btn`, que usava `--btn-hover` e `--btn-hover-border` sem definição. Ela sobrescrevia o contrato compartilhado com `!important`, deixando o fundo transparente e o texto branco. O defeito foi reproduzido tanto no DEV quanto no build; no celular, o hover pode continuar ativo após o toque. Os botões passam a consumir os estados já existentes do componente compartilhado, sem nova paleta ou estilo específico de Leads.
 - **Acessibilidade encontrada na validação:** o cabeçalho de Comercial era declarado como componente dentro da função de renderização. Ele era remontado ao abrir o editor, desconectando o botão que deveria recuperar o foco. A declaração foi movida para o escopo do módulo; cancelar o cadastro volta o foco a Novo lead.
@@ -34,7 +34,7 @@ Esta etapa não cria previsão, compromisso, estoque, custo reconhecido, liquida
 | Build | `npx vite build --outDir artifacts/roadmap-usabilidade-etapa1/dist` aprovado; prebuild/migrações não executados |
 | Bundle final | **1.819.470 bytes gzip**, abaixo do teto vigente de **1.891.328 bytes**, sem violações individuais ou aumento de limites |
 
-Houve um primeiro build necessário para reproduzir o defeito com a apresentação empacotada e um build final após a correção. Nenhum build ou deploy remoto foi acionado.
+Na implementação local, houve um primeiro build necessário para reproduzir o defeito com a apresentação empacotada e um build final após a correção. Após a autorização posterior de publicação, houve um único build de produção concluído na Vercel, sem migrações. A tentativa automática gerada pelo push foi cancelada no Ignored Build Step, antes da compilação do app.
 
 Os testes encontraram a perda de foco antes da correção; os dez cenários passaram depois dela. A primeira captura DEV de Leads após fechar o modal foi descartada por registrar a animação antes da pintura final. As capturas do build foram feitas com animações desativadas e inspecionadas.
 
@@ -57,7 +57,9 @@ Evidências e configuração de teste: `artifacts/roadmap-usabilidade-etapa1/`. 
 
 ## Etapa 2 — Consistência de contexto e leitura financeira
 
-**Pendente.** U03 e U04.
+**Implementada e validada localmente em 16/11/2026. Sem publicação.** U03 e U04. Relatório: [Contexto da obra e indicadores financeiros](USABILIDADE-ETAPA2-CONTEXTO-FINANCEIRO-20261116.md).
+
+O Caixa acompanha a obra em foco e não substitui obras sem caixa ativado. O painel explicita competência, movimento de caixa e escopo consolidado; seus atalhos financeiros levam o mês selecionado ao DRE. Filas de carteira e ranking identificam seu recorte, e cobranças mostram o saldo restante. Validação: 67 testes unitários, 10 cenários DEV e 20 no build, em 390 e 1440 px; ajuda/manual sincronizados, sem aumento dos limites de bundle ou da baseline visual. As divergências contábeis históricas continuam na etapa 5.
 
 1. Rastrear cada indicador até a origem; explicitar faturado/reconhecido, recebido, pago e saldo de caixa.
 2. Conferir as diferenças de contagem e recorte entre painéis, filas e DRE; não alterar cálculos para fazer rótulos coincidirem.

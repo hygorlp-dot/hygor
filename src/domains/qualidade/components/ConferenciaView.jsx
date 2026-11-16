@@ -7,6 +7,7 @@ import {FilePicker} from '../../../design-system/patterns/FilePicker.jsx';
 import {Button as StandardButton} from '../../../components/ui/button.jsx';
 import {SelectControl} from '../../../design-system/primitives/Select.jsx';
 import {FilterBar} from "../../../design-system/patterns/FilterBar.jsx";
+import {ScopeNote} from '../../../design-system/patterns/ScopeNote.jsx';
 // ===================================================================
 // ConferenciaView — tela de Conferência Técnica (vistoria estruturada),
 // extraída de src/LegacyApp.jsx em 2026-08-26 (Onda 7 do raio-X). Mesmo
@@ -134,7 +135,7 @@ function RankingQualidade({data,conferencias,obraIdFixo="",onSelecionarObra}){
   const corRisco=v=>v>=60?C.red:v>=35?C.orange:C.green;
   return <section style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:10,overflow:"hidden",boxShadow:C.shHair}}>
     <div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"flex-start",flexWrap:"wrap",borderBottom:"1px solid var(--arcd-border-default)",background:"var(--arcd-surface-muted)"}}>
-      <div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Ranking automático da qualidade</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Prioriza quem exige atenção primeiro, sem misturar risco atual com eficiência de correção.</p></div>
+      <div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Ranking automático da qualidade</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Prioriza quem exige atenção primeiro, sem misturar risco atual com eficiência de correção.</p><ScopeNote title="Escopo do ranking">{obraIdFixo?`Obra ${(data.obras||[]).find(o=>o.id===obraIdFixo)?.name||obraIdFixo}.`:'Todas as obras disponíveis. O filtro Obra seleciona a lista de conferências; não filtra este ranking.'}</ScopeNote></div>
       <div style={{display:"flex",gap:"var(--arcd-space-1)",flexWrap:"wrap"}}>
         <div style={{display:"flex",border:"1px solid var(--arcd-border-default)",borderRadius:7,overflow:"hidden"}}>{[["obras","Por obra"],["engenheiros","Por engenheiro"]].map(([v,l])=><StandardButton aria-pressed={visao===v} variant="secondary" key={v} onClick={()=>setVisao(v)} style={{borderRight:v==="obras"?"1px solid var(--arcd-border-default)":0}}>{l}</StandardButton>)}</div>
         <SelectControl value={periodo} onChange={e=>setPeriodo(e.target.value)} aria-label="Período do ranking" style={{border:"1px solid var(--arcd-border-default)",background:"var(--arcd-surface-page)",borderRadius:7,padding:"var(--arcd-space-1) var(--arcd-space-2)",fontSize:"var(--arcd-type-control)",color:"var(--arcd-text-primary)"}}><option value="30">30 dias</option><option value="90">90 dias</option><option value="365">12 meses</option><option value="0">Todo o histórico</option></SelectControl>

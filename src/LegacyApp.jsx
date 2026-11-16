@@ -6,6 +6,9 @@ import {openReportPreview} from './reports/report-preview.js';
 import {ReportIdentityDialog} from './reports/ReportIdentityDialog.jsx';
 import {WorkspaceCommandBar,WorkspaceHeading} from './design-system/patterns/WorkspaceCommandBar.jsx';
 import {WorkContextStamp} from './features/workflow/WorkContextStamp.jsx';
+import {ScopeNote} from './design-system/patterns/ScopeNote.jsx';
+import {EmptyState} from './design-system/patterns/FeedbackState.jsx';
+import {DashboardFinancialReading} from './domains/dashboard/components/DashboardFinancialReading.jsx';
 import {setWorkContextObra,useSyncedWorkObra} from './features/workflow/work-context.js';
 import {SaveRecoveryContext} from './features/workflow/SaveRecoveryContext.jsx';
 import {snapshotJournal,recoveryTab,snapshotChanges} from './domains/sync/snapshot-journal.js';
@@ -2793,10 +2796,11 @@ function DashboardEngenheiro({data,update,showToast,onTab,currentUser,ultimaSync
 // Dashboard executivo premium. A tela trabalha por exceção: primeiro mostra
 // saúde da empresa, depois o que exige decisão e só então os resumos de apoio.
 function Dashboard({ data, update, showToast, onTab, onAbrirObra, ultimaSync, currentUser, onBuscar, onAtualizar, saveState }) {
+  const {navigate:navigateDashboard}=useWorkflow();
   const { cols, isDesktop } = useBreakpoint();
-  const [todosIndicadores,setTodosIndicadores]=useState(false);
+  const [todosIndicadores,setTodosIndicadores]=useWorkspaceState('home','todosIndicadores',false);
   const agora=new Date();
-  const [periodo,setPeriodo]=useState({y:agora.getFullYear(),m:agora.getMonth()});
+  const [periodo,setPeriodo]=useWorkspaceState('home','periodo',{y:agora.getFullYear(),m:agora.getMonth()});
   const year=periodo.y, month=periodo.m;
   const ym=`${year}-${String(month+1).padStart(2,"0")}`;
   const ehAtual=year===agora.getFullYear()&&month===agora.getMonth();
@@ -2872,19 +2876,21 @@ function Dashboard({ data, update, showToast, onTab, onAbrirObra, ultimaSync, cu
 
   return <div className="anim dashboard-tech-motion dashboard-command-center" style={{position:"relative",display:"flex",flexDirection:"column",gap:14,paddingBottom:16}}>
     <DashboardTechHero data={data} currentUser={currentUser} ultimaSync={ultimaSync} fila={filaOperador} onBuscar={onBuscar} onAtualizar={onAtualizar} onAbrir={onTab} periodo={`${fullMonth(month)} ${year}`} onAnterior={()=>irMes(-1)} onProximo={()=>irMes(1)} proximoDesabilitado={ehAtual} clima={resumoDiario.clima} saveState={saveState}/>
+    <ScopeNote title="Escopo dos indicadores">Consolidado do seu acesso · {fullMonth(month)} {year}. A seleção Obra em foco não filtra este painel. Suas obras hoje acompanha a operação na data de hoje.</ScopeNote>
     <section id="dashboard-indicators" className="dashboard-executive-grid" data-expanded={todosIndicadores} style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:cols(2,3,4),gap:10}}>
       {[
-        {label:"Obras ativas",value:exec.obrasAtivas,detail:exec.obrasCriticas?`${exec.obrasCriticas} em situação crítica`:"Operação acompanhada",icon:"building",color:exec.obrasCriticas?C.red:C.blue,tab:"obras"},
-        {label:"Receitas do período",value:fmt(exec.dre.recebido),detail:`Faturado ${fmt(exec.dre.faturamento)}`,icon:"trending",color:C.green,tab:"dre"},
-        {label:"Despesas do período",value:fmt(exec.dre.totalCustos),detail:`${exec.dre.faturamento?((exec.dre.totalCustos/exec.dre.faturamento)*100).toFixed(0):0}% da receita`,icon:"receipt",color:C.red,tab:"dre_emp"},
-        {label:"Saldo atual",value:fmt(exec.dre.saldoCaixa),detail:"Recebimentos menos custos",icon:"wallet",color:exec.dre.saldoCaixa>=0?C.green:C.red,tab:"dre"},
+        {label:"Obras ativas",value:exec.obrasAtivas,detail:exec.obrasCriticas?`${contar(exec.obrasCriticas,'crítica','críticas')} no cadastro completo`:"Sem críticas no critério executivo",icon:"building",color:exec.obrasCriticas?C.red:C.blue,tab:"obras"},
+        {label:"Entradas de caixa",value:fmt(exec.dre.recebido),detail:`Faturamento por competência: ${fmt(exec.dre.faturamento)}`,icon:"trending",color:C.green,tab:"dre"},
+        {label:"Custos reconhecidos",value:fmt(exec.dre.totalCustos),detail:exec.dre.faturamento>0?`${((exec.dre.totalCustos/exec.dre.faturamento)*100).toFixed(0)}% do faturamento por competência`:"Sem faturamento positivo; percentual não se aplica",icon:"receipt",color:C.red,tab:"dre_emp"},
+        {label:"Movimento líquido de caixa",value:fmt(exec.dre.saldoCaixa),detail:"Entradas menos saídas no mês",icon:"wallet",color:exec.dre.saldoCaixa>=0?C.green:C.red,tab:"dre"},
         {label:"Pendências críticas",value:prioridades.filter(a=>a.sev===3).length,detail:`${prioridades.length} alertas ativos`,icon:"alert",color:prioridades.some(a=>a.sev===3)?C.red:C.orange},
         {label:"Compras pendentes",value:exec.comprasPendentes+exec.solicitacoesAbertas,detail:`${exec.solicitacoesAbertas} aguardando análise`,icon:"cart",color:C.orange,tab:"cmp"},
         {label:"Leads em andamento",value:exec.leadsAtivos,detail:`${contar(novosLeads,"novo","novos")} no mês`,icon:"funnel",color:C.blue,tab:"com_funil"},
-        {label:"Resultado operacional",value:fmt(exec.dre.lucroBruto),detail:`Margem ${exec.dre.margemBruta.toFixed(1)}%`,icon:"chart",color:exec.dre.lucroBruto>=0?C.green:C.red,tab:"dre_emp"},
-      ].map(k=>{const acessivel=k.tab&&abasPermitidas.includes(k.tab);return k.tab&&!acessivel?null:<span key={k.label}><KpiCard {...k} animate={false} onClick={acessivel?()=>onTab(k.tab):undefined}/></span>;})}
+        {label:"Resultado por competência",value:fmt(exec.dre.lucroBruto),detail:exec.dre.faturamento>0?`Margem sobre o faturamento: ${exec.dre.margemBruta.toFixed(1)}%`:"Sem faturamento positivo; margem não se aplica",icon:"chart",color:exec.dre.lucroBruto>=0?C.green:C.red,tab:"dre_emp"},
+      ].map(k=>{const acessivel=k.tab&&abasPermitidas.includes(k.tab);return k.tab&&!acessivel?null:<span key={k.label}><KpiCard {...k} animate={false} onClick={acessivel?()=>{if(['dre','dre_emp'].includes(k.tab)&&navigateDashboard)navigateDashboard(k.tab,{obraId:'',year,month,period:'mes'});else onTab(k.tab);}:undefined}/></span>;})}
     </section>
     <Button variant="ghost" className="dashboard-indicators-toggle" aria-expanded={todosIndicadores} aria-controls="dashboard-indicators" onClick={()=>setTodosIndicadores(value=>!value)}>{todosIndicadores?"Menos indicadores":"Mais indicadores"}</Button>
+    <DashboardFinancialReading dre={exec.dre} period={`${fullMonth(month)} ${year}`} showCash={abasPermitidas.includes('dre')} showResult={abasPermitidas.includes('dre_emp')}/>
     <div className="dashboard-work-grid">
     {veObras&&<GestaoAVistaObras resumo={gestaoAVista} hoje={hoje} onAbrirObra={onAbrirObra} custoStatus={custosObras.status}/>}
 
@@ -3497,6 +3503,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
         title="DRE por Obra"
         description="Faturamento, custos, resultado, caixa e posição dos contratos."
       />
+      <ScopeNote title="Recorte deste DRE">{view==='obra'?`Obra ${data.obras.find(o=>o.id===selObra)?.name||'não disponível'}`:'Consolidado do seu acesso'} · {view==='historico'?`Evolução mensal até ${fullMonth(month)} ${year}`:`${fullMonth(month)} ${year} · ${periodoDRE==='mes'?'mês completo':periodoDRE==='q1'?'1ª quinzena (06–20)':'2ª quinzena (21–05)'}`}. Os filtros deste demonstrativo definem a consulta; Obra em foco é preservada para as telas operacionais.</ScopeNote>
 
       <section className="dre-toolbar" aria-label="Filtros e visualização do DRE">
         <div className="dre-toolbar-heading">
@@ -4331,7 +4338,7 @@ function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatch
   useSyncedWorkObra(filterObra,setFilterObra,{allowedIds:(data.obras||[]).map(o=>o.id),allValue:"all"});
   useEffect(()=>{rememberScope?.("fin",{obraId:filterObra==="all"?"":filterObra,year,month,period:"mes"});},[filterObra,year,month,rememberScope]);
   useEffect(()=>{
-    if(intent?.tabId!=="fin"||intent.action==="resume")return;
+    if(intent?.tabId!=="fin"||intent.action==="resume"||intent.linked===false)return;
     setFilterObra(currentUser?.obraId||intent.scope?.obraId||"all");
     if(intent.scope?.year!=null)setYear(intent.scope.year);
     if(intent.scope?.month!=null)setMonth(intent.scope.month);
@@ -11701,14 +11708,15 @@ function gerarRelatorioCaixaObraPDF(data, obra, caixa, showToast) {
 function CaixaObra({ data, showToast, currentUser=null, dispatchCommand=null }) {
   const { cols } = useBreakpoint();
   const obrasComCaixa = useMemo(() => data.obras.filter(o => o.hasCaixa), [data.obras]);
-  const [selObra, setSelObra] = useState(obrasComCaixa[0]?.id || "");
+  const [selObra, setSelObra] = useState(()=>obraContextoSalvo()||obrasComCaixa[0]?.id||"");
   const [modal,   setModal]   = useState(false);
   const [tipoNovo,setTipoNovo]= useState("aporte");
   const [workCashPending,setWorkCashPending]=useState(false);
   const [form,    setForm]    = useState({ data:today(), tipo:"aporte", categoria:"material", descricao:"", valor:"", comprovante:"" });
   const F = k => v => setForm(f=>({...f,[k]:v}));
 
-  const obra = data.obras.find(o=>o.id===selObra);
+  useSyncedWorkObra(selObra,setSelObra,{allowedIds:data.obras.map(o=>o.id),fixed:modal?selObra:''});
+  const obra = obrasComCaixa.find(o=>o.id===selObra);
   const caixa = useMemo(()=>calcCaixaObra(data, selObra), [data.caixaObra, selObra]);
 
   // Consolidado de todas as obras com caixa
@@ -11717,6 +11725,7 @@ function CaixaObra({ data, showToast, currentUser=null, dispatchCommand=null }) 
   })), [data.caixaObra, obrasComCaixa]);
 
   const openNew = (tipo) => {
+    if(!obra){showToast("Selecione uma obra com caixa ativado.","error");return;}
     setTipoNovo(tipo);
     setForm({ data:today(), tipo, categoria:tipo==="aporte"?"aporte":"material", descricao:"", valor:"", comprovante:"" });
     setModal(true);
@@ -11724,7 +11733,7 @@ function CaixaObra({ data, showToast, currentUser=null, dispatchCommand=null }) 
 
   const saveMov = async() => {
     if(!dispatchCommand||workCashPending)return;
-    if (!selObra) { showToast("Selecione uma obra.","error"); return; }
+    if (!obra) { showToast("Selecione uma obra com caixa ativado.","error"); return; }
     if (!form.valor || isNaN(Number(form.valor))) { showToast("Informe um valor válido.","error"); return; }
     if(form.tipo==="despesa"&&Number(form.valor)>caixa.saldo+.001){showToast(`Lançamento bloqueado: o caixa possui ${fmt(caixa.saldo)} e não pode ficar negativo. Registre um aporte primeiro.`,"error");return;}
     const id=uid();
@@ -11801,6 +11810,8 @@ function CaixaObra({ data, showToast, currentUser=null, dispatchCommand=null }) 
       {/* Header */}
       <PageHeader className="workspace-header" title="Caixa da obra" description="Aportes do cliente e controle de gastos por obra."/>
 
+      <ScopeNote title="Resumo geral dos caixas">Os saldos consolidados incluem todas as obras disponíveis com caixa ativado. O extrato e os registros usam somente Obra do caixa, sincronizada com Obra em foco.</ScopeNote>
+
       {/* Consolidado */}
       <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:8,overflow:"hidden",boxShadow:`0 1px 4px ${C.shadow}`}}>
         <div style={{background:C.surface,padding:"8px 14px",borderBottom:`1px solid ${C.border}`}}>
@@ -11822,9 +11833,14 @@ function CaixaObra({ data, showToast, currentUser=null, dispatchCommand=null }) 
         ))}
       </div>
 
+      <Sel label="Obra do caixa" value={selObra} onChange={setSelObra} options={[
+        ...(!obra?[{v:selObra,l:`${data.obras.find(o=>o.id===selObra)?.name||"Obra não disponível"} · Caixa não ativado`,disabled:true}]:[]),
+        ...obrasComCaixa.map(o=>({v:o.id,l:o.name})),
+      ]}/>
+      {!obra&&<EmptyState title="A obra em foco não possui caixa ativado" description="Nenhum caixa de outra obra foi escolhido no lugar dela. Selecione uma obra com caixa em Obra do caixa ou confira a ativação no cadastro da obra."/>}
+
       {obra && (<>
         {/* Seletor + saldo grande */}
-        <Sel aria-label="Obra do caixa" value={selObra} onChange={setSelObra} options={obrasComCaixa.map(o=>({v:o.id,l:o.name}))}/>
 
         <div style={{background:caixa.saldo>=0?`${C.green}08`:`${C.red}08`,border:`1.5px solid ${caixa.saldo>=0?C.green:C.red}`,borderRadius:8,padding:"16px 18px",textAlign:"center"}}>
           <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:1}}>Saldo em caixa - {obra.name}</p>
@@ -11878,6 +11894,7 @@ function CaixaObra({ data, showToast, currentUser=null, dispatchCommand=null }) 
       {/* Modal lançamento */}
       {modal&&obra&&(
         <Modal title={tipoNovo==="aporte"?"Registrar aporte do cliente":"Registrar gasto"} onClose={()=>setModal(false)}>
+          <ScopeNote title="Obra do lançamento">{obra.name}. A confirmação registra o movimento somente neste caixa.</ScopeNote>
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
             {/* Toggle tipo */}
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
@@ -12380,6 +12397,8 @@ td.val{text-align:right;font-weight:700;min-width:110px}
           <Btn size="sm" onClick={gerarPDF}><Ic n="file" s={13}/> Exportar PDF</Btn>
         </>}
       />
+
+      <ScopeNote title="Escopo do demonstrativo">Consolidado da empresa no seu acesso · {fullMonth(month)} {year}. Obra em foco não filtra este demonstrativo.</ScopeNote>
 
       {dre.fonteFinanceira!=="razao_canonico"&&<Alert variant="warning"><AlertDescription className="text-xs">{razaoCarregando
         ?"Atualizando a projeção do razão canônico para este período…"

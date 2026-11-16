@@ -1,6 +1,6 @@
 # Manual de uso do app MARCELL
 
-Revisão do conteúdo: 15/11/2026.
+Revisão do conteúdo: 16/11/2026.
 
 Este guia explica o uso das telas em linguagem simples. No aplicativo, clique em **Ajuda**, no cabeçalho, para ler o fluxo da página aberta. Em **Manual completo**, pesquise uma tarefa ou tela. As áreas exibidas no aplicativo respeitam seu perfil de acesso.
 
@@ -490,21 +490,22 @@ Entender a situação da empresa e decidir o que conferir primeiro.
 
 ### Antes de começar
 
-Confirme os filtros de obra e período disponíveis.
+Escolha o mês. Os indicadores consolidam os dados do seu acesso; Obra em foco não filtra o painel.
 
 ### Como fazer
 
-1. Leia os indicadores e as pendências.
-2. Abra uma obra ou uma ação da lista para consultar sua origem.
-3. Confira os registros na tela de destino antes de tomar uma decisão.
+1. Leia Entradas de caixa, Custos reconhecidos e Movimento líquido de caixa.
+2. Abra Como ler os indicadores para conferir faturamento por competência, entradas, saídas e os critérios de situação das obras.
+3. Ao abrir um indicador financeiro, confira o mesmo mês e o recorte consolidado no DRE de destino. Obra em foco permanece disponível para as telas operacionais.
+4. Abra uma obra ou uma pendência e confira os registros de origem antes de tomar uma decisão.
 
 ### Como conferir se deu certo
 
-Você identificou uma pendência e sabe em qual tela tratá-la.
+Você distingue resultado por competência de movimento de caixa e identifica o recorte da consulta.
 
 ### O que merece atenção
 
-Os indicadores dependem do período, dos filtros e do seu acesso.
+Entradas menos saídas no mês não é saldo bancário acumulado. O percentual de custos usa faturamento por competência; sem faturamento positivo, não se apresenta percentual. A contagem de críticas do critério executivo usa o cadastro completo disponível; Suas obras hoje usa a classificação operacional descrita no quadro.
 
 <a id="guia-tv"></a>
 
@@ -801,10 +802,11 @@ Confira obra e responsável pela vistoria.
 
 ### Como fazer
 
-1. Abra a foto. Em Ferramentas e zoom, escolha ferramenta, cor e espessura.
-2. Desfazer recupera Limpar anotações. Salvar preserva o original; no formulário, confirme também Salvar achado.
-3. Fechar ou Escape pede confirmação das alterações. Continuar editando mantém o rascunho. Ao fechar o editor, o foco do teclado volta à miniatura que abriu a foto, quando ela continua disponível.
-4. A pessoa atribuída envia a correção; o vistoriador valida.
+1. Confira Escopo do ranking. Na central, o ranking compara todas as obras disponíveis; o filtro Obra seleciona a lista de conferências. Ao abrir uma obra fixa, o ranking se limita a ela.
+2. Abra a foto. Em Ferramentas e zoom, escolha ferramenta, cor e espessura.
+3. Desfazer recupera Limpar anotações. Salvar preserva o original; no formulário, confirme também Salvar achado.
+4. Fechar ou Escape pede confirmação das alterações. Continuar editando mantém o rascunho. Ao fechar o editor, o foco do teclado volta à miniatura que abriu a foto, quando ela continua disponível.
+5. A pessoa atribuída envia a correção; o vistoriador valida.
 
 ### Como conferir se deu certo
 
@@ -1507,7 +1509,7 @@ Você sabe quais registros compõem o resultado do período.
 
 ### O que merece atenção
 
-DRE é a Demonstração do Resultado. Resultado por competência é diferente do saldo bancário. Um fechamento antigo sem memorial conserva o total histórico; a consulta não reconstrói documentos ausentes nem reabre a competência.
+DRE é a Demonstração do Resultado. Resultado por competência é diferente do saldo bancário. Um fechamento antigo sem memorial conserva o total histórico; a consulta não reconstrói documentos ausentes nem reabre a competência. Confira o aviso de recorte e os filtros do próprio demonstrativo. Obra em foco é preservada para as telas operacionais e não substitui os filtros do DRE. O atalho financeiro do Dashboard leva o mês selecionado e o recorte consolidado; isso não altera lançamentos.
 
 <a id="guia-dre"></a>
 
@@ -1531,7 +1533,7 @@ O resultado pode ser explicado pelos registros apresentados.
 
 ### O que merece atenção
 
-Receita de uma competência pode ser recebida em outra data. Confira o regime da consulta.
+Receita de uma competência pode ser recebida em outra data. Confira o regime da consulta. Confira o aviso de recorte e os filtros do próprio demonstrativo. Obra em foco é preservada para as telas operacionais e não substitui os filtros do DRE. O atalho financeiro do Dashboard leva o mês selecionado e o recorte consolidado; isso não altera lançamentos.
 
 <a id="guia-fin"></a>
 
@@ -1974,7 +1976,7 @@ Confira obra, contrato e competência.
 1. Localize ou registre a medição com os dados do contrato.
 2. Confira valor, vencimento e documentos.
 3. Acompanhe os recebimentos e consulte a origem financeira antes de confirmar uma baixa.
-4. Confira Obra das medições no início. Abra Cobranças próximas e vencidas para consultar a fila geral. Registrar recebimento abre a conferência; só conclua após verificar a origem financeira e a data. Essa tela trata cobranças do cliente; avanço físico e medições de terceirizados são fluxos separados.
+4. Confira Obra das medições no início. Cobranças próximas e vencidas · Todas as obras disponíveis é uma fila geral, independente dessa seleção; cada linha identifica sua obra e o saldo restante, descontados os recebimentos registrados. Cobranças quitadas ou canceladas não entram nessa fila. Registrar recebimento abre a conferência com o saldo a receber nesta consulta; só conclua após verificar obra, saldo, origem financeira e data. O servidor reconfere o saldo ao confirmar. Essa tela trata cobranças do cliente; avanço físico e medições de terceirizados são fluxos separados.
 
 ### Como conferir se deu certo
 
@@ -1992,21 +1994,22 @@ Registrar e conferir movimentações do caixa de uma obra.
 
 ### Antes de começar
 
-Confirme a obra e o comprovante da movimentação.
+Confirme Obra do caixa e o comprovante. O resumo geral apresenta todas as obras disponíveis com caixa ativado.
 
 ### Como fazer
 
-1. Consulte o saldo e os registros anteriores.
-2. Use a ação disponível para informar entrada ou saída, com data, valor e descrição.
-3. Anexe o comprovante quando solicitado e confira o saldo após salvar.
+1. A obra selecionada em Obra em foco é seguida pelo extrato. Escolher Obra do caixa ou um saldo consolidado também atualiza a obra em foco.
+2. Se a obra escolhida não possui caixa ativado, leia o aviso. Escolha outro caixa ou confira a ativação no cadastro; o app não escolhe outra obra no lugar dela.
+3. Consulte o saldo e os registros anteriores. Abra Registrar aporte ou Registrar gasto e confira Obra do lançamento no formulário.
+4. Informe data, valor, descrição e comprovante quando solicitado. Confirme somente após conferir a obra e acompanhe o saldo após salvar.
 
 ### Como conferir se deu certo
 
-O histórico e o saldo explicam a movimentação confirmada.
+O extrato e a confirmação pertencem ao caixa escolhido, enquanto o resumo geral continua disponível.
 
 ### O que merece atenção
 
-Evite lançar novamente um pagamento que já existe em outro fluxo.
+Evite lançar novamente um pagamento de outro fluxo. Enquanto o formulário está aberto, a obra do lançamento é mantida. Trocar a consulta não registra movimento nem cria custo no demonstrativo de resultado (DRE).
 
 <a id="guia-relat"></a>
 
