@@ -30,6 +30,8 @@ import {
 import { enviarArquivoOneDrive } from "../../../api";
 
 const ContractWorkspace=lazy(()=>import('../contracts/ContractWorkspace.jsx'));
+// Keep the header mounted while an editor opens, so its action can regain focus.
+const Titulo=({titulo,sub,acao})=><PageHero title={titulo} description={sub} actions={acao}/>;
 
 export default function Comercial({data,update,dispatchCommand,showToast,currentUser,view,onTab}){
   const {cols,formGrid}=useBreakpoint();const com=migrateCommercial(data.comercial||{});
@@ -621,7 +623,6 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
     </div>
   );
 
-  const Titulo = ({titulo,sub,acao}) => <PageHero title={titulo} description={sub} actions={acao}/>;
   const vazio = (t) => <div className="mrc-empty-state">{t}</div>;
   // `key={l}` deixa este helper seguro para uso dentro de .map() (o rótulo
   // já é único em todo call site conhecido) sem quebrar o uso avulso, onde

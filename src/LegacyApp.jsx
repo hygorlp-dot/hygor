@@ -406,7 +406,6 @@ button:focus-visible{outline:2px solid ${C.yellow};outline-offset:2px}
 .arcd-btn[data-icon-only="true"]{width:36px;padding:0!important}
 .arcd-btn[data-size="sm"][data-icon-only="true"]{width:30px}
 .arcd-btn[data-size="lg"][data-icon-only="true"]{width:42px}
-.arcd-btn:not(:disabled):hover{background:var(--btn-hover)!important;border-color:var(--btn-hover-border)!important;box-shadow:none!important;filter:none}
 .arcd-btn:not(:disabled):active{transform:translateY(1px);filter:none}
 .arcd-btn[aria-busy="true"]{cursor:progress}
 .arcd-btn[aria-busy="true"] svg{animation:spin .8s linear infinite}

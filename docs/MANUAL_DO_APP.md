@@ -1,6 +1,6 @@
 # Manual de uso do app MARCELL
 
-Revisão do conteúdo: 04/11/2026.
+Revisão do conteúdo: 15/11/2026.
 
 Este guia explica o uso das telas em linguagem simples. No aplicativo, clique em **Ajuda**, no cabeçalho, para ler o fluxo da página aberta. Em **Manual completo**, pesquise uma tarefa ou tela. As áreas exibidas no aplicativo respeitam seu perfil de acesso.
 
@@ -81,6 +81,7 @@ Conteúdo gerado de `src/features/help/help-content.js`, a mesma fonte da ajuda 
 - [Financeiro · Fechamento](#guia-fin_fechamento)
 - [Financeiro · Visão financeira](#guia-fin_visao)
 - [Financeiro · Custos por etapa](#guia-fin_etapas)
+- [Financeiro · Vínculo de contratos à previsão](#guia-fin_vinculos)
 - [Financeiro · Relatórios financeiros](#guia-fin_relatorios)
 - [Financeiro · Administrativo](#guia-fin_administrativo)
 - [Financeiro · Homologação](#guia-fin_homologacao)
@@ -118,7 +119,7 @@ Conteúdo gerado de `src/features/help/help-content.js`, a mesma fonte da ajuda 
 - [Tarefas comerciais](#guia-com_tarefas)
 - [Propostas](#guia-com_propostas)
 - [Negociações](#guia-com_negociacoes)
-- [Contratos](#guia-com_contratos)
+- [Comercial · Contratos](#guia-com_contratos)
 - [Clientes](#guia-com_clientes)
 - [Parceiros](#guia-com_parceiros)
 - [Metas e comissões](#guia-com_metas)
@@ -141,6 +142,31 @@ Conteúdo gerado de `src/features/help/help-content.js`, a mesma fonte da ajuda 
 - [Previsões · Indicadores contábeis](#guia-fin_previsoes_accounting)
 - [Previsões · Bases contábeis e conferência](#guia-fin_previsoes_accounting_base)
 - [Relatórios · Identidade do documento](#guia-report_identity)
+- [Comercial · Preenchimento e revisão de contratos](#guia-com_contratos_editor)
+- [Comercial · Modelos e contratada](#guia-com_contratos_modelos)
+- [Financeiro · Cobertura do estoque](#guia-fin_estoque)
+- [Terceiros · Garantia técnica das medições](#guia-terc_garantia)
+- [Financeiro · Colunas das tabelas](#guia-fin_colunas)
+- [Cliente · Entrar no portal](#guia-cliente_login)
+- [Cliente · Acompanhamento da obra](#guia-cliente_inicio)
+- [Cliente · Diário da obra](#guia-cliente_fotos)
+- [Cliente · Avanço físico](#guia-cliente_progresso)
+- [Cliente · Gastos por categoria](#guia-cliente_gastos)
+- [Cliente · Extrato do caixa da obra](#guia-cliente_caixa)
+- [Cliente · Previsto e realizado por etapa](#guia-cliente_orcamento)
+- [Cliente · Compras e notas fiscais](#guia-cliente_compras)
+- [Folha · Reservas no repasse ao cliente](#guia-folha_repasse)
+- [Cliente · Administração e equipe](#guia-cliente_administracao_equipe)
+- [Cliente · Contrato e recebimentos](#guia-cliente_financeiro)
+- [Cliente · Documentos da obra](#guia-cliente_documentos)
+- [Cliente · Decisões e alterações](#guia-cliente_decisoes)
+- [Cliente · Consulta de transparência](#guia-cliente_transparencia)
+- [Cliente · Alterar senha e sair](#guia-cliente_conta)
+- [Administrador · Login e senha dos clientes](#guia-cliente_acessos)
+- [Conciliação · Reversão de importações bancárias](#guia-conc_reverter)
+- [Orçamento · Hierarquia de seis níveis](#guia-orc_estrutura)
+- [Conexão local do financeiro](#guia-cliente_conexao_financeiro)
+- [Arquivos · Exclusão e lixeira](#guia-arquivos_exclusao)
 
 <a id="guia-fin_previsoes"></a>
 
@@ -166,7 +192,7 @@ As seis consultas mostram o recorte escolhido, os dados de origem e as pendênci
 
 ### O que merece atenção
 
-Cenários ficam na sessão aberta deste usuário; recarregar a página ou sair do sistema os descarta. Exporte a memória antes de fechar. Não criam títulos, pagamentos ou contratações. Dados atuais são recalculados; a data de referência não reconstrói o que era conhecido no passado. Sem base suficiente, o resultado fica indisponível ou identificado como parcial.
+A simulação temporal é guardada por obra enquanto você navega entre as consultas. Cenários ficam na sessão aberta deste usuário; recarregar a página ou sair do sistema os descarta. Exporte a memória antes de fechar. Não criam títulos, pagamentos ou contratações. Dados atuais são recalculados; a data de referência não reconstrói o que era conhecido no passado. Sem base suficiente, o resultado fica indisponível ou identificado como parcial.
 
 <a id="guia-fin_previsoes_executive"></a>
 
@@ -270,18 +296,18 @@ Confira a obra e a data de referência; tenha orçamento de controle, início da
 
 ### Como fazer
 
-1. Leia orçamento, custo incorrido, compras pendentes, restante, risco, mudanças adicionais e custo final por obra.
+1. Leia orçamento, custo incorrido, compromissos vinculados, compras independentes pendentes, restante, risco, mudanças adicionais e custo final por obra.
 2. Escolha a Obra da memória de custo final e leia os alertas e a composição por etapa.
 3. Use Conferir em Custos por etapa para revisar a estimativa na área de origem. Use Voltar às previsões gerenciais para retomar a consulta.
 4. Use Exportar custo final por obra para guardar o relatório e seus avisos.
 
 ### Como conferir se deu certo
 
-O custo final é incorrido + restante + reserva de risco + impactos de mudanças adicionais. O restante já inclui as compras pendentes; pedidos e pagamentos não entram novamente.
+O custo final é incorrido + restante + reserva de risco + impactos de mudanças adicionais. O restante já inclui os compromissos pendentes; contratos vinculados e pedidos do mesmo escopo entram uma vez, e pagamentos não entram novamente.
 
 ### O que merece atenção
 
-Incorrido segue a competência até o mês da referência. A referência automática usa o maior entre zero, orçamento menos incorrido e compras ainda não faturadas; não é previsão estatística. Revisão com base alterada ou etapa removida exige reconferência e deixa o custo final indisponível nas previsões gerenciais. Sem orçamento de controle com itens válidos, início válido para o acumulado ou com quantidade, preço, valor ou total fora do limite seguro, o custo final também permanece indisponível. Gastos ou compras sem etapa exigem apropriação ou revisão válida explícita de Sem apropriação, pois a referência automática pode repetir o orçamento. Restante abaixo das compras pendentes pede revisão. Os registros de origem são preservados; subtotais não comprovam cobertura integral.
+Incorrido segue a competência até o mês da referência. A referência automática usa o maior entre zero, orçamento menos incorrido, compromissos remanescentes sem sobreposição e reposição de materiais mais compras independentes ainda não faturadas. Cada vínculo considera o maior valor do contrato e dos pedidos do mesmo escopo, menos a união dos custos reconhecidos no razão até a competência de corte. Compras independentes permanecem separadas. Contrato sem vínculo válido exige conferência e deixa o custo final gerencial indisponível; não é previsão estatística. Revisão com base alterada ou etapa removida exige reconferência e deixa o custo final indisponível nas previsões gerenciais. Sem orçamento de controle com itens válidos, início válido para o acumulado ou com quantidade, preço, valor ou total fora do limite seguro, o custo final também permanece indisponível. Gastos ou compras sem etapa exigem apropriação ou revisão válida explícita de Sem apropriação, pois a referência automática pode repetir o orçamento. Restante abaixo dos compromissos pendentes pede revisão. Os registros de origem são preservados; subtotais não comprovam cobertura integral.
 
 <a id="guia-fin_previsoes_labor"></a>
 
@@ -589,8 +615,9 @@ Tenha o nome, o cliente e os dados contratuais da obra.
 ### Como fazer
 
 1. Pesquise a obra na lista ou use Nova obra quando tiver permissão.
-2. No cadastro, preencha os dados solicitados, revise e salve.
+2. No cadastro, preencha os dados solicitados, revise e salve. Informe datas que existam no calendário.
 3. Abra a obra para acessar orçamento, planejamento, equipe e demais áreas.
+4. No contrato por administração, escolha separadamente Equipamentos / locação e Engenharia de campo para definir se esses custos recebem a taxa. Para excluir engenharia, selecione a Categoria de custo da engenharia de campo já usada nos lançamentos. Não há vínculo por nome ou descrição. Revise a base antes de salvar.
 
 ### Como conferir se deu certo
 
@@ -598,7 +625,7 @@ A obra aparece na lista e seu painel abre com o nome correto.
 
 ### O que merece atenção
 
-Confira o cliente e a obra antes de registrar qualquer informação.
+A exclusão é bloqueada quando há orçamento, planejamento, contrato, documento ou histórico vinculado, inclusive lotação anterior de funcionário. Para preservar a obra e seus registros, altere o Status para Pausada ou Concluída conforme a situação. Isso não apaga receitas, custos ou pagamentos. Desmarcar a incidência da taxa mantém o custo da obra e o resultado realizado no DRE. As opções alteram a previsão de administração; não emitem cobranças. Contratos existentes mantêm a regra anterior até alteração explícita.
 
 <a id="guia-obra_geral"></a>
 
@@ -615,6 +642,7 @@ Confira o nome da obra no cabeçalho.
 1. Leia o resumo e as ações disponíveis.
 2. Escolha a área da obra pelo menu ou seletor de telas.
 3. Consulte os detalhes na área escolhida e retorne à visão geral quando necessário.
+4. Nos atalhos da visão geral, Abrir Medições a faturar consulta cobranças do cliente. Em Obra → Medição física, acompanhe o avanço dos serviços. Ao escolher um grupo do menu, sua primeira tela abre imediatamente.
 
 ### Como conferir se deu certo
 
@@ -636,8 +664,8 @@ Selecione a obra e confira a versão do orçamento.
 
 ### Como fazer
 
-1. Use Novo orçamento para cadastrar ou abra um orçamento existente. Guia do orçamento explica os recursos desta tela.
-2. Cadastre ou confira as etapas e os serviços.
+1. Use Novo orçamento para cadastrar ou abra um orçamento existente. Ao vincular uma obra no novo orçamento, Cliente, Local / Endereço e Área construída são preenchidos a partir dessa obra. Confira os valores; suas edições são preservadas ao trocar a obra. Guia do orçamento explica os recursos desta tela.
+2. Cadastre até seis níveis de etapas e confira os serviços.
 3. Revise unidade, quantidade, composição e preço de cada item.
 4. Confira os totais, salve as alterações e use a saída de relatório disponível.
 
@@ -661,18 +689,21 @@ Confirme a obra e o orçamento usado no planejamento.
 
 ### Como fazer
 
-1. Selecione as atividades e revise os vínculos com o orçamento.
-2. Defina datas e duração no cronograma.
-3. Acompanhe o realizado e compare com a linha de base, quando houver.
-4. Para aprovação e versões preservadas, abra Linha de base aprovada e SPI. Prepare uma proposta, confira os itens e calendário e solicite aprovação ao administrador ou à diretoria. A Ajuda passa a mostrar o guia específico enquanto essa área estiver aberta. Fotografias legadas de datas não calculam SPI.
+1. Ao abrir, aguarde a leitura das edições protegidas e a confirmação de salvamento. O alinhamento de um plano antigo com o orçamento só começa depois dessa conferência, com permissão para editar e sem outra gravação pendente.
+2. Se aparecer Resolver salvamento, confira a edição protegida antes de continuar. Após falha de armazenamento, use Verificar armazenamento na recuperação; após conflito, consulte a versão atual e faça a escolha indicada. A abertura da tela não deve reenviar uma edição recusada.
+3. Selecione as atividades e revise os vínculos com o orçamento. Se aparecer Sincronização automática pausada, confira com o administrador os planos, as tarefas e as identificações das versões. Não apague uma tarefa nem escolha um orçamento só pela semelhança do nome. Enquanto houver ambiguidade, a tela permite escolher outra obra e ler a orientação, sem editar o cronograma.
+4. Defina datas e duração no cronograma.
+5. Acompanhe o realizado e compare com a linha de base, quando houver.
+6. Para aprovação e versões preservadas, abra Linha de base aprovada e SPI. Prepare uma proposta, confira os itens e calendário e solicite aprovação ao administrador ou à diretoria. A Ajuda passa a mostrar o guia específico enquanto essa área estiver aberta. Fotografias legadas de datas não calculam SPI.
+7. Evolução informada acompanha os percentuais do planejamento. O avanço oficial depende de boletins técnicos aprovados, disponíveis em Medição física. Abra Escala, calendário e colunas quando precisar ajustar a visualização.
 
 ### Como conferir se deu certo
 
-O cronograma mostra as atividades nas datas esperadas.
+O cronograma mostra as atividades nas datas esperadas. Completar um vínculo antigo preserva as tarefas já planejadas, suas datas, progresso e linha de base.
 
 ### O que merece atenção
 
-Linha de base é a referência aprovada para comparação; confira antes de substituí-la.
+Linha de base é a referência aprovada para comparação; confira antes de substituí-la. A sincronização do cronograma não confirma compras, estoque, custos ou pagamentos na Demonstração do Resultado (DRE).
 
 ### Quando o fluxo acontece de outro jeito
 
@@ -798,6 +829,7 @@ Confira a obra, o período e os serviços do orçamento.
 1. Abra os serviços a medir.
 2. Informe ou confira as quantidades executadas e as evidências.
 3. Revise os totais e salve a medição na competência correta.
+4. Use Buscar serviço da medição para localizar um serviço sem alterar os demais. Evolução por valor pondera o valor dos serviços; sem valores vinculados, mostra Sem base de valor. No Planejamento, a média pondera a duração. O avanço oficial depende dos boletins técnicos aprovados; informar percentuais não substitui essa aprovação.
 
 ### Como conferir se deu certo
 
@@ -1251,25 +1283,25 @@ Batidas do ponto eletrônico são imutáveis; não suponha que uma consulta alte
 
 ## Ponto eletrônico (app)
 
-Acompanhar a operação dos aparelhos que capturam o ponto.
+Conferir aparelhos, batidas e fotos.
 
 ### Antes de começar
 
-Identifique o aparelho e a obra em que ele opera.
+Confira a obra, o aparelho e a conexão Microsoft.
 
 ### Como fazer
 
-1. Consulte os aparelhos e a situação de sincronização.
-2. Confira os registros recebidos e as pendências apresentadas.
-3. Siga a ação de configuração ou conferência disponível ao seu perfil.
+1. Consulte os aparelhos e a sincronização.
+2. Confira batidas e fotos.
+3. Trate as pendências permitidas ao seu perfil.
 
 ### Como conferir se deu certo
 
-O aparelho e seus registros estão identificados para acompanhamento.
+Registros e pendências identificados.
 
 ### O que merece atenção
 
-No aparelho, o fluxo é entrada, intervalo, retorno e saída. Falta de sincronização pode atrasar a exibição no ERP. Batidas repetidas aparecem como possível repetição; as originais são preservadas e não formam jornada automaticamente. O RH deve conferir os horários e justificar o tratamento antes de integrar o dia.
+Fotos novas de batidas e cadastro facial vão ao OneDrive, pasta Ponto de Obra; não mova, compartilhe nem apague essa pasta. As antigas ficam no Supabase. Se o envio falhar, mantenha os dados do aparelho e avise o administrador. O Supabase continua necessário.
 
 <a id="guia-equipe"></a>
 
@@ -1300,25 +1332,26 @@ O último dia é inclusivo. Ponto e pagamentos são preservados; outras ediçõe
 
 ## Equipe nas Obras
 
-Entender como a equipe está distribuída e o que precisa de conferência.
+Conferir a distribuição da equipe.
 
 ### Antes de começar
 
-Confira a data, a obra e a última sincronização.
+Confira obra, data e sincronização.
 
 ### Como fazer
 
 1. Consulte a distribuição por obra.
-2. Abra a pessoa ou situação para conferir lotação e captura do ponto.
-3. Verifique as divergências antes de encaminhar o tratamento ao responsável.
+2. Confira lotação e batidas.
+3. Encaminhe as divergências ao responsável.
+4. A visão inicial oculta obras sem funcionários no recorte consultado. Abra Obras vazias neste filtro e use Mostrar obras vazias para incluí-las. Os funcionários sem registro continuam na consulta de ausências; ausência de batida não confirma falta.
 
 ### Como conferir se deu certo
 
-Você identificou a equipe e as situações que precisam de revisão.
+Conferência concluída.
 
 ### O que merece atenção
 
-Esta visão não cria nem encerra batidas. Ausência de registro não significa falta confirmada.
+Fotos novas vêm do OneDrive; antigas, do Supabase. Se a foto falhar, confira a conexão com o administrador; a consulta continua. Esta visão não cria nem encerra batidas. Ausência de registro não confirma falta.
 
 ### Exemplo ilustrativo
 
@@ -1338,7 +1371,8 @@ Confira a obra, o prestador e o contrato.
 
 1. Localize ou cadastre o contrato conforme sua permissão.
 2. Confira escopo, valores, itens e documentos.
-3. Acompanhe medições e saldos no contrato correto.
+3. Acompanhe medições e saldos no contrato correto. Vincular e conferir exige nota fiscal e medição da mesma obra, inclusive nos rateios.
+4. No celular, a consulta começa pela lista de contratos. Use os filtros de contratos também no Kanban. Abra Aprovações pendentes para revisar a fila. Saldo das etapas usa os valores das etapas cadastradas; se houver divergência com o contrato, confira a origem antes de corrigir o cadastro.
 
 ### Como conferir se deu certo
 
@@ -1346,7 +1380,7 @@ O contrato apresenta os serviços e o saldo esperado.
 
 ### O que merece atenção
 
-Medição, aprovação e pagamento têm situações próprias; confira cada etapa.
+Uma medição com nota fiscal reconhecida não pode ser cancelada isoladamente: regularize o documento de origem com o financeiro antes de cancelar. Pagamentos exigem o estorno previsto no fluxo. Vínculos antigos inconsistentes aparecem como pendência financeira; não crie outra despesa para compensar. Medição e nota do mesmo fato reconhecem custo uma vez; pagamento e liberação de garantia não criam outro custo.
 
 <a id="guia-folha_pendencias"></a>
 
@@ -1465,6 +1499,7 @@ Escolha o período e confira a abrangência da análise.
 1. Leia receitas, custos, despesas e resultado.
 2. Abra o detalhamento ou memorial do valor que deseja conferir.
 3. Compare com os registros de origem e use a visão anual quando necessário.
+4. Na manutenção de equipamentos, confira o registro e a situação: manutenções canceladas não compõem o custo nem o memorial da competência. O registro cancelado permanece na origem para consulta.
 
 ### Como conferir se deu certo
 
@@ -1472,7 +1507,7 @@ Você sabe quais registros compõem o resultado do período.
 
 ### O que merece atenção
 
-DRE é a Demonstração do Resultado. Resultado por competência é diferente do saldo bancário.
+DRE é a Demonstração do Resultado. Resultado por competência é diferente do saldo bancário. Um fechamento antigo sem memorial conserva o total histórico; a consulta não reconstrói documentos ausentes nem reabre a competência.
 
 <a id="guia-dre"></a>
 
@@ -1538,6 +1573,7 @@ Confira data e obra. Saldo em aberto não é saldo de caixa.
 2. Escolha o prazo: Vencidos, Hoje, Próximos 7 dias, Depois ou Sem vencimento. Todos os prazos reúne o recorte. No celular, use Fila de vencimentos.
 3. Em Visualização, alterne Tabela e Kanban; os registros e valores do recorte são preservados. A direção e a visão ficam salvas por usuário neste navegador; filtros de prazo são da sessão. No quadro, as colunas apenas representam as datas.
 4. Use a ação do registro para revisar a origem ou registrar a operação permitida. Clique no nome para abrir a ficha rápida; Consultar detalhamento mostra a origem e os documentos. Feche a consulta para retomar a fila.
+5. Use Colunas na tabela para mostrar ou ocultar campos opcionais. Em custos, use Colunas dos custos por etapa. Restaurar colunas padrão recupera a apresentação inicial; fichas, valores e exportações não mudam.
 
 ### Como conferir se deu certo
 
@@ -1585,8 +1621,8 @@ Tenha a nota e o pedido correspondente, quando houver.
 ### Como fazer
 
 1. Localize ou abra a nota a conferir.
-2. Compare fornecedor, número, valores, obra e vínculo de origem.
-3. Corrija os dados permitidos, confirme e confira o resultado.
+2. Compare fornecedor, número, série, tipo, datas, valores, obra e vínculo de origem.
+3. Corrija os dados permitidos, confirme e confira o resultado. Datas inexistentes são recusadas.
 
 ### Como conferir se deu certo
 
@@ -1594,7 +1630,7 @@ A ficha fiscal apresenta os dados conferidos e seus vínculos.
 
 ### O que merece atenção
 
-Uma nota importada ainda precisa de revisão. Confira se já existe antes de cadastrar outra.
+Chave fiscal repetida ou documento com o mesmo emissor identificado, tipo, série, número e ano bloqueia um segundo lançamento. Confira a nota existente; não mude o número ou o fornecedor para contornar o aviso. Sem documento ou identificação do fornecedor, a revisão humana continua necessária: nome e valor não provam que é a mesma nota. Uma nota repartida entre obras deve usar o rateio do mesmo documento, sem duplicar seu valor.
 
 ### Quem cuida de cada parte
 
@@ -1702,9 +1738,10 @@ Escolha o mês de referência e confira as pendências.
 
 ### Como fazer
 
-1. Abra os avisos e consulte os registros de origem.
-2. Resolva os bloqueios e revise os valores da competência.
-3. Solicite o fechamento e confira a confirmação devolvida pelo sistema.
+1. Em Bloqueios financeiros, leia o motivo, a diferença e a orientação. Use Consultar origem do bloqueio quando houver um registro identificado. O memorial mostra o valor do documento; a diferença fica no aviso. Se não houver origem individual, confira os documentos e peça ajuda ao administrador usando Diagnóstico para suporte.
+2. Compare o resultado com as entradas e saídas. O resultado segue a competência da receita ou do custo; o caixa segue a data do recebimento ou pagamento, mesmo quando o documento é de outro mês.
+3. Resolva os bloqueios e revise os valores da competência. Quando os recebimentos excederem o valor do documento, confira os comprovantes e a medição em Medições a faturar antes de corrigir valores ou vínculos. Para pagamentos excedentes, confira a obrigação e os comprovantes em Pagamentos.
+4. Solicite o fechamento e confira a confirmação devolvida pelo sistema.
 
 ### Como conferir se deu certo
 
@@ -1712,7 +1749,7 @@ O sistema apresenta o fechamento confirmado ou os bloqueios restantes.
 
 ### O que merece atenção
 
-Se houver rejeição, leia o motivo e corrija a origem antes de tentar novamente.
+Alguns avisos resumem diferenças já detalhadas: não some seus valores. A origem pode pertencer a outro mês; confira a competência do registro. Consultar a prévia, o diagnóstico ou o memorial não fecha a competência nem corrige registros. Não reduza um recebimento nem crie uma despesa apenas para eliminar uma diferença.
 
 <a id="guia-fin_visao"></a>
 
@@ -1751,17 +1788,49 @@ Confira a obra e a data de referência.
 ### Como fazer
 
 1. Confira obra, data de corte, orçamento e custos por etapa; abra os valores para consultar a origem.
-2. Compare o incorrido com as compras ainda não faturadas. Abra Conferir apropriação e previsão para revisar o restante e a reserva de risco.
-3. Registre e acompanhe Mudanças e aditivos; escolha explicitamente como cada impacto entra na previsão.
-4. Leia os avisos e consulte Ajuda da previsão para o passo a passo completo.
+2. Em Compromissos por origem, clique no valor de Compras ainda não faturadas para consultar os pedidos. Abra Conferir contratos de terceiros e use o nome do contrato para consultar sua memória. Pesquisar contrato filtra a lista.
+3. Confira Contratado, Medições aprovadas, Em revisão, A pagar das medições e Saldo a medir. Saldo a medir desconta somente medições aprovadas; pagamento reduz a obrigação a pagar, sem reduzir esse saldo novamente. Valores ausentes e vínculos divergentes pedem conferência em Terceiros.
+4. Use Vincular à previsão para relacionar o contrato à etapa e confirmar pedidos do mesmo escopo. Confira a integração antes de revisar o restante.
+5. Compare o incorrido com os compromissos sem sobreposição. Abra Conferir apropriação e previsão para revisar o restante e a reserva de risco.
+6. Registre e acompanhe Mudanças e aditivos; escolha explicitamente como cada impacto entra na previsão.
+7. Leia os avisos e consulte Ajuda da previsão para o passo a passo completo.
+8. Em Garantias técnicas das medições, confira bruto, garantia e saldo; abra a medição para definir a condição, pagar o principal, liberar ou pagar a garantia. Use Ajuda da garantia técnica para os cuidados. O retido já pertence ao custo reconhecido e não é outra estimativa restante.
+9. Use Colunas na tabela para mostrar ou ocultar campos opcionais. Em custos, use Colunas dos custos por etapa. Restaurar colunas padrão recupera a apresentação inicial; fichas, valores e exportações não mudam.
 
 ### Como conferir se deu certo
 
-Você identificou os registros que explicam o custo de cada etapa.
+Você identificou os registros que explicam o custo de cada etapa e os compromissos atuais por origem.
 
 ### O que merece atenção
 
-A previsão revisada permanece com aviso quando a base muda. Custo final = incorrido + restante + reserva + mudanças adicionais; pagar não gera outro custo. Pendências de processo permitem continuar.
+Compromissos por origem consulta os cadastros atuais, independentemente da data de corte dos custos. Subtotal calculável não inclui contratos sem valor disponível. Somente vínculos válidos entram automaticamente na etapa. Contrato e pedidos do mesmo escopo entram uma vez, descontando custos reconhecidos. Revisão manual substitui a referência, sem outra soma. Em Cobertura do estoque, abra Conferir cobertura dos materiais e confira aplicado, saldo físico, reserva, pedidos a receber e Falta comprar. Reposição usa o preço médio orçado; compare reposição mais compras independentes ainda não faturadas com os demais pisos, sem somá-los. Entrada e consumo não geram outro custo no DRE. Pendências de origem, unidade ou etapa exigem conciliação ou revisão explícita da etapa. Contratos comerciais com clientes não são custos de contratação. Consultar não cria pagamentos, aprovações ou previsões. A previsão revisada permanece com aviso quando a base muda. Custo final = incorrido + restante + reserva + mudanças adicionais; pagar não gera outro custo. Pendências de processo permitem continuar.
+
+<a id="guia-fin_vinculos"></a>
+
+## Financeiro · Vínculo de contratos à previsão
+
+Relacionar um contrato de terceiros à etapa do orçamento sem duplicar pedidos do mesmo serviço.
+
+### Antes de começar
+
+Tenha orçamento de controle, contrato por medição ativo e as origens conferidas. Administrador e Financeiro com acesso à obra podem salvar.
+
+### Como fazer
+
+1. Em Custos por etapa, abra Conferir contratos de terceiros e use Vincular à previsão no contrato.
+2. Escolha Etapa de custo do contrato. O contrato inteiro fica em uma etapa de primeiro nível.
+3. Em Pedidos do mesmo escopo, selecione somente os pedidos que representam o serviço já incluído no contrato. Use Pesquisar pedido sobreposto para localizar. Materiais ou serviços adicionais devem ficar separados.
+4. Marque Conferi que os pedidos selecionados representam o mesmo escopo do contrato e preencha Justificativa do vínculo.
+5. Use Salvar vínculo da previsão e aguarde a confirmação. Confira etapa, saldo a incorrer e Estimativa para concluir.
+6. Para retirar ou corrigir um vínculo, reabra o formulário. Registre o motivo e use Remover vínculo da previsão, ou ajuste e salve novamente.
+
+### Como conferir se deu certo
+
+A referência automática considera o maior entre o saldo do orçamento e os compromissos remanescentes sem sobreposição. Contrato e pedidos selecionados entram uma vez pelo maior valor, descontando a união dos custos reconhecidos até a competência de corte.
+
+### O que merece atenção
+
+O vínculo usa as condições atuais, sem reconstruir o contrato histórico. Notas e medições espelhadas seguem o razão; rascunhos e pagamentos não reduzem novamente o compromisso. Fontes alteradas, orçamento substituído, etapas divergentes ou pedido usado em outro contrato exigem conferência. Não se faz correspondência por nome ou valor parecido. Revisões manuais ficam preservadas com aviso; use Conferir apropriação e previsão para reconferir sua base. O vínculo não aprova, paga, modifica cláusulas nem altera o valor contratado. Estoque permanece fora desta integração.
 
 <a id="guia-fin_relatorios"></a>
 
@@ -1873,8 +1942,10 @@ Confira banco, conta e período do extrato.
 
 1. Importe ou abra o extrato e confira as linhas.
 2. Use Buscar na conciliação, Tipo de movimento e Filtrar categoria para localizar as linhas; Selecionar todas marca as linhas elegíveis e não confirma vínculos.
-3. Analise cada sugestão comparando valor, data, contraparte e documento.
-4. Confirme o vínculo apenas após a conferência e acompanhe o saldo e as pendências.
+3. Analise cada sugestão comparando valor, data, contraparte e documento. Uma pessoa identificada não comprova qual título foi pago.
+4. Quando o mesmo prestador tiver contratos em várias obras, confira a obra, o contrato e a obrigação de cada pagamento. O vínculo existente do prestador identifica a pessoa quando seus dados concordam; não escolhe o contrato nem junta pagamentos. Dados de identidade divergentes exigem conferência.
+5. Confira também pendências de extratos arquivados antes de reabrir ou reimportar: arquivar não significa conciliar nem autoriza repetir um pagamento.
+6. Confirme o vínculo apenas após a conferência e acompanhe o saldo e as pendências.
 
 ### Como conferir se deu certo
 
@@ -1882,7 +1953,7 @@ As linhas conferidas mostram os vínculos corretos.
 
 ### O que merece atenção
 
-Semelhança de valor ou descrição não basta para confirmar um vínculo. Revise a automação antes de retomá-la.
+Semelhança de valor ou descrição não basta para confirmar um vínculo. Uma referência genérica do arquivo OFX não comprova o identificador de uma transferência Pix. Nas novas importações, a referência original é preservada e não é tratada automaticamente como esse identificador. Os dados antigos exigem conferência do original antes de qualquer correção. Revise a automação antes de retomá-la.
 
 ### Exemplo ilustrativo
 
@@ -1903,6 +1974,7 @@ Confira obra, contrato e competência.
 1. Localize ou registre a medição com os dados do contrato.
 2. Confira valor, vencimento e documentos.
 3. Acompanhe os recebimentos e consulte a origem financeira antes de confirmar uma baixa.
+4. Confira Obra das medições no início. Abra Cobranças próximas e vencidas para consultar a fila geral. Registrar recebimento abre a conferência; só conclua após verificar a origem financeira e a data. Essa tela trata cobranças do cliente; avanço físico e medições de terceirizados são fluxos separados.
 
 ### Como conferir se deu certo
 
@@ -2258,21 +2330,23 @@ Configurar o acompanhamento que será disponibilizado ao cliente.
 
 ### Antes de começar
 
-Confira a obra e a pessoa que terá acesso.
+Entre como administrador, confira a obra e aguarde a confirmação de salvamento das alterações.
 
 ### Como fazer
 
-1. Abra Portal do cliente na obra.
-2. Revise a ativação, os acessos e o conteúdo disponível.
-3. Confira a visualização do cliente antes de copiar ou compartilhar o acesso.
+1. Abra Portal do cliente na obra e ative o portal.
+2. Escolha Diários e fotos, Cronograma, Medições, Caixa da obra, Gastos por categoria, Administração e equipe, Previsto e realizado por etapa, Notas fiscais, Compras e demais conteúdos desejados. Administração e equipe libera nomes, composição dos custos, reservas e ponto somente para perfis autorizados. Marque os documentos liberados individualmente.
+3. Aguarde o salvamento das opções. Use Atualizar dados publicados, confira as quantidades e use Confirmar publicação. Essa liberação permite consultar os dados financeiros atuais nas áreas habilitadas.
+4. Cadastre login e senha em Central do Administrador → Acessos de clientes. Copiar link de login e Abrir login do cliente usam o acesso individual.
+5. Para suspender o conteúdo, use Desativar acesso. Os vínculos são mantidos; a retomada exige ativar e publicar novamente.
 
 ### Como conferir se deu certo
 
-O acesso corresponde à obra e às informações autorizadas.
+O cliente consulta somente a obra e as áreas liberadas, após entrar com o próprio login.
 
 ### O que merece atenção
 
-Confira o destinatário antes de compartilhar; acesso individual e link legado têm controles diferentes.
+Resumo e documentos avulsos dependem da publicação da equipe. Diários, caixa, gastos, orçamento por etapa, contrato, compras e notas consultam os registros atuais após a liberação. As fotos vêm de diários concluídos; anexos fiscais vêm das notas vinculadas por ID ao pedido. Publicar não cria custo, previsão, estoque, pagamento ou lançamento no DRE. Visualizar legado e Revogar link anterior se referem ao link compartilhado antigo, que tem controles próprios. O domínio público depende da configuração posterior de DNS e hospedagem.
 
 <a id="guia-com_dash"></a>
 
@@ -2664,27 +2738,32 @@ Proposta, contrato, assinatura e recebimento são etapas diferentes. Confira a s
 
 <a id="guia-com_contratos"></a>
 
-## Contratos
+## Comercial · Contratos
 
-Use esta tela para acompanhar a formalização do negócio.
+Cadastrar, conferir e acompanhar contratos por cliente e obra.
 
 ### Antes de começar
 
-Confira o cliente, o responsável e o período, quando disponíveis.
+O administrador deve conferir o cadastro da contratada em Modelos de contrato. Tenha cliente, condições e documentos da negociação.
 
 ### Como fazer
 
-1. Localize a proposta e o cliente corretos.
-2. Confira contratante, objeto, valores, datas e documentos.
-3. Acompanhe assinatura e demais requisitos antes de abrir a execução.
+1. Em Comercial, abra Propostas e contratos e escolha Contratos.
+2. Use Novo contrato. Preencha as etapas A a G. É possível começar antes de existir obra cadastrada.
+3. Selecione o cliente, a proposta compatível e a obra. Confira os dados das partes; nenhuma declaração pessoal é presumida.
+4. Em Imóvel e obra, compare os dados. Salve o rascunho, selecione os campos e use Aproveitar dados selecionados da obra. Confirme os valores novamente.
+5. As alterações são salvas após uma breve pausa; aguarde a confirmação. Salvar rascunho permite tentar novamente. Falhas preservam o formulário. Em conflito, copie a edição antes de fechar e reabra o registro atual.
+6. Em Anexos e revisão, vincule revisões dos Arquivos da mesma obra. Confirme cada arquivo após conferir seu conteúdo.
+7. Use Enviar para revisão. O administrador pode devolver com motivo ou aprovar a revisão externa quando todas as pendências forem atendidas.
+8. Consulte o histórico. Depois da aprovação, use Abrir nova revisão com motivo para alterar dados; a versão anterior fica preservada.
 
 ### Como conferir se deu certo
 
-O contrato mostra o estágio e as pendências de formalização.
+O cadastro conserva modelo, cópia da contratada, dados, anexos e histórico. Os filtros da lista permanecem ao fechar a ficha.
 
 ### O que merece atenção
 
-Proposta, contrato, assinatura e recebimento são etapas diferentes. Confira a situação antes de avançar.
+Gerar PDF e Exportar DOCX estão desativados: não há emissão de documentos nesta entrega. Para aprovação, o administrador precisa conferir externamente o documento e seus anexos. Pessoa jurídica, múltiplos contratantes e obra sem loteamento exigem variante aprovada ainda indisponível. CGR (Custo Gerencial de Referência), taxa e teto são independentes; valor cadastrado na obra não define esses campos automaticamente. Dados da obra não atualizam cópias aprovadas ou assinadas.
 
 <a id="guia-com_clientes"></a>
 
@@ -2818,14 +2897,15 @@ Abra Financeiro → Custos por etapa e confira obra e data de corte. Incorrido �
 
 ### Como fazer
 
-1. Confira o orçamento, o incorrido e Compras ainda não faturadas. Abra um valor para consultar sua memória. O faturamento parcial de pedidos com várias etapas é distribuído proporcionalmente ao valor dos itens.
-2. Abra Conferir apropriação e previsão e escolha a etapa, inclusive Sem apropriação quando faltar orçamento ou vínculo.
-3. Informe todo o custo restante para concluir, incluindo as compras ainda não faturadas. Acrescente uma reserva de risco separada e descreva as premissas.
-4. Confira as mudanças adicionais. Se o custo de uma mudança já estiver no restante, marque Já incluído no acompanhamento dela.
-5. Em Conferência dos aditivos no custo restante, escolha para cada aditivo: Ainda não conferido, Já está no restante informado ou Fora do restante — considerar separadamente. A escolha registra sua análise, sem mudar os valores.
-6. Confirme a previsão e confira o total e o histórico. Quando a base mudar, o valor revisado permanece com aviso: use Atualizar base mantendo valores, confira e salve outra revisão.
-7. Para cada aditivo conferido, preencha Justificativa da conferência do aditivo e confirme a previsão. É opcional: sem justificativa, o app salva com aviso. Para manter a pendência, escolha Ainda não conferido.
-8. Consulte Histórico de conferência das duplicidades junto de Mudanças e aditivos. Confira responsável, data da conferência, decisão, justificativa, impacto e restante registrados. Use Aditivo do histórico para filtrar e as páginas para consultar registros anteriores.
+1. Confira o orçamento, o incorrido e os compromissos vinculados por etapa. Em Compromissos por origem, use Vincular à previsão para conferir contrato, etapa e pedidos sobrepostos. Abra um valor para consultar sua memória. O faturamento parcial de pedidos com várias etapas é distribuído proporcionalmente ao valor dos itens.
+2. Abra Conferir cobertura dos materiais e confira unidades, aplicação, saldo físico, reservas e pedidos a receber. O saldo físico reduz a necessidade de novas compras; não o desconte outra vez do incorrido. Use Ajuda da cobertura do estoque para conferir os limites e corrija as pendências na origem.
+3. Abra Conferir apropriação e previsão e escolha a etapa, inclusive Sem apropriação quando faltar orçamento ou vínculo.
+4. Informe todo o custo restante para concluir, incluindo compras e contratos ainda a incorrer. A revisão manual substitui a referência automática; esses compromissos não são somados outra vez. Acrescente uma reserva de risco separada e descreva as premissas.
+5. Confira as mudanças adicionais. Se o custo de uma mudança já estiver no restante, marque Já incluído no acompanhamento dela.
+6. Em Conferência dos aditivos no custo restante, escolha para cada aditivo: Ainda não conferido, Já está no restante informado ou Fora do restante — considerar separadamente. A escolha registra sua análise, sem mudar os valores.
+7. Confirme a previsão e confira o total e o histórico. Quando a base mudar, o valor revisado permanece com aviso: use Atualizar base mantendo valores, confira e salve outra revisão.
+8. Para cada aditivo conferido, preencha Justificativa da conferência do aditivo e confirme a previsão. É opcional: sem justificativa, o app salva com aviso. Para manter a pendência, escolha Ainda não conferido.
+9. Consulte Histórico de conferência das duplicidades junto de Mudanças e aditivos. Confira responsável, data da conferência, decisão, justificativa, impacto e restante registrados. Use Aditivo do histórico para filtrar e as páginas para consultar registros anteriores.
 
 ### Como conferir se deu certo
 
@@ -2846,7 +2926,7 @@ A etapa tem R$ 80 mil incorridos, R$ 50 mil em compras ainda não faturadas e R$
 
 ### Quando o fluxo acontece de outro jeito
 
-- **Valor abaixo das compras pendentes:** Confira cancelamentos e economias. O aviso permite salvar; explique a diferença nas premissas.
+- **Valor abaixo dos compromissos pendentes:** Confira cancelamentos, economias e os vínculos dos contratos. O aviso permite salvar; explique a diferença nas premissas.
 - **Orçamento ou data mudou:** A revisão permanece em uso com aviso. Confira a nova base e atualize mantendo seus valores. Revisões de etapas removidas permanecem no histórico, fora do total atual, até transferência explícita.
 - **Não há orçamento aprovado:** Registre a estimativa em Sem apropriação. A comparação orçamentária fica indisponível; aprove um orçamento e confira os vínculos depois.
 - **Mudança já contemplada no restante:** Escolha Já incluído no restante da etapa para evitar somar o mesmo custo duas vezes.
@@ -2920,6 +3000,11 @@ Confirme a obra em Obra dos arquivos e escolha Arquivos e pastas em Área da doc
 2. Use Adicionar documento para enviar um arquivo de até 3 MB ou cadastrar um link; confira título e revisão antes de salvar.
 3. Selecione o documento e abra Visualizar para consultar o original no MARCELL ou adicionar uma nova revisão.
 4. Como administrador, entre na pasta e use Permissões desta pasta: herde o acesso ou escolha Sem acesso, Leitura ou Leitura e edição para cada pessoa.
+5. Na obra e pasta corretas, arraste um arquivo do computador para a área Documentos da obra. O formulário abre com arquivo, título e pasta preenchidos; confira Identificação da revisão e use Salvar documento. Arrastar não envia nem salva automaticamente. No celular, use Adicionar documento, escolha Enviar arquivo em Tipo de documento e toque em Selecionar arquivo.
+6. Use Criar pastas padrão para completar a estrutura sem apagar pastas ou documentos existentes. Projetos contém Projetos de Arquitetura e Projetos de Engenharia. A ação reaproveita a pasta Projetos existente e não duplica subpastas; nomes diferentes não são associados automaticamente.
+7. Para vários documentos, abra a pasta e arraste até 20 arquivos juntos. No celular ou pelo teclado, use Adicionar arquivos e Selecionar arquivos. Confira Destino e Arquivos do lote e use Enviar arquivos uma vez. Os nomes dos arquivos viram os títulos, todos com revisão R01. Não é necessário cadastrar cada um.
+8. Para excluir, abra o documento da central e use Excluir documento. Confira o nome, a obra, a pasta e a quantidade de revisões. Cancelar fecha a confirmação sem iniciar a exclusão; Excluir documento confirma todas as revisões. Os arquivos vão para a lixeira do OneDrive, os links externos saem apenas da central e o histórico permanece.
+9. A central acompanha a obra escolhida nas telas vinculadas, dentro das suas permissões. Pastas do OneDrive mostra a organização física; Abrir central de documentos retorna aos documentos com revisões e permissões. Marque as caixas para selecionar vários documentos; tocar no nome abre os detalhes.
 
 ### Como conferir se deu certo
 
@@ -2927,7 +3012,7 @@ O documento aparece na pasta correta, com revisões e histórico; pessoas sem ac
 
 ### O que merece atenção
 
-Subpastas acumulam restrições das pastas superiores; administradores mantêm acesso. Anexos dos módulos seguem o acesso de origem. As permissões da central não alteram o compartilhamento de links externos no provedor.
+Subpastas acumulam restrições das pastas superiores; administradores mantêm acesso. Anexos dos módulos seguem o acesso de origem. As permissões da central não alteram o compartilhamento de links externos no provedor. Para envio em lote, arraste até 20 arquivos de uma vez, com até 3 MB por arquivo. Para arquivos maiores, use um link da nuvem. Pastas arrastadas não são aceitas. Soltar em uma pasta sem permissão ou nos vínculos dos módulos não cria documento. Se houver uma edição aberta, conclua ou cancele antes de adicionar outro documento; no formulário de documento, arrastar troca o arquivo selecionado. Cancelar não envia o arquivo. Uploads continuam no OneDrive e precisam de conexão disponível. Anexar arquivos ou criar pastas não cria compromisso, estoque, custo no DRE nem pagamento. Cada arquivo continua limitado a 3 MB e aos formatos permitidos. Se algum for inválido, corrija a seleção antes de enviar. A lista mostra o andamento. O lote só aparece na pasta depois de concluir todos os envios e salvar a organização; falha mantém a lista para tentar novamente, reaproveitando envios confirmados. Documentos existentes não são substituídos: nomes iguais criam documentos separados. Cancelar não apaga arquivos já enviados ao OneDrive. Não feche nem recarregue durante uma tentativa: o lote e seu andamento ficam apenas nesta tela. Pastas somente leitura e vínculos dos módulos não aceitam envio. A exclusão exige a mesma permissão de edição da pasta. Vínculos dos módulos e documentos preservados em contratos comerciais não podem ser excluídos por aqui. Uma revisão compartilhada com outro documento ou módulo bloqueia o envio à lixeira. Arquivo antigo sem identificação segura precisa de conferência. Se houver falha, o documento fica com Exclusão pendente; algumas revisões podem já estar na lixeira. Use Concluir exclusão, inclusive após recarregar. Cancelar a confirmação de uma pendência apenas fecha a janela; não desfaz arquivos já enviados. O documento sai da lista somente após confirmar todas as revisões. A conexão com o OneDrive pode precisar ser renovada pelo administrador. Recuperar um arquivo na lixeira não restaura seu cadastro na central. A ação não altera contratos, despesas, estoque, custo no DRE ou pagamentos.
 
 ### Exemplo ilustrativo
 
@@ -3281,10 +3366,10 @@ Confira obra, período e filtros.
 
 1. Use a ação de impressão ou PDF.
 2. Em Identidade do relatório, escolha MARCELL ou ARCD em Logomarca do relatório. MARCELL é a opção inicial.
-3. Confira a Prévia da logomarca e aguarde habilitar Gerar relatório.
+3. Aguarde carregar a logomarca e as fontes, confira a Prévia da logomarca e espere habilitar Gerar relatório. As fontes são preparadas no navegador e incluídas no documento salvo.
 4. Confirme para abrir o documento; use Imprimir / salvar PDF. Alguns relatórios imprimem automaticamente.
 5. Cancelar ou Escape mantém os filtros. Para trocar a marca, gere outra prévia.
-6. Se necessário, use Tentar carregar logomarca novamente ou permita abrir janelas para este site.
+6. Se necessário, confira a conexão e use Tentar carregar novamente ou permita abrir janelas para este site. Sem conexão, o preparo depende de as fontes já estarem guardadas neste navegador.
 
 ### Como conferir se deu certo
 
@@ -3293,6 +3378,640 @@ Cabeçalho e marca-d’água com a imagem escolhida. Dados, totais e papel são 
 ### O que merece atenção
 
 Vale para aquele documento; não grava operações nem altera a empresa. CSV, planilhas, anexos e ZIP não usam esta janela.
+
+<a id="guia-com_contratos_editor"></a>
+
+## Comercial · Preenchimento e revisão de contratos
+
+Cadastrar, conferir e acompanhar contratos por cliente e obra.
+
+### Antes de começar
+
+O administrador deve conferir o cadastro da contratada em Modelos de contrato. Tenha cliente, condições e documentos da negociação.
+
+### Como fazer
+
+1. Em Comercial, abra Propostas e contratos e escolha Contratos.
+2. Use Novo contrato. Preencha as etapas A a G. É possível começar antes de existir obra cadastrada.
+3. Selecione o cliente, a proposta compatível e a obra. Confira os dados das partes; nenhuma declaração pessoal é presumida.
+4. Em Imóvel e obra, compare os dados. Salve o rascunho, selecione os campos e use Aproveitar dados selecionados da obra. Confirme os valores novamente.
+5. As alterações são salvas após uma breve pausa; aguarde a confirmação. Salvar rascunho permite tentar novamente. Falhas preservam o formulário. Em conflito, copie a edição antes de fechar e reabra o registro atual.
+6. Em Anexos e revisão, vincule revisões dos Arquivos da mesma obra. Confirme cada arquivo após conferir seu conteúdo.
+7. Use Enviar para revisão. O administrador pode devolver com motivo ou aprovar a revisão externa quando todas as pendências forem atendidas.
+8. Consulte o histórico. Depois da aprovação, use Abrir nova revisão com motivo para alterar dados; a versão anterior fica preservada.
+
+### Como conferir se deu certo
+
+O cadastro conserva modelo, cópia da contratada, dados, anexos e histórico. Os filtros da lista permanecem ao fechar a ficha.
+
+### O que merece atenção
+
+Gerar PDF e Exportar DOCX estão desativados: não há emissão de documentos nesta entrega. Para aprovação, o administrador precisa conferir externamente o documento e seus anexos. Pessoa jurídica, múltiplos contratantes e obra sem loteamento exigem variante aprovada ainda indisponível. CGR (Custo Gerencial de Referência), taxa e teto são independentes; valor cadastrado na obra não define esses campos automaticamente. Dados da obra não atualizam cópias aprovadas ou assinadas.
+
+<a id="guia-com_contratos_modelos"></a>
+
+## Comercial · Modelos e contratada
+
+Consultar o texto protegido e manter a identificação da contratada.
+
+### Antes de começar
+
+Somente o administrador administra o cadastro central.
+
+### Como fazer
+
+1. Em Contratos, abra Modelos de contrato.
+2. Use Consultar cláusulas e variáveis do modelo para ler o texto importado, sem editar cláusulas.
+3. Use Editar cadastro da contratada. Confira razão social, CNPJ, endereço, contatos, representante e registro profissional.
+4. Use Salvar cadastro da contratada. Novos contratos copiam a versão central; contratos existentes conservam sua cópia.
+
+### Como conferir se deu certo
+
+A contratada tem um cadastro central versionado. O modelo permanece protegido para revisão.
+
+### O que merece atenção
+
+Não há edição de cláusulas, publicação de variantes nem emissão PDF/DOCX nesta entrega. A aprovação de um cadastro não publica uma nova versão de modelo.
+
+<a id="guia-fin_estoque"></a>
+
+## Financeiro · Cobertura do estoque
+
+Conferir quais materiais ainda precisam ser comprados e o efeito na estimativa para concluir.
+
+### Antes de começar
+
+Confira o orçamento de controle com materiais e unidades vinculados, os recebimentos em Compras, as aplicações por tarefa no Estoque e as reservas em Suprimentos.
+
+### Como fazer
+
+1. Em Custos por etapa, abra Conferir cobertura dos materiais.
+2. Use Pesquisar material ou etapa para localizar o material. Confira Demanda orçada, Aplicado líquido, Saldo físico, Reservado na etapa, Livre na etapa, Pedidos a receber e Falta comprar.
+3. Abra Conferir origens para ver os itens do orçamento, pedidos, movimentos e reservas que formam a quantidade. Corrija divergências na área de origem; não precisa cadastrar outra cópia no Financeiro.
+4. Compare Reposição estimada com a referência automática. Ela usa o preço médio dos materiais no orçamento, não uma nova avaliação contábil do estoque.
+5. Leia as pendências. Após conferir as fontes, use Conferir apropriação e previsão para revisar explicitamente o restante da etapa quando necessário. Abrir a ajuda mantém a busca e os dados.
+
+### Como conferir se deu certo
+
+O estoque e os pedidos a receber cobrem quantidades uma vez. A referência automática compara orçamento menos incorrido, compromissos sem sobreposição e reposição mais compras independentes ainda não faturadas. Os pisos não são somados.
+
+### O que merece atenção
+
+Posição física e compras são atuais; a data financeira não reconstrói o estoque passado. Reserva da mesma etapa já faz parte do saldo físico. Aplicado líquido é consumo menos devolução; perda reduz o saldo e pode exigir reposição. Estoque de outra obra ou etapa não é reaproveitado automaticamente. Entrada sem pedido e item compatíveis, recebimento divergente, etapa ambígua, unidade ou saldo inválidos exigem conciliação ou revisão explícita da etapa; enquanto isso o custo final gerencial fica indisponível. Materiais e contratos na mesma etapa podem sobrepor escopos: confira a estimativa. Uma revisão manual substitui a referência e permanece preservada; mudança no estoque, reserva, tarefa, catálogo usado ou composição pede reconferência. Entrada, reserva, aplicação e consulta não criam custos, pagamentos ou lançamentos no DRE. A nota ou outra fonte financeira continua sendo a origem do custo reconhecido. Sem materiais vinculados ao orçamento, a consulta não comprova cobertura integral.
+
+<a id="guia-terc_garantia"></a>
+
+## Terceiros · Garantia técnica das medições
+
+Reter uma parte da medição como garantia, acompanhar a liberação e registrar sua baixa.
+
+### Antes de começar
+
+Confira medição, contrato, obra, condição contratual e evidência do aceite. Administrador ou financeiro opera; os demais perfis autorizados consultam.
+
+### Como fazer
+
+1. Em Financeiro → Custos por etapa → Compromissos por origem, abra Garantias técnicas das medições e selecione a medição. Em Terceiros → Medições, use Conferir garantia técnica.
+2. Confira Valores da origem. Bruto, tributos, beneficiário e obra são reaproveitados da medição e do contrato.
+3. Em Operação da medição, escolha Definir ou remover garantia. Informe Garantia técnica da medição (R$), Condição de liberação e Justificativa da operação; use Salvar garantia técnica. Zero remove antes de baixa ou liberação.
+4. Para pagar o principal, escolha Registrar pagamento do principal, confira o líquido, a data e Quem realizou o pagamento. Justifique e confirme; o valor não é redigitado.
+5. Para liberar, escolha Liberar garantia técnica. Informe data, vencimento e Evidência da condição cumprida, confirme a condição, justifique e use Confirmar liberação da garantia.
+6. Para pagar o retido, escolha Registrar pagamento da garantia, confira data e pagador, justifique e confirme. Em Histórico da garantia e pagamentos, confira autor, operações e baixas.
+
+### Como conferir se deu certo
+
+O bruto permanece como custo reconhecido uma vez após aprovação. Principal disponível e garantia ficam separados na obrigação.
+
+### O que merece atenção
+
+Garantia não é ISS/INSS. Tributos são calculados sobre o bruto no principal; não se repetem ao pagar a garantia. Definir e liberar não movimenta caixa nem cria custo no DRE. Retido fica Sem vencimento até liberação expressa. A liberação é integral e não pode ser repetida; não há liberação automática por data. Baixas anteriores exigem conciliação e estorno antes de definir ou mudar a garantia. Concilie o pagamento existente pelo líquido; não registre outra baixa pela nota ou extrato. Para estornar, informe a justificativa acima e use Estornar baixa no histórico; desfaça a conciliação antes. Período fechado, saldo divergente, acesso ou versão alterada exigem correção. Falha mantém o formulário para tentar novamente. O sistema não presume cláusulas, percentuais ou aceite. Contratos comerciais e emissão de documentos permanecem independentes.
+
+<a id="guia-fin_colunas"></a>
+
+## Financeiro · Colunas das tabelas
+
+Escolher quais campos opcionais aparecem, mantendo identificação e avisos essenciais.
+
+### Antes de começar
+
+Confira o usuário, a empresa e a lista. As escolhas são guardadas somente neste navegador.
+
+### Como fazer
+
+1. Nas tabelas de Hoje, use Colunas. No Kanban, os cartões permanecem completos.
+2. Em Custos por etapa, use Colunas dos custos por etapa. As consultas de contratos de terceiros, materiais e garantias têm seu próprio botão Colunas.
+3. Marque os campos que quer mostrar e desmarque os opcionais. Campos obrigatórios permanecem marcados. A escolha vale para a mesma lista nas obras disponíveis.
+4. Use Concluir para voltar. Busca, filtros, página e seleção permanecem. Para voltar à apresentação inicial, use Restaurar colunas padrão.
+
+### Como conferir se deu certo
+
+A lista mostra os campos escolhidos no computador e no celular. Preferências ficam separadas por empresa, usuário e lista.
+
+### O que merece atenção
+
+Ocultar uma coluna não modifica registros, valores, permissões, DRE ou pagamentos. Fichas, memórias e exportações continuam completas, com os dados autorizados; não exportam somente as colunas visíveis. Sem empresa identificada ou com armazenamento bloqueado, aparece aviso e a escolha vale apenas na sessão. Colunas removidas são ignoradas e colunas novas aparecem por padrão. Escolhas não substituem a autorização de acesso. Documentos e Pagamentos mantêm suas fichas operacionais; este controle é para as tabelas indicadas.
+
+<a id="guia-cliente_login"></a>
+
+## Cliente · Entrar no portal
+
+Entrar com o acesso individual fornecido pela MARCELL.
+
+### Antes de começar
+
+Tenha seu e-mail e sua senha. O endereço previsto é portaldocliente.marcelleng.com.br; durante a preparação, use o endereço local informado pela equipe. O fundo arquitetônico do tema MARCELL Vidro é ilustrativo e não representa a sua obra.
+
+### Como fazer
+
+1. Abra o endereço do portal.
+2. Preencha E-mail e Senha e use Entrar no portal. Se precisar de orientação, o botão Ajuda mantém o nome visível também no celular.
+3. Confira o nome da obra. Se houver mais de uma, escolha Obra em acompanhamento.
+
+### Como conferir se deu certo
+
+A obra vinculada aparece com as abas permitidas ao seu perfil.
+
+### O que merece atenção
+
+Se esqueceu a senha, peça a redefinição à equipe. Não há envio automático de e-mail nem cadastro aberto. Links compartilhados antigos não substituem o login individual.
+
+<a id="guia-cliente_inicio"></a>
+
+## Cliente · Acompanhamento da obra
+
+Consultar o resumo e escolher a área desejada.
+
+### Antes de começar
+
+Confira a obra selecionada e a data do resumo.
+
+### Como fazer
+
+1. Confira primeiro Avanço físico, fase, previsão de término e a data de atualização. Sem informação, o avanço não aparece como zero. Estimativa pelo cronograma é identificada e pode ser diferente de uma medição confirmada. A fase vem do vínculo com o cadastro de fases da obra. Se ela não estiver informada, solicite a conferência à equipe. Use Ver diário e fotos para abrir os registros diários.
+2. Depois leia Contrato e quinzena, o Percentual acumulado do contrato, seu valor correspondente e a parcela emitida ainda a pagar. Use Ver contrato e recebimentos junto à cobrança para consultar suas medições e recebimentos. Confira também Mão de obra até a data indicada.
+3. As abas estão agrupadas em Evolução da obra e Custos e compras. Escolha a área desejada. No celular, use Abas do portal do cliente.
+4. Use Atualizar consulta para buscar os dados atuais. Use Ajuda para consultar as orientações sem sair da tela.
+
+### Como conferir se deu certo
+
+O conteúdo corresponde à obra e às permissões do seu acesso. O tema MARCELL Vidro usa painéis translúcidos; a residência ao fundo é ilustrativa e não altera as fotos dos diários.
+
+### O que merece atenção
+
+Resumo e documentos avulsos são publicados pela equipe. Diário da obra, caixa, gastos, orçamento por etapa, contrato e compras consultam os registros atuais quando liberados. O percentual acumulado não é uma nova cobrança: Quinzena a pagar é o saldo da parcela emitida, após recebimentos. Sem medição emitida, aparece Aguardando medição. Contrato por valor indica que as medições não informam percentual acumulado. Uma parcela sem vencimento continua em aberto, com data A confirmar; peça a conferência à equipe. Um recebimento excedente não reduz automaticamente o saldo de outra parcela. Mão de obra própria e benefícios usam os dias registrados até a data da consulta, sem antecipar presenças futuras. Sair do portal encerra a sessão.
+
+<a id="guia-cliente_fotos"></a>
+
+## Cliente · Diário da obra
+
+Consultar todos os diários concluídos e liberados, com relato, serviços, clima e fotos por dia.
+
+### Antes de começar
+
+Confira a obra e tenha em mente o dia que deseja consultar.
+
+### Como fazer
+
+1. Abra Diário da obra.
+2. Em Dia do diário, escolha uma data ou use Mostrar todos os dias.
+3. Use Abrir diário para conferir relato, clima, serviços executados e Fotos deste diário. Mesmo sem fotos, o diário permanece disponível.
+4. Clique na foto para ampliar. As imagens aparecem inteiras, sem cortes. Use Abrir imagem original para consultar o arquivo em outra aba e Fechar ou Escape para voltar ao diário. O mesmo dia permanece selecionado ao fechar a imagem. Use Mostrar mais dias para continuar.
+
+### Como conferir se deu certo
+
+Os diários aparecem do dia mais recente ao mais antigo; vários registros no mesmo dia ficam separados. Cada foto permanece vinculada ao diário de origem.
+
+### O que merece atenção
+
+A liberação Diários e fotos na obra permite consultar os diários concluídos atuais. Rascunhos, cancelados, comentários internos, presenças e dados pessoais não são exibidos. O registro aparece mesmo sem imagens. A data é do diário; a ausência de foto não confirma ausência de trabalho.
+
+<a id="guia-cliente_progresso"></a>
+
+## Cliente · Avanço físico
+
+Consultar o avanço e as etapas compartilhadas pela equipe.
+
+### Antes de começar
+
+Confira a obra e a data de publicação do resumo.
+
+### Como fazer
+
+1. Abra Avanço físico.
+2. Leia os percentuais, as datas planejadas e a situação das etapas.
+3. Confira as atualizações da equipe. Para os registros e fotos por dia, abra Diário da obra.
+
+### Como conferir se deu certo
+
+A execução compartilhada aparece por etapa e no resumo da obra.
+
+### O que merece atenção
+
+O avanço usa a mesma regra oficial do ERP: percentual acumulado confirmado das medições técnicas aprovadas; sem elas, medição percentual de cobrança. Sem ambas, usa o cronograma, ponderado pelo custo previsto quando há referência. Previsão de término não é garantia contratual nem comprovação de pagamento.
+
+<a id="guia-cliente_gastos"></a>
+
+## Cliente · Gastos por categoria
+
+Conferir materiais, mão de obra e demais categorias sem confundir custo com pagamento.
+
+### Antes de começar
+
+Confira a obra e a data da consulta.
+
+### Como fazer
+
+1. Abra Gastos por categoria.
+2. Confira Mão de obra até a data indicada e os benefícios, depois compare Custo reconhecido e Pagamentos registrados.
+3. Leia cada categoria. Se aparecer Custos em conferência, peça à equipe a revisão da base e atualize a consulta depois.
+
+### Como conferir se deu certo
+
+Os totais usam a mesma origem financeira do ERP, sem nomes ou salários individuais.
+
+### O que merece atenção
+
+Materiais e outras fontes seguem a competência registrada até o mês da consulta. Mão de obra própria e benefícios ficam limitados aos dias até a data de consulta, conforme o motor do ERP, incluindo encargos e feriados devidos. Pagamento segue sua data real, inclusive quando feito diretamente pelo cliente ao fornecedor. Pedido é compromisso e entrega é estoque; não some esses fatos ao custo reconhecido.
+
+<a id="guia-cliente_caixa"></a>
+
+## Cliente · Extrato do caixa da obra
+
+Conferir entradas, saídas, saldo e notas fiscais do caixa da obra.
+
+### Antes de começar
+
+Confira a obra. Este extrato é do caixa da obra, separado das contas bancárias da empresa.
+
+### Como fazer
+
+1. Abra Caixa da obra.
+2. No resumo compacto, leia Saldo atual e os totais de Entradas e Saídas lado a lado. No Extrato da obra, cada linha mostra data, lançamento, tipo e valor, saldo após o movimento e nota fiscal quando vinculada.
+3. Escolha Tipo de movimentação para mostrar Entradas e saídas, Somente entradas ou Somente saídas. Abra Filtros para preencher Data inicial do extrato, Data final do extrato ou Buscar no extrato. A busca encontra a descrição, a categoria e o número da nota.
+4. Use Abrir nota fiscal no lançamento para consultar o original liberado. Quando há mais de uma nota no pedido sem vínculo individual, peça à equipe a conferência do pagamento.
+5. Use Limpar filtros do extrato para voltar ao conjunto completo. Use Atualizar consulta no cabeçalho para buscar dados atuais. Ajuda mantém o recorte aberto.
+
+### Como conferir se deu certo
+
+O extrato mostra entradas em verde com sinal positivo e saídas em vermelho com sinal negativo, sempre com o tipo escrito. O resumo informa o caixa completo; os totais de Movimentos exibidos correspondem aos filtros.
+
+### O que merece atenção
+
+O saldo de cada linha é a posição original após aquele movimento; os filtros não recalculam os saldos das linhas nem o Saldo atual. O saldo considera aportes menos despesas ativas com data até o dia da consulta no calendário da Bahia. Movimentos futuros e sem data não compõem o saldo atual. Sem nota vinculada neste lançamento não comprova ausência de compra ou de nota. Os anexos exigem liberação fiscal e permissão de documentos. Vínculos usam IDs comprovados, nunca fornecedor, valor ou descrição parecida. Abrir um anexo não confirma pagamento nem reconhece novo custo no demonstrativo de resultado (DRE). O portal não movimenta dinheiro nem concilia extratos. Dados bancários e PIX não são mostrados.
+
+<a id="guia-cliente_orcamento"></a>
+
+## Cliente · Previsto e realizado por etapa
+
+Comparar a previsão aprovada com o custo reconhecido e o valor pago.
+
+### Antes de começar
+
+Confira a obra e o orçamento de controle aprovado.
+
+### Como fazer
+
+1. Abra Previsto e realizado.
+2. Leia Previsto, Realizado (custo), Pago e Previsto menos realizado para cada etapa.
+3. Confira Etapa ainda não informada. Se o previsto estiver indisponível, solicite a conferência da versão aprovada do orçamento.
+
+### Como conferir se deu certo
+
+A comparação apresenta cada etapa sem somar previsão, custo e pagamento.
+
+### O que merece atenção
+
+Etapa ainda não informada contém valores sem vínculo comprovado com uma etapa; eles continuam no total da obra. Não há distribuição automática por descrição ou semelhança. Orçamento e pagamentos não criam custos adicionais no resultado. Ausência de base não equivale a zero.
+
+<a id="guia-cliente_compras"></a>
+
+## Cliente · Compras e notas fiscais
+
+Consultar todas as compras liberadas e os documentos fiscais vinculados.
+
+### Antes de começar
+
+Confira a obra e seu perfil de acesso. Para anexos, é necessária a permissão de documentos.
+
+### Como fazer
+
+1. Abra Compras e notas fiscais.
+2. Use Pesquisar compra ou fornecedor e Ver itens e notas no pedido desejado. Use Recolher compra para fechar os detalhes.
+3. Confira itens, unidades, quantidades recebidas e Notas fiscais da compra. Abra o anexo liberado; use Mostrar mais compras para continuar.
+
+### Como conferir se deu certo
+
+Os pedidos e as notas ativos aparecem pelo vínculo cadastrado, com os anexos disponíveis. Registros excluídos, cancelados ou desativados não aparecem.
+
+### O que merece atenção
+
+Nota sem pedido permanece separada; o sistema não liga por fornecedor, valor ou descrição. Ausência de anexo exige solicitação à equipe. Notas em rascunho não aparecem, inclusive nos anexos do caixa. Abrir um original não aprova documento nem registra pagamento. O acesso ao OneDrive depende da conexão central da MARCELL.
+
+<a id="guia-folha_repasse"></a>
+
+## Folha · Reservas no repasse ao cliente
+
+Configurar a estimativa de encargos e reservas que será apresentada ao cliente.
+
+### Antes de começar
+
+Entre como administrador e confira os parâmetros com a equipe responsável. Esta estimativa não altera os encargos já reconhecidos no DRE.
+
+### Como fazer
+
+1. Em Folha, abra Regras e descontos e escolha Encargos.
+2. Localize Reservas no repasse ao cliente. Marque Usar o modelo de encargos e reservas no repasse previsto.
+3. Confira Encargos patronais: CPP, RAT e terceiros, FGTS, Multa do FGTS, Permanência média, Desligamentos sem justa causa, Avisos indenizados e Dias de aviso prévio. Os percentuais zero são preservados. A base é a remuneração apropriada à obra, sem converter diária em salário mensal.
+4. Confira a estimativa para cada R$ 100 e use Salvar parâmetros do repasse. Aguarde a confirmação.
+5. Na obra, libere Administração e equipe e atualize a publicação. No portal, use Atualizar consulta para consultar os valores.
+
+### Como conferir se deu certo
+
+O repasse previsto soma ao custo da equipe somente os encargos e provisões complementares que ainda não estão nele. Quando a mão de obra faz parte da base administrativa, o complemento integra a estimativa da taxa do contrato.
+
+### O que merece atenção
+
+Inclui 13º, férias e um terço, encargos dessas verbas, aviso prévio indenizado, FGTS e reflexos do aviso, além da multa do FGTS conforme as premissas. EPI, uniformes, exames admissionais/demissionais e serviços de SST são compras ou despesas reais, não provisões automáticas. O cálculo é gerencial para conferência antes da emissão. Não altera vínculo, ponto, folha fechada, pagamento ou DRE realizado.
+
+<a id="guia-cliente_administracao_equipe"></a>
+
+## Cliente · Administração e equipe
+
+Conferir a taxa do contrato e todos os custos dos funcionários repassados ao cliente, incluindo as reservas trabalhistas.
+
+### Antes de começar
+
+Confira a obra, a liberação da área e o mês. Nomes e valores individuais exigem perfil autorizado e liberação explícita da equipe.
+
+### Como fazer
+
+1. Abra Administração e equipe em Custos e compras. Escolha Mês da consulta; mês em andamento considera os registros até a data indicada.
+2. Confira Administração a emitir, Taxa do contrato e Já emitido como administração. Abra Como chegamos ao valor para conferir a base registrada e a reserva adicional. O valor a emitir é uma estimativa para conferência; a consulta não cria cobrança.
+3. Leia Custos da equipe para repasse. O custo reconhecido já contém os encargos e provisões do ERP. Encargos complementares e reserva adicional para repasse consideram somente a diferença positiva entre a reserva mensal rateada e a reserva já incluída; o repasse previsto inclui esses complementos sem somar a mesma reserva duas vezes.
+4. Em Detalhes da equipe, escolha Folha detalhada, Provisionamentos ou Folha de ponto. Use Buscar funcionário ou função e Ver detalhes no nome desejado. No celular, use o seletor Detalhes da equipe.
+5. Na Folha detalhada, confira remuneração, benefícios, encargos, custo, reserva adicional e repasse previsto. Líquido de folha fechada só aparece quando houver fechamento e rateio para a obra; não confirma pagamento.
+6. Em Provisionamentos, confira 13º, férias e adicional de um terço, FGTS, multa e outras reservas. O modelo de repasse usa a remuneração apropriada no período. Reservas individuais cadastradas por mês seguem o rateio entre obras; no mês em andamento os valores podem mudar. Funcionário não incluído na reserva ou sem base precisa de conferência no ERP.
+7. Na Folha de ponto, confira os dias, a situação, os horários e as horas extras vinculados à obra. Horário vazio não é jornada cumprida.
+8. Na seção Prestação de contas em PDF, use Baixar prestação de contas para receber o PDF do mês consultado. Em Financeiro, o relatório usa o mês atual. O documento separa gastos registrados, pagamentos, reservas, administração, cobranças emitidas, extrato e notas fiscais liberadas.
+9. Compartilhar PDF abre o compartilhamento do aparelho, quando disponível. Escolha o WhatsApp e confira a conversa. No computador sem compartilhamento de arquivos, o PDF é baixado para anexar manualmente. Preparar e-mail com PDF baixa um rascunho com anexo e remetente previsto financeiro@marcelleng.com.br; abra na conta correta, confira o destinatário e conclua o envio no aplicativo de e-mail.
+
+### Como conferir se deu certo
+
+A taxa usa as categorias do contrato. Quando a mão de obra integra a base, a reserva adicional também compõe a base prevista. Todos os custos reconhecidos da equipe, inclusive rescisões e históricos sem detalhe, permanecem no repasse.
+
+### O que merece atenção
+
+Base incompleta aparece Em apuração, sem presumir zero. Encargos complementares e reserva adicional são previsões de cobrança, sem criar custo reconhecido ou pagamento no DRE. EPI e exames de admissão/demissão seguem as compras ou despesas reais da obra; não são incluídos novamente na reserva. Valor emitido não equivale a recebido, líquido fechado não equivale a pago e repasse da equipe não deve ser confundido com a taxa de administração. A consulta não altera folha, ponto, provisões ou contrato. Motivos médicos, CPF, PIX e dados de outras obras não são publicados. Nenhuma cobrança ou mensagem é enviada automaticamente nesta revisão local. O WhatsApp do financeiro é (81) 98975-1300. Reservas são previsões, não pagamentos. O extrato usa os saldos originais e a data efetiva dos movimentos. Notas originais continuam em Compras e notas fiscais no portal autenticado; o PDF não incorpora os originais. O rascunho de e-mail é endereçado ao próprio usuário conectado. Se o custo não estiver liberado ou estiver em conferência, o download é bloqueado.
+
+<a id="guia-cliente_financeiro"></a>
+
+## Cliente · Contrato e recebimentos
+
+Consultar o resumo contratual compartilhado.
+
+### Antes de começar
+
+Confira a obra e as condições do contrato.
+
+### Como fazer
+
+1. No Início, use Ver contrato e recebimentos junto à cobrança, ou escolha Financeiro em Documentos, contrato e conta.
+2. Na tela Contrato e recebimentos, confira Percentual acumulado do contrato e Valor correspondente. Em Quinzena a pagar, confira valor emitido, recebido e vencimento. Compare depois o resumo contratual e as medições.
+3. Leia as medições e os recebimentos publicados. Data do recebimento indica quando o valor foi recebido, não o vencimento da parcela. Contrato por valor e Medição por valor, sem percentual informado explicam a ausência do percentual. Parcela sem vencimento permanece no saldo, com data A confirmar; um recebimento excedente de outra parcela não quita esse saldo automaticamente. O período aparece por mês e ano em português e os percentuais têm até duas casas decimais; os valores de origem permanecem os mesmos. Percentual contratual informado é o percentual da medição de cobrança, distinto do avanço físico.
+4. Na seção Prestação de contas em PDF, use Baixar prestação de contas para receber o PDF do mês consultado. Em Financeiro, o relatório usa o mês atual. O documento separa gastos registrados, pagamentos, reservas, administração, cobranças emitidas, extrato e notas fiscais liberadas.
+5. Compartilhar PDF abre o compartilhamento do aparelho, quando disponível. Escolha o WhatsApp e confira a conversa. No computador sem compartilhamento de arquivos, o PDF é baixado para anexar manualmente. Preparar e-mail com PDF baixa um rascunho com anexo e remetente previsto financeiro@marcelleng.com.br; abra na conta correta, confira o destinatário e conclua o envio no aplicativo de e-mail.
+
+### Como conferir se deu certo
+
+O resumo corresponde ao que a equipe publicou para o contrato.
+
+### O que merece atenção
+
+Esta consulta é diferente de Gastos por categoria. Valor correspondente = contrato vigente × percentual acumulado da última medição percentual emitida; não equivale ao saldo a pagar. A cobrança e o resumo usam os recebimentos ativos até o dia da consulta no calendário da Bahia. Recebimentos futuros ou cancelados não reduzem o saldo atual. Sem vínculo com data de vencimento, a equipe deve conferir a medição. Não some parcelas contratuais com despesas. Nenhuma aprovação formal ou pagamento é executado pelo portal. Nenhuma cobrança ou mensagem é enviada automaticamente nesta revisão local. O WhatsApp do financeiro é (81) 98975-1300. Reservas são previsões, não pagamentos. O extrato usa os saldos originais e a data efetiva dos movimentos. Notas originais continuam em Compras e notas fiscais no portal autenticado; o PDF não incorpora os originais. O rascunho de e-mail é endereçado ao próprio usuário conectado. Se o custo não estiver liberado ou estiver em conferência, o download é bloqueado.
+
+<a id="guia-cliente_documentos"></a>
+
+## Cliente · Documentos da obra
+
+Consultar documentos liberados individualmente.
+
+### Antes de começar
+
+Confira a obra e seu acesso a documentos.
+
+### Como fazer
+
+1. Em Documentos, contrato e conta, escolha Documentos.
+2. Confira o nome, a versão e a data de publicação.
+3. Use Abrir documento publicado para consultar o original.
+
+### Como conferir se deu certo
+
+O original abre em outra aba quando o endereço está disponível.
+
+### O que merece atenção
+
+Um arquivo pode exigir acesso ao provedor ou ter endereço expirado. Peça à equipe a liberação; não compartilhe links ou credenciais de outra pessoa.
+
+<a id="guia-cliente_decisoes"></a>
+
+## Cliente · Decisões e alterações
+
+Acompanhar decisões e alterações contratuais publicadas.
+
+### Antes de começar
+
+Confira a obra e os documentos do contrato.
+
+### Como fazer
+
+1. Em Documentos, contrato e conta, escolha Decisões.
+2. Leia a situação, os prazos e os impactos informados.
+3. Combine a aprovação formal com a equipe pelo canal previsto no contrato.
+
+### Como conferir se deu certo
+
+O conteúdo disponível foi compartilhado para seu acompanhamento.
+
+### O que merece atenção
+
+O portal não confirma decisões nem grava aditivos. Consultar não equivale a aprovar, medir ou pagar.
+
+<a id="guia-cliente_transparencia"></a>
+
+## Cliente · Consulta de transparência
+
+Consultar a rota anterior de caixa e suprimentos.
+
+### Antes de começar
+
+Confira a obra e as áreas liberadas.
+
+### Como fazer
+
+1. Abra a consulta de transparência quando receber um endereço dessa área.
+2. Escolha Caixa da obra, Compras, Cotações ou Notas fiscais.
+3. Confira os registros e use as novas abas do portal para o acompanhamento diário.
+
+### Como conferir se deu certo
+
+Somente os dados permitidos ao seu perfil aparecem.
+
+### O que merece atenção
+
+Acesso à consulta não concede autorização para operar. Compras, custos e pagamentos são fatos distintos.
+
+<a id="guia-cliente_conta"></a>
+
+## Cliente · Alterar senha e sair
+
+Trocar sua senha individual e encerrar o acesso.
+
+### Antes de começar
+
+Tenha a senha atual e prepare uma nova senha com pelo menos 12 caracteres, letras e números.
+
+### Como fazer
+
+1. Em Documentos, contrato e conta, escolha Minha conta.
+2. Preencha Senha atual, Nova senha e Confirmar nova senha.
+3. Use Alterar senha. Após a confirmação, use Entrar novamente e informe a nova senha. Para encerrar sem trocar, use Sair do portal no cabeçalho.
+
+### Como conferir se deu certo
+
+A troca encerra todas as sessões da conta.
+
+### O que merece atenção
+
+A senha não fica salva como preferência do app. Se esqueceu a senha atual, solicite a redefinição ao administrador. Revogação do acesso também exige um novo vínculo autorizado.
+
+<a id="guia-cliente_acessos"></a>
+
+## Administrador · Login e senha dos clientes
+
+Cadastrar, redefinir e revogar o acesso individual ao portal.
+
+### Antes de começar
+
+Entre como administrador e confira a obra e a pessoa que receberá o acesso.
+
+### Como fazer
+
+1. Abra Central do Administrador e escolha Acessos de clientes.
+2. Selecione Obra do cliente. Preencha E-mail de login, Telefone do cliente, Perfil de acesso do cliente e Senha inicial ou nova senha.
+3. Use Salvar acesso do cliente e, após a confirmação, Copiar convite do cliente. Compartilhe o convite somente com o destinatário correto.
+4. Para alterar, use Editar acesso e senha, informe a nova senha e salve. Revogar acesso abre a confirmação para encerrar o vínculo da obra e as sessões.
+
+### Como conferir se deu certo
+
+O cliente entra pelo endereço do portal e consulta somente as obras vinculadas e as áreas liberadas.
+
+### O que merece atenção
+
+Não há envio automático de convite nem criação de usuário interno do ERP. O mesmo e-mail usa uma conta entre obras; redefinir a senha vale para todas elas e encerra as sessões. A senha do convite é transitória e é apagada da tela após copiar ou mudar a obra. Criar acesso não publica dados. Para liberar conteúdo, use Portal do cliente dentro da obra.
+
+<a id="guia-conc_reverter"></a>
+
+## Conciliação · Reversão de importações bancárias
+
+Retirar pendências importadas sem apagar o original ou desfazer operações já utilizadas.
+
+### Antes de começar
+
+Confirme a conta e o arquivo. Novos extratos guardam o original, até 2 MB. Legados sem original e manifesto exigem revisão; demais origens de importação não são revertidas nesta etapa.
+
+### Como fazer
+
+1. Em Conciliação, abra Mais opções · extratos, regras e histórico e escolha Extratos.
+2. No arquivo, use Revisar reversão. Confira cada resultado: Reversível ou motivo de proteção. Use Baixar original para conferir o arquivo preservado.
+3. Administrador sem restrição de obra informa Justificativa da reversão e marca Conferi os movimentos reversíveis e os protegidos. Financeiro pode consultar, mas não confirmar.
+4. Use Reverter, que informa a quantidade de movimentos, para confirmar somente os elegíveis. O servidor confere novamente versões, referências e períodos. Se a base mudou, use Atualizar prévia e confira a seleção. Falha preserva a justificativa; repetir a mesma confirmação conserva a chave da tentativa.
+
+### Como conferir se deu certo
+
+Os elegíveis recebem cancelamento auditável; usados permanecem intactos. O lote mostra Revertida ou Reversão parcial. Originais e Histórico permanecem disponíveis.
+
+### O que merece atenção
+
+Movimentos pagos, conciliados, vinculados, com histórico de uso, alterados ou em período fechado não são revertidos. A conciliação automática pode já ter utilizado movimentos após importar. A reversão não estorna custo, receita ou pagamento no DRE; apenas retira pendências sem uso. Não libera reimportação duplicada: as chaves originais são mantidas. Fechar com justificativa não salva pede decisão sobre descartar; consultar e baixar não gravam operações.
+
+<a id="guia-orc_estrutura"></a>
+
+## Orçamento · Hierarquia de seis níveis
+
+Conferir seis níveis de etapas.
+
+### Antes de começar
+
+Confira obra e versão; aprovados exigem revisão. Na planilha, pais vêm antes dos filhos.
+
+### Como fazer
+
+1. Em Mais ações da etapa → Criar subnível, confira o destino. O sexto é o último; seus serviços podem ter sete partes na numeração.
+2. Para mover, use Editar nome e posição, Etapa superior e Posição na lista. Itens e descendentes vão juntos; ciclos e excesso são recusados.
+3. Em Análises e ferramentas → Ferramentas do orçamento → Importar planilha, confirme as colunas e Hierarquia da planilha. Divergência exige corrigir arquivo ou mapeamento.
+4. Confira adição ou substituição e use Importar. Falha mantém a prévia; Cancelar não importa.
+
+### Como conferir se deu certo
+
+Hierarquia preservada; itens totalizados uma vez.
+
+### O que merece atenção
+
+Previsão não cria lançamento no DRE. Não some pais e filhos. Código localizado usa a base; fora dela, confira custo. Numeração não é código SINAPI/ORSE. Antes de substituir, confira vínculos de cronograma e compras.
+
+<a id="guia-cliente_conexao_financeiro"></a>
+
+## Conexão local do financeiro
+
+Preparar e verificar o e-mail e o WhatsApp usados na prestação de contas.
+
+### Antes de começar
+
+Tenha acesso à caixa financeiro@marcelleng.com.br no aplicativo Lark. Não informe senhas no chat.
+
+### Como fazer
+
+1. Na tela local Conexão do financeiro, confira o remetente, o servidor e a porta.
+2. No aplicativo Lark, gere uma senha dedicada para cliente de e-mail e informe-a no campo Senha dedicada do Lark. Se a caixa for compartilhada ou um alias, confira com o administrador como obter sua credencial própria.
+3. Use Verificar e guardar conexão. A autenticação usa conexão criptografada e não envia mensagens. A senha é guardada cifrada pelo Windows, fora do projeto, somente após autenticar.
+4. Confira a situação do WhatsApp e use Simular os dois canais. A simulação usa destinatário fictício e inclui o PDF; repetir não gera um novo envio.
+
+### Como conferir se deu certo
+
+A tela confirma a configuração guardada ou explica a falha. A simulação apresenta zero mensagens enviadas.
+
+### O que merece atenção
+
+Configuração guardada registra a última autenticação bem-sucedida e não garante disponibilidade futura ou entrega. Esta tela não ativa agendamento ou disparos reais, não emite cobrança, não modifica os dados da obra ou o DRE e não altera a automação de ponto dos funcionários. Abertura da ajuda preserva o formulário. Verificar conexão não comprova que o provedor autoriza todos os destinatários.
+
+<a id="guia-arquivos_exclusao"></a>
+
+## Arquivos · Exclusão e lixeira
+
+Excluir um ou vários documentos da central e enviar todas as revisões à lixeira do OneDrive, mantendo o histórico e as permissões.
+
+### Antes de começar
+
+Confira a obra, a pasta, o documento e todas as revisões. É necessário ter permissão de edição. Documentos dos módulos e documentos preservados em contratos comerciais exigem tratar o vínculo na origem.
+
+### Como fazer
+
+1. Para excluir vários, marque a caixa ao lado de cada nome. Selecionar disponíveis marca somente os documentos exibidos com permissão de edição. O nome continua abrindo os detalhes; não marca a caixa. Ao trocar pasta, busca ou origem, a seleção é limpa para evitar excluir documentos ocultos.
+2. Use Excluir selecionados e confira os nomes, as pastas, a obra e o total de revisões. Cancelar não inicia a operação. Excluir documentos confirma o lote.
+3. Aguarde o Resultado da exclusão. A lista informa o resultado de cada documento. Se houver falha, use Tentar os não concluídos; os concluídos não são repetidos. Se os dados mudaram ou a conexão caiu, feche, use Atualizar e confira novamente.
+4. Para excluir apenas um, abra o documento da central e use Excluir documento.
+5. Na confirmação, confira o nome, a obra, a pasta e a quantidade de revisões. Cancelar fecha sem iniciar; Excluir documento confirma todas as revisões.
+6. Aguarde a confirmação. Se aparecer Exclusão pendente, use Concluir exclusão; essa ação também está disponível após recarregar.
+7. Consulte Histórico de organização da obra para verificar quem solicitou e concluiu a exclusão.
+
+### Como conferir se deu certo
+
+Cada documento sai da lista somente após confirmar todas as suas revisões. O histórico, as permissões e os demais documentos permanecem. Um lote pode ter documentos concluídos e outros ainda pendentes.
+
+### O que merece atenção
+
+Falha pode deixar parte dos arquivos na lixeira. Cancelar uma confirmação pendente apenas fecha a janela. Links externos são removidos apenas da central. Revisão compartilhada ou sem identificação segura bloqueia a exclusão; confira a origem. Recuperar um arquivo na lixeira do OneDrive não restaura seu cadastro na central. A operação não altera contratos, despesas, estoque, custo reconhecido ou pagamentos.
 
 ## Aparência, botões e navegação
 
@@ -3314,7 +4033,7 @@ Na entrada e nas áreas internas, o indicador pode não aparecer em aberturas r�
 
 ### Cadastro pelo ponto
 
-Em Equipes, Ponto por obra e Gestão do ponto, o nome abre o cadastro para RH e administradores; outros perfis abrem o PDF. Confira Vínculo e desligamento no início do cadastro. Corrija o ponto pela célula do dia, sem limpar a linha inteira.
+Em Equipes, Ponto por obra e Gestão do ponto, o nome abre o cadastro para RH e administradores; outros perfis abrem o PDF. Na lista de Equipes, o valor abaixo do nome é uma informação separada do botão; outros perfis continuam sem acesso aos valores trabalhistas. Confira Vínculo e desligamento no início do cadastro. Corrija o ponto pela célula do dia, sem limpar a linha inteira.
 
 ### Arquivos de obra e orçamento
 
@@ -3350,7 +4069,7 @@ Na página separada Estudo de Compras, use Precisão, Obra, Foco ou Mesa de trab
 
 ### Escolher a aparência
 
-Use o botão Alterar aparência, identificado pelo ícone de paleta no cabeçalho, para escolher MARCELL Operacional, MARCELL Claro ou MARCELL Preciso e ajustar a densidade. O padrão é MARCELL Preciso com densidade Compacta: menu azul-marinho, conteúdo claro e ações em azul. A fonte é IBM Plex Sans. Compacta reduz espaços e preserva o toque no celular. Em todo o ERP, campos de uma linha e botões comuns seguem a densidade escolhida, com rótulos alinhados. Áreas de observação e células de planilha conservam o espaço necessário. A preferência fica neste navegador; a troca mantém seus filtros e dados.
+Use o botão Alterar aparência, identificado pelo ícone de paleta no cabeçalho, para escolher MARCELL Operacional, MARCELL Claro, MARCELL Preciso ou MARCELL Vidro e ajustar a densidade. MARCELL Vidro usa superfícies translúcidas; no portal do cliente, inclui uma residência ilustrativa ao fundo. O portal usa esse tema sem substituir a preferência de aparência do ERP. O padrão é MARCELL Preciso com densidade Compacta: menu azul-marinho, conteúdo claro e ações em azul. A fonte é IBM Plex Sans. Compacta reduz espaços e preserva o toque no celular. Em todo o ERP, campos de uma linha e botões comuns seguem a densidade escolhida, com rótulos alinhados. Áreas de observação e células de planilha conservam o espaço necessário. A preferência fica neste navegador; a troca mantém seus filtros e dados.
 
 ### Identificar a área selecionada
 
@@ -3375,6 +4094,10 @@ Após falha, use Resolver salvamento no aviso da página ou no formulário abert
 ### Gráficos operacionais
 
 Os gráficos mostram os dados completos assim que ficam disponíveis, sem aguardar animação de entrada. Valores, séries e rótulos continuam disponíveis.
+
+### Consultar cuidados da ajuda
+
+Na ajuda da tela, abra Cuidados, permissões e recuperação para conferir restrições e como retomar uma tentativa. Abrir ou fechar essa orientação preserva a tela e não grava registros.
 
 ## Celular, interrupções e recuperação
 
