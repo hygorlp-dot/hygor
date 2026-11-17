@@ -14,6 +14,12 @@ export default function DreDistribuicaoCustosChart({ dre }) {
     {name:"Rescisões",     value:Math.round(dre.rescTotal),   fill:C.red},
     {name:"Outras Desp.",  value:Math.round(dre.outrasTotal), fill:C.yellow},
   ].filter(d=>d.value>0);
+  // Com um grupo só (ou nenhum), o anel inteiro não informa nada: diz em texto.
+  if (dados.length<2) return (
+    <ChartPanel eyebrow="Composição" title="Distribuição de custos" subtitle="Participação de cada grupo no custo total do período.">
+      <p className="dre-distribution-single">{dados.length?`Todo o custo do período está em ${dados[0].name}: ${fmt(dados[0].value)}.`:"Nenhum custo lançado no período."}</p>
+    </ChartPanel>
+  );
   return (
     <ChartPanel eyebrow="Composição" title="Distribuição de custos" subtitle="Participação de cada grupo no custo total do período." height={205}>
       <ResponsiveContainer width="100%" height="100%">

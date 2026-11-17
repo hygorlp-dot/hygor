@@ -67,7 +67,7 @@ describe("PurchasesByWork", () => {
     expect(row.querySelector(".purchase-work-bar")).toBeNull();
     expect(row.querySelector('[aria-label="sem orçamento de controle"]').textContent).toBe("—");
     expect(row.querySelector(".purchase-chip[title]").getAttribute("title")).toContain("Aprovar baseline");
-    expect(norm(container.querySelector(".purchase-by-work__note").textContent)).toBe("1 de 3 obra(s) sem orçamento de controle");
+    expect(norm(container.querySelector(".purchase-by-work__note").textContent)).toBe("1 de 3 obras sem orçamento de controle");
   });
 
   it("o botão Abrir leva o id da obra e tem nome acessível com a obra", () => {

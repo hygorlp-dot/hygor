@@ -8,16 +8,16 @@ import { compactNumber, fmt } from "../../legacy/format.js";
 
 export default function DreEmpresaHistoricoChart({ historico }) {
   return (
-    <ChartPanel eyebrow="Resultado empresarial" title="Evolução dos últimos seis meses" subtitle="Faturamento, lucro bruto e lucro líquido no mesmo comparativo." height={220} legend={[{label:"Faturamento",color:C.yellow},{label:"Lucro bruto",color:C.cinza},{label:"Lucro líquido",color:C.text}]}>
+    <ChartPanel eyebrow="Resultado empresarial" title="Evolução dos últimos seis meses" subtitle="Faturamento, lucro bruto e lucro líquido no mesmo comparativo." height={220} legend={[{label:"Faturamento",color:"var(--arcd-chart-1)"},{label:"Lucro bruto",color:"var(--arcd-chart-2)"},{label:"Lucro líquido",color:"var(--arcd-chart-3)"}]}>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={historico} barSize={16}>
           <CartesianGrid stroke={C.line} strokeDasharray="3 5" vertical={false}/>
           <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:"var(--arcd-type-caption)"}}/>
           <YAxis axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:"var(--arcd-type-caption)"}} tickFormatter={compactNumber}/>
           <Tooltip cursor={{fill:`${C.yellow}0A`}} content={<ArcdChartTooltip formatter={v=>fmt(v)}/>}/>
-          <Bar dataKey="faturamentoTotal" name="Faturamento" fill={C.yellow} radius={[5,5,1,1]} isAnimationActive={false}/>
-          <Bar dataKey="lucroBruto" name="Lucro bruto" fill={C.cinza} radius={[5,5,1,1]} isAnimationActive={false}/>
-          <Bar dataKey="lucroLiquido" name="Lucro líquido" fill={C.text} radius={[5,5,1,1]} isAnimationActive={false}/>
+          <Bar dataKey="faturamentoTotal" name="Faturamento" className="arcd-serie-1" fill="var(--arcd-chart-1)" radius={[5,5,1,1]} isAnimationActive={false}/>
+          <Bar dataKey="lucroBruto" name="Lucro bruto" className="arcd-serie-2" fill="var(--arcd-chart-2)" radius={[5,5,1,1]} isAnimationActive={false}/>
+          <Bar dataKey="lucroLiquido" name="Lucro líquido" className="arcd-serie-3" fill="var(--arcd-chart-3)" radius={[5,5,1,1]} isAnimationActive={false}/>
         </BarChart>
       </ResponsiveContainer>
     </ChartPanel>

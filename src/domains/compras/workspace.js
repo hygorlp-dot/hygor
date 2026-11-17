@@ -16,7 +16,7 @@ export const purchaseDeadline = (date, today) => {
   if (!isFinancialDate(date)) return { label:"Sem prazo", tone:"neutral", rank:3 };
   const days = Math.round((Date.parse(`${date}T12:00:00Z`) - Date.parse(`${today}T12:00:00Z`)) / 86400000);
   if (!Number.isFinite(days)) return { label:"Sem prazo", tone:"neutral", rank:3 };
-  return days < 0 ? { label:`${Math.abs(days)} dia(s) de atraso`, tone:"danger", rank:0 }
+  return days < 0 ? { label:`${Math.abs(days)} ${Math.abs(days)===1?"dia":"dias"} de atraso`, tone:"danger", rank:0 }
     : days === 0 ? { label:"Vence hoje", tone:"warning", rank:1 }
       : days <= 3 ? { label:`Em ${days} dia(s)`, tone:"warning", rank:1 }
         : { label:"No prazo", tone:"success", rank:2 };
@@ -59,7 +59,7 @@ export function buildPurchaseWorkspace(data, obraIds, today) {
   for (const quote of activeQuotes.filter(visible)) {
     add(quote, { type:"quote", stage:"cotacoes",
       title:itensDaCotacao(quote).map(item => materials.get(item.materialId)?.descricao || item.descricaoRef || "Material não informado").join(" · "),
-      detail:`${(quote.propostas || []).length} proposta(s) · comparar preço e condições`,
+      detail:`${(quote.propostas || []).length} ${(quote.propostas || []).length===1?"proposta":"propostas"} · comparar preço e condições`,
       responsible:(quote.propostas || []).map(item => suppliers.get(item.fornecedorId)?.nome).filter(Boolean).join(", ") || "Fornecedor não informado",
       date:requests.get(quote.solicitacaoId)?.necessidade, action:"Comparar propostas", total:null,
     });

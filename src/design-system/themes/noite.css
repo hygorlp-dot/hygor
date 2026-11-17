@@ -1,0 +1,111 @@
+/* MARCELL Noite: o tema "vidro escuro" do site marcelleng.com.br aplicado ao ERP.
+   Regra de leitura: vidro (translúcido com desfoque) só no cabeçalho e no menu lateral, que ficam fixos.
+   Tabelas, DRE, filas e cartões usam superfície quase opaca (94%), para o fundo não atravessar os números.
+   Dourado = ação e foco; nunca valor ou estado (o âmbar de atenção é outro tom). Impressão volta ao claro. */
+
+/* ---------- Fundo: noite com as luzes da marca (fixas, uma camada só) ---------- */
+html[data-theme="noite"]{background:#070d18;color-scheme:dark}
+[data-theme="noite"] .arcd-app-shell{background:
+  radial-gradient(60vmax 60vmax at 105% -10%,rgb(226 197 143 / 16%),transparent 60%),
+  radial-gradient(55vmax 55vmax at -10% 110%,rgb(64 118 196 / 18%),transparent 60%),
+  #070d18 !important;background-attachment:fixed !important}
+[data-theme="noite"] .arcd-main{background:transparent !important}
+
+/* ---------- Vidro: cabeçalho e menu lateral ---------- */
+[data-theme="noite"] :is(.arcd-topbar,.arcd-sidebar){
+  background:linear-gradient(180deg,rgb(255 255 255 / 6%),rgb(255 255 255 / 2%)),rgb(9 16 29 / 72%) !important;
+  -webkit-backdrop-filter:blur(var(--arcd-material-blur)) saturate(140%);backdrop-filter:blur(var(--arcd-material-blur)) saturate(140%);
+  border-color:var(--arcd-border-default) !important}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  [data-theme="noite"] :is(.arcd-topbar,.arcd-sidebar){background:var(--arcd-nav-surface) !important}}
+@media(prefers-reduced-transparency:reduce){
+  [data-theme="noite"] :is(.arcd-topbar,.arcd-sidebar){background:var(--arcd-nav-surface) !important;backdrop-filter:none;-webkit-backdrop-filter:none}}
+
+/* ---------- Leitura de dados ---------- */
+/* Corpo um tom abaixo do branco; branco só em totais e indicadores. */
+[data-theme="noite"] .arcd-main :is(td,th){border-color:var(--arcd-border-subtle) !important}
+[data-theme="noite"] .arcd-main th{color:var(--arcd-text-secondary) !important}
+[data-theme="noite"] .arcd-main tbody tr:hover>td{background:rgb(255 255 255 / 4%)}
+[data-theme="noite"] .arcd-main :is(.arcd-number,[class*="kpi"] strong,[class*="metric"] strong){font-weight:500;color:#f6f8fb}
+/* Colunas de dinheiro e número: cabeçalho no mesmo eixo do valor. */
+[data-theme="noite"] .arcd-main th:is([data-align="right"],[data-numeric],.num,.is-numeric){text-align:right !important}
+
+/* ---------- Ações ---------- */
+[data-theme="noite"] .arcd-main :is(button,a)[data-variant="primary"],
+[data-theme="noite"] :is(.arcd-dialog,.arcd-modal-panel) :is(button,a)[data-variant="primary"]{
+  background:linear-gradient(135deg,#efd9ad,#c9a46a) !important;color:#0d1b2e !important;border-color:transparent !important}
+[data-theme="noite"] :focus-visible{outline-color:var(--arcd-focus-ring)}
+
+/* ---------- Diálogos e menus suspensos: opacos ---------- */
+[data-theme="noite"] :is(.arcd-dialog,.arcd-modal-panel,.arcd-drawer,[role="menu"],[role="listbox"]){background:var(--arcd-surface-elevated) !important;color:var(--arcd-text-primary)}
+
+/* ---------- Impressão e PDF sempre claros ---------- */
+@media print{
+  /* Os tokens do tema são gravados no elemento raiz pelo ThemeProvider; na impressão voltam aos do claro. */
+  html[data-theme="noite"]{background:#fff;color-scheme:light;
+    --arcd-surface-page:#fff !important;--arcd-surface-card:#fff !important;--arcd-surface-elevated:#fff !important;--arcd-surface-muted:#f0f2f5 !important;--arcd-surface-subtle:#f5f6f8 !important;
+    --arcd-text-primary:#0d1b2e !important;--arcd-text-secondary:#536171 !important;--arcd-text-muted:#536171 !important;
+    --arcd-border-subtle:#e8ebef !important;--arcd-border-default:#d9dde2 !important;--arcd-table-stripe-surface:#f5f6f8 !important;
+    --arcd-success-text:#24634b !important;--arcd-warning-text:#805517 !important;--arcd-danger-text:#a2323b !important;--arcd-info-text:#285c91 !important}
+  [data-theme="noite"] :is(.arcd-topbar,.arcd-sidebar){display:none !important}
+  [data-theme="noite"] .arcd-app-shell{background:#fff !important}
+}
+
+/* ---------- Telas legadas com cor fixa no estilo inline (paleta C de compatibilidade) ----------
+   Só na tela e só neste tema: os relatórios em PDF montam o próprio HTML e não passam por aqui. */
+[data-theme="noite"] .arcd-app-shell :is([style*="background: rgb(255, 255, 255)"],[style*="background-color: rgb(255, 255, 255)"],[style*="background: rgb(243, 240, 233)"],[style*="background-color: rgb(243, 240, 233)"],[style*="background: rgba(255, 255, 255"]){background:var(--arcd-surface-card) !important}
+[data-theme="noite"] .arcd-app-shell :is([style*="background: rgb(232, 229, 223)"],[style*="background-color: rgb(232, 229, 223)"],[style*="background: rgb(245, 246, 248)"],[style*="background: rgb(237, 240, 244)"]){background:var(--arcd-surface-muted) !important}
+[data-theme="noite"] .arcd-app-shell :is([style*="color: rgb(13, 27, 46)"],[style*="color: rgb(45, 49, 53)"],[style*="color: rgb(48, 52, 56)"],[style*="color: rgb(52, 68, 90)"]){color:var(--arcd-text-primary) !important}
+[data-theme="noite"] .arcd-app-shell :is([style*="color: rgb(83, 97, 113)"],[style*="color: rgb(120, 129, 139)"],[style*="color: rgb(177, 181, 185)"]){color:var(--arcd-text-secondary) !important}
+[data-theme="noite"] .arcd-app-shell [style*="border"][style*="rgb(217, 221, 226)"]{border-color:var(--arcd-border-default) !important}
+/* Cores de estado da paleta antiga (escuras, feitas para fundo claro) viram os tons claros do tema. */
+[data-theme="noite"] .arcd-app-shell [style*="color: rgb(166, 59, 59)"]{color:var(--arcd-danger-text) !important}
+[data-theme="noite"] .arcd-app-shell [style*="color: rgb(46, 102, 82)"]{color:var(--arcd-success-text) !important}
+[data-theme="noite"] .arcd-app-shell [style*="color: rgb(133, 90, 36)"]{color:var(--arcd-warning-text) !important}
+[data-theme="noite"] .arcd-app-shell :is([style*="color: rgb(53, 88, 116)"],[style*="color: rgb(35, 91, 176)"]){color:var(--arcd-info-text) !important}
+[data-theme="noite"] .arcd-app-shell [style*="color: rgb(123, 96, 48)"]{color:var(--arcd-text-primary) !important}
+/* Painel de gráfico legado: cabeçalho translúcido branco. */
+[data-theme="noite"] .arcd-chart-panel{background:var(--arcd-surface-card) !important;border-color:var(--arcd-border-default) !important;box-shadow:none !important}
+[data-theme="noite"] .arcd-chart-panel>header{background:transparent !important;border-color:var(--arcd-border-subtle) !important}
+[data-theme="noite"] .arcd-chart-panel :is(.recharts-cartesian-grid line,.recharts-cartesian-axis-line){stroke:rgb(255 255 255 / 10%)}
+[data-theme="noite"] .arcd-chart-panel .recharts-text{fill:var(--arcd-text-secondary)}
+
+/* ---------- Marca e detalhes ---------- */
+/* Monograma azul-marinho fica invisível no fundo noite: vira claro. */
+[data-theme="noite"] .arcd-sidebar img:is([src*="azul"],[src*="monogram"],[src*="emblem"]){filter:brightness(0) invert(.93) sepia(.25)}
+[data-theme="noite"] .dashboard-action-filters button[data-active="true"]{background:var(--arcd-surface-muted) !important;color:var(--arcd-text-primary) !important;border-color:var(--arcd-text-secondary) !important}
+/* Capa do cartão de obra: no Preciso é o azul de ação; aqui o dourado é só para ação, então a capa fica noite com filete dourado. */
+[data-theme="noite"] .arcd-main[data-workspace] .works-card-cover:is([data-has-image="false"],:not([data-has-image])){background:linear-gradient(160deg,#1a2a44,#0f1a2c) !important}
+[data-theme="noite"] .arcd-main[data-workspace] .works-card-cover [style*="color: var(--arcd-text-inverse)"]{color:#f3efe6 !important}
+[data-theme="noite"] .arcd-main[data-workspace] .works-card-cover [style*="color: var(--arcd-action-primary-subtle)"]{color:var(--arcd-text-secondary) !important}
+[data-theme="noite"] .works-files>summary{background:transparent !important;color:var(--arcd-text-primary) !important;border:1px solid var(--arcd-secondary-button-border) !important}
+[data-theme="noite"] .gav-etapas__passo.is-feita{background:var(--arcd-info-text)}
+[data-theme="noite"] .gav{border-color:var(--arcd-border-default) !important}
+/* Líquido a pagar: destaque em dourado discreto, não um bloco claro sobre o escuro. */
+[data-theme="noite"] .payroll-summary-strip__net{background:var(--arcd-surface-elevated) !important;border:1px solid var(--arcd-border-strong)}
+[data-theme="noite"] .payroll-summary-strip__net :is(span,small){color:var(--arcd-text-secondary) !important}
+[data-theme="noite"] .payroll-summary-strip__net strong{color:#f6f8fb !important}
+[data-theme="noite"] .cub-chart{background:var(--arcd-surface-card) !important}
+/* Rodada 3: botão principal desabilitado não parece clicável; abas ativas sublinhadas em texto, não em dourado;
+   atraso de compras mantém o vermelho. */
+[data-theme="noite"] :is(button,a)[data-variant="primary"]:is(:disabled,[aria-disabled="true"]){background:transparent !important;color:var(--arcd-text-muted) !important;border:1px dashed var(--arcd-border-strong) !important;box-shadow:none !important}
+[data-theme="noite"] .labor-area-tabs button[aria-current="page"],[data-theme="noite"] .tab-row__tab[data-active="true"]{border-color:var(--arcd-text-primary) !important;color:var(--arcd-text-primary) !important}
+[data-theme="noite"] .purchase-queue-metrics button[data-tone="danger"] strong,[data-theme="noite"] .purchase-queue-metrics [data-tone="danger"]{color:var(--arcd-danger-text) !important}
+/* Rodada 4: seleção (aba, chip, item de menu, filete) é estado, não ação; fica em texto claro, nunca em dourado. */
+[data-theme="noite"] .arcd-sidebar [aria-current="page"]{box-shadow:inset 3px 0 0 var(--arcd-text-primary) !important;color:var(--arcd-nav-active-text) !important}
+[data-theme="noite"] .arcd-main :is([role="tab"][aria-selected="true"],nav button[aria-current="page"],.workflow-tabs>nav>button[aria-current="page"],.mrc-tabs [aria-selected="true"]){border-color:var(--arcd-text-primary) !important;color:var(--arcd-text-primary) !important;box-shadow:inset 0 -2px 0 var(--arcd-text-primary) !important}
+[data-theme="noite"] .arcd-main :is(.purchase-queue-metrics,.finance-today__filters) button[aria-pressed="true"]{background:var(--arcd-surface-muted) !important;color:var(--arcd-text-primary) !important;border-color:var(--arcd-text-secondary) !important}
+[data-theme="noite"] .arcd-main [style*="border-left: 3px solid var(--arcd-action-primary)"],[data-theme="noite"] .arcd-main [style*="border-left-color: var(--arcd-action-primary)"]{border-left-color:var(--arcd-border-strong) !important}
+[data-theme="noite"] .arcd-main [style*="border: 1px solid var(--arcd-action-primary)"]{border-color:var(--arcd-border-strong) !important}
+[data-theme="noite"] .gav-etapas__passo:not(.is-feita)[style*="action-primary"]{background:var(--arcd-info-text) !important}
+[data-theme="noite"] .dre-integration,[data-theme="noite"] .dre-period-note{border-color:var(--arcd-border-default) !important}
+[data-theme="noite"] .arcd-main i[style*="rgb(232, 236, 242)"],[data-theme="noite"] .arcd-main i:empty{background-color:var(--arcd-border-strong)}
+[data-theme="noite"] .payroll-controls::before{background:var(--arcd-border-strong)}
+/* Rodada 5: monograma claro em qualquer lugar da tela (topo do celular incluído);
+   abas de visão (TabRow), etapa atual, barra inferior e contador de categoria sem dourado. */
+[data-theme="noite"] .arcd-app-shell img:is([src*="monogram"],[src*="emblem"]){filter:brightness(0) invert(.93) sepia(.25)}
+[data-theme="noite"] .arcd-main .tab-row :is([aria-pressed="true"],[data-active="true"]),[data-theme="noite"] .arcd-main .tab-row :is([aria-pressed="true"],[data-active="true"]) *{color:var(--arcd-text-primary) !important;border-color:var(--arcd-text-primary) !important}
+[data-theme="noite"] .gav-etapas__passo.is-atual{background:var(--arcd-info-text)}
+[data-theme="noite"] .arcd-mobile-bottom-nav__item[data-active="true"],[data-theme="noite"] .arcd-mobile-nav :is(.mobile-primary-nav,.mobile-subnav)>button[data-active="true"]{color:var(--arcd-text-primary) !important;background:var(--arcd-surface-muted) !important;box-shadow:inset 0 2px 0 var(--arcd-text-primary)}
+[data-theme="noite"] .works-category-tabs button[data-active="true"] span{color:var(--arcd-text-secondary) !important}
+[data-theme="noite"] .dre-kpi-footer svg{color:var(--arcd-text-secondary)}

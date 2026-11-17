@@ -1,3 +1,4 @@
+import { contar } from "../../../design-system/copy.js";
 import { useMemo, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Banknote, ChevronLeft, ChevronRight, ChevronsUpDown, Gauge, Info, Plus, ReceiptText, RefreshCw, Search, SlidersHorizontal, Truck, X } from "lucide-react";
 import { Button } from "../../../design-system/primitives/Button.jsx";
@@ -65,7 +66,7 @@ function SortHeader({ column, effectiveSort, onSort }) {
 function PeriodInfo({ row }) {
   return <>
     <span className="ro-mono">{rentalPeriodText(row)}</span>
-    <span className="ro-sub">{row.cancelada ? "" : `${row.diasContrato} dia(s)`}{row.plannedEnd && row.emAberto ? ` · previsto ${formatDate(row.plannedEnd)}` : ""}</span>
+    <span className="ro-sub">{row.cancelada ? "" : `${contar(row.diasContrato,"dia","dias")}`}{row.plannedEnd && row.emAberto ? ` · previsto ${formatDate(row.plannedEnd)}` : ""}</span>
     {row.vencimento && <AlertFlag>{vencimentoText(row.vencimento)}</AlertFlag>}
   </>;
 }
@@ -217,7 +218,7 @@ export default function RentalOperationsPanel({
       <section className="ro-kpis" aria-label="Indicadores do recorte">
         <SummaryCard label="Equipamentos locados" icon={<Truck />} value={`${kpis.equipamentosLocados.unidadesNoPico} un.`}
           detail={<span title={scope}>{scope}</span>}>
-          <div className="ro-kpi-note">Pico de unidades simultâneas · {kpis.equipamentosLocados.equipamentos} equipamento(s) · {kpis.equipamentosLocados.locacoes} locação(ões)</div>
+          <div className="ro-kpi-note">Pico de unidades simultâneas · {contar(kpis.equipamentosLocados.equipamentos,"equipamento","equipamentos")} · {kpis.equipamentosLocados.locacoes} locação(ões)</div>
         </SummaryCard>
         <SummaryCard label="Taxa de ocupação" icon={<Gauge />} value={kpis.ocupacao.pct == null ? "—" : `${kpis.ocupacao.pct.toFixed(0)}%`}
           detail={<span title={scope}>{scope}</span>}>

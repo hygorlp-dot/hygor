@@ -1,3 +1,4 @@
+import { contar } from "../../../design-system/copy.js";
 import {SelectControl} from '../../../design-system/primitives/Select.jsx';
 import {Button as StandardButton} from '../../../components/ui/button.jsx';
 import {Input as StandardInput} from '../../../components/ui/input.jsx';
@@ -241,7 +242,7 @@ export default function BancoHorasView({ data, obraId, currentUser, dia }) {
         </div>
         <p className="bh-nota">{abrangencia === "obra" ? "Equipe atual e funcionários com registros nesta obra no período. " : "Funcionários de todas as obras. "}O saldo de cada pessoa inclui seus registros nas demais obras.</p>
         <TotaisBanco resumo={resumo} individual={Boolean(selecionado)} />
-        <p className="bh-cobertura" role="status">{resumo.diasConsiderados} dia(s) considerado(s) · {resumo.diasPendentes} a conferir · {resumo.diasSemRegistro} sem registro, sem débito.
+        <p className="bh-cobertura" role="status">{contar(resumo.diasConsiderados,"dia considerado","dias considerados")} · {resumo.diasPendentes} a conferir · {resumo.diasSemRegistro} sem registro, sem débito.
           {recurso.lastUpdated && <span> Consulta concluída em {new Intl.DateTimeFormat("pt-BR", { timeZone: FUSO_OBRA, day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(recurso.lastUpdated))}.</span>}
         </p>
         {selecionado ? <ExtratoFuncionario key={`${selecionado.employeeId}:${periodo.de}:${periodo.ate}`} linha={selecionado} nomeObra={nomeObra} voltar={() => selecionarFuncionario("")} /> : <section className="bh-equipe" aria-labelledby="bh-equipe-titulo">
@@ -253,7 +254,7 @@ export default function BancoHorasView({ data, obraId, currentUser, dia }) {
               <th scope="row"><StandardButton variant="secondary" className="bh-text-button" type="button" onClick={() => selecionarFuncionario(l.employeeId)} aria-label={`Ver extrato de ${l.nome}`}>{l.nome}</StandardButton><span className="bh-funcao">{l.funcao}</span></th>
               <td data-label="Jornada diária">{jornadaLegivel(l)}{l.fonteJornada==='escala'&&<span className="bh-funcao">Escala vigente por dia</span>}</td><td data-label="Horas apuradas">{l.diasConsiderados ? minutosLegiveis(l.trabalhadosMinutos) : "—"}</td>
               <td data-label="Saldo estimado" data-tone={tomSaldo(l.saldoMinutos)}>{formatarSaldoMinutos(l.saldoMinutos)}</td>
-              <td data-label="Cobertura">{l.diasConsiderados} dia(s){l.diasPendentes > 0 ? ` · ${l.diasPendentes} a conferir` : ""}{!l.diasComRegistro ? " · sem registros" : ""}{l.jornadaMinutos==null&&!l.jornadasMinutos?.length ? " · jornada não cadastrada" : ""}{l.dias.some(d=>d.intervaloPadraoMinutos>0)?' · almoço padrão aplicado':''}{l.dias.some(d=>d.tolerancia?.status==='aplicada')?' · tolerância aplicada':''}</td>
+              <td data-label="Cobertura">{contar(l.diasConsiderados,"dia","dias")}{l.diasPendentes > 0 ? ` · ${l.diasPendentes} a conferir` : ""}{!l.diasComRegistro ? " · sem registros" : ""}{l.jornadaMinutos==null&&!l.jornadasMinutos?.length ? " · jornada não cadastrada" : ""}{l.dias.some(d=>d.intervaloPadraoMinutos>0)?' · almoço padrão aplicado':''}{l.dias.some(d=>d.tolerancia?.status==='aplicada')?' · tolerância aplicada':''}</td>
             </tr>)}</tbody></table>
           </div>
           {!linhasVisiveis.length && <p className="bh-vazio">{equipe.length ? "Nenhum funcionário corresponde aos filtros. Ajuste a busca ou a situação do saldo." : "Nenhum funcionário ou registro encontrado para esta obra no período. Confira a obra ou consulte todas as obras."}</p>}

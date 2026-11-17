@@ -1,3 +1,4 @@
+import { contar } from "../../../design-system/copy.js";
 // ===================================================================
 // IndicadoresView — painel de indicadores do RH (achado "RH analytics"
 // de docs/AUDITORIA_RH.md: o módulo não tinha nenhuma visão consolidada).
@@ -50,7 +51,7 @@ function Indicadores({ data }) {
         <MiniKpi label="Desligamento agendado" value={headcount.desligamento_agendado} cor={headcount.desligamento_agendado ? C.orange : C.muted} />
         <MiniKpi label="Admissões no mês" value={turnover.admissions} cor={turnover.admissions ? C.green : C.muted} />
         <MiniKpi label="Desligamentos no mês" value={turnover.terminations} cor={turnover.terminations ? C.orange : C.muted} />
-        <MiniKpi label="Adiantamentos em aberto" value={fmt(advances.total)} cor={advances.total ? C.red : C.muted} sub={`${advances.count} lançamento(s)`} />
+        <MiniKpi label="Adiantamentos em aberto" value={fmt(advances.total)} cor={advances.total ? C.red : C.muted} sub={`${contar(advances.count,"lançamento","lançamentos")}`} />
         <MiniKpi label="Documentação vencida" value={compliance.withExpiredCount} cor={compliance.withExpiredCount ? C.red : C.green} sub={`de ${compliance.activeCount} ativos`} />
       </div>
 

@@ -28,15 +28,15 @@
   --arcd-font-weight-semibold: 600;
   --arcd-font-weight-bold: 700;
 
-  /* Escala operacional extraída do dashboard. Estes são os únicos tamanhos
-     semânticos para títulos, conteúdo, rótulos e dados em todo o app. */
-  --arcd-type-page-title: 1.75rem;
-  --arcd-type-section-title: 1.25rem;
-  --arcd-type-card-title: 1rem;
+  /* Espelho de foundations.js (fonte única, aplicada pelo ThemeProvider). Mantidos iguais
+     para a primeira pintura, antes do tema carregar, não divergir da escala real. */
+  --arcd-type-page-title: 1.5rem;
+  --arcd-type-section-title: 1.125rem;
+  --arcd-type-card-title: .9375rem;
   --arcd-type-body: 0.875rem;
-  --arcd-type-label: 0.8125rem;
-  --arcd-type-caption: 0.75rem;
-  --arcd-type-kpi: 1.5rem;
+  --arcd-type-label: 0.875rem;
+  --arcd-type-caption: 0.8125rem;
+  --arcd-type-kpi: 1.375rem;
   --arcd-type-control: var(--arcd-type-body);
   --arcd-type-control-touch: 1rem;
   --arcd-type-table: var(--arcd-type-body);

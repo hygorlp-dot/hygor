@@ -309,7 +309,12 @@
     gap: 4px;
     padding: 0;
     border-bottom: 1px solid var(--arcd-border-default);
+    /* Uma linha só: as abas que não cabem rolam para o lado, em vez de quebrar em duas linhas. */
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: thin;
   }
+  [data-theme] .arcd-main .workflow-tabs > nav > button { flex: none; white-space: nowrap; }
   [data-theme] .arcd-main .workflow-tabs > nav > button {
     min-height: 44px;
     padding: 0 14px;

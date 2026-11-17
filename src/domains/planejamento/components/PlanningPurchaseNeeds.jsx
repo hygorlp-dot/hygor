@@ -1,3 +1,4 @@
+import { contar } from "../../../design-system/copy.js";
 import {useMemo} from "react";
 import {Button} from "../../../design-system/primitives/Button.jsx";
 import {Select} from "../../../design-system/primitives/Select.jsx";
@@ -14,7 +15,7 @@ export default function PlanningPurchaseNeeds({data,obraId,tasks,taskId,onTask,o
    {needs.rows.some(row=>!row.valid)&&<p role="status">Itens sem vínculo confirmado ou com unidade incompatível ficam fora da solicitação. Revise essas linhas no orçamento.</p>}
    {!needs.rows.length?<p>Nenhum insumo identificado nesta etapa. Vincule materiais ou abra a composição no orçamento para preparar a solicitação.</p>:<ul>{needs.rows.map(row=><li key={row.materialId||row.descricao}>
     <strong>{row.descricao}</strong><span>Referência da etapa: {row.quantidade.toLocaleString("pt-BR")} {row.unidade}</span>
-    {row.valid?<><span>Estoque livre na obra: {row.stock.toLocaleString("pt-BR")} {row.unidade}</span><span>{row.orders.length} pedido(s) com entrega pendente{row.orders.map(p=>` · ${p.numero}${p.previsao?` (${p.previsao.split("-").reverse().join("/")})`:""}`).join("")}</span></>:<span role="status">Vínculo ou unidade pendente. Revise no orçamento antes de solicitar.</span>}
+    {row.valid?<><span>Estoque livre na obra: {row.stock.toLocaleString("pt-BR")} {row.unidade}</span><span>{contar(row.orders.length,"pedido","pedidos")} com entrega pendente{row.orders.map(p=>` · ${p.numero}${p.previsao?` (${p.previsao.split("-").reverse().join("/")})`:""}`).join("")}</span></>:<span role="status">Vínculo ou unidade pendente. Revise no orçamento antes de solicitar.</span>}
    </li>)}</ul>}
    {needs.requests.length>0?<div className="planning-purchase-actions"><p>Já existe solicitação vinculada a esta etapa.</p>{needs.requests.map(request=><Button key={request.id} variant="secondary" disabled={!canRequest} onClick={()=>onRequest(request)}>Abrir solicitação {request.numero||"da etapa"}</Button>)}</div>
     :<Button disabled={!canRequest||!needs.rows.some(row=>row.valid)} onClick={()=>onPrepare(needs)}>Preparar solicitação em Compras</Button>}

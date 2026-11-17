@@ -1588,7 +1588,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     const mc = orc?.memoriaCalculo || {};
     const partes = [];
     if (pdfPreviewCompleto.sapatas.length && mc.fundacao?.sapatas?.length) {
-      partes.push(`Fundação já tem ${mc.fundacao.sapatas.length} tipo(s) de sapata`);
+      partes.push(`Fundação já tem ${contar(mc.fundacao.sapatas.length,"tipo","tipos")} de sapata`);
     }
     for (const [pav, label] of PAVIMENTOS_ESTRUTURA) {
       const destination = pdfImportTargets[pav] || pav;
@@ -1653,7 +1653,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
       };
     }
     salvarOrc({ memoriaCalculo: aplicarCriterioEstrutural(memoriaNova) });
-    showToast(`Fundação (${pdfPreviewCompleto.sapatas.length} tipo(s) de sapata) e ${pavimentosAtualizados} pavimento(s) de Pilares/Vigas/Laje importados - reimportar sempre substitui a versão anterior, nunca duplica.`);
+    showToast(`Fundação (${contar(pdfPreviewCompleto.sapatas.length,"tipo","tipos")} de sapata) e ${contar(pavimentosAtualizados,"pavimento","pavimentos")} de Pilares/Vigas/Laje importados - reimportar sempre substitui a versão anterior, nunca duplica.`);
     setPdfPreviewCompleto(null);
   };
 
@@ -1681,7 +1681,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     memoriaNova.origensEstruturais=mergeStructuralImportSources(memoriaAtual.origensEstruturais,incomingSources);
     const atualizados=pdfPreviewQuantitativos.filter(g=>CHAVE_PAVIMENTO[g.pavimento]).length;
     salvarOrc({ memoriaCalculo: aplicarCriterioEstrutural(memoriaNova) });
-    showToast(`Concreto/fôrma de vigas, área e volume de laje de ${atualizados} pavimento(s) importados do PDF de Quantitativos.`);
+    showToast(`Concreto/fôrma de vigas, área e volume de laje de ${contar(atualizados,"pavimento","pavimentos")} importados do PDF de Quantitativos.`);
     setPdfPreviewQuantitativos(null);
   };
 
@@ -1708,7 +1708,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
       if (pdfPreviewHidrossanitario[chave]?.length) { patch[chave] = pdfPreviewHidrossanitario[chave]; tabelasAtualizadas += 1; }
     }
     salvarHidrossanitario(patch);
-    showToast(`${tabelasAtualizadas} tabela(s) do hidrossanitário importadas do PDF - reimportar sempre substitui a tabela inteira, nunca soma/duplica.`);
+    showToast(`${contar(tabelasAtualizadas,"tabela","tabelas")} do hidrossanitário importadas do PDF - reimportar sempre substitui a tabela inteira, nunca soma/duplica.`);
     setPdfPreviewHidrossanitario(null);
   };
 
@@ -1869,8 +1869,8 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
         }
         matchesIA.push(...(resposta.matches||[]).map(m => ({ ...m, origem:"ia" })));
       }
-      if (cotaDiariaEsgotada) setMatchIAAviso(`${cotaDiariaEsgotada.error} ${lotesComFalha} de ${lotes.length} lote(s) ficaram pendentes.`);
-      else if (lotesComFalha) setMatchIAAviso(`${lotesComFalha} de ${lotes.length} lote(s) de desempate por IA falharam - os itens afetados aparecem como pendentes com o motivo; clique em "Associar automaticamente" de novo para tentar só eles.`);
+      if (cotaDiariaEsgotada) setMatchIAAviso(`${cotaDiariaEsgotada.error} ${lotesComFalha} de ${contar(lotes.length,"lote","lotes")} ficaram pendentes.`);
+      else if (lotesComFalha) setMatchIAAviso(`${lotesComFalha} de ${contar(lotes.length,"lote","lotes")} de desempate por IA falharam - os itens afetados aparecem como pendentes com o motivo; clique em "Associar automaticamente" de novo para tentar só eles.`);
       else setMatchIAAviso("");
       setMatchIA({ itens, matches:[...automaticos, ...matchesIA] });
     } finally { setMatchIACarregando(false); }
@@ -1921,7 +1921,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     const folga = Number(padraoEscavacaoFundacao.folga) || 0;
     const profundidade = Number(padraoEscavacaoFundacao.profundidade) || 0;
     salvarSapatasFundacao(sapatasFundacao.map(t => ({ ...t, folgaEscavacao: folga, profundidadeEscavacao: profundidade, precisaRevisar: false })));
-    showToast(`Folga de ${folga}m e profundidade de ${profundidade}m aplicadas a ${sapatasFundacao.length} tipo(s).`);
+    showToast(`Folga de ${folga}m e profundidade de ${profundidade}m aplicadas a ${contar(sapatasFundacao.length,"tipo","tipos")}.`);
   };
 
   const salvarRevisaoChecklist=()=>{
@@ -2056,7 +2056,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
       setComponentesDetalhados(completos);
       if(completos.some(item=>item.fallbackLocal))setDetalhesAviso(remotos.length
         ? "Parte das composições não possui analítico; esses itens foram consolidados diretamente pelo orçamento."
-        : `Nenhuma relação analítica foi encontrada nas ${(diagnostico?.linkedBases||orc.referencias.length)} base(s) vinculada(s). A Curva ABC foi preservada com os itens consolidados do orçamento.`);
+        : `Nenhuma relação analítica foi encontrada nas ${contar((diagnostico?.linkedBases||orc.referencias.length),"base vinculada","bases vinculadas")}. A Curva ABC foi preservada com os itens consolidados do orçamento.`);
     }catch(error){
       setComponentesDetalhados(completarDetalhesLocalmente([]));
       const mensagem=String(error?.message||"");
@@ -3493,16 +3493,18 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   </p>
                 </div>
                 <div style={{textAlign:"right",flexShrink:0}}>
-                  <p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:"var(--arcd-type-section-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)"}}>{fmt(c.total)}</p>
+                  <p style={{fontFamily:"var(--arcd-font-sans)",fontVariantNumeric:"tabular-nums",fontSize:"var(--arcd-type-section-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{fmt(c.total)}</p>
                   <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>com BDI</p>
                 </div>
               </div>
-              <div style={{display:"flex",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-2)",flexWrap:"wrap"}}>
-                <Btn size="sm" onClick={()=>{setSelOrc(o.id);setView("editor");}}><Ic n="edit"/> Abrir</Btn>
+              {/* Uma ação principal (Abrir). Aprovar baseline é irreversível: botão secundário e confirmação.
+                  Excluir fica afastado, na ponta, para não ser clicado no lugar de Abrir. */}
+              <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)",flexWrap:"wrap"}}>
+                <Btn size="sm" v="secondary" onClick={()=>{setSelOrc(o.id);setView("editor");}}><Ic n="edit"/> Abrir</Btn>
                 {ehAdmin && o.obraId && !ehBaseline ? (
-                  <Btn size="sm" v="success" onClick={()=>aprovarEAdotarBaseline(o.id)}>{bloqueado ? "Adotar como baseline" : "Aprovar baseline"}</Btn>
+                  <Btn size="sm" v="secondary" onClick={()=>{if(window.confirm(`${bloqueado?"Adotar":"Aprovar"} "${o.nome||"este orçamento"}" como baseline da obra? A versão fica imutável depois disso.`))aprovarEAdotarBaseline(o.id);}}>{bloqueado ? "Adotar como baseline" : "Aprovar baseline"}</Btn>
                 ) : null}
-                {!bloqueado&&<Btn size="sm" v="danger" title="Excluir orçamento" ariaLabel="Excluir orçamento" onClick={()=>delOrc(o.id)}><Ic n="trash"/></Btn>}
+                {!bloqueado&&<details className="record-more" style={{marginLeft:"auto"}}><summary aria-label="Mais ações do orçamento" title="Mais ações">⋯</summary><div role="menu"><Btn size="sm" v="danger" title="Excluir orçamento" ariaLabel="Excluir orçamento" onClick={()=>delOrc(o.id)}><Ic n="trash"/> Excluir orçamento</Btn></div></details>}
               </div>
             </div>
           );
@@ -3724,11 +3726,11 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           {id:"memoria",label:"Memória de cálculo"},
         ]}/>
         <div className="budget-tabs">
-          {orcAba==="orcamento"&&<details className="budget-analysis"><summary>Análises e ferramentas{budgetIssues.length>0?` · ${budgetIssues.length} ocorrência(s)`:""}</summary><div className="budget-tabs__chips">
+          {orcAba==="orcamento"&&<details className="budget-analysis"><summary>Análises e ferramentas{budgetIssues.length>0?` · ${contar(budgetIssues.length,"ocorrência","ocorrências")}`:""}</summary><div className="budget-tabs__chips">
             <StandardButton variant="secondary" type="button" className="budget-tool" aria-expanded={ferramentasOrcAberto} onClick={()=>setFerramentasOrcAberto(v=>!v)} title="Importar, analisar e exportar">Ferramentas do orçamento</StandardButton>
             <StandardButton variant="secondary" type="button" className="budget-tool" aria-expanded={controleCustosAberto} onClick={()=>setControleCustosAberto(v=>!v)} title="Orçamento, compras, recebimento, aplicação e pagamento por etapa de 1º nível">Controle de custos</StandardButton>
             <StandardButton variant="secondary" type="button" className="budget-tool" aria-expanded={confAberta} onClick={()=>setConfAberta(v=>!v)} title="Escopo, preços, cotações, itens esquecidos, interfaces e quantitativos">Auditoria técnica{checklistAuditoria.filter(item=>item.status==="pendente").length>0?` · ${checklistAuditoria.filter(item=>item.status==="pendente").length} pendente(s)`:""}</StandardButton>
-            <StandardButton variant="secondary" type="button" className="budget-tool" aria-expanded={basesPainelAberto} onClick={()=>setBasesPainelAberto(v=>!v)} title="Bases de referência SINAPI e ORSE vinculadas">Bases e preços · {basesVinculadas.length}{totalBasesDuplicadas>0?` · ${totalBasesDuplicadas} repetida(s)`:""}</StandardButton>
+            <StandardButton variant="secondary" type="button" className="budget-tool" aria-expanded={basesPainelAberto} onClick={()=>setBasesPainelAberto(v=>!v)} title="Bases de referência SINAPI e ORSE vinculadas">Bases e preços · {basesVinculadas.length}{totalBasesDuplicadas>0?` · ${contar(totalBasesDuplicadas,"repetida","repetidas")}`:""}</StandardButton>
       <BudgetAuditPanel issues={budgetIssues} onNavigate={abrirOcorrenciaOrcamento} readOnly={budgetIsImmutable(orc)} onRemoveLink={source=>salvarOrc({memoriaCalculo:{...orc.memoriaCalculo,vinculosEstruturais:{...orc.memoriaCalculo?.vinculosEstruturais,[source]:''}}})}/>
           </div></details>}
         </div>
@@ -3783,7 +3785,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               <Btn v="ghost" size="sm" full onClick={analisarDimensionalIA} disabled={confIALoad||!(orc.itens||[]).some(item=>item.tipo!=="titulo")}>
                 {confIALoad ? "Auditando orçamento..." : (<><Ic n="brain" s={14}/> Pedir segunda análise da IA</>)}
               </Btn>
-              {confIA && <div style={{marginTop:"var(--arcd-space-2)",background:"color-mix(in srgb, var(--arcd-action-primary) 3%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 20%, transparent)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-muted)",lineHeight:"var(--arcd-line-height-normal)"}}>{confIA.resumo}</p>{confIA.achados?.length>0&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-1)"}}>{confIA.achados.length} novo(s) item(ns) incluído(s) no checklist acima.</p>}{confIA.perguntas?.map((pergunta,i)=><p key={i} style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>• {pergunta}</p>)}</div>}
+              {confIA && <div style={{marginTop:"var(--arcd-space-2)",background:"color-mix(in srgb, var(--arcd-action-primary) 3%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 20%, transparent)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-muted)",lineHeight:"var(--arcd-line-height-normal)"}}>{confIA.resumo}</p>{confIA.achados?.length>0&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-1)"}}>{contar(confIA.achados.length,"novo","novos")} item(ns) incluído(s) no checklist acima.</p>}{confIA.perguntas?.map((pergunta,i)=><p key={i} style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>• {pergunta}</p>)}</div>}
             </div>
 
             <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-3)",marginBottom:"var(--arcd-space-1)",textTransform:"uppercase"}}>Conferência dimensional</p>
@@ -3849,7 +3851,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
       <div className="budget-panel" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
           <div style={{minWidth:0,flex:1}}>
-            <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Bases de referência no Supabase <span style={{fontWeight:"var(--arcd-font-weight-regular)",color:"var(--arcd-text-secondary)"}}>· {basesConsolidadas.length} base(s) única(s)</span></p>
+            <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Bases de referência no Supabase <span style={{fontWeight:"var(--arcd-font-weight-regular)",color:"var(--arcd-text-secondary)"}}>· {contar(basesConsolidadas.length,"base única","bases únicas")}</span></p>
             <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",lineHeight:"var(--arcd-line-height-normal)"}}>Vincule SINAPI e ORSE ao mesmo orçamento e atualize os preços pelos códigos já lançados.</p>
           </div>
           <Btn size="sm" v="success" disabled={atualizandoPrecos || basesVinculadas.length===0} onClick={atualizarPrecosVinculados}>
@@ -4434,7 +4436,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               {pend.length > 0 && (
                 <div style={{border:"1px solid var(--arcd-border-default)",borderLeft:"1px solid var(--arcd-danger-text)",borderRadius:6,overflow:"hidden"}}>
                   <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",padding:"var(--arcd-space-2) var(--arcd-space-3)",background:"var(--arcd-surface-muted)"}}>
-                    {pend.length} linha(s) precisam de atenção
+                    {contar(pend.length,"linha","linhas")} precisam de atenção
                   </p>
                   <div style={{maxHeight:150,overflowY:"auto",padding:"var(--arcd-space-1) var(--arcd-space-3)"}}>
                     {pend.slice(0,40).map((p,i)=>(
@@ -4593,7 +4595,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                     return (
                       <StandardButton variant="secondary" key={l} onClick={()=>aplicarBDI(val, bdiTipo, null)} style={{textAlign:"center"}}>
                         <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>{l}</p>
-                        <p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:"var(--arcd-type-section-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:cor,marginTop:"var(--arcd-space-half)",lineHeight:"var(--arcd-line-height-normal)"}}>
+                        <p style={{fontFamily:"var(--arcd-font-sans)",fontVariantNumeric:"tabular-nums",fontSize:"var(--arcd-type-section-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:cor,marginTop:"var(--arcd-space-half)",lineHeight:"var(--arcd-line-height-normal)"}}>
                           {val.toFixed(2)}%
                         </p>
                         <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{sub}</p>
@@ -5043,7 +5045,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
         <div style={{display:"grid",gridTemplateColumns:cols("1fr","1fr","300px minmax(0,1fr)"),gap:"var(--arcd-space-2)",alignItems:"start"}}>
           <div style={{background:"var(--arcd-surface-page)",border:"1px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-2)"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-1)",marginBottom:"var(--arcd-space-2)"}}>
-              <div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>COMPOSIÇÕES SALVAS</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{composicoesEmpresa.length} cadastrada(s) na empresa</p></div>
+              <div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>COMPOSIÇÕES SALVAS</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{contar(composicoesEmpresa.length,"cadastrada","cadastradas")} na empresa</p></div>
               <Btn size="sm" v="ghost" onClick={()=>novaComposicao()}>NOVA</Btn>
             </div>
             <Inp label="Buscar nas composições salvas" value={buscaComposicoesSalvas} onChange={setBuscaComposicoesSalvas} placeholder="Ex.: baldrame concreto — palavras em qualquer ordem"/>
@@ -5133,7 +5135,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             </>}
           </div>}
           {memoryIssues.length>0 && <details className="memory-disclosure">
-            <summary>Conferência dos vínculos · {memoryIssues.length} ocorrência(s)</summary>
+            <summary>Conferência dos vínculos · {contar(memoryIssues.length,"ocorrência","ocorrências")}</summary>
             {memoryIssues.map(issue=><StandardButton variant="secondary" type="button" className="memory-audit-link" key={issue.source} onClick={()=>{
               setDisciplinaMemoria('estrutural');
               navegarParaSecaoMemoria(issue.scope,issue.scope==='fundacao'?null:issue.scope);
@@ -5246,7 +5248,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               </div>
 
               {!!pdfPreviewCompleto.sapatas.length&&<div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>
-                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>FUNDAÇÃO: {pdfPreviewCompleto.sapatas.length} tipo(s) de sapata</p>
+                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>FUNDAÇÃO: {contar(pdfPreviewCompleto.sapatas.length,"tipo","tipos")} de sapata</p>
                 {pdfPreviewCompleto.resumoAcoSapatas&&(()=>{
                   const totalCalculado=pdfPreviewCompleto.sapatas.reduce((s,sapata)=>s+calcularSapataTipo(sapata).pesoAcoTotal,0);
                   const diferenca=Math.abs(totalCalculado-pdfPreviewCompleto.resumoAcoSapatas.totalKg);
@@ -5258,7 +5260,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 })()}
                 <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-half)",maxHeight:160,overflowY:"auto"}}>
                   {pdfPreviewCompleto.sapatas.map(sapata=><div key={sapata.tipo} style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)"}}>
-                    <b>{sapata.tipo}</b> · {sapata.qtd} peça(s) · {(sapata.largura*100).toFixed(0)}x{(sapata.comprimento*100).toFixed(0)}cm · alt. do projeto {sapata.alturasProjetoCm}cm ({sapata.geometriaPendente ? "geometria não identificada" : "geometria extraída dos cortes"})
+                    <b>{sapata.tipo}</b> · {contar(sapata.qtd,"peça","peças")} · {(sapata.largura*100).toFixed(0)}x{(sapata.comprimento*100).toFixed(0)}cm · alt. do projeto {sapata.alturasProjetoCm}cm ({sapata.geometriaPendente ? "geometria não identificada" : "geometria extraída dos cortes"})
                     {" · X:"}{sapata.armaduraX.quantidade}∅{sapata.armaduraX.bitola}{sapata.armaduraX.comprimento?` (${sapata.armaduraX.comprimento.toFixed(2)}m)`:" (comprimento não identificado - complete à mão)"}
                     {" · Y:"}{sapata.armaduraY.quantidade}∅{sapata.armaduraY.bitola}{sapata.armaduraY.comprimento?` (${sapata.armaduraY.comprimento.toFixed(2)}m)`:" (comprimento não identificado - complete à mão)"}
                   </div>)}
@@ -5536,7 +5538,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 
               <details className="memory-disclosure sapata-technical-details"><summary>Referências do projeto e armaduras superiores</summary>
               {sapatasFundacao.filter(s=>s.alturasProjetoCm||s.armadurasSuperiores?.length).map(s=><details key={s.id} id={`conferencia-sapata-${s.id}`} className="memory-disclosure">
-                <summary>{s.tipo} · {s.geometriaProjeto ? "Geometria extraída do projeto" : s.geometriaPendente ? "⚠ Geometria pendente" : "Conferência do projeto"} · {s.qtd || 0} peça(s)</summary>
+                <summary>{s.tipo} · {s.geometriaProjeto ? "Geometria extraída do projeto" : s.geometriaPendente ? "⚠ Geometria pendente" : "Conferência do projeto"} · {contar(s.qtd || 0,"peça","peças")}</summary>
                 {s.geometriaProjeto&&<div>
                   <p>Fonte: {s.geometriaProjeto.fonte}. Base {fmtNum(s.largura)} × {fmtNum(s.comprimento)} m; topo {fmtNum(s.geometriaProjeto.topoLargura)} × {fmtNum(s.geometriaProjeto.topoComprimento)} m.</p>
                   <p>Base: {fmtNum(s.alturaBase)} m de altura. Trecho inclinado: {fmtNum(s.alturaTronco)} m. Volume = base retangular + prismoide de topo retangular. Fôrma = laterais verticais da base + faces verticais do trecho superior quando o topo chega à borda. Reaterro = escavação − volume da sapata.</p>
@@ -5632,7 +5634,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                     </div>
                     <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-half)"}}>
                       {CHAVES_TABELAS_HIDROSSANITARIO.filter(([chave])=>pdfPreviewHidrossanitario[chave]?.length).map(([chave,label])=>(
-                        <p key={chave} style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)"}}><b>{label}:</b> {pdfPreviewHidrossanitario[chave].length} linha(s)</p>
+                        <p key={chave} style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)"}}><b>{label}:</b> {contar(pdfPreviewHidrossanitario[chave].length,"linha","linhas")}</p>
                       ))}
                     </div>
                     <div style={{display:"flex",gap:"var(--arcd-space-2)"}}><Btn size="sm" v="ghost" onClick={()=>setPdfPreviewHidrossanitario(null)}>DESCARTAR</Btn><Btn size="sm" onClick={()=>setConfirmarAplicarHidrossanitario(true)}><Ic n="check"/> APLICAR (SUBSTITUI A VERSÃO ANTERIOR)</Btn></div>

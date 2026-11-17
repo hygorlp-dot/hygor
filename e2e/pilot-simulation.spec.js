@@ -23,7 +23,7 @@ test('piloto separa proposta, execução e dúvida, consulta evidências e não 
  await page.getByRole('button',{name:'Abrir piloto de conferência',exact:true}).click();
  const pilot=page.getByRole('region',{name:'Piloto de Conciliação',exact:true});await expect(pilot).toBeVisible();
  await page.clock.runFor(1500);expect(writes).toEqual([]);
- await expect(pilot).toContainText('1 proposta(s) segura(s)');await expect(pilot).toContainText('1 caso(s) disponível(is)');
+ await expect(pilot).toContainText('1 proposta segura');await expect(pilot).toContainText('1 caso disponível(is)');
  const open=async title=>{await pilot.getByLabel('Buscar casos do piloto').fill(title);await pilot.getByRole('button',{name:'Conferir caso',exact:true}).click();};
  await open('Proposta segura QA');await expect(pilot.getByRole('table')).toContainText('NF-SIMULADA');await expect(pilot.getByRole('table')).toContainText('Coincide');
  await pilot.getByRole('button',{name:'Consultar ficha e documentos'}).click();await expect(pilot.getByRole('region',{name:'Documentos da revisão'})).toContainText('Original fictício.png');

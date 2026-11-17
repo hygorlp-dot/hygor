@@ -1,3 +1,4 @@
+import { contar } from "../../../design-system/copy.js";
 import {TaskDisclosure} from '../../../design-system/patterns/TaskDisclosure.jsx';
 import {openReportPreview} from '../../../reports/report-preview.js';
 import {useAutomaticSaveReady} from '../../../features/workflow/SaveRecoveryContext.jsx';
@@ -171,7 +172,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
     const planos = (data.planos || []).map(p =>
       p.obraId === plano.obraId ? { ...p, baseline, baselineData: today() } : p);
     update({ ...data, planos });
-    showToast?.(`Linha de base salva com ${baseline.length} tarefa(s). Agora dá para comparar o planejado com o realizado.`);
+    showToast?.(`Linha de base salva com ${contar(baseline.length,"tarefa","tarefas")}. Agora dá para comparar o planejado com o realizado.`);
   };
 
   const limparBaseline = () => {
@@ -458,7 +459,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
         + `Nao reordene, renomeie, inclua ou exclua servicos. Analise apenas duracoes, datas, folgas, `
         + `antecessoras, sucessoras, paralelismos possiveis e riscos segundo boas praticas de engenharia. `
         + `Calendario obrigatorio: dias trabalhados ${diasTrabalho}; `
-        + `${cal.pularFeriados ? `${feriadosJanela.length} feriado(s) nao trabalhado(s)` : "feriados considerados dias normais"}. `
+        + `${cal.pularFeriados ? `${contar(feriadosJanela.length,"feriado","feriados")} nao trabalhado(s)` : "feriados considerados dias normais"}. `
         + `Nao sugira datas em dias nao trabalhados. Servicos na ordem oficial:\n`
         + `${lista.map((n,i)=>`${i+1}. ${n}`).join("\n")}\n\n`
         + `Responda em portugues e mantenha exatamente a numeracao recebida.`;
@@ -698,7 +699,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
       const dataLonga = iso => String(iso||"").split("-").reverse().join("/");
       const legenda = [["Concluída",COR_A2.concluida],["Em andamento",COR_A2.andamento],["A iniciar",COR_A2.aIniciar],["Caminho crítico",COR_A2.critica],["Etapa (resumo)",COR_A2.etapa]]
         .map(([rotulo,cor])=>`<span><i style="background:${cor}"></i>${rotulo}</span>`).join("");
-      return `<section class="page"><header><div class="id"><h1>Cronograma da obra</h1><p>${esc(nomeObra)}</p></div><div class="leg">${legenda}</div><div class="meta"><b>${esc(dataLonga(iniPag))} a ${esc(dataLonga(fimPag))}</b><span>A2 paisagem · folha ${pag+1} de ${folhas}</span></div></header><table><colgroup>${colsEscolhidas.map(c=>`<col style="width:${({atividade:70,inicio:24,fim:24,dias:15,custo:27,progresso:18,antecessora:38,sucessora:38}[c.id]||22)}mm">`).join("")}<col style="width:${larguraGraficoMm}mm"></colgroup><thead><tr>${cab}<th class="timeline"><div class="regua">${regua}</div></th></tr></thead><tbody>${linhas}</tbody></table><footer>${esc(data.config?.companyName||"MARCELL")} · gerado em ${esc(new Date().toLocaleString("pt-BR"))} · ${tarefas.length} atividade(s)</footer></section>`;
+      return `<section class="page"><header><div class="id"><h1>Cronograma da obra</h1><p>${esc(nomeObra)}</p></div><div class="leg">${legenda}</div><div class="meta"><b>${esc(dataLonga(iniPag))} a ${esc(dataLonga(fimPag))}</b><span>A2 paisagem · folha ${pag+1} de ${folhas}</span></div></header><table><colgroup>${colsEscolhidas.map(c=>`<col style="width:${({atividade:70,inicio:24,fim:24,dias:15,custo:27,progresso:18,antecessora:38,sucessora:38}[c.id]||22)}mm">`).join("")}<col style="width:${larguraGraficoMm}mm"></colgroup><thead><tr>${cab}<th class="timeline"><div class="regua">${regua}</div></th></tr></thead><tbody>${linhas}</tbody></table><footer>${esc(data.config?.companyName||"MARCELL")} · gerado em ${esc(new Date().toLocaleString("pt-BR"))} · ${contar(tarefas.length,"atividade","atividades")}</footer></section>`;
     }).join("");
     // Tipografia e paleta do ARCD Carbon (DESIGN.md): Plex Sans no texto, Plex
     // Mono em datas/valores, grafite/concreto/linha técnica; verde, azul e
@@ -977,7 +978,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
           <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)"}}><i style={{display:"inline-block",width:12,height:8,background:"var(--arcd-danger-text)",marginRight:"var(--arcd-space-1)",verticalAlign:"middle"}}/>Caminho crítico (folga zero)</span>
           <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Arraste a barra para mover · alças nas bordas ajustam início e fim</span>
           <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}} title="Total de dias de atraso que o projeto tolera fora do caminho crítico">Fim: dia útil {critico.fimProjeto ?? "-"}</span>
-          <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginLeft:"auto"}}>{(cal.diasSemana||[]).length} dias/semana - {(cal.feriados||[]).length} feriado(s) no calendario</span>
+          <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginLeft:"auto"}}>{(cal.diasSemana||[]).length} dias/semana - {contar((cal.feriados||[]).length,"feriado","feriados")} no calendario</span>
         </div>
 
         </details>
@@ -1353,14 +1354,14 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
 
       <details className="workspace-disclosure planning-followup"><summary>Compromissos, restrições e desempenho</summary><div className="planning-followup__content">
       <div style={{display:"grid",gridTemplateColumns:cols(2,2,2),gap:"var(--arcd-space-2)"}}>
-        <MiniKpi label="Caminho crítico" value={cpmCanonico.criticalPath.length?`${cpmCanonico.criticalPath.length} atividade(s)`:"—"} cor={cpmCanonico.criticalPath.length?C.orange:C.muted} sub={cpmCanonico.projectDuration?`${cpmCanonico.projectDuration} dia(s) de duração lógica`:"Sem atividades encadeadas"}/>
-        <MiniKpi label="PPC semanal" value={ppcSemanal.total?`${Math.round(ppcSemanal.ppc*100)}%`:"—"} cor={ppcSemanal.total&&ppcSemanal.ppc<.8?C.orange:C.green} sub={ppcSemanal.total?`${ppcSemanal.completed} de ${ppcSemanal.total} compromissos concluídos${ppcSemanal.blocked?` · ${ppcSemanal.blocked} bloqueado(s)`:""}`:"Sem compromisso registrado"}/>
+        <MiniKpi label="Caminho crítico" value={cpmCanonico.criticalPath.length?`${contar(cpmCanonico.criticalPath.length,"atividade","atividades")}`:"—"} cor={cpmCanonico.criticalPath.length?C.orange:C.muted} sub={cpmCanonico.projectDuration?`${contar(cpmCanonico.projectDuration,"dia","dias")} de duração lógica`:"Sem atividades encadeadas"}/>
+        <MiniKpi label="PPC semanal" value={ppcSemanal.total?`${Math.round(ppcSemanal.ppc*100)}%`:"—"} cor={ppcSemanal.total&&ppcSemanal.ppc<.8?C.orange:C.green} sub={ppcSemanal.total?`${ppcSemanal.completed} de ${ppcSemanal.total} compromissos concluídos${ppcSemanal.blocked?` · ${contar(ppcSemanal.blocked,"bloqueado","bloqueados")}`:""}`:"Sem compromisso registrado"}/>
       </div>
 
       {(compromissosDaObra.length>0||podeConcluirCompromisso)&&<div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:8,overflow:"hidden"}}>
         <div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:"1px solid var(--arcd-border-default)",display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"center"}}>
           <div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",letterSpacing:"var(--arcd-letter-spacing-body)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Plano de curto prazo</p><b style={{display:"block",fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)"}}>Compromissos da obra</b></div>
-          <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)"}}><span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>{ppcSemanal.completed} concluído(s) de {ppcSemanal.total}{ppcSemanal.blocked?` · ${ppcSemanal.blocked} bloqueado(s)`:""}</span>{podeConcluirCompromisso&&<Btn size="sm" v="ghost" onClick={abrirNovoCompromisso}>Adicionar</Btn>}</div>
+          <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)"}}><span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>{contar(ppcSemanal.completed,"concluído","concluídos")} de {ppcSemanal.total}{ppcSemanal.blocked?` · ${contar(ppcSemanal.blocked,"bloqueado","bloqueados")}`:""}</span>{podeConcluirCompromisso&&<Btn size="sm" v="ghost" onClick={abrirNovoCompromisso}>Adicionar</Btn>}</div>
         </div>
         {novoCompromisso&&<div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",background:"var(--arcd-surface-muted)",borderBottom:"1px solid var(--arcd-border-default)"}}><div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:"var(--arcd-space-2)"}}><Sel label="Atividade" value={novoCompromisso.activityId} onChange={v=>setNovoCompromisso(form=>({...form,activityId:v}))} options={tarefas.filter(item=>!item.titulo).map(item=>({v:item.id,l:item.nome||"Atividade"}))}/><Inp label="Compromisso" value={novoCompromisso.descricao} onChange={v=>setNovoCompromisso(form=>({...form,descricao:v}))} placeholder="Ex.: Assentar alvenaria do pavimento"/><Inp label="Meta" type="number" value={novoCompromisso.quantidadePrometida} onChange={v=>setNovoCompromisso(form=>({...form,quantidadePrometida:v}))}/><Inp label="Data" type="date" value={novoCompromisso.data} onChange={v=>setNovoCompromisso(form=>({...form,data:v}))}/></div><div style={{marginTop:"var(--arcd-space-2)"}}><Inp label="Restrição de início (opcional)" value={novoCompromisso.blockingReason||""} onChange={v=>setNovoCompromisso(form=>({...form,blockingReason:v}))} placeholder="Ex.: aguardando entrega de material — cria como bloqueado"/></div><label style={{display:"inline-flex",alignItems:"center",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-2)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",cursor:"pointer"}}><ChoiceControl type="checkbox" checked={Boolean(novoCompromisso.criticalActivity)} onChange={event=>setNovoCompromisso(form=>({...form,criticalActivity:event.target.checked}))} style={{accentColor:"var(--arcd-warning-text)"}}/>Atividade crítica <span style={{color:"var(--arcd-text-secondary)"}}>· exige APR, permissão e equipe no avanço</span></label>{novoCompromisso.criticalActivity&&<div style={{marginTop:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Treinamentos (NR) exigidos da equipe <span style={{fontWeight:"var(--arcd-font-weight-medium)",color:"var(--arcd-text-secondary)"}}>· bloqueia o avanço se algum trabalhador estiver com o treinamento vencido</span></p><div style={{display:"flex",flexWrap:"wrap",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-1)"}}>{WORKER_TRAINING_TYPES.map(item=>{const checked=(novoCompromisso.requiredTrainings||[]).includes(item.key);return <label key={item.key} style={{display:"inline-flex",gap:"var(--arcd-space-1)",alignItems:"center",padding:"var(--arcd-space-1) var(--arcd-space-2)",border:`1px solid ${checked?"var(--arcd-warning-text)":"var(--arcd-border-default)"}`,borderRadius:6,background:checked?"color-mix(in srgb, var(--arcd-warning-text) 3%, transparent)":"var(--arcd-surface-card)",cursor:"pointer",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}><ChoiceControl type="checkbox" checked={checked} onChange={()=>alternarTreinamentoExigido(item.key)} style={{accentColor:"var(--arcd-warning-text)"}}/>{item.label}</label>;})}</div></div>}<div style={{display:"flex",justifyContent:"flex-end",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)"}}><Btn size="sm" v="ghost" onClick={()=>setNovoCompromisso(null)}>Cancelar</Btn><Btn size="sm" onClick={criarCompromissoSemanal}>Criar compromisso</Btn></div></div>}
         {novoAvanco&&<div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",background:"var(--arcd-surface-muted)",borderBottom:"1px solid var(--arcd-border-default)"}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"baseline",marginBottom:"var(--arcd-space-2)"}}><div><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",color:"var(--arcd-action-primary)"}}>Registro de produção</p><b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>{novoAvanco.descricao}</b></div><span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>O avanço entra na evidência do compromisso.</span></div><div style={{display:"grid",gridTemplateColumns:cols(1,2,2),gap:"var(--arcd-space-2)"}}><Inp label="Quantidade executada" type="number" value={novoAvanco.quantity} onChange={v=>setNovoAvanco(form=>({...form,quantity:v}))}/><Inp label="Data" type="date" value={novoAvanco.data} onChange={v=>setNovoAvanco(form=>({...form,data:v}))}/></div><div style={{marginTop:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Equipe vinculada <span style={{fontWeight:"var(--arcd-font-weight-medium)",color:"var(--arcd-text-secondary)"}}>· obrigatória em atividade crítica</span></p><div style={{display:"flex",flexWrap:"wrap",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-1)"}}>{trabalhadoresDaObra.map(worker=>{const checked=(novoAvanco.workerIds||[]).includes(worker.id);return <label key={worker.id} style={{display:"inline-flex",gap:"var(--arcd-space-1)",alignItems:"center",padding:"var(--arcd-space-1) var(--arcd-space-2)",border:`1px solid ${checked?"var(--arcd-action-primary)":"var(--arcd-border-default)"}`,borderRadius:6,background:checked?"color-mix(in srgb, var(--arcd-action-primary) 3%, transparent)":"var(--arcd-surface-card)",cursor:"pointer",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}><ChoiceControl type="checkbox" checked={checked} onChange={()=>alternarTrabalhadorAvanco(worker.id)} style={{accentColor:"var(--arcd-action-primary)"}}/>{worker.name||worker.nome||"Colaborador"}</label>;})}{!trabalhadoresDaObra.length&&<span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)"}}>Nenhum colaborador ativo disponível para vincular.</span>}</div></div>{(novoAvanco.requiredTrainings||[]).length>0&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-warning-text)",marginTop:"var(--arcd-space-2)"}}>Exige treinamento em dia: {novoAvanco.requiredTrainings.map(key=>WORKER_TRAINING_TYPES.find(item=>item.key===key)?.label||key).join(" · ")}</p>}<div style={{display:"flex",justifyContent:"flex-end",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)"}}><Btn size="sm" v="ghost" onClick={()=>setNovoAvanco(null)}>Cancelar</Btn><Btn size="sm" onClick={registrarAvanco}>Registrar avanço</Btn></div></div>}
@@ -1383,7 +1384,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
           <MiniKpi label="Avanço físico" value={`${ff.total.pctFisico.toFixed(0)}%`} cor={C.blue}
                    sub="valor agregado / previsto" />
           <MiniKpi label="Custo realizado" value={fmt(ff.total.realizado)} cor={C.purple}
-                   sub={ff.total.semCustoLancado ? `${ff.total.semCustoLancado} tarefa(s) com avanço e sem custo lançado` : "lançado nas tarefas"} />
+                   sub={ff.total.semCustoLancado ? `${contar(ff.total.semCustoLancado,"tarefa","tarefas")} com avanço e sem custo lançado` : "lançado nas tarefas"} />
           {totalMaterialAplicado(tarefasComCusto) > 0 && <MiniKpi label="Material aplicado" value={fmt(totalMaterialAplicado(tarefasComCusto))} cor={C.blue}
                    sub="consumido do estoque nas tarefas" />}
           <MiniKpi label="Previsão de custo final"
@@ -1676,7 +1677,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                   <div>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--arcd-space-2)", flexWrap: "wrap", marginBottom: "var(--arcd-space-3)" }}>
                       <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>
-                        Linha de base de <b>{fmtDate(plano.baselineData)}</b> · {compBase.linhas.length} tarefa(s)
+                        Linha de base de <b>{fmtDate(plano.baselineData)}</b> · {contar(compBase.linhas.length,"tarefa","tarefas")}
                       </p>
                       <div style={{ display: "flex", gap: "var(--arcd-space-1)" }}>
                         <Btn size="sm" v="ghost" onClick={salvarBaseline}>Refazer fotografia</Btn>
@@ -1920,9 +1921,9 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                        sub={questPreview.resumo.dentroDoPrazo ? "dentro do prazo" : "acima do prazo desejado"} />
             </div>
             <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>
-              Prazo limite: <b>{fmtDate(questPreview.resumo.fimAlvo)}</b> - calendario: {questPreview.diasSemana.length} dia(s)/semana,
+              Prazo limite: <b>{fmtDate(questPreview.resumo.fimAlvo)}</b> - calendario: {contar(questPreview.diasSemana.length,"dia","dias")}/semana,
               {questPreview.calendario?.pularFeriados
-                ? ` com ${questPreview.resumo.feriadosConsiderados} feriado(s) dentro do prazo`
+                ? ` com ${contar(questPreview.resumo.feriadosConsiderados,"feriado","feriados")} dentro do prazo`
                 : " sem retirar feriados"}.
             </p>
 
@@ -2011,7 +2012,7 @@ function QuestionarioPlanejamento({ orc, plano, onGerar, onClose }) {
         ) : (
           <>
             <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-muted)" }}>
-              {nEtapas} etapa(s) do orçamento serão organizadas no cronograma.
+              {contar(nEtapas,"etapa","etapas")} do orçamento serão organizadas no cronograma.
             </p>
 
             <Inp label="Quando a obra comeca?" type="date" value={resp.inicio} onChange={set("inicio")} />

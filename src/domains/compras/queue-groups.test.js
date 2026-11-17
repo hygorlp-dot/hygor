@@ -55,7 +55,7 @@ describe("fila de compras agrupada (R7)", () => {
     });
     expect(texto).toContain("Ola, Depósito! Tudo bem?");
     expect(texto).toContain("2 pedidos atrasados");
-    expect(texto).toContain("Pedido PC-1 (obra Alameda): entrega combinada para 20/10/2026, 8 dia(s) de atraso.\n  - CIMENTO: falta 10 SC");
+    expect(texto).toContain("Pedido PC-1 (obra Alameda): entrega combinada para 20/10/2026, 8 dias de atraso.\n  - CIMENTO: falta 10 SC");
     expect(texto).toContain("Pedido PC-2 (obra Horizonte)");
     expect(texto.endsWith("Obrigado!\nMARCELL")).toBe(true);
   });

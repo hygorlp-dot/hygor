@@ -1,3 +1,4 @@
+import { contar } from "../../design-system/copy.js";
 import {RecordAction} from '../../design-system/primitives/RecordAction.jsx';
 import {Input as StandardInput} from '../../components/ui/input.jsx';
 import {Button as StandardButton} from '../../components/ui/button.jsx';
@@ -74,7 +75,7 @@ export default function AnnualDre({update,onOpenWork}){
     {report&&<>
       <div className="annual-dre__summary"><div>Receita líquida no ano<strong>R$ {money(revenue.total)}</strong></div><div>Lucro líquido no ano<strong data-negative={net.total<0}>R$ {money(net.total)}</strong></div><div>Margem líquida anual<strong>{percentage(margin.total)}</strong></div></div>
       <div className="annual-dre__table-tools"><label><ChoiceControl type="checkbox" checked={hideZero} onChange={event=>setHideZero(event.target.checked)}/> Ocultar linhas sem movimento</label><span>Clique em um valor para consultar lançamentos, obras e documentos.</span></div>
-      {report.issues?.length>0&&<p className="annual-dre__error" role="alert">Há {report.issues.length} registro(s) com classificação pendente no razão. Confira a gestão financeira antes de concluir a análise.</p>}
+      {report.issues?.length>0&&<p className="annual-dre__error" role="alert">Há {contar(report.issues.length,"registro","registros")} com classificação pendente no razão. Confira a gestão financeira antes de concluir a análise.</p>}
       <div className="annual-dre__scroll" role="region" aria-label="Tabela mensal do DRE; role horizontalmente para consultar os meses" tabIndex={0}>
         <table><caption>DRE {year} · regime de competência · R$</caption><thead><tr><th scope="col">Conta de resultado</th>{MONTHS.map(month=><th key={month} scope="col">{month}</th>)}<th scope="col">Total do ano</th></tr></thead><tbody>
           {matrix.filter(row=>!hideZero||row.kind!=="line"||row.values.some(value=>value!==0)).map(row=><tr key={row.id} className={`annual-dre__${row.kind}`}>

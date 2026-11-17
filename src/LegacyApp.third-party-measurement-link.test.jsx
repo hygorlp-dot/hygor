@@ -42,7 +42,7 @@ test("a aba Medição da obra mostra os terceirizados, vincula etapa a serviço 
 
   const text = container.textContent;
   expect(text).toContain("JOSÉ HENRIQUE");
-  expect(text).toContain("43.9%");
+  expect(text).toContain("43,9%");
   expect(text).toContain("1 aguardando aprovação");
   expect(text).toContain("50% enviado");
 

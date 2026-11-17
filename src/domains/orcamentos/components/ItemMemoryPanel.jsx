@@ -1,3 +1,4 @@
+import { contar } from "../../../design-system/copy.js";
 import {Button as StandardButton} from '../../../components/ui/button.jsx';
 import {SelectControl} from '../../../design-system/primitives/Select.jsx';
 import {Input as StandardInput} from '../../../components/ui/input.jsx';
@@ -82,7 +83,7 @@ function ItemMeasurementEditor({item,budget,models,onSave,onSaveModel,onNavigate
         <div><small>Resultado do memorial</small><strong>{preview.valid?`${number(preview.total)} ${item.unidade}`:'Preencha as medidas'}</strong></div>
         <p>Destino fixo: item {item.codigoItem} · coluna Quantidade. Ao salvar, o resultado substitui a quantidade anterior e recalcula o valor do serviço.</p>
       </div>
-      {!preview.valid && <details className="item-memory-pending"><summary>Faltam {preview.errors.length} ajuste(s) para aplicar</summary><ul>{preview.errors.map((e,i)=><li key={i}>{e}</li>)}</ul></details>}
+      {!preview.valid && <details className="item-memory-pending"><summary>Faltam {contar(preview.errors.length,"ajuste","ajustes")} para aplicar</summary><ul>{preview.errors.map((e,i)=><li key={i}>{e}</li>)}</ul></details>}
       <div className="item-memory-actions">
         <StandardButton variant="primary" type="submit" className="item-memory-primary" disabled={!preview.valid}>{busy?'Salvando…':'Salvar e atualizar orçamento'}</StandardButton>
         <StandardButton variant="secondary" type="button" onClick={()=>save(true)}>Salvar rascunho</StandardButton>

@@ -13,7 +13,7 @@ it('pagina sem montar detalhes recolhidos e pesquisa no conjunto inteiro com sub
  render();expect(el.querySelectorAll('.dre-memorial__entry')).toHaveLength(50);expect(el.querySelectorAll('.dre-memorial__body')).toHaveLength(0);
  act(()=>button('Próxima página').click());expect(el.textContent).toContain('Página 2 de 3');
  const input=el.querySelector('input');act(()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Grupo');input.dispatchEvent(new Event('input',{bubbles:true}));});
- expect(el.textContent).toContain('61 encontrado(s)');expect(el.textContent).toMatch(/Subtotal da busca: R\$\s61,00/);expect(el.textContent).toMatch(/Total do conjunto: R\$\s105,00/);expect(el.textContent).toContain('Página 1 de 2');
+ expect(el.textContent).toContain('61 encontrados');expect(el.textContent).toMatch(/Subtotal da busca: R\$\s61,00/);expect(el.textContent).toMatch(/Total do conjunto: R\$\s105,00/);expect(el.textContent).toContain('Página 1 de 2');
  act(()=>button('Próxima página').click());expect(el.querySelectorAll('.dre-memorial__entry')).toHaveLength(11);expect(el.textContent).toMatch(/Subtotal da busca: R\$\s61,00/);
 });
 it('mantém página e identificadores de expansão no retorno dos documentos',()=>{

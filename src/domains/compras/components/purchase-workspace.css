@@ -39,7 +39,7 @@
 .purchase-queue-table tr:last-child td{border-bottom:0}.purchase-queue-table tbody tr:hover{background:var(--arcd-surface-muted)}
 .purchase-queue-table td>b,.purchase-queue-table td>span,.purchase-queue-table td>small,.purchase-row-title{display:block}
 .purchase-queue-table td>span{color:var(--purchase-muted);margin-top:var(--arcd-space-1)}.purchase-queue-table small{margin-top:var(--arcd-space-1);font-size:var(--arcd-type-caption);color:var(--purchase-muted)}
-.purchase-row-title{font-size:var(--arcd-type-caption);font-weight:var(--arcd-font-weight-semibold);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.purchase-row-title{font-family:var(--arcd-font-sans);font-size:var(--arcd-type-caption);font-weight:var(--arcd-font-weight-semibold);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .purchase-queue-table .arcd-button{max-width:100%;height:auto;min-height:36px;white-space:normal;text-align:left;line-height:1.4;justify-content:space-between}
 .purchase-money{font-variant-numeric:tabular-nums}
 .purchase-queue-table .purchase-deadline{display:inline-block;margin-top:0;padding:var(--arcd-space-half) var(--arcd-space-1);border-radius:var(--arcd-radius-control);background:var(--arcd-border-default);color:var(--arcd-text-primary);font-size:var(--arcd-type-caption);font-weight:var(--arcd-font-weight-semibold)}

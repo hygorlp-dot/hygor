@@ -1,3 +1,4 @@
+import { contar } from "../../../design-system/copy.js";
 import {useMemo} from 'react';
 import {Inp, Sel} from "../../../legacy/ui.jsx";
 import {Badge} from '../../../design-system/primitives/Badge.jsx';
@@ -20,7 +21,7 @@ export function PayrollReadiness({data,year,month,onOpen}){
       <ol className="rh-readiness__steps">{report.steps.map((step,index)=><li key={step.id}>
         <div className="rh-readiness__step-head"><h4>{index+1}. {step.title}</h4><Badge tone={/pendente|pendência|não salva/i.test(step.status)?'warning':'neutral'}>{step.status}</Badge></div>
         {step.issues.length>0?<ul>{step.issues.slice(0,3).map(item=><li key={item}>{item}</li>)}</ul>:<p>Os dados necessários estão preenchidos; confira a documentação.</p>}
-        {step.issues.length>3&&<details><summary>Ver mais {step.issues.length-3} pendência(s)</summary><ul>{step.issues.slice(3).map(item=><li key={item}>{item}</li>)}</ul></details>}
+        {step.issues.length>3&&<details><summary>Ver mais {contar(step.issues.length-3,"pendência","pendências")}</summary><ul>{step.issues.slice(3).map(item=><li key={item}>{item}</li>)}</ul></details>}
         <div className="rh-readiness__actions"><Button type="button" variant="outline" size="sm" onClick={()=>onOpen({step:step.id,employee,competence,report})}>{step.action}</Button>{step.id==='point'&&report.mode==='clt'&&<Button type="button" variant="ghost" size="sm" onClick={()=>onOpen({step:'point-close',employee,competence,report})}>Abrir fechamento por obra</Button>}</div>
       </li>)}</ol>
     </>}

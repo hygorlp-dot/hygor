@@ -1,3 +1,4 @@
+import { contar } from "../../design-system/copy.js";
 import {Button as StandardButton} from '../../components/ui/button.jsx';
 import { useEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, GripVertical } from "lucide-react";
@@ -87,7 +88,7 @@ export default function KanbanBoard({ label, columns, items, columnOf, titleOf, 
         const cards = items.filter(item => columnOf(item) === column.id);
         const total = counts[column.id] ?? cards.length;
         const limit = Number(limits[column.id] || 0);
-        return <section key={column.id} className="engineering-lane" data-kanban-column={column.id} data-over={drag?.target?.column === column.id || undefined} aria-label={`${column.label} · ${cards.length} cartão(s)`}>
+        return <section key={column.id} className="engineering-lane" data-kanban-column={column.id} data-over={drag?.target?.column === column.id || undefined} aria-label={`${column.label} · ${contar(cards.length,"cartão","cartões")}`}>
           <header className="engineering-lane-heading"><h4>{column.label}</h4><span>{cards.length !== total ? `${cards.length} de ${total}` : total}{limit ? ` · limite ${limit}` : ""}</span></header>
           {limit > 0 && total >= limit && <p className="engineering-capacity" role="status">{total > limit ? "Acima do limite" : "Limite atingido"}</p>}
           {!cards.length && <p className="engineering-drop-empty">Solte um cartão aqui</p>}

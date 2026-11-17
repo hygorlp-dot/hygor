@@ -715,7 +715,7 @@ test("fila agrupada por fornecedor cobra três entregas atrasadas numa só visã
   const grupos=fila.locator("tbody.purchase-group");
   const central=grupos.first();
   await expect(central).toHaveAttribute("data-group","Depósito Central");
-  await expect(central.locator(".purchase-group-row")).toContainText("3 atrasado(s)");
+  await expect(central.locator(".purchase-group-row")).toContainText("3 atrasados");
   await expect(central.locator("tr:not(.purchase-group-row)")).toHaveCount(4);
   const cobrar=central.getByRole("link",{name:"Cobrar as 3 entregas atrasadas"});
   await expect(cobrar).toBeVisible();

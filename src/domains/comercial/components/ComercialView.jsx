@@ -1,3 +1,4 @@
+import { contar } from "../../../design-system/copy.js";
 import {openReportPreview} from '../../../reports/report-preview.js';
 import { PageHeader } from "../../../design-system/patterns/PageHeader";
 import { WorkspaceNavigation } from "../../../design-system/patterns/WorkspaceNavigation";
@@ -107,7 +108,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
     const out=[];leadAtivos.forEach(l=>{if(!l.responsavelId||!l.proximaAtividadeEm)out.push({tipo:"lead",cor:C.red,texto:`${l.nome}: sem responsável ou próxima atividade`,leadId:l.id});if(comDias(l.etapaDesde)>=5)out.push({tipo:"parado",cor:C.orange,texto:`${l.nome}: ${comDias(l.etapaDesde)} dias em ${comEtapaLabel(l.etapa)}`,leadId:l.id});});
     atividades.filter(a=>a.status!=="concluida"&&a.dataHora&&new Date(a.dataHora).getTime()<agora).forEach(a=>out.push({tipo:"followup",cor:C.red,texto:`Follow-up vencido: ${a.titulo}`,leadId:a.leadId}));
     reunioes.filter(r=>r.status==="agendada"&&r.dataHora).forEach(r=>{const falta=new Date(r.dataHora).getTime()-agora;if(falta<0)out.push({tipo:"reuniao",cor:C.red,texto:`Reunião atrasada: ${leadBy(r.leadId)?.nome||"Lead"}`,leadId:r.leadId});else if(falta<=86400000)out.push({tipo:"reuniao",cor:C.blue,texto:`Reunião nas próximas 24h: ${leadBy(r.leadId)?.nome||"Lead"} · ${comDateTime(r.dataHora)}`,leadId:r.leadId});});
-    propostas.filter(p=>["enviada","visualizada","negociacao"].includes(p.status)&&p.validade).forEach(p=>{const d=Math.ceil((new Date(`${p.validade}T23:59:00`).getTime()-agora)/86400000);if(d<=3)out.push({tipo:"proposta",cor:d<0?C.red:C.orange,texto:`Proposta ${p.numero} ${d<0?"vencida":`vence em ${d} dia(s)`}`,leadId:p.leadId});});
+    propostas.filter(p=>["enviada","visualizada","negociacao"].includes(p.status)&&p.validade).forEach(p=>{const d=Math.ceil((new Date(`${p.validade}T23:59:00`).getTime()-agora)/86400000);if(d<=3)out.push({tipo:"proposta",cor:d<0?C.red:C.orange,texto:`Proposta ${p.numero} ${d<0?"vencida":`vence em ${contar(d,"dia","dias")}`}`,leadId:p.leadId});});
     contratos.filter(k=>["enviado","aguardando_assinatura"].includes(k.status)).forEach(k=>out.push({tipo:"contrato",cor:C.orange,texto:`Contrato ${k.numero} sem assinatura`,leadId:k.leadId}));
     contratos.filter(k=>k.assinadoEm&&!k.entradaPaga).forEach(k=>out.push({tipo:"entrada",cor:C.red,texto:`Entrada pendente: contrato ${k.numero}`,leadId:k.leadId}));return out;
   },[com.leads,com.atividades,com.reunioes,com.propostas,com.contratos]);
@@ -198,7 +199,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
       reunioes.filter(item=>item.leadId===lead.id).length,
     ].reduce((sum,value)=>sum+value,0);
     const aviso=vinculados
-      ?` Existem ${vinculados} proposta(s), contrato(s) ou reunião(ões) vinculados; eles serão preservados para auditoria.`
+      ?` Existem ${contar(vinculados,"proposta","propostas")}, contrato(s) ou reunião(ões) vinculados; eles serão preservados para auditoria.`
       :"";
     setConfirmModal({
       titulo:"Excluir lead?",
@@ -991,9 +992,9 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
                       )}
                     </p>
                     <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginTop: 2 }}>
-                      {r.total} indicação(ões) · {r.ganhos} fechada(s) ·{" "}
+                      {r.total} indicação(ões) · {contar(r.ganhos,"fechada","fechadas")} ·{" "}
                       {r.emAberto} em aberto
-                      {r.perdidos > 0 ? ` · ${r.perdidos} perdida(s)` : ""}
+                      {r.perdidos > 0 ? ` · ${contar(r.perdidos,"perdida","perdidas")}` : ""}
                     </p>
                     <p
                       style={{
@@ -1053,7 +1054,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
                 }}
               >
                 Maior perda na fase <b>{maiorPerda.label}</b>:{" "}
-                {maiorPerda.perdaNaFase} lead(s) não passaram daqui.
+                {contar(maiorPerda.perdaNaFase,"lead","leads")} não passaram daqui.
               </p>
             </div>
           )}
@@ -1237,14 +1238,14 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
     const topVendedores=[...vendedores].sort((a,b)=>b.receita-a.receita||b.vendas-a.vendas);
     const topOrigens=[...origens].sort((a,b)=>b.receita-a.receita||b.leads-a.leads);
     conteudo=<div className="commercial-dashboard">
-      <Titulo titulo="Comando comercial" sub={`${leadAtivos.length} oportunidade(s) ativa(s) · acompanhamento do mês atual`}
+      <Titulo titulo="Comando comercial" sub={`${contar(leadAtivos.length,"oportunidade ativa","oportunidades ativas")} · acompanhamento do mês atual`}
         acao={<div style={{display:"flex",gap:6,flexWrap:"wrap"}}><Btn v="ghost" onClick={()=>onTab("com_agenda")}><Ic n="calendar"/> Agenda</Btn><Btn onClick={()=>{setLeadForm(leadVazio());setLeadAba("geral");}}><Ic n="plus"/> Novo lead</Btn></div>}/>
 
       <section className="commercial-command-card">
         <div>
 
           <h2>{receitaMes>0?`${fmtCompact(receitaMes)} em vendas`:"Hora de transformar o funil em contratos"}</h2>
-          <p>{alertas.length?`${alertas.length} ponto(s) precisam de ação para manter as oportunidades avançando.`:"A operação comercial está acompanhada e sem alertas críticos."}</p>
+          <p>{alertas.length?`${contar(alertas.length,"ponto","pontos")} precisam de ação para manter as oportunidades avançando.`:"A operação comercial está acompanhada e sem alertas críticos."}</p>
         </div>
         <div className="commercial-goal">
           <div><span>Meta mensal</span><b>{meta?fmtCompact(meta):"Não definida"}</b></div>
@@ -1254,9 +1255,9 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
       </section>
 
       <div className="commercial-kpis">
-        <KpiCard label="Funil ativo" value={fmtCompact(funil)} sub={`${leadAtivos.length} oportunidade(s)`} color={C.blue} icon="trending" tab="com_funil"/>
+        <KpiCard label="Funil ativo" value={fmtCompact(funil)} sub={`${contar(leadAtivos.length,"oportunidade","oportunidades")}`} color={C.blue} icon="trending" tab="com_funil"/>
         <KpiCard label="Receita provável" value={fmtCompact(ponderada)} sub="Valor ponderado pela probabilidade" color={C.yellowD} icon="chart" tab="com_funil"/>
-        <KpiCard label="Vendas no mês" value={vendasMes.length} sub={`${fmtCompact(receitaMes)} contratado(s)`} color={C.green} icon="check" tab="com_contratos"/>
+        <KpiCard label="Vendas no mês" value={vendasMes.length} sub={`${contar(fmtCompact(receitaMes),"contratado","contratados")}`} color={C.green} icon="check" tab="com_contratos"/>
         <KpiCard label="Conversão geral" value={`${conv.toFixed(1)}%`} sub={ticket?`Ticket do mês ${fmtCompact(ticket)}`:"Sem venda no mês"} color={conv>=20?C.green:C.orange} icon="target" tab="com_relatorios"/>
       </div>
 
@@ -1277,14 +1278,14 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
 
         <section className="commercial-panel">
           <div className="commercial-panel-head"><div><h3>Desempenho por vendedor</h3></div><Btn size="sm" v="ghost" onClick={()=>onTab("com_relatorios")}>Relatório →</Btn></div>
-          {!topVendedores.length?vazio("Sem dados de vendedores."):<div className="commercial-ranking">{topVendedores.slice(0,6).map((v,i)=><div key={v.id}><span className="commercial-rank">{i+1}</span><span><b>{v.nome}</b><small>{v.leads} lead(s) · {v.conversao.toFixed(0)}% de conversão</small></span><strong>{fmtCompact(v.receita)}</strong></div>)}</div>}
+          {!topVendedores.length?vazio("Sem dados de vendedores."):<div className="commercial-ranking">{topVendedores.slice(0,6).map((v,i)=><div key={v.id}><span className="commercial-rank">{i+1}</span><span><b>{v.nome}</b><small>{contar(v.leads,"lead","leads")} · {v.conversao.toFixed(0)}% de conversão</small></span><strong>{fmtCompact(v.receita)}</strong></div>)}</div>}
         </section>
       </div>
 
       <div className="commercial-dashboard-columns">
         <section className="commercial-panel">
           <div className="commercial-panel-head"><div><h3>Origens que geram negócio</h3></div><Btn size="sm" v="ghost" onClick={()=>onTab("com_indicacoes")}>Indicações →</Btn></div>
-          {!topOrigens.length?vazio("Nenhuma origem registrada."):<div className="commercial-ranking">{topOrigens.slice(0,5).map((o,i)=><div key={o.origem}><span className="commercial-rank">{i+1}</span><span><b>{o.origem}</b><small>{o.leads} lead(s) · {o.vendas} venda(s)</small></span><strong>{fmtCompact(o.receita)}</strong></div>)}</div>}
+          {!topOrigens.length?vazio("Nenhuma origem registrada."):<div className="commercial-ranking">{topOrigens.slice(0,5).map((o,i)=><div key={o.origem}><span className="commercial-rank">{i+1}</span><span><b>{o.origem}</b><small>{contar(o.leads,"lead","leads")} · {contar(o.vendas,"venda","vendas")}</small></span><strong>{fmtCompact(o.receita)}</strong></div>)}</div>}
         </section>
         <section className="commercial-panel">
           <div className="commercial-panel-head"><div><h3>Pendências da operação</h3></div></div>
@@ -1299,7 +1300,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
       </div>
     </div>;
   } else if(commercialView==="com_leads"){
-    const lista=leads.filter(l=>isVisibleLead(l)&&[l.nome,l.telefone,l.email,l.cidade,l.servico,l.origem].join(" ").toLowerCase().includes(busca.toLowerCase()));conteudo=<><Titulo titulo="Leads" sub={`${leads.filter(isVisibleLead).length} cadastrado(s)`} acao={<Btn onClick={()=>{setLeadForm(leadVazio());setLeadAba("geral");}}><Ic n="plus"/> Novo lead</Btn>}/><Inp value={busca} onChange={setBusca} placeholder="Buscar nome, telefone, cidade, serviço ou origem..."/><div style={{display:"flex",flexDirection:"column",gap:6}}>{lista.map(l=><button key={l.id} onClick={()=>{setLeadForm({...l});setLeadAba("geral");}} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:8,background:C.card,border:`1px solid ${C.border}`,borderLeft:`1px solid ${COM_TEMPERATURA[l.temperatura]||C.muted}`,borderRadius:6,padding:"9px 11px",cursor:"pointer",textAlign:"left"}}><div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{l.nome}</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",marginTop:2}}>{l.servico||"Sem serviço"} · {l.cidade||"-"} · {l.origem||"Sem origem"}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.blue,marginTop:3}}>{comEtapaLabel(l.etapa)} · {nomeUsuario(l.responsavelId)} · próxima: {l.proximaAtividade||"-"} {l.proximaAtividadeEm?comDateTime(l.proximaAtividadeEm):""}</p></div><div style={{textAlign:"right"}}><b style={{fontSize:"var(--arcd-type-body)",color:C.yellowD}}>{fmt(l.orcamentoEstimado)}</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{l.probabilidade}% · {l.temperatura}</p></div></button>)}{!lista.length&&vazio("Nenhum lead encontrado.")}</div></>;
+    const lista=leads.filter(l=>isVisibleLead(l)&&[l.nome,l.telefone,l.email,l.cidade,l.servico,l.origem].join(" ").toLowerCase().includes(busca.toLowerCase()));conteudo=<><Titulo titulo="Leads" sub={`${contar(leads.filter(isVisibleLead).length,"cadastrado","cadastrados")}`} acao={<Btn onClick={()=>{setLeadForm(leadVazio());setLeadAba("geral");}}><Ic n="plus"/> Novo lead</Btn>}/><Inp value={busca} onChange={setBusca} placeholder="Buscar nome, telefone, cidade, serviço ou origem..."/><div style={{display:"flex",flexDirection:"column",gap:6}}>{lista.map(l=><button key={l.id} onClick={()=>{setLeadForm({...l});setLeadAba("geral");}} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:8,background:C.card,border:`1px solid ${C.border}`,borderLeft:`1px solid ${COM_TEMPERATURA[l.temperatura]||C.muted}`,borderRadius:6,padding:"9px 11px",cursor:"pointer",textAlign:"left"}}><div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{l.nome}</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",marginTop:2}}>{l.servico||"Sem serviço"} · {l.cidade||"-"} · {l.origem||"Sem origem"}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.blue,marginTop:3}}>{comEtapaLabel(l.etapa)} · {nomeUsuario(l.responsavelId)} · próxima: {l.proximaAtividade||"-"} {l.proximaAtividadeEm?comDateTime(l.proximaAtividadeEm):""}</p></div><div style={{textAlign:"right"}}><b style={{fontSize:"var(--arcd-type-body)",color:C.yellowD}}>{fmt(l.orcamentoEstimado)}</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{l.probabilidade}% · {l.temperatura}</p></div></button>)}{!lista.length&&vazio("Nenhum lead encontrado.")}</div></>;
   } else if(commercialView==="com_funil"){
     conteudo=<><Titulo titulo="Funil de vendas" sub="Arraste os cards; toda mudança fica registrada no histórico" acao={<Btn onClick={()=>{setLeadForm(leadVazio());setLeadAba("geral");}}><Ic n="plus"/> LEAD</Btn>}/><div style={{...KB.scroll,flexWrap:"wrap",overflowX:"visible",scrollSnapType:"none",rowGap:28,columnGap:8}}>{COM_ETAPAS.filter(([id])=>id!=="arquivado").map(([id,label])=>{const ls=leads.filter(l=>isVisibleLead(l)&&l.etapa===id);const soma=ls.reduce((s,l)=>s+(l.orcamentoEstimado||0),0);return <div key={id} onDragOver={e=>e.preventDefault()} onDrop={e=>{const l=leadBy(e.dataTransfer.getData("leadId"));if(l)moverLead(l,id);}} style={KB.coluna(C.blue,false)}><div onClick={()=>setColunaResumo({label,leads:ls})} title="Ver resumo de quem está nesta etapa" style={{...KB.colHead(C.blue),cursor:"pointer"}}><b style={{fontSize:"var(--arcd-type-label)",color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0}}>{label.toUpperCase()}</b><div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:2,flexShrink:0}}><span style={KB.contador}>{ls.length}</span>{soma>0&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.yellowD}}>{fmt(soma)}</span>}</div></div><div style={KB.colBody}>{ls.map(l=><div key={l.id} draggable onDragStart={e=>e.dataTransfer.setData("leadId",l.id)} onClick={()=>{setLeadForm({...l});setLeadAba("geral");}} style={{...KB.card(l.proximaAtividadeEm&&new Date(l.proximaAtividadeEm).getTime()<agora?C.red:null),borderLeft:`1px solid ${COM_TEMPERATURA[l.temperatura]||C.muted}`}}><div style={{display:"flex",justifyContent:"space-between",gap:5}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0}}>{l.nome}</p><span style={{fontSize:"var(--arcd-type-caption)",color:C.yellowD,fontWeight:600,flexShrink:0}}>{fmt(l.orcamentoEstimado)}</span></div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{l.servico||"-"}</p><div style={{display:"flex",justifyContent:"space-between",gap:5,alignItems:"center"}}><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{nomeUsuario(l.responsavelId)} · {l.probabilidade}%</span><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:comDias(l.etapaDesde)>=5?C.orange:C.muted}}>{comDias(l.etapaDesde)}d</span></div><p style={{fontSize:"var(--arcd-type-caption)",color:l.proximaAtividadeEm&&new Date(l.proximaAtividadeEm).getTime()<agora?C.red:C.blue,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{l.proximaAtividadeEm&&new Date(l.proximaAtividadeEm).getTime()<agora?"⚠ ":""}{l.proximaAtividade||"Sem próxima atividade"}</p></div>)}{!ls.length&&<div style={{padding:"12px 6px",textAlign:"center",fontSize:"var(--arcd-type-caption)",color:C.muted,border:`1px dashed ${C.border}`,borderRadius:6,margin:"2px 0"}}>Solte aqui</div>}</div></div>;})}</div></>;
   } else if(commercialView==="com_jornada"){
@@ -1404,7 +1405,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
     {commercialView==="com_agenda"&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:10}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
         <button onClick={()=>setCalMes(m=>m-1)} style={{background:"transparent",border:0,cursor:"pointer",color:C.muted,fontSize:"var(--arcd-type-control)",padding:"2px 10px"}}>‹</button>
-        <b style={{fontSize:"var(--arcd-type-body)",color:C.text,textTransform:"capitalize"}}>{calRef.toLocaleDateString("pt-BR",{month:"long",year:"numeric"})}</b>
+        <b style={{fontSize:"var(--arcd-type-body)",color:C.text}}>{(s=>s.charAt(0).toUpperCase()+s.slice(1))(calRef.toLocaleDateString("pt-BR",{month:"long",year:"numeric"}))}</b>
         <button onClick={()=>setCalMes(m=>m+1)} style={{background:"transparent",border:0,cursor:"pointer",color:C.muted,fontSize:"var(--arcd-type-control)",padding:"2px 10px"}}>›</button>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3,marginBottom:4}}>
@@ -1432,7 +1433,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
   } else if(commercialView==="com_contratos"){
     conteudo=<Suspense fallback={<LoadingState label="contratos"/>}><ContractWorkspace data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} pageId={view} legacyContracts={contratos} onLegacyOpen={row=>setContratoForm({...row})} onFiles={obraId=>onTab("arquivos",obraId)}/></Suspense>;
   } else if(commercialView==="com_clientes"){
-    conteudo=<><Titulo titulo="Clientes" sub="Qualificação completa para propostas, contratos e documentos" acao={<Btn onClick={()=>setClienteForm(clienteVazio())}><Ic n="plus"/> CLIENTE</Btn>}/><div style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:7}}>{clientes.map(c=>{const pend=pendenciasCliente(c),pronto=!pend.length;return <div key={c.id} style={{background:C.card,border:`1px solid ${pronto?C.green:C.border}`,borderLeft:`1px solid ${pronto?C.green:C.orange}`,borderRadius:6,padding:"10px 11px"}}><div style={{display:"flex",justifyContent:"space-between",gap:6,alignItems:"flex-start"}}><div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{c.tipoPessoa==="PJ"?(c.razaoSocial||c.nome):c.nome}</p>{c.tipoPessoa==="PJ"&&c.nomeFantasia&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{c.nomeFantasia}</p>}</div><Btn size="sm" v="ghost" onClick={()=>setClienteForm({...clienteVazio(),...c})}><Ic n="edit"/></Btn></div><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3}}>{c.tipoPessoa} · {c.documento?maskDoc(c.documento,c.tipoPessoa):"sem documento"} · {c.cidade||"-"}/{c.uf||"-"}</p><p style={{fontSize:"var(--arcd-type-label)",color:C.blue,marginTop:3}}>{c.whatsapp||c.telefone||"-"} · {c.email||"-"}</p><p style={{fontSize:"var(--arcd-type-caption)",color:pronto?C.green:C.orange,marginTop:5,fontWeight:600}}>{pronto?"CADASTRO CONTRATUAL COMPLETO":`${pend.length} pendência(s): ${pend.slice(0,3).join(", ")}${pend.length>3?"...":""}`}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.green,marginTop:5}}>{(vendasPorCliente.get(c.id)||[]).length} contrato(s) · {fmt((vendasPorCliente.get(c.id)||[]).reduce((s,v)=>s+v.valor,0))}</p></div>;})}{!clientes.length&&vazio("Nenhum cliente cadastrado.")}</div></>;
+    conteudo=<><Titulo titulo="Clientes" sub="Qualificação completa para propostas, contratos e documentos" acao={<Btn onClick={()=>setClienteForm(clienteVazio())}><Ic n="plus"/> CLIENTE</Btn>}/><div style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:7}}>{clientes.map(c=>{const pend=pendenciasCliente(c),pronto=!pend.length;return <div key={c.id} style={{background:C.card,border:`1px solid ${pronto?C.green:C.border}`,borderLeft:`1px solid ${pronto?C.green:C.orange}`,borderRadius:6,padding:"10px 11px"}}><div style={{display:"flex",justifyContent:"space-between",gap:6,alignItems:"flex-start"}}><div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{c.tipoPessoa==="PJ"?(c.razaoSocial||c.nome):c.nome}</p>{c.tipoPessoa==="PJ"&&c.nomeFantasia&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{c.nomeFantasia}</p>}</div><Btn size="sm" v="ghost" onClick={()=>setClienteForm({...clienteVazio(),...c})}><Ic n="edit"/></Btn></div><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3}}>{c.tipoPessoa} · {c.documento?maskDoc(c.documento,c.tipoPessoa):"sem documento"} · {c.cidade||"-"}/{c.uf||"-"}</p><p style={{fontSize:"var(--arcd-type-label)",color:C.blue,marginTop:3}}>{c.whatsapp||c.telefone||"-"} · {c.email||"-"}</p><p style={{fontSize:"var(--arcd-type-caption)",color:pronto?C.green:C.orange,marginTop:5,fontWeight:600}}>{pronto?"CADASTRO CONTRATUAL COMPLETO":`${contar(pend.length,"pendência","pendências")}: ${pend.slice(0,3).join(", ")}${pend.length>3?"...":""}`}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.green,marginTop:5}}>{contar((vendasPorCliente.get(c.id)||[]).length,"contrato","contratos")} · {fmt((vendasPorCliente.get(c.id)||[]).reduce((s,v)=>s+v.valor,0))}</p></div>;})}{!clientes.length&&vazio("Nenhum cliente cadastrado.")}</div></>;
   } else if(commercialView==="com_parceiros"){
     conteudo=<><Titulo titulo="Parceiros e indicações" sub="Origem, percentual de comissão e resultados" acao={<Btn onClick={()=>setParceiroForm({id:"",nome:"",tipo:"indicador",telefone:"",email:"",comissaoPct:"",observacoes:""})}><Ic n="plus"/> PARCEIRO</Btn>}/>{parceiros.map(p=><div key={p.id} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto auto",gap:8,background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:"9px 11px",marginBottom:6}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600}}>{p.nome}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{p.tipo} · {p.telefone||p.email||"-"}</p></div><b style={{color:C.green}}>{p.comissaoPct}%</b><Btn size="sm" v="ghost" onClick={()=>setParceiroForm({...p})}><Ic n="edit"/></Btn></div>)}{!parceiros.length&&vazio("Nenhum parceiro.")}</>;
   } else if(commercialView==="com_metas"){
@@ -1532,7 +1533,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
       </div>
     </Modal>}
 
-    {colunaResumo&&<Modal title={`${colunaResumo.label} · ${colunaResumo.leads.length} lead(s)`} onClose={()=>setColunaResumo(null)}>
+    {colunaResumo&&<Modal title={`${colunaResumo.label} · ${contar(colunaResumo.leads.length,"lead","leads")}`} onClose={()=>setColunaResumo(null)}>
       <div style={{display:"flex",flexDirection:"column",gap:7}}>
         <div style={{display:"flex",justifyContent:"space-between",fontSize:"var(--arcd-type-label)",color:C.muted}}>
           <span>Valor somado</span><b style={{color:C.yellowD}}>{fmt(colunaResumo.leads.reduce((s,l)=>s+(l.orcamentoEstimado||0),0))}</b>

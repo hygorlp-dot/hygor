@@ -32,7 +32,7 @@ async function enter(page,{withoutBudget=false}={}){
 test('previsão e mudança com pendências atualizam o total sem alterar o contrato',async({page})=>{
  const app=await enter(page);await app.open('Gestão financeira');await selectWorkspaceArea(page,'Áreas do financeiro','Custos por etapa');
  await expect(page.getByRole('region',{name:'Mudanças e aditivos'})).toBeVisible();
- await page.getByText('Conferir apropriação e previsão · 0 custo(s) pendente(s)',{exact:true}).click();
+ await page.getByText('Conferir apropriação e previsão · 0 custos pendentes',{exact:true}).click();
  await page.getByLabel('Custo restante para concluir (R$)',{exact:true}).fill('70000');
  await page.getByLabel('Reserva de risco adicional (R$)',{exact:true}).fill('5000');
  await page.getByRole('button',{name:'Confirmar previsão',exact:true}).click();
@@ -76,7 +76,7 @@ test('previsão e mudança com pendências atualizam o total sem alterar o contr
 
 test('previsão sem orçamento continua em Sem apropriação com aviso',async({page})=>{
  const app=await enter(page,{withoutBudget:true});await app.open('Gestão financeira');await selectWorkspaceArea(page,'Áreas do financeiro','Custos por etapa');
- await page.getByText('Conferir apropriação e previsão · 1 custo(s) pendente(s)',{exact:true}).click();
+ await page.getByText('Conferir apropriação e previsão · 1 custo pendente',{exact:true}).click();
  await page.getByLabel('Custo restante para concluir (R$)',{exact:true}).fill('100000');
  await page.getByRole('button',{name:'Confirmar previsão',exact:true}).click();
  await expect.poll(()=>app.state().obras[0].costPlanning?.version).toBe(1);
@@ -88,7 +88,7 @@ test('previsão sem orçamento continua em Sem apropriação com aviso',async({p
 
 test('possível duplicidade avisa, salva sem bloqueio e permite conferência ou correção',async({page})=>{
  const app=await enter(page);await app.open('Gestão financeira');await selectWorkspaceArea(page,'Áreas do financeiro','Custos por etapa');
- await page.getByText('Conferir apropriação e previsão · 0 custo(s) pendente(s)',{exact:true}).click();
+ await page.getByText('Conferir apropriação e previsão · 0 custos pendentes',{exact:true}).click();
  const remaining=page.getByLabel('Custo restante para concluir (R$)',{exact:true});
  await remaining.fill('70000');await page.getByLabel('Reserva de risco adicional (R$)',{exact:true}).fill('5000');
  await page.getByLabel('Premissas da previsão',{exact:true}).fill('Compras pendentes e serviços estimados');

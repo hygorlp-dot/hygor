@@ -1,3 +1,4 @@
+import { contar } from "../../design-system/copy.js";
 import {Input as FilterInput} from '../../design-system/primitives/Input.jsx';
 import {Select as FilterSelect} from '../../design-system/primitives/Select.jsx';
 import BankImportPreview from "../financeiro/BankImportPreview.jsx";
@@ -440,7 +441,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
       setConfirmandoLote(false);
     }
     setLoteProntoModal(null);
-    if (falha) showToast(`${sucesso} confirmada(s), ${falha} não confirmada(s) - revise a fila de pendentes.`, "warn");
+    if (falha) showToast(`${contar(sucesso,"confirmada","confirmadas")}, ${falha} não confirmada(s) - revise a fila de pendentes.`, "warn");
     else showToast(`${sucesso} transação(ões) confirmada(s) em lote.`);
   };
 
@@ -951,7 +952,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
     const n = (data.transacoes||[]).filter(t => t.extratoId===ext.id);
     const conc = n.filter(t => t.status==="conciliado").length;
     if (!podeArquivarExtrato(currentUser?.role)) { showToast("Somente administrador pode arquivar extratos.", "error"); return; }
-    const motivo=window.prompt(`Motivo para arquivar "${ext.arquivo}".\n\n${n.length} transação(ões), incluindo ${conc} conciliada(s), serão preservadas fora da fila ativa.`, "");
+    const motivo=window.prompt(`Motivo para arquivar "${ext.arquivo}".\n\n${n.length} transação(ões), incluindo ${contar(conc,"conciliada","conciliadas")}, serão preservadas fora da fila ativa.`, "");
     if(motivo===null)return;
     if(!String(motivo).trim()){showToast("Informe o motivo do arquivamento para manter a trilha auditável.","error");return;}
     const agora=new Date().toISOString();
@@ -998,7 +999,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
 
       <div className="reconciliation-context">
         {!modoConciliacaoRh&&accountsReview.length>0&&<section aria-label="Pendências por conta">
-          <Sel label="Conta da fila" value={accountFilter} onChange={setAccountFilter} options={[{v:"",l:"Todas as contas"},...accountsReview.map(account=>({v:account.id,l:`${account.nome} · ${account.pending} pendente(s)`}))]}/>
+          <Sel label="Conta da fila" value={accountFilter} onChange={setAccountFilter} options={[{v:"",l:"Todas as contas"},...accountsReview.map(account=>({v:account.id,l:`${account.nome} · ${contar(account.pending,"pendente","pendentes")}`}))]}/>
           <p>Última importação: {(()=>{const dates=accountsReview.filter(account=>!accountFilter||account.id===accountFilter).map(account=>account.lastImport).filter(Boolean).sort();return dates.length?new Date(dates.at(-1)).toLocaleString("pt-BR"):"Sem importação registrada";})()}</p>
         </section>}
         {filaPendente&&<section aria-label="Filas por divergência"><Sel label="Motivo da revisão" value={divergence} onChange={v=>{setDivergence(v);setLimiteVisivel(30);setSelecionadas([]);}} options={Object.entries(divergenceLabels).map(([v,l])=>({v,l:`${l} · ${divergenceCounts[v]}`}))}/></section>}
@@ -1039,7 +1040,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
         <div className="scroll-x" style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,overflow:"hidden"}}>
           <table style={{width:"100%",minWidth:580,borderCollapse:"collapse"}}><thead><tr>{["Pessoa","Obra","Previsto","Pago","Saldo"].map(label=><th key={label} style={{padding:"7px 9px",textAlign:label==="Pessoa"||label==="Obra"?"left":"right",fontSize:"var(--arcd-type-label)",color:C.muted,textTransform:"uppercase"}}>{label}</th>)}</tr></thead><tbody>{resumoQuinzena.porPessoa.length?resumoQuinzena.porPessoa.map(row=><tr key={row.pessoaId}><td style={{padding:"7px 9px",fontSize:"var(--arcd-type-table)",fontWeight:600,borderTop:`1px solid ${C.line}`}}>{row.nome}{row.pixTitular&&<small style={{display:"block",fontSize:"var(--arcd-type-caption)",color:C.muted}}>Titular PIX: {row.pixTitular}</small>}</td><td style={{padding:"7px 9px",fontSize:"var(--arcd-type-table)",color:C.muted,borderTop:`1px solid ${C.line}`}}>{(data.obras||[]).find(item=>item.id===row.obraId)?.name||"Não definida"}</td><td style={{padding:"7px 9px",fontSize:"var(--arcd-type-table)",textAlign:"right",borderTop:`1px solid ${C.line}`}}>{fmt(row.previsto)}</td><td style={{padding:"7px 9px",fontSize:"var(--arcd-type-table)",textAlign:"right",color:C.green,borderTop:`1px solid ${C.line}`}}>{fmt(row.pago)}</td><td style={{padding:"7px 9px",fontSize:"var(--arcd-type-table)",fontWeight:600,textAlign:"right",color:row.saldo?C.orange:C.green,borderTop:`1px solid ${C.line}`}}>{fmt(row.saldo)}</td></tr>):<tr><td colSpan="5" style={{padding:18,textAlign:"center",fontSize:"var(--arcd-type-table)",color:C.muted}}>Nenhum título de folha nesta quinzena.</td></tr>}</tbody></table>
         </div>
-        {(resumoQuinzena.pagamentosParciais.length||resumoQuinzena.foraCompetencia.length||resumoQuinzena.pixTitularDivergente.length)>0&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.orange,fontWeight:600}}>Atenção: {resumoQuinzena.pagamentosParciais.length} pagamento(s) parcial(is), {resumoQuinzena.foraCompetencia.length} fora da competência e {resumoQuinzena.pixTitularDivergente.length} PIX com titular divergente.</p>}
+        {(resumoQuinzena.pagamentosParciais.length||resumoQuinzena.foraCompetencia.length||resumoQuinzena.pixTitularDivergente.length)>0&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.orange,fontWeight:600}}>Atenção: {contar(resumoQuinzena.pagamentosParciais.length,"pagamento","pagamentos")} parcial(is), {resumoQuinzena.foraCompetencia.length} fora da competência e {resumoQuinzena.pixTitularDivergente.length} PIX com titular divergente.</p>}
       </div>}
 
       {aba==="extratos"&&(
@@ -1098,7 +1099,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                         <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-table)",fontWeight:600,borderBottom:`1px solid ${C.line}`}}>{e.banco||e.arquivo}<small style={{display:"block",fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:1}}>{e.arquivo}</small></td>
                         <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-table)",color:C.muted,borderBottom:`1px solid ${C.line}`}}>{(data.contasBancarias||[]).find(c=>c.id===e.contaBancariaId)?.nome||e.conta||"-"}</td>
                         <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-table)",color:C.muted,borderBottom:`1px solid ${C.line}`}}>{e.dataInicio?`${fmtDate(e.dataInicio)} a ${fmtDate(e.dataFim)}`:"-"}</td>
-                        <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-table)",fontWeight:600,textAlign:"right",borderBottom:`1px solid ${C.line}`}}>{e.qtd}{conc>0&&<small style={{display:"block",fontSize:"var(--arcd-type-caption)",color:C.green,fontWeight:600}}>{conc} conciliada(s)</small>}<small className="block">{pending} pendente(s)</small></td>
+                        <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-table)",fontWeight:600,textAlign:"right",borderBottom:`1px solid ${C.line}`}}>{e.qtd}{conc>0&&<small style={{display:"block",fontSize:"var(--arcd-type-caption)",color:C.green,fontWeight:600}}>{contar(conc,"conciliada","conciliadas")}</small>}<small className="block">{contar(pending,"pendente","pendentes")}</small></td>
                         <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-table)",color:C.muted,borderBottom:`1px solid ${C.line}`}}>{e.importadoEm?new Date(e.importadoEm).toLocaleString("pt-BR"):"-"}</td>
                         <td style={{padding:"7px 8px",borderBottom:`1px solid ${C.line}`}}><Badge color={e.status==="arquivado"?C.muted:C.green}>{e.status==="arquivado"?"Arquivado":reversed?reversed===importedRows.length?"Revertida":"Reversão parcial":"Ativo"}</Badge></td>
                         <td style={{padding:"5px 7px",textAlign:"right",borderBottom:`1px solid ${C.line}`}}>{e.status!=="arquivado"&&<Btn size="sm" v="ghost" onClick={()=>arquivarExtrato(e)}>Arquivar</Btn>}<Button variant="outline" onClick={()=>setReversalId(e.id)}>Revisar reversão</Button></td>
@@ -1247,7 +1248,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                         {tr.status === "conciliado" && tr.automacaoConciliacao && <><Badge color={C.green}>Conciliada automaticamente</Badge><p>{tr.automacaoConciliacao.contraparte?.nome}</p><details><summary>Evidências da conciliação</summary><p>{tr.automacaoConciliacao.evidencias?.join(" · ")}</p></details></>}
                         {tr.status==="conciliado"
                           ? ((tr.rateios||[]).length
-                              ? <details><summary style={{cursor:"pointer",fontWeight:600,color:C.green}}>{tr.rateios.length} rateio(s)</summary>{tr.rateios.map((r,i)=><p key={i} style={{marginTop:3}}>{allocationDestination(r)==="obra"?nomeObra(r.obraId):"Empresa"} · {findReconciliationCategory(data,{direction:movementDirection(tr),destination:allocationDestination(r),category:allocationCategory(r)})?.label||allocationCategory(r)} · {fmt(allocationValue(r))}</p>)}</details>
+                              ? <details><summary style={{cursor:"pointer",fontWeight:600,color:C.green}}>{contar(tr.rateios.length,"rateio","rateios")}</summary>{tr.rateios.map((r,i)=><p key={i} style={{marginTop:3}}>{allocationDestination(r)==="obra"?nomeObra(r.obraId):"Empresa"} · {findReconciliationCategory(data,{direction:movementDirection(tr),destination:allocationDestination(r),category:allocationCategory(r)})?.label||allocationCategory(r)} · {fmt(allocationValue(r))}</p>)}</details>
                               : (tr.vinculo?<span>{classificacaoConfirmada?.categories.length?classificacaoConfirmada.categories.map(id=>categoriasFila.find(category=>category.id===id)?.label||id).join(" · "):`Vinculada · ${tr.vinculo.tipo}`}{classificacaoConfirmada?.works.length>0&&<small style={{display:"block",marginTop:3}}>{classificacaoConfirmada.works.map(nomeObra).join(" · ")}</small>}</span>:"Conciliada"))
                           : <span title={tr.ignoradoMotivo} style={{color:C.orange}}>{tr.ignoradoMotivo||"Sem motivo registrado"}</span>}
                       </td>}
@@ -1276,7 +1277,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                 </tr>;
               })}</tbody>
             </table>
-            {filteredTransactions.length>limiteVisivel&&<button className="reconciliation-load-more" onClick={()=>setLimiteVisivel(v=>v+50)}>Mostrar mais · {filteredTransactions.length-limiteVisivel} restante(s)</button>}
+            {filteredTransactions.length>limiteVisivel&&<button className="reconciliation-load-more" onClick={()=>setLimiteVisivel(v=>v+50)}>Mostrar mais · {contar(filteredTransactions.length-limiteVisivel,"restante","restantes")}</button>}
           </div>)}
 
       {reviewTransaction&&(()=>{
@@ -1331,7 +1332,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
             </div>
             <div style={{display:"flex",gap:7}}>
               <Btn v="ghost" onClick={()=>setLoteProntoModal(null)} disabled={confirmandoLote} full>Cancelar</Btn>
-              <Btn onClick={confirmarLotePronto} disabled={confirmandoLote||!selecionados.length} loading={confirmandoLote&&"Confirmando..."} full>Confirmar {selecionados.length} selecionada(s)</Btn>
+              <Btn onClick={confirmarLotePronto} disabled={confirmandoLote||!selecionados.length} loading={confirmandoLote&&"Confirmando..."} full>Confirmar {contar(selecionados.length,"selecionada","selecionadas")}</Btn>
             </div>
           </div>
         </Modal>;
@@ -1386,7 +1387,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
             </div>
 
             {sugestoesExistentesApropriacao.length>0&&<div className="reconciliation-existing-first">
-              <strong>Há {sugestoesExistentesApropriacao.length} lançamento(s) existente(s) para revisar</strong>
+              <strong>Há {contar(sugestoesExistentesApropriacao.length,"lançamento existente","lançamentos existentes")} para revisar</strong>
               <p>Vincule a compra, folha ou recebimento já cadastrado para preservar a categoria, a competência e o custo ou receita de origem.</p>
               <div>{sugestoesExistentesApropriacao.slice(0,3).map(candidate=><Btn key={`${candidate.tipo}-${candidate.entidadeId}-${candidate.pagamentoId||""}`} size="sm" v="ghost" onClick={()=>{
                 setApropModal(null);abrirCandidato(apropModal,(candidatosPorTransacao.get(apropModal.id)||[]).indexOf(candidate));
@@ -1476,7 +1477,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                 <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:1,textTransform:"uppercase",color:C.yellowD}}>Cartão PIX · saída bancária</p>
                 <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10,marginTop:8}}>
                   <div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Quem recebeu</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,marginTop:2}}>{recebedorSelecionado?.emp.name||"Aguardando identificação"}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{recebedorSelecionado?.emp.pixHolder?`Titular PIX: ${recebedorSelecionado.emp.pixHolder}`:"Selecione apenas se o cruzamento não for inequívoco"}</p></div>
-                  <div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Obra sugerida</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,marginTop:2}}>{(data.obras||[]).find(o=>o.id===recebedorSelecionado?.emp.obra)?.name||"Definir nos detalhes"}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{recebedorSelecionado?.periodoPonto?`Ponto: ${recebedorSelecionado.periodoPonto}`:`Quinzena a conferir`} · {recebedorSelecionado?.diasTrabalhados||0} dia(s)</p></div>
+                  <div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Obra sugerida</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,marginTop:2}}>{(data.obras||[]).find(o=>o.id===recebedorSelecionado?.emp.obra)?.name||"Definir nos detalhes"}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{recebedorSelecionado?.periodoPonto?`Ponto: ${recebedorSelecionado.periodoPonto}`:`Quinzena a conferir`} · {contar(recebedorSelecionado?.diasTrabalhados||0,"dia","dias")}</p></div>
                 </div>
                 <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10,marginTop:9,paddingTop:9,borderTop:`1px solid ${C.line}`}}>
                   <div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Valor do ponto</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:rateioMaoObraPreparado&&!temDivergenciaRecebedor?C.green:C.text,marginTop:2}}>{recebedorSelecionado?fmt(recebedorSelecionado.esperado||0):"—"}</p><p style={{fontSize:"var(--arcd-type-caption)",color:temDivergenciaRecebedor?C.orange:C.muted,marginTop:2}}>{temDivergenciaRecebedor?`${fmt(Math.abs(recebedorSelecionado.divergencia))} de divergência · PIX ${fmt(alvo)}`:`Pagamento PIX ${fmt(alvo)}`}</p></div>
