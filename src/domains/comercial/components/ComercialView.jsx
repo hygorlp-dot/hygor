@@ -1257,7 +1257,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
       <div className="commercial-kpis">
         <KpiCard label="Funil ativo" value={fmtCompact(funil)} sub={`${contar(leadAtivos.length,"oportunidade","oportunidades")}`} color={C.blue} icon="trending" tab="com_funil"/>
         <KpiCard label="Receita provável" value={fmtCompact(ponderada)} sub="Valor ponderado pela probabilidade" color={C.yellowD} icon="chart" tab="com_funil"/>
-        <KpiCard label="Vendas no mês" value={vendasMes.length} sub={`${contar(fmtCompact(receitaMes),"contratado","contratados")}`} color={C.green} icon="check" tab="com_contratos"/>
+        <KpiCard label="Vendas no mês" value={vendasMes.length} sub={`${fmtCompact(receitaMes)} em contratos`} color={C.green} icon="check" tab="com_contratos"/>
         <KpiCard label="Conversão geral" value={`${conv.toFixed(1)}%`} sub={ticket?`Ticket do mês ${fmtCompact(ticket)}`:"Sem venda no mês"} color={conv>=20?C.green:C.orange} icon="target" tab="com_relatorios"/>
       </div>
 

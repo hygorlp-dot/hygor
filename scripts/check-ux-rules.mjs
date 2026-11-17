@@ -28,6 +28,8 @@ const regras = {
   "cor-fixa-em-css-de-tela": {arquivos: telas.filter(ehCssDeTela), padrao: /(?<![-\w])(?:color|background(?:-color)?|border(?:-(?:top|right|bottom|left))?(?:-color)?)\s*:[^;{}]*?(#[0-9a-fA-F]{3,8}\b|rgba?\(|\bwhite\b)/g},
   // 3.1 Plural de verdade: use contar(n, "singular", "plural").
   "plural-com-parenteses": {arquivos: telas.filter(ehCodigo), padrao: /[A-Za-zÀ-ú]\(s\)/g},
+  // 3.1 contar() recebe número, nunca texto já formatado (fmt, fmtCompact, count, toFixed): Number("10,5") é NaN.
+  "contar-com-texto-formatado": {arquivos: telas.filter(ehCodigo), padrao: /contar(?:Decimal)?\((?:fmt\w*|count|String)\(|contar(?:Decimal)?\([^,()]*\.toFixed\(/g},
   // 2.1 Formato brasileiro: percentual com toFixed sai com ponto decimal.
   "percentual-com-ponto": {arquivos: telas.filter(ehCodigo), padrao: /toFixed\(\d\)\s*\}?\s*%|toFixed\(\d\)\s*\+\s*["'`]%/g},
 };

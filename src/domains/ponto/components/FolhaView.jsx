@@ -15,7 +15,7 @@ import { DreIntegration, FlowTabs, useRememberWorkflowScope, useWorkflow } from 
 
 import { useEffect, useMemo, useState } from "react";
 import { Btn, Ic, Inp, Modal, PageHero, Sel } from "../../../legacy/ui.jsx";
-import { contar } from "../../../design-system/copy.js";
+import { contar, contarDecimal } from "../../../design-system/copy.js";
 import { C } from "../../../legacy/palette.js";
 import { XLSX, carregarXLSX } from "../../../legacy/files.js";
 import { escapeHtml, fmt, fmtDate, fmtDateFull, fullMonth, today, uid } from "../../../legacy/format.js";
@@ -1002,7 +1002,6 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
 
       {rows.map(r => {
         const v = valEfetivos(r);
-        const workedDays=(v.presentes+v.meiodia*0.5).toFixed(1).replace(".",",");
         const hasIssue=v.semRegistro>0||v.faltas>0;
         return (
         <article key={r.id} className="payroll-person" data-expanded={expandedId===r.id}>
@@ -1017,7 +1016,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
               <span className="payroll-person__chevron" aria-hidden="true"><Ic n="chevron" s={13}/></span>
               <div>
                 <p className="payroll-person__name">{r.name}</p>
-                <p className="payroll-person__work">{filterObra === "all" ? obraName(r.obra) : obraName(filterObra)} · {r.meiTotal>0&&!v.presentes&&!v.meiodia?`MEI · ${contar(r.meiDays,"dia","dias")} de contrato`:`${contar(workedDays,"dia equivalente","dias equivalentes")}`}</p>
+                <p className="payroll-person__work">{filterObra === "all" ? obraName(r.obra) : obraName(filterObra)} · {r.meiTotal>0&&!v.presentes&&!v.meiodia?`MEI · ${contar(r.meiDays,"dia","dias")} de contrato`:`${contarDecimal(v.presentes+v.meiodia*0.5,"dia equivalente","dias equivalentes")}`}</p>
               </div>
             </div>
             <div className="payroll-person__signals" aria-label="Resumo do ponto">

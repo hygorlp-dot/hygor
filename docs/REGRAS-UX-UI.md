@@ -36,7 +36,9 @@ diz como usá-los; o `DESIGN.md` guarda o histórico das decisões visuais.
 
 ## 3. Texto
 
-1. **Plural de verdade.** Use `contar(n, "singular", "plural")` de `src/design-system/copy.js`. Proibido "(s)".
+1. **Plural de verdade.** Use `contar(n, "singular", "plural")` de `src/design-system/copy.js` (inteiros) ou
+   `contarDecimal(n, ...)` (dias com meio período). Proibido "(s)". Passe sempre o **número**, nunca um texto já
+   formatado (`fmt`, `fmtCompact`, `toFixed`): `Number("10,5")` é NaN e a tela mostraria "0 dias". Dinheiro não passa por `contar`.
 2. **Caixa de frase** em títulos, rótulos e botões ("Total de custos", não "TOTAL CUSTOS" nem "Total Custos").
 3. **Palavras do canteiro e do escritório da empresa**, não de sistema. Termos já adotados pela empresa (ex.: "baseline")
    ficam; jargão técnico novo precisa de explicação curta ao lado.
@@ -79,8 +81,8 @@ diz como usá-los; o `DESIGN.md` guarda o histórico das decisões visuais.
 
 ## 8. Verificação antes do PR
 
-1. `npm run lint` inclui `scripts/check-ux-rules.mjs`, que barra aumento de cores fixas em CSS de tela, de textos "(s)"
-   e de percentuais com ponto. Se a contagem cair, atualize a linha de base com `node scripts/check-ux-rules.mjs --update`.
+1. `npm run lint` inclui `scripts/check-ux-rules.mjs`, que barra aumento de cores fixas em CSS de tela, de textos "(s)",
+   de percentuais com ponto e de `contar()` recebendo texto formatado. Se a contagem cair, atualize a linha de base com `node scripts/check-ux-rules.mjs --update`.
 2. Telas alteradas passam pela crítica do Impeccable (revisão de design + detector) nos dois temas.
    A nota não pode cair em relação à anterior; registre a nota no PR.
 3. O PR leva capturas antes e depois, nos dois temas, das telas alteradas.

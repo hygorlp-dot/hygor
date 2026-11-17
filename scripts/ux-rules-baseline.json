@@ -68,6 +68,7 @@
     "src/reports/labor-projection.js": 4,
     "src/reports/legacy-standard.js": 1
   },
+  "contar-com-texto-formatado": {},
   "percentual-com-ponto": {
     "src/components/charts/CubChart.jsx": 3,
     "src/components/charts/DreMargemChart.jsx": 2,
