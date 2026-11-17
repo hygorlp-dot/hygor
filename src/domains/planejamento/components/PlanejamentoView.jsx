@@ -56,7 +56,8 @@ import {useSyncedWorkObra} from '../../../features/workflow/work-context.js';
 const COR_A2 = { concluida:"#24A148", andamento:"#0F62FE", aIniciar:"#8D8D8D", critica:"#DA1E28", etapa:"#393939" };
 
 export default function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null, dispatchCommand=null }) {
-  const automaticSaveReady=useAutomaticSaveReady();
+  const canSavePlan=useAutomaticSaveReady();
+  const [syncingBudget,setSyncingBudget]=useState(false);
   const { isDesktop, isMobile, cols } = useBreakpoint();
   const {intent,scopes,navigate}=useWorkflow();
   const useSessionState=(key,initial)=>useWorkspaceState("plan",key,initial,obraIdFixo);
@@ -398,27 +399,25 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
     return p;
   });
 
-  // Exportacao automatica do orcamento para o planejamento. Inclui etapas
-  // novas e grava as tarefas vinculadas na mesma ordem hierarquica do orcamento,
-  // preservando datas/progresso ja ajustados pelo operador ou pela IA.
+  // Opening the plan only detects outdated budget links. Applying them is explicit.
   const syncIssue=legacyPlanSyncIssue(data,obraId,plano,orc,planejamentoOrcamento.source);
-  useEffect(() => {
-    if (!automaticSaveReady||syncIssue||!canEditPlanning(currentUser?.role)||(currentUser?.obraId&&currentUser.obraId!==obraId)||!orc || !obraId) return;
-    const ordem = ordemEtapasOrcamento(orc);
-    if (!ordem.length) return;
-    const atuais = plano.tarefas || [];
-    const vinculadas = atuais.filter(t => t.etapaId && ordem.includes(t.etapaId));
-    const avulsas = atuais.filter(t => !t.etapaId);
-    const orfas = atuais.filter(t => t.etapaId && !ordem.includes(t.etapaId));
-    const assinaturaAtual = vinculadas.map(t => t.etapaId).join("|");
-    const assinaturaOrc = ordem.join("|");
-    const mesmoOrcamento = plano.budgetId === orc.id
-      && plano.budgetVersionId === (orc.versionId||orc.id);
-    if (assinaturaAtual === assinaturaOrc && vinculadas.length === ordem.length && mesmoOrcamento) return;
+  const budgetOrder=useMemo(()=>orc?ordemEtapasOrcamento(orc):[],[orc]);
+  const currentTasks=plano.tarefas||[];
+  const linkedTasks=currentTasks.filter(task=>budgetOrder.includes(task.etapaId));
+  const needsBudgetSync=!syncIssue&&obraId&&budgetOrder.length>0&&(
+    plano.budgetId!==orc.id||plano.budgetVersionId!==(orc.versionId||orc.id)
+    ||linkedTasks.length!==budgetOrder.length
+    ||linkedTasks.some((task,index)=>task.etapaId!==budgetOrder[index])
+  );
+  const canSyncBudget=canEditPlanning(currentUser?.role)&&(!currentUser?.obraId||currentUser.obraId===obraId);
+  const syncBudget=async()=>{
+    if(!needsBudgetSync||!canSyncBudget||!canSavePlan||syncingBudget)return;
+    const avulsas=currentTasks.filter(t=>!t.etapaId);
+    const orfas=currentTasks.filter(t=>t.etapaId&&!budgetOrder.includes(t.etapaId));
 
-    const porEtapa = new Map(vinculadas.map(t => [t.etapaId, t]));
+    const porEtapa = new Map(linkedTasks.map(t => [t.etapaId, t]));
     let cursor = plano.inicio || today();
-    const sincronizadas = ordem.map(etapaId => {
+    const sincronizadas = budgetOrder.map(etapaId => {
       const existente = porEtapa.get(etapaId);
       if (existente) { cursor = existente.fim ? proximoDiaUtil(existente.fim, cal) : cursor; return existente; }
       const etapa = (orc.etapas||[]).find(e => e.id === etapaId);
@@ -438,10 +437,20 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
       // já planejado. Ela permanece visível como órfã até o operador ajustar.
       tarefas:[...sincronizadas,...orfas,...avulsas],
     };
-    const existe = (data.planos||[]).some(p=>p.obraId===obraId);
-    const planos = existe ? (data.planos||[]).map(p=>p.obraId===obraId?planoNovo:p) : [...(data.planos||[]),planoNovo];
-    update({...data,planos});
-  }, [automaticSaveReady,syncIssue,currentUser?.role,currentUser?.obraId,orc, obraId, plano, cal, data, update]);
+    setSyncingBudget(true);
+    try{
+      const saved=await update(current=>{
+        const plans=current.planos||[];
+        const next=plans.some(p=>p.obraId===obraId)?plans.map(p=>p.obraId===obraId?planoNovo:p):[...plans,planoNovo];
+        return {...current,planos:next};
+      });
+      if(saved?.ok)showToast("Cronograma atualizado com as etapas do orçamento.");
+    }catch(error){
+      showToast(error.message||"Não foi possível atualizar o cronograma.","error");
+    }finally{
+      setSyncingBudget(false);
+    }
+  };
   // Pede a IA orientacao sobre datas e paralelismos, sem autorizar mudanca na ordem.
   const [iaCarregando, setIaCarregando] = useState(false);
   const pedirOrientacaoIA = async () => {
@@ -907,6 +916,14 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
         </div>
 </TaskDisclosure>
       </div>
+      {needsBudgetSync&&<Alert variant="warning">
+        <AlertDescription>
+          As etapas do orçamento ainda precisam ser alinhadas ao cronograma. As tarefas existentes, suas datas e o progresso serão preservados.
+        </AlertDescription>
+        {canSyncBudget&&<Button variant="outline" onClick={syncBudget} disabled={!canSavePlan||syncingBudget}>
+          {syncingBudget?"Atualizando cronograma…":"Atualizar cronograma pelo orçamento"}
+        </Button>}
+      </Alert>}
       {orc&&planejamentoOrcamento.source!=="baseline"&&<div style={{
         padding:"var(--arcd-space-2) var(--arcd-space-3)",borderRadius:8,border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)",
         background:"color-mix(in srgb, var(--arcd-warning-text) 5%, transparent)",color:"var(--arcd-text-primary)",fontSize:"var(--arcd-type-label)",lineHeight:"var(--arcd-line-height-normal)",

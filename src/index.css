@@ -4150,7 +4150,7 @@ canvas {
   .arcd-mobile-nav .mobile-primary-nav > button {
     min-width: 0;
     min-height: 52px;
-    padding: 5px 3px 3px !important;
+    padding: 5px var(--arcd-space-0) 3px !important;
     scroll-snap-align: start;
     font-size:var(--arcd-type-caption) !important;
     letter-spacing: .15px !important;

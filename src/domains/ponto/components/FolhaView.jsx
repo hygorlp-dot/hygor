@@ -2,6 +2,10 @@ import {openReportPreview} from '../../../reports/report-preview.js';
 import {ChoiceControl} from '../../../design-system/primitives/ChoiceControl.jsx';
 import {SelectControl} from '../../../design-system/primitives/Select.jsx';
 import {RecordAction} from '../../../design-system/primitives/RecordAction.jsx';
+import {TaskDisclosure} from '../../../design-system/patterns/TaskDisclosure.jsx';
+import {RecordListPagination} from '../../../design-system/data/RecordListPagination.jsx';
+import {useRecordPage} from '../../../design-system/data/useRecordPage.js';
+import {useBreakpoint} from '../../../hooks/useBreakpoint.js';
 import { sessionContext } from "../../../lib/session-context.js";
 import { DreIntegration, FlowTabs, useRememberWorkflowScope, useWorkflow } from "../../../features/workflow/WorkflowNavigation.jsx";
 // ===================================================================
@@ -57,6 +61,8 @@ import {useWorkspaceState} from '../../../features/workflow/workspace-session.js
 import {useHelpTopic} from '../../../features/help/HelpContext.jsx';
 
 function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
+  const {isDesktop}=useBreakpoint();
+  const [payrollSearch,setPayrollSearch]=useWorkspaceState('folha','peopleSearch','');
   const {scopes,navigate}=useWorkflow();
   const savedScope=scopes.folha;
   const [entryScope]=useState(()=>readPayrollHandoff());
@@ -328,6 +334,9 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
     .filter(r => r.presentes > 0 || r.meiodia > 0 || r.faltas > 0 || r.feriadosPagos > 0 || r.feriadosPerdidos > 0 || r.advances > 0 || r.gross > 0)
     .sort((a, b) => a.name.localeCompare(b.name)),
     [data.employees, data.attendance, data.changeLog, data.obras, data.advances, data.config?.unionDues, days, holidaysInPeriod, filterObra, q,laborGroup]);
+  const payrollQuery=payrollSearch.trim().toLocaleLowerCase('pt-BR');
+  const payrollPage=useRecordPage('folha',rows.filter(row=>row.name.toLocaleLowerCase('pt-BR').includes(payrollQuery)),
+    JSON.stringify([year,month,q,filterObra,laborGroup,payrollQuery]));
 
   // Valores EFETIVOS de uma linha conforme o filtro de obra. Com "all", usa os
   // totais do funcionario. Com uma obra selecionada, usa apenas a parcela
@@ -882,6 +891,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
         ]}
         actions={<>{canReview&&<Btn v="secondary" onClick={()=>changePayrollView('readiness')}>Organizar pendências do RH</Btn>}{pendenciasRelatorio.length>0&&<Btn v="warning" onClick={()=>onTab?.("ponto_geral")}><Ic n="alert"/> Revisar ponto</Btn>}</>}
       />
+      <TaskDisclosure enabled={!isDesktop} summary={`Competência e escopo · ${periodLabel} · ${reportScope}`}>
       <section className="payroll-controls" aria-label="Competência e escopo da folha">
         <div className="payroll-section-heading">
           <div>
@@ -897,6 +907,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
           <Sel label="Obra" value={filterObra} onChange={setFilterObra} options={[{ v: "all", l: "Todas as obras" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]} />
         </div>
       </section>
+      </TaskDisclosure>
 
       </>}
 
@@ -957,6 +968,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
 
 
 
+      <TaskDisclosure enabled={!isDesktop} summary="Composição do pagamento">
       <section className="payroll-summary-strip" aria-label="Composição do pagamento">
         <div><span>Dias + horas extras</span><strong>{fmt(T.gross-T.holidayPay)}</strong></div>
         <div><span>Feriados</span><strong>{fmt(T.holidayPay)}</strong><small>{T.feriadosPagos} pago(s) · {T.feriadosPerdidos} perdido(s)</small></div>
@@ -965,6 +977,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
         <div><span>Sindicato</span><strong data-tone={T.unionDue>0?"danger":"neutral"}>{T.unionDue>0?`− ${fmt(T.unionDue)}`:fmt(0)}</strong><small>{filterObra==="all"?"A recolher pela construtora":"Desconto rateado nesta obra"}</small></div>
         <div className="payroll-summary-strip__net"><span>Líquido a pagar</span><strong>{fmt(T.net)}</strong><small>Valor final dos pagamentos aos funcionários</small></div>
       </section>
+      </TaskDisclosure>
 
 
 
@@ -974,6 +987,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
         <p>Abra cada funcionário abaixo para conferir a composição. Gerar o relatório não registra um pagamento.</p>
         {pendenciasRelatorio.length>0&&<Btn v="ghost" onClick={()=>onTab?.("ponto_geral")}>Abrir gestão do ponto</Btn>}
       </section>
+      <TaskDisclosure enabled={!isDesktop} summary={closedTitles.length?"Quinzena fechada":"Fechamento da quinzena"}>
         <section className="payroll-checklist payroll-closing" aria-label="Fechamento da quinzena">
           <p>Fechamento da empresa (Todos). Inclui os dois grupos; exige Todos e Todas as obras.</p>
         {closedTitles.length?<>
@@ -989,6 +1003,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
           {canManageClosing&&<Btn v="primary" disabled={closingBlockers.length>0||!rows.some(r=>r.net>0)} onClick={()=>setClosingModal("close")}><Ic n="check"/> Fechar quinzena</Btn>}
         </>}
       </section>
+      </TaskDisclosure>
       <div className="payroll-list-heading">
         <div><h3>Funcionários da quinzena</h3><p>Abra uma linha para conferir composição, obras e espelho diário.</p></div>
         <span>{rows.length} registro(s)</span>
@@ -996,7 +1011,11 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
 
       {rows.length === 0 && <div className="payroll-empty"><Ic n="users" s={22}/><strong>Nenhuma movimentação nesta quinzena</strong><p>Revise a competência ou abra a gestão do ponto para lançar as presenças.</p><Btn v="ghost" onClick={()=>onTab?.("ponto_geral")}>Abrir gestão do ponto</Btn></div>}
 
-      {rows.map(r => {
+      {!isDesktop&&rows.length>0&&<div className="grid gap-2">
+        <Inp label="Buscar funcionário na folha" value={payrollSearch} onChange={setPayrollSearch}/>
+        <RecordListPagination pagination={payrollPage} label="funcionários da folha"/>
+      </div>}
+      {(isDesktop?rows:payrollPage.rows).map(r => {
         const v = valEfetivos(r);
         const workedDays=(v.presentes+v.meiodia*0.5).toFixed(1).replace(".",",");
         const hasIssue=v.semRegistro>0||v.faltas>0;

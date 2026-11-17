@@ -358,12 +358,13 @@
 .app-save-status-dot{width:.5rem;height:.5rem;border-radius:50%;flex-shrink:0;background:var(--save-status-color)}
 .app-save-status[data-state="saving"] .app-save-status-dot{box-shadow:0 0 0 .25rem color-mix(in srgb,var(--save-status-color) 15%,transparent)}
 .app-save-status-label{font-size:var(--arcd-type-label)}
+.workspace-mobile-navigation{flex:1 0 100%;min-width:0}
+.workspace-mobile-navigation>.workspace-module-select{width:100%;min-height:var(--arcd-touch-target-min)}
 body.no-scroll .app-header-chat-slot{display:none}
 @media screen and (max-width:767px){
  .app-header-chat-slot{display:flex;align-items:center}
  .arcd-topbar{--arcd-header-actions-gap:6px}
  .arcd-topbar .app-header-context{min-width:0;flex:1}
- .arcd-topbar .workspace-module-select{min-width:0;flex:1;max-width:100%}
  .arcd-main[data-workspace="fin"] details>summary,
  .arcd-main[data-workspace="cmp"] details>summary{min-height:44px;align-content:center}
 }

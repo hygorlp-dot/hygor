@@ -4,6 +4,7 @@ import {dailyProductionReportLines} from '../production-report.js';
 import {DailyProductionFields} from './DailyProductionFields.jsx';
 import {dailyWorkforce,productionBudget,suggestedBudgetItem,validateProduction} from '../../diario-obra/production.js';
 import {FilePicker} from '../../../design-system/patterns/FilePicker.jsx';
+import {TaskDisclosure} from '../../../design-system/patterns/TaskDisclosure.jsx';
 import {Button as StandardButton} from '../../../components/ui/button.jsx';
 import {TextareaControl} from '../../../design-system/primitives/Textarea.jsx';
 import {SelectControl} from '../../../design-system/primitives/Select.jsx';
@@ -42,7 +43,7 @@ const CLIMA_OPC = [
 ];
 
 export default function DiarioObra({ data, showToast, currentUser, obraIdFixo="", dispatchCommand=null }) {
-  const { cols } = useBreakpoint();
+  const { cols, isDesktop } = useBreakpoint();
 
   const obras = useMemo(() => (data.obras || []).filter(o => o.status !== "done"), [data.obras]);
   const [obraId, setObraId] = useState(()=>obraIdFixo||(obras.some(o=>o.id===obraContextoSalvo())?obraContextoSalvo():(obras[0]?.id||"")));
@@ -415,6 +416,8 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
   }
 
   if (modoRdo === "lista") {
+    const activeFilters=[inicioRdo,fimRdo,filtroObraRdo!=="all",filtroStatusRdo!=="all",filtroClimaRdo!=="all"].filter(Boolean).length;
+    const search=<Inp value={buscaRdo} onChange={setBuscaRdo} label="Pesquisar" placeholder="Código, obra ou descrição"/>;
     return <div className="anim" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
       <PageHero
         eyebrow="Engenharia de campo"
@@ -422,14 +425,17 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
         description={contar((data.rdos||[]).length,"relatório registrado","relatórios registrados")}
         actions={<Btn onClick={novoRdo}><Ic n="plus"/> Novo relatório</Btn>}
       />
+      {!isDesktop&&search}
+      <TaskDisclosure enabled={!isDesktop} summary={activeFilters?`Filtros · ${contar(activeFilters,"ativo","ativos")}`:"Filtros"}>
       <div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:"var(--arcd-space-2)",background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:8,padding:"var(--arcd-space-2)"}}>
         <Inp value={inicioRdo} onChange={setInicioRdo} type="date" label="Data inicial"/>
         <Inp value={fimRdo} onChange={setFimRdo} type="date" label="Data final"/>
         <Sel value={filtroObraRdo} onChange={setFiltroObraRdo} label="Obra" options={[{v:"all",l:"Todas"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
         <Sel value={filtroStatusRdo} onChange={setFiltroStatusRdo} label="Status" options={[{v:"all",l:"Todos"},{v:"preparacao",l:"Em preparação"},{v:"concluido",l:"Concluído"},{v:"cancelado",l:"Cancelado"}]}/>
         <Sel value={filtroClimaRdo} onChange={setFiltroClimaRdo} label="Clima" options={[{v:"all",l:"Todos"},...CLIMA_OPC.map(o=>({v:o.v,l:o.l}))]}/>
-        <Inp value={buscaRdo} onChange={setBuscaRdo} label="Pesquisar" placeholder="Código, obra ou descrição"/>
+        {isDesktop&&search}
       </div>
+      </TaskDisclosure>
       <div style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:"var(--arcd-space-2)"}}>
         {rdosFiltrados.map(item=>{const obra=obraPorIdRdo.get(item.obraId);const statusLabel=item.status==="concluido"?"Concluído":item.status==="cancelado"?"Cancelado":"Em preparação";const statusColor=item.status==="concluido"?C.green:item.status==="cancelado"?C.red:C.orange;return <article key={item.id} className="rdo-history-card" data-status={item.status||"preparacao"}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-2)"}}><div><b style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)"}}>RDO-{String(item.codigo||0).padStart(3,"0")} · {fmtDate(item.data)}</b><p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{obra?.name||"Obra removida"}</p></div><Badge color={statusColor}>{statusLabel}</Badge></div>

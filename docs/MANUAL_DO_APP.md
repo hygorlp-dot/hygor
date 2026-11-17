@@ -446,7 +446,7 @@ Escolha o grupo, a competência e a obra. A aba Administrativo inclui engenheiro
 ### Como fazer
 
 1. Escolha Pessoal de obra ou Administrativo no início da tela.
-2. Confira a competência, o ciclo e a obra. Na Folha da quinzena, totais, pendências e relatórios respeitam o grupo.
+2. Confira a competência, o ciclo e a obra. No celular, abra Competência e escopo para alterá-los e use Buscar funcionário na folha para localizar uma pessoa. Na Folha da quinzena, totais, pendências e relatórios respeitam o grupo.
 3. Em Holerites CLT, escolha uma pessoa do grupo. Confirme o descarte se houver edição não salva antes de trocar de grupo.
 4. Para fechar ou reabrir a quinzena da empresa inteira, escolha Todos e Todas as obras e revise as pendências.
 
@@ -471,7 +471,7 @@ Escolha o grupo, a competência e a obra. A aba Administrativo inclui engenheiro
 ### Como fazer
 
 1. Escolha Pessoal de obra ou Administrativo no início da tela.
-2. Confira a competência, o ciclo e a obra. Na Folha da quinzena, totais, pendências e relatórios respeitam o grupo.
+2. Confira a competência, o ciclo e a obra. No celular, abra Competência e escopo para alterá-los e use Buscar funcionário na folha para localizar uma pessoa. Na Folha da quinzena, totais, pendências e relatórios respeitam o grupo.
 3. Em Holerites CLT, escolha uma pessoa do grupo. Confirme o descarte se houver edição não salva antes de trocar de grupo.
 4. Para fechar ou reabrir a quinzena da empresa inteira, escolha Todos e Todas as obras e revise as pendências.
 
@@ -625,9 +625,10 @@ Tenha o nome, o cliente e os dados contratuais da obra.
 1. Pesquise a obra na lista ou use Nova obra quando tiver permissão.
 2. No cadastro, preencha os dados solicitados, revise e salve. Informe datas que existam no calendário.
 3. Abra a obra para acessar orçamento, planejamento, equipe e demais áreas.
-4. No contrato por administração, escolha separadamente Equipamentos / locação e Engenharia de campo para definir se esses custos recebem a taxa. Para excluir engenharia, selecione a Categoria de custo da engenharia de campo já usada nos lançamentos. Não há vínculo por nome ou descrição. Revise a base antes de salvar.
-5. Na lista, confira o intervalo de resultados. Anterior e Próxima mostram até 12 registros por página; a busca considera toda a lista disponível, não só a página atual. Alterar o recorte volta à primeira página. Totais e relatórios continuam usando o conjunto completo.
-6. No celular, Indicadores da área reúne os totais da carteira sem afastar a busca. Abra para consultar; os filtros e a paginação ficam antes dos cartões.
+4. Para organizar pastas no OneDrive, o administrador abre Arquivos e pastas e usa Preparar pastas quando a integração estiver conectada. Abrir a Central de obras só consulta os dados.
+5. No contrato por administração, escolha separadamente Equipamentos / locação e Engenharia de campo para definir se esses custos recebem a taxa. Para excluir engenharia, selecione a Categoria de custo da engenharia de campo já usada nos lançamentos. Não há vínculo por nome ou descrição. Revise a base antes de salvar.
+6. Na lista, confira o intervalo de resultados. Anterior e Próxima mostram até 12 registros por página; a busca considera toda a lista disponível, não só a página atual. Alterar o recorte volta à primeira página. Totais e relatórios continuam usando o conjunto completo.
+7. No celular, Indicadores da área reúne os totais da carteira sem afastar a busca. Abra para consultar; os filtros e a paginação ficam antes dos cartões.
 
 ### Como conferir se deu certo
 
@@ -699,9 +700,9 @@ Confirme a obra e o orçamento usado no planejamento.
 
 ### Como fazer
 
-1. Ao abrir, aguarde a leitura das edições protegidas e a confirmação de salvamento. O alinhamento de um plano antigo com o orçamento só começa depois dessa conferência, com permissão para editar e sem outra gravação pendente.
+1. Confira a obra e o cronograma. Se as etapas estiverem pendentes, use Atualizar cronograma pelo orçamento. A abertura da tela só consulta o plano. A ação exige permissão de edição e disponibilidade para salvar.
 2. Se aparecer Resolver salvamento, confira a edição protegida antes de continuar. Após falha de armazenamento, use Verificar armazenamento na recuperação; após conflito, consulte a versão atual e faça a escolha indicada. A abertura da tela não deve reenviar uma edição recusada.
-3. Selecione as atividades e revise os vínculos com o orçamento. Se aparecer Sincronização automática pausada, confira com o administrador os planos, as tarefas e as identificações das versões. Não apague uma tarefa nem escolha um orçamento só pela semelhança do nome. Enquanto houver ambiguidade, a tela permite escolher outra obra e ler a orientação, sem editar o cronograma.
+3. Selecione as atividades e revise os vínculos com o orçamento. Se aparecer Vínculos do cronograma exigem conferência, confira com o administrador os planos, as tarefas e as identificações das versões. Não apague uma tarefa nem escolha um orçamento só pela semelhança do nome. Enquanto houver ambiguidade, a tela permite escolher outra obra e ler a orientação, sem editar o cronograma.
 4. Defina datas e duração no cronograma.
 5. Acompanhe o realizado e compare com a linha de base, quando houver.
 6. Para aprovação e versões preservadas, abra Linha de base aprovada e SPI. Prepare uma proposta, confira os itens e calendário e solicite aprovação ao administrador ou à diretoria. A Ajuda passa a mostrar o guia específico enquanto essa área estiver aberta. Fotografias legadas de datas não calculam SPI.
@@ -782,14 +783,15 @@ O engenheiro deve conferir a obra, a data, o planejamento, o orçamento de contr
 
 ### Como fazer
 
-1. Abra Novo relatório ou o diário em preparação.
-2. Leia as atividades previstas no planejamento e use Levantar para abrir a atividade, ou + Serviço para outra atividade.
-3. Selecione o serviço. Quando houver um único item na etapa, o vínculo orçamentário e a unidade vêm preenchidos. Caso contrário, escolha Item do orçamento da atividade uma vez.
-4. Use Vincular equipe presente do ponto e confira quem realmente executou. Registre Quantidade executada hoje, inclusive zero se não houve produção aceita. O acumulado anterior revisado sugere o novo percentual; confira o Progresso acumulado.
-5. Horas do ponto vêm dos horários completos, com intervalo descontado. Se a pessoa participou de várias atividades, distribua Horas nesta atividade sem superar sua jornada. Horários pendentes devem ser resolvidos no ponto.
-6. Salve o serviço e confira a confirmação do servidor. Complete o relato e o clima de manhã e tarde; o clima noturno é opcional. Faça a revisão técnica e use Concluir relatório. Apenas o engenheiro pode revisar e concluir.
-7. Após concluir, use Consultar no histórico para conferir Produção do dia, Unidade registrada, Item do orçamento, Progresso acumulado e horas de cada pessoa. PDF abre a impressão com os mesmos dados. Horas de atividade única identificam o ponto consultado e a data; divisões explícitas aparecem como apropriação registrada. Registros antigos mostram Não informado quando não possuem o dado.
-8. Em Previsões gerenciais, os dados confirmados alimentam automaticamente saldo a executar, produtividade e dimensionamento.
+1. Pesquise por código, obra ou descrição. No celular, toque em Filtros para ajustar datas, obra, status e clima.
+2. Abra Novo relatório ou o diário em preparação.
+3. Leia as atividades previstas no planejamento e use Levantar para abrir a atividade, ou + Serviço para outra atividade.
+4. Selecione o serviço. Quando houver um único item na etapa, o vínculo orçamentário e a unidade vêm preenchidos. Caso contrário, escolha Item do orçamento da atividade uma vez.
+5. Use Vincular equipe presente do ponto e confira quem realmente executou. Registre Quantidade executada hoje, inclusive zero se não houve produção aceita. O acumulado anterior revisado sugere o novo percentual; confira o Progresso acumulado.
+6. Horas do ponto vêm dos horários completos, com intervalo descontado. Se a pessoa participou de várias atividades, distribua Horas nesta atividade sem superar sua jornada. Horários pendentes devem ser resolvidos no ponto.
+7. Salve o serviço e confira a confirmação do servidor. Complete o relato e o clima de manhã e tarde; o clima noturno é opcional. Faça a revisão técnica e use Concluir relatório. Apenas o engenheiro pode revisar e concluir.
+8. Após concluir, use Consultar no histórico para conferir Produção do dia, Unidade registrada, Item do orçamento, Progresso acumulado e horas de cada pessoa. PDF abre a impressão com os mesmos dados. Horas de atividade única identificam o ponto consultado e a data; divisões explícitas aparecem como apropriação registrada. Registros antigos mostram Não informado quando não possuem o dado.
+9. Em Previsões gerenciais, os dados confirmados alimentam automaticamente saldo a executar, produtividade e dimensionamento.
 
 ### Como conferir se deu certo
 
@@ -1446,8 +1448,8 @@ Escolha Pessoal de obra, Administrativo ou Todos e selecione a competência, ist
 
 1. Para RH e administradores, Organizar pendências do RH reúne cadastro, ponto, holerite e provisões.
 2. Confira funcionários, ponto e informações que alimentam a folha.
-3. Revise proventos, descontos e o valor líquido de cada pessoa.
-4. Use a ação de fechamento ou emissão disponível após a revisão.
+3. No celular, abra Competência e escopo para trocar o período ou a obra. Use Buscar funcionário na folha e Próxima para localizar pessoas sem alterar os totais.
+4. Abra Composição do pagamento para revisar parcelas e descontos. Abra Fechamento da quinzena para consultar a situação ou fechar após a revisão.
 
 ### Como conferir se deu certo
 
@@ -1547,8 +1549,8 @@ Selecione a obra e a competência desejada.
 
 ### Como fazer
 
-1. Leia o resultado e os grupos de valores.
-2. Abra o detalhamento para conferir os lançamentos de origem.
+1. No celular, escolha Visão do DRE e abra Período de análise para mudar ano, mês ou apuração.
+2. No Resumo por obra, pesquise ou toque no nome da obra para abrir o recorte. Abra Demonstrativo da obra para ler as linhas detalhadas, ou toque em um indicador para conferir os movimentos de origem.
 3. Compare com as medições e demais registros da mesma obra e período.
 4. Na lista, confira o intervalo de resultados. Anterior e Próxima mostram até 12 registros por página; a busca considera toda a lista disponível, não só a página atual. Alterar o recorte volta à primeira página. Totais e relatórios continuam usando o conjunto completo.
 5. Em Resumo por obra, use Pesquisar obra no resumo do DRE. A busca e a página não mudam os indicadores consolidados nem o relatório exportado. Gráficos do consolidado reúne as visualizações adicionais; a consulta por obra continua nos filtros do próprio DRE.
@@ -4155,7 +4157,7 @@ No computador, Consultas e cadastros em Compras e Mais áreas no Financeiro abre
 
 ### Acessar outros módulos no celular
 
-Use Mais, na barra inferior, para abrir Mais módulos. Escolha o módulo desejado. No celular, Mais também mostra a conta e Sair do sistema. Fechar menu ou Escape retorna à tela atual sem trocar a área de trabalho. A recuperação protege formulários e os atalhos de navegação continuam disponíveis.
+Use Mais, na barra inferior, para abrir Mais módulos. Escolha o módulo desejado. O seletor abaixo dos botões do cabeçalho mostra o nome da tela e permite trocar de área no mesmo módulo. No celular, Mais também mostra a conta e Sair do sistema. Fechar menu ou Escape retorna à tela atual sem trocar a área de trabalho. A recuperação protege formulários e os atalhos de navegação continuam disponíveis.
 
 ### Usar os filtros
 

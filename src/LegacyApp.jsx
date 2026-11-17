@@ -3038,6 +3038,7 @@ function DRE({data,showToast,currentUser=null,obraIdFixo="",dispatchCommand=null
 
 function DRELegado({ data, showToast, currentUser=null, obraIdFixo="", dispatchCommand=null }) {
   const {isDesktop}=useBreakpoint();
+  const dreControls=useRef(null);
   const {intent}=useWorkflow();
   const useSessionState=(key,initial)=>useWorkspaceState("dre",key,initial,obraIdFixo);
   useWorkspaceScroll("dre",obraIdFixo);
@@ -3503,6 +3504,12 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
     setView(proximaVisao);
     if (proximaVisao === "historico") setPeriodoDRE("mes");
   };
+  const dreViews=[
+    ["consolidado","Consolidado","Visão geral de todas as obras"],
+    ["obra","Por obra","Detalhamento individual"],
+    ["historico","Evolução mensal","Comparativo dos últimos meses"],
+  ];
+  const dreWorkSelector=<Sel label="Obra em análise" value={selObra} onChange={setSelObra} options={data.obras.map(o=>({v:o.id,l:o.name}))}/>;
 
   return (
     <div className="anim dre-page" style={{display:"flex",flexDirection:"column",gap:14}}>
@@ -3514,7 +3521,10 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
       />
       <ScopeNote title="Recorte deste DRE">{view==='obra'?`Obra ${data.obras.find(o=>o.id===selObra)?.name||'não disponível'}`:'Consolidado do seu acesso'} · {view==='historico'?`Evolução mensal até ${fullMonth(month)} ${year}`:`${fullMonth(month)} ${year} · ${periodoDRE==='mes'?'mês completo':periodoDRE==='q1'?'1ª quinzena (06–20)':'2ª quinzena (21–05)'}`}. Os filtros deste demonstrativo definem a consulta; Obra em foco é preservada para as telas operacionais.</ScopeNote>
 
-      <section className="dre-toolbar" aria-label="Filtros e visualização do DRE">
+      <section ref={dreControls} className="dre-toolbar" aria-label="Filtros e visualização do DRE">
+        {!isDesktop&&!obraIdFixo&&<Sel label="Visão do DRE" value={view} onChange={mudarVisaoDRE} options={dreViews.map(([v,l])=>({v,l}))}/>}
+        {!isDesktop&&!obraIdFixo&&view==="obra"&&dreWorkSelector}
+        <TaskDisclosure enabled={!isDesktop} summary={`Período de análise · ${period}`}>
         <div className="dre-toolbar-heading">
           <div>
             <p>Período de análise</p>
@@ -3539,12 +3549,8 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
             ?"mês civil. Inclui partes de três ciclos de folha; não deve ser comparado diretamente com uma única quinzena."
             :`mesmos dias da Folha de Pagamento: ${fmtDate(dreObra.per0||dre.per0)} a ${fmtDate(dreObra.perF||dre.perF)}.`}</p>
         </div>
-
-        {!obraIdFixo&&<TabRow equal tabs={[
-          ["consolidado","Consolidado","Visão geral de todas as obras"],
-          ["obra","Por obra","Detalhamento individual"],
-          ["historico","Evolução mensal","Comparativo dos últimos meses"],
-        ]} active={view} onChange={mudarVisaoDRE}/>}
+        </TaskDisclosure>
+        {isDesktop&&!obraIdFixo&&<TabRow equal tabs={dreViews} active={view} onChange={mudarVisaoDRE}/>}
       </section>
 
       {/* KPI cards sempre visíveis */}
@@ -3610,16 +3616,27 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
           <Inp label="Pesquisar obra no resumo do DRE" value={dreWorkSearch} onChange={setDreWorkSearch}/>
           <ScopeNote title="Resumo por obra">A busca e a paginação não alteram os totais consolidados nem o relatório exportado.</ScopeNote>
           <RecordListPagination pagination={dreWorksPage} label="obras no DRE"/>
-          {dreWorksPage.rows.map(o=>renderObraDRE(o,true))}
+          {dreWorksPage.rows.map(o=>isDesktop?renderObraDRE(o,true):o.obra&&
+            <RecordAction key={o.obra.id} className="w-full" aria-label={`Abrir DRE de ${o.obra.name}`} onClick={()=>{
+              setSelObra(o.obra.id);mudarVisaoDRE("obra");
+              requestAnimationFrame(()=>dreControls.current?.querySelector("select")?.focus());
+            }}>
+              <span className="grid gap-1">
+                <strong>{o.obra.name}</strong>
+                <span>Lucro bruto {fmt(o.lucroBruto)} · Margem {o.margemBruta.toFixed(1)}%</span>
+              </span>
+            </RecordAction>)}
         </div>
       )}
 
       {/*  VIEW: POR OBRA  */}
       {view==="obra"&&(
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          {!obraIdFixo&&<div className="dre-work-selector">
-            <Sel label="Obra em análise" value={selObra} onChange={setSelObra} options={data.obras.map(o=>({v:o.id,l:o.name}))}/>
+          {isDesktop&&!obraIdFixo&&<div className="dre-work-selector">
+            {dreWorkSelector}
           </div>}
+          {!isDesktop&&<TaskDisclosure summary="Demonstrativo da obra">{renderObraDRE(dreObra,false)}</TaskDisclosure>}
+          <TaskDisclosure enabled={!isDesktop} summary="Avaliação do CFO">
           <section className="dre-ai-full-report" style={{marginTop:0}}>
             <header>
               <div><p>Gemini · direção financeira</p><h3>Avaliação do CFO</h3></div>
@@ -3643,7 +3660,8 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
               {(avaliacaoCFOObra.dadosFaltantes||[]).length>0&&<><p className="dre-ai-report-label">Dados necessários para uma decisão mais precisa</p><ul>{avaliacaoCFOObra.dadosFaltantes.map((x,i)=><li key={i}>{x}</li>)}</ul></>}
             </>}
           </section>
-          {renderObraDRE(dreObra,false)}
+          </TaskDisclosure>
+          {isDesktop&&renderObraDRE(dreObra,false)}
         </div>
       )}
 
@@ -4745,7 +4763,6 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
   const [reviewingProject,setReviewingProject]=useState(false);
   const [undoMove,setUndoMove]=useState(null);
   const [expandedAlerts,setExpandedAlerts]=useState(new Set());
-  const syncPastasIniciado=useRef(false);
   const ehAdmin=currentUser?.role==="admin";
   const engenheiros=(data.usuarios||[]).filter(u=>u.active!==false&&u.role==="engenheiro");
   const clientes=data.comercial?.clientes||[];
@@ -4771,10 +4788,10 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
     if(!ehAdmin){setOneDriveStatus("restricted");return;}
     statusOneDrive().then(r=>setOneDriveStatus(r.ok?"connected":"disconnected"));
   },[ehAdmin]);
-  const sincronizarPastas=useCallback(async(forcar=false)=>{
+  const sincronizarPastas=useCallback(async()=>{
     if(!ehAdmin||oneDriveStatus!=="connected"||sincronizandoPastas)return;
-    const candidatas=(data.obras||[]).filter(o=>o.name&&(forcar||Number(o.oneDriveStructureVersion||0)<2));
-    if(!candidatas.length){if(forcar)showToast("Todas as obras já estão com a estrutura documental preparada.");return;}
+    const candidatas=(data.obras||[]).filter(o=>o.name);
+    if(!candidatas.length){showToast("Nenhuma obra disponível para preparar pastas.");return;}
     setSincronizandoPastas(true);
     try{
       const resp=await sincronizarEstruturasOneDrive(candidatas.map(o=>({id:o.id,name:o.name,driveId:o.oneDriveDriveId||"",folderId:o.oneDriveFolderId||""})));
@@ -4782,12 +4799,15 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
       if(!resultados.length)throw new Error(resp.error||"O OneDrive não retornou a estrutura das obras.");
       const porId=new Map(resultados.map(r=>[r.id,r]));
       const agora=new Date().toISOString();
-      const obras=(data.obras||[]).map(o=>{
+      const aplicarPastas=o=>{
         const r=porId.get(o.id);if(!r?.ok||!r.workspace)return o;
         const completa=Number(r.migracao?.conflitos||0)===0;
         return {...o,oneDriveDriveId:r.workspace.driveId||o.oneDriveDriveId,oneDriveFolderId:r.workspace.folderId||o.oneDriveFolderId,oneDriveFolders:r.workspace.folders||o.oneDriveFolders,oneDriveUrl:r.workspace.webUrl||o.oneDriveUrl,oneDriveStructureVersion:completa?2:1,oneDriveStructureSyncedAt:agora};
-      });
-      update({...data,obras});
+      };
+      if(resultados.some(r=>r.ok&&r.workspace)){
+        const saved=await update(current=>({...current,obras:(current.obras||[]).map(aplicarPastas)}));
+        if(!saved?.ok)throw new Error("As pastas foram processadas no OneDrive. Confira o salvamento para registrar os vínculos na central.");
+      }
       const preparadas=resultados.filter(r=>r.ok).length;
       const movidos=resultados.reduce((s,r)=>s+Number(r.migracao?.movidos||0),0);
       const conflitos=resultados.reduce((s,r)=>s+Number(r.migracao?.conflitos||0),0);
@@ -4797,12 +4817,6 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
     }catch(e){showToast(e.message||"Não foi possível preparar as pastas das obras.","error");}
     finally{setSincronizandoPastas(false);}
   },[data,ehAdmin,oneDriveStatus,showToast,sincronizandoPastas,update]);
-  useEffect(()=>{
-    if(!ehAdmin||oneDriveStatus!=="connected"||syncPastasIniciado.current)return;
-    if(!(data.obras||[]).some(o=>Number(o.oneDriveStructureVersion||0)<2))return;
-    syncPastasIniciado.current=true;
-    void sincronizarPastas(false);
-  },[data.obras,ehAdmin,oneDriveStatus,sincronizarPastas]);
 
   //  Kanban
   const [vista,      setVista]      = useState("lista");   // "lista" | "quadro"
@@ -5122,7 +5136,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
         actions={<>
           {ehAdmin&&<details className="works-files"><summary>Arquivos e pastas</summary><div>
           {ehAdmin&&<Btn v="ghost" onClick={()=>abrirOneDrive(data.config?.oneDriveRootUrl)}><Ic n="folder" s={14}/> Arquivos gerais</Btn>}
-          {ehAdmin&&oneDriveStatus==="connected"&&<Btn v="ghost" disabled={sincronizandoPastas} onClick={()=>sincronizarPastas(true)}><Ic n="folder" s={14}/> {sincronizandoPastas?"Preparando pastas...":"Preparar pastas"}</Btn>}
+          {ehAdmin&&oneDriveStatus==="connected"&&<Btn v="ghost" disabled={sincronizandoPastas} onClick={sincronizarPastas}><Ic n="folder" s={14}/> {sincronizandoPastas?"Preparando pastas...":"Preparar pastas"}</Btn>}
           {ehAdmin&&oneDriveStatus!=="connected"&&<Btn v="ghost" onClick={conectarOneDrive}>Conectar OneDrive</Btn>}
           </div></details>}
           {ehAdmin&&<Btn onClick={()=>abrirEditorObra()}><Ic n="plus" s={14}/> Nova obra</Btn>}
@@ -14637,11 +14651,8 @@ export default function App() {
               {/* No desktop a marca vive na sidebar - repetir aqui é ruído */}
               {!isDesktop && <BrandMark compact/>}
               {/* Breadcrumb */}
-              <div className="app-breadcrumb" style={{ display:"flex", alignItems:"center", gap:6 }}>
-                {!isDesktop&&operationalWorkspace?<select className="workspace-module-select" aria-label={`Telas de ${activeGroup?.label}`} value={tab==="obras"&&obrasMenuEngenharia.some(obra=>obra.id===obraAberta)?`obra:${obraAberta}`:tab} onChange={event=>event.target.value.startsWith("obra:")?irPara("obras",event.target.value.slice(5)):irPara(event.target.value)}>
-                  {activeGroup?.tabs.map(id=><option key={id} value={id}>{TAB_META[id]?.label||id}</option>)}
-                  {activeGroup?.id==="eng_grp"&&obrasMenuEngenharia.length>0&&<optgroup label="Obras ativas">{obrasMenuEngenharia.map(obra=><option key={obra.id} value={`obra:${obra.id}`}>{obra.name}</option>)}</optgroup>}
-                </select>:<><span style={{ fontSize:"var(--arcd-type-label)", color:activeGroup?.color, fontWeight:600, textTransform:"uppercase", letterSpacing:.8 }}>
+              {(isDesktop||!operationalWorkspace)&&<div className="app-breadcrumb" style={{ display:"flex", alignItems:"center", gap:6 }}>
+                <span style={{ fontSize:"var(--arcd-type-label)", color:activeGroup?.color, fontWeight:600, textTransform:"uppercase", letterSpacing:.8 }}>
                   {activeGroup?.label}
                 </span>
                 {hasSubTabs && (
@@ -14651,8 +14662,8 @@ export default function App() {
                       {TAB_META[tab]?.label}
                     </span>
                   </>
-                )}</>}
-              </div>
+                )}
+              </div>}
               <WorkContextStamp obras={obrasMenuEngenharia}/>
             </div>
 
@@ -14698,6 +14709,12 @@ export default function App() {
                 </Button>
               )}
             </div>
+            {!isDesktop&&operationalWorkspace&&<div className="workspace-mobile-navigation">
+              <SelectControl className="workspace-module-select" aria-label={`Telas de ${activeGroup?.label}`} value={tab==="obras"&&obrasMenuEngenharia.some(obra=>obra.id===obraAberta)?`obra:${obraAberta}`:tab} onChange={event=>event.target.value.startsWith("obra:")?irPara("obras",event.target.value.slice(5)):irPara(event.target.value)}>
+                {activeGroup?.tabs.map(id=><option key={id} value={id}>{TAB_META[id]?.label||id}</option>)}
+                {activeGroup?.id==="eng_grp"&&obrasMenuEngenharia.length>0&&<optgroup label="Obras ativas">{obrasMenuEngenharia.map(obra=><option key={obra.id} value={`obra:${obra.id}`}>{obra.name}</option>)}</optgroup>}
+              </SelectControl>
+            </div>}
           </div>
         </header>
 

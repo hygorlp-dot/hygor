@@ -214,7 +214,5 @@
     .dashboard-tech-hero .arcd-page-header__description time { display: block; margin: 0; }
     .dashboard-tech-hero .arcd-page-header__actions > [data-slot="button"]:last-child { flex: 1; }
     .dashboard-context > span:last-child { line-height: 1.5; }
-    .workspace-module-select { max-width: 9.5rem; min-height: 2.75rem; border: 0; padding: 0 .25rem; background: transparent; color: var(--arcd-text-primary); font: inherit; font-size: 1rem; }
-    .workspace-module-select:focus-visible { outline: 2px solid var(--arcd-focus-ring); outline-offset: 2px; }
   }
 }
