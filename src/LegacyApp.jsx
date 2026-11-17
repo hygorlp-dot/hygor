@@ -10,6 +10,9 @@ import {ScopeNote} from './design-system/patterns/ScopeNote.jsx';
 import {EmptyState} from './design-system/patterns/FeedbackState.jsx';
 import {DashboardFinancialReading} from './domains/dashboard/components/DashboardFinancialReading.jsx';
 import {SectorTasks} from './features/workflow/SectorTasks.jsx';
+import {useRecordPage} from './design-system/data/useRecordPage.js';
+import {RecordListPagination} from './design-system/data/RecordListPagination.jsx';
+import {TaskDisclosure} from './design-system/patterns/TaskDisclosure.jsx';
 import {setWorkContextObra,useSyncedWorkObra} from './features/workflow/work-context.js';
 import {SaveRecoveryContext} from './features/workflow/SaveRecoveryContext.jsx';
 import {snapshotJournal,recoveryTab,snapshotChanges} from './domains/sync/snapshot-journal.js';
@@ -3032,6 +3035,7 @@ function DRE({data,showToast,currentUser=null,obraIdFixo="",dispatchCommand=null
 }
 
 function DRELegado({ data, showToast, currentUser=null, obraIdFixo="", dispatchCommand=null }) {
+  const {isDesktop}=useBreakpoint();
   const {intent}=useWorkflow();
   const useSessionState=(key,initial)=>useWorkspaceState("dre",key,initial,obraIdFixo);
   useWorkspaceScroll("dre",obraIdFixo);
@@ -3084,6 +3088,8 @@ function DRELegado({ data, showToast, currentUser=null, obraIdFixo="", dispatchC
   const aplicarRazao=(legado,relatorio)=>relatorio?.source==="canonical_ledger"&&relatorio.current
     ? {...legado,...relatorio.current,fonteFinanceira:"razao_canonico"} : legado;
   const dre = useMemo(()=>aplicarRazao(dreLegado,razaoDRE.consolidado),[dreLegado,razaoDRE.consolidado]);
+  const [dreWorkSearch,setDreWorkSearch]=useSessionState('workSearch','');
+  const dreWorksPage=useRecordPage('dre',dre.obras.filter(o=>String(o.obra?.name||'').toLocaleLowerCase('pt-BR').includes(dreWorkSearch.trim().toLocaleLowerCase('pt-BR'))),JSON.stringify([year,month,periodoDRE,dreWorkSearch]));
   const dreObra = useMemo(()=>aplicarRazao(dreObraLegado,razaoDRE.obra),[dreObraLegado,razaoDRE.obra]);
   // A visão selecionada é a única fonte dos cards, do período e do extrato.
   // Antes, apenas o demonstrativo inferior mudava para a obra; os KPIs
@@ -3558,7 +3564,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
       {/*  VIEW: CONSOLIDADO  */}
       {view==="consolidado"&&(
         <div style={{display:"flex",flexDirection:"column",gap:6}}>
-          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
+          <TaskDisclosure summary="Demonstrativo consolidado completo" defaultOpen={isDesktop}><div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
             <div style={{padding:"8px 14px",background:`${C.green}10`,borderBottom:`1px solid ${C.line}`}}>
               <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-card-title)",color:C.green,textTransform:"uppercase"}}>DRE Consolidado - {period}</p>
             </div>
@@ -3584,6 +3590,8 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
             <DRERow label="Backlog disponível"  value={dre.backlog}      color={dre.backlog>0?C.yellow:C.muted}/>
           </div>
 
+          </TaskDisclosure>
+          <TaskDisclosure summary="Gráficos do consolidado" defaultOpen={isDesktop}>
           {/* Gráfico: Faturamento vs Lucro 6 meses */}
           <Suspense fallback={<LoadingState label="gráfico"/>}>
             <LazyDreFaturamentoResultadoChart hist={hist}/>
@@ -3594,9 +3602,13 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
             <LazyDreDistribuicaoCustosChart dre={dre}/>
           </Suspense>
 
+          </TaskDisclosure>
           {/* Por obra compact */}
           <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:1}}>Resumo por obra</p>
-          {dre.obras.map(o=>renderObraDRE(o,true))}
+          <Inp label="Pesquisar obra no resumo do DRE" value={dreWorkSearch} onChange={setDreWorkSearch}/>
+          <ScopeNote title="Resumo por obra">A busca e a paginação não alteram os totais consolidados nem o relatório exportado.</ScopeNote>
+          <RecordListPagination pagination={dreWorksPage} label="obras no DRE"/>
+          {dreWorksPage.rows.map(o=>renderObraDRE(o,true))}
         </div>
       )}
 
@@ -4741,7 +4753,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState(empty);
   const [clienteModal,setClienteModal]=useState(null);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useWorkspaceState("obras","search","");
   const [oneDriveStatus, setOneDriveStatus] = useState("checking");
   const [sincronizandoPastas,setSincronizandoPastas]=useState(false);
   const [savingProject,setSavingProject]=useState(false);
@@ -4816,7 +4828,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
   const [arrastando, setArrastando] = useState(null);      // id da obra em arraste
   const [sobreFase,  setSobreFase]  = useState(null);      // id da coluna sob o cursor
   const [menuCard,   setMenuCard]   = useState(null);      // id da obra c/ menu aberto
-  const [categoria,  setCategoria]  = useState("todas");
+  const [categoria,  setCategoria]  = useWorkspaceState("obras","category","todas");
 
   const fases = useMemo(
     () => [...(data.fases || [])].sort((a, b) => a.ordem - b.ordem),
@@ -5104,6 +5116,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
     || (categoria === "concluidas" && o.status === "done");
   const termoBusca=search.toLocaleLowerCase("pt-BR");
   const list = obrasComando.filter(o => correspondeCategoria(o) && [o.name,o.cliente,o.address,o.engineer,o._fase?.nome].some(v=>String(v||"").toLocaleLowerCase("pt-BR").includes(termoBusca)));
+  const worksPage=useRecordPage('obras',list,JSON.stringify([categoria,search]));
   const resumoOperacional = contagensObras.atencao
     ? `${contagensObras.atencao} ${contagensObras.atencao === 1 ? "obra precisa" : "obras precisam"} de decisão agora`
     : "Portfólio em dia, sem alertas críticos";
@@ -5114,6 +5127,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
         eyebrow="MARCELL · Engenharia operacional"
         title="Central de obras"
         description="Encontre a obra certa, entenda o que exige atenção e siga para a próxima ação."
+        statsDisclosure={!isDesktop}
         alert={{tone:contagensObras.atencao?"warning":"success",text:resumoOperacional}}
         stats={[
           {label:"Obras ativas",value:obrasComando.filter(o=>o.status==="active").length,detail:"Em operação",color:C.green},
@@ -5345,8 +5359,9 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
         <span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",whiteSpace:"nowrap"}}>{list.length} resultado{list.length===1?"":"s"}</span>
       </label>
 
+      <RecordListPagination pagination={worksPage} label="obras"/>
       <div className="works-grid" style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:"var(--arcd-space-3)"}}>
-        {list.map(o => {
+        {worksPage.rows.map(o => {
           const st = statusMap[o.status] || statusMap.active;
           const codigo = String(Math.max(0,(data.obras||[]).findIndex(x=>x.id===o.id))+1).padStart(4,"0");
           const prazo = prazoObra(o);
@@ -6148,6 +6163,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
   const [unlockModal, setUnlockModal] = useState(null);
   const [lastAllDoneNotification, setLastAllDoneNotification] = useState("");
   const [expandedCard, setExpandedCard] = useState(null);   // card com "mais opções" aberto
+  const [attendanceSearch,setAttendanceSearch]=useWorkspaceState('ponto','search','',obraIdFixo);
 
   const activeEmployees = data.employees.filter(e =>
     e.active !== false && isEmployeeEmployedOnDate(e, today())
@@ -6199,6 +6215,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
     })
     .sort((a, b) => a.name.localeCompare(b.name));
 
+  const attendancePage=useRecordPage('ponto',list.filter(e=>[e.name,e.role].join(' ').toLocaleLowerCase('pt-BR').includes(attendanceSearch.trim().toLocaleLowerCase('pt-BR'))),JSON.stringify([filterObra,selDate,laborGroup,attendanceSearch]),obraIdFixo);
   const requireDailyCheck = () => {
     if (!dailyCheckPending) return false;
     showToast("Antes de lançar o ponto, confirme se a equipe permanece sem alterações ou movimente o trabalhador individualmente.", "warn");
@@ -6529,7 +6546,10 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
       {list.length === 0 && <div className="obra-attendance__empty">Nenhum trabalhador ativo nesta seleção.</div>}
 
       <div className="obra-attendance__employees">
-      {list.map(e => {
+      <Inp label="Pesquisar no ponto" value={attendanceSearch} onChange={setAttendanceSearch} placeholder="Nome ou função"/>
+      <ScopeNote title="Ações em lote">A busca e a paginação organizam a leitura. Os lotes continuam abrangendo os {list.length} funcionários da obra e do grupo selecionados.</ScopeNote>
+      <RecordListPagination pagination={attendancePage} label="funcionários no ponto"/>
+      {attendancePage.rows.map(e => {
         const att = getAtt(data, e.id, selDate);
         const status = att?.status;
         const ot = Number(att?.ot || 0);
@@ -9120,9 +9140,10 @@ const limitarNotaFornecedor=n=>Math.max(0,Math.min(100,Math.round(Number(n)||0))
 const textoFreteFornecedor=valor=>String(valor||"").toLowerCase();
 
 function RankingFornecedores({data,showToast,currentUser,dispatchCommand}){
-  const [busca,setBusca]=useState("");
-  const [obraId,setObraId]=useState("");
-  const [periodo,setPeriodo]=useState("12");
+  const {isDesktop}=useBreakpoint();
+  const [busca,setBusca]=useWorkspaceState("fornecedores","search","");
+  const [obraId,setObraId]=useWorkspaceState("fornecedores","work","");
+  const [periodo,setPeriodo]=useWorkspaceState("fornecedores","period","12");
   const [selecionadoId,setSelecionadoId]=useState("");
   const [fornModal,setFornModal]=useState(null);
   const fornecedores=data.fornecedores||[];
@@ -9212,6 +9233,7 @@ function RankingFornecedores({data,showToast,currentUser,dispatchCommand}){
 
   const termo=busca.trim().toLowerCase();
   const lista=ranking.filter(r=>!termo||`${r.fornecedor.nome} ${r.fornecedor.cnpj||""} ${(r.fornecedor.categorias||[]).join(" ")}`.toLowerCase().includes(termo));
+  const suppliersPage=useRecordPage('fornecedores',lista,JSON.stringify([busca,obraId,periodo]));
   const selecionado=ranking.find(r=>r.fornecedor.id===selecionadoId);
   const avaliados=ranking.filter(r=>r.geral!==null);
   const entregasTotal=ranking.reduce((s,r)=>s+r.entregas,0);
@@ -9241,18 +9263,20 @@ function RankingFornecedores({data,showToast,currentUser,dispatchCommand}){
       <Sel label="Obra" value={obraId} onChange={setObraId} options={[{v:"",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
       <Sel label="Período" value={periodo} onChange={setPeriodo} options={[{v:"6",l:"Últimos 6 meses"},{v:"12",l:"Últimos 12 meses"},{v:"24",l:"Últimos 24 meses"},{v:"todos",l:"Todo o histórico"}]}/>
     </FilterBar>
-    <section className="supplier-kpis">
+    <TaskDisclosure summary="Indicadores de fornecedores" defaultOpen={isDesktop}><section className="supplier-kpis">
       <div><span>Fornecedores avaliados</span><strong>{avaliados.length}<small> de {fornecedores.filter(f=>f.ativo!==false).length}</small></strong></div>
       <div><span>Cotações analisadas</span><strong>{ranking.reduce((s,r)=>s+r.propostas.length,0)}</strong></div>
       <div><span>Pedidos considerados</span><strong>{ranking.reduce((s,r)=>s+r.pedidos.length,0)}</strong></div>
       <div><span>Entregas no prazo</span><strong>{entregasTotal?`${Math.round(noPrazoTotal/entregasTotal*100)}%`:"—"}<small>{entregasTotal?` ${noPrazoTotal}/${entregasTotal}`:" sem histórico"}</small></strong></div>
     </section>
+    </TaskDisclosure>
+    <RecordListPagination pagination={suppliersPage} label="fornecedores"/>
     <section className="supplier-ranking-card">
       <div className="supplier-card-title"><div><h2>Ranking geral</h2></div><span>Preço 35% · Frete 15% · Prazo 25% · Qualidade 25%</span></div>
       <div className="supplier-table-wrap"><table className="supplier-table">
         <thead><tr><th>#</th><th>Fornecedor</th><th>Nota geral</th><th>Preço</th><th>Frete</th><th>Prazo</th><th>Qualidade</th><th>Base</th><th></th></tr></thead>
-        <tbody>{lista.map((r,i)=><tr key={r.fornecedor.id} onClick={()=>setSelecionadoId(r.fornecedor.id)} className={selecionadoId===r.fornecedor.id?"is-selected":""}>
-          <td data-label="Posição"><b className={i<3?"supplier-rank top": "supplier-rank"}>{i+1}º</b></td>
+        <tbody>{suppliersPage.rows.map((r,i)=><tr key={r.fornecedor.id} onClick={()=>setSelecionadoId(r.fornecedor.id)} className={selecionadoId===r.fornecedor.id?"is-selected":""}>
+          <td data-label="Posição"><b className={suppliersPage.start+i<=3?"supplier-rank top": "supplier-rank"}>{suppliersPage.start+i}º</b></td>
           <td data-label="Fornecedor"><div className="supplier-name"><b>{r.fornecedor.nome}</b><span>{(r.fornecedor.categorias||[]).slice(0,2).map(rotuloRamo).join(" · ")||r.fornecedor.cidade||"Ramo não informado"}</span></div></td>
           <td data-label="Nota geral">{nota(r.geral,corNota(r.geral))}</td>
           <td data-label="Preço">{nota(r.preco,corNota(r.preco))}</td><td data-label="Frete">{nota(r.frete,corNota(r.frete))}</td>
@@ -10577,8 +10601,9 @@ export function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", curren
   const propostaBoletim = t => avancoTerceiros.has(t.id) ? avancoTerceiros.get(t.id).pct : (t.progresso || 0);
 
   const [editando, setEditando] = useState(null);
-  const [serviceSearch,setServiceSearch]=useState("");
+  const [serviceSearch,setServiceSearch]=useWorkspaceState("med","search","",obraIdFixo);
   const visibleServices=tarefas.filter(item=>item.nome.toLocaleLowerCase("pt-BR").includes(serviceSearch.trim().toLocaleLowerCase("pt-BR")));
+  const servicesPage=useRecordPage('med',visibleServices,JSON.stringify([obraId,serviceSearch]),obraIdFixo);
   const [confModal, setConfModal] = useState(false);   // modal de confirmar medição
   const [confPct, setConfPct] = useState({});          // pct confirmado por tarefa
   const [confResp, setConfResp] = useState("");
@@ -10773,6 +10798,7 @@ export function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", curren
       )}
 
       {/* Tabela de evolucao */}
+      <RecordListPagination pagination={servicesPage} label="serviços"/>
       <div style={{ background: "var(--arcd-surface-card)", border: "1px solid var(--arcd-border-default)", borderRadius: 8, overflow: "hidden" }}>
         <div style={{ padding: "var(--arcd-space-3)", borderBottom: "1px solid var(--arcd-border-default)" }}>
           <p>O total pondera o valor dos serviços; no Planejamento, a duração. Sem valores vinculados, o total fica sem base de valor. O avanço oficial depende do boletim aprovado.</p><Inp label="Buscar serviço da medição" value={serviceSearch} onChange={setServiceSearch} placeholder="Nome do serviço"/><p style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)", textTransform: "uppercase", letterSpacing: "var(--arcd-letter-spacing-body)" }}>
@@ -10783,7 +10809,7 @@ export function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", curren
           <p style={{ padding: "var(--arcd-space-5)", fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)", textAlign: "center" }}>
             {serviceSearch?"Nenhum serviço corresponde à busca. Limpe o campo para ver todos.":"Sem serviços no planejamento desta obra."}
           </p>
-        ) : visibleServices.map(t => (
+        ) : servicesPage.rows.map(t => (
           <div key={t.id} style={{ padding: "var(--arcd-space-3)", borderTop: "1px solid var(--arcd-border-default)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--arcd-space-2)" }}>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -14256,6 +14282,15 @@ export default function App() {
     return () => window.removeEventListener("arcd:data-conflict", aoConflitar);
   }, []);
 
+  const concluirRecuperacao=async(current,row)=>{
+    if(resolvingSaveRef.current||protectingEditsRef.current||memoryEditsRef.current.size||saveQueueRef.current.hasPending())return {ok:false,reason:'Há outro preenchimento ou envio pendente. A edição continua protegida; conclua essa revisão primeiro.'};
+    resolvingSaveRef.current=true;
+    try{
+      await snapshotJournal.release(row);
+      const norm=normalizeData(current.data);adoptServerVersion(current.updatedAt);baseServidorRef.current=norm;ultimoDataRef.current=norm;dataAtualRef.current=norm;setData(norm);setUltimaSync(new Date());setRecoveryRevision(v=>v+1);
+      return {ok:true};
+    }finally{resolvingSaveRef.current=false;}
+  };
   const aplicarRecuperacao=async(merged,current,row)=>{
     if(resolvingSaveRef.current||protectingEditsRef.current||memoryEditsRef.current.size)return {ok:false,reason:"Proteja os preenchimentos da memória antes de confirmar."};
     resolvingSaveRef.current=true;
@@ -14690,7 +14725,7 @@ export default function App() {
             <strong>Conflito de salvamento.</strong> Outra pessoa salvou alterações. Confira antes de reaplicar: sua versão pode substituir edições do mesmo registro. Mantenha esta aba aberta até resolver.
             <div className="flex flex-wrap gap-2 mt-2"><StandardButton onClick={reaplicarSobreServidor}>Reaplicar minhas alterações</StandardButton><StandardButton variant="outline" onClick={descartarMinhaVersao}>Descartar e recarregar</StandardButton></div>
           </AlertDescription></Alert>}
-          <SaveRecovery key={`save-recovery:${currentUser.id}`} memoryCount={memoryEditCount} onProtectMemory={protegerPreenchimentos} onDiscardMemory={descartarEdicaoDaMemoria} onRecovered={()=>setRecoveryRevision(v=>v+1)} normalize={normalizeData} pageId={tab} queue={saveQueueRef.current} state={estadoSalvar} user={currentUser} open={recoveryOpen} onOpen={()=>setRecoveryOpen(true)} onClose={()=>setRecoveryOpen(false)} onApply={aplicarRecuperacao} onUser={setCurrentUser} onAvailable={setRecoveryAvailable} onReady={setRecoveryReady} revision={recoveryRevision} onDiscard={descartarMinhaVersao}/>
+          <SaveRecovery key={`save-recovery:${currentUser.id}`} memoryCount={memoryEditCount} onProtectMemory={protegerPreenchimentos} onDiscardMemory={descartarEdicaoDaMemoria} onRecovered={()=>setRecoveryRevision(v=>v+1)} normalize={normalizeData} pageId={tab} queue={saveQueueRef.current} state={estadoSalvar} user={currentUser} open={recoveryOpen} onOpen={()=>setRecoveryOpen(true)} onClose={()=>setRecoveryOpen(false)} onApply={aplicarRecuperacao} onComplete={concluirRecuperacao} onUser={setCurrentUser} onAvailable={setRecoveryAvailable} onReady={setRecoveryReady} revision={recoveryRevision} onDiscard={descartarMinhaVersao}/>
           {edicaoRecusada&&<Alert variant="destructive" data-testid="save-rejected" className="flex flex-wrap items-start justify-between gap-2 mb-3">
             <AlertDescription><b>Alteração não salva e desfeita</b> às {edicaoRecusada.em.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}: {edicaoRecusada.motivo}{edicaoRecusada.secoes.length?` (${edicaoRecusada.secoes.slice(0,4).join(", ")}${edicaoRecusada.secoes.length>4?"…":""})`:""}. A tela voltou ao último estado confirmado.</AlertDescription>
             <Btn v="ghost" size="sm" onClick={()=>setEdicaoRecusada(null)}>Entendi</Btn>
@@ -14735,7 +14770,7 @@ export default function App() {
           {tab === "ponto_app" && <PontoEletronico data={data} showToast={showToast} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand} onTab={irPara}/>}
           {tab === "folha"  && <Suspense fallback={<LoadingState label="folha"/>}><Folha       data={data} showToast={showToast} onTab={irPara} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "resc"   && <Suspense fallback={<LoadingState label="rescisão"/>}><RescisaoView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
-          {tab === "rh_indic" && <Suspense fallback={<LoadingState label="indicadores"/>}><IndicadoresView data={data} /></Suspense>}
+          {tab === "rh_indic" && <Suspense fallback={<LoadingState label="indicadores"/>}><IndicadoresView data={data} currentUser={currentUser} /></Suspense>}
           {tab === "dre_emp"  && <DREEmpresa onOpenWork={allowedTabs.includes("obras")?obraId=>irPara("obras",obraId):undefined} data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "dre"      && <DRE          data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "fin"      && <Financeiro onOpenWork={allowedTabs.includes("obras")?obraId=>irPara("obras",obraId):undefined} data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}

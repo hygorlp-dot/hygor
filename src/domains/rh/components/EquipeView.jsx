@@ -3,6 +3,10 @@ import {sessionContext} from '../../../lib/session-context.js';
 import {SelectControl} from '../../../design-system/primitives/Select.jsx';
 import {Button as StandardButton} from '../../../components/ui/button.jsx';
 import {RecordAction} from '../../../design-system/primitives/RecordAction.jsx';
+import {useRecordPage} from '../../../design-system/data/useRecordPage.js';
+import {RecordListPagination} from '../../../design-system/data/RecordListPagination.jsx';
+import {useWorkspaceState} from '../../../features/workflow/workspace-session.jsx';
+import {WorkspaceFilters} from '../../../design-system/patterns/WorkspaceNavigation.jsx';
 import { PageHeader } from "../../../design-system/patterns/PageHeader";
 import { laborArea } from "../labor-area.js";
 import WorkScheduleFields from "./WorkScheduleFields.jsx";
@@ -113,9 +117,10 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
   const [modal, setModal] = useState(false);
   const [advModal, setAdvModal] = useState(null);
   const [form, setForm] = useState(emptyEmp);
-  const [search, setSearch] = useState("");
-  const [filterObra, setFilterObra] = useState(obraIdFixo||"all");
-  const [statusFilter, setStatusFilter] = useState("ativo");
+  const [search, setSearch] = useWorkspaceState('equipe','search','',obraIdFixo);
+  const [filterObra, setFilterObra] = useWorkspaceState('equipe','work',obraIdFixo||'all',obraIdFixo);
+  const [statusFilter, setStatusFilter] = useWorkspaceState('equipe','status','ativo',obraIdFixo);
+  const [pendingFilter,setPendingFilter]=useWorkspaceState('equipe','pending','all',obraIdFixo);
   const [expandedId, setExpandedId] = useState(null);
   const [dismissalModal, setDismissalModal] = useState(null);
   const [dismissalForm, setDismissalForm] = useState({ endDate:today(), reason:"demissao_sem_justa_causa", notes:"" });
@@ -390,11 +395,13 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
       || (filterObra==="__sem_obra__"&&!e.obra&&laborArea(e)!=="central")
       || e.obra === filterObra || e.lastObra === filterObra)
     .filter(e => [e.name, e.role, e.cpf, e.phone].join(" ").toLowerCase().includes(search.toLowerCase()))
+    .filter(e=>pendingFilter==='all'||(pendingFilter==='documents'?employeeComplianceStatus(e,today()).expired.length>0:!e.obra&&laborArea(e)!=='central'))
     .sort((a, b) => a.name.localeCompare(b.name));
   const ativos = data.employees.filter(e=>lifecycleOf(e)==="ativo");
   const semObra = ativos.filter(e=>!e.obra&&laborArea(e)!=="central").length;
   const lifecycleCounts=(data.employees||[]).reduce((acc,e)=>({...acc,[lifecycleOf(e)]:(acc[lifecycleOf(e)]||0)+1}),{});
-  const clearFilters=()=>{setSearch("");setFilterObra(obraIdFixo||"all");setStatusFilter("ativo");};
+  const teamPage=useRecordPage('equipe',list,JSON.stringify([search,filterObra,statusFilter,pendingFilter]),obraIdFixo);
+  const clearFilters=()=>{setSearch("");setFilterObra(obraIdFixo||"all");setStatusFilter("ativo");setPendingFilter('all');};
   const lifecycleLabel={ativo:"Ativo",desligamento_agendado:"Desligamento agendado",desligado:"Desligado",arquivado:"Arquivado"};
   const lifecycleColor={ativo:C.green,desligamento_agendado:C.orange,desligado:C.muted,arquivado:C.red};
 
@@ -418,15 +425,21 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
         <StandardButton variant="secondary" type="button" className={`team-summary__item${filterObra==="__sem_obra__"?" is-active":""}`} onClick={()=>{setFilterObra("__sem_obra__");setStatusFilter("ativo");}} aria-pressed={filterObra==="__sem_obra__"}><span>Sem lotação</span><strong>{semObra}</strong></StandardButton>
       </div>
 
+      <Inp label="Pesquisar na equipe" value={search} onChange={setSearch} placeholder="Nome, função, CPF ou telefone" />
+      <WorkspaceFilters activeCount={[filterObra!=="all"&&!obraIdFixo,pendingFilter!=="all"].filter(Boolean).length}>
       <div className="team-toolbar">
-        <Inp label="Pesquisar na equipe" value={search} onChange={setSearch} placeholder="Nome, função, CPF ou telefone" />
+
+        <Sel label="Pendências da equipe" value={pendingFilter} onChange={setPendingFilter} options={[{v:'all',l:'Todas'},{v:'documents',l:'Documentação vencida'},{v:'unassigned',l:'Sem lotação'}]}/>
         {obraIdFixo?<Inp label="Lotação" value={data.obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>:<Sel label="Filtrar por lotação" value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as lotações"},{v:"__administrativo__",l:"Administração Central"},{v:"__sem_obra__",l:"Sem lotação"},...data.obras.map(o=>({v:o.id,l:o.name}))]} />}
       </div>
+
+      </WorkspaceFilters>
 
       <div className="team-list-head" aria-hidden="true"><span>Funcionário</span><span>Função</span><span>Lotação</span><span>Pendências</span><span>Situação</span><span>Ações</span></div>
       {list.length === 0 && <div className="team-empty"><strong>{(data.employees||[]).length?"Nenhum resultado com estes filtros.":"Nenhum funcionário cadastrado."}</strong><p>{(data.employees||[]).length?"Limpe os filtros ou selecione outra situação.":podeGerenciarEquipe?"Cadastre o primeiro funcionário para iniciar a gestão da equipe.":"O RH pode cadastrar a equipe desta obra."}</p>{(data.employees||[]).length?<Btn v="ghost" onClick={clearFilters}>Limpar filtros</Btn>:podeGerenciarEquipe&&<Btn onClick={()=>{setForm({...emptyEmp,obra:obraIdFixo||data.obras[0]?.id||""});setModal(true);}}>Cadastrar funcionário</Btn>}</div>}
 
-      {list.map(e => {
+      <RecordListPagination pagination={teamPage} label="funcionários"/>
+      {teamPage.rows.map(e => {
         const advs = empAdvances(e.id);
         const totalAdv = advs.filter(advanceActive).reduce((s, a) => s + Number(a.amount || 0), 0);
         const compliance = employeeComplianceStatus(e, today());

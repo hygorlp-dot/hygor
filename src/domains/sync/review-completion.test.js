@@ -1,0 +1,12 @@
+import {it,expect,vi} from 'vitest';
+import {completeProtectedReview,protectedEditAreas} from './review-completion.js';
+import {snapshotChanges,recoveryScope} from './snapshot-journal.js';
+const user={id:'u',role:'admin',active:true};
+const base={obras:[{id:'a',name:'Antes'}]},intended={obras:[{id:'a',name:'Depois'}]};
+const row={owner:'u',tab:'t',revision:'r',scope:recoveryScope(user),changes:snapshotChanges(base,intended)};
+const options=(data=intended)=>({row,user,journal:{readLatest:vi.fn(async()=>row)},readCurrent:vi.fn(async()=>({ok:true,data,usuario:user})),normalize:data=>data,onComplete:vi.fn(async()=>({ok:true}))});
+it('encerra somente a conferência local quando o servidor já contém a edição',async()=>{const args=options();expect(await completeProtectedReview(args)).toEqual({ok:true});expect(args.onComplete).toHaveBeenCalledOnce();expect(args.readCurrent).toHaveBeenCalledOnce();expect(args.journal.readLatest).toHaveBeenCalledWith('u','t');});
+it('preserva a pendência quando o servidor mudou depois da consulta',async()=>{const args=options({obras:[{id:'a',name:'Alteração de outra pessoa'}]});expect((await completeProtectedReview(args)).ok).toBe(false);expect(args.onComplete).not.toHaveBeenCalled();});
+it('preserva outra revisão ou uma mudança de acesso',async()=>{const args=options();args.journal.readLatest.mockResolvedValue({...row,revision:'new'});expect((await completeProtectedReview(args)).ok).toBe(false);expect(args.onComplete).not.toHaveBeenCalled();const changed=options();changed.readCurrent.mockResolvedValue({ok:true,data:intended,usuario:{...user,role:'comercial'}});expect((await completeProtectedReview(changed)).ok).toBe(false);expect(changed.onComplete).not.toHaveBeenCalled();});
+it('não encerra ao falhar consulta ou faltar callback',async()=>{const args=options();args.readCurrent.mockResolvedValue({ok:false,error:'Sem acesso'});expect((await completeProtectedReview(args)).ok).toBe(false);expect(args.onComplete).not.toHaveBeenCalled();expect((await completeProtectedReview({...options(),onComplete:null})).ok).toBe(false);});
+it('explica a área sem expor nomes de campos internos ou valores da edição',()=>{expect(protectedEditAreas({changes:{planos:{intended:{senha:'nunca mostrar'}},obras:{},unknownSection:{}}})).toBe('Planejamento, Obras, Outros cadastros');});

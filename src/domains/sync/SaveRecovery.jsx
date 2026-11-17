@@ -9,6 +9,7 @@ import {renewEditingSession,readRecoveryData} from '../../api.js';
 import {snapshotJournal,recoveryTab,canRecoverSnapshot,expandSnapshot} from './snapshot-journal.js';
 import {reviewSnapshot} from './snapshot-merge.js';
 import {useHelpTopic} from '../../features/help/HelpContext.jsx';
+import {completeProtectedReview,protectedEditAreas} from './review-completion.js';
 
 const names={eventosEmpresa:'Eventos da empresa',tipo:'Categoria',criadoPor:'Registrado por',status:'Situação',titulo:'Título',nome:'Nome',descricao:'Descrição',data:'Data',valor:'Valor',obraId:'Obra',config:'Configurações',pedidos:'Pedidos',fornecedores:'Fornecedores',orcamentos:'Orçamentos'};
 const label=value=>value===undefined?'Registro removido':typeof value==='object'?Object.entries(value).filter(([key])=>!['id','criadoPorId','criadoEm'].includes(key)&&value[key]!=='').map(([key,v])=>`${names[key]||key}: ${typeof v==='object'?JSON.stringify(v):v}`).join(' · '):String(value??'Não informado');
@@ -17,7 +18,7 @@ const pathLabel=(path,data,expanded)=>path.map((key,index)=>{
  return names[key]||key;
 }).join(' · ');
 
-export function SaveRecovery({queue,state,user,open,onOpen,onClose,onApply,onUser,onAvailable,onReady,revision,onDiscard,pageId,normalize,onRecovered,onDiscardMemory,memoryCount,onProtectMemory}){
+export function SaveRecovery({queue,state,user,open,onOpen,onClose,onApply,onComplete,onUser,onAvailable,onReady,revision,onDiscard,pageId,normalize,onRecovered,onDiscardMemory,memoryCount,onProtectMemory}){
  const [row,setRow]=useState(null),[error,setError]=useState(''),[initialized,setInitialized]=useState(false);
  const [current,setCurrent]=useState(null),[choices,setChoices]=useState({});
  const [busy,setBusy]=useState(false),[authRequired,setAuthRequired]=useState(false),[sessionRenewed,setSessionRenewed]=useState(false),[notice,setNotice]=useState('');
@@ -60,15 +61,18 @@ export function SaveRecovery({queue,state,user,open,onOpen,onClose,onApply,onUse
  const save=async()=>{
   if(busy||sending||!review?.ready)return;
   setBusy(true);
-  try{const result=await onApply(review.merged,current,row);if(result?.ok)onClose();else setError(result?.reason||'Falha ao salvar. Consulte a versão atual.');}
+  try{const result=review.changes.length?await onApply(review.merged,current,row):await completeProtectedReview({row,user,journal:snapshotJournal,readCurrent:readRecoveryData,normalize,onComplete});if(result?.ok)onClose();else setError(result?.reason||'Falha ao salvar. Consulte a versão atual.');}
+  catch{setError('Não foi possível concluir a conferência. A edição continua protegida.');}
   finally{setBusy(false);}
  };
  return <>
   {available&&!sending&&<Alert variant="warning" data-testid="save-recovery" className="mb-3"><AlertDescription>
    {error||(memoryCount?'Há preenchimentos somente na memória. Não recarregue.':queue.getFailure()?.reason)||'Há uma edição protegida para revisar.'} A recarga não reenvia automaticamente. <Button variant="outline" onClick={onOpen}>Resolver salvamento</Button>
+   {row&&<p>Área da edição: {protectedEditAreas(row)}. O aviso vale para o aplicativo inteiro, mesmo em outra tela.</p>}
   </AlertDescription></Alert>}
   {open&&<Modal title="Recuperar salvamento" onClose={()=>{if(!busy)onClose();}}><div className="flex flex-col gap-3 min-w-0 break-words">
    {row&&<p>Edição protegida em {new Date(row.createdAt).toLocaleString('pt-BR')}.</p>}
+   {row&&<p>Área da edição: {protectedEditAreas(row)}. Use Consultar versão atual para comparar antes de decidir.</p>}
    <p>Salve ou cancele os outros formulários antes de recuperar. {row?'Fechar mantém a edição protegida.':'Não feche a aba sem proteger a edição.'}</p>
    {(error||reviewError)&&<Alert variant="destructive"><AlertDescription>{error||reviewError}</AlertDescription></Alert>}{notice&&<Alert><AlertDescription>{notice}</AlertDescription></Alert>}
    {((queue.getFailure()?.status===401&&!sessionRenewed)||authRequired)&&<SessionRenewalFields user={user} busy={busy} onRenew={async password=>{
@@ -89,7 +93,7 @@ export function SaveRecovery({queue,state,user,open,onOpen,onClose,onApply,onUse
    </>}
    <Button variant="outline" disabled={busy||sending||queue.getFailure()?.local} onClick={consult}>{busy?'Aguarde…':'Consultar versão atual'}</Button>
    {review&&<>
-    <p>{review.conflicts.length?'Escolha o valor de cada campo em conflito.':'Confira os valores.'}</p>
+    <p>{!review.changes.length?'Esta edição já consta na versão consultada. Concluir conferência verifica novamente e encerra a pendência local sem reenviar.':review.conflicts.length?'Escolha o valor de cada campo em conflito.':'Confira os valores.'}</p>
     {review.changes.map(change=>{
      const heading=pathLabel(change.path,current.data,expanded);
      return <section key={change.key}>

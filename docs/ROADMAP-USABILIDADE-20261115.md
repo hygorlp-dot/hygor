@@ -69,7 +69,7 @@ Aceite: mesma obra/competência na passagem entre telas, ou exceção claramente
 
 ## Etapa 3 — Continuidade comercial e tarefas entre setores
 
-**Implementada e validada localmente em 16/11/2026. Sem publicação.** U05 e U08. Relatório: [Continuidade comercial e tarefas entre setores](USABILIDADE-ETAPA3-CONTINUIDADE-SETORES-20261116.md).
+**Publicada e conferida em 17/11/2026.** U05 e U08. Implementação: [Continuidade comercial e tarefas entre setores](USABILIDADE-ETAPA3-CONTINUIDADE-SETORES-20261116.md). Publicação: [Deploy da terceira etapa](DEPLOY-ROADMAP-ETAPA3-20261117.md).
 
 A ficha do lead reúne contratos vinculados por proposta e registros anteriores por leadId; a central recebe esse recorte e permite retornar à edição preservada. Indicadores comerciais explicam suas bases. Minhas aprovações distingue decisões elegíveis de solicitações sem fluxo compatível e consulta a origem em Compras. Comunicação abre o achado exato com responsável, prazo e situação; pendências canceladas deixam de contar como abertas no checklist. Sem reconstrução automática de vínculos ou instâncias reais. Evidências no celular e desktop, com dados fictícios e gravações bloqueadas.
 
@@ -81,7 +81,9 @@ Aceite: o operador consegue identificar a próxima ação e chegar ao registro c
 
 ## Etapa 4 — Operação no celular
 
-**Pendente.** U06 e U09.
+**Implementada e validada localmente em 17/11/2026. Sem publicação.** U06 e U09. Relatório: [Operação no celular e recuperação do salvamento](USABILIDADE-ETAPA4-OPERACAO-MOBILE-20261117.md).
+
+Busca e paginação nas listas de Obras, Fornecedores, Equipes, Ponto por obra, resumo do DRE e Avanço físico; filtros secundários recolhidos, prioridades no Pipeline e na equipe, movimentação comercial por botão, percentuais de leitura simplificada sem perder precisão e orientação operacional no RH. Também incluída a revisão solicitada do aviso Edição protegida pendente, com área de origem e conclusão sem fila de envio após nova conferência. Validação local: 42 testes unitários, 23 cenários DEV e 55 no build, celular/desktop e amostra de 320 px com texto ampliado. As limitações de transações reais e aparelho físico continuam nas etapas 5 e 6.
 
 1. Priorizar pendências e busca nas listas longas; reduzir filtros que precedem a tarefa.
 2. Rever Pipeline e oferecer alternativa ao arraste sem depender do mouse.
@@ -92,7 +94,9 @@ Aceite: tarefas representativas com toque, teclado, nomes longos, vazio/erro e a
 
 ## Etapa 5 — Integridade e transações
 
-**Pendente.** U07 e divergências da auditoria.
+**Implementada e validada localmente em 17/11/2026. Sem publicação.** U07 e divergências da auditoria. Relatório: [Integridade e transações](USABILIDADE-ETAPA5-INTEGRIDADE-TRANSACOES-20261117.md).
+
+Recebimento com quantidades e custo derivados do pedido, conversão conferida explicitamente e comparação de preços por bases compatíveis. Quatro jornadas com dados fictícios e marcos persistidos/reabertos em PGlite; testes de autorização e períodos fechados no servidor. Os lançamentos financeiros antigos removidos pelo usuário não foram recriados. Limites de validação remota e aparelho físico permanecem registrados no relatório.
 
 1. Conferir unidades e conversões na origem dos pedidos; não inferir fator de conversão por nome.
 2. Investigar recebimentos excedentes, vínculos de estoque, divergências de homologação e filas antigas.
@@ -103,6 +107,8 @@ Aceite: reconciliação por origem antes/depois, negativos de permissão no serv
 
 ## Etapa 6 — Recuperação e nova avaliação
 
-**Pendente.** U10 e limites da primeira auditoria.
+**Implementada e validada no escopo local em 17/11/2026. Sem publicação.** U10 e limites da primeira auditoria. Relatório: [Recuperação e nova avaliação](USABILIDADE-ETAPA6-RECUPERACAO-AVALIACAO-20261117.md).
+
+Rascunho de medição conectado ao formulário, tentativa protegida antes do envio, orientação de falhas/offline e bloqueio da redução de acumulado que não representa estorno. Ensaios de rede lenta, sessão/conflito, quota, documentos legados/OneDrive simulados, CSS e troca de build local. Nova nota heurística local: **8,4/10**. A meta 9,5 não foi atingida; teste em aparelho físico e integrações reais continuam pendentes, como descrito no relatório. As etapas locais não foram publicadas.
 
 Testar troca de publicação com sessão antiga e rascunho, rede lenta/offline, documentos legados/OneDrive, aparelho físico e rodada desktop mais ampla. Repetir as tarefas e os critérios da auditoria, registrando as notas obtidas. A meta 9,5 só será declarada se a evidência a sustentar.

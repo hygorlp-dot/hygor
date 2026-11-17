@@ -40,6 +40,7 @@ import {
 } from "../compras/purchase-cancellation-command.js";
 import {
   conversionFactorOf,
+  purchaseUnitOf,
   referencePricePerPurchaseUnit,
   referenceUnitCostOf,
 } from "../compras/unit-conversion.js";
@@ -880,24 +881,38 @@ export const applyOperationalCommand=(data,command)=>{
       ?command.payload.stockEntries.map(entry=>entry&&typeof entry==="object"?{...entry,tipo:"entrada"}:entry):[];
     if(!quantities||!entries.length)return fail("Recebimento de pedido incompleto.");
     const ids=new Set((data?.movEstoque||[]).map(item=>item.id));
-    if(entries.some(item=>!item?.id||ids.has(item.id)))return fail("Há uma entrada de estoque duplicada neste recebimento.");
+    if(entries.some(item=>{if(!item?.id||ids.has(item.id))return true;ids.add(item.id);return false;}))return fail("Há uma entrada de estoque duplicada neste recebimento.");
     const byItem=new Map((current.itens||[]).map(item=>[item.id,item]));
+    if(Object.values(quantities).some(value=>!Number.isFinite(Number(value))||Number(value)<0))return fail('Quantidade de recebimento inválida.');
+    const materialById=new Map((data.materiais||[]).map(item=>[item.id,item]));
+    const canonicalItems=new Map();
     const requested=Object.entries(quantities).filter(([,value])=>Number(value)>0);
     if(!requested.length)return fail("Informe ao menos uma quantidade recebida.");
     for(const [itemId,value] of requested){
       const item=byItem.get(itemId),quantity=Number(value);
       if(!item||!Number.isFinite(quantity)||quantity<=0)return fail("Item de recebimento inválido.");
+      const material=materialById.get(item.materialId),catalogUnit=String(material?.unidade||'').trim().toUpperCase(),referenceUnit=String(item.unidadeRef||catalogUnit||item.unidadeCompra||'UN').trim().toUpperCase();
+      if(catalogUnit&&referenceUnit!==catalogUnit)return fail('A unidade de referência do pedido difere da unidade do catálogo. Confira o vínculo e a conversão antes de receber.');
+      const canonicalItem={...item,unidadeRef:referenceUnit,unidadeCompra:item.unidadeCompra||referenceUnit};
+      if(!(conversionFactorOf(canonicalItem)>0))return fail('Informe uma conversão válida entre a unidade de compra e a unidade do estoque.');
+      if(!Number.isFinite(quantity*conversionFactorOf(canonicalItem))||!Number.isFinite(Number(item.precoUnit||0))||Number(item.precoUnit||0)<0||!Number.isFinite(referenceUnitCostOf(canonicalItem))||!Number.isFinite(quantity*Number(item.precoUnit||0))||!Number.isFinite(Number(item.qtdRecebida||0)+quantity))return fail('Quantidade convertida ou preço do recebimento inválidos.');
+      canonicalItems.set(itemId,canonicalItem);
     }
+    const receivedItems=new Set();
     if(entries.length!==requested.length||entries.some(entry=>{
-      const item=byItem.get(entry?.pedidoItemId||"");
+      const item=canonicalItems.get(entry?.pedidoItemId||"");
       if(!item||entry.pedidoId!==current.id||entry.obraId!==current.obraId||entry.materialId!==item.materialId)return true;
+      if(receivedItems.has(item.id))return true;
+      receivedItems.add(item.id);
       const quantity=Number(quantities[item.id]||0),factor=conversionFactorOf(item);
-      if(Math.abs(Number(entry.qtdCompra??entry.qtd??0)-quantity)>=1e-6)return true;
+      if(!Number.isFinite(Number(entry.qtdCompra??entry.qtd??0))||Math.abs(Number(entry.qtdCompra??entry.qtd??0)-quantity)>=1e-6)return true;
       // A quantidade e o custo que entram no estoque vêm do pedido, não do
       // navegador: unidade canônica = quantidade comprada × fator.
-      if(entry.qtd!=null&&Math.abs(Number(entry.qtd)-quantity*(factor||1))>=1e-6)return true;
-      return entry.valorUnit!=null&&Math.abs(Number(entry.valorUnit)-referenceUnitCostOf(item))>=1e-6;
+      if(entry.qtd!=null&&(!Number.isFinite(Number(entry.qtd))||Math.abs(Number(entry.qtd)-quantity*factor)>=1e-6))return true;
+      return entry.valorUnit!=null&&(!Number.isFinite(Number(entry.valorUnit))||Math.abs(Number(entry.valorUnit)-referenceUnitCostOf(item))>=1e-6);
     }))return fail("Entradas de estoque não correspondem ao recebimento informado.");
+    // Persist the order's canonical physical basis, never client-calculated units/costs.
+    entries.forEach(entry=>{const item=canonicalItems.get(entry.pedidoItemId),quantity=Number(quantities[item.id]);Object.assign(entry,{qtd:quantity*conversionFactorOf(item),qtdCompra:quantity,valorUnit:referenceUnitCostOf(item),unidadeRef:item.unidadeRef,unidadeCompra:purchaseUnitOf(item),fatorConversao:conversionFactorOf(item)});});
     const updated={...current,...(current.status==='rascunho'?{status:'parcial',pedidoNaoEnviadoNoRecebimento:true}:{}),itens:(current.itens||[]).map(item=>{
       const quantity=Number(quantities[item.id]||0);
       return quantity>0?{...item,qtdRecebida:Number(item.qtdRecebida||0)+quantity,recebimentos:[...(item.recebimentos||[]),{id:entries.find(entry=>entry.pedidoItemId===item.id)?.receiptId||`${command.idempotencyKey}:${item.id}`,data:entries.find(entry=>entry.pedidoItemId===item.id)?.data||now.slice(0,10),qtd:quantity,precoUnit:Number(item.precoUnit||0),responsavelId:command.actorId||"",responsavel:command.actorName||"",registradoEm:now}]}:item;
@@ -905,7 +920,8 @@ export const applyOperationalCommand=(data,command)=>{
     const receivedMaterialIds=new Set(requested.map(([itemId])=>byItem.get(itemId).materialId));
     const materials=(data?.materiais||[]).map(material=>{
       if(!receivedMaterialIds.has(material.id))return material;
-      const item=(current.itens||[]).find(entry=>entry.materialId===material.id&&Number(quantities[entry.id]||0)>0);
+      const sourceItem=(current.itens||[]).find(entry=>entry.materialId===material.id&&Number(quantities[entry.id]||0)>0);
+      const item=canonicalItems.get(sourceItem?.id)||sourceItem;
       const factor=conversionFactorOf(item);
       const canonicalPrice=factor>0?Number(item?.precoUnit||0)/factor:Number(item?.precoUnit||0);
       const average=custoMedioPonderado([...(data?.movEstoque||[]),...entries],material.id);

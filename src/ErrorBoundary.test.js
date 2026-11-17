@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { dynamicImportRecoveryKey, isDynamicImportFailure, recoverDynamicImport } from "./ErrorBoundary";
+import { dynamicImportRecoveryKey, isDynamicImportFailure, recoverDynamicImport, errorRecoveryCopy } from "./ErrorBoundary";
 
 const cssError = () => new Error("Unable to preload CSS for https://pontosarcd.vercel.app/assets/conferencia-batidas-BJTRqjMZ.css");
 const recoveryWindow = () => {
@@ -70,4 +70,11 @@ describe("recuperação após troca de versão", () => {
     entry='https://pontosarcd.vercel.app/assets/index-new.js';
     expect(recoverDynamicImport(cssError(),win)).toBe(true);
   });
+});
+
+it('a orientação distingue falta de conexão, carregamento e erro de código sem prometer confirmação',()=>{
+ expect(errorRecoveryCopy(cssError(),false).title).toMatch(/Sem conexão/);
+ expect(errorRecoveryCopy(cssError(),false).message).toMatch(/não confirma/);
+ expect(errorRecoveryCopy(cssError(),true).title).toBe('Não foi possível carregar esta tela');
+ expect(errorRecoveryCopy(new ReferenceError('initialization'),true).title).toBe('Algo quebrou nesta tela');
 });

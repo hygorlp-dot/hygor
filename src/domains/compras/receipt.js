@@ -6,7 +6,7 @@
 // inválidos. Excesso gera aviso, mas o estoque reflete a entrega real.
 // Receber não depende de pagamento (C1.2): o saldo só é informado.
 import {
-  conversionFactorOf, purchaseUnitOf, referenceQuantityOf, referenceUnitCostOf,
+  conversionFactorOf, purchaseUnitOf, referenceQuantityOf, referenceUnitCostOf, hasValidUnitConversion,
 } from "./unit-conversion.js";
 import {operationalWarning} from './workflow-advisories.js';
 
@@ -30,6 +30,8 @@ export const montarRecebimento = (pedido, recebidos, { quando, novoId, descricao
   const warnings=linhas.filter(linha=>linha.chegou>linha.falta+EPS).map(linha=>operationalWarning('RECEIPT_EXCEEDS_ORDER','recebimento','Compras / responsável pelo recebimento',`Quantidade recebida acima do saldo do item ${linha.item.id}.`,'Confira a diferença com o fornecedor e regularize o pedido ou a devolução. O estoque registra a quantidade realmente recebida.'));
   const chegaram = linhas.filter(linha => linha.chegou > 0);
   if (!chegaram.length) return { ok: false, erro: "Informe ao menos uma quantidade recebida." };
+  const semConversao=chegaram.find(({item})=>!hasValidUnitConversion(item));
+  if(semConversao)return {ok:false,erro:'Confira a unidade de compra e o conteúdo de cada embalagem antes de receber este item.',itemId:semConversao.item.id};
 
   const stockEntries = chegaram.map(({ item, chegou }) => ({
     id: novoId(), receiptId: novoId(), pedidoId: pedido.id, pedidoItemId: item.id,

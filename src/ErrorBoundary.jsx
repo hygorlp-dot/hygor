@@ -1,3 +1,4 @@
+import {Button} from './components/ui/button.jsx';
 import { Component } from "react";
 import { buildLocalErrorDiagnostic } from "./observability/local-error-diagnostic";
 import { enviarRelatorioErro } from "./observability/global-error-capture.js";
@@ -5,6 +6,12 @@ import { enviarRelatorioErro } from "./observability/global-error-capture.js";
 const DYNAMIC_IMPORT_FAILURE = /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|ChunkLoadError|Unable to preload CSS for/i;
 
 export const isDynamicImportFailure = error => DYNAMIC_IMPORT_FAILURE.test(String(error?.message || error || ""));
+
+export const errorRecoveryCopy=(error,online=true)=>!online
+  ?{title:'Sem conexão para abrir esta tela',message:'Restabeleça a conexão antes de recarregar. A reconexão habilita o botão e não confirma operações por conta própria.'}
+  :isDynamicImportFailure(error)
+    ?{title:'Não foi possível carregar esta tela',message:'A conexão ou uma atualização do aplicativo pode ter interrompido o carregamento. Recarregue para buscar a versão disponível.'}
+    :{title:'Algo quebrou nesta tela',message:'Ocorreu uma falha de exibição. Recarregue e, se continuar, envie o diagnóstico abaixo.'};
 
 export const dynamicImportRecoveryKey = error => {
   const message=String(error?.message || error || "");
@@ -42,8 +49,12 @@ export const recoverDynamicImport = (error, win = window) => {
 export default class ErrorBoundary extends Component {
   constructor(props) {
     super(props);
-    this.state = { erro: null, componentStack: "" };
+    this.state = { erro: null, componentStack: "", online:globalThis.navigator?.onLine!==false };
   }
+
+  connectionChanged = () => this.setState({online:window.navigator.onLine!==false});
+  componentDidMount(){window.addEventListener('online',this.connectionChanged);window.addEventListener('offline',this.connectionChanged);}
+  componentWillUnmount(){window.removeEventListener('online',this.connectionChanged);window.removeEventListener('offline',this.connectionChanged);}
 
   static getDerivedStateFromError(erro) {
     return { erro };
@@ -74,8 +85,9 @@ export default class ErrorBoundary extends Component {
   };
 
   render() {
-    const { erro, componentStack } = this.state;
+    const { erro, componentStack, online } = this.state;
     if (!erro) return this.props.children;
+    const copy=errorRecoveryCopy(erro,online);
     const diagnostic = buildLocalErrorDiagnostic(erro, { pathname: window.location.pathname });
 
     return (
@@ -101,15 +113,15 @@ export default class ErrorBoundary extends Component {
             fontFamily: "var(--arcd-font-sans)",
             fontSize: "var(--arcd-type-section-title)", fontWeight: 600, color: "#121212", margin: "0 0 6px",
           }}>
-            Algo quebrou nesta tela
+            {copy.title}
           </h1>
 
           <p style={{ fontSize: "var(--arcd-type-body)", color: "#6B6459", lineHeight: 1.55, margin: "0 0 6px" }}>
-            Ocorreu uma falha de exibição. Recarregar costuma resolver.
+            {copy.message}
           </p>
 
           <p style={{ fontSize: "var(--arcd-type-caption)", color: "#6B6459", lineHeight: 1.5, margin: "0 0 18px" }}>
-            Se havia uma ação em andamento, confirme o resultado após recarregar. Se continuar, envie o diagnóstico abaixo.
+            Rascunhos já salvos neste navegador permanecem disponíveis. Após recarregar, confira o resultado da ação antes de repeti-la. Se o erro continuar, copie o diagnóstico para pedir ajuda.
           </p>
 
           <pre style={{
@@ -121,30 +133,10 @@ export default class ErrorBoundary extends Component {
             {componentStack ? `\nOrigem: ${componentStack.trim().split("\n")[0].trim()}` : ""}
           </pre>
 
-          <button
-            onClick={() => this.copiarDiagnostico(diagnostic)}
-            style={{
-              width: "100%", padding: 10, borderRadius: 8, marginBottom: 8,
-              background: "#FFFFFF", color: "#3D3530", border: "1px solid #C8C2B6",
-              fontFamily: "var(--arcd-font-sans)", fontWeight: 600,
-              fontSize: "var(--arcd-type-control)", cursor: "pointer",
-            }}
-          >
-            Copiar diagnóstico
-          </button>
-
-          <button
-            onClick={() => window.location.reload()}
-            style={{
-              width: "100%", padding: 12, borderRadius: 8,
-              background: "#D4AF37", color: "#fff", border: "1.5px solid #B8930F",
-              fontFamily: "var(--arcd-font-sans)",
-              fontWeight: 600, fontSize: "var(--arcd-type-control)",
-              textTransform: "uppercase", letterSpacing: 0.6, cursor: "pointer",
-            }}
-          >
-            Recarregar
-          </button>
+          <div className="flex flex-col gap-2">
+            <Button variant="outline" onClick={()=>this.copiarDiagnostico(diagnostic)}>Copiar diagnóstico</Button>
+            <Button disabled={!online} onClick={()=>window.location.reload()}>Recarregar</Button>
+          </div>
         </div>
       </div>
     );

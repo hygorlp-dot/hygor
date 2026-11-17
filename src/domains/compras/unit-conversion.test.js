@@ -9,6 +9,7 @@ import {
   steelKgPerMeterOf,
   suggestedSteelConversion,
   referenceUnitCostOf,
+  withPurchaseUnit, withReferenceUnit, canCompareReferencePrice,
 } from "./unit-conversion";
 
 describe("conversão de unidades de Compras", () => {
@@ -62,6 +63,21 @@ describe("conversão de unidades de Compras", () => {
 });
 
 describe("custo na unidade do estoque",()=>{
+  it("exige nova conferência quando muda a base da embalagem, sem inferir pelo nome",()=>{
+    const item={unidadeRef:'KG',unidadeCompra:'SC',fatorConversao:50,precoRef:2,descricaoRef:'ACO CA-50 10 MM'};
+    expect(withPurchaseUnit(item,'BR').fatorConversao).toBe('');
+    expect(withPurchaseUnit(item,'SC').fatorConversao).toBe(50);
+    expect(withPurchaseUnit(item,'KG').fatorConversao).toBe(1);
+    expect(withReferenceUnit(item,'M').fatorConversao).toBe('');
+    expect(withReferenceUnit(item,'SC').fatorConversao).toBe(1);
+    expect(withReferenceUnit(item,'kg').fatorConversao).toBe(50);
+    expect(item.fatorConversao).toBe(50);
+  });
+  it("compara preços apenas com unidade de referência e fator válidos",()=>{
+    expect(canCompareReferencePrice({precoRef:10,unidadeCompra:'SC',fatorConversao:50})).toBe(false);
+    expect(canCompareReferencePrice({precoRef:10,unidadeRef:'KG',unidadeCompra:'SC',fatorConversao:0})).toBe(false);
+    expect(canCompareReferencePrice({precoRef:10,unidadeRef:'KG',unidadeCompra:'SC',fatorConversao:50})).toBe(true);
+  });
   it("divide o preço da embalagem pelo fator e mantém o preço sem conversão",()=>{
     expect(referenceUnitCostOf({precoUnit:18,unidadeRef:"KG",unidadeCompra:"SC",fatorConversao:20})).toBeCloseTo(.9);
     expect(referenceUnitCostOf({precoUnit:18,unidadeRef:"UN"})).toBe(18);

@@ -1,4 +1,9 @@
 {
+  "git": {
+    "deploymentEnabled": {
+      "codex/usability-roadmap-stages4-6-20261117": false
+    }
+  },
   "buildCommand": "node scripts/audit-import-cycles.mjs && npx vite build && node scripts/bundle-metrics.mjs",
   "outputDirectory": "dist",
   "framework": "vite",

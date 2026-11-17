@@ -6669,7 +6669,7 @@ body.no-scroll .arcd-mobile-nav { visibility:hidden; pointer-events:none; }
 .team-row__employee { display: flex; min-width: 0; align-items: center; gap: 9px; border: 0; background: transparent; color: inherit; cursor: pointer; text-align: left; font-family: inherit; }
 .team-row__employee > span:nth-child(2) { min-width: 0; flex: 1; }
 .team-row__employee strong, .team-row__employee small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.team-row__employee strong { font-size: var(--arcd-type-label); font-weight: 600; }
+.team-row__employee strong { font-size: var(--arcd-type-label); font-weight: 600; white-space: normal; overflow-wrap: anywhere; }
 .team-row__employee small { margin-top: 2px; color: #65696d; font-family: "IBM Plex Mono", monospace; font-size:var(--arcd-type-caption); }
 .team-row__initials { width: 32px; height: 32px; display: grid; flex: 0 0 auto; place-items: center; border: 1px solid #d6ad2f; border-radius: 2px; background: #f8f3df; font-size:var(--arcd-type-caption); font-weight: 600; }
 .team-row__cell { min-width: 0; font-size:var(--arcd-type-caption); overflow-wrap: anywhere; }

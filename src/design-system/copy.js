@@ -5,7 +5,7 @@ export const UI_TEXT = Object.freeze({
   columns:Object.freeze({title:'Colunas',fields:'Campos visíveis',description:'Campos obrigatórios permanecem marcados. Ocultar não altera registros nem totais.',session:'Sem gravação neste navegador. As escolhas valem apenas nesta sessão.',reset:'Restaurar colunas padrão',done:'Concluir'}),
   feedback:Object.freeze({recordUnavailable:"Registro indisponível",loading:"Carregando",loadingDescription:"Aguarde enquanto os dados são preparados."}),
   confirmation:Object.freeze({reason:"Motivo",reasonRequired:"Informe o motivo para continuar."}),
-  pagination:Object.freeze({label:"Paginação",page:(current,total)=>`Página ${current} de ${total}`}),
+  pagination:Object.freeze({label:"Paginação",page:(current,total)=>`Página ${current} de ${total}`,results:label=>`Resultados de ${label}`,range:(start,end,count,label)=>`${start}–${end} de ${count} ${label}`,empty:label=>`Nenhum resultado em ${label}`}),
 });
 
 const inteiro = new Intl.NumberFormat("pt-BR", {maximumFractionDigits:0});

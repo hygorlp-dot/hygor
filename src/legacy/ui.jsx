@@ -1,3 +1,4 @@
+import {TaskDisclosure} from '../design-system/patterns/TaskDisclosure.jsx';
 import {useDialogLifecycle} from '../design-system/primitives/useDialogLifecycle.js';
 import {createPortal} from 'react-dom';
 import {useRecoveredEditor,SaveRecoveryShortcut} from '../features/workflow/SaveRecoveryContext.jsx';
@@ -385,8 +386,15 @@ export function ChartPanel({ eyebrow="Análise visual", title, subtitle, legend=
 // (gradiente escuro, cor e padding diferentes por tela) por um único
 // componente flat, no mesmo sistema Carbon do dashboard. Sem alterar o
 // conteúdo de cada tela — só o invólucro visual.
-export function PageHero({title,description,alert,stats,actions,headingLevel=1}){
+export function PageHero({title,description,alert,stats,actions,headingLevel=1,statsDisclosure=false}){
   const Heading=headingLevel===3?"h3":headingLevel===2?"h2":"h1";
+  const statistics=!!stats?.length&&<div className="page-hero__stats">
+    {stats.map(s=><div key={s.label} className="page-hero__stat">
+      <p className="page-hero__stat-label">{s.label}</p>
+      <p className="page-hero__stat-value" data-tone={semanticToneFromLegacyColor(s.color)}>{s.value}</p>
+      {s.detail&&<p className="page-hero__stat-detail">{s.detail}</p>}
+    </div>)}
+  </div>;
   return <section className="page-hero mrc-screen-header">
     <div className="page-hero__main">
       <div className="page-hero__copy">
@@ -397,13 +405,7 @@ export function PageHero({title,description,alert,stats,actions,headingLevel=1})
       </div>
       {actions&&<div className="page-hero-actions">{actions}</div>}
     </div>
-    {!!stats?.length&&<div className="page-hero__stats">
-      {stats.map(s=><div key={s.label} className="page-hero__stat">
-        <p className="page-hero__stat-label">{s.label}</p>
-        <p className="page-hero__stat-value" data-tone={semanticToneFromLegacyColor(s.color)}>{s.value}</p>
-        {s.detail&&<p className="page-hero__stat-detail">{s.detail}</p>}
-      </div>)}
-    </div>}
+    {statistics&&(statsDisclosure?<TaskDisclosure summary="Indicadores da área">{statistics}</TaskDisclosure>:statistics)}
   </section>;
 }
 

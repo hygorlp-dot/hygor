@@ -1,3 +1,4 @@
+import {purchasePriceBasisKey,purchaseHistoryByBasis} from '../price-comparison.js';
 import {openReportPreview} from '../../../reports/report-preview.js';
 import {WorkspaceCommandBar,WorkspaceHeading} from '../../../design-system/patterns/WorkspaceCommandBar.jsx';
 import PaymentDialog from '../../../features/financeiro/PaymentDialog.jsx';
@@ -106,7 +107,7 @@ import {
 import {
   hasValidUnitConversion, purchaseUnitOf,
   referencePricePerPurchaseUnit, referenceQuantityOf, referenceTotalOf,
-  suggestedSteelConversion,
+  withPurchaseUnit, withReferenceUnit, canCompareReferencePrice,
 } from "../unit-conversion";
 import {
   enviarArquivoOneDrive, gerarLinkAceitePedido, listarBasesReferencia, pesquisarInsumosReferencia,
@@ -174,19 +175,9 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
     setSalvando(true);
     try{await onSave(form);}finally{setSalvando(false);}
   };
-  const setItem=(id,campo,valor)=>setForm(f=>({...f,itens:f.itens.map(item=>item.id===id?{...item,[campo]:valor}:item)}));
-  const setUnidadeCompra=(id,unidadeCompra)=>setForm(f=>({...f,itens:f.itens.map(item=>{
-    if(item.id!==id)return item;
-    const mesmaUnidade=String(unidadeCompra).toUpperCase()===String(item.unidadeRef||"UN").toUpperCase();
-    const steel=suggestedSteelConversion(item,unidadeCompra,item.comprimentoBarra||12);
-    return {...item,unidadeCompra,fatorConversao:mesmaUnidade?1:(steel?.factor||(Number(item.fatorConversao)>1?item.fatorConversao:"")),
-      ...(steel?.purchaseUnit==="BR"?{comprimentoBarra:item.comprimentoBarra||12}:{})};
-  })}));
-  const setComprimentoBarra=(id,comprimentoBarra)=>setForm(f=>({...f,itens:f.itens.map(item=>{
-    if(item.id!==id)return item;
-    const steel=suggestedSteelConversion(item,item.unidadeCompra,comprimentoBarra);
-    return {...item,comprimentoBarra,fatorConversao:steel?.factor||""};
-  })}));
+  const setItem=(id,campo,valor)=>setForm(f=>({...f,itens:f.itens.map(item=>item.id===id?(campo==='unidadeRef'?withReferenceUnit(item,valor):{...item,[campo]:valor}):item)}));
+  const setUnidadeCompra=(id,unidadeCompra)=>setForm(f=>({...f,itens:f.itens.map(item=>item.id===id?withPurchaseUnit(item,unidadeCompra):item)}));
+  const setComprimentoBarra=(id,comprimentoBarra)=>setForm(f=>({...f,itens:f.itens.map(item=>item.id===id?{...item,comprimentoBarra,fatorConversao:''}:item)}));
   // Duplica um item já lançado - forma rápida de apropriar o mesmo insumo
   // (ex.: cimento) em outra etapa do orçamento, só trocando quantidade/etapa.
   const duplicarItem=id=>setForm(f=>{
@@ -291,13 +282,13 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
       </div>
       {(()=>{const unidadeCompra=purchaseUnitOf(item),unidadeRef=String(item.unidadeRef||"UN").toUpperCase();
         const conversaoAtiva=unidadeCompra!==unidadeRef;
-        const conversaoAco=suggestedSteelConversion(item,unidadeCompra,item.comprimentoBarra||12);
+
         const quantidadeReferencia=referenceQuantityOf(item);
         const precoCompraRef=referencePricePerPurchaseUnit(item);
         return <div style={{display:"grid",gridTemplateColumns:formGrid(conversaoAtiva?3:2),gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-2)",background:"var(--arcd-surface-page)",border:"1px solid var(--arcd-border-default)",borderRadius:6}}>
           <Sel label="Unidade de compra" value={unidadeCompra} onChange={v=>setUnidadeCompra(item.id,v)}
             options={UNIDADES_PADRAO.map(u=>({v:u.sigla.toUpperCase(),l:`${u.sigla.toUpperCase()} · ${u.nome}`}))}/>
-          {conversaoAco?.purchaseUnit==="BR"&&<Inp label="Comprimento da barra (m) *" type="number" value={item.comprimentoBarra||12} onChange={v=>setComprimentoBarra(item.id,v)} placeholder="12"/>}
+          {unidadeCompra==="BR"&&<Inp label="Comprimento informado da barra (m)" type="number" value={item.comprimentoBarra||""} onChange={v=>setComprimentoBarra(item.id,v)} placeholder="12"/>}
           {conversaoAtiva&&<Inp label={`Conteúdo de 1 ${unidadeCompra} em ${unidadeRef} *`} type="number" min="0.0001" value={item.fatorConversao||""} onChange={v=>setItem(item.id,"fatorConversao",v)} placeholder="Ex.: 20" error={itemErrors.fatorConversao}/>}
           <div style={{display:"flex",flexDirection:"column",justifyContent:"flex-end",paddingBottom:"var(--arcd-space-half)"}}>
             <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Equivalência da solicitação</p>
@@ -306,12 +297,10 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
                 ? `${Number(item.quantidade||0).toLocaleString("pt-BR")} ${unidadeCompra} = ${quantidadeReferencia.toLocaleString("pt-BR",{maximumFractionDigits:4})} ${unidadeRef}`
                 : `Informe quanto contém cada ${unidadeCompra}`}
             </p>
-            {conversaoAtiva&&precoCompraRef>0&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Referência convertida: {fmt(precoCompraRef)}/{unidadeCompra}</p>}
+            {conversaoAtiva&&canCompareReferencePrice(item)&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Referência convertida: {fmt(precoCompraRef)}/{unidadeCompra}</p>}
           </div>
-          {conversaoAco&&<p style={{gridColumn:"1/-1",fontSize:"var(--arcd-type-caption)",color:"var(--arcd-action-primary)",lineHeight:"var(--arcd-line-height-normal)"}}>
-            Conversão automática do aço{conversaoAco.diameterMm?` Ø ${conversaoAco.diameterMm.toLocaleString("pt-BR")} mm`:""}: {conversaoAco.kgPerMeter.toLocaleString("pt-BR",{maximumFractionDigits:4})} kg/m{conversaoAco.purchaseUnit==="BR"?` · barra de ${conversaoAco.barLength.toLocaleString("pt-BR")} m`:""}. O fator pode ser ajustado conforme o certificado do fabricante.
-          </p>}
         </div>;})()}
+      {purchaseUnitOf(item)!==String(item.unidadeRef||"UN").toUpperCase()&&<p className="purchase-request-hint">Confira o conteúdo da embalagem ou o certificado do fornecedor e informe o fator. Descrição, bitola e comprimento não definem a conversão automaticamente. Trocar a unidade ou o comprimento exige conferir o fator novamente.</p>}
       <div style={{marginTop:"var(--arcd-space-2)"}}><Sel label="Etapa principal do orçamento" value={item.orcNivel1Id||""} onChange={v=>setItem(item.id,"orcNivel1Id",v)} options={[{v:"",l:orcObra?"Selecione a etapa principal":"A obra ainda não possui orçamento"},...linhasOrc]}/></div>
       {contextoOrcamento.source==="rascunho"&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-warning-text)",marginTop:"var(--arcd-space-1)"}}>Vinculação ao orçamento em rascunho. A etapa organiza a compra, sem tornar esta versão uma baseline financeira.</p>}
       {item.precoRef>0&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>Referência {item.dataBaseRef}{item.ufRef?` · ${item.ufRef}`:""}: <b style={{color:"var(--arcd-text-primary)"}}>{fmt(Number(item.precoRef))}/{item.unidadeRef}</b></p>}
@@ -360,7 +349,7 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
   // qualquer campo de preco (o formulario controlado re-renderiza o modal
   // inteiro a cada onChange).
   const historicoPorMaterial = useMemo(
-    () => historicoPrecoTodos(data?.pedidos),
+    () => purchaseHistoryByBasis(data?.pedidos),
     [data?.pedidos]
   );
   const F = k => v => setForm(f => ({ ...f, [k]: v }));
@@ -503,8 +492,8 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
                 {(() => {
                   // Guarda de preço: avisa NA HORA da digitação, antes de o
                   // dinheiro sair. Sem preço digitado, mostra a referência.
-                  const h = it.materialId ? (historicoPorMaterial.get(it.materialId) || []) : null;
-                  const g = data && it.materialId ? guardaPreco(h, it.precoUnit, fornecedores, referencePricePerPurchaseUnit(it)) : null;
+                  const h = it.materialId ? (historicoPorMaterial.get(purchasePriceBasisKey(it)) || []) : null;
+                  const g = data && it.materialId ? guardaPreco(h, it.precoUnit, fornecedores, canCompareReferencePrice(it)?referencePricePerPurchaseUnit(it):0) : null;
                   if (g && g.nivel) {
                     const cor = g.nivel==="alto" ? C.red : g.nivel==="medio" ? C.orange : C.green;
                     return (
@@ -572,8 +561,8 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
             </div>
             {it.codigoRef&&<div style={{marginTop:"var(--arcd-space-2)",background:"var(--arcd-surface-page)",border:"1px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-2)"}}>
               <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:it.fonteRef==="ORSE"?"var(--arcd-action-primary)":"var(--arcd-action-primary)"}}>{it.fonteRef} {it.codigoRef} · {it.descricaoRef} · {it.unidadeRef}</p>
-              <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Referência {it.dataBaseRef}{it.ufRef?` · ${it.ufRef}`:""}: <b style={{color:"var(--arcd-text-primary)"}}>{fmt(referencePricePerPurchaseUnit(it))}/{purchaseUnitOf(it)}</b>{purchaseUnitOf(it)!==String(it.unidadeRef||"").toUpperCase()?` · 1 ${purchaseUnitOf(it)} = ${Number(it.fatorConversao||0).toLocaleString("pt-BR")} ${it.unidadeRef}`:""}</p>
-              {Number(it.precoUnit)>0&&referencePricePerPurchaseUnit(it)>0&&(()=>{const ref=referencePricePerPurchaseUnit(it),dif=Number(it.precoUnit)-ref,pct=dif/ref*100,cor=dif<=0?C.green:C.red;return <p style={{fontSize:"var(--arcd-type-label)",color:cor,fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-half)"}}>{dif<=0?"ABAIXO DA REFERÊNCIA":"ACIMA DA REFERÊNCIA"}: {fmt(Math.abs(dif))} ({Math.abs(pct).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}%)</p>;})()}
+              {canCompareReferencePrice(it)?<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Referência {it.dataBaseRef}{it.ufRef?` · ${it.ufRef}`:""}: <b style={{color:"var(--arcd-text-primary)"}}>{fmt(referencePricePerPurchaseUnit(it))}/{purchaseUnitOf(it)}</b>{purchaseUnitOf(it)!==String(it.unidadeRef||"").toUpperCase()?` · 1 ${purchaseUnitOf(it)} = ${Number(it.fatorConversao||0).toLocaleString("pt-BR")} ${it.unidadeRef}`:""}</p>:<p className="purchase-request-hint">Comparação indisponível. Confira a unidade de referência, o preço e o conteúdo da embalagem.</p>}
+              {Number(it.precoUnit)>0&&canCompareReferencePrice(it)&&(()=>{const ref=referencePricePerPurchaseUnit(it),dif=Number(it.precoUnit)-ref,pct=dif/ref*100,cor=dif<=0?C.green:C.red;return <p style={{fontSize:"var(--arcd-type-label)",color:cor,fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-half)"}}>{dif<=0?"ABAIXO DA REFERÊNCIA":"ACIMA DA REFERÊNCIA"}: {fmt(Math.abs(dif))} ({Math.abs(pct).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}%)</p>;})()}
             </div>}
             {!it.orcNivel1Id && !it.orcItemId && linhasOrc.length > 0 && Number(it.qtd) > 0 && (
               <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)",marginTop:"var(--arcd-space-1)"}}>
@@ -2352,7 +2341,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                           {!i.orcNivel1Id&&!i.orcItemId && linhasOrc.length > 0 && (
                             <span style={{color:"var(--arcd-warning-text)",fontSize:"var(--arcd-type-caption)"}}>  sem apropriação</span>
                           )}
-                          {referencePricePerPurchaseUnit(i)>0&&(Number(i.precoUnit)>0?(()=>{const ref=referencePricePerPurchaseUnit(i),dif=Number(i.precoUnit)-ref,pct=dif/ref*100,cor=dif<=0?C.green:C.red;return <span style={{display:"block",fontSize:"var(--arcd-type-caption)",color:cor,fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-0)"}}>{i.fonteRef} {i.codigoRef} · compra {fmt(Number(i.precoUnit))} · ref. {fmt(ref)}/{purchaseUnitOf(i)} · {dif<=0?"abaixo":"acima"} {Math.abs(pct).toLocaleString("pt-BR",{maximumFractionDigits:2})}%</span>;})():<span style={{display:"block",fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-0)"}}>{i.fonteRef} {i.codigoRef} · ref. {fmt(referencePricePerPurchaseUnit(i))}/{purchaseUnitOf(i)} · preço de compra não informado</span>)}
+                          {canCompareReferencePrice(i)&&(Number(i.precoUnit)>0?(()=>{const ref=referencePricePerPurchaseUnit(i),dif=Number(i.precoUnit)-ref,pct=dif/ref*100,cor=dif<=0?C.green:C.red;return <span style={{display:"block",fontSize:"var(--arcd-type-caption)",color:cor,fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-0)"}}>{i.fonteRef} {i.codigoRef} · compra {fmt(Number(i.precoUnit))} · ref. {fmt(ref)}/{purchaseUnitOf(i)} · {dif<=0?"abaixo":"acima"} {Math.abs(pct).toLocaleString("pt-BR",{maximumFractionDigits:2})}%</span>;})():<span style={{display:"block",fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-0)"}}>{i.fonteRef} {i.codigoRef} · ref. {fmt(referencePricePerPurchaseUnit(i))}/{purchaseUnitOf(i)} · preço de compra não informado</span>)}
                         </span>
                         <span style={{whiteSpace:"nowrap",flexShrink:0,textAlign:"right",
                                       color: completo ? "var(--arcd-success-text)" : "var(--arcd-text-primary)", fontWeight:"var(--arcd-font-weight-semibold)"}}>

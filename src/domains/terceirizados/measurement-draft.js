@@ -16,7 +16,7 @@ export function readMeasurementDraft(scope, storage) {
     if (!raw) return {ok:true,draft:null};
     const draft = JSON.parse(raw);
     if (draft?.version !== 1 || draft.key !== key || !draft.measurementId || !draft.form
-      || typeof draft.form.pcts !== "object" || !Array.isArray(draft.form.fotos)) {
+      || !draft.form.pcts || typeof draft.form.pcts !== "object" || Array.isArray(draft.form.pcts) || !Array.isArray(draft.form.fotos)) {
       return {ok:false,error:"O rascunho salvo não pôde ser recuperado. Descarte-o para iniciar uma nova medição."};
     }
     return {ok:true,draft};
