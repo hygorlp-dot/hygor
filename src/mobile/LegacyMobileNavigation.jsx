@@ -73,7 +73,9 @@ export function LegacyMobileNavigation({
           }}
         >
           {renderIcon?.(group.icon, active ? 20 : 18)}
-          <span className="mobile-primary-nav__label">{group.shortLabel||group.label}</span>
+          <span className="mobile-primary-nav__label">
+            {group.id==="fin_grp"?<><span className="mobile-primary-nav__full-label">Financeiro</span><span className="mobile-primary-nav__compact-label">Finanças</span></>:group.shortLabel||group.label}
+          </span>
           {badge && <span className="mobile-primary-nav__badge" aria-label="Há pendências" />}
         </button>;
       })}

@@ -1,5 +1,8 @@
 import {openReportPreview} from '../../../reports/report-preview.js';
 import {FilterBar} from "../../../design-system/patterns/FilterBar.jsx";
+import {TaskDisclosure} from "../../../design-system/patterns/TaskDisclosure.jsx";
+import {RecordListPagination} from "../../../design-system/data/RecordListPagination.jsx";
+import {useRecordPage} from "../../../design-system/data/useRecordPage.js";
 import {RecordAction} from "../../../design-system/primitives/RecordAction.jsx";
 import {useEffect,useMemo,useState} from "react";
 import { Badge, Btn, Ic, Inp, Modal, PageHero, Sel } from "../../../legacy/ui.jsx";
@@ -142,6 +145,7 @@ export default function PatrimonioEmpresaView({data,showToast,dispatchCommand}){
   useEffect(()=>{if(!menuAberto)return;const menu=[...document.querySelectorAll("[data-menu-de]")].find(el=>el.dataset.menuDe===String(menuAberto));menu?.querySelector("[role=menuitem]")?.focus();},[menuAberto]);
   const assets=Array.isArray(data?.companyAssets)?data.companyAssets:[];
   const filtered=useMemo(()=>assets.filter(a=>(status==="todos"||status==="ativos"&&a.active!==false||a.status===status)&&(!search.trim()||[a.assetTag,a.name,a.category,a.serialNumber,a.imei,a.invoice?.number,a.invoice?.supplierName].some(v=>String(v||"").toLowerCase().includes(search.toLowerCase())))),[assets,search,status]);
+  const assetPage=useRecordPage("patrimonio",filtered,JSON.stringify([search,status]));
   const active=assets.filter(a=>a.active!==false),total=active.reduce((s,a)=>s+Number(a.acquisitionValue||0),0),docs=active.filter(a=>a.invoice?.document?.path||a.invoice?.number).length;
   const save=async()=>{setBusy(true);try{
     const {_photoUpload,_photoPreview,...assetBase}=editor||{};
@@ -170,15 +174,28 @@ export default function PatrimonioEmpresaView({data,showToast,dispatchCommand}){
     });
     openReportPreview(html);
   };
+  const newAsset=<Btn onClick={()=>setEditor(vazio())}><Ic n="plus"/> Novo bem</Btn>;
   return <div className="anim patrimony-workspace" style={{display:"flex",flexDirection:"column",gap:12}}>
-    <PageHero eyebrow="Administração" title="Patrimônio da empresa" description="Bens corporativos da empresa, com nota fiscal, identificação física, localização atual e histórico." stats={[{label:"Bens ativos",value:String(active.length),color:C.green},{label:"Valor de aquisição",value:money(total)},{label:"Com nota/documento",value:String(docs)+"/"+String(active.length),color:docs===active.length?C.green:C.orange}]} actions={<div style={{display:"flex",gap:8,flexWrap:"wrap"}}><Btn v="ghost" onClick={gerarRelatorio}><Ic n="fileText"/> Relatório</Btn><Btn v="ghost" onClick={()=>setImporting(true)}><Ic n="receipt"/> Importar NF</Btn><Btn onClick={()=>setEditor(vazio())}><Ic n="plus"/> Novo bem</Btn></div>}/>
+    <PageHero title="Patrimônio da empresa" description="Cadastre bens e consulte a localização e o histórico." statsDisclosure={isMobile}
+      stats={[{label:"Bens ativos",value:String(active.length),color:C.green},{label:"Valor de aquisição",value:money(total)},{label:"Com nota/documento",value:String(docs)+"/"+String(active.length),color:docs===active.length?C.green:C.orange}]}
+      actions={<div className="flex flex-wrap gap-2">
+        {isMobile&&newAsset}
+        <TaskDisclosure enabled={isMobile} summary="Relatório e importação">
+          <div className="flex flex-wrap gap-2">
+            <Btn v="ghost" onClick={gerarRelatorio}><Ic n="fileText"/> Relatório</Btn>
+            <Btn v="ghost" onClick={()=>setImporting(true)}><Ic n="receipt"/> Importar NF</Btn>
+          </div>
+        </TaskDisclosure>
+        {!isMobile&&newAsset}
+      </div>}/>
     <FilterBar layout="grid" label="Filtros do patrimônio" className="patrimony-filters"><div><Inp label="Buscar" value={search} onChange={setSearch} placeholder="Código, bem, série, IMEI, NF ou fornecedor"/></div><div><Sel label="Situação" value={status} onChange={setStatus} options={[{v:"ativos",l:"Ativos"},{v:"todos",l:"Todos"}].concat(STATUS)}/></div></FilterBar>
     {/* Nome abre o cadastro; movimentação fica junto ao registro. */}
     <section className="patrimonio-lista" aria-label="Bens patrimoniais">
       <p className="patrimonio-lista__nota">O bem pertence à empresa. Uma obra pode aparecer apenas como localização temporária.</p>
       {!filtered.length?<p className="patrimonio-lista__vazio">Nenhum patrimônio encontrado.</p>:<>
         {!isMobile&&<div className="patrimonio-lista__cabecalho" aria-hidden="true"><span>Bem</span><span>Situação</span><span>Local e nota fiscal</span><span className="patrimonio-lista__num">Valor de aquisição</span><span/></div>}
-        {filtered.map(a=>{const aberto=menuAberto===a.id;const fechar=()=>setMenuAberto("");return <div key={a.id} className="patrimonio-lista__linha" data-mobile={isMobile||undefined}>
+        {isMobile&&<RecordListPagination pagination={assetPage} label="bens patrimoniais"/>}
+        {(isMobile?assetPage.rows:filtered).map(a=>{const aberto=menuAberto===a.id;const fechar=()=>setMenuAberto("");return <div key={a.id} className="patrimonio-lista__linha" data-mobile={isMobile||undefined}>
           <div className="patrimonio-lista__bem"><RecordAction className="patrimonio-lista__nome" aria-label={`Abrir cadastro de ${a.name}`} onClick={()=>setEditor(JSON.parse(JSON.stringify(a)))}>{a.name}</RecordAction><span className="patrimonio-lista__meta">{a.assetTag||"Sem código"}{a.serialNumber?", série "+a.serialNumber:""}{a.imei?", IMEI "+a.imei:""}</span></div>
           <div><Badge color={a.status==="baixado"?C.muted:a.status==="extraviado"?C.red:a.status==="manutencao"?C.orange:C.green}>{STATUS.find(s=>s.v===a.status)?.l||a.status}</Badge></div>
           <div className="patrimonio-lista__local"><span>{a.location?.label||"Sede"}</span><span className="patrimonio-lista__meta">{a.invoice?.number?"NF "+a.invoice.number:"Sem NF"}</span></div>

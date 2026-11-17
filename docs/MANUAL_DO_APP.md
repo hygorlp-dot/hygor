@@ -1550,7 +1550,7 @@ Selecione a obra e a competência desejada.
 ### Como fazer
 
 1. No celular, escolha Visão do DRE e abra Período de análise para mudar ano, mês ou apuração.
-2. No Resumo por obra, pesquise ou toque no nome da obra para abrir o recorte. Abra Demonstrativo da obra para ler as linhas detalhadas, ou toque em um indicador para conferir os movimentos de origem.
+2. No Resumo por obra, pesquise ou toque no nome da obra para abrir o recorte. Ao trocar a obra ou competência, aguarde o carregamento antes de conferir valores e exportar. Abra Demonstrativo da obra para ler as linhas detalhadas, ou toque em um indicador para conferir os movimentos de origem.
 3. Compare com as medições e demais registros da mesma obra e período.
 4. Na lista, confira o intervalo de resultados. Anterior e Próxima mostram até 12 registros por página; a busca considera toda a lista disponível, não só a página atual. Alterar o recorte volta à primeira página. Totais e relatórios continuam usando o conjunto completo.
 5. Em Resumo por obra, use Pesquisar obra no resumo do DRE. A busca e a página não mudam os indicadores consolidados nem o relatório exportado. Gráficos do consolidado reúne as visualizações adicionais; a consulta por obra continua nos filtros do próprio DRE.
@@ -2078,7 +2078,7 @@ Confira o equipamento e a obra.
 
 ### Como fazer
 
-1. Em Frota, use Pesquisar na frota. No celular, use Anterior e Próxima para percorrer os resultados. O nome abre o cadastro.
+1. Em Frota, use Pesquisar na frota. No celular, use Anterior e Próxima para percorrer os resultados e Detalhes do equipamento para consultar tarifas, propriedade, foto quando disponível e valores do período. Abra Período de referência para mudar a competência. O nome abre o cadastro.
 2. Use Salvar equipamento para confirmar alterações ou Excluir equipamento, com confirmação.
 3. Locar, Transferir e Manutenção ficam no cartão. Confira os dados antes de confirmar.
 
@@ -2102,7 +2102,7 @@ Tenha o equipamento, fornecedor, obra e período da locação.
 
 ### Como fazer
 
-1. Em Frota, o nome abre o cadastro; Locar, Transferir e Manutenção ficam no cartão.
+1. Em Frota, o nome abre o cadastro e Locar, Transferir e Manutenção ficam no cartão. No celular, abra Detalhes do equipamento para consultar a foto e os valores, quando disponíveis.
 2. Em Locações, confira contrato, período, devolução e documentos.
 3. Confira os pagamentos na origem financeira.
 
@@ -2126,7 +2126,7 @@ Tenha identificação do bem e responsável atual.
 
 ### Como fazer
 
-1. Pesquise o bem; seu nome abre o cadastro.
+1. Pesquise o bem e use Anterior ou Próxima para percorrer os resultados no celular. O nome do bem abre o cadastro. Relatório e importação reúne Relatório e Importar NF no celular.
 2. Use Mover na linha para alterar local ou responsável e Registrar movimentação para confirmar. Cancelar não grava.
 3. Mais ações reúne Histórico e Alterar status…. Confira documentos e identificação antes de salvar.
 
@@ -2272,7 +2272,7 @@ Identifique qual configuração precisa mudar e quem é responsável.
 
 ### Como fazer
 
-1. Localize o grupo de configurações necessário.
+1. No celular, toque no grupo de configurações para expandi-lo, como Empresa ou DRE e tributação. Recolher a seção conserva o preenchimento enquanto a tela está aberta.
 2. Confira os valores atuais antes de editar.
 3. Salve e verifique a confirmação e o comportamento afetado.
 
@@ -4157,7 +4157,7 @@ No computador, Consultas e cadastros em Compras e Mais áreas no Financeiro abre
 
 ### Acessar outros módulos no celular
 
-Use Mais, na barra inferior, para abrir Mais módulos. Escolha o módulo desejado. O seletor abaixo dos botões do cabeçalho mostra o nome da tela e permite trocar de área no mesmo módulo. No celular, Mais também mostra a conta e Sair do sistema. Fechar menu ou Escape retorna à tela atual sem trocar a área de trabalho. A recuperação protege formulários e os atalhos de navegação continuam disponíveis.
+Use Mais, na barra inferior, para abrir Mais módulos. Escolha o módulo desejado. O seletor abaixo dos botões do cabeçalho mostra o nome da tela e permite trocar de área no mesmo módulo. Nas telas mais estreitas, Finanças abre o Financeiro. No celular, Mais também mostra a conta e Sair do sistema. Fechar menu ou Escape retorna à tela atual sem trocar a área de trabalho. A recuperação protege formulários e os atalhos de navegação continuam disponíveis.
 
 ### Usar os filtros
 

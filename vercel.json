@@ -4,7 +4,8 @@
       "codex/usability-roadmap-stages4-6-20261117": false,
       "codex/audit-financial-usability-20261117": false,
       "codex/reauditoria-mobile-20261117": false,
-      "codex/operacao-mobile-20261117": false
+      "codex/operacao-mobile-20261117": false,
+      "codex/dre-escopo-mobile-20261117": false
     }
   },
   "buildCommand": "node scripts/audit-import-cycles.mjs && npx vite build && node scripts/bundle-metrics.mjs",

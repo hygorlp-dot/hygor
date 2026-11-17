@@ -265,6 +265,8 @@
   .equipment-fleet-card__body { display: contents; }
   .equipment-fleet-card__body > * { grid-column: 1 / -1; }
   .equipment-fleet-card__body > div:first-child { grid-column: 2; grid-row: 1; }
+  .arcd-main[data-workspace] .equipment-fleet-card[data-compact] { grid-template-columns: minmax(0, 1fr); }
+  .equipment-fleet-card[data-compact] .equipment-fleet-card__body > div:first-child { grid-column: 1; }
 }
 @media screen and (max-width: 640px) {
   .arcd-main[data-workspace] .supplier-table tr { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }

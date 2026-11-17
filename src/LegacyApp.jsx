@@ -3065,26 +3065,32 @@ function DRELegado({ data, showToast, currentUser=null, obraIdFixo="", dispatchC
   const [filtroDetalhe, setFiltroDetalhe] = useSessionState("filtroDetalhe",{ busca:"", categoria:"todos", obra:"todas", ordem:"data_desc" });
   const [avaliacaoCFOObra,setAvaliacaoCFOObra]=useState(null);
   const [avaliandoCFOObra,setAvaliandoCFOObra]=useState(false);
-  const [razaoDRE,setRazaoDRE]=useState({consolidado:null,obra:null});
+  const [respostaDRE,setRespostaDRE]=useState(null);
+  const pedidoCFO=useRef(0);
   const DF = k => v => setDespForm(f=>({...f,[k]:v}));
 
   const obraFinanceiraId = obraIdFixo || selObra;
+  const consultaDRE=useMemo(()=>({year,month,period:periodoDRE,obraId:obraFinanceiraId}),[year,month,periodoDRE,obraFinanceiraId,data]);
+  const respostaAtual=respostaDRE?.consulta===consultaDRE?respostaDRE:null;
+  const razaoDRE=respostaAtual||{};
+  const carregandoObra=view==="obra"&&Boolean(obraFinanceiraId)&&!respostaAtual;
   const dreLegado = useMemo(()=>calcDREConsolidado(data,year,month,periodoDRE), [data,year,month,periodoDRE]);
   const dreObraLegado = useMemo(()=>calcDREObra(data,obraFinanceiraId,year,month,periodoDRE), [data,obraFinanceiraId,year,month,periodoDRE]);
   useEffect(()=>{
     let ativo=true;
-    Promise.all([
-      consultarDreCanonico({year,month,period:periodoDRE}),
-      obraFinanceiraId?consultarDreCanonico({year,month,period:periodoDRE,obraId:obraFinanceiraId}):Promise.resolve(null),
+    Promise.allSettled([
+      consultarDreCanonico({...consultaDRE,obraId:""}),
+      consultaDRE.obraId?consultarDreCanonico(consultaDRE):Promise.resolve(null),
     ]).then(([consolidado,obra])=>{
       if(!ativo)return;
-      setRazaoDRE({
-        consolidado:consolidado?.status===200?consolidado:null,
-        obra:obra?.status===200?obra:null,
+      setRespostaDRE({
+        consulta:consultaDRE,
+        consolidado:consolidado.value?.status===200?consolidado.value:null,
+        obra:obra.value?.status===200?obra.value:null,
       });
     });
     return()=>{ativo=false;};
-  },[year,month,periodoDRE,obraFinanceiraId,data]);
+  },[consultaDRE]);
   // FIN-002 já provou a igualdade em produção. A fonte visual do DRE passa a
   // ser o evento canônico; o cálculo legado fica somente como complemento de
   // detalhes que ainda não possuem projeção própria, não como indicador.
@@ -3130,9 +3136,15 @@ function DRELegado({ data, showToast, currentUser=null, obraIdFixo="", dispatchC
   const period = `${periodoDRE==="q1"?"1ª quinzena (06–20) · ":periodoDRE==="q2"?"2ª quinzena (21–05) · ":""}${fullMonth(month)} ${year}`;
   const fmt2 = n=>Number(n||0).toFixed(2).replace(".",",");
 
-  useEffect(()=>{setAvaliacaoCFOObra(null);},[obraFinanceiraId,year,month,periodoDRE]);
+  useEffect(()=>{
+    setAvaliacaoCFOObra(null);
+    setAvaliandoCFOObra(false);
+    return()=>{pedidoCFO.current+=1;};
+  },[consultaDRE]);
+  useEffect(()=>{setDetalheKpi("");},[consultaDRE,view]);
 
   const analisarObraComoCFO=async()=>{
+    const pedido=++pedidoCFO.current;
     setAvaliandoCFOObra(true);
     try{
       const obra=dreObra.obra||{};
@@ -3150,11 +3162,12 @@ function DRELegado({ data, showToast, currentUser=null, obraIdFixo="", dispatchC
 {"veredicto":"saudavel|atencao|critico","avaliacao":"4 a 6 frases com o diagnóstico executivo","maoDeObra":{"veredicto":"adequada|revisar|inconclusivo","analise":"avalie custo, pessoas e homem-dias sem inventar produtividade física","evidencias":["números recebidos"],"decisao":"ação objetiva"},"historico":{"leitura":"evolução mês a mês","melhorMes":"mês e motivo numérico","piorMes":"mês e motivo numérico","tendencia":"melhora|estavel|piora|inconclusiva"},"decisoes":[{"prioridade":1,"acao":"decisão","impactoEsperado":"efeito financeiro sem inventar valor","prazo":"Hoje|7 dias|30 dias","indicador":"métrica"}],"riscos":["com evidência"],"dadosFaltantes":["o que impede conclusão"],"conclusao":"veredicto final direto"}.
 Regras: diferencie faturamento de recebimento; não conclua excesso de pessoas apenas pelo número do efetivo; use custo de MO, homem-dias, faturamento, margem e histórico. Se não houver produção física ou planejamento, declare que a produtividade é inconclusiva e recomende qual dado acompanhar.`;
       const resposta=await chamarIA({modulo:"dre",prompt,contexto});
+      if(pedido!==pedidoCFO.current)return;
       if(!resposta.ok)throw new Error(resposta.error||"O Gemini não respondeu.");
       setAvaliacaoCFOObra({...jsonDaRespostaIA(resposta.reply||resposta.answer),geradoEm:new Date().toISOString()});
       showToast("Avaliação do CFO gerada para a obra.");
-    }catch(error){showToast(error.message||"Não foi possível gerar a avaliação do CFO.","error");}
-    finally{setAvaliandoCFOObra(false);}
+    }catch(error){if(pedido===pedidoCFO.current)showToast(error.message||"Não foi possível gerar a avaliação do CFO.","error");}
+    finally{if(pedido===pedidoCFO.current)setAvaliandoCFOObra(false);}
   };
 
   const movimentosDRE = useMemo(() => {
@@ -3510,6 +3523,9 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
     ["historico","Evolução mensal","Comparativo dos últimos meses"],
   ];
   const dreWorkSelector=<Sel label="Obra em análise" value={selObra} onChange={setSelObra} options={data.obras.map(o=>({v:o.id,l:o.name}))}/>;
+  const despesasVisiveis=(data.outrasDesp||[]).filter(d=>
+    d.competencia===`${year}-${String(month+1).padStart(2,"0")}`&&
+    (!(obraIdFixo||view==="obra")||d.obraId===obraFinanceiraId));
 
   return (
     <div className="anim dre-page" style={{display:"flex",flexDirection:"column",gap:14}}>
@@ -3551,9 +3567,11 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
         </div>
         </TaskDisclosure>
         {isDesktop&&!obraIdFixo&&<TabRow equal tabs={dreViews} active={view} onChange={mudarVisaoDRE}/>}
+        {isDesktop&&!obraIdFixo&&view==="obra"&&<div className="dre-work-selector">{dreWorkSelector}</div>}
       </section>
 
-      {/* KPI cards sempre visíveis */}
+      {carregandoObra?<LoadingState label="o DRE da obra"/>:<>
+      {/* KPI cards do recorte atual */}
       <div className="dre-kpi-grid">
         {[
           ["faturamento","Faturamento",  dreResumo.faturamento,  C.green,  `${period}`],
@@ -3632,9 +3650,6 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
       {/*  VIEW: POR OBRA  */}
       {view==="obra"&&(
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          {isDesktop&&!obraIdFixo&&<div className="dre-work-selector">
-            {dreWorkSelector}
-          </div>}
           {!isDesktop&&<TaskDisclosure summary="Demonstrativo da obra">{renderObraDRE(dreObra,false)}</TaskDisclosure>}
           <TaskDisclosure enabled={!isDesktop} summary="Avaliação do CFO">
           <section className="dre-ai-full-report" style={{marginTop:0}}>
@@ -3665,6 +3680,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
         </div>
       )}
 
+      </>}
       {/*  VIEW: HISTÓRICO  */}
       {view==="historico"&&(
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -3705,12 +3721,12 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
       </button>
 
       {/* Outras despesas do mês */}
-      {(data.outrasDesp||[]).filter(d=>d.competencia===`${year}-${String(month+1).padStart(2,"0")}`&&(!obraIdFixo||d.obraId===obraIdFixo)).length>0&&(
+      {!carregandoObra&&despesasVisiveis.length>0&&(
         <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
           <div style={{padding:"8px 14px",borderBottom:`1px solid ${C.line}`,background:`${C.orange}10`}}>
             <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-body)",color:C.orange,textTransform:"uppercase"}}>Outras despesas - {period}</p>
           </div>
-          {(data.outrasDesp||[]).filter(d=>d.competencia===`${year}-${String(month+1).padStart(2,"0")}`&&(!obraIdFixo||d.obraId===obraIdFixo)).map(d=>(
+          {despesasVisiveis.map(d=>(
             <div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 14px",borderBottom:`1px solid ${C.line}22`}}>
               <div>
                 <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600}}>{d.descricao||d.categoria}</p>
@@ -3727,11 +3743,11 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
 
       {/* Exportações */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-        <Btn onClick={gerarPDF} v="danger" full><Ic n="file"/> DRE PDF</Btn>
-        <Btn onClick={exportXLS} v="success" full><Ic n="download"/> Excel Completo</Btn>
+        <Btn onClick={gerarPDF} disabled={carregandoObra} v="danger" full><Ic n="file"/> DRE PDF</Btn>
+        <Btn onClick={exportXLS} disabled={carregandoObra} v="success" full><Ic n="download"/> Excel Completo</Btn>
       </div>
 
-      {detalheKpi&&(
+      {detalheKpi&&!carregandoObra&&(
         <Modal title={{
           faturamento:"Detalhamento do faturamento",recebido:"Recebimentos do período",
           custos:"Pagamentos e custos do período",lucro:"Composição do lucro bruto",
@@ -8234,7 +8250,7 @@ function ConfiguracaoIA({ showToast }) {
 }
 
 function Config({ data, update, showToast, currentUser, onLogout, dispatchAttendanceCommand, dispatchCommand }) {
-  const { formGrid } = useBreakpoint();
+  const { formGrid, isMobile } = useBreakpoint();
   const [form, setForm] = useState(data.config);
   const [holidayYear, setHolidayYear] = useState(new Date().getFullYear());
   const setField = key => value => setForm(f => ({ ...f, [key]: value }));
@@ -8305,8 +8321,11 @@ function Config({ data, update, showToast, currentUser, onLogout, dispatchAttend
         description="Aparência, dados da empresa, aprovações e calendário."
       />
 
-      <ThemeSettings />
+      <TaskDisclosure enabled={isMobile} summary="Aparência">
+        <ThemeSettings />
+      </TaskDisclosure>
 
+      <TaskDisclosure enabled={isMobile} summary="Empresa">
       <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14 }}>
         <h3 style={{ fontFamily:"var(--arcd-font-sans)", color: C.yellow, textTransform: "uppercase", marginBottom: 10 }}>Empresa</h3>
         <div style={{ display: "grid", gridTemplateColumns:formGrid(2), gap: 10 }}>
@@ -8321,10 +8340,14 @@ function Config({ data, update, showToast, currentUser, onLogout, dispatchAttend
         </div>
         <div style={{ marginTop: 12 }}><Btn onClick={saveConfig}><Ic n="check" /> Salvar configurações</Btn></div>
       </div>
+      </TaskDisclosure>
 
-      <IntegracaoGemini showToast={showToast}/>
+      <TaskDisclosure enabled={isMobile} summary="Integração Gemini">
+        <IntegracaoGemini showToast={showToast}/>
+      </TaskDisclosure>
 
       {/* DRE - Alíquotas e tributação */}
+      <TaskDisclosure enabled={isMobile} summary="DRE e tributação">
       <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:14 }}>
         <h3 style={{ fontFamily:"var(--arcd-font-sans)", fontWeight:600, color:C.yellow, textTransform:"uppercase", letterSpacing:.5, marginBottom:4, fontSize:"var(--arcd-type-body)" }}>DRE - Tributação</h3>
         <p style={{ fontSize:"var(--arcd-type-label)", color:C.muted, marginBottom:12 }}>Configure as alíquotas para o cálculo automático do DRE da empresa.</p>
@@ -8348,7 +8371,9 @@ function Config({ data, update, showToast, currentUser, onLogout, dispatchAttend
         )}
         <div style={{marginTop:10}}><Btn onClick={saveConfig}><Ic n="check"/> Salvar alíquotas</Btn></div>
       </div>
+      </TaskDisclosure>
 
+      <TaskDisclosure enabled={isMobile} summary={`Solicitações pendentes · ${pending.length}`}>
       <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14 }}>
         <h3 style={{ fontFamily:"var(--arcd-font-sans)", color: C.yellow, textTransform: "uppercase", marginBottom: 10 }}>Solicitações pendentes</h3>
         {pending.length === 0 && <p style={{ color: C.muted, fontSize: "var(--arcd-type-body)" }}>Nenhuma solicitação pendente.</p>}
@@ -8364,7 +8389,9 @@ function Config({ data, update, showToast, currentUser, onLogout, dispatchAttend
           </div>
         ))}
       </div>
+      </TaskDisclosure>
 
+      <TaskDisclosure enabled={isMobile} summary="Histórico de permissões">
       <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14 }}>
         <h3 style={{ fontFamily:"var(--arcd-font-sans)", color: C.yellow, textTransform: "uppercase", marginBottom: 10 }}>Histórico de permissões</h3>
         {recent.length === 0 && <p style={{ color: C.muted, fontSize: "var(--arcd-type-body)" }}>Sem solicitações registradas.</p>}
@@ -8375,7 +8402,9 @@ function Config({ data, update, showToast, currentUser, onLogout, dispatchAttend
           </div>
         ))}
       </div>
+      </TaskDisclosure>
 
+      <TaskDisclosure enabled={isMobile} summary="Feriados considerados">
       <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14 }}>
         <h3 style={{ fontFamily:"var(--arcd-font-sans)", color: C.yellow, textTransform: "uppercase", marginBottom: 10 }}>Feriados considerados</h3>
           <Sel aria-label="Ano dos feriados" value={String(holidayYear)} onChange={v => setHolidayYear(Number(v))} options={Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 1 + i).map(y => ({ v: String(y), l: String(y) }))} />
@@ -8383,17 +8412,22 @@ function Config({ data, update, showToast, currentUser, onLogout, dispatchAttend
           {holidays.map(h => <Badge key={h} color={C.blue}>{fmtDateFull(h)}</Badge>)}
         </div>
       </div>
+      </TaskDisclosure>
 
+      <TaskDisclosure enabled={isMobile} summary="Backup">
       <div style={{ background:C.card, border:`1px solid ${C.border}`, padding:14, borderRadius:8 }}>
         <h3 style={{ fontFamily:"var(--arcd-font-sans)", color:C.yellow, textTransform:"uppercase", marginBottom:10, fontSize:"var(--arcd-type-body)", fontWeight:600 }}>Backup</h3>
         <Btn v="ghost" onClick={exportBackup}><Ic n="download"/> Exportar backup JSON</Btn>
       </div>
+      </TaskDisclosure>
 
       {/* Gestão de usuários */}
+      <TaskDisclosure enabled={isMobile} summary="Usuários e permissões">
       <div style={{ background:C.card, border:`1px solid ${C.border}`, padding:14, borderRadius:8 }}>
         <h3 style={{ fontFamily:"var(--arcd-font-sans)", color:C.yellow, textTransform:"uppercase", marginBottom:12, fontSize:"var(--arcd-type-body)", fontWeight:600 }}>Usuários e Permissões</h3>
         <GestaoUsuarios data={data} update={update} showToast={showToast} currentUser={currentUser}/>
       </div>
+      </TaskDisclosure>
 
       {/* Logout */}
       <div style={{ background:C.surface, border:`1.5px solid ${C.border}`, padding:14, borderRadius:8 }}>

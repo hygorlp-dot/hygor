@@ -16,3 +16,8 @@
 .arcd-mobile-more-menu__item:hover { background: var(--arcd-color-surface-muted); }
 .arcd-mobile-more-menu__item[data-active="true"] { box-shadow: inset 3px 0 var(--arcd-action-primary); background: var(--arcd-action-primary-subtle); color: var(--arcd-text-primary); font-weight: var(--arcd-font-weight-semibold); }
 @media (min-width: 768px) { .arcd-mobile-shell { min-block-size: auto; } .arcd-mobile-bottom-nav { display: none; } .arcd-mobile-page { padding-bottom: var(--arcd-space-6); } }
+.mobile-primary-nav__compact-label { display: none; }
+@media (max-width: 359px) {
+  .mobile-primary-nav__full-label { display: none; }
+  .mobile-primary-nav__compact-label { display: inline; }
+}
