@@ -545,7 +545,7 @@ Confira seu acesso, a obra e quem é responsável pelo ajuste e pela validação
 
 ### Como fazer
 
-1. Em Notificações, consulte Tarefas de conferência e escolha Situação das tarefas.
+1. Em Notificações, escolha Situação das tarefas e use Buscar tarefas por obra, responsável, descrição ou código. Use Anterior e Próxima para percorrer os registros.
 2. Confira o registro, a obra, o responsável pelo ajuste, o prazo e a próxima ação. Prazo não definido significa que a origem não informou uma data.
 3. Use Abrir pendência para consultar somente aquele achado na vistoria. A decisão e as evidências continuam na Conferência. Mostrar todas as pendências amplia a consulta dentro da vistoria.
 4. Use Voltar a Comunicação para retornar. A situação selecionada nas tarefas permanece na sessão. Resolvidas ou canceladas mostra o encerramento informado pela origem.
@@ -598,7 +598,7 @@ Entre com um perfil autorizado para administração.
 
 ### Como fazer
 
-1. Escolha o painel de acompanhamento necessário.
+1. Escolha o painel em Áreas da administração. Na auditoria, use Pesquisar e abra Filtros para refinar. Anterior e Próxima percorrem todos os resultados. Abra Indicadores e ferramentas da auditoria para consultar o resumo ou exportar.
 2. Abra a pendência e confira o usuário, a obra ou o registro de origem.
 3. Trate o problema na função correspondente e confira o retorno.
 
@@ -608,7 +608,7 @@ Você conhece a origem da pendência e a situação após o tratamento.
 
 ### O que merece atenção
 
-Acesso a esta tela não dispensa conferir o alcance de cada ação.
+Confira o alcance de cada ação. Em Motor financeiro, leia a ativação separadamente das verificações pendentes.
 
 <a id="guia-obras"></a>
 
@@ -1518,7 +1518,7 @@ Entender o resultado da empresa por mês de referência.
 
 ### Antes de começar
 
-Escolha o período e confira a abrangência da análise.
+Escolha o período e confira a abrangência da análise. Se o DRE mensal estiver indisponível, use Tentar novamente ou escolha outro mês. Os resultados, parecer e exportação ficam disponíveis após uma consulta válida.
 
 ### Como fazer
 
@@ -2076,7 +2076,7 @@ Confira o equipamento e a obra.
 
 ### Como fazer
 
-1. Em Frota, pesquise o equipamento; seu nome abre o cadastro.
+1. Em Frota, use Pesquisar na frota. No celular, use Anterior e Próxima para percorrer os resultados. O nome abre o cadastro.
 2. Use Salvar equipamento para confirmar alterações ou Excluir equipamento, com confirmação.
 3. Locar, Transferir e Manutenção ficam no cartão. Confira os dados antes de confirmar.
 
@@ -4155,7 +4155,7 @@ No computador, Consultas e cadastros em Compras e Mais áreas no Financeiro abre
 
 ### Acessar outros módulos no celular
 
-Use Mais, na barra inferior, para abrir Mais módulos. Escolha o módulo desejado. No celular, Mais também mostra a conta e Sair do sistema. Fechar menu ou Escape retorna à tela atual sem trocar a área de trabalho.
+Use Mais, na barra inferior, para abrir Mais módulos. Escolha o módulo desejado. No celular, Mais também mostra a conta e Sair do sistema. Fechar menu ou Escape retorna à tela atual sem trocar a área de trabalho. A recuperação protege formulários e os atalhos de navegação continuam disponíveis.
 
 ### Usar os filtros
 

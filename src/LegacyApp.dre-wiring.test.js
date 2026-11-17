@@ -105,9 +105,10 @@ describe("contrato de autoria do DRE", () => {
     expect(source).not.toContain("const calcDREEmpresa =");
   });
 
-  it("mostra o aviso de projeção pendente pelo componente de alerta disponível", () => {
+  it("distingue a consulta em andamento do DRE mensal indisponível", () => {
     expect(source).not.toContain("<Notice v=\"warn\">");
-    expect(source).toContain('"Atualizando a projeção do razão canônico para este período…"');
+    expect(source).toContain('<LoadingState label="o DRE mensal"/>');
+    expect(source).toContain('DRE mensal indisponível para {period}');
   });
 
   it("declara as ações do formulário corporativo dentro do DRE da empresa", () => {
@@ -126,6 +127,5 @@ describe("contrato de autoria do DRE", () => {
     expect(api).toContain('String(currentEvent.payload?.sourceRevision||"")!==sourceRevision');
     expect(api).toContain("buildRequestedDreProjectionRows(fonteFinanceira,projectionRequests,canonical.events)");
     expect(api).toContain('code:"DRE_PROJECTION_SYNC_FAILED"');
-    expect(source).toContain('report?.status===200&&["canonical_ledger","closed_snapshot"].includes(report?.source)&&report.current');
   });
 });

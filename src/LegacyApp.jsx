@@ -11984,8 +11984,7 @@ function DREEmpresaMensal({ data, showToast, currentUser=null, dispatchCommand=n
   useRememberWorkflowScope("dre_emp",{obraId:"",year,month,period:"mes"});
   const [abaDRE, setAbaDRE] = useSessionState("abaDRE","inteligencia");
   const [memorialDetail,setMemorialDetail]=useState(null);
-  useEffect(()=>setMemorialDetail(null),[year,month]);
-  const [analiseIA, setAnaliseIA] = useState(null);
+  const [analiseConsultada, setAnaliseIA] = useState(null);
   const [analisandoIA, setAnalisandoIA] = useState(false);
   const [despModal, setDespModal] = useState(false);
   const [expenseCommandPending,setExpenseCommandPending]=useState(false);
@@ -11994,9 +11993,13 @@ function DREEmpresaMensal({ data, showToast, currentUser=null, dispatchCommand=n
   const [recurrencePreview,setRecurrencePreview]=useState(null);
   const [expenseGroupFilter,setExpenseGroupFilter]=useState("all");
   const [expenseSearch,setExpenseSearch]=useState("");
-  const [razaoEmpresa,setRazaoEmpresa]=useState(null);
-  const [razaoCarregando,setRazaoCarregando]=useState(true);
-  const [razaoErro,setRazaoErro]=useState("");
+  const [novaConsulta,setNovaConsulta]=useState(0);
+  const consulta=useMemo(()=>({year,month}),[data,year,month,novaConsulta]);
+  const [respostaRazao,setRespostaRazao]=useState(null);
+  const respostaAtual=respostaRazao?.consulta===consulta?respostaRazao:null;
+  const razaoEmpresa=respostaAtual?.report||null;
+  const razaoCarregando=!respostaAtual;
+  const analiseIA=analiseConsultada?.consulta===consulta?analiseConsultada.resultado:null;
   const DF = k => v => setDespForm(f=>({...f,[k]:v}));
 
   const ym      = `${year}-${String(month+1).padStart(2,"0")}`;
@@ -12033,25 +12036,17 @@ function DREEmpresaMensal({ data, showToast, currentUser=null, dispatchCommand=n
   }),[ym]);
   useEffect(()=>{
     let ativo=true;
-    setRazaoCarregando(true);
-    setRazaoErro("");
-    consultarDreEmpresaCanonico({year,month}).then(report=>{
+    setMemorialDetail(null);
+    consultarDreEmpresaCanonico(consulta).then(report=>{
       if(!ativo)return;
-      if(report?.status===200&&["canonical_ledger","closed_snapshot"].includes(report?.source)&&report.current){
-        setRazaoEmpresa(report);
-      }else{
-        setRazaoEmpresa(null);
-        setRazaoErro(report?.error||"A projeção canônica ainda não foi gerada para este período.");
-      }
-    }).catch(error=>{
-      if(!ativo)return;
-      setRazaoEmpresa(null);
-      setRazaoErro(error?.message||"Não foi possível consultar o razão canônico.");
-    }).finally(()=>{
-      if(ativo)setRazaoCarregando(false);
+      const valido=report?.status===200&&["canonical_ledger","closed_snapshot"].includes(report.source)
+        &&["faturamentoTotal","receitaLiquida","ebitda","lucroLiquido"].every(field=>Number.isFinite(report.current?.[field]));
+      setRespostaRazao(valido?{consulta,report}:{consulta,erro:report?.error||"O razão não retornou o demonstrativo deste período."});
+    }).catch(()=>{
+      if(ativo)setRespostaRazao({consulta,erro:"Confira a conexão e tente novamente."});
     });
     return()=>{ativo=false;};
-  },[data,year,month]);
+  },[consulta]);
   const dre = useMemo(()=>["canonical_ledger","closed_snapshot"].includes(razaoEmpresa?.source)&&razaoEmpresa.current
     ? {...dreVazio,...razaoEmpresa.current,fonteFinanceira:"razao_canonico"}
     : {...dreVazio,fonteFinanceira:"sincronizacao_pendente"},[dreVazio,razaoEmpresa]);
@@ -12121,8 +12116,6 @@ function DREEmpresaMensal({ data, showToast, currentUser=null, dispatchCommand=n
     return {alertas,acoesObra,conversao,pesoCSP,pesoOp,score,criticos,atencao};
   },[dre]);
 
-  useEffect(()=>{ setAnaliseIA(null); },[year,month]);
-
   const executarAnaliseIA = async () => {
     setAnalisandoIA(true);
     try{
@@ -12150,7 +12143,7 @@ Regras: não inclua faturamento, folha, compras ou custos de execução das obra
       const resposta=await chamarIA({modulo:"dre",prompt,contexto});
       if(!resposta.ok)throw new Error(resposta.error||"A IA não respondeu.");
       const estruturada=jsonDaRespostaIA(resposta.reply||resposta.answer);
-      setAnaliseIA({...estruturada,geradoEm:new Date().toISOString()});
+      setAnaliseIA({consulta,resultado:{...estruturada,geradoEm:new Date().toISOString()}});
       showToast("Avaliação do CFO gerada pelo Gemini.");
     }catch(error){showToast(error.message||"Não foi possível gerar o parecer.","error");}
     finally{setAnalisandoIA(false);}
@@ -12396,13 +12389,13 @@ td.val{text-align:right;font-weight:700;min-width:110px}
 
   return (
     <div className="anim dre-company" data-view={abaDRE} style={{display:"flex",flexDirection:"column",gap:12}}>
-      {memorialDetail&&<MonthlyDreMemorial detail={memorialDetail} onClose={()=>setMemorialDetail(null)} onOpenWork={onOpenWork}/>}
+      {razaoEmpresa&&memorialDetail&&<MonthlyDreMemorial detail={memorialDetail} onClose={()=>setMemorialDetail(null)} onOpenWork={onOpenWork}/>}
 
       <PageHero
         eyebrow="Controladoria · Resultado da empresa"
         title="DRE Gerencial"
         description="Todas as receitas da empresa, com obras e locações conciliadas separadamente."
-        actions={<>
+        actions={razaoEmpresa&&<>
           <Btn v="ghost" size="sm" onClick={copiarParecer}><Ic n="copy" s={13}/> Copiar parecer</Btn>
           {analiseIA&&<Btn v="ghost" size="sm" onClick={imprimirRelatorioIA}><Ic n="file" s={13}/> PDF da análise</Btn>}
           <Btn size="sm" onClick={gerarPDF}><Ic n="file" s={13}/> Exportar PDF</Btn>
@@ -12410,10 +12403,6 @@ td.val{text-align:right;font-weight:700;min-width:110px}
       />
 
       <ScopeNote title="Escopo do demonstrativo">Consolidado da empresa no seu acesso · {fullMonth(month)} {year}. Obra em foco não filtra este demonstrativo.</ScopeNote>
-
-      {dre.fonteFinanceira!=="razao_canonico"&&<Alert variant="warning"><AlertDescription className="text-xs">{razaoCarregando
-        ?"Atualizando a projeção do razão canônico para este período…"
-        :`${razaoErro} Nenhum cálculo local será exibido como resultado financeiro.`}</AlertDescription></Alert>}
 
       <div className="dre-company-toolbar">
         <TabRow tabs={[
@@ -12428,6 +12417,13 @@ td.val{text-align:right;font-weight:700;min-width:110px}
         </div>
       </div>
 
+      {razaoCarregando?<LoadingState label="o DRE mensal"/>:!razaoEmpresa?<Alert variant="warning" role="alert">
+        <AlertDescription>
+          <strong>DRE mensal indisponível para {period}</strong>
+          <p>{respostaAtual.erro}</p>
+        </AlertDescription>
+        <Button variant="outline" onClick={()=>setNovaConsulta(n=>n+1)}>Tentar novamente</Button>
+      </Alert>:<>
       {/* KPI bar */}
       <div className="dre-company-kpis" style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:8}}>
         {[
@@ -12790,6 +12786,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
           </div>
         </Modal>
       )}
+      </>}
     </div>
   );
 }

@@ -91,7 +91,7 @@ export function LegacyMobileNavigation({
           <span className="mobile-primary-nav__badge" aria-label="Há pendências" />}
       </button>}
     </div>
-    {moreOpen && <Suspense fallback={<Dialog id={moreMenuId} open onOpenChange={setMoreOpen} title="Mais módulos" closeLabel="Fechar menu"><LoadingState label="módulos"/></Dialog>}><LazyMobileMoreMenu
+    {moreOpen && <Suspense fallback={<Dialog id={moreMenuId} open onOpenChange={setMoreOpen} title="Mais módulos" protectEdits={false} closeLabel="Fechar menu"><LoadingState label="módulos"/></Dialog>}><LazyMobileMoreMenu
         id={moreMenuId}
         open={moreOpen}
         onOpenChange={setMoreOpen}

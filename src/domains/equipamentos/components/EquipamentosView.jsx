@@ -1,3 +1,5 @@
+import {RecordListPagination} from '../../../design-system/data/RecordListPagination.jsx';
+import {useRecordPage} from '../../../design-system/data/useRecordPage.js';
 import { FlowTabs, useWorkflow } from "../../../features/workflow/WorkflowNavigation.jsx";
 // ===================================================================
 // EquipamentosView — tela de Equipamentos extraída de LegacyApp.jsx
@@ -126,7 +128,7 @@ function EquipmentImage({equipment,preview=false}) {
 export default function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, obraIdFixo="", contexto="engenharia" }) {
   const {scopes}=useWorkflow();
   const savedScope=scopes.equip_fin;
-  const { formGrid } = useBreakpoint();
+  const { formGrid, isDesktop } = useBreakpoint();
   const now = new Date();
   const [aba, setAba] = useState(contexto==="financeiro"?"gestao":"frota");   // frota | gestao | locacoes | manutencao | relatorio
   const [ym, setYm]   = useState(savedScope?.year!=null&&savedScope?.month!=null?`${savedScope.year}-${String(savedScope.month+1).padStart(2,"0")}`:`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`);
@@ -171,6 +173,8 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
   const equipamentos = equipamentosAtivos
     .filter(e=>[e.nome,e.categoria,e.patrimonio,donoName(e.proprietarioId)].join(" ").toLowerCase().includes(busca.toLowerCase()))
     .sort((a,b)=>a.nome.localeCompare(b.nome));
+
+  const fleetPage=useRecordPage('equip',equipamentos,JSON.stringify([busca.trim(),ym]),obraIdFixo||contexto);
 
   const rel = useMemo(()=>calcEquipamentosMes(data, ym), [data, ym]);
   const relPorObra = useMemo(()=>calcEquipamentosPorObra(data, ym), [data, ym]);
@@ -930,6 +934,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
         <div className="equipment-toolbar">
           <Inp label="Pesquisar na frota" value={busca} onChange={setBusca} placeholder="Nome, categoria, patrimônio ou proprietário..."/>
         </div>
+        {!isDesktop&&<RecordListPagination pagination={fleetPage} label="equipamentos na frota"/>}
         {equipamentos.length===0
           ? <div className="equipment-empty-state">
               <span><Ic n="wrench" s={19}/></span>
@@ -937,7 +942,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
               {!busca&&<Btn size="sm" onClick={()=>setEquipModal(equipVazio)}><Ic n="plus"/> Cadastrar equipamento</Btn>}
             </div>
           : <div className="equipment-fleet-grid" style={{gridTemplateColumns:formGrid(2)}}>
-            {equipamentos.map(e=>{
+            {(isDesktop?equipamentos:fleetPage.rows).map(e=>{
               const st = STATUS_EQUIP[e.status]||STATUS_EQUIP.disponivel;
               const proprio = !e.proprietarioId;
               const fin = calcEquipMes(data, e.id, ym);
