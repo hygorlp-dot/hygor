@@ -12,6 +12,15 @@ import { C } from "../../../legacy/palette.js";
 import { SETORES_APROVACAO } from "../../administracao/LegacySettings.jsx";
 import { fmt, uid } from "../../../legacy/format.js";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
+import {pendingApprovalStages,requestsWithoutApprovalFlow} from '../approval-inbox.js';
+import {useWorkflow} from '../../../features/workflow/WorkflowNavigation.jsx';
+import {podeAcessarAba} from '../../administracao/abas-acesso.js';
+import {ScopeNote} from '../../../design-system/patterns/ScopeNote.jsx';
+import {FormSection} from '../../../design-system/patterns/FormSection.jsx';
+import {EmptyState} from '../../../design-system/patterns/FeedbackState.jsx';
+import {Button} from '../../../design-system/primitives/Button.jsx';
+import {fmtDateFull} from '../../../legacy/format.js';
+import {TaskDisclosure} from '../../../design-system/patterns/TaskDisclosure.jsx';
 
 // Rótulo legível da entidade por trás de uma instância de aprovação - hoje
 // só conhece solicitação de compra (único tipo com resolvedores reais); um
@@ -37,22 +46,16 @@ const rotuloEntidadeAprovacao = (instancia, data) => {
 // Central do Administrador de propósito: quem decide não precisa ser admin.
 function AprovacoesPendentes({ data, showToast, currentUser, dispatchCommand = null }) {
   const [justificativas, setJustificativas] = useState({});
-  const pendentes = useMemo(() => (data.instanciasAprovacao||[])
-    .filter(i => i.status === "em_andamento" && i.snapshotPolitica)
-    .map(instancia => ({
-      instancia,
-      etapas: instancia.snapshotPolitica.etapas
-        .map((etapa, idx) => ({ etapa, resultado: instancia.resultadosEtapas[idx] }))
-        .filter(({ resultado }) => resultado?.status === "em_andamento" && (resultado.aprovadoresElegiveis||[]).some(u => u.id === currentUser?.id)),
-    }))
-    .filter(x => x.etapas.length > 0)
-  , [data.instanciasAprovacao, currentUser?.id]);
+  const {navigate}=useWorkflow();
+  const pendentes=useMemo(()=>pendingApprovalStages(data,currentUser),[data.instanciasAprovacao,currentUser]);
+  const semFluxo=requestsWithoutApprovalFlow(data,currentUser);
+  const abrirSolicitacao=sol=>navigate?.('cmp',{obraId:sol.obraId},{record:{type:'purchaseRequest',id:sol.id}});
 
   // A decisão é um comando do servidor: ele grava o usuário autenticado como
   // aprovador e confere a elegibilidade (approval-commands.js). Antes, o
   // salvamento genérico desta coleção só funcionava para o administrador.
   const decidir = async (instancia, etapaId, decisao) => {
-    const justificativa = justificativas[etapaId] || "";
+    const justificativa = justificativas[`${instancia.id}:${etapaId}`] || "";
     if (decisao === "reprovado" && !justificativa.trim()) { showToast("Informe o motivo da reprovação.", "error"); return; }
     if (!dispatchCommand) { showToast("Registrar a decisão exige conexão com o servidor.", "error"); return; }
     const result = await dispatchCommand(() => ({
@@ -62,26 +65,35 @@ function AprovacoesPendentes({ data, showToast, currentUser, dispatchCommand = n
       payload: { instanciaId: instancia.id, etapaId, decisao, justificativa: justificativa.trim() },
     }));
     if (!result?.ok) { showToast(result?.reason||"O servidor não confirmou a decisão.", "error"); return; }
-    setJustificativas(j => ({ ...j, [etapaId]: "" }));
+    setJustificativas(j => ({ ...j, [`${instancia.id}:${etapaId}`]: "" }));
     showToast(decisao==="aprovado" ? "Aprovação registrada." : "Reprovação registrada.");
   };
 
   return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
     <PageHero eyebrow="Aprovações" title="Minhas aprovações pendentes" description="Etapas de qualquer processo onde você está entre os aprovadores elegíveis."/>
-    {!pendentes.length && <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:30,textAlign:"center"}}><p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhuma aprovação pendente para você no momento.</p></div>}
+    <ScopeNote title="O que entra nesta fila">Somente etapas formais em andamento em que você é elegível agora.</ScopeNote>
+    {!pendentes.length&&<EmptyState title="Nenhuma decisão formal pendente para você" description="Isso não significa que todas as solicitações de Compras estejam aprovadas. Confira abaixo os registros sem fluxo compatível, quando disponíveis no seu acesso."/>}
     {pendentes.map(({instancia,etapas})=><div key={instancia.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:12,display:"flex",flexDirection:"column",gap:9}}>
       <b style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{rotuloEntidadeAprovacao(instancia,data)}</b>
+      {instancia.entidadeTipo==='solicitacaoCompra'&&podeAcessarAba(currentUser,'cmp')&&navigate&&(()=>{const sol=(data.solicitacoesCompra||[]).find(s=>s.id===instancia.entidadeId&&(!currentUser.obraId||s.obraId===currentUser.obraId));return sol?<Button variant="secondary" onClick={()=>abrirSolicitacao(sol)}>Consultar solicitação · {sol.numero}</Button>:null;})()}
       {etapas.map(({etapa,resultado})=><div key={etapa.id} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:10,display:"flex",flexDirection:"column",gap:7}}>
         <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>{etapa.nome||"Etapa de aprovação"}</p>
         {(resultado.autoaprovacaoDestacada||resultado.semAprovadorEncontrado) && <p style={{fontSize:"var(--arcd-type-caption)",color:C.yellowD}}>{resultado.autoaprovacaoDestacada?"Você é o próprio solicitante - autoaprovação permitida pela política.":"Sem aprovador elegível originalmente - encaminhado à fila do administrador."}</p>}
-        <Inp label="Justificativa (obrigatória para reprovar)" value={justificativas[etapa.id]||""} onChange={v=>setJustificativas(j=>({...j,[etapa.id]:v}))} multiline/>
+        <Inp label="Justificativa (obrigatória para reprovar)" value={justificativas[`${instancia.id}:${etapa.id}`]||""} onChange={v=>setJustificativas(j=>({...j,[`${instancia.id}:${etapa.id}`]:v}))} multiline/>
         <div style={{display:"flex",gap:8}}>
           <Btn v="danger" onClick={()=>decidir(instancia,etapa.id,"reprovado")}><Ic n="x"/> Reprovar</Btn>
           <Btn onClick={()=>decidir(instancia,etapa.id,"aprovado")}><Ic n="check"/> Aprovar</Btn>
         </div>
       </div>)}
     </div>)}
-  </div>;
+    {semFluxo.length>0&&<TaskDisclosure summary={`Solicitações sem fluxo de aprovação compatível (${semFluxo.length})`}><FormSection title="Solicitações sem fluxo de aprovação compatível" description="Não é possível decidir por esta fila. Consulte a solicitação e peça ao administrador para conferir o fluxo; nenhuma aprovação será criada automaticamente.">
+     {semFluxo.map(sol=><FormSection key={sol.id} title={sol.numero} description={(data.obras||[]).find(o=>o.id===sol.obraId)?.name||'Obra não disponível'}>
+      <p>Solicitante: {sol.solicitanteNome||'Não informado'} · Necessário em: {sol.necessidade?fmtDateFull(sol.necessidade):'Prazo não definido'}</p>
+      <p>Próxima ação: conferir o registro e sua configuração de aprovação.</p>
+      {navigate&&<Button variant="secondary" onClick={()=>abrirSolicitacao(sol)}>Abrir solicitação · {sol.numero}</Button>}
+     </FormSection>)}
+    </FormSection></TaskDisclosure>}
+    <ScopeNote title="Consultas e decisões">A lista de Compras também contém solicitações em análise e etapas de outras pessoas. Uma mensagem no chat não registra uma aprovação.</ScopeNote>  </div>;
 }
 
 export default AprovacoesPendentes;

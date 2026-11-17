@@ -9,6 +9,7 @@ import {WorkContextStamp} from './features/workflow/WorkContextStamp.jsx';
 import {ScopeNote} from './design-system/patterns/ScopeNote.jsx';
 import {EmptyState} from './design-system/patterns/FeedbackState.jsx';
 import {DashboardFinancialReading} from './domains/dashboard/components/DashboardFinancialReading.jsx';
+import {SectorTasks} from './features/workflow/SectorTasks.jsx';
 import {setWorkContextObra,useSyncedWorkObra} from './features/workflow/work-context.js';
 import {SaveRecoveryContext} from './features/workflow/SaveRecoveryContext.jsx';
 import {snapshotJournal,recoveryTab,snapshotChanges} from './domains/sync/snapshot-journal.js';
@@ -12917,8 +12918,8 @@ function Comunicacao({ data, currentUser, showToast }) {
       return !s || !s.hasTeam || s.completed;
     });
     const diarioOk = obrasDele.every(o => (data.rdos || []).some(r => r.obraId === o.id && r.data === hoje));
-    const pendenciasAbertas = (data.conferencias || []).flatMap(c => (c.pendencias || [])
-      .filter(p => p.status !== "resolvida" && p.responsavelAjusteId === u.id));
+    const pendenciasAbertas = (data.conferencias || []).filter(c=>c.status!=="cancelada").flatMap(c => (c.pendencias || [])
+      .filter(p => !["resolvida","cancelada"].includes(p.status) && p.responsavelAjusteId === u.id));
     return { usuario: u, obrasDele, pontoOk, diarioOk, conferenciasOk: pendenciasAbertas.length === 0, pendenciasAbertas: pendenciasAbertas.length };
   }), [engenheiros, data.obras, data.rdos, data.conferencias, resumoAtendimento, hoje]);
 
@@ -12965,12 +12966,13 @@ function Comunicacao({ data, currentUser, showToast }) {
       <PageHero
         eyebrow="Comunicação interna"
         title="Comunicação"
-        description="Prioridades do dia e ranking de engenharia de campo. O chat da equipe agora é o balão flutuante no canto da tela."
+        description="Prioridades do dia e tarefas da equipe, com acesso aos registros de origem."
       />
       <TabRow equal tabs={[["notificacoes", "Notificações"], ["ranking", "Ranking"]]} active={aba} onChange={setAba}/>
 
       {aba === "notificacoes" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <SectorTasks data={data} user={currentUser}/>
           <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>Prioridades do dia por engenheiro de campo: ponto, diário de obra e conferências.</p>
           {!checklistPorUsuario.length && <p style={{ padding: 20, textAlign: "center", color: C.muted, fontSize:"var(--arcd-type-label)" }}>Nenhum engenheiro de campo cadastrado.</p>}
           {checklistPorUsuario.map(c => (

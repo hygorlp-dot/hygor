@@ -8,6 +8,7 @@ import {Button as StandardButton} from '../../../components/ui/button.jsx';
 import {SelectControl} from '../../../design-system/primitives/Select.jsx';
 import {FilterBar} from "../../../design-system/patterns/FilterBar.jsx";
 import {ScopeNote} from '../../../design-system/patterns/ScopeNote.jsx';
+import {useWorkflow} from '../../../features/workflow/WorkflowNavigation.jsx';
 // ===================================================================
 // ConferenciaView — tela de Conferência Técnica (vistoria estruturada),
 // extraída de src/LegacyApp.jsx em 2026-08-26 (Onda 7 do raio-X). Mesmo
@@ -224,6 +225,8 @@ export default function Conferencia({ data, showToast, currentUser, obraIdFixo="
   useSyncedWorkObra(obraFiltro,setObraFiltro,{allowedIds:obras.map(o=>o.id),fixed:obraIdFixo});
   const [statusFiltro,setStatusFiltro]=useState("abertas");
   const [selecionadaId,setSelecionadaId]=useState("");
+  const {intent}=useWorkflow();
+  const [linkedFinding,setLinkedFinding]=useState('');
   const [pendenciaForm,setPendenciaForm]=useState(null);
   const [validacaoForm,setValidacaoForm]=useState(null);
   const [novaForm,setNovaForm]=useState(null);
@@ -473,6 +476,14 @@ export default function Conferencia({ data, showToast, currentUser, obraIdFixo="
   const obrasVisiveis=ehAdmin?obras:ehAuditor?obrasNoEscopo:obras.filter(o=>(data.conferencias||[]).some(c=>c.obraId===o.id&&podeVerConferencia(c)));
   const filtroValido=obrasVisiveis.some(o=>o.id===obraFiltro)?obraFiltro:(obrasVisiveis[0]?.id||"");
   const conferenciasVisiveis=(data.conferencias||[]).filter(podeVerConferencia);
+  useEffect(()=>{
+    if(intent?.tabId!=='conferencia'||intent.action==='resume'||intent.record?.type!=='conferenceFinding')return;
+    const source=conferenciasVisiveis.find(c=>c.id===intent.record.conferenceId&&c.obraId===intent.scope?.obraId&&(!obraIdFixo||c.obraId===obraIdFixo)&&(!currentUser?.obraId||c.obraId===currentUser.obraId));
+    const finding=source?.pendencias?.find(p=>p.id===intent.record.id&&(!ehEngenheiro||p.responsavelAjusteId===currentUser.id));
+    if(!finding){showToast?.('A pendência não está disponível no seu acesso.','warn');return;}
+    setObraFiltro(source.obraId);setSelecionadaId(source.id);setLinkedFinding(finding.id);
+    setFindingFilters({query:'',status:'todas',impact:'todos',ownerId:'todos',onlyOverdue:false});
+  },[intent?.sequence,obraIdFixo]);
   const lista=conferenciasVisiveis.filter(c=>!filtroValido||c.obraId===filtroValido).filter(c=>statusFiltro==="todas"||(
     c.status!=="concluida"&&c.status!=="cancelada"||(c.pendencias||[]).some(p=>!['resolvida','cancelada'].includes(p.status))
   )).sort((a,b)=>(b.data||"").localeCompare(a.data||"")||Number(b.codigo)-Number(a.codigo));
@@ -493,7 +504,7 @@ export default function Conferencia({ data, showToast, currentUser, obraIdFixo="
     {!lista.length?<div style={{padding:"var(--arcd-space-8) var(--arcd-space-4)",textAlign:"center",border:"1px dashed var(--arcd-border-default)",borderRadius:10,background:"var(--arcd-surface-muted)"}}><Ic n="clipboard" s={26} color={C.muted}/><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-2)"}}>Nenhuma conferência nesta obra</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>Crie a primeira vistoria técnica para começar a rastrear ajustes.</p></div>:
     <div style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:"var(--arcd-space-2)"}}>{lista.map(c=>{
       const abertas=(c.pendencias||[]).filter(p=>!["resolvida","cancelada"].includes(p.status)).length;
-      return <StandardButton variant="secondary" className="conference-list-item" key={c.id} onClick={()=>setSelecionadaId(c.id)}>
+      return <StandardButton variant="secondary" className="conference-list-item" key={c.id} onClick={()=>{setLinkedFinding('');setSelecionadaId(c.id);}}>
         <div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)"}}><strong>CONF-{String(c.codigo).padStart(3,"0")}</strong><Badge color={c.status==="cancelada"?C.muted:c.status==="concluida"?C.green:c.status==="nao_iniciada"?C.muted:C.orange}>{c.status==="cancelada"?"Cancelada":c.status==="concluida"?"Concluída":c.status==="nao_iniciada"?"Não iniciada":"Em andamento"}</Badge></div>
         <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-2)"}}>{fmtDate(c.data)} · {c.responsavel||"Sem responsável"}</p>
         <div style={{display:"flex",gap:"var(--arcd-space-3)",marginTop:"var(--arcd-space-3)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}><span><strong>{conferenceQualityScore(c)??"—"}</strong>{conferenceQualityScore(c)!=null?"/10":""}</span><span><strong>{(c.pendencias||[]).length}</strong> achados</span><span style={{color:abertas?"var(--arcd-danger-text)":"var(--arcd-success-text)"}}><strong>{abertas}</strong> abertos</span></div>
@@ -534,10 +545,10 @@ export default function Conferencia({ data, showToast, currentUser, obraIdFixo="
   const notaCalculada=conferenceQualityScore(conferencia);
   const vencidas=(conferencia.pendencias||[]).filter(p=>!["resolvida","cancelada"].includes(p.status)&&p.prazo&&p.prazo<today()).length;
   const criticas=(conferencia.pendencias||[]).filter(p=>!["resolvida","cancelada"].includes(p.status)&&p.impacto==="critico").length;
-  const findingsVisible=filterConferenceFindings(conferencia,findingFilters,today());
+  const findingsVisible=filterConferenceFindings(conferencia,findingFilters,today()).filter(p=>!linkedFinding||p.id===linkedFinding);
   return <div className="conference-field-view" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)",paddingBottom:!isDesktop&&podeGerirVistoria?78:0}}>
     <div className="conference-field-header" style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"center",flexWrap:"wrap"}}>
-      <div><StandardButton variant="secondary" className="conference-back" onClick={()=>setSelecionadaId("")}>← Todas as conferências</StandardButton><h2>CONF-{String(conferencia.codigo).padStart(3,"0")} · {obraAtual?.name}</h2><p className="conference-save-state">{lastSaved?`Salvo e auditado às ${new Date(lastSaved).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`:conferencia.atualizadoPor?`Última alteração por ${conferencia.atualizadoPor} · ${new Date(conferencia.atualizadoEm).toLocaleString("pt-BR")}`:"Histórico técnico preservado"}</p></div>
+      <div><StandardButton variant="secondary" className="conference-back" onClick={()=>{setLinkedFinding('');setSelecionadaId("");}}>← Todas as conferências</StandardButton><h2>CONF-{String(conferencia.codigo).padStart(3,"0")} · {obraAtual?.name}</h2><p className="conference-save-state">{lastSaved?`Salvo e auditado às ${new Date(lastSaved).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`:conferencia.atualizadoPor?`Última alteração por ${conferencia.atualizadoPor} · ${new Date(conferencia.atualizadoEm).toLocaleString("pt-BR")}`:"Histórico técnico preservado"}</p></div>
       <div className="conference-desktop-actions"><Btn size="sm" v="ghost" onClick={exportarRelatorioPendencias}><Ic n="fileText"/> Gerar relatório</Btn>{conferencia.status==="cancelada"?<Badge color={C.muted}>Cancelada</Badge>:podeGerirVistoria&&<>{!metadataEditing&&<Btn size="sm" v="ghost" onClick={iniciarEdicaoMetadados}><Ic n="edit"/> Editar vistoria</Btn>}{ehAdmin&&<Btn size="sm" v="ghost" onClick={excluirConferencia}><Ic n="trash"/> Cancelar vistoria</Btn>}<Btn size="sm" onClick={alternarConclusao}>{conferencia.status==="concluida"?"Reabrir vistoria":"Concluir vistoria"}</Btn></>}</div>
     </div>
     <section className="conference-mobile-progress" style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:10,padding:"var(--arcd-space-3)"}}>
@@ -565,6 +576,7 @@ export default function Conferencia({ data, showToast, currentUser, obraIdFixo="
       {orc&&!etapasNivel1.length&&<div style={{padding:"var(--arcd-space-3)",borderRadius:7,background:"var(--arcd-surface-muted)",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-body)"}}>Este orçamento não possui etapas principais. O vínculo da pendência continuará opcional.</div>}
       {!(conferencia.pendencias||[]).length&&<div className="conference-empty"><strong>Inspeção ainda sem achados</strong><p>Registre uma inconformidade ou conclua com uma declaração técnica do escopo inspecionado.</p></div>}
       {(conferencia.pendencias||[]).length>0&&!findingsVisible.length&&<div className="conference-empty"><strong>Nenhuma pendência neste filtro</strong><p>Ajuste os filtros para consultar os demais registros.</p><Btn v="ghost" size="sm" onClick={()=>setFindingFilters({query:"",status:"todas",impact:"todos",ownerId:"todos",onlyOverdue:false})}>Limpar filtros</Btn></div>}
+      {linkedFinding&&<ScopeNote title="Pendência de origem">Mostrando somente o registro aberto pela Comunicação. <StandardButton variant="secondary" onClick={()=>setLinkedFinding('')}>Mostrar todas as pendências</StandardButton></ScopeNote>}
       <div className="conference-finding-list">{findingsVisible.map(p=>{
         const imp=impactoMeta(p.impacto);
         return <article className={`conference-finding-card conference-finding-card--${p.impacto}`} key={p.id}>

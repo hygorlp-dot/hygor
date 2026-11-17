@@ -57,7 +57,7 @@ Evidências e configuração de teste: `artifacts/roadmap-usabilidade-etapa1/`. 
 
 ## Etapa 2 — Consistência de contexto e leitura financeira
 
-**Implementada e validada localmente em 16/11/2026. Sem publicação.** U03 e U04. Relatório: [Contexto da obra e indicadores financeiros](USABILIDADE-ETAPA2-CONTEXTO-FINANCEIRO-20261116.md).
+**Publicada e conferida em 16/11/2026.** U03 e U04. Implementação: [Contexto da obra e indicadores financeiros](USABILIDADE-ETAPA2-CONTEXTO-FINANCEIRO-20261116.md). Publicação: [Deploy da segunda etapa](DEPLOY-ROADMAP-ETAPA2-20261116.md).
 
 O Caixa acompanha a obra em foco e não substitui obras sem caixa ativado. O painel explicita competência, movimento de caixa e escopo consolidado; seus atalhos financeiros levam o mês selecionado ao DRE. Filas de carteira e ranking identificam seu recorte, e cobranças mostram o saldo restante. Validação: 67 testes unitários, 10 cenários DEV e 20 no build, em 390 e 1440 px; ajuda/manual sincronizados, sem aumento dos limites de bundle ou da baseline visual. As divergências contábeis históricas continuam na etapa 5.
 
@@ -69,7 +69,9 @@ Aceite: mesma obra/competência na passagem entre telas, ou exceção claramente
 
 ## Etapa 3 — Continuidade comercial e tarefas entre setores
 
-**Pendente.** U05 e U08.
+**Implementada e validada localmente em 16/11/2026. Sem publicação.** U05 e U08. Relatório: [Continuidade comercial e tarefas entre setores](USABILIDADE-ETAPA3-CONTINUIDADE-SETORES-20261116.md).
+
+A ficha do lead reúne contratos vinculados por proposta e registros anteriores por leadId; a central recebe esse recorte e permite retornar à edição preservada. Indicadores comerciais explicam suas bases. Minhas aprovações distingue decisões elegíveis de solicitações sem fluxo compatível e consulta a origem em Compras. Comunicação abre o achado exato com responsável, prazo e situação; pendências canceladas deixam de contar como abertas no checklist. Sem reconstrução automática de vínculos ou instâncias reais. Evidências no celular e desktop, com dados fictícios e gravações bloqueadas.
 
 1. Tratar a aba Contratos vazia com orientação específica e acesso à central, usando vínculos explícitos.
 2. Conferir aprovação SC-0005 versus Minhas aprovações e as definições dos contadores comerciais.

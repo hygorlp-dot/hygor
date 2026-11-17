@@ -535,49 +535,53 @@ Esta tela é de consulta; alterações são feitas nos módulos de origem.
 
 ## Comunicação
 
-Trocar mensagens com pessoas da equipe.
+Encontrar prioridades da equipe e consultar tarefas na origem.
 
 ### Antes de começar
 
-Confira o destinatário ou a conversa antes de escrever.
+Confira seu acesso, a obra e quem é responsável pelo ajuste e pela validação.
 
 ### Como fazer
 
-1. Abra a conversa desejada.
-2. Escreva a mensagem e confira os anexos, se houver.
-3. Envie e acompanhe as respostas na conversa.
+1. Em Notificações, consulte Tarefas de conferência e escolha Situação das tarefas.
+2. Confira o registro, a obra, o responsável pelo ajuste, o prazo e a próxima ação. Prazo não definido significa que a origem não informou uma data.
+3. Use Abrir pendência para consultar somente aquele achado na vistoria. A decisão e as evidências continuam na Conferência. Mostrar todas as pendências amplia a consulta dentro da vistoria.
+4. Use Voltar a Comunicação para retornar. A situação selecionada nas tarefas permanece na sessão. Resolvidas ou canceladas mostra o encerramento informado pela origem.
+5. Para conversar, use Abrir chat da equipe no cabeçalho. Confira a conversa antes de enviar. O ranking e as prioridades de ponto e diário continuam nas respectivas áreas.
+6. Conversa, decisões e acompanhamento reúne as explicações adicionais. As tarefas e decisões disponíveis aparecem primeiro para facilitar o uso no celular.
 
 ### Como conferir se deu certo
 
-A mensagem aparece na conversa correta.
+A pendência abre no registro correto, sem criar outra tarefa. Depois da confirmação operacional, o quadro acompanha a situação de origem.
 
 ### O que merece atenção
 
-Uma mensagem não substitui a aprovação ou o lançamento no módulo responsável.
+Uma mensagem não substitui aprovação, pagamento, evidência de correção ou validação técnica. A lista respeita as permissões e a obra do perfil; nenhuma conversa é enviada ao abrir uma tarefa.
 
 <a id="guia-aprov_pend"></a>
 
 ## Minhas aprovações
 
-Encontrar decisões que aguardam sua análise.
+Conferir as decisões formais que aguardam sua análise.
 
 ### Antes de começar
 
-Tenha em mãos a justificativa e os documentos do registro.
+Tenha a solicitação e seus documentos disponíveis para conferência.
 
 ### Como fazer
 
-1. Abra uma pendência da sua lista.
-2. Confira obra, valores, solicitante e documentos.
-3. Use a decisão disponível e informe a justificativa solicitada.
+1. Leia O que entra nesta fila. Só aparecem decisões em andamento em que você é elegível nesta etapa.
+2. Quando disponível, use Consultar solicitação para conferir o registro em Compras. Voltar a Minhas aprovações retorna à fila sem decidir.
+3. Confira os dados e registre Aprovar ou Reprovar apenas depois da análise. Para reprovar, informe a justificativa.
+4. Abra Solicitações sem fluxo de aprovação compatível para consultar o diagnóstico separado: use Abrir solicitação e peça ao administrador para conferir o fluxo. Não há botão de decisão nesse diagnóstico.
 
 ### Como conferir se deu certo
 
-A situação da pendência foi atualizada após a confirmação.
+Uma decisão só é concluída quando o servidor confirma. Consultar a origem não aprova nem recria o fluxo.
 
 ### O que merece atenção
 
-Só decida sobre registros que você conferiu; a lista respeita seu perfil.
+A lista de Compras também inclui etapas de outras pessoas, solicitações em análise e registros anteriores. Estar citado em um aviso não garante elegibilidade na etapa atual. Não confunda fila vazia com todas as solicitações aprovadas.
 
 <a id="guia-admin_central"></a>
 
@@ -802,11 +806,12 @@ Confira obra e responsável pela vistoria.
 
 ### Como fazer
 
-1. Confira Escopo do ranking. Na central, o ranking compara todas as obras disponíveis; o filtro Obra seleciona a lista de conferências. Ao abrir uma obra fixa, o ranking se limita a ela.
-2. Abra a foto. Em Ferramentas e zoom, escolha ferramenta, cor e espessura.
-3. Desfazer recupera Limpar anotações. Salvar preserva o original; no formulário, confirme também Salvar achado.
-4. Fechar ou Escape pede confirmação das alterações. Continuar editando mantém o rascunho. Ao fechar o editor, o foco do teclado volta à miniatura que abriu a foto, quando ela continua disponível.
-5. A pessoa atribuída envia a correção; o vistoriador valida.
+1. Ao chegar de uma tarefa da Comunicação, Pendência de origem identifica o achado aberto por vínculo. Mostrar todas as pendências amplia a consulta dentro da mesma vistoria. Use Voltar a Comunicação para retornar sem registrar uma validação.
+2. Confira Escopo do ranking. Na central, o ranking compara todas as obras disponíveis; o filtro Obra seleciona a lista de conferências. Ao abrir uma obra fixa, o ranking se limita a ela.
+3. Abra a foto. Em Ferramentas e zoom, escolha ferramenta, cor e espessura.
+4. Desfazer recupera Limpar anotações. Salvar preserva o original; no formulário, confirme também Salvar achado.
+5. Fechar ou Escape pede confirmação das alterações. Continuar editando mantém o rascunho. Ao fechar o editor, o foco do teclado volta à miniatura que abriu a foto, quando ela continua disponível.
+6. A pessoa atribuída envia a correção; o vistoriador valida.
 
 ### Como conferir se deu certo
 
@@ -946,10 +951,11 @@ Tenha obra, descrição, unidade, quantidade e data necessária.
 
 ### Como fazer
 
-1. Abra Solicitar e use Nova solicitação.
-2. Para aproveitar uma conversa, use Colar pedido do WhatsApp, cole o texto ou print e clique em Analisar pedido. Confira a leitura e use Usar itens no rascunho.
-3. Revise obra, data necessária, materiais, quantidades, unidades e etapa do orçamento; preencha os dados ausentes.
-4. Use Formalizar e enviar para Compras e aguarde a confirmação do servidor. Consulte Pedido original da conversa na solicitação.
+1. Ao chegar de Minhas aprovações, a solicitação de origem fica destacada na obra correspondente. Consulte o registro e use Voltar a Minhas aprovações para retornar. Abrir a solicitação não aprova nem altera seu fluxo.
+2. Abra Solicitar e use Nova solicitação.
+3. Para aproveitar uma conversa, use Colar pedido do WhatsApp, cole o texto ou print e clique em Analisar pedido. Confira a leitura e use Usar itens no rascunho.
+4. Revise obra, data necessária, materiais, quantidades, unidades e etapa do orçamento; preencha os dados ausentes.
+5. Use Formalizar e enviar para Compras e aguarde a confirmação do servidor. Consulte Pedido original da conversa na solicitação.
 
 ### Como conferir se deu certo
 
@@ -2366,6 +2372,7 @@ Confira o cliente, o responsável e o período, quando disponíveis.
 1. Confira os indicadores e o período.
 2. Abra o grupo ou registro que explica o resultado.
 3. Acompanhe a próxima ação na área responsável.
+4. Abra Como são contados os indicadores comerciais. Vendas no mês usa registros de venda e data de fechamento; Conversão geral divide todas as vendas por todos os leads carregados. Valor provável de venda pondera o orçamento estimado pela probabilidade. Esses valores não são recebimento nem receita reconhecida no DRE. Sem assinatura consulta apenas os contratos anteriores; consulte os contratos atuais na central.
 
 ### Como conferir se deu certo
 
@@ -2390,6 +2397,7 @@ Confira o cliente, o responsável e o período, quando disponíveis.
 1. Consulte a visão de trabalho e as pendências.
 2. Abra o cliente, oportunidade ou atividade desejada.
 3. Atualize a próxima ação e confira o registro.
+4. Abra Como são contados os indicadores comerciais. Vendas no mês usa registros de venda e data de fechamento; Conversão geral divide todas as vendas por todos os leads carregados. Valor provável de venda pondera o orçamento estimado pela probabilidade. Esses valores não são recebimento nem receita reconhecida no DRE. Sem assinatura consulta apenas os contratos anteriores; consulte os contratos atuais na central.
 
 ### Como conferir se deu certo
 
@@ -2462,6 +2470,7 @@ Confira o cliente, o responsável e o período, quando disponíveis.
 1. Pesquise a pessoa ou empresa.
 2. Confira os dados de contato e os vínculos.
 3. Registre a atualização ou abra a oportunidade relacionada.
+4. Na ficha de um lead salvo, abra Contratos. Os contratos atuais usam o vínculo com a proposta deste lead; contratos anteriores usam o vínculo direto. Abrir contratos deste lead leva à central nesse recorte. Voltar à ficha do lead recupera a ficha e suas edições ainda não salvas nesta sessão. A navegação não salva o lead.
 
 ### Como conferir se deu certo
 
@@ -2469,7 +2478,7 @@ Você encontrou o contato e seu relacionamento com os negócios.
 
 ### O que merece atenção
 
-Proposta, contrato, assinatura e recebimento são etapas diferentes. Confira a situação antes de avançar.
+Proposta, contrato, assinatura e recebimento são etapas diferentes. Confira a situação antes de avançar. Nomes, clientes ou obras iguais não vinculam contratos. Um lead novo precisa ser salvo antes da consulta por vínculo.
 
 <a id="guia-com_deals"></a>
 
@@ -2558,6 +2567,7 @@ Confira o cliente, o responsável e o período, quando disponíveis.
 1. Pesquise o contato para evitar duplicidade.
 2. Cadastre ou revise nome, contato, origem e responsável.
 3. Registre a próxima ação e acompanhe a qualificação.
+4. Na ficha de um lead salvo, abra Contratos. Os contratos atuais usam o vínculo com a proposta deste lead; contratos anteriores usam o vínculo direto. Abrir contratos deste lead leva à central nesse recorte. Voltar à ficha do lead recupera a ficha e suas edições ainda não salvas nesta sessão. A navegação não salva o lead.
 
 ### Como conferir se deu certo
 
@@ -2565,7 +2575,7 @@ O possível cliente possui contato e acompanhamento definidos.
 
 ### O que merece atenção
 
-Proposta, contrato, assinatura e recebimento são etapas diferentes. Confira a situação antes de avançar.
+Proposta, contrato, assinatura e recebimento são etapas diferentes. Confira a situação antes de avançar. Nomes, clientes ou obras iguais não vinculam contratos. Um lead novo precisa ser salvo antes da consulta por vínculo.
 
 ### Exemplo ilustrativo
 
@@ -2751,14 +2761,16 @@ O administrador deve conferir o cadastro da contratada em Modelos de contrato. T
 
 ### Como fazer
 
-1. Em Comercial, abra Propostas e contratos e escolha Contratos.
-2. Use Novo contrato. Preencha as etapas A a G. É possível começar antes de existir obra cadastrada.
-3. Selecione o cliente, a proposta compatível e a obra. Confira os dados das partes; nenhuma declaração pessoal é presumida.
-4. Em Imóvel e obra, compare os dados. Salve o rascunho, selecione os campos e use Aproveitar dados selecionados da obra. Confirme os valores novamente.
-5. As alterações são salvas após uma breve pausa; aguarde a confirmação. Salvar rascunho permite tentar novamente. Falhas preservam o formulário. Em conflito, copie a edição antes de fechar e reabra o registro atual.
-6. Em Anexos e revisão, vincule revisões dos Arquivos da mesma obra. Confirme cada arquivo após conferir seu conteúdo.
-7. Use Enviar para revisão. O administrador pode devolver com motivo ou aprovar a revisão externa quando todas as pendências forem atendidas.
-8. Consulte o histórico. Depois da aprovação, use Abrir nova revisão com motivo para alterar dados; a versão anterior fica preservada.
+1. Se chegou da ficha de um lead, confira Contratos do lead. Consultar toda a central remove apenas esse recorte; Voltar à ficha do lead retorna às edições preservadas na sessão. Escopo dos contratos explica que os filtros da central controlam a consulta, não o contexto Comercial da empresa no cabeçalho.
+2. Em Comercial, abra Propostas e contratos e escolha Contratos.
+3. Use Novo contrato. Preencha as etapas A a G. É possível começar antes de existir obra cadastrada.
+4. Selecione o cliente, a proposta compatível e a obra. Confira os dados das partes; nenhuma declaração pessoal é presumida.
+5. Em Imóvel e obra, compare os dados. Salve o rascunho, selecione os campos e use Aproveitar dados selecionados da obra. Confirme os valores novamente.
+6. As alterações são salvas após uma breve pausa; aguarde a confirmação. Salvar rascunho permite tentar novamente. Falhas preservam o formulário. Em conflito, copie a edição antes de fechar e reabra o registro atual.
+7. Em Anexos e revisão, vincule revisões dos Arquivos da mesma obra. Confirme cada arquivo após conferir seu conteúdo.
+8. Use Enviar para revisão. O administrador pode devolver com motivo ou aprovar a revisão externa quando todas as pendências forem atendidas.
+9. Consulte o histórico. Depois da aprovação, use Abrir nova revisão com motivo para alterar dados; a versão anterior fica preservada.
+10. No recorte de um lead, Filtros reúne também pesquisa, situação e obra. Emissão de documentos indisponível explica a limitação de PDF/DOCX. Para administrar Modelos de contrato, use Consultar toda a central; essa área continua exclusiva do administrador.
 
 ### Como conferir se deu certo
 
@@ -3394,14 +3406,16 @@ O administrador deve conferir o cadastro da contratada em Modelos de contrato. T
 
 ### Como fazer
 
-1. Em Comercial, abra Propostas e contratos e escolha Contratos.
-2. Use Novo contrato. Preencha as etapas A a G. É possível começar antes de existir obra cadastrada.
-3. Selecione o cliente, a proposta compatível e a obra. Confira os dados das partes; nenhuma declaração pessoal é presumida.
-4. Em Imóvel e obra, compare os dados. Salve o rascunho, selecione os campos e use Aproveitar dados selecionados da obra. Confirme os valores novamente.
-5. As alterações são salvas após uma breve pausa; aguarde a confirmação. Salvar rascunho permite tentar novamente. Falhas preservam o formulário. Em conflito, copie a edição antes de fechar e reabra o registro atual.
-6. Em Anexos e revisão, vincule revisões dos Arquivos da mesma obra. Confirme cada arquivo após conferir seu conteúdo.
-7. Use Enviar para revisão. O administrador pode devolver com motivo ou aprovar a revisão externa quando todas as pendências forem atendidas.
-8. Consulte o histórico. Depois da aprovação, use Abrir nova revisão com motivo para alterar dados; a versão anterior fica preservada.
+1. Se chegou da ficha de um lead, confira Contratos do lead. Consultar toda a central remove apenas esse recorte; Voltar à ficha do lead retorna às edições preservadas na sessão. Escopo dos contratos explica que os filtros da central controlam a consulta, não o contexto Comercial da empresa no cabeçalho.
+2. Em Comercial, abra Propostas e contratos e escolha Contratos.
+3. Use Novo contrato. Preencha as etapas A a G. É possível começar antes de existir obra cadastrada.
+4. Selecione o cliente, a proposta compatível e a obra. Confira os dados das partes; nenhuma declaração pessoal é presumida.
+5. Em Imóvel e obra, compare os dados. Salve o rascunho, selecione os campos e use Aproveitar dados selecionados da obra. Confirme os valores novamente.
+6. As alterações são salvas após uma breve pausa; aguarde a confirmação. Salvar rascunho permite tentar novamente. Falhas preservam o formulário. Em conflito, copie a edição antes de fechar e reabra o registro atual.
+7. Em Anexos e revisão, vincule revisões dos Arquivos da mesma obra. Confirme cada arquivo após conferir seu conteúdo.
+8. Use Enviar para revisão. O administrador pode devolver com motivo ou aprovar a revisão externa quando todas as pendências forem atendidas.
+9. Consulte o histórico. Depois da aprovação, use Abrir nova revisão com motivo para alterar dados; a versão anterior fica preservada.
+10. No recorte de um lead, Filtros reúne também pesquisa, situação e obra. Emissão de documentos indisponível explica a limitação de PDF/DOCX. Para administrar Modelos de contrato, use Consultar toda a central; essa área continua exclusiva do administrador.
 
 ### Como conferir se deu certo
 

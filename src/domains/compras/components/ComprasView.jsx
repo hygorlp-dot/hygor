@@ -799,6 +799,12 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     if(next&&!obras.some(work=>work.id===next))return;
     setObraSel(next);setEscopoMapa(next?"obra":"empresa");
   },[intent?.sequence,obraIdFixo]);
+  useEffect(()=>{
+    if(intent?.tabId!=='cmp'||intent.action==='resume'||intent.record?.type!=='purchaseRequest')return;
+    const request=(data.solicitacoesCompra||[]).find(s=>s.id===intent.record.id&&s.obraId===intent.scope?.obraId&&obras.some(o=>o.id===s.obraId)&&(!obraIdFixo||s.obraId===obraIdFixo));
+    if(!request){showToast?.('A solicitação não está disponível no seu acesso.','warn');return;}
+    setAba('solicitacoes');setRegistroFoco(request.id);
+  },[intent?.sequence,obraIdFixo]);
   const todasObras = escopoMapa==="empresa"&&!obraIdFixo;
   const escopoCarimbo=todasObras?"all":obraAtual;
   const definirEscopoCarimbo=useCallback(v=>{if(v==="all"){setEscopoMapa("empresa");return;}setEscopoMapa("obra");setObraSel(v);},[setEscopoMapa,setObraSel]);
