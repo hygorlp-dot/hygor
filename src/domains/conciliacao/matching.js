@@ -1,4 +1,5 @@
 import { contraparteDoFato } from "./counterparty.js";
+import {transactionPixKey,normalizePixKey} from './pix-evidence.js';
 // Motor de candidatos da conciliação. Sem React, DOM ou persistência.
 //
 // Dado um movimento bancário (transação) e os índices já montados
@@ -94,12 +95,12 @@ const pontuarData = (dataTransacao, dataPrevista) => {
   return { pts: 0, motivo: null };
 };
 
-const normalizarChavePix = value => String(value || "").trim().toLocaleLowerCase("pt-BR").replace(/\s+/g, "");
+const normalizarChavePix = normalizePixKey;
 const pontuarPix = (transacao, pixKeyCandidato) => {
   if (!pixKeyCandidato) return { pts: 0, motivo: null };
   // Só considera chave quando ela veio estruturada do extrato. Trechos da
   // descrição são evidência fraca e jamais uma confirmação conclusiva.
-  const chave = normalizarChavePix(transacao.chavePix || transacao.pixKey || transacao.chave || "");
+  const chave = normalizarChavePix(transactionPixKey(transacao));
   if (chave && chave === normalizarChavePix(pixKeyCandidato)) return { pts: 35, motivo: "Chave PIX exata e exclusiva" };
   return { pts: 0, motivo: null };
 };
@@ -156,8 +157,8 @@ export const gerarCandidatosConciliacao = (transacao, data, indices, config = {}
     if (pontuarContraparte(nomeTransacao, entry.contraparte).pts) relevantes.set(`${entry.tipo}:${entry.item.id}`, entry);
   }));
   [transacao.fitid, transacao.endToEndId, transacao.txid].filter(Boolean).forEach(id => coletar(String(id), indices.porIdentificadorBancario));
-  // `chave` é o campo estruturado legado do importador; não é a descrição.
-  if (transacao.chavePix || transacao.pixKey || transacao.chave) coletar(normalizarChavePix(transacao.chavePix || transacao.pixKey || transacao.chave), indices.porPixChave);
+  const bankPix = transactionPixKey(transacao);
+  if (bankPix) coletar(normalizarChavePix(bankPix), indices.porPixChave);
 
   const candidatas = [];
 
@@ -362,7 +363,7 @@ export const gerarCandidatosConciliacao = (transacao, data, indices, config = {}
       valorExato: saldoCentavos > 0 && Math.abs(valorCentavos) === saldoCentavos,
       dataProxima: Boolean(transacao.data && dataPrevista && diasEntre(transacao.data, dataPrevista) <= 2),
     };
-    if ((transacao.chavePix || transacao.pixKey || transacao.chave) && pixKey && !px.pts) {
+    if (bankPix && pixKey && !px.pts) {
       bloqueios.push("Chave PIX incompatível com o fato financeiro");
       last.podeVincular = false;
       last.podeRegistrarPagamento = false;
@@ -376,7 +377,7 @@ export const gerarCandidatosConciliacao = (transacao, data, indices, config = {}
   // pedida explicitamente: mesmo sem nota/pedido em aberto, a contraparte já
   // é conhecida, e isso é informação relevante para classificar a transação.
   const pixRegistrado = buscarPixRegistrado(indices,
-    transacao.chavePix || transacao.pixKey || transacao.chave
+    bankPix
     || transacao.contraparteDocumento || transacao.descricao);
   if (pixRegistrado && !candidatas.some(c => c.tipo === "pixRegistrado")) {
     const rotulos = { empresa: "conta da própria empresa", funcionario: "funcionário", terceiro: "terceirizado", fornecedor: "fornecedor", proprietarioEquip: "proprietário de equipamento" };

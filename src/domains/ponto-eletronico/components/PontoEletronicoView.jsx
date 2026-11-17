@@ -3,6 +3,7 @@ import {RecordAction} from '../../../design-system/primitives/RecordAction.jsx';
 import {ChoiceControl} from '../../../design-system/primitives/ChoiceControl.jsx';
 import {Input as StandardInput} from '../../../components/ui/input.jsx';
 import {PageHeader} from "../../../design-system/patterns/PageHeader.jsx";
+import {ScopeNote} from '../../../design-system/patterns/ScopeNote.jsx';
 import {EmptyState} from "../../../design-system/patterns/FeedbackState.jsx";
 // A consulta preserva as batidas originais; a integração exige conferência explícita do RH.
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -278,6 +279,7 @@ export default function PontoEletronicoView({ data, showToast, currentUser, disp
       <StandardButton variant="secondary" ref={bancoTabRef} id="pe-tab-banco" type="button" role="tab" aria-selected={aba === "banco"} aria-controls="pe-panel-banco" tabIndex={aba === "banco" ? 0 : -1} onClick={() => setAba("banco")}>Banco de horas</StandardButton>
     </div>
 
+    <ScopeNote title="Escopo do ponto">Esta consulta usa a Obra selecionada abaixo. Obra em foco não filtra esta tela. Trocar a consulta não transfere funcionários nem altera batidas.</ScopeNote>
     <div className="pe-context">
       <div className="pe-work-selector"><Sel label="Obra" value={obraId} onChange={setObraId} disabled={ocupado} options={obras.map(o => ({ v: String(o.id), l: o.name }))} /></div>
       {aba === "batidas" && <>

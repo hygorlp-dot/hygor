@@ -2088,7 +2088,7 @@ canvas {
 }
 
 .ponto-dia-cell > button:first-child {
-  min-height: 38px !important;
+  min-height: var(--arcd-touch-target-min) !important;
   transition: transform .12s ease, border-color .12s ease, background .12s ease;
 }
 
@@ -3264,7 +3264,7 @@ canvas {
 .supplier-name{display:flex;flex-direction:column;min-width:190px}.supplier-name b{font-size:var(--arcd-type-caption)}.supplier-name span,.supplier-confidence span{color:var(--arcd-text-secondary);font-size:var(--arcd-type-caption);margin-top:3px}
 .supplier-rank{display:grid;place-items:center;width:30px;height:25px;border-radius:6px;background:#eceeef;color:#5f666c;font-size:var(--arcd-type-caption)}.supplier-rank.top{background:#f2e8c8;color:#856208}
 .supplier-score{display:grid;place-items:center;width:38px;height:30px;border:1px solid color-mix(in srgb,var(--supplier-score-color) 28%,#d9dcde);border-radius:7px;background:color-mix(in srgb,var(--supplier-score-color) 8%,#fff);color:var(--supplier-score-color);font-size:var(--arcd-type-caption);font-weight:600}
-.supplier-confidence{display:flex;flex-direction:column;min-width:92px}.supplier-confidence b{font-size:var(--arcd-type-caption)}.supplier-row-action{width:30px;height:30px;display:grid;place-items:center;border:1px solid #d7dade;border-radius:6px;background:#fff;color:#596168;cursor:pointer}
+.supplier-confidence{display:flex;flex-direction:column;min-width:92px}.supplier-confidence b{font-size:var(--arcd-type-caption)}.supplier-row-action{width:var(--arcd-touch-target-min);height:var(--arcd-touch-target-min);display:grid;place-items:center;border:1px solid #d7dade;border-radius:6px;background:#fff;color:#596168;cursor:pointer}
 .supplier-empty{display:flex;flex-direction:column;align-items:center;padding:38px;color:#83898f;gap:6px}.supplier-empty b{color:#353a3f}
 .supplier-method{display:flex;align-items:flex-start;gap:11px;padding:13px 15px;border:1px solid #d5d8db;border-radius:9px;background:#e9ebed;color:#5e656c}.supplier-method>svg{color:#9a7410;flex:none}.supplier-method b{font-size:var(--arcd-type-caption)}.supplier-method p{font-size:var(--arcd-type-caption);line-height:1.55;margin-top:3px}
 .supplier-detail-backdrop{position:fixed;inset:0;z-index:140;background:rgba(20,24,27,.22);display:flex;justify-content:flex-end;backdrop-filter:blur(2px)}

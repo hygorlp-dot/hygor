@@ -3,7 +3,7 @@
 export const UI_TEXT = Object.freeze({
   actions:Object.freeze({retrySave:"Tentar salvar novamente",confirm:"Confirmar",cancel:"Cancelar",previous:"Anterior",next:"Próxima"}),
   columns:Object.freeze({title:'Colunas',fields:'Campos visíveis',description:'Campos obrigatórios permanecem marcados. Ocultar não altera registros nem totais.',session:'Sem gravação neste navegador. As escolhas valem apenas nesta sessão.',reset:'Restaurar colunas padrão',done:'Concluir'}),
-  feedback:Object.freeze({recordUnavailable:"Registro indisponível",loading:"Carregando",loadingDescription:"Aguarde enquanto os dados são preparados."}),
+  feedback:Object.freeze({refreshFailure:({offline=false,protectedEdit=false}={})=>`${offline?"Sem conexão. Reconecte-se e tente atualizar novamente.":"Não foi possível atualizar. Tente novamente."} ${protectedEdit?"A edição protegida foi mantida.":"Os dados exibidos foram mantidos."}`,recordUnavailable:"Registro indisponível",loading:"Carregando",loadingDescription:"Aguarde enquanto os dados são preparados."}),
   confirmation:Object.freeze({reason:"Motivo",reasonRequired:"Informe o motivo para continuar."}),
   pagination:Object.freeze({label:"Paginação",page:(current,total)=>`Página ${current} de ${total}`,results:label=>`Resultados de ${label}`,range:(start,end,count,label)=>`${start}–${end} de ${count} ${label}`,empty:label=>`Nenhum resultado em ${label}`}),
 });

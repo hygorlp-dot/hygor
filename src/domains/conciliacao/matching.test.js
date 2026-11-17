@@ -186,7 +186,7 @@ describe("busca automática de PIX cadastrado (empresa/funcionário/terceiro/for
 
   test("chave PIX de conta da própria empresa gera candidata de transferência interna com alta prioridade", () => {
     const indices = criarIndicesFinanceiros(baseData);
-    const transacao = { id: "t1", valor: 300, data: "2026-01-10", chave: "empresa@arcd.com.br" };
+    const transacao = { id: "t1", valor: 300, data: "2026-01-10", chavePix: "empresa@arcd.com.br" };
     const candidatas = gerarCandidatosConciliacao(transacao, baseData, indices);
     const pix = candidatas.find(c => c.tipo === "pixRegistrado");
     expect(pix).toBeDefined();
@@ -197,7 +197,7 @@ describe("busca automática de PIX cadastrado (empresa/funcionário/terceiro/for
 
   test("chave PIX de funcionário cadastrado aparece como candidata informativa", () => {
     const indices = criarIndicesFinanceiros(baseData);
-    const transacao = { id: "t2", valor: 150, data: "2026-01-10", chave: "12345678900" };
+    const transacao = { id: "t2", valor: 150, data: "2026-01-10", chavePix: "12345678900" };
     const candidatas = gerarCandidatosConciliacao(transacao, baseData, indices);
     const pix = candidatas.find(c => c.tipo === "pixRegistrado");
     expect(pix).toBeDefined();
@@ -207,7 +207,7 @@ describe("busca automática de PIX cadastrado (empresa/funcionário/terceiro/for
 
   test("chave PIX desconhecida não gera candidata pixRegistrado", () => {
     const indices = criarIndicesFinanceiros(baseData);
-    const transacao = { id: "t3", valor: 150, data: "2026-01-10", chave: "chave-nunca-vista" };
+    const transacao = { id: "t3", valor: 150, data: "2026-01-10", chavePix: "chave-nunca-vista" };
     const candidatas = gerarCandidatosConciliacao(transacao, baseData, indices);
     expect(candidatas.find(c => c.tipo === "pixRegistrado")).toBeUndefined();
   });

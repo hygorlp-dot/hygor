@@ -499,6 +499,7 @@ Escolha o mês. Os indicadores consolidam os dados do seu acesso; Obra em foco n
 2. Abra Como ler os indicadores para conferir faturamento por competência, entradas, saídas e os critérios de situação das obras.
 3. Ao abrir um indicador financeiro, confira o mesmo mês e o recorte consolidado no DRE de destino. Obra em foco permanece disponível para as telas operacionais.
 4. Abra uma obra ou uma pendência e confira os registros de origem antes de tomar uma decisão.
+5. Se Atualizar falhar, a consulta mantém os dados exibidos. Sem conexão, reconecte-se antes de tentar novamente. A mensagem só menciona edição protegida quando houver edição pendente; atualizar não reenvia uma confirmação operacional.
 
 ### Como conferir se deu certo
 
@@ -550,6 +551,7 @@ Confira seu acesso, a obra e quem é responsável pelo ajuste e pela validação
 4. Use Voltar a Comunicação para retornar. A situação selecionada nas tarefas permanece na sessão. Resolvidas ou canceladas mostra o encerramento informado pela origem.
 5. Para conversar, use Abrir chat da equipe no cabeçalho. Confira a conversa antes de enviar. O ranking e as prioridades de ponto e diário continuam nas respectivas áreas.
 6. Conversa, decisões e acompanhamento reúne as explicações adicionais. As tarefas e decisões disponíveis aparecem primeiro para facilitar o uso no celular.
+7. Voltar a Comunicação também restaura a Obra em foco que estava selecionada antes de abrir a pendência. Isso não transfere o achado de obra.
 
 ### Como conferir se deu certo
 
@@ -910,6 +912,7 @@ Confirme a obra e o material necessário.
 2. Clique no código para consultar a ficha rápida; use a próxima ação para continuar. Confira a necessidade da obra, o estoque e os pedidos em aberto. Registre ou localize a solicitação.
 3. Compare as propostas e condições, registre a decisão e acompanhe o pedido. Aprovações pendentes ficam sinalizadas, sem impedir o andamento.
 4. Registre a entrega física para dar entrada no estoque. Vincule a nota e registre os pagamentos reais quando ocorrerem; essas etapas podem acontecer em outra ordem.
+5. Na Fila de trabalho, abra o registro e use a Próxima ação. Analisar solicitação fecha a ficha de consulta e posiciona a solicitação exata em Solicitar; confira o número destacado antes de agir.
 
 ### Como conferir se deu certo
 
@@ -1309,9 +1312,10 @@ Confira a obra, o aparelho e a conexão Microsoft.
 
 ### Como fazer
 
-1. Consulte os aparelhos e a sincronização.
-2. Confira batidas e fotos.
-3. Trate as pendências permitidas ao seu perfil.
+1. Leia Escopo do ponto. A consulta usa a Obra selecionada nesta tela, independentemente de Obra em foco. Trocar a consulta não transfere funcionários nem altera batidas.
+2. Consulte os aparelhos e a sincronização.
+3. Confira batidas e fotos.
+4. Trate as pendências permitidas ao seu perfil.
 
 ### Como conferir se deu certo
 
@@ -1909,25 +1913,27 @@ Anexar um comprovante não confirma automaticamente pagamento ou recebimento.
 
 ## Financeiro · Homologação
 
-Conferir as verificações do funcionamento financeiro.
+Comparar os dados de origem, o razão financeiro e as projeções do DRE.
 
 ### Antes de começar
 
-Use um perfil de administrador e leia o escopo de cada verificação.
+Use um perfil de administrador. Consultar não corrige registros nem fecha uma competência.
 
 ### Como fazer
 
-1. Consulte os testes ou verificações disponíveis na tela.
-2. Leia o resultado e identifique divergências ou pendências.
-3. Confira os registros de origem com o responsável antes de qualquer correção.
+1. Use Atualizar relatório e aguarde a consulta.
+2. Leia separadamente o estado do motor e as Verificações da homologação. Motor ativo não significa que todas as verificações passaram.
+3. Em Diferenças e avisos, escolha Grupo da conferência e use Buscar diferença ou origem. Confira obra, competência, campo, origem esperada e razão consultado. Anterior e Próxima percorrem todos os resultados.
+4. Abra Diagnóstico do registro para conferir a referência exata com o responsável financeiro. Números de campos, quantidades e valores monetários têm significados diferentes.
+5. Em Sincronização técnica dos registros, Executar carga idempotente exige confirmação e grava a sincronização existente. Essa ação não ativa nem desativa o motor; consulte o responsável técnico antes de usá-la.
 
 ### Como conferir se deu certo
 
-Você identificou o que foi verificado e o que ainda exige tratamento.
+Você consegue localizar as diferenças e identificar as verificações pendentes, mesmo quando os totais financeiros coincidem.
 
 ### O que merece atenção
 
-Uma verificação técnica não substitui a conferência documental de cada operação.
+Cada linha é uma diferença ou aviso, não um novo custo. Não some as diferenças nem crie pagamentos para compensá-las. Nenhuma diferença detalhada não significa homologação concluída. Falha na consulta não comprova necessidade de preparar o banco.
 
 <a id="guia-fin_ia"></a>
 
@@ -1978,7 +1984,7 @@ As linhas conferidas mostram os vínculos corretos.
 
 ### O que merece atenção
 
-Semelhança de valor ou descrição não basta para confirmar um vínculo. Uma referência genérica do arquivo OFX não comprova o identificador de uma transferência Pix. Nas novas importações, a referência original é preservada e não é tratada automaticamente como esse identificador. Os dados antigos exigem conferência do original antes de qualquer correção. Revise a automação antes de retomá-la.
+Semelhança de valor ou descrição não basta para confirmar um vínculo. Uma referência genérica do arquivo OFX não comprova o identificador de uma transferência Pix. Chave PIX vem apenas dos campos próprios de PIX; o identificador da linha do extrato (FITID ou impressão digital) continua servindo à deduplicação. Quando a chave não estiver informada, a comparação mostra Não informado, sem inventar uma incompatibilidade de PIX. Uma chave PIX explícita divergente continua exigindo conferência. Nas novas importações, a referência original é preservada e não é tratada automaticamente como esse identificador. Os dados antigos exigem conferência do original antes de qualquer correção. Revise a automação antes de retomá-la.
 
 ### Exemplo ilustrativo
 
@@ -2587,6 +2593,7 @@ Confira o cliente, o responsável e o período, quando disponíveis.
 2. Cadastre ou revise nome, contato, origem e responsável.
 3. Registre a próxima ação e acompanhe a qualificação.
 4. Na ficha de um lead salvo, abra Contratos. Os contratos atuais usam o vínculo com a proposta deste lead; contratos anteriores usam o vínculo direto. Abrir contratos deste lead leva à central nesse recorte. Voltar à ficha do lead recupera a ficha e suas edições ainda não salvas nesta sessão. A navegação não salva o lead.
+5. Na ficha, escolha Áreas do lead no celular para acessar Visão geral, Contratos e as demais áreas. No computador, use os mesmos nomes na navegação. Trocar de área conserva o preenchimento da ficha; confirme somente após conferir os dados.
 
 ### Como conferir se deu certo
 

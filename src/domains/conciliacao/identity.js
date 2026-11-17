@@ -1,9 +1,10 @@
 // Registro de identidades usado pela conciliação. Ele não escolhe nem grava
 // nada: apenas torna explícitas as evidências e conflitos de contraparte.
 import { semAcento, extrairContraparteDescricaoPix } from "./calculations.js";
+import {transactionPixKey,normalizePixKey} from './pix-evidence.js';
 
 const normalizarDocumento = value => String(value || "").replace(/\D/g, "");
-const normalizarPixIdentidade = value => String(value || "").trim().toLocaleLowerCase("pt-BR").replace(/\s+/g, "");
+const normalizarPixIdentidade = normalizePixKey;
 const normalizarNomeIdentidade = value => semAcento(value).replace(/\b(ltda|me|eireli|sa|s\/a)\b/g, "").replace(/[^a-z0-9]+/g, " ").trim();
 
 const text = value => String(value || "").trim();
@@ -85,7 +86,7 @@ export const criarRegistroIdentidades = (data = {}) => {
 
 const collect = (map, key) => key ? (map.get(key)||[]) : [];
 export const identificarContraparte = (transaction = {}, registry) => {
-  const pix=normalizarPixIdentidade(transaction.chavePix||transaction.pixKey||transaction.chave);
+  const pix=normalizarPixIdentidade(transactionPixKey(transaction));
   const documento=normalizarDocumento(transaction.contraparteDocumento||transaction.cpfCnpj);
   const nome=normalizarNomeIdentidade(transaction.contraparteNome||transaction.nomeContraparte||extrairContraparteDescricaoPix(transaction.descricao)||"");
   const hits=[...collect(registry?.porPix,pix),...collect(registry?.porDocumento,documento),...collect(registry?.porNome,nome)];

@@ -1,4 +1,5 @@
 import { candidata, FAIXA_CONFIANCA } from "./matching.js";
+import {transactionPixKey} from './pix-evidence.js';
 
 const fold=value=>String(value??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
 const digits=value=>String(value??"").replace(/\D/g,"");
@@ -14,7 +15,7 @@ const hasPersonNameEvidence=(bankText,personName)=>{
 };
 
 export const hasEmployeePixNameEvidence=(transaction,employee)=>{
-  const bankText=fold([transaction?.chavePix,transaction?.pixKey,transaction?.chave,transaction?.descricao].filter(Boolean).join(" "));
+  const bankText=fold([transactionPixKey(transaction),transaction?.descricao].filter(Boolean).join(" "));
   return hasPersonNameEvidence(bankText,employee?.name||employee?.nome)
     ||hasPersonNameEvidence(bankText,employee?.pixHolder);
 };
@@ -23,7 +24,7 @@ export const hasEmployeePixNameEvidence=(transaction,employee)=>{
 // comprova o nome do operário ou do titular PIX. Número isolado não é prova.
 export const findRegisteredEmployeePix=(transaction,employees=[])=>{
   if(Number(transaction?.valor||0)>=0)return null;
-  const bankText=[transaction?.chavePix,transaction?.pixKey,transaction?.chave,transaction?.descricao].filter(Boolean).join(" ");
+  const bankText=[transactionPixKey(transaction),transaction?.descricao].filter(Boolean).join(" ");
   const normalized=fold(bankText), numeric=digits(bankText);
   return (employees||[]).filter(employee=>employee?.active!==false).map(employee=>{
     const key=String(employee.pixKey||"").trim();

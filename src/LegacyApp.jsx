@@ -1,3 +1,4 @@
+import {UI_TEXT} from './design-system/copy.js';
 import {workNavigationGroups,workNavigationTarget} from './domains/obras/work-navigation.js';
 import {DISTANCE_VIEW_COLORS} from './design-system/themes/themeRegistry.js';
 import {portalLoginUrl} from "./client-portal/routes.js";
@@ -13,7 +14,7 @@ import {SectorTasks} from './features/workflow/SectorTasks.jsx';
 import {useRecordPage} from './design-system/data/useRecordPage.js';
 import {RecordListPagination} from './design-system/data/RecordListPagination.jsx';
 import {TaskDisclosure} from './design-system/patterns/TaskDisclosure.jsx';
-import {setWorkContextObra,useSyncedWorkObra} from './features/workflow/work-context.js';
+import {setWorkContextObra,useSyncedWorkObra,workContextObraId} from './features/workflow/work-context.js';
 import {SaveRecoveryContext} from './features/workflow/SaveRecoveryContext.jsx';
 import {snapshotJournal,recoveryTab,snapshotChanges} from './domains/sync/snapshot-journal.js';
 import {SaveRecovery} from './domains/sync/SaveRecovery.jsx';
@@ -84,6 +85,7 @@ import {invoiceBankContext,hasInvoiceBankPayment} from './domains/financeiro/rec
 import CashWorkspace from "./features/financeiro/CashWorkspace.jsx";
 import FinanceToday from "./features/financeiro/FinanceToday.jsx";
 import FinancialMemorial from "./features/financeiro/FinancialMemorial.jsx";
+import FinancialHomologationReport from "./features/financeiro/FinancialHomologationReport.jsx";
 import {financeNextAction} from './domains/financeiro/next-action.js';
 import {PurchaseDossier} from './domains/compras/components/PurchaseDossier.jsx';
 import FinancialReportCenter from "./features/financeiro/FinancialReportCenter.jsx";
@@ -4164,8 +4166,6 @@ function HomologacaoFinanceira({data,showToast,C=C_ARCD_SETOR}){
   const [carregando,setCarregando]=useState(true);
   const [migrando,setMigrando]=useState(false);
   const [sincronizando,setSincronizando]=useState(false);
-  const metricas={billed:"Faturado",received:"Recebido",thirdParty:"Terceiros",expenses:"Despesas da obra",companyExpenses:"Despesas da empresa",purchases:"Compras"};
-  const obraNome=id=>id==="empresa"?"Empresa":data.obras.find(obra=>String(obra.id)===String(id))?.name||id;
   const carregar=useCallback(async()=>{
     setCarregando(true);
     const resposta=await consultarSombraFinanceira();
@@ -4184,37 +4184,21 @@ function HomologacaoFinanceira({data,showToast,C=C_ARCD_SETOR}){
     await carregar();
   };
   const sincronizar=async()=>{
-    if(!window.confirm("Executar a carga idempotente do legado no razão canônico? O motor continuará em sombra e a flag não será ativada automaticamente."))return;
+    if(!window.confirm("Executar a carga idempotente do legado no razão canônico? Esta ação grava a sincronização dos registros de origem e não altera a ativação do motor. Confira as divergências antes de continuar."))return;
     setSincronizando(true);
     const resposta=await sincronizarSombraFinanceira();
     setSincronizando(false);
     if(!resposta.ok){showToast(resposta.error||"A carga em sombra falhou.","error");return;}
     setRelatorio(resposta);
     const totalDivergencias=(resposta.divergencias?.length||0)+(resposta.divergenciasDRE?.length||0);
-    showToast(resposta.prontoParaAtivar?"Carga concluída sem divergências. Gate FIN-003 liberado.":`Carga concluída com ${totalDivergencias} divergência(s) para revisão.`,resposta.prontoParaAtivar?undefined:"warn");
+    showToast(resposta.prontoParaAtivar?"Carga concluída. Atualize o relatório para conferir as verificações da homologação.":`Carga concluída com ${totalDivergencias} divergência(s) para revisão.`,resposta.prontoParaAtivar?undefined:"warn");
   };
-  const contagens=relatorio?.contagens||{};
-  return <div className="anim" style={{display:"flex",flexDirection:"column",gap:10}}>
-    <PageHero headingLevel={2} eyebrow="FIN-002 · controle de migração" title="Homologação em sombra" description="Compara cada fato financeiro do legado com o razão canônico antes de bloquear as escritas antigas." actions={<div style={{display:"flex",gap:6}}><Btn v="ghost" onClick={carregar} disabled={carregando}>Atualizar relatório</Btn><Btn v="success" onClick={sincronizar} disabled={sincronizando||carregando}>{sincronizando?"Carregando fatos...":"Executar carga idempotente"}</Btn></div>}/>
+  return <div className="record-recovery">
+    <PageHero headingLevel={2} title="Homologação financeira" description="Compare os dados de origem, o razão financeiro e as projeções do DRE. Consultar não altera registros." actions={<div className="closing-pending__actions"><Btn v="ghost" onClick={carregar} disabled={carregando}>Atualizar relatório</Btn></div>}/>
     {carregando&&<LoadingState label="o razão canônico"/>}
-    {!carregando&&!relatorio&&<div style={{padding:18,border:`1px solid ${C.red}`,borderRadius:8,color:C.red}}><b>Banco ainda não preparado</b><p style={{fontSize:"var(--arcd-type-label)",margin:"5px 0 10px"}}>{erro||"Relatório indisponível."}</p><Btn onClick={preparar} disabled={migrando}>{migrando?"Aplicando migration...":"Preparar banco com segurança"}</Btn></div>}
-    {relatorio&&<><div style={{padding:"11px 13px",border:`1px solid ${relatorio.prontoParaAtivar?C.green:C.orange}`,borderLeft:`1px solid ${relatorio.prontoParaAtivar?C.green:C.orange}`,borderRadius:8,background:relatorio.prontoParaAtivar?`${C.green}08`:`${C.orange}08`}}>
-      <b style={{fontSize:"var(--arcd-type-body)",color:relatorio.prontoParaAtivar?C.green:C.orange}}>{relatorio.prontoParaAtivar?"Divergência zero · pronto para o gate FIN-003":"Motor permanece em sombra"}</b>
-      <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3}}>{relatorio.engineEnforced?"FINANCIAL_ENGINE_ENFORCE está ativo.":"O legado continua gravável; nenhuma ativação automática foi feita."}</p>
-    </div>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:6}}>{[
-      ["Fatos legados",contagens.fatosLegados||0],["Títulos canônicos",contagens.titulos||0],
-      ["Liquidações",contagens.liquidacoes||0],["Transações bancárias",contagens.transacoesLegadas||0],
-      ["Projeções DRE",contagens.projecoesDRE||0],["Vínculos de conciliação",contagens.vinculosConciliacao||0],
-      ["Divergências",Number(relatorio.divergencias?.length||0)+Number(relatorio.divergenciasDRE?.length||0)],
-    ].map(([label,value])=><div key={label} style={{padding:"9px 11px",border:`1px solid ${C.border}`,borderRadius:7,background:C.card}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>{label}</p><b style={{fontSize:"var(--arcd-type-section-title)",color:label==="Divergências"&&value?C.red:C.text}}>{value}</b></div>)}</div>
-    <div style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
-      <div style={{padding:"8px 11px",background:C.surface,borderBottom:`1px solid ${C.border}`}}><b style={{fontSize:"var(--arcd-type-label)"}}>Comparação por obra e empresa</b></div>
-      {!relatorio.divergencias?.length?<p style={{padding:18,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.green}}>Todos os totais homologados coincidem.</p>:relatorio.divergencias.map((item,index)=><div key={`${item.scope}-${item.metric}`} style={{display:"grid",gridTemplateColumns:"minmax(140px,1fr) 150px repeat(3,120px)",gap:8,padding:"8px 11px",borderTop:index?`1px solid ${C.line}`:"none",alignItems:"center",fontSize:"var(--arcd-type-label)"}}>
-        <b>{obraNome(item.scope)}</b><span>{metricas[item.metric]||item.metric}</span><span>Legado: {fmt(item.legacyAmount)}</span><span>Razão: {fmt(item.canonicalAmount)}</span><b style={{color:C.red}}>Δ {fmt(item.difference)}</b>
-      </div>)}
-    </div>
-    {relatorio.ultimaCarga&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Última carga: {new Date(relatorio.ultimaCarga.created_at).toLocaleString("pt-BR")} · execução {relatorio.ultimaCarga.id}</p>}</>}
+    {!carregando&&!relatorio&&<div role="alert"><h3>Não foi possível consultar a homologação</h3><p>{erro||"Relatório indisponível. Confira a conexão e tente Atualizar relatório."}</p><p>Uma consulta indisponível não significa que o banco precisa de preparação.</p><TaskDisclosure summary="Preparação técnica do banco"><p>Use somente após o responsável técnico confirmar a necessidade. Esta ação aplica a preparação existente e não altera a ativação do motor.</p><Btn onClick={preparar} disabled={migrando}>{migrando?"Preparando banco...":"Preparar banco com segurança"}</Btn></TaskDisclosure></div>}
+    {relatorio&&<FinancialHomologationReport report={relatorio} works={data.obras||[]}/>}
+    <TaskDisclosure summary="Sincronização técnica dos registros"><p>Esta operação grava a sincronização existente. Confira o diagnóstico com o responsável financeiro antes de executar; ela não ativa nem desativa o motor.</p><Btn v="ghost" onClick={sincronizar} disabled={sincronizando||carregando}>{sincronizando?"Sincronizando registros...":"Executar carga idempotente"}</Btn></TaskDisclosure>
   </div>;
 }
 
@@ -10294,7 +10278,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         {abaConteudo==="portal"&&ehAdmin&&<PublicationReview domains={portalReview} busy={portalBusy} onClose={()=>setPortalReview(null)} onConfirm={publicarPortalSeguro}/>}
         {abaConteudo==="portal"&&ehAdmin&&<div style={{display:"grid",gap:"var(--arcd-space-3)"}}>
           <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderLeft:`1px solid ${portal.ativo?"var(--arcd-success-text)":"var(--arcd-text-secondary)"}`,borderRadius:12,padding:"var(--arcd-space-4)"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-3)",flexWrap:"wrap"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>Experiência do cliente</p><h2 style={{fontSize:"var(--arcd-type-section-title)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)"}}>Portal transparente da obra</h2><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)",maxWidth:690,lineHeight:"var(--arcd-line-height-normal)"}}>Escolha exatamente o que o cliente poderá consultar. Dados bancários, PIX, folha, margem, conciliação e observações internas permanecem protegidos.</p></div><Btn v={portal.ativo?"danger":"success"} disabled={portalBusy} onClick={alternarPortal}><Ic n={portal.ativo?"x":"check"}/> {portal.ativo?"Desativar acesso":"Ativar portal"}</Btn></div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-3)",flexWrap:"wrap"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>Experiência do cliente</p><h2 style={{fontSize:"var(--arcd-type-section-title)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)"}}>Portal transparente da obra</h2><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)",maxWidth:690,lineHeight:"var(--arcd-line-height-normal)"}}>Escolha exatamente o que o cliente poderá consultar. Dados bancários, PIX, margem, conciliação e observações internas permanecem privados. Administração e equipe pode liberar nomes, folha por funcionário, reservas e ponto da obra para perfis autorizados; confira as opções antes de publicar.</p></div><Btn v={portal.ativo?"danger":"success"} disabled={portalBusy} onClick={alternarPortal}><Ic n={portal.ativo?"x":"check"}/> {portal.ativo?"Desativar acesso":"Ativar portal"}</Btn></div>
             <div style={{marginTop:"var(--arcd-space-3)"}}><Inp label="Mensagem de abertura" value={portal.mensagem||""} onChange={v=>atualizarPortal({mensagem:v})} placeholder="Ex.: Sua obra avança com qualidade e segurança."/></div>
             <div style={{marginTop:"var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",marginBottom:"var(--arcd-space-2)"}}>Informações publicadas</p><div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:"var(--arcd-space-2)"}}>{[
               ["publicarFotos","Diários e fotos","Relatos, serviços e fotos dos diários concluídos",portal.publicarFotos!==false],
@@ -14131,12 +14115,13 @@ export default function App() {
   const navigateWorkflow=useCallback((tabId,scope,options={})=>{
     if(!allowedTabs.includes(tabId))return;
     const normalized=normalizeWorkflowScope(scope||workflowScopes[tabId]||{},currentUser);
-    if(tabId!==tab)setWorkflowTrail(previous=>[...previous.slice(-7),{tabId:tab,obraId:obraAberta,scope:normalizeWorkflowScope(workflowScopes[tab]||workflowLastScope.current,currentUser)}]);
+    if(tabId!==tab)setWorkflowTrail(previous=>[...previous.slice(-7),{tabId:tab,obraId:obraAberta,contextObraId:workContextObraId(),scope:normalizeWorkflowScope(workflowScopes[tab]||workflowLastScope.current,currentUser)}]);
     irPara(tabId,"",{...options,linked:true,scope:normalized,preserveHistory:true});
   },[allowedTabsKey,currentUser?.obraId,workflowScopes,irPara,tab,obraAberta]);
   const returnWorkflow=()=>{
     const previous=workflowTrail.at(-1);if(!previous||!allowedTabs.includes(previous.tabId))return;
     setWorkflowTrail(history=>history.slice(0,-1));
+    if(previous.contextObraId!==undefined)setWorkContextObra(previous.contextObraId);
     irPara(previous.tabId,previous.obraId,{scope:previous.scope,action:"resume",preserveHistory:true});
   };
 
@@ -14323,17 +14308,19 @@ export default function App() {
   const descartarMinhaVersao=async target=>{
     if(resolvingSaveRef.current||[SAVE_QUEUE_STATE.SAVING,SAVE_QUEUE_STATE.RETRY_SCHEDULED].includes(saveQueueRef.current.getState()))return;
     if((recoveryAvailable||saveQueueRef.current.hasPending())&&!window.confirm("Descartar as edições pendentes e consultar o servidor?"))return;
+    const protectedEdit=Boolean(recoveryAvailable||saveQueueRef.current.hasPending());
+    const refreshFailure=()=>UI_TEXT.feedback.refreshFailure({offline:navigator.onLine===false,protectedEdit});
     resolvingSaveRef.current=true;
     try{
       const fresco=await loadDataWithMeta();
-      if(!fresco?.data){showToast("Não foi possível atualizar. A edição protegida foi mantida.","error");return;}
+      if(!fresco?.data){showToast(refreshFailure(),"error");return;}
       const saved=target?.owner===currentUser.id?target:await snapshotJournal.readLatest(currentUser.id,recoveryTab());
       if(saved)await snapshotJournal.release(saved);
       saveQueueRef.current.discard({keepJournal:true});setConflito(null);
       adoptServerVersion(fresco.updatedAt);const norm=normalizeData(fresco.data);
       baseServidorRef.current=norm;ultimoDataRef.current=norm;dataAtualRef.current=norm;setData(norm);
       setRecoveryRevision(v=>v+1);setRecoveryOpen(false);
-    }catch{showToast("Não foi possível descartar a edição protegida.","error");}
+    }catch{showToast(refreshFailure(),"error");}
     finally{resolvingSaveRef.current=false;}
   };
 
