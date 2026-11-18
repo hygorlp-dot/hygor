@@ -4395,7 +4395,7 @@ function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatch
     if(action.kind==='invoice'){conferirNota(action.id);return;}
     setDocumentMonth(row.period||'');setDocumentView({query:'',filter:'all',selected:row.id});setAreaFinanceira('documentos');
   };
-  const workFilter=<Sel label="Obra" description="Igual à Obra em foco do topo" value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as obras"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>;
+  const workFilter=<Sel label="Obra" description="Segue a Obra em foco" value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as obras"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>;
 
 
   // Gráfico: receita vs custo MO por obra

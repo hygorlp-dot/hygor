@@ -125,12 +125,15 @@
   [data-theme] .arcd-main .dashboard-action-filters > button { min-width: 44px; min-height: 44px; }
   [data-theme] .arcd-main .dashboard-command-center button[aria-label*="mês"] { min-width: 44px; min-height: 44px; }
 }
-/* Descrição curta sob um campo de filtro (ex.: "Igual à Obra em foco do topo") não muda a altura do campo,
-   para os rótulos da linha continuarem alinhados; a linha reserva o espaço só quando há descrição. */
+/* Descrição curta de um campo de filtro (ex.: "Segue a Obra em foco") fica na linha do rótulo, à direita:
+   não muda a altura do campo, então os rótulos da linha seguem alinhados no computador e no celular. */
 @media screen {
-  :is(.workspace-command-bar,.purchase-context-bar,.payroll-filter-grid) .arcd-field { position: relative; }
-  :is(.workspace-command-bar,.purchase-context-bar,.payroll-filter-grid) .arcd-field__description { position: absolute; top: calc(100% + .25rem); left: 0; white-space: nowrap; margin: 0; }
-  :is(.workspace-command-bar,.purchase-context-bar,.payroll-filter-grid):has(.arcd-field__description) { padding-bottom: 1.5rem !important; }
+  :is(.workspace-command-bar,.purchase-context-bar,.payroll-filter-grid) .arcd-field:has(> .arcd-field__description) { position: relative; }
+  :is(.workspace-command-bar,.purchase-context-bar,.payroll-filter-grid) .arcd-field > .arcd-field__description {
+    position: absolute; top: 0; right: 0; max-width: calc(100% - 3.5rem); margin: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: var(--arcd-text-secondary); font-size: var(--arcd-type-caption); line-height: inherit;
+  }
   /* Chips da Central de ações: não encolhem abaixo do texto; rolam para o lado. */
   [data-theme] .arcd-main .dashboard-action-filters > button { flex: none !important; white-space: nowrap; }
 }

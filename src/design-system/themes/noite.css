@@ -115,3 +115,9 @@ html[data-theme="noite"]{background:#070d18;color-scheme:dark}
 [data-theme="noite"] .workspace-navigation__desktop > nav > button[aria-current="page"]{color:var(--arcd-text-primary) !important;box-shadow:inset 0 -2px var(--arcd-text-primary) !important}
 [data-theme="noite"] .arcd-main .tab-row__tab[data-active="true"] *{color:inherit !important}
 [data-theme="noite"] .arcd-mobile-bottom-nav__item[data-active="true"] *{color:var(--arcd-text-primary) !important}
+/* Rodada 9: marcell-clean.css e index.css entram depois deste arquivo; com prioridade maior (html + .tab-row),
+   a aba ativa e o item ativo da barra inferior ficam em texto claro, sem dourado. */
+html[data-theme="noite"] .arcd-main .tab-row .tab-row__tab[data-active="true"],
+html[data-theme="noite"] .arcd-main .tab-row .tab-row__tab[data-active=true]{color:var(--arcd-text-primary) !important;box-shadow:inset 0 -2px 0 var(--arcd-text-primary) !important}
+html[data-theme="noite"] .arcd-mobile-nav .mobile-primary-nav > button[data-active="true"],
+html[data-theme="noite"] .arcd-mobile-nav .mobile-subnav > button[data-active="true"]{--ic-color:var(--arcd-text-primary) !important;color:var(--arcd-text-primary) !important;background:var(--arcd-surface-muted) !important;border-top-color:var(--arcd-text-primary) !important}
