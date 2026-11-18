@@ -11,6 +11,7 @@ async function enter(page,tab,{explicitPix='',emptyReport=false}={}){
  data.pedidos=[];data.reconciliationLinks=[];data.historicoConc=[];
  data.solicitacoesCompra=[{...data.solicitacoesCompra[0],id:'req-top',numero:'SC-0005',criadoEm:'2026-11-17T10:00:00Z'},{...data.solicitacoesCompra[0],id:'req-exact',numero:'SC-0004',criadoEm:'2026-11-16T10:00:00Z'}];
  const shadow={ok:true,engineEnforced:true,prontoParaAtivar:false,contagens:{fatosLegados:2,projecoesDRE:696},divergencias:[],divergenciasDRE:emptyReport?[]:Array.from({length:678},(_,i)=>({sourceId:'2026-11:mes:a',path:`costs[${i}].amount`,expected:100,canonical:120,difference:20})),activationGate:{ready:false,checks:[{code:'dre_divergence',ok:emptyReport,detail:emptyReport?'DRE sem diferenças.':'678 divergências do DRE.'},{code:'legacy_hashes',ok:false,detail:'Verificação da atualidade dos vínculos não concluída.'}]}};
+ if(!emptyReport)shadow.canonicalIntegrity={findings:[{code:'audit-warning',severity:'warning',message:'Aviso de integridade QA'}]};
  const before=JSON.stringify(data),writes=[],errors=[];
  page.on('pageerror',e=>errors.push(e.message));
  await page.addInitScript(({tab,id})=>{sessionStorage.setItem(`arcd-section:${id}`,tab);localStorage.setItem('arcd-theme','marcell');},{tab,id:user.id});
@@ -28,19 +29,34 @@ for(const width of [320,390,1440])test.describe(`${width}px`,()=>{
   await selectWorkspaceArea(page,'Áreas do financeiro','Homologação');
   await expect(page.getByRole('heading',{name:'Homologação financeira',exact:true})).toBeVisible();
   const report=page.getByRole('region',{name:'Resultado da homologação financeira',exact:true});
-  await expect(report).toContainText('Motor financeiro ativo');await expect(report).toContainText('1–12 de 678');
+  await expect(report).toContainText('Motor financeiro ativo');await expect(report).toContainText('1–12 de 679');
+  const types=report.getByRole('combobox',{name:'Tipo de ocorrência',exact:true});
+  await types.selectOption('warning');
+  await expect(report).toContainText('1–1 de 1');
+  await expect(report.getByText('Conferir: Aviso de integridade QA',{exact:true})).toBeVisible();
+  await types.selectOption('error');
+  await expect(report).toContainText('1–12 de 678');
   await expect(report).not.toContainText('Motor permanece em sombra');await expect(report).not.toContainText('Todos os totais homologados coincidem');
   await report.getByRole('button',{name:'Próxima',exact:true}).click();await expect(report).toContainText('13–24 de 678');
   await report.getByRole('textbox',{name:'Buscar diferença ou origem',exact:true}).fill('costs[677]');await expect(report).toContainText('1–1 de 1');
   await expect(report).toContainText('Competência 2026-11');
   await report.getByText('Diagnóstico do registro',{exact:true}).click();await expect(report.locator('pre')).toContainText('costs[677].amount');
+  await expect(report.getByText('Referência de origem: 2026-11:mes:a', {exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Ajuda',exact:true}).first().click();await expect(page.getByRole('complementary',{name:'Central de ajuda'})).toContainText('Grupo da conferência');await page.getByRole('button',{name:'Fechar ajuda',exact:true}).click();
   await expect(report.getByRole('textbox',{name:'Buscar diferença ou origem',exact:true})).toHaveValue('costs[677]');
   await page.screenshot({path:`artifacts/correcoes-auditoria-20261117/homologacao-${process.env.AUDIT_MODE||'dev'}-${width}.png`,fullPage:true});await fit(page);check();
  });
  test('zero diferenças não dispensa a verificação pendente',async({page})=>{
   const check=await enter(page,'fin',{emptyReport:true});await selectWorkspaceArea(page,'Áreas do financeiro','Homologação');
-  await expect(page.getByRole('region',{name:'Resultado da homologação financeira'})).toContainText('ainda há verificações pendentes');await fit(page);check();
+  const report=page.getByRole('region',{name:'Resultado da homologação financeira'});
+  const checks=report.getByRole('region',{name:'Verificações da homologação'});
+  if(width<768){
+   const summary=report.locator('summary').filter({hasText:'Verificações da homologação · Pendências (1)'});
+   await expect(checks).toBeHidden();
+   await summary.click();
+  }
+  await expect(checks.getByText('Verificação da atualidade dos vínculos não concluída.',{exact:true})).toBeVisible();
+  await fit(page);check();
  });
  test('FITID aparece sem chave PIX inventada, preservando impedimento de PIX explícito',async({page})=>{
   const check=await enter(page,'conc');await expect(page.getByRole('heading',{name:'Conciliação Bancária',exact:true})).toBeVisible();
@@ -61,8 +77,28 @@ for(const width of [320,390,1440])test.describe(`${width}px`,()=>{
   await page.evaluate(()=>Object.defineProperty(navigator,'onLine',{get:()=>false,configurable:true}));
   await page.getByRole('button',{name:'Atualizar',exact:true}).click();await expect(page.getByText('Sem conexão. Reconecte-se e tente atualizar novamente. Os dados exibidos foram mantidos.',{exact:true})).toBeVisible();await expect(page.getByText('A edição protegida foi mantida.',{exact:true})).toHaveCount(0);check();
  });
- test('detalhes do fornecedor têm alvo de toque de pelo menos 44 por 44',async({page})=>{
-  const check=await enter(page,'fornecedores');const button=page.getByRole('button',{name:'Ver detalhes de Fornecedor Exemplo',exact:true});await expect(button).toBeVisible();const rect=await button.boundingBox();expect(rect.width).toBeGreaterThanOrEqual(44);expect(rect.height).toBeGreaterThanOrEqual(44);await button.click();await expect(page.locator('.supplier-detail')).toContainText('Fornecedor Exemplo');await fit(page);check();
+ test('fornecedor mostra nota geral e abre critérios detalhados com alvo de toque adequado',async({page},info)=>{
+  const check=await enter(page,'fornecedores');
+  const filters=page.getByRole('region',{name:'Filtros do ranking'});
+  const period=filters.getByRole('combobox',{name:'Período',exact:true});
+  if(width<768){
+   await expect(period).toBeHidden();
+   await filters.getByText('Obra e período',{exact:true}).click();
+   await expect(period).toBeVisible();
+   await filters.getByText('Obra e período',{exact:true}).click();
+   await expect(page.locator('.arcd-mobile-record-card').getByText('Nota geral',{exact:true})).toBeVisible();
+  }
+  const button=page.getByRole('button',{name:'Ver detalhes de Fornecedor Exemplo',exact:true});
+  await expect(button).toBeVisible();
+  const rect=await button.boundingBox();
+  expect(rect.width).toBeGreaterThanOrEqual(44);
+  expect(rect.height).toBeGreaterThanOrEqual(44);
+  await page.screenshot({path:info.outputPath('fornecedores.png')});
+  await button.click();
+  const detail=page.locator('.supplier-detail');
+  await expect(detail).toContainText('Fornecedor Exemplo');
+  await expect(detail.getByText('Preço',{exact:true})).toBeVisible();
+  await fit(page);check();
  });
  test('célula do ponto respeita altura mínima de toque',async({page})=>{
   const check=await enter(page,'ponto_geral');const button=page.locator('.ponto-dia-cell > button:first-child').first();await expect(button).toBeVisible();const rect=await button.boundingBox();expect(rect.width).toBeGreaterThanOrEqual(44);expect(rect.height).toBeGreaterThanOrEqual(44);await fit(page);check();

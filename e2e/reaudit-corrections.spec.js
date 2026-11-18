@@ -86,8 +86,13 @@ for(const width of [320,390,1440])test.describe(width+'px',()=>{
   test('Frota preserva busca e acesso ao último equipamento',async({page},info)=>{
     const check=await enter(page,'equip');
     const cards=page.locator('.equipment-fleet-card');
-    await expect(cards).toHaveCount(width<768?12:25);
-    if(width<768)await page.getByRole('region',{name:'Resultados de equipamentos na frota'}).getByRole('button',{name:'Próxima'}).click();
+    await expect(cards).toHaveCount(width<768?6:25);
+    if(width<768){
+      const results=page.getByRole('region',{name:'Resultados de equipamentos na frota'});
+      await expect(results).toContainText('1–6 de 25');
+      await results.getByRole('button',{name:'Próxima'}).click();
+      await expect(results).toContainText('7–12 de 25');
+    }
     await page.getByRole('textbox',{name:'Pesquisar na frota'}).fill('Equipamento 25');
     await expect(cards).toHaveCount(1);
     await expect(cards.first()).toContainText('Equipamento 25');

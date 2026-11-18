@@ -49,7 +49,23 @@ for(const width of [390,1440])test.describe(`${width}px`,()=>{
   const app=await enter(page,'dre');const results=page.getByRole('region',{name:'Resultados de obras no DRE',exact:true});await expect(results).toContainText('1–12 de');await results.getByRole('button',{name:'Próxima',exact:true}).click();await expect(results).toContainText('13–');await page.getByRole('textbox',{name:'Pesquisar obra no resumo do DRE',exact:true}).fill('Obra 26');await expect(results).toContainText('1–1 de 1');await expect(page.getByRole('note').filter({hasText:'Resumo por obra'})).toContainText('não alteram os totais');await fit(page);app.check();
  });
  test('Pipeline move por seletor e botão, sem arraste, em base fictícia',async({page})=>{
-  const app=await enter(page,'com_funil',{allowCommercialSave:true});await page.getByRole('combobox',{name:'Visualização do Pipeline',exact:true}).selectOption('list');await page.getByRole('textbox',{name:'Pesquisar no Pipeline',exact:true}).fill('Contato 28');const selector=page.getByRole('combobox',{name:/Mover etapa de Contato 28/});await selector.selectOption('primeiro_contato');expect(app.writes).toEqual([]);const moveButton=page.getByRole('button',{name:'Mover lead',exact:true});if(width<600)await moveButton.tap();else{await moveButton.focus();await page.keyboard.press('Enter');}await expect.poll(()=>app.data.comercial.leads.find(l=>l.id==='lead-27').etapa).toBe('primeiro_contato');expect(app.writes).toHaveLength(1);expect(app.data.comercial.leads.find(l=>l.id==='lead-27').historico.at(-1).texto).toContain('Movido para');await fit(page);await shot(page,'pipeline',width);app.check();
+  const app=await enter(page,'com_funil',{allowCommercialSave:true});
+  await page.getByRole('combobox',{name:'Visualização do Pipeline',exact:true}).selectOption('list');
+  await page.getByRole('textbox',{name:'Pesquisar no Pipeline',exact:true}).fill('Contato 28');
+  const selector=page.getByRole('combobox',{name:/Mover etapa de Contato 28/});
+  if(width<768){
+   await expect(selector).toBeHidden();
+   await expect(page.getByText(/Próxima ação: Conferir proposta e prazo/)).toBeVisible();
+   await page.locator('summary').getByText('Mover etapa',{exact:true}).click();
+  }
+  await selector.selectOption('primeiro_contato');
+  expect(app.writes).toEqual([]);
+  const moveButton=page.getByRole('button',{name:'Mover lead',exact:true});
+  if(width<600)await moveButton.tap();else{await moveButton.focus();await page.keyboard.press('Enter');}
+  await expect.poll(()=>app.data.comercial.leads.find(l=>l.id==='lead-27').etapa).toBe('primeiro_contato');
+  expect(app.writes).toHaveLength(1);
+  expect(app.data.comercial.leads.find(l=>l.id==='lead-27').historico.at(-1).texto).toContain('Movido para');
+  await fit(page);await shot(page,'pipeline',width);app.check();
  });
  test('equipe filtra documentação e RH orienta consulta operacional',async({page})=>{
   const app=await enter(page,'equipe');await page.getByRole('button',{name:'Filtros',exact:true}).click();await page.getByRole('combobox',{name:'Pendências da equipe',exact:true}).selectOption('documents');await expect(page.getByRole('region',{name:'Resultados de funcionários',exact:true})).toContainText('1–1 de 1');await page.keyboard.press('Control+k');const search=page.getByPlaceholder('Buscar obra, lead, pedido, funcionário, tela...');await search.fill('Indicadores');await search.locator('xpath=../..').getByRole('button').filter({hasText:'Indicadores'}).first().click();await expect(page.getByRole('button',{name:'Consultar Folha',exact:true})).toBeVisible();await expect(page.locator('main')).not.toContainText('labor-cost-engine');await fit(page);app.check();
@@ -64,4 +80,13 @@ for(const width of [390,1440])test.describe(`${width}px`,()=>{
   const app=await enter(page,'conc',{protectedEdit:true});await expect(page.getByTestId('save-recovery')).toContainText('Eventos da empresa');await shot(page,'recuperacao-aviso',width);await page.getByRole('button',{name:'Resolver salvamento',exact:true}).first().click();const modal=page.getByRole('dialog',{name:'Recuperar salvamento',exact:true});await modal.getByRole('button',{name:'Consultar versão atual',exact:true}).click();await expect(modal).toContainText('já consta');await shot(page,'recuperacao-conferencia',width);await modal.getByRole('button',{name:'Concluir conferência',exact:true}).click();await expect(modal).toHaveCount(0);await expect(page.getByTestId('save-recovery')).toHaveCount(0);await fit(page);await shot(page,'recuperacao',width);app.check();
  });
 });
-test('320px com texto ampliado mantém filtros e ações acessíveis',async({page})=>{await page.setViewportSize({width:320,height:844});const app=await enter(page,'com_funil');await page.getByRole('combobox',{name:'Visualização do Pipeline',exact:true}).selectOption('list');await page.addStyleTag({content:'html{font-size:200%}'});await page.getByRole('textbox',{name:'Pesquisar no Pipeline',exact:true}).fill('Contato 28');await expect(page.getByRole('button',{name:'Mover lead',exact:true})).toBeVisible();await fit(page);app.check();});
+test('320px com texto ampliado mantém filtros e ações acessíveis',async({page})=>{
+ await page.setViewportSize({width:320,height:844});
+ const app=await enter(page,'com_funil');
+ await page.getByRole('combobox',{name:'Visualização do Pipeline',exact:true}).selectOption('list');
+ await page.addStyleTag({content:'html{font-size:200%}'});
+ await page.getByRole('textbox',{name:'Pesquisar no Pipeline',exact:true}).fill('Contato 28');
+ await page.locator('summary').getByText('Mover etapa',{exact:true}).click();
+ await expect(page.getByRole('button',{name:'Mover lead',exact:true})).toBeVisible();
+ await fit(page);app.check();
+});

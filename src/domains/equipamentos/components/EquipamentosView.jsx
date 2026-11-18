@@ -175,7 +175,8 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
     .filter(e=>[e.nome,e.categoria,e.patrimonio,donoName(e.proprietarioId)].join(" ").toLowerCase().includes(busca.toLowerCase()))
     .sort((a,b)=>a.nome.localeCompare(b.nome));
 
-  const fleetPage=useRecordPage('equip',equipamentos,JSON.stringify([busca.trim(),ym]),obraIdFixo||contexto);
+  const fleetPageSize=isMobile?6:12;
+  const fleetPage=useRecordPage('equip',equipamentos,JSON.stringify([busca.trim(),ym,fleetPageSize]),obraIdFixo||contexto,fleetPageSize);
 
   const rel = useMemo(()=>calcEquipamentosMes(data, ym), [data, ym]);
   const relPorObra = useMemo(()=>calcEquipamentosPorObra(data, ym), [data, ym]);

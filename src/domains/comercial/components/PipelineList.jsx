@@ -8,7 +8,9 @@ import {Button} from '../../../design-system/primitives/Button.jsx';
 import {RecordAction} from '../../../design-system/primitives/RecordAction.jsx';
 import {FormSection} from '../../../design-system/patterns/FormSection.jsx';
 import {FilterBar} from '../../../design-system/patterns/FilterBar.jsx';
+import {TaskDisclosure} from '../../../design-system/patterns/TaskDisclosure.jsx';
 import {EmptyState} from '../../../design-system/patterns/FeedbackState.jsx';
+import {useBreakpoint} from '../../../hooks/useBreakpoint.js';
 import {COM_ETAPAS,comEtapaLabel} from '../legacy-model.js';
 import {fmt,fmtDateFull} from '../../../legacy/format.js';
 
@@ -19,19 +21,22 @@ export function pipelineRows(leads,query='',priority='all',now=Date.now()){
   .filter(l=>priority==='all'||(priority==='overdue'?overdue(l):!l.proximaAtividadeEm))
   .slice().sort((a,b)=>Number(overdue(b))-Number(overdue(a))||String(a.etapaDesde||'').localeCompare(String(b.etapaDesde||''))||a.nome.localeCompare(b.nome));
 }
-function LeadRow({lead,owner,onOpen,onMove,busy}){
+function LeadRow({lead,owner,onOpen,onMove,busy,isMobile}){
  const [target,setTarget]=useState(lead.etapa);
  const [moving,setMoving]=useState(false),[error,setError]=useState(''),inFlight=useRef(false);
  const move=async()=>{if(inFlight.current)return;inFlight.current=true;setMoving(true);setError('');try{await onMove(lead,target);}catch{setError('Não foi possível confirmar a mudança. Confira a conexão e tente novamente.');}finally{inFlight.current=false;setMoving(false);}};
  return <FormSection title={<RecordAction onClick={()=>onOpen(lead)}>{lead.nome}</RecordAction>} description={`${comEtapaLabel(lead.etapa)} · ${fmt(lead.orcamentoEstimado)}`}>
   <p>Responsável: {owner||'Não informado'}</p>
   <p>Próxima ação: {lead.proximaAtividade||'Definir próximo contato'} · {lead.proximaAtividadeEm?fmtDateFull(lead.proximaAtividadeEm.slice(0,10)):'Sem data'}</p>
-  <Select label={`Mover etapa de ${lead.nome}`} value={target} disabled={busy||moving} onChange={e=>setTarget(e.target.value)} options={COM_ETAPAS.map(([value,label])=>({value,label}))}/>
-  {error&&<p role="alert">{error}</p>}
-  <Button variant="secondary" disabled={busy||moving||target===lead.etapa} onClick={move}>{moving?'Confirmando mudança…':'Mover lead'}</Button>
+  <TaskDisclosure enabled={isMobile} summary="Mover etapa">
+   <Select label={`Mover etapa de ${lead.nome}`} value={target} disabled={busy||moving} onChange={e=>setTarget(e.target.value)} options={COM_ETAPAS.map(([value,label])=>({value,label}))}/>
+   {error&&<p role="alert">{error}</p>}
+   <Button variant="secondary" disabled={busy||moving||target===lead.etapa} onClick={move}>{moving?'Confirmando mudança…':'Mover lead'}</Button>
+  </TaskDisclosure>
  </FormSection>;
 }
 export function PipelineList({leads,users,onOpen,onMove,busy=false}){
+ const {isMobile}=useBreakpoint();
  const [query,setQuery]=useWorkspaceState('com_funil','mobileQuery','');
  const [priority,setPriority]=useWorkspaceState('com_funil','mobilePriority','all');
  const rows=pipelineRows(leads,query,priority),pagination=useRecordPage('com_funil',rows,JSON.stringify([query,priority]));
@@ -42,6 +47,6 @@ export function PipelineList({leads,users,onOpen,onMove,busy=false}){
   </FilterBar>
   <RecordListPagination pagination={pagination} label="oportunidades"/>
   {!rows.length&&<EmptyState title="Nenhuma oportunidade neste recorte" description="Ajuste a prioridade ou limpe a busca para consultar as demais oportunidades." action={<Button variant="secondary" onClick={()=>{setQuery('');setPriority('all');}}>Limpar filtros do Pipeline</Button>}/>}
-  {pagination.rows.map(lead=><LeadRow key={`${lead.id}:${lead.etapa}`} lead={lead} owner={users.find(u=>u.id===lead.responsavelId)?.nome} onOpen={onOpen} onMove={onMove} busy={busy}/>)}
+  {pagination.rows.map(lead=><LeadRow key={`${lead.id}:${lead.etapa}`} lead={lead} owner={users.find(u=>u.id===lead.responsavelId)?.nome} onOpen={onOpen} onMove={onMove} busy={busy} isMobile={isMobile}/>)}
  </>;
 }

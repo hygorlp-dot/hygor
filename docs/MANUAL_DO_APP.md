@@ -1,6 +1,6 @@
 # Manual de uso do app MARCELL
 
-Revisão do conteúdo: 17/11/2026.
+Revisão do conteúdo: 18/11/2026.
 
 Este guia explica o uso das telas em linguagem simples. No aplicativo, clique em **Ajuda**, no cabeçalho, para ler o fluxo da página aberta. Em **Manual completo**, pesquise uma tarefa ou tela. As áreas exibidas no aplicativo respeitam seu perfil de acesso.
 
@@ -1219,7 +1219,7 @@ Tenha nome ou documento do fornecedor para evitar duplicidade.
 2. Confira contatos, identificação e informações disponíveis.
 3. Consulte as avaliações e o histórico para apoiar a escolha na compra.
 4. Na lista, confira o intervalo de resultados. Anterior e Próxima mostram até 12 registros por página; a busca considera toda a lista disponível, não só a página atual. Alterar o recorte volta à primeira página. Totais e relatórios continuam usando o conjunto completo.
-5. Indicadores de fornecedores reúne os totais do período e da obra. Recolher esse quadro não altera o ranking nem a base de cálculo.
+5. No celular, use Buscar fornecedor e abra Obra e período para alterar o recorte. O ranking mostra a nota geral. Toque no nome para conferir preço, frete, prazo, qualidade e a quantidade de evidências. Abra Indicadores de fornecedores para consultar os totais ou Como a nota é calculada para consultar os critérios.
 
 ### Como conferir se deu certo
 
@@ -1554,7 +1554,8 @@ Selecione a obra e a competência desejada.
 3. Compare com as medições e demais registros da mesma obra e período.
 4. Na lista, confira o intervalo de resultados. Anterior e Próxima mostram até 12 registros por página; a busca considera toda a lista disponível, não só a página atual. Alterar o recorte volta à primeira página. Totais e relatórios continuam usando o conjunto completo.
 5. Em Resumo por obra, use Pesquisar obra no resumo do DRE. A busca e a página não mudam os indicadores consolidados nem o relatório exportado. Gráficos do consolidado reúne as visualizações adicionais; a consulta por obra continua nos filtros do próprio DRE.
-6. No celular, abra Demonstrativo consolidado completo para consultar todas as linhas do resultado. Os indicadores permanecem disponíveis; recolher o demonstrativo apenas organiza a leitura.
+6. Se aparecer Cálculo local da obra, os valores foram calculados com os dados disponíveis no app. Use Tentar novamente. DRE PDF fica indisponível até o razão financeiro retornar o demonstrativo da obra e do período selecionados.
+7. No celular, abra Demonstrativo consolidado completo para consultar todas as linhas do resultado. Os indicadores permanecem disponíveis; recolher o demonstrativo apenas organiza a leitura.
 
 ### Como conferir se deu certo
 
@@ -1924,9 +1925,9 @@ Use um perfil de administrador. Consultar não corrige registros nem fecha uma c
 ### Como fazer
 
 1. Use Atualizar relatório e aguarde a consulta.
-2. Leia separadamente o estado do motor e as Verificações da homologação. Motor ativo não significa que todas as verificações passaram.
-3. Em Diferenças e avisos, escolha Grupo da conferência e use Buscar diferença ou origem. Confira obra, competência, campo, origem esperada e razão consultado. Anterior e Próxima percorrem todos os resultados.
-4. Abra Diagnóstico do registro para conferir a referência exata com o responsável financeiro. Números de campos, quantidades e valores monetários têm significados diferentes.
+2. Confira o estado do motor e abra Verificações da homologação para ler as pendências no celular.
+3. Em Diferenças e avisos, use Buscar diferença ou origem, Tipo de ocorrência e Grupo da conferência. Confira obra, competência, campo, origem esperada e razão consultado. Anterior e Próxima percorrem os resultados filtrados.
+4. Abra Diagnóstico do registro para consultar os detalhes e, no celular, a referência de origem. Números de campos, quantidades e valores monetários têm significados diferentes.
 5. Em Sincronização técnica dos registros, Executar carga idempotente exige confirmação e grava a sincronização existente. Essa ação não ativa nem desativa o motor; consulte o responsável técnico antes de usá-la.
 
 ### Como conferir se deu certo
@@ -2078,7 +2079,7 @@ Confira o equipamento e a obra.
 
 ### Como fazer
 
-1. Em Frota, use Pesquisar na frota. No celular, use Anterior e Próxima para percorrer os resultados e Detalhes do equipamento para consultar tarifas, propriedade, foto quando disponível e valores do período. Abra Período de referência para mudar a competência. O nome abre o cadastro.
+1. Em Frota, use Pesquisar na frota para localizar um item em qualquer página. No celular, a lista mostra até seis equipamentos por página. Use Anterior e Próxima para percorrer a lista e Detalhes do equipamento para consultar tarifas, propriedade, foto quando disponível e valores do período. Abra Período de referência para mudar a competência. O nome abre o cadastro.
 2. Use Salvar equipamento para confirmar alterações ou Excluir equipamento, com confirmação.
 3. Locar, Transferir e Manutenção ficam no cartão. Confira os dados antes de confirmar.
 
@@ -2469,7 +2470,7 @@ Confira o cliente, o responsável e o período, quando disponíveis.
 ### Como fazer
 
 1. Em Visualização do Pipeline, escolha Lista · toque e teclado. No celular, essa é a consulta inicial. Pesquisar no Pipeline considera nome, serviço e contato; Prioridade no Pipeline permite consultar atividade vencida ou sem data.
-2. Abra o nome para consultar a ficha. Para mover sem arrastar, escolha Mover etapa de e use Mover lead. Selecionar a etapa sozinho não salva. Aguarde a confirmação; Perdido continua exigindo os dados da perda. Quadro por etapa mantém a consulta anterior e o arraste.
+2. Abra o nome para consultar a ficha. No celular, abra Mover etapa no cartão. Selecione a nova etapa e use Mover lead. Aguarde a confirmação; Perdido continua exigindo os dados da perda. Quadro por etapa mantém a consulta anterior e o arraste.
 3. Escolha a oportunidade no quadro.
 4. Confira a etapa, o responsável e a próxima ação.
 5. Atualize a oportunidade conforme o avanço real da negociação.
@@ -2622,7 +2623,7 @@ Confira o cliente, o responsável e o período, quando disponíveis.
 ### Como fazer
 
 1. Em Visualização do Pipeline, escolha Lista · toque e teclado. No celular, essa é a consulta inicial. Pesquisar no Pipeline considera nome, serviço e contato; Prioridade no Pipeline permite consultar atividade vencida ou sem data.
-2. Abra o nome para consultar a ficha. Para mover sem arrastar, escolha Mover etapa de e use Mover lead. Selecionar a etapa sozinho não salva. Aguarde a confirmação; Perdido continua exigindo os dados da perda. Quadro por etapa mantém a consulta anterior e o arraste.
+2. Abra o nome para consultar a ficha. No celular, abra Mover etapa no cartão. Selecione a nova etapa e use Mover lead. Aguarde a confirmação; Perdido continua exigindo os dados da perda. Quadro por etapa mantém a consulta anterior e o arraste.
 3. Localize a oportunidade no quadro.
 4. Abra os detalhes e confira responsável e próxima ação.
 5. Atualize a etapa conforme o que foi confirmado com o cliente.

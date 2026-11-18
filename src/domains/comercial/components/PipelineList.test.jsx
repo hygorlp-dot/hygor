@@ -2,6 +2,7 @@ import {act} from 'react';
 import {createRoot} from 'react-dom/client';
 import {afterEach,it,expect,vi} from 'vitest';
 import {PipelineList,pipelineRows} from './PipelineList.jsx';
+vi.mock('../../../hooks/useBreakpoint.js',()=>({useBreakpoint:()=>({isMobile:false})}));
 let host,root;
 afterEach(()=>{act(()=>root?.unmount());host?.remove();root=null;});
 const lead={id:'a',nome:'João · serviço com identificação completa',etapa:'novo',proximaAtividadeEm:'2026-11-01',etapaDesde:'2026-10-01'};

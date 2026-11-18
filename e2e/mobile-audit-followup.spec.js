@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { data as fixture, profile } from '../scripts/fixtures/workflow-priorities-data.mjs';
 
+const projection = faturamento => ({ faturamento, recebido: 0, totalCustos: 0, lucroBruto: faturamento });
+
 async function enter(page, tab, { prepare, report } = {}) {
   const data = structuredClone(fixture);
   const user = { ...profile, role: 'admin', obraId: '' };
@@ -59,7 +61,7 @@ for (const width of [390, 1440]) test.describe(`${width}px`, () => {
       report: async (route, body) => {
         if (body.obraId === 'b') await delayed;
         const faturamento = body.obraId === 'b' ? 222222 : 111111;
-        return route.fulfill({ json: { ok: true, source: 'canonical_ledger', current: { faturamento } } });
+        return route.fulfill({ json: { ok: true, source: 'canonical_ledger', current: projection(faturamento) } });
       },
     });
     if (width < 768) await page.getByRole('combobox', { name: 'Visão do DRE' }).selectOption('obra');
@@ -94,6 +96,63 @@ for (const width of [390, 1440]) test.describe(`${width}px`, () => {
     await expect(page.getByText('Despesa QA da obra B', { exact: true }).filter({ visible: true }).first()).toBeVisible();
     await expect(page.getByRole('button', { name: 'DRE PDF', exact: true })).toBeEnabled();
     await check('dre-obra-atual');
+  });
+
+  test('DRE sinaliza cálculo local e só reabre o PDF com o relatório da obra', async ({ page }) => {
+    let responseMode = 'failure';
+    const check = await enter(page, 'dre', {
+      report: (route, body) => {
+        if (body.obraId === 'b' && responseMode === 'failure') {
+          return route.fulfill({ status: 503, json: { error: 'Razão indisponível no ensaio' } });
+        }
+        if (body.obraId === 'b' && responseMode === 'incomplete') {
+          return route.fulfill({ json: { ok: true, source: 'canonical_ledger', current: { faturamento: 99 } } });
+        }
+        const closed = body.obraId === 'b';
+        return route.fulfill({ json: {
+          ok: true, source: closed ? 'closed_snapshot' : 'canonical_ledger',
+          current: projection(closed ? 222222 : 111111),
+        } });
+      },
+    });
+    if (width < 768) await page.getByRole('combobox', { name: 'Visão do DRE' }).selectOption('obra');
+    else await page.getByRole('button', { name: /^Por obra/ }).click();
+    const work = page.getByRole('combobox', { name: 'Obra em análise' });
+    const pdf = page.getByRole('button', { name: 'DRE PDF', exact: true });
+    const notice = page.getByRole('status').filter({ hasText: 'Cálculo local da obra' });
+    const revenue = page.locator('.dre-kpi-card').filter({ has: page.getByText('Faturamento', { exact: true }) });
+    await work.selectOption('a');
+    await expect(revenue).toContainText('111.111,00');
+    await expect(pdf).toBeEnabled();
+    await work.selectOption('b');
+    await expect(notice).toBeVisible();
+    await expect(revenue).not.toContainText('111.111,00');
+    await expect(pdf).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Excel Completo' })).toBeEnabled();
+    await check('dre-calculo-local');
+
+    responseMode = 'incomplete';
+    const incomplete = page.waitForResponse(response => response.request().postDataJSON()?.obraId === 'b');
+    await notice.getByRole('button', { name: 'Tentar novamente' }).click();
+    await incomplete;
+    await expect(notice).toBeVisible();
+    await expect(pdf).toBeDisabled();
+
+    responseMode = 'snapshot';
+    await notice.getByRole('button', { name: 'Tentar novamente' }).click();
+    await expect(notice).toHaveCount(0);
+    await expect(revenue).toContainText('222.222,00');
+    await expect(pdf).toBeEnabled();
+    await pdf.click();
+    const identity = page.getByRole('dialog', { name: 'Identidade do relatório' });
+    const popupWaiting = page.waitForEvent('popup');
+    await identity.getByRole('button', { name: 'Gerar relatório' }).click();
+    const popup = await popupWaiting;
+    await expect(popup.locator('.kpis')).toContainText('222222,00');
+    await expect(popup.locator('.kpis')).not.toContainText('111111,00');
+    await expect(popup.locator('.dre-table')).toContainText('222222,00');
+    await popup.close();
+    await check('dre-razao-restaurado');
   });
 
   test('Patrimônio localiza bens de outras páginas e conserva ações', async ({ page }) => {

@@ -140,7 +140,8 @@ import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "./components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs";
-import { Alert, AlertDescription } from "./components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "./components/ui/alert";
+import { MobileRecordList } from "./design-system/data/MobileRecordList.jsx";
 import { ThemeMenu } from "./design-system/theme/ThemeMenu.jsx";
 import { useTheme } from "./design-system/theme/ThemeProvider.jsx";
 import { ThemeSettings } from "./design-system/theme/ThemeSettings";
@@ -3066,14 +3067,20 @@ function DRELegado({ data, showToast, currentUser=null, obraIdFixo="", dispatchC
   const [avaliacaoCFOObra,setAvaliacaoCFOObra]=useState(null);
   const [avaliandoCFOObra,setAvaliandoCFOObra]=useState(false);
   const [respostaDRE,setRespostaDRE]=useState(null);
+  const [tentativaDRE,setTentativaDRE]=useState(0);
   const pedidoCFO=useRef(0);
   const DF = k => v => setDespForm(f=>({...f,[k]:v}));
 
   const obraFinanceiraId = obraIdFixo || selObra;
-  const consultaDRE=useMemo(()=>({year,month,period:periodoDRE,obraId:obraFinanceiraId}),[year,month,periodoDRE,obraFinanceiraId,data]);
+  const consultaDRE=useMemo(()=>({year,month,period:periodoDRE,obraId:obraFinanceiraId}),[year,month,periodoDRE,obraFinanceiraId,data,tentativaDRE]);
   const respostaAtual=respostaDRE?.consulta===consultaDRE?respostaDRE:null;
   const razaoDRE=respostaAtual||{};
   const carregandoObra=view==="obra"&&Boolean(obraFinanceiraId)&&!respostaAtual;
+  const relatorioObra=razaoDRE.obra;
+  const razaoObraDisponivel=["canonical_ledger","closed_snapshot"].includes(relatorioObra?.source)
+    &&["faturamento","recebido","totalCustos","lucroBruto"].every(campo=>Number.isFinite(relatorioObra.current?.[campo]));
+  const exibirAvisoCalculoLocal=view==="obra"&&Boolean(obraFinanceiraId)&&Boolean(respostaAtual)&&!razaoObraDisponivel;
+  const bloquearPdfObra=view==="obra"&&!razaoObraDisponivel;
   const dreLegado = useMemo(()=>calcDREConsolidado(data,year,month,periodoDRE), [data,year,month,periodoDRE]);
   const dreObraLegado = useMemo(()=>calcDREObra(data,obraFinanceiraId,year,month,periodoDRE), [data,obraFinanceiraId,year,month,periodoDRE]);
   useEffect(()=>{
@@ -3099,7 +3106,9 @@ function DRELegado({ data, showToast, currentUser=null, obraIdFixo="", dispatchC
   const dre = useMemo(()=>aplicarRazao(dreLegado,razaoDRE.consolidado),[dreLegado,razaoDRE.consolidado]);
   const [dreWorkSearch,setDreWorkSearch]=useSessionState('workSearch','');
   const dreWorksPage=useRecordPage('dre',dre.obras.filter(o=>String(o.obra?.name||'').toLocaleLowerCase('pt-BR').includes(dreWorkSearch.trim().toLocaleLowerCase('pt-BR'))),JSON.stringify([year,month,periodoDRE,dreWorkSearch]));
-  const dreObra = useMemo(()=>aplicarRazao(dreObraLegado,razaoDRE.obra),[dreObraLegado,razaoDRE.obra]);
+  const dreObra = useMemo(()=>razaoObraDisponivel
+    ? {...dreObraLegado,...relatorioObra.current,fonteFinanceira:"razao_canonico"}
+    : dreObraLegado,[dreObraLegado,relatorioObra,razaoObraDisponivel]);
   // A visão selecionada é a única fonte dos cards, do período e do extrato.
   // Antes, apenas o demonstrativo inferior mudava para a obra; os KPIs
   // permaneciam presos ao consolidado.
@@ -3374,7 +3383,9 @@ Regras: diferencie faturamento de recebimento; não conclua excesso de pessoas a
 
   //  PDF do DRE
   const gerarPDF = () => {
+    if(bloquearPdfObra)return;
     const isConsolidado = view==="consolidado"||view==="historico";
+    const resumoPdf = isConsolidado ? dre : dreObra;
     const titulo = isConsolidado ? `DRE Consolidado - ${period}` : `DRE ${dreObra.obra?.name||""} - ${period}`;
 
     const dreTableRows = (obj) => `
@@ -3449,14 +3460,14 @@ h3{font-size:12px;font-weight:900;color:#2563eb}
 </div>
 
 <div class="kpis">
-  <div class="kpi green"><p class="kpi-l">Faturamento</p><p class="kpi-v">R$ ${fmt2(dre.faturamento)}</p></div>
-  <div class="kpi blue"><p class="kpi-l">Recebido</p><p class="kpi-v">R$ ${fmt2(dre.recebido)}</p></div>
-  <div class="kpi red"><p class="kpi-l">Total Custos</p><p class="kpi-v">R$ ${fmt2(dre.totalCustos)}</p></div>
-  <div class="kpi ${dre.lucroBruto>=0?"green":"red"}"><p class="kpi-l">Lucro Bruto</p><p class="kpi-v">R$ ${fmt2(dre.lucroBruto)}</p></div>
+  <div class="kpi green"><p class="kpi-l">Faturamento</p><p class="kpi-v">R$ ${fmt2(resumoPdf.faturamento)}</p></div>
+  <div class="kpi blue"><p class="kpi-l">Recebido</p><p class="kpi-v">R$ ${fmt2(resumoPdf.recebido)}</p></div>
+  <div class="kpi red"><p class="kpi-l">Total Custos</p><p class="kpi-v">R$ ${fmt2(resumoPdf.totalCustos)}</p></div>
+  <div class="kpi ${resumoPdf.lucroBruto>=0?"green":"red"}"><p class="kpi-l">Lucro Bruto</p><p class="kpi-v">R$ ${fmt2(resumoPdf.lucroBruto)}</p></div>
 </div>
 
 <h2>${isConsolidado?"DRE Consolidado":"DRE - "+escapeHtml(dreObra.obra?.name||"")}</h2>
-<table class="dre-table"><tbody>${dreTableRows(isConsolidado?dre:dreObra)}</tbody></table>
+<table class="dre-table"><tbody>${dreTableRows(resumoPdf)}</tbody></table>
 
 ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`:""}
 
@@ -3570,6 +3581,13 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
         {isDesktop&&!obraIdFixo&&view==="obra"&&<div className="dre-work-selector">{dreWorkSelector}</div>}
       </section>
 
+      {exibirAvisoCalculoLocal&&<Alert variant="warning" role="status">
+        <AlertTitle>Cálculo local da obra</AlertTitle>
+        <AlertDescription>
+          <p>O razão financeiro não retornou os valores desta obra no período. Os valores abaixo foram calculados com os dados disponíveis no app. O PDF será liberado quando o razão retornar o demonstrativo.</p>
+          <Btn v="ghost" onClick={()=>setTentativaDRE(tentativa=>tentativa+1)}>Tentar novamente</Btn>
+        </AlertDescription>
+      </Alert>}
       {carregandoObra?<LoadingState label="o DRE da obra"/>:<>
       {/* KPI cards do recorte atual */}
       <div className="dre-kpi-grid">
@@ -3743,7 +3761,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
 
       {/* Exportações */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-        <Btn onClick={gerarPDF} disabled={carregandoObra} v="danger" full><Ic n="file"/> DRE PDF</Btn>
+        <Btn onClick={gerarPDF} disabled={bloquearPdfObra} v="danger" full><Ic n="file"/> DRE PDF</Btn>
         <Btn onClick={exportXLS} disabled={carregandoObra} v="success" full><Ic n="download"/> Excel Completo</Btn>
       </div>
 
@@ -9172,7 +9190,7 @@ const limitarNotaFornecedor=n=>Math.max(0,Math.min(100,Math.round(Number(n)||0))
 const textoFreteFornecedor=valor=>String(valor||"").toLowerCase();
 
 function RankingFornecedores({data,showToast,currentUser,dispatchCommand}){
-  const {isDesktop}=useBreakpoint();
+  const {isDesktop,isMobile}=useBreakpoint();
   const [busca,setBusca]=useWorkspaceState("fornecedores","search","");
   const [obraId,setObraId]=useWorkspaceState("fornecedores","work","");
   const [periodo,setPeriodo]=useWorkspaceState("fornecedores","period","12");
@@ -9282,6 +9300,10 @@ function RankingFornecedores({data,showToast,currentUser,dispatchCommand}){
   };
   const nota=(valor,cor=C.blue)=><span className="supplier-score" style={{"--supplier-score-color":cor}}>{valor===null?"—":valor}</span>;
   const corNota=valor=>valor===null?C.muted:valor>=85?C.green:valor>=65?C.blue:valor>=45?C.orange:C.red;
+  const filtrosRanking=<>
+    <Sel label="Obra" value={obraId} onChange={setObraId} options={[{v:"",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
+    <Sel label="Período" value={periodo} onChange={setPeriodo} options={[{v:"6",l:"Últimos 6 meses"},{v:"12",l:"Últimos 12 meses"},{v:"24",l:"Últimos 24 meses"},{v:"todos",l:"Todo o histórico"}]}/>
+  </>;
 
   return <div className="supplier-page">
     <PageHero
@@ -9290,10 +9312,9 @@ function RankingFornecedores({data,showToast,currentUser,dispatchCommand}){
       description="Ranking automático por preço, frete, prazo e qualidade com base no histórico real."
       actions={<Btn onClick={()=>setFornModal(novoFornecedor())}><Ic n="plus"/> Novo fornecedor</Btn>}
     />
-    <FilterBar layout="grid" className="supplier-toolbar" label="Filtros do ranking">
+    <FilterBar layout="grid" className={isMobile?"":"supplier-toolbar"} label="Filtros do ranking">
       <Inp label="Buscar fornecedor" value={busca} onChange={setBusca} placeholder="Nome, CNPJ ou ramo..."/>
-      <Sel label="Obra" value={obraId} onChange={setObraId} options={[{v:"",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
-      <Sel label="Período" value={periodo} onChange={setPeriodo} options={[{v:"6",l:"Últimos 6 meses"},{v:"12",l:"Últimos 12 meses"},{v:"24",l:"Últimos 24 meses"},{v:"todos",l:"Todo o histórico"}]}/>
+      {isMobile?<TaskDisclosure summary="Obra e período"><FilterBar label="Recorte do ranking" layout="grid">{filtrosRanking}</FilterBar></TaskDisclosure>:filtrosRanking}
     </FilterBar>
     <TaskDisclosure summary="Indicadores de fornecedores" defaultOpen={isDesktop}><section className="supplier-kpis">
       <div><span>Fornecedores avaliados</span><strong>{avaliados.length}<small> de {fornecedores.filter(f=>f.ativo!==false).length}</small></strong></div>
@@ -9304,8 +9325,16 @@ function RankingFornecedores({data,showToast,currentUser,dispatchCommand}){
     </TaskDisclosure>
     <RecordListPagination pagination={suppliersPage} label="fornecedores"/>
     <section className="supplier-ranking-card">
-      <div className="supplier-card-title"><div><h2>Ranking geral</h2></div><span>Preço 35% · Frete 15% · Prazo 25% · Qualidade 25%</span></div>
-      <div className="supplier-table-wrap"><table className="supplier-table">
+      <div className="supplier-card-title"><div><h2>Ranking geral</h2></div>{!isMobile&&<span>Preço 35% · Frete 15% · Prazo 25% · Qualidade 25%</span>}</div>
+      {isMobile?<MobileRecordList
+        rows={suppliersPage.rows.map((row,index)=>({...row,id:row.fornecedor.id,posicao:suppliersPage.start+index}))}
+        columns={[{key:"geral",header:"Nota geral",render:row=>nota(row.geral,corNota(row.geral))}]}
+        config={{
+          title:row=><RecordAction aria-label={`Ver detalhes de ${row.fornecedor.nome}`} onClick={()=>setSelecionadoId(row.id)}>{row.fornecedor.nome}</RecordAction>,
+          subtitle:row=>`${row.posicao}º · ${(row.fornecedor.categorias||[]).slice(0,2).map(rotuloRamo).join(" · ")||row.fornecedor.cidade||"Ramo não informado"}`,
+          primaryFields:["geral"],
+        }}
+      />:<div className="supplier-table-wrap"><table className="supplier-table">
         <thead><tr><th>#</th><th>Fornecedor</th><th>Nota geral</th><th>Preço</th><th>Frete</th><th>Prazo</th><th>Qualidade</th><th>Base</th><th></th></tr></thead>
         <tbody>{suppliersPage.rows.map((r,i)=><tr key={r.fornecedor.id} onClick={()=>setSelecionadoId(r.fornecedor.id)} className={selecionadoId===r.fornecedor.id?"is-selected":""}>
           <td data-label="Posição"><b className={suppliersPage.start+i<=3?"supplier-rank top": "supplier-rank"}>{suppliersPage.start+i}º</b></td>
@@ -9316,10 +9345,12 @@ function RankingFornecedores({data,showToast,currentUser,dispatchCommand}){
           <td data-label="Base"><div className="supplier-confidence"><b>{r.confianca}% confiança</b><span>{r.evidencias} evidência(s)</span></div></td>
           <td><button className="supplier-row-action" onClick={e=>{e.stopPropagation();setSelecionadoId(r.fornecedor.id)}} aria-label={`Ver detalhes de ${r.fornecedor.nome}`}><Ic n="chevronRight"/></button></td>
         </tr>)}</tbody>
-      </table></div>
+      </table></div>}
       {!lista.length&&<div className="supplier-empty"><Ic n="search" s={22}/><b>Nenhum fornecedor encontrado</b><span>Ajuste os filtros ou cadastre o primeiro fornecedor.</span></div>}
     </section>
-    <section className="supplier-method"><Ic n="ia"/><div><b>Como a nota é calculada</b><p>Preço compara cada proposta com a menor cotação; prazo combina promessa e entrega real; qualidade considera atendimento da quantidade e divergências; frete usa valor estruturado, condição CIF/FOB e CT-e. Critérios sem evidência não reduzem a nota — apenas a confiança.</p></div></section>
+    <TaskDisclosure enabled={isMobile} summary="Como a nota é calculada">
+      <section className="supplier-method"><Ic n="ia"/><div>{isMobile?<p>Preço 35% · Frete 15% · Prazo 25% · Qualidade 25%</p>:<b>Como a nota é calculada</b>}<p>Preço compara cada proposta com a menor cotação; prazo combina promessa e entrega real; qualidade considera atendimento da quantidade e divergências; frete usa valor estruturado, condição CIF/FOB e CT-e. Critérios sem evidência não reduzem a nota — apenas a confiança.</p></div></section>
+    </TaskDisclosure>
     {selecionado&&<div className="supplier-detail-backdrop" onClick={()=>setSelecionadoId("")}><aside className="supplier-detail" onClick={e=>e.stopPropagation()}>
       <div className="supplier-detail-head"><div><h2>{selecionado.fornecedor.nome}</h2><span>{selecionado.fornecedor.cnpj||"CNPJ não informado"}</span></div><button onClick={()=>setSelecionadoId("")} aria-label="Fechar"><Ic n="x"/></button></div>
       <div className="supplier-detail-score"><div>{nota(selecionado.geral,corNota(selecionado.geral))}<span>nota geral</span></div><p><b>{selecionado.confianca}% de confiança</b><br/>{selecionado.evidencias} evidência(s) no período</p></div>
