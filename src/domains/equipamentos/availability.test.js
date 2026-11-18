@@ -1,9 +1,22 @@
 import { describe,expect,it } from "vitest";
-import { buildEquipmentUnavailability,fleetAvailability,rentalAvailability,rentalLifecycleAvailability } from "./availability.js";
+import { availabilityOnDate,buildEquipmentUnavailability,fleetAvailability,indexEquipmentUnavailability,rentalAvailability,rentalLifecycleAvailability } from "./availability.js";
 
 const equipment={id:"eq-1",ativo:true,status:"disponivel",quantidadeTotal:3};
 
 describe("disponibilidade de equipamentos",()=>{
+  it("preserva o resultado por data com eventos pré-calculados",()=>{
+    const data={
+      equipamentos:[equipment],
+      locacoesEquip:[{id:"l1",equipamentoId:equipment.id,inicio:"2026-07-01",fim:"2026-07-10",quantidade:1}],
+      manutencoesEquip:[{id:"m1",equipamentoId:equipment.id,inicio:"2026-07-08",fim:"2026-07-12",quantidade:1,status:"programada"}],
+      equipmentUnavailability:[{id:"r1",equipmentId:"outro",type:"reservation",quantity:3,startDate:"2026-07-09"}],
+    };
+    const events=indexEquipmentUnavailability(data);
+    expect(events.get(equipment.id).map(event=>event.id)).toEqual(["legacy-rental:l1","legacy-maintenance:m1"]);
+    for(const date of ["2026-07-01","2026-07-09","2026-07-13"]){
+      expect(availabilityOnDate(data,equipment,date,events.get(equipment.id))).toEqual(availabilityOnDate(data,equipment,date));
+    }
+  });
   it("calcula locado, indisponível e livre no período inteiro",()=>{
     const result=rentalAvailability({
       data:{

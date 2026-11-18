@@ -61,7 +61,7 @@ import {useWorkspaceState} from '../../../features/workflow/workspace-session.js
 import {useHelpTopic} from '../../../features/help/HelpContext.jsx';
 
 function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
-  const {isDesktop}=useBreakpoint();
+  const {isDesktop,isMobile}=useBreakpoint();
   const [payrollSearch,setPayrollSearch]=useWorkspaceState('folha','peopleSearch','');
   const {scopes,navigate}=useWorkflow();
   const savedScope=scopes.folha;
@@ -335,8 +335,9 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
     .sort((a, b) => a.name.localeCompare(b.name)),
     [data.employees, data.attendance, data.changeLog, data.obras, data.advances, data.config?.unionDues, days, holidaysInPeriod, filterObra, q,laborGroup]);
   const payrollQuery=payrollSearch.trim().toLocaleLowerCase('pt-BR');
+  const payrollPageSize=isMobile?6:12;
   const payrollPage=useRecordPage('folha',rows.filter(row=>row.name.toLocaleLowerCase('pt-BR').includes(payrollQuery)),
-    JSON.stringify([year,month,q,filterObra,laborGroup,payrollQuery]));
+    JSON.stringify([year,month,q,filterObra,laborGroup,payrollQuery,payrollPageSize]),'',payrollPageSize);
 
   // Valores EFETIVOS de uma linha conforme o filtro de obra. Com "all", usa os
   // totais do funcionario. Com uma obra selecionada, usa apenas a parcela
@@ -875,7 +876,8 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       {(payrollView==="payroll"||payrollView==="union")&&<>      <PageHero
         eyebrow="Recursos humanos"
         title="Folha de Pagamento"
-        description="Conferência quinzenal da equipe, dos apontamentos e do valor líquido por obra."
+        description={isMobile?undefined:"Conferência quinzenal da equipe, dos apontamentos e do valor líquido por obra."}
+        statsDisclosure={isMobile}
         alert={pendenciasRelatorio.length?{
           tone:"danger",
           text:`${pendenciasRelatorio.length} funcionário(s) exigem conferência antes do fechamento`,
@@ -914,6 +916,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       <FlowTabs label="Áreas da folha" active={payrollView} onChange={changePayrollView}
         steps={[...(canReview?[{id:'readiness',label:'Pendências do RH'}]:[]),{id:"payroll",label:"Folha da quinzena",description:"Confira as pendências e a composição por funcionário antes de gerar os relatórios."},...(["admin","rh","financeiro"].includes(currentUser?.role)?[{id:"projection",label:"Projeção da quinzena"}]:[]),{id:"clt",label:"Holerites CLT"},{id:"provisions",label:"Provisões trabalhistas"},{id:"simulation",label:"Simulação CLT × diária"},{id:'costs',label:'Custos por funcionário'},...(['admin','rh'].includes(currentUser?.role)?[{id:'dossier',label:'Prontuário documental'}]:[])]}
         tools={[{id:"union",label:"Sindicato"},{id:"charges",label:"Encargos"}]} toolsLabel="Regras e descontos"/>
+      {isMobile&&payrollView==="payroll"&&rows.length>0&&<Inp label="Buscar funcionário na folha" value={payrollSearch} onChange={setPayrollSearch}/>}
       {payrollView==="payroll"&&<DreIntegration kind="payroll" currentUser={currentUser} obraId={filterObra==="all"?"":filterObra} year={year} month={month}>
         <p>Consulta do DRE mensal. A quinzena de 21 a 05 atravessa dois meses; o DRE mantém a competência de cada apontamento.</p>
       </DreIntegration>}
@@ -966,8 +969,6 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
 
       {payrollView==="payroll"&&<>
 
-
-
       <TaskDisclosure enabled={!isDesktop} summary="Composição do pagamento">
       <section className="payroll-summary-strip" aria-label="Composição do pagamento">
         <div><span>Dias + horas extras</span><strong>{fmt(T.gross-T.holidayPay)}</strong></div>
@@ -981,12 +982,14 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
 
 
 
+      <TaskDisclosure enabled={isMobile} summary={pendenciasRelatorio.length?`Pendências para conferir (${pendenciasRelatorio.length})`:"Conferência da quinzena"}>
       <section className="payroll-checklist" aria-label="Conferência da folha">
         <h3>{pendenciasRelatorio.length?"Pendências para conferir":"Conferência da quinzena"}</h3>
         <p>{pendenciasRelatorio.length} funcionário(s) com pendência · {totalDiasSemRegistro} dia(s) sem registro · {totalSemPix} PIX ausente(s).</p>
         <p>Abra cada funcionário abaixo para conferir a composição. Gerar o relatório não registra um pagamento.</p>
         {pendenciasRelatorio.length>0&&<Btn v="ghost" onClick={()=>onTab?.("ponto_geral")}>Abrir gestão do ponto</Btn>}
       </section>
+      </TaskDisclosure>
       <TaskDisclosure enabled={!isDesktop} summary={closedTitles.length?"Quinzena fechada":"Fechamento da quinzena"}>
         <section className="payroll-checklist payroll-closing" aria-label="Fechamento da quinzena">
           <p>Fechamento da empresa (Todos). Inclui os dois grupos; exige Todos e Todas as obras.</p>
@@ -1012,7 +1015,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       {rows.length === 0 && <div className="payroll-empty"><Ic n="users" s={22}/><strong>Nenhuma movimentação nesta quinzena</strong><p>Revise a competência ou abra a gestão do ponto para lançar as presenças.</p><Btn v="ghost" onClick={()=>onTab?.("ponto_geral")}>Abrir gestão do ponto</Btn></div>}
 
       {!isDesktop&&rows.length>0&&<div className="grid gap-2">
-        <Inp label="Buscar funcionário na folha" value={payrollSearch} onChange={setPayrollSearch}/>
+        {!isMobile&&<Inp label="Buscar funcionário na folha" value={payrollSearch} onChange={setPayrollSearch}/>}
         <RecordListPagination pagination={payrollPage} label="funcionários da folha"/>
       </div>}
       {(isDesktop?rows:payrollPage.rows).map(r => {

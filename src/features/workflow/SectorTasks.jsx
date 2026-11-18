@@ -10,9 +10,11 @@ import {FormSection} from '../../design-system/patterns/FormSection.jsx';
 import {EmptyState} from '../../design-system/patterns/FeedbackState.jsx';
 import {ScopeNote} from '../../design-system/patterns/ScopeNote.jsx';
 import {TaskDisclosure} from '../../design-system/patterns/TaskDisclosure.jsx';
+import {useBreakpoint} from '../../hooks/useBreakpoint.js';
 import {fmtDateFull} from '../../legacy/format.js';
 
 export function SectorTasks({data,user}){
+ const {isMobile}=useBreakpoint();
  const {navigate}=useWorkflow(),[status,setStatus]=useWorkspaceState('chat','taskStatus','open');
  const [search,setSearch]=useWorkspaceState('chat','taskSearch','');
  const fold=value=>String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
@@ -20,10 +22,11 @@ export function SectorTasks({data,user}){
  const tasks=conferenceTasks(data,user).filter(task=>
   (status==='all'||(status==='closed'?task.terminal:!task.terminal))&&
   fold([task.code,task.work,task.owner,task.reviewer,task.title].join(' ')).includes(query));
- const page=useRecordPage('chat',tasks,JSON.stringify([status,query]),'conferenceTasks');
+ const pageSize=isMobile?6:12;
+ const page=useRecordPage('chat',tasks,JSON.stringify([status,query,pageSize]),'conferenceTasks',pageSize);
  return <>
   <FormSection title="Tarefas de conferência">
-  <ScopeNote title="Escopo">Todas as conferências do seu acesso. Obra em foco não filtra este quadro.</ScopeNote>
+  {!isMobile&&<ScopeNote title="Escopo">Todas as conferências do seu acesso. Obra em foco não filtra este quadro.</ScopeNote>}
   <Select label="Situação das tarefas" value={status} onChange={e=>setStatus(e.target.value)} options={[{value:'open',label:'Em aberto'},{value:'closed',label:'Resolvidas ou canceladas'},{value:'all',label:'Todas'}]}/>
   <Input label="Buscar tarefas" value={search} onChange={event=>setSearch(event.target.value)} placeholder="Obra, responsável ou descrição"/>
   </FormSection>
@@ -37,6 +40,7 @@ export function SectorTasks({data,user}){
    {navigate&&<Button variant="secondary" onClick={()=>navigate('conferencia',{obraId:t.workId},{record:{type:'conferenceFinding',id:t.findingId,conferenceId:t.conferenceId}})}>Abrir pendência · {t.code}</Button>}
   </FormSection>)}
   <TaskDisclosure summary="Conversa, decisões e acompanhamento">
+   {isMobile&&<ScopeNote title="Escopo">Todas as conferências do seu acesso. Obra em foco não filtra este quadro.</ScopeNote>}
    <ScopeNote title="Conversa e decisão">Use Abrir chat da equipe no cabeçalho para conversar. Uma mensagem não aprova solicitações nem valida correções; registre a decisão na área responsável.</ScopeNote>
    <ScopeNote title="Acompanhamento">O quadro consulta as pendências existentes e respeita a obra do perfil, quando houver. A conclusão aparece depois da validação na Conferência; uma evidência enviada ainda aguarda essa decisão.</ScopeNote>
   </TaskDisclosure>

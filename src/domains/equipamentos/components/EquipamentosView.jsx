@@ -32,7 +32,7 @@ import {
 } from "../calculations";
 import {
   availabilityOnDate, buildEquipmentUnavailability, EQUIPMENT_UNAVAILABILITY_LABEL,
-  isActiveUnavailability, rentalAvailability,
+  indexEquipmentUnavailability, isActiveUnavailability, rentalAvailability,
 } from "../availability";
 import { EQUIPMENT_IMAGE_OPTIONS, equipmentImageFor } from "../images";
 import { deriveEquipmentLocations, physicalIdentityForRecord } from "../registry";
@@ -170,7 +170,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
   const donoName = id => id ? ((data.proprietariosEquip||[]).find(p=>p.id===id)?.nome || "Terceiro") : "Empresa";
   const equipName = id => (data.equipamentos||[]).find(e=>e.id===id)?.nome || "—";
 
-  const equipamentosAtivos = (data.equipamentos||[]).filter(e=>e.ativo!==false);
+  const equipamentosAtivos = useMemo(()=>(data.equipamentos||[]).filter(e=>e.ativo!==false),[data.equipamentos]);
   const equipamentos = equipamentosAtivos
     .filter(e=>[e.nome,e.categoria,e.patrimonio,donoName(e.proprietarioId)].join(" ").toLowerCase().includes(busca.toLowerCase()))
     .sort((a,b)=>a.nome.localeCompare(b.nome));
@@ -180,13 +180,21 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
 
   const rel = useMemo(()=>calcEquipamentosMes(data, ym), [data, ym]);
   const relPorObra = useMemo(()=>calcEquipamentosPorObra(data, ym), [data, ym]);
-  const [fleetYear,fleetMonth]=ym.split("-").map(Number);
-  const fleetPeriodDays=getDays(fleetYear,fleetMonth-1);
+  const fleetPeriodDays=useMemo(()=>{
+    const [year,month]=ym.split("-").map(Number);
+    return getDays(year,month-1);
+  },[ym]);
+  const eventsByEquipment=useMemo(()=>indexEquipmentUnavailability(data),[
+    data.equipamentos,data.locacoesEquip,data.manutencoesEquip,data.transferenciasEquip,data.equipmentUnavailability,
+  ]);
+  const showOccupancyStats=contexto==="financeiro"&&aba!=="locacoes"&&aba!=="relatorio";
   const totalUnidades=equipamentosAtivos.reduce((soma,equipamento)=>soma+Math.max(1,Number(equipamento.quantidadeTotal||1)),0);
   const periodRentals=(data.locacoesEquip||[]).filter(locacao=>
     locacao.status!=="cancelada"&&diasLocacaoNoPeriodo(locacao,fleetPeriodDays[0],fleetPeriodDays.at(-1))>0);
-  const periodPeakUsage=fleetPeriodDays.reduce((peak,iso)=>Math.max(peak,
-    equipamentosAtivos.reduce((sum,equipamento)=>sum+disponibilidadeNoDia(data,equipamento,iso).emUso,0)),0);
+  const periodPeakUsage=useMemo(()=>showOccupancyStats?fleetPeriodDays.reduce((peak,iso)=>Math.max(peak,
+    equipamentosAtivos.reduce((sum,equipamento)=>sum+disponibilidadeNoDia(data,equipamento,iso,
+      eventsByEquipment.get(String(equipamento.id))||[]).emUso,0)),0):0,
+  [showOccupancyStats,fleetPeriodDays,equipamentosAtivos,eventsByEquipment]);
   const periodFreeUnits=Math.max(0,totalUnidades-periodPeakUsage);
   const locacoesAtivas=(data.locacoesEquip||[]).filter(locacao=>locacao.status!=="cancelada"&&!locacao.fim);
   const physicalRegistry=useMemo(()=>deriveEquipmentLocations(data,today()),[data]);
@@ -903,7 +911,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
         description={contexto==="financeiro"
           ?"Disponibilidade, alocação, manutenção e cobrança por obra em uma única operação auditável."
           :`${equipamentosAtivos.length} equipamento(s) ativo(s) · custos integrados à obra.`}
-        stats={contexto==="financeiro"&&!["locacoes","relatorio"].includes(aba)?[
+        stats={showOccupancyStats?[
           {label:"Frota ativa",value:`${totalUnidades} un.`,detail:`${equipamentosAtivos.length} cadastro(s)`,color:C.text},
           {label:"Em uso no mês",value:`${periodPeakUsage} un.`,detail:`${periodRentals.length} locação(ões) em ${mesLabel}`,color:periodPeakUsage?C.blue:C.muted},
           {label:"Livres no mês",value:`${periodFreeUnits} un.`,detail:"Disponibilidade no pico de ocupação",color:periodFreeUnits?C.green:C.orange},
@@ -975,7 +983,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                     return <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginBottom:7}}>Compra <b style={{color:variacao>0?C.red:C.green}}>{Math.abs(variacao).toFixed(1)}% {variacao>0?"acima":"abaixo"}</b> da referência SINAPI.</p>;
                   })()}
                   {(() => {
-                    const dp = picoUsoNoPeriodo(data, e, fleetPeriodDays);
+                    const dp = picoUsoNoPeriodo(data,e,fleetPeriodDays,eventsByEquipment.get(String(e.id))||[]);
                     const tf = e.tarifas || {};
                     const menor = PACOTES_TARIFA.filter(p=>Number(tf[p.id]||0)>0)
                       .map(p=>`${p.label} ${fmt(tf[p.id])}`).join(" · ");
@@ -1165,7 +1173,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                         <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,whiteSpace:"nowrap"}}>
                           {donoName(eq.proprietarioId)}
                           {Number(eq.quantidadeTotal||1)>1 && (()=>{
-                            const pk = picoUsoNoPeriodo(data, eq, diasMes);
+                            const pk = picoUsoNoPeriodo(data,eq,diasMes,eventsByEquipment.get(String(eq.id))||[]);
                             return <span style={{color:pk.excedido?C.red:C.muted}}>
                               {" · "}pico {pk.pico}/{pk.total}{pk.excedido?" (estourou)":""}
                             </span>;
@@ -1175,7 +1183,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                       </td>
                       {r.grade.map(g=>{
                         const eventos=eventosNoDia(eq.id,g.data);
-                        const disponibilidade=availabilityOnDate(data,eq,g.data);
+                        const disponibilidade=availabilityOnDate(data,eq,g.data,eventsByEquipment.get(String(eq.id))||[]);
                         const estourou=disponibilidade.livre===0&&eventos.reduce((sum,event)=>sum+Number(event.quantity||0),0)>disponibilidade.total;
                         const resumoTipos=["rental","reservation","maintenance","inspection","transport","damage","administrative_block","quarantine"]
                           .map(type=>{const qtd=eventos.filter(event=>event.type===type).reduce((sum,event)=>sum+Number(event.quantity||0),0);return qtd?`${siglaTipo[type]}${qtd}`:"";}).filter(Boolean);

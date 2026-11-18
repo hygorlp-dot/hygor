@@ -6169,6 +6169,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
 }
 
 function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispatchAttendanceCommand, dispatchCommand, onTab }) {
+  const {isMobile}=useBreakpoint();
   const [laborGroup,setLaborGroup]=useWorkspaceState('ponto','laborGroup','all',obraIdFixo);
   useHelpTopic('ponto',laborGroup==='all'?'ponto':`ponto_${laborGroup}`);
   const obraInicial=obraIdFixo||currentUser?.obraId||
@@ -6248,7 +6249,8 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
     })
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  const attendancePage=useRecordPage('ponto',list.filter(e=>[e.name,e.role].join(' ').toLocaleLowerCase('pt-BR').includes(attendanceSearch.trim().toLocaleLowerCase('pt-BR'))),JSON.stringify([filterObra,selDate,laborGroup,attendanceSearch]),obraIdFixo);
+  const attendancePageSize=isMobile?6:12;
+  const attendancePage=useRecordPage('ponto',list.filter(e=>[e.name,e.role].join(' ').toLocaleLowerCase('pt-BR').includes(attendanceSearch.trim().toLocaleLowerCase('pt-BR'))),JSON.stringify([filterObra,selDate,laborGroup,attendanceSearch,attendancePageSize]),obraIdFixo,attendancePageSize);
   const requireDailyCheck = () => {
     if (!dailyCheckPending) return false;
     showToast("Antes de lançar o ponto, confirme se a equipe permanece sem alterações ou movimente o trabalhador individualmente.", "warn");
@@ -6507,6 +6509,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
           <p>Todos os pontos de {fmtDateFull(selDate)} estão lançados.</p>
         </div>
       ) : attendanceCompletion.pendingObras.length > 0 && (
+        <TaskDisclosure enabled={isMobile} summary={`Obras com ponto pendente (${attendanceCompletion.pendingObras.length})`}>
         <section className="obra-attendance__pending" aria-labelledby="attendance-pending-title">
           <p id="attendance-pending-title" className="obra-attendance__pending-title">
             {attendanceCompletion.pendingObras.length} obra(s) com ponto pendente
@@ -6522,6 +6525,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
             </StandardButton>
           ))}
         </section>
+        </TaskDisclosure>
       )}
 
       {dailyCheckPending && (
@@ -6571,16 +6575,18 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
         ))}
       </section>
 
+      <TaskDisclosure enabled={isMobile} summary="Ações em lote">
+      <ScopeNote title={isMobile?"Alcance do lote":"Ações em lote"}>A busca e a paginação organizam a leitura. Os lotes continuam abrangendo os {list.length} funcionários da obra e do grupo selecionados.</ScopeNote>
       <div className="obra-attendance__bulk">
         <Btn v="success" size="sm" onClick={() => markAll("P")} disabled={filterObra==="all"||!selectedObraCanEdit||list.length===0} full title={filterObra==="all"?"Selecione uma obra para usar ações em lote":undefined}><Ic n="check" /> Todos presentes</Btn>
         <Btn v="ghost" size="sm" onClick={() => markAll("F")} disabled={filterObra==="all"||!selectedObraCanEdit||list.length===0} full title={filterObra==="all"?"Selecione uma obra para usar ações em lote":undefined} style={{color:"var(--arcd-danger-text)"}}><Ic n="x" /> Todos com falta</Btn>
       </div>
+      </TaskDisclosure>
 
       {list.length === 0 && <div className="obra-attendance__empty">Nenhum trabalhador ativo nesta seleção.</div>}
 
       <div className="obra-attendance__employees">
       <Inp label="Pesquisar no ponto" value={attendanceSearch} onChange={setAttendanceSearch} placeholder="Nome ou função"/>
-      <ScopeNote title="Ações em lote">A busca e a paginação organizam a leitura. Os lotes continuam abrangendo os {list.length} funcionários da obra e do grupo selecionados.</ScopeNote>
       <RecordListPagination pagination={attendancePage} label="funcionários no ponto"/>
       {attendancePage.rows.map(e => {
         const att = getAtt(data, e.id, selDate);
@@ -12990,6 +12996,7 @@ function PainelTV({data,ultimaSync,onAtualizar,allowedTabs=[]}){
 // Atualização por atualização periódica (sem tempo real): a lista é
 // recarregada a cada poucos segundos enquanto a aba de conversa está aberta.
 function Comunicacao({ data, currentUser, showToast }) {
+  const {isMobile}=useBreakpoint();
   const [aba, setAba] = useState("notificacoes");
   const ehAdmin = currentUser?.role === "admin";
 
@@ -13060,6 +13067,7 @@ function Comunicacao({ data, currentUser, showToast }) {
       {aba === "notificacoes" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <SectorTasks data={data} user={currentUser}/>
+          <TaskDisclosure enabled={isMobile} summary="Prioridades da equipe">
           <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>Prioridades do dia por engenheiro de campo: ponto, diário de obra e conferências.</p>
           {!checklistPorUsuario.length && <p style={{ padding: 20, textAlign: "center", color: C.muted, fontSize:"var(--arcd-type-label)" }}>Nenhum engenheiro de campo cadastrado.</p>}
           {checklistPorUsuario.map(c => (
@@ -13075,6 +13083,7 @@ function Comunicacao({ data, currentUser, showToast }) {
               {!c.conferenciasOk && <p style={{ fontSize:"var(--arcd-type-caption)", color: C.red, marginTop: 4 }}>{c.pendenciasAbertas} pendência(s) de conferência em aberto.</p>}
             </div>
           ))}
+          </TaskDisclosure>
         </div>
       )}
 

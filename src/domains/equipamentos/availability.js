@@ -121,6 +121,16 @@ export const buildEquipmentUnavailability=(data={})=>{
   return [...explicit,...derived].filter(item=>item.id&&item.equipmentId&&isValidIsoDate(item.startDate));
 };
 
+export function indexEquipmentUnavailability(data){
+  const index=new Map();
+  for(const event of buildEquipmentUnavailability(data)){
+    const events=index.get(event.equipmentId);
+    if(events)events.push(event);
+    else index.set(event.equipmentId,[event]);
+  }
+  return index;
+}
+
 const nextIso=iso=>{
   const date=new Date(`${iso}T00:00:00Z`);
   date.setUTCDate(date.getUTCDate()+1);
@@ -132,11 +142,11 @@ const ignored=(event,except={})=>
   ||except.rentalId&&String(event.rentalId)===String(except.rentalId)
   ||except.maintenanceId&&String(event.maintenanceId)===String(except.maintenanceId);
 
-export const fleetAvailability=({data={},equipment={},startDate,endDate="",requested=0,except={},ignoreEquipmentStatus=false}={})=>{
+export const fleetAvailability=({data={},equipment={},startDate,endDate="",requested=0,except={},ignoreEquipmentStatus=false,equipmentEvents}={})=>{
   const total=quantity(equipment.quantidadeTotal);
   const start=String(startDate||""),end=String(endDate||"");
   const periodEnd=end||"9999-12-31";
-  const events=buildEquipmentUnavailability(data)
+  const events=(equipmentEvents??buildEquipmentUnavailability(data))
     .filter(event=>String(event.equipmentId)===String(equipment.id)&&active(event)&&!ignored(event,except)
       &&isoPeriodsOverlap(start,end,event.startDate,event.endDate));
   const statusReason=equipment.ativo===false?EQUIPMENT_BLOCKING_STATUS.inativo
@@ -183,5 +193,5 @@ export const rentalAvailability=({data={},equipment={},rental={},exceptRentalId=
     except:{rentalId:exceptRentalId},
   });
 
-export const availabilityOnDate=(data,equipment,iso)=>
-  fleetAvailability({data,equipment,startDate:iso,endDate:iso,requested:0});
+export const availabilityOnDate=(data,equipment,iso,equipmentEvents)=>
+  fleetAvailability({data,equipment,startDate:iso,endDate:iso,requested:0,equipmentEvents});

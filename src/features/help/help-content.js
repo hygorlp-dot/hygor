@@ -466,6 +466,7 @@ originRequestHelp.steps.unshift('Ao chegar de Minhas aprovações, a solicitaç�
 const approvalFlowHelp=HELP_GUIDES.find(item=>item.id==='aprov_pend');
 approvalFlowHelp.steps=approvalFlowHelp.steps.map(step=>step.replace('Solicitações sem fluxo de aprovação compatível são consultas separadas:','Abra Solicitações sem fluxo de aprovação compatível para consultar o diagnóstico separado:'));
 HELP_GUIDES.find(item=>item.id==='chat').steps.push('Conversa, decisões e acompanhamento reúne as explicações adicionais. As tarefas e decisões disponíveis aparecem primeiro para facilitar o uso no celular.');
+HELP_GUIDES.find(item=>item.id==='chat').steps.push('No celular, a lista mostra até seis tarefas por página. Buscar tarefas consulta todos os resultados. Abra Prioridades da equipe para conferir ponto, diário e conferências por engenheiro.');
 centralContinuityHelp.steps.push('No recorte de um lead, Filtros reúne também pesquisa, situação e obra. Emissão de documentos indisponível explica a limitação de PDF/DOCX. Para administrar Modelos de contrato, use Consultar toda a central; essa área continua exclusiva do administrador.');
 // Etapa 4 — operação no celular e clareza da recuperação, 17/11/2026.
 for(const id of ['obras','fornecedores','equipe','ponto','dre','med']){
@@ -473,7 +474,14 @@ for(const id of ['obras','fornecedores','equipe','ponto','dre','med']){
  if(topic)topic.steps.push('Na lista, confira o intervalo de resultados. Anterior e Próxima mostram até 12 registros por página; a busca considera toda a lista disponível, não só a página atual. Alterar o recorte volta à primeira página. Totais e relatórios continuam usando o conjunto completo.');
 }
 HELP_GUIDES.find(item=>item.id==='equipe').steps.push('Pesquisar na equipe fica antes da lista. Abra Filtros para escolher Pendências da equipe, com Documentação vencida ou Sem lotação, e Filtrar por lotação. Situação da equipe controla ativos e demais vínculos. Recolher Filtros preserva as escolhas.');
-HELP_GUIDES.find(item=>item.id==='ponto').attention+=' Pesquisar no ponto e a paginação organizam somente a leitura. Todos presentes e Todos faltaram continuam abrangendo todos os funcionários da obra, data e grupo selecionados, conforme o aviso Ações em lote. Confira esse recorte antes de confirmar o lote.';
+HELP_GUIDES.find(item=>item.id==='ponto').attention+=' Pesquisar no ponto e a paginação organizam somente a leitura. Todos presentes e Todos com falta continuam abrangendo todos os funcionários da obra, data e grupo selecionados, conforme o aviso Ações em lote. Confira esse recorte antes de confirmar o lote.';
+for(const id of ['ponto','ponto_obras','ponto_central']){
+ HELP_GUIDES.find(item=>item.id===id).steps.push('No celular, abra Obras com ponto pendente para escolher uma obra que precisa de conferência. Pesquisar no ponto consulta todo o recorte em páginas de até seis pessoas. Abra Ações em lote para ler o alcance e usar Todos presentes ou Todos com falta.');
+}
+for(const id of ['folha','folha_obras','folha_central']){
+ HELP_GUIDES.find(item=>item.id===id).steps.push('No celular, Buscar funcionário na folha consulta todo o recorte em páginas de até seis pessoas. Abra Indicadores da área para consultar os totais e Pendências para conferir para ver a lista de alertas da quinzena, quando houver.');
+}
+HELP_GUIDES.find(item=>item.id==='fin_homologacao').steps.push('Para reunir campos divergentes da mesma obra, competência e período do DRE, use Ver diferenças desta projeção. A ação limpa a busca e mostra apenas a referência escolhida. Use Limpar filtro de projeção para voltar às diferenças do grupo Projeções do DRE.');
 HELP_GUIDES.find(item=>item.id==='dre').steps.push('Em Resumo por obra, use Pesquisar obra no resumo do DRE. A busca e a página não mudam os indicadores consolidados nem o relatório exportado. Gráficos do consolidado reúne as visualizações adicionais; a consulta por obra continua nos filtros do próprio DRE.');
 HELP_GUIDES.find(item=>item.id==='dre').steps.push('Se aparecer Cálculo local da obra, os valores foram calculados com os dados disponíveis no app. Use Tentar novamente. DRE PDF fica indisponível até o razão financeiro retornar o demonstrativo da obra e do período selecionados.');
 for(const id of ['com_funil','com_pipeline']){

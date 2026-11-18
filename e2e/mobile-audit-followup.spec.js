@@ -221,6 +221,31 @@ for (const width of [390, 1440]) test.describe(`${width}px`, () => {
     await expect(period).toBeVisible();
     await check('frota-detalhes');
   });
+
+  if(width===390)test('Frota com histórico extenso abre e fecha pelo menu de módulos',async({page})=>{
+    const check=await enter(page,'equip',{
+      prepare(data){
+        data.equipamentos=Array.from({length:24},(_,index)=>({id:`eq-${index}`,nome:`Equipamento QA ${index}`,ativo:true,quantidadeTotal:30,status:'disponivel'}));
+        data.locacoesEquip=Array.from({length:1200},(_,index)=>({
+          id:`loc-${index}`,equipamentoId:data.equipamentos[index%24].id,obraId:'a',
+          inicio:'2026-11-01',fim:'2026-11-30',quantidade:1,
+        }));
+      },
+    });
+    const more=page.getByRole('button',{name:'Abrir mais módulos',exact:true});
+    const dialog=page.getByRole('dialog',{name:'Mais módulos'});
+    for(let attempt=0;attempt<3;attempt++){
+      await expect(page.getByRole('region',{name:'Resultados de equipamentos na frota'})).toContainText('1–6 de 24');
+      await more.click();
+      await dialog.getByRole('button',{name:'Comercial',exact:true}).click();
+      await expect(page.getByRole('combobox',{name:'Telas de Comercial',exact:true})).toBeVisible();
+      await more.click();
+      await dialog.getByRole('button',{name:'Equipamentos e locações',exact:true}).click();
+      await page.getByRole('combobox',{name:'Telas de Equipamentos e locações',exact:true}).selectOption({label:'Equipamentos'});
+    }
+    await expect(page.locator('.arcd-app-shell[data-tab="equip"]')).toBeVisible();
+    await check('frota-saida-menu');
+  });
 });
 
 test('atalho financeiro em 320 px cabe e mantém o nome acessível', async ({ page }) => {

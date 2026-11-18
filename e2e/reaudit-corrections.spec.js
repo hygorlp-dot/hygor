@@ -74,9 +74,9 @@ for(const width of [320,390,1440])test.describe(width+'px',()=>{
   test('Comunicação busca responsáveis e pagina sem alterar as tarefas',async({page},info)=>{
     const check=await enter(page,'chat');
     const results=page.getByRole('region',{name:'Resultados de tarefas de conferência'});
-    await expect(results).toContainText('1–12 de 25');
+    await expect(results).toContainText(width<768?'1–6 de 25':'1–12 de 25');
     await results.getByRole('button',{name:'Próxima'}).click();
-    await expect(results).toContainText('13–24 de 25');
+    await expect(results).toContainText(width<768?'7–12 de 25':'13–24 de 25');
     await page.getByRole('textbox',{name:'Buscar tarefas'}).fill('joao fiscal');
     await expect(results).toContainText('1–1 de 1');
     await expect(page.getByRole('heading',{name:'Conferência de campo 25'})).toBeVisible();

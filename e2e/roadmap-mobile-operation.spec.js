@@ -43,7 +43,17 @@ for(const width of [390,1440])test.describe(`${width}px`,()=>{
   ['ponto','funcionários no ponto','Nome ou função','Pessoa 30','Pessoa 30'],
   ['med','serviços','Nome do serviço','Serviço 22','Serviço 22']
  ])test(`${tab}: busca alcança registro fora da primeira página sem gravar`,async({page})=>{
-  const app=await enter(page,tab);const results=page.getByRole('region',{name:`Resultados de ${label}`,exact:true});await expect(results).toBeVisible();await expect(results).toContainText('1–12 de');await results.getByRole('button',{name:'Próxima',exact:true}).click();await expect(results).toContainText('13–');await page.getByPlaceholder(queryName,{exact:true}).fill(query);await expect(results).toContainText('1–1 de 1');await expect((tab==='obras'?page.locator('.works-card'):page.locator('main')).getByText(expected,{exact:false}).first()).toBeVisible();await fit(page);await shot(page,tab,width);await page.getByPlaceholder(queryName,{exact:true}).fill('não existe xyz');await expect(results).toContainText('Nenhum resultado');await fit(page);app.check();
+  const app=await enter(page,tab);const results=page.getByRole('region',{name:`Resultados de ${label}`,exact:true});await expect(results).toBeVisible();const compactPoint=tab==='ponto'&&width<768;
+  if(compactPoint){
+   const bulk=page.locator('summary').filter({hasText:'Ações em lote'});
+   const markAll=page.getByRole('button',{name:'Todos presentes',exact:true});
+   await expect(markAll).toBeHidden();
+   await bulk.click();
+   await expect(markAll).toBeVisible();
+   await expect(page.getByRole('note').filter({hasText:'Alcance do lote'})).toContainText('funcionários da obra e do grupo selecionados');
+   await bulk.click();
+  }
+  await expect(results).toContainText(compactPoint?'1–6 de':'1–12 de');await results.getByRole('button',{name:'Próxima',exact:true}).click();await expect(results).toContainText(compactPoint?'7–':'13–');await page.getByPlaceholder(queryName,{exact:true}).fill(query);await expect(results).toContainText('1–1 de 1');await expect((tab==='obras'?page.locator('.works-card'):page.locator('main')).getByText(expected,{exact:false}).first()).toBeVisible();await fit(page);await shot(page,tab,width);await page.getByPlaceholder(queryName,{exact:true}).fill('não existe xyz');await expect(results).toContainText('Nenhum resultado');await fit(page);app.check();
  });
  test('DRE pagina o resumo e mantém indicadores consolidados',async({page})=>{
   const app=await enter(page,'dre');const results=page.getByRole('region',{name:'Resultados de obras no DRE',exact:true});await expect(results).toContainText('1–12 de');await results.getByRole('button',{name:'Próxima',exact:true}).click();await expect(results).toContainText('13–');await page.getByRole('textbox',{name:'Pesquisar obra no resumo do DRE',exact:true}).fill('Obra 26');await expect(results).toContainText('1–1 de 1');await expect(page.getByRole('note').filter({hasText:'Resumo por obra'})).toContainText('não alteram os totais');await fit(page);app.check();

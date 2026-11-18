@@ -352,6 +352,7 @@ Escolha o grupo, a competência e a obra. A aba Administrativo inclui engenheiro
 1. Escolha Pessoal de obra ou Administrativo no início da tela.
 2. Confira o período e a obra; trocar de grupo preserva esses filtros.
 3. Revise os registros das pessoas do grupo. Use Todos para conferir a empresa completa.
+4. No celular, abra Obras com ponto pendente para escolher uma obra que precisa de conferência. Pesquisar no ponto consulta todo o recorte em páginas de até seis pessoas. Abra Ações em lote para ler o alcance e usar Todos presentes ou Todos com falta.
 
 ### Como conferir se deu certo
 
@@ -376,6 +377,7 @@ Escolha o grupo, a competência e a obra. A aba Administrativo inclui engenheiro
 1. Escolha Pessoal de obra ou Administrativo no início da tela.
 2. Confira o período e a obra; trocar de grupo preserva esses filtros.
 3. Revise os registros das pessoas do grupo. Use Todos para conferir a empresa completa.
+4. No celular, abra Obras com ponto pendente para escolher uma obra que precisa de conferência. Pesquisar no ponto consulta todo o recorte em páginas de até seis pessoas. Abra Ações em lote para ler o alcance e usar Todos presentes ou Todos com falta.
 
 ### Como conferir se deu certo
 
@@ -449,6 +451,7 @@ Escolha o grupo, a competência e a obra. A aba Administrativo inclui engenheiro
 2. Confira a competência, o ciclo e a obra. No celular, abra Competência e escopo para alterá-los e use Buscar funcionário na folha para localizar uma pessoa. Na Folha da quinzena, totais, pendências e relatórios respeitam o grupo.
 3. Em Holerites CLT, escolha uma pessoa do grupo. Confirme o descarte se houver edição não salva antes de trocar de grupo.
 4. Para fechar ou reabrir a quinzena da empresa inteira, escolha Todos e Todas as obras e revise as pendências.
+5. No celular, Buscar funcionário na folha consulta todo o recorte em páginas de até seis pessoas. Abra Indicadores da área para consultar os totais e Pendências para conferir para ver a lista de alertas da quinzena, quando houver.
 
 ### Como conferir se deu certo
 
@@ -474,6 +477,7 @@ Escolha o grupo, a competência e a obra. A aba Administrativo inclui engenheiro
 2. Confira a competência, o ciclo e a obra. No celular, abra Competência e escopo para alterá-los e use Buscar funcionário na folha para localizar uma pessoa. Na Folha da quinzena, totais, pendências e relatórios respeitam o grupo.
 3. Em Holerites CLT, escolha uma pessoa do grupo. Confirme o descarte se houver edição não salva antes de trocar de grupo.
 4. Para fechar ou reabrir a quinzena da empresa inteira, escolha Todos e Todas as obras e revise as pendências.
+5. No celular, Buscar funcionário na folha consulta todo o recorte em páginas de até seis pessoas. Abra Indicadores da área para consultar os totais e Pendências para conferir para ver a lista de alertas da quinzena, quando houver.
 
 ### Como conferir se deu certo
 
@@ -551,7 +555,8 @@ Confira seu acesso, a obra e quem é responsável pelo ajuste e pela validação
 4. Use Voltar a Comunicação para retornar. A situação selecionada nas tarefas permanece na sessão. Resolvidas ou canceladas mostra o encerramento informado pela origem.
 5. Para conversar, use Abrir chat da equipe no cabeçalho. Confira a conversa antes de enviar. O ranking e as prioridades de ponto e diário continuam nas respectivas áreas.
 6. Conversa, decisões e acompanhamento reúne as explicações adicionais. As tarefas e decisões disponíveis aparecem primeiro para facilitar o uso no celular.
-7. Voltar a Comunicação também restaura a Obra em foco que estava selecionada antes de abrir a pendência. Isso não transfere o achado de obra.
+7. No celular, a lista mostra até seis tarefas por página. Buscar tarefas consulta todos os resultados. Abra Prioridades da equipe para conferir ponto, diário e conferências por engenheiro.
+8. Voltar a Comunicação também restaura a Obra em foco que estava selecionada antes de abrir a pendência. Isso não transfere o achado de obra.
 
 ### Como conferir se deu certo
 
@@ -1269,6 +1274,7 @@ Escolha Pessoal de obra, Administrativo ou Todos; depois confira a obra e o per�
 2. Marque Presente, Meio dia ou Falta. Mais opções reúne outras situações, jornada e observações. Férias, atestado e folga são registros válidos e aparecem no cartão.
 3. Transferir e Desligar ficam no cartão quando permitidos. Confira e confirme; Cancelar não grava.
 4. Na lista, confira o intervalo de resultados. Anterior e Próxima mostram até 12 registros por página; a busca considera toda a lista disponível, não só a página atual. Alterar o recorte volta à primeira página. Totais e relatórios continuam usando o conjunto completo.
+5. No celular, abra Obras com ponto pendente para escolher uma obra que precisa de conferência. Pesquisar no ponto consulta todo o recorte em páginas de até seis pessoas. Abra Ações em lote para ler o alcance e usar Todos presentes ou Todos com falta.
 
 ### Como conferir se deu certo
 
@@ -1276,7 +1282,7 @@ A consulta mostra a pessoa, a data e a obra corretas.
 
 ### O que merece atenção
 
-Ausência de batida não confirma falta; registros offline dependem de sincronização. Ao salvar ou sincronizar três dias trabalhados consecutivos na mesma obra nova, a lotação do funcionário ativo é atualizada. Presença e meio período contam; folgas não contam e outra obra interrompe a sequência. Histórico, pontos antigos, pagamentos, desligamentos e decisões posteriores do RH são preservados. Pesquisar no ponto e a paginação organizam somente a leitura. Todos presentes e Todos faltaram continuam abrangendo todos os funcionários da obra, data e grupo selecionados, conforme o aviso Ações em lote. Confira esse recorte antes de confirmar o lote.
+Ausência de batida não confirma falta; registros offline dependem de sincronização. Ao salvar ou sincronizar três dias trabalhados consecutivos na mesma obra nova, a lotação do funcionário ativo é atualizada. Presença e meio período contam; folgas não contam e outra obra interrompe a sequência. Histórico, pontos antigos, pagamentos, desligamentos e decisões posteriores do RH são preservados. Pesquisar no ponto e a paginação organizam somente a leitura. Todos presentes e Todos com falta continuam abrangendo todos os funcionários da obra, data e grupo selecionados, conforme o aviso Ações em lote. Confira esse recorte antes de confirmar o lote.
 
 <a id="guia-ponto_geral"></a>
 
@@ -1450,6 +1456,7 @@ Escolha Pessoal de obra, Administrativo ou Todos e selecione a competência, ist
 2. Confira funcionários, ponto e informações que alimentam a folha.
 3. No celular, abra Competência e escopo para trocar o período ou a obra. Use Buscar funcionário na folha e Próxima para localizar pessoas sem alterar os totais.
 4. Abra Composição do pagamento para revisar parcelas e descontos. Abra Fechamento da quinzena para consultar a situação ou fechar após a revisão.
+5. No celular, Buscar funcionário na folha consulta todo o recorte em páginas de até seis pessoas. Abra Indicadores da área para consultar os totais e Pendências para conferir para ver a lista de alertas da quinzena, quando houver.
 
 ### Como conferir se deu certo
 
@@ -1929,6 +1936,7 @@ Use um perfil de administrador. Consultar não corrige registros nem fecha uma c
 3. Leia o estado do motor e abra Verificações da homologação para conferir pendências. Em Diferenças e avisos, leia o resultado dos filtros. Confira obra, competência, campo, origem esperada e razão consultado. Anterior e Próxima percorrem os resultados filtrados.
 4. Abra Diagnóstico do registro para consultar os detalhes e, no celular, a referência de origem. Números de campos, quantidades e valores monetários têm significados diferentes.
 5. Em Sincronização técnica dos registros, Executar carga idempotente exige confirmação e grava a sincronização existente. Essa ação não ativa nem desativa o motor; consulte o responsável técnico antes de usá-la.
+6. Para reunir campos divergentes da mesma obra, competência e período do DRE, use Ver diferenças desta projeção. A ação limpa a busca e mostra apenas a referência escolhida. Use Limpar filtro de projeção para voltar às diferenças do grupo Projeções do DRE.
 
 ### Como conferir se deu certo
 

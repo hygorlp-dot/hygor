@@ -10,7 +10,7 @@ async function enter(page,tab,{explicitPix='',emptyReport=false}={}){
  data.notasFiscais=[{id:'note-a',numero:'NF-10',valorLiquido:1500,fornecedorId:'supplier',fornecedorNome:'Fornecedor Exemplo',vencimento:'2026-11-17',status:'aprovada',pagamentos:[]}];
  data.pedidos=[];data.reconciliationLinks=[];data.historicoConc=[];
  data.solicitacoesCompra=[{...data.solicitacoesCompra[0],id:'req-top',numero:'SC-0005',criadoEm:'2026-11-17T10:00:00Z'},{...data.solicitacoesCompra[0],id:'req-exact',numero:'SC-0004',criadoEm:'2026-11-16T10:00:00Z'}];
- const shadow={ok:true,engineEnforced:true,prontoParaAtivar:false,contagens:{fatosLegados:2,projecoesDRE:696},divergencias:[],divergenciasDRE:emptyReport?[]:Array.from({length:678},(_,i)=>({sourceId:'2026-11:mes:a',path:`costs[${i}].amount`,expected:100,canonical:120,difference:20})),activationGate:{ready:false,checks:[{code:'dre_divergence',ok:emptyReport,detail:emptyReport?'DRE sem diferenças.':'678 divergências do DRE.'},{code:'legacy_hashes',ok:false,detail:'Verificação da atualidade dos vínculos não concluída.'}]}};
+ const shadow={ok:true,engineEnforced:true,prontoParaAtivar:false,contagens:{fatosLegados:2,projecoesDRE:696},divergencias:[],divergenciasDRE:emptyReport?[]:Array.from({length:678},(_,i)=>({sourceId:i<300||i===677?'2026-11:mes:a':'2026-11:q1:a',path:`costs[${i}].amount`,expected:100,canonical:120,difference:20})),activationGate:{ready:false,checks:[{code:'dre_divergence',ok:emptyReport,detail:emptyReport?'DRE sem diferenças.':'678 divergências do DRE.'},{code:'legacy_hashes',ok:false,detail:'Verificação da atualidade dos vínculos não concluída.'}]}};
  if(!emptyReport)shadow.canonicalIntegrity={findings:[{code:'audit-warning',severity:'warning',message:'Aviso de integridade QA'}]};
  const before=JSON.stringify(data),writes=[],errors=[];
  page.on('pageerror',e=>errors.push(e.message));
@@ -51,6 +51,16 @@ for(const width of [320,390,1440])test.describe(`${width}px`,()=>{
   await expect(report.getByText('Referência de origem: 2026-11:mes:a', {exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Ajuda',exact:true}).first().click();await expect(page.getByRole('complementary',{name:'Central de ajuda'})).toContainText('Grupo da conferência');await page.getByRole('button',{name:'Fechar ajuda',exact:true}).click();
   await expect(report.getByRole('textbox',{name:'Buscar diferença ou origem',exact:true})).toHaveValue('costs[677]');
+  await report.getByRole('button',{name:'Ver diferenças desta projeção (301)',exact:true}).click();
+  const projection=report.getByRole('region',{name:'Filtro de projeção',exact:true});
+  await expect(projection).toBeFocused();
+  await expect(projection).toContainText('Mês completo');
+  await expect(report).toContainText('1–12 de 301');
+  await expect(report.getByRole('textbox',{name:'Buscar diferença ou origem',exact:true})).toHaveValue('');
+  await page.screenshot({path:test.info().outputPath('homologacao-projecao.png')});
+  await projection.getByRole('button',{name:'Limpar filtro de projeção',exact:true}).click();
+  await expect(projection).toHaveCount(0);
+  await expect(report).toContainText('1–12 de 678');
   await page.screenshot({path:`artifacts/correcoes-auditoria-20261117/homologacao-${process.env.AUDIT_MODE||'dev'}-${width}.png`,fullPage:true});await fit(page);check();
  });
  test('zero diferenças não dispensa a verificação pendente',async({page})=>{
