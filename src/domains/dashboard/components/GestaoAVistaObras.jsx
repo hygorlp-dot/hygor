@@ -15,7 +15,8 @@ function Etapas({linha}){
   if(!linha.etapas.length)return <span className="gav-vazio">Sem cronograma</span>;
   return <div className="gav-etapas">
     <div className="gav-etapas__trilho" aria-hidden="true">{linha.etapas.map(e=><span key={e.id} className={`gav-etapas__passo is-${e.estado}`} style={{flexGrow:e.peso}} title={e.nome}/>)}</div>
-    <span className="gav-etapas__nome">{linha.etapaAtual}</span>
+    {/* Barra sozinha não diz quanto falta: o avanço físico vai escrito ao lado da etapa. */}
+    <span className="gav-etapas__nome">{linha.etapaAtual}{linha.avanco!==null&&linha.avanco!==undefined?` · ${pct(linha.avanco)}`:""}</span>
   </div>;
 }
 

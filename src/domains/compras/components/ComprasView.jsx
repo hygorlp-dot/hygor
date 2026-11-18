@@ -1941,7 +1941,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   const escopoComandos=<div className="purchase-context-bar">
           <div className="compras-project-picker">{obraIdFixo
             ? <Inp label="Obra" value={obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
-            : <Select label="Obra" value={todasObras?"all":obraAtual} onChange={event=>{const v=event.target.value;
+            : <Select label="Obra" description="Igual à Obra em foco do topo" value={todasObras?"all":obraAtual} onChange={event=>{const v=event.target.value;
                 setRegistroFoco("");setRetornosCompra([]);
                 if(v==="all"){setEscopoMapa("empresa");return;}
                 setEscopoMapa("obra");setObraSel(v);

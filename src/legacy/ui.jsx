@@ -256,8 +256,8 @@ export function CampoCNPJ({ label = "CNPJ", value, onChange, onEncontrado, disab
 }
 
 
-export function Sel({ label, value, onChange, options = [], disabled = false, error = "", 'aria-label': ariaLabel }) {
-  return <DesignSystemSelect fieldClassName="arcd-legacy-field" className="arcd-field-control" label={label?textoUi(label):undefined}
+export function Sel({ label, value, onChange, options = [], disabled = false, error = "", description, 'aria-label': ariaLabel }) {
+  return <DesignSystemSelect fieldClassName="arcd-legacy-field" className="arcd-field-control" label={label?textoUi(label):undefined} description={description}
     aria-label={ariaLabel||(label?textoUi(label):undefined)} value={value??""} onChange={event=>onChange(event.target.value)} disabled={disabled} error={error}>
     {options.map(option=><option key={String(option.v)} value={option.v} disabled={option.disabled}>{option.l}</option>)}
   </DesignSystemSelect>;

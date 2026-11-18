@@ -3477,7 +3477,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           const ehBaseline=(data.budgetBaselines||[]).some(b=>b.ativo!==false&&b.tipo==="controle"&&b.budgetId===o.id);
           const bloqueado=budgetIsImmutable(o);
           return (
-            <div key={o.id} style={{background:"var(--arcd-surface-page)",border:"1.5px solid var(--arcd-border-default)",borderLeft:"1px solid var(--arcd-action-primary)",borderRadius:8,padding:"var(--arcd-space-3)",boxShadow:`0 1px 4px ${C.shadow}`}}>
+            <div key={o.id} style={{background:"var(--arcd-surface-page)",border:"1.5px solid var(--arcd-border-default)",borderLeft:"1px solid var(--arcd-border-strong)",borderRadius:8,padding:"var(--arcd-space-3)",boxShadow:`0 1px 4px ${C.shadow}`}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-2)"}}>
                 <div style={{flex:1,minWidth:0}}>
                   <p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{o.nome}</p>

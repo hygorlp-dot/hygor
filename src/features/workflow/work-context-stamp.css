@@ -12,3 +12,8 @@
   .arcd-topbar .work-context-stamp{order:1;flex:1 0 100%;}
   .work-context-stamp>.arcd-select{flex:1;max-width:none;}
 }
+/* Celular: no topo vai só o nome da tela atual; a seção e o separador saem para o nome não ficar cortado ("Dashboa…"). */
+@media (max-width: 690px){
+  .arcd-topbar .app-breadcrumb > span:not(:last-child){display:none;}
+  .arcd-topbar .app-breadcrumb > span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;}
+}

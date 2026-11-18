@@ -3396,7 +3396,7 @@ canvas {
   --supply-paper:#f7f8f8;
   --supply-concrete:#e8ebec;
   --supply-line:#d2d6d8;
-  --supply-ink:#282d31;
+  --supply-ink:var(--arcd-text-primary);
   --supply-muted:#697178;
   --supply-brass:#a7831d;
   max-width:1540px;
