@@ -61,7 +61,7 @@ export const themeRegistry = Object.freeze({
     "--arcd-nav-active-surface":"#1d2d48", "--arcd-nav-hover-surface":"#16223a", "--arcd-nav-hover-text":"#ffffff",
     "--arcd-nav-border":"rgb(255 255 255 / 12%)", "--arcd-nav-brand-text":"#f3efe6",
     "--arcd-success-text":"#8dd5ae", "--arcd-success-surface":"#10291f", "--arcd-success-border":"#2f6b4f",
-    "--arcd-warning-text":"#ffa94d", "--arcd-warning-surface":"#33200a", "--arcd-warning-border":"#9a5c1c",
+    "--arcd-warning-text":"#ff8c42", "--arcd-warning-surface":"#361a08", "--arcd-warning-border":"#a24d1a",
     "--arcd-danger-text":"#ffb4ab", "--arcd-danger-surface":"#321619", "--arcd-danger-border":"#7c3a3f",
     "--arcd-info-text":"#b1c9ef", "--arcd-info-surface":"#13233a", "--arcd-info-border":"#3b5b88",
     "--arcd-neutral-text":"#c3ccd7", "--arcd-neutral-surface":"#172234", "--arcd-neutral-border":"#2c3a50",

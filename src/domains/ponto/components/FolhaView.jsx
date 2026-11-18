@@ -881,7 +881,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
           {label:"Funcionários",value:rows.length,detail:filterObra==="all"?"Todas as obras":obraName(filterObra)},
           {label:"Pagamento",value:paymentDateLabel,detail:paymentObs,color:paymentInfo.adjusted?C.orange:undefined},
         ]}
-        actions={<>{canReview&&<Btn v="secondary" onClick={()=>changePayrollView('readiness')}>Organizar pendências do RH</Btn>}{pendenciasRelatorio.length>0&&<Btn v="warning" onClick={()=>onTab?.("ponto_geral")}><Ic n="alert"/> Revisar ponto</Btn>}</>}
+        actions={<>{/* O fechamento é a ação que encerra a tela: o topo leva até ele e diz o que falta. */}{canManageClosing&&!closedTitles.length&&<Btn v="primary" onClick={()=>document.getElementById('folha-fechamento')?.scrollIntoView({behavior:'smooth',block:'start'})}>{closingBlockers.length?`Ir ao fechamento · ${contar(closingBlockers.length,"bloqueio","bloqueios")}`:"Ir ao fechamento"}</Btn>}{canReview&&<Btn v="secondary" onClick={()=>changePayrollView('readiness')}>Organizar pendências do RH</Btn>}{pendenciasRelatorio.length>0&&<Btn v="warning" onClick={()=>onTab?.("ponto_geral")}><Ic n="alert"/> Revisar ponto</Btn>}</>}
       />
       <section className="payroll-controls" aria-label="Competência e escopo da folha">
         <div className="payroll-section-heading">
@@ -960,7 +960,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
 
 
 
-        <section className="payroll-checklist payroll-closing" aria-label="Fechamento da quinzena">
+        <section id="folha-fechamento" className="payroll-checklist payroll-closing" aria-label="Fechamento da quinzena">
         {closedTitles.length?<>
           <h3>Quinzena fechada</h3>
           <p>Fechamento da empresa (Todos). Inclui os dois grupos; exige Todos e Todas as obras.</p>

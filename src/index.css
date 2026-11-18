@@ -6850,3 +6850,4 @@ body.no-scroll .arcd-mobile-nav { visibility:hidden; pointer-events:none; }
 .record-more>summary::-webkit-details-marker{display:none}
 .record-more>summary:focus-visible{outline:2px solid var(--arcd-focus-ring);outline-offset:2px}
 .record-more>div{position:absolute;right:0;top:calc(100% + 4px);z-index:20;padding:var(--arcd-space-1);border:1px solid var(--arcd-border-default);border-radius:var(--arcd-radius-lg);background:var(--arcd-surface-elevated);box-shadow:0 12px 30px rgb(0 0 0 / 18%);white-space:nowrap}
+.record-more>div{display:grid;gap:var(--arcd-space-1)}

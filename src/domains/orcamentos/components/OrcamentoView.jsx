@@ -3501,10 +3501,11 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   Excluir fica afastado, na ponta, para não ser clicado no lugar de Abrir. */}
               <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)",flexWrap:"wrap"}}>
                 <Btn size="sm" v="secondary" onClick={()=>{setSelOrc(o.id);setView("editor");}}><Ic n="edit"/> Abrir</Btn>
-                {ehAdmin && o.obraId && !ehBaseline ? (
-                  <Btn size="sm" v="secondary" onClick={()=>{if(window.confirm(`${bloqueado?"Adotar":"Aprovar"} "${o.nome||"este orçamento"}" como baseline da obra? A versão fica imutável depois disso.`))aprovarEAdotarBaseline(o.id);}}>{bloqueado ? "Adotar como baseline" : "Aprovar baseline"}</Btn>
-                ) : null}
-                {!bloqueado&&<details className="record-more" style={{marginLeft:"auto"}}><summary aria-label="Mais ações do orçamento" title="Mais ações">⋯</summary><div role="menu"><Btn size="sm" v="danger" title="Excluir orçamento" ariaLabel="Excluir orçamento" onClick={()=>delOrc(o.id)}><Ic n="trash"/> Excluir orçamento</Btn></div></details>}
+                {/* Aprovar baseline (fica imutável) e excluir moram no menu "⋯": decisões raras e de risco, longe de Abrir. */}
+                {((ehAdmin && o.obraId && !ehBaseline) || !bloqueado) && <details className="record-more" style={{marginLeft:"auto"}}><summary aria-label="Mais ações do orçamento" title="Mais ações">⋯</summary><div role="menu">
+                  {ehAdmin && o.obraId && !ehBaseline && <Btn size="sm" v="secondary" onClick={()=>{if(window.confirm(`${bloqueado?"Adotar":"Aprovar"} "${o.nome||"este orçamento"}" como baseline da obra? A versão fica imutável depois disso.`))aprovarEAdotarBaseline(o.id);}}><Ic n="lock"/> {bloqueado ? "Adotar como baseline…" : "Aprovar baseline…"}</Btn>}
+                  {!bloqueado&&<Btn size="sm" v="danger" title="Excluir orçamento" ariaLabel="Excluir orçamento" onClick={()=>delOrc(o.id)}><Ic n="trash"/> Excluir orçamento</Btn>}
+                </div></details>}
               </div>
             </div>
           );
@@ -3687,7 +3688,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           {obraIdFixo?<h2 className="budget-bar__name" title={orc.nome}>{orc.nome}</h2>:<h1 className="budget-bar__name" title={orc.nome}>{orc.nome}</h1>}
           <span className="budget-bar__meta">{orc.fonte} {orc.uf} · {orc.dataBase||"sem data-base"} · {orc.desonerado?"Desonerado":"Não desonerado"} · BDI {orc.bdi}%</span>
           {baselineAtiva.budget?.id===orc.id&&<span className="budget-badge" style={{background:"color-mix(in srgb, var(--arcd-success-text) 12%, transparent)",color:"var(--arcd-success-text)"}}>BASELINE ATIVA</span>}
-          <span className="budget-badge" title={budgetIsImmutable(orc)?"Versão aprovada e bloqueada para edição":"Rascunho editável"} style={{background:`${budgetIsImmutable(orc)?"var(--arcd-action-primary)":"var(--arcd-warning-text)"}1F`,color:budgetIsImmutable(orc)?"var(--arcd-action-primary)":"var(--arcd-warning-text)"}}>V{orc.versionNumber||1} · {budgetIsImmutable(orc)?"APROVADA":"RASCUNHO"}</span>
+          <span className="budget-badge" title={budgetIsImmutable(orc)?"Versão aprovada e bloqueada para edição":"Rascunho editável"} style={{background:budgetIsImmutable(orc)?"color-mix(in srgb, var(--arcd-success-text) 12%, transparent)":"var(--arcd-surface-muted)",color:budgetIsImmutable(orc)?"var(--arcd-success-text)":"var(--arcd-text-secondary)"}}>V{orc.versionNumber||1} · {budgetIsImmutable(orc)?"APROVADA":"RASCUNHO"}</span>
           <span className="budget-bar__spacer"/>
           {memorySave?.id===selOrc && <span className="budget-bar__status" role="status">{memorySave.state==='saving'?'Salvando…':memorySave.state==='saved'?'Salvo':'Falha ao salvar'}</span>}
           {memorySave?.id===selOrc && memorySave.message && <span className="budget-bar__status">{memorySave.message}</span>}
