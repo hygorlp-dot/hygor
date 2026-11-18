@@ -2502,7 +2502,6 @@ function KpiCard({label,value,detail,icon,color=C.blue,onClick,animate=true}){
 function DashboardTechHero({currentUser,ultimaSync,fila,onBuscar,onAtualizar,onAbrir,periodo,onAnterior,onProximo,proximoDesabilitado,clima,saveState=SAVE_QUEUE_STATE.IDLE}){
   const agora=new Date(),nome=(currentUser?.nome||"operador").trim().split(/\s+/)[0];
   const saudacao=agora.getHours()<12?"Bom dia":agora.getHours()<18?"Boa tarde":"Boa noite";
-  const criticas=fila.filter(item=>item.severidade===3).length;
   const syncLabel={
     [SAVE_QUEUE_STATE.IDLE]:ultimaSync?`Atualizado às ${ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`:"Atualizado agora",
     [SAVE_QUEUE_STATE.SAVING]:"Salvando alterações",
@@ -2519,7 +2518,7 @@ function DashboardTechHero({currentUser,ultimaSync,fila,onBuscar,onAtualizar,onA
     </div>}{onBuscar&&<Button variant="outline" size="icon" aria-label="Buscar" onClick={onBuscar}><Search/></Button>}
     {onAtualizar&&<Button variant="outline" size="icon" aria-label="Atualizar" onClick={onAtualizar}><RefreshCw/></Button>}</>}
     primaryAction={<Button disabled={!fila.length} onClick={()=>fila[0]&&onAbrir(fila[0].tab)}>{fila.length?`Abrir prioridade de ${fila[0].setor}`:"Nenhuma ação urgente"}</Button>}>
-    <div className="dashboard-context"><span role="status">{syncLabel}</span><span>{contar(fila.length,"ação na Central","ações na Central")}{criticas?` · ${contar(criticas,"urgente","urgentes")}`:""}</span>
+    <div className="dashboard-context"><span role="status">{syncLabel}</span><span>{contar(fila.length,"ação na Central","ações na Central")}</span>
       {clima&&<span>Caruaru: {clima.temperatura} °C · vento {clima.vento} km/h</span>}
     </div>
   </PageHeader>;
@@ -2536,7 +2535,7 @@ function FilaOperador({fila,onTab}){
     </div>
     {!lista.length
       ? <div style={{padding:25,textAlign:"center",color:C.green,fontSize:"var(--arcd-type-label)"}}><Ic n="check" color={C.green}/> Nenhuma pendência no seu escopo.</div>
-      : <div className="dashboard-mission-rows" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))"}}>{lista.map((m,i)=>{const cor=m.severidade===3?C.red:m.color||C.yellow;return <button key={m.id} onClick={()=>onTab(m.tab)} style={{"--row-i":i,display:"grid",gridTemplateColumns:"38px minmax(0,1fr) auto",alignItems:"center",gap:10,textAlign:"left",border:0,borderRight:`1px solid ${C.line}`,borderBottom:`1px solid ${C.line}`,background:"transparent",padding:"13px 15px",cursor:"pointer",color:C.text}}><span className="dashboard-mission-icon" style={{width:36,height:36,borderRadius:9,display:"grid",placeItems:"center",background:`${cor}12`,border:`1px solid ${cor}35`,color:cor}}><Ic n={m.icon} s={15} color={C.muted}/></span><span style={{minWidth:0}}><b style={{display:"block",fontSize:"var(--arcd-type-label)",fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{m.titulo}</b><small style={{display:"block",fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{m.detalhe}</small></span><span className="dashboard-mission-count" style={{minWidth:27,height:27,borderRadius:9,display:"grid",placeItems:"center",fontSize:"var(--arcd-type-label)",fontWeight:600,color:cor,background:`${cor}12`}}>{m.quantidade}</span></button>;})}</div>}
+      : <div className="dashboard-mission-rows" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))"}}>{lista.map((m,i)=>{const cor=m.severidade===3?C.red:C.muted;return <button key={m.id} onClick={()=>onTab(m.tab)} style={{"--row-i":i,display:"grid",gridTemplateColumns:"38px minmax(0,1fr) auto",alignItems:"center",gap:10,textAlign:"left",border:0,borderRight:`1px solid ${C.line}`,borderBottom:`1px solid ${C.line}`,background:"transparent",padding:"13px 15px",cursor:"pointer",color:C.text}}><span className="dashboard-mission-icon" style={{width:36,height:36,borderRadius:9,display:"grid",placeItems:"center",background:`${cor}12`,border:`1px solid ${cor}35`,color:cor}}><Ic n={m.icon} s={15} color={C.muted}/></span><span style={{minWidth:0}}><b style={{display:"block",fontSize:"var(--arcd-type-label)",fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{m.titulo}</b><small style={{display:"block",fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{m.detalhe}</small></span><span className="dashboard-mission-count" style={{minWidth:27,height:27,borderRadius:9,display:"grid",placeItems:"center",fontSize:"var(--arcd-type-label)",fontWeight:600,color:cor,background:`${cor}12`}}>{m.quantidade}</span></button>;})}</div>}
   </section>;
 }
 
@@ -2881,7 +2880,8 @@ function Dashboard({ data, update, showToast, onTab, onAbrirObra, ultimaSync, cu
         // Cor só quando há desvio (negativo, crítico, pendente); o resto fica neutro.
         {label:"Resultado operacional",value:fmt(exec.dre.lucroBruto),detail:exec.dre.faturamento?`Margem ${pct1(exec.dre.margemBruta)}`:"Sem faturamento no período",icon:"chart",color:exec.dre.lucroBruto<0?C.red:exec.dre.lucroBruto>0?C.green:C.muted,tab:"dre_emp"},
         {label:"Saldo atual",value:fmt(exec.dre.saldoCaixa),detail:"Recebimentos menos custos",icon:"wallet",color:exec.dre.saldoCaixa<0?C.red:C.muted,tab:"dre"},
-        {label:"Pendências críticas",value:prioridades.filter(a=>a.sev===3).length,detail:contar(prioridades.length,"alerta ativo","alertas ativos"),icon:"alert",color:prioridades.some(a=>a.sev===3)?C.red:prioridades.length?C.orange:C.muted},
+        // Uma contagem só para "crítico": alertas graves + ações urgentes da Central (a mesma que aparece em vermelho lá).
+        {label:"Pendências críticas",value:prioridades.filter(a=>a.sev===3).length+filaOperador.filter(m=>m.severidade===3).length,detail:`${contar(filaOperador.filter(m=>m.severidade===3).length,"urgente","urgentes")} na Central · ${contar(prioridades.length,"alerta","alertas")}`,icon:"alert",color:(prioridades.some(a=>a.sev===3)||filaOperador.some(m=>m.severidade===3))?C.red:prioridades.length?C.orange:C.muted},
         {label:"Compras pendentes",value:exec.comprasPendentes+exec.solicitacoesAbertas,detail:`${exec.solicitacoesAbertas} aguardando análise`,icon:"cart",color:exec.comprasPendentes+exec.solicitacoesAbertas?C.orange:C.muted,tab:"cmp"},
         {label:"Obras ativas",value:exec.obrasAtivas,detail:exec.obrasCriticas?`${exec.obrasCriticas} em situação crítica`:"Operação acompanhada",icon:"building",color:exec.obrasCriticas?C.red:C.muted,tab:"obras"},
         {label:"Receitas do período",value:fmt(exec.dre.recebido),detail:`Faturado ${fmt(exec.dre.faturamento)}`,icon:"trending",color:C.muted,tab:"dre"},
@@ -3549,7 +3549,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
           <button type="button" className="dre-kpi-card" key={l} onClick={()=>{setDetalheKpi(k);setFiltroDetalhe({busca:"",categoria:"todos",obra:"todas",ordem:"data_desc"});}} style={{"--dre-kpi-color":c}}>
             <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted}}>{l}</p>
             <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,color:k==="lucro"?c:"var(--arcd-text-primary)",fontSize:"var(--arcd-type-page-title)",lineHeight:1.1,marginTop:4}}>{fmt(v)}</p>
-            <span className="dre-kpi-footer"><span>{s}</span><b>Ver movimentos <Ic n="arrowRight" s={12}/></b></span>
+            <span className="dre-kpi-footer"><span>{s}</span><b>Ver movimentos <span aria-hidden="true">→</span></b></span>
           </button>
         ))}
       </div>
@@ -5093,7 +5093,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
     concluidas: obrasComando.filter(o => o.status === "done").length,
   };
   const categoriasObras = [
-    ["todas","Todas"], ["atencao","Requer atenção"], ["planejamento","Planejamento"],
+    ["todas","Todas"], ["atencao","Cadastro com pendência"], ["planejamento","Planejamento"],
     ["execucao","Em execução"], ["prazo","Prazo próximo"], ["concluidas","Concluídas"],
   ];
   const correspondeCategoria = o => categoria === "todas"
@@ -5105,8 +5105,9 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
   const termoBusca=search.toLocaleLowerCase("pt-BR");
   const list = obrasComando.filter(o => correspondeCategoria(o) && [o.name,o.cliente,o.address,o.engineer,o._fase?.nome].some(v=>String(v||"").toLocaleLowerCase("pt-BR").includes(termoBusca)));
   const resumoOperacional = contagensObras.atencao
-    ? `${contagensObras.atencao} ${contagensObras.atencao === 1 ? "obra precisa" : "obras precisam"} de decisão agora`
-    : "Portfólio em dia, sem alertas críticos";
+    // Aqui é cadastro (dados faltando), não a situação de custo e prazo do Dashboard: nome próprio para não parecer contradição.
+    ? `${contagensObras.atencao} ${contagensObras.atencao === 1 ? "obra com cadastro" : "obras com cadastro"} a completar`
+    : "Cadastros das obras completos";
 
   return (
     <div className="anim works-hub" style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
@@ -5117,7 +5118,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
         alert={{tone:contagensObras.atencao?"warning":"success",text:resumoOperacional}}
         stats={[
           {label:"Obras ativas",value:obrasComando.filter(o=>o.status==="active").length,detail:"Em operação"},
-          {label:"Requer atenção",value:contagensObras.atencao,detail:"Dados e prazos",color:contagensObras.atencao?C.red:undefined},
+          {label:"Cadastro com pendência",value:contagensObras.atencao,detail:"Dados da obra a completar",color:contagensObras.atencao?C.orange:undefined},
           {label:"Prazo ≤ 30 dias",value:contagensObras.prazo,detail:"Janela crítica",color:contagensObras.prazo?C.orange:undefined},
           {label:"Carteira ativa",value:fmt(totalCarteira),detail:"Valor contratado"},
         ]}
@@ -14438,7 +14439,7 @@ export default function App() {
                 padding:sidebarCompacta ? "8px" : "8px 10px", cursor:"pointer", color:C.muted }}
                 title={sidebarCompacta ? "Buscar (Ctrl + K)" : undefined}
                 aria-label={sidebarCompacta?"Buscar no sistema":undefined}>
-                <Ic n="funnel" s={14} color={C.muted}/>
+                <Ic n="search" s={14} color={C.muted}/>
                 {!sidebarCompacta && <span style={{ fontSize:"var(--arcd-type-body)", flex:1, textAlign:"left" }}>Buscar no sistema</span>}
                 {!sidebarCompacta && <span aria-hidden="true" style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, border:`1px solid ${C.border}`, borderRadius:4, padding:"1px 5px" }}>⌘K</span>}
               </button>

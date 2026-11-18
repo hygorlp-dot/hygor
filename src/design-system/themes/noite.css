@@ -109,3 +109,9 @@ html[data-theme="noite"]{background:#070d18;color-scheme:dark}
 [data-theme="noite"] .arcd-mobile-bottom-nav__item[data-active="true"],[data-theme="noite"] .arcd-mobile-nav :is(.mobile-primary-nav,.mobile-subnav)>button[data-active="true"]{color:var(--arcd-text-primary) !important;background:var(--arcd-surface-muted) !important;box-shadow:inset 0 2px 0 var(--arcd-text-primary)}
 [data-theme="noite"] .works-category-tabs button[data-active="true"] span{color:var(--arcd-text-secondary) !important}
 [data-theme="noite"] .dre-kpi-footer svg{color:var(--arcd-text-secondary)}
+/* Rodada 7: aba ativa e item ativo da navegação são seleção, não ação: texto e filete claros.
+   Mesmos seletores do operating-contract.css, que usam a cor de ação (dourado aqui). */
+[data-theme="noite"] .arcd-main :is(.tab-row__tab[data-active="true"],.workflow-tabs>nav>button[aria-current="page"]),
+[data-theme="noite"] .workspace-navigation__desktop > nav > button[aria-current="page"]{color:var(--arcd-text-primary) !important;box-shadow:inset 0 -2px var(--arcd-text-primary) !important}
+[data-theme="noite"] .arcd-main .tab-row__tab[data-active="true"] *{color:inherit !important}
+[data-theme="noite"] .arcd-mobile-bottom-nav__item[data-active="true"] *{color:var(--arcd-text-primary) !important}
