@@ -480,7 +480,7 @@ test("comparativo por obra ordena por risco, abre a obra escolhida e explica a f
   await expect(table).toBeVisible();
   await expect(table.locator("tbody tr")).toHaveCount(2);
   await expect(table.locator("tfoot")).toContainText("Todas as obras (2)");
-  await expect(page.getByText("2 de 2 obra(s) sem orçamento de controle")).toBeVisible();
+  await expect(page.getByText("2 de 2 obras sem orçamento de controle")).toBeVisible();
 
   await page.getByRole("button",{name:"Abrir compras de Residencial Horizonte",exact:true}).click();
   await expect(page.locator(".purchase-context-bar").getByLabel("Obra",{exact:true})).toHaveValue("b");

@@ -1123,7 +1123,7 @@ canvas {
 .payroll-summary-strip__net small {
   font-size: var(--arcd-type-caption);
   line-height: 1.5;
-  color: color-mix(in srgb, var(--arcd-text-inverse) 80%, transparent);
+  color: var(--arcd-border-default);
 }
 
 .payroll-summary-strip__net strong {
@@ -6834,7 +6834,6 @@ body.no-scroll .arcd-mobile-nav { visibility:hidden; pointer-events:none; }
    alvos de registro com 24 px; linhas de texto corrido com no máximo ~72 caracteres. */
 .gav__titulo{margin:0;font-size:var(--arcd-type-card-title);font-weight:var(--arcd-font-weight-semibold);line-height:1.35}
 .payroll-section-heading h2{margin:0;font-size:var(--arcd-type-card-title);font-weight:var(--arcd-font-weight-semibold)}
-.gav-obra__nome{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mrc-record-action{min-height:24px}
 :is(.gav__legenda,.finance-today__results>p,.dre-period-note p,.workflow-description){max-width:72ch}
 .works-sync-error{display:flex;align-items:center;gap:var(--arcd-space-2);flex-wrap:wrap;padding:var(--arcd-space-2) var(--arcd-space-3);border:1px solid var(--arcd-danger-border);border-radius:var(--arcd-radius-lg);background:var(--arcd-danger-surface);color:var(--arcd-danger-text)}
@@ -6842,7 +6841,8 @@ body.no-scroll .arcd-mobile-nav { visibility:hidden; pointer-events:none; }
 /* Rodada 3: estado normal não é destaque. Nome de obra longo corta com reticências (seletor mais forte que o do tema). */
 .works-regular{background:transparent !important;border-color:var(--arcd-border-subtle) !important;color:var(--arcd-text-secondary) !important}
 .works-regular svg{color:var(--arcd-success-text)}
-.gav-obra .gav-obra__nome{display:block;width:100%;max-width:100%;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-height:24px}
+/* Reticências só no computador: no celular e com texto ampliado o nome quebra linha e aparece inteiro. */
+@media (min-width:691px){.gav-obra .gav-obra__nome{display:block;width:100%;max-width:100%;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-height:24px}}
 .gav-obra{min-width:0}
 /* Menu "⋯" dos cartões: a exclusão fica a um clique a mais, longe da ação principal. */
 .record-more{position:relative}
