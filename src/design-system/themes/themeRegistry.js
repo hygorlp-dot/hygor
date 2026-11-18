@@ -10,7 +10,7 @@ export const DISTANCE_VIEW_COLORS = Object.freeze({
 // Themes change semantic roles. Components never need to know a theme's ID.
 const shared = Object.freeze({
   ...foundationTokens,
-  "--arcd-font-sans":"'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif",
+  "--arcd-font-sans":"'Inter', 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif",
   "--arcd-nav-focus":"#235bb0",
   "--arcd-surface-card":"#ffffff", "--arcd-surface-elevated":"#ffffff",
   "--arcd-action-primary-text":"#ffffff", "--arcd-text-inverse":"#ffffff",
@@ -70,6 +70,19 @@ export const themeRegistry = Object.freeze({
     "--arcd-shell-toolbar-surface":"rgb(9 16 29 / 70%)",
     "--arcd-chart-1":"#b1c9ef", "--arcd-chart-2":"#7d8a9c", "--arcd-chart-3":"#e8ecf2",
     "--arcd-material-blur":"20px", "--arcd-material-fallback":"#0f1a2c", "--arcd-material-panel-surface":"rgb(15 24 40 / 94%)",
+  }),
+  cristal:theme("cristal","MARCELL Cristal","Fundo claro com leve gradiente da marca e caixas de vidro translúcidas.",{
+    "--arcd-surface-page":"#eef1f4", "--arcd-surface-card":"rgb(255 255 255 / 82%)", "--arcd-surface-elevated":"#ffffff",
+    "--arcd-surface-muted":"#e3e9ee", "--arcd-surface-subtle":"#f3f6f8", "--arcd-surface-inverse":"#142b3a", "--arcd-surface-overlay":"rgb(14 31 43 / 55%)",
+    "--arcd-text-primary":"#142b3a", "--arcd-text-secondary":"#33495a", "--arcd-text-muted":"#33495a",
+    "--arcd-border-subtle":"rgb(20 43 58 / 8%)", "--arcd-border-default":"rgb(20 43 58 / 14%)", "--arcd-border-strong":"#748895",
+    "--arcd-action-primary":"#1d4a63", "--arcd-action-primary-hover":"#163a4f", "--arcd-action-primary-active":"#102d3d",
+    "--arcd-action-primary-subtle":"#dbe8ef", "--arcd-focus-ring":"#1d5d7c", "--arcd-nav-focus":"#1d5d7c",
+    "--arcd-nav-surface":"#f7f9fb", "--arcd-nav-text":"#2c414e", "--arcd-nav-active-text":"#102d3d",
+    "--arcd-nav-active-surface":"#dbe8ef", "--arcd-nav-hover-surface":"#e9f0f4", "--arcd-nav-hover-text":"#142b3a",
+    "--arcd-nav-border":"rgb(20 43 58 / 12%)", "--arcd-nav-brand-text":"#142b3a",
+    "--arcd-radius-lg":".875rem", "--arcd-table-stripe-surface":"rgb(255 255 255 / 45%)",
+    "--arcd-material-blur":"18px", "--arcd-material-fallback":"#f3f6f8", "--arcd-material-panel-surface":"rgb(255 255 255 / 72%)",
   }),
   operacional:theme("operacional","MARCELL Operacional","Faixas claras, hierarquia de trabalho e ações em azul, com referência SAP.",{
     "--arcd-surface-page":"#f5f6f7", "--arcd-surface-muted":"#eaecee", "--arcd-surface-subtle":"#f5f6f7",

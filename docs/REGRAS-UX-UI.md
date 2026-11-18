@@ -64,7 +64,7 @@ diz como usá-los; o `DESIGN.md` guarda o histórico das decisões visuais.
 
 ## 6. Layout e tipografia
 
-1. **Escala de `foundations.js`.** Nada abaixo de 13 px (`--arcd-type-caption`); nada de tamanho em px solto.
+1. **Fonte Inter** (`--arcd-font-sans`), servida do próprio projeto. **Escala de `foundations.js`.** Nada abaixo de 13 px (`--arcd-type-caption`); nada de tamanho em px solto.
 2. **Texto corrido com até ~72 caracteres por linha.**
 3. **Abas numa linha só**, com rolagem lateral e borda esmaecida; nunca quebrando em duas linhas.
    No máximo dois níveis de navegação por tela (ex.: abas de fluxo + filtros do escopo).
@@ -74,8 +74,10 @@ diz como usá-los; o `DESIGN.md` guarda o histórico das decisões visuais.
 
 ## 7. Temas
 
-1. **Toda mudança visual é conferida no MARCELL Preciso e no MARCELL Noite**, em 1440 px e em 390 px.
-2. **No Noite, vidro só no cabeçalho e no menu lateral.** Tabelas, DRE, filas e cartões ficam em superfície quase opaca.
+1. **Toda mudança visual é conferida no MARCELL Preciso, no MARCELL Noite e no MARCELL Cristal**, em 1440 px e em 390 px.
+2. **Vidro (Noite e Cristal) só sobre o gradiente leve da marca**, nunca sobre foto ou forma colorida, e nunca vidro sobre vidro.
+   A receita fica em `src/design-system/themes/vidro-erp.css`; caixa nova de tela entra na lista dela. Sem desfoque
+   ou com "reduzir transparência", as caixas voltam a ser sólidas.
 3. **Impressão e PDF sempre claros.**
 4. **Correção que vale só para um tema vai no CSS do tema** (`[data-theme="noite"]`), nunca no componente.
 

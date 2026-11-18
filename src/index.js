@@ -12,6 +12,7 @@ import "./design-system/themes/marcell-workspaces.css";
 import "./design-system/themes/operating-contract.css";
 import "./design-system/patterns/kpi-strip.css";
 import "./design-system/themes/noite.css";
+import "./design-system/themes/vidro-erp.css";
 import "./design-system/themes/module-standard.css";
 import "./design-system/themes/material.css";
 
