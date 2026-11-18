@@ -27,8 +27,8 @@ test('terceiro dia sincronizado transfere lotação e preserva histórico e paga
  await page.goto('/',{waitUntil:'domcontentloaded'});await page.locator('#login-email').fill(user.email);await page.locator('#login-senha').fill('isolated');await page.getByRole('button',{name:'Acessar central MARCELL'}).click();await expect(page.locator('#login-email')).toHaveCount(0);
  const navigate=async term=>{await page.keyboard.press('Control+k');const search=page.getByPlaceholder('Buscar obra, lead, pedido, funcionário, tela...');await search.fill(term);await search.locator('xpath=../..').getByRole('button').filter({hasText:term}).first().click();};
  await navigate('Gestão do ponto');await page.getByRole('button',{name:'Sincronizar batidas do app',exact:true}).click();
- const modal=page.getByRole('dialog');await expect(modal).toContainText('1 dia(s) para sincronizar');
- await modal.getByRole('button',{name:'Sincronizar 1 dia(s) e proteger',exact:true}).click();await expect(modal.getByRole('status').filter({hasText:'1 dia(s) gravado(s)'})).toBeVisible();
+ const modal=page.getByRole('dialog');await expect(modal).toContainText('1 dia para sincronizar');
+ await modal.getByRole('button',{name:'Sincronizar 1 dia e proteger',exact:true}).click();await expect(modal.getByRole('status').filter({hasText:'1 dia gravado'})).toBeVisible();
  expect(data.employees[0]).toMatchObject({obra:'b',version:2});expect(data.changeLog).toContainEqual(expect.objectContaining({type:'transfer',automatic:true}));
  expect(JSON.stringify({events,payments:data.payments,oldDays:[data.attendance.e['2026-10-27'],data.attendance.e['2026-10-28']]})).toBe(originals);
  await modal.locator('.biometric-sync__actions').getByRole('button',{name:'Fechar',exact:true}).click();

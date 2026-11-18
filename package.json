@@ -36,7 +36,7 @@
     "start": "vite",
     "dev": "vite",
     "build": "vite build",
-    "lint": "node scripts/check-financial-boundaries.mjs && node scripts/check-undeclared-names.mjs && node scripts/check-ui-pitfalls.mjs && npm run design:check && npm run manual:check",
+    "lint": "node scripts/check-financial-boundaries.mjs && node scripts/check-undeclared-names.mjs && node scripts/check-ui-pitfalls.mjs && node scripts/check-ux-rules.mjs && npm run design:check && npm run manual:check",
     "design:check": "node scripts/check-design-system.mjs",
     "manual:generate": "node scripts/generate-app-manual.mjs",
     "manual:check": "node scripts/generate-app-manual.mjs --check",

@@ -1,3 +1,4 @@
+import { contar } from "../copy.js";
 import './work-queue-board.css';
 
 // Projection of the filtered list. Moving a card delegates to the domain form;
@@ -7,7 +8,7 @@ export function WorkQueueBoard({label, groups, itemKey, renderItem, onMove}) {
     {groups.map(group => <section key={group.id} className="mrc-work-board__column" aria-label={group.label}
       onDragOver={onMove ? event => event.preventDefault() : undefined}
       onDrop={onMove ? event => {event.preventDefault(); const key = event.dataTransfer.getData('text/marcell-record'); if(key) onMove(key, group.id);} : undefined}>
-      <header><h3>{group.label}</h3><p>{group.items.length} registro(s){group.summary ? ` · ${group.summary}` : ''}</p></header>
+      <header><h3>{group.label}</h3><p>{contar(group.items.length,"registro","registros")}{group.summary ? ` · ${group.summary}` : ''}</p></header>
       <ul>{group.items.map(item => <li key={itemKey(item)} data-record={itemKey(item)} draggable={Boolean(onMove)}
         onDragStart={onMove ? event => {event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('text/marcell-record',itemKey(item));} : undefined}>
         {renderItem(item)}

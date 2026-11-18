@@ -90,9 +90,9 @@ export const payrollClosingDivergences=(titles=[],rows=[])=>{
 export const payrollClosingBlockers=({pendencias=[],rows=[]}={})=>{
   const blockers=[];
   const semRegistro=pendencias.filter(item=>(item.semRegistro||[]).length>0);
-  if(semRegistro.length)blockers.push(`${semRegistro.length} funcionário(s) com dia sem registro de ponto.`);
+  if(semRegistro.length)blockers.push(`${semRegistro.length} ${semRegistro.length===1?"funcionário":"funcionários"} com dia sem registro de ponto.`);
   const semPix=rows.filter(row=>toCents(row.net)>0&&!String(row.pixKey||"").trim());
-  if(semPix.length)blockers.push(`${semPix.length} funcionário(s) com valor a receber e sem chave PIX.`);
+  if(semPix.length)blockers.push(`${semPix.length} ${semPix.length===1?"funcionário":"funcionários"} com valor a receber e sem chave PIX.`);
   return blockers;
 };
 

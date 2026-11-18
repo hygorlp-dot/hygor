@@ -43,6 +43,13 @@ de auditoria. Na dúvida entre seguir uma regra e terminar mais rápido, siga a 
 - Depois do merge: confirmar o status da Vercel no commit de merge e, quando houver dado envolvido, conferir no banco (leitura) que o efeito apareceu.
 - Falhas pré-existentes na `main` (hoje: `npm audit` e `expo-doctor` do app) são explicadas uma vez no PR, nunca escondidas.
 
-## 6. Relato
+## 6. Interface (UX/UI)
+
+- Toda tela nova ou alterada segue `docs/REGRAS-UX-UI.md`. As mais esquecidas: cor só por token de tema (nada de hex), cor só para desvio, `contar()` no plural (nunca "(s)"), percentual com vírgula, uma ação principal por tela, excluir no menu "⋯", faixa única de indicadores (`kpi-strip.css`).
+- Mudança visual é conferida nos temas MARCELL Preciso e MARCELL Noite, em 1440 px e 390 px; impressão e PDF ficam claros.
+- `npm run lint` roda `scripts/check-ux-rules.mjs`, que barra aumento de cor fixa, "(s)" e `toFixed()%`. Se a contagem cair, rode `node scripts/check-ux-rules.mjs --update`.
+- Telas alteradas passam pela crítica do Impeccable; a nota não pode cair e vai registrada no PR, com capturas antes e depois nos dois temas.
+
+## 7. Relato
 
 - Responder em português, com o que foi feito, o que foi verificado e o que ficou pendente. Não afirmar que algo funciona sem teste ou dado que mostre.

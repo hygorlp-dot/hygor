@@ -1,3 +1,4 @@
+import { contar } from "../../../design-system/copy.js";
 import { useEffect, useState } from "react";
 import { LoadingState, Badge, Btn, Ic } from "../../../legacy/ui.jsx";
 import { C } from "../../../legacy/palette.js";
@@ -151,7 +152,7 @@ export default function FinanceiroCanonicoAdmin({currentUser}){
         {relatorio.bankDivergences.slice(0,20).map((item,index)=><p key={index} style={{fontSize:"var(--arcd-type-caption)",color:C.text}}>
           {item.code||"divergência"} · <code>{item.legacyId||"sem id"}</code>{item.fields?.length?` · ${item.fields.join(", ")}`:""}
         </p>)}
-        {relatorio.bankDivergences.length>20&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>+ {relatorio.bankDivergences.length-20} divergência(s) omitida(s) nesta visualização.</p>}
+        {relatorio.bankDivergences.length>20&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>+ {contar(relatorio.bankDivergences.length-20,"divergência omitida","divergências omitidas")} nesta visualização.</p>}
       </div>
     </div>}
     {!!relatorio?.staleLegacyLinks?.length&&<div style={{...card,borderColor:C.red+"44"}}>
@@ -160,7 +161,7 @@ export default function FinanceiroCanonicoAdmin({currentUser}){
         {relatorio.staleLegacyLinks.slice(0,20).map((item,index)=><p key={index} style={{fontSize:"var(--arcd-type-caption)",color:C.text}}>
           {item.legacyType||"fato"} · <code>{item.legacyId||"sem id"}</code>
         </p>)}
-        {relatorio.staleLegacyLinks.length>20&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>+ {relatorio.staleLegacyLinks.length-20} vínculo(s) omitido(s) nesta visualização.</p>}
+        {relatorio.staleLegacyLinks.length>20&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>+ {contar(relatorio.staleLegacyLinks.length-20,"vínculo omitido","vínculos omitidos")} nesta visualização.</p>}
       </div>
     </div>}
 
@@ -170,7 +171,7 @@ export default function FinanceiroCanonicoAdmin({currentUser}){
         {relatorio.missingLegacyLinks.slice(0,20).map((item,index)=><p key={index} style={{fontSize:"var(--arcd-type-caption)",color:C.text}}>
           {item.legacyType||"fato"} · <code>{item.legacyId||"sem id"}</code>
         </p>)}
-        {relatorio.missingLegacyLinks.length>20&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>+ {relatorio.missingLegacyLinks.length-20} vínculo(s) omitido(s) nesta visualização.</p>}
+        {relatorio.missingLegacyLinks.length>20&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>+ {contar(relatorio.missingLegacyLinks.length-20,"vínculo omitido","vínculos omitidos")} nesta visualização.</p>}
       </div>
     </div>}
 

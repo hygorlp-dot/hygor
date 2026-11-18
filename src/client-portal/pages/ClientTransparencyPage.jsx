@@ -1,3 +1,4 @@
+import { contar } from "../../design-system/copy.js";
 import { useMemo, useState } from "react";
 import "../styles/portal.css";
 import {PageHeader} from "../../design-system/patterns/PageHeader.jsx";
@@ -63,8 +64,8 @@ function PurchaseSection({ data }) {
 function QuotationSection({ data }) {
   const quotations=data.quotations || [];
   return <section className="arcd-client-section"><h2>Cotações</h2>{quotations.length ? <div className="arcd-client-stack">{quotations.map(quotation=><details className="arcd-client-disclosure" key={quotation.id}>
-    <summary><div><b>{quotation.material || "Cotação"}</b><span>{quotation.quantity} {quotation.unit} | {statusLabel(quotation.status)}</span></div><strong>{quotation.proposals?.length || 0} proposta(s)</strong></summary>
-    <div className="arcd-client-disclosure__body"><div className="arcd-client-compact-list">{(quotation.proposals || []).map((proposal,index)=><div data-selected={proposal.selected} key={`${quotation.id}-${index}`}><span><b>{proposal.supplierName}</b><small>Prazo {proposal.leadTimeDays || 0} dia(s){proposal.selected ? " | proposta selecionada" : ""}</small></span><strong>{currency(proposal.total)}</strong></div>)}</div></div>
+    <summary><div><b>{quotation.material || "Cotação"}</b><span>{quotation.quantity} {quotation.unit} | {statusLabel(quotation.status)}</span></div><strong>{contar(quotation.proposals?.length || 0,"proposta","propostas")}</strong></summary>
+    <div className="arcd-client-disclosure__body"><div className="arcd-client-compact-list">{(quotation.proposals || []).map((proposal,index)=><div data-selected={proposal.selected} key={`${quotation.id}-${index}`}><span><b>{proposal.supplierName}</b><small>Prazo {contar(proposal.leadTimeDays || 0,"dia","dias")}{proposal.selected ? " | proposta selecionada" : ""}</small></span><strong>{currency(proposal.total)}</strong></div>)}</div></div>
   </details>)}</div> : <Empty>Nenhuma cotação foi compartilhada.</Empty>}</section>;
 }
 

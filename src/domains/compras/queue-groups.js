@@ -44,7 +44,7 @@ export const mensagemCobrancaFornecedor = ({ empresa, fornecedorNome, pedidos })
   const blocos = (pedidos || []).map(pedido => {
     const itens = (pedido.itens || []).map(item => `  - ${item.descricao}: falta ${item.falta}${item.unidade ? ` ${item.unidade}` : ""}`).join("\n");
     const obra = pedido.obra ? ` (obra ${pedido.obra})` : "";
-    return `Pedido ${pedido.numero}${obra}: entrega combinada para ${pedido.previsao}, ${pedido.diasAtraso} dia(s) de atraso.${itens ? `\n${itens}` : ""}`;
+    return `Pedido ${pedido.numero}${obra}: entrega combinada para ${pedido.previsao}, ${pedido.diasAtraso} ${pedido.diasAtraso===1?"dia":"dias"} de atraso.${itens ? `\n${itens}` : ""}`;
   }).join("\n\n");
   const ass = empresa ? `\n\nObrigado!\n${empresa}` : "\n\nObrigado!";
   return `${saudacao}\n\nEstou acompanhando ${pedidos.length === 1 ? "um pedido atrasado" : `${pedidos.length} pedidos atrasados`} com voces:\n\n${blocos}`

@@ -15,7 +15,8 @@ function Etapas({linha}){
   if(!linha.etapas.length)return <span className="gav-vazio">Sem cronograma</span>;
   return <div className="gav-etapas">
     <div className="gav-etapas__trilho" aria-hidden="true">{linha.etapas.map(e=><span key={e.id} className={`gav-etapas__passo is-${e.estado}`} style={{flexGrow:e.peso}} title={e.nome}/>)}</div>
-    <span className="gav-etapas__nome">{linha.etapaAtual}</span>
+    {/* Barra sozinha não diz quanto falta: o avanço físico vai escrito ao lado da etapa. */}
+    <span className="gav-etapas__nome">{linha.etapaAtual}{linha.avanco!==null&&linha.avanco!==undefined?` · ${pct(linha.avanco)}`:""}</span>
   </div>;
 }
 
@@ -55,22 +56,22 @@ export default function GestaoAVistaObras({resumo,hoje,onAbrirObra,custoStatus="
   return <section className="gav" aria-labelledby="gav-titulo">
     <header className="gav__topo">
       <div>
-        <h3 id="gav-titulo" className="gav__titulo">Suas obras hoje</h3>
+        <h2 id="gav-titulo" className="gav__titulo">Suas obras hoje</h2>
         <p className="gav__sub">{dataBr(hoje)} · {contar(resumo.equipeHoje,"pessoa","pessoas")} em campo{custoStatus==="ok"&&resumo.custoAte?` · custo até ${resumo.custoAte.split("-").reverse().join("/")}`:""}</p>
       </div>
       <div className="gav-placar" role="group" aria-label="Filtrar obras por situação">
-        {ORDEM.map(s=><button key={s} type="button" className={`gav-placar__item is-${s}`} aria-pressed={filtro===s} onClick={()=>setFiltro(f=>f===s?null:s)}>
+        {ORDEM.map(s=><button key={s} type="button" className={`gav-placar__item is-${s}`} data-zero={resumo.contagem[s]===0||undefined} aria-pressed={filtro===s} onClick={()=>setFiltro(f=>f===s?null:s)}>
           <b>{resumo.contagem[s]}</b><span>{SITUACOES[s]}</span>
         </button>)}
       </div>
     </header>
     {!resumo.linhas.length?<p className="gav-vazio gav__nada">Nenhuma obra ativa.</p>:<div className="gav-lista" role="table" aria-label="Situação das obras ativas">
       <div className="gav-linha gav-linha--cabecalho" role="row">
-        {["Obra","Situação","Etapa","Equipe hoje","Custo × avanço","Entrega"].map(t=><span key={t} role="columnheader">{t}</span>)}
+        {["Obra","Situação","Etapa","Equipe hoje","Custo vs. avanço físico","Entrega"].map(t=><span key={t} role="columnheader">{t}</span>)}
       </div>
       {linhas.map(l=><div key={l.id} className="gav-linha" role="row">
         <span role="cell" className="gav-obra">
-          <button type="button" className="gav-obra__nome" onClick={()=>onAbrirObra?.(l.id)}>{l.nome}</button>
+          <button type="button" className="gav-obra__nome" title={l.nome} onClick={()=>onAbrirObra?.(l.id)}>{l.nome}</button>
           <span className="gav-obra__motivo">{l.motivo}</span>
         </span>
         <span role="cell"><span className={`gav-chip is-${l.situacao}`}><Ic n={ICONE[l.situacao]} s={12}/>{SITUACOES[l.situacao]}</span></span>

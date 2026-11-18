@@ -1,3 +1,4 @@
+import { contar } from "../../../design-system/copy.js";
 import { ArrowRight } from "lucide-react";
 import { Button } from "../../../design-system/primitives/Button";
 import "./purchases-by-work.css";
@@ -34,7 +35,7 @@ export function PurchasesByWork({ model, onOpenWork, titulo = "Compras por obra"
     <header>
       <div><h4>{titulo}</h4>
         <p>{legenda || "Ordenado por risco: orçamento estourado, entrega atrasada e perto do limite primeiro."}</p></div>
-      {totais.semControle > 0 && <span className="purchase-by-work__note">{totais.semControle} de {totais.obras} obra(s) sem orçamento de controle</span>}
+      {totais.semControle > 0 && <span className="purchase-by-work__note">{totais.semControle} de {contar(totais.obras,"obra","obras")} sem orçamento de controle</span>}
     </header>
     <div className="purchase-table-scroll" tabIndex={0} role="region" aria-label={`${titulo}: tabela comparativa`}>
       <table className="purchase-work-table">

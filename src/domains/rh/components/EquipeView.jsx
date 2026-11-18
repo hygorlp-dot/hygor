@@ -1,3 +1,4 @@
+import { contar } from "../../../design-system/copy.js";
 import {Badge as StatusBadge} from '../../../design-system/primitives/Badge.jsx';
 import {sessionContext} from '../../../lib/session-context.js';
 import {SelectControl} from '../../../design-system/primitives/Select.jsx';
@@ -357,7 +358,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
     }
     setAdvModal(null);
     setAdvForm({amount:"",description:"",date:today(),installmentCount:"1",frequency:"quinzenal",firstDueDate:today()});
-    showToast(`Adiantamento registrado em ${installmentCount} parcela(s).`);
+    showToast(`Adiantamento registrado em ${contar(installmentCount,"parcela","parcelas")}.`);
   };
 
   const removeAdv = advance => { setAdvCancelModal(advance); setAdvCancelReason(""); };
@@ -603,7 +604,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
             ]}/>
             <Inp label={dismissalForm.reason==="outro"?"Observações *":"Observações"} value={dismissalForm.notes} onChange={value=>setDismissalForm(form=>({...form,notes:value}))} multiline placeholder="Aviso-prévio, documentos pendentes ou referência interna"/>
             {openAdvanceTotal>0&&<div style={{border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 40%, transparent)",background:"color-mix(in srgb, var(--arcd-warning-text) 4%, transparent)",padding:"var(--arcd-space-2)",borderRadius:7}}>
-              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-warning-text)"}}>Atenção: existem {openAdvances.length} adiantamento(s), totalizando {fmt(openAdvanceTotal)}.</p>
+              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-warning-text)"}}>Atenção: existem {contar(openAdvances.length,"adiantamento","adiantamentos")}, totalizando {fmt(openAdvanceTotal)}.</p>
               <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Os lançamentos serão preservados para conferência no acerto da rescisão.</p>{onTab&&<Btn v="ghost" size="sm" onClick={()=>{setDismissalModal(null);onTab("resc");}}>Ir para Rescisões</Btn>}
             </div>}
             <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)"}}>A data informada é inclusiva. O funcionário permanece na folha e no ponto até o último dia trabalhado e sai a partir do dia seguinte. Datas futuras ficam agendadas. Todo o histórico é preservado.</p>

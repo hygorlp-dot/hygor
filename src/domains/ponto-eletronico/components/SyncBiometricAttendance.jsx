@@ -1,3 +1,4 @@
+import { contar } from "../../../design-system/copy.js";
 import {useState} from 'react';
 import {Modal} from "../../../legacy/ui.jsx";
 import {chamarPontoEletronico} from '../../../api';
@@ -28,25 +29,25 @@ export function SyncBiometricAttendance({days,selectedObraId='all',laborArea='al
         items:ready.slice(0,500).map(({employeeId,date,sourceSignature,expectedRecord,scheduleSignature})=>({employeeId,date,sourceSignature,expectedRecord,scheduleSignature}))});
       if(!result?.ok)throw new Error(result?.reason||'A sincronização não foi confirmada. Atualize a consulta antes de tentar novamente.');
       const count=result.result?.attendance?.length||ready.slice(0,500).length;
-      setDone(count);showToast(`${count} dia(s) sincronizado(s) e protegido(s).`);
+      setDone(count);showToast(`${contar(count,"dia sincronizado","dias sincronizados")} e protegido(s).`);
       const refreshed=await chamarPontoEletronico('attendance-preview-punches',range);
       if(!refreshed.ok)throw new Error('O lote foi gravado, mas a consulta não atualizou. Feche e consulte novamente.');
       setItems(refreshed.items||[]);
     }catch(e){setError(e.message);}finally{setSaving(false);}
   }
-  const actions=<div className="biometric-sync__actions"><Button type="button" disabled={saving||!ready.length||!!error} onClick={sync}>{saving?'Sincronizando…':`Sincronizar ${Math.min(500,ready.length)} dia(s) e proteger`}</Button>
+  const actions=<div className="biometric-sync__actions"><Button type="button" disabled={saving||!ready.length||!!error} onClick={sync}>{saving?'Sincronizando…':`Sincronizar ${contar(Math.min(500,ready.length),"dia","dias")} e proteger`}</Button>
     <Button type="button" variant="outline" disabled={saving||busy} onClick={load}>Atualizar consulta</Button>
     <Button type="button" variant="ghost" disabled={saving} onClick={()=>setItems(null)}>Fechar</Button></div>;
   return <>
     <Button type="button" variant="outline" size="sm" disabled={busy} onClick={load}>{busy?'Consultando batidas…':'Sincronizar batidas do app'}</Button>
     {items!==null&&<Modal title="Sincronizar batidas biométricas" onClose={()=>{if(!saving)setItems(null);}} wide panelClass="biometric-sync-modal" footer={actions}>
       <div className="biometric-sync">
-        <p>{range.startsOn} a {range.endsOn} · {works.length} obra(s) com registros recebidos</p>
+        <p>{range.startsOn} a {range.endsOn} · {contar(works.length,"obra","obras")} com registros recebidos</p>
         <Alert role="note"><AlertDescription>Batidas biométricas válidas substituirão os registros manuais. A engenharia não poderá alterá-los; ajustes posteriores exigem conferência do RH.</AlertDescription></Alert>
         <p>Inclui as batidas recebidas de todos os funcionários do recorte de área e obra, independentemente da busca na grade.</p>
         {error&&<p role="alert">{error}</p>}
-        {done>0&&<p role="status">{done} dia(s) gravado(s). Os registros anteriores permanecem na auditoria.</p>}
-        <p>{ready.length} dia(s) para sincronizar · {(items||[]).filter(i=>i.state==='pending').length} pendência(s) · {(items||[]).filter(i=>i.state==='synced').length} já sincronizado(s)</p>
+        {done>0&&<p role="status">{contar(done,"dia gravado","dias gravados")}. Os registros anteriores permanecem na auditoria.</p>}
+        <p>{contar(ready.length,"dia","dias")} para sincronizar · {(items||[]).filter(i=>i.state==='pending').length} pendência(s) · {(items||[]).filter(i=>i.state==='synced').length} já sincronizado(s)</p>
         {!items.length&&!error&&<p>Nenhuma batida recebida neste período e recorte de obra.</p>}
         <div className="biometric-sync__list">{works.map(obraId=><section key={obraId||'unknown'} aria-label={obraName(obraId)||'Obra não identificada'}>
           <h3>{obraName(obraId)||'Obra não identificada'}</h3>

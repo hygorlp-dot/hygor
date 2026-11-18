@@ -1,3 +1,4 @@
+import { contar } from "../../design-system/copy.js";
 import {useMemo} from 'react';
 import {previewBankImport} from '../../domains/conciliacao/import-preview.js';
 import FinancialPreview from './FinancialPreview.jsx';
@@ -9,7 +10,7 @@ export default function BankImportPreview({data,prepared,onCancel,onConfirm,pend
   const rows=[...plan.rows.map(row=>({id:row.transaction.id,cells:[row.line,row.transaction.data,row.transaction.descricao,money(row.transaction.valor),row.duplicate?'Já existente ou repetida no arquivo — será ignorada':'Novo movimento bancário']})),...(prepared.invalid||[]).map((row,index)=>({id:`invalid-${index}`,cells:[row.linha||index+1,row.data||'Data inválida',row.descricao||'Sem descrição',String(row.valor),'Inválida — corrija o arquivo']}))];
   return <FinancialPreview description={`${prepared.statement.arquivo} · Conta: ${account?.nome||'Sem conta atribuída'} · ${prepared.statement.dataInicio} a ${prepared.statement.dataFim}`}
     columns={['Linha','Data','Descrição','Valor','Resultado']} rows={rows} error={prepared.error||plan.error} pending={pending} disabled={!plan.imported}
-    onCancel={onCancel} onConfirm={onConfirm} confirmLabel={`Importar ${plan.imported} novo(s) movimento(s)`}>
-    <p>{plan.imported} novo(s) · {plan.duplicates} duplicado(s). O servidor verifica duplicidades e pode conciliar correspondências exatas. Confira o resultado; movimentos utilizados ficam protegidos contra reversão da importação.</p>
+    onCancel={onCancel} onConfirm={onConfirm} confirmLabel={`Importar ${contar(plan.imported,"novo movimento","novos movimentos")}`}>
+    <p>{contar(plan.imported,"novo","novos")} · {contar(plan.duplicates,"duplicado","duplicados")}. O servidor verifica duplicidades e pode conciliar correspondências exatas. Confira o resultado; movimentos utilizados ficam protegidos contra reversão da importação.</p>
   </FinancialPreview>;
 }

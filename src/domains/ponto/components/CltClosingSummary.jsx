@@ -1,3 +1,4 @@
+import { contar } from "../../../design-system/copy.js";
 import {openReportPreview} from '../../../reports/report-preview.js';
 import {useMemo,useState} from 'react';
 import { Btn } from "../../../legacy/ui.jsx";
@@ -28,7 +29,7 @@ export function CltClosingSummary({data,competence,onSelect,showToast,dirty,curr
         });
         if(!response?.ok)throw Error(response?.reason||'Servidor não confirmou.');saved++;
       }catch(error){failed.push(`${item.employee.name}: ${error.message}`);}
-    }}finally{setPreparing(false);onBusy(false);setProgress(`${saved} rascunho(s) preparado(s). ${failed.length} pendência(s). ${failed.join(' ')}`);}
+    }}finally{setPreparing(false);onBusy(false);setProgress(`${contar(saved,"rascunho preparado","rascunhos preparados")}. ${contar(failed.length,"pendência","pendências")}. ${failed.join(' ')}`);}
   };
   return <details><summary>Fechamento do mês · {ready.length} de {reviews.length} holerites prontos</summary><p>Somente demonstrativos salvos, confirmados e sem divergências entram no lote. Alterações não salvas devem ser concluídas antes de imprimir. A aprovação não realiza pagamento nem transmite obrigações fiscais.</p><p>Proventos aprovados: {fmt(gross)} · Líquido aprovado: {fmt(net)} · {reviews.length-ready.length} com pendências.</p>
     <div className="provisions-table"><table><caption>Conferência da equipe · {competence}</caption><thead><tr><th>Funcionário</th><th>Situação</th><th>Eventos do ponto</th><th>Líquido</th><th>Ação</th></tr></thead><tbody>{reviews.map(r=><tr key={r.employee.id}><td>{r.employee.name}</td><td>{r.errors.length?r.errors.join(' '):'Pronto para impressão'}</td><td>{r.draft?.attendanceSource?(r.draft.attendanceSource.manualReason?'Ajuste justificado':'Ponto importado'):'Preenchimento manual / não preparado'}</td><td>{r.result?fmt(r.result.net):'Não apurado'}</td><td><Btn v="secondary" onClick={()=>onSelect(String(r.employee.id),competence)}>Revisar {r.employee.name}</Btn></td></tr>)}</tbody></table></div>

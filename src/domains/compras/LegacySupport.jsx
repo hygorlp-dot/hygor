@@ -1,3 +1,4 @@
+import { contar } from "../../design-system/copy.js";
 import {Input as StandardInput} from '../../components/ui/input.jsx';
 import {Button as StandardButton} from '../../components/ui/button.jsx';
 // Declarações extraídas literalmente da entrada legada; não importar LegacyApp aqui.
@@ -158,7 +159,7 @@ export const fornecedoresParaMateriais = (data, materialIds) => {
     const catsAtende = (forn.categorias || []).filter(c => catsNecessarias.includes(c));
     if (catsAtende.length) {
       score += catsAtende.length * 20;
-      motivos.push(`fornece ${catsAtende.length} categoria(s)`);
+      motivos.push(`fornece ${contar(catsAtende.length,"categoria","categorias")}`);
     }
     // Historico: ja recebi estes materiais deste fornecedor?
     let jaComprou = 0;
@@ -235,7 +236,7 @@ export const mensagemWhatsAppCobranca = ({ empresa, fornecedorNome, obraNome, nu
   }).join("\n");
   const obra = obraNome ? ` da obra ${obraNome}` : "";
   const ass = empresa ? `\n\nObrigado!\n${empresa}` : "\n\nObrigado!";
-  return `${saudacao}\n\nEstou acompanhando o pedido ${numero}${obra}, que tinha entrega combinada para ${previsao} - ja se passaram ${diasAtraso} dia(s).`
+  return `${saudacao}\n\nEstou acompanhando o pedido ${numero}${obra}, que tinha entrega combinada para ${previsao} - ja se passaram ${contar(diasAtraso,"dia","dias")}.`
        + `\n\nAinda falta chegar:\n\n${linhas}`
        + `\n\nPreciso desses materiais para nao parar a frente de servico. Consegue me confirmar hoje a nova data de entrega?${ass}`;
 };

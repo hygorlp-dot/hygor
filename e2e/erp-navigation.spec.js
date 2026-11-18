@@ -68,8 +68,8 @@ test("identidade MARCELL carrega as fontes locais e a marca oficial no acesso",a
   await expect(signature).toHaveAttribute("src","/brand/marcell/full-ouro.svg");
   await expect(page.getByRole("button",{name:"Acessar central MARCELL"})).toBeVisible();
   await page.evaluate(()=>document.fonts.ready);
-  expect(await page.evaluate(()=>[...document.fonts].filter(font=>font.family.includes("IBM Plex Sans")&&font.status==="loaded").length)).toBeGreaterThan(0);
-  await expect(page.locator("#login-email")).toHaveCSS("font-family",/IBM Plex Sans/);
+  expect(await page.evaluate(()=>[...document.fonts].filter(font=>font.family.includes("Inter")&&font.status==="loaded").length)).toBeGreaterThan(0);
+  await expect(page.locator("#login-email")).toHaveCSS("font-family",/Inter/);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)).toBe(false);
 });
 
@@ -118,7 +118,7 @@ test("tipografia mantém hierarquia em páginas, campos e modais",async({page})=
   const supplierFields=page.locator("main input:visible");
   expect(await supplierFields.count()).toBeGreaterThan(0);
   for(const field of await supplierFields.all()){
-    await expect(field).toHaveCSS("font-family",/IBM Plex Sans/);
+    await expect(field).toHaveCSS("font-family",/Inter/);
     await expect(field).toHaveCSS("font-size",touch?"16px":"14px");
   }
   await open("Obras");
@@ -138,13 +138,13 @@ test("tipografia mantém hierarquia em páginas, campos e modais",async({page})=
   expect(noticeBounds.y+noticeBounds.height).toBeLessThanOrEqual(firstFieldBounds.y);
 
   for(const field of await dialog.locator('input:not([type="checkbox"]):not([type="radio"]):visible,select:visible,textarea:visible').all()){
-    await expect(field).toHaveCSS("font-family",/IBM Plex Sans/);
+    await expect(field).toHaveCSS("font-family",/Inter/);
     await expect(field).toHaveCSS("font-size",touch?"16px":"14px");
   }
   await page.keyboard.press("Escape");
   await open("Folha");
   await expect(page.locator(".payroll-summary-strip__net small")).toHaveCSS("font-size","13px");
-  await expect(page.locator(".payroll-summary-strip__net strong")).toHaveCSS("font-family",/IBM Plex Sans/);
+  await expect(page.locator(".payroll-summary-strip__net strong")).toHaveCSS("font-family",/Inter/);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)).toBe(false);
   await open("Ajustes");
   await page.evaluate(()=>document.documentElement.style.fontSize="200%");

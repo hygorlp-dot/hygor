@@ -1,3 +1,4 @@
+import { contar } from "../../../design-system/copy.js";
 // ===================================================================
 // BasesPrecoAdmin — cadastro/gestão das bases de preço SINAPI e ORSE,
 // exclusivo do administrador. Antes vivia dentro da tela de Orçamento
@@ -236,7 +237,7 @@ export default function BasesPrecoAdmin({ currentUser, data, update }) {
       .sort((a, b) => Number(b.total || 0) - Number(a.total || 0) || String(b.criadoEm || "").localeCompare(String(a.criadoEm || "")));
     const substituta = equivalentes[0] || null;
     const avisoVinculo = orcamentosVinculados
-      ? substituta ? ` Ela será substituída pela cópia equivalente em ${orcamentosVinculados} orçamento(s).` : ` Ela será desvinculada de ${orcamentosVinculados} orçamento(s), que ficarão sem essa fonte de preço.`
+      ? substituta ? ` Ela será substituída pela cópia equivalente em ${contar(orcamentosVinculados,"orçamento","orçamentos")}.` : ` Ela será desvinculada de ${contar(orcamentosVinculados,"orçamento","orçamentos")}, que ficarão sem essa fonte de preço.`
       : "";
     if (!window.confirm(`Excluir definitivamente a base ${base.fonte} ${base.dataBase}${base.uf ? ` · ${base.uf}` : ""}?${avisoVinculo}`)) return;
 
@@ -342,7 +343,7 @@ export default function BasesPrecoAdmin({ currentUser, data, update }) {
 
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 14 }}>
         <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.text, marginBottom: 8 }}>
-          Bases cadastradas · {bases.length} registro(s){duplicadas ? ` · ${duplicadas} repetição(ões)` : ""}
+          Bases cadastradas · {contar(bases.length,"registro","registros")}{duplicadas ? ` · ${duplicadas} repetição(ões)` : ""}
         </p>
         {carregando ? <LoadingState label="bases de preços"/>
           : bases.length === 0 ? <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>Nenhuma base cadastrada ainda.</p>

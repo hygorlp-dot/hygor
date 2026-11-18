@@ -87,7 +87,7 @@ export function PurchaseWorkspace({ model, area, filters, onFiltersChange, onOpe
     <div className="purchase-queue-panel">
 
       <div className="purchase-order-count-row">
-        <p className="purchase-result-count" role="status">{contar(rows.length,"registro","registros")}{filtered ? ` de ${source.length}` : ""}{moneyHint(resumoDaFila(rows).valor)} · {groups.length && layout==='table' ? `${groups.length} grupo(s), mais atrasados primeiro` : "prioridades por prazo"}</p>
+        <p className="purchase-result-count" role="status">{contar(rows.length,"registro","registros")}{filtered ? ` de ${source.length}` : ""}{moneyHint(resumoDaFila(rows).valor)} · {groups.length && layout==='table' ? `${contar(groups.length,"grupo","grupos")}, mais atrasados primeiro` : "prioridades por prazo"}</p>
         {filtered && <Button variant="ghost" size="sm" onClick={clear}>Limpar filtros</Button>}
       </div>
       {rows.length ? layout==='kanban'?<>
@@ -104,8 +104,8 @@ export function PurchaseWorkspace({ model, area, filters, onFiltersChange, onOpe
           const charge = group.atrasados > 0 && filters.group === "fornecedor" ? supplierChargeLink(group) : null;
           return <tbody key={group.chave} className="purchase-group" data-group={group.rotulo}>
             <tr className="purchase-group-row"><th colSpan={5} scope="rowgroup"><div>
-              <span><b>{group.rotulo}</b> · {group.quantidade} registro(s){moneyHint(group.valor)}
-                {group.atrasados > 0 && <span className="purchase-group-late"> · {group.atrasados} atrasado(s){moneyHint(group.valorAtrasado)}</span>}</span>
+              <span><b>{group.rotulo}</b> · {contar(group.quantidade,"registro","registros")}{moneyHint(group.valor)}
+                {group.atrasados > 0 && <span className="purchase-group-late"> · {contar(group.atrasados,"atrasado","atrasados")}{moneyHint(group.valorAtrasado)}</span>}</span>
               {charge && <a className="purchase-group-charge" href={charge} target="_blank" rel="noreferrer">
                 Cobrar {group.linhas.filter(linhaAtrasada).length === 1 ? "a entrega atrasada" : `as ${group.linhas.filter(linhaAtrasada).length} entregas atrasadas`}</a>}
             </div></th></tr>

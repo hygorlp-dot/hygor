@@ -1,3 +1,4 @@
+import { contar } from "../../../design-system/copy.js";
 import {SelectControl} from '../../../design-system/primitives/Select.jsx';
 import ForecastReviewHistory from '../../../features/financeiro/ForecastReviewHistory.jsx';
 import ForecastDuplicationWarnings from '../../../features/financeiro/ForecastDuplicationWarnings.jsx';
@@ -84,7 +85,7 @@ export function AditivosContrato({ obra, data={}, currentUser, dispatchCommand, 
     {aditivos.map(item => <div key={item.id} style={{ display:"flex", justifyContent:"space-between", gap:"var(--arcd-space-2)", flexWrap:"wrap", borderTop:"1px solid var(--arcd-border-default)", paddingTop:"var(--arcd-space-2)" }}>
       <div style={{ minWidth:0 }}>
         <p style={{ fontSize:"var(--arcd-type-label)", color:"var(--arcd-text-primary)" }}><b>Aditivo {item.numero}</b> · {item.descricao}</p>
-        <p style={{ fontSize:"var(--arcd-type-caption)", color:"var(--arcd-text-secondary)" }}>{fmt(item.valor)}{item.prazoDias ? ` · ${item.prazoDias > 0 ? "+" : ""}${item.prazoDias} dia(s)` : ""} · <span style={{ color:COR[item.status] }}>{ROTULO[item.status] || item.status}</span>{item.evidenciaDecisao ? ` · ${item.evidenciaDecisao}` : ""}</p>
+        <p style={{ fontSize:"var(--arcd-type-caption)", color:"var(--arcd-text-secondary)" }}>{fmt(item.valor)}{item.prazoDias ? ` · ${item.prazoDias > 0 ? "+" : ""}${contar(item.prazoDias,"dia","dias")}` : ""} · <span style={{ color:COR[item.status] }}>{ROTULO[item.status] || item.status}</span>{item.evidenciaDecisao ? ` · ${item.evidenciaDecisao}` : ""}</p>
         <p style={{color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-caption)"}}>Execução: {({planejada:"Planejada",em_andamento:"Em andamento",concluida:"Concluída"})[item.execucaoStatus]||"Planejada"} · {item.responsavel||"Sem responsável"} · Custo restante: {item.impactoCustoRestante==null?"A estimar":fmt(item.impactoCustoRestante)} · {({adicional:"Adicional na previsão",ja_incluido:"Já incluído na previsão",nao_incluir:"Fora da previsão"})[item.impactoNaPrevisao]||"Fora da previsão"}</p>
         {amendmentWarnings(item).map((w,i)=><p role="status" key={i} style={{color:"var(--arcd-warning-text)",fontSize:"var(--arcd-type-caption)"}}>{w.message}</p>)}
       </div>

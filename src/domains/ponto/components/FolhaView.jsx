@@ -15,6 +15,7 @@ import { DreIntegration, FlowTabs, useRememberWorkflowScope, useWorkflow } from 
 
 import { useEffect, useMemo, useState } from "react";
 import { Btn, Ic, Inp, Modal, PageHero, Sel } from "../../../legacy/ui.jsx";
+import { contar, contarDecimal } from "../../../design-system/copy.js";
 import { C } from "../../../legacy/palette.js";
 import { XLSX, carregarXLSX } from "../../../legacy/files.js";
 import { escapeHtml, fmt, fmtDate, fmtDateFull, fullMonth, today, uid } from "../../../legacy/format.js";
@@ -657,7 +658,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
               ${linhasFolha}
             </tbody>
             <tfoot>
-              <tr class="total"><td colspan="13">TOTAL - ${rows.length} funcionário(s)</td><td class="num">${escapeHtml(fmt(T.gross))}</td><td class="num">${escapeHtml(fmt(T.vt))}</td><td class="num">${escapeHtml(fmt(T.vr))}</td><td class="num">${escapeHtml(fmt(T.advances))}</td><td class="num">${escapeHtml(fmt(T.unionDue))}</td><td class="num">${escapeHtml(fmt(T.net))}</td></tr>
+              <tr class="total"><td colspan="13">TOTAL - ${contar(rows.length,"funcionário","funcionários")}</td><td class="num">${escapeHtml(fmt(T.gross))}</td><td class="num">${escapeHtml(fmt(T.vt))}</td><td class="num">${escapeHtml(fmt(T.vr))}</td><td class="num">${escapeHtml(fmt(T.advances))}</td><td class="num">${escapeHtml(fmt(T.unionDue))}</td><td class="num">${escapeHtml(fmt(T.net))}</td></tr>
             </tfoot>
           </table>
 
@@ -853,7 +854,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
     `FERIADOS PAGOS: ${T.feriadosPagos}`,
     `FERIADOS PERDIDOS: ${T.feriadosPerdidos}`,
     `VALOR TOTAL DE FERIADOS: ${fmt(T.holidayPay)}`,
-    `${rows.length} funcionário(s)`,
+    `${contar(rows.length,"funcionário","funcionários")}`,
     `Gerado em ${new Date().toLocaleDateString("pt-BR")}`,
   ].join("\n");
 
@@ -862,39 +863,41 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
 
   return (
     <div className="anim payroll-workspace">
-      {['payroll','union','clt'].includes(payrollView)&&<LaborAreaTabs value={laborGroup} onChange={changeLaborGroup}/>}
+      {payrollView==='clt'&&<LaborAreaTabs value={laborGroup} onChange={changeLaborGroup}/>}
       {(payrollView==="payroll"||payrollView==="union")&&<>      <PageHero
         eyebrow="Recursos humanos"
         title="Folha de Pagamento"
         description="Conferência quinzenal da equipe, dos apontamentos e do valor líquido por obra."
         alert={pendenciasRelatorio.length?{
           tone:"danger",
-          text:`${pendenciasRelatorio.length} funcionário(s) exigem conferência antes do fechamento`,
+          text:`${contar(pendenciasRelatorio.length,"funcionário exige","funcionários exigem")} conferência antes do fechamento`,
         }:{
           tone:"success",
           text:"Folha pronta para conferência e exportação",
         }}
         stats={[
-          {label:"Líquido a pagar",value:fmt(T.net),detail:`Após ${fmt(T.unionDue)} de sindicato`,color:C.yellow},
+          {label:"A conferir",value:pendenciasRelatorio.length,detail:closingBlockers.length?contar(closingBlockers.length,"bloqueio para fechar","bloqueios para fechar"):"Nada impede o fechamento",color:pendenciasRelatorio.length?C.red:undefined},
           {label:"Valor bruto",value:fmt(T.gross),detail:`VT + VR: ${fmt(T.vt+T.vr)}`},
           {label:"Funcionários",value:rows.length,detail:filterObra==="all"?"Todas as obras":obraName(filterObra)},
-          {label:"Pagamento",value:paymentDateLabel,detail:paymentObs,color:paymentInfo.adjusted?C.orange:C.green},
+          {label:"Pagamento",value:paymentDateLabel,detail:paymentObs,color:paymentInfo.adjusted?C.orange:undefined},
         ]}
-        actions={<>{canReview&&<Btn v="secondary" onClick={()=>changePayrollView('readiness')}>Organizar pendências do RH</Btn>}{pendenciasRelatorio.length>0&&<Btn v="warning" onClick={()=>onTab?.("ponto_geral")}><Ic n="alert"/> Revisar ponto</Btn>}</>}
+        actions={<>{/* O fechamento é a ação que encerra a tela: o topo leva até ele e diz o que falta. */}{canManageClosing&&!closedTitles.length&&<Btn v="primary" onClick={()=>document.getElementById('folha-fechamento')?.scrollIntoView({behavior:'smooth',block:'start'})}>{closingBlockers.length?`Ir ao fechamento · ${contar(closingBlockers.length,"bloqueio","bloqueios")}`:"Ir ao fechamento"}</Btn>}{canReview&&<Btn v="secondary" onClick={()=>changePayrollView('readiness')}>Organizar pendências do RH</Btn>}{pendenciasRelatorio.length>0&&<Btn v="warning" onClick={()=>onTab?.("ponto_geral")}><Ic n="alert"/> Revisar ponto</Btn>}</>}
       />
       <section className="payroll-controls" aria-label="Competência e escopo da folha">
         <div className="payroll-section-heading">
           <div>
-            <h3>Competência e escopo</h3>
+            <h2>Competência e escopo</h2>
             <p>{fmtDateFull(days[0])} a {fmtDateFull(days[days.length-1])}</p>
           </div>
           <span className="payroll-scope-chip">{reportScope}</span>
         </div>
+        {/* Grupo da equipe é parte do escopo da folha: fica junto de ano, ciclo e obra, não como mais uma linha de abas. */}
+        <LaborAreaTabs value={laborGroup} onChange={changeLaborGroup}/>
         <div className="payroll-filter-grid">
           <Sel label="Ano" value={String(year)} onChange={v => setYear(Number(v))} options={years} />
           <Sel label="Mês de referência" value={String(month)} onChange={v => setMonth(Number(v))} options={Array.from({ length: 12 }, (_, i) => ({ v: String(i), l: fullMonth(i) }))} />
           <Sel label="Ciclo da folha" value={q} onChange={setQ} options={[{ v: "1", l: "1ª quinzena · 06 a 20" }, { v: "2", l: "2ª quinzena · 21 a 05" }]} />
-          <Sel label="Obra" value={filterObra} onChange={setFilterObra} options={[{ v: "all", l: "Todas as obras" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]} />
+          <Sel label="Obra" description="Só nesta tela" value={filterObra} onChange={setFilterObra} options={[{ v: "all", l: "Todas as obras" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]} />
         </div>
       </section>
 
@@ -932,13 +935,13 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
           <div className="payroll-section-heading"><div><h3>Classificação das funções</h3><p>Cargos não classificados permanecem isentos para evitar desconto indevido.</p></div><span className="payroll-scope-chip">{roleCatalog.length} função(ões)</span></div>
           {roleCatalog.length===0?<div className="payroll-union__empty">Cadastre funcionários e suas funções para classificá-los.</div>:roleCatalog.map(role=>{
             const key=normalizeRoleKey(role);const count=(data.employees||[]).filter(e=>normalizeRoleKey(e.role)===key).length;
-            return <div className="payroll-union__role" key={key}><div><strong>{role}</strong><span>{count} funcionário(s)</span></div><SelectControl aria-label={`Classificação sindical de ${role}`} value={unionDraft.roleGroups[key]||UNION_DUE_GROUP.EXEMPT} onChange={e=>setUnionDraft(d=>({...d,roleGroups:{...d.roleGroups,[key]:e.target.value}}))}><option value={UNION_DUE_GROUP.PROFESSIONAL}>Profissional</option><option value={UNION_DUE_GROUP.HELPER}>Ajudante</option><option value={UNION_DUE_GROUP.EXEMPT}>Isento</option></SelectControl></div>;
+            return <div className="payroll-union__role" key={key}><div><strong>{role}</strong><span>{contar(count,"funcionário","funcionários")}</span></div><SelectControl aria-label={`Classificação sindical de ${role}`} value={unionDraft.roleGroups[key]||UNION_DUE_GROUP.EXEMPT} onChange={e=>setUnionDraft(d=>({...d,roleGroups:{...d.roleGroups,[key]:e.target.value}}))}><option value={UNION_DUE_GROUP.PROFESSIONAL}>Profissional</option><option value={UNION_DUE_GROUP.HELPER}>Ajudante</option><option value={UNION_DUE_GROUP.EXEMPT}>Isento</option></SelectControl></div>;
           })}
         </div>
         <div className="payroll-union__roles payroll-union__exemptions">
           <div className="payroll-section-heading">
             <div><h3>Isenções desta quinzena</h3><p>Marque quem não paga o sindicato só em {periodLabel}. Não muda a classificação do cargo - volta a valer normalmente na próxima quinzena.</p></div>
-            <span className="payroll-scope-chip">{(unionDraft.exemptionsByPeriod[unionPeriodKey]||[]).length} isento(s) aqui</span>
+            <span className="payroll-scope-chip">{contar((unionDraft.exemptionsByPeriod[unionPeriodKey]||[]).length,"isento","isentos")} aqui</span>
           </div>
           {employeesPayingUnionDueThisPeriod.length===0
             ?<div className="payroll-union__empty">Nenhum funcionário sujeito ao desconto nesta quinzena.</div>
@@ -950,16 +953,32 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
               </label>;
             })}
         </div>
-        <footer className="payroll-union__footer"><div><span>Prévia desta quinzena</span><strong>{fmt(unionSummary.total)}</strong><small>{unionSummary.professionals} profissional(is) · {unionSummary.helpers} ajudante(s)</small></div><Btn v="primary" disabled={savingUnion} onClick={saveUnionConfig}><Ic n="check"/>{savingUnion?" Salvando…":" Salvar regra sindical"}</Btn></footer>
+        <footer className="payroll-union__footer"><div><span>Prévia desta quinzena</span><strong>{fmt(unionSummary.total)}</strong><small>{unionSummary.professionals} profissional(is) · {contar(unionSummary.helpers,"ajudante","ajudantes")}</small></div><Btn v="primary" disabled={savingUnion} onClick={saveUnionConfig}><Ic n="check"/>{savingUnion?" Salvando…":" Salvar regra sindical"}</Btn></footer>
       </section>}
 
       {payrollView==="payroll"&&<>
 
 
 
+        <section id="folha-fechamento" className="payroll-checklist payroll-closing" aria-label="Fechamento da quinzena">
+        {closedTitles.length?<>
+          <h3>Quinzena fechada</h3>
+          <p>Fechamento da empresa (Todos). Inclui os dois grupos; exige Todos e Todas as obras.</p>
+          <p>{contar(closedTitles.length,"pagamento","pagamentos")} · {fmt(closedTotal)} · vencimento {fmtDateFull(closedTitles[0].vencimento)} · fechada por {closedTitles[0].fechadoFolhaPor||"—"} em {fmtDate(String(closedTitles[0].fechadoFolhaEm||"").slice(0,10))}.</p>
+          <p>Os pagamentos estão em contas a pagar e são baixados pela conciliação do extrato.</p>
+          {closingDivergences.length>0&&<p role="alert" style={{color:"var(--arcd-danger-text)"}}><Ic n="alert"/> O ponto mudou depois do fechamento para {contar(closingDivergences.length,"funcionário","funcionários")}. Reabra a quinzena para refazer os pagamentos.</p>}
+          {canManageClosing&&<Btn v="ghost" disabled={!isCompanyScope} onClick={()=>setClosingModal("reopen")}>Reabrir quinzena</Btn>}
+        </>:<>
+          <h3>Fechamento da quinzena</h3>
+          <p>Fechamento da empresa (Todos). Inclui os dois grupos; exige Todos e Todas as obras.</p>
+          <p>Fechar transforma o líquido de cada funcionário em um pagamento a fazer, dividido por obra, com vencimento em {paymentDateLabel}.</p>
+          {closingBlockers.map(reason=><p key={reason} style={{color:"var(--arcd-danger-text)"}}><Ic n="alert"/> {reason}</p>)}
+          {canManageClosing&&<Btn v="primary" disabled={closingBlockers.length>0||!rows.some(r=>r.net>0)} onClick={()=>setClosingModal("close")}><Ic n="check"/> Fechar quinzena</Btn>}
+        </>}
+      </section>
       <section className="payroll-summary-strip" aria-label="Composição do pagamento">
         <div><span>Dias + horas extras</span><strong>{fmt(T.gross-T.holidayPay)}</strong></div>
-        <div><span>Feriados</span><strong>{fmt(T.holidayPay)}</strong><small>{T.feriadosPagos} pago(s) · {T.feriadosPerdidos} perdido(s)</small></div>
+        <div><span>Feriados</span><strong>{fmt(T.holidayPay)}</strong><small>{contar(T.feriadosPagos,"pago","pagos")} · {contar(T.feriadosPerdidos,"perdido","perdidos")}</small></div>
         <div><span>Benefícios</span><strong>{fmt(T.vt+T.vr)}</strong><small>VT {fmt(T.vt)} · VR {fmt(T.vr)}</small></div>
         <div><span>Adiantamentos</span><strong data-tone={T.advances>0?"danger":"neutral"}>{T.advances>0?`− ${fmt(T.advances)}`:fmt(0)}</strong></div>
         <div><span>Sindicato</span><strong data-tone={T.unionDue>0?"danger":"neutral"}>{T.unionDue>0?`− ${fmt(T.unionDue)}`:fmt(0)}</strong><small>{filterObra==="all"?"A recolher pela construtora":"Desconto rateado nesta obra"}</small></div>
@@ -970,35 +989,19 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
 
       <section className="payroll-checklist" aria-label="Conferência da folha">
         <h3>{pendenciasRelatorio.length?"Pendências para conferir":"Conferência da quinzena"}</h3>
-        <p>{pendenciasRelatorio.length} funcionário(s) com pendência · {totalDiasSemRegistro} dia(s) sem registro · {totalSemPix} PIX ausente(s).</p>
+        <p>{contar(pendenciasRelatorio.length,"funcionário com pendência","funcionários com pendência")} · {contar(totalDiasSemRegistro,"dia sem registro","dias sem registro")} · {contar(totalSemPix,"PIX ausente","PIX ausentes")}.</p>
         <p>Abra cada funcionário abaixo para conferir a composição. Gerar o relatório não registra um pagamento.</p>
         {pendenciasRelatorio.length>0&&<Btn v="ghost" onClick={()=>onTab?.("ponto_geral")}>Abrir gestão do ponto</Btn>}
       </section>
-        <section className="payroll-checklist payroll-closing" aria-label="Fechamento da quinzena">
-          <p>Fechamento da empresa (Todos). Inclui os dois grupos; exige Todos e Todas as obras.</p>
-        {closedTitles.length?<>
-          <h3>Quinzena fechada</h3>
-          <p>{closedTitles.length} pagamento(s) · {fmt(closedTotal)} · vencimento {fmtDateFull(closedTitles[0].vencimento)} · fechada por {closedTitles[0].fechadoFolhaPor||"—"} em {fmtDate(String(closedTitles[0].fechadoFolhaEm||"").slice(0,10))}.</p>
-          <p>Os pagamentos estão em contas a pagar e são baixados pela conciliação do extrato.</p>
-          {closingDivergences.length>0&&<p role="alert" style={{color:"var(--arcd-danger-text)"}}><Ic n="alert"/> O ponto mudou depois do fechamento para {closingDivergences.length} funcionário(s). Reabra a quinzena para refazer os pagamentos.</p>}
-          {canManageClosing&&<Btn v="ghost" disabled={!isCompanyScope} onClick={()=>setClosingModal("reopen")}>Reabrir quinzena</Btn>}
-        </>:<>
-          <h3>Fechamento da quinzena</h3>
-          <p>Fechar transforma o líquido de cada funcionário em um pagamento a fazer, dividido por obra, com vencimento em {paymentDateLabel}.</p>
-          {closingBlockers.map(reason=><p key={reason} style={{color:"var(--arcd-danger-text)"}}><Ic n="alert"/> {reason}</p>)}
-          {canManageClosing&&<Btn v="primary" disabled={closingBlockers.length>0||!rows.some(r=>r.net>0)} onClick={()=>setClosingModal("close")}><Ic n="check"/> Fechar quinzena</Btn>}
-        </>}
-      </section>
       <div className="payroll-list-heading">
         <div><h3>Funcionários da quinzena</h3><p>Abra uma linha para conferir composição, obras e espelho diário.</p></div>
-        <span>{rows.length} registro(s)</span>
+        <span>{contar(rows.length,"registro","registros")}</span>
       </div>
 
       {rows.length === 0 && <div className="payroll-empty"><Ic n="users" s={22}/><strong>Nenhuma movimentação nesta quinzena</strong><p>Revise a competência ou abra a gestão do ponto para lançar as presenças.</p><Btn v="ghost" onClick={()=>onTab?.("ponto_geral")}>Abrir gestão do ponto</Btn></div>}
 
       {rows.map(r => {
         const v = valEfetivos(r);
-        const workedDays=(v.presentes+v.meiodia*0.5).toFixed(1).replace(".",",");
         const hasIssue=v.semRegistro>0||v.faltas>0;
         return (
         <article key={r.id} className="payroll-person" data-expanded={expandedId===r.id}>
@@ -1013,14 +1016,14 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
               <span className="payroll-person__chevron" aria-hidden="true"><Ic n="chevron" s={13}/></span>
               <div>
                 <p className="payroll-person__name">{r.name}</p>
-                <p className="payroll-person__work">{filterObra === "all" ? obraName(r.obra) : obraName(filterObra)} · {r.meiTotal>0&&!v.presentes&&!v.meiodia?`MEI · ${r.meiDays} dia(s) de contrato`:`${workedDays} dia(s) equivalente(s)`}</p>
+                <p className="payroll-person__work">{filterObra === "all" ? obraName(r.obra) : obraName(filterObra)} · {r.meiTotal>0&&!v.presentes&&!v.meiodia?`MEI · ${contar(r.meiDays,"dia","dias")} de contrato`:`${contarDecimal(v.presentes+v.meiodia*0.5,"dia equivalente","dias equivalentes")}`}</p>
               </div>
             </div>
             <div className="payroll-person__signals" aria-label="Resumo do ponto">
               {r.meiTotal>0&&<span data-tone="neutral">MEI · valor fixo</span>}
-              {(v.presentes>0||!r.meiTotal)&&<span data-tone="success">{v.presentes} presente(s)</span>}
-              {v.meiodia>0&&<span data-tone="warning">{v.meiodia} meio(s)</span>}
-              {v.faltas>0&&<span data-tone="danger">{v.faltas} falta(s)</span>}
+              {(v.presentes>0||!r.meiTotal)&&<span data-tone="success">{contar(v.presentes,"presente","presentes")}</span>}
+              {v.meiodia>0&&<span data-tone="warning">{contar(v.meiodia,"meio","meios")}</span>}
+              {v.faltas>0&&<span data-tone="danger">{contar(v.faltas,"falta","faltas")}</span>}
               {v.semRegistro>0&&<span data-tone="danger">{v.semRegistro} sem registro</span>}
               {!hasIssue&&!r.meiTotal&&<span data-tone="neutral">Ponto conferido</span>}
             </div>
@@ -1068,7 +1071,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
                   <div className="payroll-project-grid">
                     {r.obrasPorDia.filter(o => filterObra === "all" || o.obraId === filterObra).map(o => (
                       <div key={o.obraId || "sem-obra"} className="payroll-project-row">
-                        <div><strong>{o.obraName}</strong><span>{o.presentes} integral(is) + {o.meiodia} meio(s) · {o.faltas} falta(s)</span></div>
+                        <div><strong>{o.obraName}</strong><span>{o.presentes} integral(is) + {contar(o.meiodia,"meio","meios")} · {contar(o.faltas,"falta","faltas")}</span></div>
                         <b>{o.diasTrabalhados.toFixed(1).replace(".",",")} dia(s)</b>
                       </div>
                     ))}
@@ -1109,7 +1112,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
               <div>
                 <h3>Há informações pendentes nesta quinzena</h3>
                 <p>
-                  {pendenciasRelatorio.length} funcionário(s) para conferir · {totalDiasSemRegistro} dia(s) sem registro · {totalSemPix} PIX ausente(s).
+                  {contar(pendenciasRelatorio.length,"funcionário","funcionários")} para conferir · {contar(totalDiasSemRegistro,"dia","dias")} sem registro · {totalSemPix} PIX ausente(s).
                 </p>
                 <small>Sábados, domingos e feriados não são considerados ausência de registro.</small>
               </div>
@@ -1121,7 +1124,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
                   <strong>{p.nome}</strong>
                   {p.semRegistro.length > 0 && (
                     <p data-tone="danger">
-                      {p.nenhumRegistro ? "Nenhum ponto registrado" : `${p.semRegistro.length} dia(s) sem ponto`}: {p.semRegistro.slice(0,8).map(fmtDate).join(", ")}{p.semRegistro.length > 8 ? ` e mais ${p.semRegistro.length - 8}` : ""}
+                      {p.nenhumRegistro ? "Nenhum ponto registrado" : `${contar(p.semRegistro.length,"dia","dias")} sem ponto`}: {p.semRegistro.slice(0,8).map(fmtDate).join(", ")}{p.semRegistro.length > 8 ? ` e mais ${p.semRegistro.length - 8}` : ""}
                     </p>
                   )}
                   {p.campos.length > 0 && <p data-tone="warning">Dados faltando: {p.campos.join(", ")}.</p>}
@@ -1141,7 +1144,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       {closingModal==="close"&&(
         <Modal title={`Fechar ${periodLabel}`} onClose={()=>setClosingModal("")}>
           <div className="payroll-review">
-            <p>Serão criados <b>{rows.filter(r=>r.net>0).length} pagamento(s)</b>, total de <b>{fmt(T.net)}</b>, com vencimento em <b>{paymentDateLabel}</b>.</p>
+            <p>Serão criados <b>{contar(rows.filter(r=>r.net>0).length,"pagamento","pagamentos")}</b>, total de <b>{fmt(T.net)}</b>, com vencimento em <b>{paymentDateLabel}</b>.</p>
             <p>Construtora: {fmt(responsabilidadeFolha.totals.builder)} · Obras por administração: {fmt(responsabilidadeFolha.totals.administrationWorks)}.</p>
             <p className="payroll-review__help">Depois de fechada, a quinzena só muda reabrindo, com motivo, e só enquanto nenhum pagamento tiver sido conciliado.</p>
             <div className="payroll-review__actions">
@@ -1154,7 +1157,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       {closingModal==="reopen"&&(
         <Modal title={`Reabrir ${periodLabel}`} onClose={()=>setClosingModal("")}>
           <div className="payroll-review">
-            <p>Os {closedTitles.length} pagamento(s) em aberto desta quinzena serão cancelados. Feche de novo depois de corrigir o ponto.</p>
+            <p>Os {contar(closedTitles.length,"pagamento","pagamentos")} em aberto desta quinzena serão cancelados. Feche de novo depois de corrigir o ponto.</p>
             <Inp label="Motivo da reabertura" value={reopenReason} onChange={setReopenReason}/>
             <div className="payroll-review__actions">
               <Btn v="warning" disabled={savingClosing||!reopenReason.trim()} onClick={reopenFortnight}>{savingClosing?"Reabrindo…":"Reabrir quinzena"}</Btn>
@@ -1169,7 +1172,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
           <p>Os arquivos respeitam o grupo, a competência e a obra selecionados acima.</p>
         </div>
         <div className="payroll-actions">
-          <Btn v="primary" onClick={() => solicitarRelatorio("excel")}><Ic n="download" /> Exportar Excel</Btn>
+          <Btn v="secondary" onClick={() => solicitarRelatorio("excel")}><Ic n="download" /> Exportar Excel</Btn>
           <Btn v="ghost" onClick={() => solicitarRelatorio("pdf")}><Ic n="file" /> Gerar PDF</Btn>
           <Btn v="ghost" onClick={() => window.open(`mailto:${data.config.hrEmail || ""}?subject=${encodeURIComponent("Folha - " + periodLabel)}&body=${encodeURIComponent(buildText())}`)}><Ic n="mail" /> Enviar por e-mail</Btn>
           <Btn v="ghost" onClick={() => navigator.clipboard.writeText(buildText()).then(() => showToast("Resumo copiado.")).catch(() => showToast("Não foi possível copiar o resumo.", "error"))}><Ic n="copy" /> Copiar resumo</Btn>

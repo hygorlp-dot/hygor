@@ -1,3 +1,4 @@
+import { contar } from "../../design-system/copy.js";
 import { DreIntegration, useRememberWorkflowScope, useWorkflow } from "../../features/workflow/WorkflowNavigation.jsx";
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ArrowDown, ArrowUp, CheckCircle2, ChevronLeft, ChevronsUpDown, Info, RefreshCw, X } from "lucide-react";
@@ -249,11 +250,11 @@ export default function EquipmentBillingReports({
           <p className="bc-info"><Info size={14} aria-hidden="true" /> As faturas ainda não alimentam o DRE. Os valores abaixo representam o ciclo de cobrança, não a receita.</p>
           {billing.temDados
             ? <dl className="bc-terms">
-              <Term label="Faturado" value={formatMoney(billing.faturado)} note={`${billing.faturas} fatura(s) da competência`} />
+              <Term label="Faturado" value={formatMoney(billing.faturado)} note={`${contar(billing.faturas,"fatura","faturas")} da competência`} />
               <Term label="Recebido" value={formatMoney(billing.recebido)} note="recebimentos vinculados às faturas" />
-              <Term label="Faturas em aberto" value={formatMoney(billing.emAberto)} note={`${billing.faturasEmAberto} fatura(s)`} />
-              <Term label="Faturas vencidas" value={formatMoney(billing.vencido)} tone={billing.vencido > 0 ? "negative" : "neutral"} note={billing.faturasVencidas ? `${billing.faturasVencidas} fatura(s) após o vencimento` : "nenhuma"} />
-              <Term label="Medido, sem fatura" value={formatMoney(billing.medidoSemFatura)} note={`${billing.linhasSemFatura} linha(s) de cobrança`} />
+              <Term label="Faturas em aberto" value={formatMoney(billing.emAberto)} note={`${contar(billing.faturasEmAberto,"fatura","faturas")}`} />
+              <Term label="Faturas vencidas" value={formatMoney(billing.vencido)} tone={billing.vencido > 0 ? "negative" : "neutral"} note={billing.faturasVencidas ? `${contar(billing.faturasVencidas,"fatura","faturas")} após o vencimento` : "nenhuma"} />
+              <Term label="Medido, sem fatura" value={formatMoney(billing.medidoSemFatura)} note={`${contar(billing.linhasSemFatura,"linha","linhas")} de cobrança`} />
             </dl>
             : <p className="bc-note">Nenhuma fatura ou medição registrada para {model.label}.</p>}
         </section>
@@ -265,7 +266,7 @@ export default function EquipmentBillingReports({
             <Term label="Utilização da frota" value={pct(operation.utilizacao)} note={`${operation.unidadeDias.toLocaleString("pt-BR")} / ${operation.capacidade.toLocaleString("pt-BR")} diárias-unidade disponíveis`} help="Diárias-unidade usadas na competência divididas pelas diárias-unidade da frota ativa (unidades × dias da competência).">
               {previous?.utilizacao.diferencaPp != null && <Delta ppValue={previous.utilizacao.diferencaPp} label={previous.label.split(" ")[0]} />}
             </Term>
-            <Term label="Equipamentos utilizados" value={String(operation.equipamentos)} note={`de ${operation.unidadesFrota} unidade(s) na frota`} />
+            <Term label="Equipamentos utilizados" value={String(operation.equipamentos)} note={`de ${contar(operation.unidadesFrota,"unidade","unidades")} na frota`} />
             <Term label="Locações" value={String(operation.locacoes)} />
             <Term label="Obras" value={String(operation.obras)} />
           </dl>
@@ -370,7 +371,7 @@ function WorkMemory({ memory, model, formatDate, formatComposition, onBack, onEd
         <Term label="Receita líquida" value={formatMoney(finance.receitaLiquida)} />
         <Term label="Repasses" value={formatMoney(finance.repasses)} note="manutenção não é apropriada por obra" />
         <Term label="Resultado" value={signedMoney(finance.resultado)} tone={finance.resultado < 0 ? "negative" : "neutral"} note={`margem ${pct(finance.margem)}`} />
-        <Term label="Faturas" value={formatMoney(billing.faturado)} note={billing.faturas ? `${billing.faturas} fatura(s) · em aberto ${formatMoney(billing.emAberto)}` : "nenhuma fatura (ciclo de cobrança fora do DRE)"} />
+        <Term label="Faturas" value={formatMoney(billing.faturado)} note={billing.faturas ? `${contar(billing.faturas,"fatura","faturas")} · em aberto ${formatMoney(billing.emAberto)}` : "nenhuma fatura (ciclo de cobrança fora do DRE)"} />
       </dl>
       <div className="bc-memory__pending">
         <p className="bc-eyebrow">Pendências</p>

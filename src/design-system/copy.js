@@ -16,3 +16,12 @@ export const contar = (quantidade, singular, plural) => {
   const n = Number(quantidade) || 0;
   return `${inteiro.format(n)} ${Math.abs(n) === 1 ? singular : plural}`;
 };
+
+const umaCasa = new Intl.NumberFormat("pt-BR", {maximumFractionDigits:1});
+
+// Para quantidades fracionadas (dias com meio período): "10,5 dias", "1 dia", "0,5 dia".
+// Recebe o NÚMERO, nunca um texto já formatado ("10,5" vira NaN). Singular só para 0,5 e 1.
+export const contarDecimal = (quantidade, singular, plural) => {
+  const n = Number(quantidade) || 0;
+  return `${umaCasa.format(n)} ${Math.abs(n) > 0 && Math.abs(n) <= 1 ? singular : plural}`;
+};

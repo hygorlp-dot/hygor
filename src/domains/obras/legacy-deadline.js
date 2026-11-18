@@ -18,9 +18,11 @@ export const prazoObra = (obra) => {
   // trava em zero, entao calculamos direto aqui.
   const restam = Math.round((new Date(fim + "T00:00:00") - new Date(hoje + "T00:00:00")) / 86400000);
   let rotulo, cor;
-  if (restam < 0)      { rotulo = `atrasada ${Math.abs(restam)}d`; cor = C.red; }
+  // Cor só para desvio: atraso em vermelho, prazo curto em laranja; prazo folgado fica neutro.
+  const dias = n => `${n} ${n === 1 ? "dia" : "dias"}`;
+  if (restam < 0)      { rotulo = `atrasada ${dias(Math.abs(restam))}`; cor = C.red; }
   else if (restam === 0) { rotulo = "vence hoje"; cor = C.orange; }
-  else if (restam <= 15) { rotulo = `faltam ${restam}d`; cor = C.orange; }
-  else                 { rotulo = `faltam ${restam}d`; cor = C.blue; }
+  else if (restam <= 15) { rotulo = `faltam ${dias(restam)}`; cor = C.orange; }
+  else                 { rotulo = `faltam ${dias(restam)}`; cor = C.muted; }
   return { pct: Math.min(pct, 100), restam, totalDias, decorridos, rotulo, cor };
 };

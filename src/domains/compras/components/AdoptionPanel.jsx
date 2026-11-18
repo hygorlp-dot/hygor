@@ -1,3 +1,4 @@
+import { contar } from "../../../design-system/copy.js";
 import { useEffect, useRef } from "react";
 import { ETAPAS_ADOCAO } from "../adoption.js";
 import "./adoption-panel.css";
@@ -50,7 +51,7 @@ export function AdoptionPanel({ model, nomeObra = id => id }) {
     <div className="purchase-adoption__grid">
       <section className="purchase-adoption__card" aria-labelledby="adocao-obras">
         <header><h4 id="adocao-obras">Por obra</h4>
-          <p>{obrasSemUso.length ? `${obrasSemUso.length} obra(s) sem nenhum lançamento no período.` : "Todas as obras lançaram algo no período."}</p></header>
+          <p>{obrasSemUso.length ? `${contar(obrasSemUso.length,"obra","obras")} sem nenhum lançamento no período.` : "Todas as obras lançaram algo no período."}</p></header>
         <ul className="purchase-adoption__list">{porObra.map(obra => <li key={obra.obraId} data-empty={!obra.total || undefined}>
           <div><b>{obra.nome}</b><small>{obra.total
             ? resumoEtapas(obra.etapas)
