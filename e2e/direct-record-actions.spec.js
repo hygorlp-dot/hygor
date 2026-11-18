@@ -1,8 +1,9 @@
 import {test,expect} from '@playwright/test';
 import {data as fixture,profile} from '../scripts/fixtures/workflow-priorities-data.mjs';
 
-async function enter(page,screen,{role=profile.role}={}){
+async function enter(page,screen,{role=profile.role,licensingType}={}){
  const data=structuredClone(fixture),actor={...profile,role};data.usuarios=[actor];
+ if(licensingType)data.licencas=[{id:'license-a',obraId:data.obras[0].id,tipo:licensingType,pre:{},itens:{},verificacao:{condominio_aprovado:{ok:true}}}];
  data.employees=[{...data.employees[0],id:'person',name:'Pessoa do ponto QA',role:'Pedreiro',obra:data.obras[0].id,active:true,startDate:'2026-01-01'}];
  data.attendance={person:{'2026-11-01':{status:'AT',obraId:data.obras[0].id}}};
  const writes=[],errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -25,8 +26,36 @@ test('Patrimônio: Mover direto, nome abre cadastro e menu conserva histórico',
  const app=await enter(page,'patrimonio');const row=page.locator('.patrimonio-lista__linha').first();await expect(row.getByRole('button',{name:'Editar',exact:true})).toHaveCount(0);await row.getByRole('button',{name:'Mover',exact:true}).click();const move=page.getByRole('dialog',{name:'Movimentar patrimônio',exact:true});await expect(move.getByLabel('Local atual',{exact:true})).toHaveValue('Escritório de engenharia');await move.getByLabel('Local atual',{exact:true}).fill('Local ainda não salvo');await move.getByRole('button',{name:'Cancelar',exact:true}).click();await expect(row).toContainText('Escritório de engenharia');await row.getByRole('button',{name:/^Abrir cadastro de/}).click();await expect(page.getByRole('dialog',{name:'Editar patrimônio',exact:true})).toBeVisible();await page.getByRole('dialog').getByRole('button',{name:'Fechar',exact:true}).click();const more=row.getByRole('button',{name:/^Mais ações de/});await more.click();await expect(page.getByRole('menuitem',{name:'Mover…',exact:true})).toHaveCount(0);await page.getByRole('menuitem',{name:'Histórico',exact:true}).click();await expect(page.getByRole('dialog')).toContainText('Sem eventos registrados.');await page.getByRole('dialog').getByRole('button',{name:'Fechar',exact:true}).click();await more.click();await page.keyboard.press('Escape');await expect(more).toBeFocused();await page.screenshot({path:info.outputPath('patrimonio.png'),animations:'disabled'});await app.check();
 });
 
-test('Licenciamento: cada edição identifica sua exigência e abre o item correto',async({page},info)=>{
- const app=await enter(page,'licenca');const edits=page.getByRole('button',{name:/^Editar exigência:/});await expect(edits.first()).toBeVisible();expect(await edits.count()).toBeGreaterThan(0);const first=edits.first(),label=await first.getAttribute('aria-label');await expect(first).toHaveAttribute('title',label);await first.click();await expect(page.getByRole('dialog',{name:label.replace('Editar exigência: ',''),exact:true})).toBeVisible();await page.getByRole('dialog').getByRole('button',{name:'Fechar',exact:true}).click();if(page.viewportSize().width<768){const content=first.locator('xpath=../..').locator(':scope > div').first();expect((await content.boundingBox()).width).toBeGreaterThan(250);}await first.scrollIntoViewIfNeeded();await page.screenshot({path:info.outputPath('licenciamento.png'),animations:'disabled'});await app.check();
+for(const width of [320,390,1440])test(`Licenciamento: cada edição identifica sua exigência a ${width}px`,async({page},info)=>{
+ await page.setViewportSize({width,height:844});
+ const app=await enter(page,'licenca',{licensingType:width===390?'terras_alpha_caruaru':undefined});
+ if(page.viewportSize().width<768){
+  const firstEdit=page.locator('button[aria-label^="Editar exigência:"]').first();
+  const group=page.locator('details').filter({has:firstEdit}).first().locator('summary');
+  await expect(group).toBeInViewport({ratio:1});
+  await expect(firstEdit).toBeHidden();
+  await expect(page.getByRole('combobox',{name:'Procedimento aplicável'})).toBeHidden();
+  await page.screenshot({path:info.outputPath('licenciamento-resumo.png'),animations:'disabled'});
+  const setup=page.locator('summary').filter({hasText:'Condomínio e procedimento'});
+  await setup.click();
+  await expect(page.getByRole('combobox',{name:'Procedimento aplicável'})).toBeVisible();
+  await setup.click();
+  const protocol=page.locator('summary').filter({hasText:'Protocolo e emissão'});
+  const protocolField=page.getByRole('textbox',{name:'Nº do protocolo',exact:true});
+  await expect(protocolField).toBeHidden();
+  await protocol.click();
+  await expect(protocolField).toBeVisible();
+  await protocol.click();
+  if(width===390){
+   const release=page.locator('summary').filter({hasText:'Verificação e liberação · 1 de 7'});
+   await release.click();
+   await expect(page.getByText('Projeto aprovado pelo Condomínio',{exact:true})).toBeVisible();
+   await release.click();
+  }
+  await group.click();
+  await expect(firstEdit).toBeVisible();
+ }
+ const edits=page.getByRole('button',{name:/^Editar exigência:/});await expect(edits.first()).toBeVisible();expect(await edits.count()).toBeGreaterThan(0);const first=edits.first(),label=await first.getAttribute('aria-label');await expect(first).toHaveAttribute('title',label);await first.click();await expect(page.getByRole('dialog',{name:label.replace('Editar exigência: ',''),exact:true})).toBeVisible();await page.getByRole('dialog').getByRole('button',{name:'Fechar',exact:true}).click();if(page.viewportSize().width<768){const content=first.locator('xpath=../..').locator(':scope > div').first();expect((await content.boundingBox()).width).toBeGreaterThan(250);}await first.scrollIntoViewIfNeeded();await page.screenshot({path:info.outputPath('licenciamento.png'),animations:'disabled'});await app.check();
 });
 
 test('Ponto por obra: movimentações diretas e situação excepcional identificada',async({page},info)=>{

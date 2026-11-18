@@ -1925,8 +1925,8 @@ Use um perfil de administrador. Consultar não corrige registros nem fecha uma c
 ### Como fazer
 
 1. Use Atualizar relatório e aguarde a consulta.
-2. Confira o estado do motor e abra Verificações da homologação para ler as pendências no celular.
-3. Em Diferenças e avisos, use Buscar diferença ou origem, Tipo de ocorrência e Grupo da conferência. Confira obra, competência, campo, origem esperada e razão consultado. Anterior e Próxima percorrem os resultados filtrados.
+2. No celular, os filtros aparecem no início do relatório. Use Buscar diferença ou origem, Tipo de ocorrência e Grupo da conferência.
+3. Leia o estado do motor e abra Verificações da homologação para conferir pendências. Em Diferenças e avisos, leia o resultado dos filtros. Confira obra, competência, campo, origem esperada e razão consultado. Anterior e Próxima percorrem os resultados filtrados.
 4. Abra Diagnóstico do registro para consultar os detalhes e, no celular, a referência de origem. Números de campos, quantidades e valores monetários têm significados diferentes.
 5. Em Sincronização técnica dos registros, Executar carga idempotente exige confirmação e grava a sincronização existente. Essa ação não ativa nem desativa o motor; consulte o responsável técnico antes de usá-la.
 
@@ -2469,7 +2469,7 @@ Confira o cliente, o responsável e o período, quando disponíveis.
 
 ### Como fazer
 
-1. Em Visualização do Pipeline, escolha Lista · toque e teclado. No celular, essa é a consulta inicial. Pesquisar no Pipeline considera nome, serviço e contato; Prioridade no Pipeline permite consultar atividade vencida ou sem data.
+1. No celular, a Lista abre com a busca e os primeiros cartões. Pesquisar no Pipeline considera nome, serviço e contato. Abra Visualização e prioridade para consultar atividades vencidas ou sem data, ou trocar para Quadro por etapa. No computador, use Visualização do Pipeline diretamente.
 2. Abra o nome para consultar a ficha. No celular, abra Mover etapa no cartão. Selecione a nova etapa e use Mover lead. Aguarde a confirmação; Perdido continua exigindo os dados da perda. Quadro por etapa mantém a consulta anterior e o arraste.
 3. Escolha a oportunidade no quadro.
 4. Confira a etapa, o responsável e a próxima ação.
@@ -2622,7 +2622,7 @@ Confira o cliente, o responsável e o período, quando disponíveis.
 
 ### Como fazer
 
-1. Em Visualização do Pipeline, escolha Lista · toque e teclado. No celular, essa é a consulta inicial. Pesquisar no Pipeline considera nome, serviço e contato; Prioridade no Pipeline permite consultar atividade vencida ou sem data.
+1. No celular, a Lista abre com a busca e os primeiros cartões. Pesquisar no Pipeline considera nome, serviço e contato. Abra Visualização e prioridade para consultar atividades vencidas ou sem data, ou trocar para Quadro por etapa. No computador, use Visualização do Pipeline diretamente.
 2. Abra o nome para consultar a ficha. No celular, abra Mover etapa no cartão. Selecione a nova etapa e use Mover lead. Aguarde a confirmação; Perdido continua exigindo os dados da perda. Quadro por etapa mantém a consulta anterior e o arraste.
 3. Localize a oportunidade no quadro.
 4. Abra os detalhes e confira responsável e próxima ação.
@@ -3128,10 +3128,11 @@ Selecione a obra e confira o tipo de licença, os órgãos e o condomínio envol
 
 ### Como fazer
 
-1. Use o lápis Editar exigência para abrir o item correto do checklist.
-2. Anexe os documentos nos itens corretos e atualize a situação conforme a evidência.
-3. Em Arquivos, escolha Dossiê de licenciamento para cadastrar responsável, validade e aplicabilidade, revisar anexos e consultar a documentação faltante.
-4. Prepare o ZIP final quando estiver completo ou um ZIP parcial INCOMPLETO com a relação de pendências; confira o pacote antes de encaminhar ao órgão.
+1. No celular, selecione a Obra e confira o progresso. Abra Condomínio e procedimento para ver os dados do processo e Condições de entrada para conferir os pré-requisitos.
+2. Abra o grupo de documentos desejado. O resumo do grupo mostra quantos itens aplicáveis foram concluídos. Use Editar exigência para abrir o item e atualizar a situação conforme a evidência.
+3. Use Anexar documento na exigência correta. Abra Protocolo e emissão para consultar ou preencher seus campos. Quando o modelo exigir, abra Verificação e liberação. No computador, as seções aparecem abertas.
+4. Em Arquivos, escolha Dossiê de licenciamento para cadastrar responsável, validade e aplicabilidade, revisar anexos e consultar a documentação faltante.
+5. Prepare o ZIP final quando estiver completo ou um ZIP parcial INCOMPLETO com a relação de pendências; confira o pacote antes de encaminhar ao órgão.
 
 ### Como conferir se deu certo
 
@@ -4158,7 +4159,7 @@ No computador, Consultas e cadastros em Compras e Mais áreas no Financeiro abre
 
 ### Acessar outros módulos no celular
 
-Use Mais, na barra inferior, para abrir Mais módulos. Escolha o módulo desejado. O seletor abaixo dos botões do cabeçalho mostra o nome da tela e permite trocar de área no mesmo módulo. Nas telas mais estreitas, Finanças abre o Financeiro. No celular, Mais também mostra a conta e Sair do sistema. Fechar menu ou Escape retorna à tela atual sem trocar a área de trabalho. A recuperação protege formulários e os atalhos de navegação continuam disponíveis.
+Use Mais, na barra inferior, para abrir Mais módulos. Escolha o módulo desejado. O seletor abaixo dos botões do cabeçalho mostra a tela atual. Ele é anunciado como Telas de, seguido do nome do módulo atual, e permite trocar de área dentro desse módulo. Nas telas mais estreitas, Finanças abre o Financeiro. No celular, Mais também mostra a conta e Sair do sistema. Fechar menu ou Escape retorna à tela atual sem trocar a área de trabalho. A recuperação protege formulários e os atalhos de navegação continuam disponíveis.
 
 ### Usar os filtros
 

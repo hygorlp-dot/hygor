@@ -14,6 +14,12 @@ import {useBreakpoint} from '../../../hooks/useBreakpoint.js';
 import {COM_ETAPAS,comEtapaLabel} from '../legacy-model.js';
 import {fmt,fmtDateFull} from '../../../legacy/format.js';
 
+const priorities=[
+ {value:'all',label:'Todas as oportunidades'},
+ {value:'overdue',label:'Atividade vencida'},
+ {value:'missing',label:'Sem data para próxima ação'},
+];
+
 export function pipelineRows(leads,query='',priority='all',now=Date.now()){
  const normalized=String(query).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR').trim();
  const overdue=l=>!!l.proximaAtividadeEm&&Date.parse(l.proximaAtividadeEm)<now;
@@ -35,16 +41,23 @@ function LeadRow({lead,owner,onOpen,onMove,busy,isMobile}){
   </TaskDisclosure>
  </FormSection>;
 }
-export function PipelineList({leads,users,onOpen,onMove,busy=false}){
+export function PipelineList({leads,users,onOpen,onMove,busy=false,viewControl}){
  const {isMobile}=useBreakpoint();
  const [query,setQuery]=useWorkspaceState('com_funil','mobileQuery','');
  const [priority,setPriority]=useWorkspaceState('com_funil','mobilePriority','all');
  const rows=pipelineRows(leads,query,priority),pagination=useRecordPage('com_funil',rows,JSON.stringify([query,priority]));
+ const priorityControl=<Select label="Prioridade no Pipeline" value={priority} onChange={e=>setPriority(e.target.value)} options={priorities}/>;
+ const activePriority=priorities.find(option=>option.value===priority&&option.value!=='all');
  return <>
+  {!isMobile&&viewControl}
   <FilterBar label="Busca e prioridades do Pipeline" layout="grid">
    <Input label="Pesquisar no Pipeline" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Nome, serviço, telefone ou e-mail"/>
-   <Select label="Prioridade no Pipeline" value={priority} onChange={e=>setPriority(e.target.value)} options={[{value:'all',label:'Todas as oportunidades'},{value:'overdue',label:'Atividade vencida'},{value:'missing',label:'Sem data para próxima ação'}]}/>
+   {!isMobile&&priorityControl}
   </FilterBar>
+  {isMobile&&<TaskDisclosure summary={activePriority?`Visualização e prioridade · ${activePriority.label}`:'Visualização e prioridade'}>
+   {viewControl}
+   {priorityControl}
+  </TaskDisclosure>}
   <RecordListPagination pagination={pagination} label="oportunidades"/>
   {!rows.length&&<EmptyState title="Nenhuma oportunidade neste recorte" description="Ajuste a prioridade ou limpe a busca para consultar as demais oportunidades." action={<Button variant="secondary" onClick={()=>{setQuery('');setPriority('all');}}>Limpar filtros do Pipeline</Button>}/>}
   {pagination.rows.map(lead=><LeadRow key={`${lead.id}:${lead.etapa}`} lead={lead} owner={users.find(u=>u.id===lead.responsavelId)?.nome} onOpen={onOpen} onMove={onMove} busy={busy} isMobile={isMobile}/>)}

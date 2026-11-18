@@ -50,7 +50,17 @@ for(const width of [390,1440])test.describe(`${width}px`,()=>{
  });
  test('Pipeline move por seletor e botão, sem arraste, em base fictícia',async({page})=>{
   const app=await enter(page,'com_funil',{allowCommercialSave:true});
-  await page.getByRole('combobox',{name:'Visualização do Pipeline',exact:true}).selectOption('list');
+  const view=page.getByRole('combobox',{name:'Visualização do Pipeline',exact:true});
+  if(width<768){
+   await expect(page.getByRole('button',{name:/^Contato 02 /})).toBeInViewport();
+   await expect(view).toBeHidden();
+   const options=page.locator('summary').filter({hasText:'Visualização e prioridade'});
+   await options.click();
+   await view.selectOption('board');
+   await expect(view).toHaveValue('board');
+   await view.selectOption('list');
+   await expect(view).toBeHidden();
+  }else await view.selectOption('list');
   await page.getByRole('textbox',{name:'Pesquisar no Pipeline',exact:true}).fill('Contato 28');
   const selector=page.getByRole('combobox',{name:/Mover etapa de Contato 28/});
   if(width<768){
@@ -82,8 +92,12 @@ for(const width of [390,1440])test.describe(`${width}px`,()=>{
 });
 test('320px com texto ampliado mantém filtros e ações acessíveis',async({page})=>{
  await page.setViewportSize({width:320,height:844});
- const app=await enter(page,'com_funil');
- await page.getByRole('combobox',{name:'Visualização do Pipeline',exact:true}).selectOption('list');
+ const app=await enter(page,'com_pipeline');
+ const firstCard=page.getByRole('button',{name:/^Contato 02 /}).locator('xpath=ancestor::section[1]');
+ await expect(firstCard).toBeInViewport({ratio:1});
+ const firstCardName=await firstCard.boundingBox();
+ expect(firstCardName.y+firstCardName.height).toBeLessThan(780);
+ await page.screenshot({path:test.info().outputPath('pipeline-primeiro-cartao.png')});
  await page.addStyleTag({content:'html{font-size:200%}'});
  await page.getByRole('textbox',{name:'Pesquisar no Pipeline',exact:true}).fill('Contato 28');
  await page.locator('summary').getByText('Mover etapa',{exact:true}).click();

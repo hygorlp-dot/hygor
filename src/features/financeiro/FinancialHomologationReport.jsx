@@ -29,7 +29,13 @@ export default function FinancialHomologationReport({report,works=[]}){
  const pendingChecks=model.checks.filter(check=>!check.ok);
  const checkSummary=model.checks.length?`Pendências (${pendingChecks.length})`:'sem verificações informadas';
  const counts=report.contagens||{};
+ const filters=<FilterBar label="Filtrar diferenças da homologação" layout="grid">
+  <Input label="Buscar diferença ou origem" value={search} onChange={event=>setSearch(event.target.value)} placeholder="Obra, competência, registro ou campo"/>
+  <Select label="Tipo de ocorrência" value={severity} onChange={event=>setSeverity(event.target.value)} options={[{value:'',label:'Diferenças e avisos'},{value:'error',label:'Somente diferenças'},{value:'warning',label:'Somente avisos'}]}/>
+  <Select label="Grupo da conferência" value={group} onChange={event=>setGroup(event.target.value)} options={[{value:'',label:`Todos os grupos · ${model.issues.length}`},...Object.entries(homologationGroups).map(([value,label])=>({value,label:`${label} · ${model.issues.filter(row=>row.group===value).length}`}))]}/>
+ </FilterBar>;
  return <section className="document-center record-recovery" aria-label="Resultado da homologação financeira">
+  {isMobile&&filters}
   <Alert variant={model.complete?'default':'warning'} role="status">
    <AlertTitle>{model.engineLabel}</AlertTitle>
    <AlertDescription><p>{model.complete?'Verificações concluídas sem impedimentos no relatório consultado.':'Homologação com pendências ou verificações incompletas. Confira os grupos abaixo.'}</p><p>O estado do motor não muda ao consultar este relatório. Esta comparação não é o fechamento de uma competência.</p></AlertDescription>
@@ -47,11 +53,7 @@ export default function FinancialHomologationReport({report,works=[]}){
   </TaskDisclosure>
   <section className="document-center" aria-labelledby="homologation-differences"><h3 id="homologation-differences">Diferenças e avisos · {model.issues.length}</h3>
    <p>Cada linha é uma diferença ou um aviso, não um novo custo. Não some as linhas nem lance valores para compensá-las. Confira a origem antes de qualquer correção.</p>
-   <FilterBar label="Filtrar diferenças da homologação" layout="grid">
-    <Input label="Buscar diferença ou origem" value={search} onChange={event=>setSearch(event.target.value)} placeholder="Obra, competência, registro ou campo"/>
-    <Select label="Tipo de ocorrência" value={severity} onChange={event=>setSeverity(event.target.value)} options={[{value:'',label:'Diferenças e avisos'},{value:'error',label:'Somente diferenças'},{value:'warning',label:'Somente avisos'}]}/>
-    <Select label="Grupo da conferência" value={group} onChange={event=>setGroup(event.target.value)} options={[{value:'',label:`Todos os grupos · ${model.issues.length}`},...Object.entries(homologationGroups).map(([value,label])=>({value,label:`${label} · ${model.issues.filter(row=>row.group===value).length}`}))]}/>
-   </FilterBar>
+   {!isMobile&&filters}
    <RecordListPagination pagination={pagination} label="diferenças e avisos"/>
    {pagination.rows.map(row=><article key={row.id}><h3>{row.label} · {row.severity==='warning'?'Aviso':'Diferença'}</h3><p>{row.work||'Escopo identificado no diagnóstico'}{row.competence?` · Competência ${row.competence}`:''}{row.period?` · ${row.period}`:''}</p><p><strong>Conferir:</strong> {row.field}</p>
     <dl className="record-recovery__comparison"><div><dt>Origem esperada</dt><dd>{show(row.expected,row.kind)}</dd></div><div><dt>Razão consultado</dt><dd>{show(row.actual,row.kind)}</dd></div></dl>

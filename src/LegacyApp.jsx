@@ -4213,6 +4213,7 @@ function RankingFinanceiro({data,year,month,obraId="",onSelecionarObra,C=C_ARCD_
 }
 
 function HomologacaoFinanceira({data,showToast,C=C_ARCD_SETOR}){
+  const {isMobile}=useBreakpoint();
   const [relatorio,setRelatorio]=useState(null);
   const [erro,setErro]=useState("");
   const [carregando,setCarregando]=useState(true);
@@ -4246,7 +4247,7 @@ function HomologacaoFinanceira({data,showToast,C=C_ARCD_SETOR}){
     showToast(resposta.prontoParaAtivar?"Carga concluída. Atualize o relatório para conferir as verificações da homologação.":`Carga concluída com ${totalDivergencias} divergência(s) para revisão.`,resposta.prontoParaAtivar?undefined:"warn");
   };
   return <div className="record-recovery">
-    <PageHero headingLevel={2} title="Homologação financeira" description="Compare os dados de origem, o razão financeiro e as projeções do DRE. Consultar não altera registros." actions={<div className="closing-pending__actions"><Btn v="ghost" onClick={carregar} disabled={carregando}>Atualizar relatório</Btn></div>}/>
+    <PageHero headingLevel={2} title="Homologação financeira" description={isMobile?undefined:"Compare os dados de origem, o razão financeiro e as projeções do DRE. Consultar não altera registros."} actions={<div className="closing-pending__actions"><Btn v="ghost" onClick={carregar} disabled={carregando}>Atualizar relatório</Btn></div>}/>
     {carregando&&<LoadingState label="o razão canônico"/>}
     {!carregando&&!relatorio&&<div role="alert"><h3>Não foi possível consultar a homologação</h3><p>{erro||"Relatório indisponível. Confira a conexão e tente Atualizar relatório."}</p><p>Uma consulta indisponível não significa que o banco precisa de preparação.</p><TaskDisclosure summary="Preparação técnica do banco"><p>Use somente após o responsável técnico confirmar a necessidade. Esta ação aplica a preparação existente e não altera a ativação do motor.</p><Btn onClick={preparar} disabled={migrando}>{migrando?"Preparando banco...":"Preparar banco com segurança"}</Btn></TaskDisclosure></div>}
     {relatorio&&<FinancialHomologationReport report={relatorio} works={data.obras||[]}/>}
@@ -14775,7 +14776,7 @@ export default function App() {
               )}
             </div>
             {!isDesktop&&operationalWorkspace&&<div className="workspace-mobile-navigation">
-              <SelectControl className="workspace-module-select" aria-label={`Telas de ${activeGroup?.label}`} value={tab==="obras"&&obrasMenuEngenharia.some(obra=>obra.id===obraAberta)?`obra:${obraAberta}`:tab} onChange={event=>event.target.value.startsWith("obra:")?irPara("obras",event.target.value.slice(5)):irPara(event.target.value)}>
+              <SelectControl key={activeGroup?.id} className="workspace-module-select" aria-label={activeGroup?`Telas de ${activeGroup.label}`:"Telas disponíveis"} value={tab==="obras"&&obrasMenuEngenharia.some(obra=>obra.id===obraAberta)?`obra:${obraAberta}`:tab} onChange={event=>event.target.value.startsWith("obra:")?irPara("obras",event.target.value.slice(5)):irPara(event.target.value)}>
                 {activeGroup?.tabs.map(id=><option key={id} value={id}>{TAB_META[id]?.label||id}</option>)}
                 {activeGroup?.id==="eng_grp"&&obrasMenuEngenharia.length>0&&<optgroup label="Obras ativas">{obrasMenuEngenharia.map(obra=><option key={obra.id} value={`obra:${obra.id}`}>{obra.name}</option>)}</optgroup>}
               </SelectControl>

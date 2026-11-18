@@ -31,6 +31,13 @@ for(const width of [320,390,1440])test.describe(`${width}px`,()=>{
   const report=page.getByRole('region',{name:'Resultado da homologação financeira',exact:true});
   await expect(report).toContainText('Motor financeiro ativo');await expect(report).toContainText('1–12 de 679');
   const types=report.getByRole('combobox',{name:'Tipo de ocorrência',exact:true});
+  if(width<768){
+   for(const field of [report.getByRole('textbox',{name:'Buscar diferença ou origem'}),types,report.getByRole('combobox',{name:'Grupo da conferência'})]){
+    await expect(field).toBeInViewport({ratio:1});
+    expect((await field.boundingBox()).y+(await field.boundingBox()).height).toBeLessThan(780);
+   }
+   await page.screenshot({path:test.info().outputPath('homologacao-filtros-iniciais.png')});
+  }
   await types.selectOption('warning');
   await expect(report).toContainText('1–1 de 1');
   await expect(report.getByText('Conferir: Aviso de integridade QA',{exact:true})).toBeVisible();

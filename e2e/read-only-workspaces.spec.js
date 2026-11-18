@@ -194,6 +194,21 @@ test.use({ viewport: { width: 320, height: 844 }, isMobile: true, hasTouch: true
 test('seleção de telas tem largura suficiente e preserva o acesso aos módulos', async ({ page }) => {
   const { operations, pageErrors } = await openWorkspace(page, 'home');
   await page.getByRole('button', { name: 'Abrir mais módulos' }).click();
+  await page.getByRole('dialog', { name: 'Mais módulos' }).getByRole('button', { name: 'Pessoas e terceiros', exact: true }).click();
+  const people = page.getByRole('combobox', { name: 'Telas de Pessoas e terceiros', exact: true });
+  await expect(people).toBeVisible();
+  const previousSelect = await people.elementHandle();
+  await page.getByRole('button', { name: 'Abrir mais módulos' }).click();
+  await page.getByRole('dialog', { name: 'Mais módulos' }).getByRole('button', { name: 'Comercial', exact: true }).click();
+  const commercial = page.getByRole('combobox', { name: 'Telas de Comercial', exact: true });
+  await expect(commercial).toBeVisible();
+  await expect(commercial.getByRole('option', { name: 'Pipeline' })).toHaveCount(1);
+  expect(await previousSelect.evaluate(node => node.isConnected)).toBe(false);
+  const commercialSelect = await commercial.elementHandle();
+  await commercial.selectOption({ label: 'Pipeline' });
+  await expect(commercial).toBeVisible();
+  expect(await commercialSelect.evaluate(node => node.isConnected)).toBe(true);
+  await page.getByRole('button', { name: 'Abrir mais módulos' }).click();
   await page.getByRole('dialog', { name: 'Mais módulos' }).getByRole('button', { name: 'Administração', exact: true }).click();
   const menu = page.getByRole('combobox', { name: 'Telas de Administração' });
   await expect(menu).toBeVisible();
