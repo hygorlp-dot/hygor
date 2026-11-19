@@ -2,6 +2,7 @@ import {active,toCents} from './ledger.js';
 import {documentIssueLabels} from './document-register.js';
 import {documentEvidenceInfo} from './document-evidence.js';
 import {analyzePurchaseThreeWayMatch} from './workflows.js';
+import {extrairContraparteDescricaoPix} from '../conciliacao/calculations.js';
 
 export const documentConferenceLabels={
  ...documentIssueLabels,
@@ -33,7 +34,12 @@ export function documentConferenceRows(data,rows){
   if(expense&&(record.transacaoId||record.origem==='banco')&&issues.includes('missing')&&!exception){
    issues.push('bankEvidence');
   }
-  if(row.type!=='nota_fiscal')return {...row,issues,transaction,exception};
+  if(row.type!=='nota_fiscal'){
+   const pixName=expense&&!row.entry.counterparty?.trim()&&(record.transacaoId||record.origem==='banco')
+    ?extrairContraparteDescricaoPix(transaction?.descricao||row.entry.description.replace(/^\[Extrato\]\s*/i,''),{aceitarNomeAlfanumerico:true})
+    :'';
+   return {...row,issues,transaction,exception,pixName};
+  }
   const originals=[...(record.documentos||[]),...(row.entry.documents||[])];
   if(!resolvable(originals)&&!issues.includes('missing'))issues.push('missing');
   const gross=toCents(record.valorBruto??record.valorTotal??record.valor);

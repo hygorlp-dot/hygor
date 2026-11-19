@@ -18,6 +18,7 @@ import {queryStorageKey} from '../../domains/financeiro/saved-queries.js';
 import FinancialRecordFlow from './FinancialRecordFlow.jsx';
 import {Alert,AlertDescription} from '../../components/ui/alert.jsx';
 import RecordPagination,{DOCUMENT_PAGE_SIZE,recordPage} from './RecordPagination.jsx';
+const counterpartyLabel=row=>row.pixName?`Nome no Pix · ${row.pixName}`:row.entry.counterparty?.trim()||'Contraparte não informada';
 export default function DocumentCenter({data,obraId,competence,onCompetence,onOpen,onReview,onReceive,view,onViewChange,resolveFile,currentUser,onObra,onPayments,onBank,onBankExpense,onExpenseEvidence,onException,scopeControl}){
  const [localView,setLocalView]=useState({query:'',filter:'all',selected:null});
  const {query,filter,selected}=view??localView;
@@ -26,7 +27,7 @@ export default function DocumentCenter({data,obraId,competence,onCompetence,onOp
  const selectionRef=useRef(null);
  const selectionTrigger=useRef(null);
  const register=useMemo(()=>documentConferenceRows(data,documentRegister(data,{obraId,competence})),[data,obraId,competence]);
- const rows=register.filter(r=>(filter==='all'||r.issues.includes(filter))&&financialSearchText([r.label,r.entry.description,r.entry.obra,r.entry.documentNumber,r.entry.counterparty].join(' ')).includes(financialSearchText(query)));
+ const rows=register.filter(r=>(filter==='all'||r.issues.includes(filter))&&financialSearchText([r.label,r.entry.description,r.entry.obra,r.entry.documentNumber,r.entry.counterparty,r.pixName].join(' ')).includes(financialSearchText(query)));
  const current=rows.find(r=>r.id===selected);
  const supplementary=current?.originals?current.docs.filter(doc=>!current.originals.includes(doc)):[];
  const bankContext=current&&bankExpenseContext(current,currentUser);
@@ -55,11 +56,11 @@ export default function DocumentCenter({data,obraId,competence,onCompetence,onOp
  {selectedUnavailable&&<Alert role="status"><AlertDescription>O registro selecionado não está disponível neste recorte. Confira a obra, o mês e a atualização da base.</AlertDescription><Button variant="outline" onClick={()=>setSelected(null)}>Encerrar seleção indisponível</Button></Alert>}
  {onReview&&currentUser&&<DocumentReviewQueue rows={rows} allRows={register} data={data} user={currentUser} scope={pageScope} onReview={onReview} view={(view??localView).reviewQueue} onChange={value=>change('reviewQueue',value)}/>}
  <RecordPagination count={rows.length} page={page} onPage={setPage} label="Paginação dos documentos"/>
- <div className="document-center__workspace" data-selected={Boolean(current)}><div><div className="document-center__scope"><p role="status">{contar(rows.length,"registro","registros")} · {competence||"Todos os meses"} · {documentConferenceLabels[filter]||"Todas as situações"}</p>{(query||filter!=="all")&&<Button variant="outline" size="sm" onClick={()=>{setQuery('');setFilter('all');}}>Limpar busca e situação</Button>}</div>{visible.map(row=><article key={row.id} data-selected={current?.id===row.id}><h3>{row.label} · {row.entry.description}</h3><p>{row.entry.obra} · {financialDateLabel(row.entry.date,'Sem data')} · {row.entry.counterparty||'Contraparte não informada'}</p><p>{row.issues.map(id=>documentConferenceLabels[id]).join(' · ')||'Sem alertas nesta checagem'}</p>{row.duplicates?.length>0&&<p>Conferir com: {row.duplicates.join(', ')}</p>}{row.exception&&<p>Exceção documental registrada no fechamento.</p>}<Button variant="outline" aria-pressed={current?.id===row.id} onClick={event=>{selectionTrigger.current=event.currentTarget;setSelected(row.id);}}>Conferir documentos</Button></article>)}{!rows.length&&<p role="status">Nenhum registro neste filtro. Limpe o mês para incluir registros sem data.</p>}</div>
+ <div className="document-center__workspace" data-selected={Boolean(current)}><div><div className="document-center__scope"><p role="status">{contar(rows.length,"registro","registros")} · {competence||"Todos os meses"} · {documentConferenceLabels[filter]||"Todas as situações"}</p>{(query||filter!=="all")&&<Button variant="outline" size="sm" onClick={()=>{setQuery('');setFilter('all');}}>Limpar busca e situação</Button>}</div>{visible.map(row=><article key={row.id} data-selected={current?.id===row.id}><h3>{row.label} · {row.entry.description}</h3><p>{row.entry.obra} · {financialDateLabel(row.entry.date,'Sem data')} · {counterpartyLabel(row)}</p><p>{row.issues.map(id=>documentConferenceLabels[id]).join(' · ')||'Sem alertas nesta checagem'}</p>{row.duplicates?.length>0&&<p>Conferir com: {row.duplicates.join(', ')}</p>}{row.exception&&<p>Exceção documental registrada no fechamento.</p>}<Button variant="outline" aria-pressed={current?.id===row.id} onClick={event=>{selectionTrigger.current=event.currentTarget;setSelected(row.id);}}>Conferir documentos</Button></article>)}{!rows.length&&<p role="status">Nenhum registro neste filtro. Limpe o mês para incluir registros sem data.</p>}</div>
  {current&&<aside ref={selectionRef} tabIndex={-1} aria-label="Documento e dados para conferência">
   <header><h3>{current.entry.description}</h3><Button variant="outline" size="sm" onClick={closeReview}>Fechar conferência</Button></header>
   <p>{current.type==='nota_fiscal'?'Emissão':'Data do registro'} {financialDateLabel(current.entry.date)} · Competência {current.period||'não informada'}</p>
-  <p>{current.entry.counterparty||'Contraparte não informada'}</p>
+  <p>{counterpartyLabel(current)}</p>
   <div className="financial-record-flow__actions">
    {current.type==='nota_fiscal'&&onReview&&<Button onClick={()=>onReview(current.record.id)}>Conferir e editar ficha fiscal</Button>}
    {onOpen&&<Button variant="link" onClick={()=>onOpen({title:current.entry.description,items:[current.entry],context:'Conferência documental'})}>Ver memorial</Button>}

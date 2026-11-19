@@ -33,7 +33,7 @@ const dataOFXParaISO = (s) => {
 // que o texto não bater com o padrão esperado - nunca inventa um nome a
 // partir de um código numérico ou texto sem cara de nome (mínimo de duas
 // palavras alfabéticas).
-export const extrairContraparteDescricaoPix = (descricao) => {
+export const extrairContraparteDescricaoPix = (descricao, { aceitarNomeAlfanumerico = false } = {}) => {
   const bruto = String(descricao || "");
   const match = bruto.match(/^Pix\s+(?:enviado|recebido)\s*:\s*"(.+)"\s*$/i);
   const conteudo = match ? match[1].trim() : "";
@@ -42,9 +42,12 @@ export const extrairContraparteDescricaoPix = (descricao) => {
     .replace(/^Cp\s*:\s*\d+\s*-\s*/i, "")
     .replace(/^\d+\s+\d+\s+/, "")
     .trim();
-  if (!/^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'.\s-]*$/.test(semPrefixo)) return "";
   const palavras = semPrefixo.split(/\s+/).filter(Boolean);
   if (palavras.length < 2) return "";
+  if (aceitarNomeAlfanumerico) {
+    // A exibição pode incluir nomes como M4 Serviços, sem mostrar códigos isolados.
+    if (!palavras.every(palavra => /^[\p{L}\d'.-]+$/u.test(palavra) && /\p{L}/u.test(palavra))) return "";
+  } else if (!/^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'.\s-]*$/.test(semPrefixo)) return "";
   return semPrefixo;
 };
 

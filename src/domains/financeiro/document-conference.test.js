@@ -20,6 +20,26 @@ const fixture=()=>({
 });
 const list=data=>documentConferenceRows(data,documentRegister(data,{competence:month}));
 
+it('mostra o nome do Pix só na conferência quando não há contraparte cadastrada',()=>{
+ const data=fixture();
+ const pix='Pix enviado: "Cp :18236120-M4 SERVIÇOS E COMÉRCIO LTDA"';
+ data.fornecedores=[{id:'supplier',nome:'Fornecedor cadastrado'}];
+ data.despesasEmpresa[1].fornecedorId='supplier';
+ data.despesasEmpresa[3].descricao='[Extrato] Pix enviado: "00019 123456789 Pessoa Exemplo"';
+ data.transacoes[0].descricao=pix;
+ data.transacoes[1].descricao=pix;
+ data.transacoes[2].descricao='Pix enviado: "12345678901"';
+ data.transacoes.splice(3,1);
+ const before=structuredClone(data);
+ const rows=list(data);
+ const expense=index=>rows.find(row=>row.record.id===`expense-${index}`);
+ expect(expense(0)).toMatchObject({pixName:'M4 SERVIÇOS E COMÉRCIO LTDA',entry:{counterparty:''}});
+ expect(expense(1)).toMatchObject({pixName:'',entry:{counterparty:'Fornecedor cadastrado'}});
+ expect(expense(2).pixName).toBe('');
+ expect(expense(3).pixName).toBe('Pessoa Exemplo');
+ expect(data).toEqual(before);
+});
+
 it('rastreia a nota completa ao pedido e ao recebimento sem confundir original e comprovante',()=>{
  const data=fixture();
  const before=structuredClone(data);

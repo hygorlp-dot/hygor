@@ -12,7 +12,7 @@ const initial=()=>({
  notasFiscais:[record,{...record,id:'duplicate',numero:'QA-02',pedidoId:'',emissao:'2026-10-01',documentos:[],rateios:[{obraId:'a',valor:90}],pagamentos:[]}],
  pedidos:[{id:'order',numero:'PC-QA',obraId:'a',status:'recebido',itens:[{id:'i',descricao:'Insumo QA',qtd:2,qtdRecebida:2,precoUnit:50,recebimentos:[{id:'r',data:date,qtd:2}]}]}],
  despesasEmpresa:Array.from({length:7},(_,i)=>({id:`expense-${i+1}`,descricao:`Tarifa QA ${i+1}`,valor:25,categoria:'outros',origem:'banco',transacaoId:`bank-${i+1}`,data:date})),
- transacoes:Array.from({length:7},(_,i)=>({id:`bank-${i+1}`,descricao:`PIX QA ${i+1}`,data:date,valor:-25,status:'conciliado'})),
+ transacoes:Array.from({length:7},(_,i)=>({id:`bank-${i+1}`,descricao:i===0?'Pix enviado: "Cp :18236120-M4 SERVIÇOS E COMÉRCIO DO NORDESTE LTDA"':`PIX QA ${i+1}`,data:date,valor:-25,status:'conciliado'})),
 });
 
 for(const [width,theme] of [[390,'marcell'],[390,'noite'],[1440,'marcell'],[1440,'noite']]){
@@ -70,13 +70,18 @@ for(const [width,theme] of [[390,'marcell'],[390,'noite'],[1440,'marcell'],[1440
   await filter.selectOption('bankEvidence');
   await expect(filter.locator('option:checked')).toHaveText('Despesa bancária sem evidência · 7');
   const expense=page.getByRole('article').filter({hasText:'Tarifa QA 1'});
+  await search.fill('m4 servicos');
+  await expect(page.getByRole('article').filter({hasText:'Tarifa QA'})).toHaveCount(1);
+  await expect(expense.getByText(/Nome no Pix · M4 SERVIÇOS E COMÉRCIO DO NORDESTE LTDA/)).toBeVisible();
+  await search.fill('');
+  await expense.screenshot({path:info.outputPath('contraparte-pix.png'),animations:'disabled'});
   await expense.getByRole('button',{name:'Conferir documentos',exact:true}).click();
-  await expect(aside).toContainText('PIX QA 1');
+  await expect(aside.getByText('Nome no Pix · M4 SERVIÇOS E COMÉRCIO DO NORDESTE LTDA',{exact:true})).toBeVisible();
   await aside.getByRole('button',{name:'Revisar movimento na Conciliação',exact:true}).click();
   await expect(page.getByText('Conciliação automática pausada',{exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Voltar a Gestão financeira',exact:true}).click();
   await expect(filter).toHaveValue('bankEvidence');
-  await expect(aside).toContainText('PIX QA 1');
+  await expect(aside).toContainText('Nome no Pix · M4 SERVIÇOS E COMÉRCIO DO NORDESTE LTDA');
   expect(commands).toEqual([]);
   await aside.getByRole('button',{name:'Vincular evidência à despesa',exact:true}).click();
   const editor=page.getByRole('dialog');
