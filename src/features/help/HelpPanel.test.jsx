@@ -14,11 +14,18 @@ it('o índice de contratos mostra o editor e reserva o guia de modelos ao admini
 });
 function mount(ui){container=document.createElement('div');document.body.append(container);root=createRoot(container);act(()=>root.render(ui));}
 afterEach(()=>{act(()=>root?.unmount());container?.remove();});
+it.each([true,false])('o índice limita os guias internos de orçamento ao acesso à aba (%s)',access=>{
+ mount(<HelpPanel id="budget-help" pageId="home" topicId="home" allowedTabs={access?['home','orc']:['home']} onClose={()=>{}}/>);
+ act(()=>[...container.querySelectorAll('button')].find(button=>button.textContent.includes('Manual completo')).click());
+ const text=container.querySelector('.app-help-index').textContent;
+ expect(text.includes('Hierarquia de seis níveis')).toBe(access);
+ expect(text.includes('Comparar revisões')).toBe(access);
+});
 it('abre o fluxo da tela, limita o índice ao acesso e permite fechar com Escape',()=>{
  const close=vi.fn();
  mount(<HelpPanel id="help-test" pageId="ponto" topicId="ponto" allowedTabs={['home','ponto']} onClose={close}/>);
  expect(container.querySelector('article').textContent).toContain('Ponto por obra');
- expect(container.querySelectorAll('article li')).toHaveLength(3);
+ expect(container.querySelector('article ol li').textContent).toContain('Confira a data.');
  const buttons=[...container.querySelectorAll('button')];
  act(()=>buttons.find(button=>button.textContent.includes('Manual completo')).click());
  const index=container.querySelector('.app-help-index');

@@ -668,7 +668,9 @@ export default async function handler(req, res) {
 
       const seen = new Set();
       const items = [...sinapiItems, ...orseItems].filter(item => {
-        const key = `${item.fonte}:${item.dataBase}:${item.codigo}`;
+        const key = JSON.stringify(req.body?.includeVariants===true
+          ? [item.fonte,item.dataBase,item.uf,item.codigo,item.unidade,item.precoDes,item.precoNao,item.descricao]
+          : [item.fonte,item.dataBase,item.codigo]);
         if (seen.has(key)) return false;
         seen.add(key); return true;
       });

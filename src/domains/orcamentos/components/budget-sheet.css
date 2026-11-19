@@ -280,3 +280,44 @@ textarea.budget-cell { display: block; resize: none; overflow: hidden; white-spa
 .budget-list-group{display:flex;flex-direction:column;gap:var(--arcd-space-3);}
 .budget-list-group__title{margin:0;font-size:var(--arcd-type-label);font-weight:var(--arcd-font-weight-semibold);color:var(--arcd-text-secondary);text-transform:uppercase;letter-spacing:var(--arcd-letter-spacing-body);}
 .budget-list-group__empty{margin:0;font-size:var(--arcd-type-body);color:var(--arcd-text-secondary);}
+.budget-import-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--arcd-space-3) var(--arcd-space-5);
+  padding: var(--arcd-space-3);
+  border: 1px solid var(--arcd-border-default);
+  border-radius: var(--arcd-radius-control);
+  background: var(--arcd-surface-muted);
+}
+.budget-import-totals dt { color: var(--arcd-text-secondary); }
+.budget-import-totals dd { font-weight: var(--arcd-font-weight-semibold); font-variant-numeric: tabular-nums; }
+.budget-import-comparison .arcd-data-table__table { table-layout: fixed; }
+.budget-import-comparison .arcd-data-table__table td { vertical-align: top; }
+.budget-import-comparison { min-width: 0; overflow-wrap: anywhere; }
+.budget-import-comparison li + li { margin-block-start: var(--arcd-space-1); }
+.budget-import-preview > .arcd-modal-footer {
+  position: sticky;
+  inset-block-end: 0;
+  padding: var(--arcd-space-3);
+  border-block-start: 1px solid var(--arcd-border-default);
+  background: var(--arcd-surface-card);
+}
+.budget-revision-comparison, .budget-comparison-values {
+  display: grid;
+  gap: var(--arcd-space-3);
+  min-width: 0;
+}
+.budget-revision-selectors {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: var(--arcd-space-3);
+}
+.budget-comparison-values {
+  gap: var(--arcd-space-1);
+  overflow-wrap: anywhere;
+}
+.budget-comparison-values + .budget-comparison-values {
+  margin-block-start: var(--arcd-space-2);
+  padding-block-start: var(--arcd-space-2);
+  border-block-start: 1px solid var(--arcd-border-default);
+}

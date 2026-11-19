@@ -26,6 +26,11 @@ import { saveItemMemory, syncItemMemories } from '../item-memory';
 import { saveBoxElement, removeBoxElement } from '../box-memory';
 import { structuralImportTargets, validateImportTargets, remapImportSources, mergeImportSummaries } from '../structural-import-targets';
 import BudgetAuditPanel from './BudgetAuditPanel';
+import BudgetImportComparison from './BudgetImportComparison.jsx';
+import BudgetRevisionComparison from './BudgetRevisionComparison.jsx';
+import {budgetRevisionFamily} from '../budget-revision-comparison.js';
+import {budgetCompletion,changeBudgetScopeExclusion,budgetScopeExclusion} from '../budget-pending.js';
+import {ScopeNote} from '../../../design-system/patterns/ScopeNote.jsx';
 import { budgetChangeReceipt, undoBudgetChange, repositionBudgetItem, auditWholeBudget } from '../budget-workflow';
 import { mergeStructuralImportSources, extractStructuralSources, quantitativeSourcePages, trackManualStructuralChanges } from '../structural-provenance';
 import BudgetFloorEditor from './BudgetFloorEditor';
@@ -88,7 +93,7 @@ const IconeAlca = () => <svg width="10" height="14" viewBox="0 0 10 16" fill="cu
 const IconeSeta = ({aberta}) => <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" aria-hidden="true">{aberta?<path d="M1 3l4 4 4-4z"/>:<path d="M3 1l4 4-4 4z"/>}</svg>;
 const IconeEditado = () => <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{marginRight:"var(--arcd-space-1)",flexShrink:0}}><path d="M1.5 10.5l.7-2.8 6.3-6.3 2.1 2.1-6.3 6.3z"/></svg>;
 import {
-  detectarColunasImportacao, montarLinhasImportacao, resumoImportacao,
+  detectarColunasImportacao, detectarFormatoBdi, importacaoComPendencia, indexarReferenciasImportacao, montarLinhasImportacao, referenceFonteOficial,
 } from "../budget-import-mapping";
 import { clonarCronogramaPlano, clonarEstruturaOrcamento } from "../budget-clone";
 import { entradasParaDetalheAnalitico } from "../abc-detail-entries";
@@ -534,7 +539,8 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   // (achado real: uma planilha com "Nome" em vez de "Descrição" perdia o
   // nome de toda etapa e de todo item sem código, em silêncio, 26/08/2026).
   const [colMapModal, setColMapModal] = useState(null); // {headerRow, rows, hIdx, col}
-  useHelpTopic('orc',etapaModal||colMapModal||impModal?'orc_estrutura':'orc');
+  const [comparisonBudgetId,setComparisonBudgetId]=useState(null);
+  useHelpTopic('orc',comparisonBudgetId?'orc_revisoes':etapaModal||colMapModal||impModal?'orc_estrutura':'orc');
   const [bdiModal,  setBdiModal]  = useState(false);
   const [bdiAba,    setBdiAba]    = useState("faixa");   // "faixa" | "detalhado"
   const [bdiTipo,   setBdiTipo]   = useState("edificios");
@@ -609,6 +615,8 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   ];
   const baselineAtiva = orc?.obraId ? getActiveBudgetBaseline(data,orc.obraId,"controle") : {budget:null,case:"baseline_ausente"};
   const calc = useMemo(() => orc ? calcOrcamento(orc) : null, [orc]);
+  const completion=useMemo(()=>budgetCompletion(orc),[orc]);
+  const totalLabel=completion.partial?'Total parcial':'Total geral';
   const controleCustos=useMemo(()=>calcControleCustosOrcamento(data,orc),[data.solicitacoesCompra,data.pedidos,data.movEstoque,data.transacoes,orc]);
   const composicoesEmpresa = useMemo(()=>{
     const mapa=new Map();
@@ -1154,6 +1162,15 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const linhasEstruturais = structuralBudgetRows(orc);
   const memoryIssues = auditStructuralLinks(orc);
   const budgetIssues = auditWholeBudget(orc);
+  const changeItemScope=async (itemId,exclude,reason)=>{
+    const latest=(dataAtualRef.current.orcamentos||[]).find(budget=>budget.id===selOrc);
+    if(!latest||budgetIsImmutable(latest)||!currentUser?.id)throw new Error('Abra uma versão editável com seu perfil para alterar o escopo.');
+    const item=latest.itens.find(row=>row.id===itemId);
+    if(!item||!exclude&&!budgetScopeExclusion(item))throw new Error('O item mudou. Feche e abra novamente a conferência.');
+    const next=changeBudgetScopeExclusion(item,{exclude,reason,actorId:currentUser.id,actorName:currentUser.nome||currentUser.email,now:new Date().toISOString()});
+    const saved=await salvarOrc({itens:latest.itens.map(row=>row.id===itemId?next:row)});
+    if(!saved?.ok)throw new Error(saved?.reason||'Não foi possível salvar a decisão. Tente novamente.');
+  };
   const copiedFloorsToRecover = copiedFloorRecoveries(orc);
   const abrirOcorrenciaOrcamento = issue => {
     if(issue.floorId){setFloorEditorOpen(true);return;}
@@ -2791,6 +2808,16 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   };
 
   //  Exportar XLSX - planilha orçamentária hierárquica
+  const appendScopeSheet=wb=>{
+    if(!completion.excluded.length)return;
+    const numbered=new Map(achatarArvore(calc.arvore).map(row=>[row.id,row.codigoItem]));
+    const rows=[['Item','Código','Descrição','Motivo da exclusão','Responsável','Data do registro (UTC)'],
+      ...completion.excluded.map(({item,exclusion})=>[numbered.get(item.id)||'',codigoParaExportar(item.codigo),item.descricao,exclusion.motivo,exclusion.autor,exclusion.data])];
+    const sheet=XLSX.utils.aoa_to_sheet(rows);
+    sheet['!cols']=[{wch:12},{wch:14},{wch:48},{wch:55},{wch:28},{wch:26}];
+    XLSX.utils.book_append_sheet(wb,sheet,'Fora do escopo');
+  };
+
   const exportXLSX = async () => {
     await carregarXLSX();
     if (!orc || !calc) return;
@@ -2808,7 +2835,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     aoa.push(["BASE:",     `${orc.fonte} ${orc.uf}`, "", "DATA-BASE:", orc.dataBase || "-"]);
     aoa.push(["ENCARGOS:", orc.desonerado ? "Desonerado" : "Não desonerado", "", "BDI:", `${orc.bdi}%`]);
     aoa.push([]);
-    aoa.push(["NÍVEL CORRIGIDO","ITEM","FONTE","CÓDIGO","DESCRIÇÃO","UNIDADE","QUANTIDADE","CUSTO UNITÁRIO (SEM BDI)","BDI (%)","PREÇO UNITÁRIO (COM BDI)","PREÇO TOTAL (R$)"]);
+    aoa.push(["NÍVEL CORRIGIDO","ITEM","FONTE","CÓDIGO","DESCRIÇÃO","UNIDADE","QUANTIDADE","CUSTO UNITÁRIO (SEM BDI)","BDI (%)","PREÇO UNITÁRIO (COM BDI)","PREÇO TOTAL (R$)","ESCOPO"]);
 
     // Percorre a árvore inteira, em qualquer profundidade
     achatarArvore(calc.arvore).forEach(n => {
@@ -2828,6 +2855,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
           Number(calculado.bdiEfetivo||0)/100,
           Number(n.precoUnit) * (1+Number(calculado.bdiEfetivo||0)/100),
           Number(calculado.total||0),
+          budgetScopeExclusion(n)?'Fora do escopo':'',
         ]);
       }
     });
@@ -2835,12 +2863,13 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     aoa.push([]);
     aoa.push(["", "", "", "", "CUSTO DIRETO (SEM BDI)", "", "", "", "", "", calc.custoDireto]);
     aoa.push(["", "", "", "", `BDI (${orc.bdi}%)`, "", "", "", "", "", calc.valorBDI]);
-    aoa.push(["", "", "", "", "TOTAL GERAL DO ORÇAMENTO", "", "", "", "", "", calc.total]);
+    aoa.push(["", "", "", "", `${totalLabel} do orçamento`, "", "", "", "", "", calc.total]);
+    if(completion.warning)aoa.push(["", "", "", "", completion.warning]);
     if (orc.areaM2 > 0) aoa.push(["", "", "", "", "CUSTO POR m²", "", "", "", "", "", calc.porM2]);
 
     const ws = XLSX.utils.aoa_to_sheet(aoa);
     formatarColunasOrcamento(ws,aoa,aoa.findIndex(r=>r[0]==="NÍVEL CORRIGIDO"));
-    ws["!cols"] = [{wch:15},{wch:11},{wch:10},{wch:13},{wch:62},{wch:9},{wch:12},{wch:18},{wch:9},{wch:18},{wch:17}];
+    ws["!cols"] = [{wch:15},{wch:11},{wch:10},{wch:13},{wch:62},{wch:9},{wch:12},{wch:18},{wch:9},{wch:18},{wch:17},{wch:18}];
     XLSX.utils.book_append_sheet(wb, ws, "Orçamento");
 
     // Aba 2 - Curva ABC pelas etapas de 1º nível
@@ -2849,12 +2878,14 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
       [`Resumo por etapa - ${orc.nome}`], [],
       ["ETAPA","CUSTO DIRETO","TOTAL C/ BDI","% DO TOTAL"],
       ...abc.map(e => [e.nome, e.custoDireto, e.total, e.pct/100]),
-      [], ["TOTAL", calc.custoDireto, calc.total, 1],
+      [], [totalLabel, calc.custoDireto, calc.total, calc.total>0?1:0],
     ];
+    if(completion.warning)aoa2.push([completion.warning]);
     const ws2 = XLSX.utils.aoa_to_sheet(aoa2);
     ws2["!cols"] = [{wch:42},{wch:16},{wch:16},{wch:12}];
     XLSX.utils.book_append_sheet(wb, ws2, "Resumo por Etapa");
     appendAbaComposicoes(wb);
+    appendScopeSheet(wb);
 
     await XLSX.writeFile(wb, `orcamento-${orc.nome.replace(/[^\w]/g,"-").toLowerCase()}.xlsx`);
     showToast("Planilha exportada.");
@@ -2869,15 +2900,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   //    Codigo | Tipo | Item | Un. | Qtd. | ...
   //  As colunas Item/Un. so sao usadas para etapas e para itens sem codigo.
 
-  // Indice codigo -> item da base, montado uma vez.
-  const basePorCodigo = useMemo(() => {
-    const m = new Map();
-    baseBusca.forEach(i => {
-      const c = String(i.codigo ?? "").trim().toUpperCase();
-      if (c && !m.has(c)) m.set(c, i);
-    });
-    return m;
-  }, [baseBusca]);
+  const basePorCodigo = useMemo(() => indexarReferenciasImportacao(baseBusca), [baseBusca]);
 
   // Para atualizar um codigo ja digitado, a planilha de referencia carregada
   // tem prioridade sobre favoritos antigos, garantindo preco da data-base atual.
@@ -2952,17 +2975,19 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   };
 
   const importarOrcamentoXLSX = async (file) => {
-    await carregarXLSX();
     if (!file || !orc) return;
-    if (basePorCodigo.size === 0) {
-      showToast("Carregue primeiro a planilha de referência para localizar códigos e custos.", "error");
-      return;
-    }
     setImpLoad(true);
     try {
+      await carregarXLSX();
       const buf  = await file.arrayBuffer();
-      const wb   = await XLSX.read(buf, { type:"array" });
-      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1, defval:"", raw:true });
+      const wb   = await XLSX.read(buf, { type:"array", cellNF:true });
+      const sheetName=wb.SheetNames[0],sheet=wb.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(sheet, {header:1,defval:'',raw:true});
+      if(!rows.length)throw new Error('A primeira aba está vazia.');
+      const percentCells=new Set();
+      rows.forEach((row,r)=>row.forEach((value,c)=>{
+        if(typeof value==='number'&&sheet[XLSX.utils.encode_cell({r,c})]?.z?.includes('%'))percentCells.add(`${r}:${c}`);
+      }));
 
       // Acha o cabecalho (linha com Codigo E Quantidade) e monta um PALPITE
       // inicial das demais colunas - a confirmacao de onde esta cada coluna
@@ -2973,12 +2998,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
         setImpLoad(false); return;
       }
 
-      // Sempre pede confirmação humana das 4 colunas que importam de verdade
-      // (código, descrição, quantidade, preço) antes de montar qualquer linha -
-      // a detecção por nome de cabeçalho já perdeu em silêncio o nome de toda
-      // etapa e de todo item sem código numa planilha que usava "Nome" em vez
-      // de "Descrição" (achado real, 26/08/2026).
-      setColMapModal({ headerRow: rows[hIdx] || [], rows, hIdx, col });
+      setColMapModal({headerRow:rows[hIdx]||[],rows,hIdx,col,percentCells,fileName:file.name,sheetName,budgetId:orc.id});
     } catch (e) {
       showToast("Não consegui ler a planilha: " + e.message, "error");
     }
@@ -2987,34 +3007,62 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
 
   // Aplica o mapeamento de colunas confirmado (ou ajustado) pelo usuário e
   // monta a pré-visualização de importação (impModal).
-  const confirmarMapeamentoImportacao = () => {
-    if (!colMapModal) return;
-    const { rows, hIdx, col } = colMapModal;
-    if (col.codigo === undefined || col.descricao === undefined || col.qtd === undefined || col.preco === undefined) {
-      showToast("Selecione as quatro colunas (código, descrição, quantidade e preço) antes de importar.", "error");
+  const confirmarMapeamentoImportacao = async () => {
+    if (!colMapModal||impLoad) return;
+    const {rows,hIdx,col,percentCells,bdiFormat,budgetId}=colMapModal;
+    if (orc?.id!==budgetId||budgetIsImmutable(orc))return;
+    if (col.codigo === undefined || col.descricao === undefined || col.qtd === undefined) {
+      showToast("Selecione Código, Descrição e Quantidade para continuar.", "error");
       return;
     }
+    const selectedColumns=Object.values(col).filter(value=>value!==undefined);
+    if(new Set(selectedColumns).size!==selectedColumns.length){
+      showToast('Selecione uma coluna diferente para cada campo.','error');return;
+    }
 
-    const linhas = montarLinhasImportacao({ rows, hIdx, col, basePorCodigo, precoDoItem, orc, parseNumero: parseBR });
-    const itens = linhas.filter(l => l.kind === "item");
-    if (!itens.length) { showToast("Nenhum item com código encontrado na planilha.", "error"); return; }
-
-    setColMapModal(null);
-    setImpModal({
-      linhas,
-      stats: resumoImportacao(linhas),
-      substituir: false,
-      incluirPend: true,
-    });
+    setImpLoad(true);
+    try{
+      const referenceIds=orc.referencias||[];
+      let index=basePorCodigo;
+      const warnings=new Set();
+      if(referenceIds.length){
+        const local=baseBusca.filter(item=>!referenceFonteOficial(item.fonte));
+        const entries=new Map();
+        for(const row of rows.slice(hIdx+1)){
+          const codigo=normalizarCodigoRef(row[col.codigo]),fonte=String(row[col.fonte]??'').trim().toUpperCase();
+          if(codigo&&(!fonte||referenceFonteOficial(fonte)))entries.set(`${fonte}|${codigo}`,{codigo,fonte});
+        }
+        const requested=[...entries.values()],resolved=[];
+        for(let offset=0;offset<requested.length;offset+=25){
+          const response=await resolverCodigosReferencia(referenceIds,requested.slice(offset,offset+25),{includeVariants:true});
+          if(!response.ok)throw new Error(response.error||'Não foi possível consultar as referências vinculadas.');
+          resolved.push(...(response.items||[]));
+          if(response.warning)warnings.add(response.warning);
+        }
+        const unique=new Map(resolved.map(item=>[JSON.stringify([item.fonte,item.codigo,item.uf,item.dataBase,item.unidade,item.precoDes,item.precoNao,item.descricao]),item]));
+        index=indexarReferenciasImportacao([...local,...unique.values()]);
+      }
+      const linhas=montarLinhasImportacao({rows,hIdx,col,basePorCodigo:index,precoDoItem,precoFoiSubstituido,orc,parseNumero:parseBR,percentCells,bdiFormat});
+      if(!linhas.some(row=>row.kind==='item'))throw new Error('Nenhum serviço encontrado na planilha. Confira as colunas.');
+      setColMapModal(null);
+      setImpModal({linhas,mapping:colMapModal,bdi:Number(orc.bdi||0),referenceIds:[...referenceIds],desonerado:orc.desonerado,
+        warnings:[...warnings],substituir:false,incluirPend:true});
+    }catch(error){showToast(error.message,'error');}
+    finally{setImpLoad(false);}
   };
 
   // Aplica a importacao: cria as etapas na ordem e pendura os itens nelas.
   const aplicarImportacao = async () => {
     if (!impModal || !orc || impSaving) return;
+    const current=(dataAtualRef.current.orcamentos||[]).find(item=>item.id===orc.id)||orc;
+    if(impModal.mapping.budgetId!==current.id||budgetIsImmutable(current)||Number(current.bdi||0)!==impModal.bdi||
+      current.desonerado!==impModal.desonerado||JSON.stringify(current.referencias||[])!==JSON.stringify(impModal.referenceIds)){
+      setImpModal(previous=>({...previous,error:'O orçamento mudou. Reabra a conferência antes de importar.'}));return;
+    }
     const { linhas, substituir, incluirPend } = impModal;
     setImpSaving(true);
     try{
-      const {etapas,itens,skipped}=applyBudgetImport(orc,linhas,{replace:substituir,includePending:incluirPend,createId:uid});
+      const {etapas,itens,skipped}=applyBudgetImport(current,linhas,{replace:substituir,includePending:incluirPend,createId:uid});
       const saved=await salvarOrc({etapas,itens});
       if(!saved?.ok)throw Error(saved?.reason||'Não foi possível salvar. Confira a prévia e tente novamente.');
       setImpModal(null);
@@ -3033,7 +3081,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     await carregarXLSX();
     if (!orc || !calc) return;
     const itemCalcPorId=new Map(projectBudgetExport(orc).rows.map(item=>[item.id,item]));
-    const aoa = [["Nível corrigido","Item","Fonte","Código","Descrição","Unidade","Quantidade","Custo unitário (sem BDI)","BDI (%)","Preço unitário (com BDI)","Preço total (R$)"]];
+    const aoa = [["Nível corrigido","Item","Fonte","Código","Descrição","Unidade","Quantidade","Custo unitário (sem BDI)","BDI (%)","Preço unitário (com BDI)","Preço total (R$)","Escopo"]];
 
     achatarArvore(calc.arvore).forEach(n => {
       if (n.tipo === "etapa") {
@@ -3054,16 +3102,20 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
           Number(calculado.bdi||0)/100,
           Number(calculado.precoUnitario||0),
           Number(calculado.total||0),
+          budgetScopeExclusion(n)?'Fora do escopo':'',
         ]);
       }
     });
 
+    aoa.push(["", "", "", "", `${totalLabel} do orçamento`, "", "", "", "", "", calc.total]);
+    if(completion.warning)aoa.push(["", "", "", "", completion.warning]);
     const ws = XLSX.utils.aoa_to_sheet(aoa);
     formatarColunasOrcamento(ws,aoa,0);
-    ws["!cols"] = [{wch:15},{wch:11},{wch:10},{wch:13},{wch:62},{wch:9},{wch:12},{wch:18},{wch:9},{wch:18},{wch:17}];
+    ws["!cols"] = [{wch:15},{wch:11},{wch:10},{wch:13},{wch:62},{wch:9},{wch:12},{wch:18},{wch:9},{wch:18},{wch:17},{wch:18}];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Exportado");
     appendAbaComposicoes(wb);
+    appendScopeSheet(wb);
     await XLSX.writeFile(wb, `exportado-${orc.nome.replace(/[^\w]/g,"-").toLowerCase()}.xlsx`);
     showToast("Planilha exportada no formato padrão.");
   };
@@ -3087,10 +3139,12 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
       [],
       ["", "", "", "", "TOTAL (CUSTO DIRETO)", "", "", "", abc.totalCD, 1, ""],
     ];
+    if(completion.warning)aoa.push([completion.warning]);
     const ws = XLSX.utils.aoa_to_sheet(aoa);
     ws["!cols"] = [{wch:5},{wch:8},{wch:11},{wch:8},{wch:56},{wch:7},{wch:11},{wch:13},{wch:15},{wch:9},{wch:9}];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Curva ABC");
+    appendScopeSheet(wb);
     await XLSX.writeFile(wb, `curva-abc-${orc.nome.replace(/[^\w]/g,"-").toLowerCase()}.xlsx`);
     showToast("Curva ABC exportada.");
   };
@@ -3137,11 +3191,12 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
         </tr>`;
       }
       const calculado=itemCalcPorId.get(n.id)||{};
+      const exclusion=budgetScopeExclusion(n);
       return `<tr>
         <td class="num">${n.codigoItem}</td>
         <td class="num">${escapeHtml(n.codigo)}</td>
         <td>${escapeHtml(n.fonte)}</td>
-        <td class="desc">${escapeHtml(n.descricao)}</td>
+        <td class="desc">${escapeHtml(n.descricao)}${exclusion?`<br><strong>Fora do escopo</strong> · ${escapeHtml(exclusion.motivo)} · ${escapeHtml(exclusion.autor)} · ${new Date(exclusion.data).toLocaleDateString('pt-BR',{timeZone:'America/Bahia'})}`:''}</td>
         <td class="c">${escapeHtml(n.unidade)}</td>
         <td class="r">${f2(n.quantidade)}</td>
         <td class="r">${f2(calculado.precoUnitario)}</td>
@@ -3266,12 +3321,13 @@ ${orc.descricao?`<p style="font-size:10px;color:#525252;margin:-5px 0 12px">${es
   <div><p>Itens</p><p>${calc.qtdItens}</p></div>
   <div><p>Emissão</p><p>${new Date().toLocaleDateString("pt-BR")}</p></div>
 </div>
+${completion.warning?`<p><strong>${escapeHtml(completion.warning)}</strong></p>`:''}
 ${blocoBDI}
 <h2 class="sec">Resumo por etapa</h2>
 <table class="resumo">
   <thead><tr><th>Item</th><th>Etapa</th><th class="r">Total c/ BDI</th><th class="r">% do total</th><th class="barra-h"></th></tr></thead>
   <tbody>${resumoEtapas}</tbody>
-  <tfoot><tr class="tot"><td colspan="2">TOTAL GERAL</td><td class="r">R$ ${f2(calc.total)}</td><td class="r">100,00%</td><td></td></tr></tfoot>
+  <tfoot><tr class="tot"><td colspan="2">${totalLabel}</td><td class="r">R$ ${f2(calc.total)}</td><td class="r">${calc.total>0?'100,00%':'0,00%'}</td><td></td></tr></tfoot>
 </table>
 <h2 class="sec">Planilha detalhada</h2>
 <table>
@@ -3283,7 +3339,7 @@ ${blocoBDI}
   <tfoot>
     <tr><td colspan="7">CUSTO DIRETO (sem BDI)</td><td class="r">R$ ${f2(calc.custoDireto)}</td></tr>
     <tr><td colspan="7">BDI (${f2(orc.bdi)}%)</td><td class="r">R$ ${f2(calc.valorBDI)}</td></tr>
-    <tr class="tot"><td colspan="7">TOTAL GERAL DO ORÇAMENTO</td><td class="r">R$ ${f2(calc.total)}</td></tr>
+    <tr class="tot"><td colspan="7">${totalLabel} do orçamento</td><td class="r">R$ ${f2(calc.total)}</td></tr>
     ${orc.areaM2>0?`<tr class="m2"><td colspan="7">CUSTO POR METRO QUADRADO</td><td class="r">R$ ${f2(calc.porM2)}/m²</td></tr>`:""}
   </tfoot>
 </table>
@@ -3697,10 +3753,14 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           <StandardButton variant="secondary" type="button" className="budget-tool" disabled={budgetIsImmutable(orc)} onClick={()=>setFloorEditorOpen(true)}>Gerenciar pavimentos</StandardButton>
           {!budgetIsImmutable(orc)&&<StandardButton variant="secondary" type="button" className="budget-tool" onClick={abrirEdicaoOrc}>Dados</StandardButton>}
           {budgetIsImmutable(orc)&&<StandardButton variant="secondary" type="button" className="budget-tool" onClick={criarRevisaoOrc}>Criar revisão</StandardButton>}
+          <StandardButton variant="secondary" type="button" className="budget-tool" onClick={()=>setComparisonBudgetId(orc.id)}>Comparar revisões</StandardButton>
           {ehAdmin&&orc.obraId&&baselineAtiva.budget?.id!==orc.id&&<StandardButton variant="primary" type="button" className="budget-tool budget-tool--primary" onClick={()=>aprovarEAdotarBaseline(orc.id)}>{budgetIsImmutable(orc)?"Adotar como baseline":"Aprovar e adotar baseline"}</StandardButton>}
           </div></details>
           {orc.descricao && <span className="budget-bar__meta" title={orc.descricao} style={{flexBasis:"100%",minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{orc.descricao}</span>}
         </div>
+        {comparisonBudgetId===orc.id&&<Modal title="Comparar revisões" wide onClose={()=>setComparisonBudgetId(null)}>
+          <BudgetRevisionComparison key={orc.id} current={orc} versions={budgetRevisionFamily(orcamentos,orc)}/>
+        </Modal>}
 
         {/* Totais em faixa, como a barra de status de uma planilha */}
         {(() => {
@@ -3714,11 +3774,12 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 <span>BDI {orc.bdi}%{foraDaFaixa&&<b className="budget-kpi__alert"> · fora da faixa TCU</b>}</span>
                 <strong>{fmt(calc.valorBDI)}</strong>
               </StandardButton>
-              <div className="budget-kpi budget-kpi--total"><span>Total</span><strong>{fmt(calc.total)}</strong></div>
+              <div className="budget-kpi budget-kpi--total"><span>{totalLabel}</span><strong>{fmt(calc.total)}</strong></div>
               <div className="budget-kpi"><span>{orc.areaM2>0?"Por m²":"Itens"}</span><strong>{orc.areaM2>0 ? fmt(calc.porM2) : String(calc.qtdItens)}</strong></div>
             </div>
           );
         })()}
+        {completion.partial&&<ScopeNote title="Total parcial">{completion.warning.slice('Total parcial. '.length)}</ScopeNote>}
 
         <WorkspaceNavigation label="Áreas do orçamento" active={orcAba} onChange={setOrcAba} items={[
           {id:"orcamento",label:"Orçamento"},
@@ -3732,14 +3793,14 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             <StandardButton variant="secondary" type="button" className="budget-tool" aria-expanded={controleCustosAberto} onClick={()=>setControleCustosAberto(v=>!v)} title="Orçamento, compras, recebimento, aplicação e pagamento por etapa de 1º nível">Controle de custos</StandardButton>
             <StandardButton variant="secondary" type="button" className="budget-tool" aria-expanded={confAberta} onClick={()=>setConfAberta(v=>!v)} title="Escopo, preços, cotações, itens esquecidos, interfaces e quantitativos">Auditoria técnica{checklistAuditoria.filter(item=>item.status==="pendente").length>0?` · ${checklistAuditoria.filter(item=>item.status==="pendente").length} pendente(s)`:""}</StandardButton>
             <StandardButton variant="secondary" type="button" className="budget-tool" aria-expanded={basesPainelAberto} onClick={()=>setBasesPainelAberto(v=>!v)} title="Bases de referência SINAPI e ORSE vinculadas">Bases e preços · {basesVinculadas.length}{totalBasesDuplicadas>0?` · ${contar(totalBasesDuplicadas,"repetida","repetidas")}`:""}</StandardButton>
-      <BudgetAuditPanel issues={budgetIssues} onNavigate={abrirOcorrenciaOrcamento} readOnly={budgetIsImmutable(orc)} onRemoveLink={source=>salvarOrc({memoriaCalculo:{...orc.memoriaCalculo,vinculosEstruturais:{...orc.memoriaCalculo?.vinculosEstruturais,[source]:''}}})}/>
+      <BudgetAuditPanel key={orc.id} issues={budgetIssues} stages={achatarArvore(calc.arvore).filter(row=>row.tipo==='etapa')} onNavigate={abrirOcorrenciaOrcamento} readOnly={budgetIsImmutable(orc)} onChangeScope={changeItemScope} onRemoveLink={source=>salvarOrc({memoriaCalculo:{...orc.memoriaCalculo,vinculosEstruturais:{...orc.memoriaCalculo?.vinculosEstruturais,[source]:''}}})}/>
           </div></details>}
         </div>
       </div>
 
 
 
-      {orcAba==="orcamento"&&ferramentasOrcAberto&&<div className="budget-panel"><div style={{display:"grid",gridTemplateColumns:cols(2,3,6),gap:"var(--arcd-space-1)"}}><FilePicker buttonLabel="Importar planilha" accept=".xlsx,.xls" disabled={basePorCodigo.size===0||impLoad} onChange={e=>{importarOrcamentoXLSX(e.target.files?.[0]);e.target.value="";}} style={{display:"flex"}}></FilePicker><Btn size="sm" v="ghost" onClick={()=>setOrcAba("insumos")}><Ic n="chart"/> Curva ABC</Btn><Btn size="sm" v="danger" onClick={exportPDF}><Ic n="file"/> PDF</Btn><Btn size="sm" v="success" onClick={exportXLSX}><Ic n="download"/> Excel completo</Btn><Btn size="sm" v="success" onClick={exportXLSXExportado}><Ic n="download"/> Excel padrão</Btn><Btn size="sm" v="ghost" onClick={exportXLSXCurvaABC}><Ic n="download"/> Excel ABC</Btn></div></div>}
+      {orcAba==="orcamento"&&ferramentasOrcAberto&&<div className="budget-panel"><div style={{display:"grid",gridTemplateColumns:cols(2,3,6),gap:"var(--arcd-space-1)"}}><FilePicker buttonLabel="Importar planilha" accept=".xlsx,.xls" disabled={budgetIsImmutable(orc)||impLoad} onChange={e=>{importarOrcamentoXLSX(e.target.files?.[0]);e.target.value="";}} style={{display:"flex"}}></FilePicker><Btn size="sm" v="ghost" onClick={()=>setOrcAba("insumos")}><Ic n="chart"/> Curva ABC</Btn><Btn size="sm" v="danger" onClick={exportPDF}><Ic n="file"/> PDF</Btn><Btn size="sm" v="success" onClick={exportXLSX}><Ic n="download"/> Excel completo</Btn><Btn size="sm" v="success" onClick={exportXLSXExportado}><Ic n="download"/> Excel padrão</Btn><Btn size="sm" v="ghost" onClick={exportXLSXCurvaABC}><Ic n="download"/> Excel ABC</Btn></div></div>}
 
       {orcAba==="orcamento"&&controleCustosAberto&&<div className="budget-panel">
         <div>
@@ -4175,7 +4236,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 {/* Totais como última linha da planilha */}
                 <div className="budget-foot">
                   <span>BDI ({orc.bdi}%) <b>{fmt(calc.valorBDI)}</b></span>
-                  <span>Total geral <b className="is-total">{fmt(calc.total)}</b></span>
+                  <span>{totalLabel} <b className="is-total">{fmt(calc.total)}</b></span>
                   {orc.areaM2>0 && <span>{fmt(calc.porM2)}/m² · {orc.areaM2} m²</span>}
                 </div>
               </div>
@@ -4345,11 +4406,11 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           A planilha precisa das colunas <b>Código</b> e <b>Qtd.</b> - descrição, unidade e preço
           vêm da base {orc.fonte} já carregada, na data-base deste orçamento.
           {basePorCodigo.size === 0
-            ? <span style={{color:"var(--arcd-danger-text)",fontWeight:"var(--arcd-font-weight-semibold)"}}> Importe a base SINAPI/ORSE antes.</span>
+            ? <span style={{color:"var(--arcd-danger-text)",fontWeight:"var(--arcd-font-weight-semibold)"}}> Nenhuma referência carregada. A prévia mostrará os preços como pendentes.</span>
             : <> Base ativa: <b>{basePorCodigo.size.toLocaleString("pt-BR")}</b> códigos.</>}
         </p>
         <div style={{display:"flex",flexWrap:"wrap",gap:"var(--arcd-space-2)",alignItems:"center"}}>
-          <FilePicker buttonLabel="Importar planilha" accept=".xlsx,.xls" disabled={basePorCodigo.size===0 || impLoad} onChange={e=>{ importarOrcamentoXLSX(e.target.files?.[0]); e.target.value=""; }} style={{display:"inline-block",opacity: basePorCodigo.size===0 || impLoad ? .5 : 1}}></FilePicker>
+          <FilePicker buttonLabel="Importar planilha" accept=".xlsx,.xls" disabled={budgetIsImmutable(orc)||impLoad} onChange={e=>{ importarOrcamentoXLSX(e.target.files?.[0]); e.target.value=""; }} style={{display:"inline-block",opacity: budgetIsImmutable(orc) || impLoad ? .5 : 1}}></FilePicker>
           <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>
             Use o <b>Excel padrão</b> abaixo como modelo do layout.
           </p>
@@ -4372,18 +4433,22 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           { k:"codigo",    l:"Código",      obrig:true  },
           { k:"descricao", l:"Descrição",   obrig:true  },
           { k:"qtd",       l:"Quantidade",  obrig:true  },
-          { k:"preco",     l:"Preço",       obrig:true  },
+          { k:"preco",     l:"Custo unitário sem BDI",obrig:false },
+          { k:"bdi",       l:"BDI",         obrig:false },
+          { k:"precoComBdi",l:"Preço unitário com BDI",obrig:false },
+          { k:"total",     l:"Total informado",obrig:false },
+          { k:"fonte",     l:"Fonte",       obrig:false },
           { k:"tipo",      l:"Tipo",        obrig:false },
           { k:"unidade",   l:"Unidade",     obrig:false },
           { k:"ordem",     l:"Numeração da etapa",obrig:false },
           { k:"nivel",     l:"Nível da etapa",obrig:false },
         ];
         return (
-          <Modal title="Onde está cada coluna?" onClose={()=>setColMapModal(null)} wide>
+          <Modal title="Onde está cada coluna?" onClose={()=>{if(!impLoad)setColMapModal(null);}} wide>
             <HelpButton pageId="orc_estrutura" allowedTabs={['orc']} label="Ajuda da hierarquia"/>
             <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
               <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)"}}>
-                A detecção automática pelo nome do cabeçalho é só um palpite. Confirme (ou corrija) qual coluna da planilha é cada campo antes de importar - especialmente <b>Código</b>, <b>Descrição</b>, <b>Quantidade</b> e <b>Preço</b>.
+                Confira as colunas sugeridas. Mapeie os valores disponíveis para comparar o Excel com o recálculo e a referência.
               </p>
               <div style={{display:"grid",gridTemplateColumns:cols(1,2,2),gap:"var(--arcd-space-2)"}}>
                 {campos.map(c => (
@@ -4391,9 +4456,14 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                        onChange={e=>setCol(c.k,e.target.value)}>{opcoesColuna.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}</Select>
                 ))}
               </div>
+              {col.bdi!==undefined&&<Select label="Formato do BDI numérico" value={colMapModal.bdiFormat??detectarFormatoBdi(rows,hIdx,col,parseBR)}
+                onChange={event=>setColMapModal(previous=>({...previous,bdiFormat:event.target.value}))}>
+                <option value="pontos">Percentual em pontos (22,12 = 22,12%)</option>
+                <option value="decimal">Fração decimal (0,2212 = 22,12%)</option>
+              </Select>}
               <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
-                <Btn v="ghost" onClick={()=>setColMapModal(null)} full>Cancelar</Btn>
-                <Btn onClick={confirmarMapeamentoImportacao} full><Ic n="check"/> Confirmar e continuar</Btn>
+                <Btn v="ghost" disabled={impLoad} onClick={()=>setColMapModal(null)} full>Cancelar</Btn>
+                <Btn onClick={confirmarMapeamentoImportacao} disabled={impLoad} full><Ic n="check"/> {impLoad?'Consultando referências…':'Confirmar e continuar'}</Btn>
               </div>
             </div>
           </Modal>
@@ -4402,61 +4472,28 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 
       {/* Modal: conferir a importação antes de aplicar */}
       {impModal && (() => {
-        const s = impModal.stats;
         const hierarchyError=budgetImportHierarchyError(impModal.linhas);
         const stageRows=impModal.linhas.filter(l=>l.kind==='etapa');
-        const pend = impModal.linhas.filter(l => l.kind==="item" && (!l.achou || l.semPreco || l.semQtd));
-        const Nm = ({v,l,cor}) => (
-          <div style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-2)"}}>
-            <p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:cor||"var(--arcd-text-primary)"}}>{v}</p>
-            <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-0)"}}>{l}</p>
-          </div>
-        );
+        const hasSelection=impModal.linhas.some(row=>row.kind==='item'&&(impModal.incluirPend||!importacaoComPendencia(row)));
         return (
-          <Modal title="Conferir importação" onClose={()=>{if(!impSaving)setImpModal(null);}} wide>
+          <Modal title="Conferir importação" panelClass="budget-import-preview" onClose={()=>{if(!impSaving)setImpModal(null);}} wide footer={<>
+            <StandardButton variant="outline" disabled={impSaving} onClick={()=>setImpModal(null)}>Cancelar</StandardButton>
+            <StandardButton variant="secondary" disabled={impSaving} onClick={()=>{setColMapModal(impModal.mapping);setImpModal(null);}}>Rever colunas</StandardButton>
+            <StandardButton disabled={impSaving||!!hierarchyError||!hasSelection} onClick={aplicarImportacao}>{impSaving?'Importando…':'Importar'}</StandardButton>
+          </>}>
             <HelpButton pageId="orc_estrutura" allowedTabs={['orc']} label="Ajuda da hierarquia"/>
             <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
-              <FormSection title="Hierarquia da planilha" description="Confira pais e níveis antes de importar.">
+              <p>{impModal.mapping.fileName} · Aba {impModal.mapping.sheetName}</p>
+              {impModal.warnings.map(warning=><Alert key={warning} variant="warning"><AlertDescription>{warning} Confira os itens sem referência.</AlertDescription></Alert>)}
+              {(hierarchyError||impModal.error)&&<Alert variant="warning"><AlertDescription>{hierarchyError||impModal.error}</AlertDescription></Alert>}
+              <details className="memory-disclosure">
+                <summary>Hierarquia da planilha · {contar(stageRows.length,'etapa','etapas')}</summary>
                 <ul>{stageRows.slice(0,50).map(row=><li key={row._i}>{`Linha ${row._i} · Nível ${row.nivel}${row.ordem?` · ${row.ordem}`:''} · ${row.nome}`}</li>)}</ul>
                 {stageRows.length>50&&<p>Exibindo as primeiras 50 etapas. Confira a planilha completa antes de importar.</p>}
-                {(hierarchyError||impModal.error)&&<Alert variant="warning"><AlertDescription>{hierarchyError||impModal.error}</AlertDescription></Alert>}
-              </FormSection>
-              <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:"var(--arcd-space-2)"}}>
-                <Nm v={s.itens}    l="itens na planilha"/>
-                <Nm v={s.ok}       l="prontos" cor={C.green}/>
-                <Nm v={s.naoAchou} l="código fora da base" cor={s.naoAchou?C.red:C.muted}/>
-                <Nm v={s.etapas}   l="etapas"/>
-              </div>
-
-              <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 7%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)",
-                           display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)"}}>
-                <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Custo direto que será importado</p>
-                <p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)"}}>{fmt(s.valor)}</p>
-              </div>
-
-              {pend.length > 0 && (
-                <div style={{border:"1px solid var(--arcd-border-default)",borderLeft:"1px solid var(--arcd-danger-text)",borderRadius:6,overflow:"hidden"}}>
-                  <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",padding:"var(--arcd-space-2) var(--arcd-space-3)",background:"var(--arcd-surface-muted)"}}>
-                    {contar(pend.length,"linha","linhas")} precisam de atenção
-                  </p>
-                  <div style={{maxHeight:150,overflowY:"auto",padding:"var(--arcd-space-1) var(--arcd-space-3)"}}>
-                    {pend.slice(0,40).map((p,i)=>(
-                      <p key={i} style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
-                        Linha {p._i}: <b style={{color:"var(--arcd-text-muted)"}}>{p.codigo||"sem código"}</b>
-                        {" - "}
-                        {!p.achou   ? "não existe na base carregada"
-                         : p.semQtd ? "sem quantidade"
-                         : "a base não tem preço para este código"}
-                      </p>
-                    ))}
-                    {pend.length>40 && <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>...e mais {pend.length-40}.</p>}
-                  </div>
-                </div>
-              )}
-
+              </details>
               {[
                 { k:"incluirPend", t:"Importar também as linhas com pendência",
-                  s:"Entram com preço zerado para você completar depois. Desmarcado, elas são descartadas." },
+                  s:"Inclui serviços sem quantidade ou sem preço de referência aplicável, com o campo pendente zerado. Desmarque para importar apenas os serviços com referência, preço e quantidade." },
                 { k:"substituir", t:"Substituir o conteúdo atual do orçamento",
                   s:"Apaga etapas e itens já lançados neste orçamento. Desmarcado, a planilha é somada ao que existe." },
               ].map(o => (
@@ -4465,11 +4502,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   <p id={`import-${o.k}`}>{o.s}</p>
                 </div>
               ))}
-
-              <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
-                <StandardButton variant="outline" disabled={impSaving} onClick={()=>setImpModal(null)}>Cancelar</StandardButton>
-                <StandardButton disabled={impSaving||!!hierarchyError} onClick={aplicarImportacao}>{impSaving?'Importando…':'Importar'}</StandardButton>
-              </div>
+              <BudgetImportComparison linhas={impModal.linhas} bdi={impModal.bdi} incluirPend={impModal.incluirPend}/>
             </div>
           </Modal>
         );

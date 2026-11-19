@@ -590,7 +590,8 @@ export const finalizarBaseReferencia = async baseId => chamarReferencias("finish
 export const pesquisarBasesReferencia = async (referenceIds, query) => chamarReferencias("search", { referenceIds, query });
 export const pesquisarInsumosReferencia = async (referenceIds, query, itemType = "TODOS") =>
   chamarReferencias("search-inputs", { referenceIds, query, itemType });
-export const resolverCodigosReferencia = async (referenceIds, entries) => chamarReferencias("resolve", { referenceIds, entries });
+export const resolverCodigosReferencia = async (referenceIds, entries, {includeVariants=false}={}) =>
+  chamarReferencias("resolve", {referenceIds, entries, ...(includeVariants?{includeVariants}: {})});
 export const detalharComposicoesReferencia = async (referenceIds, entries) => chamarReferencias("composition-details", { referenceIds, entries });
 export const removerBaseReferencia = async baseId => chamarReferencias("delete", { baseId });
 

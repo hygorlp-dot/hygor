@@ -165,6 +165,7 @@ Conteúdo gerado de `src/features/help/help-content.js`, a mesma fonte da ajuda 
 - [Administrador · Login e senha dos clientes](#guia-cliente_acessos)
 - [Conciliação · Reversão de importações bancárias](#guia-conc_reverter)
 - [Orçamento · Hierarquia de seis níveis](#guia-orc_estrutura)
+- [Orçamento · Comparar revisões](#guia-orc_revisoes)
 - [Conexão local do financeiro](#guia-cliente_conexao_financeiro)
 - [Arquivos · Exclusão e lixeira](#guia-arquivos_exclusao)
 - [Terceirizados · Recuperar medição](#guia-terc_rascunho)
@@ -684,6 +685,11 @@ Selecione a obra e confira a versão do orçamento.
 2. Cadastre até seis níveis de etapas e confira os serviços.
 3. Revise unidade, quantidade, composição e preço de cada item.
 4. Confira os totais, salve as alterações e use a saída de relatório disponível.
+5. Em Análises e ferramentas, abra Conferência do orçamento inteiro. Use Tipo de ocorrência para ver A medir, A cotar ou Fora do escopo. Filtre por Etapa da ocorrência ou busque pelo item. Selecione a ocorrência para abrir a linha e revisar quantidade, preço ou composição.
+6. Em uma versão editável, use Excluir do escopo somente depois de confirmar que o serviço pendente não faz parte da obra. Informe o Motivo da exclusão e confirme. Use Fora do escopo para consultar o responsável e a data ou para Reincluir no escopo. Alterar os dados do serviço pode reabrir a pendência.
+7. Confira Total parcial na tela, no PDF e no Excel enquanto houver serviços a medir ou a cotar. No PDF, as exclusões aparecem junto aos itens. No Excel, consulte a aba Fora do escopo para ver os motivos e responsáveis.
+8. Em Dados e versões, use Comparar revisões para consultar as diferenças por serviço entre versões do mesmo orçamento.
+9. No botão Ajuda, abra Manual completo para consultar os guias Hierarquia de seis níveis e Comparar revisões. Ao fechar a ajuda, você volta ao orçamento e aos filtros que estava usando.
 
 ### Como conferir se deu certo
 
@@ -4007,10 +4013,12 @@ Confira obra e versão; aprovados exigem revisão. Na planilha, pais vêm antes 
 
 ### Como fazer
 
-1. Em Mais ações da etapa → Criar subnível, confira o destino. O sexto é o último; seus serviços podem ter sete partes na numeração.
-2. Para mover, use Editar nome e posição, Etapa superior e Posição na lista. Itens e descendentes vão juntos; ciclos e excesso são recusados.
-3. Em Análises e ferramentas → Ferramentas do orçamento → Importar planilha, confirme as colunas e Hierarquia da planilha. Divergência exige corrigir arquivo ou mapeamento.
-4. Confira adição ou substituição e use Importar. Falha mantém a prévia; Cancelar não importa.
+1. Em Mais ações da etapa → Criar subnível, confira o destino. O sexto é o último e seus serviços podem ter sete partes na numeração.
+2. Para mover, use Editar nome e posição, Etapa superior e Posição na lista. Itens e descendentes vão juntos. O ERP recusa ciclos e excesso de níveis.
+3. Em Análises e ferramentas → Ferramentas do orçamento → Importar planilha, confira as colunas sugeridas da primeira aba. Mapeie o custo sem BDI, o percentual, o preço com BDI e o total quando existirem. Em Formato do BDI numérico, confira se 22,12 ou 0,2212 representa 22,12%.
+4. Abra Hierarquia da planilha e confira as etapas. Use Filtrar conferência para ver divergências, dados faltantes ou pendências. Procure pela linha, código ou descrição. Use Rever colunas para ajustar o mapeamento.
+5. Compare Valores originais, Recálculo do Excel e Referência e importação. O total da seleção usa o BDI do orçamento. Quando houver fonte na planilha, a referência deve corresponder à fonte e ao código. Preço indisponível ou unidade incompatível deixa o custo a importar pendente.
+6. Confira se quer incluir as linhas com pendência e se vai somar ou substituir o conteúdo. Use Importar para confirmar ou Cancelar para sair da prévia. Uma falha mantém a prévia aberta.
 
 ### Como conferir se deu certo
 
@@ -4018,7 +4026,31 @@ Hierarquia preservada; itens totalizados uma vez.
 
 ### O que merece atenção
 
-Previsão não cria lançamento no DRE. Não some pais e filhos. Código localizado usa a base; fora dela, confira custo. Numeração não é código SINAPI/ORSE. Antes de substituir, confira vínculos de cronograma e compras.
+A prévia não grava orçamento. A importação cria uma previsão na versão editável e não gera lançamento no DRE. Não some pais e filhos. Antes de substituir, confira vínculos de cronograma e compras. A numeração da linha é independente do código SINAPI ou ORSE. Quando o Excel não tem BDI suficiente para o recálculo, o valor fica indisponível.
+
+<a id="guia-orc_revisoes"></a>
+
+## Orçamento · Comparar revisões
+
+Explicar a variação do orçamento e identificar quais serviços mudaram.
+
+### Antes de começar
+
+Abra um orçamento que tenha outra revisão disponível no mesmo histórico.
+
+### Como fazer
+
+1. Abra Dados e versões e selecione Comparar revisões.
+2. Selecione Versão de referência e Versão comparada. Confira o nome, o número e a situação de cada uma.
+3. Leia os totais e os impactos por quantidade, preço, BDI e escopo. Use Filtrar mudanças ou procure pelo código, serviço ou etapa. Identidade a conferir indica que a linha precisa de revisão antes de atribuir o impacto a um serviço.
+
+### Como conferir se deu certo
+
+A variação é o total da versão comparada menos o total da referência. Em cada linha, a tela mostra os dados das duas versões e os valores atribuídos a cada mudança.
+
+### O que merece atenção
+
+Quando as linhas correspondem, o cálculo aplica quantidade, depois preço e depois BDI. Trocas de unidade ou referência, inclusões, retiradas e exclusões de escopo usam o impacto líquido da mudança. Itens sem identificação única exigem revisão. Confira o aviso Total parcial antes de interpretar os valores. Consultar a comparação não altera a versão aprovada nem movimenta o DRE.
 
 <a id="guia-cliente_conexao_financeiro"></a>
 
