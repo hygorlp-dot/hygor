@@ -1,12 +1,17 @@
 import {defineConfig, mergeConfig} from "vite";
 import react from "@vitejs/plugin-react";
 import {fileURLToPath, URL} from "node:url";
+import {realpathSync} from 'node:fs';
 import {spreadsheetBrowserConfig} from "./scripts/spreadsheet-browser-config.mjs";
 import {sharedSinapiWorker} from "./scripts/shared-sinapi-worker.mjs";
 import {sharedChartHelpers} from './scripts/shared-chart-helpers.mjs';
 import {sharedUiHelpers} from './scripts/shared-ui-helpers.mjs';
 import {operationalChartScales} from './scripts/operational-chart-scales.mjs';
 import {legacyScreenChunks} from './scripts/legacy-screen-chunks.mjs';
+const projectRoot=fileURLToPath(new URL('.',import.meta.url));
+// Worktrees may share only node_modules through a junction. Permit that exact
+// dependency tree without granting access to sibling workspaces or evidence.
+const dependencyRoot=realpathSync(fileURLToPath(new URL('./node_modules',import.meta.url)));
 
 export default defineConfig(({mode})=>mergeConfig({
   plugins: [legacyScreenChunks(),react(),sharedSinapiWorker(),sharedChartHelpers(),sharedUiHelpers(),operationalChartScales()],
@@ -16,6 +21,7 @@ export default defineConfig(({mode})=>mergeConfig({
   // Evidências e builds locais não são fontes da aplicação. Observá-los
   // dispara recargas contínuas enquanto outras verificações estão rodando.
   server: {
+    fs:{allow:[projectRoot,dependencyRoot]},
     watch: {ignored: ["**/artifacts/**", "**/analises/**", "**/.impeccable/**", "**/test-results*/**", "**/playwright-report/**", "**/output/**"]},
   },
   resolve: {
