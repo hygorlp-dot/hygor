@@ -89,6 +89,7 @@ import {useRecordRecovery} from './features/financeiro/useRecordRecovery.js';
 import {invoiceRecoveryFields,formatInvoiceEditor} from './features/financeiro/record-recovery.js';
 import {invoiceBankContext,hasInvoiceBankPayment} from './domains/financeiro/record-continuity.js';
 import CashWorkspace from "./features/financeiro/CashWorkspace.jsx";
+import DreBankPosition from "./features/financeiro/DreBankPosition.jsx";
 import FinanceToday from "./features/financeiro/FinanceToday.jsx";
 import FinancialMemorial from "./features/financeiro/FinancialMemorial.jsx";
 import FinancialHomologationReport from "./features/financeiro/FinancialHomologationReport.jsx";
@@ -12096,13 +12097,15 @@ function DREEmpresa(props) {
 }
 
 function DREEmpresaMensal({ data, showToast, currentUser=null, dispatchCommand=null, onOpenWork }) {
-  const {intent}=useWorkflow();
+  const {intent,navigate}=useWorkflow();
   const useSessionState=(key,initial)=>useWorkspaceState("dre_emp",key,initial);
   useWorkspaceScroll("dre_emp");
   const { cols } = useBreakpoint();
   const now = new Date();
   const [year,  setYear]   = useSessionState("year",now.getFullYear());
   const [month, setMonth]  = useSessionState("month",now.getMonth());
+  const [bankAccount,setBankAccount]=useSessionState("bankAccount","");
+  const seeBankPosition=['admin','financeiro'].includes(currentUser?.role)&&!currentUser?.obraId&&podeAcessarAba(currentUser,'conc');
   useEffect(()=>{
     if(intent?.tabId!=="dre_emp"||intent.action==="resume")return;
     if(intent.scope.year!=null)setYear(intent.scope.year);
@@ -12543,6 +12546,9 @@ td.val{text-align:right;font-weight:700;min-width:110px}
           <Sel label="Mês" value={String(month)} onChange={v=>setMonth(Number(v))} options={Array.from({length:12},(_,i)=>({v:String(i),l:fullMonth(i)}))}/>
         </div>
       </div>
+
+      {seeBankPosition&&<DreBankPosition data={data} year={year} month={month} today={today()} selectedAccount={bankAccount} onAccountChange={setBankAccount}
+        onReconcile={record=>navigate?.('conc',{year,month},{action:'review-financial-origin',record:record||{label:'Saldo em conta'}})}/>}
 
       {razaoCarregando?<LoadingState label="o DRE mensal"/>:!razaoEmpresa?<Alert variant="warning" role="alert">
         <AlertDescription>

@@ -1542,9 +1542,11 @@ Escolha o período e confira a abrangência da análise. Se o DRE mensal estiver
 ### Como fazer
 
 1. Leia receitas, custos, despesas e resultado.
-2. Abra o detalhamento ou memorial do valor que deseja conferir.
-3. Compare com os registros de origem e use a visão anual quando necessário.
-4. Na manutenção de equipamentos, confira o registro e a situação: manutenções canceladas não compõem o custo nem o memorial da competência. O registro cancelado permanece na origem para consulta.
+2. Em Saldo em conta, escolha a conta bancária. O quadro usa o mês do DRE até hoje, quando for o mês atual. Confira saldo inicial, entradas, aportes de sócios, saídas e saldo final.
+3. Use Abrir Conciliação para revisar a conta e as datas. O atalho pausa a automação da tela.
+4. Abra o detalhamento ou memorial do valor que deseja conferir.
+5. Compare com os registros de origem e use a visão anual quando necessário.
+6. Na manutenção de equipamentos, confira o registro e a situação: manutenções canceladas não compõem o custo nem o memorial da competência. O registro cancelado permanece na origem para consulta.
 
 ### Como conferir se deu certo
 
@@ -1552,7 +1554,7 @@ Você sabe quais registros compõem o resultado do período.
 
 ### O que merece atenção
 
-DRE é a Demonstração do Resultado. Resultado por competência é diferente do saldo bancário. Um fechamento antigo sem memorial conserva o total histórico; a consulta não reconstrói documentos ausentes nem reabre a competência. Confira o aviso de recorte e os filtros do próprio demonstrativo. Obra em foco é preservada para as telas operacionais e não substitui os filtros do DRE. O atalho financeiro do Dashboard leva o mês selecionado e o recorte consolidado; isso não altera lançamentos.
+DRE é a Demonstração do Resultado. Aportes de sócios já estão nas entradas do quadro e não compõem o lucro. Sem fechamento com saldo bancário informado, os saldos ficam indisponíveis. Uma posição calculada usa o fechamento disponível e depende da cobertura dos extratos importados. Movimentos de extratos arquivados permanecem no saldo e podem ser conferidos em Extratos, na Conciliação. Um fechamento antigo sem memorial conserva o total histórico; a consulta não reconstrói documentos ausentes nem reabre a competência. Confira o aviso de recorte e os filtros do próprio demonstrativo. Obra em foco é preservada para as telas operacionais e não substitui os filtros do DRE. O atalho financeiro do Dashboard leva o mês selecionado e o recorte consolidado; isso não altera lançamentos.
 
 <a id="guia-dre"></a>
 

@@ -131,11 +131,15 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
     if(intent?.tabId!=='conc'||intent.action!=='review-financial-origin'||financialIntentHandled.current===intent.sequence||!['admin','financeiro'].includes(currentUser?.role))return;
     financialIntentHandled.current=intent.sequence;
     const origin=intent.record||{},ids=(origin.transactionIds||[]).map(String);
-    const transactions=(data.transacoes||[]).filter(t=>ids.includes(String(t.id))&&!t.deletedAt&&t.ativo!==false);
+    const scopedPeriod=Boolean(origin.start&&origin.end);
+    const archived=new Set((data.dreBankSource?.extratos||data.extratos||[]).filter(item=>item.status==='arquivado').map(item=>String(item.id)));
+    const transactions=(data.transacoes||[]).filter(t=>(scopedPeriod
+      ?String(t.contaBancariaId||'')===String(origin.accountId)&&t.data>=origin.start&&t.data<=origin.end&&!t.importReversal&&!archived.has(String(t.extratoId))
+      :ids.includes(String(t.id)))&&!t.deletedAt&&t.ativo!==false);
     setAutomacaoAtiva(false);setBankOrigin({...origin,transactionIds:ids,unavailable:ids.length-transactions.length});
     setAccountFilter(String(origin.accountId||''));setBuscaConc('');setTipoMovimento('todos');setFiltroCategoria('');setDivergence('all');
     setAba(transactions.length&&transactions.every(t=>t.status==='conciliado')?'conciliadas':transactions.length&&transactions.every(t=>t.status==='ignorado')?'ignoradas':'pendentes');
-    setReviewId(transactions.find(t=>['pendente','parcial'].includes(t.status))?.id||'');
+    setReviewId(scopedPeriod?'':transactions.find(t=>['pendente','parcial'].includes(t.status))?.id||'');
   },[intent?.sequence]);
   const [competenciaApropriacao,setCompetenciaApropriacao]=useState("");
   const [selecionadas,setSelecionadas]=useState([]);
@@ -237,7 +241,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
   },[data,tipoMovimento]);
 
   const transacoes = useMemo(() => {
-    const extratosArquivados = new Set((data.extratos || []).filter(e => e.status === "arquivado").map(e => String(e.id)));
+    const extratosArquivados = new Set((data.dreBankSource?.extratos || data.extratos || []).filter(e => e.status === "arquivado").map(e => String(e.id)));
     const t = (data.transacoes || []).filter(item => !item.importReversal&&!extratosArquivados.has(String(item.extratoId || "")));
     const ordem={pronta:0,revisar:1,investigar:2,sem_correspondencia:3,bloqueada:4};
     t.sort((a,b) => {
@@ -253,6 +257,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
     const termos=normalizeCategorySearch(buscaConc).split(/\s+/).filter(Boolean);
     return porStatus.filter(x=>{
       if(bankOrigin?.transactionIds?.length&&!bankOrigin.transactionIds.includes(String(x.id)))return false;
+      if(bankOrigin?.start&&bankOrigin?.end&&(!x.data||x.data<bankOrigin.start||x.data>bankOrigin.end))return false;
       if(accountFilter && String(x.contaBancariaId||"unassigned")!==accountFilter)return false;
       if(tipoMovimento!=="todos"&&(tipoMovimento==="entradas"?Number(x.valor)<=0:Number(x.valor)>=0))return false;
       const analysis=analisesPorTransacao.get(x.id);
@@ -987,7 +992,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
         actions={modoConciliacaoRh?null:<><input ref={importFileRef} type="file" accept=".ofx,.qfx,.csv,.xlsx,.xls" onChange={e=>{const file=e.target.files?.[0];e.target.value="";importar(file);}} hidden/><Button disabled={importando} onClick={()=>importFileRef.current?.click()}><Ic n="download" s={12} color="currentColor"/>{importando?"Lendo extrato...":"Importar extrato"}</Button></>}
       />
 
-      {bankOrigin&&<section className="financial-bank-origin" aria-label="Origem da revisão bancária"><details><summary>Origem: {bankOrigin.label||"Registro financeiro"} · {automacaoAtiva?"Automação ativa":"Automação pausada"}</summary><p>{bankOrigin.unavailable?"Há referência bancária indisponível neste recorte. Confira o vínculo na origem antes de prosseguir.":bankOrigin.transactionIds?.length?"Movimentos vinculados por identidade. A situação selecionada continua sendo respeitada.":"Sem movimento bancário vinculado. Localize o extrato e compare com o pagamento já registrado antes de confirmar qualquer vínculo."}</p><p>A abertura desta consulta pausa a automação; nenhuma conciliação é confirmada pelo atalho.</p><Button variant="outline" onClick={()=>setBankOrigin(null)}>Mostrar outros movimentos</Button></details></section>}
+      {bankOrigin&&<section className="financial-bank-origin" aria-label="Origem da revisão bancária"><details><summary>Origem: {bankOrigin.label||"Registro financeiro"} · {automacaoAtiva?"Automação ativa":"Automação pausada"}</summary><p>{bankOrigin.start?"A fila mostra os movimentos da conta e do período do DRE, conforme a situação selecionada.":bankOrigin.unavailable?"Há referência bancária indisponível neste recorte. Confira o vínculo na origem antes de prosseguir.":bankOrigin.transactionIds?.length?"Movimentos vinculados por identidade. A situação selecionada continua sendo respeitada.":"Sem movimento bancário vinculado. Localize o extrato e compare com o pagamento já registrado antes de confirmar qualquer vínculo."}</p><p>A abertura desta consulta pausa a automação; nenhuma conciliação é confirmada pelo atalho.</p><Button variant="outline" onClick={()=>setBankOrigin(null)}>Mostrar outros movimentos</Button></details></section>}
       {!modoConciliacaoRh&&<div><Button variant="outline" disabled={conciliando||reviewSaving||transacaoCommandPending||importando} onClick={()=>setPilotOpen(true)}>Abrir piloto de conferência</Button></div>}
       <section className="reconciliation-summary" aria-label="Resumo da conciliação">
         {[

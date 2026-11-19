@@ -98,6 +98,13 @@ export const projectDataForUser = (payload = {}, user = {}) => {
   if(user.role==='financeiro'&&podeAcessarAba(user,'fin'))for(const section of ['materiais','movEstoque','reservasEstoque'])allowedSections.add(section);
   const allowedObras = new Set(user.obraId ? [String(user.obraId)] : []);
   const out = {};
+  if(canUseCompanyAccounting(user)&&podeAcessarAba(user,'dre_emp')&&podeAcessarAba(user,'conc')){
+    out.dreBankSource={
+      contasBancarias:(payload.contasBancarias||[]).map(({id,nome,ativa})=>({id,nome,ativa})),
+      fechamentosBancarios:(payload.fechamentosBancarios||[]).map(({contaBancariaId,dataInicio,dataFim,status,saldoInicialCentavos,creditosCentavos,debitosCentavos,saldoBancoCentavos,saldoCalculadoCentavos})=>({contaBancariaId,dataInicio,dataFim,status,saldoInicialCentavos,creditosCentavos,debitosCentavos,saldoBancoCentavos,saldoCalculadoCentavos})),
+      extratos:(payload.extratos||[]).map(({id,status,contaBancariaId,importadoEm})=>({id,status,contaBancariaId,importadoEm})),
+    };
+  }
   if(user.role==='comercial'&&(podeAcessarAba(user,'com_deals')||podeAcessarAba(user,'com_contratos'))){
     out.commercialContractRecords=(payload.commercialContractRecords||[]).filter(r=>mayReadContractDocuments(r,payload,user));
     if(payload.commercialContractCompany){const {history:_history,...company}=payload.commercialContractCompany;out.commercialContractCompany=company;}

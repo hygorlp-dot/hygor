@@ -1,6 +1,18 @@
 import { describe,expect,it } from "vitest";
 import { projectDataForUser, publicUser } from "./data-projection.js";
 
+it('entrega ao financeiro autorizado apenas os metadados bancários necessários ao DRE',()=>{
+ const data={contasBancarias:[{id:'a',nome:'Corrente',pixKey:'privado',conta:'000'}],extratos:[{id:'x',status:'arquivado',conta:'000'}],fechamentosBancarios:[{contaBancariaId:'a',saldoBancoCentavos:0,fechadoPor:'privado'}]};
+ const finance={id:'f',role:'financeiro'};
+ const source=projectDataForUser(data,finance).dreBankSource;
+ expect(source.contasBancarias).toEqual([{id:'a',nome:'Corrente',ativa:undefined}]);
+ expect(source.extratos[0]).not.toHaveProperty('conta');
+ expect(source.fechamentosBancarios[0]).not.toHaveProperty('fechadoPor');
+ expect(projectDataForUser(data,{...finance,obraId:'obra'}).dreBankSource).toBeUndefined();
+ expect(projectDataForUser(data,{...finance,accessTabs:['dre_emp']}).dreBankSource).toBeUndefined();
+ expect(projectDataForUser(data,{role:'rh'}).dreBankSource).toBeUndefined();
+});
+
 it('financeiro consulta cobertura com catálogo comum e movimentos/reservas somente da sua obra',()=>{
  const data={materiais:[{id:'m',codigo:'M',descricao:'Bloco',unidade:'UN',precoMedio:10,notaInterna:'privada'}],movEstoque:[{id:'a',obraId:'a'},{id:'b',obraId:'b'}],reservasEstoque:[{id:'ra',obraId:'a'},{id:'rb',obraId:'b'}]};
  const projected=projectDataForUser(data,{id:'f',role:'financeiro',obraId:'a'});
