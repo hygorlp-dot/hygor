@@ -196,6 +196,13 @@ export const validateOperationalCommandScope=({user={},data={},command={}}={})=>
   if(ENGINEERING_COMMAND_TYPES.has(command.type))return validateEngineeringScope({user,data,command});
   if(FILE_COMMAND_TYPES.has(command.type))return validateFileCabinetScope({user,data,command});
   const obraId=operationalCommandObraId(data,command);
+  if(command.type===OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_RECEIPTS_CHANGED&&user.obraId&&user.role!=="admin"){
+    const ids=new Set((data.medicoes||[]).filter(item=>String(item.obraId)===String(user.obraId)).map(item=>item.id));
+    const changes=command.payload?.changes;
+    if(!Array.isArray(changes)||changes.some(change=>!ids.has(change?.measurementId))){
+      return {ok:false,error:"Há parcelas fora do seu escopo de obra."};
+    }
+  }
   if(command.type===OPERATIONAL_COMMAND.PAYABLE_PAYMENT_RECORDED&&
     !canRecordPayable(user,command.payload?.targetType,obraId)){
     return {ok:false,error:"Seu perfil não pode registrar pagamentos desta obrigação."};

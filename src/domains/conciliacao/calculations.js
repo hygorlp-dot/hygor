@@ -185,8 +185,13 @@ export const statusRecebimentoMedicao = medicao => {
 // medição atualizada. `valor` pode ser menor que o saldo (parcial) - nesse
 // caso `recebido` só vira true quando o acumulado fechar com o previsto.
 export const aplicarRecebimentoMedicao = (medicao, { id, valor, data, origem = "", transacaoId = "", actor = null, now = new Date().toISOString() }) => {
+  const existentes = Array.isArray(medicao.recebimentos) ? medicao.recebimentos : [];
+  const legado = existentes.length === 0 && Number(medicao.valorRecebido || 0) > 0 ? [{
+    id: `legacy-${medicao.id}`, valor: Number(medicao.valorRecebido), data: medicao.dataPagamento || "",
+    origem: "legado", transacaoId: medicao.transacaoId || "", legacy: true,
+  }] : [];
   const recebimentos = [
-    ...(Array.isArray(medicao.recebimentos) ? medicao.recebimentos : []),
+    ...existentes, ...legado,
     {
       id: id || undefined, valor: Number(valor || 0), data: data || "", origem, transacaoId,
       ...(actor?.id ? { createdAt:now, createdById:actor.id, createdBy:actor.nome || actor.email || "Usuário autenticado" } : {}),

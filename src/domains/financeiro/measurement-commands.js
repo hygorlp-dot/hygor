@@ -5,11 +5,14 @@ import {
 } from "../conciliacao/calculations.js";
 import {
   cancelClientMeasurement,
+  saveClientBillingDetails,
   saveClientMeasurement,
   saveGeneratedClientMeasurements,
 } from "./measurement-mutations.js";
 import { createBillingFromTechnicalMeasurement } from "./workflows.js";
 import { isClientMeasurementMutable } from "./measurement-lifecycle.js";
+import { isFinancialDate } from "./dates.js";
+import { clientMeasurementBankIds } from "./client-measurement-bank.js";
 
 export const CLIENT_MEASUREMENT_COMMAND=Object.freeze({
   CLIENT_MEASUREMENT_SAVED:"MEDICAO_FINANCEIRA_SALVA",
@@ -57,13 +60,14 @@ export const applyClientMeasurementCommand=(data={},command={},now=new Date().to
     const current=measurementById(data,id);
     if(!id)return fail("Medição sem identificação.");
     if(!projectExists(data,measurement.obraId))return fail("A obra da medição não existe.");
+    if(current&&current.obraId!==measurement.obraId)return fail("A medição pertence a outra obra.");
     const stale=versionError(current,command.expectedVersion);
     if(stale)return fail(stale);
     if(!current&&command.expectedVersion!=null&&Number(command.expectedVersion)!==0)return fail("A nova medição precisa iniciar na versão zero.");
     try{
       return {
         ok:true,
-        data:saveClientMeasurement({
+        data:measurement.billingDetails ? saveClientBillingDetails({data,measurement,current,actor,now}) : saveClientMeasurement({
           data,measurement,actor,id,receiptId:command.payload?.receiptId,now,
         }),
         entityId:id,
@@ -137,11 +141,12 @@ export const applyClientMeasurementCommand=(data={},command={},now=new Date().to
           const balance=Number(current.valorPrevisto||0)-totalRecebidoMedicao(current);
           if(!(amount>0)||!Number.isFinite(amount))return fail("Informe um valor positivo para o recebimento.");
           if(amount>balance+0.01)return fail("O recebimento excede o saldo da medição.");
-          if(!/^\d{4}-\d{2}-\d{2}$/.test(String(change.receipt?.data||"")))return fail("Informe uma data válida para o recebimento.");
+          if(!isFinancialDate(change.receipt?.data))return fail("Informe uma data válida para o recebimento.");
           updated=aplicarRecebimentoMedicao(current,{
             ...change.receipt,actor,now,origem:change.receipt?.origem||"manual",
           });
         }else if(change.action==="reverse_all"){
+          if(clientMeasurementBankIds(data,current).length)return fail("Desfaça a conciliação bancária antes de estornar este recebimento.");
           updated=estornarRecebimentosMedicao(current,{
             actor,reason:change.reason,now,
           });

@@ -1,0 +1,11 @@
+.client-billing-trace {
+  display: grid;
+  gap: var(--arcd-space-2);
+  overflow-wrap: anywhere;
+}
+
+.client-billing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--arcd-space-2);
+}

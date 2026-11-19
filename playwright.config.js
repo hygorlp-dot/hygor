@@ -27,6 +27,7 @@ export default defineConfig({
     video: "retain-on-failure",
   },
   projects: [
+    {name:"client-billing",testMatch:/client-billing\.spec\.js/,use:{browserName:"chromium"}},
     {name:"queue-views-desktop",testMatch:/queue-views\.spec\.js/,use:{browserName:"chromium",viewport:{width:1440,height:1000}}},
     {name:"queue-views-mobile",testMatch:/queue-views\.spec\.js/,use:{browserName:"chromium",viewport:{width:390,height:844},isMobile:true,hasTouch:true}},
     {name:"precise-foundation-desktop",testMatch:/precise-foundation\.spec\.js/,use:{browserName:"chromium",viewport:{width:1440,height:1000}}},

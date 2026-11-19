@@ -59,7 +59,7 @@ const paidByClient = origin => String(origin || "") === "cliente_direto";
 export const recebimentosDaMedicao = measurement => {
   const explicit = Array.isArray(measurement?.recebimentos)
     ? measurement.recebimentos.filter(active) : [];
-  if (explicit.length) return explicit.map(receipt => ({ ...receipt, legacy: false }));
+  if (explicit.length) return explicit.map(receipt => ({ ...receipt, legacy: receipt.legacy === true }));
   const amount = positiveCents(measurement?.valorRecebido);
   if (!amount) return [];
   return [{

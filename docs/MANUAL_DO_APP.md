@@ -2025,26 +2025,27 @@ O extrato mostra uma saída de R$ 150,00. Antes de vincular, confira se o pagame
 
 ## Medições a faturar
 
-Acompanhar valores medidos e recebimentos dos contratos.
+Acompanhar o faturamento e o saldo a receber de cada parcela.
 
 ### Antes de começar
 
-Confira obra, contrato e competência.
+Tenha o boletim aprovado, o número da nota ou fatura, o vencimento e o valor efetivamente recebido.
 
 ### Como fazer
 
-1. Localize ou registre a medição com os dados do contrato.
-2. Confira valor, vencimento e documentos.
-3. Acompanhe os recebimentos e consulte a origem financeira antes de confirmar uma baixa.
-4. Confira Obra das medições no início. Cobranças próximas e vencidas · Todas as obras disponíveis é uma fila geral, independente dessa seleção; cada linha identifica sua obra e o saldo restante, descontados os recebimentos registrados. Cobranças quitadas ou canceladas não entram nessa fila. Registrar recebimento abre a conferência com o saldo a receber nesta consulta; só conclua após verificar obra, saldo, origem financeira e data. O servidor reconfere o saldo ao confirmar. Essa tela trata cobranças do cliente; avanço físico e medições de terceirizados são fluxos separados.
+1. Escolha a Obra das medições. Se houver boletins aprovados sem faturamento, use Abrir medições da obra para conferir o boletim de origem.
+2. Na parcela, abra Origem, documento e recebimentos. Use Editar dados da cobrança para informar documento, emissão, vencimento e retenção conforme a nota ou fatura.
+3. Use Registrar recebimento e confirme somente o valor que entrou e a data real. Confira Saldo após a baixa antes de confirmar.
+4. Use Ver na Conciliação para consultar os movimentos já vinculados. Para desfazer uma baixa manual, use Estornar recebimentos e informe o motivo.
+5. Confira Obra das medições no início. Cobranças próximas e vencidas · Todas as obras disponíveis é uma fila geral, independente dessa seleção; cada linha identifica sua obra e o saldo restante, descontados os recebimentos registrados. Cobranças quitadas ou canceladas não entram nessa fila. Registrar recebimento abre a conferência com o saldo a receber nesta consulta; só conclua após verificar obra, saldo, origem financeira e data. O servidor reconfere o saldo ao confirmar. Essa tela trata cobranças do cliente; avanço físico e medições de terceirizados são fluxos separados.
 
 ### Como conferir se deu certo
 
-A medição mostra o valor devido e a situação de recebimento.
+A parcela mostra vencimento, recebimentos e saldo. A retenção informada permanece no saldo até a baixa e é exibida para conferência.
 
 ### O que merece atenção
 
-Registrar uma medição não significa que o dinheiro já foi recebido.
+Se a entrada já estiver no extrato, vincule-a pela Conciliação para evitar uma baixa duplicada. Desfaça o vínculo bancário antes de estornar o recebimento. O recebimento reduz o saldo em aberto e não reconhece a receita da medição novamente.
 
 <a id="guia-caixa"></a>
 

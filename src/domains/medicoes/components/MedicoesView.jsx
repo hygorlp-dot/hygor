@@ -23,7 +23,15 @@ import { calcProjecaoContratoObra } from "../../financeiro/legacy-calculations.j
 import { compLabel, fmt, fmtDate, fmtDateFull, today, uid } from "../../../legacy/format.js";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { totalRecebidoMedicao, statusRecebimentoMedicao } from "../../conciliacao/index.js";
-import {active} from '../../financeiro/facts.js';
+import {active,toCents} from '../../financeiro/facts.js';
+import {financialDateLabel,isFinancialDate} from '../../financeiro/dates.js';
+import {isClientMeasurementMutable} from '../../financeiro/measurement-lifecycle.js';
+import {podeAcessarAba} from '../../administracao/abas-acesso.js';
+import {Input} from '../../../design-system/primitives/Input.jsx';
+import {Button} from '../../../design-system/primitives/Button.jsx';
+import {Dialog} from '../../../design-system/primitives/Dialog.jsx';
+import {ClientBillingTrace} from './ClientBillingTrace.jsx';
+import {useWorkflow} from '../../../features/workflow/WorkflowNavigation.jsx';
 import { toLocalISODate } from "../../ponto/attendance-engine";
 
 const BILLING_LABELS = {
@@ -35,22 +43,32 @@ const BILLING_LABELS = {
 const saldoReceber=medicao=>Math.max(0,Number(medicao.valorPrevisto||0)-totalRecebidoMedicao(medicao));
 
 function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null }) {
-  const { cols } = useBreakpoint();
+  const { cols, isMobile } = useBreakpoint();
+  const {navigate} = useWorkflow();
   const now   = new Date();
   const [selObra,  setSelObra]  = useState(()=>data.obras.some(o=>o.id===workContextObraId())?workContextObraId():data.obras[0]?.id||"");
   const [modal,    setModal]    = useState(false);
   const [editId,   setEditId]   = useState(null);
   const [gerarModal, setGerarModal] = useState(false);
   const [gerarOpts,  setGerarOpts]  = useState({ sobreescrever: false });
-  // Ao confirmar uma medicao vencida, perguntamos a DATA DE PAGAMENTO em vez
-  // de assumir hoje - o pagamento quinzenal costuma cair em data especifica.
-  const [pagarModal, setPagarModal] = useState(null);   // {m, data}
+  const [pagarModal, setPagarModal] = useState(null);
+  const [billingModal, setBillingModal] = useState(null);
+  const canManage = ['admin','financeiro'].includes(currentUser?.role) && podeAcessarAba(currentUser,'medicoes');
+  const canManageMeasurement = m => canManage && isClientMeasurementMutable(m)
+    && (currentUser.role === 'admin' || !currentUser.obraId || currentUser.obraId === m.obraId);
+  const openReceipt = (m, reverse = false) => setPagarModal({
+    m, reverse, reason:"", data:today(), valor:saldoReceber(m).toFixed(2),
+  });
+  const openBilling = m => setBillingModal({
+    m, documento:m.billingDetails?.documento || "", emissao:m.billingDetails?.emissao || "",
+    vencimento:m.dataVencimento || "", retencao:m.billingDetails?.retencao || "",
+  });
   // Fila de conciliacao das parcelas vencidas geradas agora. As respostas
   // ficam locais ate a ultima parcela e sao salvas juntas; assim um update da
   // primeira resposta nao desmonta o assistente antes de perguntar as demais.
   const [conciliar,  setConciliar]  = useState(null);
   const [measurementCommandPending,setMeasurementCommandPending]=useState(false);
-  const editing=modal||gerarModal||pagarModal||conciliar||measurementCommandPending;
+  const editing=modal||gerarModal||pagarModal||billingModal||conciliar||measurementCommandPending;
   useSyncedWorkObra(selObra,setSelObra,{allowedIds:data.obras.map(o=>o.id),fixed:editing?selObra:''});
 
   const emptyM = {
@@ -64,8 +82,11 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
   const obra = useMemo(() => data.obras.find(o => o.id === selObra), [data.obras, selObra]);
   const medicoes = useMemo(() => (data.medicoes||[])
     .filter(m => m.obraId === selObra)
-    .sort((a,b) => a.competencia.localeCompare(b.competencia)),
+    .sort((a,b) => String(a.competencia||"").localeCompare(String(b.competencia||""))),
     [data.medicoes, selObra]);
+  const faturadas = new Set(medicoes.filter(active).map(item=>item.medicaoTecnicaId));
+  const aFaturar = (data.medicoesObra || []).filter(item=>item.obraId===selObra && active(item)
+    && ["confirmada","aprovada"].includes(String(item.status||"confirmada").toLowerCase()) && !faturadas.has(item.id));
 
   // % acumulado anterior (para calcular período)
   const prevAcumulado = (competencia, excludeId) => {
@@ -86,9 +107,9 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
 
   //  Totais
   const { totalPrevisto, totalRecebido, totalPendente } = useMemo(() => ({
-    totalPrevisto: medicoes.reduce((s,m) => s+Number(m.valorPrevisto||0), 0),
-    totalRecebido: medicoes.reduce((s,m) => s+totalRecebidoMedicao(m), 0),
-    totalPendente: medicoes.reduce((s,m) => s+Math.max(0,Number(m.valorPrevisto||0)-totalRecebidoMedicao(m)), 0),
+    totalPrevisto: medicoes.filter(active).reduce((s,m) => s+Number(m.valorPrevisto||0), 0),
+    totalRecebido: medicoes.filter(active).reduce((s,m) => s+totalRecebidoMedicao(m), 0),
+    totalPendente: medicoes.filter(active).reduce((s,m) => s+saldoReceber(m), 0),
   }), [medicoes]);
   const contratoVigente = valorContratoVigente(obra);
   const saldo         = contratoVigente - totalRecebido;
@@ -379,37 +400,6 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
     setConciliar(null);
   };
 
-  const toggleRecebido = async(m) => {
-    // A ação mantém cada fato de recebimento. Ao desfazer, cria estornos
-    // auditáveis em vez de apagar a evidência financeira da medição.
-    const recebidaPorInteiro = statusRecebimentoMedicao(m)==="recebida";
-    if(!dispatchCommand||measurementCommandPending)return;
-    setMeasurementCommandPending(true);
-    try {
-      const motivo=recebidaPorInteiro ? window.prompt("Motivo do estorno do recebimento:") : "";
-      if (recebidaPorInteiro&&!String(motivo||"").trim())return;
-      const result=await dispatchCommand(atual=>{
-        const vigente=(atual.medicoes||[]).find(item=>item.id===m.id);
-        const balance=Number(vigente?.valorPrevisto||0)-totalRecebidoMedicao(vigente||{});
-        return {
-          type:OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_RECEIPTS_CHANGED,
-          idempotencyKey:`client-measurement-receipt-${m.id}-${uid()}`,
-          actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-          payload:{changes:[recebidaPorInteiro
-            ?{measurementId:m.id,expectedVersion:Number(vigente?.version||0),action:"reverse_all",reason:motivo}
-            :{measurementId:m.id,expectedVersion:Number(vigente?.version||0),action:"receive",receipt:{id:uid(),valor:balance,data:today(),origem:"manual"}}
-          ]},
-        };
-      });
-      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o recebimento.");
-      showToast(!recebidaPorInteiro ? "Marcado como recebido." : "Recebimento estornado e preservado para auditoria.");
-    } catch (error) {
-      showToast(error.message||"Não foi possível alterar o recebimento.","error");
-    } finally {
-      setMeasurementCommandPending(false);
-    }
-  };
-
   const deleteMedicao = async id => {
     const motivo=window.prompt("Motivo do cancelamento da medição:");
     if(!String(motivo||"").trim())return;
@@ -458,42 +448,68 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
     }
   };
 
-  const confirmarRecebimento=async(m,dataPagamento)=>{
-    if(!dispatchCommand||measurementCommandPending)return false;
+  const receiptCents = toCents(pagarModal?.valor);
+  const receiptBalanceCents = pagarModal ? toCents(saldoReceber(pagarModal.m)) : 0;
+  const canSubmitReceipt = pagarModal?.reverse ? pagarModal.reason.trim().length > 0
+    : isFinancialDate(pagarModal?.data) && receiptCents > 0 && receiptCents <= receiptBalanceCents;
+  const canSubmitBilling = billingModal && (!billingModal.emissao || isFinancialDate(billingModal.emissao))
+    && (!billingModal.vencimento || isFinancialDate(billingModal.vencimento))
+    && Number(billingModal.retencao) >= 0 && toCents(billingModal.retencao) <= toCents(billingModal.m.valorPrevisto);
+
+  const confirmarRecebimento = async event => {
+    event.preventDefault();
+    if (!canSubmitReceipt || !dispatchCommand || measurementCommandPending) return;
+    const {m, data:paymentDate, reverse, reason} = pagarModal;
+    const change = reverse
+      ? {action:"reverse_all", reason}
+      : {action:"receive", receipt:{id:uid(), valor:receiptCents/100, data:paymentDate, origem:"manual"}};
     setMeasurementCommandPending(true);
-    try{
-      const result=await dispatchCommand(atual=>{
-        const vigente=(atual.medicoes||[]).find(item=>item.id===m.id);
-        const balance=Number(vigente?.valorPrevisto||0)-totalRecebidoMedicao(vigente||{});
-        return {
-          type:OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_RECEIPTS_CHANGED,
-          idempotencyKey:`client-measurement-receipt-${m.id}-${uid()}`,
-          actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-          payload:{changes:[{
-            measurementId:m.id,expectedVersion:Number(vigente?.version||0),action:"receive",
-            receipt:{id:uid(),valor:balance,data:dataPagamento,origem:"manual"},
-          }]},
-        };
+    try {
+      const result = await dispatchCommand({
+        type:OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_RECEIPTS_CHANGED,
+        idempotencyKey:`client-measurement-receipt-${m.id}-${uid()}`,
+        actorId:currentUser?.id||"", actorName:currentUser?.nome||"",
+        payload:{changes:[{measurementId:m.id,expectedVersion:Number(m.version||0),...change}]},
       });
-      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o recebimento.");
-      return true;
-    }catch(error){
-      showToast(error.message||"Não foi possível confirmar o recebimento.","error");
-      return false;
-    }finally{
+      if (!result?.ok) throw new Error(result?.reason || "O servidor não confirmou a operação.");
+      showToast(reverse ? "Recebimentos estornados. Consulte o histórico da parcela." : "Recebimento registrado.");
+      setPagarModal(null);
+    } catch (error) {
+      showToast(error.message || "Não foi possível registrar a operação.","error");
+    } finally {
+      setMeasurementCommandPending(false);
+    }
+  };
+
+  const salvarCobranca = async event => {
+    event.preventDefault();
+    if (!canSubmitBilling || !dispatchCommand || measurementCommandPending) return;
+    const {m, ...billingDetails} = billingModal;
+    setMeasurementCommandPending(true);
+    try {
+      const result = await dispatchCommand({
+        type:OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_SAVED,
+        idempotencyKey:`client-measurement-billing-${m.id}-${uid()}`,
+        expectedVersion:Number(m.version||0),
+        actorId:currentUser?.id||"", actorName:currentUser?.nome||"",
+        payload:{measurement:{id:m.id,obraId:m.obraId,billingDetails}},
+      });
+      if (!result?.ok) throw new Error(result?.reason || "O servidor não confirmou os dados da cobrança.");
+      showToast("Dados da cobrança salvos.");
+      setBillingModal(null);
+    } catch (error) {
+      showToast(error.message || "Não foi possível salvar os dados da cobrança.","error");
+    } finally {
       setMeasurementCommandPending(false);
     }
   };
 
   const formPrevisto = calcPrevisto(form, obra);
-
-  //  Info do período do contrato
   const contratoInfo = (() => {
     if (!obra?.contractStart) return null;
     const start = new Date(obra.contractStart+"T12:00:00");
-    const end   = obra.contractEnd ? new Date(obra.contractEnd+"T12:00:00") : null;
-    const hoje  = new Date();
-    const mesesDecorridos = Math.max(0, (hoje.getFullYear()-start.getFullYear())*12 + (hoje.getMonth()-start.getMonth()));
+    const end = obra.contractEnd ? new Date(obra.contractEnd+"T12:00:00") : null;
+    const mesesDecorridos = Math.max(0, (now.getFullYear()-start.getFullYear())*12 + (now.getMonth()-start.getMonth()));
     const total = obra.totalParcelas || (end ? Math.round((end-start)/(1000*60*60*24*30.4)) : 0);
     const pctTempo = total>0 ? Math.min((mesesDecorridos/total)*100,100) : 0;
     return { start, end, mesesDecorridos, total, pctTempo };
@@ -503,21 +519,22 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
     <div className="anim" style={{display:"flex",flexDirection:"column",gap:14}}>
 
       <PageHeader className="workspace-header" title="Medições a faturar" description="Parcela fixa, avanço físico e lançamentos de faturamento."/>
-      <Sel label="Obra das medições" value={selObra} disabled={Boolean(editing)} onChange={v=>{setSelObra(v);}} options={data.obras.map(o=>({v:o.id,l:o.name+" · "+BILLING_LABELS[o.billingType]}))}/>
-      <p>Estas medições geram cobranças ao cliente. A medição física e a medição dos terceirizados são conferidas na obra.</p>
+      <Sel label="Obra das medições" value={selObra} disabled={Boolean(editing)} onChange={setSelObra} options={data.obras.map(o=>({v:o.id,l:BILLING_LABELS[o.billingType]?`${o.name} · ${BILLING_LABELS[o.billingType]}`:o.name}))}/>
+      {aFaturar.length > 0 && <TaskDisclosure summary={contar(aFaturar.length,"boletim aprovado sem faturamento","boletins aprovados sem faturamento")}>
+        <ul>{aFaturar.map(item=><li key={item.id}>{item.numero || item.id} · {financialDateLabel(item.data)}</li>)}</ul>
+        {navigate && podeAcessarAba(currentUser,"med") && <Button variant="outline" onClick={()=>navigate("med",{obraId:selObra})}>Abrir medições da obra</Button>}
+      </TaskDisclosure>}
 
       {/* Painel de vencimentos - todas as obras */}
       {(() => {
-        const todayDate = new Date();
+        const todayDate = Date.parse(today());
         const proximasAll = (data.medicoes||[]).filter(m => {
-          if (!active(m) || statusRecebimentoMedicao(m)==='recebida' || !m.dataVencimento) return false;
-          const venc = new Date(m.dataVencimento+"T12:00:00");
-          const diff = Math.round((venc-todayDate)/(1000*60*60*24));
+          if (!active(m) || statusRecebimentoMedicao(m)==='recebida' || !isFinancialDate(m.dataVencimento) || saldoReceber(m)<=0) return false;
+          const diff = (Date.parse(m.dataVencimento)-todayDate)/86400000;
           return diff <= 7;
         }).map(m => {
           const o = data.obras.find(x=>x.id===m.obraId);
-          const venc = new Date(m.dataVencimento+"T12:00:00");
-          const diff = Math.round((venc-todayDate)/(1000*60*60*24));
+          const diff = (Date.parse(m.dataVencimento)-todayDate)/86400000;
           return {...m, obraName:o?.name||"-", diff};
         }).sort((a,b)=>a.dataVencimento.localeCompare(b.dataVencimento));
 
@@ -547,7 +564,7 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
                 </div>
                 <div style={{display:"flex",gap:"var(--arcd-space-2)",alignItems:"center",flexWrap:"wrap"}}>
                   <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:m.diff<0?C.red:C.text}}>Saldo {fmt(saldoReceber(m))}</p>
-                  <Btn size="sm" v="success" onClick={()=>setPagarModal({ m, data: today() })}>Registrar recebimento</Btn>
+                  {canManageMeasurement(m) && <Button onClick={()=>openReceipt(m)}>Registrar recebimento</Button>}
                 </div>
               </div>
             ))}
@@ -561,7 +578,7 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
       {obra && (<>
         {/* Card da obra com período do contrato */}
         <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:8,overflow:"hidden",boxShadow:`0 1px 4px ${C.shadow}`}}>
-          <div style={{background:C.surface,borderBottom:`1.5px solid ${C.border}`,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+          <div style={{background:C.surface,borderBottom:`1.5px solid ${C.border}`,padding:"12px 16px",display:"flex",flexWrap:"wrap",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
             <div style={{flex:1}}>
               <p style={{fontWeight:600,fontSize:"var(--arcd-type-card-title)",color:C.text}}>{obra.name}</p>
               <p style={{fontSize:"var(--arcd-type-body)",color:C.muted,marginTop:2}}>
@@ -576,13 +593,13 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
                 </p>
               )}
             </div>
-            <div style={{display:"flex",gap:6,flexShrink:0}}>
+            {canManage && <div style={{display:"flex",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
               {/* Botão gerar parcelas - só para mensal fixo */}
               {obra.billingType==="mensal_fixo" && obra.parcelaMensal>0 && obra.contractStart && (
                 <Btn size="sm" v="primary" onClick={()=>setGerarModal(true)}> Gerar parcelas</Btn>
               )}
               <Btn size="sm" onClick={openNew}><Ic n="plus"/> Nova medição a faturar</Btn>
-            </div>
+            </div>}
           </div>
 
           {/* Timeline do contrato */}
@@ -644,7 +661,7 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
         {medicoes.length===0 && (
           <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:6,padding:20,textAlign:"center"}}>
             <p style={{color:C.muted,fontSize:"var(--arcd-type-body)",marginBottom:8}}>Nenhuma medição registrada.</p>
-            {obra.billingType==="mensal_fixo" && obra.parcelaMensal>0 && obra.contractStart && (
+            {canManage && obra.billingType==="mensal_fixo" && obra.parcelaMensal>0 && obra.contractStart && (
               <Btn onClick={()=>setGerarModal(true)} v="primary"> Gerar todas as parcelas automaticamente</Btn>
             )}
           </div>
@@ -654,15 +671,21 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
           const prevMeds = medicoes.slice(0,idx).filter(x=>x.tipo==="percentual");
           const prevPct  = prevMeds.length ? prevMeds[prevMeds.length-1].percentualAcumulado : 0;
           // Status de vencimento
-          const venc = m.dataVencimento ? new Date(m.dataVencimento+"T12:00:00") : null;
-          const diffDias = venc ? Math.round((venc - new Date())/(1000*60*60*24)) : null;
-          const statusVenc = m.recebido ? "pago"
+          const diffDias = isFinancialDate(m.dataVencimento) ? (Date.parse(m.dataVencimento)-Date.parse(today()))/86400000 : null;
+          const receiptStatus = statusRecebimentoMedicao(m);
+          const editable = canManageMeasurement(m);
+          const statusVenc = !active(m) ? "inativa"
+            : receiptStatus === "recebida" ? "pago"
             : diffDias === null ? "sem_data"
             : diffDias < 0 ? "vencido"
             : diffDias <= 3 ? "alerta"
             : "normal";
-          const statusColor = {pago:C.green,vencido:C.red,alerta:C.orange,normal:C.border,sem_data:C.border}[statusVenc];
-          const statusLabel = {pago:"ok RECEBIDO",vencido:`VENCIDO (${Math.abs(diffDias)}d)`,alerta:`VENCE ${diffDias===0?"HOJE":`EM ${diffDias}d`}`,normal:`Vence ${fmtDateFull(m.dataVencimento)}`,sem_data:"Pendente"}[statusVenc];
+          const statusColor = {pago:C.green,vencido:C.red,alerta:C.orange,normal:C.muted,sem_data:C.muted,inativa:C.muted}[statusVenc];
+          const statusLabel = {
+            pago:"Recebida", vencido:`Vencida há ${contar(Math.abs(diffDias),"dia","dias")}`,
+            alerta:diffDias===0?"Vence hoje":`Vence em ${contar(diffDias,"dia","dias")}`,
+            normal:`Vence em ${financialDateLabel(m.dataVencimento)}`,sem_data:"Sem vencimento válido",inativa:"Inativa",
+          }[statusVenc];
 
           // Previsão do percentual de administração para a competência da
           // medição. Regra: obra "admin_only" cobra o percentual sobre TODOS
@@ -691,8 +714,8 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
               borderRadius:6, padding:"12px 14px",
               boxShadow:`0 1px 3px ${C.shadow}`,
             }}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
-                <div style={{flex:1}}>
+              <div style={{display:"flex",flexDirection:isMobile?"column":"row",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-3)"}}>
+                <div style={{flex:1,minWidth:0,overflowWrap:"anywhere"}}>
                   <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:4}}>
                     {m.numeroParcela && <span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.muted}}>#{m.numeroParcela}</span>}
                     <p style={{fontWeight:600,fontSize:"var(--arcd-type-card-title)",color:C.text}}>{compLabel(m.competencia)}</p>
@@ -702,6 +725,11 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
                     }}>{statusLabel}</span>
                     {m.tipo==="percentual"&&<span style={{fontSize:"var(--arcd-type-label)",color:C.blue,fontWeight:600,background:`${C.blue}10`,padding:"2px 8px",borderRadius:4}}>{prevPct}%→{m.percentualAcumulado}% (+{m.percentualPeriodo.toFixed(1)}%)</span>}
                   </div>
+                  {active(m) && <p style={{fontSize:"var(--arcd-type-body)",marginBottom:"var(--arcd-space-2)"}}>
+                    Saldo a receber <strong>{fmt(saldoReceber(m))}</strong>
+                    {receiptStatus==="parcial" && " · Recebimento parcial"}
+                    {m.billingDetails?.retencao>0 && ` · Retenção informada ${fmt(m.billingDetails.retencao)}`}
+                  </p>}
                   {m.descricao&&<p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginBottom:4}}>{m.descricao}</p>}
 
                   <div style={{display:"flex",gap:14,flexWrap:"wrap"}}>
@@ -736,24 +764,25 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
                       <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.purple,marginTop:4}}>
                         {obra?.adminPercentage||0}% de {fmt(previsaoAdmin.base)} = {fmt(previsaoAdmin.valor)}
                       </p>
-                      <Btn size="sm" v="ghost" style={{marginTop:6}} onClick={()=>{
+                      {editable && <Btn size="sm" v="ghost" style={{marginTop:6}} onClick={()=>{
                         if (previsaoAdmin.valor<=0) { showToast("Ainda não há custos lançados neste período para calcular.","error"); return; }
                         void fecharAdministracao(m,previsaoAdmin.valor);
                       }}>
                         Fechar valor desta competência
-                      </Btn>
+                      </Btn>}
                     </div>
                   )}
                 </div>
 
-                <div style={{display:"flex",flexDirection:"column",gap:5,flexShrink:0}}>
-                  <Btn size="sm" v={statusRecebimentoMedicao(m)==="recebida"?"ghost":"success"} onClick={()=>toggleRecebido(m)}>
-                    {statusRecebimentoMedicao(m)==="recebida"?"Desfazer":"Receber"}
-                  </Btn>
-                  <Btn size="sm" v="ghost" onClick={()=>openEdit(m)}><Ic n="edit"/></Btn>
-                  <Btn size="sm" v="danger" onClick={()=>deleteMedicao(m.id)}><Ic n="trash"/></Btn>
-                </div>
+                {editable && saldoReceber(m)>0 && <Button onClick={()=>openReceipt({...m,obraName:obra.name})}>Registrar recebimento</Button>}
               </div>
+              <ClientBillingTrace measurement={m} data={data} user={currentUser} onEdit={editable ? ()=>openBilling(m) : undefined}>
+                {editable && <div className="client-billing-actions">
+                  {totalRecebidoMedicao(m)>0 && <Button variant="ghost" onClick={()=>openReceipt({...m,obraName:obra.name},true)}>Estornar recebimentos</Button>}
+                  <Button variant="ghost" onClick={()=>openEdit(m)}>Editar medição</Button>
+                  <Button variant="destructive" onClick={()=>deleteMedicao(m.id)}>Cancelar medição</Button>
+                </div>}
+              </ClientBillingTrace>
             </div>
           );
         })}
@@ -887,7 +916,7 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
         return (
           <Modal title={`Parcela vencida ${conciliar.idx+1} de ${conciliar.fila.length}`} onClose={conciliarDecidirDepois}>
             <div style={{display:"flex",flexDirection:"column",gap:12}}>
-              <div style={{background:C.surface,border:`1px solid ${C.border}`,borderLeft:`1px solid ${C.red||"#C62828"}`,borderRadius:6,padding:"11px 13px"}}>
+              <div style={{background:C.surface,border:`1px solid ${C.border}`,borderLeft:`1px solid ${C.red}`,borderRadius:6,padding:"11px 13px"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:8}}>
                   <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{obra?.name}</p>
                   <p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:C.yellow}}>{fmt(m.valorPrevisto)}</p>
@@ -932,46 +961,50 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
       })()}
 
       {/* Modal: gerar parcelas automáticas */}
-      {/* Confirmar recebimento perguntando a DATA DE PAGAMENTO */}
       {pagarModal && (
-        <Modal title="Confirmar recebimento" onClose={()=>setPagarModal(null)}>
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"11px 13px"}}>
-              <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{pagarModal.m.obraName}</p>
-              <p style={{fontSize:"var(--arcd-type-body)",color:C.muted,marginTop:2}}>
-                Saldo a receber nesta consulta: {fmt(saldoReceber(pagarModal.m))}
-                {pagarModal.m.descricao ? ` - ${pagarModal.m.descricao}` : ""}
-              </p>
+        <Dialog open title={pagarModal.reverse ? "Estornar recebimentos" : "Registrar recebimento"} onOpenChange={()=>!measurementCommandPending&&setPagarModal(null)}>
+          <form onSubmit={confirmarRecebimento} style={{display:"grid",gap:"var(--arcd-space-3)"}}>
+            <p><strong>{pagarModal.m.obraName}</strong>{pagarModal.m.descricao && ` · ${pagarModal.m.descricao}`}</p>
+            {pagarModal.reverse ? <>
+              <p>O estorno reabre o saldo de {fmt(totalRecebidoMedicao(pagarModal.m))} e mantém as baixas no histórico. Se houver vínculo bancário, desfaça-o na Conciliação primeiro.</p>
+              <Input label="Motivo do estorno" required value={pagarModal.reason}
+                onChange={event=>setPagarModal(value=>({...value,reason:event.target.value}))}/>
+            </> : <>
+              <p>Saldo atual <strong>{fmt(receiptBalanceCents/100)}</strong></p>
+              <Input label="Valor recebido (R$)" type="number" inputMode="decimal" required min="0.01" step="0.01"
+                max={receiptBalanceCents/100} value={pagarModal.valor}
+                onChange={event=>setPagarModal(value=>({...value,valor:event.target.value}))}/>
+              <Input label="Data em que o pagamento entrou" type="date" required value={pagarModal.data}
+                onChange={event=>setPagarModal(value=>({...value,data:event.target.value}))}/>
+              {canSubmitReceipt && <p role="status">Saldo após a baixa <strong>{fmt((receiptBalanceCents-receiptCents)/100)}</strong></p>}
+              <p>Se a entrada já estiver no extrato, vincule-a pela Conciliação para evitar uma baixa duplicada.</p>
+            </>}
+            <div className="client-billing-actions">
+              <Button variant="ghost" disabled={measurementCommandPending} onClick={()=>setPagarModal(null)}>Cancelar</Button>
+              <Button type="submit" disabled={!canSubmitReceipt||measurementCommandPending}>
+                {pagarModal.reverse ? "Confirmar estorno" : "Confirmar recebimento"}
+              </Button>
             </div>
-            <Inp label="Data do pagamento *" type="date" value={pagarModal.data}
-                 onChange={v=>setPagarModal(p=>({...p,data:v}))}/>
-            {/* Atalho: o caso mais comum e o pagamento ter saido no dia combinado. */}
-            {pagarModal.m.dataVencimento && pagarModal.data !== pagarModal.m.dataVencimento && (
-              <button onClick={()=>setPagarModal(p=>({...p,data:p.m.dataVencimento}))}
-                      style={{alignSelf:"flex-start",background:"transparent",border:`1px solid ${C.yellow}`,color:C.yellow,
-                              padding:"4px 10px",borderRadius:4,fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>
-                Pagou no dia do contrato ({fmtDate(pagarModal.m.dataVencimento)})
-              </button>
-            )}
-            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.5}}>
-              Informe quando o valor efetivamente entrou. Costuma ser diferente do dia
-              em que você confirma aqui.
-            </p>
-            <div style={{display:"flex",gap:8}}>
-              <Btn v="ghost" onClick={()=>setPagarModal(null)} full>Cancelar</Btn>
-              <Btn v="success" disabled={measurementCommandPending} onClick={async()=>{
-                const m = pagarModal.m;
-                const dataPg = pagarModal.data || today();
-                const ok=await confirmarRecebimento(m,dataPg);
-                if(ok){
-                  showToast(`${m.obraName} - recebimento confirmado em ${fmtDate(dataPg)}.`);
-                  setPagarModal(null);
-                }
-              }} full><Ic n="check"/> {measurementCommandPending?"Confirmando...":"Confirmar"}</Btn>
-            </div>
-          </div>
-        </Modal>
+          </form>
+        </Dialog>
       )}
+      {billingModal && <Dialog open title="Dados da cobrança" onOpenChange={()=>!measurementCommandPending&&setBillingModal(null)}>
+        <form onSubmit={salvarCobranca} style={{display:"grid",gap:"var(--arcd-space-3)"}}>
+          <Input label="Referência do documento emitido" placeholder="Número da nota ou fatura" maxLength={120} value={billingModal.documento}
+            onChange={event=>setBillingModal(value=>({...value,documento:event.target.value}))}/>
+          <Input label="Data de emissão do documento" type="date" value={billingModal.emissao}
+            onChange={event=>setBillingModal(value=>({...value,emissao:event.target.value}))}/>
+          <Input label="Vencimento da parcela" type="date" value={billingModal.vencimento}
+            onChange={event=>setBillingModal(value=>({...value,vencimento:event.target.value}))}/>
+          <Input label="Retenção informada (R$)" type="number" inputMode="decimal" min="0" step="0.01" max={billingModal.m.valorPrevisto}
+            value={billingModal.retencao} description="Informe o valor retido que consta no documento. A retenção fica registrada para conferência e segue no saldo até a baixa."
+            onChange={event=>setBillingModal(value=>({...value,retencao:event.target.value}))}/>
+          <div className="client-billing-actions">
+            <Button variant="ghost" disabled={measurementCommandPending} onClick={()=>setBillingModal(null)}>Cancelar</Button>
+            <Button type="submit" disabled={!canSubmitBilling||measurementCommandPending}>Salvar dados da cobrança</Button>
+          </div>
+        </form>
+      </Dialog>}
 
       {gerarModal && obra && (
         <Modal title="Gerar parcelas automaticamente" onClose={()=>setGerarModal(false)}>

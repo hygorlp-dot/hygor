@@ -1,10 +1,32 @@
-import { active } from "./ledger.js";
+import { active, fromCents } from "./ledger.js";
 import { isClientMeasurementMutable } from "./measurement-lifecycle.js";
+import { isFinancialDate } from "./dates.js";
+import { toCents } from "./facts.js";
 
 const inactive = item => !isClientMeasurementMutable(item);
 const activeReceipts = measurement => (Array.isArray(measurement?.recebimentos) ? measurement.recebimentos : [])
   .filter(active);
 const userName = actor => actor?.nome || actor?.email || "Usuário autenticado";
+
+export function saveClientBillingDetails({data, measurement, current, actor, now}) {
+  if (!current || !isClientMeasurementMutable(current)) throw new Error("A parcela não está disponível para alteração.");
+  const { documento = "", emissao = "", vencimento = "", retencao = "" } = measurement.billingDetails;
+  const number = String(documento).trim();
+  const amount = Number(retencao);
+  if (number.length > 120) throw new Error("Use até 120 caracteres na referência do documento.");
+  if ((emissao && !isFinancialDate(emissao)) || (vencimento && !isFinancialDate(vencimento))) {
+    throw new Error("Confira as datas da cobrança.");
+  }
+  if (!Number.isFinite(amount) || amount < 0 || toCents(amount) > toCents(current.valorPrevisto)) {
+    throw new Error("A retenção deve ficar entre zero e o valor da parcela.");
+  }
+  const updated = {
+    ...current, dataVencimento: vencimento,
+    billingDetails: { documento: number, emissao, vencimento, retencao: fromCents(toCents(amount)) },
+    updatedAt: now, updatedById: actor.id, updatedBy: userName(actor), version: Number(current.version || 0) + 1,
+  };
+  return {...data, medicoes: data.medicoes.map(item => item.id === current.id ? updated : item)};
+}
 
 export const saveClientMeasurement = ({ data, measurement, actor, id, receiptId, now = new Date().toISOString() }) => {
   if (!actor?.id) throw new Error("Sessão do usuário indisponível para salvar a medição.");
