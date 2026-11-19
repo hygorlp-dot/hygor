@@ -2688,7 +2688,7 @@ async function handler(req, res) {
         if(!closing.ok)return res.status(409).json({ok:false,error:closing.error,code:closing.code});
       }
       const result=await handleRhDocuments({
-        db,user:usuario,body:{...req.body,employeeId:proof.employeeId},company:COMPANY,attendance:proof,
+        db,user:usuario,body:{...req.body,employeeId:proof.employeeId},company:currentCompany(),attendance:proof,
       });
       return res.status(result.status).json(result.body);
     }

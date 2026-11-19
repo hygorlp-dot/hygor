@@ -1,5 +1,7 @@
 import {afterAll,beforeAll,beforeEach,expect,it,vi} from 'vitest';
 const state=vi.hoisted(()=>({rows:{},queries:[],authId:'auth-admin'}));
+const certificateUpload=vi.hoisted(()=>vi.fn(async()=>({status:200,body:{ok:true}})));
+vi.mock('../../server/rh-documents.js',()=>({handleRhDocuments:certificateUpload}));
 const queryFor=()=>{
   const filters={},query={select(){return this;},eq(key,value){filters[key]=value;return this;},in(){return this;},like(){return this;},order(){return this;},
     upsert:async()=>({error:null}),
@@ -23,11 +25,25 @@ beforeAll(async()=>{
 },30000);
 afterAll(()=>{vi.unstubAllEnvs();vi.resetModules();});
 beforeEach(()=>{
+  certificateUpload.mockClear();
   state.queries=[];state.authId='auth-admin';
   state.rows=Object.fromEntries(['arcd','mrc'].map(company=>[company,{
     marcell_company_isolation_v1:{value:{version:1,companyId:company,status:'verified'}},
     arced_ponto_v1:{value:{usuarios:[{id:'admin',role:'admin',active:true,authUserId:'auth-admin'}],obras:[{id:company+'-work',name:company}],employees:[]},updated_at:company+'-version'},
   }]));
+});
+it.each(['arcd','mrc'])('anexa atestado somente no prontuário da empresa %s',async companyId=>{
+  const data=state.rows[companyId].arced_ponto_v1.value;
+  data.employees=[{id:'employee',name:'Equipe',obra:companyId+'-work',active:true,startDate:'2020-01-01'}];
+  data.attendance={employee:{'2026-07-28':{status:'AT',obraId:companyId+'-work'}}};
+  const result=await request({action:'attendance-certificate',companyId,accessToken:'valid',employeeId:'employee',date:'2026-07-28',obraId:companyId+'-work'});
+  expect(result.status).toBe(200);
+  expect(certificateUpload).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({company:companyId,body:expect.objectContaining({employeeId:'employee'}),attendance:expect.objectContaining({employeeId:'employee',obraId:companyId+'-work'})}));
+});
+it('recusa atestado de obra de outra empresa antes do upload',async()=>{
+  state.rows.mrc.arced_ponto_v1.value.employees=[{id:'employee',obra:'mrc-work',active:true,startDate:'2020-01-01'}];
+  const result=await request({action:'attendance-certificate',companyId:'mrc',accessToken:'valid',employeeId:'employee',date:'2026-07-28',obraId:'arcd-work'});
+  expect(result.status).toBe(403);expect(certificateUpload).not.toHaveBeenCalled();
 });
 it('consulta somente linhas da empresa pedida e não mistura cargas simultâneas',async()=>{
   const responses=await Promise.all(['mrc','arcd'].map(companyId=>request({action:'load',companyId,accessToken:'valid'})));
