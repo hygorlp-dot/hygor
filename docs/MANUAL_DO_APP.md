@@ -1090,9 +1090,10 @@ Confira o limite e a responsabilidade do seu perfil.
 
 ### Como fazer
 
-1. Abra a decisão pendente.
-2. Leia as propostas, o custo final, a obra e a justificativa.
-3. Aprove ou recuse pela ação disponível e confira a situação após confirmar.
+1. Na Fila de trabalho ou em Aprovações, use Ver aprovação na solicitação desejada.
+2. Leia Próxima ação. Confira a obra, a data em que o material é necessário, o prazo da etapa e os aprovadores indicados. Abra Materiais solicitados e Histórico de decisões para conferir a origem e as decisões anteriores.
+3. Se você for aprovador da etapa, use Aprovar ou informe o motivo e use Reprovar. Confira a confirmação do servidor.
+4. Se aparecer Aguardando configuração, peça à Administração para conferir a aprovação da solicitação. Use Voltar à fila para retomar o mesmo recorte.
 
 ### Como conferir se deu certo
 

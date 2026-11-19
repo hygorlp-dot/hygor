@@ -24,6 +24,7 @@ import {OrderTermsFields} from "./OrderConditions";
 import {ORDER_TERM_FIELDS} from "../order-terms";
 import QuoteComparisonWorkspace from "./QuoteComparisonWorkspace";
 import PurchaseRecordFlow from "./PurchaseRecordFlow";
+import PurchaseApprovalPanel from './PurchaseApprovalPanel.jsx';
 import {quantityLabel} from '../record-flow';
 import MaterialPriceHistory from "./MaterialPriceHistory";
 import { CommercialTerms, CostComparison } from "./PurchaseFinalCost";
@@ -724,6 +725,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   const {save, dispatch:dispatchCommand} = usePurchaseSave(rawDispatchCommand);
   const [filtrosFluxo,setFiltrosFluxo] = useSessionState("filtrosFluxo",{query:"",stage:"",risk:""});
   const [registroFoco,setRegistroFoco] = useState("");
+  const [approvalRequestId,setApprovalRequestId]=useState(null);
   const [retornosCompra,setRetornosCompra]=useSessionState("retornosCompra",[]);
   useEffect(()=>{
     if(!registroFoco)return;
@@ -1202,8 +1204,8 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       .filter(({resultado})=>resultado?.status==="em_andamento"&&(resultado.aprovadoresElegiveis||[]).some(u=>u.id===currentUser?.id));
   };
   const decidirAprovacao=async(instancia,etapaId,decisao,justificativa="")=>{
-    if(decisao==="reprovado"&&!String(justificativa||"").trim()){showToast("Informe o motivo da reprovação.","error");return;}
-    if(!dispatchCommand){showToast("Registrar a decisão exige conexão com o servidor.","error");return;}
+    if(decisao==="reprovado"&&!String(justificativa||"").trim()){showToast("Informe o motivo da reprovação.","error");return false;}
+    if(!dispatchCommand){showToast("Registrar a decisão exige conexão com o servidor.","error");return false;}
     // O servidor registra o usuário autenticado como aprovador e confere se
     // ele é elegível para a etapa (approval-commands.js).
     const result=await dispatchCommand(()=>({
@@ -1213,9 +1215,10 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       payload:{instanciaId:instancia.id,etapaId,decisao,justificativa:String(justificativa||"").trim()},
     }));
     if(!result?.ok){
-      showToast(result?.reason||"O servidor não confirmou a decisão. Tente novamente.","error");return;
+      showToast(result?.reason||"O servidor não confirmou a decisão. Tente novamente.","error");return false;
     }
     showToast(decisao==="aprovado"?"Aprovação registrada.":"Reprovação registrada.");
+    return true;
   };
 
   // Achado ao fechar a lacuna de comandos de Compras (24/08/2026, ver
@@ -1845,6 +1848,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     aria-label={rotulo}>{exportando===assunto?"Gerando planilha…":"Exportar para Excel"}</Button>;
   const abrirRegistroFluxo=row=>{
     if(!canActOnPurchaseQueue(currentUser,row)){showToast("Seu perfil permite consultar este registro, mas não executar esta ação.","error");return;}
+    if(row.stage==='aprovacoes'){setApprovalRequestId(row.id);return;}
     if(row.type==="order"){
       if(row.stage==="recebimentos"){setRecModal(row.record);return;}
       if(podeProcessar){setPedModal({...row.record,motivoAjuste:"",itens:(row.record.itens||[]).map(i=>({...i,qtd:String(i.qtd),precoUnit:String(i.precoUnit)}))});return;}
@@ -1857,6 +1861,9 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     }
     setAba("solicitacoes");setRegistroFoco(row.id);
   };
+  const approvalRequest=approvalRequestId&&(data.solicitacoesCompra||[]).find(request=>request.id===approvalRequestId&&
+    request.ativo!==false&&!request.deletedAt&&obraIdsMapa.includes(request.obraId)&&
+    canActOnPurchaseQueue(currentUser,{type:'request',obraId:request.obraId}));
   const comprasAbas=[
     ["kanban","Kanban de compras"],
     ["mapa","Mapa gerencial"],
@@ -2757,6 +2764,8 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       {recModal  && <ModalRecebimento pedido={recModal} onClose={()=>setRecModal(null)}
                                       onReceber={receber} nomeMat={nomeMat}
                                       nomeForn={nomeForn} attempt={receiptAttempt(recModal.id)} notice={<PurchaseSaveNotice save={save}/>}/>}
+      {approvalRequest&&<PurchaseApprovalPanel key={approvalRequest.id} request={approvalRequest} data={data} user={currentUser}
+        onClose={()=>setApprovalRequestId(null)} onDecide={decidirAprovacao}/>}
       {pagModal&&<PaymentDialog data={data} user={currentUser} type="pedido" id={pagModal.id} pageId="cmp" dispatch={dispatchCommand} onClose={()=>setPagModal(null)} onSaved={()=>showToast('Pagamento registrado e confirmado pelo servidor.')}/>}
       {excluirCompraModal&&<Modal title={`Excluir compra · ${excluirCompraModal.pedido.numero}`} onClose={()=>setExcluirCompraModal(null)}><div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
         <div style={{padding:"var(--arcd-space-3) var(--arcd-space-3)",border:"1px solid var(--arcd-danger-text)",borderRadius:8,background:"color-mix(in srgb, var(--arcd-danger-text) 4%, transparent)"}}>

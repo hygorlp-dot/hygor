@@ -280,10 +280,84 @@ test("fila por obra, múltiplas palavras, aprovação e retorno preservam o cont
   await expect(page.locator(".purchase-queue-table tbody tr")).toHaveCount(1);
   await navigate(page,"Aprovações");
   await page.getByRole("button",{name:"Ver aprovação · SC-002"}).click();
-  await expect(page.locator("#purchase-record-req-approval")).toBeFocused();
-  await expect(page.getByText("Aguardando configuração",{exact:true})).toBeVisible();
+  const approval=page.getByRole("dialog",{name:"Aprovação · SC-002"});
+  await expect(approval.getByText("Aguardando configuração",{exact:true})).toBeVisible();
+  await approval.getByRole("button",{name:"Voltar à fila",exact:true}).click();
+  await expect(page.getByRole("button",{name:"Consultar SC-002",exact:true})).toBeFocused();
+  await expect(page.locator('.purchase-context-bar').getByLabel('Obra',{exact:true})).toHaveValue('a');
+  expect(app.commands).toEqual([]);
   expect(app.errors).toEqual([]);
 });
+
+for(const [width,theme] of [[390,'marcell'],[390,'noite'],[1440,'marcell'],[1440,'noite']]){
+ test(`Ver aprovação abre a etapa e preserva o recorte em ${width}px · ${theme}`,async({page},info)=>{
+  await page.setViewportSize({width,height:844});
+  await page.addInitScript(value=>localStorage.setItem('arcd-theme',value),theme);
+  const app=await enter(page,{prepare:state=>{
+   const pending=state.solicitacoesCompra[1];
+   pending.numero='SC-0005';
+   const configured={...pending,id:'configured',numero:'SC-0006',aprovacaoInstanciaId:'configured-approval'};
+   const other={...configured,id:'other-request',numero:'SC-0007',aprovacaoInstanciaId:'other-approval'};
+   state.solicitacoesCompra.push(configured,other);
+   const stage={id:'compra',nome:'Aprovação de materiais',ordem:1,modoQuorum:'qualquer'};
+   const formal={id:'configured-approval',entidadeTipo:'solicitacaoCompra',entidadeId:configured.id,status:'em_andamento',
+    ordemAtual:1,snapshotPolitica:{etapas:[stage]},resultadosEtapas:[{etapaId:stage.id,status:'em_andamento',
+     vencimentoEm:'2026-10-27T15:00:00Z',aprovadoresElegiveis:[PROFILE]}]};
+   state.instanciasAprovacao=[
+    {id:'apr',entidadeTipo:'solicitacaoCompra',entidadeId:pending.id,status:'em_andamento',
+     resultadosEtapas:[{etapaId:'fila_administrativa',status:'em_andamento',aprovadoresElegiveis:[PROFILE]}]},
+    formal,{...formal,id:'other-approval',entidadeId:other.id,
+     resultadosEtapas:[{...formal.resultadosEtapas[0],aprovadoresElegiveis:[{id:'other',nome:'Outro aprovador'}]}]},
+   ];
+  }});
+  await selectWork(page);
+  const search=page.getByLabel('Buscar na fila');
+  await search.fill('SC-0005');
+  await page.getByRole('button',{name:'Ver aprovação · SC-0005'}).click();
+  const panel=page.getByRole('dialog');
+  await expect(panel).toHaveAccessibleName('Aprovação · SC-0005');
+  await expect(panel.getByText(/Peça à Administração/)).toBeVisible();
+  await expect(panel.getByRole('region',{name:'Fila administrativa'})).toBeVisible();
+  await expect(panel.getByRole('button',{name:'Aprovar',exact:true})).toHaveCount(0);
+  await panel.screenshot({path:info.outputPath('aprovacao-sem-configuracao.png')});
+  await panel.getByRole('button',{name:'Voltar à fila'}).click();
+  await expect(search).toHaveValue('SC-0005');
+  await search.fill('SC-0007');
+  await page.getByRole('button',{name:'Consultar SC-0007',exact:true}).click();
+  await page.getByRole('dialog',{name:'Compra · SC-0007'}).getByRole('button',{name:'Ver aprovação',exact:true}).click();
+  await expect(panel).toHaveAccessibleName('Aprovação · SC-0007');
+  await expect(panel.getByText(/Outro aprovador/)).toBeVisible();
+  await expect(panel.getByRole('button',{name:'Aprovar',exact:true})).toHaveCount(0);
+  await panel.getByRole('button',{name:'Voltar à fila'}).click();
+  await search.fill('SC-0006');
+  await page.getByRole('button',{name:'Ver aprovação · SC-0006'}).click();
+  await expect(panel.getByRole('region',{name:'Aprovação de materiais'})).toContainText('27/10/2026');
+  await expect(panel.getByRole('button',{name:'Reprovar',exact:true})).toBeDisabled();
+  const rejectionReason=panel.getByLabel('Motivo da reprovação');
+  await rejectionReason.fill('Conferir quantidade solicitada.');
+  await expect.poll(()=>rejectionReason.evaluate(field=>{
+   const style=getComputedStyle(field);
+   const luminance=color=>color.match(/\d+(?:\.\d+)?/g).slice(0,3).map(Number)
+    .map(value=>value/255).map(channel=>channel<=0.04045?channel/12.92:((channel+0.055)/1.055)**2.4)
+    .reduce((sum,channel,index)=>sum+channel*[0.2126,0.7152,0.0722][index],0);
+   const values=[luminance(style.color),luminance(style.backgroundColor)];
+   return (Math.max(...values)+0.05)/(Math.min(...values)+0.05);
+  })).toBeGreaterThanOrEqual(4.5);
+  await expect(panel.getByRole('button',{name:'Reprovar',exact:true})).toBeEnabled();
+  expect(app.commands).toEqual([]);
+  await panel.screenshot({path:info.outputPath('aprovacao-etapa-ativa.png')});
+  await panel.getByRole('button',{name:'Aprovar',exact:true}).click();
+  await expect(panel.getByText('Aprovada',{exact:true})).toBeVisible();
+  await panel.getByText('Histórico de decisões',{exact:true}).click();
+  await expect(panel.getByText(/Administrador QA · Aprovação/)).toBeVisible();
+  expect(app.commands).toHaveLength(1);
+  expect(app.commands[0].payload).toMatchObject({instanciaId:'configured-approval',etapaId:'compra',decisao:'aprovado'});
+  await panel.getByRole('button',{name:'Voltar à fila'}).click();
+  await expect(search).toHaveValue('SC-0006');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+  expect(app.errors).toEqual([]);
+ });
+}
 
 test("receber parcialmente a prazo atualiza estoque e saldo sem registrar pagamento",async({page})=>{
   const app=await enter(page);await selectWork(page);await navigate(page,"Receber");
