@@ -1648,9 +1648,12 @@ Tenha nome, fornecedor, número ou obra do documento.
 ### Como fazer
 
 1. Confira obra e mês; pesquise por documento ou fornecedor e escolha a situação. A busca considera todo o conjunto, mesmo quando a lista tem várias páginas.
-2. Em Consultas salvas neste navegador, salve ou aplique o recorte. As consultas pertencem ao usuário e à empresa; uma referência indisponível mostra o ajuste necessário.
-3. Em Conferir documentos em sequência, selecione as notas disponíveis e revise a prévia. Abra cada ficha, confirme individualmente e retorne à fila. Use Reabrir ficha fiscal ou Deixar para depois quando precisar continuar nos demais registros.
-4. Confira a situação de cada item após atualizar a base. Registro atualizado desde a abertura pede conferir o resultado; ficha aberta não significa salva. Itens bloqueados ou indisponíveis conservam a explicação e não são executáveis.
+2. Use Conferir documentos para acompanhar pedido, recebimento físico, rateio, retenções, aprovação e pagamentos de uma nota. Abra Originais da nota fiscal para verificar o documento que sustenta a operação. Comprovante de pagamento e nota original aparecem separados.
+3. No filtro Despesa bancária sem evidência, abra a despesa. Use Revisar movimento na Conciliação para conferir o extrato e Vincular evidência à despesa para incluir a referência do arquivo existente, se seu perfil permitir. Informe o nome e o endereço do arquivo, use Adicionar referência, informe o motivo e confirme em Salvar correção da origem. Quando a evidência estiver indisponível, o administrador pode usar Conferir no fechamento para revisar a possibilidade de exceção documental.
+4. Rateio divergente indica diferença entre a soma do rateio e o valor bruto ou linha inválida. Possível duplicidade pede conferência do original e dos dados da outra nota.
+5. Em Consultas salvas neste navegador, salve ou aplique o recorte. As consultas pertencem ao usuário e à empresa; uma referência indisponível mostra o ajuste necessário.
+6. Em Conferir documentos em sequência, selecione as notas disponíveis e revise a prévia. Abra cada ficha, confirme individualmente e retorne à fila. Use Reabrir ficha fiscal ou Deixar para depois quando precisar continuar nos demais registros.
+7. Confira a situação de cada item após atualizar a base. Registro atualizado desde a abertura pede conferir o resultado; ficha aberta não significa salva. Itens bloqueados ou indisponíveis conservam a explicação e não são executáveis.
 
 ### Como conferir se deu certo
 

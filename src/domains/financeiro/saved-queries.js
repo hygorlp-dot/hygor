@@ -1,11 +1,11 @@
-import {documentIssueLabels} from './document-register.js';
+import {documentConferenceLabels} from './document-conference.js';
 
 export function queryStorageKey(user,config={}){
  const company=String(user?.companyId||config.companyId||config.cnpj||'').replace(/\s/g,'');
  return user?.id&&company?`marcell:document-queries:v1:${encodeURIComponent(company)}:${encodeURIComponent(user.id)}:${encodeURIComponent(user.obraId||'all')}`:null;
 }
 export function sanitizeQuery(value={}){
- return {query:typeof value.query==='string'?value.query.slice(0,120):'',filter:value.filter==='all'||Object.hasOwn(documentIssueLabels,value.filter)?value.filter:'all',competence:/^\d{4}-(0[1-9]|1[0-2])$/.test(value.competence)?value.competence:'',obraId:typeof value.obraId==='string'?value.obraId.slice(0,120):'all'};
+ return {query:typeof value.query==='string'?value.query.slice(0,120):'',filter:value.filter==='all'||Object.hasOwn(documentConferenceLabels,value.filter)?value.filter:'all',competence:/^\d{4}-(0[1-9]|1[0-2])$/.test(value.competence)?value.competence:'',obraId:typeof value.obraId==='string'?value.obraId.slice(0,120):'all'};
 }
 export function restoreQuery(value,{works=[],currentWork='all',restrictedWork=''}={}){
  const result=sanitizeQuery(value),messages=[];
