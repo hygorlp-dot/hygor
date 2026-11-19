@@ -1,4 +1,5 @@
-import {currentCompany, withCompanyContext, isolationEnabled} from '../server/company-context.js';
+import {currentCompany, withCompanyContext, isolationEnabled, COMPANIES, runWithCompany, assertCompanyReady} from '../server/company-context.js';
+import {runCompanyBackupCron} from '../server/company-backup-cron.js';
 import {parseCompanyFileReference} from '../src/domains/arquivos/company-file-reference.js';
 import {resolvePublishedCompanyFile} from '../server/company-files.js';
 import {verifiedFileTrashCommand} from '../server/work-file-trash.js';
@@ -1826,8 +1827,12 @@ async function handler(req, res) {
       console.error("[ARCD_CLIENT_ERROR]",JSON.stringify(sanitizeClientError(req.body)));
       return res.status(202).json({ok:true});
     }
-    if(action==="backup-create"&&cronAutorizado(req))return res.status(200).json(await criarBackupOneDrive(req,"system:vercel-cron"));
-    if(action==="backup-verify"&&cronAutorizado(req))return res.status(200).json(await verificarBackupOneDrive(req));
+    if(["backup-create","backup-verify"].includes(action)&&cronAutorizado(req)){
+      const job=()=>action==="backup-create"?criarBackupOneDrive(req,"system:vercel-cron"):verificarBackupOneDrive(req);
+      if(!isolationEnabled())return res.status(200).json(await job());
+      const result=await runCompanyBackupCron({companies:COMPANIES,run:runWithCompany,ready:companyId=>assertCompanyReady(companyId,db),job});
+      return res.status(result.ok?200:503).json(result);
+    }
     // App "Ponto de Obra" (REP-P): ações próprias, sem rota nova na Vercel.
     // A gestão de ponto atual (attendance) não passa por aqui.
     if(ehAcaoPonto(action)){

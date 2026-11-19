@@ -1460,11 +1460,12 @@ Escolha Pessoal de obra, Administrativo ou Todos e selecione a competência, ist
 ### Como fazer
 
 1. Para RH e administradores, Organizar pendências do RH reúne cadastro, ponto, holerite e provisões.
-2. Confira funcionários, ponto e informações que alimentam a folha.
+2. Abra o cartão do funcionário. Em Composição do valor bruto, confira dias e valores de trabalho, atestados e feriados pagos. A data abaixo de Atestados é a do dia lançado no ponto.
 3. No celular, abra Competência e escopo para trocar o período ou a obra. Use Buscar funcionário na folha e Próxima para localizar pessoas sem alterar os totais.
 4. Se o RH decidir dispensar os descontos de entrada, marque Não descontar atrasos nesta quinzena. A prévia recalcula a folha dos diaristas de todas as obras, mesmo se houver filtro. A opção já vem desmarcada.
-5. Confira o líquido em Composição do pagamento. Selecione Todos e Todas as obras, abra Fechamento da quinzena, use Fechar quinzena e revise os valores em Confirmar fechamento.
-6. No celular, Buscar funcionário na folha consulta todo o recorte em páginas de até seis pessoas. Abra Indicadores da área para consultar os totais e Pendências para conferir para ver a lista de alertas da quinzena, quando houver.
+5. Use Gerar PDF para consultar a seção Composição do valor bruto ou Exportar Excel para abrir a aba Composição do bruto. Os dois mostram as datas dos atestados e os valores no recorte escolhido.
+6. Confira o líquido em Composição do pagamento. Selecione Todos e Todas as obras, abra Fechamento da quinzena, use Fechar quinzena e revise os valores em Confirmar fechamento.
+7. No celular, Buscar funcionário na folha consulta todo o recorte em páginas de até seis pessoas. Abra Indicadores da área para consultar os totais e Pendências para conferir para ver a lista de alertas da quinzena, quando houver.
 
 ### Como conferir se deu certo
 
@@ -4175,7 +4176,7 @@ Quando aparecer Simulação local, os dados pertencem a uma cópia privada por e
 
 ### Arquivos e integrações por empresa
 
-Confira Empresa antes de abrir documentos, conectar o OneDrive ou operar backups. Cada empresa precisa de uma pasta raiz própria, com os acessos conferidos pelo administrador. Estar no mesmo drive não significa que o arquivo pertence à empresa selecionada. Se a conexão ou a pasta estiver indisponível, peça a conferência do vínculo; trocar a empresa não transfere arquivos nem concede acesso à pasta da outra construtora. Um backup de outra empresa é recusado mesmo que o arquivo esteja íntegro. Na revisão somente para consulta, apenas os arquivos copiados e conferidos podem abrir; links externos, conexões e gravações permanecem bloqueados. A simulação de aplicação é identificada separadamente e permite somente a limpeza de conciliação da cópia local. As fotos antigas públicas exigem preparação de armazenamento privado antes da ativação definitiva.
+Confira Empresa antes de abrir documentos, conectar o OneDrive ou operar backups. Cada empresa precisa de uma pasta raiz própria, com os acessos conferidos pelo administrador. Estar no mesmo drive não significa que o arquivo pertence à empresa selecionada. Se a conexão ou a pasta estiver indisponível, peça a conferência do vínculo; trocar a empresa não transfere arquivos nem concede acesso à pasta da outra construtora. Um backup de outra empresa é recusado mesmo que o arquivo esteja íntegro. O backup agendado processa as duas empresas separadamente. A criação e a verificação manuais usam somente a empresa selecionada; se a conexão estiver indisponível, confira a integração dessa empresa. Na revisão somente para consulta, apenas os arquivos copiados e conferidos podem abrir; links externos, conexões e gravações permanecem bloqueados. A simulação de aplicação é identificada separadamente e permite somente a limpeza de conciliação da cópia local. As fotos antigas públicas exigem preparação de armazenamento privado antes da ativação definitiva.
 
 ### Escolher a empresa de trabalho
 
