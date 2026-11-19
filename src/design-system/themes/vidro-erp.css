@@ -6,18 +6,31 @@
 
 @media screen {
   /* ---------- Fundo: gradiente leve da marca ---------- */
-  [data-theme="noite"] .arcd-app-shell {
-    background: linear-gradient(150deg, #10223a 0%, #0a1526 38%, #070d18 70%, #0d1420 100%) !important;
+  /* Emblema oficial como marca d'água: arquivos com a transparência embutida (public/brand/marcell/emblem-marca-dagua-*.svg),
+     camada fixa, sem pseudoelemento — não interfere no empilhamento nem no clique.
+     html + :not([data-tab="tv"]) supera o fundo sólido de marcell-workspaces.css; o Modo TV fica fora. */
+  html[data-theme="noite"] .arcd-app-shell:not([data-tab="tv"]) {
+    background:
+      url("/brand/marcell/emblem-marca-dagua-noite.svg") no-repeat right -6vw top 14vh / min(64vw, 1100px) auto,
+      linear-gradient(150deg, #10223a 0%, #0a1526 38%, #070d18 70%, #0d1420 100%) !important;
+    background-attachment: fixed !important;
+  }
+  html[data-theme="marcell"] .arcd-app-shell:not([data-tab="tv"]) {
+    background:
+      url("/brand/marcell/emblem-marca-dagua-clara.svg") no-repeat right -6vw top 14vh / min(64vw, 1100px) auto,
+      radial-gradient(70vmax 50vmax at 88% 12%, rgb(185 152 91 / 12%), transparent 60%),
+      radial-gradient(60vmax 50vmax at 8% 92%, rgb(58 90 133 / 14%), transparent 60%),
+      #e9edf1 !important;
     background-attachment: fixed !important;
   }
   [data-theme="cristal"] .arcd-app-shell {
     background: linear-gradient(150deg, #f7f3ea 0%, #eef1f4 42%, #e4eaf2 75%, #dde5ef 100%) !important;
     background-attachment: fixed !important;
   }
-  :is([data-theme="noite"],[data-theme="cristal"]) .arcd-main { background: transparent !important; }
+  :is([data-theme="noite"],[data-theme="cristal"],[data-theme="marcell"]) .arcd-main { background: transparent !important; }
 
   /* ---------- Caixas de vidro ---------- */
-  :is([data-theme="noite"],[data-theme="cristal"]) .arcd-main :is(
+  :is([data-theme="noite"],[data-theme="cristal"],[data-theme="marcell"]) .arcd-main :is(
     .page-hero__stats, .dre-kpi-grid, .dashboard-executive-grid, .finance-today__filters, .purchase-queue-metrics,
     .gav, .dashboard-mission-queue, .works-card, .works-filter-bar, .payroll-controls, .payroll-checklist,
     .payroll-summary-strip, .workspace-disclosure, .finance-today__table-scroll, .arcd-chart-panel, .dre-toolbar,
@@ -31,7 +44,7 @@
     backdrop-filter: blur(18px) saturate(140%);
   }
   /* Dentro de uma caixa de vidro, os filhos não repetem o vidro (evita vidro sobre vidro). */
-  :is([data-theme="noite"],[data-theme="cristal"]) .arcd-main :is(.page-hero__stats,.dre-kpi-grid,.dashboard-executive-grid,.finance-today__filters,.purchase-queue-metrics) > * {
+  :is([data-theme="noite"],[data-theme="cristal"],[data-theme="marcell"]) .arcd-main :is(.page-hero__stats,.dre-kpi-grid,.dashboard-executive-grid,.finance-today__filters,.purchase-queue-metrics) > * {
     background: transparent !important; -webkit-backdrop-filter: none; backdrop-filter: none;
   }
 
@@ -46,6 +59,23 @@
     --vidro-sombra: 0 14px 40px rgb(20 43 58 / 10%), inset 0 1px 0 rgb(255 255 255 / 90%);
   }
 
+  [data-theme="marcell"] {
+    --vidro-fundo: linear-gradient(135deg, rgb(255 255 255 / 66%), rgb(255 255 255 / 50%) 55%, rgb(255 255 255 / 60%));
+    --vidro-borda: rgb(255 255 255 / 78%);
+    --vidro-sombra: 0 18px 40px -24px rgb(13 27 46 / 32%), inset 0 1px 0 rgb(255 255 255 / 85%);
+  }
+  /* Preciso: menu lateral azul-marinho sólido (leitura) com item ativo marcado em dourado; cabeçalho em vidro claro. */
+  [data-theme="marcell"] .arcd-topbar {
+    background: rgb(255 255 255 / 55%) !important;
+    border-color: rgb(255 255 255 / 75%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    backdrop-filter: blur(20px) saturate(140%);
+  }
+  [data-theme="marcell"] .arcd-sidebar [aria-current="page"] { box-shadow: inset 2px 0 0 #b9985b !important; }
+  /* Barra inferior do celular: opaca. O cartão é translúcido nestes temas e o operating-contract.css proíbe desfoque nela;
+     sem isto, o texto da lista aparece por baixo dos destinos. */
+  html:is([data-theme="marcell"],[data-theme="noite"]) .arcd-mobile-nav { background: var(--arcd-surface-elevated) !important; }
+
   /* Cabeçalho e menu lateral do tema claro também em vidro. */
   [data-theme="cristal"] :is(.arcd-topbar,.arcd-sidebar) {
     background: rgb(255 255 255 / 58%) !important;
@@ -58,9 +88,15 @@
 /* Sem desfoque disponível ou com "reduzir transparência": caixas sólidas, legíveis. */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   [data-theme="noite"] { --vidro-fundo: #111c2e; }
-  [data-theme="cristal"] { --vidro-fundo: #f8fafc; }
+  :is([data-theme="cristal"],[data-theme="marcell"]) { --vidro-fundo: #f8fafc; }
+  [data-theme="marcell"] .arcd-topbar { background: #ffffff !important; }
 }
 @media (prefers-reduced-transparency: reduce) {
   [data-theme="noite"] { --vidro-fundo: #111c2e; }
-  [data-theme="cristal"] { --vidro-fundo: #f8fafc; }
+  :is([data-theme="cristal"],[data-theme="marcell"]) { --vidro-fundo: #f8fafc; }
+  [data-theme="marcell"] .arcd-topbar { background: #ffffff !important; backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
+/* Impressão e PDF: sem marca d'água nem vidro. */
+@media print {
+  html:is([data-theme="noite"],[data-theme="marcell"]) .arcd-app-shell:not([data-tab="tv"]) { background: #ffffff !important; }
 }

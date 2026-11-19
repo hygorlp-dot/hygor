@@ -10,7 +10,7 @@ export const DISTANCE_VIEW_COLORS = Object.freeze({
 // Themes change semantic roles. Components never need to know a theme's ID.
 const shared = Object.freeze({
   ...foundationTokens,
-  "--arcd-font-sans":"'Inter', 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif",
+  "--arcd-font-sans":"'Geist', 'Inter', 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif",
   "--arcd-nav-focus":"#235bb0",
   "--arcd-surface-card":"#ffffff", "--arcd-surface-elevated":"#ffffff",
   "--arcd-action-primary-text":"#ffffff", "--arcd-text-inverse":"#ffffff",
@@ -118,16 +118,19 @@ export const themeRegistry = Object.freeze({
     "--arcd-nav-active-surface":"#edf3fc", "--arcd-nav-hover-surface":"#f0f2f5", "--arcd-nav-hover-text":"#202c3d",
     "--arcd-nav-border":"#e4e8ee", "--arcd-nav-brand-text":"#0d1b2e",
   }),
-  marcell:theme("marcell","MARCELL Preciso","Menu azul-marinho e ações em azul.",{
-    "--arcd-surface-page":"#f5f6f8", "--arcd-surface-muted":"#edf0f4", "--arcd-surface-subtle":"#f5f6f8",
+  // 19/11/2026 (direção Plataforma): caixas de vidro sobre o emblema claro (vidro-erp.css), ação principal em azul-marinho.
+  marcell:theme("marcell","MARCELL Preciso","Menu azul-marinho, caixas de vidro sobre o emblema e ações em azul-marinho.",{
+    "--arcd-surface-page":"#e9edf1", "--arcd-surface-card":"rgb(255 255 255 / 86%)", "--arcd-surface-muted":"#e6ebf0", "--arcd-surface-subtle":"#f1f4f7",
     "--arcd-surface-inverse":"#0d1b2e", "--arcd-surface-overlay":"rgb(13 27 46 / 56%)",
-    "--arcd-text-primary":"#0d1b2e", "--arcd-text-secondary":"#536171", "--arcd-text-muted":"#536171",
-    "--arcd-border-subtle":"#e8ebef", "--arcd-border-default":"#d9dde2", "--arcd-border-strong":"#8a96a5",
-    "--arcd-action-primary":"#235bb0", "--arcd-action-primary-hover":"#19498e", "--arcd-action-primary-active":"#143b74",
-    "--arcd-action-primary-subtle":"#edf3fc", "--arcd-focus-ring":"#235bb0", "--arcd-nav-focus":"#9cc4ff",
+    "--arcd-text-primary":"#0d1b2e", "--arcd-text-secondary":"#4a5868", "--arcd-text-muted":"#4f5d6d",
+    "--arcd-border-subtle":"rgb(13 27 46 / 8%)", "--arcd-border-default":"rgb(13 27 46 / 13%)", "--arcd-border-strong":"#7f8b9a",
+    "--arcd-action-primary":"#0d1b2e", "--arcd-action-primary-hover":"#1b2c42", "--arcd-action-primary-active":"#060e1a",
+    "--arcd-action-primary-subtle":"#e4e9f0", "--arcd-focus-ring":"#235bb0", "--arcd-nav-focus":"#9cc4ff",
     "--arcd-nav-surface":"#0d1b2e", "--arcd-nav-text":"#c4cfda", "--arcd-nav-active-text":"#ffffff",
-    "--arcd-nav-active-surface":"#244b7d", "--arcd-nav-hover-surface":"#1b2c42", "--arcd-nav-hover-text":"#ffffff",
-    "--arcd-nav-border":"#304056", "--arcd-nav-brand-text":"#ffffff",
+    "--arcd-nav-active-surface":"#1e3150", "--arcd-nav-hover-surface":"#16263c", "--arcd-nav-hover-text":"#ffffff",
+    "--arcd-nav-border":"#2a3a50", "--arcd-nav-brand-text":"#ffffff", "--arcd-radius-lg":".75rem",
+    "--arcd-table-stripe-surface":"rgb(13 27 46 / 3%)",
+    "--arcd-material-blur":"20px", "--arcd-material-fallback":"#f1f4f7", "--arcd-material-panel-surface":"rgb(255 255 255 / 62%)",
   }),
 });
 export const enabledThemeIds = Object.freeze(Object.values(themeRegistry).filter(theme=>theme.enabled).map(theme=>theme.id));

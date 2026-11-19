@@ -3,7 +3,7 @@ name: MARCELL
 description: Gestão de obras com temas consistentes e leitura operacional clara; direção SAP disponível em MARCELL Operacional.
 operational-reference: SAP
 local-pilot: MARCELL Preciso — 01/11/2026
-reviewed-at: 2026-11-15
+reviewed-at: 2026-11-19
 default-theme: marcell
 default-density: compact
 colors:
@@ -21,7 +21,7 @@ colors:
   control-border: "#8A96A5"
   focus: "#235BB0"
   selected-surface: "#EDF3FC"
-  action-primary: "#235BB0"
+  action-primary: "#0D1B2E"
   action-hover: "#19498E"
   sidebar-hover: "#1B2C42"
   sidebar-active: "#244B7D"
@@ -32,28 +32,28 @@ colors:
   info: "#285C91"
   dashboard-news-header: "#EDF3F7"
   dashboard-actions-header: "#F8F3E9"
-  precise-canvas: "#F5F6F8"
+  precise-canvas: "#E9EDF1"
   operational-muted: "#EDF0F4"
   operational-control-border: "#8A96A5"
 typography:
   saas-body:
-    fontFamily: 'IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
-    fontSize: '0.875rem'
+    fontFamily: 'Geist, Inter, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
+    fontSize: '0.8125rem'
     lineHeight: 1.5
   print-document:
     fontFamily: 'Nimbus Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '11px'
     lineHeight: 1.4
   pilot-metric:
-    fontFamily: 'IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
-    fontSize: '1.375rem'
+    fontFamily: 'Geist, Inter, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
+    fontSize: '1.125rem'
     lineHeight: 1.35
   pilot-metric-compact:
-    fontFamily: 'IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
-    fontSize: '1.25rem'
+    fontFamily: 'Geist, Inter, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
+    fontSize: '1rem'
     lineHeight: 1.35
   pilot-touch-control:
-    fontFamily: 'IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
+    fontFamily: 'Geist, Inter, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '1rem'
     lineHeight: 1.5
   display:
@@ -62,46 +62,46 @@ typography:
     fontWeight: 400
     lineHeight: 1.2
   navigation:
-    fontFamily: 'IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
+    fontFamily: 'Geist, Inter, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '0.75rem'
     fontWeight: 400
   dashboard-title:
-    fontFamily: 'IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
-    fontSize: '1.5rem'
+    fontFamily: 'Geist, Inter, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
+    fontSize: '1.375rem'
     fontWeight: 500
   headline:
-    fontFamily: 'IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
-    fontSize: '1.5rem'
+    fontFamily: 'Geist, Inter, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
+    fontSize: '1.375rem'
     fontWeight: 600
     lineHeight: 1.35
     letterSpacing: '-0.02em'
   title:
-    fontFamily: 'IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
-    fontSize: '1.125rem'
-    fontWeight: 600
-    lineHeight: 1.35
-  card-title:
-    fontFamily: 'IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
+    fontFamily: 'Geist, Inter, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '0.9375rem'
     fontWeight: 600
     lineHeight: 1.35
-  body:
-    fontFamily: 'IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
+  card-title:
+    fontFamily: 'Geist, Inter, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '0.875rem'
+    fontWeight: 600
+    lineHeight: 1.35
+  body:
+    fontFamily: 'Geist, Inter, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
+    fontSize: '0.8125rem'
     fontWeight: 400
     lineHeight: 1.5
     letterSpacing: '0.01rem'
   label:
-    fontFamily: 'IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
-    fontSize: '0.875rem'
+    fontFamily: 'Geist, Inter, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
+    fontSize: '0.8125rem'
     fontWeight: 400
     letterSpacing: '0.01rem'
   caption:
-    fontFamily: 'IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
-    fontSize: '0.8125rem'
+    fontFamily: 'Geist, Inter, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
+    fontSize: '0.75rem'
   kpi:
-    fontFamily: 'IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
-    fontSize: '1.5rem'
+    fontFamily: 'Geist, Inter, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
+    fontSize: '1.125rem'
     fontWeight: 600
 rounded:
   sm: '0.375rem'
@@ -167,7 +167,7 @@ components:
 
 Este documento descreve a implementação atual; as notas históricas abaixo não a substituem. Novas interfaces usam os componentes compartilhados, os tokens e `docs/PADRAO-INTERFACE.md`. Esta revisão alinha a documentação, sem migrar fontes, temas, dados, regras ou permissões.
 
-- Tema padrão: **MARCELL Preciso** (`marcell`), com lateral azul-marinho, conteúdo cinza claro e ações azuis. Densidade inicial: **Compacta**. Preferências salvas continuam sendo respeitadas.
+- Tema padrão: **MARCELL Preciso** (`marcell`), com lateral azul-marinho, caixas de vidro claro sobre o emblema MARCELL e ações em azul-marinho (direção Plataforma, 19/11/2026). Densidade inicial: **Compacta**. Preferências salvas continuam sendo respeitadas.
 - Temas disponíveis no registro: MARCELL Preciso, MARCELL Claro (`saas`), MARCELL Operacional (`operacional`) e MARCELL Vidro (`vidro`). Todos usam **IBM Plex Sans** como fonte operacional. As aliases legadas `--type-body` e `--type-display` consomem `--arcd-font-sans`; `--type-data` consome `--arcd-font-mono`. A conferência no navegador confirmou o corpo em IBM Plex Sans nos quatro temas. Vidro é aplicado ao portal sem substituir a preferência do ERP.
 - Fonte única da escala: `src/design-system/foundations.js`; cores, família e diferenças de tema: `src/design-system/themes/themeRegistry.js`; alturas e espaçamento: `src/design-system/tokens/density.css` e `spacing.css`. `src/design-system/theme/themeValidation.js` define a densidade inicial.
 - A base semântica de botões é `src/design-system/primitives/button-contract.css`; cabeçalhos compartilhados seguem `module-standard.css` e `--arcd-heading-weight`. A camada `marcell-clean.css` ainda aplica peso 500 a títulos legados e de diálogos. Essa diferença de cascata não autoriza novos estilos por módulo: novas telas devem consumir o cabeçalho compartilhado.
@@ -248,8 +248,10 @@ Sucesso, atenção, erro e informação usam seus próprios tokens semânticos. 
 ## Typography
 
 **Display Font:** P052, com Georgia e serif de reserva.
-**Body Font:** IBM Plex Sans, com Helvetica Neue, Arial e sans-serif de reserva.
-**Label/Mono Font:** IBM Plex Mono e fontes monoespaçadas de sistema para identificadores técnicos.
+**Body Font:** Geist (variável, `public/fonts/geist`, OFL) desde 19/11/2026, com Inter, IBM Plex Sans, Helvetica Neue e Arial de reserva.
+**Label/Mono Font:** Geist Mono, com IBM Plex Mono e fontes monoespaçadas de sistema de reserva, para identificadores técnicos.
+
+O parágrafo abaixo registra o contrato anterior com IBM Plex Sans; a seção "Direção Plataforma — 19/11/2026" prevalece sobre ele.
 
 IBM Plex Sans é a fonte operacional de títulos, corpo, controles e números financeiros no registro dos temas. Os pesos 400, 500 e 600 são servidos localmente em `public/fonts/ibm-plex`, com `font-display:swap`; suas declarações ficam em `tokens/typography.css`, junto da base de compatibilidade. Em 15/11/2026, as aliases do CSS legado passaram a consumir os tokens compartilhados. A revisão conferiu estilos computados e carregamento da fonte em Dashboard, Financeiro e Planejamento, nos quatro temas e em desktop/celular. Novas interfaces consomem os componentes e tokens compartilhados. P052 permanece na mensagem institucional do acesso desktop. Os arquivos históricos Source Sans 3 não definem o contrato operacional. Nimbus Sans permanece incorporada aos relatórios; as fontes URW/Artifex continuam nos diretórios de identidade e impressão. Os pesos e a escala existentes não foram alterados nesta consolidação.
 
@@ -292,7 +294,7 @@ Bordas finas (1 px). No padrão Preciso, `--arcd-radius-control` define 6 px par
 
 ### Buttons
 
-Ações diretas, com altura ligada à densidade. O contrato compartilhado usa peso 500, enquanto a camada legada `marcell-clean.css` mantém rótulos regulares em algumas superfícies. O primário usa `--arcd-action-primary` e texto branco; no Preciso, azul `#235BB0`. Secundário e ghost seguem seus papéis, sem cores próprias do módulo. Hover usa `--arcd-action-primary-hover`; desabilitados conservam a indicação de indisponibilidade. Foco visível usa contorno de 3 px e afastamento de 3 px no contrato compartilhado. O título explicativo não substitui o texto de uma ação visível; botões só com ícone precisam de nome acessível.
+Ações diretas, com altura ligada à densidade. O contrato compartilhado usa peso 500, enquanto a camada legada `marcell-clean.css` mantém rótulos regulares em algumas superfícies. O primário usa `--arcd-action-primary` e texto branco; no Preciso, azul-marinho `#0D1B2E` desde 19/11/2026 (antes azul `#235BB0`, que continua no foco). Secundário e ghost seguem seus papéis, sem cores próprias do módulo. Hover usa `--arcd-action-primary-hover`; desabilitados conservam a indicação de indisponibilidade. Foco visível usa contorno de 3 px e afastamento de 3 px no contrato compartilhado. O título explicativo não substitui o texto de uma ação visível; botões só com ícone precisam de nome acessível.
 
 ### Chips
 
@@ -336,7 +338,7 @@ Identificação legal cadastrada, conteúdos, valores, assinaturas e colunas nã
 - **Do** usar a assinatura e o monograma oficiais em suas versões adequadas ao fundo.
 - **Do** preservar contraste, foco visível, estados textuais e alvos de toque.
 - **Do** manter valores completos, algarismos tabulares e informações de relatório legíveis.
-- **Do** usar IBM Plex Sans na operação e P052 somente na mensagem institucional do acesso.
+- **Do** usar Geist (via `--arcd-font-sans`) na operação e P052 somente na mensagem institucional do acesso.
 
 ### Don't:
 - **Don't** redesenhar, distorcer ou aplicar filtros aos vetores oficiais.
@@ -513,3 +515,14 @@ Compras e Financeiro adotam WorkspaceHeading e WorkspaceCommandBar: título e na
 ## MARCELL Vidro — portal do cliente, 14/11/2026
 
 Tema aprovado pelo usuário para o portal: vidro fosco claro e residência contemporânea fictícia ao fundo. Tokens de cor/material em themeRegistry.js; receita compartilhada em themes/material.css. Painel principal com opacidade de 68%, cartões e campos com 76%, desfoque de 18 px e texto azul-marinho de alto contraste. A escala, os controles e as abas permanecem MARCELL. Fotografias dos diários continuam inteiras, independentes do fundo ilustrativo. O portal aplica o tema sem gravar outra preferência de aparência do ERP. Superfície sólida quando não há desfoque ou quando o usuário reduz transparência. Procedência do asset e prompt em docs/TEMA-PORTAL-VIDRO-LOCAL.md.
+
+## Direção Plataforma — 19/11/2026
+
+Aprovada pelo usuário a partir do canvas "ERP MARCELL — Direções visuais" (direção D, após pedir algo mais tecnológico e maduro, com fontes menores). Prevalece sobre as descrições anteriores de fonte, escala e ação do Preciso.
+
+- **Fonte:** Geist e Geist Mono variáveis, servidas localmente em `public/fonts/geist` (pacote oficial `geist` 1.9.2, OFL). `--arcd-font-sans` começa por Geist em `tokens/typography.css`, `themeRegistry.js` e `marcell-workspaces.css`; Inter e IBM Plex ficam de reserva. Relatórios, impressão e Modo TV mantêm Nimbus Sans.
+- **Escala compacta** (`foundations.js`, espelhada em `tokens/typography.css`): título de página 22 px, indicador 18 px, título de seção 15 px, título de cartão 14 px, corpo, rótulo, controle e tabela 13 px, legenda 12 px, título de diálogo 16 px. Controles de toque continuam em 16 px e alvos em 44 px.
+- **Vidro:** no Preciso, cartões, faixas de indicadores, filtros e painéis usam as caixas translúcidas de `vidro-erp.css` (o mesmo mecanismo do Noite e do Cristal), com o cabeçalho em vidro claro. A lateral continua azul-marinho sólida, para leitura; o item ativo recebe filete dourado. Sem desfoque disponível, com "reduzir transparência" ou na impressão, as caixas voltam a ser sólidas.
+- **Marca d'água:** o emblema oficial aparece bem claro ao fundo do Preciso (6 %) e do Noite (4,5 %), a partir de `public/brand/marcell/emblem-marca-dagua-clara.svg` e `emblem-marca-dagua-noite.svg`: cópias do emblema oficial com a transparência embutida, sem alteração de desenho. A impressão não leva a marca d'água.
+- **Cor:** ação primária do Preciso em azul-marinho `#0D1B2E` (hover `#1B2C42`); foco permanece azul `#235BB0`. Fundo `#E9EDF1` com luzes suaves de ouro e azul da marca, cartões em branco 86 %. Cor de estado só para desvio.
+- **Limite conhecido:** planilhas densas (Orçamento) ficam sobre superfície quase opaca; o vidro não deve atravessar números.

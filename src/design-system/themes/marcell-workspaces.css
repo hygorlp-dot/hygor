@@ -1,7 +1,7 @@
 /* MARCELL operating surfaces. The television and printed reports keep their own scale. */
 @media screen {
   :root {
-    --arcd-font-sans: 'Inter', 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif;
+    --arcd-font-sans: 'Geist', 'Inter', 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif;
   }
   [data-theme] .arcd-app-shell:not([data-tab="tv"]) {
     background: var(--arcd-surface-page) !important;

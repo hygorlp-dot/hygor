@@ -1,0 +1,4 @@
+Geist and Geist Mono (variable) 1.9.2, official npm package "geist" by Vercel.
+Files: dist/fonts/geist-sans/Geist-Variable.woff2 and dist/fonts/geist-mono/GeistMono-Variable.woff2
+License: SIL Open Font License 1.1, included as LICENSE.txt.
+Served locally. No external font request is made by the application.

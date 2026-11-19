@@ -1,9 +1,10 @@
 // Fonte central da escala comum. Cores/fontes por tema: themes/themeRegistry.js.
 // Densidade: tokens/density.css. Espaçamentos de composição: tokens/spacing.css.
 export const foundationTokens = Object.freeze({
-  "--arcd-type-page-title":"1.5rem", "--arcd-type-section-title":"1.125rem", "--arcd-type-card-title":".9375rem",
-  "--arcd-type-body":".875rem", "--arcd-type-label":".875rem", "--arcd-type-caption":".8125rem", "--arcd-type-kpi":"1.375rem",
-  "--arcd-type-control":".875rem", "--arcd-type-table":".875rem", "--arcd-type-dialog-title":"1.125rem",
+  // Escala compacta aprovada em 19/11/2026 (direção Plataforma): título 22px, indicador 18px, corpo e tabela 13px.
+  "--arcd-type-page-title":"1.375rem", "--arcd-type-section-title":".9375rem", "--arcd-type-card-title":".875rem",
+  "--arcd-type-body":".8125rem", "--arcd-type-label":".8125rem", "--arcd-type-caption":".75rem", "--arcd-type-kpi":"1.125rem",
+  "--arcd-type-control":".8125rem", "--arcd-type-table":".8125rem", "--arcd-type-dialog-title":"1rem",
   "--arcd-type-control-touch":"1rem", "--arcd-page-padding":"1.5rem", "--arcd-page-padding-mobile":".875rem",
   "--arcd-button-weight":"500", "--arcd-button-line-height":"1.35",
   "--arcd-button-gap":".5rem", "--arcd-button-padding":"0 .875rem",

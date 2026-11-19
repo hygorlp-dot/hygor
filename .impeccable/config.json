@@ -28,6 +28,66 @@
         ],
         "createdAt": "2026-08-18T15:38:07.439Z",
         "reason": "linha dourada de topo no .re-page-header é a assinatura ARCD documentada em DESIGN.md (linha dourada como marca/hero), nao decoracao aleatoria; codigo pre-existente em producao, nao introduzido nesta sessao"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#10223a",
+        "createdAt": "2026-11-19T18:52:40.925Z",
+        "reason": "Preexistente: gradiente de fundo dos temas Noite/Cristal em vidro-erp.css, anterior a 19/11/2026"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#0a1526",
+        "createdAt": "2026-11-19T18:52:41.047Z",
+        "reason": "Preexistente: gradiente de fundo dos temas Noite/Cristal em vidro-erp.css, anterior a 19/11/2026"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#070d18",
+        "createdAt": "2026-11-19T18:52:41.206Z",
+        "reason": "Preexistente: gradiente de fundo dos temas Noite/Cristal em vidro-erp.css, anterior a 19/11/2026"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#0d1420",
+        "createdAt": "2026-11-19T18:52:41.340Z",
+        "reason": "Preexistente: gradiente de fundo dos temas Noite/Cristal em vidro-erp.css, anterior a 19/11/2026"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#dde5ef",
+        "createdAt": "2026-11-19T18:52:41.484Z",
+        "reason": "Preexistente: gradiente de fundo dos temas Noite/Cristal em vidro-erp.css, anterior a 19/11/2026"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "rgb(58 90 133 / 14%)",
+        "createdAt": "2026-11-19T18:52:41.635Z",
+        "reason": "User confirmed: direção Plataforma 19/11/2026, luz azul da marca no fundo do Preciso"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "rgb(185 152 91 / 12%)",
+        "createdAt": "2026-11-19T18:52:41.769Z",
+        "reason": "User confirmed: direção Plataforma 19/11/2026, luz dourada da marca (#B9985B) no fundo do Preciso"
+      },
+      {
+        "rule": "overused-font",
+        "value": "geist",
+        "createdAt": "2026-11-19T18:55:34.920Z",
+        "reason": "User confirmed: direção Plataforma aprovada em 19/11/2026 com Geist"
+      },
+      {
+        "rule": "overused-font",
+        "value": "geist mono",
+        "createdAt": "2026-11-19T18:55:35.084Z",
+        "reason": "User confirmed: direção Plataforma aprovada em 19/11/2026 com Geist Mono nos valores"
+      },
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "createdAt": "2026-11-19T18:55:35.288Z",
+        "reason": "Fonte de reserva na pilha, não primária; preexistente em public/fonts/inter"
       }
     ]
   }
