@@ -107,7 +107,9 @@ async function handler(req,res){
       if(!body.driveId||!body.itemId)return res.status(400).json({error:'Arquivo sem identificação.'});
       await assertInsideWorkspace(accessToken,appContext,body.driveId,body.itemId);
       if(isolationEnabled()){
-        const item=await (await graph(accessToken,`/drives/${encodeURIComponent(body.driveId)}/items/${encodeURIComponent(body.itemId)}?$select=id,@microsoft.graph.downloadUrl`)).json();
+        // OneDrive Personal omits the download annotation when $select is
+        // present. Read the item's metadata after both ancestry checks.
+        const item=await (await graph(accessToken,`/drives/${encodeURIComponent(body.driveId)}/items/${encodeURIComponent(body.itemId)}`)).json();
         let download;try{download=new URL(item['@microsoft.graph.downloadUrl']);}catch{return res.status(503).json({error:'O arquivo privado ainda não está disponível.'});}
         const trusted=/(?:^|\.)(?:sharepoint\.com|1drv\.com|onedrive\.com|live\.com|livefilestore\.com|storage\.msn\.com|microsoftpersonalcontent\.com)$/.test(download.hostname);
         if(download.protocol!=='https:'||download.username||download.password||download.port||!trusted)return res.status(503).json({error:'O arquivo privado não possui um destino permitido.'});

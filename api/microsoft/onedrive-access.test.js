@@ -9,6 +9,13 @@ const payload={obras:[{id:'a',name:'Obra',oneDriveDriveId:'drive',oneDriveFolder
 const response=()=>({statusCode:200,headers:{},status(n){this.statusCode=n;return this;},json(body){this.body=body;return this;},end(){return this;},send(body){this.body=body;return this;},setHeader(k,v){this.headers[k]=v;}});
 beforeEach(()=>{vi.clearAllMocks();mocks.isolated=false;mocks.load.mockResolvedValue(payload);mocks.verify.mockResolvedValue({user,payload});mocks.refresh.mockResolvedValue({accessToken:'token',session:{}});mocks.graph.mockImplementation(async(token,path)=>path.endsWith('/content')?new Response('%PDF-1.4',{headers:{'content-type':'application/pdf'}}):{json:async()=>({id:'item',parentReference:{id:'root'}})});});
 describe('Leitura autenticada da central',()=>{
+  it('abre PDF privado quando o Graph omite a anotação de download em uma projeção select',async()=>{
+    mocks.isolated=true;
+    mocks.graph.mockImplementation(async(token,path)=>({json:async()=>path.includes('?')?{id:'item',parentReference:{id:'root'}}:{id:'item',file:{mimeType:'application/pdf'},'@microsoft.graph.downloadUrl':'https://my.microsoftpersonalcontent.com/private.pdf'}}));
+    const res=response();await handler({method:'POST',query:{},body:{action:'read-file',driveId:'drive',itemId:'item'}},res);
+    expect(res.statusCode).toBe(303);expect(res.headers.Location).toBe('https://my.microsoftpersonalcontent.com/private.pdf');
+    expect(mocks.graph).toHaveBeenCalledWith('token','/drives/drive/items/item');
+  });
   it('recusa link GET mesmo com assinatura conhecida quando o isolamento está ativo',async()=>{
     mocks.isolated=true;const res=response();
     await handler({method:'GET',query:{action:'file',driveId:'drive',itemId:'unregistered',sig:'signature'}},res);
@@ -21,7 +28,7 @@ describe('Leitura autenticada da central',()=>{
   it('permite somente leitura ao administrador de uma raiz histórica conferida',async()=>{
     mocks.isolated=true;mocks.verify.mockResolvedValue({user:{id:'admin',role:'admin'},payload});
     mocks.load.mockResolvedValue({...payload,nativeFileWorkspaces:[{id:'historical',oneDriveDriveId:'drive',oneDriveFolderId:'historical-root'}]});
-    mocks.graph.mockImplementation(async(token,path)=>({json:async()=>path.includes('@microsoft.graph.downloadUrl')?{id:'historical-file','@microsoft.graph.downloadUrl':'https://my.microsoftpersonalcontent.com/private-file'}:{id:'historical-file',parentReference:{id:'historical-root'}}}));
+    mocks.graph.mockImplementation(async(token,path)=>({json:async()=>!path.includes('?')?{id:'historical-file','@microsoft.graph.downloadUrl':'https://my.microsoftpersonalcontent.com/private-file'}:{id:'historical-file',parentReference:{id:'historical-root'}}}));
     const res=response();await handler({method:'POST',query:{},body:{action:'read-file',driveId:'drive',itemId:'historical-file'}},res);
     expect(res.statusCode).toBe(303);expect(res.headers.Location).toBe('https://my.microsoftpersonalcontent.com/private-file');expect(mocks.load).toHaveBeenCalledWith({includeNativeWorkspaces:true});
     expect(mocks.graph.mock.calls.some(([,path])=>path.endsWith('/content'))).toBe(false);
@@ -33,7 +40,7 @@ describe('Leitura autenticada da central',()=>{
     expect(res.statusCode).toBe(403);expect(mocks.load).toHaveBeenCalledWith({includeNativeWorkspaces:false});
   });
   it('recusa redirecionamento privado para um host fora da Microsoft',async()=>{
-    mocks.isolated=true;mocks.graph.mockImplementation(async(token,path)=>({json:async()=>path.includes('@microsoft.graph.downloadUrl')?{id:'item','@microsoft.graph.downloadUrl':'https://evil.test/file'}:{id:'item',parentReference:{id:'root'}}}));
+    mocks.isolated=true;mocks.graph.mockImplementation(async(token,path)=>({json:async()=>!path.includes('?')?{id:'item','@microsoft.graph.downloadUrl':'https://evil.test/file'}:{id:'item',parentReference:{id:'root'}}}));
     const res=response();await handler({method:'POST',query:{},body:{action:'read-file',driveId:'drive',itemId:'item'}},res);
     expect(res.statusCode).toBe(503);expect(res.headers.Location).toBeUndefined();
   });
