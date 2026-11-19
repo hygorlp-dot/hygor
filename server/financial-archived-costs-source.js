@@ -29,7 +29,7 @@ export const rebuildArchivedLaborCosts=({
       continue;
     }
     archivedLaborCosts[item.quinzenaId]=normalizeArchivedCosts(
-      summarizeArchivedCosts(decodeAppData(row.value),data?.config,data?.employees),
+      summarizeArchivedCosts(decodeAppData(row.value),data?.config,data?.employees,data?.titulosFolha),
     );
   }
 

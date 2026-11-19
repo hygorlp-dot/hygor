@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createLaborCostEngine } from "./labor-cost-engine.js";
 import { archivedCltScenario } from "../../fixtures/archived-clt.js";
+import { payrollDelayWaiverScenario, waivedDelayPayrollTitle } from "../../fixtures/payroll-delay-waiver.js";
 import { rebuildArchivedLaborCosts } from "../../../server/financial-archived-costs-source.js";
 import { getPayrollHolidays,getHolidayPayRule,getAtt,isEmployeeEmployedOnDate,prIsWeekdayIso } from "../ponto/attendance-engine.js";
 
@@ -14,6 +15,15 @@ const dependencies = overrides => ({
 });
 
 describe("motor financeiro de mão de obra", () => {
+  it("reconhece R$ 100 na obra quando a folha foi fechada sem desconto por atraso",()=>{
+    const data=payrollDelayWaiverScenario();
+    const engine=createLaborCostEngine(dependencies());
+    const cost=source=>engine.calculateWorkLaborCost(source,"obra",["2026-11-06"]).laborCost;
+    expect(cost(data)).toBe(90);
+    expect(cost({...data,titulosFolha:[waivedDelayPayrollTitle]})).toBe(100);
+    expect(cost({...data,titulosFolha:[{...waivedDelayPayrollTitle,status:"cancelado"}]})).toBe(90);
+  });
+
   it("mantém R$ 2.300 de salário e R$ 25 de benefícios após arquivar CLT antigo",()=>{
     const {data,archiveRows,live}=archivedCltScenario();
     const archived=rebuildArchivedLaborCosts({data,archiveRows}).data;

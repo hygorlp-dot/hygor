@@ -8,8 +8,10 @@
 //
 // O título é só a obrigação: o custo de mão de obra continua sendo
 // reconhecido pelo ponto (payrollCostRecognizedByAttendance no ledger).
-import { isDateInClosedPeriod } from "../financeiro/workflows.js";
+import { isCompetenceInClosedPeriod, isDateInClosedPeriod } from "../financeiro/workflows.js";
 import { totalLiquidadoFolha } from "../conciliacao/payroll.js";
+import { getQ } from "./attendance-engine.js";
+import { hasWaivedDelayDeduction } from "./payroll.js";
 
 export const PAYROLL_CLOSING_COMMAND = Object.freeze({
   PAYROLL_FORTNIGHT_CLOSED:"QUINZENA_FOLHA_FECHADA",
@@ -98,6 +100,16 @@ export const payrollClosingBlockers=({pendencias=[],rows=[]}={})=>{
 
 export const payrollClosingCommandObraId=()=>"";
 
+export function delayWaiverBlocker(data,periodKey){
+  if(data.quinzenasArquivadas?.[periodKey])return "Restaure o ponto arquivado para alterar os descontos por atraso desta quinzena.";
+  const [year,month,cycle]=periodKey.split("-");
+  const days=getQ(Number(year),Number(month)-1)[cycle.toLowerCase()];
+  if(days.some(date=>isCompetenceInClosedPeriod(data,date.slice(0,7)))){
+    return "O desconto por atraso só pode mudar enquanto as competências financeiras da quinzena estiverem abertas.";
+  }
+  return "";
+}
+
 const closeFortnight=(data,command,now)=>{
   const payload=command.payload||{};
   const periodKey=String(payload.periodKey||"");
@@ -107,6 +119,17 @@ const closeFortnight=(data,command,now)=>{
   if(closingId.length<8)return fail("Fechamento sem identificação.");
   if(activePayrollTitlesForPeriod(data,periodKey).length)return fail("Esta quinzena já está fechada. Reabra antes de fechar de novo.");
   if(!titles.length)return fail("Não há valor a pagar nesta quinzena.");
+  if(payload.waiveDelayDeduction!=null&&typeof payload.waiveDelayDeduction!=="boolean")return fail("Opção de desconto por atraso inválida.");
+  const waiveDelayDeduction=payload.waiveDelayDeduction===true;
+  if(waiveDelayDeduction){
+    const blocker=delayWaiverBlocker(data,periodKey);
+    if(blocker)return fail(blocker);
+    const [year,month,cycle]=periodKey.split("-");
+    const days=getQ(Number(year),Number(month)-1)[cycle.toLowerCase()];
+    if(titles.some(title=>title?.periodoInicio!==days[0]||title?.periodoFim!==days.at(-1))){
+      return fail("O período dos pagamentos precisa corresponder à quinzena sem desconto por atraso.");
+    }
+  }
   const existingIds=new Set((data.titulosFolha||[]).map(title=>String(title.id)));
   const employees=new Map((data.employees||[]).map(employee=>[String(employee.id),employee]));
   const normalized=[];
@@ -124,7 +147,7 @@ const closeFortnight=(data,command,now)=>{
     if(!validDate(raw.vencimento)||!validDate(raw.periodoInicio)||!validDate(raw.periodoFim))return fail("Informe período e vencimento válidos.");
     if(isDateInClosedPeriod(data,raw.vencimento))return fail("O vencimento da folha cai em período financeiro fechado.");
     normalized.push({
-      ...raw,id,employeeId,status:"em_aberto",liquidacoes:[],valorPago:0,saldo:liquidoCents/100,
+      ...raw,id,employeeId,waiveDelayDeduction,status:"em_aberto",liquidacoes:[],valorPago:0,saldo:liquidoCents/100,
       version:1,fechadoFolhaEm:now,fechadoFolhaPorId:String(command.actorId||""),
       fechadoFolhaPor:String(command.actorName||""),
     });
@@ -140,6 +163,10 @@ const reopenFortnight=(data,command,now)=>{
   if(!reason)return fail("Informe o motivo da reabertura da quinzena.");
   const open=activePayrollTitlesForPeriod(data,periodKey);
   if(!open.length)return fail("Esta quinzena não está fechada.");
+  if(open.some(hasWaivedDelayDeduction)){
+    const blocker=delayWaiverBlocker(data,periodKey);
+    if(blocker)return fail(blocker);
+  }
   const expected=payload.expectedVersions||{};
   if(open.some(title=>expected[title.id]!=null&&Number(expected[title.id])!==versionOf(title))){
     return fail("A folha foi alterada por outra pessoa. Atualize a tela.");

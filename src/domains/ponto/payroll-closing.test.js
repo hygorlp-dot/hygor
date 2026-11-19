@@ -68,6 +68,23 @@ describe("fechamento da quinzena da folha", () => {
     expect(again.reason).toMatch(/já está fechada/);
   });
 
+  test("grava a escolha explícita e protege o custo de competências fechadas ou do ponto arquivado",()=>{
+    const validTitles=titles().map(title=>({...title,periodoInicio:"2026-10-06",periodoFim:"2026-10-20"}));
+    const choice={titles:validTitles,waiveDelayDeduction:true};
+    expect(close(base(),choice).data.titulosFolha[0]).toMatchObject({waiveDelayDeduction:true,fechadoFolhaPor:"RH"});
+    expect(close(base(),{titles:validTitles.map(title=>({...title,waiveDelayDeduction:true}))}).data.titulosFolha[0].waiveDelayDeduction).toBe(false);
+    expect(close(base(),{waiveDelayDeduction:true}).reason).toMatch(/corresponder à quinzena/);
+    expect(close({...base(),quinzenasArquivadas:{[periodKey]:{}}},choice).reason).toMatch(/ponto arquivado/);
+    const closedMonth={competencia:"2026-10",status:"fechado"};
+    expect(close({...base(),fechamentosFinanceiros:[closedMonth]},choice).reason).toMatch(/competências financeiras/);
+    const original=close(base(),choice).data;
+    const reopen=data=>applyPayrollClosingCommand(data,{
+      type:PAYROLL_CLOSING_COMMAND.PAYROLL_FORTNIGHT_REOPENED,payload:{periodKey,reason:"Revisão do ponto"},
+    },NOW);
+    expect(reopen({...original,fechamentosFinanceiros:[closedMonth]}).reason).toMatch(/competências financeiras/);
+    expect(reopen(original).data.titulosFolha[0]).toMatchObject({status:"cancelado",waiveDelayDeduction:true});
+  });
+
   test("recusa rateio que não fecha com o líquido e vencimento em período financeiro fechado", () => {
     const [title]=titles();
     expect(close(base(),{titles:[{...title,rateiosPorObra:[{obraId:"o1",valor:900}]}]}).reason).toMatch(/não fecha/);

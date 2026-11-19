@@ -4,9 +4,39 @@ import { afterEach, expect, it, vi } from 'vitest';
 import Folha from './FolhaView';
 import { archivedCltScenario } from '../../../fixtures/archived-clt.js';
 import { rebuildArchivedLaborCosts } from '../../../../server/financial-archived-costs-source.js';
+import { payrollDelayWaiverScenario, waivedDelayPayrollTitle } from '../../../fixtures/payroll-delay-waiver.js';
 
 let root, container;
 afterEach(() => { if(root) act(()=>root.unmount()); container?.remove(); vi.useRealTimers(); });
+
+it('recalcula a prévia e fecha a quinzena sem desconto por atraso quando o RH escolhe',async()=>{
+  vi.useFakeTimers();vi.setSystemTime(new Date(2026,10,20,12));
+  const data=payrollDelayWaiverScenario();
+  const dispatchCommand=vi.fn(async()=>({ok:true}));
+  container=document.createElement('div');document.body.append(container);root=createRoot(container);
+  const render=(value,user={id:'rh',role:'rh'})=>act(()=>root.render(<Folha data={value} currentUser={user} showToast={()=>{}} dispatchCommand={dispatchCommand}/>));
+  const button=name=>[...document.querySelectorAll('button')].find(item=>item.textContent.trim()===name);
+  const total=()=>container.querySelector('.payroll-summary-strip__net strong').textContent;
+  render(data,{id:'viewer',role:'financeiro'});
+  expect(container.querySelector('[id="folha-desconto-atraso-ajuda"]')).toBeNull();
+  render(data);
+  expect(total()).toMatch(/90,00/);
+  const checkbox=container.querySelector('[aria-describedby="folha-desconto-atraso-ajuda"]');
+  expect(checkbox.checked).toBe(false);
+  act(()=>checkbox.click());
+  expect(total()).toMatch(/100,00/);
+  expect(dispatchCommand).not.toHaveBeenCalled();
+  act(()=>button('Fechar quinzena').click());
+  expect(document.body.textContent).toContain('Os atrasos dos diaristas não serão descontados');
+  await act(async()=>button('Confirmar fechamento').click());
+  expect(dispatchCommand.mock.calls[0][0](data).payload).toMatchObject({
+    waiveDelayDeduction:true,titles:[{liquido:100,bruto:100,rateiosPorObra:[{obraId:'obra',valor:100}]}],
+  });
+  render({...data,titulosFolha:[waivedDelayPayrollTitle]});
+  expect(total()).toMatch(/100,00/);
+  expect(container.textContent).toContain('Quinzena fechada sem desconto por atraso');
+  expect(container.textContent).not.toContain('O ponto mudou depois do fechamento');
+});
 
 it('separa pessoal de obra e administrativo e impede fechamento parcial da empresa',()=>{
   vi.useFakeTimers();vi.setSystemTime(new Date(2026,9,23,12));

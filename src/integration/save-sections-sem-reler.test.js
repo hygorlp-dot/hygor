@@ -160,4 +160,30 @@ describe("/api/data save-sections · reaproveita as linhas já lidas dentro da t
     expect(buscasDeValor()).toHaveLength(1);
     expect(idsDeOrcamentos().sort()).toEqual(["orc-a", "orc-b", "orc-c"]);
   });
+
+  it('salva orçamento da própria obra por engenharia restrita em empresa com mais de uma obra',async()=>{
+    Object.assign(estado.rows[CORE].value.usuarios[0],{role:'engenheiro',obraId:'obra-a'});
+    estado.rows[ORC].value.orcamentos.push({...orc('orc-b'),obraId:'obra-b'});
+    const result=await salvar(orc('orc-c'));
+    expect(result.status,result.body?.error).toBe(200);
+    expect(idsDeOrcamentos()).toEqual(['orc-a','orc-b','orc-c']);
+  });
+
+  it.each(['alterar','mover','remover'])('recusa %s orçamento de outra obra pela rota de salvamento',async(action)=>{
+    Object.assign(estado.rows[CORE].value.usuarios[0],{role:'engenheiro',obraId:'obra-a'});
+    const other={...orc('orc-b'),obraId:'obra-b'};
+    estado.rows[ORC].value.orcamentos.push(other);
+    const changed=action==='remover'?[]:[{...other,nome:'Revisão externa',obraId:action==='mover'?'obra-a':'obra-b'}];
+    const r=await chamar({action:'save-sections',sections:{},baseSections:{},expectedUpdatedAt:T0,
+      sectionDeltas:{orcamentos:{changed,original:[other],removed:action==='remover'?[other.id]:[]}}});
+    expect(r.status,r.body?.error).toBe(403);
+    expect(estado.rows[ORC].value.orcamentos[1]).toEqual(other);
+  });
+
+  it.each([{role:'financeiro'},{role:'engenheiro',accessTabs:['home']}])('recusa salvar orçamento sem permissão de edição (%j)',async profile=>{
+    Object.assign(estado.rows[CORE].value.usuarios[0],profile);
+    const r=await salvar(orc('orc-c'));
+    expect(r.status,r.body?.error).toBe(403);
+    expect(idsDeOrcamentos()).toEqual(['orc-a']);
+  });
 });

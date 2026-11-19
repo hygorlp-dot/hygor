@@ -181,7 +181,7 @@ const keyForDomain = domain => SPLIT_ROW_KEYS[domain] || KEY;
 // migra sozinha para ela - sem exigir nenhuma ordem de deploy específica.
 const linhaEfetivaParaEscrita = (domain, rowVersions) =>
   (domain!==DOMAIN_ROW.CORE && rowVersions[domain]==null) ? DOMAIN_ROW.CORE : domain;
-const DRE_PROJECTION_VERSION = "2026-11-alocacao-adiantamento-pedido-v13";
+const DRE_PROJECTION_VERSION = "2026-11-folha-desconto-atraso-v14";
 const OPERATIONAL_RESPONSE_EXCLUDED_SECTIONS = [
   "operationalCommandReceipts",
   "changeLog",
@@ -3585,7 +3585,7 @@ async function handler(req, res) {
               engineEnforced:FINANCIAL_ENGINE_ENFORCE,sections:secoesFinanceiras,
             });
             if(!erroMotorFinanceiro.ok)return {kind:"error",status:409,error:erroMotorFinanceiro.error,code:"FINANCIAL_ENGINE_ENFORCED"};
-            const erroAutorizacao=authorizeSectionChanges(usuario,secoesFinanceiras);
+            const erroAutorizacao=authorizeSectionChanges(usuario,secoesFinanceiras,{before:current,after:value});
             if(erroAutorizacao)return {kind:"error",status:403,error:erroAutorizacao};
             // Valida o que será gravado (a mesclagem de três vias), não o eco
             // da tela: um registro que o cliente não tocou volta do banco
@@ -3678,12 +3678,16 @@ async function handler(req, res) {
       if(!erroSnapshotObra.ok)return res.status(409).json({error:erroSnapshotObra.error,code:"PROJECT_FINANCIAL_COMMAND_REQUIRED"});
       const erroMotorFinanceiro=validateFinancialWritePath({engineEnforced:FINANCIAL_ENGINE_ENFORCE,sections:secoesFinanceiras});
       if(!erroMotorFinanceiro.ok)return res.status(409).json({error:erroMotorFinanceiro.error,code:"FINANCIAL_ENGINE_ENFORCED"});
-      const erroAutorizacao=authorizeSectionChanges(usuario,Object.fromEntries(chaves.map(key=>[key,sections[key]])));
+      const aplicar = estado => ({...estado,...Object.fromEntries(chaves.map(key=>[key,
+        baseSections&&Object.prototype.hasOwnProperty.call(baseSections,key)
+          ?mergeThreeWay(baseSections[key],sections[key],estado?.[key]):sections[key],
+      ]))});
+      let valor=aplicar(atual);
+      const erroAutorizacao=authorizeSectionChanges(usuario,secoesFinanceiras,{before:atual,after:valor});
       if(erroAutorizacao)return res.status(403).json({error:erroAutorizacao});
       const erroExclusao=validateNoPhysicalDeletes(
         Object.fromEntries(chaves.map(key=>[key,atual?.[key]])),
-        Object.fromEntries(chaves.map(key=>[key,baseSections&&Object.prototype.hasOwnProperty.call(baseSections,key)
-          ?mergeThreeWay(baseSections[key],sections[key],atual?.[key]):sections[key]])),
+        Object.fromEntries(chaves.map(key=>[key,valor[key]])),
       );
       if(erroExclusao)return res.status(409).json({error:erroExclusao});
       const erroGarantia=validateTechnicalRetentionPolicy(atual,{...atual,...sections});
@@ -3722,17 +3726,6 @@ async function handler(req, res) {
         const conflicts=findSectionConflicts(baseSections,sections,atual,chaves);
         if(conflicts.length)return res.status(409).json({conflict:true,reason:"Outro operador alterou o mesmo registro. Atualize os dados antes de tentar novamente.",conflicts,currentUpdatedAt:updatedAt});
       }
-      const aplicar = estado => {
-        const proximo={...(estado||{})};
-        chaves.forEach(k => {
-          const recebido=baseSections&&Object.prototype.hasOwnProperty.call(baseSections,k)
-            ? mergeThreeWay(baseSections[k],sections[k],estado?.[k])
-            : sections[k];
-          proximo[k]=recebido;
-        });
-        return proximo;
-      };
-      let valor=aplicar(atual);
       let agora=new Date().toISOString();
       const salvarVersao=sincronizaFinanceiro?salvarFinanceiroComAuditoria:salvarComAuditoria;
       let gravacao=await salvarVersao({expectedUpdatedAt:updatedAt,value:valor,rowVersions,actor:usuario,action:sincronizaFinanceiro?"financial_shadow_save_sections":"save_sections",
@@ -3745,6 +3738,8 @@ async function handler(req, res) {
         const conflicts=findSectionConflicts(baseSections,sections,recente.payload,chaves);
         if(conflicts.length)return res.status(409).json({conflict:true,reason:"Outro operador alterou o mesmo registro. Atualize os dados antes de tentar novamente.",conflicts,currentUpdatedAt:recente.updatedAt});
         valor=aplicar(recente.payload);
+        const erroAutorizacao=authorizeSectionChanges(usuario,secoesFinanceiras,{before:recente.payload,after:valor});
+        if(erroAutorizacao)return res.status(403).json({error:erroAutorizacao});
         agora=new Date().toISOString();
         const retry=await salvarVersao({expectedUpdatedAt:recente.updatedAt,value:valor,rowVersions:recente.rowVersions,actor:usuario,action:sincronizaFinanceiro?"financial_shadow_save_sections":"save_sections",
           before:Object.fromEntries(chaves.map(key=>[key,recente.payload?.[key]])),after:Object.fromEntries(chaves.map(key=>[key,valor?.[key]]))});
@@ -3799,7 +3794,8 @@ async function handler(req, res) {
       if(!erroSnapshotObra.ok)return res.status(409).json({error:erroSnapshotObra.error,code:"PROJECT_FINANCIAL_COMMAND_REQUIRED"});
       const erroMotorFinanceiro=validateFinancialWritePath({engineEnforced:FINANCIAL_ENGINE_ENFORCE,sections:secoesAlteradas});
       if(!erroMotorFinanceiro.ok)return res.status(409).json({error:erroMotorFinanceiro.error,code:"FINANCIAL_ENGINE_ENFORCED"});
-      const erroAutorizacao=authorizeSectionChanges(usuario,secoesAlteradas);
+      let valor=basePayload?mergeThreeWay(basePayload,incomingPayload,atual):incomingPayload;
+      const erroAutorizacao=authorizeSectionChanges(usuario,secoesAlteradas,{before:atual,after:valor});
       if(erroAutorizacao)return res.status(403).json({error:erroAutorizacao});
       const erroExclusao=validateNoPhysicalDeletes(atual,incomingPayload);
       if(erroExclusao)return res.status(409).json({error:erroExclusao});
@@ -3845,7 +3841,6 @@ async function handler(req, res) {
         const conflicts=findSectionConflicts(basePayload,incomingPayload,atual,Object.keys(secoesAlteradas));
         if(conflicts.length)return res.status(409).json({conflict:true,reason:"Outro operador alterou o mesmo registro. Atualize os dados antes de tentar novamente.",conflicts,currentUpdatedAt:updatedAt});
       }
-      let valor=basePayload?mergeThreeWay(basePayload,incomingPayload,atual):incomingPayload;
       if(houveConcorrencia&&!basePayload)return res.status(409).json({conflict:true,reason:"Outro usuário salvou enquanto você trabalhava.",currentData:projectDataForUser(atual,usuario),currentUpdatedAt:updatedAt});
 
       const agora = new Date().toISOString();
@@ -3866,6 +3861,8 @@ async function handler(req, res) {
         const conflicts=findSectionConflicts(basePayload,incomingPayload,recente.payload,Object.keys(secoesAlteradas));
         if(conflicts.length)return res.status(409).json({conflict:true,reason:"Outro operador alterou o mesmo registro. Atualize os dados antes de tentar novamente.",conflicts,currentUpdatedAt:recente.updatedAt});
         valor=mergeThreeWay(basePayload,incomingPayload,recente.payload);
+        const erroAutorizacao=authorizeSectionChanges(usuario,secoesAlteradas,{before:recente.payload,after:valor});
+        if(erroAutorizacao)return res.status(403).json({error:erroAutorizacao});
         const retry=await salvarVersao({expectedUpdatedAt:recente.updatedAt,value:valor,rowVersions:recente.rowVersions,actor:usuario,action:sincronizaFinanceiro?"financial_shadow_save_blob":"save_blob",
           before:Object.fromEntries(Object.keys(secoesAlteradas).map(key=>[key,recente.payload?.[key]])),after:Object.fromEntries(Object.keys(secoesAlteradas).map(key=>[key,valor?.[key]]))});
         if(!retry.applied)return res.status(409).json({conflict:true,reason:"Muitas alterações simultâneas. Tente novamente."});
@@ -3975,6 +3972,7 @@ async function handler(req, res) {
           { attendance: fatia, employeesSnapshot },
           atual?.config,
           atual?.employees||[],
+          atual?.titulosFolha||[],
         )
       );
 

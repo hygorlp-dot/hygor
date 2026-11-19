@@ -5,7 +5,7 @@ import {Button} from '../../design-system/primitives/Button.jsx';
 import {Input} from '../../design-system/primitives/Input.jsx';
 import {HELP_BY_ID, HELP_GUIDES, HELP_GLOSSARY, HELP_INTERRUPTION_GUIDE, HELP_INTERFACE_GUIDE, HELP_REVIEWED_AT, searchHelp} from './help-content.js';
 
-function topicOwner(id){if(id==='com_contratos_modelos')return 'config';if(id==='com_contratos_editor')return 'com_contratos';if(id.startsWith('plan_'))return 'plan';if(id==='home_recuperacao')return 'home';if(id.startsWith('config_'))return 'config';if(id.startsWith('ponto_geral_'))return 'ponto_geral';if(id==='ponto_obras'||id==='ponto_central')return 'ponto';if(id.startsWith('folha_'))return 'folha';if(id.startsWith('arquivos_'))return 'arquivos';return id.startsWith('obra_')?'obras':id.startsWith('cmp_')?'cmp':id.startsWith('fin_')?'fin':id;}
+function topicOwner(id){if(id==='com_contratos_modelos')return 'config';if(id==='com_contratos_editor')return 'com_contratos';if(id.startsWith('plan_'))return 'plan';if(id==='home_recuperacao')return 'home';if(id.startsWith('config_'))return 'config';if(id.startsWith('ponto_geral_'))return 'ponto_geral';if(id==='ponto_obras'||id==='ponto_central')return 'ponto';if(id.startsWith('folha_'))return 'folha';if(id.startsWith('arquivos_'))return 'arquivos';if(id.startsWith('orc_'))return 'orc';return id.startsWith('obra_')?'obras':id.startsWith('cmp_')?'cmp':id.startsWith('fin_')?'fin':id;}
 
 export default function HelpPanel({id,topicId,pageId,allowedTabs=[],onClose}){
  const panel=useRef(null),title=useRef(null),articleTitle=useRef(null);

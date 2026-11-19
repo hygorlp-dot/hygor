@@ -1,6 +1,8 @@
 import { orcamentoAprovado } from "../src/domains/orcamentos/budget-approval.js";
 import {budgetHierarchyError} from '../src/domains/orcamentos/hierarchy.js';
 import {budgetScopeExclusion} from '../src/domains/orcamentos/budget-pending.js';
+import {podeAcessarAba} from '../src/domains/administracao/abas-acesso.js';
+import {buildSectionDelta} from '../src/domains/sync/section-delta.js';
 // Política única para mutações do blob legado. A UI pode ocultar um botão,
 // mas a autorização definitiva ocorre antes de qualquer update no servidor.
 const SECTION_ROLES = Object.freeze({
@@ -59,18 +61,29 @@ const CATALOG_SECTIONS=new Set([
   "fases","categoriasDesp","baseFavoritos","cotacoesMaterial",
 ]);
 
-export const authorizeSectionChanges = (user = {}, sections = {}) => {
+export const authorizeSectionChanges = (user = {}, sections = {}, {before,after}={}) => {
   const keys=Object.keys(sections || {}).filter(key=>key&&!key.startsWith("__"));
   if (user.role === "admin") return "";
   for (const key of keys) {
     const roles=SECTION_ROLES[key];
     if (!roles) return `A seção ${key} não pode ser alterada por esta rota.`;
     if (!roles.includes(user.role)) return "Seu perfil não possui permissão para alterar esta seção.";
-    if (user.obraId && hasForeignObra(sections[key], user.obraId)) return "Não é permitido alterar dados de outra obra.";
+    let scopedRecords=sections[key];
+    if(key==='orcamentos'){
+      if(!podeAcessarAba(user,'orc'))return 'Seu perfil não possui permissão para alterar orçamentos.';
+      if(user.obraId&&before&&after){
+        // As listas da transação incluem obras que o usuário não editou. Confere
+        // a origem e o destino dos registros alterados, com a origem do servidor.
+        const changes=buildSectionDelta(before.orcamentos??[],after.orcamentos??[]);
+        if(!changes)return 'Não foi possível conferir o vínculo de obra dos orçamentos alterados.';
+        scopedRecords=[...changes.original,...changes.changed];
+      }
+    }
+    if (user.obraId && hasForeignObra(scopedRecords, user.obraId)) return "Não é permitido alterar dados de outra obra.";
     // Um perfil vinculado a obra não pode transformar uma mutação em registro
     // global omitindo o vínculo. Referências corporativas continuam exclusivas
     // de perfis sem restrição de obra ou do administrador.
-    if(user.obraId&&!CATALOG_SECTIONS.has(key)&&hasUnscopedRecord(sections[key]))return "Registros de perfil restrito precisam estar vinculados à sua obra.";
+    if(user.obraId&&!CATALOG_SECTIONS.has(key)&&hasUnscopedRecord(scopedRecords))return "Registros de perfil restrito precisam estar vinculados à sua obra.";
   }
   return "";
 };
