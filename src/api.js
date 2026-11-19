@@ -270,6 +270,7 @@ export const preverLimpezaConciliacaoLocal = scope => chamar({action:'local-bank
 export const apagarConciliacaoLocal = command => chamar({action:'local-bank-cleanup-apply',...credenciais(),command});
 export const executarComandoPonto = command => chamar({ ...credenciais(), ...command });
 export const consultarSombraFinanceira = () => chamar({ action:"financial-shadow-report", ...credenciais() });
+export const gerarProjecoesDreAusentes = sourceIds => chamar({action:"financial-dre-generate-missing",...credenciais(),sourceIds});
 export const consultarGestaoDre = () => chamar({ action:"financial-management-report", ...credenciais() });
 // CORE-001/002/003 (Fase 2, domínios em modo sombra) - até 01/09/2026 estas
 // ações só eram consultadas por scripts/check-*-shadow-status.mjs; ver
@@ -380,6 +381,7 @@ export const saveDataDetailed = async (payload,basePayload=null) => {
   const commandOnlyKeys=new Set([
     "attendance","attendanceLocks","unlockRequests","dailyCheckDate",
     "attendanceOperationReceipts","operationalCommandReceipts","changeLog",
+    "dreBankSource","dreOfxEvidence",
   ]);
   const safePayload=Object.fromEntries(Object.entries(payload||{}).filter(([key])=>!commandOnlyKeys.has(key)));
   const safeBase=basePayload

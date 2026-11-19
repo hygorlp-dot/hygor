@@ -238,15 +238,17 @@ export const buildRequestedDreProjectionRows = (data,requests=[],canonicalEvents
   return [...unique.values()].map(request=>buildProjectionRow(data,request,engine));
 };
 
-export const buildDreProjectionRows = data => {
+export const dreProjectionRequests = data => {
   const requests=[];
   for(const year of yearsInData(data))for(let month=0;month<12;month++)for(const period of ["mes","q1","q2"]){
     for(const work of data?.obras||[])requests.push({year,month,period,scope:String(work.id)});
     requests.push({year,month,period,scope:"empresa"});
     if(period==="mes")requests.push({year,month,period,scope:"company_dre"});
   }
-  return buildRequestedDreProjectionRows(data,requests);
+  return requests;
 };
+
+export const buildDreProjectionRows = data => buildRequestedDreProjectionRows(data,dreProjectionRequests(data));
 
 // Revisão dos dados que alimentam a DRE materializada (financial-dre-report).
 // Achado de 20/10/2026: a revisão era só o updated_at da linha core, mas o

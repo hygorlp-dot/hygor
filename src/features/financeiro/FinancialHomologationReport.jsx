@@ -1,8 +1,10 @@
-import {useMemo,useRef} from 'react';
+import {useMemo,useRef,useState} from 'react';
 import {Alert,AlertTitle,AlertDescription} from '../../components/ui/alert.jsx';
 import {Input} from '../../design-system/primitives/Input.jsx';
 import {Select} from '../../design-system/primitives/Select.jsx';
 import {Button} from '../../design-system/primitives/Button.jsx';
+import {Dialog} from '../../design-system/primitives/Dialog.jsx';
+import {contar} from '../../design-system/copy.js';
 import {FilterBar} from '../../design-system/patterns/FilterBar.jsx';
 import {TaskDisclosure} from '../../design-system/patterns/TaskDisclosure.jsx';
 import {RecordListPagination} from '../../design-system/data/RecordListPagination.jsx';
@@ -17,7 +19,7 @@ const fold=value=>String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,
 const amount=value=>Number(value).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const show=(value,kind)=>value==null?'Não informado':typeof value==='number'&&Number.isFinite(value)?kind==='currency'?amount(value):value.toLocaleString('pt-BR',{maximumFractionDigits:10}):typeof value==='object'?'Consulte o diagnóstico do registro':String(value);
 
-export default function FinancialHomologationReport({report,works=[]}){
+export default function FinancialHomologationReport({report,works=[],onGenerateMissing}){
  const {isMobile}=useBreakpoint();
  const model=useMemo(()=>homologationReport(report,works),[report,works]);
  const [group,setGroup]=useWorkspaceState('fin','homologationGroup','');
@@ -25,6 +27,24 @@ export default function FinancialHomologationReport({report,works=[]}){
  const [severity,setSeverity]=useWorkspaceState('fin','homologationSeverity','');
  const [projection,setProjection]=useWorkspaceState('fin','homologationProjection','');
  const [finding,setFinding]=useWorkspaceState('fin','homologationFinding','');
+ const [requested,setRequested]=useState(null);
+ const [generating,setGenerating]=useState(false);
+ const [generationError,setGenerationError]=useState('');
+ const generateTrigger=useRef(null);
+ const missing=report.canGenerateMissingDre&&onGenerateMissing
+  ?model.issues.filter(row=>row.finding==='not_materialized').map(row=>row.reference):[];
+ const closeGeneration=()=>{if(!generating){setRequested(null);setGenerationError('');}};
+ const generate=async()=>{
+  setGenerating(true);
+  setGenerationError('');
+  try{
+   const result=await onGenerateMissing(requested);
+   if(result.ok)setRequested(null);
+   else setGenerationError(result.error||'Confira o relatório e tente novamente.');
+  }catch{
+   setGenerationError('A geração não foi confirmada. Atualize o relatório antes de tentar novamente.');
+  }finally{setGenerating(false);}
+ };
  const query=fold(search).trim();
  const {indexed,projectionCounts,findingCounts}=useMemo(()=>{
   const counts=new Map();
@@ -83,7 +103,18 @@ export default function FinancialHomologationReport({report,works=[]}){
    {!isMobile&&filters}
    {projectionCounts.size>0&&<TaskDisclosure summary={`Diagnóstico do DRE · ${projectionCounts.size} escopos com ocorrências`}>
     <dl className="record-recovery__comparison">{Object.entries(projectionFindingTypes).map(([value,{label}])=><div key={value}><dt>{label}</dt><dd>{findingCounts[value]||0}</dd></div>)}</dl>
+    {missing.length>0&&<Button ref={generateTrigger} variant="secondary" onClick={()=>setRequested(missing.slice(0,150))}>Gerar projeções ausentes</Button>}
    </TaskDisclosure>}
+   {requested&&<Dialog open title="Gerar projeções ausentes" onOpenChange={closeGeneration} triggerRef={generateTrigger}>
+    <div className="grid gap-3">
+     <p>Gerar {contar(requested.length,'projeção ausente','projeções ausentes')} da MRC com o cálculo atual. Projeções existentes, lançamentos e fechamentos serão preservados.</p>
+     {generationError&&<Alert variant="warning" role="alert"><AlertDescription>{generationError}</AlertDescription></Alert>}
+     <div className="flex flex-wrap gap-2">
+      <Button variant="outline" disabled={generating} onClick={closeGeneration}>Cancelar</Button>
+      <Button disabled={generating} onClick={generate}>{generating?'Gerando projeções…':'Confirmar geração'}</Button>
+     </div>
+    </div>
+   </Dialog>}
    {projection&&<section aria-label="Filtro de projeção" tabIndex={-1} ref={node=>{
     if(node&&focusProjectionSummary.current){
      focusProjectionSummary.current=false;

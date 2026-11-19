@@ -24,6 +24,18 @@ describe("delta de seção (envio só do que mudou)", () => {
     expect(mergeThreeWay(baseExpandida, incoming, atual)).toEqual(completo);
   });
 
+  it("salva o primeiro registro de uma lista ausente no servidor", () => {
+    const conta = { id: "bank-qa", nome: "Banco QA" };
+    const { incoming, base } = expandSectionDelta(buildSectionDelta([], [conta]), undefined);
+    expect(mergeThreeWay(base, incoming, undefined)).toEqual([conta]);
+  });
+
+  it("não recria uma lista ausente ao receber uma edição de registro preexistente", () => {
+    const antiga = { id: "bank-qa", nome: "Banco QA" };
+    const { incoming, base } = expandSectionDelta(buildSectionDelta([antiga], [{ ...antiga, nome: "Novo nome" }]), undefined);
+    expect(mergeThreeWay(base, incoming, undefined)).toBeUndefined();
+  });
+
   it("remoção continua sendo remoção depois de expandir", () => {
     const { incoming, base: b } = expandSectionDelta(buildSectionDelta(base, [orc("a"), orc("c", { versionStatus: "aprovado" })]), base);
     expect(mergeThreeWay(b, incoming, base).map(o => o.id)).toEqual(["a", "c"]);

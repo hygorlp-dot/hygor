@@ -1,3 +1,4 @@
+import { canGenerateMissingDre, missingDrePlan, buildMissingDreRows } from "../server/missing-dre-projections.js";
 import {currentCompany, withCompanyContext, isolationEnabled, COMPANIES, runWithCompany, assertCompanyReady} from '../server/company-context.js';
 import {runCompanyBackupCron} from '../server/company-backup-cron.js';
 import {parseCompanyFileReference} from '../src/domains/arquivos/company-file-reference.js';
@@ -2957,7 +2958,10 @@ async function handler(req, res) {
     // grava nem altera o legado; serve como portão objetivo antes de FIN-003.
     if(action==="financial-shadow-report"){
       if(usuario.role!=="admin")return res.status(403).json({error:"Apenas administradores homologam o motor financeiro."});
-      try{return res.status(200).json(await relatorioSombraFinanceira(atual));}
+      try{
+        const report=await relatorioSombraFinanceira(atual);
+        return res.status(200).json({...report,canGenerateMissingDre:canGenerateMissingDre(currentCompany(),usuario)});
+      }
       catch(error){
         if(/financial_shadow_runs|does not exist|schema cache/i.test(String(error?.message||""))){
           return res.status(409).json({error:"A migration FIN-002 ainda não foi aplicada. Execute migrations/001_sync_legacy_financial.up.sql."});
@@ -3001,6 +3005,34 @@ async function handler(req, res) {
         console.error("Falha na migration FIN-002:",error.message);
         return res.status(409).json({error:"A migration FIN-002 foi revertida pela transação. Consulte os logs do servidor antes de repetir."});
       }finally{await sql.end({timeout:2});}
+    }
+
+    if(action==="financial-dre-generate-missing"){
+      const company=currentCompany();
+      if(!canGenerateMissingDre(company,usuario))return res.status(403).json({error:"A geração de projeções exige administrador da MRC sem restrição de obra."});
+      const fonte=await exigirCustosArquivados(atual);
+      const plan=missingDrePlan(fonte,req.body?.sourceIds);
+      if(!plan)return res.status(400).json({error:"A lista de projeções é inválida. Atualize o relatório."});
+      const existing=new Set();
+      for(let offset=0;offset<plan.length;offset+=40){
+        const {data,error}=await db.from("financial_events").select("source_id")
+          .eq("company_id",company).eq("event_type","dre_snapshot").eq("source_type","dre_projection")
+          .in("source_id",plan.slice(offset,offset+40).map(row=>row.sourceId));
+        if(error)throw error;
+        for(const row of data||[])existing.add(row.source_id);
+      }
+      const missing=plan.filter(row=>!existing.has(row.sourceId));
+      if(!missing.length)return res.status(200).json({ok:true,requested:plan.length,generated:0});
+      const canonical=await loadCanonicalDre(db,company);
+      const sourceRevision=`${dreSourceRevision({updatedAt,rowVersions,rowVersionsPontoObra})}|canonical:${canonical.revision}`;
+      const rows=buildMissingDreRows({
+        data:fonte,requests:missing,canonicalEvents:canonical.events,company,actor:usuario.id,
+        sourceRevision,projectionVersion:DRE_PROJECTION_VERSION,
+      });
+      const {data:created,error}=await db.from("financial_events")
+        .upsert(rows,{onConflict:"company_id,event_type,source_type,source_id",ignoreDuplicates:true}).select("source_id");
+      if(error)throw error;
+      return res.status(200).json({ok:true,requested:plan.length,generated:(created||[]).length});
     }
 
     if(action==="financial-shadow-sync"){

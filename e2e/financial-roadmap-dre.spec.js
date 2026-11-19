@@ -6,7 +6,7 @@ import {selectWorkspaceArea} from './helpers/workspace-navigation.js';
 const expenses={despesasEmpresa:[{id:'qa-expense',categoria:'outros',descricao:'Despesa de teste',data:'2026-11-18',valor:25}]};
 const current=buildRequestedDreProjectionRows(expenses,[{year:2026,month:10,period:'mes',scope:'company_dre',includeMemorial:true}])[0].payload;
 const report={
- ok:true,engineEnforced:true,activationGate:{ready:false,checks:[{code:'dre_divergence',ok:false}]},
+ ok:true,engineEnforced:true,canGenerateMissingDre:true,activationGate:{ready:false,checks:[{code:'dre_divergence',ok:false}]},
  divergenciasDRE:[
   {sourceId:'2026-11:q1:a',kind:'not_materialized',expected:'Projeção ativa',canonical:'Ausente'},
   {sourceId:'2026-11:mes:a',kind:'value',path:'totalCSP',expected:100,canonical:120,difference:20},
@@ -15,7 +15,8 @@ const report={
 const views=[[390,'marcell'],[390,'noite'],[1440,'marcell'],[1440,'noite']];
 for(const [width,theme] of views){
  test(`DRE e Homologação · ${width} · ${theme}`,async({page},info)=>{
-  const errors=[],writes=[],origin=new URL(info.project.use.baseURL).origin;
+  let shadowReport=structuredClone(report);
+  const errors=[],writes=[],generated=[],origin=new URL(info.project.use.baseURL).origin;
   page.on('pageerror',error=>errors.push(error.message));
   await page.setViewportSize({width,height:900});
   await page.clock.setFixedTime(new Date('2026-11-21T12:00:00-03:00'));
@@ -26,9 +27,14 @@ for(const [width,theme] of views){
   await page.route('https://**/*',route=>new URL(route.request().url()).origin===origin?route.continue():route.abort());
   await page.route('**/api/**',route=>route.fulfill({json:{ok:true,items:[],presencas:[],bases:[]}}));
   await page.route('**/api/data',route=>{
-   const {action}=route.request().postDataJSON()||{};
+   const {action,sourceIds}=route.request().postDataJSON()||{};
    if(action==='financial-company-dre-report')return route.fulfill({json:{ok:true,source:'canonical_ledger',current}});
-   if(action==='financial-shadow-report')return route.fulfill({json:report});
+   if(action==='financial-shadow-report')return route.fulfill({json:shadowReport});
+   if(action==='financial-dre-generate-missing'){
+    generated.push(...sourceIds);
+    shadowReport={...shadowReport,divergenciasDRE:shadowReport.divergenciasDRE.filter(row=>!sourceIds.includes(row.sourceId))};
+    return route.fulfill({json:{ok:true,requested:sourceIds.length,generated:sourceIds.length}});
+   }
    if(!['auth-login','auth-refresh','load','profiles'].includes(action)){
     writes.push(action);
     return route.fulfill({status:403,json:{ok:false}});
@@ -79,6 +85,15 @@ for(const [width,theme] of views){
   await expect(results.getByText('Projeção não materializada',{exact:true})).toBeVisible();
   await page.screenshot({path:info.outputPath('homologacao-dre.png')});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width+1);
+  await results.getByRole('button',{name:'Gerar projeções ausentes',exact:true}).click();
+  const generation=page.getByRole('dialog',{name:'Gerar projeções ausentes'});
+  await expect(generation).toContainText('1 projeção ausente');
+  await page.screenshot({path:info.outputPath('geracao-projecoes.png')});
+  expect(generated).toEqual([]);
+  await generation.getByRole('button',{name:'Confirmar geração',exact:true}).click();
+  await expect(generation).toBeHidden();
+  await expect(results.getByRole('heading',{name:'Diferenças e avisos · 1',exact:true})).toBeVisible();
+  expect(generated).toEqual(['2026-11:q1:a']);
   expect(writes).toEqual([]);
   expect(errors).toEqual([]);
  });

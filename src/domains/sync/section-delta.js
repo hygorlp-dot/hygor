@@ -60,7 +60,10 @@ export const expandSectionDelta = (delta, atual) => {
     .filter(item => !removidos.has(String(item.id)))
     .map(item => novos.get(String(item.id)) || item);
   novos.forEach((item, id) => { if (!idsCorrentes.has(id)) incoming.push(item); });
-  return { incoming, base };
+  // A tela inicializa listas ausentes como []. Preserve a ausência na base
+  // para que a mesclagem aceite o primeiro cadastro como inclusão.
+  const firstInsert = atual === undefined && originais.size === 0 && removidos.size === 0 && novos.size > 0;
+  return { incoming, base: firstInsert ? undefined : base };
 };
 
 // Auditoria guarda só os registros que mudaram (antes: alterados e removidos;

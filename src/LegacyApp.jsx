@@ -140,7 +140,7 @@ import { listarPerfis, criarPrimeiroAdmin, entrarComPin, entrarComEmail, restaur
          removerConfiguracaoIA, consultarCNPJReceita, buscarResumoDiario,
          enviarMensagemChat, listarMensagensChat, apagarMensagemChat, silenciarUsuarioChat, dessilenciarUsuarioChat, subirAnexoChat,
          listarAjustesRanking, adicionarAjusteRanking, removerAjusteRanking,
-         consultarSombraFinanceira, prepararSombraFinanceira, sincronizarSombraFinanceira,
+         consultarSombraFinanceira, prepararSombraFinanceira, sincronizarSombraFinanceira, gerarProjecoesDreAusentes,
          consultarDreCanonico, consultarDreEmpresaCanonico, consultarCustoAcumuladoObras, executarComandoFinanceiro,
          executarComandoOperacional, executarComandoPonto,
          gerenciarAcessoPortalCliente, obterProjecaoMaoObra } from "./api";
@@ -4265,11 +4265,18 @@ function HomologacaoFinanceira({data,showToast,C=C_ARCD_SETOR}){
     const totalDivergencias=(resposta.divergencias?.length||0)+(resposta.divergenciasDRE?.length||0);
     showToast(resposta.prontoParaAtivar?"Carga concluída. Atualize o relatório para conferir as verificações da homologação.":`Carga concluída com ${contar(totalDivergencias,"divergência","divergências")} para revisão.`,resposta.prontoParaAtivar?undefined:"warn");
   };
+  const gerarProjecoes=async ids=>{
+    const resultado=await gerarProjecoesDreAusentes(ids);
+    if(!resultado.ok)return resultado;
+    showToast(`Geração concluída · ${contar(resultado.generated,"projeção criada","projeções criadas")}.`);
+    await carregar();
+    return resultado;
+  };
   return <div className="record-recovery">
     <PageHero headingLevel={2} title="Homologação financeira" description={isMobile?undefined:"Compare os dados de origem, o razão financeiro e as projeções do DRE. Consultar não altera registros."} actions={<div className="closing-pending__actions"><Btn v="ghost" onClick={carregar} disabled={carregando}>Atualizar relatório</Btn></div>}/>
     {carregando&&<LoadingState label="o razão canônico"/>}
     {!carregando&&!relatorio&&<div role="alert"><h3>Não foi possível consultar a homologação</h3><p>{erro||"Relatório indisponível. Confira a conexão e tente Atualizar relatório."}</p><p>Uma consulta indisponível não significa que o banco precisa de preparação.</p><TaskDisclosure summary="Preparação técnica do banco"><p>Use somente após o responsável técnico confirmar a necessidade. Esta ação aplica a preparação existente e não altera a ativação do motor.</p><Btn onClick={preparar} disabled={migrando}>{migrando?"Preparando banco...":"Preparar banco com segurança"}</Btn></TaskDisclosure></div>}
-    {relatorio&&<FinancialHomologationReport report={relatorio} works={data.obras||[]}/>}
+    {relatorio&&<FinancialHomologationReport report={relatorio} works={data.obras||[]} onGenerateMissing={gerarProjecoes}/>}
     <TaskDisclosure summary="Sincronização técnica dos registros"><p>Esta operação grava a sincronização existente. Confira o diagnóstico com o responsável financeiro antes de executar; ela não ativa nem desativa o motor.</p><Btn v="ghost" onClick={sincronizar} disabled={sincronizando||carregando}>{sincronizando?"Sincronizando registros...":"Executar carga idempotente"}</Btn></TaskDisclosure>
   </div>;
 }
