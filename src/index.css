@@ -1385,6 +1385,29 @@ canvas {
   font-weight: var(--arcd-font-weight-semibold);
 }
 
+.payroll-person__detail > .payroll-detail-section:has(.payroll-breakdown) {
+  margin-block: 0 var(--arcd-space-3);
+}
+
+.payroll-breakdown [data-align="end"] {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.payroll-breakdown tbody th {
+  background: transparent;
+  color: var(--arcd-text-primary);
+}
+
+.payroll-breakdown th small {
+  display: block;
+  margin-top: var(--arcd-space-1);
+  color: var(--arcd-text-secondary);
+  font-size: var(--arcd-font-size-sm);
+  font-weight: var(--arcd-font-weight-regular);
+}
+
 .payroll-holiday-rule,
 .payroll-project-row {
   display: flex;

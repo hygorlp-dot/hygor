@@ -9,6 +9,34 @@ import { payrollDelayWaiverScenario, waivedDelayPayrollTitle } from '../../../fi
 let root, container;
 afterEach(() => { if(root) act(()=>root.unmount()); container?.remove(); vi.useRealTimers(); });
 
+it("expõe o atestado no bruto e respeita a obra do apontamento",()=>{
+  vi.useFakeTimers();vi.setSystemTime(new Date(2026,10,19,12));
+  const attendance=Object.fromEntries([6,9,10,11,12,13,16,17,18,19].map(day=>[
+    `2026-11-${String(day).padStart(2,"0")}`,{status:day===6?"AT":"P",obraId:day===6?"a":"b"},
+  ]));
+  const data={config:{},employees:[{id:"e",name:"Diarista de teste",obra:"b",active:true,dailyRate:160}],
+    obras:[{id:"a",name:"Obra do atestado"},{id:"b",name:"Obra trabalhada"}],attendance:{e:attendance},advances:[],changeLog:[]};
+  container=document.createElement("div");document.body.append(container);root=createRoot(container);
+  act(()=>root.render(<Folha data={data} showToast={()=>{}}/>));
+  act(()=>container.querySelector(".payroll-person__trigger").click());
+  const table=()=>container.querySelector(".payroll-breakdown");
+  const parts=()=>[...table().querySelectorAll("tbody tr")].map(row=>[...row.cells].map(cell=>cell.textContent.trim()));
+  expect(parts()).toEqual([
+    ["Dias trabalhados","9 dias",expect.stringMatching(/1\.440,00/)],
+    ["Atestados06/11","1 dia",expect.stringMatching(/160,00/)],
+    ["Feriados pagos","1 dia",expect.stringMatching(/160,00/)],
+  ]);
+  expect(table().tFoot.textContent).toMatch(/1\.760,00/);
+  const obra=[...container.querySelectorAll("select")].find(select=>[...select.options].some(option=>option.value==="a"));
+  act(()=>{obra.value="a";obra.dispatchEvent(new Event("change",{bubbles:true}));});
+  expect(parts()).toEqual([
+    ["Dias trabalhados","0 dias",expect.stringMatching(/0,00/)],
+    ["Atestados06/11","1 dia",expect.stringMatching(/160,00/)],
+    ["Feriados pagos","0 dias",expect.stringMatching(/0,00/)],
+  ]);
+  expect(table().tFoot.textContent).toMatch(/160,00/);
+});
+
 it('recalcula a prévia e fecha a quinzena sem desconto por atraso quando o RH escolhe',async()=>{
   vi.useFakeTimers();vi.setSystemTime(new Date(2026,10,20,12));
   const data=payrollDelayWaiverScenario();

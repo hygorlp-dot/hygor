@@ -1,6 +1,7 @@
 {
   "git": {
     "deploymentEnabled": {
+      "codex/folha-composicao-release-20261119": false,
       "codex/usability-roadmap-stages4-6-20261117": false,
       "codex/audit-financial-usability-20261117": false,
       "codex/reauditoria-mobile-20261117": false,

@@ -31,7 +31,7 @@ import {
   prIsWeekdayIso, prUniqueDates,
 } from "../attendance-engine";
 import { calculateAttendanceDayCost, hasWaivedDelayDeduction } from "../payroll";
-import { ATTENDANCE_STATUS_LABEL, isLeaveStatus, isValidAttendanceStatus } from "../attendance-status";
+import { ATTENDANCE_STATUS, ATTENDANCE_STATUS_LABEL, isLeaveStatus, isValidAttendanceStatus } from "../attendance-status";
 import { resolveHistoricalEmployeeObraId, resolveHolidayObraId } from "../permissions";
 import { allocateAdvancesByWork } from "../advance-allocation";
 import { payrollPayerForWork, splitPayrollResponsibility } from "../payroll-responsibility";
@@ -61,6 +61,62 @@ import {LaborAreaTabs} from '../../rh/components/LaborAreaTabs.jsx';
 import {laborArea,laborAreaLabel,matchesLaborArea} from '../../rh/labor-area.js';
 import {useWorkspaceState} from '../../../features/workflow/workspace-session.jsx';
 import {useHelpTopic} from '../../../features/help/HelpContext.jsx';
+import '../../../design-system/data/styles.css';
+
+const LABELS_COMPOSICAO = {
+  trabalho: "Dias trabalhados", atestados: "Atestados", feriados: "Feriados pagos",
+  afastamentos: "Férias e folgas", horas: "Horas extras", mei: "Contrato MEI",
+};
+
+function composicaoBruto(obras, obraId) {
+  const partes = {
+    trabalho: {dias:0, valor:0}, atestados: {dias:0, valor:0, datas:[]},
+    feriados: {dias:0, valor:0}, afastamentos: {dias:0, valor:0},
+    horas: {valor:0}, mei: {dias:0, valor:0},
+  };
+  for (const obra of obras) {
+    if (obraId !== "all" && obra.obraId !== obraId) continue;
+    partes.trabalho.dias += obra.diasTrabalhados;
+    partes.trabalho.valor += obra.valorTrabalho;
+    partes.atestados.dias += obra.atestados.length;
+    partes.atestados.valor += obra.valorAtestados;
+    partes.atestados.datas.push(...obra.atestados);
+    partes.feriados.dias += obra.feriadosPagos;
+    partes.feriados.valor += obra.valorFeriados;
+    partes.afastamentos.dias += obra.afastamentos - obra.atestados.length;
+    partes.afastamentos.valor += obra.valorOutrosAfastamentos;
+    partes.horas.valor += obra.overtimePay;
+    partes.mei.dias += obra.diasMei;
+    partes.mei.valor += obra.valorMei;
+  }
+  partes.atestados.datas.sort();
+  return partes;
+}
+
+const linhasExtrasBruto = ["afastamentos", "horas", "mei"];
+const diasDaParcela = dias => dias == null ? "—" : contarDecimal(dias,"dia","dias");
+const datasDosAtestados = (datas, formatar) => datas.map(formatar).join(", ");
+
+function ComposicaoBruto({partes, bruto, headingId}) {
+  const chaves = ["trabalho","atestados","feriados",...linhasExtrasBruto.filter(chave=>partes[chave].valor>0)];
+  return <section className="payroll-detail-section" aria-labelledby={headingId}>
+    <h4 id={headingId}>Composição do valor bruto</h4>
+    <div className="arcd-data-table">
+      <table className="arcd-data-table__table payroll-breakdown" aria-labelledby={headingId}>
+        <thead><tr><th scope="col">Parcela</th><th scope="col" data-align="end">Dias</th><th scope="col" data-align="end">Valor</th></tr></thead>
+        <tbody>{chaves.map(chave=>{
+          const {dias,valor,datas}=partes[chave];
+          return <tr key={chave}>
+            <th scope="row">{LABELS_COMPOSICAO[chave]}{datas?.length>0&&<small>{datasDosAtestados(datas,fmtDate)}</small>}</th>
+            <td data-align="end">{diasDaParcela(dias)}</td>
+            <td data-align="end">{fmt(valor)}</td>
+          </tr>;
+        })}</tbody>
+        <tfoot><tr><th scope="row" colSpan={2}>Bruto</th><td data-align="end"><strong>{fmt(bruto)}</strong></td></tr></tfoot>
+      </table>
+    </div>
+  </section>;
+}
 
 function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
   const {isDesktop,isMobile}=useBreakpoint();
@@ -181,6 +237,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
         obraId: obraId || "", presentes: 0, meiodia: 0, faltas: 0,
         semRegistro: 0, afastamentos: 0, feriadosPagos: 0, feriadosPerdidos: 0,
         valorDias: 0, valorFeriados: 0, overtimePay:0, vt: 0, vr: 0, ot: 0,
+        valorTrabalho:0, atestados:[], valorAtestados:0, valorOutrosAfastamentos:0, diasMei:0, valorMei:0,
       };
       const o = obrasPorDia[chave];
       if (tipo === "P") o.presentes++;
@@ -190,6 +247,19 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       else if (tipo === "L") o.afastamentos++;
       else if (tipo === "HP") o.feriadosPagos++;
       else if (tipo === "HD") o.feriadosPerdidos++;
+      if (tipo === "P" || tipo === "M") o.valorTrabalho += valores.valorDias;
+      if (tipo === "L") {
+        if (valores.atestado) {
+          o.atestados.push(valores.atestado);
+          o.valorAtestados += valores.valorDias;
+        } else {
+          o.valorOutrosAfastamentos += valores.valorDias;
+        }
+      }
+      if (tipo === "MEI") {
+        o.diasMei += valores.diasMei;
+        o.valorMei += valores.valorDias;
+      }
       o.valorDias += Number(valores.valorDias || 0);
       o.valorFeriados += Number(valores.valorFeriados || 0);
       o.overtimePay += Number(valores.overtimePay || 0);
@@ -239,7 +309,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
         const custo=calculateAttendanceDayCost({employee,record:a,config:data.config});
         gross += custo.laborCost;
         afastamentos++;
-        addToObra(obraId, "L", { valorDias:custo.laborCost });
+        addToObra(obraId, "L", { valorDias:custo.laborCost, atestado:st===ATTENDANCE_STATUS.MEDICAL_LEAVE?d:null });
       } else {
         semRegistro++;
         addToObra(obraId, "S");
@@ -248,7 +318,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
 
     // MEI: metade do valor mensal por quinzena, rateada pela lotação de cada dia.
     const mei=meiFortnightAllocation({employee,cycleDays:diasCiclo,isEmployed:isEmployeeEmployedOnDate,obraOf:getEmpObraIdOnDate});
-    mei.byObra.forEach(item=>addToObra(item.obraId,"MEI",{valorDias:item.amount}));
+    mei.byObra.forEach(item=>addToObra(item.obraId,"MEI",{valorDias:item.amount,diasMei:item.days}));
     gross += mei.total;
 
     const employeeHolidays = holidaysInPeriod.filter(h => isEmployeeEmployedOnDate(employee, h)&&remunerationModeOnDate(employee,h)==="daily");
@@ -612,6 +682,21 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       <td class="num">${escapeHtml(fmt(l.advancesObra))}</td><td class="num">${escapeHtml(fmt(l.unionDueObra||0))}</td><td class="num"><b>${escapeHtml(fmt(l.netObra))}</b></td>
     </tr>`).join("");
 
+    const linhasComposicao = rows.map(r => {
+      const partes = composicaoBruto(r.obrasPorDia,filterObra);
+      const datas = datasDosAtestados(partes.atestados.datas,fmtDateFull);
+      const extras = linhasExtrasBruto.filter(chave=>partes[chave].valor>0)
+        .map(chave=>escapeHtml(`${LABELS_COMPOSICAO[chave]} · ${fmt(partes[chave].valor)}`)).join("<br>") || "—";
+      return `<tr>
+        <td>${escapeHtml(r.name)}</td>
+        ${["trabalho","atestados","feriados"].map(chave=>{
+          const {dias,valor}=partes[chave];
+          return `<td>${escapeHtml(diasDaParcela(dias))} · ${escapeHtml(fmt(valor))}${chave==="atestados"&&datas?`<br>${escapeHtml(datas)}`:""}</td>`;
+        }).join("")}
+        <td>${extras}</td><td class="num">${escapeHtml(fmt(valEfetivos(r).gross))}</td>
+      </tr>`;
+    }).join("");
+
     const html = `<!doctype html>
       <html lang="pt-BR">
         <head>
@@ -666,6 +751,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
             <div class="kpi"><span>Construtora</span><b>${escapeHtml(fmt(responsabilidadeFolha.totals.builder))}</b></div>
           </div>
           <p class="legenda">P = presença integral · M = meio período · F = falta · S/R = sem registro · FP = feriado pago · FD = feriado perdido</p>
+          <p>Consulte atestados, datas e valores em <strong>Composição do valor bruto</strong>.</p>
 
           <!-- Tabela principal -->
           <table data-report-table-name="Folha principal">
@@ -681,6 +767,14 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
               <tr class="total"><td colspan="13">TOTAL - ${contar(rows.length,"funcionário","funcionários")}</td><td class="num">${escapeHtml(fmt(T.gross))}</td><td class="num">${escapeHtml(fmt(T.vt))}</td><td class="num">${escapeHtml(fmt(T.vr))}</td><td class="num">${escapeHtml(fmt(T.advances))}</td><td class="num">${escapeHtml(fmt(T.unionDue))}</td><td class="num">${escapeHtml(fmt(T.net))}</td></tr>
             </tfoot>
           </table>
+
+          <div class="section">
+            <h3>Composição do valor bruto</h3>
+            <table data-report-table-name="Composição do valor bruto">
+              <thead><tr><th>Funcionário</th><th>Dias trabalhados</th><th>Atestados</th><th>Feriados pagos</th><th>Outras parcelas</th><th>Bruto</th></tr></thead>
+              <tbody>${linhasComposicao||`<tr><td colspan="6" class="vazio">Nenhum lançamento encontrado para o período selecionado.</td></tr>`}</tbody>
+            </table>
+          </div>
 
           <div class="section">
             <h3>Valores a pagar pelas obras de administração</h3>
@@ -834,8 +928,23 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
     if(unionBody.length)wsUnion["!autofilter"]={ref:`A5:F${5+unionBody.length}`};
     XLSX.utils.book_append_sheet(wb,wsUnion,"Sindicato");
 
+    const composicaoExcel = rows.map(r => {
+      const {trabalho,atestados,feriados,afastamentos,horas,mei}=composicaoBruto(r.obrasPorDia,filterObra);
+      return [r.name,trabalho.dias,trabalho.valor,atestados.dias,atestados.valor,datasDosAtestados(atestados.datas,fmtDateFull),
+        feriados.dias,feriados.valor,afastamentos.valor,horas.valor,mei.valor,valEfetivos(r).gross];
+    });
+    const wsComposicao = XLSX.utils.aoa_to_sheet([
+      ["Composição do valor bruto",periodLabel], ["Grupo e obra",reportScope], [],
+      ["Funcionário","Dias trabalhados","Valor trabalhado","Dias de atestado","Valor dos atestados","Datas dos atestados",
+        "Feriados pagos","Valor dos feriados","Férias e folgas","Horas extras","Contrato MEI","Bruto"],
+      ...composicaoExcel,
+    ]);
+    wsComposicao["!cols"] = [30,17,17,17,20,30,16,19,17,16,16,16].map(w=>({wch:w}));
+    if(composicaoExcel.length)wsComposicao["!autofilter"]={ref:`A4:L${4+composicaoExcel.length}`};
+    XLSX.utils.book_append_sheet(wb,wsComposicao,"Composição do bruto");
+
     await XLSX.writeFile(wb, `arcd-folha-${year}-${String(month+1).padStart(2,"0")}-Q${q}.xlsx`);
-    showToast("Excel gerado com 6 abas, incluindo responsabilidade e sindicato.");
+    showToast("Excel gerado com a composição do bruto, responsabilidade e sindicato.");
   };
 
   const executarRelatorio = tipo => {
@@ -1085,9 +1194,10 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
                   Valores referentes apenas a <b>{obraName(filterObra)}</b>. Este funcionário também trabalhou em outras obras na quinzena; o líquido total dele é {fmt(r.net)}.
                 </p>
               )}
+              <ComposicaoBruto partes={composicaoBruto(r.obrasPorDia,filterObra)} bruto={v.gross} headingId={`folha-composicao-${r.id}`}/>
               <div className="payroll-detail-metrics">
                 {[
-                  r.meiTotal>0?["MEI na quinzena", fmt(r.meiTotal)]:["Diária", fmt(r.dailyRate)], ["Bruto", fmt(v.gross)], ["VT+VR", fmt(v.vt + v.vr)], ["Adiant.", fmt(v.advances), C.red], ["Antes do sindicato", fmt(v.netBeforeUnion)], ["Sindicato", `− ${fmt(v.unionDue)}`, C.red], ["Líquido a pagar", fmt(v.net), C.yellowD], ["HE", `${r.ot}h · ${fmt(v.overtimePay)}`, C.purple], ["Feriados pagos", v.feriadosPagos], ["Feriados perdidos", v.feriadosPerdidos, C.red], ["Valor feriado", fmt(v.holidayPay), C.green],
+                  r.meiTotal>0?["MEI na quinzena", fmt(r.meiTotal)]:["Diária", fmt(r.dailyRate)], ["VT+VR", fmt(v.vt + v.vr)], ["Adiant.", fmt(v.advances), C.red], ["Antes do sindicato", fmt(v.netBeforeUnion)], ["Sindicato", `− ${fmt(v.unionDue)}`, C.red], ["Líquido a pagar", fmt(v.net), C.yellowD], ["HE", `${r.ot}h · ${fmt(v.overtimePay)}`, C.purple], ["Feriados perdidos", v.feriadosPerdidos, C.red],
                 ].map(([label, value, color]) => (
                   <div key={label} className="payroll-detail-metric">
                     <p>{label}</p>
