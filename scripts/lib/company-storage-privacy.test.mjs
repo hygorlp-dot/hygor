@@ -1,0 +1,11 @@
+import {describe,it,expect,vi} from 'vitest';
+import {createHash} from 'node:crypto';
+import {protectCompanyStorage} from './company-storage-privacy.mjs';
+function fixture(){const bytes=Buffer.from('photo'),sha256=createHash('sha256').update(bytes).digest('hex'),photos=[1,2].map(n=>({objectId:String(n),companyId:'arcd',source:{bucket:'diario-obra',name:'work/2026/'+n+'.jpg'},destination:{bucket:'company-files-private',name:'arcd/work/2026/'+n+'.jpg'},bytes:bytes.length,sha256})),storage={from:vi.fn(()=>({download:vi.fn(async()=>({data:new Blob([bytes])}))})),updateBucket:vi.fn(async()=>({})),getBucket:vi.fn(async id=>({data:{id,public:false,file_size_limit:4*1024*1024}}))};return {photos,storage,anonymousRead:vi.fn(async()=>400)};}
+describe('company Storage privacy cutover',()=>{
+ it('checks exact copies without activating in preparation mode',async()=>{const f=fixture(),r=await protectCompanyStorage(f);expect(r.prepared).toBe(true);expect(r.passed).toBe(false);expect(f.storage.updateBucket).not.toHaveBeenCalled();});
+ it('keeps objects and closes both buckets without reopening anything',async()=>{const f=fixture(),r=await protectCompanyStorage({...f,apply:true});expect(r.passed).toBe(true);expect(r.objectsDeleted).toBe(0);expect(f.storage.updateBucket).toHaveBeenCalledWith('diario-obra',{public:false});expect(f.storage.updateBucket).toHaveBeenCalledWith('company-files-private',{public:false,fileSizeLimit:4194304,allowedMimeTypes:null});});
+ it('refuses different bytes before changing privacy',async()=>{const f=fixture();f.photos[0].sha256='0'.repeat(64);await expect(protectCompanyStorage({...f,apply:true})).rejects.toThrow('content changed');expect(f.storage.updateBucket).not.toHaveBeenCalled();});
+ it('refuses a destination from another company',async()=>{const f=fixture();f.photos[0].destination.name='mrc/work/2026/1.jpg';await expect(protectCompanyStorage({...f,apply:true})).rejects.toThrow('company scope');expect(f.storage.updateBucket).not.toHaveBeenCalled();});
+ it('does not certify privacy if an old URL remains anonymous',async()=>{const f=fixture();f.anonymousRead.mockResolvedValue(200);await expect(protectCompanyStorage({...f,apply:true})).rejects.toThrow('remains open');});
+});

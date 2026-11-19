@@ -1,0 +1,13 @@
+import {readFile,writeFile,realpath} from 'node:fs/promises';
+import {resolve,relative,isAbsolute} from 'node:path';
+import {loadEnv} from 'vite';
+import {createClient} from '@supabase/supabase-js';
+import {protectCompanyStorage} from './lib/company-storage-privacy.mjs';
+import {verifyCutoverBundle,cutoverHash} from '../server/company-cutover.js';
+const args=process.argv.slice(2),get=k=>args[args.indexOf(k)+1];for(const k of ['--bundle','--photos','--output'])if(!args.includes(k)||!get(k))throw Error('Required '+k);
+const output=resolve(get('--output')),rel=relative(await realpath('.'),output);if(!isAbsolute(rel)&&!rel.startsWith('..'))throw Error('Keep private evidence outside repository');
+const bundle=verifyCutoverBundle(JSON.parse(await readFile(get('--bundle'),'utf8'))),proof=JSON.parse(await readFile(get('--photos'),'utf8')),env=loadEnv('development',process.cwd(),''),origin=new URL(env.SUPABASE_URL);
+if(origin.hostname!=='qylubfxunnpbbjnmgsdg.supabase.co'||!proof.passed||proof.projectId!==origin.hostname.split('.')[0])throw Error('Unverified source project');
+const db=createClient(env.SUPABASE_URL,env.SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
+const result=await protectCompanyStorage({storage:db.storage,photos:proof.photos,apply:args.includes('--apply'),anonymousRead:async(bucket,name)=>{const path=name.split('/').map(encodeURIComponent).join('/'),url=new URL('/storage/v1/object/public/'+encodeURIComponent(bucket)+'/'+path,origin);const response=await fetch(url,{headers:{'cache-control':'no-cache'},redirect:'error',signal:AbortSignal.timeout(30000)});await response.body?.cancel();return response.status;}});
+await writeFile(output,JSON.stringify({...result,packageId:bundle.id,targetHash:cutoverHash(bundle.after)},null,2),{mode:0o600,flag:'wx'});console.log(JSON.stringify({passed:result.passed,prepared:result.prepared||false,remoteWrites:result.remoteWrites,objectsDeleted:0}));
