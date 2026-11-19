@@ -1,3 +1,4 @@
+import {currentCompany, withCompanyContext} from '../server/company-context.js';
 import { authenticateAppUser } from "../server/app-auth.js";
 import { createClient } from "@supabase/supabase-js";
 import { buildDailyBrief } from "../server/daily-brief.js";
@@ -6,7 +7,6 @@ import {base64DecodedSize,PATRIMONY_DOCUMENT_MAX_BYTES} from "../src/domains/pat
 
 const URL = process.env.SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const COMPANY = process.env.COMPANY_ID || "arcd";
 const CONFIG_KEY = "arced_ai_config_gemini_v1";
 const CUB_CACHE_KEY = "arced_cub_pe_cache_v1";
 const DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
@@ -69,16 +69,16 @@ const aiRateLimited = (userId, maxRequests = AI_RATE_MAX_REQUESTS) => {
   return false;
 };
 const encrypt = plainText => encryptAiSecret(plainText,{
-  secret:AI_ENCRYPTION_KEY||SERVICE,company:COMPANY,
+  secret:AI_ENCRYPTION_KEY||SERVICE,company:currentCompany(),
   keyVersion:AI_ENCRYPTION_KEY?"ai-v1":"service-v1",
 });
 const decrypt = value => decryptAiSecret(value,{
-  primarySecret:AI_ENCRYPTION_KEY,legacySecret:SERVICE,company:COMPANY,
+  primarySecret:AI_ENCRYPTION_KEY,legacySecret:SERVICE,company:currentCompany(),
 });
 const loadConfig = async () => {
   if(!URL||!SERVICE)return {apiKey:"",model:DEFAULT_MODEL,source:"none"};
   const {data,error}=await database().from("company_app_data").select("value,updated_at")
-    .eq("company_id",COMPANY).eq("key",CONFIG_KEY).maybeSingle();
+    .eq("company_id",currentCompany()).eq("key",CONFIG_KEY).maybeSingle();
   let value=data?.value;
   if(typeof value==="string"){try{value=JSON.parse(value);}catch{value=null;}}
   if(!error&&value?.encryptedKey){
@@ -88,7 +88,7 @@ const loadConfig = async () => {
         const migrated={...value,...encrypt(opened.plainText)};
         const {error:migrationError}=await database().from("company_app_data").update({
           value:migrated,updated_at:new Date().toISOString(),
-        }).eq("company_id",COMPANY).eq("key",CONFIG_KEY);
+        }).eq("company_id",currentCompany()).eq("key",CONFIG_KEY);
         if(migrationError)console.error("Não foi possível migrar a criptografia da configuração Gemini:",migrationError.message);
       }
       return {apiKey:opened.plainText,model:value.model||DEFAULT_MODEL,source:"admin",updatedAt:data.updated_at||value.updatedAt||"",updatedBy:value.updatedBy||"",validationStatus:value.validationStatus||"unknown",validationMessage:value.validationMessage||""};
@@ -106,12 +106,12 @@ const saveConfig = async ({apiKey,user,validationStatus="ready",validationMessag
   // do administrador já fica no valor criptografado; só enviamos à coluna o
   // authUserId quando ele realmente possui o formato aceito pelo banco.
   const authUserId=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(user?.authUserId||""))?user.authUserId:null;
-  const {error}=await database().from("company_app_data").upsert({company_id:COMPANY,key:CONFIG_KEY,value,updated_at:agora,updated_by:authUserId},{onConflict:"company_id,key"});
+  const {error}=await database().from("company_app_data").upsert({company_id:currentCompany(),key:CONFIG_KEY,value,updated_at:agora,updated_by:authUserId},{onConflict:"company_id,key"});
   if(error)throw error;
   return {model:DEFAULT_MODEL,updatedAt:agora,updatedBy:value.updatedBy,validationStatus,validationMessage};
 };
 const removeConfig = async () => {
-  const {error}=await database().from("company_app_data").delete().eq("company_id",COMPANY).eq("key",CONFIG_KEY);
+  const {error}=await database().from("company_app_data").delete().eq("company_id",currentCompany()).eq("key",CONFIG_KEY);
   if(error)throw error;
 };
 // Cache do CUB-PE (achado de 25/08/2026: raspar o site do Sinduscon-PE a
@@ -123,7 +123,7 @@ const removeConfig = async () => {
 const lerCubCache = async () => {
   if(!URL||!SERVICE)return null;
   const {data,error}=await database().from("company_app_data").select("value")
-    .eq("company_id",COMPANY).eq("key",CUB_CACHE_KEY).maybeSingle();
+    .eq("company_id",currentCompany()).eq("key",CUB_CACHE_KEY).maybeSingle();
   if(error||!data?.value?.dados)return null;
   return data.value;
 };
@@ -131,7 +131,7 @@ const gravarCubCache = async dados => {
   if(!URL||!SERVICE)return;
   const agora=new Date().toISOString();
   const {error}=await database().from("company_app_data").upsert(
-    {company_id:COMPANY,key:CUB_CACHE_KEY,value:{dados,atualizadoEm:agora},updated_at:agora,updated_by:null},
+    {company_id:currentCompany(),key:CUB_CACHE_KEY,value:{dados,atualizadoEm:agora},updated_at:agora,updated_by:null},
     {onConflict:"company_id,key"},
   );
   if(error)console.error("Não foi possível gravar o cache do CUB-PE:",error.message);
@@ -168,7 +168,7 @@ const isInvalidKey = (status,message) => [401,403].includes(status)||(status===4
 // criptografada no servidor e nunca é devolvida ao navegador.
 export const config = { api: { bodyParser: { sizeLimit: "8mb" } } };
 
-export default async function handler(req,res){
+async function handler(req,res){
   if(req.method!=="POST")return res.status(405).json({error:"Método não permitido."});
   const user=await authenticateAppUser(req.body||{},{scope:"ai-agent"});
   if(!user)return res.status(401).json({error:"Sessão inválida."});
@@ -467,3 +467,5 @@ export default async function handler(req,res){
     return res.status(500).json({error:"Erro interno."});
   }
 }
+
+export default withCompanyContext(handler);

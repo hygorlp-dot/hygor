@@ -20,9 +20,11 @@ contratos em domínio financeiro.
 
 ## POC e testes
 
-Foi migrado somente `src/domains/documentos/upload-retry.ts`, adaptador novo e
-não financeiro de evidências móveis. `tsconfig.quality.json` é estrito, não emite
-arquivos e inclui exclusivamente esse módulo; `npm run typecheck` entrou no CI.
+O piloto inclui `src/domains/documentos/upload-retry.ts`, adaptador novo e
+não financeiro de evidências móveis, e `src/observability/local-error-diagnostic.ts`,
+diagnóstico local de erros. Revisão em 18/11/2026: `tsconfig.quality.json` é
+estrito, não emite arquivos e inclui somente esses dois módulos;
+`npm run typecheck` está no CI. Isso não comprova tipagem do restante do ERP.
 O teste protege esse escopo para impedir que o legado passe a ser verificado por
 acidente. `LegacyApp.jsx` não foi convertido.
 

@@ -31,7 +31,8 @@ export const createBackupBundle = ({ companyId, rows, now = new Date().toISOStri
   return { manifest, body: Buffer.concat([Buffer.from("ARCD-BACKUP-1\n", "utf8"), iv, cipher.getAuthTag(), encrypted]) };
 };
 
-export const verifyBackupBundle = ({ body, key, manifest }) => {
+export const verifyBackupBundle = ({ body, key, manifest, expectedCompanyId }) => {
+  if(expectedCompanyId&&manifest.companyId!==expectedCompanyId)throw new Error('O backup pertence a outra empresa.');
   const raw = Buffer.from(body);
   const header = Buffer.from("ARCD-BACKUP-1\n", "utf8");
   if (raw.length < header.length + 28 || !raw.subarray(0, header.length).equals(header)) throw new Error("Formato de backup inválido.");

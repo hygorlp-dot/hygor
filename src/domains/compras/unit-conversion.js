@@ -36,6 +36,18 @@ export const referenceTotalOf = (item, quantity = item?.quantidade ?? item?.qtd)
 export const hasValidUnitConversion = item =>
   conversionFactorOf(item) > 0;
 
+// A unit change invalidates a factor confirmed for a different package.
+// Description/diameter suggestions never establish this saved basis.
+export const withPurchaseUnit=(item,unit)=>{
+  const purchase=normalizeUnitCode(unit),reference=normalizeUnitCode(item.unidadeRef);
+  return {...item,unidadeCompra:purchase,fatorConversao:purchase===purchaseUnitOf(item)?item.fatorConversao:purchase===reference?1:''};
+};
+export const withReferenceUnit=(item,unit)=>{
+  const reference=String(unit||'').trim().toUpperCase();
+  return {...item,unidadeRef:reference,fatorConversao:reference===String(item.unidadeRef||'').trim().toUpperCase()?item.fatorConversao:reference===purchaseUnitOf(item)?1:''};
+};
+export const canCompareReferencePrice=item=>Boolean(String(item?.unidadeRef||'').trim()&&hasValidUnitConversion(item)&&Number(item.precoRef)>0);
+
 export const steelDiameterMmOf = item => {
   const description=String(item?.descricaoRef||item?.descricao||"").toUpperCase();
   if(!/(?:A[ÇC]O|VERGALH|CA\s*-?\s*(?:25|50|60))/.test(description))return 0;

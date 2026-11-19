@@ -1,5 +1,6 @@
 import {useEffect,useRef,useSyncExternalStore} from 'react';
 import {sessionContext} from '../../lib/session-context.js';
+import {companyStorageKey} from '../../lib/company-scope.js';
 
 // Carimbo de contexto (Etapa 1 do redesign): a obra escolhida uma vez no topo
 // vale para as telas que o seguem. Mesma chave de obraContextoSalvo(), para
@@ -7,8 +8,13 @@ import {sessionContext} from '../../lib/session-context.js';
 const KEY='arcd_obra_contexto';
 const listeners=new Set();
 let current=null;
+let contextKey='';
 
-export const workContextObraId=()=>current??(current=sessionContext.getItem(KEY)||'');
+export const workContextObraId=()=>{
+  const key=companyStorageKey(KEY);
+  if(contextKey!==key){contextKey=key;current=null;}
+  return current??(current=sessionContext.getItem(KEY)||'');
+};
 
 export function setWorkContextObra(obraId){
   const next=String(obraId||'');

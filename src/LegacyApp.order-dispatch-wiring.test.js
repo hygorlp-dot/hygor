@@ -24,7 +24,7 @@ describe("link de aceite do fornecedor (C2.5)",()=>{
   const vercel=JSON.parse(readFileSync(`${process.cwd()}/vercel.json`,"utf8"));
   it("a tela gera o link pelo servidor e o leva na mensagem",()=>{
     expect(compras).toMatch(/const result=await gerarLinkAceitePedido\(p\.id\)/);
-    expect(compras).toMatch(/\/aceite-pedido#\$\{result\.token\}/);
+    expect(compras).toMatch(/\/aceite-pedido.*#\$\{result\.token\}/);
     expect(compras).toMatch(/conteudoEnvioPedido\(p,link\?\.url\|\|""\)/);
   });
   it("a página pública lê o código só do fragmento da URL e fala só com /api",()=>{

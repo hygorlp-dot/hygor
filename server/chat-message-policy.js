@@ -1,3 +1,4 @@
+import {parseCompanyFileReference} from '../src/domains/arquivos/company-file-reference.js';
 export const MAX_CHAT_MENTIONS = 10;
 
 const safeText = (value, max) => String(value || "")
@@ -14,10 +15,11 @@ export function sanitizeChatMentions(value) {
     .filter(mention => mention.id && mention.nome);
 }
 
-export function sanitizeChatAttachment(value) {
+export function sanitizeChatAttachment(value,{companyId='arcd'}={}) {
   if (!value || typeof value !== "object") return null;
   const url = String(value.url || "");
-  if (!/^https:\/\//.test(url) || url.length > 600) return null;
+  const file=parseCompanyFileReference(url);
+  if (url.length > 600||(!/^https:\/\//.test(url)&&!(file&&file.companyId===companyId&&file.projectId==='chat'))) return null;
   return {
     url,
     name: safeText(value.name, 150) || "arquivo",

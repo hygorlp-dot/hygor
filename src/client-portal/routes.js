@@ -1,3 +1,5 @@
+import {activeCompany,companyIsolationActive} from '../lib/company-scope.js';
+import {portalNavigationPath} from './company.js';
 export const CLIENT_PORTAL_HOST = "portaldocliente.marcelleng.com.br";
 export const CLIENT_PORTAL_ORIGIN = `https://${CLIENT_PORTAL_HOST}`;
 export const isClientPortalLocation = ({hostname = "", pathname = "/"} = {}) => hostname.toLowerCase() === CLIENT_PORTAL_HOST || pathname === "/cliente" || pathname.startsWith("/cliente/");
@@ -9,9 +11,10 @@ export function portalRoute(pathname) {
 }
 export const portalProjectPath = (projectId, page = "home") => `/cliente/obra/${encodeURIComponent(projectId)}${page === "home" ? "" : `/${page}`}`;
 export function navigatePortal(path, {replace = false} = {}) {
-  window.history[replace ? "replaceState" : "pushState"]({}, "", path);
+  window.history[replace ? "replaceState" : "pushState"]({}, "", portalNavigationPath(path));
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
 export function portalLoginUrl(location) {
-  return ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname) ? `${location.origin}/cliente` : `${CLIENT_PORTAL_ORIGIN}/`;
+  const path=["localhost", "127.0.0.1", "[::1]"].includes(location.hostname) ? `${location.origin}/cliente` : `${CLIENT_PORTAL_ORIGIN}/`;
+  return companyIsolationActive()?`${path}?empresa=${activeCompany()}`:path;
 }

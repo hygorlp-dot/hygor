@@ -39,7 +39,7 @@ export function clonarEstruturaOrcamento(orcOrigem, gerarId, { zerarQuantidades 
     parentId: etapa.parentId ? etapaIdMap.get(etapa.parentId) : "",
   }));
 
-  const itens = (orcOrigem?.itens || []).map(item => ({
+  const itens = (orcOrigem?.itens || []).map(({exclusaoEscopo: _exclusao, ...item}) => ({
     ...item,
     id: gerarId(),
     etapaId: etapaIdMap.get(item.etapaId),

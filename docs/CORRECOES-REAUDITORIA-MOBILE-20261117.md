@@ -1,0 +1,11 @@
+# Correções locais da reauditoria — 17/11/2026
+
+- **DRE mensal da empresa.** A tela exibe indicadores, demonstrativo, parecer e exportação após receber uma projeção válida da competência selecionada. Uma falha permite tentar novamente ou mudar de período. A tela descarta respostas de consultas substituídas e esconde o parecer anterior durante a próxima consulta. O memorial continua disponível para resultados mensais abertos e fechados.
+- **Mais módulos.** O menu usa o diálogo de navegação sem a trava de revisão dos formulários. O diálogo de edição continua bloqueando uma versão invalidada pela recuperação. O teste mudou a revisão com ambos abertos e conferiu as duas respostas.
+- **Comunicação.** A busca aceita obra, responsável, descrição e código, inclusive sem acentos. Os resultados usam páginas de 12 tarefas e respeitam a situação e as permissões existentes. A passagem à Conferência continua abrindo o achado correto e o retorno mantém o contexto.
+- **Frota.** A busca mantém o alcance de toda a frota. No celular e tablet, a página lista 12 equipamentos por vez. No desktop, a visualização mantém a grade completa.
+- **Administração.** A auditoria mostra a busca e os resultados paginados. Filtros avançados, indicadores e ferramentas ficam disponíveis em seções recolhidas no celular. A exportação usa todo o recorte filtrado. O painel do motor financeiro explica que a ativação pode coexistir com verificações pendentes.
+
+O DRE usa os mesmos relatórios canônicos e snapshots de fechamento. A correção altera a apresentação, inclusive a resposta quando o servidor não fornece uma projeção válida. Não muda os cálculos, o reconhecimento do custo, os vínculos, os pagamentos ou a persistência do relatório. A consulta mensal existente ainda pode materializar projeções no servidor. Os ensaios locais usaram API simulada e os servidores de teste bloquearam chamadas reais. Nenhuma previsão, obrigação, movimentação de estoque, despesa ou pagamento foi criado pela validação.
+
+Ajuda contextual e manual atualizados. As capturas de celular e desktop e os logs estão em `artifacts/correcoes-reauditoria-20261117/`. O build local ficou em 1.838.865 bytes de JS/CSS comprimidos, abaixo do limite de 1.891.328 bytes. A nota publicada de 8,3 continua sendo a medição da versão anterior a estas mudanças.

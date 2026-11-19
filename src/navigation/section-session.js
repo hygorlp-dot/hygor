@@ -1,6 +1,7 @@
+import {companyStorageKey} from '../lib/company-scope.js';
 // Por usuário e por aba do navegador: recarregar não perde a seção e outra
 // sessão não herda uma tela para a qual não tem permissão.
-const keyFor = userId => `arcd-section:${userId}`;
+const keyFor = userId => companyStorageKey(`arcd-section:${userId}`);
 
 export function restoreSection(userId, allowedTabs, storage) {
   const fallback = allowedTabs[0] || "home";

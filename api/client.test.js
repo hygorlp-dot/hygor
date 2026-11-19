@@ -7,23 +7,59 @@ import {portalFixture,seedPortalSource} from "../server/client-portal.fixture.js
 import {portalSimulationFixture} from "../server/client-portal-simulation.fixture.js";
 import {portalAccountabilityFixture} from '../server/client-portal-accountability.fixture.js';
 import {attendanceObraKey} from "../server/attendance-obra-routing.js";
+import {getDocument} from 'pdfjs-dist/legacy/build/pdf.mjs';
 const state=vi.hoisted(()=>({db:null}));
 vi.mock("../server/client-portal-runtime.js",async original=>({...await original(),portalDb:()=>state.db}));
 vi.mock("../server/microsoft/graph.js",()=>({refresh:vi.fn(async()=>({accessToken:"token-exclusivo-servidor"})),graph:vi.fn(async()=>({json:async()=>({"@microsoft.graph.downloadUrl":"https://files.example.test/temporario.pdf"})}))}));
 import {graph} from "../server/microsoft/graph.js";
 import handler from "./client.js";
 let db;
+async function pdfText(bytes){
+ const document=await getDocument({data:new Uint8Array(bytes),useSystemFonts:true}).promise;
+ try{
+  const pages=[];
+  for(let page=1;page<=document.numPages;page++)pages.push((await (await document.getPage(page)).getTextContent()).items.map(item=>item.str).join(' '));
+  return pages.join(' ').replace(/\s+/g,' ');
+ }finally{await document.destroy();}
+}
+it('usa o dia da Bahia para incluir o aporte somente na data efetiva, preservando o saldo anterior',async()=>{
+ vi.useFakeTimers({toFake:['Date']});
+ try{
+  vi.setSystemTime(new Date('2026-11-18T02:59:00Z'));
+  const source=portalAccountabilityFixture();await seedPortalSource(db,source);
+  for(const operation of ['provision','publish'])await executeClientPortalAdmin({db,companyId:'arcd',data:source,actor,body:{operation,obraId:'obra-local',email:'cliente@example.com',password:'SenhaInicial1234',profile:'owner'}});
+  const before=await request('projects/obra-local/statement',{cookie:await login(),query:{month:'2026-11',format:'json'}});
+  expect(before.code).toBe(200);expect(before.body.statement.asOf).toBe('2026-11-17');expect(before.body.statement.cash.closing).toBe(8620);
+  expect(before.body.statement.cash.movements.some(row=>row.id==='aporte-futuro-sim')).toBe(false);
+  vi.setSystemTime(new Date('2026-11-18T03:00:00Z'));
+  const after=await request('projects/obra-local/statement',{cookie:await login(),query:{month:'2026-11',format:'json'}});
+  expect(after.code).toBe(200);expect(after.body.statement.asOf).toBe('2026-11-18');expect(after.body.statement.cash.closing).toBe(13620);
+  expect(after.body.statement.cash.entries-before.body.statement.cash.entries).toBe(5000);
+  expect(after.body.statement.cash.exits).toBe(before.body.statement.cash.exits);
+  const pdf=await request('projects/obra-local/statement',{cookie:await login(),query:{month:'2026-11'}});
+  expect(await pdfText(pdf.body)).toContain('Saldo final: R$ 13.620,00');
+  const email=await request('projects/obra-local/statement',{cookie:await login(),query:{month:'2026-11',format:'email'}});
+  const attachment=email.body.match(/Content-Type: application\/pdf[\s\S]*?\r\n\r\n([\s\S]*?)\r\n--marcell_statement_boundary--/);
+  expect(attachment).toBeTruthy();
+  expect(await pdfText(Buffer.from(attachment[1],'base64'))).toContain('Saldo final: R$ 13.620,00');
+ }finally{vi.useRealTimers();}
+});
 it('baixa PDF e e-mail com anexo e aplica sessão, vínculo, mês e revogação dos custos',async()=>{
+ vi.useFakeTimers({toFake:['Date']});
+ try{
+ vi.setSystemTime(new Date('2026-11-17T15:00:00-03:00'));
  const source=portalAccountabilityFixture();await seedPortalSource(db,source);
  for(const operation of ['provision','publish'])await executeClientPortalAdmin({db,companyId:'arcd',data:source,actor,body:{operation,obraId:'obra-local',email:'cliente@example.com',password:'SenhaInicial1234',profile:'owner'}});
  expect((await request('projects/obra-local/statement')).code).toBe(401);
  const cookie=await login();
- const json=await request('projects/obra-local/statement',{cookie,query:{month:'2026-11',format:'json'}});expect(json.code).toBe(200);expect(json.body.statement.cash.closing).toBe(8620);
+ const json=await request('projects/obra-local/statement',{cookie,query:{month:'2026-11',format:'json'}});expect(json.code).toBe(200);expect(json.body.statement.asOf).toBe('2026-11-17');expect(json.body.statement.cash.closing).toBe(8620);
  const pdf=await request('projects/obra-local/statement',{cookie,query:{month:'2026-11'}});expect(pdf.code).toBe(200);expect(pdf.headers['Content-Type']).toBe('application/pdf');expect(pdf.body.subarray(0,5).toString()).toBe('%PDF-');
+ expect(await pdfText(pdf.body)).toContain('Saldo final: R$ 8.620,00');
  const email=await request('projects/obra-local/statement',{cookie,query:{month:'2026-11',format:'email'}});expect(email.code).toBe(200);expect(email.body).toContain('To: cliente@example.com');expect(email.body).toContain('Content-Type: application/pdf');
  expect((await request('projects/other/statement',{cookie})).code).toBe(403);
  expect((await request('projects/obra-local/statement',{cookie,query:{month:'2099-01'}})).code).toBe(400);
  source.obras[0].portalCliente.publicarCustos=false;await seedPortalSource(db,source);expect((await request('projects/obra-local/statement',{cookie})).code).toBe(403);
+ }finally{vi.useRealTimers();}
 });
 const actor={id:"admin-1",role:"admin"},data={obras:[{id:"a",name:"Casa A",portalCliente:{ativo:true,publicarFotos:false,publicarCronograma:false}},{id:"b",name:"Casa B"}]};
 const admin=(operation,extra={})=>executeClientPortalAdmin({db,companyId:"arcd",data,actor,body:{operation,obraId:"a",...extra}});

@@ -4,6 +4,7 @@ import { isApprovedTechnicalMeasurement } from "../src/domains/medicoes/constant
 import { aditivosAprovados, valorAditivosAprovados, valorContratoVigente } from "../src/domains/obras/contract-amendments.js";
 import {documentEvidenceInfo} from "../src/domains/financeiro/document-evidence.js";
 import {protectedDocumentReference} from "../src/domains/financeiro/document-links.js";
+import {parseCompanyFileReference} from '../src/domains/arquivos/company-file-reference.js';
 import {avancoFisicoOficial} from "../src/domains/dre/calculations.js";
 import {active,toCents} from "../src/domains/financeiro/facts.js";
 import {clientContractMeasurements,clientMeasurementReceipts} from "./client-portal-contract.js";
@@ -167,7 +168,7 @@ export function buildClientPortalPublicationRows({ data = {}, projectId, publish
       .filter(photo => photo?.publicarCliente !== false && text(photo?.clientUrl || photo?.url))
       .map((photo, index) => {
         const id=text(photo.id) || `foto-${report.id}-${index}`;
-        const reference=protectedDocumentReference(photo.clientUrl||photo.url);
+        const reference=parseCompanyFileReference(photo.clientUrl||photo.url)||protectedDocumentReference(photo.clientUrl||photo.url);
         return ({
         domain: "media",
         payload: {

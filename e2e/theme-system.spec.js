@@ -13,7 +13,7 @@ async function enter(page){
   return errors;
 }
 async function purchases(page){
-  if(page.viewportSize().width<1100) await page.getByRole('button',{name:'Abrir Compras e suprimentos',exact:true}).click();
+  if(page.viewportSize().width<1100) await page.getByRole('button',{name:'Abrir Compras e suprimentos · Compras',exact:true}).click();
   else {
     const sidebar=page.locator('.arcd-sidebar');const group=sidebar.locator('.nav-grp-hd').filter({hasText:/^Compras/});
     const body=group.locator('xpath=following-sibling::*[contains(@class,"nav-body")][1]');
@@ -44,10 +44,12 @@ test('troca tema na tarefa, conserva busca e preferência após recarga',async({
     await page.screenshot({path:info.outputPath(`compras-${theme}.png`),fullPage:true});
   }
   await page.reload();await expect(page.locator('html')).toHaveAttribute('data-theme','saas');await expect(page.locator('html')).toHaveAttribute('data-density','compact');
-  const filters=page.locator('.purchase-queue-filters');await expect(filters.getByLabel('Prazo',{exact:true})).not.toBeVisible();
-  await filters.getByRole('button',{name:/Filtros/}).click();await expect(filters.getByLabel('Prazo',{exact:true})).toBeVisible();
+  const filters=page.getByRole('group',{name:'Comandos de Compras',exact:true});
+  const toggle=filters.getByRole('button',{name:/Filtros/});
+  await expect(toggle).toBeVisible();await toggle.click();
+  await expect(filters.getByLabel('Prazo',{exact:true})).toBeVisible();
   await filters.getByLabel('Prazo',{exact:true}).selectOption('overdue');
-  await filters.getByRole('button',{name:/Filtros/}).click();await filters.getByRole('button',{name:/Filtros/}).click();
+  await toggle.click();await toggle.click();
   await expect(filters.getByLabel('Prazo',{exact:true})).toHaveValue('overdue');expect(errors).toEqual([]);
 });
 

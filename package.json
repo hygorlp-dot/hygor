@@ -32,10 +32,12 @@
     "tailwind-merge": "^3.6.0"
   },
   "scripts": {
-    "prebuild": "node scripts/check-financial-enforcement-readiness.mjs && node scripts/audit-catalog-integrity.mjs && npm run financial:migrate-shadow && npm run registry:migrate-shadow && npm run equipment-registry:migrate-shadow && npm run purchase-requests:migrate && npm run financial-engine:rls && npm run procurement-registry:migrate-shadow && npm run attendance-registry:migrate-shadow && npm run ponto-eletronico:migrate && npm run manutencao-banco:migrate && node scripts/ensure-rh-storage.mjs && npm run acesso-publico:migrate",
+    "prebuild": "node scripts/check-financial-enforcement-readiness.mjs && node scripts/audit-catalog-integrity.mjs && npm run financial:migrate-shadow && npm run registry:migrate-shadow && npm run equipment-registry:migrate-shadow && npm run purchase-requests:migrate && npm run financial-engine:rls && npm run procurement-registry:migrate-shadow && npm run attendance-registry:migrate-shadow && npm run ponto-eletronico:migrate && npm run manutencao-banco:migrate && node scripts/ensure-rh-storage.mjs && npm run company-cutover:migrate && npm run acesso-publico:migrate",
     "start": "vite",
     "dev": "vite",
     "build": "vite build",
+    "build:local": "node node_modules/vite/bin/vite.js build",
+    "validate:local": "npm run lint && npm run architecture:check && npm run typecheck && npm run build:local",
     "lint": "node scripts/check-financial-boundaries.mjs && node scripts/check-undeclared-names.mjs && node scripts/check-ui-pitfalls.mjs && node scripts/check-ux-rules.mjs && npm run design:check && npm run manual:check",
     "design:check": "node scripts/check-design-system.mjs",
     "manual:generate": "node scripts/generate-app-manual.mjs",
@@ -73,7 +75,8 @@
     "ponto-eletronico:migrate": "node scripts/apply-ponto-eletronico.mjs",
     "manutencao-banco:migrate": "node scripts/apply-manutencao-banco.mjs",
     "acesso-publico:migrate": "node scripts/apply-acesso-publico.mjs",
-    "financial:activation-check": "node scripts/check-financial-activation-evidence.mjs"
+    "financial:activation-check": "node scripts/check-financial-activation-evidence.mjs",
+    "company-cutover:migrate": "node scripts/apply-company-cutover-infrastructure.mjs"
   },
   "browserslist": {
     "production": [

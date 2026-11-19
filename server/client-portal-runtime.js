@@ -1,9 +1,9 @@
+import {currentCompany} from './company-context.js';
 import crypto from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { clientPortalPermissions } from "./client-portal-policy.js";
 import { PORTAL_SESSION_COOKIE, hashPortalSessionToken, parseCookies } from "./client-portal-auth.js";
 
-const COMPANY = process.env.COMPANY_ID || "arcd";
 const URL = process.env.SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const attempts = new Map();
@@ -12,7 +12,7 @@ const MAX_ATTEMPTS = 8;
 
 export const portalUnavailable = res => res.status(503).json({ error:"O Portal do Cliente está em preparação. Solicite acesso à equipe MARCELL." });
 export const requestIp = req => String(req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "unknown").split(",")[0].trim();
-export const hashIdentifier = value => crypto.createHash("sha256").update(`${COMPANY}:${String(value || "")}`).digest("hex");
+export const hashIdentifier = value => crypto.createHash("sha256").update(`${currentCompany()}:${String(value || "")}`).digest("hex");
 export const secureCookie = () => process.env.NODE_ENV === "production";
 
 export function portalDb() {
@@ -30,7 +30,7 @@ export function registerLoginFailure(key) { const current=attemptState(key); att
 export function clearLoginFailures(key) { attempts.delete(key); }
 
 export async function auditPortalEvent(db, { userId=null, projectId=null, eventType, correlationId=crypto.randomUUID(), metadata={} } = {}) {
-  const { error } = await db.from("client_portal_audit_events").insert({ company_id:COMPANY, portal_user_id:userId, project_id:projectId, event_type:eventType, correlation_id:correlationId, metadata });
+  const { error } = await db.from("client_portal_audit_events").insert({ company_id:currentCompany(), portal_user_id:userId, project_id:projectId, event_type:eventType, correlation_id:correlationId, metadata });
   if (error) throw error;
   return correlationId;
 }
@@ -42,13 +42,13 @@ export async function readPortalSession(req, db = portalDb()) {
   const tokenHash=hashPortalSessionToken(token);
   const { data: session, error } = await db.from("client_portal_sessions")
     .select("id,portal_user_id,expires_at,revoked_at,client_portal_users!inner(id,email,status)")
-    .eq("company_id",COMPANY).eq("token_hash",tokenHash).maybeSingle();
+    .eq("company_id",currentCompany()).eq("token_hash",tokenHash).maybeSingle();
   if(error)throw error;
   const user=Array.isArray(session?.client_portal_users)?session.client_portal_users[0]:session?.client_portal_users;
   const expiresAt=new Date(session?.expires_at).getTime();
   if (!session || session.revoked_at || !Number.isFinite(expiresAt) || expiresAt<=Date.now() || user?.status!=="active") return null;
   const { data: memberships, error: membershipError } = await db.from("client_portal_project_memberships")
-    .select("project_id,profile,grants,revokes").eq("company_id",COMPANY).eq("portal_user_id",session.portal_user_id).eq("active",true);
+    .select("project_id,profile,grants,revokes").eq("company_id",currentCompany()).eq("portal_user_id",session.portal_user_id).eq("active",true);
   if (membershipError) throw membershipError;
   const projects=(memberships || []).map(item => ({
     projectId:String(item.project_id), profile:String(item.profile),
@@ -59,4 +59,3 @@ export async function readPortalSession(req, db = portalDb()) {
 
 export function noStore(res) { res.setHeader("Cache-Control","private, no-store, max-age=0"); return res; }
 export function genericAuthFailure(res) { return noStore(res).status(401).json({ error:"E-mail ou senha inválidos." }); }
-export { COMPANY };

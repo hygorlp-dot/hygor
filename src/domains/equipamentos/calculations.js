@@ -99,17 +99,17 @@ export const validateRentalDiscounts=(loc,equip,dias=30)=>{
   return {ok:true,bruto,saldo};
 };
 
-export const disponibilidadeNoDia = (data,equip,iso) => {
-  const availability=availabilityOnDate(data,equip,iso);
+export const disponibilidadeNoDia = (data,equip,iso,equipmentEvents) => {
+  const availability=availabilityOnDate(data,equip,iso,equipmentEvents);
   const emUso=availability.total-availability.livre;
   return {total:availability.total,emUso,livre:availability.livre,excedido:emUso>availability.total,...availability};
 };
 
-export const picoUsoNoPeriodo = (data,equip,days) => {
+export const picoUsoNoPeriodo = (data,equip,days,equipmentEvents) => {
   const total=Math.max(1,Number(equip?.quantidadeTotal||1));
   let pico=0,diasExcedidos=0;
   (days||[]).forEach(iso=>{
-    const availability=availabilityOnDate(data,equip,iso);
+    const availability=availabilityOnDate(data,equip,iso,equipmentEvents);
     const emUso=availability.total-availability.livre;
     if(emUso>pico)pico=emUso;
     if(availability.exceeded||emUso>total)diasExcedidos++;

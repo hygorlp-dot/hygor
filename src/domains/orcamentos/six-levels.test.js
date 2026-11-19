@@ -61,6 +61,14 @@ it('importa a própria taxonomia exportada em seis níveis e reaproveita origem 
  expect(copy.etapas.map(s=>s.nome)).toEqual(budget().etapas.map(s=>s.nome));expect(copy.itens[0]).toMatchObject({descricao:'Nome da base',unidade:'M2',quantidade:2,precoUnit:100});
  expect(calculateBudgetTree(copy).custoDireto).toBe(200);
 });
+it('mantém título numerado na etapa-pai após uma subetapa sem redirecionar serviços',()=>{
+ const lines=[{kind:'etapa',nivel:1,ordem:'7',nome:'Cobertura'},{kind:'etapa',nivel:2,ordem:'7.3',nome:'Lajes'},
+  {kind:'titulo',ordem:'7.4',descricao:'Nota de cobertura'},
+  {kind:'item',ordem:'7.3.1',codigo:'10',quantidade:1,precoUnit:100}];
+ const imported=applyBudgetImport({},lines,{createId});
+ expect(imported.itens.map(item=>item.etapaId)).toEqual(imported.etapas.map(stage=>stage.id));
+ expect(budgetImportHierarchyError(lines.map(row=>row.kind==='item'?{...row,ordem:'7.4'}:row))).toContain('etapa numerada anterior');
+});
 it('confere Tipo com a coluna numérica de nível, mesmo quando a numeração também coincide com essa coluna',()=>{
  const input=rows();input[0].push('Nível');input[6][8]=5;input[6][1]='1.1.1.1.2';input[7][1]='1.1.1.1.2.1';
  expect(budgetImportHierarchyError(parse(input))).toContain('Tipo e nível divergentes');

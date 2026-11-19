@@ -1,3 +1,10 @@
+import {hasWorkspaceEditor} from './features/workflow/editing-scope.js';
+import {CompanyAssetImage,CompanyAssetLink} from './components/CompanyAsset.jsx';
+import {CompanySelector} from './features/company/CompanySelector.jsx';
+import './features/company/company-selector.css';
+import {activeCompany,companyStorageKey,companyIsolationActive} from './lib/company-scope.js';
+import {trocarEmpresa} from './api.js';
+import {UI_TEXT} from './design-system/copy.js';
 import {workNavigationGroups,workNavigationTarget} from './domains/obras/work-navigation.js';
 import {DISTANCE_VIEW_COLORS} from './design-system/themes/themeRegistry.js';
 import {portalLoginUrl} from "./client-portal/routes.js";
@@ -6,7 +13,14 @@ import {openReportPreview} from './reports/report-preview.js';
 import {ReportIdentityDialog} from './reports/ReportIdentityDialog.jsx';
 import {WorkspaceCommandBar,WorkspaceHeading} from './design-system/patterns/WorkspaceCommandBar.jsx';
 import {WorkContextStamp} from './features/workflow/WorkContextStamp.jsx';
-import {setWorkContextObra,useSyncedWorkObra} from './features/workflow/work-context.js';
+import {ScopeNote} from './design-system/patterns/ScopeNote.jsx';
+import {EmptyState} from './design-system/patterns/FeedbackState.jsx';
+import {DashboardFinancialReading} from './domains/dashboard/components/DashboardFinancialReading.jsx';
+import {SectorTasks} from './features/workflow/SectorTasks.jsx';
+import {useRecordPage} from './design-system/data/useRecordPage.js';
+import {RecordListPagination} from './design-system/data/RecordListPagination.jsx';
+import {TaskDisclosure} from './design-system/patterns/TaskDisclosure.jsx';
+import {setWorkContextObra,useSyncedWorkObra,workContextObraId} from './features/workflow/work-context.js';
 import {SaveRecoveryContext} from './features/workflow/SaveRecoveryContext.jsx';
 import {snapshotJournal,recoveryTab,snapshotChanges} from './domains/sync/snapshot-journal.js';
 import {SaveRecovery} from './domains/sync/SaveRecovery.jsx';
@@ -77,6 +91,7 @@ import {invoiceBankContext,hasInvoiceBankPayment} from './domains/financeiro/rec
 import CashWorkspace from "./features/financeiro/CashWorkspace.jsx";
 import FinanceToday from "./features/financeiro/FinanceToday.jsx";
 import FinancialMemorial from "./features/financeiro/FinancialMemorial.jsx";
+import FinancialHomologationReport from "./features/financeiro/FinancialHomologationReport.jsx";
 import {financeNextAction} from './domains/financeiro/next-action.js';
 import {PurchaseDossier} from './domains/compras/components/PurchaseDossier.jsx';
 import FinancialReportCenter from "./features/financeiro/FinancialReportCenter.jsx";
@@ -131,7 +146,8 @@ import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "./components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs";
-import { Alert, AlertDescription } from "./components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "./components/ui/alert";
+import { MobileRecordList } from "./design-system/data/MobileRecordList.jsx";
 import { ThemeMenu } from "./design-system/theme/ThemeMenu.jsx";
 import { useTheme } from "./design-system/theme/ThemeProvider.jsx";
 import { ThemeSettings } from "./design-system/theme/ThemeSettings";
@@ -406,7 +422,6 @@ button:focus-visible{outline:2px solid ${C.yellow};outline-offset:2px}
 .arcd-btn[data-icon-only="true"]{width:36px;padding:0!important}
 .arcd-btn[data-size="sm"][data-icon-only="true"]{width:30px}
 .arcd-btn[data-size="lg"][data-icon-only="true"]{width:42px}
-.arcd-btn:not(:disabled):hover{background:var(--btn-hover)!important;border-color:var(--btn-hover-border)!important;box-shadow:none!important;filter:none}
 .arcd-btn:not(:disabled):active{transform:translateY(1px);filter:none}
 .arcd-btn[aria-busy="true"]{cursor:progress}
 .arcd-btn[aria-busy="true"] svg{animation:spin .8s linear infinite}
@@ -741,10 +756,10 @@ const DEFAULT = () => ({
     aliquotaCOFINS: 0,
     aliquotaIR: 0,
     aliquotaCSLL: 0,
-    approverEmail: "hygorlp@gmail.com",
+    approverEmail: companyIsolationActive() ? "" : "hygorlp@gmail.com",
     // Pasta geral compartilhada pelo administrador. Os arquivos continuam no
     // OneDrive; o banco guarda apenas este link e o link de cada obra.
-    oneDriveRootUrl: "https://1drv.ms/f/c/a55d2e2d0945f9e2/IgBoeuUoNoRhQ7ZCB6BqyWItATrPGETdoIzn_C95Np35poA?e=zfeVfe",
+    oneDriveRootUrl: companyIsolationActive() ? "" : "https://1drv.ms/f/c/a55d2e2d0945f9e2/IgBoeuUoNoRhQ7ZCB6BqyWItATrPGETdoIzn_C95Np35poA?e=zfeVfe",
     paymentHolidays: [],
     unionDues: normalizeUnionDuesConfig(),
   },
@@ -847,7 +862,8 @@ const normalizeData = incoming => {
     config: {
       ...base.config,
       ...(d.config || {}),
-      approverEmail: d.config?.approverEmail || "hygorlp@gmail.com",
+      approverEmail: d.config?.approverEmail || (companyIsolationActive() ? "" : "hygorlp@gmail.com"),
+      oneDriveRootUrl: d.config?.oneDriveRootUrl ?? (companyIsolationActive() ? "" : base.config.oneDriveRootUrl),
       hrPhone: d.config?.hrPhone || "",
       whatsappCompras: d.config?.whatsappCompras || "",
       aliquotaISS:    Number(d.config?.aliquotaISS    || 0),
@@ -2795,10 +2811,11 @@ function DashboardEngenheiro({data,update,showToast,onTab,currentUser,ultimaSync
 // Dashboard executivo premium. A tela trabalha por exceção: primeiro mostra
 // saúde da empresa, depois o que exige decisão e só então os resumos de apoio.
 function Dashboard({ data, update, showToast, onTab, onAbrirObra, ultimaSync, currentUser, onBuscar, onAtualizar, saveState }) {
+  const {navigate:navigateDashboard}=useWorkflow();
   const { cols, isDesktop } = useBreakpoint();
-  const [todosIndicadores,setTodosIndicadores]=useState(false);
+  const [todosIndicadores,setTodosIndicadores]=useWorkspaceState('home','todosIndicadores',false);
   const agora=new Date();
-  const [periodo,setPeriodo]=useState({y:agora.getFullYear(),m:agora.getMonth()});
+  const [periodo,setPeriodo]=useWorkspaceState('home','periodo',{y:agora.getFullYear(),m:agora.getMonth()});
   const year=periodo.y, month=periodo.m;
   const ym=`${year}-${String(month+1).padStart(2,"0")}`;
   const ehAtual=year===agora.getFullYear()&&month===agora.getMonth();
@@ -2874,22 +2891,24 @@ function Dashboard({ data, update, showToast, onTab, onAbrirObra, ultimaSync, cu
 
   return <div className="anim dashboard-tech-motion dashboard-command-center" style={{position:"relative",display:"flex",flexDirection:"column",gap:14,paddingBottom:16}}>
     <DashboardTechHero data={data} currentUser={currentUser} ultimaSync={ultimaSync} fila={filaOperador} onBuscar={onBuscar} onAtualizar={onAtualizar} onAbrir={onTab} periodo={`${fullMonth(month)} ${year}`} onAnterior={()=>irMes(-1)} onProximo={()=>irMes(1)} proximoDesabilitado={ehAtual} clima={resumoDiario.clima} saveState={saveState}/>
+    <ScopeNote title="Escopo dos indicadores">Consolidado do seu acesso · {fullMonth(month)} {year}. A seleção Obra em foco não filtra este painel. Suas obras hoje acompanha a operação na data de hoje.</ScopeNote>
     <section id="dashboard-indicators" className="dashboard-executive-grid" data-expanded={todosIndicadores} style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:cols(2,3,4),gap:10}}>
       {[
         // Os quatro primeiros são os que pedem decisão; os demais ficam em "Mais indicadores".
         // Cor só quando há desvio (negativo, crítico, pendente); o resto fica neutro.
-        {label:"Resultado operacional",value:fmt(exec.dre.lucroBruto),detail:exec.dre.faturamento?`Margem ${pct1(exec.dre.margemBruta)}`:"Sem faturamento no período",icon:"chart",color:exec.dre.lucroBruto<0?C.red:exec.dre.lucroBruto>0?C.green:C.muted,tab:"dre_emp"},
-        {label:"Saldo atual",value:fmt(exec.dre.saldoCaixa),detail:"Recebimentos menos custos",icon:"wallet",color:exec.dre.saldoCaixa<0?C.red:C.muted,tab:"dre"},
+        {label:"Resultado por competência",value:fmt(exec.dre.lucroBruto),detail:exec.dre.faturamento>0?`Margem sobre o faturamento: ${pct1(exec.dre.margemBruta)}`:"Sem faturamento positivo; margem não se aplica",icon:"chart",color:exec.dre.lucroBruto<0?C.red:exec.dre.lucroBruto>0?C.green:C.muted,tab:"dre_emp"},
+        {label:"Movimento líquido de caixa",value:fmt(exec.dre.saldoCaixa),detail:"Entradas menos saídas no mês",icon:"wallet",color:exec.dre.saldoCaixa<0?C.red:C.muted,tab:"dre"},
         // Uma contagem só para "crítico": alertas graves + ações urgentes da Central (a mesma que aparece em vermelho lá).
         {label:"Pendências críticas",value:prioridades.filter(a=>a.sev===3).length+filaOperador.filter(m=>m.severidade===3).length,detail:`${contar(filaOperador.filter(m=>m.severidade===3).length,"urgente","urgentes")} na Central · ${contar(prioridades.length,"alerta","alertas")}`,icon:"alert",color:(prioridades.some(a=>a.sev===3)||filaOperador.some(m=>m.severidade===3))?C.red:prioridades.length?C.orange:C.muted},
         {label:"Compras pendentes",value:exec.comprasPendentes+exec.solicitacoesAbertas,detail:`${exec.solicitacoesAbertas} aguardando análise`,icon:"cart",color:exec.comprasPendentes+exec.solicitacoesAbertas?C.orange:C.muted,tab:"cmp"},
-        {label:"Obras ativas",value:exec.obrasAtivas,detail:exec.obrasCriticas?`${exec.obrasCriticas} em situação crítica`:"Operação acompanhada",icon:"building",color:exec.obrasCriticas?C.red:C.muted,tab:"obras"},
-        {label:"Receitas do período",value:fmt(exec.dre.recebido),detail:`Faturado ${fmt(exec.dre.faturamento)}`,icon:"trending",color:C.muted,tab:"dre"},
-        {label:"Despesas do período",value:fmt(exec.dre.totalCustos),detail:exec.dre.faturamento?`${pct0(exec.dre.totalCustos/exec.dre.faturamento*100)} da receita`:"Sem receita faturada no período",icon:"receipt",color:C.muted,tab:"dre_emp"},
+        {label:"Obras ativas",value:exec.obrasAtivas,detail:exec.obrasCriticas?`${contar(exec.obrasCriticas,"crítica","críticas")} no cadastro completo`:"Sem críticas no critério executivo",icon:"building",color:exec.obrasCriticas?C.red:C.muted,tab:"obras"},
+        {label:"Entradas de caixa",value:fmt(exec.dre.recebido),detail:`Faturamento por competência: ${fmt(exec.dre.faturamento)}`,icon:"trending",color:C.muted,tab:"dre"},
+        {label:"Custos reconhecidos",value:fmt(exec.dre.totalCustos),detail:exec.dre.faturamento>0?`${pct0(exec.dre.totalCustos/exec.dre.faturamento*100)} do faturamento por competência`:"Sem faturamento positivo; percentual não se aplica",icon:"receipt",color:C.muted,tab:"dre_emp"},
         {label:"Leads em andamento",value:exec.leadsAtivos,detail:`${contar(novosLeads,"novo","novos")} no mês`,icon:"funnel",color:C.muted,tab:"com_funil"},
-      ].map(k=>{const acessivel=k.tab&&abasPermitidas.includes(k.tab);return k.tab&&!acessivel?null:<span key={k.label}><KpiCard {...k} animate={false} onClick={acessivel?()=>onTab(k.tab):undefined}/></span>;})}
+      ].map(k=>{const acessivel=k.tab&&abasPermitidas.includes(k.tab);return k.tab&&!acessivel?null:<span key={k.label}><KpiCard {...k} animate={false} onClick={acessivel?()=>{if(['dre','dre_emp'].includes(k.tab)&&navigateDashboard)navigateDashboard(k.tab,{obraId:'',year,month,period:'mes'});else onTab(k.tab);}:undefined}/></span>;})}
     </section>
     <Button variant="ghost" className="dashboard-indicators-toggle" aria-expanded={todosIndicadores} aria-controls="dashboard-indicators" onClick={()=>setTodosIndicadores(value=>!value)}>{todosIndicadores?"Menos indicadores":"Mais indicadores"} <span aria-hidden="true">{todosIndicadores?"▴":"▾"}</span></Button>
+    <DashboardFinancialReading dre={exec.dre} period={`${fullMonth(month)} ${year}`} showCash={abasPermitidas.includes('dre')} showResult={abasPermitidas.includes('dre_emp')}/>
     <div className="dashboard-work-grid">
     {veObras&&<GestaoAVistaObras resumo={gestaoAVista} hoje={hoje} onAbrirObra={onAbrirObra} custoStatus={custosObras.status}/>}
 
@@ -3030,6 +3049,8 @@ function DRE({data,showToast,currentUser=null,obraIdFixo="",dispatchCommand=null
 }
 
 function DRELegado({ data, showToast, currentUser=null, obraIdFixo="", dispatchCommand=null }) {
+  const {isDesktop}=useBreakpoint();
+  const dreControls=useRef(null);
   const {intent}=useWorkflow();
   const useSessionState=(key,initial)=>useWorkspaceState("dre",key,initial,obraIdFixo);
   useWorkspaceScroll("dre",obraIdFixo);
@@ -3056,33 +3077,49 @@ function DRELegado({ data, showToast, currentUser=null, obraIdFixo="", dispatchC
   const [filtroDetalhe, setFiltroDetalhe] = useSessionState("filtroDetalhe",{ busca:"", categoria:"todos", obra:"todas", ordem:"data_desc" });
   const [avaliacaoCFOObra,setAvaliacaoCFOObra]=useState(null);
   const [avaliandoCFOObra,setAvaliandoCFOObra]=useState(false);
-  const [razaoDRE,setRazaoDRE]=useState({consolidado:null,obra:null});
+  const [respostaDRE,setRespostaDRE]=useState(null);
+  const [tentativaDRE,setTentativaDRE]=useState(0);
+  const pedidoCFO=useRef(0);
   const DF = k => v => setDespForm(f=>({...f,[k]:v}));
 
   const obraFinanceiraId = obraIdFixo || selObra;
+  const consultaDRE=useMemo(()=>({year,month,period:periodoDRE,obraId:obraFinanceiraId}),[year,month,periodoDRE,obraFinanceiraId,data,tentativaDRE]);
+  const respostaAtual=respostaDRE?.consulta===consultaDRE?respostaDRE:null;
+  const razaoDRE=respostaAtual||{};
+  const carregandoObra=view==="obra"&&Boolean(obraFinanceiraId)&&!respostaAtual;
+  const relatorioObra=razaoDRE.obra;
+  const razaoObraDisponivel=["canonical_ledger","closed_snapshot"].includes(relatorioObra?.source)
+    &&["faturamento","recebido","totalCustos","lucroBruto"].every(campo=>Number.isFinite(relatorioObra.current?.[campo]));
+  const exibirAvisoCalculoLocal=view==="obra"&&Boolean(obraFinanceiraId)&&Boolean(respostaAtual)&&!razaoObraDisponivel;
+  const bloquearPdfObra=view==="obra"&&!razaoObraDisponivel;
   const dreLegado = useMemo(()=>calcDREConsolidado(data,year,month,periodoDRE), [data,year,month,periodoDRE]);
   const dreObraLegado = useMemo(()=>calcDREObra(data,obraFinanceiraId,year,month,periodoDRE), [data,obraFinanceiraId,year,month,periodoDRE]);
   useEffect(()=>{
     let ativo=true;
-    Promise.all([
-      consultarDreCanonico({year,month,period:periodoDRE}),
-      obraFinanceiraId?consultarDreCanonico({year,month,period:periodoDRE,obraId:obraFinanceiraId}):Promise.resolve(null),
+    Promise.allSettled([
+      consultarDreCanonico({...consultaDRE,obraId:""}),
+      consultaDRE.obraId?consultarDreCanonico(consultaDRE):Promise.resolve(null),
     ]).then(([consolidado,obra])=>{
       if(!ativo)return;
-      setRazaoDRE({
-        consolidado:consolidado?.status===200?consolidado:null,
-        obra:obra?.status===200?obra:null,
+      setRespostaDRE({
+        consulta:consultaDRE,
+        consolidado:consolidado.value?.status===200?consolidado.value:null,
+        obra:obra.value?.status===200?obra.value:null,
       });
     });
     return()=>{ativo=false;};
-  },[year,month,periodoDRE,obraFinanceiraId,data]);
+  },[consultaDRE]);
   // FIN-002 já provou a igualdade em produção. A fonte visual do DRE passa a
   // ser o evento canônico; o cálculo legado fica somente como complemento de
   // detalhes que ainda não possuem projeção própria, não como indicador.
   const aplicarRazao=(legado,relatorio)=>relatorio?.source==="canonical_ledger"&&relatorio.current
     ? {...legado,...relatorio.current,fonteFinanceira:"razao_canonico"} : legado;
   const dre = useMemo(()=>aplicarRazao(dreLegado,razaoDRE.consolidado),[dreLegado,razaoDRE.consolidado]);
-  const dreObra = useMemo(()=>aplicarRazao(dreObraLegado,razaoDRE.obra),[dreObraLegado,razaoDRE.obra]);
+  const [dreWorkSearch,setDreWorkSearch]=useSessionState('workSearch','');
+  const dreWorksPage=useRecordPage('dre',dre.obras.filter(o=>String(o.obra?.name||'').toLocaleLowerCase('pt-BR').includes(dreWorkSearch.trim().toLocaleLowerCase('pt-BR'))),JSON.stringify([year,month,periodoDRE,dreWorkSearch]));
+  const dreObra = useMemo(()=>razaoObraDisponivel
+    ? {...dreObraLegado,...relatorioObra.current,fonteFinanceira:"razao_canonico"}
+    : dreObraLegado,[dreObraLegado,relatorioObra,razaoObraDisponivel]);
   // A visão selecionada é a única fonte dos cards, do período e do extrato.
   // Antes, apenas o demonstrativo inferior mudava para a obra; os KPIs
   // permaneciam presos ao consolidado.
@@ -3119,9 +3156,15 @@ function DRELegado({ data, showToast, currentUser=null, obraIdFixo="", dispatchC
   const period = `${periodoDRE==="q1"?"1ª quinzena (06–20) · ":periodoDRE==="q2"?"2ª quinzena (21–05) · ":""}${fullMonth(month)} ${year}`;
   const fmt2 = n=>Number(n||0).toFixed(2).replace(".",",");
 
-  useEffect(()=>{setAvaliacaoCFOObra(null);},[obraFinanceiraId,year,month,periodoDRE]);
+  useEffect(()=>{
+    setAvaliacaoCFOObra(null);
+    setAvaliandoCFOObra(false);
+    return()=>{pedidoCFO.current+=1;};
+  },[consultaDRE]);
+  useEffect(()=>{setDetalheKpi("");},[consultaDRE,view]);
 
   const analisarObraComoCFO=async()=>{
+    const pedido=++pedidoCFO.current;
     setAvaliandoCFOObra(true);
     try{
       const obra=dreObra.obra||{};
@@ -3139,11 +3182,12 @@ function DRELegado({ data, showToast, currentUser=null, obraIdFixo="", dispatchC
 {"veredicto":"saudavel|atencao|critico","avaliacao":"4 a 6 frases com o diagnóstico executivo","maoDeObra":{"veredicto":"adequada|revisar|inconclusivo","analise":"avalie custo, pessoas e homem-dias sem inventar produtividade física","evidencias":["números recebidos"],"decisao":"ação objetiva"},"historico":{"leitura":"evolução mês a mês","melhorMes":"mês e motivo numérico","piorMes":"mês e motivo numérico","tendencia":"melhora|estavel|piora|inconclusiva"},"decisoes":[{"prioridade":1,"acao":"decisão","impactoEsperado":"efeito financeiro sem inventar valor","prazo":"Hoje|7 dias|30 dias","indicador":"métrica"}],"riscos":["com evidência"],"dadosFaltantes":["o que impede conclusão"],"conclusao":"veredicto final direto"}.
 Regras: diferencie faturamento de recebimento; não conclua excesso de pessoas apenas pelo número do efetivo; use custo de MO, homem-dias, faturamento, margem e histórico. Se não houver produção física ou planejamento, declare que a produtividade é inconclusiva e recomende qual dado acompanhar.`;
       const resposta=await chamarIA({modulo:"dre",prompt,contexto});
+      if(pedido!==pedidoCFO.current)return;
       if(!resposta.ok)throw new Error(resposta.error||"O Gemini não respondeu.");
       setAvaliacaoCFOObra({...jsonDaRespostaIA(resposta.reply||resposta.answer),geradoEm:new Date().toISOString()});
       showToast("Avaliação do CFO gerada para a obra.");
-    }catch(error){showToast(error.message||"Não foi possível gerar a avaliação do CFO.","error");}
-    finally{setAvaliandoCFOObra(false);}
+    }catch(error){if(pedido===pedidoCFO.current)showToast(error.message||"Não foi possível gerar a avaliação do CFO.","error");}
+    finally{if(pedido===pedidoCFO.current)setAvaliandoCFOObra(false);}
   };
 
   const movimentosDRE = useMemo(() => {
@@ -3352,7 +3396,9 @@ Regras: diferencie faturamento de recebimento; não conclua excesso de pessoas a
 
   //  PDF do DRE
   const gerarPDF = () => {
+    if(bloquearPdfObra)return;
     const isConsolidado = view==="consolidado"||view==="historico";
+    const resumoPdf = isConsolidado ? dre : dreObra;
     const titulo = isConsolidado ? `DRE Consolidado - ${period}` : `DRE ${dreObra.obra?.name||""} - ${period}`;
 
     const dreTableRows = (obj) => `
@@ -3427,14 +3473,14 @@ h3{font-size:12px;font-weight:900;color:#2563eb}
 </div>
 
 <div class="kpis">
-  <div class="kpi green"><p class="kpi-l">Faturamento</p><p class="kpi-v">R$ ${fmt2(dre.faturamento)}</p></div>
-  <div class="kpi blue"><p class="kpi-l">Recebido</p><p class="kpi-v">R$ ${fmt2(dre.recebido)}</p></div>
-  <div class="kpi red"><p class="kpi-l">Total Custos</p><p class="kpi-v">R$ ${fmt2(dre.totalCustos)}</p></div>
-  <div class="kpi ${dre.lucroBruto>=0?"green":"red"}"><p class="kpi-l">Lucro Bruto</p><p class="kpi-v">R$ ${fmt2(dre.lucroBruto)}</p></div>
+  <div class="kpi green"><p class="kpi-l">Faturamento</p><p class="kpi-v">R$ ${fmt2(resumoPdf.faturamento)}</p></div>
+  <div class="kpi blue"><p class="kpi-l">Recebido</p><p class="kpi-v">R$ ${fmt2(resumoPdf.recebido)}</p></div>
+  <div class="kpi red"><p class="kpi-l">Total Custos</p><p class="kpi-v">R$ ${fmt2(resumoPdf.totalCustos)}</p></div>
+  <div class="kpi ${resumoPdf.lucroBruto>=0?"green":"red"}"><p class="kpi-l">Lucro Bruto</p><p class="kpi-v">R$ ${fmt2(resumoPdf.lucroBruto)}</p></div>
 </div>
 
 <h2>${isConsolidado?"DRE Consolidado":"DRE - "+escapeHtml(dreObra.obra?.name||"")}</h2>
-<table class="dre-table"><tbody>${dreTableRows(isConsolidado?dre:dreObra)}</tbody></table>
+<table class="dre-table"><tbody>${dreTableRows(resumoPdf)}</tbody></table>
 
 ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`:""}
 
@@ -3495,6 +3541,15 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
     setView(proximaVisao);
     if (proximaVisao === "historico") setPeriodoDRE("mes");
   };
+  const dreViews=[
+    ["consolidado","Consolidado","Visão geral de todas as obras"],
+    ["obra","Por obra","Detalhamento individual"],
+    ["historico","Evolução mensal","Comparativo dos últimos meses"],
+  ];
+  const dreWorkSelector=<Sel label="Obra em análise" value={selObra} onChange={setSelObra} options={data.obras.map(o=>({v:o.id,l:o.name}))}/>;
+  const despesasVisiveis=(data.outrasDesp||[]).filter(d=>
+    d.competencia===`${year}-${String(month+1).padStart(2,"0")}`&&
+    (!(obraIdFixo||view==="obra")||d.obraId===obraFinanceiraId));
 
   return (
     <div className="anim dre-page" style={{display:"flex",flexDirection:"column",gap:14}}>
@@ -3504,8 +3559,12 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
         title="DRE por Obra"
         description="Faturamento, custos, resultado, caixa e posição dos contratos."
       />
+      <ScopeNote title="Recorte deste DRE">{view==='obra'?`Obra ${data.obras.find(o=>o.id===selObra)?.name||'não disponível'}`:'Consolidado do seu acesso'} · {view==='historico'?`Evolução mensal até ${fullMonth(month)} ${year}`:`${fullMonth(month)} ${year} · ${periodoDRE==='mes'?'mês completo':periodoDRE==='q1'?'1ª quinzena (06–20)':'2ª quinzena (21–05)'}`}. Os filtros deste demonstrativo definem a consulta; Obra em foco é preservada para as telas operacionais.</ScopeNote>
 
-      <section className="dre-toolbar" aria-label="Filtros e visualização do DRE">
+      <section ref={dreControls} className="dre-toolbar" aria-label="Filtros e visualização do DRE">
+        {!isDesktop&&!obraIdFixo&&<Sel label="Visão do DRE" value={view} onChange={mudarVisaoDRE} options={dreViews.map(([v,l])=>({v,l}))}/>}
+        {!isDesktop&&!obraIdFixo&&view==="obra"&&dreWorkSelector}
+        <TaskDisclosure enabled={!isDesktop} summary={`Período de análise · ${period}`}>
         <div className="dre-toolbar-heading">
           <div>
             <p>Período de análise</p>
@@ -3530,15 +3589,20 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
             ?"mês civil. Inclui partes de três ciclos de folha; não deve ser comparado diretamente com uma única quinzena."
             :`mesmos dias da Folha de Pagamento: ${fmtDate(dreObra.per0||dre.per0)} a ${fmtDate(dreObra.perF||dre.perF)}.`}</p>
         </div>
-
-        {!obraIdFixo&&<TabRow equal tabs={[
-          ["consolidado","Consolidado","Visão geral de todas as obras"],
-          ["obra","Por obra","Detalhamento individual"],
-          ["historico","Evolução mensal","Comparativo dos últimos meses"],
-        ]} active={view} onChange={mudarVisaoDRE}/>}
+        </TaskDisclosure>
+        {isDesktop&&!obraIdFixo&&<TabRow equal tabs={dreViews} active={view} onChange={mudarVisaoDRE}/>}
+        {isDesktop&&!obraIdFixo&&view==="obra"&&<div className="dre-work-selector">{dreWorkSelector}</div>}
       </section>
 
-      {/* KPI cards sempre visíveis */}
+      {exibirAvisoCalculoLocal&&<Alert variant="warning" role="status">
+        <AlertTitle>Cálculo local da obra</AlertTitle>
+        <AlertDescription>
+          <p>O razão financeiro não retornou os valores desta obra no período. Os valores abaixo foram calculados com os dados disponíveis no app. O PDF será liberado quando o razão retornar o demonstrativo.</p>
+          <Btn v="ghost" onClick={()=>setTentativaDRE(tentativa=>tentativa+1)}>Tentar novamente</Btn>
+        </AlertDescription>
+      </Alert>}
+      {carregandoObra?<LoadingState label="o DRE da obra"/>:<>
+      {/* KPI cards do recorte atual */}
       <div className="dre-kpi-grid">
         {[
           ["faturamento","Faturamento",  dreResumo.faturamento,  C.green,  `${period}`],
@@ -3557,7 +3621,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
       {/*  VIEW: CONSOLIDADO  */}
       {view==="consolidado"&&(
         <div style={{display:"flex",flexDirection:"column",gap:6}}>
-          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
+          <TaskDisclosure summary="Demonstrativo consolidado completo" defaultOpen={isDesktop}><div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
             <div style={{padding:"8px 14px",background:`${C.green}10`,borderBottom:`1px solid ${C.line}`}}>
               <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-card-title)",color:C.green,textTransform:"uppercase"}}>DRE Consolidado - {period}</p>
             </div>
@@ -3583,6 +3647,8 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
             <DRERow label="Backlog disponível"  value={dre.backlog}      color={dre.backlog>0?C.yellow:C.muted}/>
           </div>
 
+          </TaskDisclosure>
+          <TaskDisclosure summary="Gráficos do consolidado" defaultOpen={isDesktop}>
           {/* Gráfico: Faturamento vs Lucro 6 meses */}
           <Suspense fallback={<LoadingState label="gráfico"/>}>
             <LazyDreFaturamentoResultadoChart hist={hist}/>
@@ -3593,18 +3659,30 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
             <LazyDreDistribuicaoCustosChart dre={dre}/>
           </Suspense>
 
+          </TaskDisclosure>
           {/* Por obra compact */}
           <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:1}}>Resumo por obra</p>
-          {dre.obras.map(o=>renderObraDRE(o,true))}
+          <Inp label="Pesquisar obra no resumo do DRE" value={dreWorkSearch} onChange={setDreWorkSearch}/>
+          <ScopeNote title="Resumo por obra">A busca e a paginação não alteram os totais consolidados nem o relatório exportado.</ScopeNote>
+          <RecordListPagination pagination={dreWorksPage} label="obras no DRE"/>
+          {dreWorksPage.rows.map(o=>isDesktop?renderObraDRE(o,true):o.obra&&
+            <RecordAction key={o.obra.id} className="w-full" aria-label={`Abrir DRE de ${o.obra.name}`} onClick={()=>{
+              setSelObra(o.obra.id);mudarVisaoDRE("obra");
+              requestAnimationFrame(()=>dreControls.current?.querySelector("select")?.focus());
+            }}>
+              <span className="grid gap-1">
+                <strong>{o.obra.name}</strong>
+                <span>Lucro bruto {fmt(o.lucroBruto)} · Margem {pct1(o.margemBruta)}</span>
+              </span>
+            </RecordAction>)}
         </div>
       )}
 
       {/*  VIEW: POR OBRA  */}
       {view==="obra"&&(
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          {!obraIdFixo&&<div className="dre-work-selector">
-            <Sel label="Obra em análise" value={selObra} onChange={setSelObra} options={data.obras.map(o=>({v:o.id,l:o.name}))}/>
-          </div>}
+          {!isDesktop&&<TaskDisclosure summary="Demonstrativo da obra">{renderObraDRE(dreObra,false)}</TaskDisclosure>}
+          <TaskDisclosure enabled={!isDesktop} summary="Avaliação do CFO">
           <section className="dre-ai-full-report" style={{marginTop:0}}>
             <header>
               <div><p>Gemini · direção financeira</p><h3>Avaliação do CFO</h3></div>
@@ -3628,10 +3706,12 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
               {(avaliacaoCFOObra.dadosFaltantes||[]).length>0&&<><p className="dre-ai-report-label">Dados necessários para uma decisão mais precisa</p><ul>{avaliacaoCFOObra.dadosFaltantes.map((x,i)=><li key={i}>{x}</li>)}</ul></>}
             </>}
           </section>
-          {renderObraDRE(dreObra,false)}
+          </TaskDisclosure>
+          {isDesktop&&renderObraDRE(dreObra,false)}
         </div>
       )}
 
+      </>}
       {/*  VIEW: HISTÓRICO  */}
       {view==="historico"&&(
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -3672,12 +3752,12 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
       </button>
 
       {/* Outras despesas do mês */}
-      {(data.outrasDesp||[]).filter(d=>d.competencia===`${year}-${String(month+1).padStart(2,"0")}`&&(!obraIdFixo||d.obraId===obraIdFixo)).length>0&&(
+      {!carregandoObra&&despesasVisiveis.length>0&&(
         <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
           <div style={{padding:"8px 14px",borderBottom:`1px solid ${C.line}`,background:`${C.orange}10`}}>
             <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-body)",color:C.orange,textTransform:"uppercase"}}>Outras despesas - {period}</p>
           </div>
-          {(data.outrasDesp||[]).filter(d=>d.competencia===`${year}-${String(month+1).padStart(2,"0")}`&&(!obraIdFixo||d.obraId===obraIdFixo)).map(d=>(
+          {despesasVisiveis.map(d=>(
             <div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 14px",borderBottom:`1px solid ${C.line}22`}}>
               <div>
                 <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600}}>{d.descricao||d.categoria}</p>
@@ -3694,11 +3774,11 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
 
       {/* Exportações */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-        <Btn onClick={gerarPDF} v="secondary" full><Ic n="file"/> DRE PDF</Btn>
-        <Btn onClick={exportXLS} v="success" full><Ic n="download"/> Excel Completo</Btn>
+        <Btn onClick={gerarPDF} disabled={bloquearPdfObra} v="secondary" full><Ic n="file"/> DRE PDF</Btn>
+        <Btn onClick={exportXLS} disabled={carregandoObra} v="success" full><Ic n="download"/> Excel Completo</Btn>
       </div>
 
-      {detalheKpi&&(
+      {detalheKpi&&!carregandoObra&&(
         <Modal title={{
           faturamento:"Detalhamento do faturamento",recebido:"Recebimentos do período",
           custos:"Pagamentos e custos do período",lucro:"Composição do lucro bruto",
@@ -4146,13 +4226,12 @@ function RankingFinanceiro({data,year,month,obraId="",onSelecionarObra,C=C_ARCD_
 }
 
 function HomologacaoFinanceira({data,showToast,C=C_ARCD_SETOR}){
+  const {isMobile}=useBreakpoint();
   const [relatorio,setRelatorio]=useState(null);
   const [erro,setErro]=useState("");
   const [carregando,setCarregando]=useState(true);
   const [migrando,setMigrando]=useState(false);
   const [sincronizando,setSincronizando]=useState(false);
-  const metricas={billed:"Faturado",received:"Recebido",thirdParty:"Terceiros",expenses:"Despesas da obra",companyExpenses:"Despesas da empresa",purchases:"Compras"};
-  const obraNome=id=>id==="empresa"?"Empresa":data.obras.find(obra=>String(obra.id)===String(id))?.name||id;
   const carregar=useCallback(async()=>{
     setCarregando(true);
     const resposta=await consultarSombraFinanceira();
@@ -4171,37 +4250,21 @@ function HomologacaoFinanceira({data,showToast,C=C_ARCD_SETOR}){
     await carregar();
   };
   const sincronizar=async()=>{
-    if(!window.confirm("Executar a carga idempotente do legado no razão canônico? O motor continuará em sombra e a flag não será ativada automaticamente."))return;
+    if(!window.confirm("Executar a carga idempotente do legado no razão canônico? Esta ação grava a sincronização dos registros de origem e não altera a ativação do motor. Confira as divergências antes de continuar."))return;
     setSincronizando(true);
     const resposta=await sincronizarSombraFinanceira();
     setSincronizando(false);
     if(!resposta.ok){showToast(resposta.error||"A carga em sombra falhou.","error");return;}
     setRelatorio(resposta);
     const totalDivergencias=(resposta.divergencias?.length||0)+(resposta.divergenciasDRE?.length||0);
-    showToast(resposta.prontoParaAtivar?"Carga concluída sem divergências. Gate FIN-003 liberado.":`Carga concluída com ${contar(totalDivergencias,"divergência","divergências")} para revisão.`,resposta.prontoParaAtivar?undefined:"warn");
+    showToast(resposta.prontoParaAtivar?"Carga concluída. Atualize o relatório para conferir as verificações da homologação.":`Carga concluída com ${contar(totalDivergencias,"divergência","divergências")} para revisão.`,resposta.prontoParaAtivar?undefined:"warn");
   };
-  const contagens=relatorio?.contagens||{};
-  return <div className="anim" style={{display:"flex",flexDirection:"column",gap:10}}>
-    <PageHero headingLevel={2} eyebrow="FIN-002 · controle de migração" title="Homologação em sombra" description="Compara cada fato financeiro do legado com o razão canônico antes de bloquear as escritas antigas." actions={<div style={{display:"flex",gap:6}}><Btn v="ghost" onClick={carregar} disabled={carregando}>Atualizar relatório</Btn><Btn v="success" onClick={sincronizar} disabled={sincronizando||carregando}>{sincronizando?"Carregando fatos...":"Executar carga idempotente"}</Btn></div>}/>
+  return <div className="record-recovery">
+    <PageHero headingLevel={2} title="Homologação financeira" description={isMobile?undefined:"Compare os dados de origem, o razão financeiro e as projeções do DRE. Consultar não altera registros."} actions={<div className="closing-pending__actions"><Btn v="ghost" onClick={carregar} disabled={carregando}>Atualizar relatório</Btn></div>}/>
     {carregando&&<LoadingState label="o razão canônico"/>}
-    {!carregando&&!relatorio&&<div style={{padding:18,border:`1px solid ${C.red}`,borderRadius:8,color:C.red}}><b>Banco ainda não preparado</b><p style={{fontSize:"var(--arcd-type-label)",margin:"5px 0 10px"}}>{erro||"Relatório indisponível."}</p><Btn onClick={preparar} disabled={migrando}>{migrando?"Aplicando migration...":"Preparar banco com segurança"}</Btn></div>}
-    {relatorio&&<><div style={{padding:"11px 13px",border:`1px solid ${relatorio.prontoParaAtivar?C.green:C.orange}`,borderLeft:`1px solid ${relatorio.prontoParaAtivar?C.green:C.orange}`,borderRadius:8,background:relatorio.prontoParaAtivar?`${C.green}08`:`${C.orange}08`}}>
-      <b style={{fontSize:"var(--arcd-type-body)",color:relatorio.prontoParaAtivar?C.green:C.orange}}>{relatorio.prontoParaAtivar?"Divergência zero · pronto para o gate FIN-003":"Motor permanece em sombra"}</b>
-      <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3}}>{relatorio.engineEnforced?"FINANCIAL_ENGINE_ENFORCE está ativo.":"O legado continua gravável; nenhuma ativação automática foi feita."}</p>
-    </div>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:6}}>{[
-      ["Fatos legados",contagens.fatosLegados||0],["Títulos canônicos",contagens.titulos||0],
-      ["Liquidações",contagens.liquidacoes||0],["Transações bancárias",contagens.transacoesLegadas||0],
-      ["Projeções DRE",contagens.projecoesDRE||0],["Vínculos de conciliação",contagens.vinculosConciliacao||0],
-      ["Divergências",Number(relatorio.divergencias?.length||0)+Number(relatorio.divergenciasDRE?.length||0)],
-    ].map(([label,value])=><div key={label} style={{padding:"9px 11px",border:`1px solid ${C.border}`,borderRadius:7,background:C.card}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>{label}</p><b style={{fontSize:"var(--arcd-type-section-title)",color:label==="Divergências"&&value?C.red:C.text}}>{value}</b></div>)}</div>
-    <div style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
-      <div style={{padding:"8px 11px",background:C.surface,borderBottom:`1px solid ${C.border}`}}><b style={{fontSize:"var(--arcd-type-label)"}}>Comparação por obra e empresa</b></div>
-      {!relatorio.divergencias?.length?<p style={{padding:18,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.green}}>Todos os totais homologados coincidem.</p>:relatorio.divergencias.map((item,index)=><div key={`${item.scope}-${item.metric}`} style={{display:"grid",gridTemplateColumns:"minmax(140px,1fr) 150px repeat(3,120px)",gap:8,padding:"8px 11px",borderTop:index?`1px solid ${C.line}`:"none",alignItems:"center",fontSize:"var(--arcd-type-label)"}}>
-        <b>{obraNome(item.scope)}</b><span>{metricas[item.metric]||item.metric}</span><span>Legado: {fmt(item.legacyAmount)}</span><span>Razão: {fmt(item.canonicalAmount)}</span><b style={{color:C.red}}>Δ {fmt(item.difference)}</b>
-      </div>)}
-    </div>
-    {relatorio.ultimaCarga&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Última carga: {new Date(relatorio.ultimaCarga.created_at).toLocaleString("pt-BR")} · execução {relatorio.ultimaCarga.id}</p>}</>}
+    {!carregando&&!relatorio&&<div role="alert"><h3>Não foi possível consultar a homologação</h3><p>{erro||"Relatório indisponível. Confira a conexão e tente Atualizar relatório."}</p><p>Uma consulta indisponível não significa que o banco precisa de preparação.</p><TaskDisclosure summary="Preparação técnica do banco"><p>Use somente após o responsável técnico confirmar a necessidade. Esta ação aplica a preparação existente e não altera a ativação do motor.</p><Btn onClick={preparar} disabled={migrando}>{migrando?"Preparando banco...":"Preparar banco com segurança"}</Btn></TaskDisclosure></div>}
+    {relatorio&&<FinancialHomologationReport report={relatorio} works={data.obras||[]}/>}
+    <TaskDisclosure summary="Sincronização técnica dos registros"><p>Esta operação grava a sincronização existente. Confira o diagnóstico com o responsável financeiro antes de executar; ela não ativa nem desativa o motor.</p><Btn v="ghost" onClick={sincronizar} disabled={sincronizando||carregando}>{sincronizando?"Sincronizando registros...":"Executar carga idempotente"}</Btn></TaskDisclosure>
   </div>;
 }
 
@@ -4338,7 +4401,7 @@ function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatch
   useSyncedWorkObra(filterObra,setFilterObra,{allowedIds:(data.obras||[]).map(o=>o.id),allValue:"all"});
   useEffect(()=>{rememberScope?.("fin",{obraId:filterObra==="all"?"":filterObra,year,month,period:"mes"});},[filterObra,year,month,rememberScope]);
   useEffect(()=>{
-    if(intent?.tabId!=="fin"||intent.action==="resume")return;
+    if(intent?.tabId!=="fin"||intent.action==="resume"||intent.linked===false)return;
     setFilterObra(currentUser?.obraId||intent.scope?.obraId||"all");
     if(intent.scope?.year!=null)setYear(intent.scope.year);
     if(intent.scope?.month!=null)setMonth(intent.scope.month);
@@ -4740,7 +4803,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState(empty);
   const [clienteModal,setClienteModal]=useState(null);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useWorkspaceState("obras","search","");
   const [oneDriveStatus, setOneDriveStatus] = useState("checking");
   const [sincronizandoPastas,setSincronizandoPastas]=useState(false);
   const [erroPastas,setErroPastas]=useState("");
@@ -4749,7 +4812,6 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
   const [reviewingProject,setReviewingProject]=useState(false);
   const [undoMove,setUndoMove]=useState(null);
   const [expandedAlerts,setExpandedAlerts]=useState(new Set());
-  const syncPastasIniciado=useRef(false);
   const ehAdmin=currentUser?.role==="admin";
   const engenheiros=(data.usuarios||[]).filter(u=>u.active!==false&&u.role==="engenheiro");
   const clientes=data.comercial?.clientes||[];
@@ -4775,10 +4837,10 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
     if(!ehAdmin){setOneDriveStatus("restricted");return;}
     statusOneDrive().then(r=>setOneDriveStatus(r.ok?"connected":"disconnected"));
   },[ehAdmin]);
-  const sincronizarPastas=useCallback(async(forcar=false)=>{
+  const sincronizarPastas=useCallback(async()=>{
     if(!ehAdmin||oneDriveStatus!=="connected"||sincronizandoPastas)return;
-    const candidatas=(data.obras||[]).filter(o=>o.name&&(forcar||Number(o.oneDriveStructureVersion||0)<2));
-    if(!candidatas.length){if(forcar)showToast("Todas as obras já estão com a estrutura documental preparada.");return;}
+    const candidatas=(data.obras||[]).filter(o=>o.name);
+    if(!candidatas.length){showToast("Nenhuma obra disponível para preparar pastas.");return;}
     setSincronizandoPastas(true);setErroPastas("");
     try{
       const resp=await sincronizarEstruturasOneDrive(candidatas.map(o=>({id:o.id,name:o.name,driveId:o.oneDriveDriveId||"",folderId:o.oneDriveFolderId||""})));
@@ -4786,12 +4848,15 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
       if(!resultados.length)throw new Error(resp.error||"O OneDrive não retornou a estrutura das obras.");
       const porId=new Map(resultados.map(r=>[r.id,r]));
       const agora=new Date().toISOString();
-      const obras=(data.obras||[]).map(o=>{
+      const aplicarPastas=o=>{
         const r=porId.get(o.id);if(!r?.ok||!r.workspace)return o;
         const completa=Number(r.migracao?.conflitos||0)===0;
         return {...o,oneDriveDriveId:r.workspace.driveId||o.oneDriveDriveId,oneDriveFolderId:r.workspace.folderId||o.oneDriveFolderId,oneDriveFolders:r.workspace.folders||o.oneDriveFolders,oneDriveUrl:r.workspace.webUrl||o.oneDriveUrl,oneDriveStructureVersion:completa?2:1,oneDriveStructureSyncedAt:agora};
-      });
-      update({...data,obras});
+      };
+      if(resultados.some(r=>r.ok&&r.workspace)){
+        const saved=await update(current=>({...current,obras:(current.obras||[]).map(aplicarPastas)}));
+        if(!saved?.ok)throw new Error("As pastas foram processadas no OneDrive. Confira o salvamento para registrar os vínculos na central.");
+      }
       const preparadas=resultados.filter(r=>r.ok).length;
       const movidos=resultados.reduce((s,r)=>s+Number(r.migracao?.movidos||0),0);
       const conflitos=resultados.reduce((s,r)=>s+Number(r.migracao?.conflitos||0),0);
@@ -4801,12 +4866,6 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
     }catch(e){setErroPastas(e.message||"Não foi possível preparar as pastas das obras.");}
     finally{setSincronizandoPastas(false);}
   },[data,ehAdmin,oneDriveStatus,showToast,sincronizandoPastas,update]);
-  useEffect(()=>{
-    if(!ehAdmin||oneDriveStatus!=="connected"||syncPastasIniciado.current)return;
-    if(!(data.obras||[]).some(o=>Number(o.oneDriveStructureVersion||0)<2))return;
-    syncPastasIniciado.current=true;
-    void sincronizarPastas(false);
-  },[data.obras,ehAdmin,oneDriveStatus,sincronizarPastas]);
 
   //  Kanban
   const [vista,      setVista]      = useState("lista");   // "lista" | "quadro"
@@ -4816,7 +4875,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
   const [arrastando, setArrastando] = useState(null);      // id da obra em arraste
   const [sobreFase,  setSobreFase]  = useState(null);      // id da coluna sob o cursor
   const [menuCard,   setMenuCard]   = useState(null);      // id da obra c/ menu aberto
-  const [categoria,  setCategoria]  = useState("todas");
+  const [categoria,  setCategoria]  = useWorkspaceState("obras","category","todas");
 
   const fases = useMemo(
     () => [...(data.fases || [])].sort((a, b) => a.ordem - b.ordem),
@@ -5104,6 +5163,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
     || (categoria === "concluidas" && o.status === "done");
   const termoBusca=search.toLocaleLowerCase("pt-BR");
   const list = obrasComando.filter(o => correspondeCategoria(o) && [o.name,o.cliente,o.address,o.engineer,o._fase?.nome].some(v=>String(v||"").toLocaleLowerCase("pt-BR").includes(termoBusca)));
+  const worksPage=useRecordPage('obras',list,JSON.stringify([categoria,search]));
   const resumoOperacional = contagensObras.atencao
     // Aqui é cadastro (dados faltando), não a situação de custo e prazo do Dashboard: nome próprio para não parecer contradição.
     ? `${contagensObras.atencao} ${contagensObras.atencao === 1 ? "obra com cadastro" : "obras com cadastro"} a completar`
@@ -5115,6 +5175,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
         eyebrow="MARCELL · Engenharia operacional"
         title="Central de obras"
         description="Encontre a obra certa, entenda o que exige atenção e siga para a próxima ação."
+        statsDisclosure={!isDesktop}
         alert={{tone:contagensObras.atencao?"warning":"success",text:resumoOperacional}}
         stats={[
           {label:"Obras ativas",value:obrasComando.filter(o=>o.status==="active").length,detail:"Em operação"},
@@ -5125,7 +5186,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
         actions={<>
           {ehAdmin&&<details className="works-files"><summary>Arquivos e pastas</summary><div>
           {ehAdmin&&<Btn v="ghost" onClick={()=>abrirOneDrive(data.config?.oneDriveRootUrl)}><Ic n="folder" s={14}/> Arquivos gerais</Btn>}
-          {ehAdmin&&oneDriveStatus==="connected"&&<Btn v="ghost" disabled={sincronizandoPastas} onClick={()=>sincronizarPastas(true)}><Ic n="folder" s={14}/> {sincronizandoPastas?"Preparando pastas...":"Preparar pastas"}</Btn>}
+          {ehAdmin&&oneDriveStatus==="connected"&&<Btn v="ghost" disabled={sincronizandoPastas} onClick={sincronizarPastas}><Ic n="folder" s={14}/> {sincronizandoPastas?"Preparando pastas...":"Preparar pastas"}</Btn>}
           {ehAdmin&&oneDriveStatus!=="connected"&&<Btn v="ghost" onClick={conectarOneDrive}>Conectar OneDrive</Btn>}
           </div></details>}
           {ehAdmin&&<Btn onClick={()=>abrirEditorObra()}><Ic n="plus" s={14}/> Nova obra</Btn>}
@@ -5347,8 +5408,9 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
         <span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",whiteSpace:"nowrap"}}>{list.length} resultado{list.length===1?"":"s"}</span>
       </label>
 
+      <RecordListPagination pagination={worksPage} label="obras"/>
       <div className="works-grid" style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:"var(--arcd-space-3)"}}>
-        {list.map(o => {
+        {worksPage.rows.map(o => {
           const st = statusMap[o.status] || statusMap.active;
           const codigo = String(Math.max(0,(data.obras||[]).findIndex(x=>x.id===o.id))+1).padStart(4,"0");
           const prazo = prazoObra(o);
@@ -6123,6 +6185,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
 }
 
 function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispatchAttendanceCommand, dispatchCommand, onTab }) {
+  const {isMobile}=useBreakpoint();
   const [laborGroup,setLaborGroup]=useWorkspaceState('ponto','laborGroup','all',obraIdFixo);
   useHelpTopic('ponto',laborGroup==='all'?'ponto':`ponto_${laborGroup}`);
   const obraInicial=obraIdFixo||currentUser?.obraId||
@@ -6150,6 +6213,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
   const [unlockModal, setUnlockModal] = useState(null);
   const [lastAllDoneNotification, setLastAllDoneNotification] = useState("");
   const [expandedCard, setExpandedCard] = useState(null);   // card com "mais opções" aberto
+  const [attendanceSearch,setAttendanceSearch]=useWorkspaceState('ponto','search','',obraIdFixo);
 
   const activeEmployees = data.employees.filter(e =>
     e.active !== false && isEmployeeEmployedOnDate(e, today())
@@ -6201,6 +6265,8 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
     })
     .sort((a, b) => a.name.localeCompare(b.name));
 
+  const attendancePageSize=isMobile?6:12;
+  const attendancePage=useRecordPage('ponto',list.filter(e=>[e.name,e.role].join(' ').toLocaleLowerCase('pt-BR').includes(attendanceSearch.trim().toLocaleLowerCase('pt-BR'))),JSON.stringify([filterObra,selDate,laborGroup,attendanceSearch,attendancePageSize]),obraIdFixo,attendancePageSize);
   const requireDailyCheck = () => {
     if (!dailyCheckPending) return false;
     showToast("Antes de lançar o ponto, confirme se a equipe permanece sem alterações ou movimente o trabalhador individualmente.", "warn");
@@ -6459,6 +6525,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
           <p>Todos os pontos de {fmtDateFull(selDate)} estão lançados.</p>
         </div>
       ) : attendanceCompletion.pendingObras.length > 0 && (
+        <TaskDisclosure enabled={isMobile} summary={`Obras com ponto pendente (${attendanceCompletion.pendingObras.length})`}>
         <section className="obra-attendance__pending" aria-labelledby="attendance-pending-title">
           <p id="attendance-pending-title" className="obra-attendance__pending-title">
             {contar(attendanceCompletion.pendingObras.length,"obra","obras")} com ponto pendente
@@ -6474,6 +6541,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
             </StandardButton>
           ))}
         </section>
+        </TaskDisclosure>
       )}
 
       {dailyCheckPending && (
@@ -6523,15 +6591,20 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
         ))}
       </section>
 
+      <TaskDisclosure enabled={isMobile} summary="Ações em lote">
+      <ScopeNote title={isMobile?"Alcance do lote":"Ações em lote"}>A busca e a paginação organizam a leitura. Os lotes continuam abrangendo os {list.length} funcionários da obra e do grupo selecionados.</ScopeNote>
       <div className="obra-attendance__bulk">
         <Btn v="success" size="sm" onClick={() => markAll("P")} disabled={filterObra==="all"||!selectedObraCanEdit||list.length===0} full title={filterObra==="all"?"Selecione uma obra para usar ações em lote":undefined}><Ic n="check" /> Todos presentes</Btn>
         <Btn v="ghost" size="sm" onClick={() => markAll("F")} disabled={filterObra==="all"||!selectedObraCanEdit||list.length===0} full title={filterObra==="all"?"Selecione uma obra para usar ações em lote":undefined} style={{color:"var(--arcd-danger-text)"}}><Ic n="x" /> Todos com falta</Btn>
       </div>
+      </TaskDisclosure>
 
       {list.length === 0 && <div className="obra-attendance__empty">Nenhum trabalhador ativo nesta seleção.</div>}
 
       <div className="obra-attendance__employees">
-      {list.map(e => {
+      <Inp label="Pesquisar no ponto" value={attendanceSearch} onChange={setAttendanceSearch} placeholder="Nome ou função"/>
+      <RecordListPagination pagination={attendancePage} label="funcionários no ponto"/>
+      {attendancePage.rows.map(e => {
         const att = getAtt(data, e.id, selDate);
         const status = att?.status;
         const ot = Number(att?.ot || 0);
@@ -8218,7 +8291,7 @@ function ConfiguracaoIA({ showToast }) {
 }
 
 function Config({ data, update, showToast, currentUser, onLogout, dispatchAttendanceCommand, dispatchCommand }) {
-  const { formGrid } = useBreakpoint();
+  const { formGrid, isMobile } = useBreakpoint();
   const [form, setForm] = useState(data.config);
   const [holidayYear, setHolidayYear] = useState(new Date().getFullYear());
   const setField = key => value => setForm(f => ({ ...f, [key]: value }));
@@ -8289,8 +8362,11 @@ function Config({ data, update, showToast, currentUser, onLogout, dispatchAttend
         description="Aparência, dados da empresa, aprovações e calendário."
       />
 
-      <ThemeSettings />
+      <TaskDisclosure enabled={isMobile} summary="Aparência">
+        <ThemeSettings />
+      </TaskDisclosure>
 
+      <TaskDisclosure enabled={isMobile} summary="Empresa">
       <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14 }}>
         <h3 style={{ fontFamily:"var(--arcd-font-sans)", color: C.yellow, textTransform: "uppercase", marginBottom: 10 }}>Empresa</h3>
         <div style={{ display: "grid", gridTemplateColumns:formGrid(2), gap: 10 }}>
@@ -8305,10 +8381,14 @@ function Config({ data, update, showToast, currentUser, onLogout, dispatchAttend
         </div>
         <div style={{ marginTop: 12 }}><Btn onClick={saveConfig}><Ic n="check" /> Salvar configurações</Btn></div>
       </div>
+      </TaskDisclosure>
 
-      <IntegracaoGemini showToast={showToast}/>
+      <TaskDisclosure enabled={isMobile} summary="Integração Gemini">
+        <IntegracaoGemini showToast={showToast}/>
+      </TaskDisclosure>
 
       {/* DRE - Alíquotas e tributação */}
+      <TaskDisclosure enabled={isMobile} summary="DRE e tributação">
       <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:14 }}>
         <h3 style={{ fontFamily:"var(--arcd-font-sans)", fontWeight:600, color:C.yellow, textTransform:"uppercase", letterSpacing:.5, marginBottom:4, fontSize:"var(--arcd-type-body)" }}>DRE - Tributação</h3>
         <p style={{ fontSize:"var(--arcd-type-label)", color:C.muted, marginBottom:12 }}>Configure as alíquotas para o cálculo automático do DRE da empresa.</p>
@@ -8332,7 +8412,9 @@ function Config({ data, update, showToast, currentUser, onLogout, dispatchAttend
         )}
         <div style={{marginTop:10}}><Btn onClick={saveConfig}><Ic n="check"/> Salvar alíquotas</Btn></div>
       </div>
+      </TaskDisclosure>
 
+      <TaskDisclosure enabled={isMobile} summary={`Solicitações pendentes · ${pending.length}`}>
       <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14 }}>
         <h3 style={{ fontFamily:"var(--arcd-font-sans)", color: C.yellow, textTransform: "uppercase", marginBottom: 10 }}>Solicitações pendentes</h3>
         {pending.length === 0 && <p style={{ color: C.muted, fontSize: "var(--arcd-type-body)" }}>Nenhuma solicitação pendente.</p>}
@@ -8348,7 +8430,9 @@ function Config({ data, update, showToast, currentUser, onLogout, dispatchAttend
           </div>
         ))}
       </div>
+      </TaskDisclosure>
 
+      <TaskDisclosure enabled={isMobile} summary="Histórico de permissões">
       <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14 }}>
         <h3 style={{ fontFamily:"var(--arcd-font-sans)", color: C.yellow, textTransform: "uppercase", marginBottom: 10 }}>Histórico de permissões</h3>
         {recent.length === 0 && <p style={{ color: C.muted, fontSize: "var(--arcd-type-body)" }}>Sem solicitações registradas.</p>}
@@ -8359,7 +8443,9 @@ function Config({ data, update, showToast, currentUser, onLogout, dispatchAttend
           </div>
         ))}
       </div>
+      </TaskDisclosure>
 
+      <TaskDisclosure enabled={isMobile} summary="Feriados considerados">
       <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14 }}>
         <h3 style={{ fontFamily:"var(--arcd-font-sans)", color: C.yellow, textTransform: "uppercase", marginBottom: 10 }}>Feriados considerados</h3>
           <Sel aria-label="Ano dos feriados" value={String(holidayYear)} onChange={v => setHolidayYear(Number(v))} options={Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 1 + i).map(y => ({ v: String(y), l: String(y) }))} />
@@ -8367,17 +8453,22 @@ function Config({ data, update, showToast, currentUser, onLogout, dispatchAttend
           {holidays.map(h => <Badge key={h} color={C.blue}>{fmtDateFull(h)}</Badge>)}
         </div>
       </div>
+      </TaskDisclosure>
 
+      <TaskDisclosure enabled={isMobile} summary="Backup">
       <div style={{ background:C.card, border:`1px solid ${C.border}`, padding:14, borderRadius:8 }}>
         <h3 style={{ fontFamily:"var(--arcd-font-sans)", color:C.yellow, textTransform:"uppercase", marginBottom:10, fontSize:"var(--arcd-type-body)", fontWeight:600 }}>Backup</h3>
         <Btn v="ghost" onClick={exportBackup}><Ic n="download"/> Exportar backup JSON</Btn>
       </div>
+      </TaskDisclosure>
 
       {/* Gestão de usuários */}
+      <TaskDisclosure enabled={isMobile} summary="Usuários e permissões">
       <div style={{ background:C.card, border:`1px solid ${C.border}`, padding:14, borderRadius:8 }}>
         <h3 style={{ fontFamily:"var(--arcd-font-sans)", color:C.yellow, textTransform:"uppercase", marginBottom:12, fontSize:"var(--arcd-type-body)", fontWeight:600 }}>Usuários e Permissões</h3>
         <GestaoUsuarios data={data} update={update} showToast={showToast} currentUser={currentUser}/>
       </div>
+      </TaskDisclosure>
 
       {/* Logout */}
       <div style={{ background:C.surface, border:`1.5px solid ${C.border}`, padding:14, borderRadius:8 }}>
@@ -8459,53 +8550,48 @@ function LoginScreen({ onLogin, erroInicial="", precisaSetup=false }) {
       </Suspense>
 
       <main className="login-access-column">
-      <Card className="login-access-card w-full max-w-[430px] border-white/10 bg-[#0d141f]/95 text-white shadow-none backdrop-blur-xl">
-        <CardHeader className="pb-5">
-          <div className="login-brand-mark">
-            <img src={BRAND.monogram} alt="MARCELL" width="72" height="28" />
-          </div>
-          <div className="pt-4">
-            <CardTitle className="font-display text-2xl mt-2 tracking-[-0.02em]">Acesse seu ambiente</CardTitle>
-            <CardDescription className="mt-2 text-slate-400">Use sua credencial corporativa para continuar.</CardDescription>
-          </div>
+      <Card className="login-access-card w-full shadow-none">
+        <CardHeader className="pb-5 pt-8">
+          <CardTitle className="font-display text-2xl tracking-[-0.02em]">Acesse seu ambiente</CardTitle>
+          <CardDescription className="mt-2">Use sua credencial corporativa para continuar.</CardDescription>
         </CardHeader>
 
         <CardContent>
             {erroInicial&&<div role="alert" className="mb-4 rounded-md border border-red-400/35 bg-red-400/10 px-3 py-2 text-xs font-medium text-red-100">{erroInicial}</div>}
             {precisaSetup ? <div className="flex flex-col gap-4">
-              <div className="rounded-md border border-[#d4af37]/30 bg-[#d4af37]/10 p-3 text-xs leading-relaxed text-slate-300">
+              <div className="login-setup-note rounded-md p-3 text-xs leading-relaxed">
                 Crie o administrador inicial. Os dados existentes da empresa serão preservados.
               </div>
-              <div className="flex flex-col gap-2"><Label htmlFor="setup-nome" className="text-xs font-semibold text-slate-300">Nome do administrador</Label><Input id="setup-nome" value={setupForm.nome} onChange={e=>setSetupForm(f=>({...f,nome:e.target.value}))} autoFocus className="h-11 border-white/10 bg-white/4 text-white"/></div>
-              <div className="flex flex-col gap-2"><Label htmlFor="setup-email" className="text-xs font-semibold text-slate-300">E-mail corporativo</Label><Input id="setup-email" type="email" value={setupForm.email} onChange={e=>setSetupForm(f=>({...f,email:e.target.value}))} className="h-11 border-white/10 bg-white/4 text-white"/></div>
-              <div className="grid grid-cols-2 gap-3"><div className="flex flex-col gap-2"><Label htmlFor="setup-pin" className="text-xs font-semibold text-slate-300">PIN</Label><Input id="setup-pin" type="password" inputMode="numeric" value={setupForm.pin} onChange={e=>setSetupForm(f=>({...f,pin:e.target.value}))} className="h-11 border-white/10 bg-white/4 text-white"/></div><div className="flex flex-col gap-2"><Label htmlFor="setup-confirmacao" className="text-xs font-semibold text-slate-300">Confirmar PIN</Label><Input id="setup-confirmacao" type="password" inputMode="numeric" value={setupForm.confirmacao} onChange={e=>setSetupForm(f=>({...f,confirmacao:e.target.value}))} className="h-11 border-white/10 bg-white/4 text-white"/></div></div>
+              <div className="flex flex-col gap-2"><Label htmlFor="setup-nome" className="text-xs font-semibold">Nome do administrador</Label><Input id="setup-nome" value={setupForm.nome} onChange={e=>setSetupForm(f=>({...f,nome:e.target.value}))} autoFocus className="h-12"/></div>
+              <div className="flex flex-col gap-2"><Label htmlFor="setup-email" className="text-xs font-semibold">E-mail corporativo</Label><Input id="setup-email" type="email" value={setupForm.email} onChange={e=>setSetupForm(f=>({...f,email:e.target.value}))} className="h-12"/></div>
+              <div className="grid grid-cols-2 gap-3"><div className="flex flex-col gap-2"><Label htmlFor="setup-pin" className="text-xs font-semibold">PIN</Label><Input id="setup-pin" type="password" inputMode="numeric" value={setupForm.pin} onChange={e=>setSetupForm(f=>({...f,pin:e.target.value}))} className="h-12"/></div><div className="flex flex-col gap-2"><Label htmlFor="setup-confirmacao" className="text-xs font-semibold">Confirmar PIN</Label><Input id="setup-confirmacao" type="password" inputMode="numeric" value={setupForm.confirmacao} onChange={e=>setSetupForm(f=>({...f,confirmacao:e.target.value}))} className="h-12"/></div></div>
               {erro&&<Alert key={erro} variant="destructive" className="py-2.5 login-error-shake"><AlertDescription className="text-xs">{erro}</AlertDescription></Alert>}
-              <Button onClick={concluirPrimeiroAcesso} disabled={loading} className="h-11 w-full bg-[#d4af37] font-bold text-[#10151d] hover:bg-[#e1c159]">{loading?"Criando ambiente...":"Criar administrador e entrar"}</Button>
+              <Button onClick={concluirPrimeiroAcesso} disabled={loading} className="login-primary-action h-12 w-full">{loading?"Criando ambiente...":"Criar administrador e entrar"}</Button>
             </div> : <Tabs value={metodo} onValueChange={trocarMetodo}>
-              <TabsList className="grid grid-cols-2 w-full h-11 border border-white/10 bg-white/4 p-1">
-                <TabsTrigger value="email" className="text-xs text-slate-400 data-[state=active]:bg-[#d4af37] data-[state=active]:text-[#10151d] data-[state=active]:shadow-none">E-mail e senha</TabsTrigger>
-                <TabsTrigger value="pin" className="text-xs text-slate-400 data-[state=active]:bg-[#d4af37] data-[state=active]:text-[#10151d] data-[state=active]:shadow-none">PIN de acesso</TabsTrigger>
+              <TabsList className="grid grid-cols-2 w-full h-12 p-1">
+                <TabsTrigger value="email" className="text-sm">E-mail e senha</TabsTrigger>
+                <TabsTrigger value="pin" className="text-sm">PIN de acesso</TabsTrigger>
               </TabsList>
 
               <TabsContent value="email" className="flex flex-col gap-4 mt-5">
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="login-email" className="text-xs font-semibold text-slate-300">E-mail corporativo</Label>
+                  <Label htmlFor="login-email" className="text-xs font-semibold">E-mail corporativo</Label>
                   <Input id="login-email" type="email" autoComplete="username" autoFocus
                          value={email} onChange={e=>setEmail(e.target.value)}
                          onKeyDown={e=>{if(e.key==="Enter")tentarEmail();}}
                          placeholder="nome@empresa.com.br"
-                         className="h-11 border-white/10 bg-white/4 text-white placeholder:text-slate-600 focus-visible:ring-[#d4af37]" />
+                         className="h-12" />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="login-senha" className="text-xs font-semibold text-slate-300">Senha</Label>
+                  <Label htmlFor="login-senha" className="text-xs font-semibold">Senha</Label>
                   <div className="relative">
                     <Input id="login-senha" type={mostrarSenha?"text":"password"} autoComplete="current-password"
                            value={senha} onChange={e=>setSenha(e.target.value)}
                            onKeyDown={e=>{if(e.key==="Enter")tentarEmail();}}
-                           placeholder="Digite sua senha" className="h-11 border-white/10 bg-white/4 pr-10 text-white placeholder:text-slate-600 focus-visible:ring-[#d4af37]" />
+                           placeholder="Digite sua senha" className="h-12 pr-12" />
                     <button type="button" onClick={()=>setMostrarSenha(v=>!v)}
                             aria-label={mostrarSenha?"Ocultar senha":"Mostrar senha"}
-                            className="login-password-toggle absolute right-1 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white">
+                            className="login-password-toggle absolute right-1 top-1/2 -translate-y-1/2">
                       {mostrarSenha ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
                     </button>
                   </div>
@@ -8517,10 +8603,10 @@ function LoginScreen({ onLogin, erroInicial="", precisaSetup=false }) {
                   </Alert>
                 )}
 
-                <Button onClick={tentarEmail} disabled={loading} className="h-11 w-full bg-[#d4af37] font-bold text-[#10151d] hover:bg-[#e1c159] active:scale-[0.98] transition-transform">
+                <Button onClick={tentarEmail} disabled={loading} className="login-primary-action h-12 w-full">
                   {loading ? "Sincronizando operação..." : "Acessar central MARCELL"}
                 </Button>
-                <p className="text-[11px] leading-relaxed text-slate-500 text-center">
+                <p className="text-center text-xs leading-relaxed">
                   Acesso individual, seguro e auditável.
                 </p>
               </TabsContent>
@@ -8529,36 +8615,35 @@ function LoginScreen({ onLogin, erroInicial="", precisaSetup=false }) {
                 {step === "select" ? (
                   <form className="flex flex-col gap-4" onSubmit={e=>{e.preventDefault();iniciarPin();}}>
                     <div className="flex flex-col gap-2">
-                      <Label htmlFor="login-identificador" className="text-xs font-semibold text-slate-300">E-mail ou nome completo</Label>
+                      <Label htmlFor="login-identificador" className="text-xs font-semibold">E-mail ou nome completo</Label>
                       <Input id="login-identificador" autoComplete="username" autoCapitalize="none" spellCheck={false}
                              value={identificador} onChange={e=>{setIdentificador(e.target.value);setErro("");}}
                              placeholder="Digite seu e-mail ou nome completo"
-                             className="h-11 border-white/10 bg-white/4 text-white placeholder:text-slate-600 focus-visible:ring-[#d4af37]" />
+                             className="h-12" />
                     </div>
                     {erro && (
                       <Alert key={erro} variant="destructive" className="py-2.5 login-error-shake">
                         <AlertDescription className="text-xs">{erro}</AlertDescription>
                       </Alert>
                     )}
-                    <Button type="submit" disabled={loading} className="h-11 w-full bg-[#d4af37] font-bold text-[#10151d] hover:bg-[#e1c159] active:scale-[0.98] transition-transform">
+                    <Button type="submit" disabled={loading} className="login-primary-action h-12 w-full">
                       Continuar com PIN
                     </Button>
                   </form>
                 ) : (
                   <div className="flex flex-col gap-4">
                     <button type="button" onClick={()=>{setStep("select");setPin("");setErro("");}}
-                            className="flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-white uppercase tracking-wide">
+                            className="login-quiet-action flex min-h-11 items-center gap-1 text-xs font-semibold uppercase tracking-wide">
                       <ChevronLeft className="w-3.5 h-3.5"/> Alterar identificação
                     </button>
                     <div className="text-center flex flex-col items-center gap-1">
                       <b className="max-w-full break-words text-sm">{identificador.trim()}</b>
-                      <small className="text-xs text-slate-500">Informe seu PIN de acesso.</small>
+                      <small className="text-xs">Informe seu PIN de acesso.</small>
                     </div>
                     <div className="flex justify-center gap-2.5" aria-label={`${pin.length} de 6 dígitos informados`}>
                       {Array.from({length:6},(_,i)=>(
                         <span key={i} data-filled={i < pin.length} className={cn(
-                          "login-pin-dot w-3 h-3 rounded-full border-[1.5px] transition-colors",
-                          i < pin.length ? "bg-[#d4af37] border-[#d4af37]" : "border-slate-600"
+                          "login-pin-dot w-3 h-3 rounded-full border-[1.5px] transition-colors"
                         )} />
                       ))}
                     </div>
@@ -8570,14 +8655,14 @@ function LoginScreen({ onLogin, erroInicial="", precisaSetup=false }) {
                     <div className="grid grid-cols-3 gap-2">
                       {[1,2,3,4,5,6,7,8,9,"",0,"back"].map((d,i)=>(
                         <Button key={i} type="button" variant="outline" disabled={loading||d===""}
-                                className={cn("border-white/10 bg-white/3 text-white hover:border-[#d4af37]/60 hover:bg-white/8 hover:text-white active:scale-95 transition-transform",d===""&&"invisible")}
+                                className={cn("login-key h-12 active:scale-95 transition-transform",d===""&&"invisible")}
                                 onClick={()=>d===""?null:d==="back"?handleBackspace():handleDigit(String(d))}>
                           {d==="back" ? <Delete className="w-4 h-4"/> : d}
                         </Button>
                       ))}
                     </div>
                     {pin.length>=4 && pin.length<6 && (
-                      <Button onClick={handleLogin} disabled={loading} className="w-full bg-[#d4af37] font-bold text-[#10151d] hover:bg-[#e1c159] active:scale-[0.98] transition-transform">
+                      <Button onClick={handleLogin} disabled={loading} className="login-primary-action w-full">
                         {loading ? "Validando credencial..." : "Confirmar acesso"}
                       </Button>
                     )}
@@ -8587,7 +8672,7 @@ function LoginScreen({ onLogin, erroInicial="", precisaSetup=false }) {
             </Tabs>}
         </CardContent>
 
-        <CardFooter className="mrc-login-footer justify-between border-t border-white/10 pt-4 text-xs text-slate-500">
+        <CardFooter className="mrc-login-footer justify-between border-t pt-4 text-xs">
           <span className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-green-600" /> Conexão segura
           </span>
@@ -9122,9 +9207,10 @@ const limitarNotaFornecedor=n=>Math.max(0,Math.min(100,Math.round(Number(n)||0))
 const textoFreteFornecedor=valor=>String(valor||"").toLowerCase();
 
 function RankingFornecedores({data,showToast,currentUser,dispatchCommand}){
-  const [busca,setBusca]=useState("");
-  const [obraId,setObraId]=useState("");
-  const [periodo,setPeriodo]=useState("12");
+  const {isDesktop,isMobile}=useBreakpoint();
+  const [busca,setBusca]=useWorkspaceState("fornecedores","search","");
+  const [obraId,setObraId]=useWorkspaceState("fornecedores","work","");
+  const [periodo,setPeriodo]=useWorkspaceState("fornecedores","period","12");
   const [selecionadoId,setSelecionadoId]=useState("");
   const [fornModal,setFornModal]=useState(null);
   const fornecedores=data.fornecedores||[];
@@ -9214,6 +9300,7 @@ function RankingFornecedores({data,showToast,currentUser,dispatchCommand}){
 
   const termo=busca.trim().toLowerCase();
   const lista=ranking.filter(r=>!termo||`${r.fornecedor.nome} ${r.fornecedor.cnpj||""} ${(r.fornecedor.categorias||[]).join(" ")}`.toLowerCase().includes(termo));
+  const suppliersPage=useRecordPage('fornecedores',lista,JSON.stringify([busca,obraId,periodo]));
   const selecionado=ranking.find(r=>r.fornecedor.id===selecionadoId);
   const avaliados=ranking.filter(r=>r.geral!==null);
   const entregasTotal=ranking.reduce((s,r)=>s+r.entregas,0);
@@ -9230,6 +9317,10 @@ function RankingFornecedores({data,showToast,currentUser,dispatchCommand}){
   };
   const nota=(valor,cor=C.blue)=><span className="supplier-score" style={{"--supplier-score-color":cor}}>{valor===null?"—":valor}</span>;
   const corNota=valor=>valor===null?C.muted:valor>=85?C.green:valor>=65?C.blue:valor>=45?C.orange:C.red;
+  const filtrosRanking=<>
+    <Sel label="Obra" value={obraId} onChange={setObraId} options={[{v:"",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
+    <Sel label="Período" value={periodo} onChange={setPeriodo} options={[{v:"6",l:"Últimos 6 meses"},{v:"12",l:"Últimos 12 meses"},{v:"24",l:"Últimos 24 meses"},{v:"todos",l:"Todo o histórico"}]}/>
+  </>;
 
   return <div className="supplier-page">
     <PageHero
@@ -9238,23 +9329,32 @@ function RankingFornecedores({data,showToast,currentUser,dispatchCommand}){
       description="Ranking automático por preço, frete, prazo e qualidade com base no histórico real."
       actions={<Btn onClick={()=>setFornModal(novoFornecedor())}><Ic n="plus"/> Novo fornecedor</Btn>}
     />
-    <FilterBar layout="grid" className="supplier-toolbar" label="Filtros do ranking">
+    <FilterBar layout="grid" className={isMobile?"":"supplier-toolbar"} label="Filtros do ranking">
       <Inp label="Buscar fornecedor" value={busca} onChange={setBusca} placeholder="Nome, CNPJ ou ramo..."/>
-      <Sel label="Obra" value={obraId} onChange={setObraId} options={[{v:"",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
-      <Sel label="Período" value={periodo} onChange={setPeriodo} options={[{v:"6",l:"Últimos 6 meses"},{v:"12",l:"Últimos 12 meses"},{v:"24",l:"Últimos 24 meses"},{v:"todos",l:"Todo o histórico"}]}/>
+      {isMobile?<TaskDisclosure summary="Obra e período"><FilterBar label="Recorte do ranking" layout="grid">{filtrosRanking}</FilterBar></TaskDisclosure>:filtrosRanking}
     </FilterBar>
-    <section className="supplier-kpis">
+    <TaskDisclosure summary="Indicadores de fornecedores" defaultOpen={isDesktop}><section className="supplier-kpis">
       <div><span>Fornecedores avaliados</span><strong>{avaliados.length}<small> de {fornecedores.filter(f=>f.ativo!==false).length}</small></strong></div>
       <div><span>Cotações analisadas</span><strong>{ranking.reduce((s,r)=>s+r.propostas.length,0)}</strong></div>
       <div><span>Pedidos considerados</span><strong>{ranking.reduce((s,r)=>s+r.pedidos.length,0)}</strong></div>
       <div><span>Entregas no prazo</span><strong>{entregasTotal?`${Math.round(noPrazoTotal/entregasTotal*100)}%`:"—"}<small>{entregasTotal?` ${noPrazoTotal}/${entregasTotal}`:" sem histórico"}</small></strong></div>
     </section>
+    </TaskDisclosure>
+    <RecordListPagination pagination={suppliersPage} label="fornecedores"/>
     <section className="supplier-ranking-card">
-      <div className="supplier-card-title"><div><h2>Ranking geral</h2></div><span>Preço 35% · Frete 15% · Prazo 25% · Qualidade 25%</span></div>
-      <div className="supplier-table-wrap"><table className="supplier-table">
+      <div className="supplier-card-title"><div><h2>Ranking geral</h2></div>{!isMobile&&<span>Preço 35% · Frete 15% · Prazo 25% · Qualidade 25%</span>}</div>
+      {isMobile?<MobileRecordList
+        rows={suppliersPage.rows.map((row,index)=>({...row,id:row.fornecedor.id,posicao:suppliersPage.start+index}))}
+        columns={[{key:"geral",header:"Nota geral",render:row=>nota(row.geral,corNota(row.geral))}]}
+        config={{
+          title:row=><RecordAction aria-label={`Ver detalhes de ${row.fornecedor.nome}`} onClick={()=>setSelecionadoId(row.id)}>{row.fornecedor.nome}</RecordAction>,
+          subtitle:row=>`${row.posicao}º · ${(row.fornecedor.categorias||[]).slice(0,2).map(rotuloRamo).join(" · ")||row.fornecedor.cidade||"Ramo não informado"}`,
+          primaryFields:["geral"],
+        }}
+      />:<div className="supplier-table-wrap"><table className="supplier-table">
         <thead><tr><th>#</th><th>Fornecedor</th><th>Nota geral</th><th>Preço</th><th>Frete</th><th>Prazo</th><th>Qualidade</th><th>Base</th><th></th></tr></thead>
-        <tbody>{lista.map((r,i)=><tr key={r.fornecedor.id} onClick={()=>setSelecionadoId(r.fornecedor.id)} className={selecionadoId===r.fornecedor.id?"is-selected":""}>
-          <td data-label="Posição"><b className={i<3?"supplier-rank top": "supplier-rank"}>{i+1}º</b></td>
+        <tbody>{suppliersPage.rows.map((r,i)=><tr key={r.fornecedor.id} onClick={()=>setSelecionadoId(r.fornecedor.id)} className={selecionadoId===r.fornecedor.id?"is-selected":""}>
+          <td data-label="Posição"><b className={suppliersPage.start+i<=3?"supplier-rank top": "supplier-rank"}>{suppliersPage.start+i}º</b></td>
           <td data-label="Fornecedor"><div className="supplier-name"><b>{r.fornecedor.nome}</b><span>{(r.fornecedor.categorias||[]).slice(0,2).map(rotuloRamo).join(" · ")||r.fornecedor.cidade||"Ramo não informado"}</span></div></td>
           <td data-label="Nota geral">{nota(r.geral,corNota(r.geral))}</td>
           <td data-label="Preço">{nota(r.preco,corNota(r.preco))}</td><td data-label="Frete">{nota(r.frete,corNota(r.frete))}</td>
@@ -9262,10 +9362,12 @@ function RankingFornecedores({data,showToast,currentUser,dispatchCommand}){
           <td data-label="Base"><div className="supplier-confidence"><b>{r.confianca}% confiança</b><span>{contar(r.evidencias,"evidência","evidências")}</span></div></td>
           <td><button className="supplier-row-action" onClick={e=>{e.stopPropagation();setSelecionadoId(r.fornecedor.id)}} aria-label={`Ver detalhes de ${r.fornecedor.nome}`}><Ic n="chevronRight"/></button></td>
         </tr>)}</tbody>
-      </table></div>
+      </table></div>}
       {!lista.length&&<div className="supplier-empty"><Ic n="search" s={22}/><b>Nenhum fornecedor encontrado</b><span>Ajuste os filtros ou cadastre o primeiro fornecedor.</span></div>}
     </section>
-    <section className="supplier-method"><Ic n="ia"/><div><b>Como a nota é calculada</b><p>Preço compara cada proposta com a menor cotação; prazo combina promessa e entrega real; qualidade considera atendimento da quantidade e divergências; frete usa valor estruturado, condição CIF/FOB e CT-e. Critérios sem evidência não reduzem a nota — apenas a confiança.</p></div></section>
+    <TaskDisclosure enabled={isMobile} summary="Como a nota é calculada">
+      <section className="supplier-method"><Ic n="ia"/><div>{isMobile?<p>Preço 35% · Frete 15% · Prazo 25% · Qualidade 25%</p>:<b>Como a nota é calculada</b>}<p>Preço compara cada proposta com a menor cotação; prazo combina promessa e entrega real; qualidade considera atendimento da quantidade e divergências; frete usa valor estruturado, condição CIF/FOB e CT-e. Critérios sem evidência não reduzem a nota — apenas a confiança.</p></div></section>
+    </TaskDisclosure>
     {selecionado&&<div className="supplier-detail-backdrop" onClick={()=>setSelecionadoId("")}><aside className="supplier-detail" onClick={e=>e.stopPropagation()}>
       <div className="supplier-detail-head"><div><h2>{selecionado.fornecedor.nome}</h2><span>{selecionado.fornecedor.cnpj||"CNPJ não informado"}</span></div><button onClick={()=>setSelecionadoId("")} aria-label="Fechar"><Ic n="x"/></button></div>
       <div className="supplier-detail-score"><div>{nota(selecionado.geral,corNota(selecionado.geral))}<span>nota geral</span></div><p><b>{selecionado.confianca}% de confiança</b><br/>{contar(selecionado.evidencias,"evidência","evidências")} no período</p></div>
@@ -9483,7 +9585,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
     const token = portal.token || (globalThis.crypto?.randomUUID?.() || uid()+uid());
     update({...data,obras:(data.obras||[]).map(o=>o.id===obraId?{...o,portalCliente:{...portal,token,...campos,atualizadoEm:new Date().toISOString()}}:o)});
   };
-  const linkPortal = portal.token ? `${window.location.origin}${window.location.pathname}?portal=${encodeURIComponent(obraId)}&token=${encodeURIComponent(portal.token)}` : "";
+  const linkPortal = portal.token ? `${window.location.origin}${window.location.pathname}?portal=${encodeURIComponent(obraId)}${companyIsolationActive()?`&empresa=${activeCompany()}`:''}&token=${encodeURIComponent(portal.token)}` : "";
   // O link com token continua atendendo o portal legado. O novo portal usa
   // sessão individual e nunca recebe token da obra na URL.
   const linkNovoPortal = portalLoginUrl(window.location);
@@ -10272,7 +10374,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         {abaConteudo==="portal"&&ehAdmin&&<PublicationReview domains={portalReview} busy={portalBusy} onClose={()=>setPortalReview(null)} onConfirm={publicarPortalSeguro}/>}
         {abaConteudo==="portal"&&ehAdmin&&<div style={{display:"grid",gap:"var(--arcd-space-3)"}}>
           <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderLeft:`1px solid ${portal.ativo?"var(--arcd-success-text)":"var(--arcd-text-secondary)"}`,borderRadius:12,padding:"var(--arcd-space-4)"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-3)",flexWrap:"wrap"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>Experiência do cliente</p><h2 style={{fontSize:"var(--arcd-type-section-title)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)"}}>Portal transparente da obra</h2><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)",maxWidth:690,lineHeight:"var(--arcd-line-height-normal)"}}>Escolha exatamente o que o cliente poderá consultar. Dados bancários, PIX, folha, margem, conciliação e observações internas permanecem protegidos.</p></div><Btn v={portal.ativo?"danger":"success"} disabled={portalBusy} onClick={alternarPortal}><Ic n={portal.ativo?"x":"check"}/> {portal.ativo?"Desativar acesso":"Ativar portal"}</Btn></div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-3)",flexWrap:"wrap"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>Experiência do cliente</p><h2 style={{fontSize:"var(--arcd-type-section-title)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)"}}>Portal transparente da obra</h2><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)",maxWidth:690,lineHeight:"var(--arcd-line-height-normal)"}}>Escolha exatamente o que o cliente poderá consultar. Dados bancários, PIX, margem, conciliação e observações internas permanecem privados. Administração e equipe pode liberar nomes, folha por funcionário, reservas e ponto da obra para perfis autorizados; confira as opções antes de publicar.</p></div><Btn v={portal.ativo?"danger":"success"} disabled={portalBusy} onClick={alternarPortal}><Ic n={portal.ativo?"x":"check"}/> {portal.ativo?"Desativar acesso":"Ativar portal"}</Btn></div>
             <div style={{marginTop:"var(--arcd-space-3)"}}><Inp label="Mensagem de abertura" value={portal.mensagem||""} onChange={v=>atualizarPortal({mensagem:v})} placeholder="Ex.: Sua obra avança com qualidade e segurança."/></div>
             <div style={{marginTop:"var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",marginBottom:"var(--arcd-space-2)"}}>Informações publicadas</p><div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:"var(--arcd-space-2)"}}>{[
               ["publicarFotos","Diários e fotos","Relatos, serviços e fotos dos diários concluídos",portal.publicarFotos!==false],
@@ -10579,8 +10681,9 @@ export function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", curren
   const propostaBoletim = t => avancoTerceiros.has(t.id) ? avancoTerceiros.get(t.id).pct : (t.progresso || 0);
 
   const [editando, setEditando] = useState(null);
-  const [serviceSearch,setServiceSearch]=useState("");
+  const [serviceSearch,setServiceSearch]=useWorkspaceState("med","search","",obraIdFixo);
   const visibleServices=tarefas.filter(item=>item.nome.toLocaleLowerCase("pt-BR").includes(serviceSearch.trim().toLocaleLowerCase("pt-BR")));
+  const servicesPage=useRecordPage('med',visibleServices,JSON.stringify([obraId,serviceSearch]),obraIdFixo);
   const [confModal, setConfModal] = useState(false);   // modal de confirmar medição
   const [confPct, setConfPct] = useState({});          // pct confirmado por tarefa
   const [confResp, setConfResp] = useState("");
@@ -10775,6 +10878,7 @@ export function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", curren
       )}
 
       {/* Tabela de evolucao */}
+      <RecordListPagination pagination={servicesPage} label="serviços"/>
       <div style={{ background: "var(--arcd-surface-card)", border: "1px solid var(--arcd-border-default)", borderRadius: 8, overflow: "hidden" }}>
         <div style={{ padding: "var(--arcd-space-3)", borderBottom: "1px solid var(--arcd-border-default)" }}>
           <p>O total pondera o valor dos serviços; no Planejamento, a duração. Sem valores vinculados, o total fica sem base de valor. O avanço oficial depende do boletim aprovado.</p><Inp label="Buscar serviço da medição" value={serviceSearch} onChange={setServiceSearch} placeholder="Nome do serviço"/><p style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)", textTransform: "uppercase", letterSpacing: "var(--arcd-letter-spacing-body)" }}>
@@ -10785,7 +10889,7 @@ export function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", curren
           <p style={{ padding: "var(--arcd-space-5)", fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)", textAlign: "center" }}>
             {serviceSearch?"Nenhum serviço corresponde à busca. Limpe o campo para ver todos.":"Sem serviços no planejamento desta obra."}
           </p>
-        ) : visibleServices.map(t => (
+        ) : servicesPage.rows.map(t => (
           <div key={t.id} style={{ padding: "var(--arcd-space-3)", borderTop: "1px solid var(--arcd-border-default)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--arcd-space-2)" }}>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -11711,14 +11815,15 @@ function gerarRelatorioCaixaObraPDF(data, obra, caixa, showToast) {
 function CaixaObra({ data, showToast, currentUser=null, dispatchCommand=null }) {
   const { cols } = useBreakpoint();
   const obrasComCaixa = useMemo(() => data.obras.filter(o => o.hasCaixa), [data.obras]);
-  const [selObra, setSelObra] = useState(obrasComCaixa[0]?.id || "");
+  const [selObra, setSelObra] = useState(()=>obraContextoSalvo()||obrasComCaixa[0]?.id||"");
   const [modal,   setModal]   = useState(false);
   const [tipoNovo,setTipoNovo]= useState("aporte");
   const [workCashPending,setWorkCashPending]=useState(false);
   const [form,    setForm]    = useState({ data:today(), tipo:"aporte", categoria:"material", descricao:"", valor:"", comprovante:"" });
   const F = k => v => setForm(f=>({...f,[k]:v}));
 
-  const obra = data.obras.find(o=>o.id===selObra);
+  useSyncedWorkObra(selObra,setSelObra,{allowedIds:data.obras.map(o=>o.id),fixed:modal?selObra:''});
+  const obra = obrasComCaixa.find(o=>o.id===selObra);
   const caixa = useMemo(()=>calcCaixaObra(data, selObra), [data.caixaObra, selObra]);
 
   // Consolidado de todas as obras com caixa
@@ -11727,6 +11832,7 @@ function CaixaObra({ data, showToast, currentUser=null, dispatchCommand=null }) 
   })), [data.caixaObra, obrasComCaixa]);
 
   const openNew = (tipo) => {
+    if(!obra){showToast("Selecione uma obra com caixa ativado.","error");return;}
     setTipoNovo(tipo);
     setForm({ data:today(), tipo, categoria:tipo==="aporte"?"aporte":"material", descricao:"", valor:"", comprovante:"" });
     setModal(true);
@@ -11734,7 +11840,7 @@ function CaixaObra({ data, showToast, currentUser=null, dispatchCommand=null }) 
 
   const saveMov = async() => {
     if(!dispatchCommand||workCashPending)return;
-    if (!selObra) { showToast("Selecione uma obra.","error"); return; }
+    if (!obra) { showToast("Selecione uma obra com caixa ativado.","error"); return; }
     if (!form.valor || isNaN(Number(form.valor))) { showToast("Informe um valor válido.","error"); return; }
     if(form.tipo==="despesa"&&Number(form.valor)>caixa.saldo+.001){showToast(`Lançamento bloqueado: o caixa possui ${fmt(caixa.saldo)} e não pode ficar negativo. Registre um aporte primeiro.`,"error");return;}
     const id=uid();
@@ -11811,6 +11917,8 @@ function CaixaObra({ data, showToast, currentUser=null, dispatchCommand=null }) 
       {/* Header */}
       <PageHeader className="workspace-header" title="Caixa da obra" description="Aportes do cliente e controle de gastos por obra."/>
 
+      <ScopeNote title="Resumo geral dos caixas">Os saldos consolidados incluem todas as obras disponíveis com caixa ativado. O extrato e os registros usam somente Obra do caixa, sincronizada com Obra em foco.</ScopeNote>
+
       {/* Consolidado */}
       <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:8,overflow:"hidden",boxShadow:`0 1px 4px ${C.shadow}`}}>
         <div style={{background:C.surface,padding:"8px 14px",borderBottom:`1px solid ${C.border}`}}>
@@ -11832,9 +11940,14 @@ function CaixaObra({ data, showToast, currentUser=null, dispatchCommand=null }) 
         ))}
       </div>
 
+      <Sel label="Obra do caixa" value={selObra} onChange={setSelObra} options={[
+        ...(!obra?[{v:selObra,l:`${data.obras.find(o=>o.id===selObra)?.name||"Obra não disponível"} · Caixa não ativado`,disabled:true}]:[]),
+        ...obrasComCaixa.map(o=>({v:o.id,l:o.name})),
+      ]}/>
+      {!obra&&<EmptyState title="A obra em foco não possui caixa ativado" description="Nenhum caixa de outra obra foi escolhido no lugar dela. Selecione uma obra com caixa em Obra do caixa ou confira a ativação no cadastro da obra."/>}
+
       {obra && (<>
         {/* Seletor + saldo grande */}
-        <Sel aria-label="Obra do caixa" value={selObra} onChange={setSelObra} options={obrasComCaixa.map(o=>({v:o.id,l:o.name}))}/>
 
         <div style={{background:caixa.saldo>=0?`${C.green}08`:`${C.red}08`,border:`1.5px solid ${(caixa.saldo>0?C.green:caixa.saldo<0?C.red:C.muted)}`,borderRadius:8,padding:"16px 18px",textAlign:"center"}}>
           <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:1}}>Saldo em caixa - {obra.name}</p>
@@ -11888,6 +12001,7 @@ function CaixaObra({ data, showToast, currentUser=null, dispatchCommand=null }) 
       {/* Modal lançamento */}
       {modal&&obra&&(
         <Modal title={tipoNovo==="aporte"?"Registrar aporte do cliente":"Registrar gasto"} onClose={()=>setModal(false)}>
+          <ScopeNote title="Obra do lançamento">{obra.name}. A confirmação registra o movimento somente neste caixa.</ScopeNote>
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
             {/* Toggle tipo */}
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
@@ -11966,8 +12080,7 @@ function DREEmpresaMensal({ data, showToast, currentUser=null, dispatchCommand=n
   useRememberWorkflowScope("dre_emp",{obraId:"",year,month,period:"mes"});
   const [abaDRE, setAbaDRE] = useSessionState("abaDRE","inteligencia");
   const [memorialDetail,setMemorialDetail]=useState(null);
-  useEffect(()=>setMemorialDetail(null),[year,month]);
-  const [analiseIA, setAnaliseIA] = useState(null);
+  const [analiseConsultada, setAnaliseIA] = useState(null);
   const [analisandoIA, setAnalisandoIA] = useState(false);
   const [despModal, setDespModal] = useState(false);
   const [expenseCommandPending,setExpenseCommandPending]=useState(false);
@@ -11976,9 +12089,13 @@ function DREEmpresaMensal({ data, showToast, currentUser=null, dispatchCommand=n
   const [recurrencePreview,setRecurrencePreview]=useState(null);
   const [expenseGroupFilter,setExpenseGroupFilter]=useState("all");
   const [expenseSearch,setExpenseSearch]=useState("");
-  const [razaoEmpresa,setRazaoEmpresa]=useState(null);
-  const [razaoCarregando,setRazaoCarregando]=useState(true);
-  const [razaoErro,setRazaoErro]=useState("");
+  const [novaConsulta,setNovaConsulta]=useState(0);
+  const consulta=useMemo(()=>({year,month}),[data,year,month,novaConsulta]);
+  const [respostaRazao,setRespostaRazao]=useState(null);
+  const respostaAtual=respostaRazao?.consulta===consulta?respostaRazao:null;
+  const razaoEmpresa=respostaAtual?.report||null;
+  const razaoCarregando=!respostaAtual;
+  const analiseIA=analiseConsultada?.consulta===consulta?analiseConsultada.resultado:null;
   const DF = k => v => setDespForm(f=>({...f,[k]:v}));
 
   const ym      = `${year}-${String(month+1).padStart(2,"0")}`;
@@ -12015,25 +12132,17 @@ function DREEmpresaMensal({ data, showToast, currentUser=null, dispatchCommand=n
   }),[ym]);
   useEffect(()=>{
     let ativo=true;
-    setRazaoCarregando(true);
-    setRazaoErro("");
-    consultarDreEmpresaCanonico({year,month}).then(report=>{
+    setMemorialDetail(null);
+    consultarDreEmpresaCanonico(consulta).then(report=>{
       if(!ativo)return;
-      if(report?.status===200&&["canonical_ledger","closed_snapshot"].includes(report?.source)&&report.current){
-        setRazaoEmpresa(report);
-      }else{
-        setRazaoEmpresa(null);
-        setRazaoErro(report?.error||"A projeção canônica ainda não foi gerada para este período.");
-      }
-    }).catch(error=>{
-      if(!ativo)return;
-      setRazaoEmpresa(null);
-      setRazaoErro(error?.message||"Não foi possível consultar o razão canônico.");
-    }).finally(()=>{
-      if(ativo)setRazaoCarregando(false);
+      const valido=report?.status===200&&["canonical_ledger","closed_snapshot"].includes(report.source)
+        &&["faturamentoTotal","receitaLiquida","ebitda","lucroLiquido"].every(field=>Number.isFinite(report.current?.[field]));
+      setRespostaRazao(valido?{consulta,report}:{consulta,erro:report?.error||"O razão não retornou o demonstrativo deste período."});
+    }).catch(()=>{
+      if(ativo)setRespostaRazao({consulta,erro:"Confira a conexão e tente novamente."});
     });
     return()=>{ativo=false;};
-  },[data,year,month]);
+  },[consulta]);
   const dre = useMemo(()=>["canonical_ledger","closed_snapshot"].includes(razaoEmpresa?.source)&&razaoEmpresa.current
     ? {...dreVazio,...razaoEmpresa.current,fonteFinanceira:"razao_canonico"}
     : {...dreVazio,fonteFinanceira:"sincronizacao_pendente"},[dreVazio,razaoEmpresa]);
@@ -12103,8 +12212,6 @@ function DREEmpresaMensal({ data, showToast, currentUser=null, dispatchCommand=n
     return {alertas,acoesObra,conversao,pesoCSP,pesoOp,score,criticos,atencao};
   },[dre]);
 
-  useEffect(()=>{ setAnaliseIA(null); },[year,month]);
-
   const executarAnaliseIA = async () => {
     setAnalisandoIA(true);
     try{
@@ -12132,7 +12239,7 @@ Regras: não inclua faturamento, folha, compras ou custos de execução das obra
       const resposta=await chamarIA({modulo:"dre",prompt,contexto});
       if(!resposta.ok)throw new Error(resposta.error||"A IA não respondeu.");
       const estruturada=jsonDaRespostaIA(resposta.reply||resposta.answer);
-      setAnaliseIA({...estruturada,geradoEm:new Date().toISOString()});
+      setAnaliseIA({consulta,resultado:{...estruturada,geradoEm:new Date().toISOString()}});
       showToast("Avaliação do CFO gerada pelo Gemini.");
     }catch(error){showToast(error.message||"Não foi possível gerar o parecer.","error");}
     finally{setAnalisandoIA(false);}
@@ -12378,22 +12485,20 @@ td.val{text-align:right;font-weight:700;min-width:110px}
 
   return (
     <div className="anim dre-company" data-view={abaDRE} style={{display:"flex",flexDirection:"column",gap:12}}>
-      {memorialDetail&&<MonthlyDreMemorial detail={memorialDetail} onClose={()=>setMemorialDetail(null)} onOpenWork={onOpenWork}/>}
+      {razaoEmpresa&&memorialDetail&&<MonthlyDreMemorial detail={memorialDetail} onClose={()=>setMemorialDetail(null)} onOpenWork={onOpenWork}/>}
 
       <PageHero
         eyebrow="Controladoria · Resultado da empresa"
         title="DRE Gerencial"
         description="Todas as receitas da empresa, com obras e locações conciliadas separadamente."
-        actions={<>
+        actions={razaoEmpresa&&<>
           <Btn v="ghost" size="sm" onClick={copiarParecer}><Ic n="copy" s={13}/> Copiar parecer</Btn>
           {analiseIA&&<Btn v="ghost" size="sm" onClick={imprimirRelatorioIA}><Ic n="file" s={13}/> PDF da análise</Btn>}
           <Btn size="sm" onClick={gerarPDF}><Ic n="file" s={13}/> Exportar PDF</Btn>
         </>}
       />
 
-      {dre.fonteFinanceira!=="razao_canonico"&&<Alert variant="warning"><AlertDescription className="text-xs">{razaoCarregando
-        ?"Atualizando a projeção do razão canônico para este período…"
-        :`${razaoErro} Nenhum cálculo local será exibido como resultado financeiro.`}</AlertDescription></Alert>}
+      <ScopeNote title="Escopo do demonstrativo">Consolidado da empresa no seu acesso · {fullMonth(month)} {year}. Obra em foco não filtra este demonstrativo.</ScopeNote>
 
       <div className="dre-company-toolbar">
         <TabRow tabs={[
@@ -12408,6 +12513,13 @@ td.val{text-align:right;font-weight:700;min-width:110px}
         </div>
       </div>
 
+      {razaoCarregando?<LoadingState label="o DRE mensal"/>:!razaoEmpresa?<Alert variant="warning" role="alert">
+        <AlertDescription>
+          <strong>DRE mensal indisponível para {period}</strong>
+          <p>{respostaAtual.erro}</p>
+        </AlertDescription>
+        <Button variant="outline" onClick={()=>setNovaConsulta(n=>n+1)}>Tentar novamente</Button>
+      </Alert>:<>
       {/* KPI bar */}
       <div className="dre-company-kpis" style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:8}}>
         {[
@@ -12770,6 +12882,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
           </div>
         </Modal>
       )}
+      </>}
     </div>
   );
 }
@@ -12893,6 +13006,7 @@ function PainelTV({data,ultimaSync,onAtualizar,allowedTabs=[]}){
 // Atualização por atualização periódica (sem tempo real): a lista é
 // recarregada a cada poucos segundos enquanto a aba de conversa está aberta.
 function Comunicacao({ data, currentUser, showToast }) {
+  const {isMobile}=useBreakpoint();
   const [aba, setAba] = useState("notificacoes");
   const ehAdmin = currentUser?.role === "admin";
 
@@ -12908,8 +13022,8 @@ function Comunicacao({ data, currentUser, showToast }) {
       return !s || !s.hasTeam || s.completed;
     });
     const diarioOk = obrasDele.every(o => (data.rdos || []).some(r => r.obraId === o.id && r.data === hoje));
-    const pendenciasAbertas = (data.conferencias || []).flatMap(c => (c.pendencias || [])
-      .filter(p => p.status !== "resolvida" && p.responsavelAjusteId === u.id));
+    const pendenciasAbertas = (data.conferencias || []).filter(c=>c.status!=="cancelada").flatMap(c => (c.pendencias || [])
+      .filter(p => !["resolvida","cancelada"].includes(p.status) && p.responsavelAjusteId === u.id));
     return { usuario: u, obrasDele, pontoOk, diarioOk, conferenciasOk: pendenciasAbertas.length === 0, pendenciasAbertas: pendenciasAbertas.length };
   }), [engenheiros, data.obras, data.rdos, data.conferencias, resumoAtendimento, hoje]);
 
@@ -12956,12 +13070,14 @@ function Comunicacao({ data, currentUser, showToast }) {
       <PageHero
         eyebrow="Comunicação interna"
         title="Comunicação"
-        description="Prioridades do dia e ranking de engenharia de campo. O chat da equipe agora é o balão flutuante no canto da tela."
+        description="Prioridades do dia e tarefas da equipe, com acesso aos registros de origem."
       />
       <TabRow equal tabs={[["notificacoes", "Notificações"], ["ranking", "Ranking"]]} active={aba} onChange={setAba}/>
 
       {aba === "notificacoes" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <SectorTasks data={data} user={currentUser}/>
+          <TaskDisclosure enabled={isMobile} summary="Prioridades da equipe">
           <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>Prioridades do dia por engenheiro de campo: ponto, diário de obra e conferências.</p>
           {!checklistPorUsuario.length && <p style={{ padding: 20, textAlign: "center", color: C.muted, fontSize:"var(--arcd-type-label)" }}>Nenhum engenheiro de campo cadastrado.</p>}
           {checklistPorUsuario.map(c => (
@@ -12977,6 +13093,7 @@ function Comunicacao({ data, currentUser, showToast }) {
               {!c.conferenciasOk && <p style={{ fontSize:"var(--arcd-type-caption)", color: C.red, marginTop: 4 }}>{contar(c.pendenciasAbertas,"pendência","pendências")} de conferência em aberto.</p>}
             </div>
           ))}
+          </TaskDisclosure>
         </div>
       )}
 
@@ -13283,18 +13400,18 @@ function ChatFlutuante({ currentUser, usuarios, showToast, bottomOffset=20 }) {
                         {!minha && !apagada && <p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color: "#1565C0", marginBottom: 1 }}>{m.userName}</p>}
                         {!apagada && m.attachment && (
                           m.attachment.type?.startsWith("image/") ? (
-                            <a href={m.attachment.url} target="_blank" rel="noopener noreferrer" style={{ display: "block", marginBottom: m.text ? 6 : 2 }}>
-                              <img src={m.attachment.url} alt={m.attachment.name} style={{ maxWidth: "100%", maxHeight: 180, borderRadius: 6, display: "block" }} />
-                            </a>
+                            <CompanyAssetLink href={m.attachment.url} target="_blank" rel="noopener noreferrer" style={{ display: "block", marginBottom: m.text ? 6 : 2 }}>
+                              <CompanyAssetImage src={m.attachment.url} alt={m.attachment.name} style={{ maxWidth: "100%", maxHeight: 180, borderRadius: 6, display: "block" }} />
+                            </CompanyAssetLink>
                           ) : (
-                            <a href={m.attachment.url} target="_blank" rel="noopener noreferrer" style={{
+                            <CompanyAssetLink href={m.attachment.url} target="_blank" rel="noopener noreferrer" style={{
                               display: "flex", alignItems: "center", gap: 6, padding: "6px 8px", borderRadius: 6,
                               background: "rgba(0,0,0,.05)", marginBottom: m.text ? 6 : 2, textDecoration: "none",
                             }}>
                               <Ic n="file" s={16} color="#666" />
                               <span style={{ fontSize:"var(--arcd-type-label)", color: "#222", fontWeight:600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{m.attachment.name}</span>
                               <Ic n="download" s={13} color="#888" />
-                            </a>
+                            </CompanyAssetLink>
                           )
                         )}
                         {(m.text || apagada) && <p style={{ fontSize: "var(--arcd-type-body)", color: apagada ? "#999" : "#111", fontStyle: apagada ? "italic" : "normal", lineHeight: 1.35, wordBreak: "break-word" }}>
@@ -13469,7 +13586,7 @@ function BuscaGlobal({ indice, allowedTabs, onIr, onFechar }) {
 
 function PortalClientePublico({ obraId, token }) {
   const [estado,setEstado]=useState({loading:true,portal:null,error:""});
-  useEffect(()=>{let ativo=true;(async()=>{try{const resp=await fetch("/api/data",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"client-portal",obraId,token})});const json=await resp.json();if(!resp.ok)throw new Error(json.error||"Portal indisponível.");if(ativo)setEstado({loading:false,portal:json.portal,error:""});}catch(e){if(ativo)setEstado({loading:false,portal:null,error:e.message});}})();return()=>{ativo=false};},[obraId,token]);
+  useEffect(()=>{let ativo=true;(async()=>{try{const resp=await fetch("/api/data",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"client-portal",companyId:activeCompany(),obraId,token})});const json=await resp.json();if(!resp.ok)throw new Error(json.error||"Portal indisponível.");if(ativo)setEstado({loading:false,portal:json.portal,error:""});}catch(e){if(ativo)setEstado({loading:false,portal:null,error:e.message});}})();return()=>{ativo=false};},[obraId,token]);
   if(estado.loading)return <><style>{G}</style><div style={{minHeight:"100vh",display:"grid",placeItems:"center",background:C.bg,color:C.muted}}>Carregando portal da obra...</div></>;
   if(estado.error)return <><style>{G}</style><div style={{minHeight:"100vh",display:"grid",placeItems:"center",background:C.bg,padding:24}}><div style={{maxWidth:460,textAlign:"center",background:C.card,border:`1px solid ${C.border}`,borderRadius:16,padding:26}}><BrandMark/><h1 style={{fontSize:"var(--arcd-type-section-title)",color:C.text,marginTop:18}}>Este link não está disponível</h1><p style={{fontSize:"var(--arcd-type-body)",color:C.muted,marginTop:8,lineHeight:1.6}}>{estado.error}<br/>Solicite um novo acesso à construtora.</p></div></div></>;
   const p=estado.portal,o=p.obra,concluidas=(p.cronograma||[]).filter(t=>t.progresso>=100).length;
@@ -13484,7 +13601,11 @@ function PortalClientePublico({ obraId, token }) {
   </main></div></>;
 }
 
-export default function App() {
+export default function App(){
+  const [companyId,setCompanyId]=useState(activeCompany);
+  return <CompanyApp key={companyId} onCompanyChanged={setCompanyId}/>;
+}
+function CompanyApp({onCompanyChanged}) {
   const portalRequest = useMemo(()=>{
     const q=new URLSearchParams(window.location.search);
     return {obraId:q.get("portal")||"",token:q.get("token")||""};
@@ -13509,6 +13630,7 @@ export default function App() {
   const [erroInicial, setErroInicial] = useState("");
   const [firstSetup, setFirstSetup] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
+  const [switchingCompany,setSwitchingCompany]=useState(false);
   const leavingSessionRef=useRef(false);
   const recoveryUserRef=useRef(currentUser);recoveryUserRef.current=currentUser;
   const [recoveryOpen,setRecoveryOpen]=useState(false),[recoveryAvailable,setRecoveryAvailable]=useState(false),[recoveryInitialization,setRecoveryInitialization]=useState({userId:null,ready:false}),[recoveryRevision,setRecoveryRevision]=useState(0);
@@ -13610,9 +13732,12 @@ export default function App() {
   const saveQueueRef=useRef(null);
   const attendanceCommandInFlightRef=useRef(0);
   const attendanceQueueRef=useRef(null);
-  const campoOfflineStoreRef=useRef(null);
-  if(!campoOfflineStoreRef.current){
-    campoOfflineStoreRef.current=createOfflineOperationStore();
+  const campoOfflineStoreRef=useRef(null),campoOfflineScopeRef=useRef('');
+  const campoOfflineScope=companyStorageKey('arcd-field-operations-v1');
+  if(!campoOfflineStoreRef.current||campoOfflineScopeRef.current!==campoOfflineScope){
+    campoOfflineStoreRef.current?.close();
+    campoOfflineScopeRef.current=campoOfflineScope;
+    campoOfflineStoreRef.current=createOfflineOperationStore({dbName:campoOfflineScope});
   }
   if(!saveQueueRef.current){
     saveQueueRef.current=createSaveQueue({
@@ -14094,12 +14219,13 @@ export default function App() {
   const navigateWorkflow=useCallback((tabId,scope,options={})=>{
     if(!allowedTabs.includes(tabId))return;
     const normalized=normalizeWorkflowScope(scope||workflowScopes[tabId]||{},currentUser);
-    if(tabId!==tab)setWorkflowTrail(previous=>[...previous.slice(-7),{tabId:tab,obraId:obraAberta,scope:normalizeWorkflowScope(workflowScopes[tab]||workflowLastScope.current,currentUser)}]);
+    if(tabId!==tab)setWorkflowTrail(previous=>[...previous.slice(-7),{tabId:tab,obraId:obraAberta,contextObraId:workContextObraId(),scope:normalizeWorkflowScope(workflowScopes[tab]||workflowLastScope.current,currentUser)}]);
     irPara(tabId,"",{...options,linked:true,scope:normalized,preserveHistory:true});
   },[allowedTabsKey,currentUser?.obraId,workflowScopes,irPara,tab,obraAberta]);
   const returnWorkflow=()=>{
     const previous=workflowTrail.at(-1);if(!previous||!allowedTabs.includes(previous.tabId))return;
     setWorkflowTrail(history=>history.slice(0,-1));
+    if(previous.contextObraId!==undefined)setWorkContextObra(previous.contextObraId);
     irPara(previous.tabId,previous.obraId,{scope:previous.scope,action:"resume",preserveHistory:true});
   };
 
@@ -14245,6 +14371,15 @@ export default function App() {
     return () => window.removeEventListener("arcd:data-conflict", aoConflitar);
   }, []);
 
+  const concluirRecuperacao=async(current,row)=>{
+    if(resolvingSaveRef.current||protectingEditsRef.current||memoryEditsRef.current.size||saveQueueRef.current.hasPending())return {ok:false,reason:'Há outro preenchimento ou envio pendente. A edição continua protegida; conclua essa revisão primeiro.'};
+    resolvingSaveRef.current=true;
+    try{
+      await snapshotJournal.release(row);
+      const norm=normalizeData(current.data);adoptServerVersion(current.updatedAt);baseServidorRef.current=norm;ultimoDataRef.current=norm;dataAtualRef.current=norm;setData(norm);setUltimaSync(new Date());setRecoveryRevision(v=>v+1);
+      return {ok:true};
+    }finally{resolvingSaveRef.current=false;}
+  };
   const aplicarRecuperacao=async(merged,current,row)=>{
     if(resolvingSaveRef.current||protectingEditsRef.current||memoryEditsRef.current.size)return {ok:false,reason:"Proteja os preenchimentos da memória antes de confirmar."};
     resolvingSaveRef.current=true;
@@ -14277,17 +14412,19 @@ export default function App() {
   const descartarMinhaVersao=async target=>{
     if(resolvingSaveRef.current||[SAVE_QUEUE_STATE.SAVING,SAVE_QUEUE_STATE.RETRY_SCHEDULED].includes(saveQueueRef.current.getState()))return;
     if((recoveryAvailable||saveQueueRef.current.hasPending())&&!window.confirm("Descartar as edições pendentes e consultar o servidor?"))return;
+    const protectedEdit=Boolean(recoveryAvailable||saveQueueRef.current.hasPending());
+    const refreshFailure=()=>UI_TEXT.feedback.refreshFailure({offline:navigator.onLine===false,protectedEdit});
     resolvingSaveRef.current=true;
     try{
       const fresco=await loadDataWithMeta();
-      if(!fresco?.data){showToast("Não foi possível atualizar. A edição protegida foi mantida.","error");return;}
+      if(!fresco?.data){showToast(refreshFailure(),"error");return;}
       const saved=target?.owner===currentUser.id?target:await snapshotJournal.readLatest(currentUser.id,recoveryTab());
       if(saved)await snapshotJournal.release(saved);
       saveQueueRef.current.discard({keepJournal:true});setConflito(null);
       adoptServerVersion(fresco.updatedAt);const norm=normalizeData(fresco.data);
       baseServidorRef.current=norm;ultimoDataRef.current=norm;dataAtualRef.current=norm;setData(norm);
       setRecoveryRevision(v=>v+1);setRecoveryOpen(false);
-    }catch{showToast("Não foi possível descartar a edição protegida.","error");}
+    }catch{showToast(refreshFailure(),"error");}
     finally{resolvingSaveRef.current=false;}
   };
 
@@ -14319,6 +14456,22 @@ export default function App() {
     attendanceQueueRef.current?.destroy();attendanceQueueRef.current=null;
     setEstadoSalvar(SAVE_QUEUE_STATE.IDLE);setConflito(null);setRecoveryReady(false);setRecoveryAvailable(false);setRecoveryOpen(false);
     return true;
+  };
+  const escolherEmpresa=async companyId=>{
+    if(companyId===activeCompany()||switchingCompany)return;
+    if(currentUser?.role!=='admin'||!currentUser.companyIsolationEnabled)return;
+    if(hasWorkspaceEditor()||document.querySelector('.arcd-modal-panel,[role="dialog"]')||saveQueueRef.current?.hasPending()||protectingEditsRef.current||memoryEditsRef.current.size||operationalInFlightRef.current||attendanceCommandInFlightRef.current||attendanceQueueRef.current?.hasPending()||recoveryAvailable){
+      showToast('Conclua ou descarte a edição e resolva os envios pendentes antes de trocar de empresa.','error');return;
+    }
+    setSwitchingCompany(true);leavingSessionRef.current=true;
+    try{
+      await encerrarPresenca();
+      const result=await trocarEmpresa(companyId);
+      if(!result.ok){leavingSessionRef.current=false;showToast(result.error,'error');return;}
+      saveQueueRef.current?.destroy();attendanceQueueRef.current?.destroy();
+      campoOfflineStoreRef.current?.close();
+      onCompanyChanged(companyId);
+    }finally{setSwitchingCompany(false);}
   };
   const sairDoSistema = async () => {
     if (!window.confirm("Sair do sistema?")) return;
@@ -14607,11 +14760,8 @@ export default function App() {
               {/* No desktop a marca vive na sidebar - repetir aqui é ruído */}
               {!isDesktop && <BrandMark compact/>}
               {/* Breadcrumb */}
-              <div className="app-breadcrumb" style={{ display:"flex", alignItems:"center", gap:6 }}>
-                {!isDesktop&&operationalWorkspace?<select className="workspace-module-select" aria-label={`Telas de ${activeGroup?.label}`} value={tab==="obras"&&obrasMenuEngenharia.some(obra=>obra.id===obraAberta)?`obra:${obraAberta}`:tab} onChange={event=>event.target.value.startsWith("obra:")?irPara("obras",event.target.value.slice(5)):irPara(event.target.value)}>
-                  {activeGroup?.tabs.map(id=><option key={id} value={id}>{TAB_META[id]?.label||id}</option>)}
-                  {activeGroup?.id==="eng_grp"&&obrasMenuEngenharia.length>0&&<optgroup label="Obras ativas">{obrasMenuEngenharia.map(obra=><option key={obra.id} value={`obra:${obra.id}`}>{obra.name}</option>)}</optgroup>}
-                </select>:<><span style={{ fontSize:"var(--arcd-type-label)", color:activeGroup?.color, fontWeight:600, textTransform:"uppercase", letterSpacing:.8 }}>
+              {(isDesktop||!operationalWorkspace)&&<div className="app-breadcrumb" style={{ display:"flex", alignItems:"center", gap:6 }}>
+                <span style={{ fontSize:"var(--arcd-type-label)", color:activeGroup?.color, fontWeight:600, textTransform:"uppercase", letterSpacing:.8 }}>
                   {activeGroup?.label}
                 </span>
                 {hasSubTabs && (
@@ -14621,8 +14771,9 @@ export default function App() {
                       {TAB_META[tab]?.label}
                     </span>
                   </>
-                )}</>}
-              </div>
+                )}
+              </div>}
+              {currentUser.companyIsolationEnabled&&<CompanySelector companyId={activeCompany()} canSwitch={currentUser.role==='admin'} busy={switchingCompany} onChange={escolherEmpresa}/>}
               <WorkContextStamp obras={obrasMenuEngenharia}/>
             </div>
 
@@ -14668,18 +14819,25 @@ export default function App() {
                 </Button>
               )}
             </div>
+            {!isDesktop&&operationalWorkspace&&<div className="workspace-mobile-navigation">
+              <SelectControl key={activeGroup?.id} className="workspace-module-select" aria-label={activeGroup?`Telas de ${activeGroup.label}`:"Telas disponíveis"} value={tab==="obras"&&obrasMenuEngenharia.some(obra=>obra.id===obraAberta)?`obra:${obraAberta}`:tab} onChange={event=>event.target.value.startsWith("obra:")?irPara("obras",event.target.value.slice(5)):irPara(event.target.value)}>
+                {activeGroup?.tabs.map(id=><option key={id} value={id}>{TAB_META[id]?.label||id}</option>)}
+                {activeGroup?.id==="eng_grp"&&obrasMenuEngenharia.length>0&&<optgroup label="Obras ativas">{obrasMenuEngenharia.map(obra=><option key={obra.id} value={`obra:${obra.id}`}>{obra.name}</option>)}</optgroup>}
+              </SelectControl>
+            </div>}
           </div>
         </header>
 
         {/*  CONTEÚDO  */}
         </div>
 
-        <main className="arcd-main" data-workspace={operationalWorkspace?tab:undefined} style={{ maxWidth:maxConteudo, margin:"0 auto", padding: isDesktop ? "24px 24px" : 14 }}>
+        <main inert={switchingCompany?"":undefined} className="arcd-main" data-workspace={operationalWorkspace?tab:undefined} style={{ maxWidth:maxConteudo, margin:"0 auto", padding: isDesktop ? "24px 24px" : 14 }}>
+          {data.localCompanySimulation?.enabled&&<ScopeNote title="Simulação local">Empresa {data.localCompanySimulation.companyId.toUpperCase()}. Pastas e fotos usam cópias privadas. Somente a limpeza de conciliação desta cópia pode ser gravada; os demais envios e as conexões com a nuvem estão bloqueados.</ScopeNote>}
           {conflito&&<Alert variant="warning" className="mb-3"><AlertDescription>
             <strong>Conflito de salvamento.</strong> Outra pessoa salvou alterações. Confira antes de reaplicar: sua versão pode substituir edições do mesmo registro. Mantenha esta aba aberta até resolver.
             <div className="flex flex-wrap gap-2 mt-2"><StandardButton onClick={reaplicarSobreServidor}>Reaplicar minhas alterações</StandardButton><StandardButton variant="outline" onClick={descartarMinhaVersao}>Descartar e recarregar</StandardButton></div>
           </AlertDescription></Alert>}
-          <SaveRecovery key={`save-recovery:${currentUser.id}`} memoryCount={memoryEditCount} onProtectMemory={protegerPreenchimentos} onDiscardMemory={descartarEdicaoDaMemoria} onRecovered={()=>setRecoveryRevision(v=>v+1)} normalize={normalizeData} pageId={tab} queue={saveQueueRef.current} state={estadoSalvar} user={currentUser} open={recoveryOpen} onOpen={()=>setRecoveryOpen(true)} onClose={()=>setRecoveryOpen(false)} onApply={aplicarRecuperacao} onUser={setCurrentUser} onAvailable={setRecoveryAvailable} onReady={setRecoveryReady} revision={recoveryRevision} onDiscard={descartarMinhaVersao}/>
+          <SaveRecovery key={`save-recovery:${currentUser.id}`} memoryCount={memoryEditCount} onProtectMemory={protegerPreenchimentos} onDiscardMemory={descartarEdicaoDaMemoria} onRecovered={()=>setRecoveryRevision(v=>v+1)} normalize={normalizeData} pageId={tab} queue={saveQueueRef.current} state={estadoSalvar} user={currentUser} open={recoveryOpen} onOpen={()=>setRecoveryOpen(true)} onClose={()=>setRecoveryOpen(false)} onApply={aplicarRecuperacao} onComplete={concluirRecuperacao} onUser={setCurrentUser} onAvailable={setRecoveryAvailable} onReady={setRecoveryReady} revision={recoveryRevision} onDiscard={descartarMinhaVersao}/>
           {edicaoRecusada&&<Alert variant="destructive" data-testid="save-rejected" className="flex flex-wrap items-start justify-between gap-2 mb-3">
             <AlertDescription><b>Alteração não salva e desfeita</b> às {edicaoRecusada.em.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}: {edicaoRecusada.motivo}{edicaoRecusada.secoes.length?` (${edicaoRecusada.secoes.slice(0,4).join(", ")}${edicaoRecusada.secoes.length>4?"…":""})`:""}. A tela voltou ao último estado confirmado.</AlertDescription>
             <Btn v="ghost" size="sm" onClick={()=>setEdicaoRecusada(null)}>Entendi</Btn>
@@ -14724,7 +14882,7 @@ export default function App() {
           {tab === "ponto_app" && <PontoEletronico data={data} showToast={showToast} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand} onTab={irPara}/>}
           {tab === "folha"  && <Suspense fallback={<LoadingState label="folha"/>}><Folha       data={data} showToast={showToast} onTab={irPara} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "resc"   && <Suspense fallback={<LoadingState label="rescisão"/>}><RescisaoView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
-          {tab === "rh_indic" && <Suspense fallback={<LoadingState label="indicadores"/>}><IndicadoresView data={data} /></Suspense>}
+          {tab === "rh_indic" && <Suspense fallback={<LoadingState label="indicadores"/>}><IndicadoresView data={data} currentUser={currentUser} /></Suspense>}
           {tab === "dre_emp"  && <DREEmpresa onOpenWork={allowedTabs.includes("obras")?obraId=>irPara("obras",obraId):undefined} data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "dre"      && <DRE          data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "fin"      && <Financeiro onOpenWork={allowedTabs.includes("obras")?obraId=>irPara("obras",obraId):undefined} data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}

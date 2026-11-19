@@ -18,7 +18,7 @@ it('abre o fluxo da tela, limita o índice ao acesso e permite fechar com Escape
  const close=vi.fn();
  mount(<HelpPanel id="help-test" pageId="ponto" topicId="ponto" allowedTabs={['home','ponto']} onClose={close}/>);
  expect(container.querySelector('article').textContent).toContain('Ponto por obra');
- expect(container.querySelectorAll('article li')).toHaveLength(3);
+ expect(container.querySelector('article ol li').textContent).toContain('Confira a data.');
  const buttons=[...container.querySelectorAll('button')];
  act(()=>buttons.find(button=>button.textContent.includes('Manual completo')).click());
  const index=container.querySelector('.app-help-index');

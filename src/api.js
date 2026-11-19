@@ -1,3 +1,5 @@
+import {activeCompany,setActiveCompany,setCompanyIsolation} from './lib/company-scope.js';
+import {parseCompanyFileReference} from './domains/arquivos/company-file-reference.js';
 // ═══════════════════════════════════════════════════════════════════
 // src/api.js — substitui o supabase.js no frontend
 //
@@ -68,10 +70,10 @@ const abrirSessaoEmail=(userId,accessToken,refreshToken)=>{
   sessionEpoch++;renovacaoEmCurso=null;
   sessao={userId,pin:null,accessToken,refreshToken,sessionId:novaSessaoId()};
   presenceAuthBlocked=false;
-  try{sessionStorage.setItem("arcd_auth_session",JSON.stringify(sessao));}catch(_){}
+  try{sessionStorage.setItem("arcd_auth_session",JSON.stringify({...sessao,companyId:activeCompany()}));}catch(_){}
 };
 
-const credenciais=()=>({userId:sessao.userId,pin:sessao.pin,accessToken:sessao.accessToken});
+const credenciais=()=>({companyId:activeCompany(),userId:sessao.userId,pin:sessao.pin,accessToken:sessao.accessToken});
 
 // O conteúdo do JWT é usado somente para saber se vale a pena renová-lo antes
 // de baixar o dataset. A autorização real continua sendo feita pelo Supabase
@@ -97,13 +99,13 @@ const renovarSessaoEmail = async () => {
       const response=await fetch(ROTA,{
         method:"POST",signal:controller.signal,
         headers:{"content-type":"application/json"},
-        body:JSON.stringify({action:"auth-refresh",refreshToken}),
+        body:JSON.stringify({action:"auth-refresh",companyId:activeCompany(),refreshToken}),
       });
       const refreshed=await response.json().catch(()=>({}));
       if(epoch!==sessionEpoch||!response.ok||!refreshed.accessToken)return false;
       sessao={...sessao,accessToken:refreshed.accessToken,refreshToken:refreshed.refreshToken||sessao.refreshToken};
       presenceAuthBlocked=false;
-      try{sessionStorage.setItem("arcd_auth_session",JSON.stringify(sessao));}catch(_){}
+      try{sessionStorage.setItem("arcd_auth_session",JSON.stringify({...sessao,companyId:activeCompany()}));}catch(_){}
       return true;
     }catch{return false;}
     finally{window.clearTimeout(timer);}
@@ -126,6 +128,7 @@ export const temSessao = () => {
 };
 
 const chamar = async (body) => {
+  body={companyId:activeCompany(),...body};
   const epoch=sessionEpoch;
   const inicioDaChamada = performance.now();
   const requisitar = async payload => {
@@ -158,6 +161,7 @@ const chamar = async (body) => {
   if(epoch!==sessionEpoch)return sessionChanged();
   registrarTempo(body.action, r, inicioDaChamada);
   if(!json)return respostaInvalida(r);
+  if(json.companyIsolationEnabled&&json.companyId!==body.companyId)return {ok:false,status:409,code:'COMPANY_RESPONSE_MISMATCH',error:'A resposta não pertence à empresa solicitada.'};
   const retryAfterHeader=Number(r.headers?.get?.("retry-after")||0);
   return {
     status:r.status,...json,
@@ -206,6 +210,7 @@ const chamarRotaAutenticada = async (rota, payload = {}) => {
   const json=await lerObjetoJson(response);
   if(epoch!==sessionEpoch)return sessionChanged();
   if(!json)return respostaInvalida(response);
+  if(json.companyIsolationEnabled&&json.companyId!==activeCompany())return {ok:false,status:409,code:'COMPANY_RESPONSE_MISMATCH',error:'A resposta não pertence à empresa solicitada.'};
   return { ok:response.ok, status:response.status, ...json };
 };
 
@@ -221,6 +226,26 @@ export const extrairNotaPatrimonioIA = ({dataUrl,fileName}) => chamarRotaAutenti
 });
 export const consultarCNPJReceita = cnpj => chamarRotaAutenticada("/api/cnpj", { cnpj });
 export const employeeDocumentsRequest = payload => chamarRotaAutenticada('/api/upload',{...payload,folder:'rh'});
+
+export const assetAuthorizationKey=()=>`${activeCompany()}:${sessionEpoch}`;
+export const protectedCompanyAsset=value=>typeof value==='string'&&(value.startsWith('company-file:')||value.startsWith('/api/microsoft/onedrive?'));
+export async function resolveCompanyAssetUrl(value){
+  if(typeof value!=='string'||!value)return {ok:false,error:'Arquivo indisponível.'};
+  if(value.startsWith('company-file:')){
+    const file=parseCompanyFileReference(value);
+    if(!file||file.companyId!==activeCompany())return {ok:false,error:'Arquivo indisponível nesta empresa.'};
+    return chamarRotaAutenticada('/api/upload',{action:'signed-company-file',reference:value});
+  }
+  if(value.startsWith('/api/microsoft/onedrive?')){
+    const url=new URL(value,'https://marcell.invalid');
+    if(url.searchParams.get('action')!=='file')return {ok:false,error:'Arquivo indisponível.'};
+    const company=url.searchParams.get('companyId');
+    if(company&&company!==activeCompany())return {ok:false,error:'Arquivo indisponível nesta empresa.'};
+    return chamarRotaAutenticada('/api/microsoft/onedrive',{action:'file-link',driveId:url.searchParams.get('driveId'),itemId:url.searchParams.get('itemId')});
+  }
+  if(!/^(?:https?:\/\/|\/[^/]|data:image\/|blob:)/i.test(value))return {ok:false,error:'Referência de arquivo inválida.'};
+  return {ok:true,url:value};
+}
 export const buscarResumoDiario = () => chamarRotaAutenticada("/api/ai-agent", { action:"daily-brief" });
 export const executarComandoFinanceiro = command => chamar({ action:"financial-command", ...credenciais(), command });
 export const consultarPreviaFechamentoFinanceiro = ({startsOn,endsOn}) =>
@@ -229,6 +254,8 @@ export const gerarLinkAceitePedido = orderId => chamar({ action:"pedido-aceite-l
 export const executarComandoOperacional = command => chamar({ action:"operational-command", ...credenciais(), command });
 export const consultarModeloContrato = () => chamar({action:'commercial-contract-model',...credenciais()});
 export const executarComandoConciliacao = command => chamar({ action:"reconciliation-command", ...credenciais(), command });
+export const preverLimpezaConciliacaoLocal = scope => chamar({action:'local-bank-cleanup-preview',...credenciais(),scope});
+export const apagarConciliacaoLocal = command => chamar({action:'local-bank-cleanup-apply',...credenciais(),command});
 export const executarComandoPonto = command => chamar({ ...credenciais(), ...command });
 export const consultarSombraFinanceira = () => chamar({ action:"financial-shadow-report", ...credenciais() });
 export const consultarGestaoDre = () => chamar({ action:"financial-management-report", ...credenciais() });
@@ -284,9 +311,10 @@ export const entrarComPin = async (identificador, pin) => {
     return { ok:false, erro:"O servidor devolveu uma resposta de autenticação inválida. Tente novamente." };
   }
 
+  setCompanyIsolation(r.companyIsolationEnabled);
   abrirSessao(r.usuario.id, pin);
   ultimoUpdatedAt = r.updatedAt || null;
-  return { ok: true, data: r.data, usuario: r.usuario };
+  return { ok: true, data: r.data, usuario: {...r.usuario,companyId:r.companyId||activeCompany(),companyIsolationEnabled:!!r.companyIsolationEnabled} };
 };
 
 export const entrarComEmail = async (email,password) => {
@@ -295,9 +323,10 @@ export const entrarComEmail = async (email,password) => {
   if(!r.data||!r.usuario?.id||!r.accessToken){
     return{ok:false,erro:"O servidor devolveu uma resposta de autenticação inválida. Tente novamente."};
   }
+  setCompanyIsolation(r.companyIsolationEnabled);
   abrirSessaoEmail(r.usuario.id,r.accessToken,r.refreshToken);
   ultimoUpdatedAt=r.updatedAt||null;
-  return{ok:true,data:r.data,usuario:r.usuario};
+  return{ok:true,data:r.data,usuario:{...r.usuario,companyId:r.companyId||activeCompany(),companyIsolationEnabled:!!r.companyIsolationEnabled}};
 };
 
 // Reauthenticate the same operator without unmounting an in-progress editor.
@@ -305,7 +334,7 @@ export const renewEditingSession=async({email,password,userId})=>{
  const r=await chamar({action:'auth-login',email,password});
  if(r.status!==200||!r.accessToken||!r.data||String(r.usuario?.id)!==String(userId))return {ok:false,error:r.error||'Renove o acesso com a mesma conta que iniciou a edição.'};
  abrirSessaoEmail(r.usuario.id,r.accessToken,r.refreshToken);
- return {ok:true,usuario:r.usuario};
+ return {ok:true,usuario:{...r.usuario,companyId:r.companyId||activeCompany(),companyIsolationEnabled:!!r.companyIsolationEnabled}};
 };
 export const readRecoveryData=async()=>{
  const r=await chamar({action:'load',...credenciais()});
@@ -313,12 +342,13 @@ export const readRecoveryData=async()=>{
 };
 
 export const restaurarSessaoEmail=async()=>{
-  if(!sessao.accessToken)return{ok:false};
-  if(tokenExpiraEmBreve(sessao.accessToken)&&!await renovarSessaoEmail())return{ok:false};
+  if(!temSessao())return{ok:false};
+  if(sessao.accessToken&&tokenExpiraEmBreve(sessao.accessToken)&&!await renovarSessaoEmail())return{ok:false};
   const r=await chamar({action:"load",...credenciais()});
   if(r.status!==200)return{ok:false};
+  setCompanyIsolation(r.companyIsolationEnabled);
   ultimoUpdatedAt=r.updatedAt||null;
-  return{ok:true,data:r.data,usuario:r.usuario};
+  return{ok:true,data:r.data,usuario:{...r.usuario,companyId:r.companyId||activeCompany(),companyIsolationEnabled:!!r.companyIsolationEnabled}};
 };
 
 // ── Recarregar ─────────────────────────────────────────────────────
@@ -590,7 +620,8 @@ export const finalizarBaseReferencia = async baseId => chamarReferencias("finish
 export const pesquisarBasesReferencia = async (referenceIds, query) => chamarReferencias("search", { referenceIds, query });
 export const pesquisarInsumosReferencia = async (referenceIds, query, itemType = "TODOS") =>
   chamarReferencias("search-inputs", { referenceIds, query, itemType });
-export const resolverCodigosReferencia = async (referenceIds, entries) => chamarReferencias("resolve", { referenceIds, entries });
+export const resolverCodigosReferencia = async (referenceIds, entries, {includeVariants=false}={}) =>
+  chamarReferencias("resolve", {referenceIds, entries, ...(includeVariants?{includeVariants}: {})});
 export const detalharComposicoesReferencia = async (referenceIds, entries) => chamarReferencias("composition-details", { referenceIds, entries });
 export const removerBaseReferencia = async baseId => chamarReferencias("delete", { baseId });
 
@@ -612,16 +643,9 @@ export const conectarOneDrive = async () => {
   const r=await fetch("/api/microsoft/connect",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(credenciais())});
   const j=await r.json().catch(()=>({})); if(r.ok&&j.url)window.location.href=j.url; return {ok:r.ok,...j};
 };
-const chamarOneDrive = async (action, payload = {}) => {
-  if (!temSessao()) return { ok:false, error:"Sessão encerrada." };
-  const r = await fetch("/api/microsoft/onedrive", {
-    method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ action, ...credenciais(), ...payload }),
-  });
-  const json = await lerObjetoJson(r);
-  if(!json)return respostaInvalida(r);
-  return { ok:r.ok, status:r.status, ...json };
-};
+const chamarOneDrive = (action, payload = {}) =>
+  chamarRotaAutenticada('/api/microsoft/onedrive',{action,...payload});
+
 export const excluirDocumentoOneDrive = payload => chamarOneDrive('trash-document',payload);
 export const statusOneDrive = () => chamarOneDrive("status");
 export const criarEstruturaOneDrive = obraName => chamarOneDrive("create-workspace", { obraName });
@@ -688,3 +712,17 @@ export const gerarLinkRespostaCotacao = (quoteId,proposalId) => chamar({action:"
 
 // Leitura autenticada já publicada para PDFs e dossiês de Arquivos.
 export const lerArquivoOneDrive = (reference,{signal}={}) => fetch('/api/microsoft/onedrive',{method:'POST',signal,headers:{'content-type':'application/json'},body:JSON.stringify({...credenciais(),...reference,action:'read-file'})});
+
+// Confere o acesso antes de descartar o contexto atual. Falha preserva a sessão.
+export async function trocarEmpresa(companyId){
+  if(!temSessao())return {ok:false,error:'Sessão encerrada.'};
+  const response=await chamar({action:'load',...credenciais(),companyId});
+  if(response.status!==200||response.companyId!==companyId||!response.companyIsolationEnabled||response.usuario?.role!=='admin'||!response.data){
+    return {ok:false,error:response.error||'Esta empresa não está disponível para seu acesso.'};
+  }
+  sessionEpoch++;renovacaoEmCurso=null;ultimoUpdatedAt=null;presenceAuthBlocked=false;
+  setActiveCompany(companyId);setCompanyIsolation(true);
+  sessao={...sessao,sessionId:novaSessaoId()};
+  if(sessao.accessToken)try{sessionStorage.setItem('arcd_auth_session',JSON.stringify({...sessao,companyId}));}catch{}
+  return {ok:true,companyId};
+}

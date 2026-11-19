@@ -20,8 +20,12 @@ import {
 } from "../analytics";
 import { employeeComplianceStatus } from "../compliance";
 import { employeeLifecycleStatus } from "../employee-commands";
+import {useWorkflow} from '../../../features/workflow/WorkflowNavigation.jsx';
+import {podeAcessarAba} from '../../administracao/abas-acesso.js';
+import {Button} from '../../../design-system/primitives/Button.jsx';
 
-function Indicadores({ data }) {
+function Indicadores({ data,currentUser }) {
+  const {navigate}=useWorkflow();
   const { cols } = useBreakpoint();
   const asOf = today();
   const monthStr = asOf.slice(0, 7);
@@ -72,7 +76,8 @@ function Indicadores({ data }) {
         )}
       </div>
 
-      <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>Indicadores calculados em {fmtDateFull(asOf)}. Custo de folha por obra ainda não entra neste painel - depende do motor de custo de mão de obra por competência (src/domains/financeiro/labor-cost-engine.js), que exige seleção de obra e período; fica para uma próxima rodada.</p>
+      <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>Indicadores calculados em {fmtDateFull(asOf)}. Este painel reúne equipe e documentação. Para conferir a folha, abra Folha e selecione a obra e o período. O custo reconhecido por competência é consultado no DRE, conforme seu acesso; pagamento e custo são informações diferentes.</p>
+      {navigate&&podeAcessarAba(currentUser,'folha')&&<Button variant="secondary" onClick={()=>navigate('folha',{obraId:currentUser.obraId||'',year:Number(asOf.slice(0,4)),month:Number(asOf.slice(5,7))-1})}>Consultar Folha</Button>}
     </div>
   );
 }

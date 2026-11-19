@@ -91,12 +91,16 @@ describe("identidade dos relatórios MARCELL", () => {
 });
 
 
-it('aplica ARCD inclusive em relatório já preparado, preservando dados, fotos e assinaturas',()=>{
- const identity={id:'arcd',name:'ARCD',logo:'data:image/png;base64,YXJjZA=='};
- const prepared=marcellReportHtml(sample);const result=marcellReportHtml(prepared,{identity}),doc=parse(result);
- expect(doc.body.dataset.reportIdentity).toBe('arcd');expect(doc.querySelector('.mrc-report-logo').src).toBe(identity.logo);expect(doc.querySelector('.mrc-report-watermark img').src).toBe(identity.logo);
+it('substitui ARCD no cabeçalho e na marca d’água de um relatório já preparado',()=>{
+ const prepared=marcellReportHtml(sample);
+ const originalBrand=parse(prepared).querySelector('.mrc-report-logo').src;
+ const legacy=prepared.replaceAll(originalBrand,'data:image/png;base64,YXJjZA==')
+  .replace('data-report-identity="marcell"','data-report-identity="arcd"')
+  .replace('alt="MARCELL - Engenharia e construção"','alt="ARCD"');
+ const result=marcellReportHtml(legacy),doc=parse(result);
+ expect(doc.body.dataset.reportIdentity).toBe('marcell');expect(doc.querySelector('.mrc-report-logo').src).toBe(originalBrand);expect(doc.querySelector('.mrc-report-watermark img').src).toBe(originalBrand);
  expect([...doc.querySelectorAll('td,th')].map(n=>n.textContent)).toEqual([...parse(sample).querySelectorAll('td,th')].map(n=>n.textContent));
- expect(doc.querySelector('p').textContent).toContain('CNPJ 12.345.678/0001-90');expect(marcellReportHtml(result,{identity})).toBe(result);
+ expect(doc.querySelector('p').textContent).toContain('CNPJ 12.345.678/0001-90');expect(marcellReportHtml(result)).toBe(result);
 });
 it('não aceita URL arbitrária como identidade e conserva a marca padrão',()=>{
  const doc=parse(marcellReportHtml(sample,{identity:{id:'arcd',logo:'x\" onerror=alert(1)'}}));expect(doc.body.dataset.reportIdentity).toBe('marcell');expect(doc.querySelector('.mrc-report-logo').getAttribute('onerror')).toBeNull();

@@ -11,10 +11,11 @@ const columnName = index => {
 
 const encodeCell = ({r, c}) => `${columnName(c)}${r + 1}`;
 
-const sheetFromRows = rows => {
+const sheetFromRows = (rows,formatos) => {
   const sheet = {__rows: rows.map(row => Array.isArray(row) ? [...row] : [])};
   sheet.__rows.forEach((row, r) => row.forEach((value, c) => {
-    sheet[encodeCell({r, c})] = {v: value};
+    const address=encodeCell({r,c}),z=formatos?.get(address);
+    sheet[address] = z?{v:value,z}:{v:value};
   }));
   return sheet;
 };
@@ -31,19 +32,23 @@ const cellValue = cell => {
   return value;
 };
 
-const rowsFromWorksheet = worksheet => {
+const rowsFromWorksheet = (worksheet,formatos) => {
   const rows = [];
   for (let r = 1; r <= worksheet.rowCount; r++) {
     const row = [];
     const excelRow = worksheet.getRow(r);
-    for (let c = 1; c <= worksheet.columnCount; c++) row.push(cellValue(excelRow.getCell(c)));
+    for (let c = 1; c <= worksheet.columnCount; c++) {
+      const cell=excelRow.getCell(c);
+      row.push(cellValue(cell));
+      if(formatos&&cell.numFmt)formatos.set(cell.address,cell.numFmt);
+    }
     while (row.length && row[row.length - 1] === "") row.pop();
     rows.push(row);
   }
   return rows;
 };
 
-const read = async (buffer, { sheets, onSheet } = {}) => {
+const read = async (buffer, { sheets, onSheet, cellNF=false } = {}) => {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer);
   const result = {SheetNames: [], Sheets: {}};
@@ -55,7 +60,8 @@ const read = async (buffer, { sheets, onSheet } = {}) => {
     const selected=!Array.isArray(sheets)||sheets.some(name=>normalized===String(name).toUpperCase()||normalized.includes(String(name).toUpperCase()));
     if(!selected)return;
     result.SheetNames.push(worksheet.name);
-    result.Sheets[worksheet.name] = sheetFromRows(rowsFromWorksheet(worksheet));
+    const formatos=cellNF?new Map():undefined;
+    result.Sheets[worksheet.name] = sheetFromRows(rowsFromWorksheet(worksheet,formatos),formatos);
     onSheet?.(worksheet.name);
   });
   return result;

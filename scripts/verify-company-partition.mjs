@@ -1,0 +1,13 @@
+import {readFile,writeFile} from 'node:fs/promises';
+import {verifyCompanyPartition} from '../server/company-partition-verification.js';
+import {verifyExternalCaptures} from './lib/company-capture-files.mjs';
+const args=process.argv.slice(2),get=name=>args[args.indexOf(name)+1];
+for(const name of ['--input','--plan','--output'])if(!args.includes(name)||!get(name))throw new Error(`Informe ${name}.`);
+const snapshot=JSON.parse(await readFile(get('--input'),'utf8')),plan=JSON.parse(await readFile(get('--plan'),'utf8'));
+const years=args.includes('--years')?get('--years').split(',').map(Number):[2026];
+if(years.some(year=>!Number.isInteger(year)||year<2000||year>2100))throw new Error('Anos inválidos.');
+const externalVerification=await verifyExternalCaptures(snapshot);
+const result=verifyCompanyPartition(snapshot,plan,{years,externalVerification});
+await writeFile(get('--output'),JSON.stringify(result,null,2),{flag:'wx',mode:0o600});
+console.log(JSON.stringify({dataVerified:result.dataVerified,activationReady:result.activationReady,failed:result.checks.filter(check=>!check.passed),differences:result.differences.length}));
+if(!result.dataVerified)process.exitCode=2;

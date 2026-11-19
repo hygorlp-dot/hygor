@@ -1,3 +1,4 @@
+import {currentCompany, withCompanyContext} from '../server/company-context.js';
 // Presenca de usuarios, chat em grupo e ajustes manuais do ranking de
 // engenheiros de campo - tres recursos pequenos, pouco acessados, dividindo
 // UM endpoint (dispatch por "action") em vez de gastar tres slots de
@@ -29,7 +30,6 @@ import {
 
 const URL = process.env.SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const COMPANY = process.env.COMPANY_ID || "arcd";
 const PRESENCE_PREFIX = "arced_presence__";
 const MSG_PREFIX = "arced_chat_msg__";
 const MUTE_PREFIX = "arced_chat_mute__";
@@ -51,7 +51,7 @@ const textoSeguro = (value, max = 120) => String(value || "").replace(/[\x00-\x1
 // Anexo já foi enviado ao Storage por /api/upload; aqui só guardamos a
 // referência. Exige https:// para nunca persistir um esquema executável
 // (ex.: javascript:) que seria clicável no link do anexo.
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Metodo nao permitido." });
   if (!URL || !SERVICE) return res.status(503).json({ error: "Banco nao configurado." });
 
@@ -80,7 +80,7 @@ export default async function handler(req, res) {
         loggedOutAt: null,
       };
       const { error } = await db.from("company_app_data").upsert({
-        company_id: COMPANY,
+        company_id: currentCompany(),
         key: `${PRESENCE_PREFIX}${sessionId}`,
         value,
         updated_at: agora,
@@ -95,7 +95,7 @@ export default async function handler(req, res) {
       }
       const key = `${PRESENCE_PREFIX}${sessionId}`;
       const { data: atual, error: readError } = await db.from("company_app_data")
-        .select("value").eq("company_id", COMPANY).eq("key", key).maybeSingle();
+        .select("value").eq("company_id", currentCompany()).eq("key", key).maybeSingle();
       if(readError)throw readError;
       if (atual) {
         const agora = new Date().toISOString();
@@ -103,7 +103,7 @@ export default async function handler(req, res) {
         const {error:updateError}=await db.from("company_app_data").update({
           value: { ...value, lastSeen: agora, loggedOutAt: agora },
           updated_at: agora,
-        }).eq("company_id", COMPANY).eq("key", key);
+        }).eq("company_id", currentCompany()).eq("key", key);
         if(updateError)throw updateError;
       }
       return res.status(200).json({ ok: true });
@@ -114,13 +114,13 @@ export default async function handler(req, res) {
       const limiteHistorico = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
       // Evita acumular uma linha para sempre a cada aba/dispositivo utilizado.
       const {error:cleanupError}=await db.from("company_app_data").delete()
-        .eq("company_id", COMPANY)
+        .eq("company_id", currentCompany())
         .like("key", `${PRESENCE_PREFIX}%`)
         .lt("updated_at", limiteHistorico);
       if(cleanupError)throw cleanupError;
       const { data: rows, error } = await db.from("company_app_data")
         .select("value,updated_at")
-        .eq("company_id", COMPANY)
+        .eq("company_id", currentCompany())
         .like("key", `${PRESENCE_PREFIX}%`)
         .gte("updated_at", limiteHistorico)
         .order("updated_at", { ascending: false });
@@ -144,11 +144,11 @@ export default async function handler(req, res) {
     //  Chat interno da empresa
     if (action === "chat-send") {
       const { data: muteRow } = await db.from("company_app_data")
-        .select("value").eq("company_id", COMPANY).eq("key", `${MUTE_PREFIX}${user.id}`).maybeSingle();
+        .select("value").eq("company_id", currentCompany()).eq("key", `${MUTE_PREFIX}${user.id}`).maybeSingle();
       if (muteRow) return res.status(403).json({ error: "Você foi silenciado pelo administrador e não pode enviar mensagens." });
 
       const conteudo = String(text || "").trim().slice(0, MAX_MSG_LEN);
-      const anexo = sanitizeChatAttachment(attachment);
+      const anexo = sanitizeChatAttachment(attachment,{companyId:currentCompany()});
       if (!conteudo && !anexo) return res.status(400).json({ error: "Mensagem vazia." });
 
       const agora = new Date().toISOString();
@@ -161,7 +161,7 @@ export default async function handler(req, res) {
         createdAt: agora, deletedAt: null, deletedBy: null,
       };
       const { error } = await db.from("company_app_data").upsert({
-        company_id: COMPANY, key: `${MSG_PREFIX}${id}`, value, updated_at: agora,
+        company_id: currentCompany(), key: `${MSG_PREFIX}${id}`, value, updated_at: agora,
       },{onConflict:"company_id,key",ignoreDuplicates:true});
       if (error) throw error;
       return res.status(200).json({ ok: true, message: value });
@@ -170,10 +170,10 @@ export default async function handler(req, res) {
     if (action === "chat-list") {
       const [{ data: msgRows, error: msgErr }, { data: muteRows, error: muteErr }] = await Promise.all([
         db.from("company_app_data").select("value")
-          .eq("company_id", COMPANY).like("key", `${MSG_PREFIX}%`)
+          .eq("company_id", currentCompany()).like("key", `${MSG_PREFIX}%`)
           .order("updated_at", { ascending: false }).limit(CHAT_LIST_LIMIT),
         db.from("company_app_data").select("key,value")
-          .eq("company_id", COMPANY).like("key", `${MUTE_PREFIX}%`),
+          .eq("company_id", currentCompany()).like("key", `${MUTE_PREFIX}%`),
       ]);
       if (msgErr) throw msgErr;
       if (muteErr) throw muteErr;
@@ -192,13 +192,13 @@ export default async function handler(req, res) {
       if (!messageId) return res.status(400).json({ error: "Mensagem nao informada." });
       const key = `${MSG_PREFIX}${messageId}`;
       const { data: atual } = await db.from("company_app_data")
-        .select("value").eq("company_id", COMPANY).eq("key", key).maybeSingle();
+        .select("value").eq("company_id", currentCompany()).eq("key", key).maybeSingle();
       if (!atual) return res.status(404).json({ error: "Mensagem nao encontrada." });
       const v = typeof atual.value === "string" ? JSON.parse(atual.value) : atual.value;
       const agora = new Date().toISOString();
       const value = deletedChatMessage(v, { at: agora, by: user.nome });
       const { error } = await db.from("company_app_data").update({ value, updated_at: agora })
-        .eq("company_id", COMPANY).eq("key", key);
+        .eq("company_id", currentCompany()).eq("key", key);
       if (error) throw error;
       return res.status(200).json({ ok: true });
     }
@@ -209,13 +209,13 @@ export default async function handler(req, res) {
       const key = `${MUTE_PREFIX}${targetUserId}`;
       if (action === "chat-unmute") {
         const { error } = await db.from("company_app_data").delete()
-          .eq("company_id", COMPANY).eq("key", key);
+          .eq("company_id", currentCompany()).eq("key", key);
         if (error) throw error;
         return res.status(200).json({ ok: true });
       }
       const agora = new Date().toISOString();
       const { error } = await db.from("company_app_data").upsert({
-        company_id: COMPANY, key, value: { mutedBy: user.nome, mutedAt: agora }, updated_at: agora,
+        company_id: currentCompany(), key, value: { mutedBy: user.nome, mutedAt: agora }, updated_at: agora,
       }, { onConflict: "company_id,key" });
       if (error) throw error;
       return res.status(200).json({ ok: true });
@@ -224,7 +224,7 @@ export default async function handler(req, res) {
     //  Ranking de engenheiros de campo (ajustes manuais)
     if (action === "ranking-list") {
       const { data: rows, error } = await db.from("company_app_data")
-        .select("key,value").eq("company_id", COMPANY).like("key", `${ADJ_PREFIX}%`);
+        .select("key,value").eq("company_id", currentCompany()).like("key", `${ADJ_PREFIX}%`);
       if (error) throw error;
       const ajustes = (rows || [])
         .map(r => ({ id: r.key.slice(ADJ_PREFIX.length), ...(typeof r.value === "string" ? JSON.parse(r.value) : r.value) }))
@@ -249,7 +249,7 @@ export default async function handler(req, res) {
         criadoPorId: user.id, criadoPor: user.nome, criadoEm: agora,
       };
       const { error } = await db.from("company_app_data").upsert({
-        company_id: COMPANY, key: `${ADJ_PREFIX}${id}`, value, updated_at: agora,
+        company_id: currentCompany(), key: `${ADJ_PREFIX}${id}`, value, updated_at: agora,
       },{onConflict:"company_id,key",ignoreDuplicates:true});
       if (error) throw error;
       return res.status(200).json({ ok: true, ajuste: { id, ...value } });
@@ -259,7 +259,7 @@ export default async function handler(req, res) {
       if (user.role !== "admin") return res.status(403).json({ error: "Apenas o administrador pode remover um ajuste." });
       if (!adjustmentId) return res.status(400).json({ error: "Ajuste nao informado." });
       const {data:removed,error}=await db.from("company_app_data").delete()
-        .eq("company_id", COMPANY).eq("key", `${ADJ_PREFIX}${adjustmentId}`)
+        .eq("company_id", currentCompany()).eq("key", `${ADJ_PREFIX}${adjustmentId}`)
         .select("key");
       if (error) throw error;
       if(!removed?.length)return res.status(404).json({error:"Ajuste não encontrado."});
@@ -272,3 +272,5 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Falha ao processar a solicitacao." });
   }
 }
+
+export default withCompanyContext(handler);

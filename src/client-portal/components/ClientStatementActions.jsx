@@ -1,3 +1,4 @@
+import {portalApiUrl} from '../company.js';
 import {useState} from 'react';
 import {Button} from '../../design-system/primitives/Button.jsx';
 import {Alert,AlertDescription} from '../../components/ui/alert.jsx';
@@ -8,7 +9,7 @@ export function ClientStatementActions({projectId,month,enabled=true}){
   if(busy)return;setBusy(true);setError('');setMessage('');
   try{
    const query=new URLSearchParams({format,...(month?{month}:{})});
-   const response=await fetch(`/api/client/projects/${encodeURIComponent(projectId)}/statement?${query}`,{credentials:'same-origin'});
+   const response=await fetch(portalApiUrl(`/api/client/projects/${encodeURIComponent(projectId)}/statement?${query}`),{credentials:'same-origin'});
    if(!response.ok){const body=await response.json().catch(()=>({}));throw new Error(body.error||'Não foi possível preparar o arquivo. Tente novamente.');}
    const blob=await response.blob(),name=`prestacao-contas-${month||'atual'}.${format==='email'?'eml':'pdf'}`;
    const file=new File([blob],name,{type:blob.type});

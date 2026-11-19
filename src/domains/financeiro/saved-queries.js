@@ -1,7 +1,7 @@
 import {documentIssueLabels} from './document-register.js';
 
 export function queryStorageKey(user,config={}){
- const company=String(config.companyId||config.cnpj||'').replace(/\s/g,'');
+ const company=String(user?.companyId||config.companyId||config.cnpj||'').replace(/\s/g,'');
  return user?.id&&company?`marcell:document-queries:v1:${encodeURIComponent(company)}:${encodeURIComponent(user.id)}:${encodeURIComponent(user.obraId||'all')}`:null;
 }
 export function sanitizeQuery(value={}){

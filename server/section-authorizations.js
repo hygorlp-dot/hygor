@@ -1,5 +1,6 @@
 import { orcamentoAprovado } from "../src/domains/orcamentos/budget-approval.js";
 import {budgetHierarchyError} from '../src/domains/orcamentos/hierarchy.js';
+import {budgetScopeExclusion} from '../src/domains/orcamentos/budget-pending.js';
 // Política única para mutações do blob legado. A UI pode ocultar um botão,
 // mas a autorização definitiva ocorre antes de qualquer update no servidor.
 const SECTION_ROLES = Object.freeze({
@@ -263,6 +264,15 @@ export const validateBudgetBaselinePolicy=(previous={},next={},user={})=>{
   const previousBudgets=byRecordId(previous.orcamentos),nextBudgets=byRecordId(next.orcamentos);
   for(const [id,budget] of nextBudgets){
     const before=previousBudgets.get(id);
+    const revisionSource=!before&&budget.revisionOf&&(previous.orcamentos||[]).find(row=>
+      (row.versionId||row.id)===budget.revisionOf&&row.obraId===budget.obraId);
+    const previousItems=byRecordId((before||revisionSource)?.itens);
+    for(const item of budget.itens||[]){
+      if(!item.exclusaoEscopo||sameJson(item.exclusaoEscopo,previousItems.get(String(item.id))?.exclusaoEscopo))continue;
+      // Copiar uma linha com ID novo não transfere decisões de escopo.
+      const exclusion=budgetScopeExclusion(item);
+      if(!exclusion||String(exclusion.autorId)!==String(user.id||''))return 'A exclusão do escopo exige um item pendente, motivo e identificação do responsável.';
+    }
     const wasApproved=before&&orcamentoAprovado(before);
     const isApproved=orcamentoAprovado(budget);
     if(!wasApproved&&isApproved){

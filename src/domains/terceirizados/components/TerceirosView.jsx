@@ -1,5 +1,8 @@
 import { contar } from "../../../design-system/copy.js";
+import {useHelpTopic} from '../../../features/help/HelpContext.jsx';
 import {TaskDisclosure} from '../../../design-system/patterns/TaskDisclosure.jsx';
+import {useMeasurementDraft} from './useMeasurementDraft.js';
+import {Alert,AlertDescription} from '../../../components/ui/alert.jsx';
 import TechnicalRetentions from '../../../features/financeiro/TechnicalRetentions.jsx';
 import {technicalRetentionCents} from '../technical-retention.js';
 import {Button as StandardButton} from '../../../components/ui/button.jsx';
@@ -56,6 +59,7 @@ import {
 } from "../lifecycle";
 import { enviarArquivoOneDrive } from "../../../api";
 import { ProgressPercentageField } from "../../medicoes/components/ProgressPercentageField.jsx";
+import {formatProgress} from '../../medicoes/progress-presentation.js';
 
 export default function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, dispatchCommand=null, contratoInicial=null }) {
   const { formGrid,isMobile } = useBreakpoint();
@@ -561,6 +565,11 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
     return mapa;
   }, [data.medicoesTerc, tercSel, medEditId]);
 
+  const medSignature=editId=>JSON.stringify([tercAtual?.id,tercAtual?.version||0,etapasTerc.map(e=>[e.id,e.valor]),medicoesTercAtual.filter(m=>m.id!==editId).map(m=>[m.id,m.version||0,m.status,(m.itens||[]).map(i=>[i.etapaId,i.pctAcum,i.valor])])]);
+  const measurementDraft=useMeasurementDraft({open:medModal,form:medForm,baseSignature:medSignature(medEditId)});
+  useHelpTopic('terc',medModal?'terc_rascunho':'terc',medModal?50:-100);
+  useHelpTopic('obras',medModal?'terc_rascunho':'obras',medModal?50:-100);
+  const medLocked=thirdPartyCommandPending||!!measurementDraft.session?.attempt||!!measurementDraft.session?.blocked;
   const somaEtapas   = etapasTerc.reduce((s, e) => s + Number(e.valor || 0), 0);
   const totalMedido  = medicoesTercAtual.reduce((s, m) => s + Number(m.total || 0), 0);
   // Avanco fisico ponderado pelo valor de cada etapa - nao pela contagem.
@@ -650,20 +659,13 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
   const abrirMedicao = (medicaoParaCorrigir=null) => {
     if(!podeRegistrarEvidencia){showToast("A medição e suas fotografias devem ser registradas por um engenheiro de campo ou engenheiro auditor.","error");return;}
     if (!etapasTerc.length) { showToast("Subdivida o contrato em etapas antes de medir.", "error"); return; }
-    if(medicaoParaCorrigir){
-      setMedEditId(medicaoParaCorrigir.id);
-      setMedForm({
-        data: medicaoParaCorrigir.data||medicaoParaCorrigir.dataMedicao||today(),
-        observacao: medicaoParaCorrigir.observacao||"",
-        pcts: Object.fromEntries((medicaoParaCorrigir.itens||[]).map(i => [i.etapaId, String(i.pctAcum)])),
-        fotos: (medicaoParaCorrigir.fotos||[]).map(f=>({...f})),
-      });
-    } else {
-      setMedEditId("");
-      // O formulario ja abre com o acumulado atual: voce so mexe no que avancou.
-      setMedForm({ data: today(), observacao: "",
-        pcts: Object.fromEntries(etapasTerc.map(e => [e.id, String(acumuladoPorEtapa[e.id] || 0)])), fotos:[] });
-    }
+    const editId=medicaoParaCorrigir?.id||'';
+    const initial=medicaoParaCorrigir?{
+      data:medicaoParaCorrigir.data||medicaoParaCorrigir.dataMedicao||today(),observacao:medicaoParaCorrigir.observacao||'',
+      pcts:Object.fromEntries((medicaoParaCorrigir.itens||[]).map(i=>[i.etapaId,String(i.pctAcum)])),fotos:(medicaoParaCorrigir.fotos||[]).map(f=>({...f})),
+    }:{data:today(),observacao:'',pcts:Object.fromEntries(etapasTerc.map(e=>[e.id,String(acumuladoPorEtapa[e.id]||0)])),fotos:[]};
+    setMedEditId(editId);
+    setMedForm(measurementDraft.start({companyId:currentUser?.companyId||'',userId:currentUser?.id,obraId:tercAtual.obraId,contractId:tercAtual.id,editId},initial,{measurementId:editId||uid(),signature:medSignature(editId),submittedIds:(data.medicoesTerc||[]).map(m=>m.id),confirmedKeys:(data.operationalCommandReceipts||[]).map(r=>r.idempotencyKey)}));
     setMedModal(true);
   };
 
@@ -681,6 +683,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
       showToast("Aguarde a conclusão do envio antes de fechar a medição.","info");
       return;
     }
+    if(!measurementDraft.flush()){showToast("O rascunho ainda não foi salvo. Mantenha esta tela aberta e tente salvar novamente.","error");return;}
     setMedModal(false);setMedEditId("");
   };
 
@@ -719,7 +722,26 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
              valor: Number(e.valor || 0) * (acum - anterior) / 100 };
   });
 
+  const medHasDecrease=itensDaMedicao().some(i=>i.pctAcum<i.pctAnterior);
+  const enviarTentativaMedicao=async command=>{
+    setThirdPartyCommandPending(true);
+    try{
+      const result=await dispatchCommand(()=>command);
+      if(!result?.ok){
+        if([400,401,403,409,422].includes(Number(result?.status)))measurementDraft.releaseAttempt();
+        throw new Error(result?.reason||result?.error||'O servidor não confirmou a medição.');
+      }
+      measurementDraft.clear();setMedModal(false);setMedEditId('');
+      showToast('Medição confirmada e enviada para aprovação do financeiro.');
+    }catch(error){showToast(error.message||'Não foi possível registrar a medição.','error');}
+    finally{setThirdPartyCommandPending(false);}
+  };
   const salvarMedicao = async () => {
+    if(!podeRegistrarEvidencia||!dispatchCommand||thirdPartyCommandPending||measurementDraft.session?.blocked||measurementDraft.session?.scope.userId!==currentUser?.id)return;
+    if(measurementDraft.session?.attempt){await enviarTentativaMedicao(measurementDraft.session.attempt);return;}
+    if(measurementDraft.outdated){showToast('A base da medição mudou. Confira o rascunho antes de iniciar uma nova medição.','error');return;}
+    if(medHasDecrease){showToast('O percentual acumulado não pode ser menor que o anterior. Confira a medição de origem.','error');return;}
+    if(!measurementDraft.flush())return;
     if (!tercAtual) return;
     if(!podeRegistrarEvidencia){showToast("Somente um engenheiro de campo ou auditor pode registrar esta medição.","error");return;}
     if(!(medForm.fotos||[]).length){
@@ -738,41 +760,17 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
       fotos:(medForm.fotos||[]).map(f=>({...f})),responsavelEvidenciaId:currentUser?.id||"",
       responsavelEvidencia:currentUser?.nome||"",responsavelEvidenciaRole:currentUser?.role||"",
     };
-    if(!dispatchCommand||thirdPartyCommandPending)return;
-    setThirdPartyCommandPending(true);
-    try {
-      const result = isEdicao
-        ? await dispatchCommand(atual=>{
-            const vigente=(atual.medicoesTerc||[]).find(item=>item.id===medEditId);
-            return {
-              type:OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_RESUBMITTED,
-              idempotencyKey:`third-measurement-resubmit-${medEditId}-${uid()}`,
-              expectedVersion:Number(vigente?.version||0),
-              actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-              payload:{measurementId:medEditId,measurement:medicao},
-            };
-          })
-        : await (async()=>{
-            const measurementId=uid();
-            return dispatchCommand(()=>({
-              type:OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_RECORDED,
-              idempotencyKey:`third-measurement-create-${measurementId}-${uid()}`,
-              expectedVersion:0,
-              actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-              payload:{measurement:{...medicao,id:measurementId}},
-            }));
-          })();
-      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou a medição.");
-      setMedModal(false);
-      setMedEditId("");
-      showToast(isEdicao
-        ? "Medição corrigida e reenviada para aprovação do financeiro."
-        : `Medição ${medicao.numero} (${fmt(total)}) enviada para aprovação do financeiro.`);
-    } catch (error) {
-      showToast(error.message||"Não foi possível registrar a medição.","error");
-    } finally {
-      setThirdPartyCommandPending(false);
-    }
+    const measurementId=measurementDraft.session?.measurementId;
+    if(!measurementId)return;
+    const command=isEdicao?{
+      type:OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_RESUBMITTED,
+      idempotencyKey:`third-measurement-resubmit-${medEditId}-${uid()}`,
+      expectedVersion:Number((data.medicoesTerc||[]).find(m=>m.id===medEditId)?.version||0),
+      actorId:currentUser?.id||'',actorName:currentUser?.nome||'',payload:{measurementId:medEditId,measurement:medicao},
+    }:{type:OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_RECORDED,idempotencyKey:`third-measurement-create-${measurementId}`,
+      expectedVersion:0,actorId:currentUser?.id||'',actorName:currentUser?.nome||'',payload:{measurement:{...medicao,id:measurementId}}};
+    const protectedCommand=measurementDraft.prepare(command);
+    if(protectedCommand)await enviarTentativaMedicao(protectedCommand);
   };
 
   // A ultima medicao pode ser desfeita sem ambiguidade. Uma do meio nao: os
@@ -1524,7 +1522,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
               ["Contrato", fmt(tercAtual.contractValue), "neutral"],
               ["Medido", fmt(totalMedido), "success"],
               ["Saldo das etapas", fmt(somaEtapas - totalMedido), (somaEtapas - totalMedido) >= 0 ? "warning" : "danger"],
-              ["Avanço físico", `${pctFisico.toFixed(1)}%`, "primary"],
+              ["Avanço físico", `${formatProgress(pctFisico)}%`, "primary"],
             ].map(([l,v,tone]) => (
               <div className="terceiros-contract-metrics__item" data-tone={tone} key={l}>
                 <p>{l}</p>
@@ -2035,16 +2033,26 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
           onClose={fecharMedicao} wide panelClass="measurement-entry-modal"
           footer={<div className="measurement-entry-actions">
             <Btn v="ghost" full onClick={fecharMedicao} disabled={subindoFotosMed||thirdPartyCommandPending}>Cancelar</Btn>
-            <Btn full onClick={salvarMedicao} disabled={subindoFotosMed||thirdPartyCommandPending}><Ic n="check"/> {thirdPartyCommandPending?"Confirmando...":medEditId?"Corrigir e reenviar":"Confirmar e enviar para aprovação"}</Btn>
+            <Btn full onClick={salvarMedicao} disabled={!podeRegistrarEvidencia||subindoFotosMed||thirdPartyCommandPending||measurementDraft.session?.blocked||(!measurementDraft.session?.attempt&&(measurementDraft.outdated||medHasDecrease))}><Ic n="check"/> {thirdPartyCommandPending?"Confirmando...":measurementDraft.session?.attempt?"Repetir confirmação":medEditId?"Corrigir e reenviar":"Confirmar e enviar para aprovação"}</Btn>
           </div>}>
           <div style={{ display:"flex", flexDirection:"column", gap:"var(--arcd-space-3)" }}>
+            <Alert role={measurementDraft.persistence.state==='error'?'alert':'status'} variant={measurementDraft.persistence.state==='error'?'destructive':'default'}><AlertDescription>
+              {measurementDraft.persistence.state==='error'?measurementDraft.persistence.error:measurementDraft.persistence.state==='saved'?'Rascunho salvo neste aparelho. Fechar mantém percentuais, observação e fotos já enviadas.':'Salvando rascunho neste aparelho…'}
+              {measurementDraft.session?.restored&&<p>Rascunho recuperado. Confira os dados antes de confirmar.</p>}
+              {measurementDraft.persistence.state==='error'&&<StandardButton variant="outline" onClick={measurementDraft.flush}>Tentar salvar rascunho</StandardButton>}
+            </AlertDescription></Alert>
+            {measurementDraft.session?.attempt&&<Alert variant="warning"><AlertDescription>A confirmação anterior está pendente. Os campos ficam protegidos. Use Repetir confirmação para reenviar a mesma tentativa. Se ela já foi aceita, o servidor retorna a confirmação sem duplicar a medição. Não há reenvio automático ao recarregar.</AlertDescription></Alert>}
+            {measurementDraft.outdated&&!measurementDraft.session?.attempt&&<Alert variant="warning"><AlertDescription>A base da medição mudou. O rascunho foi mantido; confira os percentuais e o contrato. Para começar pela base atual, use Descartar rascunho e abra Nova medição novamente.</AlertDescription></Alert>}
+            {!measurementDraft.session?.attempt&&<StandardButton variant="outline" disabled={subindoFotosMed||thirdPartyCommandPending} onClick={()=>{if(window.confirm('Descartar percentuais, observação e referências das fotos deste rascunho? As fotos já enviadas ao OneDrive não serão excluídas.')&&measurementDraft.discard()){setMedModal(false);setMedEditId('');}}}>Descartar rascunho</StandardButton>}
+
             <p style={{ fontSize:"var(--arcd-type-label)", color:"var(--arcd-text-secondary)", lineHeight:"var(--arcd-line-height-normal)" }}>
               Informe o percentual <b>acumulado</b> de cada etapa - o total executado até hoje, não o avanço da semana.
               O app calcula a diferença para a medição anterior e valoriza só o que avançou.
+              A leitura usa até duas casas decimais. Ao entrar no campo, você vê a precisão completa; o cálculo mantém o valor original.
             </p>
-            <Inp label="Data da medição" type="date" value={medForm.data} onChange={v=>setMedForm(f=>({...f,data:v}))}/>
+            <Inp disabled={medLocked} label="Data da medição" type="date" value={medForm.data} onChange={v=>setMedForm(f=>({...f,data:v}))}/>
             {somaEtapas > 0 && <p aria-label="Evolução percentual do contrato">
-              Evolução acumulada do contrato: <strong>{pctFisico.toFixed(1)}% → {pctFisicoProposto.toFixed(1)}%</strong>
+              Evolução acumulada do contrato: <strong>{formatProgress(pctFisico)}% → {formatProgress(pctFisicoProposto)}%</strong>
             </p>}
 
             <div style={{ border:"1px solid var(--arcd-border-default)", borderRadius:8, overflow:"hidden" }}>
@@ -2056,7 +2064,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                 return (
                   <div key={e.id} className="measurement-entry-row">
                     <ProgressPercentageField label={`Percentual de ${e.nome}`} value={medForm.pcts?.[e.id] ?? String(anterior)} previous={anterior}
-                      disabled={thirdPartyCommandPending}
+                      disabled={medLocked}
                       onChange={value=>setMedForm(f=>({...f,pcts:{...f.pcts,[e.id]:value}}))} />
                     <div className="measurement-entry-summary">
                       <p style={{ fontSize:"var(--arcd-type-label)", color:"var(--arcd-text-secondary)", marginTop:"var(--arcd-space-half)" }}>
@@ -2064,7 +2072,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                       </p>
                       <div style={{ textAlign:"right" }}>
                         <p style={{ fontSize:"var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color:delta<0?"var(--arcd-danger-text)":delta>0?"var(--arcd-success-text)":"var(--arcd-text-secondary)" }}>{fmt(valor)}</p>
-                        <p style={{ fontSize:"var(--arcd-type-caption)", color:"var(--arcd-text-secondary)" }}>{delta>0?"+":""}{delta.toFixed(1)} p.p.</p>
+                        <p style={{ fontSize:"var(--arcd-type-caption)", color:"var(--arcd-text-secondary)" }}>{delta>0?"+":""}{formatProgress(delta)} p.p.</p>
                       </div>
                     </div>
                   </div>
@@ -2072,13 +2080,12 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
               })}
             </div>
 
-            {/* Medir para tras e legitimo (corrigir medicao a maior), mas nunca
-                deve passar despercebido. */}
+            {/* A medição nova só reconhece avanço; correção da origem usa seu fluxo próprio. */}
             {itensDaMedicao().some(i => i.pctAcum < i.pctAnterior) && (
               <div style={{ background:"color-mix(in srgb, var(--arcd-warning-text) 7%, transparent)", border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)", borderRadius:8, padding:"var(--arcd-space-2) var(--arcd-space-3)" }}>
                 <p style={{ fontSize:"var(--arcd-type-label)", color:"var(--arcd-warning-text)", lineHeight:"var(--arcd-line-height-normal)" }}>
-                  Há etapa com percentual menor que o da medição anterior. Isso gera valor negativo -
-                  um estorno de medição a maior. Se não é o caso, revise os percentuais.
+                  Há etapa com percentual menor que o anterior. Esta tela não cria um estorno.
+                  Revise o percentual ou confira as opções de correção e cancelamento na medição de origem, conforme seu acesso.
                 </p>
               </div>
             )}
@@ -2091,18 +2098,18 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
               </b>
             </div>
 
-            <Inp label="Observação" value={medForm.observacao} onChange={v=>setMedForm(f=>({...f,observacao:v}))}
+            <Inp disabled={medLocked} label="Observação" value={medForm.observacao} onChange={v=>setMedForm(f=>({...f,observacao:v}))}
               placeholder="Ex.: pendente o quadro do 2º pavimento"/>
 
             <div style={{background:"var(--arcd-surface-muted)",border:`1px solid ${(medForm.fotos||[]).length?"var(--arcd-success-text)":"var(--arcd-warning-text)"}66`,borderRadius:9,padding:"var(--arcd-space-3)"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
                 <div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",textTransform:"uppercase"}}>Evidência fotográfica obrigatória</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>As imagens ficam na pasta de fotos da obra e identificam o engenheiro responsável.</p></div>
                 <div className="flex flex-wrap gap-2">
-                  <Btn size="sm" v="ghost" onClick={()=>inputFotosMedRef.current?.click()} disabled={subindoFotosMed||thirdPartyCommandPending}>{subindoFotosMed?"Enviando...":"Escolher da galeria"}</Btn>
-                  <Btn size="sm" v="ghost" onClick={()=>inputCameraMedRef.current?.click()} disabled={subindoFotosMed||thirdPartyCommandPending}>Tirar foto</Btn>
+                  <Btn size="sm" v="ghost" onClick={()=>inputFotosMedRef.current?.click()} disabled={subindoFotosMed||medLocked}>{subindoFotosMed?"Enviando...":"Escolher da galeria"}</Btn>
+                  <Btn size="sm" v="ghost" onClick={()=>inputCameraMedRef.current?.click()} disabled={subindoFotosMed||medLocked}>Tirar foto</Btn>
                 </div>
-                <input ref={inputFotosMedRef} aria-label="Fotos da galeria para a medição" type="file" accept="image/*" multiple disabled={subindoFotosMed||thirdPartyCommandPending} style={{display:"none"}} onChange={e=>{void anexarFotosMedicao(e.target.files);e.target.value="";}}/>
-                <input ref={inputCameraMedRef} aria-label="Foto da câmera para a medição" type="file" accept="image/*" capture="environment" disabled={subindoFotosMed||thirdPartyCommandPending} style={{display:"none"}} onChange={e=>{void anexarFotosMedicao(e.target.files);e.target.value="";}}/>
+                <input ref={inputFotosMedRef} aria-label="Fotos da galeria para a medição" type="file" accept="image/*" multiple disabled={subindoFotosMed||medLocked} style={{display:"none"}} onChange={e=>{void anexarFotosMedicao(e.target.files);e.target.value="";}}/>
+                <input ref={inputCameraMedRef} aria-label="Foto da câmera para a medição" type="file" accept="image/*" capture="environment" disabled={subindoFotosMed||medLocked} style={{display:"none"}} onChange={e=>{void anexarFotosMedicao(e.target.files);e.target.value="";}}/>
               </div>
               {(medForm.fotos||[]).length?<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(86px,1fr))",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)"}}>{(medForm.fotos||[]).map((f,i)=><div key={f.id||i} style={{minWidth:0}}><a href={f.url} target="_blank" rel="noopener noreferrer" style={{display:"block",aspectRatio:"1/1",borderRadius:7,overflow:"hidden",border:"1px solid var(--arcd-border-default)"}}><img src={f.url} alt={`Evidência ${i+1}`} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/></a><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>Foto {i+1} · {currentUser?.nome}</p></div>)}</div>:<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-2)"}}>Nenhuma fotografia anexada. Escolha fotos da galeria ou tire uma foto da execução.</p>}
             </div>

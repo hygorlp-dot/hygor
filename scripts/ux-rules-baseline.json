@@ -87,7 +87,7 @@
     "src/domains/medicoes/components/MedicoesView.jsx": 8,
     "src/domains/orcamentos/components/OrcamentoView.jsx": 20,
     "src/domains/planejamento/components/PlanejamentoView.jsx": 9,
-    "src/domains/terceirizados/components/TerceirosView.jsx": 11,
+    "src/domains/terceirizados/components/TerceirosView.jsx": 8,
     "src/features/conciliacao/ConciliacaoView.jsx": 1,
     "src/features/pilot/OperationalPilot.jsx": 1,
     "src/LegacyApp.jsx": 33,

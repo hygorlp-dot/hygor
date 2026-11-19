@@ -1,19 +1,30 @@
 import {test,expect} from '@playwright/test';
 import {readFileSync} from 'node:fs';
 import {writeFile} from 'node:fs/promises';
-import {data,profile} from '../scripts/fixtures/workflow-priorities-data.mjs';
+import {data as fixture,profile} from '../scripts/fixtures/workflow-priorities-data.mjs';
 
 // Read the app's real tab catalogue so the sweep cannot quietly omit a new area.
 const source=readFileSync(new URL('../src/domains/administracao/LegacySettings.jsx',import.meta.url),'utf8').split('export const TAB_META_BASE = {')[1].split('\n};')[0];
 const tabs=[...source.matchAll(/\b(\w+)\s*:\s*\{\s*label:\s*"([^"]+)"/g)].map(([,id,label])=>({id,label}));
 
 async function enter(page,id){
+  let data=structuredClone(fixture);
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.clock.setFixedTime(new Date('2026-11-01T12:00:00-03:00'));
   await page.addInitScript(({id,user,theme})=>{sessionStorage.setItem(`arcd-section:${user}`,id);localStorage.setItem('arcd-theme',theme);},{id,user:profile.id,theme:process.env.MARCELL_TEST_THEME||'marcell'});
   await page.route('https://**/*',r=>r.abort());
   await page.route('**/api/**',r=>r.fulfill({json:{ok:true,items:[],bases:[],presencas:[],connected:false,reply:''}}));
-  await page.route('**/api/data',r=>r.fulfill({json:{ok:true,usuarios:[profile],precisaSetup:false,usuario:profile,data,current:null,history:[],accessToken:'layout-local-only',refreshToken:'layout-local-only',updatedAt:'2026-11-01T15:00:00Z'}}));
+  await page.route('**/api/data',r=>{
+    const body=r.request().postDataJSON()||{};
+    if(['save','save-sections'].includes(body.action)){
+      data={...data,...(body.sections||body.payload||{})};
+      for(const [key,delta] of Object.entries(body.sectionDeltas||{})){
+        const removed=new Set(delta.removed||[]),changed=new Map((delta.changed||[]).map(row=>[row.id,row]));
+        data[key]=(data[key]||[]).filter(row=>!removed.has(row.id)&&!changed.has(row.id)).concat([...changed.values()]);
+      }
+    }
+    return r.fulfill({json:{ok:true,usuarios:[profile],precisaSetup:false,usuario:profile,data,current:null,history:[],accessToken:'layout-local-only',refreshToken:'layout-local-only',updatedAt:'2026-11-01T15:00:00Z'}});
+  });
   await page.goto('/');await page.locator('#login-email').fill(profile.email);await page.locator('#login-senha').fill('layout-local-only');
   await page.getByRole('button',{name:'Acessar central MARCELL',exact:true}).click();await expect(page.locator('.arcd-main')).toBeVisible();
   await expect(page.getByText('Algo quebrou nesta tela',{exact:true})).toHaveCount(0);
@@ -60,16 +71,16 @@ test('Compras: alinhamento, seleção, foco, menus e ação principal',async({pa
     const labels=await header.locator('.arcd-field__label').evaluateAll(elements=>elements.filter(el=>el.getClientRects().length).map(el=>el.getBoundingClientRect().top));
     expect(Math.max(...labels)-Math.min(...labels)).toBeLessThanOrEqual(1);
     const nav=page.getByRole('navigation',{name:'Fluxo de compras',exact:true});
-    const current=nav.getByRole('button',{name:'Fila de trabalho',exact:true});
+    const current=nav.getByRole('button',{name:/^Fila de trabalho(?: \d+)?$/});
     await expect(current).toHaveAttribute('aria-current','page');
-    const other=nav.getByRole('button',{name:'Pedidos',exact:true});
+    const other=nav.getByRole('button',{name:/^Pedidos(?: \d+)?$/});
     const currentStyle=await current.evaluate(el=>({background:getComputedStyle(el).backgroundColor,indicator:getComputedStyle(el).boxShadow}));
     const otherBackground=await other.evaluate(el=>getComputedStyle(el).backgroundColor);
     expect(currentStyle.background!==otherBackground||currentStyle.indicator!=='none').toBe(true);
     await expect(other).toHaveCSS('cursor','pointer');
     const beforeHover=await other.evaluate(el=>getComputedStyle(el).backgroundColor);await other.hover();await expect.poll(()=>other.evaluate(el=>getComputedStyle(el).backgroundColor)).not.toBe(beforeHover);
     await page.keyboard.press('Tab');await other.focus();await expect(other).toBeFocused();await expect(other).toHaveCSS('outline-style','solid');await other.press('Enter');await expect(other).toHaveAttribute('aria-current','page');
-    await nav.getByRole('button',{name:'Fila de trabalho',exact:true}).click();
+    await nav.getByRole('button',{name:/^Fila de trabalho(?: \d+)?$/}).click();
     const tools=page.locator('.purchase-tools');await tools.locator('summary').click();await expect(tools.getByRole('navigation')).toBeVisible();await tools.locator('summary').press('Escape');await expect(tools).not.toHaveAttribute('open');
   }
   await page.getByRole('button',{name:'Alterar aparência',exact:true}).click();await expect(page.locator('.theme-menu')).toBeVisible();await page.locator('.theme-menu').getByLabel('Tema',{exact:true}).press('Escape');

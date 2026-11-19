@@ -1,5 +1,6 @@
 import { contar } from "../../../design-system/copy.js";
 import {TaskDisclosure} from '../../../design-system/patterns/TaskDisclosure.jsx';
+import {ScopeNote} from '../../../design-system/patterns/ScopeNote.jsx';
 import {useSyncedWorkObra,workContextObraId} from '../../../features/workflow/work-context.js';
 import { PageHeader } from "../../../design-system/patterns/PageHeader";
 // ===================================================================
@@ -22,6 +23,7 @@ import { calcProjecaoContratoObra } from "../../financeiro/legacy-calculations.j
 import { compLabel, fmt, fmtDate, fmtDateFull, today, uid } from "../../../legacy/format.js";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { totalRecebidoMedicao, statusRecebimentoMedicao } from "../../conciliacao/index.js";
+import {active} from '../../financeiro/facts.js';
 import { toLocalISODate } from "../../ponto/attendance-engine";
 
 const BILLING_LABELS = {
@@ -29,6 +31,8 @@ const BILLING_LABELS = {
   percentual:  "Por % de avanço",
   livre:       "Livre",
 };
+
+const saldoReceber=medicao=>Math.max(0,Number(medicao.valorPrevisto||0)-totalRecebidoMedicao(medicao));
 
 function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null }) {
   const { cols } = useBreakpoint();
@@ -506,7 +510,7 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
       {(() => {
         const todayDate = new Date();
         const proximasAll = (data.medicoes||[]).filter(m => {
-          if (m.recebido || !m.dataVencimento) return false;
+          if (!active(m) || statusRecebimentoMedicao(m)==='recebida' || !m.dataVencimento) return false;
           const venc = new Date(m.dataVencimento+"T12:00:00");
           const diff = Math.round((venc-todayDate)/(1000*60*60*24));
           return diff <= 7;
@@ -518,11 +522,12 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
         }).sort((a,b)=>a.dataVencimento.localeCompare(b.dataVencimento));
 
         if (proximasAll.length===0) return null;
-        const totalPendente = proximasAll.reduce((s,m)=>s+m.valorPrevisto,0);
+        const totalPendente = proximasAll.reduce((s,m)=>s+saldoReceber(m),0);
         const vencidas = proximasAll.filter(m=>m.diff<0);
 
         return (
-<TaskDisclosure summary={`Cobranças próximas e vencidas · ${proximasAll.length} · ${fmt(totalPendente)}`}>
+<TaskDisclosure summary={`Cobranças próximas e vencidas · Todas as obras disponíveis · ${proximasAll.length} · Saldo ${fmt(totalPendente)}`}>
+          <ScopeNote title="Escopo da fila">Esta fila geral não é filtrada por Obra das medições. O saldo desconta os recebimentos já registrados; cobranças quitadas ou canceladas não entram. Confira a obra e o saldo antes de registrar o recebimento.</ScopeNote>
           <div style={{background:vencidas.length>0?`${C.red}06`:`${C.orange}06`,border:`1.5px solid ${vencidas.length>0?C.red:C.orange}`,borderRadius:8,overflow:"hidden"}}>
             <div style={{padding:"10px 14px",borderBottom:`1px solid ${vencidas.length>0?C.red+"33":C.orange+"33"}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <p style={{fontWeight:600,fontSize:"var(--arcd-type-body)",color:vencidas.length>0?C.red:C.orange}}>
@@ -541,7 +546,7 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
                   </p>
                 </div>
                 <div style={{display:"flex",gap:"var(--arcd-space-2)",alignItems:"center",flexWrap:"wrap"}}>
-                  <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:m.diff<0?C.red:C.text}}>{fmt(m.valorPrevisto)}</p>
+                  <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:m.diff<0?C.red:C.text}}>Saldo {fmt(saldoReceber(m))}</p>
                   <Btn size="sm" v="success" onClick={()=>setPagarModal({ m, data: today() })}>Registrar recebimento</Btn>
                 </div>
               </div>
@@ -934,7 +939,7 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
             <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"11px 13px"}}>
               <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{pagarModal.m.obraName}</p>
               <p style={{fontSize:"var(--arcd-type-body)",color:C.muted,marginTop:2}}>
-                {fmt(pagarModal.m.valorPrevisto)}
+                Saldo a receber nesta consulta: {fmt(saldoReceber(pagarModal.m))}
                 {pagarModal.m.descricao ? ` - ${pagarModal.m.descricao}` : ""}
               </p>
             </div>
@@ -959,7 +964,7 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
                 const dataPg = pagarModal.data || today();
                 const ok=await confirmarRecebimento(m,dataPg);
                 if(ok){
-                  showToast(`${m.obraName} - ${fmt(m.valorPrevisto)} recebido em ${fmtDate(dataPg)}.`);
+                  showToast(`${m.obraName} - recebimento confirmado em ${fmtDate(dataPg)}.`);
                   setPagarModal(null);
                 }
               }} full><Ic n="check"/> {measurementCommandPending?"Confirmando...":"Confirmar"}</Btn>

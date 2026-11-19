@@ -154,5 +154,16 @@ describe("/api/references - ORSE reaproveita o pipeline do SINAPI", () => {
       expect(request.mock.calls[0][1].signal).toBeDefined();
     }finally{vi.unstubAllGlobals();}
   });
+  it('resolve: conserva variantes regionais para identificar referências ambíguas na importação',async()=>{
+    const bases=['PE','AL'].map(uf=>({id:uf,source:'SINAPI',mode:'uploaded',status:'ready',competence:'2026-07',uf}));
+    const items=bases.map((base,i)=>({base_id:base.id,source:'SINAPI',code:'96532',description:'Fôrma de sapata',unit:'M2',price_des:200+i,price_not:205+i}));
+    const queued=createSupabaseMock({budget_reference_bases:[{data:bases}],budget_reference_items:[{data:items}]});
+    supabaseMock.from.mockImplementation(queued.from);
+    const {req,res}=reqRes({action:'resolve',referenceIds:['PE','AL'],entries:[{codigo:'96532',fonte:'SINAPI'}],includeVariants:true});
+    await handler(req,res);
+    expect(res.statusCode).toBe(200);
+    expect(res.body.items.map(item=>[item.uf,item.precoNao])).toEqual([['PE',205],['AL',206]]);
+    expect(queued.chamadas).toContainEqual(['budget_reference_items','eq','company_id','arcd']);
+  });
 
 });

@@ -28,7 +28,7 @@ async function enter(page,{failFirst=false}={}){
   await page.goto("/");await page.locator("#login-email").fill(profile.email);await page.locator("#login-senha").fill("senha-isolada");
   await page.getByRole("button",{name:"Acessar central MARCELL"}).click();
   if(page.viewportSize().width<1100){
-    await page.getByRole("button",{name:"Abrir Visão gerencial",exact:true}).click();
+    await page.getByRole("button",{name:"Abrir Visão gerencial · Gestão",exact:true}).click();
     await page.getByRole('combobox',{name:'Telas de Visão gerencial',exact:true}).selectOption('dre');
   }else{
     const sidebar=page.locator(".arcd-sidebar"),group=sidebar.locator(".nav-grp-hd").filter({hasText:/^Visão gerencial/});

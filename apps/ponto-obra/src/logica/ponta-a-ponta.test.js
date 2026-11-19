@@ -20,6 +20,21 @@ const sincronizar = (ap = a) => sincronizarCadastro({ armazem: ap.armazem, api: 
 const enviar = (ap = a, extra = {}) => enviarPendentes({ armazem: ap.armazem, api: ap.api, ...extra });
 
 describe("aparelho + servidor, ponta a ponta", () => {
+  it("mantém foto no celular durante falha do OneDrive e apaga só após confirmação", async () => {
+    await sincronizar();
+    await a.bater({ fotoSha256: sha256(JPEG), caminhoFoto: "file://foto.jpg" });
+    await enviar();
+    const salvar = vi.spyOn(s.fotos, "salvar").mockRejectedValueOnce(new Error("OneDrive indisponível"));
+    const apagar = vi.fn();
+    const params = { armazem: a.armazem, api: a.api, lerFotoBase64: async () => JPEG.toString("base64"), aposEnviar: apagar };
+    expect(await enviarFotos(params)).toMatchObject({ enviadas: 0, falhas: 1, recusadas: 0 });
+    expect((await a.armazem.fotosPendentes(10)).length).toBe(1);
+    expect(apagar).not.toHaveBeenCalled();
+    expect(await enviarFotos(params)).toMatchObject({ enviadas: 1, falhas: 0 });
+    expect(salvar).toHaveBeenCalledTimes(2);
+    expect(await a.armazem.fotosPendentes(10)).toEqual([]);
+    expect(apagar).toHaveBeenCalledTimes(1);
+  });
   it("sincroniza a base única, bate offline com a hora do servidor e a ARP atribui o NSR quando a rede volta", async () => {
     const r = await sincronizar();
     expect(r).toMatchObject({ ok: true, cadeiaDivergente: false });

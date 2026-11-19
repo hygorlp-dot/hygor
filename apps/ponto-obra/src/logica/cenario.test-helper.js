@@ -1,3 +1,4 @@
+import { fotosEmMemoria } from "../../../../server/ponto-eletronico/fotos.test-helper.js";
 // Cenário dos testes do app: lógica REAL do aparelho (terminal,
 // sincronização, armazém) falando com o tratador REAL do servidor
 // (server/ponto-eletronico/handler.js) sobre um Postgres REAL em memória
@@ -30,7 +31,9 @@ export const DADOS_BASE = () => ({
 export async function criarServidor({ dados = DADOS_BASE(), estabelecimento = true, comResponsavel = true } = {}) {
   const s = { dados, relogioServidor: Date.parse("2026-10-01T10:00:00.000Z"), pg: await novoPglite() };
   s.db = camadaSupabase(s.pg);
+  s.fotos = fotosEmMemoria(s.db);
   s.tratar = criarTratadorPonto({
+    armazenamentoFotos: s.fotos,
     db: s.db, company: EMPRESA, lerDados: async () => s.dados, agora: () => new Date(s.relogioServidor),
     // accessToken "admin" ou o id de qualquer usuário ativo do cadastro.
     autenticarUsuario: async b => (b.accessToken === "admin" ? s.dados.usuarios[0] : s.dados.usuarios.find(u => u.id === b.accessToken && u.active !== false) || null),

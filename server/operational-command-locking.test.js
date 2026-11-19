@@ -24,7 +24,7 @@ describe("serialização sistêmica das mutações da empresa",()=>{
     const end=api.indexOf("// Todos os escritores",start);
     const implementation=api.slice(start,end);
     expect(implementation).toContain("select updated_at");
-    expect(implementation).toContain("where company_id=${COMPANY} and key=${key}");
+    expect(implementation).toContain("where company_id=${currentCompany()} and key=${key}");
     expect(implementation).not.toContain("${locked.updated_at}");
   });
 

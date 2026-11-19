@@ -8,9 +8,11 @@ test.beforeAll(() => mkdirSync(output, { recursive: true }));
 
 test("relatório A4 repete a marca d'água MRC sem alterar o conteúdo", async ({ page }) => {
   await page.route("**/api/**", r => r.fulfill({ json: {} }));
-  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.goto("/e2e/fixtures/report-runtime.html", { waitUntil: "domcontentloaded" });
   const html = await page.evaluate(async () => {
     const { marcellReportHtml } = await import("/src/reports/marcell-report.js");
+    const { loadReportFonts } = await import('/src/reports/report-fonts.js');
+    await loadReportFonts();
     return marcellReportHtml(`<!doctype html><html lang="pt-BR"><head><title>Relatório de verificação MRC</title><style>@page{size:A4 portrait;margin:15mm}section+section{break-before:page}td,th{padding:12px}</style></head><body><h1>ArcD Construtech</h1><section><h2>Relatório de verificação - dados fictícios</h2><p>CNPJ: 00.000.000/0001-00</p><table><tr><th>Descrição</th><th>Valor</th></tr><tr><td>Serviço de teste</td><td>R$ 1.234,56</td></tr></table></section><section><h2>Segunda página - dados fictícios</h2><p>Conferência do monograma em todas as páginas.</p><footer>Gerado por ArcD Obras</footer></section></body></html>`);
   });
   await page.setContent(html);

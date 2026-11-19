@@ -5,7 +5,25 @@ import { memoryBudgetItems } from './structural-budget-matching';
 import { structuralBudgetRows } from './structural-budget-apply';
 import { memoryFloors } from './budget-floors';
 import {budgetHierarchyError} from './hierarchy.js';
+import {custoComponentes} from './composition-search.js';
+import {budgetPendingKind,budgetScopeExclusion,canExcludeBudgetItem} from './budget-pending.js';
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+const moeda = new Intl.NumberFormat('pt-BR', {style:'currency', currency:'BRL'});
+const numerico = value => (typeof value==='number'||(typeof value==='string'&&value.trim()!==''))&&Number.isFinite(Number(value));
+
+function auditItemCost(item){
+  const price=Number(item.precoUnit);
+  if(numerico(item.precoUnit)&&price<0)return 'Custo unitário negativo. Confira o valor lançado.';
+  if(Number(item.quantidade)>0&&(!numerico(item.precoUnit)||price===0))return 'Preço unitário pendente. Confira a composição ou cotação.';
+  if(!numerico(item.precoUnit)||price<=0||typeof item.composicao!=='string'||!item.composicao.trimStart().startsWith('['))return null;
+  let components;
+  try { components=JSON.parse(item.composicao); } catch { return null; }
+  if(!Array.isArray(components)||!components.length||components.some(component=>
+    !numerico(component?.coeficiente)||Number(component.coeficiente)<=0||!numerico(component.precoUnit)||Number(component.precoUnit)<0))return null;
+  const computed=custoComponentes(components);
+  if(!Number.isFinite(computed)||Math.round(computed*100)===Math.round(price*100))return null;
+  return `Custo unitário lançado ${moeda.format(price)}. Composição gravada ${moeda.format(computed)}. Confira a referência.`;
+}
 
 export function budgetChangeReceipt(before,after){
   const keys=Object.keys({...before,...after}).filter(key=>!['updatedAt','id'].includes(key)&&!same(before[key],after[key]));
@@ -49,13 +67,24 @@ export function auditWholeBudget(budget){
     if(item.tipo==='titulo')continue;
     const display=items.find(i=>i.id===item.id);
     const label=`Item ${display?.codigoItem || item.codigo || 'sem etapa'} · ${item.descricao || 'Sem descrição'}`;
+    const base={itemId:item.id,stageId:item.etapaId,label,destination:'budget'};
+    const exclusion=budgetScopeExclusion(item);
+    if(exclusion){
+      issues.push({...base,id:`item:${item.id}:excluded`,kind:'excluded',message:`Fora do escopo. ${exclusion.motivo}`,exclusion});
+      continue;
+    }
+    const pending=budgetPendingKind(item);
     const problems=[];
     if(item.quantidade==null || item.quantidade==='')problems.push('Quantitativo não informado');
     else if(!Number.isFinite(Number(item.quantidade))||Number(item.quantidade)<0)problems.push('Quantitativo inválido');
     else if(Number(item.quantidade)===0)problems.push('Quantidade zerada — confirmar se o serviço será executado');
     if(!String(item.unidade || '').trim())problems.push('Unidade não informada');
     if(!(budget.etapas || []).some(s=>s.id===item.etapaId))problems.push('Item sem etapa válida');
-    for(const [index,message] of problems.entries())issues.push({id:`item:${item.id}:${index}`,itemId:item.id,stageId:item.etapaId,label,message,destination:'budget'});
+    for(const [index,message] of problems.entries())issues.push({...base,id:`item:${item.id}:${index}`,message,
+      ...(index===0&&pending==='measure'?{kind:pending,canExclude:canExcludeBudgetItem(item)}:{})});
+    const costIssue=auditItemCost(item);
+    if(costIssue)issues.push({...base,id:`item:${item.id}:cost`,message:costIssue,
+      ...(pending==='quote'?{kind:pending,canExclude:canExcludeBudgetItem(item)}:{})});
   }
   const rows=new Set(Object.keys(budget?.memoriaCalculo?.vinculosEstruturais || {}));
   const available=new Set(Object.entries(structuralBudgetRows(budget)).flatMap(([scope,measures])=>measures.map(row=>`${scope}.${row.key}`)));

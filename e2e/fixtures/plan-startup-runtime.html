@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Verificação do início do planejamento</title></head>
+<body><div id="root"></div><script type="module">
+  import {snapshotJournal,recoveryTab} from '../../src/domains/sync/snapshot-journal.js';
+  const original=snapshotJournal.readLatest.bind(snapshotJournal);
+  let release,failed=false;
+  const ready=new Promise(resolve=>{release=resolve;});
+  window.__planningJournal={reads:0,release(){release();},fail(){failed=true;release();},retry(){failed=false;},async protect(user,data){
+    return snapshotJournal.protect({user,tab:recoveryTab(),base:data,intended:{...data,planos:data.planos.map((plan,index)=>index?plan:{...plan,inicio:'2026-11-19'})}});
+  }};
+  snapshotJournal.readLatest=async(...args)=>{window.__planningJournal.reads++;await ready;if(failed)throw Error('Armazenamento indisponível no cenário local');return original(...args);};
+  await import('../../src/index.js');
+</script></body></html>

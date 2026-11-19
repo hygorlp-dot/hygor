@@ -7,6 +7,12 @@ import {
 } from "./chat-message-policy";
 
 describe("política de mensagens do chat", () => {
+  it('aceita somente referência privada do chat na mesma empresa',()=>{
+    const url='company-file://mrc/chat/2026/35136ece-8161-4cb3-89a2-b9d6a4ad470c.pdf';
+    expect(sanitizeChatAttachment({url},{companyId:'mrc'})).toMatchObject({url});
+    expect(sanitizeChatAttachment({url},{companyId:'arcd'})).toBeNull();
+    expect(sanitizeChatAttachment({url:url.replace('/chat/','/obra/')},{companyId:'mrc'})).toBeNull();
+  });
   it("limita e sanitiza menções", () => {
     const mentions = Array.from({ length: 12 }, (_, index) => ({
       id: `u-${index}\u0000`,

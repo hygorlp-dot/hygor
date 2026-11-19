@@ -130,7 +130,7 @@ test("tipografia mantém hierarquia em páginas, campos e modais",async({page})=
   const dialog=page.getByRole("dialog");
   await expect(dialog).toBeVisible();
   await expect(dialog.locator("h3")).toHaveCSS("font-size","18px");
-  await expect(dialog.locator("h3")).toHaveCSS("font-weight","600");
+  await expect(dialog.locator("h3")).toHaveCSS("font-weight","500");
   const notice=dialog.locator(".arcd-modal-notice .arcd-toast");
   await expect(notice).toBeVisible();
   await expect(notice).toHaveCSS("position","static");

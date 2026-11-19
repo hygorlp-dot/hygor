@@ -16,7 +16,7 @@ export function openReportPreview(html, {autoPrint=false,adjustableTables=false}
   const trigger=document.activeElement;
   let finish;
   const promise=new Promise(resolve=>{finish=resolve;});
-  const request={trigger,cancel(){if(pending!==request)return;pending=undefined;finish(null);},generate(identity){
+  const request={trigger,cancel(){if(pending!==request)return;pending=undefined;finish(null);},generate(){
     if(pending!==request)return null;
     // Called synchronously by the confirmation click, retaining popup permission.
     const preview=window.open('','_blank');
@@ -24,7 +24,7 @@ export function openReportPreview(html, {autoPrint=false,adjustableTables=false}
     try{
       preview.opener=null;
       preview.document.open();
-      preview.document.write(marcellReportHtml(html,{adjustableTables,identity,requireFonts:true}));
+      preview.document.write(marcellReportHtml(html,{adjustableTables,requireFonts:true}));
       preview.document.close();
       preview.focus();
       if(autoPrint)window.setTimeout(()=>{if(!preview.closed)preview.print();},300);

@@ -3,6 +3,8 @@ import {Input as FilterInput} from '../../design-system/primitives/Input.jsx';
 import {Select as FilterSelect} from '../../design-system/primitives/Select.jsx';
 import BankImportPreview from "../financeiro/BankImportPreview.jsx";
 import BankImportReversal from './BankImportReversal.jsx';
+import BankAccountCleanup from './BankAccountCleanup.jsx';
+import {FormSection} from '../../design-system/patterns/FormSection.jsx';
 import "../financeiro/record-continuity.css";
 import {useWorkflow} from '../workflow/WorkflowNavigation.jsx';
 import {useWorkspaceState,useWorkspaceScroll} from '../workflow/workspace-session.jsx';
@@ -107,13 +109,14 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
   const accountsReview=useMemo(()=>accountReviewSummary(data),[data]);
   const [aba,        setAba]        = useView('aba',"pendentes");  // pendentes|conciliadas|ignoradas|extratos|historico
   const filaPendente = ["pendentes", "identificados"].includes(aba);
-  const [automacaoAtiva, setAutomacaoAtiva] = useState(()=>!bankOrigin&&intent?.action!=='review-financial-origin');
+  const [automacaoAtiva, setAutomacaoAtiva] = useState(()=>!data.localCompanySimulation?.enabled&&!bankOrigin&&intent?.action!=='review-financial-origin');
   const [falhasAutomaticas, setFalhasAutomaticas] = useState({});
   const tentativasAutomaticas = useRef(new Set());
   const execucaoConcRef = useRef(false);
   const [importando, setImportando] = useState(false);
   const [importPreview,setImportPreview]=useState(null);
   const [reversalId,setReversalId]=useState(null);
+  const [cleanupScope,setCleanupScope]=useState(null);
   const [confirmingImport,setConfirmingImport]=useState(false);
   const [apropModal, setApropModal] = useState(null);   // transação em apropriação
   const [rateios,    setRateios]    = useState([]);
@@ -406,7 +409,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
   };
 
   useEffect(() => {
-    if (pilotOpen || reviewId || !automacaoAtiva || !podeOperarConc || modoConciliacaoRh || conciliando || confirmandoLote || transacaoCommandPending || importando || candidatoModal || apropModal || entradaModal || loteProntoModal || transferModal || estornoModal || ignorarModal || fecharModal) return;
+    if (data.localCompanySimulation?.enabled || cleanupScope!==null || pilotOpen || reviewId || !automacaoAtiva || !podeOperarConc || modoConciliacaoRh || conciliando || confirmandoLote || transacaoCommandPending || importando || candidatoModal || apropModal || entradaModal || loteProntoModal || transferModal || estornoModal || ignorarModal || fecharModal) return;
     const next = filaAutomatica.find(row => row.automatica && !tentativasAutomaticas.current.has(String(row.tr.id)));
     if (!next) return;
     const timer = window.setTimeout(async () => {
@@ -416,7 +419,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
       if (!ok) setFalhasAutomaticas(current => ({...current, [next.tr.id]:"O servidor não confirmou a baixa automática. Revise a sugestão ou tente novamente."}));
     }, 300);
     return () => window.clearTimeout(timer);
-  }, [pilotOpen, reviewId, automacaoAtiva, podeOperarConc, modoConciliacaoRh, conciliando, confirmandoLote, transacaoCommandPending, importando, candidatoModal, apropModal, entradaModal, loteProntoModal, transferModal, estornoModal, ignorarModal, fecharModal, filaAutomatica, falhasAutomaticas]);
+  }, [data.localCompanySimulation?.enabled, cleanupScope, pilotOpen, reviewId, automacaoAtiva, podeOperarConc, modoConciliacaoRh, conciliando, confirmandoLote, transacaoCommandPending, importando, candidatoModal, apropModal, entradaModal, loteProntoModal, transferModal, estornoModal, ignorarModal, fecharModal, filaAutomatica, falhasAutomaticas]);
 
   // Confirma sequencialmente cada transação selecionada no lote - uma por
   // vez, aguardando o servidor confirmar cada uma antes da próxima. O
@@ -975,6 +978,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
   return (
     <div className="anim reconciliation-workspace">
       {reversalId&&<Suspense fallback={<LoadingState label="prévia da reversão"/>}><BankImportReversal data={data} statementId={reversalId} user={currentUser} dispatchCommand={dispatchCommand} onClose={()=>setReversalId(null)}/></Suspense>}
+      {cleanupScope!==null&&<BankAccountCleanup scope={cleanupScope} user={currentUser} update={update} showToast={showToast} onClose={()=>setCleanupScope(null)}/>}
 
       {importPreview&&<Modal title="Prévia da importação do extrato" wide onClose={()=>!confirmingImport&&setImportPreview(null)}><BankImportPreview data={data} prepared={importPreview} pending={confirmingImport} onCancel={()=>setImportPreview(null)} onConfirm={confirmarImportacao}/></Modal>}
       <PageHero
@@ -1015,7 +1019,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
           <details><summary>Como funciona a automação</summary><p>O servidor cruza Pix, CPF/CNPJ, cadastros, valores e datas após importar o extrato, mesmo com a tela fechada. Casos duvidosos ficam para revisão.</p><p>Pausar afeta somente a conferência desta tela; novas importações continuam no servidor.</p></details>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Btn size="sm" v="ghost" disabled={conciliando||reviewSaving} onClick={() => setAutomacaoAtiva(value => !value)}>{automacaoAtiva ? "Pausar automação" : "Retomar automação"}</Btn>
+          <Btn size="sm" v="ghost" disabled={!!data.localCompanySimulation?.enabled||conciliando||reviewSaving} onClick={() => setAutomacaoAtiva(value => !value)}>{automacaoAtiva ? "Pausar automação" : "Retomar automação"}</Btn>
           {Object.keys(falhasAutomaticas).length > 0 && <Btn size="sm" v="ghost" disabled={conciliando||reviewSaving} onClick={() => {Object.keys(falhasAutomaticas).forEach(id => tentativasAutomaticas.current.delete(id));setFalhasAutomaticas({});}}>Tentar novamente as falhas</Btn>}
         </div>
       </section>}
@@ -1045,6 +1049,10 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
 
       {aba==="extratos"&&(
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {data.localCompanySimulation?.enabled&&currentUser?.role==='admin'&&!currentUser.obraId&&<FormSection title="Limpeza da conciliação na cópia local">
+            <p>Simulação local: a limpeza retira extratos, vínculos e valores criados pela conciliação somente desta cópia.</p>
+            {(data.transacoes||[]).some(row=>!row.contaBancariaId)&&<Button variant="destructive" onClick={()=>setCleanupScope('unassigned')}>Apagar conciliação dos movimentos sem conta</Button>}
+          </FormSection>}
           {/* Cadastro compacto de contas bancárias */}
           <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"9px 10px"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7}}>
@@ -1063,6 +1071,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                       <div style={{display:"flex",gap:6}}>
                         <Btn size="sm" v="ghost" onClick={()=>setContaBancariaModal(c)}>Editar</Btn>
                         <Btn size="sm" v="ghost" onClick={()=>alternarAtivaContaBancaria(c)}>{c.ativa?"Desativar":"Ativar"}</Btn>
+                        {data.localCompanySimulation?.enabled&&currentUser?.role==='admin'&&!currentUser.obraId&&<Button variant="destructive" size="sm" onClick={()=>setCleanupScope(String(c.id))}>Apagar conciliação e valores</Button>}
                       </div>
                     </div>
                   ))}

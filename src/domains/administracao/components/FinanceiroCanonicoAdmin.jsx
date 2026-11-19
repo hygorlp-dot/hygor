@@ -80,17 +80,17 @@ export default function FinanceiroCanonicoAdmin({currentUser}){
     }}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap"}}>
         <div>
-          <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:ready?C.green:C.orange,textTransform:"uppercase"}}>FIN-003 · verdade financeira única</p>
+          <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:ready?C.green:C.orange,textTransform:"uppercase"}}>Homologação do motor financeiro</p>
           <p style={{fontSize:"var(--arcd-type-section-title)",fontWeight:600,color:C.text,marginTop:4}}>
-            {ready?"Gate técnico aprovado":"Gate técnico ainda bloqueado"}
+            {ready?"Verificações concluídas":relatorio?"Verificações pendentes":"Verificações indisponíveis"}
           </p>
           <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:5,lineHeight:1.55,maxWidth:780}}>
-            O diagnóstico é somente leitura. Esta tela não ativa o motor financeiro. A chave de produção continua sendo controlada no deploy depois da homologação das evidências.
+            A consulta não muda a ativação do motor. Mesmo com o motor ativo, a comparação com os registros de origem pode ter pendências.
           </p>
         </div>
         <div style={{display:"flex",gap:7,alignItems:"center",flexWrap:"wrap"}}>
-          <Badge color={relatorio?.engineEnforced?C.green:C.muted}>{relatorio?.engineEnforced?"ENFORCEMENT ATIVO":"ENFORCEMENT DESATIVADO"}</Badge>
-          <Badge color={ready?C.green:C.orange}>{totalChecks?`${passedChecks}/${totalChecks} GATES`:"GATE INDISPONÍVEL"}</Badge>
+          <Badge color={relatorio?.engineEnforced?C.green:C.muted}>{relatorio?.engineEnforced===true?"Motor financeiro ativo":relatorio?.engineEnforced===false?"Motor em observação":"Estado do motor não informado"}</Badge>
+          <Badge color={ready?C.green:C.orange}>{totalChecks?`${passedChecks}/${totalChecks} verificações concluídas`:"Sem verificações disponíveis"}</Badge>
           <Btn size="sm" v="ghost" onClick={carregar}><Ic n="refresh"/> Atualizar</Btn>
         </div>
       </div>

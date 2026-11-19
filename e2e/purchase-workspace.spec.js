@@ -31,7 +31,7 @@ async function openPurchases(page){
     return;
   }
   if(page.viewportSize().width<1100){
-    await page.getByRole("button",{name:"Abrir Compras e suprimentos",exact:true}).click();
+    await page.getByRole("button",{name:"Abrir Compras e suprimentos · Compras",exact:true}).click();
   }else{
     const sidebar=page.locator(".arcd-sidebar");
     const group=sidebar.locator(".nav-grp-hd").filter({hasText:/^Compras/});
@@ -97,7 +97,7 @@ for(const width of [390,1440])test(`WF03/WF04 vínculos, recorte e recebimento p
  await page.setViewportSize({width,height:1000});
  const app=await enter(page,{role:width===390?'compras':'admin',prepare:prepareLinkedPurchase});await selectWork(page);await navigate(page,'Cotar');
  if(width<768)await expect(page.getByRole('combobox',{name:'Fluxo de compras',exact:true}).getByRole('option',{name:'Pedidos (2)',exact:true})).toHaveCount(1);
- else await expect(page.getByRole('navigation',{name:'Fluxo de compras',exact:true}).getByRole('button',{name:'Pedidos',exact:true}).locator('small')).toHaveText('2');
+ else await expect(page.getByRole('navigation',{name:'Fluxo de compras',exact:true}).getByRole('button',{name:/^Pedidos(?: \d+)?$/}).locator('small')).toHaveText('2');
  await page.getByLabel('Buscar',{exact:true}).fill('SC-001');
  await page.getByLabel('Situação da cotação',{exact:true}).selectOption('aberta');
  if(!await page.getByLabel('Data inicial',{exact:true}).isVisible())await page.getByRole('button',{name:/^Filtros/}).click();

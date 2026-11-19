@@ -1,4 +1,5 @@
 import { contar } from "../../../design-system/copy.js";
+import {activeCompany,companyIsolationActive} from '../../../lib/company-scope.js';
 import {useState} from "react";
 import {Button} from "../../../design-system/primitives/Button";
 import {Input} from "../../../design-system/primitives/Input";
@@ -11,7 +12,7 @@ const money=v=>Number(v||0).toLocaleString("pt-BR",{style:"currency",currency:"B
 export default function SupplierQuotePanel({quote,data,canManage,dispatchCommand,currentUser}){
  const [links,setLinks]=useState({}),[busy,setBusy]=useState(false),[error,setError]=useState(""),[reasons,setReasons]=useState({});
  const supplier=id=>(data.fornecedores||[]).find(f=>f.id===id)?.nome||"Fornecedor";
- const generate=async p=>{setBusy(true);setError("");try{const r=await gerarLinkRespostaCotacao(quote.id,p.id);if(!r.ok)throw Error(r.error||"Não foi possível gerar o link.");setLinks(old=>({...old,[p.id]:{url:`${window.location.origin}/responder-cotacao#${r.token}`,expires:r.expiraEm}}));}catch(e){setError(e.message)}finally{setBusy(false)}};
+ const generate=async p=>{setBusy(true);setError("");try{const r=await gerarLinkRespostaCotacao(quote.id,p.id);if(!r.ok)throw Error(r.error||"Não foi possível gerar o link.");setLinks(old=>({...old,[p.id]:{url:`${window.location.origin}/responder-cotacao${companyIsolationActive()?`?empresa=${activeCompany()}`:''}#${r.token}`,expires:r.expiraEm}}));}catch(e){setError(e.message)}finally{setBusy(false)}};
  const review=async(r,decision)=>{setBusy(true);setError("");try{if(!dispatchCommand)throw Error("A revisão exige conexão com o servidor.");const result=await dispatchCommand(()=>({type:OPERATIONAL_COMMAND.QUOTE_SUPPLIER_RESPONSE_REVIEWED,idempotencyKey:`supplier-review-${crypto.randomUUID()}`,expectedVersion:Number(quote.version||0),actorId:currentUser.id,actorRole:currentUser.role,actorName:currentUser.nome,payload:{quoteId:quote.id,responseId:r.id,decision,reason:reasons[r.id]||""}}));if(!result?.ok)throw Error(result?.reason||"A revisão não foi confirmada.");}catch(e){setError(e.message)}finally{setBusy(false)}};
  return <section className="supplier-quote-panel" aria-label="Respostas de fornecedores"><h3>Portal de resposta dos fornecedores</h3><p>Links individuais válidos por sete dias. O fornecedor não vê propostas concorrentes. Aceitar a resposta apenas atualiza o mapa; a aprovação da compra continua nas alçadas existentes.</p>
  {error&&<p role="alert">{error}</p>}

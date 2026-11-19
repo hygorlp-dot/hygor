@@ -53,7 +53,7 @@ describe("contrato de resposta do login", () => {
     vi.stubGlobal("fetch",fetchMock);
     const {entrarComPin,registrarPresenca,temSessao}=await import("./api.js");
     await expect(entrarComPin("Maria Silva","123456")).resolves.toMatchObject({ok:true,usuario:{id:"u1"}});
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({action:"load",identificador:"Maria Silva",pin:"123456"});
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({companyId:"arcd",action:"load",identificador:"Maria Silva",pin:"123456"});
     expect(temSessao()).toBe(true);
     await registrarPresenca("ponto");
     expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({action:"heartbeat",userId:"u1",pin:"123456"});

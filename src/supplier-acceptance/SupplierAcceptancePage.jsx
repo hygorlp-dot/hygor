@@ -1,3 +1,4 @@
+import {portalCompany} from '../client-portal/company.js';
 import { BRAND } from "../brand/identity.js";
 import { useEffect, useState } from "react";
 
@@ -9,7 +10,7 @@ const brl=value=>Number(value||0).toLocaleString("pt-BR",{style:"currency",curre
 const dataBr=value=>/^\d{4}-\d{2}-\d{2}$/.test(String(value||""))?String(value).split("-").reverse().join("/"):"";
 
 const chamar=async body=>{
-  const resposta=await fetch("/api/data",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});
+  const resposta=await fetch("/api/data",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({companyId:portalCompany(),...body})});
   const json=await resposta.json().catch(()=>({}));
   if(!resposta.ok)throw new Error(json.error||"Não foi possível concluir. Tente novamente.");
   return json;

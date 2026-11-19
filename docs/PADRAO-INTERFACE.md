@@ -18,6 +18,8 @@ Vigente desde 01/11/2026. Aplica-se a toda nova tela, módulo, aba, componente, 
 
 `foundations.js` é aplicado pelo ThemeProvider a todos os temas. Um tema pode sobrescrever um papel deliberadamente; ajuste essa sobrescrita no registro quando necessário. Não acrescente outra definição do mesmo papel ao CSS de uma tela. Os tokens de `tokens/typography.css` continuam como base de compatibilidade para superfícies sem ThemeProvider; a escala vigente do ERP vem de `foundations.js`.
 
+As declarações de IBM Plex Sans e a família de reserva operacional ficam em `tokens/typography.css`. As aliases herdadas `--type-body` e `--type-display` devem referenciar `--arcd-font-sans`; `--type-data` deve referenciar `--arcd-font-mono`. Isso permite ao corpo legado acompanhar o tema. A conferência deve incluir a fonte realmente carregada no navegador; relatórios independentes continuam com Nimbus Sans incorporada.
+
 Para aumentar todos os títulos, por exemplo, altere `--arcd-type-page-title` de `1.5rem` para `1.625rem`. Para mudar o texto padrão de confirmação, altere `UI_TEXT.actions.confirm`. Textos específicos como “Aprovar proposta” continuam explícitos no módulo: não devem virar “Confirmar” só para reutilizar uma chave.
 
 As alturas de toque têm mínimo de 44px. Ao alterar a escala, preserve esse mínimo, contraste, foco e legibilidade. Aparência e densidade podem ser escolhidas pelo operador em Alterar aparência; este guia descreve manutenção pelo desenvolvimento, não um editor visual de todos os textos.

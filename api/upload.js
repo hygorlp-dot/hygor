@@ -1,3 +1,4 @@
+import {currentCompany, withCompanyContext, isolationEnabled} from '../server/company-context.js';
 // ===================================================================
 // /api/upload - sobe foto do diario de obra para o Supabase Storage
 //
@@ -18,7 +19,9 @@
 
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
-import { authenticateAppUser } from "../server/app-auth.js";
+import { authenticateAppContext } from "../server/app-auth.js";
+import {resolveCompanyFile} from '../server/company-files.js';
+import {COMPANY_FILE_BUCKET,companyFileReference} from '../src/domains/arquivos/company-file-reference.js';
 import {handleRhDocuments} from '../server/rh-documents.js';
 import {
   canUploadToDestination,
@@ -64,7 +67,7 @@ const garantirBucketPatrimonio = async () => {
 // Aceita corpo maior (fotos ja comprimidas no cliente, ~200-800KB em base64).
 export const config = { api: { bodyParser: { sizeLimit: "6mb" } } };
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Metodo nao permitido." });
   if (!URL || !SERVICE) return res.status(500).json({ error: "Storage nao configurado." });
 
@@ -74,17 +77,24 @@ export default async function handler(req, res) {
   const paraPatrimonio = destination === UPLOAD_DESTINATION.PATRIMONIO;
 
   // 1. Autentica.
-  const user = await authenticateAppUser({userId,pin,accessToken},{scope:"upload"});
+  const context = await authenticateAppContext({userId,pin,accessToken},{scope:"upload"});
+  const user=context?.user;
   if (!user) return res.status(401).json({ error: "PIN invalido." });
+  if(action==='signed-company-file'){
+    res.setHeader('Cache-Control','private, no-store');
+    try{const result=await resolveCompanyFile({reference:req.body?.reference,companyId:currentCompany(),user,works:context.payload?.obras,storage:db.storage});return res.status(result.status).json(result.body);}
+    catch{return res.status(503).json({ok:false,error:'Não foi possível abrir o arquivo. Tente novamente.'});}
+  }
   if(folder==='rh'){
     res.setHeader('Cache-Control','no-store');
-    try{const result=await handleRhDocuments({db,user,body:req.body,company:process.env.COMPANY_ID||'arcd'});return res.status(result.status).json(result.body);}
+    try{const result=await handleRhDocuments({db,user,body:req.body,company:currentCompany()});return res.status(result.status).json(result.body);}
     catch(error){console.error('Prontuário RH indisponível:',error?.message);return res.status(503).json({ok:false,error:'Prontuário indisponível. Tente novamente.'});}
   }
   if(paraPatrimonio&&action==="signed-url"){
     if(!canUploadToDestination(user,{folder:"patrimonio"}))return res.status(403).json({error:"Você não pode acessar documentos patrimoniais."});
     const safePath=String(requestedPath||"");
-    if(!/^patrimonio\/[0-9]{4}\/[0-9a-f-]+\.[a-z0-9]+$/i.test(safePath))return res.status(400).json({error:"Documento patrimonial inválido."});
+    if(!/^(?:(?:arcd|mrc)\/)?patrimonio\/[0-9]{4}\/[0-9a-f-]+\.[a-z0-9]+$/i.test(safePath))return res.status(400).json({error:"Documento patrimonial inválido."});
+    if(isolationEnabled()&&!safePath.startsWith(currentCompany()+'/'))return res.status(403).json({error:'Documento de outra empresa.'});
     await garantirBucketPatrimonio();
     const {data:signed,error:signedError}=await db.storage.from(PATRIMONIO_BUCKET).createSignedUrl(safePath,300);
     if(signedError||!signed?.signedUrl)return res.status(404).json({error:"Documento patrimonial não encontrado."});
@@ -92,6 +102,10 @@ export default async function handler(req, res) {
     return res.status(200).json({ok:true,url:signed.signedUrl,expiraEmSegundos:300});
   }
   const requestedWork=String(obraId||"");
+  if(isolationEnabled()&&!paraChat&&!paraPatrimonio){
+    const {data:row,error}=await db.from('company_app_data').select('value').eq('company_id',currentCompany()).eq('key','arced_auth_profiles_v1').maybeSingle();
+    if(error||!row?.value?.obras?.some(work=>String(work.id)===requestedWork))return res.status(403).json({error:'Obra indisponível nesta empresa.'});
+  }
   if(!canUploadToDestination(user,{obraId:requestedWork,folder})){
     return res.status(403).json({error:"Você não pode enviar arquivos para outra obra."});
   }
@@ -119,11 +133,11 @@ export default async function handler(req, res) {
   // 3. Caminho: diario-obra/{obra}/{ano}/{uuid}.jpg  ou  diario-obra/chat/{ano}/{uuid}.ext
   const ano   = new Date().getFullYear();
   const nome  = `${crypto.randomUUID()}.${extensao}`;
-  const path = `${uploadStoragePrefix({obraId:requestedWork,folder})}/${ano}/${nome}`;
+  const path = `${isolationEnabled()?currentCompany()+'/':''}${uploadStoragePrefix({obraId:requestedWork,folder})}/${ano}/${nome}`;
 
   try {
     if (paraPatrimonio) await garantirBucketPatrimonio();
-    const bucketAlvo = paraPatrimonio ? PATRIMONIO_BUCKET : BUCKET;
+    const bucketAlvo = paraPatrimonio ? PATRIMONIO_BUCKET : isolationEnabled()?COMPANY_FILE_BUCKET:BUCKET;
     const { error: upErr } = await db.storage
       .from(bucketAlvo)
       .upload(path, buffer, { contentType: mime, upsert: false });
@@ -138,6 +152,7 @@ export default async function handler(req, res) {
       res.setHeader("Cache-Control","no-store");
       return res.status(200).json({ok:true,path});
     }
+    if(isolationEnabled())return res.status(200).json({ok:true,url:companyFileReference(path),path});
     const { data: pub } = db.storage.from(BUCKET).getPublicUrl(path);
     return res.status(200).json({ ok: true, url: pub.publicUrl, path });
   } catch (err) {
@@ -145,3 +160,5 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Falha ao subir a foto." });
   }
 }
+
+export default withCompanyContext(handler);

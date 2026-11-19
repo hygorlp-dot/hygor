@@ -33,4 +33,20 @@ describe("app → ARP/Postgres → Equipe nas Obras", () => {
     expect(resultado.pessoas.find(p => p.id === "e2").situacao).toBe("falta");
     expect(JSON.stringify(resultado)).not.toContain('"vetor"');
   });
+  it("mistura cadastros antigos e novos e mantém o painel se o OneDrive falhar", async () => {
+    const c = await criarCenario(); s = c.s;
+    for (const [employeeId, provedor] of [["e1", "onedrive"], ["e2", undefined]]) {
+      const caminho = `biometria/${employeeId}/foto.jpg`;
+      s.db.arquivos.set(caminho, new Uint8Array([255, 216]));
+      await s.db.from("ponto_biometrias").insert({ company_id: "arcd", employee_id: employeeId, modelo: "teste", vetor: Array(64).fill(0), fotos: [{ caminho, provedor }], consentimento: { termoVersao: "teste", aceitoEm: "2026-10-01" }, cadastrado_por: "u-enc" });
+    }
+    const resultado = await painel();
+    expect(resultado.pessoas.find(p => p.id === "e1").fotoUrl).toBe("https://onedrive.test/biometria/e1/foto.jpg");
+    expect(resultado.pessoas.find(p => p.id === "e2").fotoUrl).toBe("https://assinado/biometria/e2/foto.jpg");
+    vi.spyOn(s.fotos, "urls").mockRejectedValue(new Error("OneDrive fora do ar"));
+    const semOneDrive = await painel();
+    expect(semOneDrive.pessoas.length).toBe(resultado.pessoas.length);
+    expect(semOneDrive.pessoas.find(p => p.id === "e2").fotoUrl).toBe("https://assinado/biometria/e2/foto.jpg");
+    expect(JSON.stringify(semOneDrive)).not.toContain('"vetor"');
+  });
 });

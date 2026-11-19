@@ -1,3 +1,5 @@
+import {budgetScopeExclusion} from './budget-pending.js';
+
 const normalizeAuditText = value => String(value || "").toLowerCase()
   .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
@@ -5,7 +7,7 @@ const normalizeAuditText = value => String(value || "").toLowerCase()
 // mas nao decide sozinha se algo esta faltando: primeiro aplicamos regras
 // objetivas e distinguimos erro provavel, confirmacao de escopo e cotacao.
 export const auditBudgetTechnicalScope = (orc, areaConstruida) => {
-  const itens = (orc?.itens || []).filter(item => item.tipo !== "titulo");
+  const itens = (orc?.itens || []).filter(item => item.tipo !== "titulo" && !budgetScopeExclusion(item));
   // Etapas padrao vazias nao contam como servico existente. So a descricao do
   // orcamento e as linhas efetivamente lancadas alimentam as verificacoes.
   const texto = normalizeAuditText([orc?.descricao, ...itens.map(item => item.descricao)].join(" | "));

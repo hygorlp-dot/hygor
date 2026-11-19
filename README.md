@@ -2,6 +2,9 @@
 
 ## Documentação operacional
 
+- [Índice de desenvolvimento e fontes vigentes](docs/INDICE-DESENVOLVIMENTO.md)
+- [Roteiro seguro de validação local](docs/VALIDACAO-LOCAL.md)
+- [Retomada e passagem de tarefas](docs/RETOMADA-DE-TAREFAS.md)
 - [Manual de uso MARCELL e ajuda por tela](docs/MANUAL_DO_APP.md)
 - [Referências e manutenção da ajuda contextual](docs/REFERENCIAS_AJUDA_CONTEXTUAL.md)
 - [Manual completo do sistema](docs/MANUAL_COMPLETO_ARCD.md)
@@ -103,7 +106,7 @@ execução; em produção, podem alterar o banco com as credenciais configuradas
 Para validar somente a compilação local, sem acionar o `prebuild`, use:
 
 ```bash
-node node_modules/vite/bin/vite.js build
+npm run build:local
 ```
 
 A preparação financeira também pode ser chamada diretamente com

@@ -1,15 +1,42 @@
 import {test,expect} from '@playwright/test';
 import {data,profile} from '../scripts/fixtures/workflow-priorities-data.mjs';
+import {buildFinancialLedger,selectDRE} from '../src/domains/financeiro/ledger.js';
+import {buildRequestedDreProjectionRows} from '../server/dre-projection.js';
 
 // Carimbo de contexto (Etapa 1): a obra escolhida no topo vale para as telas
 // que o seguem, e trocar a obra nessas telas atualiza o carimbo.
 async function enter(page,tab,dados=data){
+  let state=structuredClone(dados),revision=0;
+  // This scenario starts from an already synchronized plan. Missing version
+  // links trigger a separate budget migration, unrelated to the work stamp.
+  state.condominios??=[];
+  for(const plan of state.planos||[]){
+    const budget=(state.orcamentos||[]).find(item=>item.id===plan.budgetId);
+    if(budget)plan.budgetVersionId??=budget.versionId||budget.id;
+  }
+  const financialSnapshot=value=>({
+    dre:selectDRE(buildFinancialLedger(value),{competence:'2026-11'}),
+    company:buildRequestedDreProjectionRows(value,[{year:2026,month:10,period:'mes',scope:'company_dre'}])[0].payload.lucroLiquido,
+  });
+  const before=financialSnapshot(state);
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.clock.setFixedTime(new Date('2026-11-01T12:00:00-03:00'));
   await page.addInitScript(({tab,user})=>{sessionStorage.setItem(`arcd-section:${user}`,tab);localStorage.setItem('arcd-theme','marcell');},{tab,user:profile.id});
   await page.route('https://**/*',r=>r.abort());
   await page.route('**/api/**',r=>r.fulfill({json:{ok:true,items:[],bases:[],presencas:[],connected:false,reply:''}}));
-  await page.route('**/api/data',r=>r.fulfill({json:{ok:true,usuarios:[profile],precisaSetup:false,usuario:profile,data:dados,current:null,history:[],accessToken:'stamp-local-only',refreshToken:'stamp-local-only',updatedAt:'2026-11-01T15:00:00Z'}}));
+  await page.route('**/api/data',r=>{
+    const body=r.request().postDataJSON()||{};
+    if(['save','save-sections'].includes(body.action)){
+      const next={...state,...(body.sections||body.payload||{})};
+      for(const [key,delta] of Object.entries(body.sectionDeltas||{})){
+        const removed=new Set(delta.removed||[]),changed=new Map((delta.changed||[]).map(row=>[row.id,row]));
+        next[key]=(state[key]||[]).filter(row=>!removed.has(row.id)&&!changed.has(row.id)).concat([...changed.values()]);
+      }
+      expect(financialSnapshot(next)).toEqual(before);
+      state=structuredClone(next);revision++;
+    }
+    return r.fulfill({json:{ok:true,usuarios:[profile],precisaSetup:false,usuario:profile,data:state,current:null,history:[],accessToken:'stamp-local-only',refreshToken:'stamp-local-only',updatedAt:new Date(Date.UTC(2026,10,1,15,0,revision)).toISOString()}});
+  });
   await page.goto('/');await page.locator('#login-email').fill(profile.email);await page.locator('#login-senha').fill('stamp-local-only');
   await page.getByRole('button',{name:'Acessar central MARCELL',exact:true}).click();await expect(page.locator('.arcd-main')).toBeVisible();
   await expect(page.locator('.arcd-main .arcd-page-loading')).toHaveCount(0);

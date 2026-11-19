@@ -2,7 +2,8 @@ import {expect} from '@playwright/test';
 
 export async function selectWorkspaceArea(page, navigation, label) {
   const selector=page.getByRole('combobox',{name:navigation,exact:true});
-  const button=page.getByRole('navigation',{name:navigation,exact:true}).getByRole('button',{name:label,exact:true});
+  const name=new RegExp('^'+label.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?: \\d+)?$');
+  const button=page.getByRole('navigation',{name:navigation,exact:true}).getByRole('button',{name});
   // A folha lazy pode aparecer depois do DOM: aguardar o controle esperado
   // evita escolher a navegação desktop antes de aplicar o breakpoint móvel.
   if(page.viewportSize()?.width < 768) {

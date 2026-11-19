@@ -1,3 +1,4 @@
+import {currentCompany, withCompanyContext, isolationEnabled} from '../../server/company-context.js';
 import {trashWorkDocument} from '../../server/work-file-trash.js';
 import { fileSignature, getOrCreateFolder, graph, refresh, rootItem, safeName, seal, setCookie, unseal, verifyAppUser, workspace } from "../../server/microsoft/graph.js";
 import { findScopedWork, knownWorkspace, scopedWorks } from "../../server/onedrive-scope.js";
@@ -69,7 +70,7 @@ const resolverDestinoUpload=async(accessToken,appContext,body,obraEscopo)=>{
 const workspacePublico=(ws,appUser)=>appUser.role==="admin"?ws:{...ws,webUrl:undefined};
 const itemPublico=(item,appUser)=>appUser.role==="admin"?item:{...item,webUrl:undefined};
 
-export default async function handler(req,res){
+async function handler(req,res){
   try{
     const action=req.query.action||req.body?.action||"status";
     if(req.method&&req.method!=="POST"&&!(req.method==="GET"&&action==="file"))return res.status(405).json({error:"Método não permitido."});
@@ -111,7 +112,7 @@ export default async function handler(req,res){
       if(!body.driveId||!body.itemId)return res.status(400).json({error:"Arquivo sem identificação no OneDrive."});
       await assertInsideWorkspace(accessToken,appContext,body.driveId,body.itemId);
       const sig=fileSignature(body.driveId,body.itemId);
-      const url=`/api/microsoft/onedrive?action=file&driveId=${encodeURIComponent(body.driveId)}&itemId=${encodeURIComponent(body.itemId)}&sig=${encodeURIComponent(sig)}`;
+      const url=`/api/microsoft/onedrive?action=file&companyId=${currentCompany()}&driveId=${encodeURIComponent(body.driveId)}&itemId=${encodeURIComponent(body.itemId)}&sig=${encodeURIComponent(sig)}`;
       return res.json({ok:true,url});
     }
     if(action==="sync-workspaces"){
@@ -149,7 +150,7 @@ export default async function handler(req,res){
       const lista=await (await graph(accessToken,path)).json();
       const items=(lista.value||[]).map(item=>{
         const tipo=item.folder?"folder":"file";
-        const url=tipo==="file"?`/api/microsoft/onedrive?action=file&driveId=${encodeURIComponent(body.driveId)}&itemId=${encodeURIComponent(item.id)}&sig=${encodeURIComponent(fileSignature(body.driveId,item.id))}`:"";
+        const url=tipo==="file"?`/api/microsoft/onedrive?action=file&companyId=${currentCompany()}&driveId=${encodeURIComponent(body.driveId)}&itemId=${encodeURIComponent(item.id)}&sig=${encodeURIComponent(fileSignature(body.driveId,item.id))}`:"";
         return {id:item.id,name:item.name,type:tipo,url,size:Number(item.size||0),childCount:Number(item.folder?.childCount||0),lastModifiedDateTime:item.lastModifiedDateTime||""};
       }).sort((a,b)=>a.type===b.type?a.name.localeCompare(b.name,"pt-BR",{sensitivity:"base"}):a.type==="folder"?-1:1);
       return res.json({ok:true,items});
@@ -168,7 +169,7 @@ export default async function handler(req,res){
       const uploadSession=await sessionResponse.json();
       if(!uploadSession?.uploadUrl)throw new Error("O OneDrive não abriu a sessão de upload.");
       const uploadToken=seal({
-        kind:"onedrive-upload-v1",uploadUrl:uploadSession.uploadUrl,driveId:ws.driveId,
+        kind:"onedrive-upload-v1",companyId:currentCompany(),uploadUrl:uploadSession.uploadUrl,driveId:ws.driveId,
         workId:String(obraEscopo.id||""),fileName,fileSize,mime:String(body.mime||"application/octet-stream").slice(0,160),
         nextStart:0,expiresAt:uploadSession.expirationDateTime||"",
       });
@@ -177,7 +178,7 @@ export default async function handler(req,res){
     if(action==="upload-chunk"){
       if(!obraEscopo)return res.status(403).json({error:"A obra não está disponível para este usuário."});
       const state=unseal(String(body.uploadToken||""));
-      if(!state||state.kind!=="onedrive-upload-v1")return res.status(400).json({error:"Sessão de upload inválida."});
+      if(!state||state.kind!=="onedrive-upload-v1"||(isolationEnabled()&&state.companyId!==currentCompany()))return res.status(400).json({error:"Sessão de upload inválida."});
       if(String(state.workId||"")!==String(obraEscopo.id||""))return res.status(403).json({error:"A sessão de upload pertence a outra obra."});
       if(Number(state.fileSize)>LICENSING_UPLOAD_MAX_BYTES)return res.status(413).json({error:"O arquivo de licenciamento excede 20 MB."});
       if(state.expiresAt&&Date.parse(state.expiresAt)<=Date.now())return res.status(410).json({error:"A sessão de upload expirou. Inicie o envio novamente."});
@@ -211,7 +212,7 @@ export default async function handler(req,res){
       const item=result;
       if(!item?.id)throw new Error("O OneDrive concluiu o envio sem identificar o arquivo.");
       const sig=fileSignature(state.driveId,item.id);
-      const url=`/api/microsoft/onedrive?action=file&driveId=${encodeURIComponent(state.driveId)}&itemId=${encodeURIComponent(item.id)}&sig=${encodeURIComponent(sig)}`;
+      const url=`/api/microsoft/onedrive?action=file&companyId=${currentCompany()}&driveId=${encodeURIComponent(state.driveId)}&itemId=${encodeURIComponent(item.id)}&sig=${encodeURIComponent(sig)}`;
       return res.json({ok:true,complete:true,url,path:item.id,item:itemPublico(item,appUser)});
     }
     if(action==="upload"){
@@ -226,9 +227,11 @@ export default async function handler(req,res){
       }
       const item=await (await graph(accessToken,`/drives/${ws.driveId}/items/${parentId}:/${encodeURIComponent(fileName)}:/content`,{method:"PUT",headers:{"content-type":body.category==="arquivos"?fileMime(fileName):match[1]},body:buffer})).json();
       const sig=fileSignature(ws.driveId,item.id);
-      const url=`/api/microsoft/onedrive?action=file&driveId=${encodeURIComponent(ws.driveId)}&itemId=${encodeURIComponent(item.id)}&sig=${encodeURIComponent(sig)}`;
+      const url=`/api/microsoft/onedrive?action=file&companyId=${currentCompany()}&driveId=${encodeURIComponent(ws.driveId)}&itemId=${encodeURIComponent(item.id)}&sig=${encodeURIComponent(sig)}`;
       return res.json({ok:true,url,path:item.id,item:itemPublico(item,appUser),workspace:workspacePublico(ws,appUser)});
     }
     res.status(400).json({error:"Ação inválida."});
   }catch(e){res.status(e.status||500).json({error:String(e.message||e),needsConnection:e.status===401});}
 }
+
+export default withCompanyContext(handler);

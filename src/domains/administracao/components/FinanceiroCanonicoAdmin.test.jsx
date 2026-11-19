@@ -13,7 +13,7 @@ describe("Central do Administrador — gate FIN 9.6",()=>{
     expect(panel).toContain("consultarSombraFinanceira");
     expect(panel).toContain("activationGate");
     expect(panel).toContain("missingLegacyLinks");
-    expect(panel).toContain("Esta tela não ativa o motor financeiro");
+    expect(panel).toContain("A consulta não muda a ativação do motor.");
     expect(panel).not.toContain("sincronizarSombraFinanceira");
     expect(panel).not.toContain("prepararSombraFinanceira");
     expect(panel).not.toContain("FINANCIAL_ENGINE_ENFORCE=");

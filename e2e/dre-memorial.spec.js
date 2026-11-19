@@ -7,10 +7,18 @@ for(const view of ["anual","mensal","mensal fechado"])test(`abre o memorial, doc
   const user={id:"qa",nome:"Financeiro QA",email:"memorial@arcd.test",role:"admin",active:true};
   const data={usuarios:[user],config:{paymentHolidays:[]},obras:[{id:"o1",name:"Obra Memorial QA",status:"active"}],employees:[],attendance:{},
     medicoes:[{id:"m1",obraId:"o1",competencia:"2026-01",dataEmissao:"2026-01-12",valorPrevisto:142130,descricao:"Medição de janeiro",documentos:[{nome:"Nota fiscal 123",url:"https://example.com/nota-123.pdf"},{nome:'Arquivo protegido QA',url:'/api/microsoft/onedrive?action=file&driveId=a&itemId=b&sig=c'}],observacao:"Referência isolada para teste"}]};
+  data.equipamentos=[{id:"equipment",nome:"Equipamento de conferência"}];
+  data.manutencoesEquip=[
+    {id:"cancelled",equipamentoId:"equipment",descricao:"Manutenção cancelada QA",data:"2026-01-02",custo:70,status:"cancelada",pagoPor:"empresa"},
+    {id:"active",equipamentoId:"equipment",descricao:"Manutenção válida QA",data:"2026-01-03",custo:100,status:"programada",pagoPor:"empresa"},
+  ];
+  const original=JSON.stringify(data),writes=[],errors=[];
+  page.on('pageerror',error=>errors.push(error.message));
   const months=buildRequestedDreProjectionRows(data,Array.from({length:12},(_,month)=>({year:2026,month,scope:"company_dre",includeMemorial:true}))).map(row=>row.payload);
   await page.route("**/api/**",route=>route.fulfill({json:{ok:true,items:[],bases:[]}}));
   await page.route("**/api/data",route=>{
     const body=route.request().postDataJSON()||{};
+    if(/command|save|delete|update|close/.test(body.action||''))writes.push(body.action);
     if(body.action==="profiles")return route.fulfill({json:{usuarios:[user],precisaSetup:false}});
     if(body.action==="financial-annual-dre-report")return route.fulfill({json:{ok:true,year:2026,months,layout:defaultAnnualLayout(),issues:[]}});
     if(["financial-dre-report","financial-company-dre-report"].includes(body.action))return route.fulfill({json:{ok:true,source:view==="mensal fechado"?"closed_snapshot":"canonical_ledger",current:months[Number(body.month)||0],history:[]}});
@@ -20,7 +28,7 @@ for(const view of ["anual","mensal","mensal fechado"])test(`abre o memorial, doc
   await page.locator("#login-email").fill(user.email);await page.locator("#login-senha").fill("isolated-password");
   await page.getByRole("button",{name:"Acessar central MARCELL"}).click();
   if(page.viewportSize().width<1100){
-    await page.getByRole("button",{name:"Abrir Visão gerencial",exact:true}).click();
+    await page.getByRole("button",{name:"Abrir Visão gerencial · Gestão",exact:true}).click();
     const selector=page.getByRole('combobox',{name:'Telas de Visão gerencial',exact:true});
     if(await selector.isVisible())await selector.selectOption({label:'DRE empresa'});
     else await page.locator(".mobile-subnav").getByRole("button",{name:"DRE empresa",exact:true}).click();
@@ -34,9 +42,22 @@ for(const view of ["anual","mensal","mensal fechado"])test(`abre o memorial, doc
   if(view==="anual")await page.getByRole("button",{name:"DRE anual ajustável",exact:true}).click();
   else {
     const selector=page.getByRole('combobox',{name:'Selecionar visão',exact:true});
+    const demonstrativo=page.getByRole('button',{name:'Demonstrativo',exact:true});
+    await expect.poll(async()=>await selector.isVisible()||await demonstrativo.isVisible()).toBe(true);
     if(await selector.isVisible())await selector.selectOption({label:'Demonstrativo'});
-    else await page.getByRole("button",{name:"Demonstrativo",exact:true}).click();
+    else await demonstrativo.click();
   }
+  const maintenance=page.getByRole('button',{name:view==='anual'?/Manutenção das locações, Jan:/:"Consultar memorial: (-) Manutenção das locações paga pela empresa"});
+  await maintenance.click();
+  const maintenanceDialog=page.getByRole('dialog');
+  await expect(maintenanceDialog.locator('summary').filter({hasText:'Manutenção válida QA'})).toHaveCount(1);
+  await expect(maintenanceDialog).not.toContainText('Manutenção cancelada QA');
+  await expect(maintenanceDialog).toContainText('Soma dos lançamentos: R$ 100,00');
+  await expect(maintenanceDialog).not.toContainText('Parcela do total sem detalhamento individual');
+  await page.screenshot({path:testInfo.outputPath('maintenance-memorial.png'),fullPage:true});
+  await page.keyboard.press('Escape');await expect(maintenanceDialog).not.toBeVisible();
+  expect(JSON.stringify(data)).toBe(original);expect(writes).toEqual([]);expect(errors).toEqual([]);
+  expect(months[0].totalCSP).toBe(100);expect(months[0].lucroLiquido).toBe(142030);
   const entry=page.getByRole("button",{name:view==="anual"?/Receitas de obras, Jan:/:"Consultar memorial: Faturamento de obras (medições emitidas)"});
   await entry.click();
   const dialog=page.getByRole("dialog");await expect(dialog).toBeVisible();

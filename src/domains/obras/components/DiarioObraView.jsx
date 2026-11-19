@@ -1,9 +1,12 @@
 import {openReportPreview} from '../../../reports/report-preview.js';
+import {CompanyAssetImage} from '../../../components/CompanyAsset.jsx';
+import {assetAuthorizationKey,resolveCompanyAssetUrl} from '../../../api.js';
 import {contar} from '../../../design-system/copy.js';
 import {dailyProductionReportLines} from '../production-report.js';
 import {DailyProductionFields} from './DailyProductionFields.jsx';
 import {dailyWorkforce,productionBudget,suggestedBudgetItem,validateProduction} from '../../diario-obra/production.js';
 import {FilePicker} from '../../../design-system/patterns/FilePicker.jsx';
+import {TaskDisclosure} from '../../../design-system/patterns/TaskDisclosure.jsx';
 import {Button as StandardButton} from '../../../components/ui/button.jsx';
 import {TextareaControl} from '../../../design-system/primitives/Textarea.jsx';
 import {SelectControl} from '../../../design-system/primitives/Select.jsx';
@@ -42,7 +45,7 @@ const CLIMA_OPC = [
 ];
 
 export default function DiarioObra({ data, showToast, currentUser, obraIdFixo="", dispatchCommand=null }) {
-  const { cols } = useBreakpoint();
+  const { cols, isDesktop } = useBreakpoint();
 
   const obras = useMemo(() => (data.obras || []).filter(o => o.status !== "done"), [data.obras]);
   const [obraId, setObraId] = useState(()=>obraIdFixo||(obras.some(o=>o.id===obraContextoSalvo())?obraContextoSalvo():(obras[0]?.id||"")));
@@ -211,10 +214,14 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
     setObraId(copia.obraId);setDataRDO(copia.data);setModoRdo("editor");showToast?.("Conteúdo copiado para um novo rascunho sem aprovação ou auditoria anterior.");
   };
 
-  const imprimirRdo = item => {
+  const imprimirRdo = async item => {
+    const authorization=assetAuthorizationKey();
+    const resolvedPhotos=await Promise.all((item.fotos||[]).map(async photo=>({...photo,access:await resolveCompanyAssetUrl(photo.url)})));
+    if(authorization!==assetAuthorizationKey())return;
+    if(resolvedPhotos.some(photo=>!photo.access.ok)){showToast?.('Não foi possível abrir uma foto do diário. Confira seu acesso e tente novamente.','error');return;}
     const obra=(data.obras||[]).find(o=>o.id===item.obraId);
     const equipe=(item.presencas||[]).map(p=>`${(data.employees||[]).find(e=>e.id===p.empId)?.name||"Funcionário não localizado"}: ${p.status||"não informado"}`);
-    const fotos=(item.fotos||[]).map(f=>`<figure><img src="${escapeHtml(f.url)}"><figcaption>${escapeHtml(f.legenda||"")}</figcaption></figure>`).join("");
+    const fotos=resolvedPhotos.map(f=>`<figure><img src="${escapeHtml(f.access.url)}"><figcaption>${escapeHtml(f.legenda||"")}</figcaption></figure>`).join("");
     const clima=Object.entries(item.clima||{}).map(([p,v])=>`${p}: ${CLIMA_OPC.find(x=>x.v===v)?.l||v}`).join(" · ");
     const status=item.status==="concluido"?"Concluído":item.status==="cancelado"?"Cancelado":"Rascunho / não concluído";
     const lista=(itens,vazio="Nenhum registro")=>itens.length?`<ul>${itens.map(valor=>`<li>${escapeHtml(valor)}</li>`).join("")}</ul>`:`<p>${vazio}</p>`;
@@ -382,7 +389,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
     setRefletindo(true);
     try{
       const imagens=(await Promise.all((rdo.fotos||[]).slice(0,6).map(async foto=>{
-        try{const resp=await fetch(foto.url,{credentials:"include"});if(!resp.ok)return null;const blob=await resp.blob();return await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve({dataUrl:reader.result,legenda:foto.legenda||""});reader.onerror=reject;reader.readAsDataURL(blob);});}catch{return null;}
+        try{const access=await resolveCompanyAssetUrl(foto.url);if(!access.ok)return null;const resp=await fetch(access.url,{credentials:"include"});if(!resp.ok)return null;const blob=await resp.blob();return await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve({dataUrl:reader.result,legenda:foto.legenda||""});reader.onerror=reject;reader.readAsDataURL(blob);});}catch{return null;}
       }))).filter(Boolean);
       if(!imagens.length)throw new Error("Não foi possível carregar as imagens para análise.");
       const obraAtual=(data.obras||[]).find(o=>o.id===obraId);
@@ -415,6 +422,8 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
   }
 
   if (modoRdo === "lista") {
+    const activeFilters=[inicioRdo,fimRdo,filtroObraRdo!=="all",filtroStatusRdo!=="all",filtroClimaRdo!=="all"].filter(Boolean).length;
+    const search=<Inp value={buscaRdo} onChange={setBuscaRdo} label="Pesquisar" placeholder="Código, obra ou descrição"/>;
     return <div className="anim" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
       <PageHero
         eyebrow="Engenharia de campo"
@@ -422,26 +431,29 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
         description={contar((data.rdos||[]).length,"relatório registrado","relatórios registrados")}
         actions={<Btn onClick={novoRdo}><Ic n="plus"/> Novo relatório</Btn>}
       />
+      {!isDesktop&&search}
+      <TaskDisclosure enabled={!isDesktop} summary={activeFilters?`Filtros · ${contar(activeFilters,"ativo","ativos")}`:"Filtros"}>
       <div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:"var(--arcd-space-2)",background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:8,padding:"var(--arcd-space-2)"}}>
         <Inp value={inicioRdo} onChange={setInicioRdo} type="date" label="Data inicial"/>
         <Inp value={fimRdo} onChange={setFimRdo} type="date" label="Data final"/>
         <Sel value={filtroObraRdo} onChange={setFiltroObraRdo} label="Obra" options={[{v:"all",l:"Todas"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
         <Sel value={filtroStatusRdo} onChange={setFiltroStatusRdo} label="Status" options={[{v:"all",l:"Todos"},{v:"preparacao",l:"Em preparação"},{v:"concluido",l:"Concluído"},{v:"cancelado",l:"Cancelado"}]}/>
         <Sel value={filtroClimaRdo} onChange={setFiltroClimaRdo} label="Clima" options={[{v:"all",l:"Todos"},...CLIMA_OPC.map(o=>({v:o.v,l:o.l}))]}/>
-        <Inp value={buscaRdo} onChange={setBuscaRdo} label="Pesquisar" placeholder="Código, obra ou descrição"/>
+        {isDesktop&&search}
       </div>
+      </TaskDisclosure>
       <div style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:"var(--arcd-space-2)"}}>
         {rdosFiltrados.map(item=>{const obra=obraPorIdRdo.get(item.obraId);const statusLabel=item.status==="concluido"?"Concluído":item.status==="cancelado"?"Cancelado":"Em preparação";const statusColor=item.status==="concluido"?C.green:item.status==="cancelado"?C.red:C.orange;return <article key={item.id} className="rdo-history-card" data-status={item.status||"preparacao"}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-2)"}}><div><b style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)"}}>RDO-{String(item.codigo||0).padStart(3,"0")} · {fmtDate(item.data)}</b><p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{obra?.name||"Obra removida"}</p></div><Badge color={statusColor}>{statusLabel}</Badge></div>
           <p className="brk" style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-muted)",marginTop:"var(--arcd-space-2)",minHeight:28,lineHeight:"var(--arcd-line-height-normal)"}}>{[item.descricao,item.ocorrencias,item.pendencias].filter(Boolean).join(" · ")||item.responsavel||"Sem descrição informada."}</p>
           {item.status==="cancelado"&&<p className="rdo-cancel-reason"><b>Motivo do cancelamento:</b> {item.motivoCancelamento||"Não informado"}</p>}
-          {(item.fotos||[]).length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-2)"}}>{item.fotos.slice(0,4).map((foto,i)=><StandardButton variant="secondary" key={foto.url} onClick={()=>setFotoPreviewRdo({foto,item,index:i})} title="Ver foto" style={{position:"relative",overflow:"hidden",height:58}}><img src={foto.url} alt={foto.legenda||`Foto ${i+1}`} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>{i===3&&item.fotos.length>4&&<span style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"var(--arcd-surface-overlay)",color:"var(--arcd-text-inverse)",fontWeight:"var(--arcd-font-weight-semibold)"}}>+{item.fotos.length-4}</span>}</StandardButton>)}</div>}
+          {(item.fotos||[]).length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-2)"}}>{item.fotos.slice(0,4).map((foto,i)=><StandardButton variant="secondary" key={foto.url} onClick={()=>setFotoPreviewRdo({foto,item,index:i})} title="Ver foto" style={{position:"relative",overflow:"hidden",height:58}}><CompanyAssetImage src={foto.url} alt={foto.legenda||`Foto ${i+1}`} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>{i===3&&item.fotos.length>4&&<span style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"var(--arcd-surface-overlay)",color:"var(--arcd-text-inverse)",fontWeight:"var(--arcd-font-weight-semibold)"}}>+{item.fotos.length-4}</span>}</StandardButton>)}</div>}
           <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-2)"}}>{contar((item.fotos||[]).length,'foto','fotos')} · {contar((item.anexos||[]).length,'documento','documentos')}</p>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)"}}><Btn size="sm" v="ghost" onClick={()=>abrirRdo(item)}><Ic n={fieldReportIsReadOnly(item)?"eye":"edit"}/> {fieldReportIsReadOnly(item)?"Consultar":"Abrir e editar"}</Btn><Btn size="sm" v="ghost" onClick={()=>imprimirRdo(item)}><Ic n="fileText"/> PDF</Btn><Btn size="sm" v="ghost" onClick={()=>duplicarRdo(item)}><Ic n="copy"/> Duplicar</Btn>{item.status!=="cancelado"&&<Btn size="sm" v="danger" onClick={()=>excluirRdo(item)}><Ic n="x"/> Cancelar RDO</Btn>}</div>
         </article>})}
         {!rdosFiltrados.length&&<div className="rdo-empty"><strong>Nenhum diário encontrado</strong><p>Ajuste os filtros ou limpe a pesquisa para ver outros registros.</p><Btn v="ghost" onClick={()=>{setInicioRdo("");setFimRdo("");setFiltroObraRdo("all");setFiltroStatusRdo("all");setFiltroClimaRdo("all");setBuscaRdo("");}}>Limpar filtros</Btn></div>}
       </div>
-      {fotoPreviewRdo&&<Modal title={`RDO-${String(fotoPreviewRdo.item.codigo||0).padStart(3,"0")} · Foto ${fotoPreviewRdo.index+1}`} onClose={()=>setFotoPreviewRdo(null)} wide><img src={fotoPreviewRdo.foto.url} alt={fotoPreviewRdo.foto.legenda||"Foto do diário"} style={{display:"block",width:"100%",maxHeight:"70vh",objectFit:"contain",background:"var(--arcd-surface-inverse)",borderRadius:7}}/>{fotoPreviewRdo.foto.legenda&&<p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-2)"}}>{fotoPreviewRdo.foto.legenda}</p>}<Btn full v="ghost" onClick={()=>setFotoPreviewRdo(null)} style={{marginTop:"var(--arcd-space-2)"}}>Fechar</Btn></Modal>}
+      {fotoPreviewRdo&&<Modal title={`RDO-${String(fotoPreviewRdo.item.codigo||0).padStart(3,"0")} · Foto ${fotoPreviewRdo.index+1}`} onClose={()=>setFotoPreviewRdo(null)} wide><CompanyAssetImage src={fotoPreviewRdo.foto.url} alt={fotoPreviewRdo.foto.legenda||"Foto do diário"} style={{display:"block",width:"100%",maxHeight:"70vh",objectFit:"contain",background:"var(--arcd-surface-inverse)",borderRadius:7}}/>{fotoPreviewRdo.foto.legenda&&<p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-2)"}}>{fotoPreviewRdo.foto.legenda}</p>}<Btn full v="ghost" onClick={()=>setFotoPreviewRdo(null)} style={{marginTop:"var(--arcd-space-2)"}}>Fechar</Btn></Modal>}
     </div>;
   }
 
@@ -700,7 +712,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
           {(rdo.fotos || []).map(f => (
             <div key={f.url} style={{ position: "relative", borderRadius: 6, overflow: "hidden",
                                       border: "1px solid var(--arcd-border-default)" }}>
-              <img src={f.url} alt={f.legenda || "Foto"} style={{ width: "100%", height: 100,
+              <CompanyAssetImage src={f.url} alt={f.legenda || "Foto"} style={{ width: "100%", height: 100,
                    objectFit: "cover", display: "block" }} />
               <StandardButton variant="secondary" onClick={() => removerFoto(f.url)} aria-label={`Remover foto ${f.legenda||"sem legenda"}`} className="rdo-photo-remove">×</StandardButton>
               <StandardInput value={f.legenda} onChange={e => setLegenda(f.url, e.target.value)} aria-label="Legenda da foto"

@@ -358,7 +358,9 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         // indireto do dashboard - agora têm pill própria dentro do destino
         // "Propostas e contratos".
         await page.getByRole("button",{name:"Contratos",exact:true}).click();
-        await expect(page.getByText("Elaboração, assinatura, entrada e transferência para Engenharia")).toBeVisible();
+        await expect(page.getByRole("heading",{name:"Contratos",exact:true})).toBeVisible();
+        await expect(page.getByRole("button",{name:"Novo contrato",exact:true})).toBeEnabled();
+        await expect(page.getByRole("alert").filter({hasText:"Emissão de PDF/DOCX indisponível"})).toBeVisible();
         await page.getByRole("button",{name:"Clientes",exact:true}).click();
         await expect(page.getByText("Qualificação completa para propostas, contratos e documentos")).toBeVisible();
       }

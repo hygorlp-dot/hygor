@@ -61,7 +61,7 @@ test('Fundamentos: ajustes centrais alcançam título e ação sem editar o mód
 });
 
 async function purchaseArea(page,name){
- await expect(page.locator('.purchase-header')).toBeVisible();
+ await expect(page.getByRole('heading',{name:'Compras',exact:true})).toBeVisible();
  const selector=page.getByRole('combobox',{name:'Fluxo de compras',exact:true});
  if(await selector.isVisible())return selector.selectOption(await selector.getByRole('option').filter({hasText:new RegExp('^'+name)}).first().getAttribute('value'));
  const nav=page.getByRole('navigation',{name:'Fluxo de compras',exact:true});

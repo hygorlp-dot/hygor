@@ -1,0 +1,3 @@
+import {defineConfig} from '@playwright/test';
+import base from './playwright.config.js';
+export default defineConfig({...base,timeout:60000,testMatch:/commercial-contracts\.spec\.js/,outputDir:'artifacts/contracts/browser-results',use:{...base.use,baseURL:'http://127.0.0.1:4175'},webServer:{command:'npx vite preview --host 127.0.0.1 --port 4175',url:'http://127.0.0.1:4175',reuseExistingServer:true,timeout:30000},projects:[{name:'contracts-desktop',use:{browserName:'chromium',viewport:{width:1440,height:1000}}},{name:'contracts-mobile',use:{browserName:'chromium',viewport:{width:390,height:844},isMobile:true,hasTouch:true}}]});

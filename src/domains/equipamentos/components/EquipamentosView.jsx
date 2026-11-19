@@ -1,4 +1,6 @@
 import { contar } from "../../../design-system/copy.js";
+import {RecordListPagination} from '../../../design-system/data/RecordListPagination.jsx';
+import {useRecordPage} from '../../../design-system/data/useRecordPage.js';
 import { FlowTabs, useWorkflow } from "../../../features/workflow/WorkflowNavigation.jsx";
 // ===================================================================
 // EquipamentosView — tela de Equipamentos extraída de LegacyApp.jsx
@@ -14,6 +16,7 @@ import { FlowTabs, useWorkflow } from "../../../features/workflow/WorkflowNaviga
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { lazyWithCssRetry as lazy } from "../../../lib/lazy-with-css-retry.js";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
+import {TaskDisclosure} from "../../../design-system/patterns/TaskDisclosure.jsx";
 import { LoadingState, Badge, Btn, CampoCNPJ, Ic, Inp, MiniKpi, Modal, PageHero, Sel } from "../../../legacy/ui.jsx";
 import { C } from "../../../legacy/palette.js";
 import { escapeHtml, MONTHS, fmt, fmtDate, fmtDateFull, maiusculoOrcamento, today, uid } from "../../../legacy/format.js";
@@ -30,7 +33,7 @@ import {
 } from "../calculations";
 import {
   availabilityOnDate, buildEquipmentUnavailability, EQUIPMENT_UNAVAILABILITY_LABEL,
-  isActiveUnavailability, rentalAvailability,
+  indexEquipmentUnavailability, isActiveUnavailability, rentalAvailability,
 } from "../availability";
 import { EQUIPMENT_IMAGE_OPTIONS, equipmentImageFor } from "../images";
 import { deriveEquipmentLocations, physicalIdentityForRecord } from "../registry";
@@ -111,7 +114,7 @@ function EquipmentImage({equipment,preview=false}) {
   return <figure className={`equipment-photo${preview?" equipment-photo--preview":""}`} data-source={visual.source}>
     <div className="equipment-photo__placeholder" aria-hidden="true">
       <Ic n="wrench" s={preview?24:20}/>
-      <span>Escolha o tipo visual</span>
+      {preview&&<span>Escolha o tipo visual</span>}
     </div>
     {visual.src&&<img
       key={visual.src}
@@ -127,7 +130,7 @@ function EquipmentImage({equipment,preview=false}) {
 export default function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, obraIdFixo="", contexto="engenharia" }) {
   const {scopes}=useWorkflow();
   const savedScope=scopes.equip_fin;
-  const { formGrid } = useBreakpoint();
+  const { formGrid, isDesktop, isMobile } = useBreakpoint();
   const now = new Date();
   const [aba, setAba] = useState(contexto==="financeiro"?"gestao":"frota");   // frota | gestao | locacoes | manutencao | relatorio
   const [ym, setYm]   = useState(savedScope?.year!=null&&savedScope?.month!=null?`${savedScope.year}-${String(savedScope.month+1).padStart(2,"0")}`:`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`);
@@ -168,20 +171,31 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
   const donoName = id => id ? ((data.proprietariosEquip||[]).find(p=>p.id===id)?.nome || "Terceiro") : "Empresa";
   const equipName = id => (data.equipamentos||[]).find(e=>e.id===id)?.nome || "—";
 
-  const equipamentosAtivos = (data.equipamentos||[]).filter(e=>e.ativo!==false);
+  const equipamentosAtivos = useMemo(()=>(data.equipamentos||[]).filter(e=>e.ativo!==false),[data.equipamentos]);
   const equipamentos = equipamentosAtivos
     .filter(e=>[e.nome,e.categoria,e.patrimonio,donoName(e.proprietarioId)].join(" ").toLowerCase().includes(busca.toLowerCase()))
     .sort((a,b)=>a.nome.localeCompare(b.nome));
 
+  const fleetPageSize=isMobile?6:12;
+  const fleetPage=useRecordPage('equip',equipamentos,JSON.stringify([busca.trim(),ym,fleetPageSize]),obraIdFixo||contexto,fleetPageSize);
+
   const rel = useMemo(()=>calcEquipamentosMes(data, ym), [data, ym]);
   const relPorObra = useMemo(()=>calcEquipamentosPorObra(data, ym), [data, ym]);
-  const [fleetYear,fleetMonth]=ym.split("-").map(Number);
-  const fleetPeriodDays=getDays(fleetYear,fleetMonth-1);
+  const fleetPeriodDays=useMemo(()=>{
+    const [year,month]=ym.split("-").map(Number);
+    return getDays(year,month-1);
+  },[ym]);
+  const eventsByEquipment=useMemo(()=>indexEquipmentUnavailability(data),[
+    data.equipamentos,data.locacoesEquip,data.manutencoesEquip,data.transferenciasEquip,data.equipmentUnavailability,
+  ]);
+  const showOccupancyStats=contexto==="financeiro"&&aba!=="locacoes"&&aba!=="relatorio";
   const totalUnidades=equipamentosAtivos.reduce((soma,equipamento)=>soma+Math.max(1,Number(equipamento.quantidadeTotal||1)),0);
   const periodRentals=(data.locacoesEquip||[]).filter(locacao=>
     locacao.status!=="cancelada"&&diasLocacaoNoPeriodo(locacao,fleetPeriodDays[0],fleetPeriodDays.at(-1))>0);
-  const periodPeakUsage=fleetPeriodDays.reduce((peak,iso)=>Math.max(peak,
-    equipamentosAtivos.reduce((sum,equipamento)=>sum+disponibilidadeNoDia(data,equipamento,iso).emUso,0)),0);
+  const periodPeakUsage=useMemo(()=>showOccupancyStats?fleetPeriodDays.reduce((peak,iso)=>Math.max(peak,
+    equipamentosAtivos.reduce((sum,equipamento)=>sum+disponibilidadeNoDia(data,equipamento,iso,
+      eventsByEquipment.get(String(equipamento.id))||[]).emUso,0)),0):0,
+  [showOccupancyStats,fleetPeriodDays,equipamentosAtivos,eventsByEquipment]);
   const periodFreeUnits=Math.max(0,totalUnidades-periodPeakUsage);
   const locacoesAtivas=(data.locacoesEquip||[]).filter(locacao=>locacao.status!=="cancelada"&&!locacao.fim);
   const physicalRegistry=useMemo(()=>deriveEquipmentLocations(data,today()),[data]);
@@ -894,10 +908,11 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
       <PageHero
         eyebrow={contexto==="financeiro"?"Financeiro · ativos e locações":"Engenharia"}
         title={contexto==="financeiro"?"Central de locação de equipamentos":"Equipamentos"}
+        statsDisclosure={isMobile&&aba==="frota"}
         description={contexto==="financeiro"
           ?"Disponibilidade, alocação, manutenção e cobrança por obra em uma única operação auditável."
           :`${contar(equipamentosAtivos.length,"equipamento ativo","equipamentos ativos")} · custos integrados à obra.`}
-        stats={contexto==="financeiro"&&!["locacoes","relatorio"].includes(aba)?[
+        stats={showOccupancyStats?[
           {label:"Frota ativa",value:`${totalUnidades} un.`,detail:`${contar(equipamentosAtivos.length,"cadastro","cadastros")}`,color:C.text},
           {label:"Em uso no mês",value:`${periodPeakUsage} un.`,detail:`${periodRentals.length} locação(ões) em ${mesLabel}`,color:periodPeakUsage?C.blue:C.muted},
           {label:"Livres no mês",value:`${periodFreeUnits} un.`,detail:"Disponibilidade no pico de ocupação",color:periodFreeUnits?C.green:C.orange},
@@ -915,7 +930,9 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
       />
 
       {/* Abas internas */}
-      <div className="equipment-workflow-context"><Sel label="Período de referência" value={ym} onChange={setYm} options={mesesOpts}/></div>
+      <TaskDisclosure enabled={isMobile&&aba==="frota"} summary={`Período de referência · ${mesLabel}`}>
+        <div className="equipment-workflow-context"><Sel label="Período de referência" value={ym} onChange={setYm} options={mesesOpts}/></div>
+      </TaskDisclosure>
       <FlowTabs label="Fluxo de equipamentos e locações" active={aba} onChange={setAba} steps={[
         {id:"gestao",label:"Mapa de ocupação",count:locacoesAtivas.length,description:"Confira a disponibilidade antes de reservar ou contratar."},
         {id:"locacoes",label:"Locações",count:(data.locacoesEquip||[]).length,description:"Acompanhe contratos, equipamentos em obra e devoluções."},
@@ -931,6 +948,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
         <div className="equipment-toolbar">
           <Inp label="Pesquisar na frota" value={busca} onChange={setBusca} placeholder="Nome, categoria, patrimônio ou proprietário..."/>
         </div>
+        {!isDesktop&&<RecordListPagination pagination={fleetPage} label="equipamentos na frota"/>}
         {equipamentos.length===0
           ? <div className="equipment-empty-state">
               <span><Ic n="wrench" s={19}/></span>
@@ -938,13 +956,13 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
               {!busca&&<Btn size="sm" onClick={()=>setEquipModal(equipVazio)}><Ic n="plus"/> Cadastrar equipamento</Btn>}
             </div>
           : <div className="equipment-fleet-grid" style={{gridTemplateColumns:formGrid(2)}}>
-            {equipamentos.map(e=>{
+            {(isDesktop?equipamentos:fleetPage.rows).map(e=>{
               const st = STATUS_EQUIP[e.status]||STATUS_EQUIP.disponivel;
               const proprio = !e.proprietarioId;
               const fin = calcEquipMes(data, e.id, ym);
               return (
-                <article key={e.id} className="equipment-fleet-card" data-status={e.status||"disponivel"}>
-                  <EquipmentImage equipment={e}/>
+                <article key={e.id} className="equipment-fleet-card" data-status={e.status||"disponivel"} data-compact={isMobile||undefined}>
+                  {!isMobile&&<EquipmentImage equipment={e}/>}
                   <div className="equipment-fleet-card__body">
                   <div style={{display:"flex",justifyContent:"space-between",gap:8,marginBottom:6}}>
                     <div style={{minWidth:0}}>
@@ -953,17 +971,20 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                     </div>
                     <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:st.c,background:`${st.c}14`,padding:"2px 7px",borderRadius:99,flexShrink:0,textTransform:"uppercase",height:"fit-content"}}>{st.l}</span>
                   </div>
+                  {isMobile&&e.status==="locado"&&e.obraAtualId&&<p>Em {obraName(e.obraAtualId)}</p>}
+                  <TaskDisclosure enabled={isMobile} summary="Detalhes do equipamento">
+                  {isMobile&&equipmentImageFor(e).src&&<EquipmentImage equipment={e}/>}
                   <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:7}}>
                     <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:proprio?C.green:C.purple,background:`${proprio?C.green:C.purple}12`,padding:"2px 6px",borderRadius:5}}>{proprio?"PRÓPRIO":`DE ${donoName(e.proprietarioId).toUpperCase()}`}</span>
                     {e.sinapiCodigo&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.blue,background:`${C.blue}0C`,border:`1px solid ${C.blue}28`,padding:"2px 6px",borderRadius:5}}>SINAPI {e.sinapiCodigo}</span>}
-                    {e.status==="locado" && e.obraAtualId && <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted,padding:"2px 0"}}>em {obraName(e.obraAtualId)}</span>}
+                    {!isMobile&&e.status==="locado" && e.obraAtualId && <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted,padding:"2px 0"}}>em {obraName(e.obraAtualId)}</span>}
                   </div>
                   {e.sinapiCodigo&&Number(e.valorAquisicao||0)>0&&Number(e.sinapiPreco||0)>0&&(()=>{
                     const variacao=(Number(e.valorAquisicao)-Number(e.sinapiPreco))/Number(e.sinapiPreco)*100;
                     return <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginBottom:7}}>Compra <b style={{color:variacao>0?C.red:C.green}}>{Math.abs(variacao).toFixed(1)}% {variacao>0?"acima":"abaixo"}</b> da referência SINAPI.</p>;
                   })()}
                   {(() => {
-                    const dp = picoUsoNoPeriodo(data, e, fleetPeriodDays);
+                    const dp = picoUsoNoPeriodo(data,e,fleetPeriodDays,eventsByEquipment.get(String(e.id))||[]);
                     const tf = e.tarifas || {};
                     const menor = PACOTES_TARIFA.filter(p=>Number(tf[p.id]||0)>0)
                       .map(p=>`${p.label} ${fmt(tf[p.id])}`).join(" · ");
@@ -992,6 +1013,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                       </div>
                     </>);
                   })()}
+                  </TaskDisclosure>
                   <div className="equipment-card-actions">
                     <Btn size="sm" v="ghost" onClick={()=>setLocModal({...locVazio, equipamentoId:e.id, valorDiaria:e.valorDiaria, custoDiaria:e.custoDiaria, obraId:e.obraAtualId})}>Locar</Btn>
                     <Btn size="sm" v="ghost" onClick={()=>{
@@ -1152,7 +1174,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                         <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,whiteSpace:"nowrap"}}>
                           {donoName(eq.proprietarioId)}
                           {Number(eq.quantidadeTotal||1)>1 && (()=>{
-                            const pk = picoUsoNoPeriodo(data, eq, diasMes);
+                            const pk = picoUsoNoPeriodo(data,eq,diasMes,eventsByEquipment.get(String(eq.id))||[]);
                             return <span style={{color:pk.excedido?C.red:C.muted}}>
                               {" · "}pico {pk.pico}/{pk.total}{pk.excedido?" (estourou)":""}
                             </span>;
@@ -1162,7 +1184,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                       </td>
                       {r.grade.map(g=>{
                         const eventos=eventosNoDia(eq.id,g.data);
-                        const disponibilidade=availabilityOnDate(data,eq,g.data);
+                        const disponibilidade=availabilityOnDate(data,eq,g.data,eventsByEquipment.get(String(eq.id))||[]);
                         const estourou=disponibilidade.livre===0&&eventos.reduce((sum,event)=>sum+Number(event.quantity||0),0)>disponibilidade.total;
                         const resumoTipos=["rental","reservation","maintenance","inspection","transport","damage","administrative_block","quarantine"]
                           .map(type=>{const qtd=eventos.filter(event=>event.type===type).reduce((sum,event)=>sum+Number(event.quantity||0),0);return qtd?`${siglaTipo[type]}${qtd}`:"";}).filter(Boolean);

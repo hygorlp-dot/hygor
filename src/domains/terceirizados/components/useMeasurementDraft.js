@@ -8,7 +8,7 @@ export function useMeasurementDraft({open, form, baseSignature}) {
   const latest = useRef(null);
   const timer = useRef(null);
   latest.current = open && session ? {scope:session.scope,blocked:session.blocked,
-    record:{measurementId:session.measurementId,baseSignature:session.baseSignature,form}} : null;
+    record:{measurementId:session.measurementId,baseSignature:session.baseSignature,attempt:session.attempt||null,form}} : null;
 
   const persist = (snapshot, notify = true) => {
     if (!snapshot) return true;
@@ -28,32 +28,49 @@ export function useMeasurementDraft({open, form, baseSignature}) {
 
   useEffect(()=>{
     const saveBeforeLeaving = ()=>persist(latest.current,false);
+    const protectExit = event => {if(!persist(latest.current,false)){event.preventDefault();event.returnValue='';}};
     const visibility = ()=>{if(document.visibilityState==="hidden")saveBeforeLeaving();};
     window.addEventListener("pagehide",saveBeforeLeaving);
+    window.addEventListener('beforeunload',protectExit);
     document.addEventListener("visibilitychange",visibility);
     return ()=>{
       window.clearTimeout(timer.current);
       saveBeforeLeaving();
       window.removeEventListener("pagehide",saveBeforeLeaving);
+      window.removeEventListener('beforeunload',protectExit);
       document.removeEventListener("visibilitychange",visibility);
     };
   },[]);
 
-  const start = (scope, initialForm, {measurementId, signature, submittedIds = []} = {}) => {
+  const start = (scope, initialForm, {measurementId, signature, submittedIds = [], confirmedKeys = []} = {}) => {
     const result = readMeasurementDraft(scope);
     let recovered = result.ok ? result.draft : null;
     // A lost response must not restore a draft that already became a server fact.
-    if (recovered && !scope.editId && submittedIds.includes(recovered.measurementId)) {
+    if (recovered && ((!scope.editId && submittedIds.includes(recovered.measurementId)) || (recovered.attempt && confirmedKeys.includes(recovered.attempt.idempotencyKey)))) {
       removeMeasurementDraft(scope);
       recovered = null;
     }
     setSession({scope,measurementId:recovered?.measurementId || measurementId,
-      baseSignature:recovered?.baseSignature ?? signature,restored:!!recovered,blocked:!result.ok});
+      baseSignature:recovered?.baseSignature ?? signature,attempt:recovered?.attempt||null,restored:!!recovered,blocked:!result.ok});
     setPersistence(result.ok ? {state:recovered ? "saved" : "saving",error:"",updatedAt:recovered?.updatedAt || ""}
       : {state:"error",error:result.error,updatedAt:""});
     return recovered ? {...initialForm,...recovered.form,pcts:{...initialForm.pcts,...recovered.form.pcts}} : initialForm;
   };
   const flush = () => {window.clearTimeout(timer.current);return persist(latest.current);};
+  const prepare = command => {
+    if(session?.attempt)return session.attempt;
+    if(!latest.current||latest.current.blocked)return null;
+    const snapshot={...latest.current,record:{...latest.current.record,attempt:command}};
+    if(!persist(snapshot))return null;
+    latest.current=snapshot;
+    setSession(previous=>({...previous,attempt:command}));
+    return command;
+  };
+  const releaseAttempt = () => {
+    if(!latest.current)return;
+    const snapshot={...latest.current,record:{...latest.current.record,attempt:null}};
+    if(persist(snapshot)){latest.current=snapshot;setSession(previous=>({...previous,attempt:null}));}
+  };
   const clear = () => {
     window.clearTimeout(timer.current);
     const result = session ? removeMeasurementDraft(session.scope) : {ok:true};
@@ -71,7 +88,7 @@ export function useMeasurementDraft({open, form, baseSignature}) {
     setPersistence({state:"idle",error:"",updatedAt:""});
     return true;
   };
-  return {session,persistence,start,flush,clear,discard,
+  return {session,persistence,start,flush,clear,discard,prepare,releaseAttempt,
     outdated:!!session && session.baseSignature !== baseSignature,
     acceptCurrentBase:()=>setSession(previous=>previous ? {...previous,baseSignature} : previous)};
 }

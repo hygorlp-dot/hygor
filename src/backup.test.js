@@ -14,4 +14,9 @@ describe("backup criptografado", () => {
     const backup=createBackupBundle({companyId:"arcd",rows,key}); backup.body[backup.body.length-1]^=1;
     expect(()=>verifyBackupBundle({body:backup.body,key,manifest:backup.manifest})).toThrow();
   });
+  test('recusa backup íntegro de outra empresa mesmo com a mesma chave',()=>{
+    const backup=createBackupBundle({companyId:'arcd',rows,key});
+    expect(()=>verifyBackupBundle({...backup,key,expectedCompanyId:'mrc'})).toThrow('outra empresa');
+    expect(verifyBackupBundle({...backup,key,expectedCompanyId:'arcd'})).toMatchObject({ok:true});
+  });
 });

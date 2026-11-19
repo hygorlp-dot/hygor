@@ -1,5 +1,6 @@
+import {portalApiUrl,portalCompany} from '../company.js';
 async function request(url, options = {}) {
-  const response=await fetch(url,{credentials:"same-origin",...options});
+  const response=await fetch(portalApiUrl(url),{credentials:"same-origin",...options});
   const body=response.status===204 ? {} : await response.json().catch(()=>({}));
   if(!response.ok){const error=new Error(body.error || "Não foi possível concluir a operação.");error.status=response.status;throw error;}
   if(response.status!==204 && !Object.keys(body).length)throw new Error("O serviço do portal não está disponível. Tente novamente mais tarde.");
@@ -56,7 +57,7 @@ const normalizeLegacyPortal = source => {
 export async function readClientPortalByLink(projectId, token) {
   const response=await fetch("/api/data",{
     method:"POST", headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({action:"client-portal",obraId:projectId,token}),
+    body:JSON.stringify({action:"client-portal",companyId:portalCompany(),obraId:projectId,token}),
   });
   const body=await response.json().catch(()=>({}));
   if(!response.ok){const error=new Error(body.error || "Link inválido ou revogado.");error.status=response.status;throw error;}

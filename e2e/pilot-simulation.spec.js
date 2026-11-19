@@ -17,9 +17,11 @@ test('piloto separa proposta, execução e dúvida, consulta evidências e não 
   return r.fulfill({json:body.action==='profiles'?{usuarios:[user],precisaSetup:false}:{ok:true,usuario:user,data:structuredClone(state),accessToken:'isolated',refreshToken:'isolated',presencas:[],items:[],bases:[],updatedAt:'2026-10-31T12:00:00Z'}});
  });
  await page.goto('/');await page.locator('#login-email').fill(user.email);await page.locator('#login-senha').fill('isolated');await page.getByRole('button',{name:/Acessar central/}).click();
- const sidebar=page.locator('.arcd-sidebar');await expect(sidebar).toBeVisible();
+ await page.keyboard.press('Control+k');
+ const search=page.getByPlaceholder('Buscar obra, lead, pedido, funcionário, tela...');
+ await search.fill('Conciliação');
+ await search.locator('xpath=../..').getByRole('button',{name:'Tela Conciliação abrir tela',exact:true}).click();
  await page.clock.install();await page.clock.pauseAt(new Date());
- await sidebar.locator('.nav-grp-hd').filter({hasText:/^Financeiro/}).click();await sidebar.locator('.nav-item').filter({hasText:/^Conciliação$/}).click();
  await page.getByRole('button',{name:'Abrir piloto de conferência',exact:true}).click();
  const pilot=page.getByRole('region',{name:'Piloto de Conciliação',exact:true});await expect(pilot).toBeVisible();
  await page.clock.runFor(1500);expect(writes).toEqual([]);

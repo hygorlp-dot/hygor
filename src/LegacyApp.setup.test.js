@@ -19,7 +19,9 @@ describe("primeiro acesso", () => {
     const tree=ts.createSourceFile("LegacyApp.jsx",source,ts.ScriptTarget.Latest,true,ts.ScriptKind.JSX);
     const login=tree.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==="LoginScreen")?.getText(tree)||"";
     expect(login).toContain("<LazyLoginBrandPanel/>");
-    expect(login).toContain('src={BRAND.monogram} alt="MARCELL"');
+    const panel=readFileSync(resolve(process.cwd(), "src/components/login/LoginProjectParallax.jsx"), "utf8");
+    expect(panel).toContain('src={BRAND.fullLogoOnDark} alt="MARCELL"');
+    expect(login).not.toMatch(/#[0-9a-fA-F]{3,6}/);
     expect(login).toContain('htmlFor="login-identificador"');
     expect(login).toContain("entrarComPin(identificador.trim(),valor)");
     expect(login).not.toMatch(/usuarios\.map|usuarios\.length|selUser|perfis/);

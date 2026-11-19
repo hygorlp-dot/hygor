@@ -7,7 +7,10 @@ for(const mode of ["conciliacao","compras"])test(`piloto de ${mode} confere sem 
  await page.route("**/api/**",route=>route.fulfill({json:{ok:true,presencas:[],items:[],bases:[]}}));
  await page.route("**/api/data",route=>{const body=route.request().postDataJSON()||{};if(body.action==="profiles")return route.fulfill({json:{usuarios:[profile],precisaSetup:false}});if(["reconciliation-command","operational-command","save"].includes(body.action))writes.push(body);return route.fulfill({json:{ok:true,usuario:profile,data:state,accessToken:"qa",refreshToken:"qa",updatedAt:"2026-10-31T12:00:00Z"}});});
  await page.goto("/",{waitUntil:"domcontentloaded"});await page.locator("#login-email").fill(profile.email);await page.locator("#login-senha").fill("isolated");await page.getByRole("button",{name:/Acessar central/}).click();
- const sidebar=page.locator(".arcd-sidebar");await sidebar.locator(".nav-grp-hd").filter({hasText:mode==="compras"?/^Compras/:/^Financeiro/}).click();await sidebar.locator(".nav-item").filter({hasText:mode==="compras"?/^Compras$/:/^Conciliação$/}).click();
+ await page.keyboard.press('Control+k');
+ const search=page.getByPlaceholder('Buscar obra, lead, pedido, funcionário, tela...');
+ await search.fill(mode==='compras'?'Compras':'Conciliação');
+ await search.locator('xpath=../..').getByRole('button',{name:mode==='compras'?'Tela Compras abrir tela':'Tela Conciliação abrir tela',exact:true}).click();
  if(mode==="compras"){await page.getByRole("button",{name:"Mais ações de Compras",exact:true}).click();await page.getByRole("menuitem",{name:"Piloto de conferência",exact:true}).click();}else await page.getByRole("button",{name:"Abrir piloto de conferência",exact:true}).click();
  const pilot=page.getByRole("region",{name:mode==="compras"?"Piloto de Compras":"Piloto de Conciliação",exact:true});await expect(pilot).toBeVisible();
  if(mode!=="compras")await expect(pilot).toContainText("Sem amostra conferida");

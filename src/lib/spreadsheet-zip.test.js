@@ -4,6 +4,7 @@ import JSZip from 'jszip';
 import ExcelJS from 'exceljs';
 import SpreadsheetZip from './spreadsheet-zip.js';
 import {openZip} from './zip-reader.js';
+import {read,utils} from './spreadsheet.js';
 
 describe('ZIP das planilhas interoperável',()=>{
  it.each(['DEFLATE','STORE'])('gera %s legível pelo JSZip, preservando UTF-8 e binários',async compression=>{
@@ -26,6 +27,16 @@ describe('ZIP das planilhas interoperável',()=>{
   for(const file of Object.values(reference.files).filter(file=>!file.dir)){
    expect(await loaded.files[file.name].async('nodebuffer'),file.name).toEqual(await file.async('nodebuffer'));
   }
+ });
+ it('preserva posição, valor bruto e formato percentual quando a importação pede formatos',async()=>{
+  const book=new ExcelJS.Workbook(), source=book.addWorksheet('Orçamento');
+  source.getCell('D3').value=.2212;
+  source.getCell('D3').numFmt='0.00%';
+  const bytes=await book.xlsx.writeBuffer();
+  const {Sheets}=await read(bytes,{cellNF:true});
+  expect(Sheets['Orçamento'].D3).toEqual({v:.2212,z:'0.00%'});
+  expect(utils.sheet_to_json(Sheets['Orçamento'],{header:1})[2][3]).toBe(.2212);
+  expect((await read(bytes)).Sheets['Orçamento'].D3).toEqual({v:.2212});
  });
  it('indexa sem descompactar abas ignoradas e informa progresso ao ler a selecionada',async()=>{
   const zip=new JSZip();zip.file('selected.xml','<sheet>ação</sheet>');zip.file('ignored.xml','X'.repeat(50000));

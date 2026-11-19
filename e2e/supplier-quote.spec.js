@@ -27,7 +27,7 @@ for(const width of [390,1440])test(`portal do fornecedor e revisão por Compras 
  await page.screenshot({path:`artifacts/compras/portal-fornecedor-${width}.png`,fullPage:true});
  await page.getByRole("button",{name:"Enviar proposta para revisão",exact:true}).click();await expect(page.getByRole("heading",{name:"Resposta recebida"})).toBeVisible();expect(data.pedidos).toHaveLength(0);expect(data.cotacoes[0].propostas[0].precoUnit).toBe(10);
  await page.goto("/");await page.locator("#login-email").fill(user.email);await page.locator("#login-senha").fill("isolated");await page.getByRole("button",{name:"Acessar central MARCELL"}).click();
- if(width<1100)await page.getByRole("button",{name:"Abrir Compras e suprimentos",exact:true}).click();else {await page.locator(".arcd-sidebar .nav-grp-hd").filter({hasText:/Compras/}).click();await page.locator(".arcd-sidebar .nav-item").filter({hasText:/^Compras$/}).click();}
+ if(width<1100)await page.getByRole("button",{name:"Abrir Compras e suprimentos · Compras",exact:true}).click();else {await page.locator(".arcd-sidebar .nav-grp-hd").filter({hasText:/Compras/}).click();await page.locator(".arcd-sidebar .nav-item").filter({hasText:/^Compras$/}).click();}
  await selectWorkspaceArea(page,'Fluxo de compras','Cotar');
  await page.getByRole('button',{name:'Abrir cotação COT-PORTAL',exact:true}).click();
  await expect(page.getByRole("heading",{name:"Fornecedor QA · Aguardando revisão"})).toBeVisible();await expect(page.getByText("Total ofertado:")).toContainText("24,00");await expect(page.getByRole("button",{name:"Aceitar resposta no mapa"})).toBeDisabled();

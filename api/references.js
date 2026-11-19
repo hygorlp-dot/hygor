@@ -1,3 +1,4 @@
+import {currentCompany, withCompanyContext} from '../server/company-context.js';
 // ===================================================================
 // /api/references - bases pesquisáveis do orçamento
 //
@@ -22,7 +23,6 @@ import { normalizeReferenceCode, referenceCodeVariants } from "../server/referen
 
 const URL = process.env.SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const COMPANY = process.env.COMPANY_ID || "arcd";
 const ORSE_URL = "https://orse.cehop.se.gov.br";
 
 // Constants: limites de segurança e performance
@@ -365,7 +365,7 @@ export const config = { api: { bodyParser: { sizeLimit: "2mb" } } };
  * @param {Object} req - Express request
  * @param {Object} res - Express response
  */
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Método não permitido." });
   if (!URL || !SERVICE) return res.status(503).json({ error: "Banco não configurado no servidor." });
 
@@ -383,7 +383,7 @@ export default async function handler(req, res) {
       const { data, error } = await db
         .from("budget_reference_bases")
         .select("*")
-        .eq("company_id", COMPANY)
+        .eq("company_id", currentCompany())
         .order("created_at", { ascending: false });
       if (error) throw error;
       return res.status(200).json({ bases: (data || []).map(mapBase) });
@@ -401,7 +401,7 @@ export default async function handler(req, res) {
       let consultaExistente = db
         .from("budget_reference_bases")
         .select("*")
-        .eq("company_id", COMPANY)
+        .eq("company_id", currentCompany())
         .eq("source", source)
         .eq("competence", competence);
       consultaExistente = source === "SINAPI"
@@ -423,7 +423,7 @@ export default async function handler(req, res) {
             .from("budget_reference_bases")
             .update({ file_name: String(meta.arquivo || "").slice(0, 240), file_hash: String(meta.hash || "").slice(0, 128) })
             .eq("id", existente.id)
-            .eq("company_id", COMPANY)
+            .eq("company_id", currentCompany())
             .select("*")
             .single();
           if (error) throw error;
@@ -437,7 +437,7 @@ export default async function handler(req, res) {
       }
 
       const row = {
-        company_id: COMPANY,
+        company_id: currentCompany(),
         source,
         competence,
         uf,
@@ -469,7 +469,7 @@ export default async function handler(req, res) {
         .from("budget_reference_bases")
         .select("id, source")
         .eq("id", baseId)
-        .eq("company_id", COMPANY)
+        .eq("company_id", currentCompany())
         .maybeSingle();
       if (baseError || !base) return res.status(404).json({ error: "Base não encontrada." });
       if (!["SINAPI", "ORSE"].includes(base.source)) return res.status(400).json({ error: "Fonte da base não suporta lotes." });
@@ -479,7 +479,7 @@ export default async function handler(req, res) {
         const description = String(item.descricao || "").trim();
         return {
           base_id: baseId,
-          company_id: COMPANY,
+          company_id: currentCompany(),
           source: base.source,
           code,
           description,
@@ -507,7 +507,7 @@ export default async function handler(req, res) {
         .from("budget_reference_bases")
         .select("id, source")
         .eq("id", baseId)
-        .eq("company_id", COMPANY)
+        .eq("company_id", currentCompany())
         .maybeSingle();
       
       if (baseError || !base) return res.status(404).json({ error: "Base não encontrada." });
@@ -518,7 +518,7 @@ export default async function handler(req, res) {
         const description = String(item.descricao || "").trim();
         return {
           base_id: baseId,
-          company_id: COMPANY,
+          company_id: currentCompany(),
           source: base.source,
           code,
           description,
@@ -549,7 +549,7 @@ export default async function handler(req, res) {
         .from("budget_reference_bases")
         .select("id, source")
         .eq("id", baseId)
-        .eq("company_id", COMPANY)
+        .eq("company_id", currentCompany())
         .maybeSingle();
       
       if (baseError || !base) return res.status(404).json({ error: "Base não encontrada." });
@@ -557,7 +557,7 @@ export default async function handler(req, res) {
 
       const rows = items.map(item => ({
         base_id: baseId,
-        company_id: COMPANY,
+        company_id: currentCompany(),
         source: String(item.fonte || base.source).toUpperCase(),
         composition_code: normalizeReferenceCode(item.compositionCode),
         item_type: String(item.itemType || "").toUpperCase() === "COMPOSICAO" ? "COMPOSICAO" : "INSUMO",
@@ -584,11 +584,11 @@ export default async function handler(req, res) {
         .from("budget_reference_items")
         .select("id", { count: "exact", head: true })
         .eq("base_id", baseId)
-        .eq("company_id", COMPANY);
+        .eq("company_id", currentCompany());
       if (countError) throw countError;
       const [{ count: inputCount, error: inputCountError }, { count: componentCount, error: componentCountError }] = await Promise.all([
-        db.from("budget_reference_inputs").select("id", { count: "exact", head: true }).eq("base_id", baseId).eq("company_id", COMPANY),
-        db.from("budget_reference_components").select("id", { count: "exact", head: true }).eq("base_id", baseId).eq("company_id", COMPANY),
+        db.from("budget_reference_inputs").select("id", { count: "exact", head: true }).eq("base_id", baseId).eq("company_id", currentCompany()),
+        db.from("budget_reference_components").select("id", { count: "exact", head: true }).eq("base_id", baseId).eq("company_id", currentCompany()),
       ]);
       if (inputCountError || componentCountError) throw inputCountError || componentCountError;
       if (!(count > 0) || !(inputCount > 0) || !(componentCount > 0)) {
@@ -606,7 +606,7 @@ export default async function handler(req, res) {
         // de reimportada com sucesso.
         .update({ status: "ready", mode: "uploaded", item_count: count || 0 })
         .eq("id", baseId)
-        .eq("company_id", COMPANY)
+        .eq("company_id", currentCompany())
         .select("*")
         .maybeSingle();
       if (error || !data) throw error || new Error("Base não encontrada.");
@@ -623,7 +623,7 @@ export default async function handler(req, res) {
 
       const { data: bases, error: basesError } = await db
         .from("budget_reference_bases").select("*")
-        .eq("company_id", COMPANY).in("id", referenceIds).eq("status", "ready");
+        .eq("company_id", currentCompany()).in("id", referenceIds).eq("status", "ready");
       if (basesError) throw basesError;
       const baseById = new Map((bases || []).map(base => [base.id, base]));
 
@@ -641,7 +641,7 @@ export default async function handler(req, res) {
       if (sinapiIds.length && sinapiCodes.length) {
         const { data, error } = await db.from("budget_reference_items")
           .select("base_id,source,code,description,unit,price_des,price_not,detail_url")
-          .eq("company_id", COMPANY).in("base_id", sinapiIds).in("code", sinapiCodes).limit(300);
+          .eq("company_id", currentCompany()).in("base_id", sinapiIds).in("code", sinapiCodes).limit(300);
         if (error) throw error;
         sinapiItems = (data || []).map(item => ({
           fonte:item.source, codigo:item.code, descricao:item.description, unidade:item.unit,
@@ -668,7 +668,9 @@ export default async function handler(req, res) {
 
       const seen = new Set();
       const items = [...sinapiItems, ...orseItems].filter(item => {
-        const key = `${item.fonte}:${item.dataBase}:${item.codigo}`;
+        const key = JSON.stringify(req.body?.includeVariants===true
+          ? [item.fonte,item.dataBase,item.uf,item.codigo,item.unidade,item.precoDes,item.precoNao,item.descricao]
+          : [item.fonte,item.dataBase,item.codigo]);
         if (seen.has(key)) return false;
         seen.add(key); return true;
       });
@@ -690,7 +692,7 @@ export default async function handler(req, res) {
       const { data: bases, error: basesError } = await db
         .from("budget_reference_bases")
         .select("*")
-        .eq("company_id", COMPANY)
+        .eq("company_id", currentCompany())
         .in("id", referenceIds)
         .eq("status", "ready");
       
@@ -709,7 +711,7 @@ export default async function handler(req, res) {
       if (sinapiIds.length && buscarInsumos) {
         let inputQuery = db.from("budget_reference_inputs")
           .select("base_id, source, code, description, unit, classification, price_des, price_not")
-          .eq("company_id", COMPANY)
+          .eq("company_id", currentCompany())
           .in("base_id", sinapiIds);
         
         terms.forEach(piece => {
@@ -736,7 +738,7 @@ export default async function handler(req, res) {
       if (sinapiIds.length && buscarComposicoes) {
         let compQuery = db.from("budget_reference_items")
           .select("base_id, source, code, description, unit, price_des, price_not")
-          .eq("company_id", COMPANY)
+          .eq("company_id", currentCompany())
           .in("base_id", sinapiIds);
         
         terms.forEach(piece => {
@@ -805,7 +807,7 @@ export default async function handler(req, res) {
       const { data: bases, error: basesError } = await db
         .from("budget_reference_bases")
         .select("*")
-        .eq("company_id", COMPANY)
+        .eq("company_id", currentCompany())
         .in("id", referenceIds)
         .eq("status", "ready");
       
@@ -835,7 +837,7 @@ export default async function handler(req, res) {
           const { data, error } = await db
             .from("budget_reference_components")
             .select("base_id, source, composition_code, item_type, item_code, description, unit, coefficient, situation")
-            .eq("company_id", COMPANY)
+            .eq("company_id", currentCompany())
             .in("base_id", sinapiIds)
             .in("composition_code", queryCodes)
             .limit(10000);
@@ -870,7 +872,7 @@ export default async function handler(req, res) {
         const { data, error } = await db
           .from("budget_reference_inputs")
           .select("base_id, code, price_des, price_not, classification")
-          .eq("company_id", COMPANY)
+          .eq("company_id", currentCompany())
           .in("base_id", sinapiIds)
           .in("code", queryCodes)
           .limit(10000);
@@ -894,7 +896,7 @@ export default async function handler(req, res) {
         const { data, error } = await db
           .from("budget_reference_items")
           .select("base_id, code, price_des, price_not")
-          .eq("company_id", COMPANY)
+          .eq("company_id", currentCompany())
           .in("base_id", sinapiIds)
           .in("code", queryCodes)
           .limit(10000);
@@ -981,7 +983,7 @@ export default async function handler(req, res) {
       const { data: bases, error: basesError } = await db
         .from("budget_reference_bases")
         .select("*")
-        .eq("company_id", COMPANY)
+        .eq("company_id", currentCompany())
         .in("id", referenceIds)
         .eq("status", "ready");
       if (basesError) throw basesError;
@@ -992,7 +994,7 @@ export default async function handler(req, res) {
         let query = db
           .from("budget_reference_items")
           .select("base_id,source,code,description,unit,price_des,price_not,detail_url")
-          .eq("company_id", COMPANY)
+          .eq("company_id", currentCompany())
           .in("base_id", sinapiIds);
         const terms = normalizeText(term).split(/\s+/).filter(Boolean).slice(0, LIMITS.QUERY_TERMS_MAX);
         terms.forEach(piece => { query = query.ilike("search_text", `%${piece}%`); });
@@ -1040,7 +1042,7 @@ export default async function handler(req, res) {
         .from("budget_reference_bases")
         .delete()
         .eq("id", baseId)
-        .eq("company_id", COMPANY);
+        .eq("company_id", currentCompany());
       if (error) throw error;
       return res.status(200).json({ ok: true });
     }
@@ -1058,3 +1060,5 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Falha ao acessar as bases de referência." });
   }
 }
+
+export default withCompanyContext(handler);

@@ -1,0 +1,11 @@
+import {readFile,mkdir} from 'node:fs/promises';
+import {join} from 'node:path';
+import {randomUUID} from 'node:crypto';
+import {createCompanySimulation} from './lib/company-local-simulation.mjs';
+const args=process.argv.slice(2),get=name=>args[args.indexOf(name)+1],kind=get('--kind'),port=get('--port');
+if(!['desktop','mobile'].includes(kind)||!/^\d{4,5}$/.test(port))throw new Error('Informe uma variante e uma porta de teste válidas.');
+const base='C:/dev/marcell-local-review/company-isolation-20261118',prepared=join(base,'prepared-file-separation-reviewed'),runs=join(base,'simulation-test-runs');
+await mkdir(runs,{recursive:true});const output=join(runs,`${kind}-${Date.now()}-${randomUUID()}`);
+await createCompanySimulation({plan:JSON.parse(await readFile(join(base,'plan-review.json'),'utf8')),proof:JSON.parse(await readFile(join(base,'proof-review.json'),'utf8')),preparation:JSON.parse(await readFile(join(prepared,'preparation.json'),'utf8')),preparedDirectory:prepared,output});
+process.argv=[process.execPath,'scripts/company-partition-preview.mjs','--plan',join(base,'plan-review.json'),'--proof',join(base,'proof-review.json'),'--simulation',output,'--file-audit',join(output,'file-audit.json'),'--port',port];
+await import('./company-partition-preview.mjs');

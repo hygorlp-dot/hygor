@@ -1,8 +1,9 @@
+import {portalCompany} from '../client-portal/company.js';
 import {useEffect,useRef,useState} from "react";
 import {Button} from "../design-system/primitives/Button";
 import {Input} from "../design-system/primitives/Input";
 import "../domains/compras/components/supplier-quote.css";
-const call=async body=>{const response=await fetch("/api/data",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),cache:"no-store",referrerPolicy:"no-referrer"});const json=await response.json();if(!response.ok)throw Error(json.error||"Não foi possível enviar. Tente novamente.");return json;};
+const call=async body=>{const response=await fetch("/api/data",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({companyId:portalCompany(),...body}),cache:"no-store",referrerPolicy:"no-referrer"});const json=await response.json();if(!response.ok)throw Error(json.error||"Não foi possível enviar. Tente novamente.");return json;};
 export default function SupplierQuotePage(){
  const [token]=useState(()=>{try{return decodeURIComponent(window.location.hash.slice(1))}catch{return ""}}),[quote,setQuote]=useState(null),[error,setError]=useState(""),[busy,setBusy]=useState(false),[sent,setSent]=useState(false),[form,setForm]=useState({nome:"",precos:{},custoFinal:{},prazoDias:"",condicoesPagamento:"",obs:""}),[documents,setDocuments]=useState([]);const lock=useRef(false);
  useEffect(()=>{let active=true;document.title="Responder cotação · MARCELL";if(!token){setError("Link inválido. Solicite outro a Compras.");return;}call({action:"cotacao-fornecedor-ver",token}).then(r=>{if(active){setQuote(r.cotacao);setSent(r.cotacao.enviada)}}).catch(e=>{if(active)setError(e.message)});return()=>{active=false}},[token]);

@@ -1,5 +1,18 @@
 import { describe,expect,it } from "vitest";
 import { authorizeSectionChanges,validateBankReconciliationPolicy,validateBudgetBaselinePolicy,validateNoPhysicalDeletes,validatePlanningBaselinePolicy } from "./section-authorizations.js";
+import {changeBudgetScopeExclusion} from '../src/domains/orcamentos/budget-pending.js';
+
+it('confere a autoria das novas exclusões de escopo e preserva as decisões nas revisões',()=>{
+  const item={id:'i',etapaId:'e',quantidade:1,precoUnit:0};
+  const budget={id:'b',obraId:'o',itens:[item]};
+  const excluded=changeBudgetScopeExclusion(item,{exclude:true,reason:'Fora do contrato',actorId:'eng',now:'2026-11-19T12:00:00Z'});
+  const updated={...budget,itens:[excluded]};
+  expect(validateBudgetBaselinePolicy({orcamentos:[budget]},{orcamentos:[updated]},{id:'eng'})).toBe('');
+  expect(validateBudgetBaselinePolicy({orcamentos:[budget]},{orcamentos:[updated]},{id:'outro'})).toMatch(/responsável/);
+  const changed={...budget,itens:[{...excluded,precoUnit:100}]};
+  expect(validateBudgetBaselinePolicy({orcamentos:[budget]},{orcamentos:[changed]},{id:'eng'})).toMatch(/item pendente/);
+  expect(validateBudgetBaselinePolicy({orcamentos:[updated]},{orcamentos:[updated,{...updated,id:'r',revisionOf:'b'}]},{id:'outro'})).toBe('');
+});
 describe("autorização de produção",()=>{
   it("permite planejamento somente ao perfil previsto",()=>{
     expect(authorizeSectionChanges({role:"planejamento"},{scheduleActivities:[{id:"a",obraId:"o"}]})).toBe("");

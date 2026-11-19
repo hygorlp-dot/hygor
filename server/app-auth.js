@@ -1,3 +1,4 @@
+import {currentCompany} from './company-context.js';
 import { createClient } from "@supabase/supabase-js";
 import crypto from "node:crypto";
 import { compactProfiles, decodeAppData, encodeAppData } from "./data-codec.js";
@@ -6,7 +7,6 @@ import { criarValidadorDeToken } from "./token-auth.js";
 
 const URL = process.env.SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const COMPANY = process.env.COMPANY_ID || "arcd";
 const DATA_KEY = "arced_ponto_v1";
 const PROFILE_KEY = "arced_auth_profiles_v1";
 
@@ -24,7 +24,7 @@ const validarToken = accessToken => {
 const attempts = new Map();
 const WINDOW_MS = 5 * 60 * 1000;
 const MAX_FAILURES = 8;
-const attemptKey = ({ userId } = {}, scope = "api") => `${scope}:${String(userId || "anonymous")}`;
+const attemptKey = ({ userId } = {}, scope = "api") => `${currentCompany()}:${scope}:${String(userId || "anonymous")}`;
 const blocked = key => {
   const item=attempts.get(key);
   if(!item)return false;
@@ -53,12 +53,12 @@ export const authenticateAppContext = async ({ userId, pin, accessToken } = {}, 
   // cliente à parte (validarToken), nunca `db`.
   const centralSubject=`pin:${String(userId||"anonymous")}`;
   if(!accessToken){
-    const central=await applyPersistentAuthRateLimit(db,{company:COMPANY,subject:centralSubject,action:"status"});
+    const central=await applyPersistentAuthRateLimit(db,{company:currentCompany(),subject:centralSubject,action:"status"});
     if(central?.blocked)return null;
   }
   const {data:profileRow,error:profileError}=await db.from("company_app_data")
     .select("value")
-    .eq("company_id", COMPANY)
+    .eq("company_id", currentCompany())
     .eq("key", PROFILE_KEY)
     .maybeSingle();
   if(profileError)return null;
@@ -72,14 +72,14 @@ export const authenticateAppContext = async ({ userId, pin, accessToken } = {}, 
   if(needsFullPayload){
     const {data,error}=await db.from("company_app_data")
       .select("value")
-      .eq("company_id",COMPANY)
+      .eq("company_id",currentCompany())
       .eq("key",DATA_KEY)
       .maybeSingle();
     if(error||!data)return null;
     const fullPayload=decodeAppData(data.value);
     payload=compactProfiles(fullPayload);
     const {error:indexError}=await db.from("company_app_data").upsert({
-      company_id:COMPANY,key:PROFILE_KEY,value:payload,updated_at:new Date().toISOString(),
+      company_id:currentCompany(),key:PROFILE_KEY,value:payload,updated_at:new Date().toISOString(),
     },{onConflict:"company_id,key"});
     if(indexError)console.error("Não foi possível atualizar o índice de autenticação:",indexError.message);
   }
@@ -105,22 +105,22 @@ export const authenticateAppContext = async ({ userId, pin, accessToken } = {}, 
   const verification=user&&pin?verifyAppPin(pin,user.pin):{ok:false,needsUpgrade:false};
   if (!verification.ok){
     failure(key);
-    await applyPersistentAuthRateLimit(db,{company:COMPANY,subject:centralSubject,action:"failure"});
+    await applyPersistentAuthRateLimit(db,{company:currentCompany(),subject:centralSubject,action:"failure"});
     return null;
   }
   attempts.delete(key);
-  await applyPersistentAuthRateLimit(db,{company:COMPANY,subject:centralSubject,action:"success"});
+  await applyPersistentAuthRateLimit(db,{company:currentCompany(),subject:centralSubject,action:"success"});
   if(verification.needsUpgrade){
     const upgradedPin=hashAppPin(pin);
     const {data:fullRow}=await db.from("company_app_data").select("value,updated_at")
-      .eq("company_id",COMPANY).eq("key",DATA_KEY).maybeSingle();
+      .eq("company_id",currentCompany()).eq("key",DATA_KEY).maybeSingle();
     if(fullRow){
       const full=decodeAppData(fullRow.value);
       const usuarios=(full.usuarios||[]).map(item=>item.id===user.id?{...item,pin:upgradedPin}:item);
       const next={...full,usuarios};
       const correlationId=crypto.randomUUID();
       const saved=await db.rpc("company_save_with_audit",{
-        p_company_id:COMPANY,p_key:DATA_KEY,p_expected_updated_at:fullRow.updated_at,p_value:encodeAppData(next),
+        p_company_id:currentCompany(),p_key:DATA_KEY,p_expected_updated_at:fullRow.updated_at,p_value:encodeAppData(next),
         p_actor_id:String(user.id),p_actor_name:String(user.nome||user.email||"Operador"),
         p_correlation_id:correlationId,p_action:"auth_pin_upgraded",
         p_before:{userId:user.id,algorithm:"sha256"},p_after:{userId:user.id,algorithm:"scrypt-v1"},
@@ -129,7 +129,7 @@ export const authenticateAppContext = async ({ userId, pin, accessToken } = {}, 
       if(!saved.error&&result?.applied){
         user.pin=upgradedPin;
         payload={...payload,usuarios:(payload.usuarios||[]).map(item=>item.id===user.id?{...item,pin:upgradedPin}:item)};
-        await db.from("company_app_data").upsert({company_id:COMPANY,key:PROFILE_KEY,value:payload,updated_at:new Date().toISOString()},{onConflict:"company_id,key"});
+        await db.from("company_app_data").upsert({company_id:currentCompany(),key:PROFILE_KEY,value:payload,updated_at:new Date().toISOString()},{onConflict:"company_id,key"});
       }
     }
   }

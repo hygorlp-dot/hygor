@@ -1,3 +1,6 @@
+import {currentCompany, withCompanyContext, isolationEnabled} from '../server/company-context.js';
+import {parseCompanyFileReference} from '../src/domains/arquivos/company-file-reference.js';
+import {resolvePublishedCompanyFile} from '../server/company-files.js';
 import {verifiedFileTrashCommand} from '../server/work-file-trash.js';
 import {RECORD_COMMANDS} from '../src/domains/comercial/contracts/record-commands.js';
 import contractSourceModel from '../src/domains/comercial/contracts/administration-template.json' with {type:'json'};
@@ -126,7 +129,6 @@ import dgram from "node:dgram";
 
 const URL     = process.env.SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;   // sem REACT_APP_ — server-side
-const COMPANY = process.env.COMPANY_ID || "arcd";
 const KEY     = "arced_ponto_v1";
 const PROFILE_KEY = "arced_auth_profiles_v1";
 // Linhas separadas na MESMA tabela (mesmo padrão de PROFILE_KEY e do arquivo
@@ -429,7 +431,7 @@ const FINANCIAL_OPERATIONAL_COMMANDS=new Set([
   OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_COMMERCIAL_OVERRIDDEN,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CLOSED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CANCELLED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_TRANSITIONED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHECKPOINT_RECORDED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_AMENDED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_UNIT_REPLACED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHARGE_ITEM_SAVED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHARGE_MEASURED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_INVOICE_ISSUED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_INVOICE_RECEIPT_LINKED,
   OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_SAVED,OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_CANCELLED,OPERATIONAL_COMMAND.EQUIPMENT_TRANSFERRED,
 ]);
-const BACKUP_FOLDER="00 - Backups ARCD";
+const backupFolder=()=>`00 - Backups ${isolationEnabled()?currentCompany().toUpperCase():'ARCD'}`;
 const cronAutorizado=req=>!!process.env.CRON_SECRET&&req.headers.authorization===`Bearer ${process.env.CRON_SECRET}`;
 
 const db = URL&&SERVICE ? createClient(URL, SERVICE, {
@@ -455,18 +457,18 @@ const validarToken = criarValidadorDeToken(authDb);
 
 const listarLinhasBackup=async()=>{
   const rows=[];let from=0;
-  while(true){const {data,error}=await db.from("company_app_data").select("key,value,updated_at").eq("company_id",COMPANY).range(from,from+999);if(error)throw error;rows.push(...(data||[]));if((data||[]).length<1000)break;from+=1000;}
+  while(true){const {data,error}=await db.from("company_app_data").select("key,value,updated_at").eq("company_id",currentCompany()).range(from,from+999);if(error)throw error;rows.push(...(data||[]));if((data||[]).length<1000)break;from+=1000;}
   return rows.filter(row=>row.key!=="onedrive_auth_v1");
 };
-const pastaBackup=async token=>{const root=await rootItem(token),driveId=root.parentReference.driveId;return{driveId,folder:await getOrCreateFolder(token,driveId,root.id,BACKUP_FOLDER)};};
+const pastaBackup=async token=>{const root=await rootItem(token),driveId=root.parentReference.driveId;return{driveId,folder:await getOrCreateFolder(token,driveId,root.id,backupFolder())};};
 const enviarBufferBackup=async(token,driveId,parentId,name,buffer,contentType)=>{
   const session=await (await graph(token,`/drives/${driveId}/items/${parentId}:/${encodeURIComponent(name)}:/createUploadSession`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({item:{"@microsoft.graph.conflictBehavior":"fail",name}})})).json();
   const chunkSize=5*320*1024;
   for(let start=0;start<buffer.length;start+=chunkSize){const end=Math.min(buffer.length,start+chunkSize)-1;const r=await fetch(session.uploadUrl,{method:"PUT",headers:{"Content-Length":String(end-start+1),"Content-Range":`bytes ${start}-${end}/${buffer.length}`,"Content-Type":contentType},body:buffer.subarray(start,end+1)});if(!r.ok&&r.status!==202)throw new Error(`Falha ao enviar backup ao OneDrive (${r.status}).`);}
 };
 const criarBackupOneDrive=async(req,actor)=>{
-  const key=backupKeyFromEnv(process.env.BACKUP_ENCRYPTION_KEY),{accessToken}=await refresh(req),{driveId,folder}=await pastaBackup(accessToken),now=new Date().toISOString(),name=`arcd-${now.replace(/[:.]/g,"-")}.arcdbackup`;
-  const bundle=createBackupBundle({companyId:COMPANY,rows:await listarLinhasBackup(),now,key});const manifest={...bundle.manifest,actor,encryptedFile:name,bytes:bundle.body.length,excludedKeys:["onedrive_auth_v1"]};
+  const key=backupKeyFromEnv(process.env.BACKUP_ENCRYPTION_KEY),{accessToken}=await refresh(req),{driveId,folder}=await pastaBackup(accessToken),now=new Date().toISOString(),name=`${currentCompany()}-${now.replace(/[:.]/g,"-")}.arcdbackup`;
+  const bundle=createBackupBundle({companyId:currentCompany(),rows:await listarLinhasBackup(),now,key});const manifest={...bundle.manifest,actor,encryptedFile:name,bytes:bundle.body.length,excludedKeys:["onedrive_auth_v1"]};
   await enviarBufferBackup(accessToken,driveId,folder.id,name,bundle.body,"application/octet-stream");
   await enviarBufferBackup(accessToken,driveId,folder.id,`${name}.manifest.json`,Buffer.from(JSON.stringify(manifest,null,2)),"application/json");
   return{ok:true,name,recordCount:manifest.recordCount,sha256:manifest.sha256,bytes:manifest.bytes,createdAt:now};
@@ -476,13 +478,13 @@ const verificarBackupOneDrive=async req=>{
   const children=(await (await graph(accessToken,`/drives/${driveId}/items/${folder.id}/children?$select=id,name,lastModifiedDateTime,size,file`)).json()).value||[];
   const manifestItem=children.filter(item=>item.file&&item.name.endsWith(".arcdbackup.manifest.json")).sort((a,b)=>String(b.lastModifiedDateTime).localeCompare(String(a.lastModifiedDateTime)))[0];if(!manifestItem)throw Object.assign(new Error("Nenhum backup encontrado no OneDrive."),{status:404});
   const read=async item=>Buffer.from(await (await graph(accessToken,`/drives/${driveId}/items/${item.id}/content`,{redirect:"follow"})).arrayBuffer());const manifest=JSON.parse((await read(manifestItem)).toString("utf8")),backup=children.find(item=>item.name===manifest.encryptedFile);if(!backup)throw new Error("Arquivo criptografado correspondente não encontrado.");
-  return{...verifyBackupBundle({body:await read(backup),key,manifest}),name:backup.name,bytes:Number(backup.size||manifest.bytes||0)};
+  return{...verifyBackupBundle({body:await read(backup),key,manifest,expectedCompanyId:currentCompany()}),name:backup.name,bytes:Number(backup.size||manifest.bytes||0)};
 };
 
 const listarTabelaFinanceira = async (table, columns) => {
   const rows=[];
   for(let from=0;;from+=1000){
-    const {data,error}=await db.from(table).select(columns).eq("company_id",COMPANY).range(from,from+999);
+    const {data,error}=await db.from(table).select(columns).eq("company_id",currentCompany()).range(from,from+999);
     if(error)throw error;
     rows.push(...(data||[]));
     if((data||[]).length<1000)break;
@@ -523,7 +525,7 @@ const relatorioSombraFinanceira = async atual => {
   let legacyHashesVerified=false;
   if(process.env.POSTGRES_URL_NON_POOLING){
     staleLegacyLinks=await comSql(sql=>findStaleFinancialLegacyLinks({
-      sql,companyId:COMPANY,facts:snapshot.facts,
+      sql,companyId:currentCompany(),facts:snapshot.facts,
     }));
     legacyHashesVerified=true;
   }
@@ -592,7 +594,7 @@ const carregarCustosArquivados = async payload => {
   const expected=archivedLaborKeys(payload,KEY);
   if(!expected.length)return {data:{...payload,archivedLaborCosts:{}},missing:[],rebuilt:0};
   const {data:linhas,error}=await db.from("company_app_data")
-    .select("key,value").eq("company_id",COMPANY).in("key",expected.map(item=>item.key));
+    .select("key,value").eq("company_id",currentCompany()).in("key",expected.map(item=>item.key));
   if(error)throw error;
   return rebuildArchivedLaborCosts({data:payload,archiveRows:linhas||[],key:KEY});
 };
@@ -620,7 +622,7 @@ const carregarCustosArquivadosNaTransacao=async(transaction,payload)=>{
   const linhas=await transaction`
     select key,value
       from company_app_data
-     where company_id=${COMPANY}
+     where company_id=${currentCompany()}
        and key like ${`${KEY}__arq__%`}
      order by key
   `;
@@ -671,7 +673,7 @@ const aceitarErroCliente = (ip, now=Date.now()) => {
 };
 const limparFalhas = subject => tentativas.delete(subject);
 const rateLimitCentral=async(subject,action)=>{
-  const result=await applyPersistentAuthRateLimit(db,{company:COMPANY,subject,action});
+  const result=await applyPersistentAuthRateLimit(db,{company:currentCompany(),subject,action});
   return result?{blocked:result.blocked,retry:result.retryAfter}:null;
 };
 
@@ -689,19 +691,19 @@ const rateLimitCentral=async(subject,action)=>{
 // remontar o dataset inteiro com lerLinha().
 const lerBasePonto = async () => {
   const { data, error } = await db.from("company_app_data").select("value")
-    .eq("company_id", COMPANY).eq("key", KEY).maybeSingle();
+    .eq("company_id", currentCompany()).eq("key", KEY).maybeSingle();
   if (error) throw error;
   return data ? decodeAppData(data.value) : {};
 };
 // Hora do ponto: relógio do host + medição periódica contra o NTP.br (HLB)
 // gravada por "ponto-tempo-verificar" (rotina agendada ou admin).
-const tratarAcaoPonto = criarTratadorPonto({
-  db, company: COMPANY, lerDados: lerBasePonto,
+const tratarAcaoPonto = request => criarTratadorPonto({
+  db, company: currentCompany(), lerDados: lerBasePonto,
   lerDadosPainel: async () => (await lerLinha()).payload || {},
   verificarHoraNtp: () => verificarHora({ enviarUdp: enviarUdpComDgram(dgram) }),
   autenticarUsuario: body => authenticateAppUser(
     { userId: body.userId, pin: body.pin, accessToken: body.accessToken }, { scope: "ponto-eletronico" }),
-});
+})(request);
 
 // Consultas à base. Ficam separadas para que a autenticação leia SÓ a linha
 // core (onde moram os `usuarios`) e deixe as demais linhas para depois de a
@@ -709,10 +711,10 @@ const tratarAcaoPonto = criarTratadorPonto({
 // decodificar o resto do dataset - ver lerNucleo/completarLinha e o handler.
 const splitEntries = Object.entries(SPLIT_ROW_KEYS);
 const consultarNucleo = () => db.from("company_app_data").select("value, updated_at")
-  .eq("company_id", COMPANY).eq("key", KEY).maybeSingle();
+  .eq("company_id", currentCompany()).eq("key", KEY).maybeSingle();
 const consultarLinhasAuxiliares = () => Promise.all([
   db.from("company_app_data").select("key, value, updated_at")
-    .eq("company_id", COMPANY).in("key", splitEntries.map(([, key]) => key)),
+    .eq("company_id", currentCompany()).in("key", splitEntries.map(([, key]) => key)),
   // Achado de 04/09/2026 (ver server/attendance-obra-routing.js): ordenar
   // por updated_at aqui já não é mais o que garante a correção - esse
   // campo é da LINHA inteira (compartilhado por todo funcionário/dia que
@@ -723,7 +725,7 @@ const consultarLinhasAuxiliares = () => Promise.all([
   // A busca usa LIKE (padrão de chave), não um .in() de lista fixa, porque o
   // número de obras muda com o tempo - ver server/attendance-obra-routing.js.
   db.from("company_app_data").select("key, value, updated_at")
-    .eq("company_id", COMPANY).like("key", `${PONTO_OBRA_KEY_PREFIX}%`)
+    .eq("company_id", currentCompany()).like("key", `${PONTO_OBRA_KEY_PREFIX}%`)
     .order("updated_at", { ascending: true }),
 ]);
 
@@ -736,7 +738,7 @@ const decodificarNucleo = async data => {
     const encoded=encodeAppData(payload);
     if(isEncodedAppData(encoded)){
       const migrated=await db.from("company_app_data").update({value:encoded})
-        .eq("company_id",COMPANY).eq("key",KEY).eq("updated_at",data.updated_at);
+        .eq("company_id",currentCompany()).eq("key",KEY).eq("updated_at",data.updated_at);
       if(migrated.error)console.error("Não foi possível compactar o dataset:",migrated.error.message);
     }
   }
@@ -809,7 +811,7 @@ const completarLinha = async nucleo => {
 
 const salvarIndicePerfis = async payload => {
   const agora=new Date().toISOString(),value=compactProfiles(payload);
-  const {error}=await db.from("company_app_data").upsert({company_id:COMPANY,key:PROFILE_KEY,value,updated_at:agora,updated_by:null},{onConflict:"company_id,key"});
+  const {error}=await db.from("company_app_data").upsert({company_id:currentCompany(),key:PROFILE_KEY,value,updated_at:agora,updated_by:null},{onConflict:"company_id,key"});
   if(error)console.error("Não foi possível atualizar o índice de login:",error.message);
 };
 
@@ -824,7 +826,7 @@ const atualizarIndicePerfisSeguro=async payload=>{
   catch(error){console.error("Não foi possível atualizar o índice de login:",error?.message||error);}
 };
 const lerIndicePerfis = async () => {
-  const {data,error}=await db.from("company_app_data").select("value").eq("company_id",COMPANY).eq("key",PROFILE_KEY).maybeSingle();
+  const {data,error}=await db.from("company_app_data").select("value").eq("company_id",currentCompany()).eq("key",PROFILE_KEY).maybeSingle();
   if(error)throw error;
   return data?.value||null;
 };
@@ -844,7 +846,7 @@ const salvarComAuditoria = async ({ key=KEY, expectedUpdatedAt, value, rowVersio
   const correlationId=crypto.randomUUID();
   const valorPersistido=key===KEY?coreFieldsOnly(value,rowVersions,keepDomain):value;
   const {data,error}=await db.rpc("company_save_with_audit",{
-    p_company_id:COMPANY,p_key:key,p_expected_updated_at:expectedUpdatedAt,p_value:encodeAppData(valorPersistido),
+    p_company_id:currentCompany(),p_key:key,p_expected_updated_at:expectedUpdatedAt,p_value:encodeAppData(valorPersistido),
     p_actor_id:String(actor?.id||"system"),p_actor_name:String(actor?.nome||actor?.email||"Sistema"),
     p_correlation_id:correlationId,p_action:action,p_before:before||{},p_after:after||{},
   });
@@ -866,7 +868,7 @@ const executarArquivoPontoTransacional=async({
   const correlationId=crypto.randomUUID();
   const rpc=mode==="archive"?"attendance_archive_transaction":"attendance_restore_transaction";
   const args={
-    p_company_id:COMPANY,p_main_key:mainKey,p_archive_key:archiveKey,
+    p_company_id:currentCompany(),p_main_key:mainKey,p_archive_key:archiveKey,
     p_expected_updated_at:expectedUpdatedAt,p_main_value:encodeAppData(mainValue),
     p_actor_id:String(actor?.id||"system"),p_actor_name:String(actor?.nome||actor?.email||"Sistema"),
     p_actor_role:String(actor?.role||""),
@@ -1000,7 +1002,7 @@ const sincronizarComprasAlteradas=async(before,after,actor)=>{
     const previous=new Map((before?.[section]||[]).map(record=>[record.id,record]));
     for(const record of after?.[section]||[]){
       if(JSON.stringify(previous.get(record.id))===JSON.stringify(record))continue;
-      await sync({companyId:COMPANY,[idKey]:record.id,mergedData:after,actor});
+      await sync({companyId:currentCompany(),[idKey]:record.id,mergedData:after,actor});
     }
   }
 };
@@ -1017,7 +1019,7 @@ const sincronizarPedidosConciliacao=async(data,command,actor)=>{
   for(const order of data.pedidos||[]){
     if((order.pagamentos||[]).some(payment=>payment.transacaoId===payload.transactionId))ids.add(order.id);
   }
-  for(const orderId of ids)await sincronizarPedidoAoVivo({companyId:COMPANY,orderId,mergedData:data,actor});
+  for(const orderId of ids)await sincronizarPedidoAoVivo({companyId:currentCompany(),orderId,mergedData:data,actor});
 };
 
 // `financialSnapshotData` é o `data` COMPLETO mesclado (todos os domínios),
@@ -1044,7 +1046,7 @@ const salvarFinanceiroComAuditoria = async ({ key=KEY, expectedUpdatedAt, value,
     const valorPersistido=key===KEY?coreFieldsOnly(value,rowVersions,keepDomain):value;
     const [result]=await sql`
       select * from financial_save_with_sync(
-        ${COMPANY},${key},${expectedUpdatedAt},${sql.json(encodeAppData(valorPersistido))},
+        ${currentCompany()},${key},${expectedUpdatedAt},${sql.json(encodeAppData(valorPersistido))},
         ${String(actor?.id||"system")},${String(actor?.nome||actor?.email||"Sistema")},
         ${correlationId},${action},${sql.json(before||{})},${sql.json(after||{})},${sql.json(snapshot)},
         false
@@ -1137,7 +1139,7 @@ const gravarMutacaoNaTransacao=async({
     const previous=new Map((basePayload.transacoes||[]).map(item=>[item.id,item]));
     const changes=(value.transacoes||[]).filter(item=>JSON.stringify(previous.get(item.id))!==JSON.stringify(item)).map(item=>({id:item.id,status:item.status}));
     const partial=["reconciliation_link_partial_cash","reconciliation_reverse_partial_cash"].includes(action);
-    await transaction`select financial_guard_source_reconciliation(${COMPANY},${transaction.json(changes)}::jsonb,${partial})`;
+    await transaction`select financial_guard_source_reconciliation(${currentCompany()},${transaction.json(changes)}::jsonb,${partial})`;
   }
   if(financial&&FINANCIAL_ENGINE_ENFORCE&&legacyFactsChanged){
     // Achado de 21/08/2026: financial_sync_legacy_facts reconstruía também
@@ -1148,11 +1150,11 @@ const gravarMutacaoNaTransacao=async({
     const snapshot=buildLegacyFinancialFacts(valorPersistido,{includeDreSnapshots:false});
     const [saved]=await transaction`
       select * from financial_save_with_sync(
-        ${COMPANY},${key},
+        ${currentCompany()},${key},
         (
           select updated_at
             from company_app_data
-           where company_id=${COMPANY} and key=${key}
+           where company_id=${currentCompany()} and key=${key}
         ),
         ${transaction.json(encodeAppData(valorPersistido))}::jsonb,
         ${String(actor?.id||"system")},${String(actor?.nome||actor?.email||"Sistema")},
@@ -1171,7 +1173,7 @@ const gravarMutacaoNaTransacao=async({
   // seus limites no razão são confirmados sob o mesmo lock do snapshot.
   if(financial&&(cashAllocations(value).length||cashAllocations(basePayload).length)){
     const snapshot=buildLegacyFinancialFacts(value,{includeDreSnapshots:false});
-    await transaction`select financial_sync_dre_allocations(${COMPANY},${transaction.json(snapshot)}::jsonb)`;
+    await transaction`select financial_sync_dre_allocations(${currentCompany()},${transaction.json(snapshot)}::jsonb)`;
   }
 
   const [saved]=await transaction`
@@ -1179,7 +1181,7 @@ const gravarMutacaoNaTransacao=async({
        set value=${transaction.json(encodeAppData(valorPersistido))}::jsonb,
            updated_at=clock_timestamp(),
            updated_by=null
-     where company_id=${COMPANY} and key=${key}
+     where company_id=${currentCompany()} and key=${key}
      returning updated_at
   `;
   if(!saved)throw new Error("A base da empresa desapareceu durante o salvamento.");
@@ -1188,7 +1190,7 @@ const gravarMutacaoNaTransacao=async({
       company_id,aggregate_type,aggregate_id,action,actor_id,actor_name,
       correlation_id,before_snapshot,after_snapshot,source
     ) values (
-      ${COMPANY},'company_app_data',${key},${action},
+      ${currentCompany()},'company_app_data',${key},${action},
       ${String(actor?.id||"system")},${String(actor?.nome||actor?.email||"Sistema")},
       ${correlationId},
       ${transaction.json(before||{})}::jsonb,
@@ -1206,7 +1208,7 @@ const gravarMutacaoNaTransacao=async({
 const travarCoreEmpresa=async transaction=>{
   const [lockedCore]=await transaction`
     select value,updated_at from company_app_data
-     where company_id=${COMPANY} and key=${KEY}
+     where company_id=${currentCompany()} and key=${KEY}
      for update
   `;
   return lockedCore;
@@ -1229,7 +1231,7 @@ export const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false
       const [locked]=await transaction`
         select value,updated_at
           from company_app_data
-         where company_id=${COMPANY} and key=${key}
+         where company_id=${currentCompany()} and key=${key}
          for update
       `;
       if(!locked)return {kind:"error",status:404,error:"Base de dados da empresa não encontrada."};
@@ -1314,7 +1316,7 @@ const executarMutacaoMultiLinha=async({
       const travar=async key=>{
         const [travada]=await transaction`
           select updated_at,updated_at::text as carimbo_exato from company_app_data
-           where company_id=${COMPANY} and key=${key}
+           where company_id=${currentCompany()} and key=${key}
            for update
         `;
         if(!travada)return undefined;
@@ -1323,7 +1325,7 @@ const executarMutacaoMultiLinha=async({
           return {updated_at:travada.updated_at,fatia:conhecida.fatia};
         }
         const valor=travada.value!==undefined?travada.value
-          :(await transaction`select value from company_app_data where company_id=${COMPANY} and key=${key}`)[0]?.value;
+          :(await transaction`select value from company_app_data where company_id=${currentCompany()} and key=${key}`)[0]?.value;
         return {updated_at:travada.updated_at,fatia:decodeAppData(valor)};
       };
       const coreTravada=await travar(KEY);
@@ -1361,7 +1363,7 @@ const executarMutacaoMultiLinha=async({
         if(travadas[dominio]&&igual(proximo,fatias[dominio]))continue;
         await transaction`
           insert into company_app_data(company_id,key,value,updated_at,updated_by)
-          values (${COMPANY},${SPLIT_ROW_KEYS[dominio]},${transaction.json(encodeAppData(proximo))}::jsonb,clock_timestamp(),null)
+          values (${currentCompany()},${SPLIT_ROW_KEYS[dominio]},${transaction.json(encodeAppData(proximo))}::jsonb,clock_timestamp(),null)
           on conflict (company_id,key) do update set value=excluded.value,updated_at=excluded.updated_at,updated_by=null
         `;
       }
@@ -1380,7 +1382,7 @@ const executarMutacaoMultiLinha=async({
       }else{
         const [carimbo]=await transaction`
           update company_app_data set updated_at=clock_timestamp()
-           where company_id=${COMPANY} and key=${KEY}
+           where company_id=${currentCompany()} and key=${KEY}
           returning updated_at
         `;
         await transaction`
@@ -1388,7 +1390,7 @@ const executarMutacaoMultiLinha=async({
             company_id,aggregate_type,aggregate_id,action,actor_id,actor_name,
             correlation_id,before_snapshot,after_snapshot,source
           ) values (
-            ${COMPANY},'company_app_data',${separados.map(d=>SPLIT_ROW_KEYS[d]).join(",")||KEY},${action},
+            ${currentCompany()},'company_app_data',${separados.map(d=>SPLIT_ROW_KEYS[d]).join(",")||KEY},${action},
             ${String(actor?.id||"system")},${String(actor?.nome||actor?.email||"Sistema")},
             ${crypto.randomUUID()},
             ${transaction.json(outcome.before||{})}::jsonb,
@@ -1545,7 +1547,7 @@ export const executarComandoPontoBloqueado=async({usuario,command,operationNow,l
       if(!lockedCore)return {kind:"error",status:404,error:"Base de dados da empresa não encontrada."};
       const [lockedPonto]=pontoKeyAlvo===KEY?[lockedCore]:await transaction`
         select value,updated_at from company_app_data
-         where company_id=${COMPANY} and key=${pontoKeyAlvo}
+         where company_id=${currentCompany()} and key=${pontoKeyAlvo}
          for update
       `;
       if(!lockedPonto)return {kind:"error",status:404,error:"Base de dados da empresa não encontrada."};
@@ -1557,14 +1559,14 @@ export const executarComandoPontoBloqueado=async({usuario,command,operationNow,l
       const current={
         ...linha.payload,
         ...coreFieldsOnly(decodeAppData(lockedCore.value),linha.rowVersions),
-        ...await readFreshAttendance(transaction,COMPANY,linha.payload),
+        ...await readFreshAttendance(transaction,currentCompany(),linha.payload),
         attendanceLocks:freshPontoSlice.attendanceLocks||{},
         unlockRequests:freshPontoSlice.unlockRequests||[],
         dailyCheckDate:freshPontoSlice.dailyCheckDate||"",
         attendanceOperationReceipts:freshPontoSlice.attendanceOperationReceipts||[],
       };
-      const sourceEvents=command.action===ATTENDANCE_COMMAND.REVIEW?await readReviewEvents(transaction,COMPANY,command):
-        command.action===ATTENDANCE_COMMAND.SYNC&&validSyncRange(command)?await readSyncEvents(transaction,COMPANY,command):[];
+      const sourceEvents=command.action===ATTENDANCE_COMMAND.REVIEW?await readReviewEvents(transaction,currentCompany(),command):
+        command.action===ATTENDANCE_COMMAND.SYNC&&validSyncRange(command)?await readSyncEvents(transaction,currentCompany(),command):[];
       const applied=enrichAttendanceWithAutomaticAllocation(
         applyAttendanceCommand(current,usuario,command,operationNow,sourceEvents),
         {now:operationNow,operationId:command.operationId,actorId:usuario.id,actorName:usuario.nome||usuario.email},
@@ -1601,7 +1603,7 @@ export const executarComandoPontoBloqueado=async({usuario,command,operationNow,l
           update company_app_data
              set value=${transaction.json(encodeAppData({...decodeAppData(lockedCore.value),...allocationValue}))}::jsonb,
                  updated_at=clock_timestamp(), updated_by=null
-           where company_id=${COMPANY} and key=${KEY}
+           where company_id=${currentCompany()} and key=${KEY}
         `;
       }
       const correlationId=crypto.randomUUID();
@@ -1609,7 +1611,7 @@ export const executarComandoPontoBloqueado=async({usuario,command,operationNow,l
         update company_app_data
            set value=${transaction.json(encodeAppData(pontoValue))}::jsonb,
                updated_at=clock_timestamp(), updated_by=null
-         where company_id=${COMPANY} and key=${pontoKeyAlvo}
+         where company_id=${currentCompany()} and key=${pontoKeyAlvo}
          returning updated_at
       `;
       await transaction`
@@ -1617,7 +1619,7 @@ export const executarComandoPontoBloqueado=async({usuario,command,operationNow,l
           company_id,aggregate_type,aggregate_id,action,actor_id,actor_name,
           correlation_id,before_snapshot,after_snapshot,source
         ) values (
-          ${COMPANY},'company_app_data',${pontoKeyAlvo},${applied.audit?.action||command.action},
+          ${currentCompany()},'company_app_data',${pontoKeyAlvo},${applied.audit?.action||command.action},
           ${String(usuario?.id||"system")},${String(usuario?.nome||usuario?.email||"Sistema")},
           ${correlationId},
           ${transaction.json(applied.audit?.before||{})}::jsonb,
@@ -1649,7 +1651,7 @@ export const executarComandoPontoBloqueado=async({usuario,command,operationNow,l
         const key=`${PONTO_OBRA_KEY_PREFIX}${obraBucket}`;
         const [lockedObraAntiga]=await transaction`
           select value from company_app_data
-           where company_id=${COMPANY} and key=${key}
+           where company_id=${currentCompany()} and key=${key}
            for update
         `;
         if(!lockedObraAntiga)continue; // obra antiga nunca ganhou linha própria - nada a apagar
@@ -1659,7 +1661,7 @@ export const executarComandoPontoBloqueado=async({usuario,command,operationNow,l
           update company_app_data
              set value=${transaction.json(encodeAppData({attendance:proximo.attendance,attendanceSyncedAt:proximo.syncedAt}))}::jsonb,
                  updated_at=clock_timestamp(), updated_by=null
-           where company_id=${COMPANY} and key=${key}
+           where company_id=${currentCompany()} and key=${key}
         `;
       }
 
@@ -1676,12 +1678,12 @@ export const executarComandoPontoBloqueado=async({usuario,command,operationNow,l
         const key=`${PONTO_OBRA_KEY_PREFIX}${obraBucket}`;
         await transaction`
           insert into company_app_data(company_id,key,value,updated_at,updated_by)
-          values (${COMPANY},${key},${transaction.json(encodeAppData({attendance:{}}))}::jsonb,clock_timestamp(),null)
+          values (${currentCompany()},${key},${transaction.json(encodeAppData({attendance:{}}))}::jsonb,clock_timestamp(),null)
           on conflict (company_id,key) do nothing
         `;
         const [lockedObra]=await transaction`
           select value from company_app_data
-           where company_id=${COMPANY} and key=${key}
+           where company_id=${currentCompany()} and key=${key}
            for update
         `;
         const decodedObra=decodeAppData(lockedObra.value);
@@ -1690,7 +1692,7 @@ export const executarComandoPontoBloqueado=async({usuario,command,operationNow,l
           update company_app_data
              set value=${transaction.json(encodeAppData({attendance:proximo.attendance,attendanceSyncedAt:proximo.syncedAt}))}::jsonb,
                  updated_at=clock_timestamp(), updated_by=null
-           where company_id=${COMPANY} and key=${key}
+           where company_id=${currentCompany()} and key=${key}
         `;
       }
 
@@ -1799,7 +1801,7 @@ const validarAlteracoesConferencias=(usuario,anterior=[],proximo=[],autoritativo
   return "";
 };
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (!URL || !SERVICE) {
     return res.status(503).json({
       error:"Persistência não configurada: SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY ausente.",
@@ -1844,7 +1846,7 @@ export default async function handler(req, res) {
       const subject=`supplier-quote|${ip}`;
       const limit=await rateLimitCentral(subject,"status");
       if(limit?.blocked)return res.status(429).json({error:"Muitas tentativas. Aguarde e tente novamente."});
-      const claims=verifyQuoteLink({key:quoteLinkKey(),token:req.body?.token,company:COMPANY});
+      const claims=verifyQuoteLink({key:quoteLinkKey(),token:req.body?.token,company:currentCompany()});
       if(!claims){await rateLimitCentral(subject,"failure");return res.status(404).json({error:"Link inválido ou vencido. Solicite outro a Compras."});}
       const line=await lerLinha(),access=quoteLinkAccess(line.payload,claims);
       if(!access){await rateLimitCentral(subject,"failure");return res.status(404).json({error:"A cotação foi alterada ou não está mais disponível."});}
@@ -1862,7 +1864,7 @@ export default async function handler(req, res) {
           return {kind:"save",data:result.data,basePayload:current,before:{quoteId:claims.q},after:{quoteId:claims.q,responseId:locked.responseId,status:"pendente"}};
         }});
       if(outcome.kind==="error"){await rateLimitCentral(subject,"failure");return res.status(outcome.status||409).json({error:outcome.error});}
-      await sincronizarCotacaoAoVivo({companyId:COMPANY,quoteId:claims.q,mergedData:outcome.data,actor});
+      await sincronizarCotacaoAoVivo({companyId:currentCompany(),quoteId:claims.q,mergedData:outcome.data,actor});
       return res.status(200).json({ok:true,status:"pendente"});
     }
     // Link de aceite do pedido (fornecedor, sem login). O código é assinado e
@@ -1911,7 +1913,7 @@ export default async function handler(req, res) {
       });
       if(outcome.kind==="error")return res.status(outcome.status||409).json({error:outcome.error});
       if(outcome.kind==="save"){
-        await sincronizarPedidoAoVivo({companyId:COMPANY,orderId:acesso.verificado.orderId,
+        await sincronizarPedidoAoVivo({companyId:currentCompany(),orderId:acesso.verificado.orderId,
           mergedData:outcome.data,actor:preparado.actor});
       }
       return res.status(200).json({ok:true});
@@ -1933,6 +1935,15 @@ export default async function handler(req, res) {
       const fotos = portal.publicarFotos === false ? [] : rdos.flatMap(r => (r.fotos || [])
         .filter(f => f.publicarCliente !== false).map(f => ({ url:f.url || "", legenda:f.legenda || "", data:r.data, rdoCodigo:r.codigo })))
         .filter(f => f.url).slice(0, 24);
+      // Token and project were verified above; never publish a stable private
+      // reference or sign an object belonging to a different project/company.
+      await Promise.all(fotos.map(async photo=>{
+        if(!photo.url.startsWith('company-file:'))return;
+        const reference=parseCompanyFileReference(photo.url);
+        if(!reference){photo.url='';return;}
+        const result=await resolvePublishedCompanyFile({reference:photo.url,companyId:currentCompany(),projectId:obraId,storage:db.storage});
+        photo.url=result.status===200?result.body.url:'';
+      }));
       const plano = (p?.planos || []).find(x => x.obraId === obraId);
       const tarefas = (plano?.tarefas || []).filter(t => !t.titulo).map(t => ({
         id:t.id, nome:t.nome || t.descricao || "Etapa", inicio:t.inicio || "", fim:t.fim || "",
@@ -1953,7 +1964,7 @@ export default async function handler(req, res) {
         mensagem:portal.mensagem || "Acompanhe aqui a evolução da sua obra.", progresso,
         cronograma:portal.publicarCronograma === false ? [] : tarefas.slice(0,30),
         diarios:rdos.map(r => ({ id:r.id, codigo:r.codigo, data:r.data, descricao:r.descricao || "", clima:r.clima || {}, fotos:(r.fotos||[]).filter(f=>f.publicarCliente!==false).length })),
-        fotos, medicoes, documentos, atualizacoes,
+        fotos:fotos.filter(photo=>photo.url), medicoes, documentos, atualizacoes,
         caixaResumo:payloads("cash_summary")[0] || null,
         caixaMovimentacoes:payloads("cash_movement"),
         notasFiscais:payloads("invoice"),
@@ -2040,11 +2051,11 @@ export default async function handler(req, res) {
 
       if (!existente) {
         await db.from("company_app_data")
-          .insert({ company_id: COMPANY, key: KEY, value: encodeAppData(base), updated_at: agora });
+          .insert({ company_id: currentCompany(), key: KEY, value: encodeAppData(base), updated_at: agora });
       } else {
         await db.from("company_app_data")
           .update({ value: encodeAppData(base), updated_at: agora })
-          .eq("company_id", COMPANY).eq("key", KEY);
+          .eq("company_id", currentCompany()).eq("key", KEY);
       }
       await salvarIndicePerfis(base);
 
@@ -2197,14 +2208,14 @@ export default async function handler(req, res) {
       }
       const novo={...atual,usuarios:(atual.usuarios||[]).map(u=>u.id===alvo.id?{...u,authUserId:authId,email}:u)};
       const agora=new Date().toISOString();
-      const {data:gravado,error}=await db.from("company_app_data").update({value:encodeAppData(coreFieldsOnly(novo,rowVersions)),updated_at:agora}).eq("company_id",COMPANY).eq("key",KEY).select("updated_at").maybeSingle();
+      const {data:gravado,error}=await db.from("company_app_data").update({value:encodeAppData(coreFieldsOnly(novo,rowVersions)),updated_at:agora}).eq("company_id",currentCompany()).eq("key",KEY).select("updated_at").maybeSingle();
       if(error)throw error;
       await salvarIndicePerfis(novo);
       return res.status(200).json({ok:true,data:novo,updatedAt:gravado?.updated_at||agora});
     }
 
     if (action === "client-portal-admin") {
-      const result=await executeClientPortalAdmin({db,companyId:COMPANY,data:atual,actor:usuario,body:req.body});
+      const result=await executeClientPortalAdmin({db,companyId:currentCompany(),data:atual,actor:usuario,body:req.body});
       const {status,...body}=result;
       return res.status(status).json(body);
     }
@@ -2244,7 +2255,7 @@ export default async function handler(req, res) {
       }
 
       const fonteFinanceira=await exigirCustosArquivados(atual);
-      const canonical=await loadCanonicalDre(db,COMPANY);
+      const canonical=await loadCanonicalDre(db,currentCompany());
       if(canonical.issues.length){
         return res.status(409).json({
           error:"Existem títulos canônicos sem classificação suficiente para fechar o DRE.",
@@ -2311,12 +2322,12 @@ export default async function handler(req, res) {
       if(["REGISTER_SETTLEMENT","REVERSE_SETTLEMENT"].includes(command.type)){
         let titleId=command.payload?.titleId;
         if(command.type==="REVERSE_SETTLEMENT"){
-          const {data:settlement,error:lookupError}=await db.from("settlements").select("title_id").eq("company_id",COMPANY).eq("id",command.payload?.settlementId).maybeSingle();
+          const {data:settlement,error:lookupError}=await db.from("settlements").select("title_id").eq("company_id",currentCompany()).eq("id",command.payload?.settlementId).maybeSingle();
           if(lookupError)throw lookupError;
           titleId=settlement?.title_id;
         }
         if(titleId){
-          const {data:title,error:lookupError}=await db.from("financial_titles").select("metadata").eq("company_id",COMPANY).eq("id",titleId).maybeSingle();
+          const {data:title,error:lookupError}=await db.from("financial_titles").select("metadata").eq("company_id",currentCompany()).eq("id",titleId).maybeSingle();
           if(lookupError)throw lookupError;
           if(title?.metadata?.legacyId)return res.status(409).json({error:"Este pagamento pertence a um módulo operacional. Use o comando de origem para preservar a integração com o DRE."});
         }
@@ -2360,7 +2371,7 @@ export default async function handler(req, res) {
               // travar a core; a ordem permanece core -> advisory em ambos.
               await transaction`
                 select pg_advisory_xact_lock(
-                  hashtextextended(${`${COMPANY}:financial-shadow-sync`},0)
+                  hashtextextended(${`${currentCompany()}:financial-shadow-sync`},0)
                 )
               `;
 
@@ -2371,7 +2382,7 @@ export default async function handler(req, res) {
               const lockedAttendanceRows=await transaction`
                 select key,value,updated_at
                   from company_app_data
-                 where company_id=${COMPANY}
+                 where company_id=${currentCompany()}
                    and key like ${`${PONTO_OBRA_KEY_PREFIX}%`}
                  order by key
                  for update
@@ -2403,19 +2414,19 @@ export default async function handler(req, res) {
                   select id,origin_type,obra_id,direction,competence,due_date,created_at,
                          original_amount,status,metadata
                     from financial_titles
-                   where company_id=${COMPANY}
+                   where company_id=${currentCompany()}
                    order by id
                 `,
                 transaction`
                   select id,title_id,bank_transaction_id,amount,settlement_date,status
                     from settlements
-                   where company_id=${COMPANY}
+                   where company_id=${currentCompany()}
                    order by id
                 `,
                 transaction`
                   select id,amount,status,metadata
                     from bank_transactions
-                   where company_id=${COMPANY}
+                   where company_id=${currentCompany()}
                    order by id
                 `,
               ]);
@@ -2462,7 +2473,7 @@ export default async function handler(req, res) {
 
               const [executed]=await transaction`
                 select financial_execute_command(
-                  ${COMPANY},
+                  ${currentCompany()},
                   ${String(usuario.id||"")},
                   ${transaction.json(command)}::jsonb
                 ) as result
@@ -2516,7 +2527,7 @@ export default async function handler(req, res) {
         }
       }
 
-      const {data:resultado,error}=await db.rpc("financial_execute_command",{p_company_id:COMPANY,p_actor_id:usuario.id,p_command:command});
+      const {data:resultado,error}=await db.rpc("financial_execute_command",{p_company_id:currentCompany(),p_actor_id:usuario.id,p_command:command});
       if(error){console.error("Falha no motor financeiro:",error.message);return res.status(409).json({error:"O comando não foi efetivado. Nenhum lançamento parcial foi salvo."});}
       return res.status(200).json(resultado);
     }
@@ -2666,7 +2677,7 @@ export default async function handler(req, res) {
       if(!['admin','rh'].includes(usuario.role))return res.status(403).json({ok:false,error:'Somente RH e administrador podem sincronizar batidas.'});
       if(!validSyncRange(req.body))return res.status(400).json({ok:false,error:'Escolha um período válido de até 32 dias.'});
       if(!process.env.POSTGRES_URL_NON_POOLING)return res.status(503).json({ok:false,error:'A consulta de batidas requer conexão transacional.'});
-      const items=await comSql(async transaction=>planBiometricSync(atual,req.body,await readSyncEvents(transaction,COMPANY,req.body),new Date().toISOString()));
+      const items=await comSql(async transaction=>planBiometricSync(atual,req.body,await readSyncEvents(transaction,currentCompany(),req.body),new Date().toISOString()));
       return res.status(200).json({ok:true,items:biometricSyncPreview(items)});
     }
     if(ATTENDANCE_COMMANDS.has(action)){
@@ -2831,13 +2842,13 @@ export default async function handler(req, res) {
           const requestIds=new Set([payload.request?.id,payload.requestId,
             ...orders.map(order=>order.solicitacaoId),...quotes.map(quote=>quote.solicitacaoId)].filter(Boolean));
           for(const requestId of requestIds){
-            await sincronizarSolicitacaoCompraAoVivo({companyId:COMPANY,requestId,mergedData:outcome.data,actor:usuario});
+            await sincronizarSolicitacaoCompraAoVivo({companyId:currentCompany(),requestId,mergedData:outcome.data,actor:usuario});
           }
           for(const quoteId of quoteIds){
-            await sincronizarCotacaoAoVivo({companyId:COMPANY,quoteId,mergedData:outcome.data,actor:usuario});
+            await sincronizarCotacaoAoVivo({companyId:currentCompany(),quoteId,mergedData:outcome.data,actor:usuario});
           }
           for(const orderId of orderIds){
-            await sincronizarPedidoAoVivo({companyId:COMPANY,orderId,mergedData:outcome.data,actor:usuario});
+            await sincronizarPedidoAoVivo({companyId:currentCompany(),orderId,mergedData:outcome.data,actor:usuario});
           }
         }
         return res.status(200).json({
@@ -2979,7 +2990,7 @@ export default async function handler(req, res) {
       const sql=postgres(process.env.POSTGRES_URL_NON_POOLING,{ssl:"require",max:1,connect_timeout:20,idle_timeout:5});
       let sync;
       try{
-        const [row]=await sql`select financial_sync_legacy_facts(${COMPANY},${usuario.id},${sql.json(snapshot)}) as result`;
+        const [row]=await sql`select financial_sync_legacy_facts(${currentCompany()},${usuario.id},${sql.json(snapshot)}) as result`;
         sync=row.result;
       }catch(error){
         console.error("Falha na carga financeira em sombra:",error.message);
@@ -2989,10 +3000,10 @@ export default async function handler(req, res) {
       }finally{await sql.end({timeout:2});}
       const report=await relatorioSombraFinanceira(atual);
       await db.from("data_quality_cases").update({status:"resolved",resolved_at:new Date().toISOString()})
-        .eq("company_id",COMPANY).eq("category","financial_shadow_divergence").eq("status","open");
+        .eq("company_id",currentCompany()).eq("category","financial_shadow_divergence").eq("status","open");
       if(report.divergencias.length){
         const cases=report.divergencias.map(item=>({
-          company_id:COMPANY,category:"financial_shadow_divergence",
+          company_id:currentCompany(),category:"financial_shadow_divergence",
           severity:Math.abs(item.difference)>=100?"high":"medium",entity_type:item.scope==="empresa"?"company":"obra",
           entity_id:item.scope,details:item,status:"open",
         }));
@@ -3030,7 +3041,7 @@ export default async function handler(req, res) {
       const { data: runs, error: runsError } = await registryDb
         .from("core_registry_shadow_runs")
         .select("result, created_at, actor_id")
-        .eq("company_id", COMPANY)
+        .eq("company_id", currentCompany())
         .order("created_at", { ascending: false })
         .limit(20);
       if (runsError) throw runsError;
@@ -3039,9 +3050,9 @@ export default async function handler(req, res) {
       for (const [section, table] of Object.entries(CORE_REGISTRY_TABLES)) {
         const [{ count, error: countError }, { data: sampleRows, error: sampleError }] = await Promise.all([
           registryDb.from(table).select("*", { count: "exact", head: true })
-            .eq("company_id", COMPANY).is("archived_at", null),
+            .eq("company_id", currentCompany()).is("archived_at", null),
           registryDb.from(table).select("*")
-            .eq("company_id", COMPANY).is("archived_at", null)
+            .eq("company_id", currentCompany()).is("archived_at", null)
             .order("synced_at", { ascending: false }).limit(5),
         ]);
         if (countError) throw countError;
@@ -3062,7 +3073,7 @@ export default async function handler(req, res) {
       const { data: runs, error: runsError } = await db
         .from("equipment_registry_shadow_runs")
         .select("result, created_at, actor_id")
-        .eq("company_id", COMPANY)
+        .eq("company_id", currentCompany())
         .order("created_at", { ascending: false })
         .limit(20);
       if (runsError) throw runsError;
@@ -3071,9 +3082,9 @@ export default async function handler(req, res) {
       for (const [section, table] of Object.entries(EQUIPMENT_REGISTRY_TABLES)) {
         const [{ count, error: countError }, { data: sampleRows, error: sampleError }] = await Promise.all([
           db.from(table).select("*", { count: "exact", head: true })
-            .eq("company_id", COMPANY).is("archived_at", null),
+            .eq("company_id", currentCompany()).is("archived_at", null),
           db.from(table).select("*")
-            .eq("company_id", COMPANY).is("archived_at", null)
+            .eq("company_id", currentCompany()).is("archived_at", null)
             .order("synced_at", { ascending: false }).limit(5),
         ]);
         if (countError) throw countError;
@@ -3096,7 +3107,7 @@ export default async function handler(req, res) {
       if(!quote||(usuario.obraId&&usuario.obraId!==quote.obraId))return res.status(404).json({error:"Cotação indisponível."});
       const proposal=quote.propostas?.find(p=>p.id===req.body?.proposalId);
       if(!proposal||!(atual.fornecedores||[]).some(f=>f.id===proposal.fornecedorId&&f.ativo!==false))return res.status(409).json({error:"Fornecedor indisponível."});
-      try{return res.status(200).json({ok:true,...issueQuoteLink({key:quoteLinkKey(),quote,proposalId:proposal.id,company:COMPANY})});}
+      try{return res.status(200).json({ok:true,...issueQuoteLink({key:quoteLinkKey(),quote,proposalId:proposal.id,company:currentCompany()})});}
       catch{return res.status(409).json({error:"Não foi possível gerar o link. Confira a cotação e a configuração do servidor."});}
     }
     if(action==="pedido-aceite-link"){
@@ -3115,7 +3126,7 @@ export default async function handler(req, res) {
       const { data: runs, error: runsError } = await db
         .from("procurement_registry_shadow_runs")
         .select("result, created_at, actor_id")
-        .eq("company_id", COMPANY)
+        .eq("company_id", currentCompany())
         .order("created_at", { ascending: false })
         .limit(20);
       if (runsError) throw runsError;
@@ -3124,9 +3135,9 @@ export default async function handler(req, res) {
       for (const [section, table] of Object.entries(PROCUREMENT_REGISTRY_TABLES)) {
         const [{ count, error: countError }, { data: sampleRows, error: sampleError }] = await Promise.all([
           db.from(table).select("*", { count: "exact", head: true })
-            .eq("company_id", COMPANY).is("archived_at", null),
+            .eq("company_id", currentCompany()).is("archived_at", null),
           db.from(table).select("*")
-            .eq("company_id", COMPANY).is("archived_at", null)
+            .eq("company_id", currentCompany()).is("archived_at", null)
             .order("synced_at", { ascending: false }).limit(5),
         ]);
         if (countError) throw countError;
@@ -3146,7 +3157,7 @@ export default async function handler(req, res) {
       const { data: runs, error: runsError } = await db
         .from("attendance_registry_shadow_runs")
         .select("result, created_at, actor_id")
-        .eq("company_id", COMPANY)
+        .eq("company_id", currentCompany())
         .order("created_at", { ascending: false })
         .limit(20);
       if (runsError) throw runsError;
@@ -3155,9 +3166,9 @@ export default async function handler(req, res) {
       for (const [section, table] of Object.entries(ATTENDANCE_REGISTRY_TABLES)) {
         const [{ count, error: countError }, { data: sampleRows, error: sampleError }] = await Promise.all([
           db.from(table).select("*", { count: "exact", head: true })
-            .eq("company_id", COMPANY).is("archived_at", null),
+            .eq("company_id", currentCompany()).is("archived_at", null),
           db.from(table).select("*")
-            .eq("company_id", COMPANY).is("archived_at", null)
+            .eq("company_id", currentCompany()).is("archived_at", null)
             .order("synced_at", { ascending: false }).limit(5),
         ]);
         if (countError) throw countError;
@@ -3177,8 +3188,8 @@ export default async function handler(req, res) {
     if(action==="purchase-requests-report"){
       if(usuario.role!=="admin")return res.status(403).json({error:"Apenas administradores consultam a projeção de solicitações de compra."});
       const [{ count, error: countError }, { data: sample, error: sampleError }] = await Promise.all([
-        db.from("purchase_requests").select("*", { count: "exact", head: true }).eq("company_id", COMPANY),
-        db.from("purchase_requests").select("*").eq("company_id", COMPANY)
+        db.from("purchase_requests").select("*", { count: "exact", head: true }).eq("company_id", currentCompany()),
+        db.from("purchase_requests").select("*").eq("company_id", currentCompany())
           .order("updated_at", { ascending: false }).limit(10),
       ]);
       if (countError) throw countError;
@@ -3248,7 +3259,7 @@ export default async function handler(req, res) {
           },
           readArchive:async key=>{
             const {data:archive,error}=await db.from("company_app_data").select("key,value,updated_at")
-              .eq("company_id",COMPANY).eq("key",key).maybeSingle();
+              .eq("company_id",currentCompany()).eq("key",key).maybeSingle();
             if(error)throw error;
             return archive;
           },
@@ -3296,7 +3307,7 @@ export default async function handler(req, res) {
       // Meses fechados são lidos da fotografia. Um ano inteiro fechado não
       // depende de arquivos de ponto que só seriam usados para recalcular.
       const fonteFinanceira=requests.length?await exigirCustosArquivados(atual):atual;
-      const canonical=await loadCanonicalDre(db,COMPANY);
+      const canonical=await loadCanonicalDre(db,currentCompany());
       const liveMonths=Array(12).fill(null);
       for(const row of buildRequestedDreProjectionRows(fonteFinanceira,requests,canonical.events)){
         liveMonths[row.month]=row.payload;
@@ -3324,7 +3335,7 @@ export default async function handler(req, res) {
       const obraIds=(atual.obras||[]).filter(obra=>obra?.id&&!encerradas.has(String(obra.status||"").toLowerCase())
         &&(!usuario.obraId||String(obra.id)===String(usuario.obraId))).map(obra=>obra.id);
       const fonteFinanceira=await exigirCustosArquivados(atual);
-      const canonical=await loadCanonicalDre(db,COMPANY);
+      const canonical=await loadCanonicalDre(db,currentCompany());
       return res.status(200).json({ok:true,custoAte:`${year}-${String(month+1).padStart(2,"0")}`,
         obras:buildAccumulatedWorkCosts(fonteFinanceira,{year,month,obraIds},canonical.events)});
     }
@@ -3332,7 +3343,7 @@ export default async function handler(req, res) {
     if(action==="financial-management-report"){
       if(!["admin","financeiro"].includes(usuario.role)||usuario.obraId)return res.status(403).json({error:"A gestão de conciliação do DRE exige acesso financeiro sem restrição de obra."});
       const fonteFinanceira=await exigirCustosArquivados(atual);
-      const canonical=await loadCanonicalDre(db,COMPANY);
+      const canonical=await loadCanonicalDre(db,currentCompany());
       return res.status(200).json({ok:true,...buildIntegratedDreManagement(fonteFinanceira,canonical),updatedAt});
     }
 
@@ -3367,13 +3378,13 @@ export default async function handler(req, res) {
       const frozenCurrent=companyStatement&&period==="mes"?closedCompanyDreFor(atual,year,month):null;
       const loadEvents=()=>db.from("financial_events")
         .select("source_id,payload,effective_date")
-        .eq("company_id",COMPANY).eq("event_type","dre_snapshot")
+        .eq("company_id",currentCompany()).eq("event_type","dre_snapshot")
         .eq("source_type","dre_projection").in("source_id",ids);
       let {data:events,error}=await loadEvents();
       if(error)throw error;
       let currentEvent=(events||[]).find(event=>
         event.source_id===currentId&&event.payload?.active!==false);
-      const canonical=await loadCanonicalDre(db,COMPANY);
+      const canonical=await loadCanonicalDre(db,currentCompany());
       const sourceRevision=`${dreSourceRevision({updatedAt,rowVersions,rowVersionsPontoObra})}|canonical:${canonical.revision}`;
       if(!frozenCurrent&&(
         !currentEvent
@@ -3391,7 +3402,7 @@ export default async function handler(req, res) {
           return !frozenById.has(sourceId);
         });
         const rows=buildRequestedDreProjectionRows(fonteFinanceira,projectionRequests,canonical.events).map(row=>({
-          company_id:COMPANY,event_type:"dre_snapshot",source_type:"dre_projection",
+          company_id:currentCompany(),event_type:"dre_snapshot",source_type:"dre_projection",
           source_id:row.sourceId,effective_date:`${row.year}-${String(row.month+1).padStart(2,"0")}-01`,
           payload:{...row.payload,active:true,obraId:row.obraId,year:row.year,month:row.month,
             period:row.period,sourceRevision,projectionVersion:DRE_PROJECTION_VERSION},
@@ -3438,7 +3449,7 @@ export default async function handler(req, res) {
       });
     }
 
-    if(action==="backup-status")return res.status(200).json({ok:true,configured:!!process.env.BACKUP_ENCRYPTION_KEY,destination:"OneDrive",folder:BACKUP_FOLDER});
+    if(action==="backup-status")return res.status(200).json({ok:true,configured:!!process.env.BACKUP_ENCRYPTION_KEY,destination:"OneDrive",folder:backupFolder()});
     if(action==="backup-create"){
       if(usuario.role!=="admin")return res.status(403).json({error:"Apenas administradores operam backups."});
       return res.status(201).json(await criarBackupOneDrive(req,usuario.id));
@@ -3468,14 +3479,14 @@ export default async function handler(req, res) {
     if(action==="persistence-health"){
       if(usuario.role!=="admin")return res.status(403).json({error:"Apenas administradores verificam a persistência."});
       const tableCheck=await db.from("company_app_data").select("key",{head:true,count:"exact"})
-        .eq("company_id",COMPANY).eq("key",KEY);
+        .eq("company_id",currentCompany()).eq("key",KEY);
       if(tableCheck.error)return res.status(503).json({
         ok:false,code:"COMPANY_APP_DATA_UNAVAILABLE",
         error:"A tabela principal não respondeu à verificação.",
       });
       const probeId=crypto.randomUUID();
       const auditCheck=await db.rpc("company_save_with_audit",{
-        p_company_id:`${COMPANY}__health_probe`,p_key:"health",
+        p_company_id:`${currentCompany()}__health_probe`,p_key:"health",
         p_expected_updated_at:"1970-01-01T00:00:00.000Z",p_value:{},
         p_actor_id:String(usuario.id||"admin"),p_actor_name:String(usuario.nome||"Administrador"),
         p_correlation_id:probeId,p_action:"health_probe",p_before:{},p_after:{},
@@ -3485,7 +3496,7 @@ export default async function handler(req, res) {
         error:"A RPC append-only não está disponível. Execute migrations/20260725_append_only_audit.sql.",
       });
       const archiveCheck=await db.rpc("attendance_archive_transaction",{
-        p_company_id:`${COMPANY}__health_probe`,p_main_key:"health",p_archive_key:"health_archive",
+        p_company_id:`${currentCompany()}__health_probe`,p_main_key:"health",p_archive_key:"health_archive",
         p_expected_updated_at:"1970-01-01T00:00:00.000Z",p_main_value:{},p_archive_value:{},
         p_actor_id:String(usuario.id||"admin"),p_actor_name:String(usuario.nome||"Administrador"),
         p_actor_role:String(usuario.role||""),
@@ -3893,7 +3904,7 @@ export default async function handler(req, res) {
         return res.status(409).json({ error: "Esta quinzena já foi arquivada." });
       }
       const { data: jaExiste } = await db.from("company_app_data")
-        .select("key").eq("company_id", COMPANY).eq("key", chaveArquivo(quinzenaId)).maybeSingle();
+        .select("key").eq("company_id", currentCompany()).eq("key", chaveArquivo(quinzenaId)).maybeSingle();
       if (jaExiste) {
         return res.status(409).json({ error: "Esta quinzena já foi arquivada." });
       }
@@ -4019,7 +4030,7 @@ export default async function handler(req, res) {
       }
       const { data: linhas, error } = await db.from("company_app_data")
         .select("key, updated_at, value->meta")
-        .eq("company_id", COMPANY)
+        .eq("company_id", currentCompany())
         .like("key", `${KEY}__arq__%`);
       if (error) throw error;
       const arquivos = (linhas || [])
@@ -4036,7 +4047,7 @@ export default async function handler(req, res) {
       if (!quinzenaValida(quinzenaId)) return res.status(400).json({ error: "Quinzena inválida." });
       const { data: linha, error } = await db.from("company_app_data")
         .select("value, updated_at")
-        .eq("company_id", COMPANY).eq("key", chaveArquivo(quinzenaId)).maybeSingle();
+        .eq("company_id", currentCompany()).eq("key", chaveArquivo(quinzenaId)).maybeSingle();
       if (error) throw error;
       if (!linha) return res.status(404).json({ error: "Arquivo não encontrado." });
       return res.status(200).json({ ok: true, arquivo: linha.value, updatedAt: linha.updated_at });
@@ -4059,7 +4070,7 @@ export default async function handler(req, res) {
       }
       const { data: linha, error: errLer } = await db.from("company_app_data")
         .select("value")
-        .eq("company_id", COMPANY).eq("key", chaveArquivo(quinzenaId)).maybeSingle();
+        .eq("company_id", currentCompany()).eq("key", chaveArquivo(quinzenaId)).maybeSingle();
       if (errLer) throw errLer;
       if (!linha) return res.status(404).json({ error: "Arquivo não encontrado." });
 
@@ -4161,3 +4172,5 @@ export default async function handler(req, res) {
     });
   }
 }
+
+export default withCompanyContext(handler);
