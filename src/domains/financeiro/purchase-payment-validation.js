@@ -1,7 +1,7 @@
 import {availableOrderPayments} from './order-payment-links.js';
 import {active} from "./ledger.js";
 import {saldoPagamentoPedido} from "../compras/calculations.js";
-import {saldoPagamentoNota} from "./payables.js";
+import {invoiceFiscalPending,saldoPagamentoNota} from "./payables.js";
 import {avaliarPagamentoPedido} from "../compras/payment-conference.js";
 import {operationalWarning} from '../compras/workflow-advisories.js';
 import {technicalRetentionCents,retentionInvoiceMeasurement,RETENTION_PAYMENT_GUIDANCE} from '../terceirizados/technical-retention.js';
@@ -13,7 +13,7 @@ export const validatePurchasePayment=(data,{type,target,value,adiantamento,motiv
   const balance=type==="nota"?saldoPagamentoNota(target):saldoPagamentoPedido(target);
   if(value>balance+0.01)return {error:"O pagamento supera o saldo da obrigação."};
   if(type==='pedido')return avaliarPagamentoPedido(data,{pedidoId:target.id,valor:value,adiantamento,motivo,actorRole});
-  const pending=target.conferenciaFiscalPendente||!['aprovada','paga'].includes(String(target.status||''));
+  const pending=invoiceFiscalPending(target);
   const warnings=pending?[operationalWarning('INVOICE_REVIEW_PENDING','documento','Financeiro / conferência fiscal','Pagamento com conferência fiscal pendente.','Revise a ficha fiscal e registre a decisão. Pagar não aprova a nota automaticamente.')]:[];
   if(availableOrderPayments(data,target).length)warnings.push(operationalWarning('ORDER_PAYMENTS_TO_REVIEW','pagamento','Financeiro','O pedido já tem pagamentos que não estão vinculados a esta nota.','Confira os adiantamentos antes de registrar outro pagamento real. Não repita o mesmo fato nem associe apenas por valor ou descrição.'));
   return {campos:{conferenciaFiscalPendente:pending,workflowWarnings:warnings},warnings};

@@ -182,7 +182,8 @@ describe("/api/data · roteamento de OPERATIONAL_COMMAND por linha separada",()=
   it('gravação completa sem os campos comerciais preserva contratos; tentativa explícita de mudar é recusada',async()=>{
     await callApi(opCommand('COMERCIAL_INSTRUMENTO_SALVO',{id:'preserved-contract',record:{titulo:'Preservado',dados:{}}}));
     const loaded=await callApi({action:'load',accessToken:'valid-token'});
-    const data=loaded.body.data;
+    // A gravação pelo navegador exclui as consultas derivadas do saldo.
+    const {dreOfxEvidence:_ofx,dreBankSource:_bank,...data}=loaded.body.data;
     const omitted={...data};delete omitted.commercialContractRecords;
     const response=await callApi({action:'save',accessToken:'valid-token',payload:omitted});
     expect(response.status,JSON.stringify(response.body)).toBe(200);
@@ -287,6 +288,23 @@ describe("/api/data · roteamento de OPERATIONAL_COMMAND por linha separada",()=
     const stale=structuredClone(request);stale.command.idempotencyKey='another-version-attempt';
     expect((await callApi(stale)).status).toBe(409);
     expect(decodeAppData(testState.rows[CORE_KEY].value).obras[0].costPlanning.serviceLinkHistory).toHaveLength(1);
+  });
+
+  it("retorna 403 antes de gravar uma aprovação ou baixa sem acesso ao Financeiro",async()=>{
+    const data=testState.rows[CORE_KEY].value;
+    data.obras=[{id:"work",name:"Obra"}];
+    data.notasFiscais=[{id:"invoice",obraId:"work",status:"recebida",valorBruto:100}];
+    Object.assign(data.usuarios[0],{role:"financeiro",obraId:"work",accessTabs:["cmp"]});
+    const before=JSON.stringify(data);
+    for(const request of [
+      opCommand("NOTA_FISCAL_APROVADA",{invoiceId:"invoice"},{actorRole:"admin"}),
+      opCommand("PAGAMENTO_OBRIGACAO_REGISTRADO",{targetType:"nota",targetId:"invoice",
+        payment:{id:"duplicate-attempt",origem:"empresa",data:"2026-08-20",valor:10}},{actorRole:"admin"}),
+    ]){
+      expect((await callApi(request)).status).toBe(403);
+    }
+    expect(testState.rpcCalls).toHaveLength(0);
+    expect(JSON.stringify(data)).toBe(before);
   });
 
   it("grava EQUIPMENT_SAVED na linha de equipamentos, sem tocar a linha core",async()=>{

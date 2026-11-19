@@ -1719,15 +1719,16 @@ Confira Fornecedor, obra, documento, saldo e pagamentos anteriores. Se aparecer 
 
 ### Como fazer
 
-1. Preencha Origem real do pagamento, Valor pago e Data. Selecione o comprovante; Remover comprovante retira o arquivo.
-2. Em Alocar pagamento já realizado, selecione Pagamento do pedido, informe Valor a alocar e use Alocar adiantamento. Respeite os dois saldos.
-3. Para corrigir, use Desfazer alocação, preencha Motivo para desfazer a alocação e confirme. O saldo volta ao adiantamento, sem devolução bancária.
-4. Use Registrar pagamento para uma nova saída real e aguarde. Pagar não conclui entrega nem conferência fiscal. Informe o motivo do adiantamento, se possível.
-5. Após recarregar, use Retomar trabalho salvo. Reabra o rascunho ou retome a confirmação original.
+1. Abra Histórico e evidências na Fila de obrigações para consultar lançamento, aprovação, baixas e comprovantes. Conferir documento abre a ficha fiscal para quem tem acesso.
+2. Preencha Origem real do pagamento, Valor pago e Data. Confira o saldo após a baixa. Use Selecionar comprovante para anexar o PDF ou imagem, ou vincule a saída existente da conta da empresa. O formulário avisa quando não há comprovante nem movimento associado. Remover comprovante retira o arquivo do rascunho.
+3. Em Alocar pagamento já realizado, selecione Pagamento do pedido, informe Valor a alocar e use Alocar adiantamento. Respeite os dois saldos.
+4. Para corrigir, use Desfazer alocação, preencha Motivo para desfazer a alocação e confirme. O saldo volta ao adiantamento, sem devolução bancária.
+5. Use Registrar pagamento para uma nova saída real e aguarde. Pagar não conclui entrega nem conferência fiscal. Informe o motivo do adiantamento, se possível.
+6. Após recarregar, use Retomar trabalho salvo. Reabra o rascunho ou retome a confirmação original.
 
 ### Como conferir se deu certo
 
-O saldo e o histórico mostram a confirmação; registrar no ERP não transfere dinheiro.
+O histórico registra autor, data, origem, valor e os vínculos informados. Registrar no ERP não transfere dinheiro.
 
 ### O que merece atenção
 
@@ -3257,7 +3258,7 @@ Confira Fornecedor, obra, documento, saldo e pagamentos anteriores. Se aparecer 
 
 ### Como fazer
 
-1. Preencha Origem real do pagamento, Valor pago e Data. Selecione o comprovante; Remover comprovante retira o arquivo.
+1. Preencha Origem real do pagamento, Valor pago e Data. Confira o saldo após a baixa. Use Selecionar comprovante para anexar o PDF ou imagem, ou vincule a saída existente da conta da empresa. O formulário avisa quando não há comprovante nem movimento associado. Remover comprovante retira o arquivo do rascunho.
 2. Em Alocar pagamento já realizado, selecione Pagamento do pedido, informe Valor a alocar e use Alocar adiantamento. Respeite os dois saldos.
 3. Para corrigir, use Desfazer alocação, preencha Motivo para desfazer a alocação e confirme. O saldo volta ao adiantamento, sem devolução bancária.
 4. Use Registrar pagamento para uma nova saída real e aguarde. Pagar não conclui entrega nem conferência fiscal. Informe o motivo do adiantamento, se possível.
@@ -3265,7 +3266,7 @@ Confira Fornecedor, obra, documento, saldo e pagamentos anteriores. Se aparecer 
 
 ### Como conferir se deu certo
 
-O saldo e o histórico mostram a confirmação; registrar no ERP não transfere dinheiro.
+O histórico registra autor, data, origem, valor e os vínculos informados. Registrar no ERP não transfere dinheiro.
 
 ### O que merece atenção
 

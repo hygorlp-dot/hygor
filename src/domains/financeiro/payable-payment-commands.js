@@ -23,6 +23,10 @@ export const PAYABLE_PAYMENT_COMMAND=Object.freeze({
 });
 export const PAYABLE_PAYMENT_COMMAND_TYPES=new Set(Object.values(PAYABLE_PAYMENT_COMMAND));
 
+export const paymentBankDebitAvailable=transaction=>
+ Boolean(transaction&&active(transaction)&&!transaction.importReversal
+  &&!['conciliado','ignorado'].includes(transaction.status)&&Number(transaction.valor)<0);
+
 const fail=reason=>({ok:false,reason});
 const versionOf=item=>Number(item?.version||0);
 const validDate=isFinancialDate;
@@ -152,6 +156,7 @@ const recordPayment=(data,command,now)=>{
       return fail("A transação bancária já está conciliada.");
     }
     if(Number(transaction.valor)>=0)return fail("O pagamento precisa ser vinculado a uma saída bancária.");
+    if(!paymentBankDebitAvailable(transaction))return fail("A saída bancária está indisponível para vínculo.");
     if(Math.abs(Math.abs(Number(transaction.valor||0))-value)>0.02){
       return fail("O valor da transação bancária diverge do pagamento.");
     }

@@ -1,10 +1,10 @@
 import {UI_TEXT} from '../../design-system/copy.js';
-import {PAYABLE_PAYMENT_COMMAND as CMD} from '../../domains/financeiro/payable-payment-commands.js';
+import {PAYABLE_PAYMENT_COMMAND as CMD,paymentBankDebitAvailable} from '../../domains/financeiro/payable-payment-commands.js';
 import {availableOrderPayments} from '../../domains/financeiro/order-payment-links.js';
 import {active} from '../../domains/financeiro/facts.js';
 import AdvanceAllocation from './AdvanceAllocation.jsx';
 import {isFinancialDate} from '../../domains/financeiro/dates.js';
-import {podeAcessarAba} from '../../domains/administracao/abas-acesso.js';
+import {canRecordPayable} from '../../domains/financeiro/payable-access.js';
 import {useEffect,useRef,useState} from 'react';
 import {Modal,Inp,Sel} from '../../legacy/ui.jsx';
 import {Button} from '../../components/ui/button.jsx';
@@ -35,17 +35,18 @@ export default function PaymentDialog({data,user,type,id,pageId='fin',dispatch,o
  const patch=(key,value)=>{dirty.current=true;setForm(f=>({...f,[key]:value}));};
  if(!record)return <Modal title={UI_TEXT.feedback.recordUnavailable} onClose={onClose}><p>Confira a obra e o acesso antes de registrar um pagamento.</p></Modal>;
  const work=(data.obras||[]).find(w=>w.id===record.obraId),balance=type==='nota'?saldoPagamentoNota(record):saldoPagamentoPedido(record),total=type==='nota'?Number(record.valorLiquido||record.valorBruto):totalPedido(record),value=Number(String(form.valor||'').replace(',','.'));
- const canPay=['admin','financeiro',...(pageId==='cmp'?['compras']:[])].includes(user.role)&&podeAcessarAba(user,pageId)&&user.active!==false&&(!user.obraId||user.obraId===record.obraId);
+ const canPay=canRecordPayable(user,type,record.obraId,pageId);
  const validation=validatePurchasePayment(data,{type,target:record,value,motivo:form.motivoAdiantamento,actorRole:user.role});
  const usedTransactions=new Set([...(data.pedidos||[]),...(data.notasFiscais||[])].flatMap(r=>r.pagamentos||[]).filter(active).map(p=>p.transacaoId));
  const cash=situacaoCaixaObra(data,record.obraId);
+ const hasEvidence=Boolean(form.comprovanteFile||form.comprovantes?.length||(form.origem==='empresa'&&form.transacaoId));
  const save=async()=>{
   if(lock.current||busy||!canPay||!ready||otherPending)return;lock.current=true;setBusy(true);setMessage('');
   try{
    if(!attempt.current.command&&(validation.error||!isFinancialDate(form.data)))throw Error(validation.error||'Informe a data do pagamento.');
    await attemptStore.draft(user.id,type,id,form,{pageId,obraId:record?.obraId,obra:(data.obras||[]).find(w=>w.id===record?.obraId)?.name,label:`Pagamento · ${record?.numero||id}`});
    let docs=[],workspace=null;
-   if(form.comprovanteFile&&!attempt.current.command){const file=form.comprovanteFile;const response=await enviarArquivoOneDrive({dataUrl:await arquivoComoDataUrl(file),obraName:work?.name||'Obra',driveId:work?.oneDriveDriveId,folderId:work?.oneDriveFolderId,folders:work?.oneDriveFolders,category:'financeiro',subfolder:`Pagamentos/${record.numero||id}`,date:form.data,fileName:file.name});if(!response.ok&&!response.url)throw Error(response.error||'Não foi possível salvar o comprovante.');docs=[{id:response.item?.id||uid(),nome:file.name,legenda:form.comprovanteLegenda||file.name,url:response.item?.webUrl||response.url,tipo:file.type,tamanho:file.size}];workspace=response.workspace||null;}
+   if(form.comprovanteFile&&!attempt.current.command){const file=form.comprovanteFile;const response=await enviarArquivoOneDrive({dataUrl:await arquivoComoDataUrl(file),obraName:work?.name||'Obra',driveId:work?.oneDriveDriveId,folderId:work?.oneDriveFolderId,folders:work?.oneDriveFolders,category:'financeiro',subfolder:`Pagamentos/${record.numero||id}`,date:form.data,fileName:file.name});if(!response.ok&&!response.url)throw Error(response.error||'Não foi possível salvar o comprovante.');docs=[{id:response.item?.id||uid(),nome:file.name,legenda:form.comprovanteLegenda||file.name,url:response.item?.webUrl||response.url,driveId:response.item?.id?(response.item?.parentReference?.driveId||response.workspace?.driveId):undefined,tipo:file.type,tamanho:file.size}];workspace=response.workspace||null;}
    attempt.current.context={pageId,obraId:record.obraId,obra:work?.name,label:`Pagamento · ${record.numero||id}`,valor:value};
    const result=await dispatchConfirmedAttempt(attempt.current,dispatch,current=>({type:CMD.PAYABLE_PAYMENT_RECORDED,idempotencyKey:`payment-${uid()}`,expectedVersion:Number((current[type==='nota'?'notasFiscais':'pedidos']||[]).find(r=>String(r.id)===String(id))?.version||0),actorId:user.id,actorName:user.nome,payload:{targetType:type,targetId:id,payment:{id:uid(),valor:value,data:form.data,origem:form.origem,transacaoId:form.origem==='empresa'?form.transacaoId:'',referencia:form.referencia,observacao:form.observacao,comprovantes:docs},workCashMovementId:form.origem==='caixa_obra'?uid():'',workspace,motivoAdiantamento:form.motivoAdiantamento}}));
    if(!result?.ok)throw Error(result?.reason||UNCONFIRMED_COMMAND);
@@ -54,6 +55,8 @@ export default function PaymentDialog({data,user,type,id,pageId='fin',dispatch,o
  };
  return <><Modal title={`Pagamento · ${record.numero||id}`} onClose={close.requestClose} panelClass="mrc-payment-dialog"><div className="mrc-payment-dialog__body">
  <HelpButton pageId={pageId} allowedTabs={[pageId]}/><p>Fornecedor: {record.fornecedorNome||(data.fornecedores||[]).find(f=>f.id===record.fornecedorId)?.nome||'Não informado'}</p><p>{work?.name||'Obra não informada'} · Total {fmt(total)} · Saldo {fmt(balance)}</p>
+ <p>Registre uma saída já realizada. O lançamento aparece no histórico com seu nome, data, origem e valor.</p>
+ {!canPay&&<p role="status">Seu perfil não pode registrar pagamentos desta obrigação.</p>}
  {message&&<p role="alert">{message}</p>}{draftStatus&&<p role="status">{draftStatus}</p>}
  {type==='nota'&&availableOrderPayments(data,record).length>0&&<p role="status">{UNALLOCATED_ORDER_PAYMENT}</p>}
  {type==='nota'&&canPay&&<AdvanceAllocation data={data} note={record} user={user} dispatch={dispatch} busy={busy||!ready||otherPending||!!attempt.current.command} onBusy={setBusy} onPending={()=>setOtherPending(true)} onSaved={result=>{done.current=true;onSaved?.(result);onClose();}}/>}
@@ -61,10 +64,12 @@ export default function PaymentDialog({data,user,type,id,pageId='fin',dispatch,o
  <Sel label="Origem real do pagamento *" value={form.origem} onChange={v=>{patch('origem',v);patch('transacaoId','');}} options={[{v:'empresa',l:'Conta bancária da empresa'},{v:'caixa_obra',l:'Caixa da obra'},{v:'cliente_direto',l:'Cliente pagou diretamente'}]}/>
  {form.origem==='caixa_obra'&&<p role="status">Saldo do caixa: {fmt(cash.saldo)} · após este pagamento: {fmt(cash.saldo-value)}. {!work?.hasCaixa?'Caixa não ativado. ':''}{cash.saldo-value<0?'O caixa ficará negativo. Confira a origem real.':''}</p>}
  <div className="mrc-payment-dialog__grid"><Inp label="Valor pago *" type="number" min="0.01" value={form.valor} onChange={v=>patch('valor',v)}/><Inp label="Data *" type="date" value={form.data} onChange={v=>patch('data',v)}/></div>
+ {Number.isFinite(value)&&value>0&&!validation.error&&<p>Saldo após esta baixa <strong>{fmt(Math.max(0,balance-value))}</strong>.</p>}
  {validation.campos?.tipo==='adiantamento'&&<><p role="status">Este valor será registrado como adiantamento. Entrega e nota continuam independentes.</p><Inp label="Motivo do adiantamento (recomendado)" value={form.motivoAdiantamento} onChange={v=>patch('motivoAdiantamento',v)}/></>}
  {type==='nota'&&validation.warnings?.filter(w=>w.code!=='ORDER_PAYMENTS_TO_REVIEW').map(w=><p key={w.code} role="status">{w.message} {w.resolution}</p>)}
- {form.origem==='empresa'&&<Sel label="Vincular à transação bancária (opcional)" value={form.transacaoId} onChange={v=>patch('transacaoId',v)} options={[{v:'',l:'Sem transação vinculada'},...(data.transacoes||[]).filter(t=>Number(t.valor)<0&&!['conciliado','ignorado'].includes(t.status)&&!usedTransactions.has(t.id)).map(t=>({v:t.id,l:`${t.data} · ${fmt(Math.abs(t.valor))} · ${t.descricao||'Saída bancária'}`}))]}/>}
+ {form.origem==='empresa'&&<Sel label="Vincular à transação bancária (opcional)" value={form.transacaoId} onChange={v=>patch('transacaoId',v)} options={[{v:'',l:'Sem transação vinculada'},...(data.transacoes||[]).filter(t=>paymentBankDebitAvailable(t)&&!usedTransactions.has(t.id)).map(t=>({v:t.id,l:`${t.data} · ${fmt(Math.abs(t.valor))} · ${t.descricao||'Saída bancária'}`}))]}/>}
  <Inp label="Referência do pagamento" value={form.referencia} onChange={v=>patch('referencia',v)}/>
+ <p>{hasEvidence?'O comprovante ou movimento selecionado ficará associado à baixa.':'Sem comprovante ou movimento bancário informado nesta baixa.'}</p>
  <FilePicker buttonLabel="Selecionar comprovante" accept=".pdf,image/jpeg,image/png,image/webp" onChange={e=>{const file=e.target.files?.[0];e.target.value='';if(!file)return;if(file.size>5.5*1024*1024){setMessage('O comprovante deve ter no máximo 5,5 MB.');return;}patch('comprovanteFile',file);}}>{form.comprovanteFile?.name||'PDF ou imagem do comprovante'}</FilePicker>
  {form.comprovanteFile&&<Button variant="outline" onClick={()=>patch('comprovanteFile',null)}>Remover comprovante</Button>}{form.comprovanteFile&&<Inp label="Legenda do comprovante" value={form.comprovanteLegenda} onChange={v=>patch('comprovanteLegenda',v)}/>}<Inp label="Observação" multiline value={form.observacao} onChange={v=>patch('observacao',v)}/>
  </fieldset>}

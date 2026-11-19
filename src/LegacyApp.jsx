@@ -26,6 +26,11 @@ import {SaveRecoveryContext} from './features/workflow/SaveRecoveryContext.jsx';
 import {snapshotJournal,recoveryTab,snapshotChanges} from './domains/sync/snapshot-journal.js';
 import {SaveRecovery} from './domains/sync/SaveRecovery.jsx';
 import PaymentDialog from './features/financeiro/PaymentDialog.jsx';
+import {invoiceFiscalPending} from "./domains/financeiro/payables.js";
+import PaymentObligationCard from './features/financeiro/PaymentObligationCard.jsx';
+import {canRecordPayable} from './domains/financeiro/payable-access.js';
+import {awaitingBankReconciliation,requiresBankReconciliation} from './domains/financeiro/payment-evidence.js';
+import {active as activeFinancialRecord} from './domains/financeiro/facts.js';
 import PendingOperations from './features/workflow/PendingOperations.jsx';
 import {useQueuePreferences} from './features/workflow/useQueuePreferences.js';
 import {SidebarResize, useSidebarWidth} from './design-system/patterns/SidebarResize.jsx';
@@ -4049,14 +4054,14 @@ function CentralPagamentosFinanceiro({data,showToast,currentUser,onNovaNota,onAb
     ledgerPagamentos,obraId==="all"?{}:{obraId},
   ).filter(movement=>movement.natureza==="cash_out"
     && ["pedido","pagamento_nota","pagamento_terceiro","pagamento_terceiro_legado"].includes(movement.origem)
-    && !movement.transactionId&&!movement.metadata?.conciliado),[ledgerPagamentos,obraId]);
+    && requiresBankReconciliation(movement.metadata)&&!movement.transactionId&&!movement.metadata?.conciliado),[ledgerPagamentos,obraId]);
   const obraNome=id=>obras.find(o=>o.id===id)?.name||"Administrativo";
   const fornecedorPedido=useCallback(p=>(data.fornecedores||[]).find(f=>f.id===p.fornecedorId)?.nome||"Fornecedor não informado",[data.fornecedores]);
   const notasAtivas=useMemo(()=>notas.filter(n=>!notaSemEfeito(n)),[notas]);
   const pedidosComNota=useMemo(()=>new Set(notasAtivas.map(n=>n.pedidoId).filter(Boolean)),[notasAtivas]);
   const obrigacoes=useMemo(()=>{
-    const linhasNotas=notasAtivas.map(n=>{const total=Number(n.valorLiquido||n.valorBruto||0),saldo=saldoPagamentoNota(n),pagamentos=(n.pagamentos||[]).filter(pg=>pg.status!=="estornado"),status=statusPagamentoNota(n);const vencida=saldo>.01&&n.vencimento&&n.vencimento<today()&&status!=="conferencia";return{id:`nota-${n.id}`,tipo:"nota",registro:n,obraId:n.obraId,numero:`${String(n.tipo||"NF").toUpperCase()} ${n.numero||"sem número"}`,fornecedor:n.fornecedorNome||"Fornecedor não informado",emissao:n.emissao,vencimento:n.vencimento,total,saldo,pagamentos,documentos:n.documentos||[],estado:saldo<=.01?"paga":vencida?"vencida":status};});
-    const linhasPedidos=pedidos.filter(p=>!["cancelado","rascunho"].includes(p.status)&&!pedidosComNota.has(p.id)).map(p=>{const total=totalPedido(p),saldo=saldoPagamentoPedido(p),pagamentos=(p.pagamentos||[]).filter(pg=>pg.status!=="estornado");return{id:`pedido-${p.id}`,tipo:"pedido",registro:p,obraId:p.obraId,numero:p.numero||"Pedido",fornecedor:fornecedorPedido(p),emissao:p.data,vencimento:p.previsao,total,saldo,pagamentos,documentos:p.documentos||[],estado:saldo<=.01?"paga":totalPagoPedido(p)>0?"parcial":"sem_nota"};});
+    const linhasNotas=notasAtivas.map(n=>{const total=Number(n.valorLiquido||n.valorBruto||0),saldo=saldoPagamentoNota(n),pagamentos=(n.pagamentos||[]).filter(activeFinancialRecord),status=statusPagamentoNota(n);const vencida=saldo>.01&&n.vencimento&&n.vencimento<today()&&status!=="conferencia";return{id:`nota-${n.id}`,tipo:"nota",registro:n,obraId:n.obraId,numero:`${String(n.tipo||"NF").toUpperCase()} ${n.numero||"sem número"}`,fornecedor:n.fornecedorNome||"Fornecedor não informado",emissao:n.emissao,vencimento:n.vencimento,total,saldo,pagamentos,documentos:n.documentos||[],estado:saldo<=.01?"paga":vencida?"vencida":status};});
+    const linhasPedidos=pedidos.filter(p=>!["cancelado","rascunho"].includes(p.status)&&!pedidosComNota.has(p.id)).map(p=>{const total=totalPedido(p),saldo=saldoPagamentoPedido(p),pagamentos=(p.pagamentos||[]).filter(activeFinancialRecord);return{id:`pedido-${p.id}`,tipo:"pedido",registro:p,obraId:p.obraId,numero:p.numero||"Pedido",fornecedor:fornecedorPedido(p),emissao:p.data,vencimento:p.previsao,total,saldo,pagamentos,documentos:p.documentos||[],estado:saldo<=.01?"paga":totalPagoPedido(p)>0?"parcial":"sem_nota"};});
     const prioridade={vencida:0,autorizada:1,parcial:2,conferencia:3,sem_nota:4,paga:5};
     return[...linhasNotas,...linhasPedidos].sort((a,b)=>(prioridade[a.estado]??9)-(prioridade[b.estado]??9)||String(a.vencimento||"9999").localeCompare(String(b.vencimento||"9999")));
   },[notasAtivas,pedidos,pedidosComNota,fornecedorPedido]);
@@ -4064,34 +4069,34 @@ function CentralPagamentosFinanceiro({data,showToast,currentUser,onNovaNota,onAb
   const obrigacoesEscopo=obraId==="all"?obrigacoes:obrigacoes.filter(item=>item.obraId===obraId);
   const visiveis=obrigacoesEscopo.filter(item=>{
     if(view.invoiceId&&(item.tipo!=='nota'||String(item.registro.id)!==String(view.invoiceId)))return false;
-    const semConciliacao=item.pagamentos.some(pg=>!pg.conciliado);
-    if(filtro==="fila"&&item.estado==="paga"&&!semConciliacao)return false;
+    const semConciliacao=item.pagamentos.some(awaitingBankReconciliation);
+    if(filtro==="fila"&&item.estado==="paga"&&!semConciliacao&&!(item.tipo==="nota"&&invoiceFiscalPending(item.registro)))return false;
     if(filtro==="vencidas"&&item.estado!=="vencida")return false;
-    if(filtro==="autorizadas"&&!['autorizada','vencida','parcial'].includes(item.estado))return false;
-    if(filtro==="conferencia"&&item.estado!=="conferencia")return false;
+    if(filtro==="autorizadas"&&(item.saldo<=.01||item.tipo!=="nota"||invoiceFiscalPending(item.registro)))return false;
+    if(filtro==="conferencia"&&!(item.estado==="conferencia"||item.tipo==="nota"&&invoiceFiscalPending(item.registro)))return false;
     if(filtro==="sem_nota"&&item.estado!=="sem_nota")return false;
     if(filtro==="conciliar"&&!semConciliacao)return false;
     if(filtro==="pagas"&&item.estado!=="paga")return false;
     return !termo||normalizarIdentificacaoObra([item.numero,item.fornecedor,obraNome(item.obraId)].join(" ")).includes(termo);
   });
-  const abertas=obrigacoesEscopo.filter(i=>i.estado!=="paga"),autorizadas=abertas.filter(i=>["autorizada","vencida","parcial"].includes(i.estado));
-  const notasAutorizadas=new Set(notasAtivas.filter(n=>["aprovada","paga"].includes(n.status)).map(n=>String(n.id)));
+  const abertas=obrigacoesEscopo.filter(i=>i.estado!=="paga"),autorizadas=abertas.filter(i=>i.tipo==="nota"&&!invoiceFiscalPending(i.registro));
+  const notasAutorizadas=new Set(notasAtivas.filter(n=>!invoiceFiscalPending(n)).map(n=>String(n.id)));
   const totalAberto=contasPagar.balanceCents/100;
   const totalAutorizado=contasPagar.items
     .filter(item=>item.sourceType==="nota_fiscal"&&notasAutorizadas.has(String(item.sourceId)))
     .reduce((sum,item)=>sum+item.balanceCents/100,0);
   const totalVencido=contasPagar.items.filter(item=>item.status==="vencido")
     .reduce((sum,item)=>sum+item.balanceCents/100,0);
-  const semNota=abertas.filter(i=>i.estado==="sem_nota").length,emConferencia=abertas.filter(i=>i.estado==="conferencia").length;
+  const semNota=abertas.filter(i=>i.estado==="sem_nota").length,emConferencia=obrigacoesEscopo.filter(i=>i.estado==="conferencia"||i.tipo==="nota"&&invoiceFiscalPending(i.registro)).length;
   const semConciliar=saidasPendentesConciliacao.reduce((sum,movement)=>sum+movement.valor,0);
   const totalPedidosEscopo=pedidos.filter(p=>(obraId==="all"||p.obraId===obraId)&&!["cancelado","rascunho"].includes(p.status)).length;
   const totalPagas=obrigacoesEscopo.filter(i=>i.estado==="paga").length;
-  const totalAConciliar=obrigacoesEscopo.filter(i=>i.pagamentos.some(pg=>!pg.conciliado)).length;
+  const totalAConciliar=obrigacoesEscopo.filter(i=>i.pagamentos.some(awaitingBankReconciliation)).length;
   const resumoFinanceiro=[
     {label:"Contas a pagar",valor:totalAberto,cor:C.red,apoio:`${contar(contasPagar.items.filter(item=>item.balanceCents>1).length,"título","títulos")} no razão`},
     {label:"Autorizado a pagar",valor:totalAutorizado,cor:C.green,apoio:`${contar(autorizadas.length,"liberada","liberadas")}`},
-    {label:"Vencido",valor:totalVencido,cor:C.red,apoio:`${contasPagar.items.filter(item=>item.status==="vencido").length} vencida(s)`},
-    {label:"A conciliar",valor:semConciliar,cor:C.orange,apoio:`${contar(totalAConciliar,"pagamento","pagamentos")}`},
+    {label:"Vencido",valor:totalVencido,cor:C.red,apoio:`${contar(contasPagar.items.filter(item=>item.status==="vencido").length,"vencida","vencidas")}`},
+    {label:"A conciliar",valor:semConciliar,cor:C.orange,apoio:`${contar(totalAConciliar,"obrigação","obrigações")}`},
   ];
   const openPaymentMetric=label=>{
     let items;
@@ -4111,7 +4116,6 @@ function CentralPagamentosFinanceiro({data,showToast,currentUser,onNovaNota,onAb
     {numero:5,label:"Pagas",valor:totalPagas,cor:C.green,filtro:"pagas"},
     {numero:6,label:"A conciliar",valor:totalAConciliar,cor:C.orange,filtro:"conciliar"},
   ];
-  const estadoVisual={vencida:{l:"Vencida",c:C.red},autorizada:{l:"Autorizada",c:C.green},parcial:{l:"Parcial",c:C.orange},conferencia:{l:"Em conferência",c:C.blue},sem_nota:{l:"Aguardando NF",c:C.purple},paga:{l:"Paga",c:C.green}};
   const abrirPagamento=item=>setPagamento({type:item.tipo,id:item.registro.id});
   if(!podeOperar)return <div style={{padding:30,textAlign:"center",border:`1px solid ${C.border}`,borderRadius:12,color:C.red}}>Central operacional exclusiva do Financeiro e da Administração.</div>;
   return <div className="anim payment-workspace mrc-command-workspace">
@@ -4122,7 +4126,13 @@ function CentralPagamentosFinanceiro({data,showToast,currentUser,onNovaNota,onAb
     <PaymentOverview metrics={resumoFinanceiro} stages={etapasFluxo} filter={filtro} onStage={setFiltro} onMetric={openPaymentMetric} formatMoney={fmt}/>
     <div className="workspace-list-status"><h2>Fila de obrigações</h2><p role="status">{contar(visiveis.length,"resultado","resultados")}</p></div>
 
-    <div style={{display:"flex",flexDirection:"column",gap:7}}>{visiveis.map(item=>{const ev=estadoVisual[item.estado]||estadoVisual.conferencia,semConc=item.pagamentos.some(pg=>!pg.conciliado),vencida=item.estado==="vencida";return <article key={item.id} style={{background:C.card,border:`1px solid ${vencida?`${C.red}77`:C.border}`,borderLeft:`1px solid ${ev.c}`,borderRadius:9,overflow:"hidden",boxShadow:C.shHair}}><div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:10,alignItems:"start",padding:"10px 11px"}}><div style={{minWidth:0}}><div style={{display:"flex",gap:5,alignItems:"center",flexWrap:"wrap"}}><Badge color={ev.c}>{ev.l}</Badge><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:item.tipo==="nota"?C.blue:C.purple}}>{item.tipo==="nota"?"DOCUMENTO FISCAL":"PEDIDO SEM NF"}</span>{semConc&&<Badge color={C.orange}>A CONCILIAR</Badge>}</div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginTop:5,overflowWrap:"anywhere"}}>{item.numero} · {item.fornecedor}</p><div style={{display:"flex",gap:7,alignItems:"center",flexWrap:"wrap",marginTop:4,fontSize:"var(--arcd-type-caption)",color:C.muted}}><span><b style={{color:C.text}}>Obra:</b> {obraNome(item.obraId)}</span><span><b style={{color:C.text}}>Emissão:</b> {item.emissao?fmtDate(item.emissao):"-"}</span><span style={{color:vencida?C.red:C.muted}}><b style={{color:vencida?C.red:C.text}}>Vencimento:</b> {item.vencimento?fmtDate(item.vencimento):"não informado"}</span></div></div><div style={{minWidth:105,textAlign:"right",background:C.surface,border:`1px solid ${C.line}`,borderRadius:7,padding:"7px 8px"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>{item.saldo>.01?"Saldo a pagar":"Total pago"}</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:item.saldo>.01?C.red:C.green,marginTop:2}}>{fmt(item.saldo>.01?item.saldo:item.total)}</p>{item.saldo>.01&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>de {fmt(item.total)}</p>}</div></div>{item.estado==="sem_nota"&&<div style={{margin:"0 11px 8px",padding:"6px 8px",borderRadius:6,background:`${C.purple}0B`,color:C.purple,fontSize:"var(--arcd-type-caption)",fontWeight:600}}>Documento fiscal ainda não vinculado. Pagamentos antecipados permanecem sinalizados para auditoria.</div>}{item.estado==="conferencia"&&<div style={{margin:"0 11px 8px",padding:"6px 8px",borderRadius:6,background:`${C.blue}0B`,color:C.blue,fontSize:"var(--arcd-type-caption)",fontWeight:600}}>Aguardando conferência do pedido, recebimento, valores, retenções e rateio.</div>}{item.pagamentos.length>0&&<div style={{display:"flex",gap:5,flexWrap:"wrap",padding:"0 11px 8px"}}>{item.pagamentos.map(pg=><span key={pg.id} style={{fontSize:"var(--arcd-type-caption)",color:pg.conciliado?C.green:C.orange,background:pg.conciliado?`${C.green}0B`:`${C.orange}0B`,border:`1px solid ${pg.conciliado?C.green:C.orange}44`,borderRadius:99,padding:"3px 7px"}}>{fmt(pg.valor)} · {origemPagamentoLabel(pg.origem)} · {pg.conciliado?"conciliado":"pendente"}{(pg.comprovantes||[]).map(a=><CompanyAssetLink key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{color:C.blue,marginLeft:5,fontWeight:600}}>comprovante ↗</CompanyAssetLink>)}</span>)}</div>}<footer style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",padding:"7px 11px",borderTop:`1px solid ${C.line}`,background:C.surface}}><div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",minWidth:0}}>{item.documentos.map(a=><CompanyAssetLink key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:"var(--arcd-type-caption)",color:C.blue,fontWeight:600,textDecoration:"none"}}><Ic n="file" s={11}/>{a.legenda||a.nome} ↗</CompanyAssetLink>)}{!item.documentos.length&&<span style={{fontSize:"var(--arcd-type-caption)",color:C.orange,fontWeight:600}}>Sem anexo cadastrado</span>}</div><span style={{flex:1}}/><Btn size="sm" v="ghost" onClick={()=>onMemorial?.({title:item.numero,items:[{...financialEntry(data,{sourceType:item.tipo==="nota"?"nota_fiscal":"pedido",sourceId:item.registro.id,obraId:item.obraId,amountCents:Math.round(item.total*100)}),metadata:{saldo:item.saldo,vencimento:item.vencimento}}],context:"Documento e histórico de pagamentos"})}>Ver memorial</Btn>{item.estado==="sem_nota"&&<Btn size="sm" v="ghost" onClick={onNovaNota}>Receber documento fiscal</Btn>}{item.estado==="conferencia"&&<Btn size="sm" v="ghost" onClick={()=>onReviewInvoice?onReviewInvoice(item.registro):onAbrirFiscal()}>Conferir documento</Btn>}{item.tipo==="nota"&&hasInvoiceBankPayment(item.registro)&&onBank&&<Btn size="sm" v="ghost" onClick={()=>onBank(item.registro.id)}>Revisar conciliação</Btn>}{item.saldo>.01&&<Btn size="sm" onClick={()=>abrirPagamento(item)}><Ic n="receipt"/> Registrar pagamento</Btn>}</footer></article>;})}{!visiveis.length&&<div style={{padding:"28px 16px",textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:10,background:C.surface}}><Ic n="check" s={22} color={C.green}/><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginTop:6}}>Nenhuma obrigação neste filtro</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>A fila está atualizada com os pedidos e documentos fiscais cadastrados.</p></div>}</div>
+    <div className="grid gap-2">{visiveis.map(item=><PaymentObligationCard key={item.id} item={item} work={obraNome(item.obraId)}
+      canPay={canRecordPayable(currentUser,item.tipo,item.obraId,"fin")} onPay={()=>abrirPagamento(item)}
+      onReview={item.tipo==="nota"?()=>onReviewInvoice?onReviewInvoice(item.registro):onAbrirFiscal():undefined}
+      onReceive={onNovaNota}
+      onBank={item.tipo==="nota"&&hasInvoiceBankPayment(item.registro)&&onBank?()=>onBank(item.registro.id):undefined}
+      onMemorial={onMemorial?()=>onMemorial({title:item.numero,items:[{...financialEntry(data,{sourceType:item.tipo==="nota"?"nota_fiscal":"pedido",sourceId:item.registro.id,obraId:item.obraId,amountCents:Math.round(item.total*100)}),metadata:{saldo:item.saldo,vencimento:item.vencimento}}],context:"Documento e histórico de pagamentos"}):undefined}
+    />)}{!visiveis.length&&<p role="status">Nenhuma obrigação neste filtro</p>}</div>
     {pagamento&&<PaymentDialog data={data} user={currentUser} type={pagamento.type} id={pagamento.id} pageId="fin" dispatch={dispatchCommand} onClose={()=>setPagamento(null)} onSaved={()=>showToast('Pagamento registrado e confirmado pelo servidor.')}/>}
   </div>;
 }

@@ -64,7 +64,7 @@
     "src/features/conciliacao/ConciliacaoView.jsx": 10,
     "src/features/financeiro/FinancialReportCenter.jsx": 1,
     "src/features/financeiro/LegacyDocumentTools.jsx": 1,
-    "src/LegacyApp.jsx": 13,
+    "src/LegacyApp.jsx": 12,
     "src/reports/labor-projection.js": 4,
     "src/reports/legacy-standard.js": 1
   },

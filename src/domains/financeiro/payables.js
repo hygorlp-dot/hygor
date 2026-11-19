@@ -14,6 +14,9 @@ export const saldoPagamentoNota = nota =>
 export const notaSemEfeito = nota =>
   ["cancelada", "rejeitada", "estornada"].includes(String(nota?.status || "").toLowerCase());
 
+export const invoiceFiscalPending=nota=>
+  Boolean(nota?.conferenciaFiscalPendente||!["aprovada","paga"].includes(nota?.status));
+
 export const statusPagamentoNota = nota => {
   if (nota?.status === "cancelada") return "cancelada";
   const total = Number(nota?.valorLiquido || nota?.valorBruto || 0);

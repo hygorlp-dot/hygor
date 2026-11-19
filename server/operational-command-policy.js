@@ -1,3 +1,4 @@
+import {canApprovePayableInvoice,canRecordPayable} from '../src/domains/financeiro/payable-access.js';
 import {contractCommandScope,RECORD_COMMAND_TYPES} from '../src/domains/comercial/contracts/record-commands.js';
 import {thirdPartyInvoiceLinkWork} from '../src/domains/financeiro/workflows.js';
 import {folderAccess} from '../src/domains/arquivos/access.js';
@@ -195,6 +196,13 @@ export const validateOperationalCommandScope=({user={},data={},command={}}={})=>
   if(ENGINEERING_COMMAND_TYPES.has(command.type))return validateEngineeringScope({user,data,command});
   if(FILE_COMMAND_TYPES.has(command.type))return validateFileCabinetScope({user,data,command});
   const obraId=operationalCommandObraId(data,command);
+  if(command.type===OPERATIONAL_COMMAND.PAYABLE_PAYMENT_RECORDED&&
+    !canRecordPayable(user,command.payload?.targetType,obraId)){
+    return {ok:false,error:"Seu perfil não pode registrar pagamentos desta obrigação."};
+  }
+  if(command.type===OPERATIONAL_COMMAND.INVOICE_APPROVED&&!canApprovePayableInvoice(user,obraId)){
+    return {ok:false,error:"Seu perfil não pode aprovar esta nota fiscal."};
+  }
   if(COST_CONTROL_COMMAND_TYPES.has(command.type)){
     if(command.type===OPERATIONAL_COMMAND.SERVICE_COMMITMENT_LINK_SAVED&&(user.active===false||!podeAcessarAba(user,'fin')))return {ok:false,error:'Seu perfil não pode vincular compromissos à previsão.'};
     const allowed=['admin','financeiro'].includes(user.role)&&(user.role==='admin'||!user.obraId||String(user.obraId)===obraId);

@@ -35,3 +35,12 @@
  .payment-workspace article footer>span{display:none}
  .payment-workspace article footer>button{flex:1 1 130px;min-height:44px;min-width:min(100%,130px);word-break:normal;overflow-wrap:normal}
 }
+.payment-obligation{display:grid;gap:var(--arcd-space-2);min-width:0;padding:var(--arcd-box-padding);border:1px solid var(--arcd-border-default);border-radius:var(--arcd-box-radius);background:var(--arcd-surface-card);overflow-wrap:anywhere}
+.payment-obligation__summary{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--arcd-space-2);align-items:start}
+.payment-obligation h3{font-size:var(--arcd-type-card-title)}
+.payment-obligation p,.payment-obligation__balance{font-size:var(--arcd-type-label)}
+.payment-obligation__balance{display:grid;text-align:end;font-variant-numeric:tabular-nums}
+.payment-obligation__balance>strong{font-size:var(--arcd-type-card-title)}
+.payment-obligation[data-overdue] .payment-obligation__balance>strong{color:var(--arcd-danger-text)}
+.payment-obligation__history{display:grid;gap:var(--arcd-space-3);padding-inline-start:var(--arcd-space-4)}
+@media(max-width:767px){.payment-obligation>.financial-record-flow__actions>button{flex:1 1 100%;white-space:normal}}

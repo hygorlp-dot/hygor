@@ -7,6 +7,8 @@ import {
 import { saldoPagamentoNota } from "./payables.js";
 import { saldoPagamentoPedido } from "../compras/calculations.js";
 import { calculateWorkCash } from "./work-cash.js";
+import {buildFinancialLedger,selectDRE} from "./ledger.js";
+import {awaitingBankReconciliation} from "./payment-evidence.js";
 
 const now="2026-07-28T14:00:00.000Z";
 const order={
@@ -105,6 +107,32 @@ describe("comandos transacionais de pagamentos de obrigações",()=>{
       targetType:"pedido",targetId:"p-1",payment:payment({transacaoId:"t-2"}),
     }),now);
     expect(mismatch.reason).toMatch(/diverge/);
+  });
+
+  it("preserva comprovante, vincula a saída e recusa reaproveitar a identidade",()=>{
+    const data={...base(),notasFiscais:[{...conferredInvoice,emissao:"2026-07-28",categoria:"material"}],
+      transacoes:[{id:"tx",data:"2026-07-28",valor:-40,status:"pendente"}]};
+    const proof={id:"proof",driveId:"qa-drive",url:"https://example.test/proof.pdf"};
+    const request=command(PAYABLE_PAYMENT_COMMAND.PAYABLE_PAYMENT_RECORDED,{
+      targetType:"nota",targetId:"nf-conf",payment:payment({valor:40,transacaoId:"tx",comprovantes:[proof]}),
+    },0);
+    const result=applyPayablePaymentCommand(data,request,now);
+    expect(result.ok).toBe(true);
+    const note=result.data.notasFiscais[0];
+    expect(saldoPagamentoNota(note)).toBe(60);
+    const cost=state=>selectDRE(buildFinancialLedger(state),{competence:"2026-07"}).costCents;
+    expect(cost(data)).toBe(10000);
+    expect(cost(result.data)).toBe(cost(data));
+    expect(awaitingBankReconciliation({origem:"cliente_direto",status:"ativo"})).toBe(false);
+    expect(awaitingBankReconciliation({origem:"caixa_obra",status:"ativo"})).toBe(false);
+    expect(note.pagamentos[0]).toMatchObject({comprovantes:[proof],registradoPor:"Ana",registradoEm:now,transacaoId:"tx"});
+    const before=structuredClone(result.data);
+    const retry={...request,expectedVersion:note.version};
+    expect(applyPayablePaymentCommand(result.data,retry,now).reason).toMatch(/identificação/);
+    expect(applyPayablePaymentCommand(result.data,{...retry,payload:{...retry.payload,payment:{...retry.payload.payment,id:"new"}}},now).reason).toMatch(/já está conciliada/);
+    const ignored={...data,transacoes:[{...data.transacoes[0],status:"ignorado"}]};
+    expect(applyPayablePaymentCommand(ignored,request,now).reason).toMatch(/indisponível/);
+    expect(result.data).toEqual(before);
   });
 
   it("reclassifica a origem preservando o movimento anterior como estornado",()=>{

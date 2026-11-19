@@ -107,14 +107,30 @@ describe("escopo servidor de comandos operacionais",()=>{
     }})).toMatchObject({ok:true,obraId:"obra-a"});
   });
   it("protege pagamentos de obrigações pelo vínculo autoritativo da obra",()=>{
-    expect(validateOperationalCommandScope({user,data,command:{
+    const finance={...user,role:'financeiro'};
+    expect(validateOperationalCommandScope({user:finance,data,command:{
       type:OPERATIONAL_COMMAND.PAYABLE_PAYMENT_RECORDED,
       payload:{targetType:"pedido",targetId:"p-a"},
     }})).toMatchObject({ok:true,obraId:"obra-a"});
-    expect(validateOperationalCommandScope({user,data:{...data,pedidos:[{id:"p-b",obraId:"obra-b"}]},command:{
+    expect(validateOperationalCommandScope({user:finance,data:{...data,pedidos:[{id:"p-b",obraId:"obra-b"}]},command:{
       type:OPERATIONAL_COMMAND.PAYABLE_PAYMENT_REVERSED,
       payload:{targetType:"pedido",targetId:"p-b",paymentId:"pg-1"},
     }})).toMatchObject({ok:false});
+  });
+  it("separa aprovação fiscal e baixa pelas abas, perfil e obra",()=>{
+    const approve={type:OPERATIONAL_COMMAND.INVOICE_APPROVED,payload:{invoiceId:"nf-a"}};
+    const pay={type:OPERATIONAL_COMMAND.PAYABLE_PAYMENT_RECORDED,payload:{targetType:"nota",targetId:"nf-a"}};
+    const buy={...pay,payload:{targetType:"pedido",targetId:"p-a"}};
+    const finance={...user,role:"financeiro"};
+    const purchasing={...user,role:"compras"};
+    for(const command of [approve,pay]){
+      expect(validateOperationalCommandScope({user:finance,data,command}).ok).toBe(true);
+      expect(validateOperationalCommandScope({user:purchasing,data,command}).ok).toBe(false);
+      expect(validateOperationalCommandScope({user:{...finance,accessTabs:["cmp"]},data,command}).ok).toBe(false);
+      expect(validateOperationalCommandScope({user:{...finance,obraId:"obra-b"},data,command}).ok).toBe(false);
+    }
+    expect(validateOperationalCommandScope({user:purchasing,data,command:buy}).ok).toBe(true);
+    expect(validateOperationalCommandScope({user:{...purchasing,accessTabs:[]},data,command:buy}).ok).toBe(false);
   });
   it("protege o cancelamento integral da compra pelo pedido autoritativo",()=>{
     expect(validateOperationalCommandScope({user,data,command:{
@@ -159,15 +175,16 @@ describe("escopo servidor de comandos operacionais",()=>{
     }})).toMatchObject({ok:true,obraId:"obra-a"});
   });
   it("protege criação, edição e aprovação fiscal pela obra autoritativa",()=>{
-    expect(validateOperationalCommandScope({user,data,command:{
+    const finance={...user,role:'financeiro'};
+    expect(validateOperationalCommandScope({user:finance,data,command:{
       type:OPERATIONAL_COMMAND.INVOICE_SAVED,
       payload:{invoice:{id:"nf-new",obraId:"obra-a"}},
     }})).toMatchObject({ok:true,obraId:"obra-a"});
-    expect(validateOperationalCommandScope({user,data,command:{
+    expect(validateOperationalCommandScope({user:finance,data,command:{
       type:OPERATIONAL_COMMAND.INVOICE_SAVED,
       payload:{invoice:{id:"nf-new",obraId:"obra-b"}},
     }})).toMatchObject({ok:false});
-    expect(validateOperationalCommandScope({user,data,command:{
+    expect(validateOperationalCommandScope({user:finance,data,command:{
       type:OPERATIONAL_COMMAND.INVOICE_APPROVED,
       payload:{invoiceId:"nf-a"},
     }})).toMatchObject({ok:true,obraId:"obra-a"});
