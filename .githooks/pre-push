@@ -8,5 +8,7 @@
 set -e
 echo "pre-push: verificando antes de publicar (lint, arquitetura, tipos, build local e testes)..."
 npm run --silent validate:local
-npx vitest run --reporter=dot
+# Limita processos simultâneos para manter a suíte completa estável também em
+# máquinas compartilhadas com o ERP e o banco descartável de recuperação.
+npx vitest run --reporter=dot --maxWorkers=4
 echo "pre-push: tudo verde."
