@@ -19,3 +19,31 @@ export function accountReviewSummary(data) {
   }
   return [...accounts.values()];
 }
+
+const historyTypes = new Map(Object.entries({
+  caixaObra:'Caixa da obra', despesasEmpresa:'Despesa da empresa', outrasDesp:'Despesa da obra',
+  payments:'Recebimento', pagamentoNota:'Pagamento de nota', pagamentoPedido:'Pagamento de pedido',
+  recebimentoMedicao:'Recebimento de medição', recebimentoEntradaContrato:'Recebimento de contrato',
+  pagsTerceiros:'Pagamento de terceiro', pagamentoFolha:'Pagamento de folha',
+  liquidacaoFolha:'Liquidação de folha', transferenciaInterna:'Transferência interna',
+}));
+
+const historyLabels = new Map(Object.entries({
+  id:'Registro', entidadeId:'Origem', conciliacaoId:'Conciliação', reconciliationLinkId:'Vínculo de conciliação',
+}));
+
+export function reconciliationHistoryDetails(value, depth=0) {
+  if(typeof value==='string')return value;
+  if(typeof value==='number')return String(value);
+  if(typeof value==='boolean')return value?'Sim':'Não';
+  if(!value||typeof value!=='object')return '';
+  if(depth>=4)return 'Detalhes adicionais no registro original';
+  if(Array.isArray(value))return value.map(item=>reconciliationHistoryDetails(item,depth+1)).filter(Boolean).join(' | ');
+  return Object.entries(value).map(([key,detail])=>{
+    const text=reconciliationHistoryDetails(detail,depth+1);
+    if(!text)return '';
+    if(key==='tipo')return historyTypes.get(text)||text;
+    const label=historyLabels.get(key)||key.replace(/([a-z])([A-Z])/g,'$1 $2').replace(/_/g,' ');
+    return `${label} ${text}`;
+  }).filter(Boolean).join(' · ');
+}

@@ -10,8 +10,8 @@ import KanbanBoard from "./KanbanBoard.jsx";
 import { ENGINEERING_COMMAND as CMD } from "./commands.js";
 import { formatDuration, safeProjectUrl, REVISION_STATUSES } from "./model.js";
 import { TASK_STATUSES, TASK_PRIORITIES, taskSeconds, taskDependencyError, checklistProgress, latestDeliveryRevision } from "./kanban-model.js";
+import { displayDate, displayTimestamp } from "./date-labels.js";
 
-const date = value => value ? new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Bahia" }).format(new Date(`${value}T12:00:00-03:00`)) : "Sem prazo";
 function TaskCard({ task, project, users, currentUser, now, active, busy, editable, send, onEdit }) {
   const [comment, setComment] = useState("");
   const [pendingChecklist, setPendingChecklist] = useState(null);
@@ -25,7 +25,7 @@ function TaskCard({ task, project, users, currentUser, now, active, busy, editab
   return <div className="engineering-task-content">
     <h5>{task.title}</h5>
     <div className="engineering-card-badges"><Badge tone={priority === "urgente" ? "danger" : priority === "alta" ? "warning" : "neutral"}>{TASK_PRIORITIES[priority]}</Badge>{blocked && <Badge tone="warning">Bloqueada</Badge>}{running && <Badge tone="success">Seu cronômetro ativo</Badge>}</div>
-    <p>{users.get(task.responsibleId) || "Responsável indisponível"} · {date(task.deadline)}</p>
+    <p>{users.get(task.responsibleId) || "Responsável indisponível"} · {displayDate(task.deadline)}</p>
     <p className="engineering-duration">{formatDuration(taskSeconds(project, task.id, now))} / {Number(task.plannedHours || 0).toLocaleString("pt-BR")} h previstas</p>
     {blocked && <p className="engineering-blocked">{blocked}</p>}
     {task.description && <p>{task.description}</p>}
@@ -36,7 +36,7 @@ function TaskCard({ task, project, users, currentUser, now, active, busy, editab
       <Button type="button" variant="outline" disabled={busy || !editable || (!running && (Boolean(active) || Boolean(blocked) || task.status === "concluida"))} aria-label={`${running ? "Pausar" : "Iniciar"} atividade ${task.title}`} onClick={() => running ? send(CMD.ENG_TIMER_STOPPED, project.id, { sessionId: active.session.id }) : send(CMD.ENG_TIMER_STARTED, project.id, { taskId: task.id, note: `Atividade: ${task.title}` })}>{running ? <Pause size={16} data-icon="inline-start" /> : <Play size={16} data-icon="inline-start" />}{running ? "Pausar" : "Iniciar"}</Button>
       <Button type="button" variant="ghost" disabled={busy || !editable} onClick={() => onEdit(task)} aria-label={`Editar atividade ${task.title}`}>Editar</Button>
     </div>
-    <details className="engineering-task-comments"><summary>Comentários ({task.comments?.length || 0})</summary>{(task.comments || []).map(entry => <div key={entry.id}><strong>{entry.by}</strong><time dateTime={entry.at}>{new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Bahia" }).format(new Date(entry.at))}</time><p>{entry.text}</p></div>)}{editable && <form onSubmit={async event => { event.preventDefault(); if (await send(CMD.ENG_TASK_COMMENT_ADDED, project.id, { taskId: task.id, comment }, project.version)) setComment(""); }}><Input label={`Comentário em ${task.title}`} required maxLength={4000} value={comment} onChange={event => setComment(event.target.value)} disabled={busy} /><Button type="submit" variant="outline" disabled={busy || !comment.trim()}>Comentar</Button></form>}</details>
+    <details className="engineering-task-comments"><summary>Comentários ({task.comments?.length || 0})</summary>{(task.comments || []).map(entry => <div key={entry.id}><strong>{entry.by}</strong><time dateTime={entry.at}>{displayTimestamp(entry.at)}</time><p>{entry.text}</p></div>)}{editable && <form onSubmit={async event => { event.preventDefault(); if (await send(CMD.ENG_TASK_COMMENT_ADDED, project.id, { taskId: task.id, comment }, project.version)) setComment(""); }}><Input label={`Comentário em ${task.title}`} required maxLength={4000} value={comment} onChange={event => setComment(event.target.value)} disabled={busy} /><Button type="submit" variant="outline" disabled={busy || !comment.trim()}>Comentar</Button></form>}</details>
   </div>;
 }
 

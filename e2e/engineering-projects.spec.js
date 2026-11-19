@@ -70,6 +70,38 @@ async function addLink(page) {
   await page.getByRole("button", { name: "Salvar registro", exact: true }).click();
 }
 
+for (const width of [1440, 390]) for (const theme of ["marcell", "noite"]) test(`datas inválidas preservam o acesso a Projetos em ${width}px · ${theme}`, async ({ page }, info) => {
+  await page.setViewportSize({ width, height: 900 });
+  await page.addInitScript(value => localStorage.setItem("arcd-theme", value), theme);
+  const app = await enter(page, { prepare: state => {
+    state.engineeringProjects = [{
+      id: "project-old", obraId: "a", name: "Projeto com histórico", responsibleId: PROFILE.id,
+      status: "ativo", stage: "Executivo", discipline: "Arquitetura", plannedHours: 10, deadline: "data inválida",
+      tasks: [
+        { id: "task-old", title: "Atividade antiga", status: "pendente", deadline: "2026-02-30", responsibleId: PROFILE.id,
+          comments: [{ id: "comment-old", text: "Comentário preservado", by: PROFILE.nome, at: "data inválida" }] },
+        { id: "task-valid", title: "Atividade com prazo válido", status: "pendente", deadline: "2026-11-30", responsibleId: PROFILE.id },
+      ],
+      history: [{ id: "old-event", detail: "Projeto criado", at: "data inválida" }],
+      sessions: [{ id: "session-old", userId: PROFILE.id, startedAt: "2026-10-31T11:00:00Z", endedAt: "data inválida" }],
+    }];
+  } });
+  await expect(page.getByText("Prazo inválido", { exact: false })).toBeVisible();
+  await page.getByRole("button", { name: "Projeto com histórico", exact: true }).click();
+  const oldTask = page.locator(".engineering-task-content").filter({ has: page.getByRole("heading", { name: "Atividade antiga", exact: true }) });
+  await expect(oldTask.getByText("Prazo inválido", { exact: false })).toBeVisible();
+  await expect(page.getByText("30/11/2026", { exact: false })).toBeVisible();
+  await oldTask.locator("summary").click();
+  await expect(oldTask.getByText("Data inválida", { exact: true })).toBeVisible();
+  await page.locator(".engineering-audit summary").click();
+  await expect(page.locator(".engineering-audit")).toContainText("Data inválida");
+  await projectArea(page, "Horas", "hours");
+  await expect(page.getByText("Data inválida", { exact: false })).toBeVisible();
+  await page.screenshot({ path: info.outputPath("projetos-datas.png"), fullPage: true });
+  expect(app.errors).toEqual([]);
+  expect(app.commands).toEqual([]);
+});
+
 for (const width of [1440, 390]) test(`projeto, cronômetro, links e revisões em ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 1000 });
   const app = await enter(page);

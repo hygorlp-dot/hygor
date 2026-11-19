@@ -781,7 +781,7 @@ O projeto apresenta a informação atualizada na área correta.
 
 ### O que merece atenção
 
-Ao usar o controle de tempo, confira a sessão ativa e encerre-a ao concluir a atividade.
+Ao usar o controle de tempo, confira a sessão ativa e encerre-a ao concluir a atividade. Se aparecer Prazo inválido, confira o prazo em Editar projeto ou Editar na atividade. Se aparecer Data inválida no histórico, confira a data com a equipe responsável.
 
 <a id="guia-rdo"></a>
 
@@ -2000,6 +2000,7 @@ Confira banco, conta e período do extrato.
 4. Quando o mesmo prestador tiver contratos em várias obras, confira a obra, o contrato e a obrigação de cada pagamento. O vínculo existente do prestador identifica a pessoa quando seus dados concordam; não escolhe o contrato nem junta pagamentos. Dados de identidade divergentes exigem conferência.
 5. Confira também pendências de extratos arquivados antes de reabrir ou reimportar: arquivar não significa conciliar nem autoriza repetir um pagamento.
 6. Confirme o vínculo apenas após a conferência e acompanhe o saldo e as pendências.
+7. Em Mais opções · extratos, regras e histórico, abra Histórico para conferir as operações e as referências dos lançamentos. Você pode buscar pelo identificador do registro.
 
 ### Como conferir se deu certo
 

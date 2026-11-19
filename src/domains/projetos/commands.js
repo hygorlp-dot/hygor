@@ -1,4 +1,4 @@
-import { PROJECT_STAGES, PROJECT_DISCIPLINES, PROJECT_STATUSES, safeProjectUrl, activeProjectSession, sessionSeconds } from "./model.js";
+import { PROJECT_STAGES, PROJECT_DISCIPLINES, PROJECT_STATUSES, isProjectDate, safeProjectUrl, activeProjectSession, sessionSeconds } from "./model.js";
 import { TASK_STATUSES, TASK_PRIORITIES, cyclicDependencies, taskTransitionError, taskDependencyError, projectCompletionError, reorderTask, projectOrderForMove } from "./kanban-model.js";
 
 export const ENGINEERING_COMMAND = Object.freeze({
@@ -19,7 +19,7 @@ export const ENGINEERING_COMMAND_TYPES = new Set(Object.values(ENGINEERING_COMMA
 export const ENGINEERING_ROLES = ["admin", "engenheiro", "engenheiro_auditor", "compras", "financeiro", "rh", "comercial", "visualizador"];
 const fail = reason => ({ ok: false, reason });
 const text = (value, max = 200) => String(value || "").trim().slice(0, max);
-const validDate = value => !value || (/^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value);
+const validDate = value => !value || isProjectDate(value);
 const validUser = (data, id) => (data.usuarios || []).some(user => user.id === id && user.active !== false);
 export const engineeringProjectForCommand = (data, command) => (data.engineeringProjects || []).find(project => project.id === command.payload?.projectId);
 

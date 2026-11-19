@@ -9,9 +9,8 @@ import TasksView from "./TasksView.jsx";
 import { RecordForm } from "./ProjectForms.jsx";
 import { ENGINEERING_COMMAND as CMD } from "./commands.js";
 import { formatDuration, projectSeconds, sessionSeconds, safeProjectUrl, REVISION_STATUSES, PROJECT_STATUSES } from "./model.js";
+import { displayDate, displayTimestamp } from "./date-labels.js";
 
-export const displayDate = value => value ? new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Bahia" }).format(new Date(value.length === 10 ? `${value}T12:00:00-03:00` : value)) : "Sem prazo";
-export const displayTimestamp = value => value ? new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Bahia", dateStyle: "short", timeStyle: "short" }).format(new Date(value)) : "Em andamento";
 function ProjectLink({ url, children }) {
   const safe = safeProjectUrl(url);
   return safe ? <a href={safe} target="_blank" rel="noopener noreferrer">{children}<ExternalLink size={14} aria-hidden="true" /></a> : <span>Link indisponível</span>;
@@ -68,7 +67,7 @@ export default function ProjectDetail({ project, data, currentUser, now, active,
         <h3>Horas por pessoa</h3><dl className="engineering-people">{Object.entries(hoursByUser).map(([userId, seconds]) => <div key={userId}><dt>{users.get(userId) || project.sessions.find(session => session.userId === userId)?.userName || "Usuário"}</dt><dd className="engineering-duration">{formatDuration(seconds)}</dd></div>)}</dl>
         <h3>Sessões de trabalho</h3>
         {!(project.sessions || []).length && <p className="engineering-empty">As sessões aparecerão aqui após iniciar o cronômetro.</p>}
-        {[...(project.sessions || [])].reverse().map(session => <div className="engineering-record" key={session.id}><div><strong>{session.userName || users.get(session.userId) || "Usuário"}</strong><p>{displayTimestamp(session.startedAt)} → {displayTimestamp(session.endedAt)}{session.adjustedSeconds != null ? " · Duração ajustada" : ""}{sessionSeconds(session, now) > 43200 ? " · Conferir sessão acima de 12h" : ""}</p>{session.taskId && <p>Atividade: {project.tasks?.find(task => task.id === session.taskId)?.title || "Atividade indisponível"}</p>}{session.note && <p>{session.note}</p>}</div><div className="engineering-actions"><span className="engineering-duration">{formatDuration(sessionSeconds(session, now))}</span>{editable && session.endedAt && (session.userId === currentUser.id || currentUser.role === "admin") && <Button variant="ghost" disabled={busy} onClick={() => open("adjust", session)}>Ajustar horas</Button>}</div></div>)}
+        {[...(project.sessions || [])].reverse().map(session => <div className="engineering-record" key={session.id}><div><strong>{session.userName || users.get(session.userId) || "Usuário"}</strong><p>{displayTimestamp(session.startedAt)} → {displayTimestamp(session.endedAt, "Em andamento")}{session.adjustedSeconds != null ? " · Duração ajustada" : ""}{sessionSeconds(session, now) > 43200 ? " · Conferir sessão acima de 12h" : ""}</p>{session.taskId && <p>Atividade: {project.tasks?.find(task => task.id === session.taskId)?.title || "Atividade indisponível"}</p>}{session.note && <p>{session.note}</p>}</div><div className="engineering-actions"><span className="engineering-duration">{formatDuration(sessionSeconds(session, now))}</span>{editable && session.endedAt && (session.userId === currentUser.id || currentUser.role === "admin") && <Button variant="ghost" disabled={busy} onClick={() => open("adjust", session)}>Ajustar horas</Button>}</div></div>)}
       </TabsContent>
       <TabsContent value="revisions">
         <div className="engineering-section-heading"><h3>Histórico de revisões</h3><Button variant="outline" disabled={busy || !editable || !project.links?.length} onClick={() => open("revision")}><Plus size={16} data-icon="inline-start" />Enviar revisão</Button></div>

@@ -3,6 +3,11 @@ export const PROJECT_DISCIPLINES = ["Arquitetura", "Estrutura", "Hidrossanitári
 export const PROJECT_STATUSES = { ativo: "Em andamento", concluido: "Concluído", arquivado: "Arquivado" };
 export const REVISION_STATUSES = { pendente: "Aguardando revisão", aprovada: "Aprovada", ajustes: "Ajustes solicitados" };
 
+export function isProjectDate(value) {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)
+    && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
+}
+
 export function safeProjectUrl(value) {
   try {
     const url = new URL(String(value || "").trim());
