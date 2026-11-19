@@ -253,7 +253,7 @@ async function invoiceFile(req,res,db,projectId,invoiceId,documentId){
     if(!document?.reference)return res.status(404).json({error:"Anexo indisponível para este acesso."});
     const {driveId,itemId}=document.reference;
     const {accessToken}=await refresh({headers:{cookie:""}});
-    const file=await (await graph(accessToken,`/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}?$select=id,name,@microsoft.graph.downloadUrl`)).json();
+    const file=await (await graph(accessToken,`/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}`)).json();
     const url=file["@microsoft.graph.downloadUrl"];
     if(!url||!url.startsWith("https://"))return res.status(404).json({error:"O original da nota não está disponível."});
     await auditPortalEvent(db,{userId:user.id,projectId,eventType:"invoice_document_opened",metadata:{invoiceId,documentId}});
@@ -281,7 +281,7 @@ async function mediaFile(req,res,db,projectId,mediaId){
     }
     const {driveId,itemId}=photo.reference;
     const {accessToken}=await refresh({headers:{cookie:""}});
-    const file=await (await graph(accessToken,`/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}?$select=id,name,@microsoft.graph.downloadUrl`)).json();
+    const file=await (await graph(accessToken,`/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}`)).json();
     const url=file["@microsoft.graph.downloadUrl"];
     if(!url?.startsWith("https://"))return res.status(404).json({error:"Foto original indisponível."});
     res.setHeader("Referrer-Policy","no-referrer");res.setHeader("Location",url);return res.status(302).end();
@@ -324,7 +324,7 @@ async function publishedDocument(req,res,db,projectId,documentId){
     if(!document?.reference)return res.status(404).json({error:"Documento não liberado para este acesso."});
     const {driveId,itemId}=document.reference;
     const {accessToken}=await refresh({headers:{cookie:""}});
-    const file=await (await graph(accessToken,`/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}?$select=id,name,@microsoft.graph.downloadUrl`)).json();
+    const file=await (await graph(accessToken,`/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}`)).json();
     const url=file["@microsoft.graph.downloadUrl"];
     if(!url?.startsWith("https://"))return res.status(404).json({error:"Original indisponível."});
     await auditPortalEvent(db,{userId:user.id,projectId,eventType:"published_document_opened",metadata:{documentId}});

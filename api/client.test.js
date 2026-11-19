@@ -10,7 +10,7 @@ import {attendanceObraKey} from "../server/attendance-obra-routing.js";
 import {getDocument} from 'pdfjs-dist/legacy/build/pdf.mjs';
 const state=vi.hoisted(()=>({db:null}));
 vi.mock("../server/client-portal-runtime.js",async original=>({...await original(),portalDb:()=>state.db}));
-vi.mock("../server/microsoft/graph.js",()=>({refresh:vi.fn(async()=>({accessToken:"token-exclusivo-servidor"})),graph:vi.fn(async()=>({json:async()=>({"@microsoft.graph.downloadUrl":"https://files.example.test/temporario.pdf"})}))}));
+vi.mock("../server/microsoft/graph.js",()=>({refresh:vi.fn(async()=>({accessToken:"token-exclusivo-servidor"})),graph:vi.fn(async(token,path)=>({json:async()=>path.includes("$select=")?{id:"file"}:{"@microsoft.graph.downloadUrl":"https://files.example.test/temporario.pdf"}}))}));
 import {graph} from "../server/microsoft/graph.js";
 import handler from "./client.js";
 let db;
