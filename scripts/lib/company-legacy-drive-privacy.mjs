@@ -14,11 +14,14 @@ export async function protectLegacyCompanyDrive({request,driveId,rootId,expected
   if(nodes.length>10000)throw Error('Legacy inventory limit');
  }
  if(!expectedSourceRoots.length||expectedSourceRoots.some(id=>!ids.has(id)))throw Error('Legacy source workspace identity missing');
- const permissionPath=id=>path(id)+'/permissions',owner=p=>Array.isArray(p.roles)&&p.roles.length>0&&p.roles.every(r=>r==='owner')&&!p.link;
+ // OneDrive Personal can attach only the item's webUrl to the owner's
+ // permission. That pointer does not grant sharing access; an actual sharing
+ // link has scope/type or other sharing properties. Never delete the owner.
+ const permissionPath=id=>path(id)+'/permissions',owner=p=>Array.isArray(p.roles)&&p.roles.length>0&&p.roles.every(r=>r==='owner')&&(!p.link||Object.keys(p.link).every(key=>key==='webUrl'));
  const removed=[];
  if(apply){
   // Breadth-first order removes inherited sharing at its known source first.
-  for(const node of nodes){const permissions=await pages(permissionPath(node.id));for(const p of permissions){if(owner(p))continue;if(!p.id||p.inheritedFrom&&!ids.has(p.inheritedFrom.id))throw Error('Sharing inherited outside reviewed legacy tree');const response=await request(permissionPath(node.id)+'/'+enc(p.id),{method:'DELETE'});if(!response.ok&&response.status!==404)throw Error('Legacy permission removal refused');removed.push({itemId:node.id,permissionId:p.id});}if(removed.length)log({phase:'legacy-sharing',visited:removed.length});}
+  for(const node of nodes){const permissions=await pages(permissionPath(node.id));for(const p of permissions){if(owner(p))continue;if(p.roles?.includes('owner'))throw Error('Legacy owner permission has unverified sharing metadata');if(!p.id||p.inheritedFrom&&!ids.has(p.inheritedFrom.id))throw Error('Sharing inherited outside reviewed legacy tree');const response=await request(permissionPath(node.id)+'/'+enc(p.id),{method:'DELETE'});if(!response.ok&&response.status!==404)throw Error('Legacy permission removal refused');removed.push({itemId:node.id,permissionId:p.id});}if(removed.length)log({phase:'legacy-sharing',visited:removed.length});}
  }
  const checks=[];
  for(let i=0;i<nodes.length;i+=4){const results=await Promise.all(nodes.slice(i,i+4).map(async node=>{const permissions=await pages(permissionPath(node.id));return {id:node.id,folder:!!node.folder,size:node.size??null,ownerOnly:permissions.length>0&&permissions.every(owner),permissionCount:permissions.length};}));checks.push(...results);log({phase:'legacy-permissions-checked',checked:checks.length,total:nodes.length});}
