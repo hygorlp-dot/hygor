@@ -103,6 +103,10 @@ typography:
     fontFamily: 'Geist, Inter, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '1.125rem'
     fontWeight: 600
+  data-mono:
+    fontFamily: 'Geist Mono, IBM Plex Mono, ui-monospace, SFMono-Regular, Menlo, monospace'
+    fontSize: '0.8125rem'
+    fontWeight: 400
 rounded:
   sm: '0.375rem'
   md: '0.375rem'
