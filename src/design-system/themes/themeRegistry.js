@@ -50,7 +50,7 @@ export const themeRegistry = Object.freeze({
     "--arcd-table-stripe-surface":"#edf3f6", "--arcd-material-blur":"18px", "--arcd-material-fallback":"#f1f5f7", "--arcd-material-panel-surface":"rgb(248 251 253 / 68%)",
     "--arcd-canvas-image":"url('/brand/marcell/portal-residencia.webp')", "--arcd-canvas-veil":"rgb(14 30 43 / 22%)", "--arcd-canvas-content":"transparent",
   }),
-  noite:theme("noite","MARCELL Noite","Fundo azul-noite com luzes da marca, cabeçalho e menu de vidro e ações em dourado.",{
+  noite:theme("noite","MARCELL Noite","Fundo azul-noite com leve gradiente da marca, caixas de vidro e ações em dourado.",{
     "--arcd-surface-page":"#070d18", "--arcd-surface-card":"rgb(15 24 40 / 94%)", "--arcd-surface-elevated":"#111c2e",
     "--arcd-surface-muted":"#17243a", "--arcd-surface-subtle":"#0f1a2c", "--arcd-surface-inverse":"#f3efe6", "--arcd-surface-overlay":"rgb(3 7 14 / 72%)",
     "--arcd-text-primary":"#e8ecf2", "--arcd-text-secondary":"#b9c3cf", "--arcd-text-muted":"#9ba7b6", "--arcd-text-inverse":"#0d1b2e",

@@ -1,6 +1,6 @@
-import { contar } from "../../../design-system/copy.js";
 import {RecordListPagination} from '../../../design-system/data/RecordListPagination.jsx';
 import {useRecordPage} from '../../../design-system/data/useRecordPage.js';
+import { contar } from "../../../design-system/copy.js";
 import { FlowTabs, useWorkflow } from "../../../features/workflow/WorkflowNavigation.jsx";
 // ===================================================================
 // EquipamentosView — tela de Equipamentos extraída de LegacyApp.jsx

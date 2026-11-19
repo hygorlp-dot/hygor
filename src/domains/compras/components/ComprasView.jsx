@@ -1,6 +1,6 @@
+import {purchasePriceBasisKey,purchaseHistoryByBasis} from '../price-comparison.js';
 import { contar } from "../../../design-system/copy.js";
 import {activeCompany,companyIsolationActive} from '../../../lib/company-scope.js';
-import {purchasePriceBasisKey,purchaseHistoryByBasis} from '../price-comparison.js';
 import {openReportPreview} from '../../../reports/report-preview.js';
 import {WorkspaceCommandBar,WorkspaceHeading} from '../../../design-system/patterns/WorkspaceCommandBar.jsx';
 import PaymentDialog from '../../../features/financeiro/PaymentDialog.jsx';

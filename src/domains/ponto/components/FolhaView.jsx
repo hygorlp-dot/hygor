@@ -972,6 +972,26 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
 
       {payrollView==="payroll"&&<>
 
+      <div id="folha-fechamento">
+      <TaskDisclosure enabled={!isDesktop} summary={closedTitles.length?"Quinzena fechada":"Fechamento da quinzena"}>
+          <section className="payroll-checklist payroll-closing" aria-label="Fechamento da quinzena">
+          {closedTitles.length?<>
+            <h3>Quinzena fechada</h3>
+            <p>Fechamento da empresa (Todos). Inclui os dois grupos; exige Todos e Todas as obras.</p>
+            <p>{contar(closedTitles.length,"pagamento","pagamentos")} · {fmt(closedTotal)} · vencimento {fmtDateFull(closedTitles[0].vencimento)} · fechada por {closedTitles[0].fechadoFolhaPor||"—"} em {fmtDate(String(closedTitles[0].fechadoFolhaEm||"").slice(0,10))}.</p>
+            <p>Os pagamentos estão em contas a pagar e são baixados pela conciliação do extrato.</p>
+            {closingDivergences.length>0&&<p role="alert" style={{color:"var(--arcd-danger-text)"}}><Ic n="alert"/> O ponto mudou depois do fechamento para {contar(closingDivergences.length,"funcionário","funcionários")}. Reabra a quinzena para refazer os pagamentos.</p>}
+            {canManageClosing&&<Btn v="ghost" disabled={!isCompanyScope} onClick={()=>setClosingModal("reopen")}>Reabrir quinzena</Btn>}
+          </>:<>
+            <h3>Fechamento da quinzena</h3>
+            <p>Fechamento da empresa (Todos). Inclui os dois grupos; exige Todos e Todas as obras.</p>
+            <p>Fechar transforma o líquido de cada funcionário em um pagamento a fazer, dividido por obra, com vencimento em {paymentDateLabel}.</p>
+            {closingBlockers.map(reason=><p key={reason} style={{color:"var(--arcd-danger-text)"}}><Ic n="alert"/> {reason}</p>)}
+            {canManageClosing&&<Btn v="primary" disabled={closingBlockers.length>0||!rows.some(r=>r.net>0)} onClick={()=>setClosingModal("close")}><Ic n="check"/> Fechar quinzena</Btn>}
+          </>}
+        </section>
+      </TaskDisclosure>
+      </div>
       <TaskDisclosure enabled={!isDesktop} summary="Composição do pagamento">
       <section className="payroll-summary-strip" aria-label="Composição do pagamento">
         <div><span>Dias + horas extras</span><strong>{fmt(T.gross-T.holidayPay)}</strong></div>
@@ -991,23 +1011,6 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
         <p>{contar(pendenciasRelatorio.length,"funcionário com pendência","funcionários com pendência")} · {contar(totalDiasSemRegistro,"dia sem registro","dias sem registro")} · {contar(totalSemPix,"PIX ausente","PIX ausentes")}.</p>
         <p>Abra cada funcionário abaixo para conferir a composição. Gerar o relatório não registra um pagamento.</p>
         {pendenciasRelatorio.length>0&&<Btn v="ghost" onClick={()=>onTab?.("ponto_geral")}>Abrir gestão do ponto</Btn>}
-      </section>
-      </TaskDisclosure>
-      <TaskDisclosure enabled={!isDesktop} summary={closedTitles.length?"Quinzena fechada":"Fechamento da quinzena"}>
-        <section id="folha-fechamento" className="payroll-checklist payroll-closing" aria-label="Fechamento da quinzena">
-          <p>Fechamento da empresa (Todos). Inclui os dois grupos; exige Todos e Todas as obras.</p>
-        {closedTitles.length?<>
-          <h3>Quinzena fechada</h3>
-          <p>{contar(closedTitles.length,"pagamento","pagamentos")} · {fmt(closedTotal)} · vencimento {fmtDateFull(closedTitles[0].vencimento)} · fechada por {closedTitles[0].fechadoFolhaPor||"—"} em {fmtDate(String(closedTitles[0].fechadoFolhaEm||"").slice(0,10))}.</p>
-          <p>Os pagamentos estão em contas a pagar e são baixados pela conciliação do extrato.</p>
-          {closingDivergences.length>0&&<p role="alert" style={{color:"var(--arcd-danger-text)"}}><Ic n="alert"/> O ponto mudou depois do fechamento para {contar(closingDivergences.length,"funcionário","funcionários")}. Reabra a quinzena para refazer os pagamentos.</p>}
-          {canManageClosing&&<Btn v="ghost" disabled={!isCompanyScope} onClick={()=>setClosingModal("reopen")}>Reabrir quinzena</Btn>}
-        </>:<>
-          <h3>Fechamento da quinzena</h3>
-          <p>Fechar transforma o líquido de cada funcionário em um pagamento a fazer, dividido por obra, com vencimento em {paymentDateLabel}.</p>
-          {closingBlockers.map(reason=><p key={reason} style={{color:"var(--arcd-danger-text)"}}><Ic n="alert"/> {reason}</p>)}
-          {canManageClosing&&<Btn v="primary" disabled={closingBlockers.length>0||!rows.some(r=>r.net>0)} onClick={()=>setClosingModal("close")}><Ic n="check"/> Fechar quinzena</Btn>}
-        </>}
       </section>
       </TaskDisclosure>
       <div className="payroll-list-heading">
