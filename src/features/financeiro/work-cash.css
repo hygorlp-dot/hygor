@@ -1,0 +1,9 @@
+.work-cash { display:grid; gap:var(--arcd-space-3); min-width:0; }
+.work-cash__panel { border:1px solid var(--arcd-border-default); border-radius:var(--arcd-radius-lg); background:var(--arcd-surface-card); }
+.work-cash__panel > header, .work-cash__movement { padding:var(--arcd-space-3); }
+.work-cash__movement { border-block-start:1px solid var(--arcd-border-default); display:grid; gap:var(--arcd-space-1); overflow-wrap:anywhere; }
+.work-cash__movement p { color:var(--arcd-text-secondary); }
+.work-cash__row { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:start; gap:var(--arcd-space-2); }
+.work-cash__row h3 { font-size:var(--arcd-type-card-title); }
+.work-cash__amount { font-variant-numeric:tabular-nums; }
+.work-cash__actions { display:flex; flex-wrap:wrap; gap:var(--arcd-space-2); }

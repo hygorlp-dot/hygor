@@ -20,6 +20,7 @@ import {DashboardFinancialReading} from './domains/dashboard/components/Dashboar
 import {SectorTasks} from './features/workflow/SectorTasks.jsx';
 import {useRecordPage} from './design-system/data/useRecordPage.js';
 import {RecordListPagination} from './design-system/data/RecordListPagination.jsx';
+import WorkCashView from "./features/financeiro/WorkCashView.jsx";
 import {TaskDisclosure} from './design-system/patterns/TaskDisclosure.jsx';
 import {setWorkContextObra,useSyncedWorkObra,workContextObraId} from './features/workflow/work-context.js';
 import {SaveRecoveryContext} from './features/workflow/SaveRecoveryContext.jsx';
@@ -228,7 +229,7 @@ import {
   selectFinancialMovements,
 } from "./domains/financeiro/ledger";
 import { createFinancialCalculationEngine } from "./domains/financeiro/calculation-engine";
-import { calculateWorkCash as calcCaixaObra } from "./domains/financeiro/work-cash";
+import {workCashNature, calculateWorkCash as calcCaixaObra } from "./domains/financeiro/work-cash";
 import { pedidoVivo } from "./domains/compras/purchase-position";
 import { notaSemEfeito, saldoPagamentoNota, statusPagamentoNota } from "./domains/financeiro/payables";
 import { createExecutiveSummaryEngine } from "./domains/controladoria/executive-summary";
@@ -2007,7 +2008,7 @@ const normalizeData = incoming => {
       id:          x.id          || uid(),
       obraId:      x.obraId      || "",
       data:        x.data        || "",
-      tipo:        x.tipo        || "aporte",   // "aporte" | "despesa"
+      tipo:        x.tipo        || "aporte",
       categoria:   x.categoria   || "material",
       descricao:   x.descricao   || "",
       valor:       Number(x.valor || 0),
@@ -2021,7 +2022,7 @@ const normalizeData = incoming => {
       registradoPorId: x.registradoPorId || "",
       registradoPor: x.registradoPor || "",
       registradoEm: x.registradoEm || "",
-      documentos:  Array.isArray(x.documentos)?x.documentos.map(a=>({id:a.id||uid(),nome:a.nome||"",legenda:a.legenda||a.nome||"Comprovante",url:a.url||"",path:a.path||"",tipo:a.tipo||"",tamanho:Number(a.tamanho||0)})).filter(a=>a.url):[],
+      documentos:  Array.isArray(x.documentos)?x.documentos.filter(Boolean).map(a=>({...a,id:a.id||uid(),nome:a.nome||"",legenda:a.legenda||a.nome||"Comprovante",url:a.url||a.webUrl||"",path:a.path||"",tipo:a.tipo||"",tamanho:Number(a.tamanho||0)})) : [],
     })) : [],
     orcamentos: Array.isArray(d.orcamentos) ? d.orcamentos.map(o => ({
       id:          o.id          || uid(),
@@ -6984,6 +6985,7 @@ function RelatorioCaixaObra({ data, showToast }) {
     [obrasComCaixa, data.caixaObra]);
   const totalAportes  = linhas.reduce((s,l)=>s+l.totalAportes,0);
   const totalDespesas = linhas.reduce((s,l)=>s+l.totalDespesas,0);
+  const totalDevolucoes = linhas.reduce((s,l)=>s+l.totalDevolucoes,0);
   const totalSaldo    = linhas.reduce((s,l)=>s+l.saldo,0);
 
   if (!obrasComCaixa.length) {
@@ -6997,8 +6999,9 @@ function RelatorioCaixaObra({ data, showToast }) {
   return (
     <div style={{display:"flex",flexDirection:"column",gap:10}}>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(165px,1fr))",gap:8}}>
-        <ReportMetric label="Total de aportes" value={fmt(totalAportes)} color={C.green} icon="download"/>
+        <ReportMetric label="Total de entradas" value={fmt(totalAportes)} color={C.green} icon="download"/>
         <ReportMetric label="Total de gastos" value={fmt(totalDespesas)} color={C.red} icon="cart"/>
+        <ReportMetric label="Devoluções" value={fmt(totalDevolucoes)} color={C.muted} icon="wallet"/>
         <ReportMetric label="Saldo consolidado" value={fmt(totalSaldo)} color={(totalSaldo>0?C.green:totalSaldo<0?C.red:C.muted)} icon="wallet"/>
       </div>
       <div style={{display:"flex",flexDirection:"column",gap:7}}>
@@ -7006,7 +7009,7 @@ function RelatorioCaixaObra({ data, showToast }) {
           <div key={l.obra.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,padding:"11px 13px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
             <div>
               <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>{l.obra.name}</p>
-              <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{contar(l.movimentos.length,"lançamento","lançamentos")} · aportes {fmt(l.totalAportes)} · gastos {fmt(l.totalDespesas)}</p>
+              <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{contar(l.movimentos.length,"lançamento","lançamentos")} · entradas {fmt(l.totalAportes)} · despesas {fmt(l.totalDespesas)} · devoluções {fmt(l.totalDevolucoes)}</p>
             </div>
             <div style={{display:"flex",alignItems:"center",gap:10}}>
               <b style={{fontSize:"var(--arcd-type-card-title)",color:(l.saldo>0?C.green:l.saldo<0?C.red:C.muted)}}>{fmt(l.saldo)}</b>
@@ -11873,15 +11876,16 @@ function gerarRelatorioCaixaObraPDF(data, obra, caixa, showToast) {
     titulo: "Extrato do Caixa de Obra",
     subtitulo: obra.name,
     kpis: [
-      { label: "Total aportes", value: fmt(c.totalAportes) },
-      { label: "Total gastos", value: fmt(c.totalDespesas) },
+      { label: "Entradas", value: fmt(c.totalAportes) },
+      { label: "Despesas", value: fmt(c.totalDespesas) },
+      { label: "Devoluções", value: fmt(c.totalDevolucoes) },
       { label: "Saldo em caixa", value: fmt(c.saldo) },
     ],
     tabelas: [{
       headers: ["Data", "Tipo", "Descrição", { label: "Valor", num: true }, { label: "Saldo", num: true }],
       rows: movs.map(m => [
         escapeHtml(fmtDateFull(m.data)),
-        escapeHtml(m.tipo === "aporte" ? "Aporte" : (CAIXA_CATS.find(cat => cat.v === m.categoria)?.l || "Gasto")),
+        escapeHtml(workCashNature(m)),
         escapeHtml(m.descricao || "-"),
         `${m.tipo === "aporte" ? "+" : "-"} ${escapeHtml(fmt(Number(m.valor)))}`,
         escapeHtml(fmt(m.saldoAcumulado)),
@@ -11892,234 +11896,9 @@ function gerarRelatorioCaixaObraPDF(data, obra, caixa, showToast) {
   abrirRelatorioPadrao(html, showToast);
 }
 
-function CaixaObra({ data, showToast, currentUser=null, dispatchCommand=null }) {
-  const { cols } = useBreakpoint();
-  const obrasComCaixa = useMemo(() => data.obras.filter(o => o.hasCaixa), [data.obras]);
-  const [selObra, setSelObra] = useState(()=>obraContextoSalvo()||obrasComCaixa[0]?.id||"");
-  const [modal,   setModal]   = useState(false);
-  const [tipoNovo,setTipoNovo]= useState("aporte");
-  const [workCashPending,setWorkCashPending]=useState(false);
-  const [form,    setForm]    = useState({ data:today(), tipo:"aporte", categoria:"material", descricao:"", valor:"", comprovante:"" });
-  const F = k => v => setForm(f=>({...f,[k]:v}));
-
-  useSyncedWorkObra(selObra,setSelObra,{allowedIds:data.obras.map(o=>o.id),fixed:modal?selObra:''});
-  const obra = obrasComCaixa.find(o=>o.id===selObra);
-  const caixa = useMemo(()=>calcCaixaObra(data, selObra), [data.caixaObra, selObra]);
-
-  // Consolidado de todas as obras com caixa
-  const consolidado = useMemo(()=>obrasComCaixa.map(o=>({
-    obra:o, ...calcCaixaObra(data,o.id)
-  })), [data.caixaObra, obrasComCaixa]);
-
-  const openNew = (tipo) => {
-    if(!obra){showToast("Selecione uma obra com caixa ativado.","error");return;}
-    setTipoNovo(tipo);
-    setForm({ data:today(), tipo, categoria:tipo==="aporte"?"aporte":"material", descricao:"", valor:"", comprovante:"" });
-    setModal(true);
-  };
-
-  const saveMov = async() => {
-    if(!dispatchCommand||workCashPending)return;
-    if (!obra) { showToast("Selecione uma obra com caixa ativado.","error"); return; }
-    if (!form.valor || isNaN(Number(form.valor))) { showToast("Informe um valor válido.","error"); return; }
-    if(form.tipo==="despesa"&&Number(form.valor)>caixa.saldo+.001){showToast(`Lançamento bloqueado: o caixa possui ${fmt(caixa.saldo)} e não pode ficar negativo. Registre um aporte primeiro.`,"error");return;}
-    const id=uid();
-    setWorkCashPending(true);
-    let result;
-    try{
-      result=await dispatchCommand(()=>({
-        type:OPERATIONAL_COMMAND.WORK_CASH_MOVEMENT_CREATED,
-        idempotencyKey:`work-cash-create-${id}-${uid()}`,
-        expectedVersion:0,
-        actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-        payload:{movement:{id,obraId:selObra,...form,valor:Number(form.valor||0)}},
-      }));
-    }catch(error){
-      result={ok:false,reason:error?.message||"Não foi possível registrar o movimento."};
-    }finally{
-      setWorkCashPending(false);
-    }
-    if(!result?.ok){showToast(result?.reason||"Não foi possível registrar o movimento.","error");return;}
-    setModal(false);
-    const novoSaldo=caixa.saldo+(form.tipo==="aporte"?Number(form.valor):-Number(form.valor));
-    const limite=Math.max(500,(caixa.totalAportes+(form.tipo==="aporte"?Number(form.valor):0))*.10);
-    showToast(form.tipo==="despesa"&&novoSaldo<=limite?`Despesa registrada, mas o caixa ficou baixo: ${fmt(novoSaldo)}. Providencie novo aporte.`:form.tipo==="aporte"?"Aporte registrado.":"Despesa registrada.",form.tipo==="despesa"&&novoSaldo<=limite?"warn":undefined);
-  };
-
-  const delMov = async id => {
-    if(!dispatchCommand||workCashPending)return;
-    const movimento=(data.caixaObra||[]).find(m=>m.id===id);
-    if(movimento?.pagamentoId){showToast("Este gasto foi gerado por um pagamento de Compras e não pode ser removido isoladamente.","error");return;}
-    if(movimento?.transacaoId){showToast("Este lançamento veio da conciliação bancária. Desfaça a conciliação para manter o histórico consistente.","error");return;}
-    const motivo=window.prompt("Motivo do cancelamento deste lançamento:");
-    if(!String(motivo||"").trim())return;
-    setWorkCashPending(true);
-    let result;
-    try{
-      result=await dispatchCommand(atual=>{
-        const vigente=(atual.caixaObra||[]).find(m=>m.id===id);
-        return {
-          type:OPERATIONAL_COMMAND.WORK_CASH_MOVEMENT_CANCELLED,
-          idempotencyKey:`work-cash-cancel-${id}-${uid()}`,
-          expectedVersion:Number(vigente?.version||0),
-          actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-          payload:{movementId:id,reason:String(motivo).trim()},
-        };
-      });
-    }catch(error){
-      result={ok:false,reason:error?.message||"Não foi possível cancelar o lançamento."};
-    }finally{
-      setWorkCashPending(false);
-    }
-    if(!result?.ok){showToast(result?.reason||"Não foi possível cancelar o lançamento.","error");return;}
-    showToast("Lançamento cancelado e preservado para auditoria.");
-  };
-
-  // Relatório PDF
-  const gerarPDF = () => gerarRelatorioCaixaObraPDF(data, obra, caixa, showToast);
-
-  if (obrasComCaixa.length === 0) {
-    return (
-      <div className="anim" style={{display:"flex",flexDirection:"column",gap:14}}>
-        <PageHeader className="workspace-header" title="Caixa da obra" description="Aportes do cliente e controle de gastos por obra."/>
-        <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:8,padding:30,textAlign:"center",boxShadow:`0 1px 4px ${C.shadow}`}}>
-          <p style={{fontSize:"clamp(22px,10vw,40px)",marginBottom:8}}></p>
-          <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,marginBottom:6}}>Nenhuma obra com caixa ativado</p>
-          <p style={{fontSize:"var(--arcd-type-body)",color:C.muted,lineHeight:1.6}}>Para ativar, edite uma obra em <strong>Obras</strong> e marque<br/>"Esta obra possui caixa de obra".</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
-
-      {/* Header */}
-      <PageHeader className="workspace-header" title="Caixa da obra" description="Aportes do cliente e controle de gastos por obra."/>
-
-      <ScopeNote title="Resumo geral dos caixas">Os saldos consolidados incluem todas as obras disponíveis com caixa ativado. O extrato e os registros usam somente Obra do caixa, sincronizada com Obra em foco.</ScopeNote>
-
-      {/* Consolidado */}
-      <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:8,overflow:"hidden",boxShadow:`0 1px 4px ${C.shadow}`}}>
-        <div style={{background:C.surface,padding:"8px 14px",borderBottom:`1px solid ${C.border}`}}>
-          <p style={{fontWeight:600,fontSize:"var(--arcd-type-body)",color:C.text,textTransform:"uppercase",letterSpacing:.5}}>Saldos consolidados</p>
-        </div>
-        {consolidado.map(c=>(
-          <button key={c.obra.id} onClick={()=>setSelObra(c.obra.id)} style={{
-            width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",
-            padding:"10px 14px",borderBottom:`1px solid ${C.line}33`,cursor:"pointer",
-            background:selObra===c.obra.id?`${C.green}08`:"transparent",border:"none",
-            borderLeft:`1px solid ${selObra===c.obra.id?C.green:"transparent"}`,textAlign:"left",
-          }}>
-            <div>
-              <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{c.obra.name}</p>
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Aportes {fmt(c.totalAportes)}  Gastos {fmt(c.totalDespesas)}</p>
-            </div>
-            <p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:(c.saldo>0?C.green:c.saldo<0?C.red:C.muted)}}>{fmt(c.saldo)}</p>
-          </button>
-        ))}
-      </div>
-
-      <Sel label="Obra do caixa" value={selObra} onChange={setSelObra} options={[
-        ...(!obra?[{v:selObra,l:`${data.obras.find(o=>o.id===selObra)?.name||"Obra não disponível"} · Caixa não ativado`,disabled:true}]:[]),
-        ...obrasComCaixa.map(o=>({v:o.id,l:o.name})),
-      ]}/>
-      {!obra&&<EmptyState title="A obra em foco não possui caixa ativado" description="Nenhum caixa de outra obra foi escolhido no lugar dela. Selecione uma obra com caixa em Obra do caixa ou confira a ativação no cadastro da obra."/>}
-
-      {obra && (<>
-        {/* Seletor + saldo grande */}
-
-        <div style={{background:caixa.saldo>=0?`${C.green}08`:`${C.red}08`,border:`1.5px solid ${(caixa.saldo>0?C.green:caixa.saldo<0?C.red:C.muted)}`,borderRadius:8,padding:"16px 18px",textAlign:"center"}}>
-          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:1}}>Saldo em caixa - {obra.name}</p>
-          <p style={{fontFamily:"var(--arcd-font-sans)",fontSize:"clamp(19px,8vw,34px)",fontWeight:600,color:(caixa.saldo>0?C.green:caixa.saldo<0?C.red:C.muted),lineHeight:1,margin:"4px 0"}}>{fmt(caixa.saldo)}</p>
-          <div style={{display:"flex",justifyContent:"center",gap:20,marginTop:6}}>
-            <p style={{fontSize:"var(--arcd-type-body)",color:C.muted}}>^ Aportes: <strong style={{color:C.green}}>{fmt(caixa.totalAportes)}</strong></p>
-            <p style={{fontSize:"var(--arcd-type-body)",color:C.muted}}>v Gastos: <strong style={{color:C.red}}>{fmt(caixa.totalDespesas)}</strong></p>
-          </div>
-        </div>
-
-        {/* Ações */}
-        <div style={{display:"grid",gridTemplateColumns:cols("1fr 1fr","1fr 1fr","220px 220px"),gap:8}}>
-          <Btn v="success" disabled={workCashPending} onClick={()=>openNew("aporte")} full>^ Registrar aporte</Btn>
-          <Btn v="danger" disabled={workCashPending} onClick={()=>openNew("despesa")} full>v Registrar gasto</Btn>
-        </div>
-
-        {/* Extrato */}
-        <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:8,overflow:"hidden",boxShadow:`0 1px 4px ${C.shadow}`}}>
-          <div style={{background:C.surface,padding:"8px 14px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <p style={{fontWeight:600,fontSize:"var(--arcd-type-body)",color:C.text,textTransform:"uppercase",letterSpacing:.5}}>Extrato ({caixa.movimentos.length})</p>
-            {caixa.movimentos.length>0&&<Btn size="sm" v="ghost" onClick={gerarPDF}><Ic n="file"/> PDF</Btn>}
-          </div>
-          {caixa.movimentos.length===0&&(
-            <div style={{padding:20,textAlign:"center",color:C.muted,fontSize:"var(--arcd-type-body)"}}>Nenhum lançamento ainda.</div>
-          )}
-          {caixa.movimentos.map(m=>{
-            const cat = CAIXA_CATS.find(c=>c.v===m.categoria);
-            return (
-              <div key={m.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 14px",borderBottom:`1px solid ${C.line}33`,borderLeft:`1px solid ${m.tipo==="aporte"?C.green:C.red}`}}>
-                <div style={{flex:1}}>
-                  <div style={{display:"flex",alignItems:"center",gap:6}}>
-                    <span style={{fontSize:"var(--arcd-type-body)"}}>{m.tipo==="aporte"?"":cat?.icon||""}</span>
-                    <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{m.descricao||(m.tipo==="aporte"?"Aporte do cliente":cat?.l||"Gasto")}</p>
-                  </div>
-                  <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:1}}>{fmtDateFull(m.data)}{m.tipo==="despesa"&&cat?`  ${cat.l}`:""}{m.comprovante?`  ${m.comprovante}`:""}</p>
-                  {(m.documentos||[]).map(a=><CompanyAssetLink key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{display:"inline-block",fontSize:"var(--arcd-type-caption)",color:C.blue,marginTop:3,textDecoration:"underline"}}>{a.legenda||a.nome||"Comprovante"} ↗</CompanyAssetLink>)}
-                </div>
-                <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
-                  <div style={{textAlign:"right"}}>
-                    <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:m.tipo==="aporte"?C.green:C.red}}>{m.tipo==="aporte"?"+":""}{fmt(m.valor)}</p>
-                    <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>saldo {fmt(m.saldoAcumulado)}</p>
-                  </div>
-                  <Btn size="sm" v="danger" disabled={workCashPending} onClick={()=>delMov(m.id)}><Ic n="trash"/></Btn>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </>)}
-
-      {/* Modal lançamento */}
-      {modal&&obra&&(
-        <Modal title={tipoNovo==="aporte"?"Registrar aporte do cliente":"Registrar gasto"} onClose={()=>setModal(false)}>
-          <ScopeNote title="Obra do lançamento">{obra.name}. A confirmação registra o movimento somente neste caixa.</ScopeNote>
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            {/* Toggle tipo */}
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-              {[["aporte","^ Aporte",C.green],["despesa","v Gasto",C.red]].map(([v,l,c])=>(
-                <button key={v} onClick={()=>{F("tipo")(v);if(v==="aporte")F("categoria")("aporte");else F("categoria")("material");}} style={{
-                  padding:"9px 4px",border:`2px solid ${form.tipo===v?c:C.border}`,
-                  background:form.tipo===v?`${c}12`:"transparent",color:form.tipo===v?c:C.muted,
-                  fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-control)",cursor:"pointer",borderRadius:6,
-                }}>{l}</button>
-              ))}
-            </div>
-
-            <Inp label="Data" type="date" value={form.data} onChange={F("data")}/>
-
-            {form.tipo==="despesa"&&(
-              <Sel label="Categoria" value={form.categoria} onChange={F("categoria")} options={CAIXA_CATS.map(c=>({v:c.v,l:`${c.icon} ${c.l}`}))}/>
-            )}
-
-            <Inp label="Descrição" value={form.descricao} onChange={F("descricao")} placeholder={form.tipo==="aporte"?"Ex.: Aporte para compra de cimento":"Ex.: 50 sacos cimento CP-II"}/>
-            <Inp label="Valor (R$) *" type="number" value={form.valor} onChange={F("valor")} placeholder="0,00"/>
-            <Inp label="Nº nota / comprovante (opcional)" value={form.comprovante} onChange={F("comprovante")} placeholder="Ex.: NF 12345"/>
-
-            {form.valor&&!isNaN(Number(form.valor))&&(
-              <div style={{background:form.tipo==="aporte"?`${C.green}10`:`${C.red}10`,border:`1px solid ${form.tipo==="aporte"?C.green:C.red}44`,borderRadius:6,padding:"8px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Novo saldo após lançamento</p>
-                <p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:C.text}}>{fmt(caixa.saldo + (form.tipo==="aporte"?Number(form.valor):-Number(form.valor)))}</p>
-              </div>
-            )}
-
-            <div style={{display:"flex",gap:8}}>
-              <Btn v="ghost" disabled={workCashPending} onClick={()=>setModal(false)} full>Cancelar</Btn>
-              <Btn v={form.tipo==="aporte"?"success":"danger"} disabled={workCashPending} onClick={saveMov} full><Ic n="check"/> {workCashPending?"Salvando...":"Registrar"}</Btn>
-            </div>
-          </div>
-        </Modal>
-      )}
-    </div>
-  );
+function CaixaObra({data,showToast,currentUser,dispatchCommand}) {
+  return <WorkCashView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchCommand}
+    categories={CAIXA_CATS} onReport={(obra,caixa)=>gerarRelatorioCaixaObraPDF(data,obra,caixa,showToast)}/>;
 }
 
 //
@@ -14983,7 +14762,7 @@ function CompanyApp({onCompanyChanged}) {
           {tab === "suprimentos" && <CotacoesMaterial data={data} update={update} showToast={showToast} onTab={irPara}/>}
           {tab === "cad"      && <Cadastros    data={data} update={update} showToast={showToast} onTab={irPara} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
           {tab === "medicoes" && <Suspense fallback={<LoadingState label="medições"/>}><MedicoesView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
-          {tab === "caixa"    && <CaixaObra    data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
+          {tab === "caixa" && <CaixaObra data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
           {tab === "relat"    && <Relatorios   data={data} showToast={showToast} currentUser={currentUser} />}
           {tab === "ia"     && <AgenteIA    data={data} showToast={showToast} onTab={irPara} />}
           {tab === "ia_config" && <ConfiguracaoIA showToast={showToast}/>}

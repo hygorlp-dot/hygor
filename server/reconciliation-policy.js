@@ -1,4 +1,5 @@
 import { RECONCILIATION_COMMAND } from "./reconciliation-command.js";
+import { podeAcessarAba } from "../src/domains/administracao/abas-acesso.js";
 
 const findById=(items,id)=>(items||[]).find(item=>String(item?.id||"")===String(id||""));
 const normalize=value=>String(value||"").trim().toLowerCase();
@@ -43,6 +44,12 @@ const rhAllocationError=(data,payload,actor)=>{
 // estreita: confirmar somente saídas de folha/mão de obra. Entradas,
 // fornecedores, transferências, estornos e reversões continuam financeiras.
 export const authorizeReconciliationCommand=(data,command={},actor={})=>{
+  if(command.type===RECONCILIATION_COMMAND.CONFIRM_TRANSFER&&command.payload?.workCashObraId){
+    if(!["admin","financeiro"].includes(actor.role)||actor.active===false||!podeAcessarAba(actor,"conc")||!podeAcessarAba(actor,"caixa")||
+      (actor.obraId&&String(actor.obraId)!==String(command.payload.workCashObraId))){
+      return {ok:false,error:"Seu perfil não pode transferir recursos para este caixa de obra."};
+    }
+  }
   if([RECONCILIATION_COMMAND.LINK_PARTIAL_CASH,RECONCILIATION_COMMAND.REVERSE_PARTIAL_CASH].includes(command.type)&&actor.obraId)return {ok:false,error:"A gestão de vínculos entre contas exige um perfil financeiro sem restrição de obra."};
   if(["admin","financeiro"].includes(actor?.role))return {ok:true};
   if(actor?.role!=="rh")return {ok:false,error:"Seu perfil não pode operar a conciliação."};

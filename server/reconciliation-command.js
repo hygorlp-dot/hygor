@@ -4,6 +4,7 @@ import { criarFilaAutomatica, comandoAutomaticoSeguro, REGRA_AUTOMATICA } from "
 // envia nem recompõe o blob financeiro inteiro.
 import {
   criarLancamentoPelaTransacao,
+  conciliarTransferenciaCaixaObra,
   desfazerConciliacao,
   marcarEstorno,
   marcarTransferenciaInterna,
@@ -231,6 +232,10 @@ export const applyReconciliationCommand = (data, command = {}, actor = {}) => {
   if(command.type===RECONCILIATION_COMMAND.CONFIRM_TRANSFER){
     const origin=mustBePending(data,transactionId);
     if(origin.error)return invalid(data,origin.error);
+    if(payload.workCashObraId){
+      if(payload.counterpartyTransactionId||!positiveId(payload.workCashObraId))return invalid(data,"Selecione somente o caixa de destino ou origem.");
+      return conciliarTransferenciaCaixaObra(data,{transacaoId:transactionId,obraId:String(payload.workCashObraId),operador:actor});
+    }
     if(!positiveId(payload.counterpartyTransactionId))return invalid(data,"Selecione a outra ponta da transferência.");
     return marcarTransferenciaInterna(data,{transacaoOrigemId:transactionId,transacaoDestinoId:payload.counterpartyTransactionId,operador:actor});
   }

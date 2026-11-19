@@ -7,6 +7,7 @@ import {protectedDocumentReference} from "../src/domains/financeiro/document-lin
 import {parseCompanyFileReference} from '../src/domains/arquivos/company-file-reference.js';
 import {avancoFisicoOficial} from "../src/domains/dre/calculations.js";
 import {active,toCents} from "../src/domains/financeiro/facts.js";
+import {workCashInternalTransfer,workCashNature} from "../src/domains/financeiro/work-cash.js";
 import {clientContractMeasurements,clientMeasurementReceipts} from "./client-portal-contract.js";
 import {uniquePortalRecords} from './client-portal-records.js';
 
@@ -253,6 +254,7 @@ export function buildClientPortalPublicationRows({ data = {}, projectId, publish
     let balanceCents=0;
     const movements=chronological.map(item=>{
       const amount=toCents(item.valor)/100;
+      const internalTransfer=workCashInternalTransfer(item);
       balanceCents+=item.tipo==="aporte" ? toCents(item.valor) : -toCents(item.valor);
       const candidates=item.notaFiscalId?[invoicesById.get(String(item.notaFiscalId))].filter(Boolean):item.pedidoId?invoicesByOrder.get(String(item.pedidoId))||[]:[];
       const invoice=candidates.length===1?candidates[0]:null;
@@ -262,10 +264,10 @@ export function buildClientPortalPublicationRows({ data = {}, projectId, publish
           id:text(item.id),
           date:text(item.data),
           type:item.tipo==="aporte" ? "Aporte" : "Despesa",
-          category:text(item.categoria) || text(invoice?.categoria) || (item.tipo==="aporte" ? "Aporte" : "Outros"),
+          category:internalTransfer ? workCashNature(item) : text(item.categoria) || text(invoice?.categoria) || (item.tipo==="aporte" ? "Aporte" : "Outros"),
           // A descrição de uma despesa paga por pedido/nota traz o número do pedido e
           // o fornecedor; sem "publicarCompras" o cliente não deve ver isso.
-          description:(item.pedidoId || item.notaFiscalId) && !portal.publicarCompras
+          description:internalTransfer ? workCashNature(item) : (item.pedidoId || item.notaFiscalId) && !portal.publicarCompras
             ? "Pagamento de compra de material"
             : text(item.descricao) || (item.tipo==="aporte" ? "Aporte para a obra" : invoice?`Pagamento da nota fiscal ${text(invoice.numero)}`:"Despesa da obra"),
           amount,

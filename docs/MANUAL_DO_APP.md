@@ -2005,9 +2005,10 @@ Confira banco, conta e período do extrato.
 3. Analise cada sugestão comparando valor, data, contraparte e documento. Uma pessoa identificada não comprova qual título foi pago.
 4. Quando o mesmo prestador tiver contratos em várias obras, confira a obra, o contrato e a obrigação de cada pagamento. O vínculo existente do prestador identifica a pessoa quando seus dados concordam; não escolhe o contrato nem junta pagamentos. Dados de identidade divergentes exigem conferência.
 5. Confira também pendências de extratos arquivados antes de reabrir ou reimportar: arquivar não significa conciliar nem autoriza repetir um pagamento.
-6. Confirme o vínculo apenas após a conferência e acompanhe o saldo e as pendências.
-7. Em Mais opções · extratos, regras e histórico, escolha Extratos. Em Extratos sem conta vinculada, use Vincular à conta. Confira as datas dos movimentos, a cobertura do OFX quando disponível e o saldo informado pelo banco. Escolha uma conta ativa com mesmo banco e número ou use Cadastrar conta do extrato. Volte ao lote e confirme o vínculo; os movimentos já importados são preservados. Se a posição estiver indisponível, compare com o extrato oficial.
-8. Em Mais opções · extratos, regras e histórico, abra Histórico para conferir as operações e as referências dos lançamentos. Você pode buscar pelo identificador do registro.
+6. Para uma saída da conta da empresa enviada ao caixa da obra, abra outras ações e escolha Transferência, depois Transferir para o caixa da obra. Para uma entrada que devolve dinheiro do caixa à empresa, use Registrar devolução do caixa da obra. Selecione o caixa e use Vincular ao caixa. Consulte a outra ponta em Ver no Caixa da obra.
+7. Confirme o vínculo apenas após a conferência e acompanhe o saldo e as pendências.
+8. Em Mais opções · extratos, regras e histórico, escolha Extratos. Em Extratos sem conta vinculada, use Vincular à conta. Confira as datas dos movimentos, a cobertura do OFX quando disponível e o saldo informado pelo banco. Escolha uma conta ativa com mesmo banco e número ou use Cadastrar conta do extrato. Volte ao lote e confirme o vínculo; os movimentos já importados são preservados. Se a posição estiver indisponível, compare com o extrato oficial.
+9. Em Mais opções · extratos, regras e histórico, abra Histórico para conferir as operações e as referências dos lançamentos. Você pode buscar pelo identificador do registro.
 
 ### Como conferir se deu certo
 
@@ -2051,26 +2052,26 @@ Se a entrada já estiver no extrato, vincule-a pela Conciliação para evitar um
 
 ## Caixa da obra
 
-Registrar e conferir movimentações do caixa de uma obra.
+Registrar e conferir o dinheiro disponível e as despesas pagas pelo caixa de uma obra.
 
 ### Antes de começar
 
-Confirme Obra do caixa e o comprovante. O resumo geral apresenta todas as obras disponíveis com caixa ativado.
+Confirme a obra, a data e a referência da nota ou comprovante.
 
 ### Como fazer
 
-1. A obra selecionada em Obra em foco é seguida pelo extrato. Escolher Obra do caixa ou um saldo consolidado também atualiza a obra em foco.
-2. Se a obra escolhida não possui caixa ativado, leia o aviso. Escolha outro caixa ou confira a ativação no cadastro; o app não escolhe outra obra no lugar dela.
-3. Consulte o saldo e os registros anteriores. Abra Registrar aporte ou Registrar gasto e confira Obra do lançamento no formulário.
-4. Informe data, valor, descrição e comprovante quando solicitado. Confirme somente após conferir a obra e acompanhe o saldo após salvar.
+1. Escolha Obra do caixa e confira Saldo em caixa, Entradas, Despesas e Devoluções.
+2. Para recursos que passaram pelo banco, use Transferência na Conciliação e escolha o caixa da obra. Confira o extrato do caixa depois de vincular.
+3. Use Registrar despesa quando o caixa da obra tiver pago diretamente. Informe categoria, data, valor e a referência da nota ou comprovante. Confira Saldo após o lançamento antes de confirmar.
+4. Abra Origem, comprovante e DRE na linha do extrato. Consulte o documento quando disponível, o movimento vinculado na Conciliação e o DRE da competência. Saldos das obras mostra os outros caixas disponíveis.
 
 ### Como conferir se deu certo
 
-O extrato e a confirmação pertencem ao caixa escolhido, enquanto o resumo geral continua disponível.
+Transferências e devoluções aparecem no banco e no caixa da obra sem mexer no resultado. A despesa lançada diretamente entra no DRE da obra. Quando há pagamento vinculado, o DRE apura o custo na origem.
 
 ### O que merece atenção
 
-Evite lançar novamente um pagamento de outro fluxo. Enquanto o formulário está aberto, a obra do lançamento é mantida. Trocar a consulta não registra movimento nem cria custo no demonstrativo de resultado (DRE).
+Se a despesa veio de Compras ou da Conciliação, confira o registro existente antes de lançar. Para desfazer um movimento que veio do banco, use a Conciliação. A obra fica fixa enquanto o formulário está aberto.
 
 <a id="guia-relat"></a>
 

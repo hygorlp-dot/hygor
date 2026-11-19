@@ -9,6 +9,7 @@ import {technicalRetentionCents,thirdPartyCashAmount} from '../terceirizados/tec
 
 import { companyExpenseCategory } from "../dre/expense-taxonomy.js";
 import { classifyReceiptForDre, receiptRecognitionDate } from "../dre/receipt-classification.js";
+import { workCashInternalTransfer } from "./work-cash.js";
 
 export const fromCents = value => Number(value || 0) / 100;
 
@@ -534,15 +535,16 @@ export const buildFinancialLedger = (data = {}, options = {}) => {
   (data.caixaObra || []).filter(active).forEach(entry => {
     const kind = String(entry.tipo || entry.natureza || "").toLowerCase();
     const isDespesa = ["despesa","saida","pagamento"].includes(kind);
-    const effect = isDespesa ? "cash_out" : "cash_in";
+    const internalTransfer = workCashInternalTransfer(entry);
+    const effect = isDespesa || (internalTransfer && kind === "devolucao") ? "cash_out" : "cash_in";
     const id = sourceId(entry, `${entry.obraId}|${entry.data}|${entry.valor}|${entry.descricao}`);
     const linked = !!(entry.notaFiscalId||entry.pedidoId||entry.medicaoId||entry.pagamentoId);
     const base = {
       date:entry.data || entry.date, competence: competenceOf(entry.data || entry.date),
       obraId:entry.obraId || "", category:entry.categoria || "caixa_obra",
       description:entry.descricao || "Movimento do caixa da obra", sourceType:"caixa_obra",
-      sourceId:id, transactionId:entry.transacaoId || "", unallocated:!linked,
-      metadata:{efeitoDRE:entry.efeitoDRE||"sem_efeito"},
+      sourceId:id, transactionId:entry.transacaoId || "", unallocated:!linked && !internalTransfer,
+      metadata:{efeitoDRE:entry.efeitoDRE||"sem_efeito", ...(internalTransfer ? {internalTransfer:true} : {})},
     };
     add({
       ...base, id:`caixa_obra:${id}:${effect}`, effect, amountCents:positiveCents(entry.valor,entry.amount),
@@ -561,7 +563,7 @@ export const buildFinancialLedger = (data = {}, options = {}) => {
     // não cost, por isso o `!linked` abaixo é quem evita a duplicidade.
     // "Aporte" nunca vira receita da empresa (confirmado com o usuário -
     // é aporte de capital na obra, não faturamento da construtora).
-    if (isDespesa && !linked) {
+    if (isDespesa && !linked && !internalTransfer) {
       add({ ...base, id:`caixa_obra:${id}:cost`, effect:"cost", amountCents:positiveCents(entry.valor,entry.amount) });
       issue("WORK_CASH_EXPENSE_WITHOUT_DOCUMENT","caixa_obra",entry,
         "Despesa do caixa da obra sem nota/pedido/medição vinculada; custo reconhecido pelo lançamento manual.",{severity:"info"});
@@ -686,7 +688,8 @@ export const selectCashFlow = (ledger, filters = {}) => {
   // document's competence. Shared DRE filters must not hide later settlements.
   const cashFilters = filters.startDate || filters.endDate || filters.asOfDate
     ? { ...filters, competence:"" } : filters;
-  const events = ledger.events.filter(event => eventMatches(event, cashFilters, "date") && ["cash_in", "cash_out"].includes(event.effect));
+  const events = ledger.events.filter(event => eventMatches(event, cashFilters, "date") && ["cash_in", "cash_out"].includes(event.effect)
+    && (!event.metadata?.internalTransfer || (cashFilters.obraId && cashFilters.obraId !== "all")));
   const cashInCents = sumEffects(events, ["cash_in"], []);
   const cashOutCents = sumEffects(events, ["cash_out"], []);
   // Pago pelo cliente direto ao fornecedor: baixa a obrigação, não mexe no saldo.

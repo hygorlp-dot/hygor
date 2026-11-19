@@ -153,6 +153,18 @@ describe("buildClientPortalPublicationRows", () => {
     expect(open.find(row=>row.domain==="cash_movement").payload.description).toContain("PC-001");
   });
 
+  it("preserva o saldo do caixa publicado e omite detalhes bancários das transferências internas", () => {
+    const movements=[
+      {id:"fund",obraId:"obra-a",data:"2026-07-10",tipo:"aporte",naturezaEntrada:"transferencia_empresa",valor:1000,descricao:"Identificação bancária privada",transacaoId:"private-fund"},
+      {id:"back",obraId:"obra-a",data:"2026-07-11",tipo:"devolucao",naturezaEntrada:"devolucao_empresa",valor:100,descricao:"Referência bancária privada",transacaoId:"private-back"},
+    ];
+    const rows=buildClientPortalPublicationRows({data:{...data,caixaObra:movements},projectId:"obra-a"});
+    expect(rows.find(row=>row.domain==="cash_summary").payload).toMatchObject({totalContributions:1000,totalExpenses:100,balance:900});
+    const published=rows.filter(row=>row.domain==="cash_movement");
+    expect(published.map(row=>row.payload.description)).toEqual(["Devolução à empresa","Transferência da empresa"]);
+    expect(JSON.stringify(published)).not.toMatch(/privad|private-/i);
+  });
+
   it("falha fechado quando a obra não existe", () => {
     expect(()=>buildClientPortalPublicationRows({data,projectId:"outra"})).toThrow("Obra não encontrada");
   });

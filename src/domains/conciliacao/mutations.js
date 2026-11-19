@@ -16,6 +16,8 @@ import { situacaoTituloFolha, validarLiquidacaoFolha } from "./payroll.js";
 import { isDateInClosedPeriod, isCompetenceInClosedPeriod } from "../financeiro/workflows.js";
 import { classifyReceiptForDre } from "../dre/receipt-classification.js";
 import { orderPaymentLinks } from "../financeiro/order-payment-links.js";
+import { calculateWorkCash, workCashInternalTransfer, workCashNature } from "../financeiro/work-cash.js";
+import { isFinancialDate } from "../financeiro/dates.js";
 
 // Nenhuma conciliação pode alterar um fato datado dentro de um período já
 // fechado sem reabertura formal (§ integridade financeira não é opcional).
@@ -27,6 +29,44 @@ export const gerarIdConc = (prefixo = "c") =>
   `${prefixo}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 
 const nomeOperador = operador => operador?.name || operador?.nome || operador?.email || "sistema";
+
+export function conciliarTransferenciaCaixaObra(data, {transacaoId, obraId, operador}) {
+  const tr = transacaoPorId(data, transacaoId);
+  const obra = (data.obras || []).find(item => String(item.id) === obraId && item.hasCaixa && active(item));
+  if (!obra) return {data,resumo:{ok:false,motivo:"Selecione uma obra com caixa ativado."}};
+  if (!tr || tr.status !== "pendente" || tr.importReversal || !isFinancialDate(tr.data) ||
+    !Number.isFinite(Number(tr.valor)) || Number(tr.valor) === 0) {
+    return {data,resumo:{ok:false,motivo:"Selecione um movimento bancário pendente com data e valor válidos."}};
+  }
+  if ((data.caixaObra || []).some(item => active(item) && item.transacaoId === transacaoId)) {
+    return {data,resumo:{ok:false,motivo:"Este movimento bancário já está vinculado ao caixa. Confira o registro existente."}};
+  }
+  const blocked = motivoPeriodoFechado(data,tr.data);
+  if (blocked) return {data,resumo:{ok:false,motivo:blocked}};
+  const isFunding = Number(tr.valor) < 0;
+  const valor = Math.abs(Number(tr.valor));
+  if (!isFunding && valor > calculateWorkCash(data,obraId).saldo + 0.001) {
+    return {data,resumo:{ok:false,motivo:"O valor devolvido supera o saldo do caixa da obra."}};
+  }
+  const id = gerarIdConc("caixa");
+  const now = new Date().toISOString();
+  const movement = {
+    id, obraId, transacaoId, valor, data:tr.data,
+    tipo:isFunding ? "aporte" : "devolucao",
+    naturezaEntrada:isFunding ? "transferencia_empresa" : "devolucao_empresa",
+    categoria:"transferencia", efeitoDRE:"sem_efeito", conciliado:true, status:"ativo",
+    descricao:String(tr.descricao || "").trim(),
+    registradoEm:now, registradoPor:nomeOperador(operador), registradoPorId:operador?.id || "",
+  };
+  const vinculo = {tipo:"transferencia_caixa_obra",id,obraId};
+  const gerados = [{tipo:"caixaObra",id,entidadeId:id}];
+  const transacoes = marcarTransacao(data.transacoes,transacaoId,{status:"conciliado",vinculo,gerados});
+  const historicoConc = registrarHistorico(data.historicoConc,{
+    transacaoId,extratoId:tr.extratoId,acao:"transferencia_caixa_obra",statusAnterior:tr.status,
+    statusNovo:"conciliado",descricao:workCashNature(movement),valor:tr.valor,operadorId:operador?.id,operador:nomeOperador(operador),
+  });
+  return {data:{...data,caixaObra:[...(data.caixaObra || []),movement],transacoes,historicoConc},resumo:{ok:true,criados:gerados,vinculo}};
+}
 
 const registrarHistorico = (historico, entrada) => [
   ...(historico || []),
@@ -494,6 +534,13 @@ export const desfazerConciliacao = (data, transacaoId, operador, motivo = "") =>
   if (bloqueioPeriodo) return { data, resumo: { ok: false, motivo: bloqueioPeriodo } };
 
   const gerados = tr.gerados || [];
+  if (tr.vinculo?.tipo === "transferencia_caixa_obra") {
+    const movement = (data.caixaObra || []).find(item => item.id === tr.vinculo.id && active(item));
+    if (movement && workCashInternalTransfer(movement) && movement.tipo === "aporte" &&
+      calculateWorkCash(data,movement.obraId).saldo + 0.001 < movement.valor) {
+      return {data,resumo:{ok:false,motivo:"O caixa ficaria negativo ao desfazer esta transferência. Confira os gastos e as devoluções vinculados ao saldo."}};
+    }
+  }
   // A conciliação pode criar receita/despesa com competência anterior ao
   // crédito/débito. Reverter não pode reabrir esse resultado implicitamente.
   for(const generated of gerados){

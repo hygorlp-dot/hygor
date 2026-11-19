@@ -1,13 +1,16 @@
 import { contar, contarDecimal } from "../../design-system/copy.js";
 import {Input as FilterInput} from '../../design-system/primitives/Input.jsx';
 import {Select as FilterSelect} from '../../design-system/primitives/Select.jsx';
+import {Dialog} from '../../design-system/primitives/Dialog.jsx';
 import BankImportPreview from "../financeiro/BankImportPreview.jsx";
 import BankImportReversal from './BankImportReversal.jsx';
 import BankStatementLink from './BankStatementLink.jsx';
 import BankAccountCleanup from './BankAccountCleanup.jsx';
 import {FormSection} from '../../design-system/patterns/FormSection.jsx';
+import {TaskDisclosure} from '../../design-system/patterns/TaskDisclosure.jsx';
 import "../financeiro/record-continuity.css";
 import {useWorkflow} from '../workflow/WorkflowNavigation.jsx';
+import {podeAcessarAba} from '../../domains/administracao/abas-acesso.js';
 import {useWorkspaceState,useWorkspaceScroll} from '../workflow/workspace-session.jsx';
 import {validBankDate} from "../../domains/conciliacao/import-preview.js";
 import {reconciliationDivergences,divergenceLabels} from "../../domains/conciliacao/divergence-queues.js";
@@ -92,7 +95,7 @@ const effectLabels = {
 
 export default function Conciliacao({ data, update, showToast, currentUser, dispatchCommand=null }) {
   const { formGrid } = useBreakpoint();
-  const {intent}=useWorkflow();
+  const {intent,navigate}=useWorkflow();
   const useView=(key,initial)=>useWorkspaceState('conc',key,initial);
   useWorkspaceScroll('conc');
   const [bankOrigin,setBankOrigin]=useView('bankOrigin',null);
@@ -549,6 +552,12 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
     if(!ok)return;
     setTransferModal(null);
     showToast("Transferência interna registrada - sem efeito no DRE.");
+  };
+  const confirmarTransferenciaCaixa = async (tr, workCashObraId) => {
+    const ok=await executarConciliacaoNoServidor({type:"CONFIRM_TRANSFER",payload:{transactionId:tr.id,workCashObraId}},"O servidor não confirmou a transferência com o caixa da obra.");
+    if(!ok)return;
+    setTransferModal(null);
+    showToast("Movimento vinculado ao caixa da obra.");
   };
 
   // Estorno: procura o movimento original de sinal oposto entre os já conciliados
@@ -1280,7 +1289,9 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                     : <td className="reconciliation-cell reconciliation-cell--classification">
                         {tr.status === "conciliado" && tr.automacaoConciliacao && <><Badge color={C.green}>Conciliada automaticamente</Badge><p>{tr.automacaoConciliacao.contraparte?.nome}</p><details><summary>Evidências da conciliação</summary><p>{tr.automacaoConciliacao.evidencias?.join(" · ")}</p></details></>}
                         {tr.status==="conciliado"
-                          ? ((tr.rateios||[]).length
+                          ? (tr.vinculo?.tipo==="transferencia_caixa_obra"
+                              ? <span>{entrada?"Devolução do caixa":"Transferência para o caixa"} · {nomeObra(tr.vinculo.obraId)}</span>
+                              : (tr.rateios||[]).length
                               ? <details><summary style={{cursor:"pointer",fontWeight:600,color:C.green}}>{contar(tr.rateios.length,"rateio","rateios")}</summary>{tr.rateios.map((r,i)=><p key={i} style={{marginTop:3}}>{allocationDestination(r)==="obra"?nomeObra(r.obraId):"Empresa"} · {findReconciliationCategory(data,{direction:movementDirection(tr),destination:allocationDestination(r),category:allocationCategory(r)})?.label||allocationCategory(r)} · {fmt(allocationValue(r))}</p>)}</details>
                               : (tr.vinculo?<span>{classificacaoConfirmada?.categories.length?classificacaoConfirmada.categories.map(id=>categoriasFila.find(category=>category.id===id)?.label||id).join(" · "):`Vinculada · ${tr.vinculo.tipo}`}{classificacaoConfirmada?.works.length>0&&<small style={{display:"block",marginTop:3}}>{classificacaoConfirmada.works.map(nomeObra).join(" · ")}</small>}</span>:"Conciliada"))
                           : <span title={tr.ignoradoMotivo} style={{color:C.orange}}>{tr.ignoradoMotivo||"Sem motivo registrado"}</span>}
@@ -1304,6 +1315,10 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                       </div>}
                     </>}
                     {tr.status==="conciliado"&&hasPartialLinks&&<span>Gerencie os vínculos no DRE acima.</span>}
+                    {tr.status==="conciliado"&&tr.vinculo?.tipo==="transferencia_caixa_obra"&&navigate&&podeAcessarAba(currentUser,"caixa")&&
+                      (!currentUser.obraId||currentUser.obraId===tr.vinculo.obraId)&&<Button variant="outline" onClick={()=>navigate("caixa",{obraId:tr.vinculo.obraId},{
+                        action:"review-work-cash",record:{movementId:tr.vinculo.id},
+                      })}>Ver no Caixa da obra</Button>}
                     {tr.status==="conciliado"&&!hasPartialLinks&&!modoConciliacaoRh&&<Btn size="sm" v="ghost" onClick={()=>desfazer(tr)}>Desfazer</Btn>}
                     {tr.status==="ignorado"&&!modoConciliacaoRh&&<><Btn size="sm" onClick={()=>abrirApropriacao(tr)}>Reclassificar</Btn> <Btn size="sm" v="ghost" onClick={()=>reabrir([tr])}>Reabrir</Btn></>}
                   </td>
@@ -1738,13 +1753,23 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
         const tr = (data.transacoes||[]).find(t=>t.id===transferModal.trId);
         if (!tr) return null;
         const opcoes = candidatasTransferencia(tr);
+        const caixas = podeOperarConc && podeAcessarAba(currentUser,"caixa")
+          ? data.obras.filter(obra=>obra.hasCaixa && obra.active!==false && (!currentUser.obraId||currentUser.obraId===obra.id)) : [];
+        const caixaId = transferModal.workCashObraId || "";
         return (
-          <Modal title="Marcar como transferência interna" onClose={()=>setTransferModal(null)}>
+          <Dialog open title="Marcar como transferência interna" onOpenChange={()=>!conciliando&&setTransferModal(null)}>
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
               <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.5}}>
                 Escolha a outra ponta do movimento (mesma conta ou outra conta cadastrada, sinal oposto, valor e data próximos).
                 Nenhuma receita ou despesa é gerada - o DRE não é afetado.
               </p>
+              {caixas.length>0&&<TaskDisclosure summary={Number(tr.valor)<0?"Transferir para o caixa da obra":"Registrar devolução do caixa da obra"}>
+                <p>{Number(tr.valor)<0?"Saída do banco e entrada no caixa":"Saída do caixa e entrada no banco"} · <strong>{fmt(Math.abs(tr.valor))}</strong>. O vínculo não altera o resultado.</p>
+                <FilterSelect label="Caixa da obra" placeholder="Selecione a obra" value={caixaId}
+                  onChange={event=>setTransferModal(current=>({...current,workCashObraId:event.target.value}))}
+                  options={caixas.map(obra=>({value:obra.id,label:obra.name}))}/>
+                <Button disabled={!caixaId||conciliando} onClick={()=>confirmarTransferenciaCaixa(tr,caixaId)}>Vincular ao caixa</Button>
+              </TaskDisclosure>}
               {opcoes.length===0
                 ? <p style={{fontSize:"var(--arcd-type-label)",color:C.orange}}>Nenhuma transação pendente com sinal oposto e valor parecido foi encontrada.</p>
                 : <div style={{display:"flex",flexDirection:"column",gap:6}}>
@@ -1757,7 +1782,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                   </div>}
               <Btn v="ghost" onClick={()=>setTransferModal(null)} full>Cancelar</Btn>
             </div>
-          </Modal>
+          </Dialog>
         );
       })()}
 
