@@ -124,7 +124,7 @@
 }
 
 .reconciliation-toolbar>.reconciliation-category{flex:1 1 230px;max-width:350px}.reconciliation-toolbar{align-items:flex-end}
-.reconciliation-dre-effect{padding:10px 12px;border:1px solid var(--color-border,#d4d8dc);border-radius:6px;background:var(--color-surface,#f4f7fa);font-size:var(--arcd-type-caption,12px);line-height:1.5;overflow-wrap:anywhere}
+.reconciliation-dre-effect{padding:10px 12px;border:1px solid var(--color-border,#d4d8dc);border-radius:var(--arcd-radius-control);background:var(--color-surface,#f4f7fa);font-size:var(--arcd-type-caption,12px);line-height:1.5;overflow-wrap:anywhere}
 .reconciliation-dre-effect strong{display:block;margin-bottom:4px}.reconciliation-dre-effect p{margin:0}.reconciliation-dre-effect[data-effect="revenue"]{border-color:#6cae93}.reconciliation-dre-effect[data-effect="funding"],.reconciliation-dre-effect[data-effect="loan"],.reconciliation-dre-effect[data-effect="unallocated"]{border-color:#c4ad70}
-.reconciliation-existing-first{padding:12px;border:1px solid #8eaecb;border-radius:7px;background:var(--color-surface,#f4f7fa);font-size:var(--arcd-type-label,13px);line-height:1.5}.reconciliation-existing-first p{margin:4px 0 9px}.reconciliation-existing-first>div{display:flex;gap:8px;flex-wrap:wrap}
+.reconciliation-existing-first{padding:12px;border:1px solid #8eaecb;border-radius:var(--arcd-radius-control);background:var(--color-surface,#f4f7fa);font-size:var(--arcd-type-label,13px);line-height:1.5}.reconciliation-existing-first p{margin:4px 0 9px}.reconciliation-existing-first>div{display:flex;gap:8px;flex-wrap:wrap}
 @media(max-width:600px){.reconciliation-toolbar>.reconciliation-category{max-width:none;flex-basis:100%}}

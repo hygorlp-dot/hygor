@@ -96,7 +96,7 @@ td:not(.num) > .bc-flag { justify-content: flex-start; }
 .bc-chart__plot { height: 14rem; }
 .bc-legend { display: flex; gap: var(--arcd-space-4); flex-wrap: wrap; margin: 0 0 var(--arcd-space-2); padding: 0; list-style: none; color: var(--arcd-text-secondary); font-size: var(--arcd-type-label); }
 .bc-legend li { display: inline-flex; align-items: center; gap: var(--arcd-space-1); }
-.bc-legend i, .bc-tooltip i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
+.bc-legend i, .bc-tooltip i { display: inline-block; width: 10px; height: 10px; border-radius: var(--arcd-radius-control); }
 .bc-tooltip { display: grid; gap: 2px; border: 1px solid var(--arcd-border-strong); border-radius: var(--arcd-radius-md); background: var(--arcd-surface-elevated); padding: var(--arcd-space-2); font-size: var(--arcd-type-label); }
 .bc-tooltip span { display: flex; align-items: center; gap: var(--arcd-space-1); }
 .bc-chart__table summary, .bc-more > summary { margin-top: var(--arcd-space-2); color: var(--arcd-text-secondary); font-size: var(--arcd-type-label); font-weight: 600; cursor: pointer; }

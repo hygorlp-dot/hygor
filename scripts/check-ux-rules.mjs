@@ -32,6 +32,11 @@ const regras = {
   "contar-com-texto-formatado": {arquivos: telas.filter(ehCodigo), padrao: /contar(?:Decimal)?\((?:fmt\w*|count|String)\(|contar(?:Decimal)?\([^,()]*\.toFixed\(/g},
   // 2.1 Formato brasileiro: percentual com toFixed sai com ponto decimal.
   "percentual-com-ponto": {arquivos: telas.filter(ehCodigo), padrao: /toFixed\(\d\)\s*\}?\s*%|toFixed\(\d\)\s*\+\s*["'`]%/g},
+  // 8.1 Dois raios só: --arcd-radius-control e --arcd-box-radius (mais --arcd-radius-pill). Raio em px solto não entra.
+  "raio-fixo-em-css-de-tela": {arquivos: telas.filter(ehCssDeTela), padrao: /border-radius\s*:\s*\d+(?:\.\d+)?px/g},
+  "raio-fixo-em-jsx": {arquivos: telas.filter(ehCodigo), padrao: /borderRadius\s*:\s*["'`]?\d/g},
+  // 8.5 Espaçamento só pela escala --arcd-space-* (4, 8, 12, 16, 24, 32 px): 5, 6, 7, 10, 14 px não entram.
+  "gap-fora-da-escala": {arquivos: telas.filter(ehCssDeTela), padrao: /(?<![-\w])(?:gap|row-gap|column-gap)\s*:\s*(?:5|6|7|9|10|11|13|14|15)px/g},
 };
 
 const contagem = {};
@@ -63,6 +68,7 @@ for (const nome of Object.keys(regras)) {
 if (falhas.length) {
   console.error("Regras de UX/UI (docs/REGRAS-UX-UI.md): a contagem subiu.\n  " + falhas.join("\n  "));
   console.error("Use tokens de tema, contar(...) e pct1/Intl pt-BR em vez de cor fixa, \"(s)\" e toFixed(...)%.");
+  console.error("Caixas (§8): raio por var(--arcd-radius-control) ou var(--arcd-box-radius); espaço por var(--arcd-space-*).");
   process.exit(1);
 }
 const total = Object.values(contagem).reduce((s, porArquivo) => s + Object.values(porArquivo).reduce((a, b) => a + b, 0), 0);

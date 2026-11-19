@@ -18,7 +18,7 @@ diz como usá-los; o `DESIGN.md` guarda o histórico das decisões visuais.
    A categoria (faturamento, custo, MO) não pinta o número.
 3. **Estado normal não é destaque.** "Regular", "Em dia", "Sem pendências" ficam discretos (ícone ou texto secundário),
    sem faixa colorida.
-4. **Ação ≠ estado.** A cor de ação (`--arcd-action-primary`: azul no Preciso, dourado no Noite) marca botão principal
+4. **Ação ≠ estado.** A cor de ação (`--arcd-action-primary`: azul-marinho no Preciso, dourado no Noite) marca botão principal
    e foco. Aba ativa, chip selecionado, item de menu ativo e filete de cartão usam texto ou borda neutros.
 5. **Nunca só cor.** Todo estado colorido também tem palavra ou ícone ("vencido", "4 dias de atraso", ⚠).
 6. **Contraste mínimo de 4,5:1** para texto (3:1 para texto grande e ícones de controle), conferido nos dois temas.
@@ -56,7 +56,7 @@ diz como usá-los; o `DESIGN.md` guarda o histórico das decisões visuais.
 
 ## 5. Indicadores
 
-1. **Faixa única de indicadores** (`src/design-system/patterns/kpi-strip.css`): régua com divisórias, rótulo de 13 px,
+1. **Faixa única de indicadores** (`src/design-system/patterns/kpi-strip.css`): régua com divisórias, rótulo em `--arcd-type-label`,
    número em `--arcd-type-kpi`, uma linha de contexto. Não crie outro desenho de cartão de KPI.
 2. **Até quatro indicadores à vista**, os que pedem decisão. O resto vai para "Mais indicadores".
 3. **Indicador sem dado diz isso** ("Sem faturamento no período"), em vez de mostrar 0% ou um gráfico vazio.
@@ -64,7 +64,9 @@ diz como usá-los; o `DESIGN.md` guarda o histórico das decisões visuais.
 
 ## 6. Layout e tipografia
 
-1. **Fonte Inter** (`--arcd-font-sans`), servida do próprio projeto. **Escala de `foundations.js`.** Nada abaixo de 13 px (`--arcd-type-caption`); nada de tamanho em px solto.
+1. **Fonte Geist** (`--arcd-font-sans`; Geist Mono em `--arcd-font-mono`), servida do próprio projeto. **Escala compacta de `foundations.js`**
+   (direção Plataforma, 19/11/2026): título 22 px, indicador 18 px, corpo e tabela 13 px. Nada abaixo de 12 px (`--arcd-type-caption`);
+   nada de tamanho em px solto.
 2. **Texto corrido com até ~72 caracteres por linha.**
 3. **Abas numa linha só**, com rolagem lateral e borda esmaecida; nunca quebrando em duas linhas.
    No máximo dois níveis de navegação por tela (ex.: abas de fluxo + filtros do escopo).
@@ -75,16 +77,44 @@ diz como usá-los; o `DESIGN.md` guarda o histórico das decisões visuais.
 ## 7. Temas
 
 1. **Toda mudança visual é conferida no MARCELL Preciso, no MARCELL Noite e no MARCELL Cristal**, em 1440 px e em 390 px.
-2. **Vidro (Noite e Cristal) só sobre o gradiente leve da marca**, nunca sobre foto ou forma colorida, e nunca vidro sobre vidro.
+2. **Vidro (Preciso, Noite e Cristal) só sobre o fundo da marca** (gradiente leve e emblema em marca d'água), nunca sobre foto
+   ou forma colorida, e nunca vidro sobre vidro.
    A receita fica em `src/design-system/themes/vidro-erp.css`; caixa nova de tela entra na lista dela. Sem desfoque
    ou com "reduzir transparência", as caixas voltam a ser sólidas.
 3. **Impressão e PDF sempre claros.**
 4. **Correção que vale só para um tema vai no CSS do tema** (`[data-theme="noite"]`), nunca no componente.
 
-## 8. Verificação antes do PR
+## 8. Caixas e alinhamento
+
+Toda tela é feita de caixas iguais, alinhadas pela mesma régua. Tokens em `foundations.js`; receita em
+`src/design-system/themes/box-contract.css` (vale para todos os temas, depois de `vidro-erp.css`).
+
+1. **Dois raios só.** Controle (botão, campo, selo, chip) usa `--arcd-radius-control`; caixa (cartão, painel, faixa de
+   indicadores, bloco de filtros, tabela) usa `--arcd-box-radius`. Pílula e círculo usam `--arcd-radius-pill` / `50%`.
+   Nada de raio em px. Raios em px do legado são convertidos para esses dois níveis pelo contrato até a tela ser migrada.
+2. **Caixa padrão:** superfície `--arcd-surface-card` (ou o vidro do tema), borda de 1 px `--arcd-border-default`,
+   raio `--arcd-box-radius` e recuo interno `--arcd-box-padding`, que acompanha a densidade. Sombra vem do tema, nunca da tela.
+   Caixa com campos (filtros, comandos) sempre tem recuo: rótulo e campo nunca encostam na borda.
+3. **Caixa com tabela não tem recuo:** a tabela encosta na borda e só a primeira e a última coluna recuam
+   `--arcd-box-padding`. Assim o texto da tabela fica na mesma vertical do texto da caixa de filtros acima.
+4. **Cabeçalho de caixa numa linha:** título à esquerda, ações à direita, centralizados na altura, com
+   `--arcd-box-header-gap` entre eles. No celular as ações descem para baixo do título, alinhadas à esquerda.
+5. **Espaço só pela escala** `--arcd-space-*` (4, 8, 12, 16, 24 e 32 px). Entre caixas irmãs, `--arcd-box-gap`;
+   dentro da caixa, entre grupos, `--arcd-space-3`; entre rótulo e campo, `--arcd-space-1`. Nada de 5, 6, 7, 10 ou 14 px.
+6. **Uma régua lateral por tela.** Título da página, caixas e tabelas começam na mesma margem (`--arcd-page-padding`;
+   `--arcd-page-padding-mobile` no celular) e terminam na mesma margem direita. Caixa dentro de caixa não soma margem.
+7. **Rótulo acima do valor**, alinhados à esquerda, em indicadores e formulários. Número de coluna à direita (§2.2),
+   com algarismos tabulares e unidade na mesma coluna.
+8. **Mesma função, mesma caixa.** Lista de trabalho, filtros e indicadores têm o mesmo desenho em todos os módulos
+   (`WorkspaceCommandBar`, `kpi-strip.css`, `SummaryCard`); não crie variação local para resolver um módulo.
+9. **No celular**, caixas ocupam a largura toda menos a margem; colunas viram pilha, sem rolagem lateral da página.
+
+## 9. Verificação antes do PR
 
 1. `npm run lint` inclui `scripts/check-ux-rules.mjs`, que barra aumento de cores fixas em CSS de tela, de textos "(s)",
-   de percentuais com ponto e de `contar()` recebendo texto formatado. Se a contagem cair, atualize a linha de base com `node scripts/check-ux-rules.mjs --update`.
+   de percentuais com ponto, de `contar()` recebendo texto formatado e, desde 19/11/2026, de raio em px (CSS de tela e
+   `borderRadius` numérico no JSX) e de espaçamento fora da escala (5, 6, 7, 10, 14 px) no CSS de tela.
+   Se a contagem cair, atualize a linha de base com `node scripts/check-ux-rules.mjs --update`.
 2. Telas alteradas passam pela crítica do Impeccable (revisão de design + detector) nos dois temas.
    A nota não pode cair em relação à anterior; registre a nota no PR.
 3. O PR leva capturas antes e depois, nos dois temas, das telas alteradas.

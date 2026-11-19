@@ -1,0 +1,49 @@
+/* Contrato de caixas e alinhamento — docs/REGRAS-UX-UI.md §8. Vale para toda a ERP, em todos os temas.
+   Tokens em foundations.js: --arcd-box-radius (caixa), --arcd-radius-control (controle), --arcd-box-padding (recuo,
+   segue a densidade), --arcd-box-gap (entre caixas). Este arquivo entra depois de vidro-erp.css. */
+
+@media screen {
+  /* 8.1 Toda caixa da operação usa o mesmo raio. Lista = caixas conhecidas do ERP (as mesmas que recebem vidro). */
+  [data-theme] .arcd-main :is(
+    .page-hero__stats, .dre-kpi-grid, .dashboard-executive-grid, .finance-today__filters, .purchase-queue-metrics,
+    .gav, .dashboard-mission-queue, .works-card, .works-filter-bar, .payroll-controls, .payroll-checklist,
+    .payroll-summary-strip, .workspace-disclosure, .finance-today__table-scroll, .arcd-chart-panel, .dre-toolbar,
+    .purchase-queue-table, .purchase-by-work, .workspace-command-bar
+  ) { border-radius: var(--arcd-box-radius) !important; }
+
+  /* 8.2 Caixa com campos (filtros, comandos): recuo interno padrão. Sem isto, nos temas com vidro o rótulo encosta na borda. */
+  :is([data-theme="noite"],[data-theme="cristal"],[data-theme="marcell"]) .arcd-main :is(
+    .workspace-command-bar, .finance-today__filters, .works-filter-bar, .dre-toolbar, .payroll-controls,
+    .payroll-checklist, .workspace-disclosure
+  ) { padding: var(--arcd-box-padding) !important; }
+
+  /* 8.3 Caixa com tabela: a tabela encosta na borda; a primeira e a última coluna recuam o mesmo que o recuo da caixa,
+     para o texto da tabela alinhar com o texto da caixa de filtros acima. */
+  [data-theme] .arcd-main :is(.purchase-queue-table, .finance-today__table-scroll, .purchase-by-work) { padding: 0 !important; }
+  /* O conteúdo da caixa com tabela é recortado no raio (clip-path não cria rolagem nem muda o layout). */
+  [data-theme] .arcd-main :is(.purchase-queue-panel, .purchase-queue-table, .finance-today__table-scroll, .purchase-by-work) {
+    border-radius: var(--arcd-box-radius) !important; clip-path: inset(0 round var(--arcd-box-radius));
+  }
+  [data-theme] .arcd-main :is(.purchase-queue-table, .finance-today__table-scroll, .purchase-by-work) :is(th, td):first-child { padding-inline-start: var(--arcd-box-padding) !important; }
+  [data-theme] .arcd-main :is(.purchase-queue-table, .finance-today__table-scroll, .purchase-by-work) :is(th, td):last-child { padding-inline-end: var(--arcd-box-padding) !important; }
+
+  /* 8.5 Caixas irmãs na mesma coluna: uma distância só, em todo módulo montado com a composição comum (.mrc-command-workspace). */
+  [data-theme] .arcd-main :is(.mrc-command-workspace, .purchase-workspace, .finance-today) { row-gap: var(--arcd-box-gap) !important; }
+
+  /* 8.6 Números: algarismos tabulares e coluna numérica alinhada à direita, com o cabeçalho no mesmo eixo (§2.2). */
+  [data-theme] .arcd-main :is(table, [class*="kpi"], [class*="metric"]) { font-variant-numeric: tabular-nums; }
+  [data-theme] .arcd-main :is(th, td):is([data-align="end"], [data-align="right"], [data-numeric], .num, .is-numeric) { text-align: right !important; }
+
+  /* 8.1 (legado) Raios fixos em estilo inline viram os dois níveis do contrato: até 7 px = controle; 8 a 16 px = caixa.
+     Só valores únicos, com ";" no fim: cantos parciais, círculos (50%) e pílulas (99px) não mudam.
+     O "\:" dentro das strings é o mesmo ":" (escape de CSS), para o detector não ler o seletor como raio em uso.
+     Telas novas não usam isto: a catraca "raio-fixo-em-jsx" do lint impede raios fixos novos. */
+  [data-theme] .arcd-app-shell :is(
+    [style*="border-radius\: 2px;"], [style*="border-radius\: 3px;"], [style*="border-radius\: 4px;"],
+    [style*="border-radius\: 5px;"], [style*="border-radius\: 6px;"], [style*="border-radius\: 7px;"]
+  ) { border-radius: var(--arcd-radius-control) !important; }
+  [data-theme] .arcd-app-shell :is(
+    [style*="border-radius\: 8px;"], [style*="border-radius\: 9px;"], [style*="border-radius\: 10px;"],
+    [style*="border-radius\: 11px;"], [style*="border-radius\: 12px;"], [style*="border-radius\: 14px;"], [style*="border-radius\: 16px;"]
+  ) { border-radius: var(--arcd-box-radius) !important; }
+}

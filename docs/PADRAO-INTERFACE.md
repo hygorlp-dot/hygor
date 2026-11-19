@@ -11,6 +11,7 @@ Vigente desde 01/11/2026. Aplica-se a toda nova tela, módulo, aba, componente, 
 | Cores, família de fonte, pesos de cabeçalho e diferenças de cada tema | `src/design-system/themes/themeRegistry.js` |
 | Altura dos controles, linhas, preenchimento de painéis e distância entre grupos por densidade | `src/design-system/tokens/density.css` |
 | Escala de espaçamentos para composições | `src/design-system/tokens/spacing.css` |
+| Caixa padrão: raio, recuo interno, distância entre caixas e alinhamento de tabelas | Tokens `--arcd-box-*` em `foundations.js`; receita em `src/design-system/themes/box-contract.css`; regras em `docs/REGRAS-UX-UI.md` §8 |
 | Cabeçalhos, filtros e composição comum dos módulos | `src/design-system/themes/module-standard.css` e `src/design-system/patterns/` |
 | Textos genéricos já compartilhados: confirmação, carregamento e paginação | `src/design-system/copy.js` |
 | Título, instrução ou ação de negócio específica | Componente do módulo; se repetidos, catálogo de textos do próprio domínio |
