@@ -1,4 +1,5 @@
-import { calculateAttendanceDayCost } from "../src/domains/ponto/payroll.js";
+import { calculateAttendanceDayCost, waivedDelayDeductionDates } from "../src/domains/ponto/payroll.js";
+import { getPayrollHolidays } from "../src/domains/ponto/attendance-engine.js";
 import { remunerationModeOnDate } from "../src/domains/rh/remuneration-mode.js";
 import { laborChargeFactor } from "../src/domains/financeiro/labor-charges.js";
 import { resolveHistoricalEmployeeObraId } from "../src/domains/ponto/permissions.js";
@@ -34,7 +35,7 @@ const employeeSnapshot=(stored,current={})=>({
 // - guarda também uma trilha mínima funcionário+data+obra+status, usada pelo
 //   motor mensal para manter o rateio histórico por obra depois que o ponto
 //   bruto sai do dataset principal.
-export const summarizeArchivedCosts = (archive, config = {}, currentEmployees = []) => {
+export const summarizeArchivedCosts = (archive, config = {}, currentEmployees = [], payrollTitles = []) => {
   const currentById=new Map((currentEmployees||[]).map(employee=>[String(employee?.id||""),employee]));
   const snapshots = new Map((archive?.employeesSnapshot || []).map(stored => {
     const id=String(stored?.id||"");
@@ -42,6 +43,11 @@ export const summarizeArchivedCosts = (archive, config = {}, currentEmployees = 
   }));
   const byDate = {};
   const cltAllocationByDate = {};
+  const attendanceDates = [...new Set(Object.values(archive?.attendance || {}).flatMap(days => Object.keys(days || {})))];
+  const datesWithoutDelayDeduction = waivedDelayDeductionDates(payrollTitles, attendanceDates);
+  for (const year of new Set([...datesWithoutDelayDeduction].map(date => Number(date.slice(0,4))))) {
+    for (const holiday of getPayrollHolidays({config}, year)) datesWithoutDelayDeduction.delete(holiday);
+  }
 
   for (const [employeeId, attendance] of Object.entries(archive?.attendance || {})) {
     const employee = snapshots.get(String(employeeId))
@@ -85,7 +91,9 @@ export const summarizeArchivedCosts = (archive, config = {}, currentEmployees = 
         continue;
       }
 
-      const cost = calculateAttendanceDayCost({employee,record,config});
+      const cost = calculateAttendanceDayCost({
+        employee,record,config,waiveDelayDeduction:mode==="daily" && datesWithoutDelayDeduction.has(date),
+      });
       const factor = cost.factor;
       if (!factor || !workId) continue;
       const charges = cost.laborCost * laborChargeFactor(mode, config);

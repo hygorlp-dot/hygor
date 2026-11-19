@@ -1,4 +1,4 @@
-import { calculateAttendanceDayCost } from "../ponto/payroll.js";
+import { calculateAttendanceDayCost, waivedDelayDeductionDates } from "../ponto/payroll.js";
 import { resolveEmployeeAttendanceObraId, resolveHolidayObraId } from "../ponto/permissions.js";
 import { remunerationModeOnDate } from "../rh/remuneration-mode.js";
 import { laborChargeFactor } from "./labor-charges.js";
@@ -138,6 +138,7 @@ export const createLaborCostEngine = ({
       return 0;
     };
 
+    const datesWithoutDelayDeduction = waivedDelayDeductionDates(data?.titulosFolha, days);
     (data?.employees || []).forEach(employee => {
       days.forEach(date => {
         const salario = salarioMensal(employee, date);
@@ -163,6 +164,7 @@ export const createLaborCostEngine = ({
           employee,
           record,
           config:data?.config,
+          waiveDelayDeduction:datesWithoutDelayDeduction.has(date) && remunerationModeOnDate(employee,date)==="daily",
         });
         if (!cost.laborCost && !cost.benefitCost) return;
         const item = bucket(resolveEmployeeAttendanceObraId({ data, employee, date }));

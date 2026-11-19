@@ -1455,16 +1455,17 @@ Escolha Pessoal de obra, Administrativo ou Todos e selecione a competência, ist
 1. Para RH e administradores, Organizar pendências do RH reúne cadastro, ponto, holerite e provisões.
 2. Confira funcionários, ponto e informações que alimentam a folha.
 3. No celular, abra Competência e escopo para trocar o período ou a obra. Use Buscar funcionário na folha e Próxima para localizar pessoas sem alterar os totais.
-4. Abra Composição do pagamento para revisar parcelas e descontos. Abra Fechamento da quinzena para consultar a situação ou fechar após a revisão.
-5. No celular, Buscar funcionário na folha consulta todo o recorte em páginas de até seis pessoas. Abra Indicadores da área para consultar os totais e Pendências para conferir para ver a lista de alertas da quinzena, quando houver.
+4. Se o RH decidir dispensar os descontos de entrada, marque Não descontar atrasos nesta quinzena. A prévia recalcula a folha dos diaristas de todas as obras, mesmo se houver filtro. A opção já vem desmarcada.
+5. Confira o líquido em Composição do pagamento. Selecione Todos e Todas as obras, abra Fechamento da quinzena, use Fechar quinzena e revise os valores em Confirmar fechamento.
+6. No celular, Buscar funcionário na folha consulta todo o recorte em páginas de até seis pessoas. Abra Indicadores da área para consultar os totais e Pendências para conferir para ver a lista de alertas da quinzena, quando houver.
 
 ### Como conferir se deu certo
 
-A folha e os documentos refletem a competência conferida.
+Ao fechar, o ERP grava a escolha e cria os valores a pagar. O custo de mão de obra no DRE acompanha o fechamento.
 
 ### O que merece atenção
 
-Fechar ou emitir a folha não comprova pagamento; confira a situação financeira separadamente.
+A opção trata apenas atrasos. Faltas, meios períodos, sindicato e adiantamentos seguem suas próprias regras. A dispensa exige que o ponto esteja disponível e as competências financeiras da quinzena estejam abertas. Fechar ou emitir a folha não comprova pagamento.
 
 ### Exemplo ilustrativo
 

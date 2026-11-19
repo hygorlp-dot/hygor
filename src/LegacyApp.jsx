@@ -1343,6 +1343,8 @@ const normalizeData = incoming => {
     // custo reconhecido pelo ponto. Dados legados sem título continuam válidos.
     titulosFolha: Array.isArray(d.titulosFolha) ? d.titulosFolha.map(t => ({
       id:t.id||uid(), employeeId:t.employeeId||"", funcionarioNome:t.funcionarioNome||"", documentoFuncionario:t.documentoFuncionario||"",
+      periodKey:t.periodKey||"", closingId:t.closingId||"", waiveDelayDeduction:t.waiveDelayDeduction===true,
+      version:Number(t.version||0), fechadoFolhaEm:t.fechadoFolhaEm||"", fechadoFolhaPor:t.fechadoFolhaPor||"",
       periodoInicio:t.periodoInicio||"", periodoFim:t.periodoFim||"", competencia:t.competencia||"", vencimento:t.vencimento||"",
       bruto:Number(t.bruto||0), beneficios:Number(t.beneficios||0), adiantamentos:Number(t.adiantamentos||0), descontos:Number(t.descontos||0), liquido:Number(t.liquido||0),
       valorPago:Number(t.valorPago||0), saldo:t.saldo != null ? Number(t.saldo) : Math.max(0,Number(t.liquido||0)-Number(t.valorPago||0)), status:t.status||"em_aberto",

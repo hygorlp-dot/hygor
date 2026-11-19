@@ -1,5 +1,6 @@
 import {openReportPreview} from '../../../reports/report-preview.js';
 import {ChoiceControl} from '../../../design-system/primitives/ChoiceControl.jsx';
+import {Checkbox} from '../../../design-system/primitives/Checkbox.jsx';
 import {SelectControl} from '../../../design-system/primitives/Select.jsx';
 import {RecordAction} from '../../../design-system/primitives/RecordAction.jsx';
 import {TaskDisclosure} from '../../../design-system/patterns/TaskDisclosure.jsx';
@@ -29,13 +30,13 @@ import {
   getPayrollPaymentCalendar, getQ, isEmployeeEmployedOnDate,
   prIsWeekdayIso, prUniqueDates,
 } from "../attendance-engine";
-import { calculateAttendanceDayCost } from "../payroll";
+import { calculateAttendanceDayCost, hasWaivedDelayDeduction } from "../payroll";
 import { ATTENDANCE_STATUS_LABEL, isLeaveStatus, isValidAttendanceStatus } from "../attendance-status";
 import { resolveHistoricalEmployeeObraId, resolveHolidayObraId } from "../permissions";
 import { allocateAdvancesByWork } from "../advance-allocation";
 import { payrollPayerForWork, splitPayrollResponsibility } from "../payroll-responsibility";
 import {
-  activePayrollTitlesForPeriod, buildPayrollTitles, payrollClosingBlockers,
+  activePayrollTitlesForPeriod, buildPayrollTitles, delayWaiverBlocker, payrollClosingBlockers,
   payrollClosingDivergences, payrollPeriodKey, PAYROLL_CLOSING_COMMAND,
 } from "../payroll-closing";
 import {
@@ -86,6 +87,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
   const [closingModal,setClosingModal]=useState("");
   const [reopenReason,setReopenReason]=useState("");
   const [savingClosing,setSavingClosing]=useState(false);
+  const [delayWaiverPeriod,setDelayWaiverPeriod]=useState("");
   const [payrollView,setPayrollView]=useWorkspaceState('folha','view',entryScope?.mode==='clt'?'clt':'payroll');
   useEffect(()=>{if(entryScope)setPayrollView(entryScope.mode==='clt'?'clt':'payroll');},[entryScope]);
   const canReview=['admin','rh'].includes(currentUser?.role);
@@ -143,6 +145,12 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
   const obraName = id => data.obras.find(o => o.id === id)?.name || "-";
   const reportScope = `${laborAreaLabel(laborGroup)} · ${filterObra==="all"?"Todas as obras":obraName(filterObra)}`;
   const periodLabel = `${q === "1" ? "1ª" : "2ª"} Quinzena de ${fullMonth(month)} ${year}`;
+  const closingPeriodKey=payrollPeriodKey(year,month,q);
+  const closedTitles=activePayrollTitlesForPeriod(data,closingPeriodKey);
+  const delayWaiverUnavailable=canReview?delayWaiverBlocker(data,closingPeriodKey):"";
+  const waiveDelayDeduction=closedTitles.length>0
+    ? closedTitles.some(hasWaivedDelayDeduction)
+    : canReview&&!delayWaiverUnavailable&&delayWaiverPeriod===closingPeriodKey;
 
   // Obra do operário numa data (sem obra carimbada no ponto): o MESMO
   // resolvedor da DRE e do servidor - transferências do changeLog e o
@@ -203,7 +211,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       const obraId = a?.obraId || getEmpObraIdOnDate(employee, d);
 
       if (st === "P") {
-        const custo=calculateAttendanceDayCost({employee,record:a,config:data.config});
+        const custo=calculateAttendanceDayCost({employee,record:a,config:data.config,waiveDelayDeduction});
         gross += custo.laborCost;
         overtimePay += custo.overtimePay;
         presentes++;
@@ -213,7 +221,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
         addToObra(obraId, "P", { valorDias:custo.basePay-custo.delayDeduction, overtimePay:custo.overtimePay,
           vt:Number(employee.vtDaily||0), vr:Number(employee.vrDaily||0), ot:extra });
       } else if (st === "M") {
-        const custo=calculateAttendanceDayCost({employee,record:a,config:data.config});
+        const custo=calculateAttendanceDayCost({employee,record:a,config:data.config,waiveDelayDeduction});
         gross += custo.laborCost;
         overtimePay += custo.overtimePay;
         meiodia++;
@@ -334,7 +342,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
     .filter(belongsToSelectedObra)
     .filter(r => r.presentes > 0 || r.meiodia > 0 || r.faltas > 0 || r.feriadosPagos > 0 || r.feriadosPerdidos > 0 || r.advances > 0 || r.gross > 0)
     .sort((a, b) => a.name.localeCompare(b.name)),
-    [data.employees, data.attendance, data.changeLog, data.obras, data.advances, data.config?.unionDues, days, holidaysInPeriod, filterObra, q,laborGroup]);
+    [data.employees, data.attendance, data.changeLog, data.obras, data.advances, data.config, days, holidaysInPeriod, filterObra, q,laborGroup,waiveDelayDeduction]);
   const payrollQuery=payrollSearch.trim().toLocaleLowerCase('pt-BR');
   const payrollPageSize=isMobile?6:12;
   const payrollPage=useRecordPage('folha',rows.filter(row=>row.name.toLocaleLowerCase('pt-BR').includes(payrollQuery)),
@@ -461,9 +469,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
   // Fechamento da quinzena: congela o líquido de cada funcionário em um título
   // a pagar rateado por obra (ver payroll-closing.js). Só fecha pela visão
   // consolidada, para que nenhum funcionário de outra obra fique de fora.
-  const canManageClosing=["admin","rh"].includes(currentUser?.role);
-  const closingPeriodKey=payrollPeriodKey(year,month,q);
-  const closedTitles=activePayrollTitlesForPeriod(data,closingPeriodKey);
+  const canManageClosing=canReview;
   const isCompanyScope=laborGroup==='all'&&filterObra==='all';
   const closingBlockers=isCompanyScope?payrollClosingBlockers({pendencias:pendenciasRelatorio,rows}):["Selecione Todos e Todas as obras para fechar a quinzena da empresa inteira."];
   const closingDivergences=isCompanyScope&&closedTitles.length?payrollClosingDivergences(closedTitles,rows):[];
@@ -481,9 +487,10 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       const result=await dispatchCommand(()=>({
         type:PAYROLL_CLOSING_COMMAND.PAYROLL_FORTNIGHT_CLOSED,
         idempotencyKey:`fechar-${closingId}`,
-        payload:{periodKey:closingPeriodKey,closingId,titles:buildClosingTitles(closingId)},
+        payload:{periodKey:closingPeriodKey,closingId,titles:buildClosingTitles(closingId),waiveDelayDeduction},
       }));
       if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o fechamento.");
+      setDelayWaiverPeriod("");
       setClosingModal("");
       showToast("Quinzena fechada. Os pagamentos já aparecem em contas a pagar.");
     }catch(error){showToast(error?.message||"Não foi possível fechar a quinzena.","error");}
@@ -563,7 +570,10 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       : a?.status === "P" ? "Presente" : a?.status === "M" ? "Meio período"
       : a?.status === "F" ? "Falta" : ATTENDANCE_STATUS_LABEL[a?.status] || "Sem registro";
     const equivalente = a?.status === "P" ? 1 : a?.status === "M" ? 0.5 : 0;
-    const custoDia=feriado?null:calculateAttendanceDayCost({employee:r,record:a,config:data.config});
+    const custoDia=feriado?null:calculateAttendanceDayCost({
+      employee:r,record:a,config:data.config,
+      waiveDelayDeduction:waiveDelayDeduction&&remunerationModeOnDate(r,d)==="daily",
+    });
     const valorDia = feriado ? Number(regraFer?.amount || 0) : Number(custoDia?.laborCost || 0);
     const valorVT = feriado ? 0 : Number(r.vtDaily || 0) * equivalente;
     const valorVR = feriado ? 0 : Number(r.vrDaily || 0) * equivalente;
@@ -973,6 +983,13 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       {payrollView==="payroll"&&<>
 
       <div id="folha-fechamento">
+      {canManageClosing&&closedTitles.length===0&&<section className="payroll-checklist" aria-label="Descontos por atraso">
+        <Checkbox label="Não descontar atrasos nesta quinzena" checked={waiveDelayDeduction}
+          disabled={Boolean(delayWaiverUnavailable)||savingClosing} aria-describedby="folha-desconto-atraso-ajuda"
+          onChange={event=>setDelayWaiverPeriod(event.target.checked?closingPeriodKey:"")}/>
+        <p id="folha-desconto-atraso-ajuda">{delayWaiverUnavailable||
+          "Recalcula a folha dos diaristas de todas as obras. A escolha é registrada ao fechar a quinzena."}</p>
+      </section>}
       <TaskDisclosure enabled={!isDesktop} summary={closedTitles.length?"Quinzena fechada":"Fechamento da quinzena"}>
           <section className="payroll-checklist payroll-closing" aria-label="Fechamento da quinzena">
           {closedTitles.length?<>
@@ -980,8 +997,10 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
             <p>Fechamento da empresa (Todos). Inclui os dois grupos; exige Todos e Todas as obras.</p>
             <p>{contar(closedTitles.length,"pagamento","pagamentos")} · {fmt(closedTotal)} · vencimento {fmtDateFull(closedTitles[0].vencimento)} · fechada por {closedTitles[0].fechadoFolhaPor||"—"} em {fmtDate(String(closedTitles[0].fechadoFolhaEm||"").slice(0,10))}.</p>
             <p>Os pagamentos estão em contas a pagar e são baixados pela conciliação do extrato.</p>
+            {waiveDelayDeduction&&<p>Quinzena fechada sem desconto por atraso para diaristas.</p>}
             {closingDivergences.length>0&&<p role="alert" style={{color:"var(--arcd-danger-text)"}}><Ic n="alert"/> O ponto mudou depois do fechamento para {contar(closingDivergences.length,"funcionário","funcionários")}. Reabra a quinzena para refazer os pagamentos.</p>}
-            {canManageClosing&&<Btn v="ghost" disabled={!isCompanyScope} onClick={()=>setClosingModal("reopen")}>Reabrir quinzena</Btn>}
+            {canManageClosing&&waiveDelayDeduction&&delayWaiverUnavailable&&<p>{delayWaiverUnavailable}</p>}
+            {canManageClosing&&<Btn v="ghost" disabled={!isCompanyScope||(waiveDelayDeduction&&Boolean(delayWaiverUnavailable))} onClick={()=>setClosingModal("reopen")}>Reabrir quinzena</Btn>}
           </>:<>
             <h3>Fechamento da quinzena</h3>
             <p>Fechamento da empresa (Todos). Inclui os dois grupos; exige Todos e Todas as obras.</p>
@@ -1170,6 +1189,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
           <div className="payroll-review">
             <p>Serão criados <b>{contar(rows.filter(r=>r.net>0).length,"pagamento","pagamentos")}</b>, total de <b>{fmt(T.net)}</b>, com vencimento em <b>{paymentDateLabel}</b>.</p>
             <p>Construtora: {fmt(responsabilidadeFolha.totals.builder)} · Obras por administração: {fmt(responsabilidadeFolha.totals.administrationWorks)}.</p>
+            <p>{waiveDelayDeduction?"Os atrasos dos diaristas não serão descontados nesta quinzena.":"Os descontos por atraso dos diaristas serão aplicados nesta quinzena."}</p>
             <p className="payroll-review__help">Depois de fechada, a quinzena só muda reabrindo, com motivo, e só enquanto nenhum pagamento tiver sido conciliado.</p>
             <div className="payroll-review__actions">
               <Btn v="primary" disabled={savingClosing} onClick={closeFortnight}><Ic n="check"/>{savingClosing?" Fechando…":" Confirmar fechamento"}</Btn>

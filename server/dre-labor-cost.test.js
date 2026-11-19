@@ -2,6 +2,22 @@ import { describe, expect, it } from "vitest";
 import { buildRequestedDreProjectionRows } from "./dre-projection.js";
 import { rebuildArchivedLaborCosts } from "./financial-archived-costs-source.js";
 import { archivedCltScenario } from "../src/fixtures/archived-clt.js";
+import { payrollDelayWaiverScenario, waivedDelayPayrollTitle } from "../src/fixtures/payroll-delay-waiver.js";
+
+it("DRE reconhece os mesmos R$ 100 da folha fechada sem desconto, inclusive após arquivar",()=>{
+  const data=payrollDelayWaiverScenario();
+  const closed={...data,titulosFolha:[waivedDelayPayrollTitle]};
+  const archived=rebuildArchivedLaborCosts({
+    data:{...closed,attendance:{},quinzenasArquivadas:{"2026-11-Q1":{}}},
+    archiveRows:[{key:"arced_ponto_v1__arq__2026-11-Q1",value:{
+      attendance:data.attendance,employeesSnapshot:data.employees,
+    }}],
+  }).data;
+  const cost=source=>buildRequestedDreProjectionRows(source,[{year:2026,month:10,period:"mes",scope:"obra"}])[0].payload.moData.laborCost;
+  expect(cost(data)).toBe(90);
+  expect(cost(closed)).toBe(100);
+  expect(cost(archived)).toBe(100);
+});
 
 it("DRE preserva R$ 2.300 de salário CLT e R$ 25 de benefícios históricos por obra",()=>{
   const {data,archiveRows,live}=archivedCltScenario();

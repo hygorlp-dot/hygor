@@ -14,6 +14,19 @@ const safeRecord = value => value && typeof value === "object" && !Array.isArray
 // afastamento (attendance-status.js); falta e dia sem registro pagam zero.
 export const attendanceFactor = (status, config = {}) => payFactor(status, config);
 
+export const hasWaivedDelayDeduction = title =>
+  title?.waiveDelayDeduction === true && String(title.status || "").toLowerCase() !== "cancelado";
+
+export function waivedDelayDeductionDates(titles = [], days = []) {
+  const periods = titles.filter(hasWaivedDelayDeduction);
+  if (!periods.length) return new Set();
+  return new Set(days.filter(date => {
+    const weekday = new Date(`${date}T12:00:00Z`).getUTCDay();
+    return weekday >= 1 && weekday <= 5 &&
+      periods.some(title => date >= title.periodoInicio && date <= title.periodoFim);
+  }));
+}
+
 export const resolveOvertimePolicy = input => {
   const employee = safeRecord(input?.employee);
   const record = safeRecord(input?.record);
@@ -40,6 +53,7 @@ export const calculateAttendanceDayCost = ({
   employee: employeeInput,
   record: recordInput,
   config: configInput,
+  waiveDelayDeduction = false,
 } = {}) => {
   // Dia sem lançamento é representado por `null` no legado. Defaults de
   // desestruturação só tratam `undefined`, portanto o valor nulo atravessava
@@ -80,7 +94,7 @@ export const calculateAttendanceDayCost = ({
   const delayMinutes = worked <= 0 ? 0 : timekeeping.valid && !timekeeping.empty
     ? timekeeping.delayMinutes
     : positiveNumber(record.atrasoMin);
-  const delayDeduction = Math.min(
+  const delayDeduction = waiveDelayDeduction ? 0 : Math.min(
     basePay,
     workdayHours ? (dailyRate / workdayHours) * (delayMinutes / 60) : 0,
   );
