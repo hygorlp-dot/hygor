@@ -1277,7 +1277,7 @@ Escolha Pessoal de obra, Administrativo ou Todos; depois confira a obra e o per�
 ### Como fazer
 
 1. Confira a data. O nome abre a ficha conforme seu acesso.
-2. Marque Presente, Meio dia ou Falta. Mais opções reúne outras situações, jornada e observações. Férias, atestado e folga são registros válidos e aparecem no cartão.
+2. Marque Presente, Meio dia ou Falta. Mais opções reúne outras situações, jornada e observações. Para atestado, abra Mais opções e escolha Atestado. Confira funcionário e data, use Selecionar imagem do atestado e depois Confirmar e anexar. Para um atestado já marcado, a ação permite anexar outra imagem.
 3. Transferir e Desligar ficam no cartão quando permitidos. Confira e confirme; Cancelar não grava.
 4. Na lista, confira o intervalo de resultados. Anterior e Próxima mostram até 12 registros por página; a busca considera toda a lista disponível, não só a página atual. Alterar o recorte volta à primeira página. Totais e relatórios continuam usando o conjunto completo.
 5. No celular, abra Obras com ponto pendente para escolher uma obra que precisa de conferência. Pesquisar no ponto consulta todo o recorte em páginas de até seis pessoas. Abra Ações em lote para ler o alcance e usar Todos presentes ou Todos com falta.
@@ -1304,7 +1304,8 @@ Escolha Pessoal de obra, Administrativo ou Todos; depois selecione o período e 
 
 1. Localize as situações que precisam de conferência.
 2. Abra os registros e compare horários, origem e informações disponíveis.
-3. Trate as pendências pelas ações autorizadas e confira o resultado.
+3. Ao chegar em Atestado na célula do dia, confira funcionário e data. Selecione uma imagem JPEG ou PNG de até 3 MB e use Confirmar e anexar. Marcar folga pula o atestado. Nos dias já lançados como atestado, use Anexar atestado. O arquivo fica no prontuário do funcionário, acessível a RH e administradores.
+4. Trate as pendências pelas ações autorizadas e confira o resultado.
 
 ### Como conferir se deu certo
 

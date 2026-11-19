@@ -221,6 +221,7 @@ export const extrairNotaPatrimonioIA = ({dataUrl,fileName}) => chamarRotaAutenti
 });
 export const consultarCNPJReceita = cnpj => chamarRotaAutenticada("/api/cnpj", { cnpj });
 export const employeeDocumentsRequest = payload => chamarRotaAutenticada('/api/upload',{...payload,folder:'rh'});
+export const uploadAttendanceCertificate = payload => chamarRotaAutenticada('/api/data',{...payload,action:'attendance-certificate'});
 export const buscarResumoDiario = () => chamarRotaAutenticada("/api/ai-agent", { action:"daily-brief" });
 export const executarComandoFinanceiro = command => chamar({ action:"financial-command", ...credenciais(), command });
 export const consultarPreviaFechamentoFinanceiro = ({startsOn,endsOn}) =>

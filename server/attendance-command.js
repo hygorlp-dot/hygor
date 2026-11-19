@@ -2,6 +2,9 @@ import { ATTENDANCE_STATUSES } from "../src/domains/ponto/attendance-status.js";
 import { normalizeAttendanceRecord } from "../src/domains/ponto/records.js";
 import { prepareAttendanceReview } from "./attendance-review.js";
 import { planBiometricSync, validSyncRange } from './attendance-biometric-sync.js';
+import { podeAcessarAba } from '../src/domains/administracao/abas-acesso.js';
+import { pointCycleForDate } from '../src/domains/rh/rh-step-target.js';
+import { payrollPeriodKey } from '../src/domains/ponto/payroll-closing.js';
 import {
   resolveEmployeeAttendanceObraId,
 } from "../src/domains/ponto/permissions.js";
@@ -145,6 +148,23 @@ const validatePatch=({data,user,patch,now})=>{
   if(!normalized.ok)return normalized;
   return {ok:true,employeeId,date,employee,obraId,currentRecord,record:normalized.record};
 };
+
+export function validateAttendanceCertificate(data,user,body,now=new Date().toISOString()){
+  if(!WRITE_ROLES.has(user?.role)||!(podeAcessarAba(user,"ponto")||podeAcessarAba(user,"ponto_geral"))){
+    return fail("Seu perfil não pode anexar atestado no ponto.",403);
+  }
+  const {employeeId,date}=body;
+  if(!validDate(date)||date>currentDateForNow(now))return fail("Data do atestado inválida.");
+  const employee=findEmployee(data,employeeId);
+  if(!employee)return fail("Funcionário não encontrado.",404);
+  const cycle=pointCycleForDate(date);
+  if(data.quinzenasArquivadas?.[payrollPeriodKey(cycle.year,cycle.month,cycle.q)]){
+    return fail("A quinzena está arquivada. Restaure o ponto antes de anexar o atestado.",409);
+  }
+  const obraId=resolveEmployeeAttendanceObraId({data,employee,date});
+  if(String(body.obraId||"")!==obraId)return fail("O funcionário não está vinculado a esta obra na data do ponto.",403);
+  return validatePatch({data,user,now,patch:{employeeId,date,selectedObraId:obraId,record:{status:"AT"}}});
+}
 
 const applyValidatedPatch=(data,validated)=>{
   const attendance={...(data?.attendance||{})};

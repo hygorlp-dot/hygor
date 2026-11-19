@@ -117,6 +117,7 @@ import { normalizeWorkflowScope } from "./features/workflow/workflow-model.js";
 import MonthlyDreMemorial from "./features/financeiro/MonthlyDreMemorial.jsx";
 import AnnualDre from "./features/financeiro/AnnualDre.jsx";
 import LaborProjectionReport from "./domains/ponto/components/LaborProjectionReport.jsx";
+import {AttendanceCertificateDialog} from "./domains/ponto/components/AttendanceCertificateDialog.jsx";
 
 // O navegador não conversa mais com o banco. Fala com /api/data, que roda no
 // servidor e é quem guarda a chave. Sem chave de banco neste bundle.
@@ -5861,6 +5862,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
   const [filterObra,setFilterObra]=useWorkspaceState('ponto_geral','filterObra',"all");
   const [busca,setBusca]=useWorkspaceState('ponto_geral','busca',"");
   const [obraCell,setObraCell]=useState(null);   // "empId::date" da célula com troca de obra aberta
+  const [certificate,setCertificate]=useState(null);
   const pendingCellsRef=useRef(new Map());
   const [,setPendingCellsRevision]=useState(0);
   const {intent:rhIntent,navigate:navigateEmployee}=useWorkflow();
@@ -5999,6 +6001,17 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
     });
     clearPending(operationId,patches);
     if(!result?.ok)showToast(result?.reason||"O ponto não foi salvo.","error");
+    return Boolean(result?.ok);
+  };
+
+  const openCertificate=(employee,date,alreadyMarked=false)=>{
+    if(bloqueadoPorArquivo())return;
+    const obraId=obraDoRegistro(employee,date,attendanceFor(employee.id,date));
+    if(obraId&&!canEditAttendance(data,obraId,date,currentUser?.id)){
+      showToast("O ponto está bloqueado. Obtenha liberação no Ponto por obra antes de anexar.","error");
+      return;
+    }
+    setCertificate({employee,date,obraId,alreadyMarked});
   };
 
   // Sem preenchimento automático de presença: cada dia é marcado manualmente,
@@ -6091,7 +6104,10 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
             const aberto=obraCell===cellKey;
             return <td className={`ponto-dia-cell${feriado?" ponto-feriado":""}`} key={date} style={{padding:"var(--arcd-space-1)",borderTop:"1px solid var(--arcd-border-default)",borderLeft:"1px solid var(--arcd-border-default)",background:feriado?"color-mix(in srgb, var(--arcd-danger-text) 2%, transparent)":fora?"var(--arcd-surface-muted)":"var(--arcd-surface-card)",verticalAlign:"middle"}}>
               {fora?<div style={{textAlign:"center",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)"}}>—</div>:<>
-                <RecordAction onClick={()=>salvarCelula(emp,date,{status:proxStatus(st)})}
+                <RecordAction onClick={()=>{
+                  const nextStatus=proxStatus(st);
+                  return nextStatus==="AT"?openCertificate(emp,date):salvarCelula(emp,date,{status:nextStatus});
+                }}
                   aria-busy={pending}
                   title={pending?"Salvando...":ATTENDANCE_STATUS_LABEL[st]||"Sem registro"}
                   style={{width:"100%",height:30,textAlign:"center",border:`1.5px solid ${st?corStatus(st):"var(--arcd-border-default)"}`,borderRadius:"var(--arcd-radius-control)",
@@ -6100,6 +6116,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
                           boxShadow:pending?"0 0 0 2px color-mix(in srgb, var(--arcd-action-primary) 20%, transparent)":"none",opacity:pending ? .82 : 1}}>
                   {st?rotuloCurto(st):feriado?"Feriado":rotuloCurto(st)}
                 </RecordAction>
+                {st==="AT"&&<RecordAction title="Anexar atestado" onClick={()=>openCertificate(emp,date,true)}>Anexar atestado</RecordAction>}
                 {/* Obra: escondida por padrão. Mostra um chip discreto só quando a
                     obra do dia difere da lotação; toque abre a troca. */}
                 {aberto ? (
@@ -6126,6 +6143,9 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
       {!employees.length&&<div style={{padding:"var(--arcd-space-6)",textAlign:"center",color:"var(--arcd-text-secondary)"}}>Nenhum funcionário encontrado para os filtros selecionados.</div>}
     </div>
 
+    {certificate&&<AttendanceCertificateDialog {...certificate} onClose={()=>setCertificate(null)}
+      onSkip={()=>{setCertificate(null);void salvarCelula(certificate.employee,certificate.date,{status:"FG"});}}
+      onSave={()=>salvarCelula(certificate.employee,certificate.date,{status:"AT"})}/>}
     {arqView&&(()=>{
       // Resumo do arquivo: conta P/M/F por funcionario e valora com a diaria
       // CONGELADA no snapshot (a da epoca do pagamento, nao a atual).
@@ -6195,6 +6215,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
     setSelDate(rhIntent.record.date);if(!obraIdFixo)setFilterObra(currentUser?.obraId||rhIntent.scope.obraId||'all');
   },[rhIntent?.sequence]);
   const [noteModal, setNoteModal] = useState(null);
+  const [certificate,setCertificate]=useState(null);
   const [noteText, setNoteText] = useState("");
   const [roleModal, setRoleModal] = useState(null);
   const [roleText, setRoleText] = useState("");
@@ -6311,9 +6332,15 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
     showToast("Ponto da obra finalizado e bloqueado.");
   };
 
-  const setAtt = async (empId, status) => {
+  const setAtt = async (empId, status, certificateWorkId) => {
     const emp = data.employees.find(e => e.id === empId);
-    if (requireUnlocked(emp)) return;
+    if (!emp||requireUnlocked(emp)) return false;
+    if(status==="AT"&&certificateWorkId===undefined){
+      const original=getAtt(data,empId,selDate);
+      const obraId=resolveEmployeeAttendanceObraId({data,employee:emp,date:selDate,record:original});
+      setCertificate({employee:emp,date:selDate,obraId,alreadyMarked:original?.status==="AT"});
+      return false;
+    }
 
     // Grava EM QUAL OBRA o dia foi trabalhado.
     //
@@ -6329,7 +6356,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
     // Se o ponto está filtrado por uma obra específica, o dia é dela.
     // Em "todas as obras", cai na lotação do funcionário - que continua sendo
     // o caso comum: cada um no seu canteiro.
-    const obraDoDia = (filterObra && filterObra !== "all") ? filterObra : (emp?.obra || "");
+    const obraDoDia = certificateWorkId ?? ((filterObra && filterObra !== "all") ? filterObra : (emp?.obra || ""));
 
     const next=applyAttendanceStatus({
       data,
@@ -6339,7 +6366,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
       obraId:obraDoDia,
       currentDate:today(),
     });
-    await persistAttendanceRecord({
+    return persistAttendanceRecord({
       employee:emp,date:selDate,record:next.attendance?.[empId]?.[selDate],
       selectedObraId:obraDoDia,confirmDailyCheck:selDate===today(),
     });
@@ -6678,6 +6705,8 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
       {movementModal && <WorkerMovementModal data={data} showToast={showToast} employee={movementModal.emp} initialMode={movementModal.mode} onClose={() => setMovementModal(null)} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchCommand} />}
       {unlockModal && <UnlockRequestModal data={data} dispatchAttendanceCommand={dispatchAttendanceCommand} showToast={showToast} obraId={unlockModal.obraId} date={unlockModal.date} employee={unlockModal.employee} onClose={() => setUnlockModal(null)} />}
 
+      {certificate&&<AttendanceCertificateDialog {...certificate} onClose={()=>setCertificate(null)}
+        onSave={()=>setAtt(certificate.employee.id,"AT",certificate.obraId)}/>}
       {noteModal && (
         <Modal title="Observação" onClose={() => setNoteModal(null)}>
           <Inp label="Observação" value={noteText} onChange={setNoteText} multiline />
