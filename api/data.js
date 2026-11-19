@@ -95,7 +95,8 @@ import {
 } from "../server/domain-row-routing.js";
 import { readFreshAttendance, readReviewEvents, readSyncEvents } from "../server/attendance-review-source.js";
 import { planBiometricSync, validSyncRange, biometricSyncPreview } from '../server/attendance-biometric-sync.js';
-import { applyAttendanceCommand, ATTENDANCE_COMMAND } from "../server/attendance-command.js";
+import { applyAttendanceCommand, ATTENDANCE_COMMAND, validateAttendanceCertificate } from "../server/attendance-command.js";
+import {handleRhDocuments} from "../server/rh-documents.js";
 import {enrichAttendanceWithAutomaticAllocation} from '../server/attendance-auto-allocation.js';
 import {
   applyEntriesToAttendance, attendanceObraKeyPrefix,
@@ -2678,6 +2679,19 @@ async function handler(req, res) {
     // Ponto é persistido por fato, nunca pela substituição da seção projetada.
     // O payload permanece constante (um registro ou lote curto), a validação
     // usa o dataset autoritativo e a mesma RPC grava mutação + auditoria.
+    if(action==='attendance-certificate'){
+      res.setHeader('Cache-Control','private, no-store');
+      const proof=validateAttendanceCertificate(atual,usuario,req.body);
+      if(!proof.ok)return res.status(proof.status).json({ok:false,error:proof.error});
+      if(proof.currentRecord?.status!=="AT"){
+        const closing=validarPontoEmCompetenciaAberta(atual,{action:ATTENDANCE_COMMAND.UPSERT,date:proof.date});
+        if(!closing.ok)return res.status(409).json({ok:false,error:closing.error,code:closing.code});
+      }
+      const result=await handleRhDocuments({
+        db,user:usuario,body:{...req.body,employeeId:proof.employeeId},company:COMPANY,attendance:proof,
+      });
+      return res.status(result.status).json(result.body);
+    }
     if(action==='attendance-preview-punches'){
       if(!['admin','rh'].includes(usuario.role))return res.status(403).json({ok:false,error:'Somente RH e administrador podem sincronizar batidas.'});
       if(!validSyncRange(req.body))return res.status(400).json({ok:false,error:'Escolha um período válido de até 32 dias.'});

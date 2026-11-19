@@ -1,5 +1,6 @@
 import {describe,it,expect,vi} from 'vitest';
 import {handleRhDocuments,RH_BUCKET} from './rh-documents.js';
+import {validateAttendanceCertificate} from './attendance-command.js';
 const uuid='00000000-0000-4000-8000-000000000001';
 function fixture(){
   const store=new Map([['arced_ponto_v1',{value:{employees:[{id:'e'},{id:'e2'}]}}]]);
@@ -13,6 +14,28 @@ function fixture(){
 }
 const upload={documentAction:'upload',dataUrl:'data:application/pdf;base64,'+Buffer.from('%PDF-1.4\nQA').toString('base64'),fileName:'contrato.pdf',category:'contract'};
 describe('prontuário privado RH',()=>{
+  it('permite ao engenheiro anexar somente para o ponto na sua obra, sem devolver o arquivo',async()=>{
+    const f=fixture();
+    const user={id:'eng',role:'engenheiro',obraId:'a'};
+    const data={employees:[{id:'e',obra:'a'},{id:'e2',obra:'b'}],obras:[{id:'a'},{id:'b'}]};
+    const body={employeeId:'e',date:'2026-10-23',obraId:'a',documentId:uuid,
+      dataUrl:'data:image/jpeg;base64,'+Buffer.from([255,216,255,217]).toString('base64')};
+    const now='2026-10-24T12:00:00Z';
+    expect(validateAttendanceCertificate(data,{...user,role:'engenheiro_auditor'},body,now).status).toBe(403);
+    expect(validateAttendanceCertificate(data,user,{...body,employeeId:'e2'},now).status).toBe(403);
+    expect(validateAttendanceCertificate(data,user,{...body,employeeId:'e2',obraId:'b'},now).status).toBe(403);
+    expect(validateAttendanceCertificate({...data,attendanceLocks:{'2026-10-23__a':{locked:true}}},user,body,now).status).toBe(409);
+    const attendance=validateAttendanceCertificate(data,user,body,now);
+    expect(attendance.ok).toBe(true);
+    const request={db:f.db,user,body,company:'arcd',attendance};
+    expect((await handleRhDocuments(request)).body).toEqual({ok:true});
+    expect((await handleRhDocuments(request)).body).toEqual({ok:true});
+    expect(f.storage.upload).toHaveBeenCalledTimes(1);
+    expect((await handleRhDocuments({...request,attendance:undefined,body:{...body,documentAction:'open'}})).status).toBe(403);
+    expect((await f.invoke({documentAction:'list'})).body.documents[0]).toMatchObject({
+      category:'leave',createdBy:'eng',attendanceDate:'2026-10-23',attendanceWorkId:'a',
+    });
+  });
   it('nega usuário sem papel RH antes de consultar dados',async()=>{
     const db={from:vi.fn()};const result=await handleRhDocuments({db,user:{role:'financeiro'},body:{},company:'arcd'});expect(result.status).toBe(403);expect(db.from).not.toHaveBeenCalled();
   });
