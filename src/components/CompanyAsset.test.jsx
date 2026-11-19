@@ -1,12 +1,12 @@
 import {act} from 'react';
 import {createRoot} from 'react-dom/client';
 import {it,expect,vi,beforeEach,afterEach} from 'vitest';
-import {CompanyAssetImage,CompanyAssetLink} from './CompanyAsset.jsx';
+import {CompanyAssetImage,CompanyAssetLink,CompanyAssetBackground} from './CompanyAsset.jsx';
 const state=vi.hoisted(()=>({key:'arcd:1',resolve:vi.fn()}));
 vi.mock('../api.js',()=>({assetAuthorizationKey:()=>state.key,protectedCompanyAsset:v=>String(v).startsWith('company-file:'),resolveCompanyAssetUrl:(...args)=>state.resolve(...args)}));
 let host,root;
 beforeEach(()=>{state.key='arcd:1';state.resolve.mockReset();host=document.createElement('div');document.body.append(host);root=createRoot(host);});
-afterEach(()=>{act(()=>root.unmount());host.remove();});
+afterEach(()=>{act(()=>root.unmount());host.remove();vi.unstubAllGlobals();});
 const reference='company-file://arcd/work/2026/35136ece-8161-4cb3-89a2-b9d6a4ad470c.jpg';
 it('não envia a referência privada como src e apresenta a URL autorizada',async()=>{
  let finish;state.resolve.mockImplementation(()=>new Promise(resolve=>{finish=resolve;}));await act(async()=>root.render(<CompanyAssetImage src={reference} alt="Foto da obra"/>));
@@ -22,4 +22,11 @@ it('nega falha sem recorrer a URL pública e mantém links desativados',async()=
  state.resolve.mockResolvedValue({ok:false,error:'Arquivo indisponível para este acesso.'});await act(async()=>root.render(<><CompanyAssetImage src={reference} alt="Foto"/><CompanyAssetLink href={reference}>Arquivo</CompanyAssetLink></>));
  expect(host.querySelector('img').alt).toBe('Foto — indisponível');expect(host.querySelector('img').getAttribute('src')).toBeNull();
  expect(host.querySelector('a').getAttribute('href')).toBeNull();expect(host.querySelector('a').getAttribute('aria-disabled')).toBe('true');
+});
+it('limpa a capa e revoga o objeto local ao mudar de empresa',async()=>{
+ const revoke=vi.fn();vi.stubGlobal('URL',class extends URL{static revokeObjectURL=revoke;});
+ state.resolve.mockResolvedValueOnce({ok:true,url:'blob:private-cover',temporaryObjectUrl:true}).mockImplementation(()=>new Promise(()=>{}));
+ const view=()=> <CompanyAssetBackground as="section" src={reference} backgroundFor={url=>url?`url("${url}")`:'none'}>Obra</CompanyAssetBackground>;
+ await act(async()=>root.render(view()));expect(host.querySelector('section').style.background).toContain('blob:private-cover');
+ state.key='mrc:2';await act(async()=>root.render(view()));expect(host.querySelector('section').style.background).toBe('none');expect(revoke).toHaveBeenCalledWith('blob:private-cover');
 });

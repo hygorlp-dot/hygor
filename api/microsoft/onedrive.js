@@ -12,7 +12,8 @@ import { podeAcessarAba } from '../../src/domains/administracao/abas-acesso.js';
 export const config={api:{bodyParser:{sizeLimit:"8mb"}}};
 const categoryNames={capa:"06 - Capa da Obra",diario:"04 - Diário de Obras",fotos:"05 - Fotos",conferencia:"07 - Conferências Técnicas",financeiro:"08 - Financeiro e Fiscal",compras:"09 - Compras e Suprimentos",licenciamento:"03 - Documentos",contratos:"01 - Contratos",projetos:"02 - Projetos",documentos:"03 - Documentos",outros:"11 - Outros"};
 const assertInsideWorkspace=async(token,context,driveId,itemId)=>{
-  const roots=scopedWorks(context).map(knownWorkspace)
+  const readable=[...scopedWorks(context),...(context?.readOnlyNativeWorkspaces||[])];
+  const roots=readable.map(knownWorkspace)
     .filter(ws=>ws.driveId&&ws.driveId===String(driveId)&&ws.folderId)
     .map(ws=>ws.folderId);
   if(!roots.length||!itemId)
@@ -78,13 +79,15 @@ async function handler(req,res){
     const appUser=appContext?.user;
     if(action!=="file"&&!appContext)return res.status(401).json({error:"Sessão do aplicativo inválida."});
     if(WORK_FILE_WRITE_ACTIONS.has(action)&&!canWriteWorkFiles(appUser))return res.status(403).json({error:"Seu perfil não possui permissão para alterar arquivos da obra."});
+    if(action==='file'&&isolationEnabled())return res.status(403).json({error:'Abra o arquivo pelo acesso autenticado do ERP.'});
     if(action==="file"&&req.query.sig!==fileSignature(req.query.driveId,req.query.itemId))return res.status(403).end();
     if(['file','file-link','read-file'].includes(action)){
-      const accessData=await loadFileAccessData();
+      const allowNative=action==='read-file'&&appUser?.role==='admin'&&!appUser.obraId;
+      const accessData=await loadFileAccessData({includeNativeWorkspaces:allowNative});
       const ref=action==='file'?req.query:req.body;
       const access=cabinetFileAccess(accessData,appUser,ref);
       if(access.registered&&(action==='file'||!podeAcessarAba(appUser,'arquivos')||!access.allowed))return res.status(403).json({error:'Abra este documento pelo visualizador autenticado do MARCELL.'});
-      if(appContext)appContext.payload=accessData;
+      if(appContext){appContext.payload=accessData;if(allowNative)appContext.readOnlyNativeWorkspaces=accessData.nativeFileWorkspaces||[];}
     }
     if(action==='trash-document') {
       const data=await loadFileAccessData();
@@ -103,6 +106,17 @@ async function handler(req,res){
     if(action==='read-file'){
       if(!body.driveId||!body.itemId)return res.status(400).json({error:'Arquivo sem identificação.'});
       await assertInsideWorkspace(accessToken,appContext,body.driveId,body.itemId);
+      if(isolationEnabled()){
+        const item=await (await graph(accessToken,`/drives/${encodeURIComponent(body.driveId)}/items/${encodeURIComponent(body.itemId)}?$select=id,@microsoft.graph.downloadUrl`)).json();
+        let download;try{download=new URL(item['@microsoft.graph.downloadUrl']);}catch{return res.status(503).json({error:'O arquivo privado ainda não está disponível.'});}
+        const trusted=/(?:^|\.)(?:sharepoint\.com|1drv\.com|onedrive\.com|live\.com|livefilestore\.com|storage\.msn\.com|microsoftpersonalcontent\.com)$/.test(download.hostname);
+        if(download.protocol!=='https:'||download.username||download.password||download.port||!trusted)return res.status(503).json({error:'O arquivo privado não possui um destino permitido.'});
+        // 303 changes the authenticated POST into a GET at Microsoft storage:
+        // no application credential/body leaves this API, and large documents
+        // do not cross Vercel's response-body limit.
+        res.setHeader('cache-control','private, no-store');res.setHeader('Referrer-Policy','no-referrer');res.setHeader('Location',download.href);
+        return res.status(303).end();
+      }
       const r=await graph(accessToken,`/drives/${encodeURIComponent(body.driveId)}/items/${encodeURIComponent(body.itemId)}/content`,{redirect:'follow'});
       res.setHeader('content-type',r.headers.get('content-type')||'application/octet-stream');
       res.setHeader('cache-control','private, no-store');res.setHeader('X-Content-Type-Options','nosniff');

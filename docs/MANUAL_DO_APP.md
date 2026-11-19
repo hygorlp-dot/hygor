@@ -4161,7 +4161,7 @@ Apagar custos gerados reduz o custo no DRE; apagar recebimentos de caixa não re
 
 ### Arquivos privados por empresa
 
-Antes de abrir fotos ou anexos, confira Empresa no cabeçalho. O diário e o chat abrem o arquivo com o acesso do seu perfil, sem gravar um link público. A troca de empresa ou usuário retira a imagem anterior enquanto o novo acesso é conferido. Se aparecer imagem indisponível, confira a empresa e a obra e tente abrir novamente; peça ao administrador a conferência do vínculo se o problema continuar. O PDF do diário só é preparado depois de conferir o acesso às fotos. Links temporários podem expirar: abra o arquivo novamente pelo ERP. Abrir uma imagem não cria custo, pagamento ou lançamento no DRE.
+Antes de abrir fotos ou anexos, confira Empresa no cabeçalho. Capas e anexos das áreas do ERP abrem o arquivo com o acesso do seu perfil, sem gravar um link público. Documentos do OneDrive são lidos pela sessão do ERP; não compartilhe links internos antigos. O dossiê e o relatório técnico conferem os arquivos antes de preparar a impressão. A troca de empresa ou usuário retira a imagem anterior enquanto o novo acesso é conferido. Se aparecer imagem indisponível, confira a empresa e a obra e tente abrir novamente; peça ao administrador a conferência do vínculo se o problema continuar. O PDF do diário só é preparado depois de conferir o acesso às fotos. Links temporários podem expirar: abra o arquivo novamente pelo ERP. Abrir uma imagem não cria custo, pagamento ou lançamento no DRE.
 
 ### Responsável técnico por empresa
 

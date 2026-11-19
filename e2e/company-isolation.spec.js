@@ -2,21 +2,30 @@ import {test,expect} from '@playwright/test';
 import {data,profile} from '../scripts/fixtures/workflow-priorities-data.mjs';
 
 test('administrador alterna a empresa, obras e navegação sem gravar dados',async({page},testInfo)=>{
-  const errors=[],writes=[],calls=[];
+  const errors=[],writes=[],calls=[],fileReads=[];
   page.on('pageerror',error=>errors.push(error.message));
-  await page.addInitScript(user=>{
+  await page.addInitScript(({user,theme})=>{
     for(const company of ['arcd','mrc'])sessionStorage.setItem(`marcell:${company}:arcd-section:${user}`,'obras');
-    localStorage.setItem('arcd-theme','marcell');
-  },profile.id);
+    localStorage.setItem('arcd-theme',theme);
+  },{user:profile.id,theme:testInfo.project.name.includes('noite')?'noite':'marcell'});
   await page.route('https://**/*',route=>route.abort());
   await page.route('**/api/**',route=>route.fulfill({json:{ok:true,items:[],bases:[],presencas:[],connected:false}}));
+  await page.route('**/private-file-fixture.png',route=>{
+    expect(route.request().method()).toBe('GET');expect(route.request().postData()).toBeNull();
+    return route.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+X2ioAAAAASUVORK5CYII=','base64')});
+  });
+  await page.route('**/api/microsoft/onedrive',route=>{
+    const body=route.request().postDataJSON();
+    if(body.action==='read-file'){fileReads.push(body.companyId);return route.fulfill({status:303,headers:{Location:'/private-file-fixture.png'}});}
+    return route.fulfill({json:{ok:true,connected:false,items:[]}});
+  });
   await page.route('**/api/data',route=>{
     const body=route.request().postDataJSON(),company=body.companyId||'arcd';calls.push({action:body.action,company});
     if(['save','save-sections','operational-command','financial-command'].includes(body.action))writes.push(body);
     const state=structuredClone(data);
     for(const [key,value] of Object.entries(state))if(Array.isArray(value))state[key]=[];
     state.usuarios=[profile];state.config={...state.config,companyId:company,companyName:company.toUpperCase()};state.condominios=[];
-    state.obras=(company==='mrc'?[['k','K1-10'],['i','I1-08']]:[['a','ARCD · Obra A']]).map(([id,name])=>({...data.obras[0],id,name}));
+    state.obras=(company==='mrc'?[['k','K1-10'],['i','I1-08']]:[['a','ARCD · Obra A']]).map(([id,name])=>({...data.obras[0],id,name,capaUrl:'/api/microsoft/onedrive?'+new URLSearchParams({action:'file',companyId:company,driveId:'fixture-drive',itemId:'fixture-'+company,sig:'obsolete'})}));
     return route.fulfill({json:{ok:true,precisaSetup:false,usuario:profile,companyId:company,companyIsolationEnabled:true,data:state,accessToken:'company-local-only',refreshToken:'company-local-only',updatedAt:`2026-11-18T12:00:0${company==='mrc'?1:0}Z`}});
   });
   await page.goto('/');await page.locator('#login-email').fill(profile.email);await page.locator('#login-senha').fill('company-local-only');
@@ -31,5 +40,6 @@ test('administrador alterna a empresa, obras e navegação sem gravar dados',asy
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:testInfo.outputPath('mrc.png'),fullPage:true});
   await select.selectOption('arcd');await expect(page.locator('main')).toContainText('ARCD · Obra A');
+  await expect.poll(()=>fileReads.includes('arcd')&&fileReads.includes('mrc')).toBe(true);
   expect(writes).toEqual([]);expect(errors).toEqual([]);expect(calls.some(call=>call.action==='load'&&call.company==='mrc')).toBe(true);
 });

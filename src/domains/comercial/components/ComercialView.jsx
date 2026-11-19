@@ -1,3 +1,4 @@
+import {CompanyAssetLink} from '../../../components/CompanyAsset.jsx';
 import { contar } from "../../../design-system/copy.js";
 import {openReportPreview} from '../../../reports/report-preview.js';
 import { PageHeader } from "../../../design-system/patterns/PageHeader";
@@ -584,7 +585,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
                 background: C.card,
               }}
             >
-              <a
+              <CompanyAssetLink
                 href={doc.url}
                 target="_blank"
                 rel="noreferrer"
@@ -598,7 +599,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
                 }}
               >
                 {doc.legenda || doc.nome} ↗
-              </a>
+              </CompanyAssetLink>
               <span style={{ fontSize:"var(--arcd-type-caption)", color: C.muted }}>
                 {doc.tamanho
                   ? `${(doc.tamanho / 1024 / 1024).toFixed(1)} MB`
@@ -1593,7 +1594,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
       {leadAba==="propostas"&&<div>{propostas.filter(p=>p.leadId===leadForm.id).map(p=><p key={p.id} style={{fontSize:"var(--arcd-type-label)",padding:6,borderBottom:`1px solid ${C.line}`}}>{p.numero} V{p.versao} · {fmt(p.valor)} · {p.status}</p>)}<Btn size="sm" onClick={()=>setPropostaForm(propostaVazia(leadForm.id))}>+ PROPOSTA</Btn></div>}
       {leadAba==="negociacoes"&&<div>{propostas.filter(p=>p.leadId===leadForm.id).flatMap(p=>(p.negociacoes||[]).map(n=><p key={n.id} style={{fontSize:"var(--arcd-type-label)",padding:6,borderBottom:`1px solid ${C.line}`}}>{comDateTime(n.data)} · {fmt(n.valorInicial)} → {fmt(n.valorNegociado)} · {n.objecoes}</p>))}</div>}
       {leadAba==="contratos"&&<LeadContracts data={data} lead={leadForm} user={currentUser} onOpen={openLeadContracts}/>}
-      {leadAba==="documentos"&&<div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr auto",gap:6,alignItems:"end"}}><Inp label="Nome do documento" value={docForm.nome} onChange={v=>setDocForm(f=>({...f,nome:v}))}/><Inp label="Link do arquivo" value={docForm.url} onChange={v=>setDocForm(f=>({...f,url:v}))}/><Btn size="sm" onClick={()=>{if(docForm.nome&&docForm.url){setLeadForm(f=>({...f,documentos:[...(f.documentos||[]),{id:uid(),...docForm,data:new Date().toISOString()}]}));setDocForm({nome:"",url:""});}}}>ADICIONAR</Btn></div>{(leadForm.documentos||[]).map(d=><p key={d.id} style={{fontSize:"var(--arcd-type-label)",padding:6}}><a href={d.url} target="_blank" rel="noreferrer">{d.nome}</a></p>)}</div>}
+      {leadAba==="documentos"&&<div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr auto",gap:6,alignItems:"end"}}><Inp label="Nome do documento" value={docForm.nome} onChange={v=>setDocForm(f=>({...f,nome:v}))}/><Inp label="Link do arquivo" value={docForm.url} onChange={v=>setDocForm(f=>({...f,url:v}))}/><Btn size="sm" onClick={()=>{if(docForm.nome&&docForm.url){setLeadForm(f=>({...f,documentos:[...(f.documentos||[]),{id:uid(),...docForm,data:new Date().toISOString()}]}));setDocForm({nome:"",url:""});}}}>ADICIONAR</Btn></div>{(leadForm.documentos||[]).map(d=><p key={d.id} style={{fontSize:"var(--arcd-type-label)",padding:6}}><CompanyAssetLink href={d.url} target="_blank" rel="noreferrer">{d.nome}</CompanyAssetLink></p>)}</div>}
       {leadAba==="financeiro"&&<div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}>{kpi("Propostas",fmt(propostas.filter(p=>p.leadId===leadForm.id).reduce((s,p)=>Math.max(s,p.valor),0)),C.blue)}{kpi("Contratos",fmt(contratos.filter(k=>k.leadId===leadForm.id).reduce((s,k)=>s+k.valor,0)),C.green)}{kpi("Recebido",fmt(recebidoDoLead(leadForm.id)),C.yellowD)}</div>}
       {leadAba==="historico"&&<div>{(leadForm.historico||[]).slice().reverse().map(h=><div key={h.id} style={{borderLeft:`1px solid ${C.blue}`,padding:"5px 8px",marginBottom:5}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{comDateTime(h.data)} · {h.tipo}</p><p style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{h.texto}</p></div>)}</div>}
       <div style={{display:"flex",gap:7,justifyContent:"space-between",flexWrap:"wrap"}}>{leadForm.id?<Btn v="danger" disabled={!!salvandoComercial} onClick={()=>excluirLead(leadForm)}><Ic n="trash"/> EXCLUIR LEAD</Btn>:<span/>}<div style={{display:"flex",gap:7}}><Btn v="ghost" onClick={()=>setLeadForm(null)}>CANCELAR</Btn><Btn disabled={!!salvandoComercial} onClick={salvarLead}><Ic n="check"/> {salvandoComercial==="lead"?"Salvando...":"SALVAR LEAD"}</Btn></div></div></div></Modal>}

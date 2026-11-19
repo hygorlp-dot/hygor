@@ -1,3 +1,4 @@
+import {CompanyAssetLink} from '../../components/CompanyAsset.jsx';
 import { contar } from "../../design-system/copy.js";
 import {FilePicker} from '../../design-system/patterns/FilePicker.jsx';
 // Declarações extraídas literalmente da entrada legada; não importar LegacyApp aqui.
@@ -219,7 +220,7 @@ export function ModoIADocumento({modulo,data,update,showToast,currentUser,onClos
 
 export function LinksDocumentosAuditaveis({documentos=[],onSelecionar,subindo=false,C=C_ARCD_SETOR}){
   return <div style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:"var(--arcd-space-1)",minWidth:118}}>
-    {documentos.map(doc=><a key={doc.id||doc.url} href={doc.url} target="_blank" rel="noreferrer" title={doc.nome||doc.legenda} style={{maxWidth:180,color:"var(--arcd-action-primary)",fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",textDecoration:"underline",textUnderlineOffset:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{doc.legenda||doc.nome||"Visualizar documento"} ↗</a>)}
+    {documentos.map(doc=><CompanyAssetLink key={doc.id||doc.url} href={doc.url} target="_blank" rel="noreferrer" title={doc.nome||doc.legenda} style={{maxWidth:180,color:"var(--arcd-action-primary)",fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",textDecoration:"underline",textUnderlineOffset:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{doc.legenda||doc.nome||"Visualizar documento"} ↗</CompanyAssetLink>)}
     <FilePicker buttonLabel="Selecionar arquivo" accept=".pdf,.xml,.doc,.docx,.xls,.xlsx,.csv,.txt,image/*" disabled={subindo} onChange={onSelecionar} style={{color:"var(--arcd-action-primary)",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",textDecoration:"underline",textUnderlineOffset:2,cursor:subindo?"wait":"pointer",whiteSpace:"nowrap"}}>
       {subindo?"Enviando...":documentos.length?"+ Anexar outro":"+ Anexar documento"}
 

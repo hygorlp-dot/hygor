@@ -43,11 +43,18 @@ const loadCentralSession = async () => {
   return !isolationEnabled()||session?.companyId===currentCompany()?session:null;
 };
 export const verifyAppUser = async (userId,pin,accessToken) => !db ? null : authenticateAppContext({userId,pin,accessToken},{scope:"onedrive"});
-export const loadFileAccessData = async () => {
+export const loadFileAccessData = async ({includeNativeWorkspaces=false}={}) => {
   if(!db)throw Object.assign(new Error('Armazenamento indisponível.'),{status:503});
   const {data,error}=await db.from('company_app_data').select('value').eq('company_id',currentCompany()).eq('key','arced_ponto_v1').maybeSingle();
   if(error||!data)throw Object.assign(new Error('Não foi possível conferir as permissões dos arquivos.'),{status:503});
-  return decodeAppData(data.value);
+  const payload=decodeAppData(data.value);
+  if(isolationEnabled()&&includeNativeWorkspaces){
+    const native=await db.from('core_projects').select('id,payload').eq('company_id',currentCompany());
+    if(native.error)throw Object.assign(new Error('Não foi possível conferir os arquivos históricos da empresa.'),{status:503});
+    const appIds=new Set((payload.obras||[]).map(work=>String(work.id)));
+    payload.nativeFileWorkspaces=(native.data||[]).filter(row=>!appIds.has(String(row.id))&&row.payload?.oneDriveDriveId&&row.payload?.oneDriveFolderId).map(row=>({id:String(row.id),oneDriveDriveId:row.payload.oneDriveDriveId,oneDriveFolderId:row.payload.oneDriveFolderId}));
+  }
+  return payload;
 };
 export const fileSignature=(driveId,itemId)=>crypto.createHmac("sha256",String(CLIENT_SECRET)).update(isolationEnabled()?`${currentCompany()}:${driveId}:${itemId}`:`${driveId}:${itemId}`).digest("base64url");
 export const configured = () => !!(CLIENT_ID && CLIENT_SECRET && REDIRECT_URI && companyRootUrl());

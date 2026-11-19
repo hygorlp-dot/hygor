@@ -1,4 +1,4 @@
-import {activeCompany,setActiveCompany,setCompanyIsolation} from './lib/company-scope.js';
+import {activeCompany,setActiveCompany,setCompanyIsolation,companyIsolationActive} from './lib/company-scope.js';
 import {parseCompanyFileReference} from './domains/arquivos/company-file-reference.js';
 // ═══════════════════════════════════════════════════════════════════
 // src/api.js — substitui o supabase.js no frontend
@@ -241,6 +241,17 @@ export async function resolveCompanyAssetUrl(value){
     if(url.searchParams.get('action')!=='file')return {ok:false,error:'Arquivo indisponível.'};
     const company=url.searchParams.get('companyId');
     if(company&&company!==activeCompany())return {ok:false,error:'Arquivo indisponível nesta empresa.'};
+    if(companyIsolationActive()){
+      try{
+      const identity=assetAuthorizationKey();
+      const response=await lerArquivoOneDrive({driveId:url.searchParams.get('driveId'),itemId:url.searchParams.get('itemId')});
+      if(!response.ok){const error=await lerObjetoJson(response);return {ok:false,error:error?.error||'Não foi possível abrir o arquivo.'};}
+      const blob=await response.blob();
+      if(identity!==assetAuthorizationKey())return {ok:false,error:'A empresa ou sessão mudou durante a leitura.'};
+      const inert=/^(?:text\/html|(?:image\/svg|(?:text|application)\/(?:xhtml|xml|javascript)))/i.test(blob.type)?new Blob([blob],{type:'application/octet-stream'}):blob;
+      return {ok:true,url:URL.createObjectURL(inert),temporaryObjectUrl:true};
+      }catch{return {ok:false,error:'Não foi possível ler o arquivo. Confira a conexão e abra novamente.'};}
+    }
     return chamarRotaAutenticada('/api/microsoft/onedrive',{action:'file-link',driveId:url.searchParams.get('driveId'),itemId:url.searchParams.get('itemId')});
   }
   if(!/^(?:https?:\/\/|\/[^/]|data:image\/|blob:)/i.test(value))return {ok:false,error:'Referência de arquivo inválida.'};
@@ -706,7 +717,9 @@ export const enviarArquivoOneDriveEmPartes=async({file,...payload})=>{
   return{ok:false,error:"O OneDrive não confirmou a conclusão do upload."};
 };
 
-export const obterLinkArquivoOneDrive = payload => chamarOneDrive("file-link", payload);
+export const obterLinkArquivoOneDrive = payload => companyIsolationActive()
+  ?resolveCompanyAssetUrl('/api/microsoft/onedrive?'+new URLSearchParams({action:'file',companyId:activeCompany(),driveId:payload.driveId,itemId:payload.itemId}))
+  :chamarOneDrive("file-link", payload);
 
 export const gerarLinkRespostaCotacao = (quoteId,proposalId) => chamar({action:"cotacao-fornecedor-link",...credenciais(),quoteId,proposalId});
 
