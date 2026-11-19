@@ -90,7 +90,7 @@
     "src/domains/terceirizados/components/TerceirosView.jsx": 8,
     "src/features/conciliacao/ConciliacaoView.jsx": 1,
     "src/features/pilot/OperationalPilot.jsx": 1,
-    "src/LegacyApp.jsx": 33,
+    "src/LegacyApp.jsx": 30,
     "src/reports/adjustable-tables.js": 2,
     "src/reports/legacy-standard.js": 2
   }

@@ -1,6 +1,12 @@
 import {createMonthlyClosingSnapshot} from "../src/domains/financeiro/workflows.js";
+import {monthlyClosingControls} from "../src/domains/financeiro/monthly-closing-controls.js";
+import {verifiedOfxEvidence} from "./dre-ofx-evidence.js";
 
 const iso=value=>String(value||"").slice(0,10);
+const controlsFor=(data,period,exception)=>monthlyClosingControls(
+  {...data,dreOfxEvidence:verifiedOfxEvidence(data)},
+  {start:period.startsOn,end:period.endsOn},exception,
+);
 
 export const monthlyClosingPeriodFromCommand=command=>{
   const payload=command?.payload||{};
@@ -10,7 +16,7 @@ export const monthlyClosingPeriodFromCommand=command=>{
     return{ok:false,error:"Informe início e fim válidos para a competência."};
   }
   const competencia=startsOn.slice(0,7);
-  if(startsOn!==`${competencia}-01`){
+  if(startsOn!==`${competencia}-01`||!/-(0[1-9]|1[0-2])$/.test(competencia)){
     return{ok:false,error:"O fechamento contábil deve começar no primeiro dia da competência."};
   }
   const [year,month]=competencia.split("-").map(Number);
@@ -55,6 +61,7 @@ export const previewMonthlyFinancialClosing=({
   });
   if(!prepared.ok)return{...prepared,period};
 
+  const controls=controlsFor(data,period);
   return{
     ok:true,alreadyClosed:false,period,
     closing:{
@@ -63,6 +70,7 @@ export const previewMonthlyFinancialClosing=({
       canonicalCommand:"CLOSE_ACCOUNTING_PERIOD",
     },
     conference:prepared.closing.conference,
+    controls:{ok:controls.ok,blockers:controls.blockers,documentExceptionRequired:controls.exceptions.length>0},
   };
 };
 
@@ -100,10 +108,18 @@ export const prepareMonthlyFinancialClosing=({
   });
   if(!prepared.ok)return{...prepared,period};
 
+  const controls=controlsFor(data,period,command.payload?.documentException);
+  if(!controls.ok)return {
+    ok:false,period,conference:prepared.closing.conference,
+    error:controls.blockers[0]?.reason||"Confira os documentos ou registre a justificativa das exceções documentais.",
+  };
   const closing={
     ...prepared.closing,
     idempotencyKey:String(command.idempotencyKey||""),
     canonicalCommand:"CLOSE_ACCOUNTING_PERIOD",
+    ...(controls.approval?{documentException:{
+      ...controls.approval,approvedById:String(actor.id||""),approvedBy:String(actor.nome||""),approvedAt:now,
+    }}:{}),
   };
   return{
     ok:true,

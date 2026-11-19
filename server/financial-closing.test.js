@@ -11,6 +11,34 @@ const command=(key="close-2026-07-abcdef")=>({
   payload:{startsOn:"2026-07-01",endsOn:"2026-07-31"},
 });
 
+it("bloqueia movimentos sem conta e só congela a exceção documental identificada",()=>{
+  const actor={id:"admin",nome:"Operadora QA"};
+  const now="2026-08-01T09:00:00Z";
+  const data={despesasEmpresa:[{id:"d",categoria:"outros",data:"2026-07-18",valor:25}],
+    transacoes:[{id:"t",status:"conciliado",data:"2026-07-18",valor:-25}]};
+  const params={data,actor,command:command(),now};
+  expect(previewMonthlyFinancialClosing(params).controls).toMatchObject({
+    ok:false,documentExceptionRequired:true,blockers:[{code:"BANK_UNASSIGNED"}],
+  });
+  expect(prepareMonthlyFinancialClosing(params)).toMatchObject({ok:false,error:expect.stringContaining("sem conta")});
+  data.transacoes[0].contaBancariaId="bank";
+  data.contasBancarias=[{id:"bank",nome:"Banco QA"}];
+  expect(prepareMonthlyFinancialClosing(params)).toMatchObject({ok:false,error:expect.stringContaining("último dia")});
+  data.fechamentosBancarios=[{status:"fechado",contaBancariaId:"bank",dataInicio:"2026-07-01",dataFim:"2026-07-31",
+    saldoInicialCentavos:4000,saldoBancoCentavos:1500,saldoCalculadoCentavos:1500,creditosCentavos:0,debitosCentavos:2500}];
+  expect(prepareMonthlyFinancialClosing(params)).toMatchObject({ok:false,error:expect.stringContaining("justificativa")});
+  params.command.payload.documentException={reason:"O documento foi solicitado ao fornecedor.",
+    documents:[JSON.stringify(["despesa_empresa:d",null,2500,"2026-07-18",["missing"]])]};
+  const closed=prepareMonthlyFinancialClosing(params);
+  expect(closed.closing?.documentException).toEqual({
+    reason:params.command.payload.documentException.reason,documentIds:["despesa_empresa:d"],
+    approvedById:"admin",approvedBy:"Operadora QA",approvedAt:now,
+  });
+  expect(data.fechamentosFinanceiros).toBeUndefined();
+  data.despesasEmpresa[0].valor=26;
+  expect(prepareMonthlyFinancialClosing(params).ok).toBe(false);
+});
+
 describe("FIN 9.6 — fechamento mensal auditável",()=>{
   it("aceita somente o mês civil completo",()=>{
     expect(monthlyClosingPeriodFromCommand(command())).toEqual({
@@ -36,6 +64,7 @@ describe("FIN 9.6 — fechamento mensal auditável",()=>{
       }],
       outrasDesp:[{
         id:"d1",obraId:"o1",competencia:"2026-07",valor:200,data:"2026-07-10",
+        categoria:"outros",documentos:[{url:"https://docs.example.test/expense.pdf"}],
       }],
     };
     const supplementalEvents=[{

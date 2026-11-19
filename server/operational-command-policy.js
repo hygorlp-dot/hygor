@@ -210,6 +210,11 @@ export const validateOperationalCommandScope=({user={},data={},command={}}={})=>
       ?{ok:true,obraId:"",scope:"company"}
       :{ok:false,error:"Somente o administrador pode iniciar a migração do cadastro físico de equipamentos."};
   }
+  if(command.type===OPERATIONAL_COMMAND.BANK_STATEMENT_ACCOUNT_LINKED){
+    return user?.role==="admin"&&!user.obraId&&user.active!==false&&podeAcessarAba(user,"conc")
+      ?{ok:true,obraId:"",scope:"company"}
+      :{ok:false,error:"Seu perfil não pode associar extratos a contas da empresa."};
+  }
   if(BANK_TRANSACTION_COMMAND_TYPES.has(command.type)){
     return ["admin","financeiro"].includes(user?.role)
       ?{ok:true,obraId:"",scope:"company"}

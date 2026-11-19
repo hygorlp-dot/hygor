@@ -9,7 +9,7 @@ import {RecordListPagination} from '../../design-system/data/RecordListPaginatio
 import {useRecordPage} from '../../design-system/data/useRecordPage.js';
 import {useBreakpoint} from '../../hooks/useBreakpoint.js';
 import {useWorkspaceState} from '../workflow/workspace-session.jsx';
-import {homologationReport,homologationGroups} from './homologation-report.js';
+import {homologationReport,homologationGroups,projectionFindingTypes} from './homologation-report.js';
 import './document-center.css';
 import './record-continuity.css';
 
@@ -24,24 +24,28 @@ export default function FinancialHomologationReport({report,works=[]}){
  const [search,setSearch]=useWorkspaceState('fin','homologationSearch','');
  const [severity,setSeverity]=useWorkspaceState('fin','homologationSeverity','');
  const [projection,setProjection]=useWorkspaceState('fin','homologationProjection','');
+ const [finding,setFinding]=useWorkspaceState('fin','homologationFinding','');
  const query=fold(search).trim();
- const {indexed,projectionCounts}=useMemo(()=>{
+ const {indexed,projectionCounts,findingCounts}=useMemo(()=>{
   const counts=new Map();
+  const categories={};
   const indexed=model.issues.map(row=>{
    if(row.group==='dre'&&row.reference)counts.set(row.reference,(counts.get(row.reference)||0)+1);
-   return {row,searchText:fold([row.label,row.work,row.competence,row.reference,row.field,JSON.stringify(row.raw)].join(' '))};
+   if(row.finding)categories[row.finding]=(categories[row.finding]||0)+1;
+   return {row,searchText:fold([row.label,row.work,row.competence,row.reference,row.field,projectionFindingTypes[row.finding]?.label,JSON.stringify(row.raw)].join(' '))};
   });
-  return {indexed,projectionCounts:counts};
+  return {indexed,projectionCounts:counts,findingCounts:categories};
  },[model.issues]);
  const filtered=indexed.filter(({row,searchText})=>(!group||row.group===group)&&(!severity||row.severity===severity)
-  &&(!projection||(row.group==='dre'&&row.reference===projection))&&searchText.includes(query)).map(({row})=>row);
- const pagination=useRecordPage('fin',filtered,JSON.stringify([group,search,severity,projection]),'homologation');
+  &&(!projection||(row.group==='dre'&&row.reference===projection))&&(!finding||row.finding===finding)&&searchText.includes(query)).map(({row})=>row);
+ const pagination=useRecordPage('fin',filtered,JSON.stringify([group,search,severity,projection,finding]),'homologation');
  const currentProjection=projection&&model.issues.find(row=>row.group==='dre'&&row.reference===projection);
  const searchInput=useRef(null);
  const focusProjectionSummary=useRef(false);
  const focusProjection=reference=>{
   focusProjectionSummary.current=true;
   setSearch('');
+  setFinding('');
   setGroup('dre');
   setProjection(reference);
  };
@@ -53,8 +57,9 @@ export default function FinancialHomologationReport({report,works=[]}){
   <Select label="Tipo de ocorrência" value={severity} onChange={event=>setSeverity(event.target.value)} options={[{value:'',label:'Diferenças e avisos'},{value:'error',label:'Somente diferenças'},{value:'warning',label:'Somente avisos'}]}/>
   <Select label="Grupo da conferência" value={group} onChange={event=>{
    setGroup(event.target.value);
-   if(event.target.value!=='dre')setProjection('');
+   if(event.target.value!=='dre'){setProjection('');setFinding('');}
   }} options={[{value:'',label:`Todos os grupos · ${model.issues.length}`},...Object.entries(homologationGroups).map(([value,label])=>({value,label:`${label} · ${model.issues.filter(row=>row.group===value).length}`}))]}/>
+  {group==='dre'&&<Select label="Diagnóstico da projeção" value={finding} onChange={event=>{setFinding(event.target.value);setProjection('');}} options={[{value:'',label:'Todos os diagnósticos'},...Object.entries(projectionFindingTypes).map(([value,{label}])=>({value,label:`${label} · ${findingCounts[value]||0}`}))]}/>}
  </FilterBar>;
  return <section className="document-center record-recovery" aria-label="Resultado da homologação financeira">
   {isMobile&&filters}
@@ -76,6 +81,9 @@ export default function FinancialHomologationReport({report,works=[]}){
   <section className="document-center" aria-labelledby="homologation-differences"><h3 id="homologation-differences">Diferenças e avisos · {model.issues.length}</h3>
    <p>Cada linha é uma diferença ou um aviso, não um novo custo. Não some as linhas nem lance valores para compensá-las. Confira a origem antes de qualquer correção.</p>
    {!isMobile&&filters}
+   {projectionCounts.size>0&&<TaskDisclosure summary={`Diagnóstico do DRE · ${projectionCounts.size} escopos com ocorrências`}>
+    <dl className="record-recovery__comparison">{Object.entries(projectionFindingTypes).map(([value,{label}])=><div key={value}><dt>{label}</dt><dd>{findingCounts[value]||0}</dd></div>)}</dl>
+   </TaskDisclosure>}
    {projection&&<section aria-label="Filtro de projeção" tabIndex={-1} ref={node=>{
     if(node&&focusProjectionSummary.current){
      focusProjectionSummary.current=false;
@@ -86,8 +94,9 @@ export default function FinancialHomologationReport({report,works=[]}){
     <Button variant="secondary" size="sm" onClick={()=>{setProjection('');searchInput.current?.focus();}}>Limpar filtro de projeção</Button>
    </section>}
    <RecordListPagination pagination={pagination} label="diferenças e avisos"/>
-   {pagination.rows.map(row=><article key={row.id}><h3>{row.label} · {row.severity==='warning'?'Aviso':'Diferença'}</h3><p>{row.work||'Escopo identificado no diagnóstico'}{row.competence?` · Competência ${row.competence}`:''}{row.period?` · ${row.period}`:''}</p><p><strong>Conferir:</strong> {row.field}</p>
+   {pagination.rows.map(row=><article key={row.id}><h3>{row.label} · {projectionFindingTypes[row.finding]?.label||(row.severity==='warning'?'Aviso':'Diferença')}</h3><p>{row.work||'Escopo identificado no diagnóstico'}{row.competence?` · Competência ${row.competence}`:''}{row.period?` · ${row.period}`:''}</p><p><strong>Conferir:</strong> {row.field}</p>
     <dl className="record-recovery__comparison"><div><dt>Origem esperada</dt><dd>{show(row.expected,row.kind)}</dd></div><div><dt>Razão consultado</dt><dd>{show(row.actual,row.kind)}</dd></div></dl>
+    {row.finding&&<p>{projectionFindingTypes[row.finding].instruction}</p>}
     {typeof row.difference==='number'&&<p>Diferença: <strong>{show(row.difference,row.kind)}</strong></p>}
     {!projection&&row.group==='dre'&&projectionCounts.get(row.reference)>1&&
      <Button variant="secondary" size="sm" onClick={()=>focusProjection(row.reference)}>

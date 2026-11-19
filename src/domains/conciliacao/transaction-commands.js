@@ -1,8 +1,11 @@
 import { activeCashAllocations, reconciliationHold } from "./cash-allocations.js";
 import {BANK_IMPORT_REVERSED,applyBankReversal,bankImportStamp,validBankOriginal} from './import-reversal.js';
+import {isDateInClosedPeriod} from '../financeiro/workflows.js';
+import {active} from '../financeiro/facts.js';
 
 export const BANK_TRANSACTION_COMMAND=Object.freeze({
   BANK_IMPORT_REVERSED,
+  BANK_STATEMENT_ACCOUNT_LINKED:"EXTRATO_BANCARIO_VINCULADO",
   BANK_TRANSACTIONS_IMPORTED:"TRANSACOES_BANCARIAS_IMPORTADAS",
   BANK_TRANSACTIONS_IGNORED:"TRANSACOES_BANCARIAS_IGNORADAS",
   BANK_TRANSACTIONS_REOPENED:"TRANSACOES_BANCARIAS_REABERTAS",
@@ -30,6 +33,63 @@ const targetList=payload=>Array.isArray(payload?.targets)?payload.targets:[];
 const transactionById=(data,id)=>transactions(data)
   .find(item=>String(item.id)===String(id));
 const safeText=(value,max)=>String(value||"").trim().slice(0,max);
+
+const accountNumber=value=>String(value||"").trim().replace(/[.\s-]/g,"");
+const bankName=value=>String(value||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]/g,"");
+export const matchesStatementAccount=(statement,account,{allowInactive=false}={})=>{
+  const number=accountNumber(statement?.conta);
+  const bank=bankName(statement?.banco);
+  return Boolean(number&&bank&&account?.tipo!=="caixa"&&(allowInactive||account?.ativa!==false)&&active(account)
+    &&number===accountNumber(account?.conta)&&bank===bankName(account?.banco));
+};
+
+export function planStatementAccountLink(data,statementId,accountId){
+  const statement=statements(data).find(row=>String(row.id)===String(statementId));
+  const account=(data.contasBancarias||[]).find(row=>String(row.id)===String(accountId));
+  if(!statement||!active(statement)||statement.status==="arquivado"||statement.importReversals?.length||
+    statement.contaBancariaId||!/\.(ofx|qfx)$/i.test(statement.arquivo||""))return fail("Selecione um OFX ativo ainda sem conta.");
+  if(!account||!matchesStatementAccount(statement,account))return fail("O banco e o número da conta cadastrada precisam corresponder aos dados do extrato.");
+  const rows=transactions(data).filter(row=>String(row.extratoId)===String(statementId));
+  const ids=new Set(rows.map(row=>String(row.id)));
+  const manifest=statement.importManifest?.ids;
+  if(!rows.length||rows.some(row=>!row.id||!row.chave||!validDate(row.data)||!active(row)||row.contaBancariaId||row.importReversal
+    ||!Number.isFinite(Number(row.valor))||Number(row.valor)===0)
+    ||ids.size!==rows.length||Number(statement.qtd)!==rows.length
+    ||transactions(data).some(row=>String(row.extratoId)!==String(statementId)&&ids.has(String(row.id)))
+    ||(manifest&&(!Array.isArray(manifest)||manifest.length!==ids.size||new Set(manifest.map(String)).size!==ids.size||manifest.some(id=>!ids.has(String(id)))))){
+    return fail("O lote contém movimentos ausentes, já vinculados ou revertidos. Confira a importação.");
+  }
+  if(rows.some(row=>reconciliationHold(row)||isDateInClosedPeriod(data,row.data)||(data.fechamentosBancarios||[]).some(close=>close.status==="fechado"&&String(close.contaBancariaId)===String(accountId)&&close.dataInicio<=row.data&&row.data<=close.dataFim))){
+    return fail("Há movimentos protegidos por uma revisão ou por um período fechado.");
+  }
+  const identities=new Set();
+  for(const row of [...rows,...transactions(data).filter(item=>String(item.contaBancariaId)===String(accountId)&&active(item)&&!item.importReversal)]){
+    const key=row.fitid?`fit:${row.fitid}`:row.chave;
+    if(key&&identities.has(key))return fail("Identidade bancária repetida no lote ou na conta. Confira os extratos sobrepostos.");
+    if(key)identities.add(key);
+  }
+  return {ok:true,statement,account,rows};
+}
+
+function applyStatementAccountLink(data,command,now,actor){
+  const payload=command.payload||{};
+  const plan=planStatementAccountLink(data,payload.statementId,payload.accountId);
+  if(!plan.ok)return plan;
+  const {statement,account,rows}=plan;
+  if(payload.expectedVersion!==versionOf(statement)||payload.expectedCount!==rows.length){
+    return fail("O extrato mudou durante a conferência. Atualize a tela e confira o lote.");
+  }
+  const ids=new Set(rows.map(row=>row.id));
+  const fields={contaBancariaId:account.id,updatedAt:now,updatedById:actor.id,updatedBy:actor.name};
+  const event=historyEvent({id:`hist_${command.idempotencyKey}`,statement,action:"extrato_vinculado_conta",
+    details:`${account.nome} · ${rows.length} movimentos preservados`,actor,now});
+  return {ok:true,entityId:statement.id,summary:{linked:rows.length},data:{
+    ...data,
+    extratos:statements(data).map(row=>row===statement?{...row,...fields,version:versionOf(row)+1}:row),
+    transacoes:transactions(data).map(row=>ids.has(row.id)&&String(row.extratoId)===String(statement.id)?{...row,...fields,version:versionOf(row)+1}:row),
+    historicoConc:[...history(data),event],
+  }};
+}
 
 const historyEvent=({
   id,transaction=null,statement=null,action,previousStatus="",nextStatus="",
@@ -219,6 +279,10 @@ export const applyBankTransactionCommand=(data={},command={},now=new Date().toIS
   const actor=actorOf(command);
   if(!actor.id)return fail("Sessão do usuário indisponível para alterar transações bancárias.");
   if(command.type===BANK_IMPORT_REVERSED)return applyBankReversal(data,command,now);
+  if(command.type===BANK_TRANSACTION_COMMAND.BANK_STATEMENT_ACCOUNT_LINKED){
+    if(command.actorRole!=="admin"||command.actorObraId)return fail("Vincular extratos exige administrador sem restrição de obra.");
+    return applyStatementAccountLink(data,command,now,actor);
+  }
   if(command.type===BANK_TRANSACTION_COMMAND.BANK_TRANSACTIONS_IMPORTED){
     return applyBankImport(data,command,now,actor);
   }

@@ -256,6 +256,7 @@ export const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.PAYABLE_PAYMENT_REVERSED]:["admin","financeiro","compras"],
   [OPERATIONAL_COMMAND.PURCHASE_CANCELLED]:["admin","financeiro","compras"],
   [OPERATIONAL_COMMAND.BANK_TRANSACTIONS_IMPORTED]:["admin","financeiro"],
+  [OPERATIONAL_COMMAND.BANK_STATEMENT_ACCOUNT_LINKED]:["admin"],
   [OPERATIONAL_COMMAND.BANK_IMPORT_REVERSED]:['admin'],
   [OPERATIONAL_COMMAND.BANK_TRANSACTIONS_IGNORED]:["admin","financeiro"],
   [OPERATIONAL_COMMAND.BANK_TRANSACTIONS_REOPENED]:["admin","financeiro"],
@@ -2301,6 +2302,7 @@ async function handler(req, res) {
       }
       return res.status(200).json({
         ok:true,
+        controls:preview.controls,
         source:"canonical_ledger",
         engineEnforced:FINANCIAL_ENGINE_ENFORCE,
         period:preview.period,
@@ -2816,7 +2818,7 @@ async function handler(req, res) {
     if(action==="operational-command"){
       const rawCommand=verifiedFileTrashCommand(req.body?.command||{});
       // Engineering durations always use server time, never a supplied browser clock.
-      const command=(rawCommand.type===OPERATIONAL_COMMAND.BANK_IMPORT_REVERSED||ACCOUNTING_COMMAND_TYPES.has(rawCommand.type)||BASELINE_COMMAND_TYPES.has(rawCommand.type)||ENGINEERING_COMMAND_TYPES.has(rawCommand.type)||FILE_COMMAND_TYPES.has(rawCommand.type)||DOSSIER_COMMAND_TYPES.has(rawCommand.type)||rawCommand.type===OPERATIONAL_COMMAND.CLOSING_SOURCE_CORRECTED||rawCommand.type===OPERATIONAL_COMMAND.ORDER_PAYMENT_ALLOCATED)?{...rawCommand,now:new Date().toISOString()}:rawCommand;
+      const command=(rawCommand.type===OPERATIONAL_COMMAND.BANK_IMPORT_REVERSED||rawCommand.type===OPERATIONAL_COMMAND.BANK_STATEMENT_ACCOUNT_LINKED||ACCOUNTING_COMMAND_TYPES.has(rawCommand.type)||BASELINE_COMMAND_TYPES.has(rawCommand.type)||ENGINEERING_COMMAND_TYPES.has(rawCommand.type)||FILE_COMMAND_TYPES.has(rawCommand.type)||DOSSIER_COMMAND_TYPES.has(rawCommand.type)||rawCommand.type===OPERATIONAL_COMMAND.CLOSING_SOURCE_CORRECTED||rawCommand.type===OPERATIONAL_COMMAND.ORDER_PAYMENT_ALLOCATED)?{...rawCommand,now:new Date().toISOString()}:rawCommand;
       if(command.type===OPERATIONAL_COMMAND.CLOSING_SOURCE_CORRECTED){command.actorId=usuario.id;command.actorName=usuario.nome;}
       const authz=authorizeOperationalCommand(command.type,usuario.role);
       if(!authz.ok)return res.status(authz.status).json({error:authz.error});

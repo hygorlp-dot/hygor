@@ -163,6 +163,7 @@ Conteúdo gerado de `src/features/help/help-content.js`, a mesma fonte da ajuda 
 - [Cliente · Consulta de transparência](#guia-cliente_transparencia)
 - [Cliente · Alterar senha e sair](#guia-cliente_conta)
 - [Administrador · Login e senha dos clientes](#guia-cliente_acessos)
+- [Conciliação · Vincular extrato à conta](#guia-conc_vincular_ofx)
 - [Conciliação · Reversão de importações bancárias](#guia-conc_reverter)
 - [Orçamento · Hierarquia de seis níveis](#guia-orc_estrutura)
 - [Orçamento · Comparar revisões](#guia-orc_revisoes)
@@ -1533,7 +1534,7 @@ Compare períodos e grupos equivalentes; dados ainda não sincronizados podem af
 
 ## DRE empresa
 
-Entender o resultado da empresa por mês de referência.
+Entender o resultado da empresa por mês de referência. Se a receita líquida não for positiva, as margens aparecem como Não aplicável.
 
 ### Antes de começar
 
@@ -1542,7 +1543,7 @@ Escolha o período e confira a abrangência da análise. Se o DRE mensal estiver
 ### Como fazer
 
 1. Leia receitas, custos, despesas e resultado.
-2. Em Saldo em conta, escolha a conta bancária. O quadro usa o mês do DRE até hoje, quando for o mês atual. Confira saldo inicial, entradas, aportes de sócios, saídas e saldo final.
+2. Em Saldo em conta, escolha a conta bancária ou um OFX sem conta vinculada. O quadro usa o mês do DRE e, ao consultar um OFX, vai até a data que o banco informou. Confira saldo inicial, entradas, aportes de sócios, saídas e saldo final.
 3. Use Abrir Conciliação para revisar a conta e as datas. O atalho pausa a automação da tela.
 4. Abra o detalhamento ou memorial do valor que deseja conferir.
 5. Compare com os registros de origem e use a visão anual quando necessário.
@@ -1554,7 +1555,7 @@ Você sabe quais registros compõem o resultado do período.
 
 ### O que merece atenção
 
-DRE é a Demonstração do Resultado. Aportes de sócios já estão nas entradas do quadro e não compõem o lucro. Sem fechamento com saldo bancário informado, os saldos ficam indisponíveis. Uma posição calculada usa o fechamento disponível e depende da cobertura dos extratos importados. Movimentos de extratos arquivados permanecem no saldo e podem ser conferidos em Extratos, na Conciliação. Um fechamento antigo sem memorial conserva o total histórico; a consulta não reconstrói documentos ausentes nem reabre a competência. Confira o aviso de recorte e os filtros do próprio demonstrativo. Obra em foco é preservada para as telas operacionais e não substitui os filtros do DRE. O atalho financeiro do Dashboard leva o mês selecionado e o recorte consolidado; isso não altera lançamentos.
+DRE é a Demonstração do Resultado. Aportes de sócios já estão nas entradas do quadro e não compõem o lucro. Um OFX sem conta vinculada aparece se o arquivo tiver saldo bancário e todos os movimentos conferirem com o lote importado. Na ausência de uma referência bancária válida, os saldos ficam indisponíveis. Uma posição calculada depende da cobertura dos extratos. Movimentos de extratos arquivados permanecem no saldo e podem ser conferidos em Extratos, na Conciliação. Um fechamento antigo sem memorial conserva o total histórico; a consulta não reconstrói documentos ausentes nem reabre a competência. Confira o aviso de recorte e os filtros do próprio demonstrativo. Obra em foco é preservada para as telas operacionais e não substitui os filtros do DRE. O atalho financeiro do Dashboard leva o mês selecionado e o recorte consolidado; isso não altera lançamentos.
 
 <a id="guia-dre"></a>
 
@@ -1789,10 +1790,11 @@ Escolha o mês de referência e confira as pendências.
 
 ### Como fazer
 
-1. Em Bloqueios financeiros, leia o motivo, a diferença e a orientação. Use Consultar origem do bloqueio quando houver um registro identificado. O memorial mostra o valor do documento; a diferença fica no aviso. Se não houver origem individual, confira os documentos e peça ajuda ao administrador usando Diagnóstico para suporte.
-2. Compare o resultado com as entradas e saídas. O resultado segue a competência da receita ou do custo; o caixa segue a data do recebimento ou pagamento, mesmo quando o documento é de outro mês.
-3. Resolva os bloqueios e revise os valores da competência. Quando os recebimentos excederem o valor do documento, confira os comprovantes e a medição em Medições a faturar antes de corrigir valores ou vínculos. Para pagamentos excedentes, confira a obrigação e os comprovantes em Pagamentos.
-4. Solicite o fechamento e confira a confirmação devolvida pelo sistema.
+1. Em Pendências para conferência do fechamento, resolva bloqueios do motor, de classificação e do banco. Vincule o extrato existente à conta e confira o saldo informado pelo banco no último dia da competência. Falta de evidência documental, quando for a única pendência do registro, permite exceção com justificativa de pelo menos 15 caracteres. A confirmação registra o responsável e os documentos afetados.
+2. Em Bloqueios financeiros, leia o motivo, a diferença e a orientação. Use Consultar origem do bloqueio quando houver um registro identificado. O memorial mostra o valor do documento; a diferença fica no aviso. Se não houver origem individual, confira os documentos e peça ajuda ao administrador usando Diagnóstico para suporte.
+3. Compare o resultado com as entradas e saídas. O resultado segue a competência da receita ou do custo; o caixa segue a data do recebimento ou pagamento, mesmo quando o documento é de outro mês.
+4. Resolva os bloqueios e revise os valores da competência. Quando os recebimentos excederem o valor do documento, confira os comprovantes e a medição em Medições a faturar antes de corrigir valores ou vínculos. Para pagamentos excedentes, confira a obrigação e os comprovantes em Pagamentos.
+5. Solicite o fechamento e confira a confirmação devolvida pelo sistema.
 
 ### Como conferir se deu certo
 
@@ -1946,7 +1948,7 @@ Use um perfil de administrador. Consultar não corrige registros nem fecha uma c
 1. Use Atualizar relatório e aguarde a consulta.
 2. No celular, os filtros aparecem no início do relatório. Use Buscar diferença ou origem, Tipo de ocorrência e Grupo da conferência.
 3. Leia o estado do motor e abra Verificações da homologação para conferir pendências. Em Diferenças e avisos, leia o resultado dos filtros. Confira obra, competência, campo, origem esperada e razão consultado. Anterior e Próxima percorrem os resultados filtrados.
-4. Abra Diagnóstico do registro para consultar os detalhes e, no celular, a referência de origem. Números de campos, quantidades e valores monetários têm significados diferentes.
+4. Abra Diagnóstico do registro para consultar os detalhes e, no celular, a referência de origem. No grupo Projeções do DRE, use Diagnóstico da projeção para separar ausência de projeção, projeção inativa, estrutura diferente e valor divergente. Uma projeção ainda ausente indica cobertura a conferir. Compare valores somente na mesma obra, competência e quinzena ou mês.
 5. Em Sincronização técnica dos registros, Executar carga idempotente exige confirmação e grava a sincronização existente. Essa ação não ativa nem desativa o motor; consulte o responsável técnico antes de usá-la.
 6. Para reunir campos divergentes da mesma obra, competência e período do DRE, use Ver diferenças desta projeção. A ação limpa a busca e mostra apenas a referência escolhida. Use Limpar filtro de projeção para voltar às diferenças do grupo Projeções do DRE.
 
@@ -2000,7 +2002,8 @@ Confira banco, conta e período do extrato.
 4. Quando o mesmo prestador tiver contratos em várias obras, confira a obra, o contrato e a obrigação de cada pagamento. O vínculo existente do prestador identifica a pessoa quando seus dados concordam; não escolhe o contrato nem junta pagamentos. Dados de identidade divergentes exigem conferência.
 5. Confira também pendências de extratos arquivados antes de reabrir ou reimportar: arquivar não significa conciliar nem autoriza repetir um pagamento.
 6. Confirme o vínculo apenas após a conferência e acompanhe o saldo e as pendências.
-7. Em Mais opções · extratos, regras e histórico, abra Histórico para conferir as operações e as referências dos lançamentos. Você pode buscar pelo identificador do registro.
+7. Em Mais opções · extratos, regras e histórico, escolha Extratos. Em Extratos sem conta vinculada, use Vincular à conta. Confira as datas dos movimentos, a cobertura do OFX quando disponível e o saldo informado pelo banco. Escolha uma conta ativa com mesmo banco e número ou use Cadastrar conta do extrato. Volte ao lote e confirme o vínculo; os movimentos já importados são preservados. Se a posição estiver indisponível, compare com o extrato oficial.
+8. Em Mais opções · extratos, regras e histórico, abra Histórico para conferir as operações e as referências dos lançamentos. Você pode buscar pelo identificador do registro.
 
 ### Como conferir se deu certo
 
@@ -3981,6 +3984,31 @@ O cliente entra pelo endereço do portal e consulta somente as obras vinculadas 
 ### O que merece atenção
 
 Não há envio automático de convite nem criação de usuário interno do ERP. O mesmo e-mail usa uma conta entre obras; redefinir a senha vale para todas elas e encerra as sessões. A senha do convite é transitória e é apagada da tela após copiar ou mudar a obra. Criar acesso não publica dados. Para liberar conteúdo, use Portal do cliente dentro da obra.
+
+<a id="guia-conc_vincular_ofx"></a>
+
+## Conciliação · Vincular extrato à conta
+
+Associar um extrato OFX ou QFX já importado à conta bancária da empresa.
+
+### Antes de começar
+
+Use um perfil de administrador sem restrição de obra. Confira o banco e o número da conta no extrato.
+
+### Como fazer
+
+1. Em Extratos, abra Vincular à conta no lote sem conta vinculada.
+2. Confira as datas dos movimentos. Se o original puder ser verificado, confira também a cobertura do arquivo e a data do saldo.
+3. Selecione a conta que corresponde ao banco e número. Se necessário, use Cadastrar conta do extrato e volte a abrir o lote.
+4. Use Confirmar vínculo. Confira a conta na lista de extratos e o evento no Histórico.
+
+### Como conferir se deu certo
+
+O extrato e seus movimentos passam a aparecer na conta escolhida. Os valores, as classificações e as conciliações anteriores são preservados.
+
+### O que merece atenção
+
+Se houver movimentos repetidos, revertidos ou em período fechado, confira a origem antes de prosseguir. Um saldo de data anterior não comprova o saldo de fim da competência.
 
 <a id="guia-conc_reverter"></a>
 

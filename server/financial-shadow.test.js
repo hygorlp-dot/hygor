@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildLegacyFinancialFacts, compareFinancialScopes, summarizeLegacyFinancialFacts } from "./financial-shadow";
+import { buildLegacyFinancialFacts, compareDreProjectionRows, compareFinancialScopes, summarizeLegacyFinancialFacts } from "./financial-shadow";
 
 describe("homologação financeira em sombra", () => {
   it("normaliza fatos sem duplicar recebimento de medição", () => {
@@ -74,4 +74,18 @@ describe("homologação financeira em sombra", () => {
     expect(semDre.facts).toEqual(completo.facts);
     expect(semDre.bankTransactions).toEqual(completo.bankTransactions);
   });
+});
+
+it("identifica cobertura e campos sem converter um valor ausente em zero", () => {
+  const row = sourceId => ({ sourceId, payload:{ valor:0, custos:[10] } });
+  const event = (source_id,payload) => ({ source_id,payload,event_type:"dre_snapshot" });
+  expect(compareDreProjectionRows([row("novo"),row("inativo"),row("parcial"),row("divergente")], [
+    event("inativo",{active:false}),event("parcial",{custos:[10]}),event("divergente",{valor:1,custos:[10,20]}),
+  ])).toMatchObject([
+    {sourceId:"novo",kind:"not_materialized"},
+    {sourceId:"inativo",kind:"inactive_projection"},
+    {sourceId:"parcial",kind:"structure",path:"valor",canonical:null},
+    {sourceId:"divergente",kind:"value",path:"valor",difference:1},
+    {sourceId:"divergente",kind:"structure",path:"custos.length"},
+  ]);
 });

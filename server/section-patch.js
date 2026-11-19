@@ -17,6 +17,7 @@ export const projectChangedSectionsPatch = (
   const projected = projectDataForUser(after, user);
   const changed=changedTopLevelSections(before,after);
   if(projected.dreBankSource&&changed.some(key=>['contasBancarias','fechamentosBancarios','extratos'].includes(key)))changed.push('dreBankSource');
+  if(projected.dreOfxEvidence&&changed.some(key=>['transacoes','extratos'].includes(key)))changed.push('dreOfxEvidence');
   return Object.fromEntries(
     changed
       .filter(key => !excluded.has(key))

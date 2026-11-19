@@ -152,38 +152,58 @@ export const compareFinancialScopes = (legacy = {}, canonical = {}, tolerance = 
 };
 
 export const compareDreProjectionRows = (expectedRows = [], events = [], tolerance = 0.01) => {
-  const canonical=new Map(events
-    .filter(event=>event.event_type==="dre_snapshot"&&event.payload?.active!==false)
-    .map(event=>[event.source_id,event.payload]));
+  const canonical=new Map();
+  const inactive=new Set();
+  for(const event of events){
+    if(event.event_type!=="dre_snapshot")continue;
+    if(event.payload?.active===false)inactive.add(event.source_id);
+    else if(event.payload)canonical.set(event.source_id,event.payload);
+  }
   const divergences=[];
+  const structure=(sourceId,path,expected,actual)=>divergences.push({
+    sourceId,path,kind:"structure",expected,canonical:actual??null,
+  });
   const compare=(expected,actual,path,sourceId)=>{
     if(typeof expected==="number"){
-      const difference=amount(Number(actual||0)-expected);
-      if(Math.abs(difference)>tolerance)divergences.push({sourceId,path,expected:amount(expected),canonical:amount(actual),difference});
+      if(!Number.isFinite(actual)){
+        structure(sourceId,path,expected,actual);
+        return;
+      }
+      const difference=amount(actual-expected);
+      if(Math.abs(difference)>tolerance)divergences.push({sourceId,path,kind:"value",expected:amount(expected),canonical:amount(actual),difference});
       return;
     }
     if(Array.isArray(expected)){
       if(!Array.isArray(actual)){
-        divergences.push({sourceId,path,expected:"lista",canonical:actual??null});
+        structure(sourceId,path,"lista",actual);
         return;
       }
       if(expected.length!==actual.length){
-        divergences.push({sourceId,path:`${path}.length`,expected:expected.length,canonical:actual.length});
+        structure(sourceId,`${path}.length`,expected.length,actual.length);
         return;
       }
       expected.forEach((item,index)=>compare(item,actual[index],`${path}[${index}]`,sourceId));
       return;
     }
     if(expected&&typeof expected==="object"){
-      for(const [key,value] of Object.entries(expected))compare(value,actual?.[key],path?`${path}.${key}`:key,sourceId);
+      if(!actual||typeof actual!=="object"||Array.isArray(actual)){
+        structure(sourceId,path,"objeto",actual);
+        return;
+      }
+      for(const [key,value] of Object.entries(expected))compare(value,actual[key],path?`${path}.${key}`:key,sourceId);
       return;
     }
-    if(expected!==actual)divergences.push({sourceId,path,expected,canonical:actual??null});
+    if(expected!==actual)structure(sourceId,path,expected,actual);
   };
   for(const row of expectedRows){
     const actual=canonical.get(row.sourceId);
-    if(!actual){divergences.push({sourceId:row.sourceId,path:"",expected:"projeção",canonical:"ausente"});continue;}
-    compare(row.payload,actual,"",row.sourceId);
+    if(actual){
+      compare(row.payload,actual,"",row.sourceId);
+      continue;
+    }
+    const isInactive=inactive.has(row.sourceId);
+    divergences.push({sourceId:row.sourceId,path:"",kind:isInactive?"inactive_projection":"not_materialized",
+      expected:"Projeção ativa",canonical:isInactive?"Inativa":"Ausente"});
   }
   return divergences;
 };

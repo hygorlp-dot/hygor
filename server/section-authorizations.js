@@ -63,6 +63,7 @@ const CATALOG_SECTIONS=new Set([
 
 export const authorizeSectionChanges = (user = {}, sections = {}, {before,after}={}) => {
   const keys=Object.keys(sections || {}).filter(key=>key&&!key.startsWith("__"));
+  if(keys.some(key=>key==='dreBankSource'||key==='dreOfxEvidence'))return 'A consulta de saldo bancário é somente leitura.';
   if (user.role === "admin") return "";
   for (const key of keys) {
     const roles=SECTION_ROLES[key];
@@ -197,6 +198,7 @@ const validarOrcamentosAprovados=(antes,depois)=>{
 export const validateNoPhysicalDeletes = (previous = {}, next = {}) => {
   if(Object.prototype.hasOwnProperty.call(next,'extratos')){
     const after=porId(next.extratos),beforeIndex=porId(previous.extratos);
+    if((previous.extratos||[]).some(item=>after.has(String(item.id))&&String(item.contaBancariaId||"")!==String(after.get(String(item.id)).contaBancariaId||"")))return 'A conta do extrato exige o comando autorizado de vínculo.';
     if((next.extratos||[]).some(item=>!beforeIndex.get(String(item.id))?.importManifest&&(item.importManifest||item.originalFile||item.importReversals?.length)))return 'Lotes bancários exigem o comando de importação autorizado.';
     for(const before of previous.extratos||[]){
       if(!before.importManifest)continue;
@@ -206,6 +208,7 @@ export const validateNoPhysicalDeletes = (previous = {}, next = {}) => {
   }
   if(Object.prototype.hasOwnProperty.call(next,'transacoes')){
     const after=porId(next.transacoes),beforeIndex=porId(previous.transacoes);
+    if((previous.transacoes||[]).some(item=>item.extratoId&&after.has(String(item.id))&&String(item.contaBancariaId||"")!==String(after.get(String(item.id)).contaBancariaId||"")))return 'A conta do movimento de extrato exige o comando autorizado de vínculo.';
     if((next.transacoes||[]).some(item=>!beforeIndex.get(String(item.id))?.importStamp&&(item.importStamp||item.importReversal)))return 'A origem bancária exige o comando de importação autorizado.';
     for(const before of previous.transacoes||[]){
       const current=after.get(String(before.id));

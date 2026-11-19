@@ -102,3 +102,37 @@ export function dreBankPosition(data,accountId,{start,end}){
   return {...result,opening,ending,asOf:balanceAtEnd.size?end:openingDate,
     state:balanceAtEnd.size&&openingDate===previousDay(start)?'checked':'estimated'};
 }
+
+export function dreOfxPosition(data,evidence,{start,end}){
+  const reference=end<evidence.end?end:evidence.end;
+  const statementRows=(data.transacoes||[]).filter(item=>String(item.extratoId)===evidence.id&&String(item.contaBancariaId||'')===String(evidence.accountId||'')&&!item.importReversal);
+  const transacoes=statementRows.map(item=>({...item,contaBancariaId:'unassigned'}));
+  const result=dreBankPosition({...data,transacoes,fechamentosBancarios:[]},'unassigned',{start,end:reference});
+  if(statementRows.length!==evidence.count)return {...result,state:'invalid'};
+  if(result.state!=='missing')return result;
+  const after=reference===evidence.end?null:bankFigures({transacoes},'unassigned',nextDay(reference),evidence.end);
+  const ending=evidence.balanceCents-(after?.balanceCents??0);
+  const opening=ending-result.incoming+result.outgoing;
+  if((after&&!after.complete)||!Number.isSafeInteger(ending)||!Number.isSafeInteger(opening))return {...result,state:'invalid'};
+  return {...result,opening,ending,reference,asOf:evidence.end,state:after?'statement-calculated':'statement'};
+}
+
+export function dreAccountPosition(data,accountId,period,evidence=[]){
+  const position=dreBankPosition(data,accountId,period);
+  if(!['missing','estimated','checked'].includes(position.state))return position;
+  const candidates=evidence.filter(row=>row.accountId===accountId&&row.start<=period.start&&row.end>=period.start)
+    .sort((a,b)=>b.end.localeCompare(a.end));
+  for(const row of candidates){
+    const reference=period.end<row.end?period.end:row.end;
+    const overlap=(data.transacoes||[]).some(t=>sameAccount(t,accountId)&&active(t)&&!t.importReversal
+      &&t.data>=period.start&&t.data<=row.end&&String(t.extratoId)!==row.id);
+    if(overlap)continue;
+    if(row.end<period.end&&(data.transacoes||[]).some(t=>sameAccount(t,accountId)&&active(t)&&!t.importReversal&&t.data>row.end&&t.data<=period.end))continue;
+    const proof=dreOfxPosition(data,row,{...period,end:reference});
+    if(proof.ending==null)continue;
+    if(position.state==='checked')return reference===period.end&&proof.ending!==position.ending
+      ?{...position,state:'divergent',opening:null,ending:null}:position;
+    return proof;
+  }
+  return position;
+}

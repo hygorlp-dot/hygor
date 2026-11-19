@@ -82,6 +82,7 @@ import PaymentOverview from "./features/financeiro/PaymentOverview.jsx";
 import WorkStageCosts from "./features/financeiro/WorkStageCosts.jsx";
 import DocumentCenter from "./features/financeiro/DocumentCenter.jsx";
 import ClosingPending from "./features/financeiro/ClosingPending.jsx";
+import {monthlyClosingControls} from "./domains/financeiro/monthly-closing-controls.js";
 import ClosingOriginEditor from './features/financeiro/ClosingOriginEditor.jsx';
 import {closingCorrectionScope} from './domains/financeiro/closing-correction.js';
 import RecordRecoveryPanel,{SessionRenewalFields} from './features/financeiro/RecordRecoveryPanel.jsx';
@@ -2504,6 +2505,7 @@ const calcObraRevenue = calculateContractProjection;
 //
 
 const pct1=v=>`${new Intl.NumberFormat("pt-BR",{minimumFractionDigits:1,maximumFractionDigits:1}).format(Number(v)||0)}%`;
+const dreMargin=(base,value)=>base>0&&Number.isFinite(value)?pct1(value):"Não aplicável";
 const pct0=v=>`${new Intl.NumberFormat("pt-BR",{maximumFractionDigits:0}).format(Number(v)||0)}%`;
 function KpiCard({label,value,detail,icon,color=C.blue,onClick,animate=true}){
   const displayValue=useCountUp(animate?value:null);
@@ -3027,7 +3029,7 @@ function FinanceiroObraPainel({data,showToast,currentUser=null,obraId,dispatchCo
     <TabRow tabs={[["resumo","Resumo"],["dre","DRE por competência"],["caixa","Entradas e saídas"],["posicoes","Contas em aberto"],["movimentos","Rastreabilidade"],["orcado","Orçado × comprometido"]]} active={aba} onChange={setAba}/>
     <div className="obra-fin-controls"><label><span>Competência</span><StandardInput type="month" value={periodo} onChange={e=>setPeriodo(e.target.value)}/></label>{aba!=="resumo"&&aba!=="orcado"&&<label className="obra-fin-search"><span>Pesquisar</span><StandardInput value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Descrição, fornecedor ou categoria"/></label>}</div>
     {aba==="resumo"&&<><section className="obra-fin-summary">
-      <div className="obra-fin-column"><h3>DRE do período</h3><Metric label="Receita reconhecida" value={receitaReconhecida} detail="Regime de competência" tone="positive"/><Metric label="Custos incorridos" value={custoIncorrido} detail="Documentos e apropriações" tone="negative"/><Metric label="Resultado por competência" value={resultadoCompetencia} detail={`${pct1(dre.margemBruta)} de margem`} tone={resultadoCompetencia>=0?"positive":"danger"}/></div>
+      <div className="obra-fin-column"><h3>DRE do período</h3><Metric label="Receita reconhecida" value={receitaReconhecida} detail="Regime de competência" tone="positive"/><Metric label="Custos incorridos" value={custoIncorrido} detail="Documentos e apropriações" tone="negative"/><Metric label="Resultado por competência" value={resultadoCompetencia} detail={`Margem: ${dreMargin(dre.faturamento,dre.margemBruta)}`} tone={resultadoCompetencia>=0?"positive":"danger"}/></div>
       <div className="obra-fin-column"><h3>Posições</h3><Metric label="Contas a receber" value={dre.contasReceber} detail="Faturado ainda não recebido"/><Metric label="Contas a pagar" value={dre.contasPagar} detail="Obrigações ainda não liquidadas"/><Metric label="Comprometido" value={dre.comprometido} detail="Pedidos ainda não convertidos em custo"/><Metric label="Pago direto pelo cliente" value={dre.pagoPeloCliente||0} detail="Baixou obrigação sem passar pelo caixa da empresa"/></div>
       <div className="obra-fin-balance"><div><span>Saldo de caixa do período</span><strong className={saldo>=0?"positive":"negative"}>{fmt(saldo)}</strong><small>Entradas efetivas menos saídas efetivas</small></div><div className="obra-fin-balance-bar"><i style={{width:`${entradasCaixa/totalFluxo*100}%`}}/><b style={{width:`${saidasCaixa/totalFluxo*100}%`}}/></div><div className="obra-fin-legend"><span><i/>Entradas {fmt(entradasCaixa)}</span><span><i/>Saídas {fmt(saidasCaixa)}</span></div><div className="obra-fin-projection"><span>{dre.conference?.ok?"Conferência OK":`${contar(dre.conference?.errors?.length||0,"pendência","pendências")} de conferência`}</span><b>{fmt(dre.recebimentosNaoAlocados)} não alocado</b></div></div>
     </section></>}
@@ -3280,7 +3282,7 @@ Regras: diferencie faturamento de recebimento; não conclua excesso de pessoas a
   //  Linha DRE reutilizável
   // Valores em coluna única: o recuo da direita é fixo (antes era indent*12 e ficava zero nas linhas de total).
   // Cor só para desvio: negativo em vermelho; o resto neutro. A cor da categoria não pinta mais o número.
-  const DRERow = ({label,value,color=C.text,bold=false,indent=0,pct=null}) => { const tom=Number(value)<0?C.red:C.text; return (
+  const DRERow = ({label,value,color=C.text,bold=false,indent=0,pct=null,marginBase=null}) => { const tom=Number(value)<0?C.red:C.text; return (
     <div style={{
       display:"flex",justifyContent:"space-between",alignItems:"center",
       padding:`${bold?"8px":"5px"} 12px 5px ${12+indent*12}px`,
@@ -3290,7 +3292,7 @@ Regras: diferencie faturamento de recebimento; não conclua excesso de pessoas a
       <p style={{fontSize:"var(--arcd-type-body)",color:bold?C.text:C.muted,fontWeight:bold?600:400}}>{label}</p>
       <div style={{textAlign:"right",flexShrink:0,fontVariantNumeric:"tabular-nums"}}>
         <p style={{fontSize:bold?"var(--arcd-type-card-title)":"var(--arcd-type-body)",color:tom,fontWeight:600}}>{fmt(value)}</p>
-        {pct!==null&&<p style={{fontSize:"var(--arcd-type-caption)",color:tom,marginTop:1}}>{pct1(pct)}</p>}
+        {(pct!==null||marginBase!==null)&&<p style={{fontSize:"var(--arcd-type-caption)",color:tom,marginTop:1}}>{marginBase===null?pct1(pct):dreMargin(marginBase,pct)}</p>}
       </div>
     </div>
   ); };
@@ -3321,7 +3323,7 @@ Regras: diferencie faturamento de recebimento; não conclua excesso de pessoas a
           <div style={{textAlign:"right",flexShrink:0}}>
             <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Lucro Bruto</p>
             <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-section-title)",color:lucroCor,letterSpacing:.5}}>{fmt(d.lucroBruto)}</p>
-            <p style={{fontSize:"var(--arcd-type-label)",color:lucroCor}}>{pct1(d.margemBruta)}</p>
+            <p style={{fontSize:"var(--arcd-type-label)",color:lucroCor}}>{dreMargin(d.faturamento,d.margemBruta)}</p>
           </div>
         </div>
 
@@ -3356,8 +3358,8 @@ Regras: diferencie faturamento de recebimento; não conclua excesso de pessoas a
           )}
 
           <DRESeparator/>
-          <DRERow label="Lucro Bruto" value={d.lucroBruto} color={lucroCor} bold pct={d.margemBruta}/>
-          <DRERow label="Saldo de Caixa" value={d.saldoCaixa} color={caixaCor} bold pct={d.margemCaixa}/>
+          <DRERow label="Lucro Bruto" value={d.lucroBruto} color={lucroCor} bold pct={d.margemBruta} marginBase={d.faturamento}/>
+          <DRERow label="Saldo de Caixa" value={d.saldoCaixa} color={caixaCor} bold pct={d.margemCaixa} marginBase={d.recebido}/>
 
           {!compact && d.obra.contractValue>0&&(<>
             <DRESection title="Posição do Contrato (Acumulado)" color={C.blue}/>
@@ -3405,7 +3407,7 @@ Regras: diferencie faturamento de recebimento; não conclua excesso de pessoas a
     const resumoPdf = isConsolidado ? dre : dreObra;
     const titulo = isConsolidado ? `DRE Consolidado - ${period}` : `DRE ${dreObra.obra?.name||""} - ${period}`;
 
-    const dreTableRows = (obj) => `
+    const dreTableRows = (obj,cashBase) => `
       <tr class="sec"><td colspan="2">RECEITAS</td></tr>
       <tr class="entry"><td>Faturamento emitido (medições)</td><td class="val pos">R$ ${fmt2(obj.faturamento)}</td></tr>
       <tr class="entry sub"><td>&nbsp;&nbsp;Recebido em caixa</td><td class="val">R$ ${fmt2(obj.recebido||0)}</td></tr>
@@ -3424,16 +3426,16 @@ Regras: diferencie faturamento de recebimento; não conclua excesso de pessoas a
       <tr class="subtotal"><td>Total Custos</td><td class="val neg">R$ ${fmt2(obj.totalCustos||0)}</td></tr>
       <tr class="result ${(obj.lucroBruto||0)>=0?"pos":"neg"}">
         <td><strong>LUCRO BRUTO</strong></td>
-        <td class="val"><strong>R$ ${fmt2(obj.lucroBruto||0)} (${pct1(obj.margemBruta||0)})</strong></td>
+        <td class="val"><strong>R$ ${fmt2(obj.lucroBruto||0)} (${dreMargin(obj.faturamento,obj.margemBruta)})</strong></td>
       </tr>
       <tr class="result ${(obj.saldoCaixa||0)>=0?"caixa":"neg"}">
         <td>Saldo de Caixa</td>
-        <td class="val">R$ ${fmt2(obj.saldoCaixa||0)} (${pct1(obj.margemCaixa||0)})</td>
+        <td class="val">R$ ${fmt2(obj.saldoCaixa||0)} (${dreMargin(cashBase,obj.margemCaixa)})</td>
       </tr>`;
 
     const obrasSect = isConsolidado ? dre.obras.map(o=>`
       <h3 style="font-size:13px;margin:18px 0 6px;border-bottom:1px solid #ddd;padding-bottom:4px">${escapeHtml(o.obra?.name||"")}</h3>
-      <table class="dre-table"><tbody>${dreTableRows(o)}</tbody></table>`).join("") : "";
+      <table class="dre-table"><tbody>${dreTableRows(o, o.recebido)}</tbody></table>`).join("") : "";
 
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
 <title>${escapeHtml(titulo)}</title>
@@ -3484,7 +3486,7 @@ h3{font-size:12px;font-weight:900;color:#2563eb}
 </div>
 
 <h2>${isConsolidado?"DRE Consolidado":"DRE - "+escapeHtml(dreObra.obra?.name||"")}</h2>
-<table class="dre-table"><tbody>${dreTableRows(resumoPdf)}</tbody></table>
+<table class="dre-table"><tbody>${dreTableRows(resumoPdf, isConsolidado?resumoPdf.entradasCaixa:resumoPdf.recebido)}</tbody></table>
 
 ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`:""}
 
@@ -3497,7 +3499,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
   const exportXLS = async () => {
     await carregarXLSX();
     const wb = XLSX.utils.book_new();
-    const dreRows = (obj) => [
+    const dreRows = (obj,cashBase) => [
       ["RECEITAS"],
       ["Faturamento emitido", obj.faturamento],
       ["Recebido em caixa",   obj.recebido||0],
@@ -3513,25 +3515,25 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
       ["(-) Outras despesas", obj.outrasTotal||0],
       ["Total Custos",        obj.totalCustos||0],
       ["LUCRO BRUTO",         obj.lucroBruto||0],
-      ["Margem Bruta %",      (obj.margemBruta||0).toFixed(1)+"%"],
+      ["Margem Bruta %",      dreMargin(obj.faturamento,obj.margemBruta)],
       ["Saldo de Caixa",      obj.saldoCaixa||0],
-      ["Margem de Caixa %",   (obj.margemCaixa||0).toFixed(1)+"%"],
+      ["Margem de Caixa %",   dreMargin(cashBase,obj.margemCaixa)],
     ];
-    const ws1=XLSX.utils.aoa_to_sheet([[`DRE Consolidado - ${period}`],[],["Linha","Valor"],...dreRows(dre)]);
+    const ws1=XLSX.utils.aoa_to_sheet([[`DRE Consolidado - ${period}`],[],["Linha","Valor"],...dreRows(dre,dre.entradasCaixa)]);
     ws1["!cols"]=[30,14].map(w=>({wch:w}));
     XLSX.utils.book_append_sheet(wb,ws1,"DRE Consolidado");
 
     // Uma aba por obra
     dre.obras.forEach(o=>{
       if(!o.obra) return;
-      const ws=XLSX.utils.aoa_to_sheet([[`DRE - ${o.obra.name} - ${period}`],[],["Linha","Valor"],...dreRows(o)]);
+      const ws=XLSX.utils.aoa_to_sheet([[`DRE - ${o.obra.name} - ${period}`],[],["Linha","Valor"],...dreRows(o,o.recebido)]);
       ws["!cols"]=[30,14].map(w=>({wch:w}));
       XLSX.utils.book_append_sheet(wb,ws,(o.obra.name||"Obra").slice(0,30));
     });
 
     // Histórico
     const histHeader=["Mês","Faturamento","Recebido","Custos","Lucro Bruto","Margem %"];
-    const histBody=hist.map(h=>[h.mes,h.faturamento,h.recebido,h.totalCustos,h.lucroBruto,h.margemBruta.toFixed(1)+"%"]);
+    const histBody=hist.map(h=>[h.mes,h.faturamento,h.recebido,h.totalCustos,h.lucroBruto,dreMargin(h.faturamento,h.margemBruta)]);
     const wsH=XLSX.utils.aoa_to_sheet([["Histórico 6 meses"],[],histHeader,...histBody]);
     wsH["!cols"]=[14,14,12,12,14,10].map(w=>({wch:w}));
     XLSX.utils.book_append_sheet(wb,wsH,"Histórico");
@@ -3612,7 +3614,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
           ["faturamento","Faturamento",  dreResumo.faturamento,  C.green,  `${period}`],
           ["recebido","Recebido",     dreResumo.recebido,     C.blue,   `a receber: ${fmt(dreResumo.aReceber)}`],
           ["custos","Total de custos", dreResumo.totalCustos,  C.red,    `MO + terceiros + outros`],
-          ["lucro","Lucro bruto",  dreResumo.lucroBruto,   (dreResumo.lucroBruto>0?C.green:dreResumo.lucroBruto<0?C.red:C.muted), `margem ${pct1(dreResumo.margemBruta)}`],
+          ["lucro","Lucro bruto",  dreResumo.lucroBruto,   (dreResumo.lucroBruto>0?C.green:dreResumo.lucroBruto<0?C.red:C.muted), `margem ${dreMargin(dreResumo.faturamento,dreResumo.margemBruta)}`],
         ].map(([k,l,v,c,s])=>(
           <button type="button" className="dre-kpi-card" key={l} onClick={()=>{setDetalheKpi(k);setFiltroDetalhe({busca:"",categoria:"todos",obra:"todas",ordem:"data_desc"});}} style={{"--dre-kpi-color":c}}>
             <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted}}>{l}</p>
@@ -3643,8 +3645,8 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
             {dre.outrasTotal>0&&<DRERow label="(-) Outras despesas" value={dre.outrasTotal} color={C.orange} indent={1}/>}
             <DRERow label="Total custos" value={dre.totalCustos} color={C.red} bold/>
             <DRESeparator/>
-            <DRERow label="LUCRO BRUTO" value={dre.lucroBruto} color={(dre.lucroBruto>0?C.green:dre.lucroBruto<0?C.red:C.muted)} bold pct={dre.margemBruta}/>
-            <DRERow label="Saldo de Caixa" value={dre.saldoCaixa} color={dre.saldoCaixa>=0?C.blue:C.red} bold pct={dre.margemCaixa}/>
+            <DRERow label="LUCRO BRUTO" value={dre.lucroBruto} color={(dre.lucroBruto>0?C.green:dre.lucroBruto<0?C.red:C.muted)} bold pct={dre.margemBruta} marginBase={dre.faturamento}/>
+            <DRERow label="Saldo de Caixa" value={dre.saldoCaixa} color={dre.saldoCaixa>=0?C.blue:C.red} bold pct={dre.margemCaixa} marginBase={dre.entradasCaixa}/>
             <DRESection title="Posição Acumulada (Todas as Obras)" color={C.blue}/>
             <DRERow label="Faturado acumulado" value={dre.faturadoAcum} color={C.blue}/>
             <DRERow label="Recebido acumulado" value={dre.recebidoAcum} color={C.green}/>
@@ -3676,7 +3678,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
             }}>
               <span className="grid gap-1">
                 <strong>{o.obra.name}</strong>
-                <span>Lucro bruto {fmt(o.lucroBruto)} · Margem {pct1(o.margemBruta)}</span>
+                <span>Lucro bruto {fmt(o.lucroBruto)} · Margem {dreMargin(o.faturamento,o.margemBruta)}</span>
               </span>
             </RecordAction>)}
         </div>
@@ -3735,7 +3737,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
                 <p style={{fontSize:"var(--arcd-type-body)",color:C.green,fontWeight:600}}>{fmt(h.faturamento)}</p>
                 <p style={{fontSize:"var(--arcd-type-body)",color:C.blue}}>{fmt(h.recebido)}</p>
                 <p style={{fontSize:"var(--arcd-type-body)",color:(h.lucroBruto>0?C.green:h.lucroBruto<0?C.red:C.muted),fontWeight:600}}>{fmt(h.lucroBruto)}</p>
-                <p style={{fontSize:"var(--arcd-type-body)",color:(h.margemBruta>0?C.green:h.margemBruta<0?C.red:C.muted),fontWeight:600}}>{pct1(h.margemBruta)}</p>
+                <p style={{fontSize:"var(--arcd-type-body)",color:(h.margemBruta>0?C.green:h.margemBruta<0?C.red:C.muted),fontWeight:600}}>{dreMargin(h.faturamento,h.margemBruta)}</p>
               </div>
             ))}
           </div>
@@ -4278,12 +4280,24 @@ function FechamentoFinanceiroMensal({data,update,showToast,currentUser,onMemoria
   const [processando,setProcessando]=useState(false);
   const [closingError,setClosingError]=useState('');
   const [closingStatus,setClosingStatus]=useState(0),[closingNotice,setClosingNotice]=useState('');
+  const [exceptionReason,setExceptionReason]=useState('');
   const closingLock=useRef(false);
   const [closingKeys,setClosingKeys]=useWorkspaceState('fin','closingAttemptKeys',{});
   const previa=useMemo(()=>createMonthlyClosingSnapshot(data,{competencia,actor:currentUser,closedAt:"preview"}),[data,competencia,currentUser]);
+  const period=useMemo(()=>{
+    if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(competencia))return {start:'',end:''};
+    const [year,month]=competencia.split('-').map(Number);
+    return {start:`${competencia}-01`,end:new Date(Date.UTC(year,month,0)).toISOString().slice(0,10)};
+  },[competencia]);
+  const controls=useMemo(()=>monthlyClosingControls(data,period),[data,period]);
+  const exception={reason:exceptionReason.trim(),documents:controls.exceptions.map(row=>row.fingerprint)};
+  const requiresException=controls.exceptions.length>0;
+  const ready=previa.ok&&!currentUser?.obraId&&!controls.blockers.length&&
+    (!requiresException||exception.reason.length>=15);
   const fechar=async()=>{
     if(closingLock.current)return;
-    if(currentUser?.role!=="admin"){showToast("Somente administrador pode fechar uma competência.","error");return;}
+    if(currentUser?.role!=="admin"||currentUser.obraId){showToast("O fechamento exige administrador sem restrição de obra.","error");return;}
+    if(!ready)return;
     const snapshot=createMonthlyClosingSnapshot(data,{competencia,actor:currentUser});
     if(!snapshot.ok){showToast(snapshot.error||"A competência não pode ser fechada.","error");return;}
     if(!window.confirm(`Fechar ${competencia}? Novas liquidações neste período serão bloqueadas no servidor.`))return;
@@ -4294,7 +4308,8 @@ function FechamentoFinanceiroMensal({data,update,showToast,currentUser,onMemoria
     const resposta=await executarComandoFinanceiro({
       type:"CLOSE_ACCOUNTING_PERIOD",
       idempotencyKey:closingKey,
-      payload:{startsOn:snapshot.closing.dataInicio,endsOn:snapshot.closing.dataFim,competencia},
+      payload:{startsOn:snapshot.closing.dataInicio,endsOn:snapshot.closing.dataFim,competencia,
+        ...(requiresException?{documentException:exception}:{})},
     });
     if(!resposta.ok){setClosingStatus(Number(resposta.status||0));throw new Error(resposta.error||"O servidor não confirmou o fechamento.");}
     if(resposta.closing?.competencia!==competencia||resposta.closing?.status!=='fechado')throw new Error('O servidor não retornou o fechamento auditável. Confira a situação antes de tentar novamente.');
@@ -4310,12 +4325,15 @@ function FechamentoFinanceiroMensal({data,update,showToast,currentUser,onMemoria
   return <div className="anim" style={{display:"flex",flexDirection:"column",gap:10}}>
     <PageHero headingLevel={2} eyebrow="Fechamento contábil" title="Fechamento mensal imutável" description="Selecione a competência e confira os valores e as pendências antes de fechar o período."/>
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,240px),1fr))",gap:8,alignItems:"end"}}>
-      <Inp label="Competência" type="month" disabled={processando} value={competencia} onChange={value=>{setCompetencia(value);setClosingError('');}}/>
-      <div style={{padding:"9px 11px",border:`1px solid ${previa.ok?C.green:C.red}`,borderRadius:8,background:previa.ok?`${C.green}08`:`${C.red}08`}}>
-        <b style={{fontSize:"var(--arcd-type-label)",color:previa.ok?C.green:C.red}}>{previa.ok?"Motor financeiro sem divergências. Confira separadamente a documentação abaixo.":previa.error}</b>
+      <Inp label="Competência" type="month" disabled={processando} value={competencia} onChange={value=>{setCompetencia(value);setClosingError('');setExceptionReason('');}}/>
+      <div style={{padding:"9px 11px",border:`1px solid ${previa.ok?C.border:C.red}`,borderRadius:8,background:previa.ok?C.card:`${C.red}08`}}>
+        <b style={{fontSize:"var(--arcd-type-label)",color:previa.ok?C.text:C.red}}>{previa.ok?"Conferência do motor concluída. Revise os controles abaixo.":previa.error}</b>
       </div>
     </div>
-    <ClosingPending data={data} competence={competencia} conference={previa.conference} onOpen={onMemorial} onCorrect={onCorrect} onBank={onBank} onDocuments={()=>onDocuments(competencia)}/>
+    <ClosingPending data={data} competence={competencia} conference={previa.conference} controls={controls} onOpen={onMemorial} onCorrect={onCorrect} onBank={onBank} onDocuments={()=>onDocuments(competencia)}/>
+    {previa.ok&&requiresException&&!controls.blockers.length&&<SharedTextarea label="Justificativa da exceção documental"
+      description="Informe por que a competência precisa ser fechada e como os documentos serão obtidos. Use ao menos 15 caracteres. Seu nome e a justificativa ficarão no histórico."
+      value={exceptionReason} maxLength={1000} disabled={processando} onChange={event=>setExceptionReason(event.target.value)}/>}
     {closingError&&<Alert variant="destructive" role="alert"><AlertDescription>{closingError} A competência selecionada foi mantida. Confira o estado do período antes de repetir a confirmação.</AlertDescription></Alert>}
     {closingStatus===401&&<SessionRenewalFields user={currentUser} onRenew={async password=>{try{const result=await renewEditingSession({email:currentUser.email,password,userId:currentUser.id});if(!result.ok){setClosingError(result.error);return;}setClosingStatus(0);setClosingError('');setClosingNotice('Acesso renovado. Confira a competência e confirme novamente quando estiver pronto.');}catch(error){setClosingError(error.message||'Não foi possível renovar o acesso.');}}}/>}
     {closingNotice&&<p role="status">{closingNotice}</p>}
@@ -4324,10 +4342,10 @@ function FechamentoFinanceiroMensal({data,update,showToast,currentUser,onMemoria
       ["Entradas",snap.cashInCents],["Saídas",snap.cashOutCents],["A receber",snap.receivableCents],
       ["A pagar",snap.payableCents],["Comprometido",snap.commitmentCents],
     ].map(([label,cents])=><div key={label} style={{padding:"9px 10px",background:C.card,border:`1px solid ${C.border}`,borderRadius:8}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600,textTransform:"uppercase"}}>{label}</p><b style={{fontSize:"var(--arcd-type-card-title)",color:C.text}}>{fmt(Number(cents||0)/100)}</b></div>)}</div>}
-    <div className="financial-closing__action"><p>Competência a fechar: <strong>{competencia}</strong>. Confira o memorial e as pendências antes de confirmar.</p><Btn v="success" onClick={fechar} disabled={processando||!previa.ok}>{processando?"Fechando...":"Fechar competência"}</Btn></div>
+    <div className="financial-closing__action"><p>{ready?`Competência ${competencia} pronta para confirmação.`:controls.blockers.length?"Resolva os bloqueios para fechar a competência.":requiresException?"Confira a exceção documental para prosseguir.":previa.error||"Confira a competência antes de fechar."}</p><Btn v="success" onClick={fechar} disabled={processando||!ready}>{processando?"Fechando...":"Fechar competência"}</Btn></div>
     <div style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
       <div style={{padding:"8px 11px",background:C.surface}}><b style={{fontSize:"var(--arcd-type-label)"}}>Competências fechadas</b></div>
-      {!fechamentos.length?<p style={{padding:18,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhum fechamento mensal registrado.</p>:fechamentos.map(item=><div key={item.id} style={{display:"grid",gridTemplateColumns:"120px minmax(0,1fr) auto",gap:8,padding:"9px 11px",borderTop:`1px solid ${C.line}`,alignItems:"center"}}><b style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{item.competencia}</b><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Fechado por {item.fechadoPor||"Administrador"} · {contar(item.snapshot?.eventCount||0,"evento","eventos")} congelados</span><Badge color={C.green}>FECHADO</Badge></div>)}
+      {!fechamentos.length?<p style={{padding:18,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhum fechamento mensal registrado.</p>:fechamentos.map(item=><div key={item.id} style={{display:"grid",gridTemplateColumns:"120px minmax(0,1fr) auto",gap:8,padding:"9px 11px",borderTop:`1px solid ${C.line}`,alignItems:"center"}}><b style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{item.competencia}</b><div style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Fechado por {item.fechadoPor||"Administrador"} · {contar(item.snapshot?.eventCount||0,"evento","eventos")} congelados{item.documentException&&<TaskDisclosure summary="Exceção documental"><p>{item.documentException.reason}</p><p>Aprovada por {item.documentException.approvedBy||"Administrador"} · {contar(item.documentException.documentIds?.length||0,"registro","registros")}</p></TaskDisclosure>}</div><Badge color={C.green}>FECHADO</Badge></div>)}
     </div>
   </div>;
 }
@@ -4576,7 +4594,7 @@ function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatch
   if(areaFinanceira==="pagamentos"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>{navegacaoFinanceira}{memorialPanel}<CentralPagamentosFinanceiro view={paymentView} onViewChange={setPaymentView} onBank={podeAcessarAba(currentUser,"conc")?openInvoiceBank:undefined} obraId={filterObra} onObraChange={setFilterObra} onMemorial={setMemorial} data={data} showToast={showToast} currentUser={currentUser} onNovaNota={abrirNovaNota} onAbrirFiscal={abrirFiscal} onReviewInvoice={invoice=>openTodayAction({sourceType:"nota_fiscal",sourceId:invoice.id,obraId:invoice.obraId})} dispatchCommand={dispatchCommand} C={C}/></div>;
   if(areaFinanceira==="administrativo"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>{navegacaoFinanceira}<FinanceiroAdministrativo data={data} update={update} showToast={showToast} currentUser={currentUser} C={C}/></div>;
   if(areaFinanceira==="fiscal"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>{navegacaoFinanceira}{fiscalReturn&&<Btn v="ghost" onClick={()=>{positionToRestore.current=fiscalReturn.positions;setFilterObra(fiscalReturn.obraId);setFiscalReturn(null);setAreaFinanceira("documentos");}}>Voltar à central de documentos</Btn>}{memorialPanel}<CentralFiscal abrirNotaId={notaParaConferir} onNotaAberta={confirmarNotaAberta} obraIdFiltro={filterObra} onObraChange={setFilterObra} onMemorial={setMemorial} data={data} update={update} showToast={showToast} currentUser={currentUser} abrirCadastro={abrirCadastroFiscal} onCadastroAberto={confirmarAberturaFiscal} dispatchCommand={dispatchCommand}/></div>;
-  if(areaFinanceira==="fechamento"&&currentUser?.role==="admin")return <div className="anim" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>{navegacaoFinanceira}{memorialPanel}{closingOrigin&&<ClosingOriginEditor key={`${closingOrigin.type}:${closingOrigin.record.id}`} row={closingOrigin} data={data} user={currentUser} dispatch={dispatchCommand} onAdopt={update} onClose={()=>setClosingOrigin(null)}/>}<FechamentoFinanceiroMensal onCorrect={openClosingOrigin} onBank={podeAcessarAba(currentUser,"conc")?transaction=>navigateFinancial?.("conc",{},{action:"review-financial-origin",record:{transactionIds:[transaction.id],accountId:transaction.contaBancariaId||"",label:"Pendência do fechamento"}}):undefined} onMemorial={setMemorial} onDocuments={competence=>{rememberFinancialOrigin();setDocumentMonth(competence);setFilterObra("all");setAreaFinanceira("documentos");}} data={data} update={update} showToast={showToast} currentUser={currentUser} C={C}/></div>;
+  if(areaFinanceira==="fechamento"&&currentUser?.role==="admin")return <div className="anim" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>{navegacaoFinanceira}{memorialPanel}{closingOrigin&&<ClosingOriginEditor key={`${closingOrigin.type}:${closingOrigin.record.id}`} row={closingOrigin} data={data} user={currentUser} dispatch={dispatchCommand} onAdopt={update} onClose={()=>setClosingOrigin(null)}/>}<FechamentoFinanceiroMensal onCorrect={openClosingOrigin} onBank={podeAcessarAba(currentUser,"conc")?transaction=>navigateFinancial?.("conc",{},{action:"review-financial-origin",record:{transactionIds:transaction?[transaction.id]:[],accountId:transaction?.contaBancariaId||"",label:"Pendência do fechamento"}}):undefined} onMemorial={setMemorial} onDocuments={competence=>{rememberFinancialOrigin();setDocumentMonth(competence);setFilterObra("all");setAreaFinanceira("documentos");}} data={data} update={update} showToast={showToast} currentUser={currentUser} C={C}/></div>;
   if(areaFinanceira==="homologacao"&&currentUser?.role==="admin")return <div className="anim" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>{navegacaoFinanceira}<HomologacaoFinanceira data={data} showToast={showToast} C={C}/></div>;
   if(areaFinanceira==="ia")return <div className="anim" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>{navegacaoFinanceira}<ModoIADocumento modulo="financeiro" data={data} update={update} showToast={showToast} currentUser={currentUser} onClose={()=>setAreaFinanceira("fiscal")} dispatchCommand={dispatchCommand}/></div>;
 
@@ -12237,7 +12255,7 @@ function DREEmpresaMensal({ data, showToast, currentUser=null, dispatchCommand=n
     const pesoCSP=dre.receitaLiquida>0?dre.totalCSP/dre.receitaLiquida*100:0;
     const pesoOp=dre.receitaLiquida>0?dre.totalDespOp/dre.receitaLiquida*100:0;
     if(conversao<70&&dre.faturamentoObras>0)alertas.push({nivel:"critico",titulo:"Caixa abaixo do faturamento",texto:`Apenas ${conversao.toFixed(0)}% do faturado entrou em caixa.`,acao:"Priorizar cobrança das medições vencidas e confirmar datas de recebimento."});
-    if(dre.margemEbitda<10)alertas.push({nivel:dre.ebitda<0?"critico":"atencao",titulo:"Resultado operacional pressionado",texto:`Margem EBITDA de ${pct1(dre.margemEbitda)}.`,acao:"Atacar primeiro custos das obras negativas e despesas administrativas recorrentes."});
+    if(dre.receitaLiquida>0&&dre.margemEbitda<10)alertas.push({nivel:dre.ebitda<0?"critico":"atencao",titulo:"Resultado operacional pressionado",texto:`Margem EBITDA de ${dreMargin(dre.receitaLiquida,dre.margemEbitda)}.`,acao:"Atacar primeiro custos das obras negativas e despesas administrativas recorrentes."});
     if(pesoCSP>75)alertas.push({nivel:"atencao",titulo:"Custos diretos elevados",texto:`O CSP consome ${pesoCSP.toFixed(0)}% da receita líquida.`,acao:"Revisar produtividade de mão de obra, terceiros e despesas diretas por obra."});
     if(pesoOp>15)alertas.push({nivel:"atencao",titulo:"Estrutura administrativa pesada",texto:`Despesas operacionais representam ${pesoOp.toFixed(0)}% da receita líquida.`,acao:"Revisar contratos recorrentes e separar despesas que pertencem às obras."});
     const criticos=acoesObra.filter(o=>o.nivel==="critico").length;
@@ -12464,7 +12482,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
   ${d.outrasDiretas>0?row("(-) Outras despesas diretas de obra",-d.outrasDiretas,"sub"):""}
   ${d.repasseEquipamentosTerceiros>0?row("(-) Repasse dos equipamentos de terceiros",-d.repasseEquipamentosTerceiros,"sub"):""}
   ${d.manutencaoLocacoes>0?row("(-) Manutenção das locações paga pela empresa",-d.manutencaoLocacoes,"sub"):""}
-  <tr class="result"><td>= LUCRO BRUTO</td><td class="val ${d.lucroBruto<0?'neg':'pos'}">R$ ${fmt2(d.lucroBruto)} (${pct1(d.margemBruta)})</td></tr>
+  <tr class="result"><td>= LUCRO BRUTO</td><td class="val ${d.lucroBruto<0?'neg':'pos'}">R$ ${fmt2(d.lucroBruto)} (${dreMargin(d.receitaLiquida,d.margemBruta)})</td></tr>
 
   <tr class="sec"><td>(-) DESPESAS OPERACIONAIS</td><td class="val neg">(R$ ${fmt2(d.totalDespOp)})</td></tr>
   ${GRUPOS_DESP.filter(group=>expenseGroupTotals[group.v]>0).map(group=>`
@@ -12472,7 +12490,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
     ${CATS_DESP.filter(category=>category.grupo===group.v&&Number(d.despPorCat?.[category.v]||0)>0)
       .map(category=>row("(-) "+category.l,-d.despPorCat[category.v],"sub")).join("")}
   `).join("")}
-  <tr class="result"><td>= EBITDA (Resultado Operacional)</td><td class="val ${d.ebitda<0?'neg':'pos'}">R$ ${fmt2(d.ebitda)} (${pct1(d.margemEbitda)})</td></tr>
+  <tr class="result"><td>= EBITDA (Resultado Operacional)</td><td class="val ${d.ebitda<0?'neg':'pos'}">R$ ${fmt2(d.ebitda)} (${dreMargin(d.receitaLiquida,d.margemEbitda)})</td></tr>
 
   <tr class="sec"><td>(+/-) RESULTADO FINANCEIRO</td><td class="val">-</td></tr>
   <tr class="subtot"><td>= LAIR (Lucro Antes do IR)</td><td class="val ${d.lair<0?'neg':'pos'}">R$ ${fmt2(d.lair)}</td></tr>
@@ -12481,7 +12499,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
   ${d.provisaoIR>0?row("(-) IR "+data.config.aliquotaIR+"%",-d.provisaoIR,"sub"):""}
   ${d.provisaoCSLL>0?row("(-) CSLL "+data.config.aliquotaCSLL+"%",-d.provisaoCSLL,"sub"):""}
 
-  <tr class="result liq"><td>= LUCRO / PREJUÍZO LÍQUIDO</td><td class="val ${d.lucroLiquido<0?'neg':'pos'}">R$ ${fmt2(d.lucroLiquido)} (${pct1(d.margemLiquida)})</td></tr>
+  <tr class="result liq"><td>= LUCRO / PREJUÍZO LÍQUIDO</td><td class="val ${d.lucroLiquido<0?'neg':'pos'}">R$ ${fmt2(d.lucroLiquido)} (${dreMargin(d.receitaLiquida,d.margemLiquida)})</td></tr>
 </tbody></table>
 <div class="footer">Gerado por MARCELL Ponto PRO · ${new Date().toLocaleString("pt-BR")} - uso gerencial, não substitui o balanço contábil oficial</div>
 </body></html>`;
@@ -12507,12 +12525,12 @@ td.val{text-align:right;font-weight:700;min-width:110px}
       {value!==null&&<p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:value<0?C.red:C.green}}>{value<0?`(${fmt(Math.abs(value))})`:fmt(value)}</p>}
     </div>
   );
-  const DResult=({label,value,pct=null,size=1})=>(
+  const DResult=({label,value,pct,size=1})=>(
     <div style={{background:value>=0?`${C.green}08`:`${C.red}08`,border:`1px solid ${(value>0?C.green:value<0?C.red:C.muted)}55`,borderRadius:6,padding:"8px 12px",marginTop:4,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
       <p style={{fontSize:"var(--arcd-type-label)"+size,fontWeight:600,color:(value>0?C.green:value<0?C.red:C.muted)}}>{label}</p>
       <div style={{textAlign:"right"}}>
         <p style={{fontSize:14+size,fontWeight:600,color:(value>0?C.green:value<0?C.red:C.muted)}}>{value<0?`(${fmt(Math.abs(value))})`:fmt(value)}</p>
-        {pct!==null&&<p style={{fontSize:"var(--arcd-type-label)",color:((value>0?C.green:value<0?C.red:C.muted))}}>{pct1(pct)}</p>}
+        {pct!==undefined&&<p style={{fontSize:"var(--arcd-type-label)",color:((value>0?C.green:value<0?C.red:C.muted))}}>{dreMargin(dre.receitaLiquida,pct)}</p>}
       </div>
     </div>
   );
@@ -12562,8 +12580,8 @@ td.val{text-align:right;font-weight:700;min-width:110px}
         {[
           ["Faturamento",dre.faturamentoTotal,`Obras ${fmt(dre.faturamentoObras)} · locações ${fmt(dre.receitaLocacoes)}`],
           ["Receita líquida",dre.receitaLiquida,`${((dre.totalDeducoes/Math.max(dre.faturamentoTotal,1))*100).toFixed(1)}% em deduções`],
-          ["EBITDA",dre.ebitda,`Margem ${pct1(dre.margemEbitda)}`],
-          ["Lucro líquido",dre.lucroLiquido,`Margem ${pct1(dre.margemLiquida)}`],
+          ["EBITDA",dre.ebitda,`Margem ${dreMargin(dre.receitaLiquida,dre.margemEbitda)}`],
+          ["Lucro líquido",dre.lucroLiquido,`Margem ${dreMargin(dre.receitaLiquida,dre.margemLiquida)}`],
         ].map(([l,v,s])=>(
           <div key={l} data-negative={v<0}>
             <p>{l}</p>
@@ -12585,6 +12603,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
             <h2>{analiseIA?.resumoExecutivo||analiseIA?.resumo||(
               dre.ebitda<0?"A empresa está consumindo caixa na operação."
               :diagnosticoGerencial.criticos?"Há obras que exigem correção financeira imediata."
+              :dre.receitaLiquida<=0?"Sem receita líquida positiva para avaliar a margem."
               :dre.margemEbitda<10?"A operação é positiva, mas a margem está pressionada."
               :"A operação está positiva; preserve margem e acelere recebimentos."
             )}</h2>
@@ -12618,7 +12637,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
             <header><div><span>{o.nivel}</span><h4>{o.name}</h4></div><strong>{fmt(o.resultado)}</strong></header>
             <p>{o.titulo||o.diagnostico}</p>
             <small>{o.acao}</small>
-            <footer><span>Margem {o.margemPct==null?"sem receita":`${pct1(o.margemPct)}`}</span><span>Verificar no fechamento</span></footer>
+            <footer><span>Margem {dreMargin(o.receita,o.margemPct)}</span><span>Verificar no fechamento</span></footer>
           </article>)}
         </div>
         {analiseIA&&<section className="dre-ai-full-report">

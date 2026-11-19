@@ -1,5 +1,6 @@
 import {mayReadContractDocuments} from '../src/domains/comercial/contracts/record-commands.js';
 import {canUseCompanyAccounting} from '../src/domains/financeiro/accounting-indicators.js';
+import {verifiedOfxEvidence} from './dre-ofx-evidence.js';
 import {
   resolveEmployeeAttendanceObraId,
 } from "../src/domains/ponto/permissions.js";
@@ -91,14 +92,20 @@ const isRhLaborTransaction=(transaction,employees)=>{
 };
 
 export const projectDataForUser = (payload = {}, user = {}) => {
-  if(user.role==='admin'){if(canUseCompanyAccounting(user))return payload;const {accountingBases:_companyAccounting,...safe}=payload;return safe;}
+  const canReadBank=canUseCompanyAccounting(user)&&podeAcessarAba(user,'dre_emp')&&podeAcessarAba(user,'conc');
+  if(user.role==='admin'){
+    if(canReadBank)return {...payload,dreOfxEvidence:verifiedOfxEvidence(payload)};
+    if(canUseCompanyAccounting(user))return payload;
+    const {accountingBases:_companyAccounting,...safe}=payload;return safe;
+  }
   const allowedSections = new Set(ROLE_SECTIONS[user.role] || []);
   if(podeAcessarAba(user,'plan')||podeAcessarAba(user,'fin'))for(const section of ['scheduleBaselines','planos','orcamentos','budgetBaselines'])allowedSections.add(section);
   if(user.role==='financeiro'&&podeAcessarAba(user,'fin'))allowedSections.add('rdos');
   if(user.role==='financeiro'&&podeAcessarAba(user,'fin'))for(const section of ['materiais','movEstoque','reservasEstoque'])allowedSections.add(section);
   const allowedObras = new Set(user.obraId ? [String(user.obraId)] : []);
   const out = {};
-  if(canUseCompanyAccounting(user)&&podeAcessarAba(user,'dre_emp')&&podeAcessarAba(user,'conc')){
+  if(canReadBank){
+    out.dreOfxEvidence=verifiedOfxEvidence(payload);
     out.dreBankSource={
       contasBancarias:(payload.contasBancarias||[]).map(({id,nome,ativa})=>({id,nome,ativa})),
       fechamentosBancarios:(payload.fechamentosBancarios||[]).map(({contaBancariaId,dataInicio,dataFim,status,saldoInicialCentavos,creditosCentavos,debitosCentavos,saldoBancoCentavos,saldoCalculadoCentavos})=>({contaBancariaId,dataInicio,dataFim,status,saldoInicialCentavos,creditosCentavos,debitosCentavos,saldoBancoCentavos,saldoCalculadoCentavos})),

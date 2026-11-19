@@ -3,6 +3,7 @@ import {Input as FilterInput} from '../../design-system/primitives/Input.jsx';
 import {Select as FilterSelect} from '../../design-system/primitives/Select.jsx';
 import BankImportPreview from "../financeiro/BankImportPreview.jsx";
 import BankImportReversal from './BankImportReversal.jsx';
+import BankStatementLink from './BankStatementLink.jsx';
 import BankAccountCleanup from './BankAccountCleanup.jsx';
 import {FormSection} from '../../design-system/patterns/FormSection.jsx';
 import "../financeiro/record-continuity.css";
@@ -116,6 +117,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
   const [importando, setImportando] = useState(false);
   const [importPreview,setImportPreview]=useState(null);
   const [reversalId,setReversalId]=useState(null);
+  const [statementLinkId,setStatementLinkId]=useState(null);
   const [cleanupScope,setCleanupScope]=useState(null);
   const [confirmingImport,setConfirmingImport]=useState(false);
   const [apropModal, setApropModal] = useState(null);   // transação em apropriação
@@ -134,7 +136,8 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
     const scopedPeriod=Boolean(origin.start&&origin.end);
     const archived=new Set((data.dreBankSource?.extratos||data.extratos||[]).filter(item=>item.status==='arquivado').map(item=>String(item.id)));
     const transactions=(data.transacoes||[]).filter(t=>(scopedPeriod
-      ?String(t.contaBancariaId||'')===String(origin.accountId)&&t.data>=origin.start&&t.data<=origin.end&&!t.importReversal&&!archived.has(String(t.extratoId))
+      ?String(t.contaBancariaId||'unassigned')===String(origin.accountId)&&t.data>=origin.start&&t.data<=origin.end
+        &&(!origin.statementId||String(t.extratoId)===origin.statementId)&&!t.importReversal&&!archived.has(String(t.extratoId))
       :ids.includes(String(t.id)))&&!t.deletedAt&&t.ativo!==false);
     setAutomacaoAtiva(false);setBankOrigin({...origin,transactionIds:ids,unavailable:ids.length-transactions.length});
     setAccountFilter(String(origin.accountId||''));setBuscaConc('');setTipoMovimento('todos');setFiltroCategoria('');setDivergence('all');
@@ -178,6 +181,9 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
   const transacaoCommandPendingRef=useRef(false);
 
   const podeOperarConc=podeOperarConciliacao(currentUser?.role);
+  const canLinkStatement=currentUser?.role==="admin"&&!currentUser.obraId;
+  const unassignedStatements=(data.extratos||[]).filter(row=>!row.contaBancariaId&&row.status==="ativo"&&/\.(ofx|qfx)$/i.test(row.arquivo||"")&&!row.importReversals?.length);
+  const statementToLink=unassignedStatements.find(row=>row.id===statementLinkId);
   const podeOperarConcTrabalhista=podeOperarConciliacaoTrabalhista(currentUser?.role);
   const modoConciliacaoRh=currentUser?.role==="rh";
   const podeElevado=podeDesfazerConciliacao(currentUser?.role);
@@ -258,6 +264,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
     return porStatus.filter(x=>{
       if(bankOrigin?.transactionIds?.length&&!bankOrigin.transactionIds.includes(String(x.id)))return false;
       if(bankOrigin?.start&&bankOrigin?.end&&(!x.data||x.data<bankOrigin.start||x.data>bankOrigin.end))return false;
+      if(bankOrigin?.statementId&&String(x.extratoId)!==bankOrigin.statementId)return false;
       if(accountFilter && String(x.contaBancariaId||"unassigned")!==accountFilter)return false;
       if(tipoMovimento!=="todos"&&(tipoMovimento==="entradas"?Number(x.valor)<=0:Number(x.valor)>=0))return false;
       const analysis=analisesPorTransacao.get(x.id);
@@ -977,13 +984,17 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
   const nomeObra = (id) => (data.obras.find(o=>o.id===id)?.name) || "-";
   const alternarSelecao=id=>setSelecionadas(lista=>lista.includes(id)?lista.filter(item=>item!==id):[...lista,id]);
   const alternarTodas=()=>setSelecionadas(todosSelecionados?[]:selecionaveis.map(t=>t.id));
-  const rotuloAcao={importacao_revertida:"Importação revertida",extrato_importado:"Extrato importado",extrato_arquivado:"Extrato arquivado",conciliada:"Conciliação confirmada",conciliacao_desfeita:"Conciliação desfeita",ignorada:"Transação ignorada",ignorada_em_lote:"Ignorada em lote",reaberta:"Transação reaberta",reaberta_em_lote:"Reaberta em lote",conciliacao_legada:"Conciliação anterior",ignorado_legado:"Ignorada anteriormente"};
+  const rotuloAcao={importacao_revertida:"Importação revertida",extrato_vinculado_conta:"Extrato vinculado à conta",extrato_importado:"Extrato importado",extrato_arquivado:"Extrato arquivado",conciliada:"Conciliação confirmada",conciliacao_desfeita:"Conciliação desfeita",ignorada:"Transação ignorada",ignorada_em_lote:"Ignorada em lote",reaberta:"Transação reaberta",reaberta_em_lote:"Reaberta em lote",conciliacao_legada:"Conciliação anterior",ignorado_legado:"Ignorada anteriormente"};
   const corAcao=acao=>acao==="conciliada"||acao==="extrato_importado"?C.green:acao.includes("desfeita")||acao.includes("reaberta")?C.blue:acao.includes("ignorada")?C.orange:acao.includes("excluido")?C.red:C.muted;
 
   if(pilotOpen)return <Suspense fallback={<LoadingState label="piloto"/>}><OperationalPilot data={data} mode="conciliacao" scope={{accountId:accountFilter}} automationRows={filaAutomatica} notes={pilotNotes} onNotes={setPilotNotes} onClose={()=>setPilotOpen(false)}/></Suspense>;
 
   return (
     <div className="anim reconciliation-workspace">
+      {statementToLink&&canLinkStatement&&<BankStatementLink data={data} statement={statementToLink}
+        onClose={()=>setStatementLinkId(null)}
+        onCreate={()=>{setStatementLinkId(null);setContaBancariaModal({nome:statementToLink.banco,banco:statementToLink.banco,conta:statementToLink.conta,tipo:"corrente",ativa:true,saldoInicial:0});}}
+        onSave={async command=>{const result=await executarComandoBancario(command);if(result.ok)showToast("Extrato vinculado à conta.");return result;}}/>}
       {reversalId&&<Suspense fallback={<LoadingState label="prévia da reversão"/>}><BankImportReversal data={data} statementId={reversalId} user={currentUser} dispatchCommand={dispatchCommand} onClose={()=>setReversalId(null)}/></Suspense>}
       {cleanupScope!==null&&<BankAccountCleanup scope={cleanupScope} user={currentUser} update={update} showToast={showToast} onClose={()=>setCleanupScope(null)}/>}
 
@@ -1059,6 +1070,12 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
           {data.localCompanySimulation?.enabled&&currentUser?.role==='admin'&&!currentUser.obraId&&<FormSection title="Limpeza da conciliação na cópia local">
             <p>Simulação local: a limpeza retira extratos, vínculos e valores criados pela conciliação somente desta cópia.</p>
             {(data.transacoes||[]).some(row=>!row.contaBancariaId)&&<Button variant="destructive" onClick={()=>setCleanupScope('unassigned')}>Apagar conciliação dos movimentos sem conta</Button>}
+          </FormSection>}
+          {canLinkStatement&&unassignedStatements.length>0&&<FormSection title="Extratos sem conta vinculada">
+            {unassignedStatements.map(statement=><div key={statement.id} className="flex flex-wrap items-center gap-2">
+              <span className="break-words">{statement.arquivo}</span>
+              <Button variant="outline" onClick={()=>{setAutomacaoAtiva(false);setStatementLinkId(statement.id);}}>Vincular à conta</Button>
+            </div>)}
           </FormSection>}
           {/* Cadastro compacto de contas bancárias */}
           <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"9px 10px"}}>
