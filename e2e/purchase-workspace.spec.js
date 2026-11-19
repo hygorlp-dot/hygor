@@ -480,7 +480,7 @@ test("comparativo por obra ordena por risco, abre a obra escolhida e explica a f
   await expect(table).toBeVisible();
   await expect(table.locator("tbody tr")).toHaveCount(2);
   await expect(table.locator("tfoot")).toContainText("Todas as obras (2)");
-  await expect(page.getByText("2 de 2 obra(s) sem orçamento de controle")).toBeVisible();
+  await expect(page.getByText("2 de 2 obras sem orçamento de controle")).toBeVisible();
 
   await page.getByRole("button",{name:"Abrir compras de Residencial Horizonte",exact:true}).click();
   await expect(page.locator(".purchase-context-bar").getByLabel("Obra",{exact:true})).toHaveValue("b");
@@ -715,7 +715,7 @@ test("fila agrupada por fornecedor cobra três entregas atrasadas numa só visã
   const grupos=fila.locator("tbody.purchase-group");
   const central=grupos.first();
   await expect(central).toHaveAttribute("data-group","Depósito Central");
-  await expect(central.locator(".purchase-group-row")).toContainText("3 atrasado(s)");
+  await expect(central.locator(".purchase-group-row")).toContainText("3 atrasados");
   await expect(central.locator("tr:not(.purchase-group-row)")).toHaveCount(4);
   const cobrar=central.getByRole("link",{name:"Cobrar as 3 entregas atrasadas"});
   await expect(cobrar).toBeVisible();

@@ -1,3 +1,4 @@
+import { contar } from "../../../design-system/copy.js";
 import { useMemo, useRef, useState } from "react";
 import { Modal } from "../../../legacy/ui.jsx";
 import { fmt, fmtDate, today } from "../../../legacy/format.js";
@@ -33,7 +34,7 @@ export function PurchaseDossier({data,selection,onClose,inline=false,currentUser
     <div className="purchase-dossier" ref={dossierRef}>
       <nav className="purchase-dossier-nav" aria-label="Seções da compra">{[["conference","Conferência"],["origin","Origem"],["cost","Custos"],["orders",`Pedidos (${f.orders.length})`],["invoices",`Notas fiscais (${f.invoices.length})`],["payments","Pagamentos"],["documents",`Anexos (${f.documents.length})`]].filter(([key])=>key!=="cost"||f.quote).map(([key,label])=><Button key={key} variant="ghost" onClick={()=>goTo(key)}>{label}</Button>)}</nav>
       <p>Pedidos agrupados pela cotação de origem. Pendências de aprovação ficam sinalizadas sem impedir o andamento.</p>
-      <section aria-label="Pendências da compra"><h3>Pendências para conferência</h3><p>{status.orders} pedido(s) ativo(s) · {status.deliveries} com entrega pendente · {status.missingInvoices} sem nota vinculada · {f.documents.length} anexo(s)</p>{status.pending.length?<ul>{status.pending.map(p=><li key={p.label}><Button variant="ghost" onClick={()=>goTo(p.key)}>{p.label}</Button></li>)}</ul>:<p>Nenhuma pendência detectada nos recebimentos, notas e endereços de anexos desta ficha.</p>}<p>As indicações orientam a conferência; não substituem a aprovação nem autorizam pagamentos.</p></section>
+      <section aria-label="Pendências da compra"><h3>Pendências para conferência</h3><p>{contar(status.orders,"pedido ativo","pedidos ativos")} · {status.deliveries} com entrega pendente · {status.missingInvoices} sem nota vinculada · {contar(f.documents.length,"anexo","anexos")}</p>{status.pending.length?<ul>{status.pending.map(p=><li key={p.label}><Button variant="ghost" onClick={()=>goTo(p.key)}>{p.label}</Button></li>)}</ul>:<p>Nenhuma pendência detectada nos recebimentos, notas e endereços de anexos desta ficha.</p>}<p>As indicações orientam a conferência; não substituem a aprovação nem autorizam pagamentos.</p></section>
       <div data-section="conference" tabIndex={-1}><PurchaseConference data={data} dossier={f} asOf={today()} canReadTitles={canReadTitles}
         onOpenInvoice={canReadTitles?(onReviewInvoice||(navigate?invoice=>navigate('fin',{obraId:invoice.obraId},{action:'review-purchase-invoice',record:{invoiceId:invoice.id,obraId:invoice.obraId}}):undefined)):undefined}/></div>
       <section data-section="origin" tabIndex={-1}><h3>Origem e aprovação</h3>

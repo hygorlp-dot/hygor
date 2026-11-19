@@ -1,3 +1,4 @@
+import { contar } from "../../../design-system/copy.js";
 import { useCallback, useRef } from "react";
 import { Button } from "../../../design-system/primitives/Button.jsx";
 import { Drawer } from "../../../design-system/primitives/Drawer.jsx";
@@ -76,7 +77,7 @@ export function RentalDetailDrawer({ row, data, user, periodoLabel, busy, return
             <Field label="Início" mono>{formatDateFull(row.inicio)}</Field>
             <Field label="Fim" mono>{row.fim ? formatDateFull(row.fim) : row.cancelada ? "Excluída" : "Em andamento"}</Field>
             {row.plannedEnd && <Field label="Término planejado" mono>{formatDateFull(row.plannedEnd)}</Field>}
-            <Field label="Duração" mono>{row.diasContrato} dia(s){row.fim ? "" : " até hoje"}</Field>
+            <Field label="Duração" mono>{contar(row.diasContrato,"dia","dias")}{row.fim ? "" : " até hoje"}</Field>
           </dl>
         </section>
 

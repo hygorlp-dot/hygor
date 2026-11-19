@@ -10,9 +10,9 @@ it('conserva a sequência ao remontar, distingue abertura de salvamento e revali
  const click=text=>act(()=>[...el.querySelectorAll('button')].find(b=>b.textContent===text).click());
  try{
   render();click('Selecionar notas disponíveis');render();click('Revisar seleção · 2');render();click('Abrir próxima ficha fiscal');expect(opened).toEqual(['n1']);
-  act(()=>root.unmount());root=createRoot(el);render();expect(el.textContent).toContain('1 ficha(s) por abrir');expect(el.textContent).toContain('não significa que foi salva');
+  act(()=>root.unmount());root=createRoot(el);render();expect(el.textContent).toContain('1 ficha por abrir');expect(el.textContent).toContain('não significa que foi salva');
   render({fechamentosFinanceiros:[{status:'fechado',dataInicio:'2026-11-01',dataFim:'2026-11-30'}]});
-  expect([...el.querySelectorAll('button')].find(b=>b.textContent==='Abrir próxima ficha fiscal').disabled).toBe(true);expect(el.textContent).toContain('2 bloqueado(s)');expect(opened).toEqual(['n1']);
+  expect([...el.querySelectorAll('button')].find(b=>b.textContent==='Abrir próxima ficha fiscal').disabled).toBe(true);expect(el.textContent).toContain('2 bloqueados');expect(opened).toEqual(['n1']);
   render();click('Abrir próxima ficha fiscal');expect(opened).toEqual(['n1','n2']);render();expect([...el.querySelectorAll('button')].find(b=>b.textContent==='Abrir próxima ficha fiscal').disabled).toBe(true);
  }finally{act(()=>root.unmount());el.remove();}
 });
@@ -23,7 +23,7 @@ it('mantém identidades após reordenação, explica remoção/bloqueio e contin
  const click=text=>act(()=>[...el.querySelectorAll('button')].find(button=>button.textContent===text).click());
  try{
   render();click('Selecionar notas disponíveis');render();click('Revisar seleção · 2');render();click('Abrir próxima ficha fiscal');render([...rows].reverse());
-  expect(view.ids).toEqual(['n1','n2']);expect(el.textContent).toContain('1 ficha(s) por abrir');
+  expect(view.ids).toEqual(['n1','n2']);expect(el.textContent).toContain('1 ficha por abrir');
   render([{...rows[1],record:{...rows[1].record,status:'aprovada'}},{...rows[0],record:{...rows[0].record,version:1}}]);expect(el.textContent).toContain('Registro atualizado desde a abertura');expect(el.textContent).toContain('Fora da fila de conferência');
   render([rows[1]]);expect(el.textContent).toContain('Registro indisponível');click('Abrir próxima ficha fiscal');expect(opened).toEqual(['n1','n2']);
   render(rows,'b');expect(el.querySelectorAll('input:checked')).toHaveLength(0);expect(el.textContent).not.toContain('Prévia da conferência em sequência');
@@ -34,7 +34,7 @@ it('pagina a seleção de 1.000 registros e conserva a seleção de todas as pá
  const items=Array.from({length:1000},(_,i)=>({...rows[0],id:`v${i}`,record:{...rows[0].record,id:`v${i}`,numero:`V${i}`}}));
  const render=()=>act(()=>root.render(<DocumentReviewQueue rows={items} data={{}} user={{role:'admin'}} scope="volume" view={view} onChange={value=>{view=value;}} onReview={()=>{}}/>));
  const click=text=>act(()=>[...el.querySelectorAll('button')].find(button=>button.textContent===text).click());
- try{render();expect(el.querySelectorAll('input')).toHaveLength(25);click('Selecionar notas disponíveis');render();expect(view.ids).toHaveLength(1000);click('Próxima página');render();expect(el.textContent).toContain('Página 2 de 40');expect(el.querySelectorAll('input:checked')).toHaveLength(25);click('Revisar seleção · 1000');render();expect(el.textContent).toContain('1000 ficha(s) por abrir');expect(el.querySelectorAll('li')).toHaveLength(25);}finally{act(()=>root.unmount());el.remove();}
+ try{render();expect(el.querySelectorAll('input')).toHaveLength(25);click('Selecionar notas disponíveis');render();expect(view.ids).toHaveLength(1000);click('Próxima página');render();expect(el.textContent).toContain('Página 2 de 40');expect(el.querySelectorAll('input:checked')).toHaveLength(25);click('Revisar seleção · 1000');render();expect(el.textContent).toContain('1.000 fichas por abrir');expect(el.querySelectorAll('li')).toHaveLength(25);}finally{act(()=>root.unmount());el.remove();}
 });
 it('erro em uma ficha permite abrir a próxima sem marcar a sequência como concluída',async()=>{
  const el=document.createElement('div');document.body.append(el);const root=createRoot(el);let view,opened=[];

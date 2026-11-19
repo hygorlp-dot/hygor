@@ -41,3 +41,9 @@ Esta regra se aplica a todo o projeto, inclusive aos subdiretórios.
 - Por solicitação do usuário em 01/11/2026, toda nova tela, componente, texto, botão, dimensão, espaçamento e fluxo deve seguir o padrão compartilhado MARCELL. Reutilizar componentes e tokens, sem criar estilos locais para contornar a base.
 - A consolidação local vigente está no checkout `C:/dev/repositorio-mrc`, consolidado a partir de `8bfa833d` e das alterações locais preservadas. Consulte seu `docs/PADRAO-INTERFACE.md` e `DESIGN.md` antes de continuar esse trabalho. Não sobrescrever alterações deste checkout com uma versão anterior do workspace.
 - Nesse checkout, a escala comum é `src/design-system/foundations.js`, textos genéricos são `src/design-system/copy.js` e `npm run design:check` integra o lint. Não aumentar a baseline do legado para liberar novas exceções. Revisar desktop, celular, ajuda e manual em cada alteração relevante.
+
+## Interface (UX/UI)
+
+Toda tela nova ou alterada segue `docs/REGRAS-UX-UI.md` (tokens de tema, cor só para desvio, plural com `contar()`,
+percentual com vírgula, uma ação principal por tela, faixa única de indicadores, conferência nos temas Preciso e Noite).
+`npm run lint` barra aumento de cor fixa, "(s)" e `toFixed()%` via `scripts/check-ux-rules.mjs`.

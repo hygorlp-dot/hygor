@@ -1,4 +1,5 @@
 import {useHelpTopic} from '../../../features/help/HelpContext.jsx';
+import { contar } from "../../../design-system/copy.js";
 import {TaskDisclosure} from '../../../design-system/patterns/TaskDisclosure.jsx';
 import {useMeasurementDraft} from './useMeasurementDraft.js';
 import {Alert,AlertDescription} from '../../../components/ui/alert.jsx';
@@ -709,7 +710,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
         setMedForm(f=>({...f,fotos:[...(f.fotos||[]),foto]}));
         if(indice===0&&driveId&&folderId&&(!obraMed.oneDriveDriveId||!obraMed.oneDriveFolderId))update({...data,obras:(data.obras||[]).map(o=>o.id===obraMed.id?{...o,oneDriveDriveId:driveId,oneDriveFolderId:folderId,oneDriveFolders:folders||o.oneDriveFolders}:o)});
       }
-      showToast(`${novas.length} fotografia(s) anexada(s) à medição.`);
+      showToast(`${contar(novas.length,"fotografia anexada","fotografias anexadas")} à medição.`);
     }catch(error){showToast(error.message||"Não foi possível salvar as fotografias.","error");}
     finally{setSubindoFotosMed(false);}
   };
@@ -991,7 +992,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
   const resumoTerceiros = [
     ["Ativos", activeTerc.length, "Contratos em execução"],
     ["Custo semanal", fmt(totalWeekly), "Previsão recorrente"],
-    ["Contratado", fmt(totalContracts), `${kanbanTerc.length} contrato(s)`],
+    ["Contratado", fmt(totalContracts), `${contar(kanbanTerc.length,"contrato","contratos")}`],
     ehRH
       ? ["Documentos críticos", documentosPendentes.length, "Vencidos ou a vencer"]
       : ["Pago", fmt(totalPaidAll), "Histórico acumulado"],
@@ -1050,7 +1051,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
           <div className="terceiros-registry-toolbar__heading">
             <div>
               <h3>Prestadores e contratos</h3>
-              <p>{filteredTerc.length} contrato(s) encontrado(s)</p>
+              <p>{contar(filteredTerc.length,"contrato encontrado","contratos encontrados")}</p>
             </div>
           </div>
           <div className="terceiros-registry-filters">
@@ -1074,7 +1075,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
               <span><Ic n="alert" s={14}/></span>
               <div>
                 <h3>Documentos críticos</h3>
-                <p>{documentosPendentes.length} vencido(s) ou a vencer nos próximos 30 dias</p>
+                <p>{contar(documentosPendentes.length,"vencido","vencidos")} ou a vencer nos próximos 30 dias</p>
               </div>
             </div>
             <div className="terceiros-doc-alert__list">
@@ -1116,7 +1117,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                 <div>
                   <h3>{bloco.nome}</h3>
                   <p>
-                    {bloco.qtd} terceirizado(s){!bloco.especial && ` · ${bloco.avanco.toFixed(0)}% de avanço médio`}
+                    {contar(bloco.qtd,"terceirizado","terceirizados")}{!bloco.especial && ` · ${bloco.avanco.toFixed(0)}% de avanço médio`}
                   </p>
                 </div>
                 {valorObra > 0 && (
@@ -1188,7 +1189,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                               </div>
                               <div>
                                 <span>{av.toFixed(0)}% medido</span>
-                                {(t.etapas?.length > 0) && <span>{t.etapas.length} etapa(s)</span>}
+                                {(t.etapas?.length > 0) && <span>{contar(t.etapas.length,"etapa","etapas")}</span>}
                               </div>
                             </div>
 
@@ -1258,9 +1259,9 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                 <header className="terceiros-registry-group__header">
                   <div>
                     <h3 id={`terceiros-obra-${obra.id}`}>{obra.name}</h3>
-                    <p>{obraTerc.length} contrato(s) · {fmt(obraWeekly)}/semana · {fmt(obraPago)} pago</p>
+                    <p>{contar(obraTerc.length,"contrato","contratos")} · {fmt(obraWeekly)}/semana · {fmt(obraPago)} pago</p>
                   </div>
-                  <span>{obraTerc.filter(t=>t.active!==false).length} ativo(s)</span>
+                  <span>{contar(obraTerc.filter(t=>t.active!==false).length,"ativo","ativos")}</span>
                 </header>
 
                 {obraTerc.map(t => {
@@ -1287,7 +1288,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                           <div className="terceiros-registry-contract__meta">
                             {t.weeklyRate>0 && <span>{fmt(t.weeklyRate)}/semana</span>}
                             {t.contractValue>0 && <span>Contrato {fmt(t.contractValue)}</span>}
-                            {(t.etapas||[]).length>0 && <span>{t.etapas.length} etapa(s) · {(avancoDoContrato(t)??0).toFixed(0)}% medido</span>}
+                            {(t.etapas||[]).length>0 && <span>{contar(t.etapas.length,"etapa","etapas")} · {(avancoDoContrato(t)??0).toFixed(0)}% medido</span>}
                           </div>
                         </div>
                         <div className="terceiros-registry-contract__balance" data-negative={devido>0}>
@@ -1413,7 +1414,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                                             background:"var(--arcd-surface-muted)", border:"1px solid var(--arcd-border-default)", borderRadius:7, padding:"var(--arcd-space-2) var(--arcd-space-3)" }}>
                     <div style={{ minWidth:0 }}>
                       <p style={{ fontSize:"var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-text-primary)" }}>{t?.name||"Prestador"} · {fmtDateFull(m.data)}</p>
-                      <p style={{ fontSize:"var(--arcd-type-label)", color:"var(--arcd-text-secondary)", marginTop:"var(--arcd-space-half)" }}>{specInfo(t?.specialty).l} · {obraName(m.obraId)} · {m.itens.length} etapa(s)</p>
+                      <p style={{ fontSize:"var(--arcd-type-label)", color:"var(--arcd-text-secondary)", marginTop:"var(--arcd-space-half)" }}>{specInfo(t?.specialty).l} · {obraName(m.obraId)} · {contar(m.itens.length,"etapa","etapas")}</p>
                     </div>
                     <div style={{ display:"flex", gap:"var(--arcd-space-2)", alignItems:"center" }}>
                       <b style={{ fontSize:"var(--arcd-type-body)", color:"var(--arcd-text-primary)" }}>{fmt(m.total)}</b>
@@ -1478,7 +1479,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                   {(() => {
                     const dd = diasDiarioTerc[tercAtual.id];
                     if (!dd || (dd.dias + dd.meios) === 0) return null;
-                    return <div><p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-text-secondary)", letterSpacing:"var(--arcd-letter-spacing-body)" }}>PRESENÇA (DIÁRIO)</p><p style={{ fontSize:"var(--arcd-type-body)", color:"var(--arcd-text-primary)" }}>{dd.dias} dia(s){dd.meios?` + ${dd.meios} meio`:""} em obra</p></div>;
+                    return <div><p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-text-secondary)", letterSpacing:"var(--arcd-letter-spacing-body)" }}>PRESENÇA (DIÁRIO)</p><p style={{ fontSize:"var(--arcd-type-body)", color:"var(--arcd-text-primary)" }}>{contar(dd.dias,"dia","dias")}{dd.meios?` + ${dd.meios} meio`:""} em obra</p></div>;
                   })()}
                 </div>
                 {(tercAtual.documentos || []).length > 0 && (
@@ -1627,7 +1628,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                       Medição {m.numero||medicoesTercAtual.length-indiceMedicao} · {fmtDateFull(m.data)}
                     </p>
                     <p style={{ fontSize:"var(--arcd-type-label)", color:"var(--arcd-text-secondary)", marginTop:"var(--arcd-space-half)" }}>
-                      {m.itens.length} etapa(s) · {statusLabel}
+                      {contar(m.itens.length,"etapa","etapas")} · {statusLabel}
                     </p>
                   </div>
                   <div style={{ textAlign:"right" }}>
@@ -1724,7 +1725,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
 
       {/*  VIEW: PAGAMENTOS  */}
       {view === "pagamentos" && (<>
-        {pagamentosSemEvidencia.length>0&&<div style={{background:"color-mix(in srgb, var(--arcd-danger-text) 5%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-danger-text) 40%, transparent)",borderRadius:4,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-danger-text)",textTransform:"uppercase"}}>Auditoria financeira · {pagamentosSemEvidencia.length} pagamento(s) sem foto</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)",marginTop:"var(--arcd-space-half)"}}>Foram pagos após reconhecimento explícito do risco. Revise as medições e solicite a comprovação da execução ao engenheiro responsável.</p></div>}
+        {pagamentosSemEvidencia.length>0&&<div style={{background:"color-mix(in srgb, var(--arcd-danger-text) 5%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-danger-text) 40%, transparent)",borderRadius:4,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-danger-text)",textTransform:"uppercase"}}>Auditoria financeira · {contar(pagamentosSemEvidencia.length,"pagamento","pagamentos")} sem foto</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)",marginTop:"var(--arcd-space-half)"}}>Foram pagos após reconhecimento explícito do risco. Revise as medições e solicite a comprovação da execução ao engenheiro responsável.</p></div>}
         {/* Impostos retidos a recolher - mês da sexta atual. So aparece se ha
             retencao no periodo; e um lembrete de obrigacao, nao um card fixo. */}
         {(() => {
@@ -1878,7 +1879,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                   }}
                   options={[{v:"",l:"Cadastrar um novo prestador"}, ...prestadoresUnicos.map(t=>({
                     v:prestadorKey(t),
-                    l:`${t.name}${t.documento?` · ${maskDoc(t.documento,t.tipoPessoa)}`:""} · ${contratosDoPrestador(t).length} contrato(s)`,
+                    l:`${t.name}${t.documento?` · ${maskDoc(t.documento,t.tipoPessoa)}`:""} · ${contar(contratosDoPrestador(t).length,"contrato","contratos")}`,
                   }))]}/>
                 <p>
                   Evite digitação duplicada. Os dados fiscais, bancários e de contato serão reaproveitados; obra, valores, etapas, medições e pagamentos continuarão independentes.
@@ -1889,7 +1890,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
             {cadastroVinculado && !form.id && (
               <div className="terceiros-form-linked" style={{gridColumn:"1/-1"}}>
                 <p>
-                  Cadastro vinculado: {cadastroVinculado.name} · {contratosVinculados.length} contrato(s) existente(s)
+                  Cadastro vinculado: {cadastroVinculado.name} · {contar(contratosVinculados.length,"contrato existente","contratos existentes")}
                 </p>
                 <small>
                   {contratosVinculados.map(t=>obraName(t.obraId)).filter((v,i,a)=>v&&v!=="-"&&a.indexOf(v)===i).join(" · ") || "Sem obra vinculada"}
@@ -2163,7 +2164,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
               </div>
               <p className="terceiros-payment-review__date">Baixa em {fmtDateFull(today())} · custo reconhecido em {fmtDateFull(medPayModal.data)}</p>
             </div>
-            {!(medPayModal.fotos||[]).length?<label style={{display:"flex",alignItems:"flex-start",gap:"var(--arcd-space-2)",background:"color-mix(in srgb, var(--arcd-danger-text) 5%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-danger-text) 47%, transparent)",borderRadius:8,padding:"var(--arcd-space-2) var(--arcd-space-3)",marginBottom:"var(--arcd-space-3)",cursor:"pointer"}}><ChoiceControl type="checkbox" checked={riscoSemFotoAceito} onChange={e=>setRiscoSemFotoAceito(e.target.checked)} style={{marginTop:"var(--arcd-space-half)",accentColor:"var(--arcd-danger-text)"}}/><span><b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-danger-text)"}}>Risco financeiro: medição sem fotografia da execução</b><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)",marginTop:"var(--arcd-space-half)"}}>Sem evidência do engenheiro, o pagamento pode antecipar serviço não executado, incompleto ou fora da especificação. Marque somente se decidiu prosseguir mesmo assim; a exceção ficará registrada.</p></span></label>:<div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",background:"color-mix(in srgb, var(--arcd-success-text) 4%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-success-text) 27%, transparent)",borderRadius:8,padding:"var(--arcd-space-2)",marginBottom:"var(--arcd-space-3)"}}><Ic n="check" color={C.green}/><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-success-text)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{(medPayModal.fotos||[]).length} fotografia(s) validada(s) · {medPayModal.responsavelEvidencia||medPayModal.fotos?.[0]?.enviadoPor||"engenheiro"}</p></div>}
+            {!(medPayModal.fotos||[]).length?<label style={{display:"flex",alignItems:"flex-start",gap:"var(--arcd-space-2)",background:"color-mix(in srgb, var(--arcd-danger-text) 5%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-danger-text) 47%, transparent)",borderRadius:8,padding:"var(--arcd-space-2) var(--arcd-space-3)",marginBottom:"var(--arcd-space-3)",cursor:"pointer"}}><ChoiceControl type="checkbox" checked={riscoSemFotoAceito} onChange={e=>setRiscoSemFotoAceito(e.target.checked)} style={{marginTop:"var(--arcd-space-half)",accentColor:"var(--arcd-danger-text)"}}/><span><b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-danger-text)"}}>Risco financeiro: medição sem fotografia da execução</b><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)",marginTop:"var(--arcd-space-half)"}}>Sem evidência do engenheiro, o pagamento pode antecipar serviço não executado, incompleto ou fora da especificação. Marque somente se decidiu prosseguir mesmo assim; a exceção ficará registrada.</p></span></label>:<div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",background:"color-mix(in srgb, var(--arcd-success-text) 4%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-success-text) 27%, transparent)",borderRadius:8,padding:"var(--arcd-space-2)",marginBottom:"var(--arcd-space-3)"}}><Ic n="check" color={C.green}/><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-success-text)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{contar((medPayModal.fotos||[]).length,"fotografia validada","fotografias validadas")} · {medPayModal.responsavelEvidencia||medPayModal.fotos?.[0]?.enviadoPor||"engenheiro"}</p></div>}
             <div style={{ display:"flex", flexDirection:"column", gap:"var(--arcd-space-3)" }}>
               <div>
                 <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-text-primary)", textTransform:"uppercase", letterSpacing:"var(--arcd-letter-spacing-body)", marginBottom:"var(--arcd-space-1)" }}>Quem realizou este pagamento? *</p>

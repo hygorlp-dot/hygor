@@ -12,7 +12,7 @@
 .purchase-work-table tbody .purchase-work-name b{display:block;font-weight:var(--arcd-font-weight-semibold)}
 .purchase-work-table tbody tr:hover{background:var(--arcd-color-surface-subtle)}
 .purchase-work-table tfoot td{background:var(--arcd-color-surface-subtle);border-bottom:0;border-top:2px solid var(--purchase-line);font-weight:var(--arcd-font-weight-semibold)}
-.purchase-work-table .purchase-num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.purchase-work-table .purchase-num{font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
 .purchase-work-table .purchase-num>span:first-child{display:block}
 .purchase-work-table small{display:block;margin-top:var(--arcd-space-1);color:var(--purchase-muted);font-weight:var(--arcd-font-weight-regular);white-space:normal}
 .purchase-work-table small[data-tone=danger]{color:var(--arcd-color-danger);font-weight:var(--arcd-font-weight-semibold)}

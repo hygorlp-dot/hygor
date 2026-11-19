@@ -1,5 +1,6 @@
 import {RecordListPagination} from '../../../design-system/data/RecordListPagination.jsx';
 import {useRecordPage} from '../../../design-system/data/useRecordPage.js';
+import { contar } from "../../../design-system/copy.js";
 import { FlowTabs, useWorkflow } from "../../../features/workflow/WorkflowNavigation.jsx";
 // ===================================================================
 // EquipamentosView — tela de Equipamentos extraída de LegacyApp.jsx
@@ -910,9 +911,9 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
         statsDisclosure={isMobile&&aba==="frota"}
         description={contexto==="financeiro"
           ?"Disponibilidade, alocação, manutenção e cobrança por obra em uma única operação auditável."
-          :`${equipamentosAtivos.length} equipamento(s) ativo(s) · custos integrados à obra.`}
+          :`${contar(equipamentosAtivos.length,"equipamento ativo","equipamentos ativos")} · custos integrados à obra.`}
         stats={showOccupancyStats?[
-          {label:"Frota ativa",value:`${totalUnidades} un.`,detail:`${equipamentosAtivos.length} cadastro(s)`,color:C.text},
+          {label:"Frota ativa",value:`${totalUnidades} un.`,detail:`${contar(equipamentosAtivos.length,"cadastro","cadastros")}`,color:C.text},
           {label:"Em uso no mês",value:`${periodPeakUsage} un.`,detail:`${periodRentals.length} locação(ões) em ${mesLabel}`,color:periodPeakUsage?C.blue:C.muted},
           {label:"Livres no mês",value:`${periodFreeUnits} un.`,detail:"Disponibilidade no pico de ocupação",color:periodFreeUnits?C.green:C.orange},
           {label:"Receita no mês",value:fmt(rel.total.receita),detail:mesLabel,color:C.green},
@@ -1072,7 +1073,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
             return <article key={model.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 13px"}}>
               <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"start"}}>
                 <div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{model.name}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{model.category||"Sem categoria"}{model.manufacturer?` · ${model.manufacturer}`:""}</p></div>
-                <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:units.length?C.green:C.blue,background:`${units.length?C.green:C.blue}12`,borderRadius:99,padding:"3px 7px",whiteSpace:"nowrap"}}>{units.length?`${units.length} unidade(s)`:`${lots.reduce((sum,lot)=>sum+Number(lot.quantity||0),0)} em lote`}</span>
+                <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:units.length?C.green:C.blue,background:`${units.length?C.green:C.blue}12`,borderRadius:99,padding:"3px 7px",whiteSpace:"nowrap"}}>{units.length?`${contar(units.length,"unidade","unidades")}`:`${lots.reduce((sum,lot)=>sum+Number(lot.quantity||0),0)} em lote`}</span>
               </div>
               <div style={{display:"grid",gap:5,marginTop:10}}>{allocations.map(allocation=>{
                 const label=allocation.type==="work"?obraName(allocation.locationId):allocation.type==="depot"?"Depósito":allocation.type==="maintenance"?"Manutenção":allocation.type==="transport"?"Em transporte":allocation.type==="exceeded"?"Conflito de quantidade":"Bloqueado";
@@ -1129,7 +1130,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
           <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
             <MiniKpi label="Ocupação da frota" value={`${ocupGeral.toFixed(0)}%`}
                      cor={ocupGeral>=70?C.green:ocupGeral>=40?C.orange:C.red}
-                     sub={`${tot.locado} dia(s) locado(s)`}/>
+                     sub={`${contar(tot.locado,"dia locado","dias locados")}`}/>
             <MiniKpi label="Dias ociosos" value={String(tot.ocioso)} cor={tot.ocioso>0?C.orange:C.green}
                      sub="equipamento parado"/>
             <MiniKpi label="Receita do período" value={fmt(tot.receita)} cor={C.green}/>
@@ -1178,7 +1179,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                               {" · "}pico {pk.pico}/{pk.total}{pk.excedido?" (estourou)":""}
                             </span>;
                           })()}
-                          {r.transferencias>0?` · ${r.transferencias} obra(s)`:""}
+                          {r.transferencias>0?` · ${contar(r.transferencias,"obra","obras")}`:""}
                         </p>
                       </td>
                       {r.grade.map(g=>{
@@ -1187,7 +1188,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                         const estourou=disponibilidade.livre===0&&eventos.reduce((sum,event)=>sum+Number(event.quantity||0),0)>disponibilidade.total;
                         const resumoTipos=["rental","reservation","maintenance","inspection","transport","damage","administrative_block","quarantine"]
                           .map(type=>{const qtd=eventos.filter(event=>event.type===type).reduce((sum,event)=>sum+Number(event.quantity||0),0);return qtd?`${siglaTipo[type]}${qtd}`:"";}).filter(Boolean);
-                        const titulo=`${fmtDateFull(g.data)} · ${eventos.length?eventos.map(event=>`${EQUIPMENT_UNAVAILABILITY_LABEL[event.type]||event.type}: ${event.reason}`).join(" · "):"Livre"} · ${disponibilidade.livre}/${disponibilidade.total} livre(s)`;
+                        const titulo=`${fmtDateFull(g.data)} · ${eventos.length?eventos.map(event=>`${EQUIPMENT_UNAVAILABILITY_LABEL[event.type]||event.type}: ${event.reason}`).join(" · "):"Livre"} · ${disponibilidade.livre}/${contar(disponibilidade.total,"livre","livres")}`;
                         const principal=eventos.find(event=>event.affectsCapacity!==false)||eventos[0];
                         return (
                           <td key={g.data} title={titulo}
@@ -1607,7 +1608,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                       </p>
                       {estoura && (
                         <p style={{fontSize:"var(--arcd-type-label)",color:C.red,fontWeight:600,marginTop:4,lineHeight:1.4}}>
-                          Solicitação de {pedido} unidade(s) bloqueada: há somente {livre} livre(s) no período.
+                          Solicitação de {contar(pedido,"unidade","unidades")} bloqueada: há somente {contar(livre,"livre","livres")} no período.
                         </p>
                       )}
                     </div>
@@ -2051,7 +2052,7 @@ function imprimirRelEquipGerencial(data,ym,mesLabel,monthly,matrix,donoName,show
       {label:"Competência",value:ym},
       {label:"Obras movimentadas",value:String(obras.length)},
       {label:"Locações no período",value:String(detalhes.length)},
-      {label:"Frota ativa",value:`${unidades} unidade(s)`},
+      {label:"Frota ativa",value:`${contar(unidades,"unidade","unidades")}`},
     ],
     kpis:[
       {label:"Receita líquida",value:fmt(monthly.total.receita)},

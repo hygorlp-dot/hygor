@@ -1,3 +1,4 @@
+import { contar } from "../../../design-system/copy.js";
 // ===================================================================
 // NucleoRelacionalAdmin — primeiro consumidor de UI dos três relatórios
 // de sombra do Core relacional (Fase 2, "Ordem de Execução do ARCD").
@@ -75,7 +76,7 @@ const idadeLegivel = ageMs => {
   const horas = ageMs / 3.6e6;
   if (horas < 1) return "há menos de 1 hora";
   if (horas < 48) return `há ${Math.round(horas)}h`;
-  return `há ${Math.round(horas / 24)} dia(s)`;
+  return `há ${contar(Math.round(horas / 24),"dia","dias")}`;
 };
 
 // A amostra não tem uma coluna de rótulo única entre as tabelas dos quatro

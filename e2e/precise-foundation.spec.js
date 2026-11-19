@@ -10,8 +10,8 @@ test('fundação precisa mantém identidade, fonte, densidade e contexto da tare
  await page.route('**/api/data',r=>r.fulfill({json:{ok:true,usuarios:[profile],usuario:profile,precisaSetup:false,data,accessToken:'local',refreshToken:'local'}}));
  await page.goto('/');await page.locator('#login-email').fill(profile.email);await page.locator('#login-senha').fill('local');await page.getByRole('button',{name:'Acessar central MARCELL',exact:true}).click();
  await expect(page.locator('html')).toHaveAttribute('data-theme','marcell');await expect(page.locator('.purchase-workspace')).toBeVisible();
- await page.evaluate(()=>Promise.all([400,500,600].map(w=>document.fonts.load(`${w} 14px "IBM Plex Sans"`))));
- const font=await page.locator('.purchase-workspace').evaluate(el=>getComputedStyle(el).fontFamily);expect(font).toContain('IBM Plex Sans');
+ await page.evaluate(()=>Promise.all([400,500,600].map(w=>document.fonts.load(`${w} 14px "Inter"`))));
+ const font=await page.locator('.purchase-workspace').evaluate(el=>getComputedStyle(el).fontFamily);expect(font).toContain('Inter');
  const search=page.getByLabel('Buscar na fila',{exact:true});await search.fill('cimento');const before=await page.locator('.purchase-queue-table tbody').innerText();
  const changeDensity=async value=>{await page.getByRole('button',{name:'Alterar aparência',exact:true}).click();await page.locator('.theme-menu').getByLabel('Densidade',{exact:true}).selectOption(value);await page.keyboard.press('Escape');};
  for(const density of ['compact','comfortable']){

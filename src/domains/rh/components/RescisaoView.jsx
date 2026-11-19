@@ -1,3 +1,4 @@
+import { contar } from "../../../design-system/copy.js";
 import {openReportPreview} from '../../../reports/report-preview.js';
 import {useUnsavedChanges} from '../../../features/workflow/useUnsavedChanges.js';
 import UnsavedChangesPrompt from '../../../features/workflow/UnsavedChangesPrompt.jsx';
@@ -372,8 +373,8 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
         {form.admissao && form.demissao && calc && (
           <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 7%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 20%, transparent)",padding:"var(--arcd-space-2) var(--arcd-space-3)",borderRadius:8}}>
             <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>
-               {calc.anos > 0 ? `${calc.anos} ano(s), ` : ""}{calc.totalMeses % 12} mês(es) e {calc.diasResto} dia(s) de serviço
-               <span style={{color:"var(--arcd-text-muted)"}}>{calc.avos13} avo(s) para 13º e férias</span>
+               {calc.anos > 0 ? `${contar(calc.anos,"ano","anos")}, ` : ""}{calc.totalMeses % 12} mês(es) e {contar(calc.diasResto,"dia","dias")} de serviço
+               <span style={{color:"var(--arcd-text-muted)"}}>{contar(calc.avos13,"avo","avos")} para 13º e férias</span>
             </p>
           </div>
         )}

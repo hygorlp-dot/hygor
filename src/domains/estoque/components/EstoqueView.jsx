@@ -1,3 +1,4 @@
+import { contar } from "../../../design-system/copy.js";
 // ===================================================================
 // EstoqueView — tela de Estoque de Materiais, extraída de
 // src/LegacyApp.jsx em 2026-08-26 (Onda 7 do raio-X). Mesmo padrão já
@@ -191,7 +192,7 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
     const porObra = {};
     abaixoMin.forEach(l => { (porObra[l.obraId] = porObra[l.obraId] || []).push(l); });
     const nObras = Object.keys(porObra).length;
-    if (!window.confirm(`Gerar ${nObras} solicitação(ões) de reposição?\n\n${abaixoMin.length} material(is) abaixo do mínimo em ${nObras} obra(s). As quantidades já vêm com o déficit calculado — o setor de Compras recebe o alerta na hora.`)) return;
+    if (!window.confirm(`Gerar ${nObras} solicitação(ões) de reposição?\n\n${abaixoMin.length} material(is) abaixo do mínimo em ${contar(nObras,"obra","obras")}. As quantidades já vêm com o déficit calculado — o setor de Compras recebe o alerta na hora.`)) return;
     const hoje = today();
     let geradas = 0;
     for (const [obraId, linhas] of Object.entries(porObra)) {
@@ -444,7 +445,7 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
     });
     if (!result?.ok) { showToast(result?.reason || "Não foi possível executar o serviço.", "error"); return; }
     setSrvModal(false);
-    showToast(`${entries.length} insumo(s) baixado(s) automaticamente.`);
+    showToast(`${contar(entries.length,"insumo baixado","insumos baixados")} automaticamente.`);
   };
 
   const nomeObra = (id) => obras.find(o => o.id === id)?.name || "-";

@@ -132,7 +132,10 @@
   .arcd-main[data-workspace] .financial-secondary-metrics > div { padding: .75rem 1rem; }
 
   .dashboard-context { display: flex; flex-wrap: wrap; gap: .25rem 1rem; margin-top: .375rem; color: var(--arcd-text-secondary); font-size: var(--arcd-type-caption); }
-  .dashboard-indicators-toggle { display: none; }
+  /* Quatro indicadores de decisão à vista; os demais abrem em "Mais indicadores", em qualquer largura. */
+  .dashboard-executive-grid[data-expanded="false"] > span:nth-child(n+5) { display: none; }
+  .dashboard-executive-grid[data-expanded="false"] > span { border-bottom: 0; }
+  .dashboard-indicators-toggle { display: inline-flex; align-self: flex-start; margin-top: -.25rem; min-height: var(--arcd-button-height-sm); color: var(--arcd-action-primary); }
   .dashboard-tech-hero time { margin-left: .5rem; }
   .arcd-main[data-workspace] .dashboard-executive-grid { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 0 !important; border: 1px solid var(--arcd-border-default); border-radius: var(--arcd-radius-lg); background: var(--arcd-surface-card); overflow: hidden; }
   .dashboard-executive-grid > span { min-width: 0; border-bottom: 1px solid var(--arcd-border-default); }

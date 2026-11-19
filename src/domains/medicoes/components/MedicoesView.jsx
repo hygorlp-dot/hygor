@@ -1,3 +1,4 @@
+import { contar } from "../../../design-system/copy.js";
 import {TaskDisclosure} from '../../../design-system/patterns/TaskDisclosure.jsx';
 import {ScopeNote} from '../../../design-system/patterns/ScopeNote.jsx';
 import {useSyncedWorkObra,workContextObraId} from '../../../features/workflow/work-context.js';
@@ -351,7 +352,7 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
       const result=await aplicarDecisoesParcelas(decisoes);
       if(!result.ok)return;
       setConciliar(null);
-      showToast(`${conciliar.fila.length} parcela(s) vencida(s) revisada(s).`);
+      showToast(`${contar(conciliar.fila.length,"parcela vencida revisada","parcelas vencidas revisadas")}.`);
     } else {
       setConciliar(c => ({ ...c, decisoes, idx: prox, modo:"vencimento", dataOutra: today() }));
     }
@@ -366,7 +367,7 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
     const result=await aplicarDecisoesParcelas(decisoes);
     if(!result.ok)return;
     setConciliar(null);
-    showToast(`${restantes.length} parcela(s) marcadas como pagas no vencimento.`);
+    showToast(`${contar(restantes.length,"parcela","parcelas")} marcadas como pagas no vencimento.`);
   };
 
   const conciliarDecidirDepois = async() => {
@@ -530,7 +531,7 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
           <div style={{background:vencidas.length>0?`${C.red}06`:`${C.orange}06`,border:`1.5px solid ${vencidas.length>0?C.red:C.orange}`,borderRadius:8,overflow:"hidden"}}>
             <div style={{padding:"10px 14px",borderBottom:`1px solid ${vencidas.length>0?C.red+"33":C.orange+"33"}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <p style={{fontWeight:600,fontSize:"var(--arcd-type-body)",color:vencidas.length>0?C.red:C.orange}}>
-                {vencidas.length>0?` ${vencidas.length} vencida(s) + `:""}{proximasAll.length-vencidas.length} vencendo em até 7 dias
+                {vencidas.length>0?` ${contar(vencidas.length,"vencida","vencidas")} + `:""}{proximasAll.length-vencidas.length} vencendo em até 7 dias
               </p>
               <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{fmt(totalPendente)}</p>
             </div>
@@ -893,7 +894,7 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
                 </div>
                 <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3,lineHeight:1.5}}>
                   {m.descricao || "Parcela"}<br/>
-                  Venceu em <b>{fmtDate(m.dataVencimento)}</b>{diasAtraso>0 && ` - há ${diasAtraso} dia(s)`}
+                  Venceu em <b>{fmtDate(m.dataVencimento)}</b>{diasAtraso>0 && ` - há ${contar(diasAtraso,"dia","dias")}`}
                 </p>
               </div>
 

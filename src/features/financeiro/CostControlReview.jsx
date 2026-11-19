@@ -1,3 +1,4 @@
+import { contar } from "../../design-system/copy.js";
 import {SelectControl} from '../../design-system/primitives/Select.jsx';
 import {HelpButton} from '../help/HelpButton.jsx';
 import {useState} from 'react';
@@ -46,14 +47,14 @@ export default function CostControlReview({data,work,report,asOf,onOpen,view={},
 
  return <div className="cost-control" aria-label={`Conferência de custos de ${work.name}`}>
  <details open={view.open??false} onToggle={e=>{if(e.currentTarget.open!==(view.open??false))patch({open:e.currentTarget.open});}}>
- <summary>Conferir apropriação e previsão · {suggestions.length} custo(s) pendente(s)</summary>
+ <summary>Conferir apropriação e previsão · {contar(suggestions.length,"custo pendente","custos pendentes")}</summary>
  <HelpButton pageId="fin_previsao" allowedTabs={["fin"]} label="Ajuda da previsão"/>
  <p>As sugestões usam descrições idênticas às dos itens do orçamento. Confira a origem e confirme cada vínculo. Pagamentos com vários rateios continuam sem etapa quando não há identificação suficiente.</p>
  {error&&<p role="alert">{error}</p>}{message&&<p role="status">{message}</p>}
  <fieldset disabled={busy||!report.budget}>
  <legend>Apropriação assistida</legend>
  <label>Buscar custo pendente<Input value={view.query||''} onChange={e=>patch({query:e.target.value,page:0})}/></label>
- <p>{filtered.length} custo(s) · {money(filtered.reduce((sum,s)=>sum+s.entry.amountCents,0))} de custo incorrido para conferir neste recorte.</p>
+ <p>{contar(filtered.length,"custo","custos")} · {money(filtered.reduce((sum,s)=>sum+s.entry.amountCents,0))} de custo incorrido para conferir neste recorte.</p>
  {filtered.slice(page*10,page*10+10).map(s=>{
    const d=view.drafts?.[s.id]||{},selected=d.stageId??s.suggestedStageId;
    return <article className="cost-control__pending" key={s.id} aria-label={s.entry.description}>

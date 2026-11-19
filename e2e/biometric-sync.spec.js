@@ -37,12 +37,12 @@ async function enter(page,{fail=false,role='rh'}={}){
 }
 test('RH sincroniza todas as obras do período, prioriza biometria e protege a grade',async({page},info)=>{
  const fixture=await enter(page);await page.getByRole('button',{name:'Sincronizar batidas do app',exact:true}).click();
- const modal=page.getByRole('dialog');await expect(modal).toContainText('2 dia(s) para sincronizar');await expect(modal).toContainText('1 pendência(s)');
+ const modal=page.getByRole('dialog');await expect(modal).toContainText('2 dias para sincronizar');await expect(modal).toContainText('1 pendência(s)');
  await expect(modal.getByRole('heading',{name:'Obra B',exact:true})).toBeVisible();
  await page.screenshot({path:info.outputPath('sync-preview.png'),fullPage:true});
  expect(await modal.evaluate(e=>e.scrollWidth<=e.clientWidth)).toBe(true);
- await modal.getByRole('button',{name:'Sincronizar 2 dia(s) e proteger',exact:true}).click();
- await expect(modal.getByRole('status').filter({hasText:'2 dia(s) gravado(s)'})).toBeVisible();await expect(modal).toContainText('2 já sincronizado(s)');
+ await modal.getByRole('button',{name:'Sincronizar 2 dias e proteger',exact:true}).click();
+ await expect(modal.getByRole('status').filter({hasText:'2 dias gravados'})).toBeVisible();await expect(modal).toContainText('2 já sincronizado(s)');
  expect(fixture.commands).toHaveLength(1);expect(fixture.commands[0].items).toHaveLength(2);
  expect(fixture.getData().attendance.e[date].status).toBe('P');expect(fixture.getData().attendance.f[date].obraId).toBe('b');fixture.checkPayments();
  await modal.locator('.biometric-sync__actions').getByRole('button',{name:'Fechar',exact:true}).click();
@@ -57,7 +57,7 @@ test('RH sincroniza todas as obras do período, prioriza biometria e protege a g
 });
 test('falha mantém lançamentos anteriores e impede repetir lote desatualizado',async({page})=>{
  const fixture=await enter(page,{fail:true});await page.getByRole('button',{name:'Sincronizar batidas do app',exact:true}).click();
- const modal=page.getByRole('dialog');await modal.getByRole('button',{name:'Sincronizar 2 dia(s) e proteger',exact:true}).click();
+ const modal=page.getByRole('dialog');await modal.getByRole('button',{name:'Sincronizar 2 dias e proteger',exact:true}).click();
  await expect(modal.getByRole('alert')).toContainText('O ponto mudou');expect(fixture.getData().attendance.e[date].status).toBe('F');fixture.checkPayments();
- await expect(modal.getByRole('button',{name:'Sincronizar 2 dia(s) e proteger',exact:true})).toBeDisabled();
+ await expect(modal.getByRole('button',{name:'Sincronizar 2 dias e proteger',exact:true})).toBeDisabled();
 });

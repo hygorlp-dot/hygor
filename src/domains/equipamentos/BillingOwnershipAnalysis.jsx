@@ -1,3 +1,4 @@
+import { contar } from "../../design-system/copy.js";
 import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, ChevronRight, X } from "lucide-react";
 import { Button } from "../../design-system/primitives/Button.jsx";
@@ -69,7 +70,7 @@ export default function BillingOwnershipAnalysis({
       <section className="bc-analysis__section" aria-labelledby="bc-analysis-equation">
         <div className="bc-analysis__section-head">
           <h4 id="bc-analysis-equation">Como o número é formado</h4>
-          <span className="bc-note">{analysis.equipments.length} equipamento(s) · {analysis.negativeEquipments} com resultado negativo</span>
+          <span className="bc-note">{contar(analysis.equipments.length,"equipamento","equipamentos")} · {analysis.negativeEquipments} com resultado negativo</span>
         </div>
         <div className="bc-analysis__equation">
           <Metric label="Receita contratual" value={formatMoney(summary.receitaContratual)} />
@@ -138,7 +139,7 @@ export default function BillingOwnershipAnalysis({
           <table className="bc-table">
             <thead><tr><th scope="col">Obra / período</th><th scope="col">Composição cliente</th><th scope="col" className="num">Bruto</th><th scope="col" className="num">Desconto</th><th scope="col" className="num">Líquido</th><th scope="col">Composição repasse</th><th scope="col" className="num">Repasse</th><th scope="col" className="num">Resultado</th><th scope="col" className="num">Margem</th><th scope="col"><span className="bc-sr-only">Ação</span></th></tr></thead>
             <tbody>{selected.rentals.map(rental => <tr key={rental.id} data-negative={rental.resultado < 0}>
-              <td><strong>{rental.obraRotulo}</strong><span className="bc-note bc-mono">{formatDate(rental.inicio)} → {formatDate(rental.fim)} · {rental.quantidade} un · {rental.dias} dia(s)</span></td>
+              <td><strong>{rental.obraRotulo}</strong><span className="bc-note bc-mono">{formatDate(rental.inicio)} → {formatDate(rental.fim)} · {rental.quantidade} un · {contar(rental.dias,"dia","dias")}</span></td>
               <td>{rental.semTarifa ? <span className="bc-analysis__reason"><AlertTriangle size={12} aria-hidden="true" />Sem tarifa</span> : formatComposition(rental.composicao)}</td>
               <td className="num bc-mono">{formatMoney(rental.bruto)}</td>
               <td className="num bc-mono">{formatMoney(rental.descontos)}</td>

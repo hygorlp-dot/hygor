@@ -162,7 +162,7 @@ describe("BancoHorasView: consulta e cobertura", () => {
     expect(chamarPontoEletronico).toHaveBeenCalledTimes(2);
     expect(container.querySelector('[role="alert"]')).toBeNull();
     expect(totais()).toEqual(["—", "—", "—", "0"]);
-    expect(celulas(linhaEquipe("Pessoa Sem Registro"))).toEqual(["8h00", "—", "—", "0 dia(s) · sem registros"]);
+    expect(celulas(linhaEquipe("Pessoa Sem Registro"))).toEqual(["8h00", "—", "—", "0 dias · sem registros"]);
     expect(container.textContent).toContain("sem registro, sem débito");
   });
 
@@ -182,8 +182,8 @@ describe("BancoHorasView: consulta e cobertura", () => {
     await renderizar();
     expect(chamarPontoEletronico).toHaveBeenCalledExactlyOnceWith("ponto-banco-horas", { de: "2026-10-01", ate: HOJE });
     expect(nomesEquipe()).toEqual(["Pessoa Alfa", "Pessoa Débito", "Pessoa Pendente", "Pessoa Sem Registro", "Pessoa Transferida"]);
-    expect(celulas(linhaEquipe("Pessoa Transferida"))).toEqual(["8h00", "9h00", "+1h00", "1 dia(s)"]);
-    expect(celulas(linhaEquipe("Pessoa Alfa"))).toEqual(["8h00", "16h00", "0h00", "2 dia(s) · almoço padrão aplicado"]);
+    expect(celulas(linhaEquipe("Pessoa Transferida"))).toEqual(["8h00", "9h00", "+1h00", "1 dia"]);
+    expect(celulas(linhaEquipe("Pessoa Alfa"))).toEqual(["8h00", "16h00", "0h00", "2 dias · almoço padrão aplicado"]);
     expect(totais()).toEqual(["−1h00", "2h30", "3h30", "1"]);
     await preencher(controle("Equipe"), "todos");
     expect(nomesEquipe()).toContain("Pessoa Externa");
@@ -211,7 +211,7 @@ describe("BancoHorasView: consulta e cobertura", () => {
     expect(totais()).toEqual([]);
     await concluir(segunda, resposta({ marcacoes: [batida("alfa", "07:00"), batida("alfa", "15:00")] }));
     expect(totais()[0]).toBe("−1h00");
-    expect(celulas(linhaEquipe("Pessoa Alfa"))).toEqual(["8h00", "7h00", "−1h00", "1 dia(s) · almoço padrão aplicado"]);
+    expect(celulas(linhaEquipe("Pessoa Alfa"))).toEqual(["8h00", "7h00", "−1h00", "1 dia · almoço padrão aplicado"]);
     expect(container.textContent).not.toContain("Período em edição");
   });
 

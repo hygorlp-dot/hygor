@@ -1,3 +1,4 @@
+import { contar } from "../../design-system/copy.js";
 import "./reconciliation-review.css";
 import { useMemo, useRef, useState } from "react";
 import { Button } from "../../components/ui/button";
@@ -88,7 +89,7 @@ export default function ReconciliationReview({ data, transaction, analysis, reas
       <p>Use para pagamentos ou recebimentos já registrados. Não cria uma nova despesa ou receita. Títulos ainda em aberto são tratados nas sugestões acima.</p>
       <Input aria-label="Buscar lançamentos existentes" placeholder="Descrição, pessoa, data ou obra" value={search} onChange={event=>setSearch(event.target.value)}/>
       <ReviewSearchFilters data={data} available={available} filters={filters} onChange={setFilters} disabled={disabled}/>
-      <p role="status">{entries.length} de {available.length} registro(s) disponível(is)</p>
+      <p role="status">{entries.length} de {contar(available.length,"registro","registros")} disponível(is)</p>
       {chosen.filter(item=>!entries.some(entry=>entry.id===item.id)).map(item=><p key={item.id}>Selecionado fora dos filtros: {item.description} · {fmt(Number(selected[item.id]))} <Button variant="ghost" size="sm" disabled={disabled} onClick={()=>setSelected(current=>{const next={...current};delete next[item.id];return next;})}>Remover seleção de {item.description}</Button></p>)}
       <div className="reconciliation-review__entries flex flex-col gap-2">
         {entries.map(entry=><div key={entry.id} className="flex flex-wrap items-center gap-2 rounded-md border p-3">
@@ -104,7 +105,7 @@ export default function ReconciliationReview({ data, transaction, analysis, reas
       <Button variant="outline" disabled={disabled || transaction.status!=="pendente"} onClick={onCreate}>{Number(transaction.valor)>0?"Classificar nova entrada":"Classificar nova saída"}</Button>
       <Button variant="outline" disabled={disabled || transaction.status!=="pendente"} onClick={onTransfer}>Identificar transferência</Button>
     </div>
-      <div className="reconciliation-review__totals" aria-label="Resumo dos vínculos"><Alert><AlertDescription><p>Selecionado: {fmt(total/100)} · {chosen.length} registro(s) de caixa.</p><p>{bankKnown?`Restante após confirmar: ${fmt(difference/100)}.`:'Saldo bancário indisponível para confirmação.'}</p>{message&&<p role="status">{message}</p>}</AlertDescription></Alert>
+      <div className="reconciliation-review__totals" aria-label="Resumo dos vínculos"><Alert><AlertDescription><p>Selecionado: {fmt(total/100)} · {contar(chosen.length,"registro","registros")} de caixa.</p><p>{bankKnown?`Restante após confirmar: ${fmt(difference/100)}.`:'Saldo bancário indisponível para confirmação.'}</p>{message&&<p role="status">{message}</p>}</AlertDescription></Alert>
       <Button disabled={disabled || !valid} onClick={save}>{saving?"Vinculando…":"Confirmar vínculos selecionados"}</Button></div>
   </div>;
 }

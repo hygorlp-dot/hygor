@@ -1,3 +1,4 @@
+import { contar } from "../../design-system/copy.js";
 import {useHelpTopic} from '../../features/help/HelpContext.jsx';
 // Declarações extraídas literalmente da entrada legada; não importar LegacyApp aqui.
 import { uid, today, fmtDateFull } from "../../legacy/format.js";
@@ -469,7 +470,7 @@ export function GestaoAprovacoes({ data, update, showToast, currentUser }) {
       <div style={{maxWidth:340}}><Sel label="Comportamento sem política aplicável" value={data.configAprovacao?.comportamentoSemPolitica||"auto_aprovar"} onChange={mudarComportamentoSemPolitica} options={[{v:"auto_aprovar",l:"Aprovar automaticamente"},{v:"fila_administrativa",l:"Enviar à fila do administrador"},{v:"bloquear",l:"Bloquear até intervenção manual"}]}/></div>
     </div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-      <b style={{fontSize:"var(--arcd-type-body)",color:C.text}}>{politicas.length} política(s) de aprovação cadastrada(s)</b>
+      <b style={{fontSize:"var(--arcd-type-body)",color:C.text}}>{contar(politicas.length,"política","políticas")} de aprovação cadastrada(s)</b>
       <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
         <Btn v="ghost" onClick={()=>setModal(MODELOS_PORTE_APROVACAO.enxuto())}>Modelo enxuto</Btn>
         <Btn v="ghost" onClick={()=>setModal(MODELOS_PORTE_APROVACAO.intermediario())}>Modelo intermediário</Btn>
@@ -486,7 +487,7 @@ export function GestaoAprovacoes({ data, update, showToast, currentUser }) {
             <Badge color={p.ativa?C.green:C.muted}>{p.ativa?"ATIVA":"INATIVA"}</Badge>
             <Badge color={C.blue}>v{p.versao}</Badge>
           </div>
-          <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>{SETORES_APROVACAO.find(s=>s.v===p.entidadeTipo)?.l||p.entidadeTipo} · prioridade {p.prioridade} · {p.etapas.length} etapa(s){p.condicoes.length?` · ${p.condicoes.length} condição(ões)`:" · sem condição (aplica sempre que ativa)"}</p>
+          <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>{SETORES_APROVACAO.find(s=>s.v===p.entidadeTipo)?.l||p.entidadeTipo} · prioridade {p.prioridade} · {contar(p.etapas.length,"etapa","etapas")}{p.condicoes.length?` · ${p.condicoes.length} condição(ões)`:" · sem condição (aplica sempre que ativa)"}</p>
         </div>
         <div style={{display:"flex",gap:6,flexWrap:"wrap",justifyContent:"flex-end"}}>
           <Btn size="sm" v="ghost" onClick={()=>abrirSimulador(p)}><Ic n="eye"/> Simular</Btn>

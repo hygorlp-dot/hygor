@@ -1,0 +1,66 @@
+/* Caixas translúcidas (vidro fosco) para os temas MARCELL Noite e MARCELL Cristal.
+   Fundo: um leve gradiente nas cores da marca (azul-marinho e areia), sem formas.
+   Caixas: cartões, faixas de indicadores, painéis e blocos de filtro ficam translúcidos, com borda clara,
+   brilho no topo e desfoque. O texto continua sobre uma base com contraste conferido pelo contrato dos temas.
+   Sem suporte a desfoque, ou com "reduzir transparência", as caixas voltam a ser sólidas. Impressão: sólido. */
+
+@media screen {
+  /* ---------- Fundo: gradiente leve da marca ---------- */
+  [data-theme="noite"] .arcd-app-shell {
+    background: linear-gradient(150deg, #10223a 0%, #0a1526 38%, #070d18 70%, #0d1420 100%) !important;
+    background-attachment: fixed !important;
+  }
+  [data-theme="cristal"] .arcd-app-shell {
+    background: linear-gradient(150deg, #f7f3ea 0%, #eef1f4 42%, #e4eaf2 75%, #dde5ef 100%) !important;
+    background-attachment: fixed !important;
+  }
+  :is([data-theme="noite"],[data-theme="cristal"]) .arcd-main { background: transparent !important; }
+
+  /* ---------- Caixas de vidro ---------- */
+  :is([data-theme="noite"],[data-theme="cristal"]) .arcd-main :is(
+    .page-hero__stats, .dre-kpi-grid, .dashboard-executive-grid, .finance-today__filters, .purchase-queue-metrics,
+    .gav, .dashboard-mission-queue, .works-card, .works-filter-bar, .payroll-controls, .payroll-checklist,
+    .payroll-summary-strip, .workspace-disclosure, .finance-today__table-scroll, .arcd-chart-panel, .dre-toolbar,
+    .purchase-queue-table, .purchase-by-work, .workspace-command-bar,
+    [style*="background: var(--arcd-surface-card)"], [style*="background-color: var(--arcd-surface-card)"]
+  ) {
+    background: var(--vidro-fundo) !important;
+    border: 1px solid var(--vidro-borda) !important;
+    box-shadow: var(--vidro-sombra) !important;
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    backdrop-filter: blur(18px) saturate(140%);
+  }
+  /* Dentro de uma caixa de vidro, os filhos não repetem o vidro (evita vidro sobre vidro). */
+  :is([data-theme="noite"],[data-theme="cristal"]) .arcd-main :is(.page-hero__stats,.dre-kpi-grid,.dashboard-executive-grid,.finance-today__filters,.purchase-queue-metrics) > * {
+    background: transparent !important; -webkit-backdrop-filter: none; backdrop-filter: none;
+  }
+
+  [data-theme="noite"] {
+    --vidro-fundo: linear-gradient(135deg, rgb(255 255 255 / 9%), rgb(255 255 255 / 3%) 55%, rgb(255 255 255 / 6%));
+    --vidro-borda: rgb(255 255 255 / 14%);
+    --vidro-sombra: 0 18px 48px rgb(0 0 0 / 28%), inset 0 1px 0 rgb(255 255 255 / 14%);
+  }
+  [data-theme="cristal"] {
+    --vidro-fundo: linear-gradient(135deg, rgb(255 255 255 / 72%), rgb(255 255 255 / 52%) 55%, rgb(255 255 255 / 64%));
+    --vidro-borda: rgb(255 255 255 / 80%);
+    --vidro-sombra: 0 14px 40px rgb(20 43 58 / 10%), inset 0 1px 0 rgb(255 255 255 / 90%);
+  }
+
+  /* Cabeçalho e menu lateral do tema claro também em vidro. */
+  [data-theme="cristal"] :is(.arcd-topbar,.arcd-sidebar) {
+    background: rgb(255 255 255 / 58%) !important;
+    border-color: rgb(255 255 255 / 80%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    backdrop-filter: blur(20px) saturate(140%);
+  }
+}
+
+/* Sem desfoque disponível ou com "reduzir transparência": caixas sólidas, legíveis. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  [data-theme="noite"] { --vidro-fundo: #111c2e; }
+  [data-theme="cristal"] { --vidro-fundo: #f8fafc; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  [data-theme="noite"] { --vidro-fundo: #111c2e; }
+  [data-theme="cristal"] { --vidro-fundo: #f8fafc; }
+}

@@ -2492,6 +2492,8 @@ const calcObraRevenue = calculateContractProjection;
 // DASHBOARD - redesenhado
 //
 
+const pct1=v=>`${new Intl.NumberFormat("pt-BR",{minimumFractionDigits:1,maximumFractionDigits:1}).format(Number(v)||0)}%`;
+const pct0=v=>`${new Intl.NumberFormat("pt-BR",{maximumFractionDigits:0}).format(Number(v)||0)}%`;
 function KpiCard({label,value,detail,icon,color=C.blue,onClick,animate=true}){
   const displayValue=useCountUp(animate?value:null);
   const Comp=onClick?"button":"div";
@@ -2509,7 +2511,6 @@ function KpiCard({label,value,detail,icon,color=C.blue,onClick,animate=true}){
 function DashboardTechHero({currentUser,ultimaSync,fila,onBuscar,onAtualizar,onAbrir,periodo,onAnterior,onProximo,proximoDesabilitado,clima,saveState=SAVE_QUEUE_STATE.IDLE}){
   const agora=new Date(),nome=(currentUser?.nome||"operador").trim().split(/\s+/)[0];
   const saudacao=agora.getHours()<12?"Bom dia":agora.getHours()<18?"Boa tarde":"Boa noite";
-  const criticas=fila.filter(item=>item.severidade===3).length;
   const syncLabel={
     [SAVE_QUEUE_STATE.IDLE]:ultimaSync?`Atualizado às ${ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`:"Atualizado agora",
     [SAVE_QUEUE_STATE.SAVING]:"Salvando alterações",
@@ -2526,7 +2527,7 @@ function DashboardTechHero({currentUser,ultimaSync,fila,onBuscar,onAtualizar,onA
     </div>}{onBuscar&&<Button variant="outline" size="icon" aria-label="Buscar" onClick={onBuscar}><Search/></Button>}
     {onAtualizar&&<Button variant="outline" size="icon" aria-label="Atualizar" onClick={onAtualizar}><RefreshCw/></Button>}</>}
     primaryAction={<Button disabled={!fila.length} onClick={()=>fila[0]&&onAbrir(fila[0].tab)}>{fila.length?`Abrir prioridade de ${fila[0].setor}`:"Nenhuma ação urgente"}</Button>}>
-    <div className="dashboard-context"><span role="status">{syncLabel}</span><span>{contar(criticas,"crítica","críticas")} · {contar(fila.length,"ação em andamento","ações em andamento")}</span>
+    <div className="dashboard-context"><span role="status">{syncLabel}</span><span>{contar(fila.length,"ação na Central","ações na Central")}</span>
       {clima&&<span>Caruaru: {clima.temperatura} °C · vento {clima.vento} km/h</span>}
     </div>
   </PageHeader>;
@@ -2543,7 +2544,7 @@ function FilaOperador({fila,onTab}){
     </div>
     {!lista.length
       ? <div style={{padding:25,textAlign:"center",color:C.green,fontSize:"var(--arcd-type-label)"}}><Ic n="check" color={C.green}/> Nenhuma pendência no seu escopo.</div>
-      : <div className="dashboard-mission-rows" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))"}}>{lista.map((m,i)=>{const cor=m.severidade===3?C.red:m.color||C.yellow;return <button key={m.id} onClick={()=>onTab(m.tab)} style={{"--row-i":i,display:"grid",gridTemplateColumns:"38px minmax(0,1fr) auto",alignItems:"center",gap:10,textAlign:"left",border:0,borderRight:`1px solid ${C.line}`,borderBottom:`1px solid ${C.line}`,background:"transparent",padding:"13px 15px",cursor:"pointer",color:C.text}}><span className="dashboard-mission-icon" style={{width:36,height:36,borderRadius:9,display:"grid",placeItems:"center",background:`${cor}12`,border:`1px solid ${cor}35`,color:cor}}><Ic n={m.icon} s={15} color={C.muted}/></span><span style={{minWidth:0}}><b style={{display:"block",fontSize:"var(--arcd-type-label)",fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{m.titulo}</b><small style={{display:"block",fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{m.detalhe}</small></span><span className="dashboard-mission-count" style={{minWidth:27,height:27,borderRadius:9,display:"grid",placeItems:"center",fontSize:"var(--arcd-type-label)",fontWeight:600,color:cor,background:`${cor}12`}}>{m.quantidade}</span></button>;})}</div>}
+      : <div className="dashboard-mission-rows" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))"}}>{lista.map((m,i)=>{const cor=m.severidade===3?C.red:C.muted;return <button key={m.id} onClick={()=>onTab(m.tab)} style={{"--row-i":i,display:"grid",gridTemplateColumns:"38px minmax(0,1fr) auto",alignItems:"center",gap:10,textAlign:"left",border:0,borderRight:`1px solid ${C.line}`,borderBottom:`1px solid ${C.line}`,background:"transparent",padding:"13px 15px",cursor:"pointer",color:C.text}}><span className="dashboard-mission-icon" style={{width:36,height:36,borderRadius:9,display:"grid",placeItems:"center",background:`${cor}12`,border:`1px solid ${cor}35`,color:cor}}><Ic n={m.icon} s={15} color={C.muted}/></span><span style={{minWidth:0}}><b style={{display:"block",fontSize:"var(--arcd-type-label)",fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{m.titulo}</b><small style={{display:"block",fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{m.detalhe}</small></span><span className="dashboard-mission-count" style={{minWidth:27,height:27,borderRadius:9,display:"grid",placeItems:"center",fontSize:"var(--arcd-type-label)",fontWeight:600,color:cor,background:`${cor}12`}}>{m.quantidade}</span></button>;})}</div>}
   </section>;
 }
 
@@ -2645,9 +2646,9 @@ function CalendarioEmpresa({data,update,showToast,currentUser}){
     <div style={{display:"grid",gridTemplateColumns:isDesktop?"minmax(0,1fr) 220px":"1fr",gap:16}}>
       <div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-          <button onClick={()=>setMesOffset(m=>m-1)} style={{background:"transparent",border:0,cursor:"pointer",color:C.muted,fontSize:"var(--arcd-type-control)",padding:"2px 10px"}}>‹</button>
-          <b style={{fontSize:"var(--arcd-type-body)",color:C.text,textTransform:"capitalize"}}>{calRef.toLocaleDateString("pt-BR",{month:"long",year:"numeric"})}</b>
-          <button onClick={()=>setMesOffset(m=>m+1)} style={{background:"transparent",border:0,cursor:"pointer",color:C.muted,fontSize:"var(--arcd-type-control)",padding:"2px 10px"}}>›</button>
+          <button type="button" aria-label="Mês anterior" onClick={()=>setMesOffset(m=>m-1)} style={{background:"transparent",border:0,cursor:"pointer",color:C.muted,fontSize:"var(--arcd-type-control)",padding:"2px 10px",minWidth:44,minHeight:44}}>‹</button>
+          <b style={{fontSize:"var(--arcd-type-body)",color:C.text}}>{(s=>s.charAt(0).toUpperCase()+s.slice(1))(calRef.toLocaleDateString("pt-BR",{month:"long",year:"numeric"}))}</b>
+          <button type="button" aria-label="Próximo mês" onClick={()=>setMesOffset(m=>m+1)} style={{background:"transparent",border:0,cursor:"pointer",color:C.muted,fontSize:"var(--arcd-type-control)",padding:"2px 10px",minWidth:44,minHeight:44}}>›</button>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3,marginBottom:4}}>
           {["D","S","T","Q","Q","S","S"].map((d,i)=><span key={i} style={{textAlign:"center",fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted}}>{d}</span>)}
@@ -2748,9 +2749,9 @@ const construirFilaOperador=(data,currentUser)=>{
 
   if(role==="admin"||role==="financeiro"||acessos.has("conc")){
     const conciliacoes=(data.transacoes||[]).filter(t=>t.status==="pendente");
-    incluir("conciliacao","Financeiro","Movimentos sem conciliação",`${conciliacoes.length} lançamento(s) ainda sem obra/categoria confirmada`,conciliacoes.length,conciliacoes.length>10?3:2,"conc","receipt",C.purple);
+    incluir("conciliacao","Financeiro","Movimentos sem conciliação",`${contar(conciliacoes.length,"lançamento","lançamentos")} ainda sem obra/categoria confirmada`,conciliacoes.length,conciliacoes.length>10?3:2,"conc","receipt",C.purple);
     const notas=(data.notasFiscais||[]).filter(n=>n.status==="recebida");
-    incluir("fiscal","Financeiro","Notas aguardando conferência",`${notas.filter(n=>n.divergencias?.length).length} documento(s) com divergência de pedido ou recebimento`,notas.length,notas.some(n=>n.divergencias?.length)?3:2,"fin","fileText",C.red);
+    incluir("fiscal","Financeiro","Notas aguardando conferência",`${contar(notas.filter(n=>n.divergencias?.length).length,"documento","documentos")} com divergência de pedido ou recebimento`,notas.length,notas.some(n=>n.divergencias?.length)?3:2,"fin","fileText",C.red);
     const med=(data.medicoes||[]).filter(m=>statusRecebimentoMedicao(m)!=="recebida"&&(!m.dataVencimento||m.dataVencimento<=hoje));
     incluir("medicoes","Financeiro","Medições a receber",contar(med.filter(m=>m.dataVencimento&&m.dataVencimento<hoje).length,"vencida","vencidas"),med.length,med.some(m=>m.dataVencimento&&m.dataVencimento<hoje)?3:1,"medicoes","ruler",C.green);
   }
@@ -2766,9 +2767,9 @@ const construirFilaOperador=(data,currentUser)=>{
   if(role==="admin"||role==="comercial"||acessos.has("com_tarefas")){
     const atividades=(data.comercial?.atividades||[]).filter(a=>a.status!=="concluida"&&(role==="admin"||!a.responsavelId||a.responsavelId===userId));
     const atrasadas=atividades.filter(a=>a.dataHora&&a.dataHora<new Date().toISOString());
-    incluir("comercial-atividades","Comercial","Follow-ups e atividades pendentes",`${atrasadas.length} atividade(s) fora do prazo`,atividades.length,atrasadas.length?3:1,"com_tarefas","funnel",C.green);
+    incluir("comercial-atividades","Comercial","Follow-ups e atividades pendentes",`${contar(atrasadas.length,"atividade","atividades")} fora do prazo`,atividades.length,atrasadas.length?3:1,"com_tarefas","funnel",C.green);
     const leads=(data.comercial?.leads||[]).filter(l=>!["perdido","arquivado","transferido"].includes(l.etapa)&&(role==="admin"||!l.responsavelId||l.responsavelId===userId)&&!l.proximaAtividadeEm);
-    incluir("comercial-leads","Comercial","Leads sem próximo passo",`${leads.length} oportunidade(s) precisam de data e ação definida`,leads.length,2,"com_leads","target",C.orange);
+    incluir("comercial-leads","Comercial","Leads sem próximo passo",`${contar(leads.length,"oportunidade","oportunidades")} precisam de data e ação definida`,leads.length,2,"com_leads","target",C.orange);
   }
   return fila.sort((a,b)=>b.severidade-a.severidade||b.quantidade-a.quantidade);
 };
@@ -2874,7 +2875,7 @@ function Dashboard({ data, update, showToast, onTab, onAbrirObra, ultimaSync, cu
     ...conferenciasCriticas,
     ...(pontoPendente?[{sev:2,texto:"Verificação e distribuição da equipe ainda não concluídas",tab:"ponto"}]:[]),
     ...(medicoesPendentes?[{sev:2,texto:`${medicoesPendentes} medição(ões) aguardando recebimento`,tab:"medicoes"}]:[]),
-    ...(atividadesAtrasadas?[{sev:2,texto:`${atividadesAtrasadas} atividade(s) comercial(is) atrasada(s)`,tab:"com_tarefas"}]:[]),
+    ...(atividadesAtrasadas?[{sev:2,texto:`${contar(atividadesAtrasadas,"atividade","atividades")} comercial(is) atrasada(s)`,tab:"com_tarefas"}]:[]),
     ...alertasBase,
   ].filter(a=>abasPermitidas.includes(a.tab)).filter((a,i,arr)=>arr.findIndex(x=>x.texto===a.texto)===i).sort((a,b)=>b.sev-a.sev);
 
@@ -2886,32 +2887,35 @@ function Dashboard({ data, update, showToast, onTab, onAbrirObra, ultimaSync, cu
     <ScopeNote title="Escopo dos indicadores">Consolidado do seu acesso · {fullMonth(month)} {year}. A seleção Obra em foco não filtra este painel. Suas obras hoje acompanha a operação na data de hoje.</ScopeNote>
     <section id="dashboard-indicators" className="dashboard-executive-grid" data-expanded={todosIndicadores} style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:cols(2,3,4),gap:10}}>
       {[
-        {label:"Obras ativas",value:exec.obrasAtivas,detail:exec.obrasCriticas?`${contar(exec.obrasCriticas,'crítica','críticas')} no cadastro completo`:"Sem críticas no critério executivo",icon:"building",color:exec.obrasCriticas?C.red:C.blue,tab:"obras"},
-        {label:"Entradas de caixa",value:fmt(exec.dre.recebido),detail:`Faturamento por competência: ${fmt(exec.dre.faturamento)}`,icon:"trending",color:C.green,tab:"dre"},
-        {label:"Custos reconhecidos",value:fmt(exec.dre.totalCustos),detail:exec.dre.faturamento>0?`${((exec.dre.totalCustos/exec.dre.faturamento)*100).toFixed(0)}% do faturamento por competência`:"Sem faturamento positivo; percentual não se aplica",icon:"receipt",color:C.red,tab:"dre_emp"},
-        {label:"Movimento líquido de caixa",value:fmt(exec.dre.saldoCaixa),detail:"Entradas menos saídas no mês",icon:"wallet",color:exec.dre.saldoCaixa>=0?C.green:C.red,tab:"dre"},
-        {label:"Pendências críticas",value:prioridades.filter(a=>a.sev===3).length,detail:`${prioridades.length} alertas ativos`,icon:"alert",color:prioridades.some(a=>a.sev===3)?C.red:C.orange},
-        {label:"Compras pendentes",value:exec.comprasPendentes+exec.solicitacoesAbertas,detail:`${exec.solicitacoesAbertas} aguardando análise`,icon:"cart",color:C.orange,tab:"cmp"},
-        {label:"Leads em andamento",value:exec.leadsAtivos,detail:`${contar(novosLeads,"novo","novos")} no mês`,icon:"funnel",color:C.blue,tab:"com_funil"},
-        {label:"Resultado por competência",value:fmt(exec.dre.lucroBruto),detail:exec.dre.faturamento>0?`Margem sobre o faturamento: ${exec.dre.margemBruta.toFixed(1)}%`:"Sem faturamento positivo; margem não se aplica",icon:"chart",color:exec.dre.lucroBruto>=0?C.green:C.red,tab:"dre_emp"},
+        // Os quatro primeiros são os que pedem decisão; os demais ficam em "Mais indicadores".
+        // Cor só quando há desvio (negativo, crítico, pendente); o resto fica neutro.
+        {label:"Resultado por competência",value:fmt(exec.dre.lucroBruto),detail:exec.dre.faturamento>0?`Margem sobre o faturamento: ${pct1(exec.dre.margemBruta)}`:"Sem faturamento positivo; margem não se aplica",icon:"chart",color:exec.dre.lucroBruto<0?C.red:exec.dre.lucroBruto>0?C.green:C.muted,tab:"dre_emp"},
+        {label:"Movimento líquido de caixa",value:fmt(exec.dre.saldoCaixa),detail:"Entradas menos saídas no mês",icon:"wallet",color:exec.dre.saldoCaixa<0?C.red:C.muted,tab:"dre"},
+        // Uma contagem só para "crítico": alertas graves + ações urgentes da Central (a mesma que aparece em vermelho lá).
+        {label:"Pendências críticas",value:prioridades.filter(a=>a.sev===3).length+filaOperador.filter(m=>m.severidade===3).length,detail:`${contar(filaOperador.filter(m=>m.severidade===3).length,"urgente","urgentes")} na Central · ${contar(prioridades.length,"alerta","alertas")}`,icon:"alert",color:(prioridades.some(a=>a.sev===3)||filaOperador.some(m=>m.severidade===3))?C.red:prioridades.length?C.orange:C.muted},
+        {label:"Compras pendentes",value:exec.comprasPendentes+exec.solicitacoesAbertas,detail:`${exec.solicitacoesAbertas} aguardando análise`,icon:"cart",color:exec.comprasPendentes+exec.solicitacoesAbertas?C.orange:C.muted,tab:"cmp"},
+        {label:"Obras ativas",value:exec.obrasAtivas,detail:exec.obrasCriticas?`${contar(exec.obrasCriticas,'crítica','críticas')} no cadastro completo`:"Sem críticas no critério executivo",icon:"building",color:exec.obrasCriticas?C.red:C.muted,tab:"obras"},
+        {label:"Entradas de caixa",value:fmt(exec.dre.recebido),detail:`Faturamento por competência: ${fmt(exec.dre.faturamento)}`,icon:"trending",color:C.muted,tab:"dre"},
+        {label:"Custos reconhecidos",value:fmt(exec.dre.totalCustos),detail:exec.dre.faturamento>0?`${pct0(exec.dre.totalCustos/exec.dre.faturamento*100)} do faturamento por competência`:"Sem faturamento positivo; percentual não se aplica",icon:"receipt",color:C.muted,tab:"dre_emp"},
+        {label:"Leads em andamento",value:exec.leadsAtivos,detail:`${contar(novosLeads,"novo","novos")} no mês`,icon:"funnel",color:C.muted,tab:"com_funil"},
       ].map(k=>{const acessivel=k.tab&&abasPermitidas.includes(k.tab);return k.tab&&!acessivel?null:<span key={k.label}><KpiCard {...k} animate={false} onClick={acessivel?()=>{if(['dre','dre_emp'].includes(k.tab)&&navigateDashboard)navigateDashboard(k.tab,{obraId:'',year,month,period:'mes'});else onTab(k.tab);}:undefined}/></span>;})}
     </section>
-    <Button variant="ghost" className="dashboard-indicators-toggle" aria-expanded={todosIndicadores} aria-controls="dashboard-indicators" onClick={()=>setTodosIndicadores(value=>!value)}>{todosIndicadores?"Menos indicadores":"Mais indicadores"}</Button>
+    <Button variant="ghost" className="dashboard-indicators-toggle" aria-expanded={todosIndicadores} aria-controls="dashboard-indicators" onClick={()=>setTodosIndicadores(value=>!value)}>{todosIndicadores?"Menos indicadores":"Mais indicadores"} <span aria-hidden="true">{todosIndicadores?"▴":"▾"}</span></Button>
     <DashboardFinancialReading dre={exec.dre} period={`${fullMonth(month)} ${year}`} showCash={abasPermitidas.includes('dre')} showResult={abasPermitidas.includes('dre_emp')}/>
     <div className="dashboard-work-grid">
     {veObras&&<GestaoAVistaObras resumo={gestaoAVista} hoje={hoje} onAbrirObra={onAbrirObra} custoStatus={custosObras.status}/>}
 
       <div className="dashboard-work-grid__aside"><FilaOperador fila={filaOperador} onTab={onTab}/><details className="workspace-disclosure"><summary>Outras pendências ({prioridades.length})</summary><section id="dashboard-prioridades" style={{position:"relative",zIndex:1,padding:isDesktop?8:4}}>
       <Titulo acao={<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:prioridades.length?C.red:C.green,background:`${prioridades.length?C.red:C.green}0D`,padding:"5px 9px",borderRadius:99}}>{prioridades.length?`${prioridades.length} para revisar`:"Tudo em ordem"}</span>}>Pendências que exigem atenção</Titulo>
-      {!prioridades.length?<div style={{padding:"18px 4px",display:"flex",alignItems:"center",gap:10,color:C.green}}><span style={{width:30,height:30,borderRadius:10,display:"grid",placeItems:"center",background:`${C.green}10`}}><Ic n="check"/></span><div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"#2D3135"}}>Nenhuma pendência prioritária</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>A operação está sob controle.</p></div></div>:<div style={{display:"grid",gridTemplateColumns:isDesktop&&prioridades.length>3?"1fr 1fr":"1fr",columnGap:20}}>{prioridades.slice(0,8).map((a,i)=>{const cor=a.sev===3?C.red:a.sev===2?C.orange:C.blue;return <button key={`${a.texto}-${i}`} onClick={()=>onTab(a.tab)} style={{display:"flex",alignItems:"center",gap:11,width:"100%",textAlign:"left",border:0,borderTop:i>=(isDesktop&&prioridades.length>3?2:1)?"1px solid rgba(27,31,36,.06)":"none",background:"transparent",padding:"11px 3px",cursor:"pointer"}}><span style={{width:8,height:8,borderRadius:99,background:cor,boxShadow:`0 0 0 5px ${cor}0D`,flexShrink:0}}/><span style={{fontSize:"var(--arcd-type-label)",color:"#303438",lineHeight:1.35,flex:1}}>{a.texto}</span><span style={{fontSize:"var(--arcd-type-card-title)",color:"#B1B5B9"}}>›</span></button>;})}</div>}
+      {!prioridades.length?<div style={{padding:"18px 4px",display:"flex",alignItems:"center",gap:10,color:C.green}}><span style={{width:30,height:30,borderRadius:10,display:"grid",placeItems:"center",background:`${C.green}10`}}><Ic n="check"/></span><div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"var(--arcd-text-primary)"}}>Nenhuma pendência prioritária</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>A operação está sob controle.</p></div></div>:<div style={{display:"grid",gridTemplateColumns:isDesktop&&prioridades.length>3?"1fr 1fr":"1fr",columnGap:20}}>{prioridades.slice(0,8).map((a,i)=>{const cor=a.sev===3?C.red:a.sev===2?C.orange:C.blue;return <button key={`${a.texto}-${i}`} onClick={()=>onTab(a.tab)} style={{display:"flex",alignItems:"center",gap:11,width:"100%",textAlign:"left",border:0,borderTop:i>=(isDesktop&&prioridades.length>3?2:1)?"1px solid var(--arcd-border-subtle)":"none",background:"transparent",padding:"11px 3px",cursor:"pointer"}}><span style={{width:8,height:8,borderRadius:99,background:cor,boxShadow:`0 0 0 5px ${cor}0D`,flexShrink:0}}/><span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",lineHeight:1.35,flex:1}}>{a.texto}</span><span style={{fontSize:"var(--arcd-type-card-title)",color:"var(--arcd-text-secondary)"}}>›</span></button>;})}</div>}
     </section></details>
       </div>
     </div>
 
 
     <details className="workspace-disclosure"><summary>Resumo financeiro e comercial</summary>    <section style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:isDesktop?"1fr 1fr":"1fr",gap:12}}>
-      <div style={{...superficie,padding:18}}><Titulo acao={<DesignSystemButton variant="link" size="sm" className="dashboard-link-btn" onClick={()=>onTab("dre_emp")}>Detalhes →</DesignSystemButton>}>Resumo financeiro</Titulo><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"14px 22px"}}>{[["A receber",exec.dre.aReceber,C.orange],["Fluxo do período",exec.dre.saldoCaixa,exec.dre.saldoCaixa>=0?C.green:C.red],["Principais saídas",exec.dre.totalCustos,C.red],["Resultado do mês",exec.dre.lucroBruto,exec.dre.lucroBruto>=0?C.green:C.red]].map(([l,v,c])=><div key={l}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{l}</p><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:c,marginTop:5,letterSpacing:-.3}}>{fmt(v)}</p></div>)}</div></div>
-      <div style={{...superficie,padding:18}}><Titulo acao={<DesignSystemButton variant="link" size="sm" className="dashboard-link-btn" onClick={()=>onTab("com_dash")}>Abrir comercial →</DesignSystemButton>}>Resumo comercial</Titulo><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"14px 22px"}}>{[["Novos leads",novosLeads,C.blue],["Propostas abertas",propostasAbertas,C.orange],["Aguardando assinatura",contratosPendentes,C.red],["Vendas no mês",fmt(vendasMes),C.green]].map(([l,v,c])=><div key={l}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{l}</p><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:c,marginTop:5,letterSpacing:-.3}}>{v}</p></div>)}</div><div style={{height:5,display:"flex",overflow:"hidden",borderRadius:99,marginTop:17,background:"#ECEEEF"}}>{[["novo",C.blue],["qualificado",C.orange],["proposta",C.purple],["negociacao",C.yellowD]].map(([etapa,cor])=>{const qtd=leadsAtivos.filter(l=>l.etapa===etapa).length;return qtd?<span key={etapa} title={`${etapa}: ${qtd}`} style={{width:`${qtd/Math.max(1,leadsAtivos.length)*100}%`,background:cor}}/>:null;})}</div></div>
+      <div style={{...superficie,padding:18}}><Titulo acao={<DesignSystemButton variant="link" size="sm" className="dashboard-link-btn" onClick={()=>onTab("dre_emp")}>Detalhes →</DesignSystemButton>}>Resumo financeiro</Titulo><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"14px 22px"}}>{[["A receber",exec.dre.aReceber,C.orange],["Fluxo do período",exec.dre.saldoCaixa,(exec.dre.saldoCaixa>0?C.green:exec.dre.saldoCaixa<0?C.red:C.muted)],["Principais saídas",exec.dre.totalCustos,C.red],["Resultado do mês",exec.dre.lucroBruto,(exec.dre.lucroBruto>0?C.green:exec.dre.lucroBruto<0?C.red:C.muted)]].map(([l,v,c])=><div key={l}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{l}</p><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:c,marginTop:5,letterSpacing:-.3}}>{fmt(v)}</p></div>)}</div></div>
+      <div style={{...superficie,padding:18}}><Titulo acao={<DesignSystemButton variant="link" size="sm" className="dashboard-link-btn" onClick={()=>onTab("com_dash")}>Abrir comercial →</DesignSystemButton>}>Resumo comercial</Titulo><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"14px 22px"}}>{[["Novos leads",novosLeads,C.blue],["Propostas abertas",propostasAbertas,C.orange],["Aguardando assinatura",contratosPendentes,C.red],["Vendas no mês",fmt(vendasMes),C.green]].map(([l,v,c])=><div key={l}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{l}</p><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:c,marginTop:5,letterSpacing:-.3}}>{v}</p></div>)}</div><div style={{height:5,display:"flex",overflow:"hidden",borderRadius:99,marginTop:17,background:"var(--arcd-surface-muted)"}}>{[["novo",C.blue],["qualificado",C.orange],["proposta",C.purple],["negociacao",C.yellowD]].map(([etapa,cor])=>{const qtd=leadsAtivos.filter(l=>l.etapa===etapa).length;return qtd?<span key={etapa} title={`${etapa}: ${qtd}`} style={{width:`${qtd/Math.max(1,leadsAtivos.length)*100}%`,background:cor}}/>:null;})}</div></div>
     </section></details>
 
     <section style={{position:"relative",zIndex:1}}><Titulo>Ações rápidas</Titulo><div className="dashboard-quick-actions">{[
@@ -3012,9 +3016,9 @@ function FinanceiroObraPainel({data,showToast,currentUser=null,obraId,dispatchCo
     <TabRow tabs={[["resumo","Resumo"],["dre","DRE por competência"],["caixa","Entradas e saídas"],["posicoes","Contas em aberto"],["movimentos","Rastreabilidade"],["orcado","Orçado × comprometido"]]} active={aba} onChange={setAba}/>
     <div className="obra-fin-controls"><label><span>Competência</span><StandardInput type="month" value={periodo} onChange={e=>setPeriodo(e.target.value)}/></label>{aba!=="resumo"&&aba!=="orcado"&&<label className="obra-fin-search"><span>Pesquisar</span><StandardInput value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Descrição, fornecedor ou categoria"/></label>}</div>
     {aba==="resumo"&&<><section className="obra-fin-summary">
-      <div className="obra-fin-column"><h3>DRE do período</h3><Metric label="Receita reconhecida" value={receitaReconhecida} detail="Regime de competência" tone="positive"/><Metric label="Custos incorridos" value={custoIncorrido} detail="Documentos e apropriações" tone="negative"/><Metric label="Resultado por competência" value={resultadoCompetencia} detail={`${dre.margemBruta.toFixed(1)}% de margem`} tone={resultadoCompetencia>=0?"positive":"danger"}/></div>
+      <div className="obra-fin-column"><h3>DRE do período</h3><Metric label="Receita reconhecida" value={receitaReconhecida} detail="Regime de competência" tone="positive"/><Metric label="Custos incorridos" value={custoIncorrido} detail="Documentos e apropriações" tone="negative"/><Metric label="Resultado por competência" value={resultadoCompetencia} detail={`${pct1(dre.margemBruta)} de margem`} tone={resultadoCompetencia>=0?"positive":"danger"}/></div>
       <div className="obra-fin-column"><h3>Posições</h3><Metric label="Contas a receber" value={dre.contasReceber} detail="Faturado ainda não recebido"/><Metric label="Contas a pagar" value={dre.contasPagar} detail="Obrigações ainda não liquidadas"/><Metric label="Comprometido" value={dre.comprometido} detail="Pedidos ainda não convertidos em custo"/><Metric label="Pago direto pelo cliente" value={dre.pagoPeloCliente||0} detail="Baixou obrigação sem passar pelo caixa da empresa"/></div>
-      <div className="obra-fin-balance"><div><span>Saldo de caixa do período</span><strong className={saldo>=0?"positive":"negative"}>{fmt(saldo)}</strong><small>Entradas efetivas menos saídas efetivas</small></div><div className="obra-fin-balance-bar"><i style={{width:`${entradasCaixa/totalFluxo*100}%`}}/><b style={{width:`${saidasCaixa/totalFluxo*100}%`}}/></div><div className="obra-fin-legend"><span><i/>Entradas {fmt(entradasCaixa)}</span><span><i/>Saídas {fmt(saidasCaixa)}</span></div><div className="obra-fin-projection"><span>{dre.conference?.ok?"Conferência OK":`${dre.conference?.errors?.length||0} pendência(s) de conferência`}</span><b>{fmt(dre.recebimentosNaoAlocados)} não alocado</b></div></div>
+      <div className="obra-fin-balance"><div><span>Saldo de caixa do período</span><strong className={saldo>=0?"positive":"negative"}>{fmt(saldo)}</strong><small>Entradas efetivas menos saídas efetivas</small></div><div className="obra-fin-balance-bar"><i style={{width:`${entradasCaixa/totalFluxo*100}%`}}/><b style={{width:`${saidasCaixa/totalFluxo*100}%`}}/></div><div className="obra-fin-legend"><span><i/>Entradas {fmt(entradasCaixa)}</span><span><i/>Saídas {fmt(saidasCaixa)}</span></div><div className="obra-fin-projection"><span>{dre.conference?.ok?"Conferência OK":`${contar(dre.conference?.errors?.length||0,"pendência","pendências")} de conferência`}</span><b>{fmt(dre.recebimentosNaoAlocados)} não alocado</b></div></div>
     </section></>}
     {["dre","caixa","movimentos"].includes(aba)&&<Tabela lista={listaAba}/>}
     {aba==="posicoes"&&<section className="obra-fin-summary"><div className="obra-fin-column"><h3>Contas a receber</h3><Metric label="Saldo" value={dre.contasReceber} detail="Medições menos recebimentos vinculados"/><Metric label="Recebimentos não alocados" value={dre.recebimentosNaoAlocados} detail="Entraram no caixa sem baixar documento"/></div><div className="obra-fin-column"><h3>Contas a pagar</h3><Metric label="Saldo" value={dre.contasPagar} detail="NFs e medições de terceiros menos pagamentos"/><Metric label="Pagamentos não alocados" value={dre.pagamentosNaoAlocados} detail="Saíram do caixa sem obrigação reconhecida"/></div><div className="obra-fin-column"><h3>Compromissos</h3><Metric label="Pedidos comprometidos" value={dre.comprometido} detail="Pedido aprovado menos documentos reconhecidos"/></div></section>}
@@ -3263,20 +3267,22 @@ Regras: diferencie faturamento de recebimento; não conclua excesso de pessoas a
   };
 
   //  Linha DRE reutilizável
-  const DRERow = ({label,value,color=C.text,bold=false,indent=0,pct=null}) => (
+  // Valores em coluna única: o recuo da direita é fixo (antes era indent*12 e ficava zero nas linhas de total).
+  // Cor só para desvio: negativo em vermelho; o resto neutro. A cor da categoria não pinta mais o número.
+  const DRERow = ({label,value,color=C.text,bold=false,indent=0,pct=null}) => { const tom=Number(value)<0?C.red:C.text; return (
     <div style={{
       display:"flex",justifyContent:"space-between",alignItems:"center",
-      padding:`${bold?"8px":"5px"} ${indent*12}px 5px ${12+indent*12}px`,
+      padding:`${bold?"8px":"5px"} 12px 5px ${12+indent*12}px`,
       borderBottom:`1px solid ${C.line}22`,
-      background:bold?`${color}08`:"transparent",
+      background:bold?"var(--arcd-surface-subtle)":"transparent",
     }}>
-      <p style={{fontSize:bold?"var(--arcd-type-body)":"var(--arcd-type-body)",color:bold?color:C.muted,fontWeight:bold?600:400}}>{label}</p>
-      <div style={{textAlign:"right",flexShrink:0}}>
-        <p style={{fontSize:bold?"var(--arcd-type-card-title)":"var(--arcd-type-body)",color,fontWeight:bold?600:600}}>{fmt(value)}</p>
-        {pct!==null&&<p style={{fontSize:"var(--arcd-type-caption)",color:color,marginTop:1}}>{pct.toFixed(1)}%</p>}
+      <p style={{fontSize:"var(--arcd-type-body)",color:bold?C.text:C.muted,fontWeight:bold?600:400}}>{label}</p>
+      <div style={{textAlign:"right",flexShrink:0,fontVariantNumeric:"tabular-nums"}}>
+        <p style={{fontSize:bold?"var(--arcd-type-card-title)":"var(--arcd-type-body)",color:tom,fontWeight:600}}>{fmt(value)}</p>
+        {pct!==null&&<p style={{fontSize:"var(--arcd-type-caption)",color:tom,marginTop:1}}>{pct1(pct)}</p>}
       </div>
     </div>
-  );
+  ); };
   const DRESection = ({title,color=C.yellow}) => (
     <div style={{background:`${color}15`,borderLeft:`1px solid ${color}`,padding:"5px 12px",marginTop:6}}>
       <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color,textTransform:"uppercase",letterSpacing:1}}>{title}</p>
@@ -3287,7 +3293,7 @@ Regras: diferencie faturamento de recebimento; não conclua excesso de pessoas a
   //  DRE de uma obra (card)
   const renderObraDRE = (d, compact=false) => {
     if(!d.obra) return null;
-    const lucroCor = d.lucroBruto>=0?C.green:C.red;
+    const lucroCor = (d.lucroBruto>0?C.green:d.lucroBruto<0?C.red:C.muted);
     const caixaCor = d.saldoCaixa>=0?C.blue:C.red;
     return (
       <div key={d.obra.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`1px solid ${lucroCor}`,borderRadius:10,overflow:"hidden"}}>
@@ -3304,7 +3310,7 @@ Regras: diferencie faturamento de recebimento; não conclua excesso de pessoas a
           <div style={{textAlign:"right",flexShrink:0}}>
             <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Lucro Bruto</p>
             <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-section-title)",color:lucroCor,letterSpacing:.5}}>{fmt(d.lucroBruto)}</p>
-            <p style={{fontSize:"var(--arcd-type-label)",color:lucroCor}}>{d.margemBruta.toFixed(1)}%</p>
+            <p style={{fontSize:"var(--arcd-type-label)",color:lucroCor}}>{pct1(d.margemBruta)}</p>
           </div>
         </div>
 
@@ -3407,11 +3413,11 @@ Regras: diferencie faturamento de recebimento; não conclua excesso de pessoas a
       <tr class="subtotal"><td>Total Custos</td><td class="val neg">R$ ${fmt2(obj.totalCustos||0)}</td></tr>
       <tr class="result ${(obj.lucroBruto||0)>=0?"pos":"neg"}">
         <td><strong>LUCRO BRUTO</strong></td>
-        <td class="val"><strong>R$ ${fmt2(obj.lucroBruto||0)} (${(obj.margemBruta||0).toFixed(1)}%)</strong></td>
+        <td class="val"><strong>R$ ${fmt2(obj.lucroBruto||0)} (${pct1(obj.margemBruta||0)})</strong></td>
       </tr>
       <tr class="result ${(obj.saldoCaixa||0)>=0?"caixa":"neg"}">
         <td>Saldo de Caixa</td>
-        <td class="val">R$ ${fmt2(obj.saldoCaixa||0)} (${(obj.margemCaixa||0).toFixed(1)}%)</td>
+        <td class="val">R$ ${fmt2(obj.saldoCaixa||0)} (${pct1(obj.margemCaixa||0)})</td>
       </tr>`;
 
     const obrasSect = isConsolidado ? dre.obras.map(o=>`
@@ -3594,13 +3600,13 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
         {[
           ["faturamento","Faturamento",  dreResumo.faturamento,  C.green,  `${period}`],
           ["recebido","Recebido",     dreResumo.recebido,     C.blue,   `a receber: ${fmt(dreResumo.aReceber)}`],
-          ["custos","Total Custos", dreResumo.totalCustos,  C.red,    `MO + terceiros + outros`],
-          ["lucro","Lucro Bruto",  dreResumo.lucroBruto,   dreResumo.lucroBruto>=0?C.green:C.red, `margem ${dreResumo.margemBruta.toFixed(1)}%`],
+          ["custos","Total de custos", dreResumo.totalCustos,  C.red,    `MO + terceiros + outros`],
+          ["lucro","Lucro bruto",  dreResumo.lucroBruto,   (dreResumo.lucroBruto>0?C.green:dreResumo.lucroBruto<0?C.red:C.muted), `margem ${pct1(dreResumo.margemBruta)}`],
         ].map(([k,l,v,c,s])=>(
           <button type="button" className="dre-kpi-card" key={l} onClick={()=>{setDetalheKpi(k);setFiltroDetalhe({busca:"",categoria:"todos",obra:"todas",ordem:"data_desc"});}} style={{"--dre-kpi-color":c}}>
-            <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.8}}>{l}</p>
-            <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,color:c,fontSize:"var(--arcd-type-page-title)",lineHeight:1.1,marginTop:4}}>{fmt(v)}</p>
-            <span className="dre-kpi-footer"><span>{s}</span><b>Ver movimentos <Ic n="arrowRight" s={12}/></b></span>
+            <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted}}>{l}</p>
+            <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,color:k==="lucro"?c:"var(--arcd-text-primary)",fontSize:"var(--arcd-type-page-title)",lineHeight:1.1,marginTop:4}}>{fmt(v)}</p>
+            <span className="dre-kpi-footer"><span>{s}</span><b>Ver movimentos <span aria-hidden="true">→</span></b></span>
           </button>
         ))}
       </div>
@@ -3626,7 +3632,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
             {dre.outrasTotal>0&&<DRERow label="(-) Outras despesas" value={dre.outrasTotal} color={C.orange} indent={1}/>}
             <DRERow label="Total custos" value={dre.totalCustos} color={C.red} bold/>
             <DRESeparator/>
-            <DRERow label="LUCRO BRUTO" value={dre.lucroBruto} color={dre.lucroBruto>=0?C.green:C.red} bold pct={dre.margemBruta}/>
+            <DRERow label="LUCRO BRUTO" value={dre.lucroBruto} color={(dre.lucroBruto>0?C.green:dre.lucroBruto<0?C.red:C.muted)} bold pct={dre.margemBruta}/>
             <DRERow label="Saldo de Caixa" value={dre.saldoCaixa} color={dre.saldoCaixa>=0?C.blue:C.red} bold pct={dre.margemCaixa}/>
             <DRESection title="Posição Acumulada (Todas as Obras)" color={C.blue}/>
             <DRERow label="Faturado acumulado" value={dre.faturadoAcum} color={C.blue}/>
@@ -3659,7 +3665,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
             }}>
               <span className="grid gap-1">
                 <strong>{o.obra.name}</strong>
-                <span>Lucro bruto {fmt(o.lucroBruto)} · Margem {o.margemBruta.toFixed(1)}%</span>
+                <span>Lucro bruto {fmt(o.lucroBruto)} · Margem {pct1(o.margemBruta)}</span>
               </span>
             </RecordAction>)}
         </div>
@@ -3717,8 +3723,8 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
                 <p style={{fontSize:"var(--arcd-type-body)",fontWeight:h.m===month&&h.y===year?600:500,color:h.m===month&&h.y===year?C.yellow:C.text}}>{h.mes}{h.m===month&&h.y===year?" ":""}</p>
                 <p style={{fontSize:"var(--arcd-type-body)",color:C.green,fontWeight:600}}>{fmt(h.faturamento)}</p>
                 <p style={{fontSize:"var(--arcd-type-body)",color:C.blue}}>{fmt(h.recebido)}</p>
-                <p style={{fontSize:"var(--arcd-type-body)",color:h.lucroBruto>=0?C.green:C.red,fontWeight:600}}>{fmt(h.lucroBruto)}</p>
-                <p style={{fontSize:"var(--arcd-type-body)",color:h.margemBruta>=0?C.green:C.red,fontWeight:600}}>{h.margemBruta.toFixed(1)}%</p>
+                <p style={{fontSize:"var(--arcd-type-body)",color:(h.lucroBruto>0?C.green:h.lucroBruto<0?C.red:C.muted),fontWeight:600}}>{fmt(h.lucroBruto)}</p>
+                <p style={{fontSize:"var(--arcd-type-body)",color:(h.margemBruta>0?C.green:h.margemBruta<0?C.red:C.muted),fontWeight:600}}>{pct1(h.margemBruta)}</p>
               </div>
             ))}
           </div>
@@ -3761,7 +3767,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
 
       {/* Exportações */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-        <Btn onClick={gerarPDF} disabled={bloquearPdfObra} v="danger" full><Ic n="file"/> DRE PDF</Btn>
+        <Btn onClick={gerarPDF} disabled={bloquearPdfObra} v="secondary" full><Ic n="file"/> DRE PDF</Btn>
         <Btn onClick={exportXLS} disabled={carregandoObra} v="success" full><Ic n="download"/> Excel Completo</Btn>
       </div>
 
@@ -4000,7 +4006,7 @@ function CentralFiscal({data,update,showToast,currentUser,obraIdFiltro="all",onO
       ]}
       actions={<Btn onClick={()=>{setSugestoesNota([]);setForm(vazia());}}><Ic n="plus"/> Receber nota</Btn>}
     />
-    <Sel label="Obra" value={obraIdFiltro} onChange={onObraChange} options={[{v:"all",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/><div style={{display:"flex",gap:4,overflowX:"auto"}}>{[["todas","Todas"],["recebida","Em conferência"],["aprovada","Aprovadas"],["paga","Pagas"],["rejeitada","Rejeitadas"]].map(([v,l])=><button key={v} onClick={()=>setFiltro(v)} style={{padding:"6px 9px",border:`1px solid ${filtro===v?C.purple:C.border}`,borderRadius:7,background:filtro===v?`${C.purple}12`:C.card,color:filtro===v?C.purple:C.muted,fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>{l}</button>)}</div>{lista.map(n=><div key={n.id} style={{padding:"10px 11px",border:`1px solid ${C.border}`,borderLeft:`1px solid ${n.divergencias?.length?C.red:n.status==="aprovada"?C.green:C.blue}`,borderRadius:9,background:C.card}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><div><b style={{fontSize:"var(--arcd-type-body)"}}>{n.tipo.toUpperCase()} {n.numero} · {n.fornecedorNome||"Fornecedor"}</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{(data.obras||[]).find(o=>o.id===n.obraId)?.name} · emissão {fmtDate(n.emissao)} · {n.documentos.length} arquivo(s) no Drive</p></div><b style={{color:C.yellowD}}>{fmt(n.valorLiquido)}</b></div>{n.conferenciaFiscalPendente&&<p role="status">Conferência fiscal pendente. O pagamento registrado não substitui a revisão do documento.</p>}{n.divergencias?.map((d,i)=><p key={i} style={{fontSize:"var(--arcd-type-caption)",color:C.red,marginTop:4}}>⚠ {d}</p>)}{n.status==="rejeitada"&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.red,marginTop:4}}>Rejeitada por {n.rejeitadoPor||"-"}: {n.motivoRejeicao||"sem motivo registrado"}</p>}<div style={{display:"flex",gap:5,marginTop:7,flexWrap:"wrap"}}><Btn size="sm" v="ghost" onClick={()=>setForm({...n,valorBruto:String(n.valorBruto),valorLiquido:String(n.valorLiquido)})}>Verificar</Btn><Btn size="sm" v="ghost" onClick={()=>onMemorial?.({title:`Nota ${n.numero}`,items:[financialEntry(data,{sourceType:"nota_fiscal",sourceId:n.id,obraId:n.obraId,amountCents:Math.round(Number(n.valorLiquido||n.valorBruto||0)*100)})],context:"Documento fiscal e dados vinculados"})}>Ver memorial</Btn>{(n.status==="recebida"||n.conferenciaFiscalPendente)&&<Btn size="sm" v="success" onClick={()=>aprovar(n)}>Concluir conferência fiscal</Btn>}{["recebida","aprovada"].includes(n.status)&&<Btn size="sm" v="danger" onClick={()=>rejeitar(n)}>Rejeitar</Btn>}{n.documentos.map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-caption)",color:C.blue,padding:"6px"}}>{a.legenda||a.nome} ↗</a>)}</div></div>)}{!lista.length&&<p style={{padding:20,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhuma nota neste estágio.</p>}{form&&<Modal title={form.id?`Conferir nota ${form.numero}`:"Receber documento fiscal"} onClose={invoiceExit.requestClose} wide panelClass="invoice-conference-modal"><InvoiceConference documents={form.documentos||[]} driveId={(data.obras||[]).find(obra=>obra.id===(notas.find(nota=>nota.id===form.id)?.obraId||form.obraId))?.oneDriveDriveId} resolveFile={obterLinkArquivoOneDrive}><div style={{display:"flex",flexDirection:"column",gap:10}}><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Sel label="Tipo" value={form.tipo} onChange={F("tipo")} options={[{v:"nfe",l:"NF-e de produto"},{v:"nfse",l:"NFS-e de serviço"},{v:"cte",l:"CT-e / frete"},{v:"outro",l:"Outro documento"}]}/><Sel label="Obra *" value={form.obraId} onChange={v=>setForm(f=>({...f,obraId:v,pedidoId:""}))} options={[{v:"",l:"Selecione"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/><Sel label="Pedido relacionado" value={form.pedidoId} onChange={v=>setForm(f=>({...f,pedidoId:v,...(f.itensNota?.length?{itensNota:ligarItensAoPedido(f.itensNota,v)}:{})}))} options={[{v:"",l:"Sem pedido"},...(data.pedidos||[]).filter(p=>p.obraId===form.obraId).map(p=>({v:p.id,l:`${p.numero} · ${fmt(totalPedido(p))}`}))]}/><Inp label="Número *" value={form.numero} onChange={F("numero")}/><Inp label="Série" value={form.serie} onChange={F("serie")}/><Inp label="Chave de acesso" value={form.chave} onChange={F("chave")}/><Inp label="Emissão" type="date" value={form.emissao} onChange={F("emissao")}/><Inp label="Vencimento" type="date" value={form.vencimento} onChange={F("vencimento")}/><Inp label="Fornecedor" value={form.fornecedorNome} onChange={F("fornecedorNome")}/><Sel label="Categoria" value={form.categoria||""} onChange={F("categoria")} options={[{v:"",l:"Não informada"},...categoriasDesp(data),...(form.categoria&&!categoriasDesp(data).some(c=>c.v===form.categoria)?[{v:form.categoria,l:form.categoria}]:[])]}/><Inp label="Valor bruto *" type="number" value={form.valorBruto} onChange={v=>setForm(f=>({...f,valorBruto:v,valorLiquido:String(Math.max(0,Number(v||0)-totalRet(f)))}))}/><Inp label="Retenções" value={fmt(totalRet(form))} onChange={()=>{}} disabled/><Inp label="Valor líquido" type="number" value={form.valorLiquido} onChange={F("valorLiquido")}/></div><div style={{display:"grid",gridTemplateColumns:formGrid(4),gap:6}}>{Object.keys(form.retencoes).map(k=><Inp key={k} label={k.toUpperCase()} type="number" value={form.retencoes[k]} onChange={v=>setRetencao(k,v)}/>)}</div><label style={{padding:"12px",border:`2px solid ${C.green}66`,borderRadius:9,textAlign:"center",cursor:"pointer",color:C.green,fontSize:"var(--arcd-type-label)",fontWeight:600,background:`${C.green}08`}}>Importar XML da NF-e (preenche a nota e confere com o pedido)<input type="file" accept=".xml,text/xml,application/xml" onChange={importarXmlNfe} style={{display:"none"}}/></label>{sugestoesNota.length>1&&<div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Outros pedidos do fornecedor:</span>{sugestoesNota.map(s=><Btn key={s.pedido.id} size="sm" v={form.pedidoId===s.pedido.id?"success":"ghost"} onClick={()=>setForm(f=>({...f,obraId:s.pedido.obraId,pedidoId:s.pedido.id,...(f.itensNota?.length?{itensNota:ligarItensAoPedido(f.itensNota,s.pedido.id)}:{})}))}>{s.pedido.numero} · {fmt(s.total)} · {s.casados} item(ns)</Btn>)}</div>}{form.itensNota?.length>0&&(()=>{const ped=(data.pedidos||[]).find(p=>p.id===form.pedidoId);const nomeItem=i=>(data.materiais||[]).find(m=>m.id===i.materialId)?.descricao||i.descricaoRef||"Item";const usados=new Set(form.itensNota.map(i=>i.pedidoItemId).filter(Boolean));return <div style={{border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 10px",background:C.surface}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Itens da nota × pedido {ped?.numero||""}</p>{form.itensNota.map((it,ix)=>{const itemPed=ped?.itens?.find(x=>x.id===it.pedidoItemId);const divs=it.pedidoItemId?divergenciasDoItem(it,itemPed):[ped?"Sem item correspondente: vincule manualmente.":"Escolha o pedido para conferir."];return <div key={ix} style={{marginTop:6,paddingTop:6,borderTop:`1px solid ${C.line}`,display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)",gap:6,alignItems:"center"}}><span className="brk" style={{fontSize:"var(--arcd-type-label)",color:C.text}}><b>{it.descricao}</b><small style={{display:"block",color:C.muted}}>{Number(it.qtd).toLocaleString("pt-BR")} {it.unidade} × {fmt(it.precoUnit)} = {fmt(it.valorTotal)}</small></span><Sel label="Item do pedido" value={it.pedidoItemId||""} onChange={v=>setForm(f=>({...f,itensNota:f.itensNota.map((x,k)=>k===ix?{...x,pedidoItemId:v}:x)}))} options={[{v:"",l:"Sem vínculo"},...(ped?.itens||[]).filter(x=>x.id===it.pedidoItemId||!usados.has(x.id)).map(x=>({v:x.id,l:`${nomeItem(x)} · ${Number(x.qtd).toLocaleString("pt-BR")} × ${fmt(x.precoUnit)}`}))]}/>{divs.map((d,k)=><p key={k} style={{gridColumn:"1/-1",fontSize:"var(--arcd-type-caption)",color:C.red,fontWeight:600}}>⚠ {d}</p>)}</div>;})}{ped&&<p style={{fontSize:"var(--arcd-type-caption)",color:Math.abs(Number(form.valorBruto||0)-totalPedido(ped))>0.01?C.orange:C.green,fontWeight:600,marginTop:6}}>Nota {fmt(Number(form.valorBruto||0))} · pedido {fmt(totalPedido(ped))} · recebido {fmt(recebidoPedido(ped))}. A conferência completa roda ao salvar.</p>}</div>;})()}<label style={{padding:"12px",border:`2px dashed ${C.blue}55`,borderRadius:9,textAlign:"center",cursor:"pointer",color:C.blue,fontSize:"var(--arcd-type-label)",fontWeight:600}}>{subindo?"Enviando e lendo documento...":form.documentos?.length?"+ Anexar outro XML, PDF ou imagem":"Anexar XML, PDF ou imagem da nota"}<input type="file" accept=".xml,.pdf,image/*" onChange={importar} disabled={subindo} style={{display:"none"}}/></label>{form.documentos?.map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-label)",color:C.blue,textDecoration:"underline"}}>{a.legenda||a.nome} · visualizar no OneDrive ↗</a>)}{pedido&&<div style={{padding:"9px 10px",background:C.surface,borderRadius:8,fontSize:"var(--arcd-type-label)"}}>Pedido {pedido.numero}: <b>{fmt(totalPedido(pedido))}</b> · recebido: <b>{fmt(recebidoPedido(pedido))}</b></div>}<RecordRecoveryPanel data={data} recovery={invoiceRecovery} draft={form} fields={invoiceRecoveryFields} user={currentUser} onRebase={setForm} onConfirmed={async result=>{await update({__adotarServidorPatch:true,updatedAt:result.updatedAt,sections:{notasFiscais:result.data.notasFiscais,operationalCommandReceipts:result.data.operationalCommandReceipts}});setForm(null);}}/><div style={{display:"flex",gap:8}}><Btn v="ghost" disabled={invoiceCommandPending} onClick={invoiceExit.requestClose} full>Cancelar</Btn><Btn onClick={salvar} disabled={invoiceCommandPending} loading={invoiceCommandPending&&"Salvando…"} full>Salvar e conferir</Btn></div></div></InvoiceConference></Modal>}{form&&<UnsavedChangesPrompt guard={invoiceExit}/>}{xmlPreview&&<Modal title="Prévia da importação XML" wide onClose={()=>setXmlPreview(null)}><FinancialPreview
+    <Sel label="Obra" value={obraIdFiltro} onChange={onObraChange} options={[{v:"all",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/><div style={{display:"flex",gap:4,overflowX:"auto"}}>{[["todas","Todas"],["recebida","Em conferência"],["aprovada","Aprovadas"],["paga","Pagas"],["rejeitada","Rejeitadas"]].map(([v,l])=><button key={v} onClick={()=>setFiltro(v)} style={{padding:"6px 9px",border:`1px solid ${filtro===v?C.purple:C.border}`,borderRadius:7,background:filtro===v?`${C.purple}12`:C.card,color:filtro===v?C.purple:C.muted,fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>{l}</button>)}</div>{lista.map(n=><div key={n.id} style={{padding:"10px 11px",border:`1px solid ${C.border}`,borderLeft:`1px solid ${n.divergencias?.length?C.red:n.status==="aprovada"?C.green:C.blue}`,borderRadius:9,background:C.card}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><div><b style={{fontSize:"var(--arcd-type-body)"}}>{n.tipo.toUpperCase()} {n.numero} · {n.fornecedorNome||"Fornecedor"}</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{(data.obras||[]).find(o=>o.id===n.obraId)?.name} · emissão {fmtDate(n.emissao)} · {contar(n.documentos.length,"arquivo","arquivos")} no Drive</p></div><b style={{color:C.yellowD}}>{fmt(n.valorLiquido)}</b></div>{n.conferenciaFiscalPendente&&<p role="status">Conferência fiscal pendente. O pagamento registrado não substitui a revisão do documento.</p>}{n.divergencias?.map((d,i)=><p key={i} style={{fontSize:"var(--arcd-type-caption)",color:C.red,marginTop:4}}>⚠ {d}</p>)}{n.status==="rejeitada"&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.red,marginTop:4}}>Rejeitada por {n.rejeitadoPor||"-"}: {n.motivoRejeicao||"sem motivo registrado"}</p>}<div style={{display:"flex",gap:5,marginTop:7,flexWrap:"wrap"}}><Btn size="sm" v="ghost" onClick={()=>setForm({...n,valorBruto:String(n.valorBruto),valorLiquido:String(n.valorLiquido)})}>Verificar</Btn><Btn size="sm" v="ghost" onClick={()=>onMemorial?.({title:`Nota ${n.numero}`,items:[financialEntry(data,{sourceType:"nota_fiscal",sourceId:n.id,obraId:n.obraId,amountCents:Math.round(Number(n.valorLiquido||n.valorBruto||0)*100)})],context:"Documento fiscal e dados vinculados"})}>Ver memorial</Btn>{(n.status==="recebida"||n.conferenciaFiscalPendente)&&<Btn size="sm" v="success" onClick={()=>aprovar(n)}>Concluir conferência fiscal</Btn>}{["recebida","aprovada"].includes(n.status)&&<Btn size="sm" v="danger" onClick={()=>rejeitar(n)}>Rejeitar</Btn>}{n.documentos.map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-caption)",color:C.blue,padding:"6px"}}>{a.legenda||a.nome} ↗</a>)}</div></div>)}{!lista.length&&<p style={{padding:20,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhuma nota neste estágio.</p>}{form&&<Modal title={form.id?`Conferir nota ${form.numero}`:"Receber documento fiscal"} onClose={invoiceExit.requestClose} wide panelClass="invoice-conference-modal"><InvoiceConference documents={form.documentos||[]} driveId={(data.obras||[]).find(obra=>obra.id===(notas.find(nota=>nota.id===form.id)?.obraId||form.obraId))?.oneDriveDriveId} resolveFile={obterLinkArquivoOneDrive}><div style={{display:"flex",flexDirection:"column",gap:10}}><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Sel label="Tipo" value={form.tipo} onChange={F("tipo")} options={[{v:"nfe",l:"NF-e de produto"},{v:"nfse",l:"NFS-e de serviço"},{v:"cte",l:"CT-e / frete"},{v:"outro",l:"Outro documento"}]}/><Sel label="Obra *" value={form.obraId} onChange={v=>setForm(f=>({...f,obraId:v,pedidoId:""}))} options={[{v:"",l:"Selecione"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/><Sel label="Pedido relacionado" value={form.pedidoId} onChange={v=>setForm(f=>({...f,pedidoId:v,...(f.itensNota?.length?{itensNota:ligarItensAoPedido(f.itensNota,v)}:{})}))} options={[{v:"",l:"Sem pedido"},...(data.pedidos||[]).filter(p=>p.obraId===form.obraId).map(p=>({v:p.id,l:`${p.numero} · ${fmt(totalPedido(p))}`}))]}/><Inp label="Número *" value={form.numero} onChange={F("numero")}/><Inp label="Série" value={form.serie} onChange={F("serie")}/><Inp label="Chave de acesso" value={form.chave} onChange={F("chave")}/><Inp label="Emissão" type="date" value={form.emissao} onChange={F("emissao")}/><Inp label="Vencimento" type="date" value={form.vencimento} onChange={F("vencimento")}/><Inp label="Fornecedor" value={form.fornecedorNome} onChange={F("fornecedorNome")}/><Sel label="Categoria" value={form.categoria||""} onChange={F("categoria")} options={[{v:"",l:"Não informada"},...categoriasDesp(data),...(form.categoria&&!categoriasDesp(data).some(c=>c.v===form.categoria)?[{v:form.categoria,l:form.categoria}]:[])]}/><Inp label="Valor bruto *" type="number" value={form.valorBruto} onChange={v=>setForm(f=>({...f,valorBruto:v,valorLiquido:String(Math.max(0,Number(v||0)-totalRet(f)))}))}/><Inp label="Retenções" value={fmt(totalRet(form))} onChange={()=>{}} disabled/><Inp label="Valor líquido" type="number" value={form.valorLiquido} onChange={F("valorLiquido")}/></div><div style={{display:"grid",gridTemplateColumns:formGrid(4),gap:6}}>{Object.keys(form.retencoes).map(k=><Inp key={k} label={k.toUpperCase()} type="number" value={form.retencoes[k]} onChange={v=>setRetencao(k,v)}/>)}</div><label style={{padding:"12px",border:`2px solid ${C.green}66`,borderRadius:9,textAlign:"center",cursor:"pointer",color:C.green,fontSize:"var(--arcd-type-label)",fontWeight:600,background:`${C.green}08`}}>Importar XML da NF-e (preenche a nota e confere com o pedido)<input type="file" accept=".xml,text/xml,application/xml" onChange={importarXmlNfe} style={{display:"none"}}/></label>{sugestoesNota.length>1&&<div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Outros pedidos do fornecedor:</span>{sugestoesNota.map(s=><Btn key={s.pedido.id} size="sm" v={form.pedidoId===s.pedido.id?"success":"ghost"} onClick={()=>setForm(f=>({...f,obraId:s.pedido.obraId,pedidoId:s.pedido.id,...(f.itensNota?.length?{itensNota:ligarItensAoPedido(f.itensNota,s.pedido.id)}:{})}))}>{s.pedido.numero} · {fmt(s.total)} · {s.casados} item(ns)</Btn>)}</div>}{form.itensNota?.length>0&&(()=>{const ped=(data.pedidos||[]).find(p=>p.id===form.pedidoId);const nomeItem=i=>(data.materiais||[]).find(m=>m.id===i.materialId)?.descricao||i.descricaoRef||"Item";const usados=new Set(form.itensNota.map(i=>i.pedidoItemId).filter(Boolean));return <div style={{border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 10px",background:C.surface}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Itens da nota × pedido {ped?.numero||""}</p>{form.itensNota.map((it,ix)=>{const itemPed=ped?.itens?.find(x=>x.id===it.pedidoItemId);const divs=it.pedidoItemId?divergenciasDoItem(it,itemPed):[ped?"Sem item correspondente: vincule manualmente.":"Escolha o pedido para conferir."];return <div key={ix} style={{marginTop:6,paddingTop:6,borderTop:`1px solid ${C.line}`,display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)",gap:6,alignItems:"center"}}><span className="brk" style={{fontSize:"var(--arcd-type-label)",color:C.text}}><b>{it.descricao}</b><small style={{display:"block",color:C.muted}}>{Number(it.qtd).toLocaleString("pt-BR")} {it.unidade} × {fmt(it.precoUnit)} = {fmt(it.valorTotal)}</small></span><Sel label="Item do pedido" value={it.pedidoItemId||""} onChange={v=>setForm(f=>({...f,itensNota:f.itensNota.map((x,k)=>k===ix?{...x,pedidoItemId:v}:x)}))} options={[{v:"",l:"Sem vínculo"},...(ped?.itens||[]).filter(x=>x.id===it.pedidoItemId||!usados.has(x.id)).map(x=>({v:x.id,l:`${nomeItem(x)} · ${Number(x.qtd).toLocaleString("pt-BR")} × ${fmt(x.precoUnit)}`}))]}/>{divs.map((d,k)=><p key={k} style={{gridColumn:"1/-1",fontSize:"var(--arcd-type-caption)",color:C.red,fontWeight:600}}>⚠ {d}</p>)}</div>;})}{ped&&<p style={{fontSize:"var(--arcd-type-caption)",color:Math.abs(Number(form.valorBruto||0)-totalPedido(ped))>0.01?C.orange:C.green,fontWeight:600,marginTop:6}}>Nota {fmt(Number(form.valorBruto||0))} · pedido {fmt(totalPedido(ped))} · recebido {fmt(recebidoPedido(ped))}. A conferência completa roda ao salvar.</p>}</div>;})()}<label style={{padding:"12px",border:`2px dashed ${C.blue}55`,borderRadius:9,textAlign:"center",cursor:"pointer",color:C.blue,fontSize:"var(--arcd-type-label)",fontWeight:600}}>{subindo?"Enviando e lendo documento...":form.documentos?.length?"+ Anexar outro XML, PDF ou imagem":"Anexar XML, PDF ou imagem da nota"}<input type="file" accept=".xml,.pdf,image/*" onChange={importar} disabled={subindo} style={{display:"none"}}/></label>{form.documentos?.map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-label)",color:C.blue,textDecoration:"underline"}}>{a.legenda||a.nome} · visualizar no OneDrive ↗</a>)}{pedido&&<div style={{padding:"9px 10px",background:C.surface,borderRadius:8,fontSize:"var(--arcd-type-label)"}}>Pedido {pedido.numero}: <b>{fmt(totalPedido(pedido))}</b> · recebido: <b>{fmt(recebidoPedido(pedido))}</b></div>}<RecordRecoveryPanel data={data} recovery={invoiceRecovery} draft={form} fields={invoiceRecoveryFields} user={currentUser} onRebase={setForm} onConfirmed={async result=>{await update({__adotarServidorPatch:true,updatedAt:result.updatedAt,sections:{notasFiscais:result.data.notasFiscais,operationalCommandReceipts:result.data.operationalCommandReceipts}});setForm(null);}}/><div style={{display:"flex",gap:8}}><Btn v="ghost" disabled={invoiceCommandPending} onClick={invoiceExit.requestClose} full>Cancelar</Btn><Btn onClick={salvar} disabled={invoiceCommandPending} loading={invoiceCommandPending&&"Salvando…"} full>Salvar e conferir</Btn></div></div></InvoiceConference></Modal>}{form&&<UnsavedChangesPrompt guard={invoiceExit}/>}{xmlPreview&&<Modal title="Prévia da importação XML" wide onClose={()=>setXmlPreview(null)}><FinancialPreview
       description={`${xmlPreview.filename}. Aplicar preenche a ficha aberta; não salva nem cria uma nota fiscal.`}
       columns={["Campo","Na ficha","Do XML / proposta"]}
       rows={[["Número","numero"],["Série","serie"],["Chave","chave"],["Fornecedor","fornecedorNome"],["CNPJ / CPF","documentoFornecedor"],["Emissão","emissao"],["Vencimento","vencimento"],["Valor bruto","valorBruto"],["Valor líquido após retenções","valorLiquido"],["Pedido","pedidoId"]].map(([label,key])=>({id:key,cells:[label,xmlPreviewValue(key,xmlPreview.before[key]),xmlPreviewValue(key,xmlPreview.proposed[key])]}))}
@@ -4068,10 +4074,10 @@ function CentralPagamentosFinanceiro({data,showToast,currentUser,onNovaNota,onAb
   const totalPagas=obrigacoesEscopo.filter(i=>i.estado==="paga").length;
   const totalAConciliar=obrigacoesEscopo.filter(i=>i.pagamentos.some(pg=>!pg.conciliado)).length;
   const resumoFinanceiro=[
-    {label:"Contas a pagar",valor:totalAberto,cor:C.red,apoio:`${contasPagar.items.filter(item=>item.balanceCents>1).length} título(s) no razão`},
-    {label:"Autorizado a pagar",valor:totalAutorizado,cor:C.green,apoio:`${autorizadas.length} liberada(s)`},
+    {label:"Contas a pagar",valor:totalAberto,cor:C.red,apoio:`${contar(contasPagar.items.filter(item=>item.balanceCents>1).length,"título","títulos")} no razão`},
+    {label:"Autorizado a pagar",valor:totalAutorizado,cor:C.green,apoio:`${contar(autorizadas.length,"liberada","liberadas")}`},
     {label:"Vencido",valor:totalVencido,cor:C.red,apoio:`${contasPagar.items.filter(item=>item.status==="vencido").length} vencida(s)`},
-    {label:"A conciliar",valor:semConciliar,cor:C.orange,apoio:`${totalAConciliar} pagamento(s)`},
+    {label:"A conciliar",valor:semConciliar,cor:C.orange,apoio:`${contar(totalAConciliar,"pagamento","pagamentos")}`},
   ];
   const openPaymentMetric=label=>{
     let items;
@@ -4100,7 +4106,7 @@ function CentralPagamentosFinanceiro({data,showToast,currentUser,onNovaNota,onAb
       <Sel label="Situação" value={filtro} onChange={setFiltro} options={[{v:"fila",l:"Fila operacional"},{v:"vencidas",l:"Vencidas"},{v:"autorizadas",l:"Autorizadas a pagar"},{v:"conferencia",l:"Em conferência"},{v:"sem_nota",l:"Pedidos sem documento fiscal"},{v:"conciliar",l:"Pagos a conciliar"},{v:"pagas",l:"Pagas"},{v:"todas",l:"Todas"}]}/><Inp label="Pesquisar pagamentos" value={busca} onChange={setBusca} placeholder="Documento, pedido, fornecedor ou obra"/>
     </WorkspaceCommandBar>
     <PaymentOverview metrics={resumoFinanceiro} stages={etapasFluxo} filter={filtro} onStage={setFiltro} onMetric={openPaymentMetric} formatMoney={fmt}/>
-    <div className="workspace-list-status"><h2>Fila de obrigações</h2><p role="status">{visiveis.length} resultado(s)</p></div>
+    <div className="workspace-list-status"><h2>Fila de obrigações</h2><p role="status">{contar(visiveis.length,"resultado","resultados")}</p></div>
 
     <div style={{display:"flex",flexDirection:"column",gap:7}}>{visiveis.map(item=>{const ev=estadoVisual[item.estado]||estadoVisual.conferencia,semConc=item.pagamentos.some(pg=>!pg.conciliado),vencida=item.estado==="vencida";return <article key={item.id} style={{background:C.card,border:`1px solid ${vencida?`${C.red}77`:C.border}`,borderLeft:`1px solid ${ev.c}`,borderRadius:9,overflow:"hidden",boxShadow:C.shHair}}><div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:10,alignItems:"start",padding:"10px 11px"}}><div style={{minWidth:0}}><div style={{display:"flex",gap:5,alignItems:"center",flexWrap:"wrap"}}><Badge color={ev.c}>{ev.l}</Badge><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:item.tipo==="nota"?C.blue:C.purple}}>{item.tipo==="nota"?"DOCUMENTO FISCAL":"PEDIDO SEM NF"}</span>{semConc&&<Badge color={C.orange}>A CONCILIAR</Badge>}</div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginTop:5,overflowWrap:"anywhere"}}>{item.numero} · {item.fornecedor}</p><div style={{display:"flex",gap:7,alignItems:"center",flexWrap:"wrap",marginTop:4,fontSize:"var(--arcd-type-caption)",color:C.muted}}><span><b style={{color:C.text}}>Obra:</b> {obraNome(item.obraId)}</span><span><b style={{color:C.text}}>Emissão:</b> {item.emissao?fmtDate(item.emissao):"-"}</span><span style={{color:vencida?C.red:C.muted}}><b style={{color:vencida?C.red:C.text}}>Vencimento:</b> {item.vencimento?fmtDate(item.vencimento):"não informado"}</span></div></div><div style={{minWidth:105,textAlign:"right",background:C.surface,border:`1px solid ${C.line}`,borderRadius:7,padding:"7px 8px"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>{item.saldo>.01?"Saldo a pagar":"Total pago"}</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:item.saldo>.01?C.red:C.green,marginTop:2}}>{fmt(item.saldo>.01?item.saldo:item.total)}</p>{item.saldo>.01&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>de {fmt(item.total)}</p>}</div></div>{item.estado==="sem_nota"&&<div style={{margin:"0 11px 8px",padding:"6px 8px",borderRadius:6,background:`${C.purple}0B`,color:C.purple,fontSize:"var(--arcd-type-caption)",fontWeight:600}}>Documento fiscal ainda não vinculado. Pagamentos antecipados permanecem sinalizados para auditoria.</div>}{item.estado==="conferencia"&&<div style={{margin:"0 11px 8px",padding:"6px 8px",borderRadius:6,background:`${C.blue}0B`,color:C.blue,fontSize:"var(--arcd-type-caption)",fontWeight:600}}>Aguardando conferência do pedido, recebimento, valores, retenções e rateio.</div>}{item.pagamentos.length>0&&<div style={{display:"flex",gap:5,flexWrap:"wrap",padding:"0 11px 8px"}}>{item.pagamentos.map(pg=><span key={pg.id} style={{fontSize:"var(--arcd-type-caption)",color:pg.conciliado?C.green:C.orange,background:pg.conciliado?`${C.green}0B`:`${C.orange}0B`,border:`1px solid ${pg.conciliado?C.green:C.orange}44`,borderRadius:99,padding:"3px 7px"}}>{fmt(pg.valor)} · {origemPagamentoLabel(pg.origem)} · {pg.conciliado?"conciliado":"pendente"}{(pg.comprovantes||[]).map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{color:C.blue,marginLeft:5,fontWeight:600}}>comprovante ↗</a>)}</span>)}</div>}<footer style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",padding:"7px 11px",borderTop:`1px solid ${C.line}`,background:C.surface}}><div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",minWidth:0}}>{item.documentos.map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:"var(--arcd-type-caption)",color:C.blue,fontWeight:600,textDecoration:"none"}}><Ic n="file" s={11}/>{a.legenda||a.nome} ↗</a>)}{!item.documentos.length&&<span style={{fontSize:"var(--arcd-type-caption)",color:C.orange,fontWeight:600}}>Sem anexo cadastrado</span>}</div><span style={{flex:1}}/><Btn size="sm" v="ghost" onClick={()=>onMemorial?.({title:item.numero,items:[{...financialEntry(data,{sourceType:item.tipo==="nota"?"nota_fiscal":"pedido",sourceId:item.registro.id,obraId:item.obraId,amountCents:Math.round(item.total*100)}),metadata:{saldo:item.saldo,vencimento:item.vencimento}}],context:"Documento e histórico de pagamentos"})}>Ver memorial</Btn>{item.estado==="sem_nota"&&<Btn size="sm" v="ghost" onClick={onNovaNota}>Receber documento fiscal</Btn>}{item.estado==="conferencia"&&<Btn size="sm" v="ghost" onClick={()=>onReviewInvoice?onReviewInvoice(item.registro):onAbrirFiscal()}>Conferir documento</Btn>}{item.tipo==="nota"&&hasInvoiceBankPayment(item.registro)&&onBank&&<Btn size="sm" v="ghost" onClick={()=>onBank(item.registro.id)}>Revisar conciliação</Btn>}{item.saldo>.01&&<Btn size="sm" onClick={()=>abrirPagamento(item)}><Ic n="receipt"/> Registrar pagamento</Btn>}</footer></article>;})}{!visiveis.length&&<div style={{padding:"28px 16px",textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:10,background:C.surface}}><Ic n="check" s={22} color={C.green}/><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginTop:6}}>Nenhuma obrigação neste filtro</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>A fila está atualizada com os pedidos e documentos fiscais cadastrados.</p></div>}</div>
     {pagamento&&<PaymentDialog data={data} user={currentUser} type={pagamento.type} id={pagamento.id} pageId="fin" dispatch={dispatchCommand} onClose={()=>setPagamento(null)} onSaved={()=>showToast('Pagamento registrado e confirmado pelo servidor.')}/>}
@@ -4173,12 +4179,12 @@ function FinanceiroAdministrativo({data,update,showToast,currentUser,C=C_ARCD_SE
     />
     <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:"var(--arcd-space-2)"}}><Sel label="Obra" value={obraId} onChange={setObraId} options={[{v:"all",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/><Sel label="Mês" value={String(mes)} onChange={v=>setMes(Number(v))} options={Array.from({length:12},(_,i)=>({v:String(i),l:fullMonth(i)}))}/><Sel label="Ano" value={String(ano)} onChange={v=>setAno(Number(v))} options={Array.from({length:5},(_,i)=>agora.getFullYear()-2+i).map(v=>({v:String(v),l:String(v)}))}/></div>
     {aba==="resumo"&&<>
-      <div style={{display:"grid",gridTemplateColumns:cols(2,3,3),gap:"var(--arcd-space-2)"}}>{[["Faturamento",faturamento,C.green,"emitido"],["Recebido",recebido,C.blue,"entrada de caixa"],["A receber",aReceber,C.orange,`${receitasAbertas.length} título(s)`],["Custos e despesas",custos,C.red,despesasAdministrativas?`${fmt(despesasAdministrativas)} administrativo`:"regime gerencial"],["Notas em aberto",valorNotasAbertas,C.purple,`${notasAbertas.length} documento(s)`],["Resultado",resultado,resultado>=0?C.green:C.red,faturamento?`${((resultado/faturamento)*100).toFixed(1)}% de margem`:"sem faturamento"]].map(([l,v,c,s])=><div key={l} style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderTop:`3px solid ${c}`,borderRadius:9,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>{l}</p><p style={{fontSize:"var(--arcd-type-section-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:c,marginTop:"var(--arcd-space-half)"}}>{fmt(v)}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{s}</p></div>)}</div>
+      <div style={{display:"grid",gridTemplateColumns:cols(2,3,3),gap:"var(--arcd-space-2)"}}>{[["Faturamento",faturamento,C.green,"emitido"],["Recebido",recebido,C.blue,"entrada de caixa"],["A receber",aReceber,C.orange,`${contar(receitasAbertas.length,"título","títulos")}`],["Custos e despesas",custos,C.red,despesasAdministrativas?`${fmt(despesasAdministrativas)} administrativo`:"regime gerencial"],["Notas em aberto",valorNotasAbertas,C.purple,`${contar(notasAbertas.length,"documento","documentos")}`],["Resultado",resultado,(resultado>0?C.green:resultado<0?C.red:C.muted),faturamento?`${((resultado/faturamento)*100).toFixed(1)}% de margem`:"sem faturamento"]].map(([l,v,c,s])=><div key={l} style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderTop:`3px solid ${c}`,borderRadius:9,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>{l}</p><p style={{fontSize:"var(--arcd-type-section-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:c,marginTop:"var(--arcd-space-half)"}}>{fmt(v)}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{s}</p></div>)}</div>
       <div style={{display:"grid",gridTemplateColumns:cols("1fr","1fr","1fr 1fr"),gap:"var(--arcd-space-2)"}}>
         <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:9,overflow:"hidden"}}><div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:"1px solid var(--arcd-border-default)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>Próximas receitas</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Medições ainda não recebidas</p></div><div style={{maxHeight:230,overflowY:"auto"}}>{receitasAbertas.slice(0,12).map(item=>{const vencida=item.dataVencimento&&item.dataVencimento<today();return <div key={item.id} style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:"1px solid var(--arcd-border-default)",display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{item.descricao||`Medição ${item.numeroParcela||""}`}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{obraNome(item.obraId)} · {item.dataVencimento?fmtDate(item.dataVencimento):"sem vencimento"}</p></div><b style={{fontSize:"var(--arcd-type-label)",color:vencida?"var(--arcd-danger-text)":"var(--arcd-success-text)",whiteSpace:"nowrap"}}>{fmt(item.valorPrevisto)}</b></div>})}{!receitasAbertas.length&&<p style={{padding:"var(--arcd-space-4)",textAlign:"center",fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Nenhuma receita em aberto no período.</p>}</div></div>
         <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:9,overflow:"hidden"}}><div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:"1px solid var(--arcd-border-default)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>Próximas obrigações</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Notas aguardando pagamento ou conferência</p></div><div style={{maxHeight:230,overflowY:"auto"}}>{notasAbertas.sort((a,b)=>String(a.vencimento).localeCompare(String(b.vencimento))).slice(0,12).map(item=>{const vencida=item.vencimento&&item.vencimento<today();return <div key={item.id} style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:"1px solid var(--arcd-border-default)",display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{item.fornecedorNome||`Nota ${item.numero}`}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{obraNome(item.obraId)} · {item.vencimento?fmtDate(item.vencimento):"sem vencimento"}</p></div><b style={{fontSize:"var(--arcd-type-label)",color:vencida?"var(--arcd-danger-text)":"var(--arcd-warning-text)",whiteSpace:"nowrap"}}>{fmt(item.valorLiquido||item.valorBruto)}</b></div>})}{!notasAbertas.length&&<p style={{padding:"var(--arcd-space-4)",textAlign:"center",fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Nenhuma obrigação fiscal em aberto.</p>}</div></div>
       </div>
-      {obraId==="all"&&<div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:9,overflowX:"auto"}}><table style={{width:"100%",minWidth:720,borderCollapse:"collapse",fontSize:"var(--arcd-type-caption)"}}><thead><tr style={{background:"var(--arcd-surface-muted)"}}>{["Obra","Faturado","Recebido","Custos","Resultado","A receber","Margem"].map(h=><th key={h} style={{padding:"var(--arcd-space-2)",textAlign:h==="Obra"?"left":"right",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)",borderBottom:"1px solid var(--arcd-border-default)"}}>{h}</th>)}</tr></thead><tbody>{linhasObra.map(l=>{const res=l.faturamento-l.totalCustos;return <tr key={l.obra.id} onClick={()=>setObraId(l.obra.id)} style={{borderBottom:"1px solid var(--arcd-border-default)",cursor:"pointer"}}><td style={{padding:"var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{l.obra.name}</td>{[l.faturamento,l.recebido,l.totalCustos,res,l.aReceber].map((v,i)=><td key={i} style={{padding:"var(--arcd-space-2)",textAlign:"right",fontWeight:i===3?600:600,color:i===3?(v>=0?"var(--arcd-success-text)":"var(--arcd-danger-text)"):"var(--arcd-text-primary)"}}>{fmt(v)}</td>)}<td style={{padding:"var(--arcd-space-2)",textAlign:"right",fontWeight:"var(--arcd-font-weight-semibold)",color:res>=0?"var(--arcd-success-text)":"var(--arcd-danger-text)"}}>{l.faturamento?`${(res/l.faturamento*100).toFixed(1)}%`:"-"}</td></tr>})}</tbody></table></div>}
+      {obraId==="all"&&<div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:9,overflowX:"auto"}}><table style={{width:"100%",minWidth:720,borderCollapse:"collapse",fontSize:"var(--arcd-type-caption)"}}><thead><tr style={{background:"var(--arcd-surface-muted)"}}>{["Obra","Faturado","Recebido","Custos","Resultado","A receber","Margem"].map(h=><th key={h} style={{padding:"var(--arcd-space-2)",textAlign:h==="Obra"?"left":"right",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)",borderBottom:"1px solid var(--arcd-border-default)"}}>{h}</th>)}</tr></thead><tbody>{linhasObra.map(l=>{const res=l.faturamento-l.totalCustos;return <tr key={l.obra.id} onClick={()=>setObraId(l.obra.id)} style={{borderBottom:"1px solid var(--arcd-border-default)",cursor:"pointer"}}><td style={{padding:"var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{l.obra.name}</td>{[l.faturamento,l.recebido,l.totalCustos,res,l.aReceber].map((v,i)=><td key={i} style={{padding:"var(--arcd-space-2)",textAlign:"right",fontWeight:i===3?600:600,color:i===3?(v>=0?"var(--arcd-success-text)":"var(--arcd-danger-text)"):"var(--arcd-text-primary)"}}>{fmt(v)}</td>)}<td style={{padding:"var(--arcd-space-2)",textAlign:"right",fontWeight:"var(--arcd-font-weight-semibold)",color:res>=0?"var(--arcd-success-text)":"var(--arcd-danger-text)"}}>{l.faturamento?`${pct1(res/l.faturamento*100)}`:"-"}</td></tr>})}</tbody></table></div>}
     </>}
     {["receitas","despesas"].includes(aba)&&<>
       <div style={{display:"grid",gridTemplateColumns:cols(1,3,3),gap:"var(--arcd-space-2)"}}>{(aba==="receitas"?[["Faturado",faturamento,C.green],["Recebido",recebido,C.blue],["A receber",aReceber,C.orange]]:[["Custos e despesas",custos,C.red],["Notas em aberto",valorNotasAbertas,C.purple],["Documentos fiscais",notas.length,C.blue]]).map(([l,v,c])=><div key={l} style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderTop:`3px solid ${c}`,borderRadius:9,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>{l}</p><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:c,marginTop:"var(--arcd-space-half)"}}>{typeof v==="number"&&l!=="Documentos fiscais"?fmt(v):v}</p></div>)}</div>
@@ -4187,8 +4193,8 @@ function FinanceiroAdministrativo({data,update,showToast,currentUser,C=C_ARCD_SE
       <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>As origens permanecem identificadas para evitar confundir faturamento, caixa, documento fiscal e transação bancária.</p>
     </>}
     {aba==="resultados"&&<>
-      <div style={{display:"grid",gridTemplateColumns:cols("1fr","1fr","1.1fr .9fr"),gap:"var(--arcd-space-2)"}}><div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:10,padding:"var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>Composição do período</p>{[["Faturamento",faturamento,C.green],["Recebido",recebido,C.blue],["Custos",custos,C.red],["Resultado",Math.abs(resultado),resultado>=0?C.green:C.red]].map(([l,v,c])=><div key={l} style={{marginTop:"var(--arcd-space-3)"}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",fontSize:"var(--arcd-type-caption)"}}><span style={{fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{l}</span><b style={{color:c}}>{l==="Resultado"&&resultado<0?"- ":""}{fmt(v)}</b></div><div style={{height:7,borderRadius:99,background:"var(--arcd-surface-muted)",overflow:"hidden",marginTop:"var(--arcd-space-1)"}}><i style={{display:"block",height:"100%",width:`${Math.max(2,v/maiorGrafico*100)}%`,background:c,borderRadius:99}}/></div></div>)}</div><div style={{background:`linear-gradient(145deg,${resultado>=0?C.green:C.red}12,var(--arcd-surface-card))`,border:`1px solid ${resultado>=0?"var(--arcd-success-text)":"var(--arcd-danger-text)"}55`,borderRadius:10,padding:"var(--arcd-space-3)",display:"flex",flexDirection:"column",justifyContent:"center"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Resultado gerencial</p><p style={{fontSize:"clamp(25px,5vw,40px)",fontWeight:"var(--arcd-font-weight-semibold)",color:resultado>=0?"var(--arcd-success-text)":"var(--arcd-danger-text)",marginTop:"var(--arcd-space-1)"}}>{fmt(resultado)}</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>{faturamento?`${(resultado/faturamento*100).toFixed(1)}% de margem no período`:"Sem faturamento no período"}</p></div></div>
-      <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:9,overflowX:"auto"}}><table style={{width:"100%",minWidth:720,borderCollapse:"collapse",fontSize:"var(--arcd-type-caption)"}}><thead><tr style={{background:"var(--arcd-surface-muted)"}}>{["Obra","Faturado","Recebido","Custos","Resultado","A receber","Margem"].map(h=><th key={h} style={{padding:"var(--arcd-space-2)",textAlign:h==="Obra"?"left":"right",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)",borderBottom:"1px solid var(--arcd-border-default)"}}>{h}</th>)}</tr></thead><tbody>{linhasObra.map(l=>{const res=l.faturamento-l.totalCustos;return <tr key={l.obra.id} onClick={()=>setObraId(l.obra.id)} style={{borderBottom:"1px solid var(--arcd-border-default)",cursor:"pointer"}}><td style={{padding:"var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{l.obra.name}</td>{[l.faturamento,l.recebido,l.totalCustos,res,l.aReceber].map((v,i)=><td key={i} style={{padding:"var(--arcd-space-2)",textAlign:"right",fontWeight:i===3?600:600,color:i===3?(v>=0?"var(--arcd-success-text)":"var(--arcd-danger-text)"):"var(--arcd-text-primary)"}}>{fmt(v)}</td>)}<td style={{padding:"var(--arcd-space-2)",textAlign:"right",fontWeight:"var(--arcd-font-weight-semibold)",color:res>=0?"var(--arcd-success-text)":"var(--arcd-danger-text)"}}>{l.faturamento?`${(res/l.faturamento*100).toFixed(1)}%`:"-"}</td></tr>})}</tbody></table></div>
+      <div style={{display:"grid",gridTemplateColumns:cols("1fr","1fr","1.1fr .9fr"),gap:"var(--arcd-space-2)"}}><div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:10,padding:"var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>Composição do período</p>{[["Faturamento",faturamento,C.green],["Recebido",recebido,C.blue],["Custos",custos,C.red],["Resultado",Math.abs(resultado),(resultado>0?C.green:resultado<0?C.red:C.muted)]].map(([l,v,c])=><div key={l} style={{marginTop:"var(--arcd-space-3)"}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",fontSize:"var(--arcd-type-caption)"}}><span style={{fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{l}</span><b style={{color:c}}>{l==="Resultado"&&resultado<0?"- ":""}{fmt(v)}</b></div><div style={{height:7,borderRadius:99,background:"var(--arcd-surface-muted)",overflow:"hidden",marginTop:"var(--arcd-space-1)"}}><i style={{display:"block",height:"100%",width:`${Math.max(2,v/maiorGrafico*100)}%`,background:c,borderRadius:99}}/></div></div>)}</div><div style={{background:`linear-gradient(145deg,${(resultado>0?C.green:resultado<0?C.red:C.muted)}12,var(--arcd-surface-card))`,border:`1px solid ${resultado>=0?"var(--arcd-success-text)":"var(--arcd-danger-text)"}55`,borderRadius:10,padding:"var(--arcd-space-3)",display:"flex",flexDirection:"column",justifyContent:"center"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Resultado gerencial</p><p style={{fontSize:"clamp(25px,5vw,40px)",fontWeight:"var(--arcd-font-weight-semibold)",color:resultado>=0?"var(--arcd-success-text)":"var(--arcd-danger-text)",marginTop:"var(--arcd-space-1)"}}>{fmt(resultado)}</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>{faturamento?`${pct1(resultado/faturamento*100)} de margem no período`:"Sem faturamento no período"}</p></div></div>
+      <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:9,overflowX:"auto"}}><table style={{width:"100%",minWidth:720,borderCollapse:"collapse",fontSize:"var(--arcd-type-caption)"}}><thead><tr style={{background:"var(--arcd-surface-muted)"}}>{["Obra","Faturado","Recebido","Custos","Resultado","A receber","Margem"].map(h=><th key={h} style={{padding:"var(--arcd-space-2)",textAlign:h==="Obra"?"left":"right",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)",borderBottom:"1px solid var(--arcd-border-default)"}}>{h}</th>)}</tr></thead><tbody>{linhasObra.map(l=>{const res=l.faturamento-l.totalCustos;return <tr key={l.obra.id} onClick={()=>setObraId(l.obra.id)} style={{borderBottom:"1px solid var(--arcd-border-default)",cursor:"pointer"}}><td style={{padding:"var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{l.obra.name}</td>{[l.faturamento,l.recebido,l.totalCustos,res,l.aReceber].map((v,i)=><td key={i} style={{padding:"var(--arcd-space-2)",textAlign:"right",fontWeight:i===3?600:600,color:i===3?(v>=0?"var(--arcd-success-text)":"var(--arcd-danger-text)"):"var(--arcd-text-primary)"}}>{fmt(v)}</td>)}<td style={{padding:"var(--arcd-space-2)",textAlign:"right",fontWeight:"var(--arcd-font-weight-semibold)",color:res>=0?"var(--arcd-success-text)":"var(--arcd-danger-text)"}}>{l.faturamento?`${pct1(res/l.faturamento*100)}`:"-"}</td></tr>})}</tbody></table></div>
     </>}
     {aba==="documentos"&&<><div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:"var(--arcd-space-2)",alignItems:"end"}}><Inp label="Pesquisar nota, fornecedor, obra ou arquivo" value={buscaDoc} onChange={setBuscaDoc} placeholder="Ex.: B2-04, energia, fornecedor..."/><StandardButton variant="secondary" onClick={()=>setDocPeriodo(v=>v==="periodo"?"todos":"periodo")} style={{height:36,border:"1px solid var(--arcd-border-default)",background:"var(--arcd-surface-card)",color:"var(--arcd-text-primary)",borderRadius:7,padding:"var(--arcd-space-0) var(--arcd-space-2)",fontSize:"var(--arcd-type-control)",fontWeight:"var(--arcd-font-weight-semibold)",cursor:"pointer"}}>{docPeriodo==="periodo"?`${fullMonth(mes)} ${ano}`:"Todo o histórico"}</StandardButton></div><div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>{documentos.map(item=>{const cor=statusCor(item.status);return <div key={item.id} style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderLeft:`1px solid ${item.url?"var(--arcd-action-primary)":"var(--arcd-warning-text)"}`,borderRadius:8,padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}><div style={{minWidth:0,flex:1}}><div style={{display:"flex",gap:"var(--arcd-space-1)",alignItems:"center",flexWrap:"wrap"}}><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textTransform:"uppercase"}}>{item.tipo}</span><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:cor,background:`${cor}12`,borderRadius:4,padding:"var(--arcd-space-half) var(--arcd-space-1)"}}>{item.status||"cadastrado"}</span></div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.referencia} · {item.nome}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{obraNome(item.obraId)}{item.fornecedor?` · ${item.fornecedor}`:""}{item.data?` · ${fmtDate(item.data)}`:""}{item.valor?` · ${fmt(item.valor)}`:""}</p></div>{item.url?<a href={item.url} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",gap:"var(--arcd-space-1)",border:"1px solid var(--arcd-action-primary)",background:"color-mix(in srgb, var(--arcd-action-primary) 5%, transparent)",color:"var(--arcd-action-primary)",borderRadius:7,padding:"var(--arcd-space-1) var(--arcd-space-2)",fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",textDecoration:"none"}}><Ic n="file" s={12}/> Visualizar</a>:<span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-warning-text)",fontWeight:"var(--arcd-font-weight-semibold)"}}>SEM ANEXO</span>}</div>})}{!documentos.length&&<div style={{padding:"var(--arcd-space-6)",textAlign:"center",border:"1px dashed var(--arcd-border-default)",borderRadius:9,color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)"}}>Nenhuma nota ou documento encontrado com os filtros escolhidos.</div>}</div></>}
     <ModalLegendaDocumento anexo={anexoMov} setAnexo={setAnexoMov} onClose={()=>!subindoAnexoMov&&setAnexoMov(null)} onSalvar={salvarDocumentoMovimento} salvando={subindoAnexoMov} titulo="Anexar documento à movimentação" C={C}/>
@@ -4206,7 +4212,7 @@ function RankingFinanceiro({data,year,month,obraId="",onSelecionarObra,C=C_ARCD_
   return <section style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:11,overflow:"hidden",boxShadow:C.shHair}}>
     <div style={{padding:"11px 13px",display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start",flexWrap:"wrap",background:`linear-gradient(135deg,${C.surface},${C.card})`,borderBottom:`1px solid ${C.line}`}}><div><h3 style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:C.text,marginTop:2}}>Análise financeira das obras</h3><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Eficiência, caixa e conformidade no período selecionado.</p></div><div style={{display:"flex",gap:4,flexWrap:"wrap"}}>{[["todos","Todas"],["saudaveis","Saudáveis"],["atencao","Atenção"],["criticas","Críticas"]].map(([v,l])=><button key={v} onClick={()=>setFiltro(v)} style={{border:`1px solid ${filtro===v?C.yellow:C.border}`,background:filtro===v?`${C.yellow}16`:C.card,color:filtro===v?C.yellowD:C.muted,borderRadius:7,padding:"5px 8px",fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>{l}</button>)}</div></div>
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:1,background:C.line,borderBottom:`1px solid ${C.line}`}}>{[["Obras avaliadas",ranking.length,C.text],["Nota média",`${media}/100`,corNota(media)],["Resultado negativo",ranking.filter(r=>r.resultado<0).length,C.red],["Com alertas",ranking.filter(r=>r.alertas.length).length,C.orange]].map(([l,v,c])=><div key={l} style={{padding:"8px 10px",background:C.bg}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.4}}>{l}</p><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:c,marginTop:2}}>{v}</p></div>)}</div>
-    <div className="scroll-x" tabIndex={0} role="region" aria-label="Conferência financeira das obras"><table style={{width:"100%",minWidth:1020,borderCollapse:"collapse"}}><thead><tr>{["#","Obra","Nota","Resultado","Margem","Recebido / faturado","Saldo de caixa","NF vencida","Sem NF","A conciliar"].map(h=><th key={h} style={{padding:"7px 8px",textAlign:["#","Obra"].includes(h)?"left":"right",borderBottom:`1px solid ${C.line}`,fontSize:"var(--arcd-type-label)",color:C.muted,textTransform:"uppercase"}}>{h}</th>)}</tr></thead><tbody>{linhas.map(r=><tr key={r.id} onClick={()=>onSelecionarObra?.(r.id)} style={{cursor:onSelecionarObra?"pointer":"default",background:C.card}}><td style={{padding:"8px",fontWeight:600,color:r.posicao<=3?C.yellowD:C.muted,borderBottom:`1px solid ${C.line}`}}>{r.posicao}</td><td style={{padding:"8px",borderBottom:`1px solid ${C.line}`}}><button type="button" aria-label={`Ver análise de ${r.nome}`} onClick={event=>{event.stopPropagation();onSelecionarObra?.(r.id);}} style={{fontSize:"var(--arcd-type-control)",fontWeight:600,color:C.text,border:0,background:"transparent",textAlign:"left",padding:"4px 0",cursor:"pointer"}}>{r.nome}</button><p style={{fontSize:"var(--arcd-type-caption)",color:r.alertas.length?C.orange:C.green,marginTop:2,maxWidth:360,whiteSpace:"normal"}}>{r.alertas.length?r.alertas.join(" · "):"sem alertas relevantes"}</p></td><td style={{padding:"8px",textAlign:"right",borderBottom:`1px solid ${C.line}`}}><span style={{display:"inline-flex",alignItems:"center",gap:5}}><Badge color={corNota(r.nota)}>{conceitoNota(r)}</Badge><b style={{fontSize:"var(--arcd-type-body)",color:corNota(r.nota)}}>{r.nota}</b></span></td><td style={{padding:"8px",textAlign:"right",fontWeight:600,color:r.resultado>=0?C.green:C.red,borderBottom:`1px solid ${C.line}`}}>{fmt(r.resultado)}</td><td style={{padding:"8px",textAlign:"right",fontWeight:600,color:r.margemPct>=0?C.green:C.red,borderBottom:`1px solid ${C.line}`}}>{r.margemPct.toFixed(1)}%</td><td style={{padding:"8px",textAlign:"right",borderBottom:`1px solid ${C.line}`}}>{r.recebimentoPct.toFixed(1)}%</td><td style={{padding:"8px",textAlign:"right",fontWeight:600,color:r.saldoCaixa>=0?C.green:C.red,borderBottom:`1px solid ${C.line}`}}>{fmt(r.saldoCaixa)}</td>{[r.notasVencidas,r.pedidosSemNota,r.naoConciliados].map((v,i)=><td key={i} style={{padding:"8px",textAlign:"right",fontWeight:v?600:500,color:v?(i===0?C.red:C.orange):C.muted,borderBottom:`1px solid ${C.line}`}}>{v}</td>)}</tr>)}</tbody></table></div>
+    <div className="scroll-x" tabIndex={0} role="region" aria-label="Conferência financeira das obras"><table style={{width:"100%",minWidth:1020,borderCollapse:"collapse"}}><thead><tr>{["#","Obra","Nota","Resultado","Margem","Recebido / faturado","Saldo de caixa","NF vencida","Sem NF","A conciliar"].map(h=><th key={h} style={{padding:"7px 8px",textAlign:["#","Obra"].includes(h)?"left":"right",borderBottom:`1px solid ${C.line}`,fontSize:"var(--arcd-type-label)",color:C.muted,textTransform:"uppercase"}}>{h}</th>)}</tr></thead><tbody>{linhas.map(r=><tr key={r.id} onClick={()=>onSelecionarObra?.(r.id)} style={{cursor:onSelecionarObra?"pointer":"default",background:C.card}}><td style={{padding:"8px",fontWeight:600,color:r.posicao<=3?C.yellowD:C.muted,borderBottom:`1px solid ${C.line}`}}>{r.posicao}</td><td style={{padding:"8px",borderBottom:`1px solid ${C.line}`}}><button type="button" aria-label={`Ver análise de ${r.nome}`} onClick={event=>{event.stopPropagation();onSelecionarObra?.(r.id);}} style={{fontSize:"var(--arcd-type-control)",fontWeight:600,color:C.text,border:0,background:"transparent",textAlign:"left",padding:"4px 0",cursor:"pointer"}}>{r.nome}</button><p style={{fontSize:"var(--arcd-type-caption)",color:r.alertas.length?C.orange:C.green,marginTop:2,maxWidth:360,whiteSpace:"normal"}}>{r.alertas.length?r.alertas.join(" · "):"sem alertas relevantes"}</p></td><td style={{padding:"8px",textAlign:"right",borderBottom:`1px solid ${C.line}`}}><span style={{display:"inline-flex",alignItems:"center",gap:5}}><Badge color={corNota(r.nota)}>{conceitoNota(r)}</Badge><b style={{fontSize:"var(--arcd-type-body)",color:corNota(r.nota)}}>{r.nota}</b></span></td><td style={{padding:"8px",textAlign:"right",fontWeight:600,color:(r.resultado>0?C.green:r.resultado<0?C.red:C.muted),borderBottom:`1px solid ${C.line}`}}>{fmt(r.resultado)}</td><td style={{padding:"8px",textAlign:"right",fontWeight:600,color:(r.margemPct>0?C.green:r.margemPct<0?C.red:C.muted),borderBottom:`1px solid ${C.line}`}}>{pct1(r.margemPct)}</td><td style={{padding:"8px",textAlign:"right",borderBottom:`1px solid ${C.line}`}}>{pct1(r.recebimentoPct)}</td><td style={{padding:"8px",textAlign:"right",fontWeight:600,color:(r.saldoCaixa>0?C.green:r.saldoCaixa<0?C.red:C.muted),borderBottom:`1px solid ${C.line}`}}>{fmt(r.saldoCaixa)}</td>{[r.notasVencidas,r.pedidosSemNota,r.naoConciliados].map((v,i)=><td key={i} style={{padding:"8px",textAlign:"right",fontWeight:v?600:500,color:v?(i===0?C.red:C.orange):C.muted,borderBottom:`1px solid ${C.line}`}}>{v}</td>)}</tr>)}</tbody></table></div>
     {!linhas.length&&<div style={{padding:22,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhuma obra com movimentação financeira neste filtro.</div>}
     <details style={{padding:"8px 11px",fontSize:"var(--arcd-type-caption)",color:C.muted}}><summary style={{cursor:"pointer",fontWeight:600,color:C.blue}}>Como a nota é calculada</summary><div style={{marginTop:7,lineHeight:1.55}}><strong>Margem real — 35%:</strong> resultado depois dos custos da obra. <strong>Recebimento — 25%:</strong> quanto do faturamento virou caixa. <strong>Saúde do caixa — 20%:</strong> recebido menos custos no período. <strong>Conformidade — 20%:</strong> parte de 100 e perde pontos por notas vencidas, pedidos sem NF e pagamentos não conciliados. Obras sem qualquer movimentação no período não entram no ranking. Clique em uma linha para filtrar os demais KPIs pela obra.</div></details>
   </section>;
@@ -4244,7 +4250,7 @@ function HomologacaoFinanceira({data,showToast,C=C_ARCD_SETOR}){
     if(!resposta.ok){showToast(resposta.error||"A carga em sombra falhou.","error");return;}
     setRelatorio(resposta);
     const totalDivergencias=(resposta.divergencias?.length||0)+(resposta.divergenciasDRE?.length||0);
-    showToast(resposta.prontoParaAtivar?"Carga concluída. Atualize o relatório para conferir as verificações da homologação.":`Carga concluída com ${totalDivergencias} divergência(s) para revisão.`,resposta.prontoParaAtivar?undefined:"warn");
+    showToast(resposta.prontoParaAtivar?"Carga concluída. Atualize o relatório para conferir as verificações da homologação.":`Carga concluída com ${contar(totalDivergencias,"divergência","divergências")} para revisão.`,resposta.prontoParaAtivar?undefined:"warn");
   };
   return <div className="record-recovery">
     <PageHero headingLevel={2} title="Homologação financeira" description={isMobile?undefined:"Compare os dados de origem, o razão financeiro e as projeções do DRE. Consultar não altera registros."} actions={<div className="closing-pending__actions"><Btn v="ghost" onClick={carregar} disabled={carregando}>Atualizar relatório</Btn></div>}/>
@@ -4310,7 +4316,7 @@ function FechamentoFinanceiroMensal({data,update,showToast,currentUser,onMemoria
     <div className="financial-closing__action"><p>Competência a fechar: <strong>{competencia}</strong>. Confira o memorial e as pendências antes de confirmar.</p><Btn v="success" onClick={fechar} disabled={processando||!previa.ok}>{processando?"Fechando...":"Fechar competência"}</Btn></div>
     <div style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
       <div style={{padding:"8px 11px",background:C.surface}}><b style={{fontSize:"var(--arcd-type-label)"}}>Competências fechadas</b></div>
-      {!fechamentos.length?<p style={{padding:18,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhum fechamento mensal registrado.</p>:fechamentos.map(item=><div key={item.id} style={{display:"grid",gridTemplateColumns:"120px minmax(0,1fr) auto",gap:8,padding:"9px 11px",borderTop:`1px solid ${C.line}`,alignItems:"center"}}><b style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{item.competencia}</b><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Fechado por {item.fechadoPor||"Administrador"} · {item.snapshot?.eventCount||0} evento(s) congelados</span><Badge color={C.green}>FECHADO</Badge></div>)}
+      {!fechamentos.length?<p style={{padding:18,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhum fechamento mensal registrado.</p>:fechamentos.map(item=><div key={item.id} style={{display:"grid",gridTemplateColumns:"120px minmax(0,1fr) auto",gap:8,padding:"9px 11px",borderTop:`1px solid ${C.line}`,alignItems:"center"}}><b style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{item.competencia}</b><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Fechado por {item.fechadoPor||"Administrador"} · {contar(item.snapshot?.eventCount||0,"evento","eventos")} congelados</span><Badge color={C.green}>FECHADO</Badge></div>)}
     </div>
   </div>;
 }
@@ -4445,7 +4451,7 @@ function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatch
     if(action.kind==='invoice'){conferirNota(action.id);return;}
     setDocumentMonth(row.period||'');setDocumentView({query:'',filter:'all',selected:row.id});setAreaFinanceira('documentos');
   };
-  const workFilter=<Sel label="Obra" value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as obras"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>;
+  const workFilter=<Sel label="Obra" description="Segue a Obra em foco" value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as obras"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>;
 
 
   // Gráfico: receita vs custo MO por obra
@@ -4584,7 +4590,7 @@ function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatch
           ["Estornos e cancelamentos",fmt(T.reversals),C.text],
         ].map(([label,value,color],index)=><div key={label}>
           <p><StandardButton variant="secondary" type="button" className="financial-kpi-link" onClick={()=>openSecondaryMetric(index)}>{label}</StandardButton></p><b style={{color}}>{value}</b>
-          {index===3&&<small>{T.reversalCount} estorno(s) · {T.cancelledCount} cancelamento(s)</small>}
+          {index===3&&<small>{contar(T.reversalCount,"estorno","estornos")} · {contar(T.cancelledCount,"cancelamento","cancelamentos")}</small>}
         </div>)}
       </div>
 
@@ -4643,7 +4649,7 @@ function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatch
                 <div style={{marginTop:"var(--arcd-space-2)"}}>
                   <div style={{display:"flex",justifyContent:"space-between",marginBottom:"var(--arcd-space-half)"}}>
                     <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Comprometimento do contrato</p>
-                    <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:commitColor}}>{r.commitment.toFixed(1)}%</p>
+                    <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:commitColor}}>{pct1(r.commitment)}</p>
                   </div>
                   <StatusBar pct={r.commitment} color={commitColor}/>
                 </div>
@@ -4672,7 +4678,7 @@ function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatch
                       <div>
                         <div style={{display:"flex",justifyContent:"space-between",marginBottom:"var(--arcd-space-half)"}}>
                           <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Evolução financeira (recebido / contrato)</p>
-                          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-success-text)"}}>{evoFin.toFixed(1)}%</p>
+                          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-success-text)"}}>{pct1(evoFin)}</p>
                         </div>
                         <StatusBar pct={Math.min(evoFin,100)} color={C.green}/>
                         <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>
@@ -4708,7 +4714,7 @@ function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatch
                     ["Contas a receber",fmt(r.receivable),C.purple],
                     ["Contas a pagar",fmt(r.payable),C.yellowD],
                     ["Receita reconhecida",fmt(r.revenue),C.green],
-                    ["Resultado competência",fmt(r.margin),r.margin>=0?C.green:C.red],
+                    ["Resultado competência",fmt(r.margin),(r.margin>0?C.green:r.margin<0?C.red:C.muted)],
                     ["Custos comprometidos",fmt(r.committed),C.orange],
                   ].map(([l,v,c])=>(
                     <div key={l} style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",padding:"var(--arcd-space-2)",borderRadius:8}}>
@@ -4793,6 +4799,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
   const [search, setSearch] = useWorkspaceState("obras","search","");
   const [oneDriveStatus, setOneDriveStatus] = useState("checking");
   const [sincronizandoPastas,setSincronizandoPastas]=useState(false);
+  const [erroPastas,setErroPastas]=useState("");
   const [savingProject,setSavingProject]=useState(false);
   const [projectErrors,setProjectErrors]=useState({});
   const [reviewingProject,setReviewingProject]=useState(false);
@@ -4827,7 +4834,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
     if(!ehAdmin||oneDriveStatus!=="connected"||sincronizandoPastas)return;
     const candidatas=(data.obras||[]).filter(o=>o.name);
     if(!candidatas.length){showToast("Nenhuma obra disponível para preparar pastas.");return;}
-    setSincronizandoPastas(true);
+    setSincronizandoPastas(true);setErroPastas("");
     try{
       const resp=await sincronizarEstruturasOneDrive(candidatas.map(o=>({id:o.id,name:o.name,driveId:o.oneDriveDriveId||"",folderId:o.oneDriveFolderId||""})));
       const resultados=Array.isArray(resp.resultados)?resp.resultados:[];
@@ -4847,9 +4854,9 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
       const movidos=resultados.reduce((s,r)=>s+Number(r.migracao?.movidos||0),0);
       const conflitos=resultados.reduce((s,r)=>s+Number(r.migracao?.conflitos||0),0);
       const falhas=resultados.length-preparadas;
-      if(falhas||conflitos)showToast(`${preparadas} obra(s) preparada(s). ${movidos} item(ns) de licenciamento migrado(s). ${falhas+conflitos} pendência(s) exigem nova tentativa.`,"error");
-      else showToast(`${preparadas} obra(s) preparada(s) no OneDrive${movidos?` e ${movidos} item(ns) de licenciamento migrado(s)`:""}.`);
-    }catch(e){showToast(e.message||"Não foi possível preparar as pastas das obras.","error");}
+      if(falhas||conflitos)showToast(`${contar(preparadas,"obra preparada","obras preparadas")}. ${movidos} item(ns) de licenciamento migrado(s). ${contar(falhas+conflitos,"pendência","pendências")} exigem nova tentativa.`,"error");
+      else showToast(`${contar(preparadas,"obra preparada","obras preparadas")} no OneDrive${movidos?` e ${movidos} item(ns) de licenciamento migrado(s)`:""}.`);
+    }catch(e){setErroPastas(e.message||"Não foi possível preparar as pastas das obras.");}
     finally{setSincronizandoPastas(false);}
   },[data,ehAdmin,oneDriveStatus,showToast,sincronizandoPastas,update]);
 
@@ -4955,7 +4962,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
     const dentro = (porFase[fase.id] || []).length;
     const destino = fases.find(f => f.id !== fase.id);
     const aviso = dentro
-      ? `Excluir "${fase.nome}"?\n\nAs ${dentro} obra(s) desta coluna vão para "${destino.nome}". Nenhuma obra é apagada.`
+      ? `Excluir "${fase.nome}"?\n\nAs ${contar(dentro,"obra","obras")} desta coluna vão para "${destino.nome}". Nenhuma obra é apagada.`
       : `Excluir a fase "${fase.nome}"?`;
     if (!window.confirm(aviso)) return;
     if(!await salvarFases(fases.filter(f => f.id !== fase.id)))return;
@@ -4999,7 +5006,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
         errors.oneDriveUrl="Informe um link válido do OneDrive iniciado por https://";
       }
     }
-    if(Object.keys(errors).length){setProjectErrors(errors);setReviewingProject(false);showToast(`Revise ${Object.keys(errors).length} campo(s) destacado(s).`,"error");return;}
+    if(Object.keys(errors).length){setProjectErrors(errors);setReviewingProject(false);showToast(`Revise ${contar(Object.keys(errors).length,"campo destacado","campos destacados")}.`,"error");return;}
     if(!reviewingProject){setReviewingProject(true);return;}
     if(savingProject)return;
     setSavingProject(true);
@@ -5138,7 +5145,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
     concluidas: obrasComando.filter(o => o.status === "done").length,
   };
   const categoriasObras = [
-    ["todas","Todas"], ["atencao","Requer atenção"], ["planejamento","Planejamento"],
+    ["todas","Todas"], ["atencao","Cadastro com pendência"], ["planejamento","Planejamento"],
     ["execucao","Em execução"], ["prazo","Prazo próximo"], ["concluidas","Concluídas"],
   ];
   const correspondeCategoria = o => categoria === "todas"
@@ -5151,8 +5158,9 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
   const list = obrasComando.filter(o => correspondeCategoria(o) && [o.name,o.cliente,o.address,o.engineer,o._fase?.nome].some(v=>String(v||"").toLocaleLowerCase("pt-BR").includes(termoBusca)));
   const worksPage=useRecordPage('obras',list,JSON.stringify([categoria,search]));
   const resumoOperacional = contagensObras.atencao
-    ? `${contagensObras.atencao} ${contagensObras.atencao === 1 ? "obra precisa" : "obras precisam"} de decisão agora`
-    : "Portfólio em dia, sem alertas críticos";
+    // Aqui é cadastro (dados faltando), não a situação de custo e prazo do Dashboard: nome próprio para não parecer contradição.
+    ? `${contagensObras.atencao} ${contagensObras.atencao === 1 ? "obra com cadastro" : "obras com cadastro"} a completar`
+    : "Cadastros das obras completos";
 
   return (
     <div className="anim works-hub" style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
@@ -5163,10 +5171,10 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
         statsDisclosure={!isDesktop}
         alert={{tone:contagensObras.atencao?"warning":"success",text:resumoOperacional}}
         stats={[
-          {label:"Obras ativas",value:obrasComando.filter(o=>o.status==="active").length,detail:"Em operação",color:C.green},
-          {label:"Requer atenção",value:contagensObras.atencao,detail:"Dados e prazos",color:contagensObras.atencao?C.red:C.green},
-          {label:"Prazo ≤ 30 dias",value:contagensObras.prazo,detail:"Janela crítica",color:contagensObras.prazo?C.orange:C.text},
-          {label:"Carteira ativa",value:fmt(totalCarteira),detail:"Valor contratado",color:C.yellowD},
+          {label:"Obras ativas",value:obrasComando.filter(o=>o.status==="active").length,detail:"Em operação"},
+          {label:"Cadastro com pendência",value:contagensObras.atencao,detail:"Dados da obra a completar",color:contagensObras.atencao?C.orange:undefined},
+          {label:"Prazo ≤ 30 dias",value:contagensObras.prazo,detail:"Janela crítica",color:contagensObras.prazo?C.orange:undefined},
+          {label:"Carteira ativa",value:fmt(totalCarteira),detail:"Valor contratado"},
         ]}
         actions={<>
           {ehAdmin&&<details className="works-files"><summary>Arquivos e pastas</summary><div>
@@ -5178,6 +5186,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
         </>}
       />
 
+      {erroPastas&&<div className="works-sync-error" role="alert"><Ic n="alert" s={14}/><p><strong>Pastas do OneDrive não preparadas.</strong> {erroPastas}</p><Btn v="secondary" size="sm" disabled={sincronizandoPastas} onClick={()=>sincronizarPastas(true)}>Tentar de novo</Btn><Btn v="ghost" size="sm" ariaLabel="Dispensar aviso" title="Dispensar aviso" onClick={()=>setErroPastas("")}><Ic n="x" s={14}/></Btn></div>}
       <section className="works-filter-bar" style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:C.rLg,padding:"var(--arcd-space-2)",boxShadow:"none"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
           <label className="works-category-select">Situação das obras<SelectControl value={categoria} onChange={event=>setCategoria(event.target.value)}>{categoriasObras.map(([v,l])=><option key={v} value={v}>{l} · {contagensObras[v]}</option>)}</SelectControl></label>
@@ -5428,7 +5437,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
                 <div style={{height:4,borderRadius:99,background:"var(--arcd-surface-muted)",overflow:"hidden"}}><i style={{display:"block",height:"100%",width:`${o._completude}%`,borderRadius:99,background:o._completude>=80?"var(--arcd-success-text)":o._completude>=55?"var(--arcd-action-primary)":"var(--arcd-danger-text)"}}/></div>
               </div>
 
-              {risco?<div className="works-alerts"><StandardButton variant="secondary" type="button" aria-expanded={expandedAlerts.has(o.id)} onClick={()=>setExpandedAlerts(current=>{const next=new Set(current);next.has(o.id)?next.delete(o.id):next.add(o.id);return next;})}><Ic n="alert" s={14}/><span><strong>{o._alertas.length} pendência(s)</strong><small>{expandedAlerts.has(o.id)?"Ocultar ações":"Ver como corrigir"}</small></span><Ic n="chevron" s={12}/></StandardButton>{expandedAlerts.has(o.id)&&<div className="works-alerts__list">{o._alertas.map(alert=>{const action=projectAlertAction(alert);return <div key={alert}><span>{alert}</span><StandardButton variant="secondary" type="button" onClick={()=>ehAdmin?abrirEditorObra(o):onAbrirObra?.(o.id)}>{ehAdmin?action.label:"Abrir obra"}</StandardButton></div>;})}</div>}</div>:<div className="works-regular"><Ic n="check" s={14}/><span>Cadastro operacional regular</span></div>}
+              {risco?<div className="works-alerts"><StandardButton variant="secondary" type="button" aria-expanded={expandedAlerts.has(o.id)} onClick={()=>setExpandedAlerts(current=>{const next=new Set(current);next.has(o.id)?next.delete(o.id):next.add(o.id);return next;})}><Ic n="alert" s={14}/><span><strong>{contar(o._alertas.length,"pendência","pendências")}</strong><small>{expandedAlerts.has(o.id)?"Ocultar ações":"Ver como corrigir"}</small></span><Ic n="chevron" s={12}/></StandardButton>{expandedAlerts.has(o.id)&&<div className="works-alerts__list">{o._alertas.map(alert=>{const action=projectAlertAction(alert);return <div key={alert}><span>{alert}</span><StandardButton variant="secondary" type="button" onClick={()=>ehAdmin?abrirEditorObra(o):onAbrirObra?.(o.id)}>{ehAdmin?action.label:"Abrir obra"}</StandardButton></div>;})}</div>}</div>:<div className="works-regular"><Ic n="check" s={14}/><span>Cadastro operacional regular</span></div>}
 
               <div className="works-card-deadline" style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",minHeight:18}}>
                 <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:prazo?.cor||"var(--arcd-text-secondary)"}}>{prazo?.rotulo||"Prazo não definido"}</span>
@@ -5436,12 +5445,12 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
               </div>
 
               <div className="works-card-open" style={{display:"grid",gridTemplateColumns:ehAdmin&&o.oneDriveUrl?"1fr auto":"1fr",gap:"var(--arcd-space-1)",marginTop:"auto"}}>
-                <Btn v="dark" full onClick={()=>onAbrirObra?.(o.id)}>Abrir obra <span>→</span></Btn>
+                {/* Botão cheio só no cartão que tem pendência; nos demais, secundário. Assim a tela tem um destaque, não três. */}<Btn v={risco?"dark":"secondary"} full onClick={()=>onAbrirObra?.(o.id)}>Abrir obra <span>→</span></Btn>
                 {ehAdmin&&o.oneDriveUrl&&<Btn v="ghost" iconOnly onClick={()=>abrirOneDrive(o.oneDriveUrl)} title="Abrir arquivos" ariaLabel="Abrir arquivos"><Ic n="folder" s={14}/></Btn>}
               </div>
               <div className="works-card-footer" style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:"var(--arcd-space-2)",borderTop:"1px solid var(--arcd-border-default)"}}>
                 <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{CONTRACT_LABELS[o.contractType]||"Contrato"}</span>
-                {ehAdmin&&<div style={{display:"flex",gap:"var(--arcd-space-half)"}}><Btn v="ghost" size="sm" iconOnly onClick={()=>abrirEditorObra(o)} title="Editar obra" ariaLabel="Editar obra"><Ic n="edit" s={12}/></Btn><Btn v="danger" size="sm" iconOnly onClick={()=>remove(o.id)} title="Excluir obra" ariaLabel="Excluir obra"><Ic n="trash" s={12}/></Btn></div>}
+                {ehAdmin&&<div style={{display:"flex",gap:"var(--arcd-space-half)"}}><Btn v="ghost" size="sm" iconOnly onClick={()=>abrirEditorObra(o)} title="Editar obra" ariaLabel="Editar obra"><Ic n="edit" s={12}/></Btn><details className="record-more"><summary aria-label="Mais ações da obra" title="Mais ações">⋯</summary><div role="menu"><Btn v="danger" size="sm" onClick={()=>remove(o.id)} title="Excluir obra" ariaLabel="Excluir obra"><Ic n="trash" s={12}/> Excluir obra</Btn></div></details></div>}
               </div>
             </div>
           </article>;
@@ -5643,7 +5652,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
                 <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-0)"}}>Cliente faz aportes para compra de materiais - controle separado de entradas e gastos</p>
               </div>
             </label>
-            {reviewingProject&&<div className="works-review" role="status" style={{gridColumn:"1/-1"}}><div><strong>Revise antes de confirmar</strong><p>{form.name||"Obra sem nome"} · {CONTRACT_LABELS[form.contractType]||form.contractType} · {fmt(Number(form.contractValue||0))}</p><p>{form.billingFrequency==="quinzenal"?"2 cobranças por mês":"1 cobrança por mês"} · {form.totalParcelas||0} parcela(s) · início {fmtDate(form.contractStart)}</p></div><span>Nenhuma folha anterior será alterada por este cadastro.</span></div>}
+            {reviewingProject&&<div className="works-review" role="status" style={{gridColumn:"1/-1"}}><div><strong>Revise antes de confirmar</strong><p>{form.name||"Obra sem nome"} · {CONTRACT_LABELS[form.contractType]||form.contractType} · {fmt(Number(form.contractValue||0))}</p><p>{form.billingFrequency==="quinzenal"?"2 cobranças por mês":"1 cobrança por mês"} · {contar(form.totalParcelas||0,"parcela","parcelas")} · início {fmtDate(form.contractStart)}</p></div><span>Nenhuma folha anterior será alterada por este cadastro.</span></div>}
             <div style={{ gridColumn:"1/-1", display: "flex", gap: "var(--arcd-space-2)", marginTop: "var(--arcd-space-1)" }}>
               <Btn v="ghost" onClick={() => setModal(false)} full>Cancelar</Btn>
               <Btn onClick={save} loading={savingProject} full><Ic n="check" /> {reviewingProject?"Confirmar e salvar":"Revisar cadastro"}</Btn>
@@ -5890,7 +5899,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
     const aviso=[
       `FINALIZAR E ARQUIVAR a ${quinzenaLabel}?`,
       "",
-      `- ${total} lançamento(s) de ${empsEnvolvidos.size} funcionário(s)`,
+      `- ${contar(total,"lançamento","lançamentos")} de ${contar(empsEnvolvidos.size,"funcionário","funcionários")}`,
       "- O ponto sai do sistema principal e vira um arquivo próprio",
       "- A quinzena fica BLOQUEADA para edição (só o admin restaura)",
       "",
@@ -5904,7 +5913,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
     setArqBusy(false);
     if(!r.ok){showToast(r.erro||"Falha ao arquivar.","error");return;}
     update({__adotarServidor:true,data:r.data,updatedAt:r.updatedAt});
-    showToast(`Quinzena finalizada e arquivada (${r.meta?.totalLancamentos||total} lançamento(s)).`);
+    showToast(`Quinzena finalizada e arquivada (${contar(r.meta?.totalLancamentos||total,"lançamento","lançamentos")}).`);
   };
 
   const verArquivo=async()=>{
@@ -5925,7 +5934,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
     if(!r.ok){showToast(r.erro||"Falha ao restaurar.","error");return;}
     setArqView(null);
     update({__adotarServidor:true,data:r.data,updatedAt:r.updatedAt});
-    showToast(`Quinzena restaurada: ${r.devolvidos} lançamento(s) devolvido(s)${r.mantidos?`, ${r.mantidos} mantido(s)`:""}.`);
+    showToast(`Quinzena restaurada: ${contar(r.devolvidos,"lançamento devolvido","lançamentos devolvidos")}${r.mantidos?`, ${contar(r.mantidos,"mantido","mantidos")}`:""}.`);
   };
   // A gestao mostra somente segunda a sexta. Feriados em dias uteis
   // permanecem sempre visiveis e destacados, mesmo sem lancamento.
@@ -6001,7 +6010,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
     <PageHero
       eyebrow="Gestão do ponto"
       title="Ponto da quinzena"
-      description={`${periodo} · ${employees.length} funcionário(s)`}
+      description={`${periodo} · ${contar(employees.length,"funcionário","funcionários")}`}
     />
 
     <div className="ponto-geral-controls">
@@ -6012,7 +6021,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
         <Sel label="Obra" value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
         <Inp label="Buscar funcionário" value={busca} onChange={setBusca} placeholder="Nome, cargo ou obra..."/>
       </FilterBar>
-      <p className="ponto-geral-count">{employees.length} funcionário(s) neste filtro · marcação dia a dia, clicando na célula</p>
+      <p className="ponto-geral-count">{contar(employees.length,"funcionário","funcionários")} neste filtro · marcação dia a dia, clicando na célula</p>
       {!arqMeta&&["admin","rh"].includes(currentUser?.role)&&<Suspense fallback={<LoadingState label="importação de ponto"/>}><ImportarDoREP data={data} employees={employees} days={days}
         getRecord={attendanceFor} canEdit={(obraId,date)=>canEditAttendance(data,obraId,date,currentUser?.id)} obraName={obraName}
         dispatchAttendanceCommand={dispatchAttendanceCommand} newOperationId={pointOperationId} showToast={showToast}/></Suspense>}
@@ -6023,7 +6032,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
         <div>
           <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:"var(--arcd-font-weight-semibold)",fontSize:"var(--arcd-type-body)",color:"var(--arcd-action-primary)",display:"flex",alignItems:"center",gap:"var(--arcd-space-1)"}}><Ic n="lock"/> QUINZENA FINALIZADA E ARQUIVADA</p>
           <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>
-            {arqMeta.totalLancamentos} lançamento(s) de {arqMeta.funcionarios} funcionário(s) · arquivada por {arqMeta.archivedBy?.nome||"-"} em {fmtDateFull(String(arqMeta.archivedAt||"").slice(0,10))}. Edição bloqueada.
+            {contar(arqMeta.totalLancamentos,"lançamento","lançamentos")} de {contar(arqMeta.funcionarios,"funcionário","funcionários")} · arquivada por {arqMeta.archivedBy?.nome||"-"} em {fmtDateFull(String(arqMeta.archivedAt||"").slice(0,10))}. Edição bloqueada.
           </p>
         </div>
         <div style={{display:"flex",gap:"var(--arcd-space-1)",flexWrap:"wrap"}}>
@@ -6154,7 +6163,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
               </tr>)}
             </tbody>
             <tfoot><tr style={{background:"var(--arcd-surface-muted)",borderTop:"2px solid var(--arcd-border-default)"}}>
-              <td style={{padding:"var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-semibold)"}}>TOTAL · {linhas.length} funcionário(s)</td>
+              <td style={{padding:"var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-semibold)"}}>TOTAL · {contar(linhas.length,"funcionário","funcionários")}</td>
               <td colSpan={4}></td>
               <td style={{textAlign:"center",fontWeight:"var(--arcd-font-weight-semibold)"}}>{totDias.toFixed(1).replace(".0","")}</td>
               <td></td>
@@ -6512,7 +6521,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
         <TaskDisclosure enabled={isMobile} summary={`Obras com ponto pendente (${attendanceCompletion.pendingObras.length})`}>
         <section className="obra-attendance__pending" aria-labelledby="attendance-pending-title">
           <p id="attendance-pending-title" className="obra-attendance__pending-title">
-            {attendanceCompletion.pendingObras.length} obra(s) com ponto pendente
+            {contar(attendanceCompletion.pendingObras.length,"obra","obras")} com ponto pendente
           </p>
           {attendanceCompletion.pendingObras.map(o => (
             <StandardButton variant="secondary" key={o.obraId} onClick={() => setFilterObra(o.obraId)}
@@ -6864,7 +6873,7 @@ function FluxoCaixa({ data, year, month, obraId="all" }) {
             </p>
             <p style={{fontSize:"var(--arcd-type-body)",color:C.green,fontWeight:600}}>{fmt(c.received)}</p>
             <p style={{fontSize:"var(--arcd-type-body)",color:C.red}}>{fmt(c.totalOut)}</p>
-            <p style={{fontSize:"var(--arcd-type-body)",color:c.balance>=0?C.green:C.red,fontWeight:600}}>{fmt(c.balance)}</p>
+            <p style={{fontSize:"var(--arcd-type-body)",color:(c.balance>0?C.green:c.balance<0?C.red:C.muted),fontWeight:600}}>{fmt(c.balance)}</p>
           </div>
         ))}
         <div style={{padding:"8px 14px",background:C.surface,borderTop:`2px solid ${C.line}`}}>
@@ -6903,17 +6912,17 @@ function RelatorioCaixaObra({ data, showToast }) {
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(165px,1fr))",gap:8}}>
         <ReportMetric label="Total de aportes" value={fmt(totalAportes)} color={C.green} icon="download"/>
         <ReportMetric label="Total de gastos" value={fmt(totalDespesas)} color={C.red} icon="cart"/>
-        <ReportMetric label="Saldo consolidado" value={fmt(totalSaldo)} color={totalSaldo>=0?C.green:C.red} icon="wallet"/>
+        <ReportMetric label="Saldo consolidado" value={fmt(totalSaldo)} color={(totalSaldo>0?C.green:totalSaldo<0?C.red:C.muted)} icon="wallet"/>
       </div>
       <div style={{display:"flex",flexDirection:"column",gap:7}}>
         {linhas.map(l => (
           <div key={l.obra.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,padding:"11px 13px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
             <div>
               <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>{l.obra.name}</p>
-              <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{l.movimentos.length} lançamento(s) · aportes {fmt(l.totalAportes)} · gastos {fmt(l.totalDespesas)}</p>
+              <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{contar(l.movimentos.length,"lançamento","lançamentos")} · aportes {fmt(l.totalAportes)} · gastos {fmt(l.totalDespesas)}</p>
             </div>
             <div style={{display:"flex",alignItems:"center",gap:10}}>
-              <b style={{fontSize:"var(--arcd-type-card-title)",color:l.saldo>=0?C.green:C.red}}>{fmt(l.saldo)}</b>
+              <b style={{fontSize:"var(--arcd-type-card-title)",color:(l.saldo>0?C.green:l.saldo<0?C.red:C.muted)}}>{fmt(l.saldo)}</b>
               <Btn size="sm" v="ghost" onClick={()=>gerarRelatorioCaixaObraPDF(data,l.obra,l,showToast)}><Ic n="download" s={12}/> PDF</Btn>
             </div>
           </div>
@@ -7550,7 +7559,7 @@ function RelatorioMensal({ data, year, month, showToast }) {
         ["Total de despesas", escapeHtml(fmt(r.totalDespesas))],
         ["Margem esperada", escapeHtml(fmt(r.margemEsperada))],
       ],
-      totalRow: [`Margem (${r.margemPct.toFixed(1)}%)`, escapeHtml(fmt(r.margem))],
+      totalRow: [`Margem (${pct1(r.margemPct)})`, escapeHtml(fmt(r.margem))],
     });
 
     const html = montarRelatorioPadraoHtml({
@@ -7664,7 +7673,7 @@ function RelatorioMensal({ data, year, month, showToast }) {
 
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:8}}>
         <ReportMetric label="Receita recebida" value={fmt(tot.received)} detail="Caixa realizado no período" color={C.yellow} icon="wallet"/>
-        <ReportMetric label="Margem global" value={fmt(tot.margem)} detail={tot.received?`${((tot.margem/tot.received)*100).toFixed(1)}% da receita`:"Sem receita no período"} color={tot.margem>=0?C.green:C.red} icon="trending"/>
+        <ReportMetric label="Margem global" value={fmt(tot.margem)} detail={tot.received?`${((tot.margem/tot.received)*100).toFixed(1)}% da receita`:"Sem receita no período"} color={(tot.margem>0?C.green:tot.margem<0?C.red:C.muted)} icon="trending"/>
         <ReportMetric label="Total de despesas" value={fmt(tot.totalDespesas)} detail="Custos diretos e benefícios" color={C.red} icon="receipt"/>
         <ReportMetric label="Receita esperada" value={fmt(tot.revenueEsp)} detail="Posição contratual estimada" color={C.text} icon="target"/>
       </div>
@@ -7737,7 +7746,7 @@ function RelatorioMensal({ data, year, month, showToast }) {
                 </div>
                 <div style={{background:C.surface,border:`1px solid ${margemColor}44`,padding:"8px 10px",borderRadius:8}}>
                   <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Margem esp.</p>
-                  <p style={{fontSize:"var(--arcd-type-card-title)",color:r.margemEsperada>=0?C.green:C.red,fontWeight:600,marginTop:2}}>{fmt(r.margemEsperada)}</p>
+                  <p style={{fontSize:"var(--arcd-type-card-title)",color:(r.margemEsperada>0?C.green:r.margemEsperada<0?C.red:C.muted),fontWeight:600,marginTop:2}}>{fmt(r.margemEsperada)}</p>
                 </div>
               </div>
 
@@ -7781,7 +7790,7 @@ function RelatorioMensal({ data, year, month, showToast }) {
           ["Rescisões",         tot.rescTotal,         C.red],
           ["Adiantamentos",     tot.adiantTotal,       C.muted],
           ["Total despesas",    tot.totalDespesas,     C.red],
-          ["Margem global",     tot.margem,            tot.margem>=0?C.green:C.red],
+          ["Margem global",     tot.margem,            (tot.margem>0?C.green:tot.margem<0?C.red:C.muted)],
         ].map(([l,v,c])=>(
           <div key={l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:`1px solid ${C.line}44`}}>
             <p style={{fontSize:"var(--arcd-type-body)",color:C.muted}}>{l}</p>
@@ -7959,7 +7968,7 @@ const agentFormatPendingPoints = ctx => {
   }
 
   return [
-    `Existem ${ctx.pendingPointObras.length} obra(s) com ponto pendente hoje (${agentDateLabel(ctx.today)}):`,
+    `Existem ${contar(ctx.pendingPointObras.length,"obra","obras")} com ponto pendente hoje (${agentDateLabel(ctx.today)}):`,
     ...ctx.pendingPointObras.map(o => `- ${o.obraName}: ${o.missingCount} trabalhador(es) sem ponto - ${o.missingEmployees.join(", ")}`),
   ].join("\n");
 };
@@ -8005,7 +8014,7 @@ const agentFormatPayroll = ctx => {
   return [
     `Próximo pagamento calculado: ${agentDateLabel(ctx.paymentDate)}.`,
     obs,
-    `Pontos de hoje: ${ctx.allPointsDoneToday ? "todos cadastrados" : `${ctx.pendingPointObras.length} obra(s) pendente(s)`}.`,
+    `Pontos de hoje: ${ctx.allPointsDoneToday ? "todos cadastrados" : `${contar(ctx.pendingPointObras.length,"obra pendente","obras pendentes")}`}.`,
     ctx.pendingUnlocks.length ? `Há ${ctx.pendingUnlocks.length} solicitação(ões) de permissão pendente(s).` : "Não há solicitação de permissão pendente.",
   ].join("\n");
 };
@@ -8013,10 +8022,10 @@ const agentFormatPayroll = ctx => {
 const agentFormatPriorities = ctx => {
   const priorities = [];
 
-  if (ctx.pendingPointObras.length) priorities.push(`Finalizar ponto de ${ctx.pendingPointObras.length} obra(s) pendente(s).`);
+  if (ctx.pendingPointObras.length) priorities.push(`Finalizar ponto de ${contar(ctx.pendingPointObras.length,"obra pendente","obras pendentes")}.`);
   if (ctx.pendingUnlocks.length) priorities.push(`Analisar ${ctx.pendingUnlocks.length} solicitação(ões) de alteração de ponto.`);
-  if (ctx.noAreaObras.length) priorities.push(`Cadastrar metragem de ${ctx.noAreaObras.length} obra(s) para custo por m.`);
-  if (ctx.incompleteEmployees.length) priorities.push(`Corrigir cadastro de ${ctx.incompleteEmployees.length} funcionário(s) ativo(s).`);
+  if (ctx.noAreaObras.length) priorities.push(`Cadastrar metragem de ${contar(ctx.noAreaObras.length,"obra","obras")} para custo por m.`);
+  if (ctx.incompleteEmployees.length) priorities.push(`Corrigir cadastro de ${contar(ctx.incompleteEmployees.length,"funcionário ativo","funcionários ativos")}.`);
   if (!priorities.length) priorities.push("Não há alertas críticos. Mantenha a rotina de finalizar o ponto por obra ao fim do dia.");
 
   return [
@@ -8114,7 +8123,7 @@ function AgenteIA({ data, showToast, onTab }) {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
         {[
-          [ctx.allPointsDoneToday ? "Ponto completo" : "Ponto pendente", ctx.allPointsDoneToday ? "Todas as obras" : `${ctx.pendingPointObras.length} obra(s)`, ctx.allPointsDoneToday ? C.green : C.red],
+          [ctx.allPointsDoneToday ? "Ponto completo" : "Ponto pendente", ctx.allPointsDoneToday ? "Todas as obras" : `${contar(ctx.pendingPointObras.length,"obra","obras")}`, ctx.allPointsDoneToday ? C.green : C.red],
           ["Funcionários ativos", ctx.activeEmployees, C.yellow],
           ["Solicitações", ctx.pendingUnlocks.length, ctx.pendingUnlocks.length ? C.red : C.green],
           ["Obras sem m", ctx.noAreaObras.length, ctx.noAreaObras.length ? C.orange : C.green],
@@ -9349,7 +9358,7 @@ function RankingFornecedores({data,showToast,currentUser,dispatchCommand}){
           <td data-label="Nota geral">{nota(r.geral,corNota(r.geral))}</td>
           <td data-label="Preço">{nota(r.preco,corNota(r.preco))}</td><td data-label="Frete">{nota(r.frete,corNota(r.frete))}</td>
           <td data-label="Prazo">{nota(r.prazo,corNota(r.prazo))}</td><td data-label="Qualidade">{nota(r.qualidade,corNota(r.qualidade))}</td>
-          <td data-label="Base"><div className="supplier-confidence"><b>{r.confianca}% confiança</b><span>{r.evidencias} evidência(s)</span></div></td>
+          <td data-label="Base"><div className="supplier-confidence"><b>{r.confianca}% confiança</b><span>{contar(r.evidencias,"evidência","evidências")}</span></div></td>
           <td><button className="supplier-row-action" onClick={e=>{e.stopPropagation();setSelecionadoId(r.fornecedor.id)}} aria-label={`Ver detalhes de ${r.fornecedor.nome}`}><Ic n="chevronRight"/></button></td>
         </tr>)}</tbody>
       </table></div>}
@@ -9360,7 +9369,7 @@ function RankingFornecedores({data,showToast,currentUser,dispatchCommand}){
     </TaskDisclosure>
     {selecionado&&<div className="supplier-detail-backdrop" onClick={()=>setSelecionadoId("")}><aside className="supplier-detail" onClick={e=>e.stopPropagation()}>
       <div className="supplier-detail-head"><div><h2>{selecionado.fornecedor.nome}</h2><span>{selecionado.fornecedor.cnpj||"CNPJ não informado"}</span></div><button onClick={()=>setSelecionadoId("")} aria-label="Fechar"><Ic n="x"/></button></div>
-      <div className="supplier-detail-score"><div>{nota(selecionado.geral,corNota(selecionado.geral))}<span>nota geral</span></div><p><b>{selecionado.confianca}% de confiança</b><br/>{selecionado.evidencias} evidência(s) no período</p></div>
+      <div className="supplier-detail-score"><div>{nota(selecionado.geral,corNota(selecionado.geral))}<span>nota geral</span></div><p><b>{selecionado.confianca}% de confiança</b><br/>{contar(selecionado.evidencias,"evidência","evidências")} no período</p></div>
       <div className="supplier-detail-grid">{[["Preço",selecionado.preco],["Frete",selecionado.frete],["Prazo",selecionado.prazo],["Qualidade",selecionado.qualidade]].map(([l,v])=><div key={l}><span>{l}</span><b style={{color:corNota(v)}}>{v===null?"Sem dados":v}</b></div>)}</div>
       <div className="supplier-facts"><div><span>Volume comprado</span><b>{fmt(selecionado.valorComprado)}</b></div><div><span>Propostas / vitórias</span><b>{selecionado.propostas.length} / {selecionado.vitorias}</b></div><div><span>Pedidos</span><b>{selecionado.pedidos.length}</b></div><div><span>Entregas no prazo</span><b>{selecionado.entregas?`${selecionado.noPrazo}/${selecionado.entregas}`:"Sem dados"}</b></div></div>
       <div className="supplier-detail-actions"><Btn v="ghost" onClick={()=>setFornModal({...selecionado.fornecedor,categorias:selecionado.fornecedor.categorias||[]})}><Ic n="edit"/> Editar cadastro</Btn></div>
@@ -9927,7 +9936,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         <Btn v="info" onClick={criarSubpasta} disabled={!novaPasta.trim()||criandoPasta} style={{flex:"0 0 auto",maxWidth:"100%"}}><Ic n="folder"/> {criandoPasta?"Criando...":"Criar pasta"}</Btn>
       </div>
       <div style={{borderTop:"1px solid var(--arcd-border-default)",paddingTop:"var(--arcd-space-3)",minWidth:0}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",marginBottom:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Conteúdo da pasta</p>{!carregandoPasta&&<span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",whiteSpace:"nowrap"}}>{pastas.length} pasta(s) · {arquivos.length||arquivosFallback.length} arquivo(s)</span>}</div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",marginBottom:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Conteúdo da pasta</p>{!carregandoPasta&&<span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",whiteSpace:"nowrap"}}>{contar(pastas.length,"pasta","pastas")} · {contar(arquivos.length||arquivosFallback.length,"arquivo","arquivos")}</span>}</div>
         {carregandoPasta?<LoadingState label="pastas e arquivos"/>:<>
           {!!pastas.length&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,210px),1fr))",gap:"var(--arcd-space-2)",marginBottom:"var(--arcd-space-2)"}}>{pastas.map(pasta=><StandardButton variant="secondary" key={pasta.id} onClick={()=>abrirPastaInterna(pasta)} title={`Abrir ${pasta.name}`} style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",minWidth:0,width:"100%",textAlign:"left"}}><span style={{flex:"0 0 auto",color:"var(--arcd-action-primary)"}}><Ic n="folder"/></span><span style={{flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{pasta.name}</span><span style={{flex:"0 0 auto",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-body)"}}>›</span></StandardButton>)}</div>}
           {!!arquivos.length&&<div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>{arquivos.map(doc=>linkDocumentoObra(doc))}</div>}
@@ -10019,14 +10028,14 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         ["Pendências abertas",indicadoresGerais.pendencias,indicadoresGerais.criticas?C.red:C.orange,"alert"],
         ["Tarefas atrasadas",indicadoresGerais.atrasadas,indicadoresGerais.atrasadas?C.red:C.green,"calendar"],
         ["A receber",fmt(resumo.aReceber),resumo.aReceber?C.orange:C.green,"dollar"],
-      ].map(([label,value,color,icon])=><div key={label} style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:10,padding:"var(--arcd-space-3)"}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>{label}</p><Ic n={icon} s={13} color={color}/></div><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color,marginTop:"var(--arcd-space-1)"}}>{value}</p>{label==="Pendências abertas"&&indicadoresGerais.criticas>0&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-danger-text)",marginTop:"var(--arcd-space-half)"}}>{indicadoresGerais.criticas} crítica(s)</p>}</div>)}</div>
+      ].map(([label,value,color,icon])=><div key={label} style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:10,padding:"var(--arcd-space-3)"}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>{label}</p><Ic n={icon} s={13} color={color}/></div><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color,marginTop:"var(--arcd-space-1)"}}>{value}</p>{label==="Pendências abertas"&&indicadoresGerais.criticas>0&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-danger-text)",marginTop:"var(--arcd-space-half)"}}>{contar(indicadoresGerais.criticas,"crítica","críticas")}</p>}</div>)}</div>
 
       <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderLeft:`1px solid ${previsaoObra.prazo.atrasadas||previsaoObra.custos.saldo<0?"var(--arcd-danger-text)":"var(--arcd-action-primary)"}`,borderRadius:10,padding:"var(--arcd-space-3)",marginBottom:"var(--arcd-space-3)"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}><div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Previsão executiva da obra</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>O avanço oficial vem do boletim técnico aprovado. A evolução informada no Planejamento pode ser diferente.</p></div><Btn size="sm" v="ghost" onClick={()=>abrirModuloDaObra("plan")}>Abrir planejamento</Btn></div>
         {!previsaoObra.temPlano?<div style={{marginTop:"var(--arcd-space-2)",background:"color-mix(in srgb, var(--arcd-warning-text) 4%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)",borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-warning-text)"}}>A obra ainda não possui cronograma executável.</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Crie ou sincronize o planejamento com o orçamento para habilitar previsão de prazo e avanço ponderado.</p></div>:<>
           <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)"}}>{[
             ["Avanço físico",`${previsaoObra.progresso}%`,C.blue],
-            ["Desvio de prazo",`${previsaoObra.prazo.desvioObra>0?"+":""}${previsaoObra.prazo.desvioObra||0} dia(s)`,previsaoObra.prazo.desvioObra>0?C.red:C.green],
+            ["Desvio de prazo",`${previsaoObra.prazo.desvioObra>0?"+":""}${contar(previsaoObra.prazo.desvioObra||0,"dia","dias")}`,previsaoObra.prazo.desvioObra>0?C.red:C.green],
             ["Conclusão prevista",previsaoObra.fimProjetado?fmtDate(previsaoObra.fimProjetado):"Sem data",previsaoObra.prazo.desvioObra>0?C.orange:C.green],
             ["Medição financeira",`${Math.min(999,previsaoObra.percentualMedido).toFixed(1)}%`,C.purple],
           ].map(([l,v,c])=><div key={l} style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:7,padding:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>{l}</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:c,marginTop:"var(--arcd-space-half)"}}>{v}</p></div>)}</div>
@@ -10071,7 +10080,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
             </p>
           </div>
           <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginBottom:"var(--arcd-space-2)",lineHeight:"var(--arcd-line-height-normal)"}}>
-            Tem {resumo.pedAbertos.length} pedido(s) a caminho. Ao confirmar a chegada,
+            Tem {contar(resumo.pedAbertos.length,"pedido","pedidos")} a caminho. Ao confirmar a chegada,
             o material entra no estoque automaticamente.
           </p>
           <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
@@ -10180,7 +10189,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
       <Secao id="diarios" icone="atividade" titulo="Diário de Obra" cor={C.green}
              badge={(data.rdos||[]).filter(r=>r.obraId===obraId).length||null}>
         {(() => {const lista=(data.rdos||[]).filter(r=>r.obraId===obraId).sort((a,b)=>(b.data||"").localeCompare(a.data||"")).slice(0,3);return <>
-          {lista.length?lista.map(r=><div key={r.id} style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-1) var(--arcd-space-0)",borderBottom:"1px solid var(--arcd-border-default)"}}><div><b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>RDO-{String(r.codigo||0).padStart(3,"0")} · {fmtDate(r.data)}</b><p style={{fontSize:"var(--arcd-type-caption)",color:r.status==="concluido"?"var(--arcd-success-text)":"var(--arcd-warning-text)"}}>{r.status==="concluido"?"Concluído":"Em preparação"} · {(r.fotos||[]).length} foto(s)</p></div></div>):<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhum relatório registrado para esta obra.</p>}
+          {lista.length?lista.map(r=><div key={r.id} style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-1) var(--arcd-space-0)",borderBottom:"1px solid var(--arcd-border-default)"}}><div><b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>RDO-{String(r.codigo||0).padStart(3,"0")} · {fmtDate(r.data)}</b><p style={{fontSize:"var(--arcd-type-caption)",color:r.status==="concluido"?"var(--arcd-success-text)":"var(--arcd-warning-text)"}}>{r.status==="concluido"?"Concluído":"Em preparação"} · {contar((r.fotos||[]).length,"foto","fotos")}</p></div></div>):<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhum relatório registrado para esta obra.</p>}
           <Btn full style={{marginTop:"var(--arcd-space-2)"}} onClick={()=>abrirModuloDaObra("rdo")}><Ic n="clipboard"/> Abrir histórico e registrar RDO</Btn>
         </>;})()}
       </Secao>
@@ -10485,7 +10494,7 @@ function Qualidade({data,showToast,currentUser,obraIdFixo="",dispatchCommand=nul
       materialIds.forEach(id=>{const material=(data.materiais||[]).find(item=>item.id===id);if(material&&!existentes.has(`fvm|${id}`))novos.push(montar("fvm",id,material.descricao,{materialId:id}));});
       if(!novos.length){showToast("O plano de qualidade já está atualizado.");return;}
       const result=await executar(()=>({type:OPERATIONAL_COMMAND.QUALITY_PLAN_GENERATED,idempotencyKey:`plano-qualidade-${obraIdFixo}-${uid()}`,actorId:currentUser?.id||"",actorName:currentUser?.nome||"",payload:{records:novos}}),"Não foi possível gerar o plano de qualidade.");
-      if(result?.ok)showToast(`${novos.length} ficha(s) enviada(s) para o plano de qualidade.`);
+      if(result?.ok)showToast(`${contar(novos.length,"ficha enviada","fichas enviadas")} para o plano de qualidade.`);
     }finally{setGerando(false);}
   };
   const inspecionar=(ficha,item,result)=>executar(atual=>{const vigente=(atual.qualidadeRegistros||[]).find(registro=>registro.id===ficha.id);return {type:OPERATIONAL_COMMAND.QUALITY_ITEM_INSPECTED,idempotencyKey:`inspecao-qualidade-${ficha.id}-${item.id}-${uid()}`,expectedVersion:Number(vigente?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",payload:{recordId:ficha.id,itemId:item.id,result}};},"Não foi possível registrar a inspeção.");
@@ -10573,18 +10582,18 @@ export function TerceirosNaMedicao({ data, obraId, tarefas, currentUser, dispatc
                 </p>
               </div>
               <div style={{ textAlign: "right" }}>
-                <p style={{ fontSize: "var(--arcd-type-card-title)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-action-primary)" }}>{c.avancoAprovado.toFixed(1)}%</p>
+                <p style={{ fontSize: "var(--arcd-type-card-title)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-action-primary)" }}>{pct1(c.avancoAprovado)}</p>
                 <p style={{ fontSize:"var(--arcd-type-caption)", color: "var(--arcd-text-secondary)" }}>
-                  físico aprovado{c.avancoEnviado > c.avancoAprovado + 0.001 ? ` · ${c.avancoEnviado.toFixed(1)}% com os pendentes` : ""}
+                  físico aprovado{c.avancoEnviado > c.avancoAprovado + 0.001 ? ` · ${pct1(c.avancoEnviado)} com os pendentes` : ""}
                 </p>
               </div>
             </div>
             {(c.contagem.aguardando + c.contagem.rejeitadas + c.contagem.aPagar + c.contagem.pagas) > 0 && (
               <div style={{ display: "flex", gap: "var(--arcd-space-1)", flexWrap: "wrap" }}>
                 {c.contagem.aguardando > 0 && chip(`${c.contagem.aguardando} aguardando aprovação`, C.orange)}
-                {c.contagem.rejeitadas > 0 && chip(`${c.contagem.rejeitadas} rejeitada(s)`, C.red)}
-                {c.contagem.aPagar > 0 && chip(`${c.contagem.aPagar} aprovada(s) a pagar`, C.blue)}
-                {c.contagem.pagas > 0 && chip(`${c.contagem.pagas} paga(s)`, C.green)}
+                {c.contagem.rejeitadas > 0 && chip(`${contar(c.contagem.rejeitadas,"rejeitada","rejeitadas")}`, C.red)}
+                {c.contagem.aPagar > 0 && chip(`${contar(c.contagem.aPagar,"aprovada","aprovadas")} a pagar`, C.blue)}
+                {c.contagem.pagas > 0 && chip(`${contar(c.contagem.pagas,"paga","pagas")}`, C.green)}
               </div>
             )}
             {c.etapas.length === 0 ? (
@@ -10893,7 +10902,7 @@ export function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", curren
                       : "manual"}
                   </span>
                   {t.diasTrabalhados > 0 && (
-                    <span style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>{t.diasTrabalhados} dia(s) trabalhado(s)</span>
+                    <span style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>{contar(t.diasTrabalhados,"dia trabalhado","dias trabalhados")}</span>
                   )}
                   {t.custo > 0 && <span style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>{fmt(t.custo)}</span>}
                   {avancoTerceiros.has(t.id) && (
@@ -10975,8 +10984,8 @@ export function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", curren
                       Medição {m.numero} · {fmtDateFull(m.data)}
                     </p>
                     <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", marginTop: "var(--arcd-space-half)" }}>
-                      {m.responsavel ? `${m.responsavel} · ` : ""}{m.itens.length} serviço(s)
-                      {divergentes > 0 && <span style={{ color: "var(--arcd-warning-text)", fontWeight:"var(--arcd-font-weight-semibold)" }}> · {divergentes} ajustado(s) vs diário</span>}
+                      {m.responsavel ? `${m.responsavel} · ` : ""}{contar(m.itens.length,"serviço","serviços")}
+                      {divergentes > 0 && <span style={{ color: "var(--arcd-warning-text)", fontWeight:"var(--arcd-font-weight-semibold)" }}> · {contar(divergentes,"ajustado","ajustados")} vs diário</span>}
                     </p>
                   </div>
                   <div style={{ textAlign: "right" }}>
@@ -11002,7 +11011,7 @@ export function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", curren
         <div className="measurement-contract-choices">
           <p>Escolha o contrato para registrar o percentual executado de cada etapa.</p>
           {contratosMedicao.map(contrato=><Btn key={contrato.id} v="ghost" full onClick={()=>abrirTerceiro(contrato.id, contrato.etapas.length > 0)}>
-            <span>{contrato.nome}<small style={{display:"block"}}>{contrato.etapas.length ? `${contrato.avancoAprovado.toFixed(1)}% aprovado · ${contrato.etapas.length} etapas` : "Cadastrar etapas antes de medir"}</small></span>
+            <span>{contrato.nome}<small style={{display:"block"}}>{contrato.etapas.length ? `${pct1(contrato.avancoAprovado)} aprovado · ${contrato.etapas.length} etapas` : "Cadastrar etapas antes de medir"}</small></span>
             <Ic n="chevR" />
           </Btn>)}
           {!contratosMedicao.length && <p>Nenhum contrato de terceirizado por medição nesta obra. Cadastre o contrato e suas etapas em RH → Terceiros.</p>}
@@ -11290,7 +11299,7 @@ function Cadastros({ data, update, showToast, onTab, currentUser, dispatchComman
     const emUso = (data.outrasDesp || []).filter(d => d.categoria === c.v).length
                 + (data.despesasEmpresa || []).filter(d => d.categoria === c.v).length;
     if (emUso) {
-      showToast(`"${c.l}" está em uso por ${emUso} lançamento(s). Reclassifique antes.`, "error");
+      showToast(`"${c.l}" está em uso por ${contar(emUso,"lançamento","lançamentos")}. Reclassifique antes.`, "error");
       return;
     }
     if (c.v === "outros") { showToast("A categoria Outros é a rede de segurança e não pode ser apagada.", "error"); return; }
@@ -11602,7 +11611,7 @@ function Cadastros({ data, update, showToast, onTab, currentUser, dispatchComman
         </Btn>
         {(data.composicoes||[]).map(c => (
           <Linha key={c.id} titulo={`${c.codigo} · ${c.nome}`}
-                 sub={`por 1 ${c.unidade} · ${c.itens.length} insumo(s)`}
+                 sub={`por 1 ${c.unidade} · ${contar(c.itens.length,"insumo","insumos")}`}
                  onEdit={()=>setCompModal({...c, itens: c.itens.map(i=>({...i,coef:String(i.coef)}))})}/>
         ))}
       </>)}
@@ -11620,7 +11629,7 @@ function Cadastros({ data, update, showToast, onTab, currentUser, dispatchComman
             <span style={{width:11,height:11,borderRadius:3,background:f.cor,flexShrink:0}}/>
             <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,flex:1,minWidth:0}}>{f.nome}</p>
             <span style={{fontSize:"var(--arcd-type-label)",color:C.muted,flexShrink:0}}>
-              {(data.obras||[]).filter(o=>o.faseId===f.id).length} obra(s)
+              {contar((data.obras||[]).filter(o=>o.faseId===f.id).length,"obra","obras")}
             </span>
           </div>
         ))}
@@ -11925,7 +11934,7 @@ function CaixaObra({ data, showToast, currentUser=null, dispatchCommand=null }) 
               <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{c.obra.name}</p>
               <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Aportes {fmt(c.totalAportes)}  Gastos {fmt(c.totalDespesas)}</p>
             </div>
-            <p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:c.saldo>=0?C.green:C.red}}>{fmt(c.saldo)}</p>
+            <p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:(c.saldo>0?C.green:c.saldo<0?C.red:C.muted)}}>{fmt(c.saldo)}</p>
           </button>
         ))}
       </div>
@@ -11939,9 +11948,9 @@ function CaixaObra({ data, showToast, currentUser=null, dispatchCommand=null }) 
       {obra && (<>
         {/* Seletor + saldo grande */}
 
-        <div style={{background:caixa.saldo>=0?`${C.green}08`:`${C.red}08`,border:`1.5px solid ${caixa.saldo>=0?C.green:C.red}`,borderRadius:8,padding:"16px 18px",textAlign:"center"}}>
+        <div style={{background:caixa.saldo>=0?`${C.green}08`:`${C.red}08`,border:`1.5px solid ${(caixa.saldo>0?C.green:caixa.saldo<0?C.red:C.muted)}`,borderRadius:8,padding:"16px 18px",textAlign:"center"}}>
           <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:1}}>Saldo em caixa - {obra.name}</p>
-          <p style={{fontFamily:"var(--arcd-font-sans)",fontSize:"clamp(19px,8vw,34px)",fontWeight:600,color:caixa.saldo>=0?C.green:C.red,lineHeight:1,margin:"4px 0"}}>{fmt(caixa.saldo)}</p>
+          <p style={{fontFamily:"var(--arcd-font-sans)",fontSize:"clamp(19px,8vw,34px)",fontWeight:600,color:(caixa.saldo>0?C.green:caixa.saldo<0?C.red:C.muted),lineHeight:1,margin:"4px 0"}}>{fmt(caixa.saldo)}</p>
           <div style={{display:"flex",justifyContent:"center",gap:20,marginTop:6}}>
             <p style={{fontSize:"var(--arcd-type-body)",color:C.muted}}>^ Aportes: <strong style={{color:C.green}}>{fmt(caixa.totalAportes)}</strong></p>
             <p style={{fontSize:"var(--arcd-type-body)",color:C.muted}}>v Gastos: <strong style={{color:C.red}}>{fmt(caixa.totalDespesas)}</strong></p>
@@ -12193,7 +12202,7 @@ function DREEmpresaMensal({ data, showToast, currentUser=null, dispatchCommand=n
     const pesoCSP=dre.receitaLiquida>0?dre.totalCSP/dre.receitaLiquida*100:0;
     const pesoOp=dre.receitaLiquida>0?dre.totalDespOp/dre.receitaLiquida*100:0;
     if(conversao<70&&dre.faturamentoObras>0)alertas.push({nivel:"critico",titulo:"Caixa abaixo do faturamento",texto:`Apenas ${conversao.toFixed(0)}% do faturado entrou em caixa.`,acao:"Priorizar cobrança das medições vencidas e confirmar datas de recebimento."});
-    if(dre.margemEbitda<10)alertas.push({nivel:dre.ebitda<0?"critico":"atencao",titulo:"Resultado operacional pressionado",texto:`Margem EBITDA de ${dre.margemEbitda.toFixed(1)}%.`,acao:"Atacar primeiro custos das obras negativas e despesas administrativas recorrentes."});
+    if(dre.margemEbitda<10)alertas.push({nivel:dre.ebitda<0?"critico":"atencao",titulo:"Resultado operacional pressionado",texto:`Margem EBITDA de ${pct1(dre.margemEbitda)}.`,acao:"Atacar primeiro custos das obras negativas e despesas administrativas recorrentes."});
     if(pesoCSP>75)alertas.push({nivel:"atencao",titulo:"Custos diretos elevados",texto:`O CSP consome ${pesoCSP.toFixed(0)}% da receita líquida.`,acao:"Revisar produtividade de mão de obra, terceiros e despesas diretas por obra."});
     if(pesoOp>15)alertas.push({nivel:"atencao",titulo:"Estrutura administrativa pesada",texto:`Despesas operacionais representam ${pesoOp.toFixed(0)}% da receita líquida.`,acao:"Revisar contratos recorrentes e separar despesas que pertencem às obras."});
     const criticos=acoesObra.filter(o=>o.nivel==="critico").length;
@@ -12297,7 +12306,7 @@ Regras: não inclua faturamento, folha, compras ou custos de execução das obra
       }));
       if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou a cópia.");
       setRecurrencePreview(null);
-      showToast(`${result.copied||0} despesa(s) recorrente(s) copiada(s).`);
+      showToast(`${contar(result.copied||0,"despesa recorrente copiada","despesas recorrentes copiadas")}.`);
     }catch(error){setRecurrencePreview(current=>({...current,error:error.message}));}
     finally{setExpenseCommandPending(false);}
   };
@@ -12420,7 +12429,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
   ${d.outrasDiretas>0?row("(-) Outras despesas diretas de obra",-d.outrasDiretas,"sub"):""}
   ${d.repasseEquipamentosTerceiros>0?row("(-) Repasse dos equipamentos de terceiros",-d.repasseEquipamentosTerceiros,"sub"):""}
   ${d.manutencaoLocacoes>0?row("(-) Manutenção das locações paga pela empresa",-d.manutencaoLocacoes,"sub"):""}
-  <tr class="result"><td>= LUCRO BRUTO</td><td class="val ${d.lucroBruto<0?'neg':'pos'}">R$ ${fmt2(d.lucroBruto)} (${d.margemBruta.toFixed(1)}%)</td></tr>
+  <tr class="result"><td>= LUCRO BRUTO</td><td class="val ${d.lucroBruto<0?'neg':'pos'}">R$ ${fmt2(d.lucroBruto)} (${pct1(d.margemBruta)})</td></tr>
 
   <tr class="sec"><td>(-) DESPESAS OPERACIONAIS</td><td class="val neg">(R$ ${fmt2(d.totalDespOp)})</td></tr>
   ${GRUPOS_DESP.filter(group=>expenseGroupTotals[group.v]>0).map(group=>`
@@ -12428,7 +12437,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
     ${CATS_DESP.filter(category=>category.grupo===group.v&&Number(d.despPorCat?.[category.v]||0)>0)
       .map(category=>row("(-) "+category.l,-d.despPorCat[category.v],"sub")).join("")}
   `).join("")}
-  <tr class="result"><td>= EBITDA (Resultado Operacional)</td><td class="val ${d.ebitda<0?'neg':'pos'}">R$ ${fmt2(d.ebitda)} (${d.margemEbitda.toFixed(1)}%)</td></tr>
+  <tr class="result"><td>= EBITDA (Resultado Operacional)</td><td class="val ${d.ebitda<0?'neg':'pos'}">R$ ${fmt2(d.ebitda)} (${pct1(d.margemEbitda)})</td></tr>
 
   <tr class="sec"><td>(+/-) RESULTADO FINANCEIRO</td><td class="val">-</td></tr>
   <tr class="subtot"><td>= LAIR (Lucro Antes do IR)</td><td class="val ${d.lair<0?'neg':'pos'}">R$ ${fmt2(d.lair)}</td></tr>
@@ -12437,7 +12446,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
   ${d.provisaoIR>0?row("(-) IR "+data.config.aliquotaIR+"%",-d.provisaoIR,"sub"):""}
   ${d.provisaoCSLL>0?row("(-) CSLL "+data.config.aliquotaCSLL+"%",-d.provisaoCSLL,"sub"):""}
 
-  <tr class="result liq"><td>= LUCRO / PREJUÍZO LÍQUIDO</td><td class="val ${d.lucroLiquido<0?'neg':'pos'}">R$ ${fmt2(d.lucroLiquido)} (${d.margemLiquida.toFixed(1)}%)</td></tr>
+  <tr class="result liq"><td>= LUCRO / PREJUÍZO LÍQUIDO</td><td class="val ${d.lucroLiquido<0?'neg':'pos'}">R$ ${fmt2(d.lucroLiquido)} (${pct1(d.margemLiquida)})</td></tr>
 </tbody></table>
 <div class="footer">Gerado por MARCELL Ponto PRO · ${new Date().toLocaleString("pt-BR")} - uso gerencial, não substitui o balanço contábil oficial</div>
 </body></html>`;
@@ -12452,7 +12461,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
         <p style={{fontSize:bold?"var(--arcd-type-body)":"var(--arcd-type-body)",color:bold?c:C.muted,fontWeight:bold?600:400}}>{label}</p>
         <div style={{textAlign:"right",flexShrink:0}}>
           <p style={{fontSize:bold?"var(--arcd-type-card-title)":"var(--arcd-type-body)",color:c,fontWeight:600}}>{sources?<Button variant="ghost" className="dre-monthly-memorial-trigger" disabled={razaoCarregando||!razaoEmpresa?.current} aria-label={`Consultar memorial: ${label}`} onClick={()=>setMemorialDetail({row:{label,sources},month:dre,period,value})}>{value<0?`(${fmt(Math.abs(value))})`:fmt(value)}</Button>:value<0?`(${fmt(Math.abs(value))})`:fmt(value)}</p>
-          {pct!==null&&<p style={{fontSize:"var(--arcd-type-caption)",color:c,marginTop:1}}>{pct.toFixed(1)}%</p>}
+          {pct!==null&&<p style={{fontSize:"var(--arcd-type-caption)",color:c,marginTop:1}}>{pct1(pct)}</p>}
         </div>
       </div>
     );
@@ -12464,11 +12473,11 @@ td.val{text-align:right;font-weight:700;min-width:110px}
     </div>
   );
   const DResult=({label,value,pct=null,size=1})=>(
-    <div style={{background:value>=0?`${C.green}08`:`${C.red}08`,border:`1px solid ${value>=0?C.green:C.red}55`,borderRadius:6,padding:"8px 12px",marginTop:4,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-      <p style={{fontSize:"var(--arcd-type-label)"+size,fontWeight:600,color:value>=0?C.green:C.red}}>{label}</p>
+    <div style={{background:value>=0?`${C.green}08`:`${C.red}08`,border:`1px solid ${(value>0?C.green:value<0?C.red:C.muted)}55`,borderRadius:6,padding:"8px 12px",marginTop:4,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+      <p style={{fontSize:"var(--arcd-type-label)"+size,fontWeight:600,color:(value>0?C.green:value<0?C.red:C.muted)}}>{label}</p>
       <div style={{textAlign:"right"}}>
-        <p style={{fontSize:14+size,fontWeight:600,color:value>=0?C.green:C.red}}>{value<0?`(${fmt(Math.abs(value))})`:fmt(value)}</p>
-        {pct!==null&&<p style={{fontSize:"var(--arcd-type-label)",color:(value>=0?C.green:C.red)}}>{pct.toFixed(1)}%</p>}
+        <p style={{fontSize:14+size,fontWeight:600,color:(value>0?C.green:value<0?C.red:C.muted)}}>{value<0?`(${fmt(Math.abs(value))})`:fmt(value)}</p>
+        {pct!==null&&<p style={{fontSize:"var(--arcd-type-label)",color:((value>0?C.green:value<0?C.red:C.muted))}}>{pct1(pct)}</p>}
       </div>
     </div>
   );
@@ -12515,8 +12524,8 @@ td.val{text-align:right;font-weight:700;min-width:110px}
         {[
           ["Faturamento",dre.faturamentoTotal,`Obras ${fmt(dre.faturamentoObras)} · locações ${fmt(dre.receitaLocacoes)}`],
           ["Receita líquida",dre.receitaLiquida,`${((dre.totalDeducoes/Math.max(dre.faturamentoTotal,1))*100).toFixed(1)}% em deduções`],
-          ["EBITDA",dre.ebitda,`Margem ${dre.margemEbitda.toFixed(1)}%`],
-          ["Lucro líquido",dre.lucroLiquido,`Margem ${dre.margemLiquida.toFixed(1)}%`],
+          ["EBITDA",dre.ebitda,`Margem ${pct1(dre.margemEbitda)}`],
+          ["Lucro líquido",dre.lucroLiquido,`Margem ${pct1(dre.margemLiquida)}`],
         ].map(([l,v,s])=>(
           <div key={l} data-negative={v<0}>
             <p>{l}</p>
@@ -12531,7 +12540,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
           <div className="dre-ai-score">
             <span>Saúde financeira</span>
             <strong>{diagnosticoGerencial.score}</strong>
-            <small>de 100 · {diagnosticoGerencial.criticos} crítica(s), {diagnosticoGerencial.atencao} atenção</small>
+            <small>de 100 · {contar(diagnosticoGerencial.criticos,"crítica","críticas")}, {diagnosticoGerencial.atencao} atenção</small>
           </div>
           <div className="dre-ai-summary">
             <p>Leitura automática · {period}</p>
@@ -12571,7 +12580,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
             <header><div><span>{o.nivel}</span><h4>{o.name}</h4></div><strong>{fmt(o.resultado)}</strong></header>
             <p>{o.titulo||o.diagnostico}</p>
             <small>{o.acao}</small>
-            <footer><span>Margem {o.margemPct==null?"sem receita":`${o.margemPct.toFixed(1)}%`}</span><span>Verificar no fechamento</span></footer>
+            <footer><span>Margem {o.margemPct==null?"sem receita":`${pct1(o.margemPct)}`}</span><span>Verificar no fechamento</span></footer>
           </article>)}
         </div>
         {analiseIA&&<section className="dre-ai-full-report">
@@ -12695,8 +12704,8 @@ td.val{text-align:right;font-weight:700;min-width:110px}
                     <td style={{padding:"8px 12px",color:C.text,fontWeight:600}}>{o.name}</td>
                     <td style={{padding:"8px 12px",textAlign:"right",color:C.green}}>{fmt(o.receita)}</td>
                     <td style={{padding:"8px 12px",textAlign:"right",color:C.orange}} title={`MO ${fmt(o.laborCost)} + Benef ${fmt(o.benefitCost)} + Terc ${fmt(o.terc)} + Outras ${fmt(o.outras)}`}>{fmt(o.despesa)}</td>
-                    <td style={{padding:"8px 12px",textAlign:"right",fontWeight:600,color:o.resultado>=0?C.green:C.red}}>{fmt(o.resultado)}</td>
-                    <td style={{padding:"8px 12px",textAlign:"right",color:o.margemPct==null?C.muted:o.margemPct>=0?C.green:C.red}}>
+                    <td style={{padding:"8px 12px",textAlign:"right",fontWeight:600,color:(o.resultado>0?C.green:o.resultado<0?C.red:C.muted)}}>{fmt(o.resultado)}</td>
+                    <td style={{padding:"8px 12px",textAlign:"right",color:o.margemPct==null?C.muted:(o.margemPct>0?C.green:o.margemPct<0?C.red:C.muted)}}>
                       {o.margemPct==null?"-":`${o.margemPct.toFixed(0)}%`}
                     </td>
                   </tr>
@@ -12810,7 +12819,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
       </div>
 
       {/* Exportar PDF */}
-      <div className="dre-company-panel dre-company-pdf"><Btn onClick={gerarPDF} v="danger" full><Ic n="file"/> Gerar DRE PDF - {period}</Btn></div>
+      <div className="dre-company-panel dre-company-pdf"><Btn onClick={gerarPDF} v="secondary" full><Ic n="file"/> Gerar DRE PDF - {period}</Btn></div>
 
       {/* Modal despesa */}
       {recurrencePreview&&<Modal title="Prévia de despesas recorrentes" wide onClose={()=>!expenseCommandPending&&setRecurrencePreview(null)}>
@@ -12818,8 +12827,8 @@ td.val{text-align:right;font-weight:700;min-width:110px}
           columns={["Copiar","Despesa / fornecedor","Vencimento previsto","Valor","Conferência"]}
           rows={recurrencePreview.rows.map(row=>({id:row.source.id,cells:[<input type="checkbox" aria-label={`Copiar ${row.source.descricao}`} disabled={!row.eligible||expenseCommandPending} checked={recurrencePreview.selected.includes(row.source.id)} onChange={event=>setRecurrencePreview(current=>({...current,selected:event.target.checked?[...current.selected,row.source.id]:current.selected.filter(id=>id!==row.source.id)}))}/>,`${row.source.descricao} · ${row.source.fornecedor||"Sem fornecedor"}`,row.dueDate?row.dueDate.split("-").reverse().join("/"):"Sem vencimento",fmt(row.source.valor),row.issue||(row.duplicate?(row.existingId?"Já existe no destino — ignorada":"Repetida nesta prévia — ignorada"):"Nova obrigação")] }))}
           error={recurrencePreview.error} pending={expenseCommandPending} disabled={!recurrencePreview.selected.length}
-          onCancel={()=>setRecurrencePreview(null)} onConfirm={confirmarRecorrentes} confirmLabel={`Confirmar ${recurrencePreview.selected.length} recorrência(s)`}>
-          <p>{recurrencePreview.selected.length} selecionada(s) · Total: {fmt(recurrencePreview.rows.filter(row=>recurrencePreview.selected.includes(row.source.id)).reduce((total,row)=>total+Number(row.source.valor),0))}</p>
+          onCancel={()=>setRecurrencePreview(null)} onConfirm={confirmarRecorrentes} confirmLabel={`Confirmar ${contar(recurrencePreview.selected.length,"recorrência","recorrências")}`}>
+          <p>{contar(recurrencePreview.selected.length,"selecionada","selecionadas")} · Total: {fmt(recurrencePreview.rows.filter(row=>recurrencePreview.selected.includes(row.source.id)).reduce((total,row)=>total+Number(row.source.valor),0))}</p>
           <Btn v="ghost" disabled={expenseCommandPending} onClick={replicarRecorrentes}>Atualizar prévia</Btn>
         </FinancialPreview>
       </Modal>}
@@ -12915,8 +12924,8 @@ function PainelTV({data,ultimaSync,onAtualizar,allowedTabs=[]}){
     const necessidades=[];
     if(!obra.engineerId&&!obra.engineer)necessidades.push("Definir engenheiro responsável");
     if(equipe.length&&!diarioHoje)necessidades.push("RDO de hoje pendente");
-    if(atrasadas.length)necessidades.push(`${atrasadas.length} atividade(s) atrasada(s)`);
-    if(pendencias.length)necessidades.push(`${pendencias.length} inconformidade(s) aberta(s)`);
+    if(atrasadas.length)necessidades.push(`${contar(atrasadas.length,"atividade atrasada","atividades atrasadas")}`);
+    if(pendencias.length)necessidades.push(`${contar(pendencias.length,"inconformidade aberta","inconformidades abertas")}`);
     if(qualidade.length)necessidades.push(`${qualidade.length} FVS/FVM em inspeção`);
     if(compras.length)necessidades.push(`${compras.length} solicitação(ões) de compra`);
     const criticas=pendencias.filter(p=>p.impacto==="critico").length;
@@ -12973,7 +12982,7 @@ function PainelTV({data,ultimaSync,onAtualizar,allowedTabs=[]}){
         {!foto&&<div aria-hidden="true" style={{position:"absolute",inset:0,zIndex:1,opacity:.2,backgroundImage:`linear-gradient(${tvColors.yellow}40 1px,transparent 1px),linear-gradient(90deg,${tvColors.yellow}40 1px,transparent 1px)`,backgroundSize:"30px 30px"}}/>}
         <span style={{position:"absolute",zIndex:3,left:0,top:0,bottom:0,width:3,background:cor,boxShadow:`0 0 18px ${cor}`}}/>
         <div className="arcd-tv-work-content" style={{position:"relative",zIndex:2,padding:"clamp(11px,1.15vw,16px)",display:"flex",flexDirection:"column",flex:1,minHeight:0}}>
-          <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"flex-start"}}><div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:1,textTransform:"uppercase",color:cor,textShadow:"0 1px 10px rgba(0,0,0,.8)"}}>{item.severidade>=3?"Atenção crítica":item.severidade===2?"Ação necessária":item.severidade===1?"Monitoramento":"Operação regular"}</p><h2 style={{fontFamily:"var(--arcd-font-sans)",fontSize:"clamp(17px,1.5vw,25px)",fontWeight:600,color:"#fff",marginTop:4,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textShadow:"0 2px 14px #000"}}>{item.obra.name}</h2><p style={{fontSize:"var(--arcd-type-caption)",color:"rgba(255,255,255,.72)",marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textShadow:"0 1px 8px #000"}}>Eng. {item.obra.engineer||"não definido"} · {item.equipe} pessoa(s) em campo</p>{foto&&<p style={{fontSize:"var(--arcd-type-caption)",color:"rgba(255,255,255,.42)",marginTop:4,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{foto.tipo==="rdo"?`RDO-${String(foto.codigo||0).padStart(3,"0")} · ${fmtDate(foto.data)} · ${foto.legenda}`:"Imagem cadastrada da obra"} · {indiceImagem+1}/{item.imagens.length}</p>}</div><div style={{textAlign:"right",flexShrink:0,padding:"5px 8px",borderRadius:9,background:"rgba(4,5,6,.52)",border:"1px solid rgba(255,255,255,.09)",backdropFilter:"blur(8px)"}}><strong style={{fontSize:"clamp(20px,2vw,31px)",fontWeight:600,color:tvColors.yellow,textShadow:`0 0 16px ${tvColors.yellow}55`}}>{item.progresso}%</strong><p style={{fontSize:"var(--arcd-type-caption)",color:"rgba(255,255,255,.48)",textTransform:"uppercase"}}>avanço</p></div></div>
+          <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"flex-start"}}><div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:1,textTransform:"uppercase",color:cor,textShadow:"0 1px 10px rgba(0,0,0,.8)"}}>{item.severidade>=3?"Atenção crítica":item.severidade===2?"Ação necessária":item.severidade===1?"Monitoramento":"Operação regular"}</p><h2 style={{fontFamily:"var(--arcd-font-sans)",fontSize:"clamp(17px,1.5vw,25px)",fontWeight:600,color:"#fff",marginTop:4,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textShadow:"0 2px 14px #000"}}>{item.obra.name}</h2><p style={{fontSize:"var(--arcd-type-caption)",color:"rgba(255,255,255,.72)",marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textShadow:"0 1px 8px #000"}}>Eng. {item.obra.engineer||"não definido"} · {contar(item.equipe,"pessoa","pessoas")} em campo</p>{foto&&<p style={{fontSize:"var(--arcd-type-caption)",color:"rgba(255,255,255,.42)",marginTop:4,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{foto.tipo==="rdo"?`RDO-${String(foto.codigo||0).padStart(3,"0")} · ${fmtDate(foto.data)} · ${foto.legenda}`:"Imagem cadastrada da obra"} · {indiceImagem+1}/{item.imagens.length}</p>}</div><div style={{textAlign:"right",flexShrink:0,padding:"5px 8px",borderRadius:9,background:"rgba(4,5,6,.52)",border:"1px solid rgba(255,255,255,.09)",backdropFilter:"blur(8px)"}}><strong style={{fontSize:"clamp(20px,2vw,31px)",fontWeight:600,color:tvColors.yellow,textShadow:`0 0 16px ${tvColors.yellow}55`}}>{item.progresso}%</strong><p style={{fontSize:"var(--arcd-type-caption)",color:"rgba(255,255,255,.48)",textTransform:"uppercase"}}>avanço</p></div></div>
           <div style={{marginTop:10,padding:"7px 9px",borderRadius:9,background:"rgba(5,8,10,.58)",border:"1px solid rgba(255,255,255,.11)",backdropFilter:"blur(8px)",boxShadow:"0 7px 22px rgba(0,0,0,.2)"}}><div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",marginBottom:5}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:1,color:"rgba(255,255,255,.54)",textTransform:"uppercase"}}>Curva física · hoje</p><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:item.temPlanejamento&&item.desvioFisico>=0?tvColors.green:tvColors.yellow}}>{item.temPlanejamento?`${item.desvioFisico>=0?"+":""}${item.desvioFisico} p.p.`:"sem cronograma"}</span></div>{[["Planejado",item.planejado,tvColors.cinza],["Executado",item.progresso,item.temPlanejamento&&item.progresso>=item.planejado?tvColors.green:tvColors.yellow]].map(([label,valor,cor])=>{const disponivel=valor!==null;return <div key={label} style={{display:"grid",gridTemplateColumns:"54px minmax(0,1fr) 30px",gap:6,alignItems:"center",marginTop:4}}><span style={{fontSize:"var(--arcd-type-caption)",color:"rgba(255,255,255,.58)"}}>{label}</span><div style={{height:4,borderRadius:99,background:"rgba(255,255,255,.14)",overflow:"hidden"}}><i style={{display:"block",height:"100%",width:`${disponivel?Math.max(0,Math.min(100,valor)):0}%`,background:cor,boxShadow:disponivel?`0 0 10px ${cor}`:"none"}}/></div><b style={{fontSize:"var(--arcd-type-caption)",color:cor,textAlign:"right"}}>{disponivel?`${valor}%`:"—"}</b></div>})}</div>
           <div className="arcd-tv-work-stats" tabIndex={0} role="region" aria-label={`Indicadores de ${item.obra?.name||item.name||"obra"}`} style={{display:"grid",gridTemplateColumns:"repeat(4,minmax(0,1fr))",gap:5,marginTop:9}}>{[["RDO",item.diarioHoje?"OK":"Pendente",item.diarioHoje?tvColors.green:tvColors.yellow],["Atrasos",item.atrasadas,item.atrasadas?tvColors.red:tvColors.green],["Qualidade",item.qualidade,item.qualidade?tvColors.yellow:tvColors.green],["Compras",item.compras,item.compras?tvColors.yellow:tvColors.green]].map(([l,v,c])=><div key={l} style={{padding:"6px 7px",borderRadius:7,background:"rgba(6,8,9,.62)",border:"1px solid rgba(255,255,255,.11)",backdropFilter:"blur(8px)",minWidth:0}}><p style={{fontSize:"var(--arcd-type-caption)",color:"rgba(255,255,255,.55)",textTransform:"uppercase",fontWeight:600}}>{l}</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:c,marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textShadow:"0 1px 7px #000"}}>{v}</p></div>)}</div>
           <div style={{marginTop:"auto",paddingTop:10,display:"flex",gap:6,alignItems:"center",minWidth:0}}><span style={{width:6,height:6,borderRadius:99,background:cor,boxShadow:`0 0 10px ${cor}`,flexShrink:0}}/><p style={{fontSize:"var(--arcd-type-caption)",color:item.necessidades.length?"rgba(255,255,255,.82)":tvColors.green,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textShadow:"0 1px 8px #000"}}>{item.necessidades[0]||"Sem necessidade operacional crítica"}{item.necessidades.length>1?` · +${item.necessidades.length-1}`:""}</p>{item.prazo!==null&&<span style={{marginLeft:"auto",padding:"3px 6px",borderRadius:6,background:"rgba(4,5,6,.55)",fontSize:"var(--arcd-type-caption)",color:item.prazo<0?tvColors.red:"rgba(255,255,255,.62)",whiteSpace:"nowrap"}}>{item.prazo<0?`${Math.abs(item.prazo)}d vencido`:`${item.prazo}d restantes`}</span>}</div>
@@ -13080,7 +13089,7 @@ function Comunicacao({ data, currentUser, showToast }) {
                   </span>
                 ))}
               </div>
-              {!c.conferenciasOk && <p style={{ fontSize:"var(--arcd-type-caption)", color: C.red, marginTop: 4 }}>{c.pendenciasAbertas} pendência(s) de conferência em aberto.</p>}
+              {!c.conferenciasOk && <p style={{ fontSize:"var(--arcd-type-caption)", color: C.red, marginTop: 4 }}>{contar(c.pendenciasAbertas,"pendência","pendências")} de conferência em aberto.</p>}
             </div>
           ))}
           </TaskDisclosure>
@@ -13343,7 +13352,7 @@ function ChatFlutuante({ currentUser, usuarios, showToast, bottomOffset=20 }) {
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Comunicação da equipe</p>
-              <p style={{ fontSize:"var(--arcd-type-label)", opacity: .8 }}>{(usuarios || []).filter(u => u.active !== false).length} participante(s)</p>
+              <p style={{ fontSize:"var(--arcd-type-label)", opacity: .8 }}>{contar((usuarios || []).filter(u => u.active !== false).length,"participante","participantes")}</p>
             </div>
             {ehAdmin && (
               <button onClick={() => setGestaoAberta(v => !v)} title="Gerenciar grupo" aria-label="Gerenciar grupo"
@@ -13567,7 +13576,7 @@ function BuscaGlobal({ indice, allowedTabs, onIr, onFechar }) {
         </div>
         <div style={{ display:"flex", justifyContent:"space-between", padding:"7px 14px", borderTop:`1px solid ${C.line}`, fontSize:"var(--arcd-type-caption)", color:C.muted }}>
           <span>↑↓ navegar · Enter abrir</span>
-          <span>{resultados.length} resultado(s)</span>
+          <span>{contar(resultados.length,"resultado","resultados")}</span>
         </div>
       </div>
     </div>
@@ -13978,7 +13987,7 @@ export default function App() {
         if(resultado?.ok)sincronizados+=1;
       }
       if(sincronizados>0){
-        showToast(`${sincronizados} lançamento(s) offline sincronizado(s).`);
+        showToast(`${contar(sincronizados,"lançamento","lançamentos")} offline sincronizado(s).`);
       }
     };
     window.addEventListener("online",retomarOffline);
@@ -14558,7 +14567,7 @@ export default function App() {
                 padding:sidebarCompacta ? "8px" : "8px 10px", cursor:"pointer", color:C.muted }}
                 title={sidebarCompacta ? "Buscar (Ctrl + K)" : undefined}
                 aria-label={sidebarCompacta?"Buscar no sistema":undefined}>
-                <Ic n="funnel" s={14} color={C.muted}/>
+                <Ic n="search" s={14} color={C.muted}/>
                 {!sidebarCompacta && <span style={{ fontSize:"var(--arcd-type-body)", flex:1, textAlign:"left" }}>Buscar no sistema</span>}
                 {!sidebarCompacta && <span aria-hidden="true" style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, border:`1px solid ${C.border}`, borderRadius:4, padding:"1px 5px" }}>⌘K</span>}
               </button>

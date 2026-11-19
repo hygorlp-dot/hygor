@@ -1,3 +1,4 @@
+import { contar } from "../../../design-system/copy.js";
 import {FilePicker} from '../../../design-system/patterns/FilePicker.jsx';
 import {ChoiceControl} from '../../../design-system/primitives/ChoiceControl.jsx';
 import {useEffect,useState} from 'react';
@@ -45,7 +46,7 @@ export function EmployeeDossier({data,currentUser,showToast}){
       <div className="provisions-table"><table><caption>Documentos de {data.employees.find(e=>String(e.id)===employeeId)?.name}</caption><thead><tr><th>Categoria / arquivo</th><th>Emissão / validade</th><th>Registro</th><th>Ações</th></tr></thead><tbody>{documents.filter(d=>archived||!d.archivedAt).map(d=><tr key={d.id}><td>{d.name}<small>{EMPLOYEE_DOCUMENT_CATEGORIES.find(([id])=>id===d.category)?.[1]}{d.archivedAt?' · Arquivado':''}</small>{d.notes&&<small>{d.notes}</small>}{d.archiveReason&&<small>Motivo: {d.archiveReason}</small>}</td><td>{d.issuedAt||'Não informada'}<small>{d.expiresAt||'Sem validade informada'}{d.expiresAt&&d.expiresAt<new Date().toLocaleDateString('en-CA')?' · Vencido':''}</small></td><td>{d.createdByName}<small>{d.createdAt}</small></td><td><Btn v="secondary" disabled={busy} onClick={()=>open(d)}>Abrir {d.name}</Btn>{!d.archivedAt&&<Btn v="ghost" disabled={busy} onClick={()=>{setArchiveId(d.id);setReason('');}}>Arquivar {d.name}</Btn>}</td></tr>)}</tbody></table></div>
       {!documents.length&&!busy&&<p>Nenhum documento cadastrado para este funcionário.</p>}
       {archiveId&&<fieldset disabled={busy}><legend>Arquivar documento</legend><Inp label="Motivo do arquivamento" value={reason} onChange={setReason}/><div className="clt-actions"><Btn v="secondary" onClick={()=>setArchiveId('')}>Cancelar arquivamento</Btn><Btn disabled={reason.trim().length<10} onClick={archive}>Confirmar arquivamento</Btn></div></fieldset>}
-      <details><summary>Checklist de documentação</summary><p>Adapte a exigência à contratação e à função. A ausência de uma categoria não significa automaticamente irregularidade.</p>{EMPLOYEE_DOCUMENT_CATEGORIES.map(([id,name])=><p key={id}>{name}: {documents.filter(d=>d.category===id&&!d.archivedAt).length} arquivo(s) ativo(s).</p>)}</details>
+      <details><summary>Checklist de documentação</summary><p>Adapte a exigência à contratação e à função. A ausência de uma categoria não significa automaticamente irregularidade.</p>{EMPLOYEE_DOCUMENT_CATEGORIES.map(([id,name])=><p key={id}>{name}: {contar(documents.filter(d=>d.category===id&&!d.archivedAt).length,"arquivo ativo","arquivos ativos")}.</p>)}</details>
     </>}
   </section>;
 }

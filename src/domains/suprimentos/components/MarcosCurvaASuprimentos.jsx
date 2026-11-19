@@ -1,3 +1,4 @@
+import { contar } from "../../../design-system/copy.js";
 import {Input} from "../../../design-system/primitives/Input.jsx";
 import {PageHeader} from "../../../design-system/patterns/PageHeader.jsx";
 import {WorkspaceNavigation} from "../../../design-system/patterns/WorkspaceNavigation.jsx";
@@ -49,7 +50,7 @@ export default function MarcosCurvaASuprimentos({ data, update, showToast, curre
     if (!demands.length) return showToast?.("O orçamento ainda não tem insumos analíticos com vínculos explícitos. Não é seguro inferir a Curva A por descrição.", "warn");
     const snapshot = createAbcSnapshot({ id:id("abc"), obraId, budget:planning.budget, baselineVersionId:planning.baseline?.budgetVersionId || "", demands, limits:settings.abc, actor:currentUser, now:now() });
     update({ ...data, curvaAbcSnapshots:[...(data.curvaAbcSnapshots || []), snapshot] });
-    showToast?.(`Proposta da Curva ABC criada com ${snapshot.itens.length} insumo(s). Revise e aprove antes de contratar.`);
+    showToast?.(`Proposta da Curva ABC criada com ${contar(snapshot.itens.length,"insumo","insumos")}. Revise e aprove antes de contratar.`);
   };
   const approve = snapshot => {
     if (!canApprove(currentUser)) return showToast?.("A aprovação exige perfil de administrador ou engenheiro auditor.", "error");
@@ -66,7 +67,7 @@ export default function MarcosCurvaASuprimentos({ data, update, showToast, curre
     if (!created.length) return showToast?.("Não há novos insumos A com vínculo material confirmado para planejar.", "warn");
     const milestones = created.flatMap(planItem => planItem.etapas.map(stage => ({ id:id("marco"), obraId, planoSuprimentoId:planItem.id, nome:`${planItem.codigo || planItem.descricao} · ${stage.nome}`, tipo:"suprimento", dataBaseline:stage.dataSugeridaFim, dataAtual:"", dataPrevista:stage.dataSugeridaFim, dataRealizada:"", status:"nao_iniciado", predecessoras:[], tarefaIds:planItem.tarefaIds, materialIds:[planItem.materialId], origem:"plano_suprimento", version:1, createdAt:now(), createdById:currentUser?.id || "", createdBy:currentUser?.nome || "" })));
     update({ ...data, planosSuprimento:[...(data.planosSuprimento || []), ...created], marcosSuprimento:[...(data.marcosSuprimento || []), ...milestones] });
-    showToast?.(`${created.length} plano(s) e ${milestones.length} marco(s) gerados sem alterar a baseline do cronograma.`);
+    showToast?.(`${contar(created.length,"plano","planos")} e ${contar(milestones.length,"marco","marcos")} gerados sem alterar a baseline do cronograma.`);
   };
   const updateSettings = field => event => update({ ...data, suprimentosConfig:{ ...(data.suprimentosConfig || {}), abc:{ ...settings.abc, [field]:Number(event.target.value || 0) } } });
   const nav = [["visao","Visão geral"],["insumos","Insumos A"],["gantt","Gantt de suprimentos"],["detalhe","Detalhe"],["config","Configuração"]];
@@ -75,7 +76,7 @@ export default function MarcosCurvaASuprimentos({ data, update, showToast, curre
   return <Shell>
     <PageHeader title="Marcos de obra e Curva A" description="Orçamento, necessidade de materiais e prazos de fornecimento. Sugestões não substituem compromissos." secondaryActions={!obraIdFixo&&<Select label="Obra" value={obraId} onChange={event=>{setObraId(event.target.value);setSelectedId("");}} options={works.map(work=>({value:work.id,label:work.name}))}/>}/>
     {!planning.budget && <Panel style={{ padding:16, borderLeft:"1px solid var(--arcd-warning-text)", marginBottom:12 }}><b style={{ fontSize:"var(--arcd-type-body)" }}>Não há orçamento disponível para esta obra.</b><p style={{ margin:"4px 0 0", fontSize:"var(--arcd-type-label)", color:"var(--arcd-text-secondary)" }}>O planejamento pode existir com rascunho, mas a Curva ABC somente usa uma versão explícita do orçamento.</p></Panel>}
-    {planning.budget && <Panel style={{ padding:"10px 12px", marginBottom:12, display:"flex", justifyContent:"space-between", alignItems:"center", gap:10, flexWrap:"wrap" }}><span style={{ fontSize:"var(--arcd-type-label)" }}>Fonte: <b>{planning.source === "baseline" ? "baseline aprovada" : "orçamento de planejamento (rascunho)"}</b> · {planning.budget.nome || planning.budget.codigo || "Orçamento sem nome"}</span><span style={{ fontSize:"var(--arcd-type-label)", color:"var(--arcd-text-secondary)" }}>Versão {planning.budget.versionNumber || 1} · {demands.length} insumo(s) analítico(s) identificado(s)</span></Panel>}
+    {planning.budget && <Panel style={{ padding:"10px 12px", marginBottom:12, display:"flex", justifyContent:"space-between", alignItems:"center", gap:10, flexWrap:"wrap" }}><span style={{ fontSize:"var(--arcd-type-label)" }}>Fonte: <b>{planning.source === "baseline" ? "baseline aprovada" : "orçamento de planejamento (rascunho)"}</b> · {planning.budget.nome || planning.budget.codigo || "Orçamento sem nome"}</span><span style={{ fontSize:"var(--arcd-type-label)", color:"var(--arcd-text-secondary)" }}>Versão {planning.budget.versionNumber || 1} · {contar(demands.length,"insumo analítico identificado","insumos analíticos identificados")}</span></Panel>}
     <WorkspaceNavigation label="Áreas dos suprimentos estratégicos" active={view} onChange={setView} items={nav.map(([id,label])=>({id,label}))}/>
     {view === "visao" && <>
       <div className="supply-actions" style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"flex-end", marginBottom:12 }}><Button onClick={generateProposal} disabled={!planning.budget}>Gerar proposta ABC</Button>{selectedSnapshot?.status === "proposta" && <Button secondary={!canApprove(currentUser)} onClick={() => approve(selectedSnapshot)} disabled={!canApprove(currentUser)}>Aprovar proposta</Button>}<Select label="Perfil de fornecimento" value={profileId} onChange={event=>setProfileId(event.target.value)} options={profiles.map(profile=>({value:profile.id,label:`${profile.nome} · ${profile.total} dias úteis`}))}/><Button onClick={generatePlans} disabled={!activeSnapshot}>Gerar planos dos itens A</Button></div>
