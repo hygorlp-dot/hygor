@@ -1,5 +1,6 @@
 import {expect,it} from 'vitest';
 import {projectDataForUser} from './data-projection.js';
+import {projectReconciliationPatch} from './reconciliation-response.js';
 import {authorizeSectionChanges} from './section-authorizations.js';
 import {unassignedOfxEvidence,verifiedOfxEvidence} from './dre-ofx-evidence.js';
 import {dreAccountPosition,dreOfxPosition} from '../src/domains/financeiro/dre-bank-position.js';
@@ -42,6 +43,31 @@ it('projeta somente a evidência mínima para perfis autorizados e impede gravá
  }
  expect(projectDataForUser(data,{role:'rh'}).dreOfxEvidence).toBeUndefined();
  expect(projectDataForUser(data,{role:'financeiro'}).extratos).toBeUndefined();
+});
+
+it('inclui a evidência no patch apenas quando ela muda, inclusive ao invalidar o saldo',()=>{
+ const data=fixture();
+ const admin={role:'admin'};
+ const evidence=verifiedOfxEvidence(data);
+ expect(evidence).toHaveLength(1);
+ expect(projectReconciliationPatch({},data,admin).dreOfxEvidence).toEqual(evidence);
+
+ const transacoes=data.transacoes.map(item=>({...item,status:'pendente'}));
+ const reopened={...data,transacoes};
+ expect(projectReconciliationPatch(data,reopened,admin)).toEqual({transacoes});
+ expect(projectReconciliationPatch(reopened,{...reopened,transacoes:transacoes.slice(1)},admin).dreOfxEvidence).toEqual([]);
+
+ const account={id:'account',banco:'Banco QA',conta:'TEST',ativa:true};
+ const assigned={
+  ...data,
+  contasBancarias:[account],
+  extratos:data.extratos.map(item=>({...item,banco:account.banco,contaBancariaId:account.id})),
+  transacoes:data.transacoes.map(item=>({...item,contaBancariaId:account.id})),
+ };
+ expect(verifiedOfxEvidence(assigned)).toHaveLength(1);
+ const invalid={...assigned,contasBancarias:[{...account,conta:'OUTRA'}]};
+ expect(projectReconciliationPatch(assigned,invalid,admin).dreOfxEvidence).toEqual([]);
+ expect(projectReconciliationPatch(assigned,invalid,{role:'rh'})).not.toHaveProperty('dreOfxEvidence');
 });
 
 it('vincula lote existente sem gerar movimentos ou alterar o resultado financeiro',()=>{

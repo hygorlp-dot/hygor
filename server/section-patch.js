@@ -1,4 +1,5 @@
 import { projectDataForUser } from "./data-projection.js";
+import { verifiedOfxEvidence } from "./dre-ofx-evidence.js";
 
 // Os motores de comando preservam as referências das seções que não foram
 // alteradas. Usar essa propriedade evita serializar e devolver todo o cadastro
@@ -17,7 +18,14 @@ export const projectChangedSectionsPatch = (
   const projected = projectDataForUser(after, user);
   const changed=changedTopLevelSections(before,after);
   if(projected.dreBankSource&&changed.some(key=>['contasBancarias','fechamentosBancarios','extratos'].includes(key)))changed.push('dreBankSource');
-  if(projected.dreOfxEvidence&&changed.some(key=>['transacoes','extratos'].includes(key)))changed.push('dreOfxEvidence');
+  if (
+    projected.dreOfxEvidence &&
+    !excluded.has("dreOfxEvidence") &&
+    changed.some(key => ["transacoes", "extratos", "contasBancarias"].includes(key)) &&
+    JSON.stringify(projected.dreOfxEvidence) !== JSON.stringify(verifiedOfxEvidence(before || {}))
+  ) {
+    changed.push("dreOfxEvidence");
+  }
   return Object.fromEntries(
     changed
       .filter(key => !excluded.has(key))

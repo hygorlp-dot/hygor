@@ -27,6 +27,7 @@ const comercialSource=readFileSync(resolve(process.cwd(), "src/domains/comercial
 const medicoesSource=readFileSync(resolve(process.cwd(), "src/domains/medicoes/components/MedicoesView.jsx"), "utf8");
 
 const paymentSource=readFileSync(resolve(process.cwd(), "src/features/financeiro/PaymentDialog.jsx"), "utf8");
+const workCashSource=readFileSync(resolve(process.cwd(), "src/features/financeiro/WorkCashView.jsx"), "utf8");
 
 describe("contrato de autoria do DRE", () => {
   it("entrega o usuário autenticado até o cancelamento auditável", () => {
@@ -35,9 +36,15 @@ describe("contrato de autoria do DRE", () => {
     expect(source).toContain('type:OPERATIONAL_COMMAND.COMPANY_EXPENSE_SAVED');
     expect(source).toContain('type:OPERATIONAL_COMMAND.COMPANY_EXPENSE_CANCELLED');
     expect(source).toContain('type:OPERATIONAL_COMMAND.COMPANY_RECURRING_EXPENSES_REPLICATED');
-    expect(source).toContain('type:OPERATIONAL_COMMAND.WORK_CASH_MOVEMENT_CREATED');
-    expect(source).toContain('type:OPERATIONAL_COMMAND.WORK_CASH_MOVEMENT_CANCELLED');
-    expect(source).toContain('<CaixaObra    data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />');
+    expect(workCashSource).toContain('type:WORK_CASH_COMMAND.WORK_CASH_MOVEMENT_CREATED');
+    expect(workCashSource).toContain('type:WORK_CASH_COMMAND.WORK_CASH_MOVEMENT_CANCELLED');
+    const cashMount=source.match(/<CaixaObra\b[^>]*\/>/)?.[0] || "";
+    expect(cashMount).toContain('currentUser={currentUser}');
+    expect(cashMount).toContain('dispatchCommand={dispatchOperationalCommand}');
+    const cashViewMount=source.match(/<WorkCashView\b[\s\S]*?\/>/)?.[0] || "";
+    expect(cashViewMount).toContain('currentUser={currentUser}');
+    expect(cashViewMount).toContain('dispatchCommand={dispatchCommand}');
+    expect(api).toMatch(/applyOperationalCommand\(current,\s*\{\s*\.\.\.command,actorId:usuario\.id,actorRole:usuario\.role/);
     expect(source).not.toContain('update({...data, caixaObra:[...(data.caixaObra||[]), payload]})');
     // Pagamento é compartilhado entre Financeiro e Compras; autoria via usuário autenticado.
     expect(paymentSource).toContain('PAYABLE_PAYMENT_COMMAND as CMD');
