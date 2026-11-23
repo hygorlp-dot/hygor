@@ -35,20 +35,22 @@ export function AttendanceCertificateDialog({employee,date,obraId,alreadyMarked,
     setSelection({file,documentId:crypto.randomUUID()});
   }
 
-  async function confirm(){
-    if(sending.current||!selection)return;
+  async function confirm(attach){
+    if(sending.current||(attach&&!selection))return;
     sending.current=true;
     setBusy(true);
     setError('');
     try{
-      if(!uploaded){
+      if(attach&&!uploaded){
         const result=await uploadAttendanceCertificate({
           employeeId:employee.id,date,obraId,documentId:selection.documentId,dataUrl:await imageDataUrl(selection.file),
         });
         if(!result?.ok)throw new Error(result?.error||'Não foi possível anexar o atestado.');
         setUploaded(true);
       }
-      if(!alreadyMarked&&!await onSave())throw new Error('A imagem foi anexada. Confira o aviso do ponto e tente confirmar novamente.');
+      if(!alreadyMarked&&!await onSave())throw new Error(attach
+        ?'A imagem foi anexada. Confira o aviso do ponto e tente confirmar novamente.'
+        :'O atestado não foi registrado. Confira o aviso do ponto.');
       onClose();
     }catch(failure){
       setError(failure.message||'Não foi possível concluir. Tente novamente.');
@@ -62,15 +64,20 @@ export function AttendanceCertificateDialog({employee,date,obraId,alreadyMarked,
     <div className="flex flex-col gap-[var(--arcd-space-3)]">
       <p><strong>{employee.name}</strong> · {fmtDateFull(date)}</p>
       <p>Selecione uma imagem legível do atestado em JPEG ou PNG, de até 3 MB. A consulta ao arquivo é restrita ao RH e a administradores.</p>
+      {!alreadyMarked&&<p>Você pode anexar depois. A imagem será exigida no fechamento da folha.</p>}
       <FilePicker accept="image/jpeg,image/png" buttonLabel={selection?'Trocar imagem':'Selecionar imagem do atestado'}
         disabled={busy||uploaded} onChange={selectImage} inputProps={{'aria-label':'Imagem do atestado'}}>
         {selection&&<p role="status" className="break-all">{uploaded?'Imagem anexada.':selection.file.name}</p>}
       </FilePicker>
       {error&&<Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
-      <div className="arcd-page-header__actions">
+      <div className="flex flex-wrap gap-[var(--arcd-space-2)]">
+        {!alreadyMarked&&!uploaded&&<Button className={!selection?'w-full sm:w-auto':undefined}
+          variant={selection?'secondary':'primary'} disabled={busy} onClick={()=>confirm(false)}>Registrar AT e anexar depois</Button>}
+        {(selection||alreadyMarked)&&<Button className="w-full sm:w-auto" disabled={!selection||busy} onClick={()=>confirm(true)}>
+          {busy?'Salvando…':uploaded?'Confirmar lançamento':alreadyMarked?'Anexar imagem':'Confirmar e anexar'}
+        </Button>}
         {onSkip&&!alreadyMarked&&!uploaded&&<Button variant="ghost" disabled={busy} onClick={onSkip}>Marcar folga</Button>}
         <Button variant="secondary" disabled={busy} onClick={onClose}>Cancelar</Button>
-        <Button disabled={!selection||busy} onClick={confirm}>{busy?'Salvando…':uploaded?'Confirmar lançamento':alreadyMarked?'Anexar imagem':'Confirmar e anexar'}</Button>
       </div>
     </div>
   </Dialog>;

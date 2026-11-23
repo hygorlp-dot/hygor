@@ -201,6 +201,51 @@ test("Gestão do ponto corrige AT diretamente, sem lançar folga nem reenviar at
   expect(backend.getState().attendance["emp-qa"][date]).toMatchObject({status:"P",obraId:"obra-qa",note:"Observação mantida"});
 });
 
+test("Gestão do ponto registra AT sem imagem e volta a Sem marcação",async({page},info)=>{
+  const date="2026-11-23",profile={...PROFILE,role:"admin",obraId:"",accessTabs:["home","ponto_geral"]};
+  await page.clock.setFixedTime(new Date("2026-11-23T12:00:00-03:00"));
+  await page.addInitScript(({id,theme})=>{
+    sessionStorage.setItem(`arcd-section:${id}`,"ponto_geral");
+    localStorage.setItem("arcd-theme",theme);
+  },{id:profile.id,theme:page.viewportSize().width<768?"noite":"marcell"});
+  await page.route("https://**/*",route=>route.abort());
+  const backend=await installIsolatedBackend(page,{
+    usuarios:[profile],attendance:{"emp-qa":{[date]:{status:"FE",obraId:"obra-qa"}}},
+  },{profile});
+  await page.goto("/");
+  await page.locator("#login-email").fill(profile.email);
+  await page.locator("#login-senha").fill("senha-isolada");
+  await page.getByRole("button",{name:"Acessar central MARCELL"}).click();
+  const table=page.locator(".ponto-geral-table");
+  const ferias=table.getByRole("button",{name:"FE",exact:true});
+  if(page.viewportSize().width<768){
+    await ferias.evaluate(cell=>{
+      cell.scrollIntoView({block:"center",inline:"nearest"});
+      const wrap=cell.closest(".ponto-geral-table-wrap");
+      const box=cell.getBoundingClientRect();
+      wrap.scrollLeft+=box.left+box.width/2-(wrap.getBoundingClientRect().right-22);
+    });
+  }
+  await ferias.click();
+  const upload=page.getByRole("dialog",{name:"Confirmar atestado"});
+  await expect(upload.getByRole("button",{name:"Registrar AT e anexar depois"})).toBeEnabled();
+  const column=await ferias.evaluate(button=>button.closest("td").cellIndex);
+  await upload.screenshot({path:info.outputPath("atestado-anexar-depois.png")});
+  await upload.getByRole("button",{name:"Registrar AT e anexar depois"}).click();
+  const atestado=table.getByRole("button",{name:"AT",exact:true});
+  await expect(atestado).toBeVisible();
+  const cell=table.locator("tbody tr").first().locator("td").nth(column);
+  await expect(cell.getByRole("button",{name:"Anexar atestado"})).toBeVisible();
+  await atestado.click();
+  const correction=page.getByRole("dialog",{name:"Corrigir situação do ponto"});
+  await correction.getByLabel("Nova situação").selectOption({label:"Sem marcação"});
+  await correction.getByRole("button",{name:"Salvar correção"}).click();
+  await expect(cell.getByTitle("Sem registro",{exact:true})).toBeVisible();
+  expect(backend.getSaves().filter(save=>save.action==="attendance-upsert").map(save=>save.record.status)).toEqual(["AT",null]);
+  expect(backend.getSaves().filter(save=>save.action==="attendance-certificate")).toHaveLength(0);
+  expect(backend.getState().attendance["emp-qa"][date]).toBeUndefined();
+});
+
 const login = async page => {
   await page.goto("/");
   await page.locator("#login-email").fill(PROFILE.email);

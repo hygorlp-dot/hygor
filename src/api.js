@@ -257,6 +257,7 @@ export async function resolveCompanyAssetUrl(value){
   if(!/^(?:https?:\/\/|\/[^/]|data:image\/|blob:)/i.test(value))return {ok:false,error:'Referência de arquivo inválida.'};
   return {ok:true,url:value};
 }
+export const checkPayrollCertificates = periodKey => chamarRotaAutenticada('/api/data',{action:'payroll-certificate-check',periodKey});
 export const uploadAttendanceCertificate = payload => chamarRotaAutenticada('/api/data',{...payload,action:'attendance-certificate'});
 export const buscarResumoDiario = () => chamarRotaAutenticada("/api/ai-agent", { action:"daily-brief" });
 export const executarComandoFinanceiro = command => chamar({ action:"financial-command", ...credenciais(), command });

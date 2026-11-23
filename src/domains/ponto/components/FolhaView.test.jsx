@@ -5,9 +5,15 @@ import Folha from './FolhaView';
 import { archivedCltScenario } from '../../../fixtures/archived-clt.js';
 import { rebuildArchivedLaborCosts } from '../../../../server/financial-archived-costs-source.js';
 import { payrollDelayWaiverScenario, waivedDelayPayrollTitle } from '../../../fixtures/payroll-delay-waiver.js';
+import { checkPayrollCertificates } from '../../../api.js';
+
+vi.mock('../../../api.js',async importOriginal=>({
+  ...await importOriginal(),
+  checkPayrollCertificates:vi.fn(async()=>({ok:true,missing:[]})),
+}));
 
 let root, container;
-afterEach(() => { if(root) act(()=>root.unmount()); container?.remove(); vi.useRealTimers(); });
+afterEach(() => { if(root) act(()=>root.unmount()); container?.remove(); checkPayrollCertificates.mockClear(); vi.useRealTimers(); });
 
 it("expõe o atestado no bruto e respeita a obra do apontamento",()=>{
   vi.useFakeTimers();vi.setSystemTime(new Date(2026,10,19,12));
@@ -47,7 +53,7 @@ it('recalcula a prévia e fecha a quinzena sem desconto por atraso quando o RH e
   const total=()=>container.querySelector('.payroll-summary-strip__net strong').textContent;
   render(data,{id:'viewer',role:'financeiro'});
   expect(container.querySelector('[id="folha-desconto-atraso-ajuda"]')).toBeNull();
-  render(data);
+  await act(async()=>render(data));
   expect(total()).toMatch(/90,00/);
   const checkbox=container.querySelector('[aria-describedby="folha-desconto-atraso-ajuda"]');
   expect(checkbox.checked).toBe(false);
@@ -64,6 +70,23 @@ it('recalcula a prévia e fecha a quinzena sem desconto por atraso quando o RH e
   expect(total()).toMatch(/100,00/);
   expect(container.textContent).toContain('Quinzena fechada sem desconto por atraso');
   expect(container.textContent).not.toContain('O ponto mudou depois do fechamento');
+});
+
+it('lista atestados pendentes e só libera o fechamento depois de conferir as imagens',async()=>{
+  vi.useFakeTimers();vi.setSystemTime(new Date(2026,10,20,12));
+  const data=payrollDelayWaiverScenario();
+  const employee=data.employees[0];
+  checkPayrollCertificates.mockResolvedValueOnce({ok:true,missing:[{employeeId:employee.id,name:employee.name,date:"2026-11-20"}]});
+  const dispatchCommand=vi.fn(async()=>({ok:true}));
+  container=document.createElement('div');document.body.append(container);root=createRoot(container);
+  await act(async()=>root.render(<Folha data={data} currentUser={{id:'rh',role:'rh'}} showToast={()=>{}} dispatchCommand={dispatchCommand}/>));
+  const button=name=>[...document.querySelectorAll('button')].find(item=>item.textContent.trim()===name);
+  act(()=>[...container.querySelectorAll("summary")].find(item=>item.textContent.includes("Ver atestados pendentes")).click());
+  expect([...container.querySelectorAll("li")].some(item=>item.textContent.includes(employee.name)&&item.textContent.includes("20/11/2026"))).toBe(true);
+  expect(button('Fechar quinzena').disabled).toBe(true);
+  expect(dispatchCommand).not.toHaveBeenCalled();
+  await act(async()=>button('Conferir anexos novamente').click());
+  expect(button('Fechar quinzena').disabled).toBe(false);
 });
 
 it('separa pessoal de obra e administrativo e impede fechamento parcial da empresa',()=>{

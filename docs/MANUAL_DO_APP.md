@@ -405,7 +405,7 @@ Escolha o grupo, a competência e a obra. A aba Administrativo inclui engenheiro
 1. Escolha Pessoal de obra ou Administrativo no início da tela.
 2. Confira o período e a obra; trocar de grupo preserva esses filtros.
 3. Revise os registros das pessoas do grupo. Use Todos para conferir a empresa completa.
-4. Para corrigir um atestado já registrado, toque em AT, escolha a Nova situação e use Salvar correção. Se o dia estiver bloqueado, obtenha liberação no Ponto por obra. O anexo já enviado fica no prontuário.
+4. Para corrigir um atestado já registrado, toque em AT, escolha a Nova situação e use Salvar correção. Escolha Sem marcação para limpar o dia. Se o dia estiver bloqueado, obtenha liberação no Ponto por obra. O anexo já enviado fica no prontuário.
 
 ### Como conferir se deu certo
 
@@ -430,7 +430,7 @@ Escolha o grupo, a competência e a obra. A aba Administrativo inclui engenheiro
 1. Escolha Pessoal de obra ou Administrativo no início da tela.
 2. Confira o período e a obra; trocar de grupo preserva esses filtros.
 3. Revise os registros das pessoas do grupo. Use Todos para conferir a empresa completa.
-4. Para corrigir um atestado já registrado, toque em AT, escolha a Nova situação e use Salvar correção. Se o dia estiver bloqueado, obtenha liberação no Ponto por obra. O anexo já enviado fica no prontuário.
+4. Para corrigir um atestado já registrado, toque em AT, escolha a Nova situação e use Salvar correção. Escolha Sem marcação para limpar o dia. Se o dia estiver bloqueado, obtenha liberação no Ponto por obra. O anexo já enviado fica no prontuário.
 
 ### Como conferir se deu certo
 
@@ -456,7 +456,8 @@ Escolha o grupo, a competência e a obra. A aba Administrativo inclui engenheiro
 2. Confira a competência, o ciclo e a obra. No celular, abra Competência e escopo para alterá-los e use Buscar funcionário na folha para localizar uma pessoa. Na Folha da quinzena, totais, pendências e relatórios respeitam o grupo.
 3. Em Holerites CLT, escolha uma pessoa do grupo. Confirme o descarte se houver edição não salva antes de trocar de grupo.
 4. Para fechar ou reabrir a quinzena da empresa inteira, escolha Todos e Todas as obras e revise as pendências.
-5. No celular, Buscar funcionário na folha consulta todo o recorte em páginas de até seis pessoas. Abra Indicadores da área para consultar os totais e Pendências para conferir para ver a lista de alertas da quinzena, quando houver.
+5. Abra Ver atestados pendentes, anexe os documentos no ponto e use Conferir anexos novamente antes de fechar a quinzena.
+6. No celular, Buscar funcionário na folha consulta todo o recorte em páginas de até seis pessoas. Abra Indicadores da área para consultar os totais e Pendências para conferir para ver a lista de alertas da quinzena, quando houver.
 
 ### Como conferir se deu certo
 
@@ -482,7 +483,8 @@ Escolha o grupo, a competência e a obra. A aba Administrativo inclui engenheiro
 2. Confira a competência, o ciclo e a obra. No celular, abra Competência e escopo para alterá-los e use Buscar funcionário na folha para localizar uma pessoa. Na Folha da quinzena, totais, pendências e relatórios respeitam o grupo.
 3. Em Holerites CLT, escolha uma pessoa do grupo. Confirme o descarte se houver edição não salva antes de trocar de grupo.
 4. Para fechar ou reabrir a quinzena da empresa inteira, escolha Todos e Todas as obras e revise as pendências.
-5. No celular, Buscar funcionário na folha consulta todo o recorte em páginas de até seis pessoas. Abra Indicadores da área para consultar os totais e Pendências para conferir para ver a lista de alertas da quinzena, quando houver.
+5. Abra Ver atestados pendentes, anexe os documentos no ponto e use Conferir anexos novamente antes de fechar a quinzena.
+6. No celular, Buscar funcionário na folha consulta todo o recorte em páginas de até seis pessoas. Abra Indicadores da área para consultar os totais e Pendências para conferir para ver a lista de alertas da quinzena, quando houver.
 
 ### Como conferir se deu certo
 
@@ -1282,7 +1284,7 @@ Escolha Pessoal de obra, Administrativo ou Todos; depois confira a obra e o per�
 ### Como fazer
 
 1. Confira a data. O nome abre a ficha conforme seu acesso.
-2. Marque Presente, Meio dia ou Falta. Mais opções reúne outras situações, jornada e observações. Para atestado, abra Mais opções e escolha Atestado. Confira funcionário e data, use Selecionar imagem do atestado e depois Confirmar e anexar. Para um atestado já marcado, a ação permite anexar outra imagem.
+2. Marque Presente, Meio dia ou Falta. Mais opções reúne outras situações, jornada e observações. Para atestado, abra Mais opções e escolha Atestado. Confira funcionário e data, use Selecionar imagem do atestado e depois Confirmar e anexar. Se a imagem ainda não estiver disponível, use Registrar AT e anexar depois. Para completar um atestado, abra Anexar atestado.
 3. Transferir e Desligar ficam no cartão quando permitidos. Confira e confirme; Cancelar não grava.
 4. Na lista, confira o intervalo de resultados. Anterior e Próxima mostram até 12 registros por página; a busca considera toda a lista disponível, não só a página atual. Alterar o recorte volta à primeira página. Totais e relatórios continuam usando o conjunto completo.
 5. No celular, abra Obras com ponto pendente para escolher uma obra que precisa de conferência. Pesquisar no ponto consulta todo o recorte em páginas de até seis pessoas. Abra Ações em lote para ler o alcance e usar Todos presentes ou Todos com falta.
@@ -1309,9 +1311,9 @@ Escolha Pessoal de obra, Administrativo ou Todos; depois selecione o período e 
 
 1. Localize as situações que precisam de conferência.
 2. Abra os registros e compare horários, origem e informações disponíveis.
-3. Ao chegar em Atestado na célula do dia, confira funcionário e data. Selecione uma imagem JPEG ou PNG de até 3 MB e use Confirmar e anexar. Marcar folga pula o atestado. Nos dias já lançados como atestado, use Anexar atestado. O arquivo fica no prontuário do funcionário, acessível a RH e administradores.
+3. Ao chegar em Atestado na célula do dia, confira funcionário e data. Selecione uma imagem JPEG ou PNG de até 3 MB e use Confirmar e anexar. Use Registrar AT e anexar depois se estiver sem a imagem. Use Marcar folga apenas se o dia foi de folga. Nos dias já lançados como atestado, use Anexar atestado. O arquivo fica no prontuário do funcionário, acessível a RH e administradores.
 4. Trate as pendências pelas ações autorizadas e confira o resultado.
-5. Para corrigir um atestado já registrado, toque em AT, escolha a Nova situação e use Salvar correção. Se o dia estiver bloqueado, obtenha liberação no Ponto por obra. O anexo já enviado fica no prontuário.
+5. Para corrigir um atestado já registrado, toque em AT, escolha a Nova situação e use Salvar correção. Escolha Sem marcação para limpar o dia. Se o dia estiver bloqueado, obtenha liberação no Ponto por obra. O anexo já enviado fica no prontuário.
 
 ### Como conferir se deu certo
 
@@ -1471,7 +1473,8 @@ Escolha Pessoal de obra, Administrativo ou Todos e selecione a competência, ist
 4. Se o RH decidir dispensar os descontos de entrada, marque Não descontar atrasos nesta quinzena. A prévia recalcula a folha dos diaristas de todas as obras, mesmo se houver filtro. A opção já vem desmarcada.
 5. Use Gerar PDF para consultar a seção Composição do valor bruto ou Exportar Excel para abrir a aba Composição do bruto. Os dois mostram as datas dos atestados e os valores no recorte escolhido.
 6. Confira o líquido em Composição do pagamento. Selecione Todos e Todas as obras, abra Fechamento da quinzena, use Fechar quinzena e revise os valores em Confirmar fechamento.
-7. No celular, Buscar funcionário na folha consulta todo o recorte em páginas de até seis pessoas. Abra Indicadores da área para consultar os totais e Pendências para conferir para ver a lista de alertas da quinzena, quando houver.
+7. Abra Ver atestados pendentes, anexe os documentos no ponto e use Conferir anexos novamente antes de fechar a quinzena.
+8. No celular, Buscar funcionário na folha consulta todo o recorte em páginas de até seis pessoas. Abra Indicadores da área para consultar os totais e Pendências para conferir para ver a lista de alertas da quinzena, quando houver.
 
 ### Como conferir se deu certo
 

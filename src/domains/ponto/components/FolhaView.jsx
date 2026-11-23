@@ -1,3 +1,4 @@
+import {podeAcessarAba} from '../../administracao/abas-acesso.js';
 import {openReportPreview} from '../../../reports/report-preview.js';
 import {ChoiceControl} from '../../../design-system/primitives/ChoiceControl.jsx';
 import {Checkbox} from '../../../design-system/primitives/Checkbox.jsx';
@@ -56,7 +57,7 @@ import {EmployeeDossier} from '../../rh/components/EmployeeDossier.jsx';
 import {PayrollReadiness} from '../../rh/components/PayrollReadiness.jsx';
 import {readPayrollHandoff,PAYROLL_HANDOFF_KEY} from '../../rh/payroll-handoff.js';
 import LaborProjectionReport from "./LaborProjectionReport.jsx";
-import { obterProjecaoMaoObra } from "../../../api.js";
+import { checkPayrollCertificates, obterProjecaoMaoObra } from "../../../api.js";
 import {LaborAreaTabs} from '../../rh/components/LaborAreaTabs.jsx';
 import {laborArea,laborAreaLabel,matchesLaborArea} from '../../rh/labor-area.js';
 import {useWorkspaceState} from '../../../features/workflow/workspace-session.jsx';
@@ -541,7 +542,28 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
   // consolidada, para que nenhum funcionário de outra obra fique de fora.
   const canManageClosing=canReview;
   const isCompanyScope=laborGroup==='all'&&filterObra==='all';
-  const closingBlockers=isCompanyScope?payrollClosingBlockers({pendencias:pendenciasRelatorio,rows}):["Selecione Todos e Todas as obras para fechar a quinzena da empresa inteira."];
+  const [certificateCheck,setCertificateCheck]=useState(null);
+  const [certificateRefresh,setCertificateRefresh]=useState(0);
+  const shouldCheckCertificates=canManageClosing&&isCompanyScope&&!closedTitles.length&&payrollView==="payroll";
+  const certificateScope=useMemo(()=>({periodKey:closingPeriodKey}),[closingPeriodKey,currentUser?.id,data.attendance,certificateRefresh]);
+  useEffect(()=>{
+    if(!shouldCheckCertificates)return;
+    let cancelled=false;
+    checkPayrollCertificates(certificateScope.periodKey).then(result=>{
+      if(!cancelled)setCertificateCheck({scope:certificateScope,result});
+    }).catch(()=>{
+      if(!cancelled)setCertificateCheck({scope:certificateScope,result:{ok:false}});
+    });
+    return ()=>{cancelled=true;};
+  },[shouldCheckCertificates,certificateScope]);
+  const certificateResult=certificateCheck?.scope===certificateScope?certificateCheck.result:null;
+  const missingCertificates=certificateResult?.missing||[];
+  const certificateIssue=!shouldCheckCertificates?"":!certificateResult?"Conferindo anexos dos atestados…":
+    !certificateResult.ok||!Array.isArray(certificateResult.missing)?certificateResult.error||"Falha ao conferir os anexos dos atestados.":
+    missingCertificates.length?`Anexe os documentos de ${contar(missingCertificates.length,"atestado pendente","atestados pendentes")} antes de fechar.`:"";
+  const closingBlockers=isCompanyScope?[
+    ...payrollClosingBlockers({pendencias:pendenciasRelatorio,rows}),...(certificateIssue?[certificateIssue]:[]),
+  ]:["Selecione Todos e Todas as obras para fechar a quinzena da empresa inteira."];
   const closingDivergences=isCompanyScope&&closedTitles.length?payrollClosingDivergences(closedTitles,rows):[];
   const closedTotal=closedTitles.reduce((sum,title)=>sum+Number(title.liquido||0),0);
   const buildClosingTitles=closingId=>buildPayrollTitles({
@@ -551,6 +573,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
   });
   const closeFortnight=async()=>{
     if(!isCompanyScope){showToast('Selecione Todos e Todas as obras para fechar a quinzena da empresa inteira.','error');return;}
+    if(certificateIssue){setClosingModal("");return;}
     setSavingClosing(true);
     try{
       const closingId=`folha-${closingPeriodKey}-${uid()}`;
@@ -1115,6 +1138,11 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
             <p>Fechamento da empresa (Todos). Inclui os dois grupos; exige Todos e Todas as obras.</p>
             <p>Fechar transforma o líquido de cada funcionário em um pagamento a fazer, dividido por obra, com vencimento em {paymentDateLabel}.</p>
             {closingBlockers.map(reason=><p key={reason} style={{color:"var(--arcd-danger-text)"}}><Ic n="alert"/> {reason}</p>)}
+            {!!missingCertificates.length&&shouldCheckCertificates&&<TaskDisclosure summary="Ver atestados pendentes">
+              <ul>{missingCertificates.map(item=><li key={`${item.employeeId}:${item.date}`}>{item.name} · {fmtDateFull(item.date)}</li>)}</ul>
+              {podeAcessarAba(currentUser,"ponto_geral")&&<Btn v="secondary" onClick={()=>onTab?.("ponto_geral")}>Revisar ponto</Btn>}
+            </TaskDisclosure>}
+            {shouldCheckCertificates&&certificateResult&&certificateIssue&&<Btn v="secondary" onClick={()=>setCertificateRefresh(value=>value+1)}>Conferir anexos novamente</Btn>}
             {canManageClosing&&<Btn v="primary" disabled={closingBlockers.length>0||!rows.some(r=>r.net>0)} onClick={()=>setClosingModal("close")}><Ic n="check"/> Fechar quinzena</Btn>}
           </>}
         </section>
@@ -1302,7 +1330,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
             <p>{waiveDelayDeduction?"Os atrasos dos diaristas não serão descontados nesta quinzena.":"Os descontos por atraso dos diaristas serão aplicados nesta quinzena."}</p>
             <p className="payroll-review__help">Depois de fechada, a quinzena só muda reabrindo, com motivo, e só enquanto nenhum pagamento tiver sido conciliado.</p>
             <div className="payroll-review__actions">
-              <Btn v="primary" disabled={savingClosing} onClick={closeFortnight}><Ic n="check"/>{savingClosing?" Fechando…":" Confirmar fechamento"}</Btn>
+              <Btn v="primary" disabled={savingClosing||Boolean(certificateIssue)} onClick={closeFortnight}><Ic n="check"/>{savingClosing?" Fechando…":" Confirmar fechamento"}</Btn>
               <Btn v="ghost" onClick={()=>setClosingModal("")}>Cancelar</Btn>
             </div>
           </div>

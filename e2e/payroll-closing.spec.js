@@ -3,7 +3,7 @@ import {applyOperationalCommand} from "../src/domains/sync/operational-commands.
 
 const profile={id:"qa-rh",nome:"RH QA",email:"rh@qa.test",role:"rh",active:true};
 
-async function enterPayroll(page){
+async function enterPayroll(page,{missingCertificates=false}={}){
   await page.clock.setFixedTime(new Date("2026-09-25T12:00:00-03:00"));
   let state={
     usuarios:[profile],
@@ -18,11 +18,16 @@ async function enterPayroll(page){
     const date=`2026-09-${String(day).padStart(2,"0")}`,weekday=new Date(date+"T12:00:00Z").getUTCDay();
     if(weekday>0&&weekday<6)state.attendance.emp[date]={status:"P",obraId:"obra",ot:0};
   }
+  if(missingCertificates)state.attendance.emp["2026-09-18"].status="AT";
+  let pending=missingCertificates;
   const commands=[];
   await page.route("**/api/**",r=>r.fulfill({json:{ok:true,presencas:[],items:[]}}));
   await page.route("**/api/data",async r=>{
     const body=r.request().postDataJSON()||{};
     if(body.action==="profiles")return r.fulfill({json:{usuarios:[profile],precisaSetup:false}});
+    if(body.action==="payroll-certificate-check")return r.fulfill({json:{ok:true,
+      missing:pending&&body.periodKey==="2026-09-Q1"?[{employeeId:"emp",name:"Operário QA",date:"2026-09-18"}]:[],
+    }});
     if(body.action==="operational-command"){
       commands.push(body.command);
       const result=applyOperationalCommand(state,{...body.command,actorId:profile.id,actorName:profile.nome,now:"2026-09-25T15:00:00Z"});
@@ -39,13 +44,36 @@ async function enterPayroll(page){
   const search=page.getByPlaceholder("Buscar obra, lead, pedido, funcionário, tela...");
   await search.fill("Folha");
   await search.locator("xpath=../..").getByRole("button").filter({hasText:"Folha"}).click();
+  await expect(page.getByRole("heading",{name:"Folha de Pagamento",exact:true})).toBeVisible();
+  const scope=page.locator(".payroll-controls");
+  if(!await scope.isVisible())await scope.locator("xpath=ancestor::details[1]/summary").click();
   await page.getByRole("combobox",{name:"Ciclo da folha"}).selectOption("1");
-  return {commands,getState:()=>state};
+  return {commands,getState:()=>state,attachCertificate:()=>{pending=false;}};
 }
+
+test("Folha bloqueia o fechamento até a conferência do atestado pendente",async({page},info)=>{
+  const {commands,attachCertificate}=await enterPayroll(page,{missingCertificates:true});
+  const closing=page.getByRole("region",{name:"Fechamento da quinzena",includeHidden:true});
+  if(!await closing.isVisible())await page.locator(".payroll-closing").locator("xpath=ancestor::details[1]/summary").click();
+  const close=closing.getByRole("button",{name:"Fechar quinzena"});
+  await expect(close).toBeDisabled();
+  await closing.getByText("Ver atestados pendentes",{exact:true}).click();
+  await expect(closing.getByText("Operário QA · 18/09/2026",{exact:true})).toBeVisible();
+  expect(commands).toEqual([]);
+  await closing.screenshot({path:info.outputPath("folha-atestado-pendente.png")});
+  attachCertificate();
+  await closing.getByRole("button",{name:"Conferir anexos novamente"}).click();
+  await expect(close).toBeEnabled();
+  await close.click();
+  await page.getByRole("button",{name:"Confirmar fechamento"}).click();
+  await expect(closing).toContainText("Quinzena fechada");
+});
 
 test("RH fecha a quinzena: cria o título a pagar rateado e só reabre com motivo",async({page})=>{
   const errors=[];page.on("pageerror",e=>errors.push(e.message));
   const {commands,getState}=await enterPayroll(page);
+  const closingPanel=page.locator(".payroll-closing");
+  if(!await closingPanel.isVisible())await closingPanel.locator("xpath=ancestor::details[1]/summary").click();
   const closing=page.getByRole("region",{name:"Fechamento da quinzena"});
   await expect(closing).toContainText("Fechamento da quinzena");
   await closing.getByRole("button",{name:"Fechar quinzena"}).click();
