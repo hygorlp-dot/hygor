@@ -34,6 +34,7 @@ const initialState = () => ({
 
 const installIsolatedBackend = async (page, stateOverride = {}, options = {}) => {
   let state = { ...initialState(), ...stateOverride };
+  const profile=options.profile||PROFILE;
   const saves = [];
   const loads = [];
 
@@ -48,7 +49,7 @@ const installIsolatedBackend = async (page, stateOverride = {}, options = {}) =>
         json: {
           accessToken: "qa-access-token",
           refreshToken: "qa-refresh-token",
-          usuario: PROFILE,
+          usuario: profile,
           data: state,
           updatedAt: "2026-07-27T00:00:00.000Z",
         },
@@ -63,7 +64,7 @@ const installIsolatedBackend = async (page, stateOverride = {}, options = {}) =>
       loads.push(structuredClone(body));
       return route.fulfill({
         json: {
-          usuario: PROFILE,
+          usuario: profile,
           data: state,
           updatedAt: "2026-07-27T00:00:00.000Z",
         },
@@ -138,7 +139,7 @@ const installIsolatedBackend = async (page, stateOverride = {}, options = {}) =>
       }});
     }
 
-    return route.fulfill({ json: { ok: true, usuario: PROFILE, data: state } });
+    return route.fulfill({ json: { ok: true, usuario: profile, data: state } });
   });
   await page.route("**/api/presence", route =>
     route.fulfill({ json: { ok: true, presencas: [] } }));
@@ -149,6 +150,56 @@ const installIsolatedBackend = async (page, stateOverride = {}, options = {}) =>
     getLoads: () => loads,
   };
 };
+
+test("Gestão do ponto corrige AT diretamente, sem lançar folga nem reenviar atestado", async ({page},info)=>{
+  const date="2026-11-12",profile={...PROFILE,role:"admin",obraId:"",accessTabs:["home","ponto_geral"]};
+  await page.clock.setFixedTime(new Date("2026-11-12T12:00:00-03:00"));
+  await page.addInitScript(({id,theme})=>{
+    sessionStorage.setItem(`arcd-section:${id}`,"ponto_geral");
+    localStorage.setItem("arcd-theme",theme);
+  },{id:profile.id,theme:page.viewportSize().width<768?"noite":"marcell"});
+  await page.route("https://**/*",route=>route.abort());
+  const backend=await installIsolatedBackend(page,{
+    usuarios:[profile],attendance:{"emp-qa":{[date]:{status:"FE",obraId:"obra-qa",note:"Observação mantida"}}},
+  },{profile});
+  await page.goto("/");
+  await page.locator("#login-email").fill(profile.email);
+  await page.locator("#login-senha").fill("senha-isolada");
+  await page.getByRole("button",{name:"Acessar central MARCELL"}).click();
+  const table=page.locator(".ponto-geral-table");
+  const ferias=table.getByRole("button",{name:"FE",exact:true});
+  if(page.viewportSize().width<768){
+    await ferias.evaluate(cell=>{
+      cell.scrollIntoView({block:"center",inline:"nearest"});
+      const wrap=cell.closest(".ponto-geral-table-wrap");
+      const box=cell.getBoundingClientRect();
+      wrap.scrollLeft+=box.left+box.width/2-(wrap.getBoundingClientRect().right-22);
+    });
+  }
+  await ferias.click();
+  const upload=page.getByRole("dialog",{name:"Confirmar atestado"});
+  await upload.locator('input[type="file"]').setInputFiles({
+    name:"atestado-teste.png",mimeType:"image/png",
+    buffer:Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+c3c0AAAAASUVORK5CYII=","base64"),
+  });
+  await upload.getByRole("button",{name:"Confirmar e anexar"}).click();
+  const atestado=table.getByRole("button",{name:"AT",exact:true});
+  await expect(atestado).toBeVisible();
+  await atestado.click();
+  const dialog=page.getByRole("dialog",{name:"Corrigir situação do ponto"});
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button",{name:"Cancelar",exact:true}).click();
+  await expect(atestado).toBeVisible();
+  await atestado.click();
+  await dialog.getByLabel("Nova situação").selectOption("P");
+  await dialog.screenshot({path:info.outputPath("corrigir-atestado.png")});
+  await dialog.getByRole("button",{name:"Salvar correção"}).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(table.getByRole("button",{name:"P",exact:true})).toBeVisible();
+  expect(backend.getSaves().filter(save=>save.action==="attendance-upsert").map(save=>save.record.status)).toEqual(["AT","P"]);
+  expect(backend.getSaves().filter(save=>save.action==="attendance-certificate")).toHaveLength(1);
+  expect(backend.getState().attendance["emp-qa"][date]).toMatchObject({status:"P",obraId:"obra-qa",note:"Observação mantida"});
+});
 
 const login = async page => {
   await page.goto("/");

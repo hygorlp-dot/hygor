@@ -71,6 +71,22 @@ describe("comandos granulares do ponto",()=>{
     expect(editado.result.attendance[0]).toMatchObject({obraId:"obra-a",previousObraId:"obra-a"});
   });
 
+  it("corrige atestado para presença na mesma obra e registra a mudança na auditoria",()=>{
+    const original=applyAttendanceCommand(base(),engineer,upsert({
+      record:{status:"AT",obraId:"obra-a",note:"Observação anterior"},
+    }),NOW);
+    expect(original.ok).toBe(true);
+    const corrected=applyAttendanceCommand(original.data,engineer,upsert({
+      operationId:ids[1],record:{status:"P",obraId:"obra-a"},
+    }),NOW);
+    expect(corrected.ok).toBe(true);
+    expect(corrected.result.attendance[0]).toMatchObject({
+      obraId:"obra-a",previousObraId:"obra-a",record:{status:"P",note:"Observação anterior"},
+    });
+    expect(corrected.audit.before.attendance.record.status).toBe("AT");
+    expect(corrected.audit.after.attendance.record.status).toBe("P");
+  });
+
   it("um lote que muda a obra de um lançamento carrega previousObraId corretamente",()=>{
     const admin={id:"admin-1",nome:"Admin",role:"admin"};
     const primeiro=applyAttendanceCommand(base(),admin,upsert(),NOW);

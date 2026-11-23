@@ -265,7 +265,7 @@ import { applyAttendanceServerResult, applyAttendanceStatus, applyAttendanceStat
 import { createAttendanceCommandQueue } from "./domains/ponto/attendance-command-queue";
 import { calculateAttendanceDayCost } from "./domains/ponto/payroll";
 import { isServerRejection, rejectedSections } from "./domains/sync/rejected-save";
-import { ATTENDANCE_STATUS_LABEL, isLeaveStatus, isValidAttendanceStatus } from "./domains/ponto/attendance-status";
+import { ATTENDANCE_STATUSES, ATTENDANCE_STATUS_LABEL, isLeaveStatus, isValidAttendanceStatus } from "./domains/ponto/attendance-status";
 import { normalizeUnionDuesConfig } from "./domains/ponto/union-dues";
 import {
   attStatus,
@@ -5920,6 +5920,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
   const [busca,setBusca]=useWorkspaceState('ponto_geral','busca',"");
   const [obraCell,setObraCell]=useState(null);   // "empId::date" da célula com troca de obra aberta
   const [certificate,setCertificate]=useState(null);
+  const [correcaoAtestado,setCorrecaoAtestado]=useState(null);
   const pendingCellsRef=useRef(new Map());
   const [,setPendingCellsRevision]=useState(0);
   const {intent:rhIntent,navigate:navigateEmployee}=useWorkflow();
@@ -6015,8 +6016,8 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
   const diaLabel=iso=>{const d=prParseIso(iso);return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}`;};
   const semana=iso=>["DOM","SEG","TER","QUA","QUI","SEX","SÁB"][prParseIso(iso).getDay()];
   const corStatus=st=>st==="P"?"var(--arcd-success-text)":st==="M"?"var(--arcd-warning-text)":st==="F"?"var(--arcd-danger-text)":isLeaveStatus(st)?"var(--arcd-info-text)":"var(--arcd-text-muted)";
-  // Clique avança P → ½ → F → Férias → Atestado → Folga → vazio.
-  const proxStatus=st=>({P:"M",M:"F",F:"FE",FE:"AT",AT:"FG",FG:null})[st]??"P";
+  // O atestado já confirmado tem correção explícita, sem gravar um status intermediário.
+  const proxStatus=st=>({P:"M",M:"F",F:"FE",FE:"AT"})[st]??"P";
   const cellKeyFor=(employeeId,date)=>`${employeeId}::${date}`;
   const attendanceFor=(employeeId,date)=>{
     const pending=pendingCellsRef.current.get(cellKeyFor(employeeId,date));
@@ -6075,6 +6076,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
   // clicando na própria célula - evita presença lançada sem verificação real.
   const periodo=`${fmtDateFull(diasCiclo[0])} a ${fmtDateFull(diasCiclo[diasCiclo.length-1])}`;
   const rotuloCurto=st=>st==="M"?"½":isValidAttendanceStatus(st)?st:"·";
+  const salvandoCorrecao=correcaoAtestado&&pendingCellsRef.current.has(cellKeyFor(correcaoAtestado.employee.id,correcaoAtestado.date));
   return <div className="anim ponto-geral" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
     <LaborAreaTabs value={laborGroup} onChange={setLaborGroup}/>
     {laborGroup!=="all"&&<p style={{color:"var(--arcd-text-secondary)"}}>Para arquivar a quinzena da empresa, selecione Todos e Todas as obras.</p>}
@@ -6162,10 +6164,15 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
             return <td className={`ponto-dia-cell${feriado?" ponto-feriado":""}`} key={date} style={{padding:"var(--arcd-space-1)",borderTop:"1px solid var(--arcd-border-default)",borderLeft:"1px solid var(--arcd-border-default)",background:feriado?"color-mix(in srgb, var(--arcd-danger-text) 2%, transparent)":fora?"var(--arcd-surface-muted)":"var(--arcd-surface-card)",verticalAlign:"middle"}}>
               {fora?<div style={{textAlign:"center",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)"}}>—</div>:<>
                 <RecordAction onClick={()=>{
+                  if(st==="AT"){
+                    if(!pending&&!bloqueadoPorArquivo())setCorrecaoAtestado({employee:emp,date,status:""});
+                    return;
+                  }
                   const nextStatus=proxStatus(st);
                   return nextStatus==="AT"?openCertificate(emp,date):salvarCelula(emp,date,{status:nextStatus});
                 }}
                   aria-busy={pending}
+                  aria-haspopup={st==="AT"?"dialog":undefined}
                   title={pending?"Salvando...":ATTENDANCE_STATUS_LABEL[st]||"Sem registro"}
                   style={{width:"100%",height:30,textAlign:"center",border:`1.5px solid ${st?corStatus(st):"var(--arcd-border-default)"}`,borderRadius:"var(--arcd-radius-control)",
                           background:st?corStatus(st):"var(--arcd-surface-page)",color:st?"var(--arcd-text-inverse)":"var(--arcd-text-secondary)",
@@ -6200,6 +6207,24 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
       {!employees.length&&<div style={{padding:"var(--arcd-space-6)",textAlign:"center",color:"var(--arcd-text-secondary)"}}>Nenhum funcionário encontrado para os filtros selecionados.</div>}
     </div>
 
+    {correcaoAtestado&&<DesignSystemDialog open title="Corrigir situação do ponto" onOpenChange={()=>{if(!salvandoCorrecao)setCorrecaoAtestado(null);}}>
+      <form className="flex flex-col gap-[var(--arcd-space-3)]" onSubmit={async event=>{
+        event.preventDefault();
+        const {employee,date,status}=correcaoAtestado;
+        if(!status||pendingCellsRef.current.has(cellKeyFor(employee.id,date)))return;
+        if(await salvarCelula(employee,date,{status}))setCorrecaoAtestado(null);
+      }}>
+        <p><strong>{correcaoAtestado.employee.name}</strong> · {fmtDateFull(correcaoAtestado.date)}</p>
+        <DesignSystemSelect label="Nova situação" placeholder="Selecione a situação correta" required
+          value={correcaoAtestado.status} disabled={salvandoCorrecao}
+          onChange={event=>setCorrecaoAtestado({...correcaoAtestado,status:event.target.value})}
+          options={ATTENDANCE_STATUSES.filter(status=>status!=="AT").map(status=>({value:status,label:ATTENDANCE_STATUS_LABEL[status]}))}/>
+        <div className="arcd-page-header__actions">
+          <StandardButton variant="secondary" type="button" disabled={salvandoCorrecao} onClick={()=>setCorrecaoAtestado(null)}>Cancelar</StandardButton>
+          <StandardButton type="submit" disabled={!correcaoAtestado.status||salvandoCorrecao}>{salvandoCorrecao?"Salvando…":"Salvar correção"}</StandardButton>
+        </div>
+      </form>
+    </DesignSystemDialog>}
     {certificate&&<AttendanceCertificateDialog {...certificate} onClose={()=>setCertificate(null)}
       onSkip={()=>{setCertificate(null);void salvarCelula(certificate.employee,certificate.date,{status:"FG"});}}
       onSave={()=>salvarCelula(certificate.employee,certificate.date,{status:"AT"})}/>}

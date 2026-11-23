@@ -1,6 +1,6 @@
 # Manual de uso do app MARCELL
 
-Revisão do conteúdo: 19/11/2026.
+Revisão do conteúdo: 23/11/2026.
 
 Este guia explica o uso das telas em linguagem simples. No aplicativo, clique em **Ajuda**, no cabeçalho, para ler o fluxo da página aberta. Em **Manual completo**, pesquise uma tarefa ou tela. As áreas exibidas no aplicativo respeitam seu perfil de acesso.
 
@@ -405,6 +405,7 @@ Escolha o grupo, a competência e a obra. A aba Administrativo inclui engenheiro
 1. Escolha Pessoal de obra ou Administrativo no início da tela.
 2. Confira o período e a obra; trocar de grupo preserva esses filtros.
 3. Revise os registros das pessoas do grupo. Use Todos para conferir a empresa completa.
+4. Para corrigir um atestado já registrado, toque em AT, escolha a Nova situação e use Salvar correção. Se o dia estiver bloqueado, obtenha liberação no Ponto por obra. O anexo já enviado fica no prontuário.
 
 ### Como conferir se deu certo
 
@@ -429,6 +430,7 @@ Escolha o grupo, a competência e a obra. A aba Administrativo inclui engenheiro
 1. Escolha Pessoal de obra ou Administrativo no início da tela.
 2. Confira o período e a obra; trocar de grupo preserva esses filtros.
 3. Revise os registros das pessoas do grupo. Use Todos para conferir a empresa completa.
+4. Para corrigir um atestado já registrado, toque em AT, escolha a Nova situação e use Salvar correção. Se o dia estiver bloqueado, obtenha liberação no Ponto por obra. O anexo já enviado fica no prontuário.
 
 ### Como conferir se deu certo
 
@@ -1309,6 +1311,7 @@ Escolha Pessoal de obra, Administrativo ou Todos; depois selecione o período e 
 2. Abra os registros e compare horários, origem e informações disponíveis.
 3. Ao chegar em Atestado na célula do dia, confira funcionário e data. Selecione uma imagem JPEG ou PNG de até 3 MB e use Confirmar e anexar. Marcar folga pula o atestado. Nos dias já lançados como atestado, use Anexar atestado. O arquivo fica no prontuário do funcionário, acessível a RH e administradores.
 4. Trate as pendências pelas ações autorizadas e confira o resultado.
+5. Para corrigir um atestado já registrado, toque em AT, escolha a Nova situação e use Salvar correção. Se o dia estiver bloqueado, obtenha liberação no Ponto por obra. O anexo já enviado fica no prontuário.
 
 ### Como conferir se deu certo
 
