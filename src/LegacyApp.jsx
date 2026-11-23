@@ -6024,7 +6024,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
   const semana=iso=>["DOM","SEG","TER","QUA","QUI","SEX","SÁB"][prParseIso(iso).getDay()];
   const corStatus=st=>st==="P"?"var(--arcd-success-text)":st==="M"?"var(--arcd-warning-text)":st==="F"?"var(--arcd-danger-text)":isLeaveStatus(st)?"var(--arcd-info-text)":"var(--arcd-text-muted)";
   // O atestado já confirmado tem correção explícita, sem gravar um status intermediário.
-  const proxStatus=st=>({P:"M",M:"F",F:"FE",FE:"AT"})[st]??"P";
+  const proxStatus=st=>st==="FG"?null:({P:"M",M:"F",F:"FE",FE:"AT"})[st]??"P";
   const cellKeyFor=(employeeId,date)=>`${employeeId}::${date}`;
   const attendanceFor=(employeeId,date)=>{
     const pending=pendingCellsRef.current.get(cellKeyFor(employeeId,date));
@@ -6219,13 +6219,13 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
         event.preventDefault();
         const {employee,date,status}=correcaoAtestado;
         if(!status||pendingCellsRef.current.has(cellKeyFor(employee.id,date)))return;
-        if(await salvarCelula(employee,date,{status}))setCorrecaoAtestado(null);
+        if(await salvarCelula(employee,date,{status:status==="sem-marcacao"?null:status}))setCorrecaoAtestado(null);
       }}>
         <p><strong>{correcaoAtestado.employee.name}</strong> · {fmtDateFull(correcaoAtestado.date)}</p>
         <DesignSystemSelect label="Nova situação" placeholder="Selecione a situação correta" required
           value={correcaoAtestado.status} disabled={salvandoCorrecao}
           onChange={event=>setCorrecaoAtestado({...correcaoAtestado,status:event.target.value})}
-          options={ATTENDANCE_STATUSES.filter(status=>status!=="AT").map(status=>({value:status,label:ATTENDANCE_STATUS_LABEL[status]}))}/>
+          options={[...ATTENDANCE_STATUSES.filter(status=>status!=="AT").map(status=>({value:status,label:ATTENDANCE_STATUS_LABEL[status]})),{value:"sem-marcacao",label:"Sem marcação"}]}/>
         <div className="arcd-page-header__actions">
           <StandardButton variant="secondary" type="button" disabled={salvandoCorrecao} onClick={()=>setCorrecaoAtestado(null)}>Cancelar</StandardButton>
           <StandardButton type="submit" disabled={!correcaoAtestado.status||salvandoCorrecao}>{salvandoCorrecao?"Salvando…":"Salvar correção"}</StandardButton>

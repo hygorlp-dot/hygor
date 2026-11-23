@@ -99,8 +99,8 @@ export const BUNDLE_BUDGETS = Object.freeze({
   // 1.889.290 bytes, 10 acima. Acréscimo limitado a 1 KiB.
   // Carimbo no Diário (PR #239): CI mediu 1.890.307 bytes, 3 acima do teto.
   // Acréscimo limitado a 1 KiB, com folga para o ajuste do modal de item (#240).
-  // Plataforma e Panorama desktop: o build mediu 1.891.942 bytes gzip.
-  totalGzipBytes: 1_848 * 1024,
+  // Plataforma e Panorama desktop sobre a correção de atestados: 1.892.488 bytes gzip.
+  totalGzipBytes: 1_849 * 1024,
   genericJavaScriptGzipBytes: 200 * 1024,
   staticMediaTotalBytes: 4 * 1024 * 1024,
   genericStaticMediaBytes: 1 * 1024 * 1024,

@@ -94,6 +94,7 @@ import {
   coreFieldsOnly, DOMAIN_ROW, domainForField, mergeDomainRows, pickDomainFields, rowForAttendanceCommand,
   rowForOperationalCommand, SPLITTABLE_DOMAINS,
 } from "../server/domain-row-routing.js";
+import {checkPayrollCertificates,payrollCertificateBlocker} from "../server/payroll-certificate-check.js";
 import { readFreshAttendance, readReviewEvents, readSyncEvents } from "../server/attendance-review-source.js";
 import { planBiometricSync, validSyncRange, biometricSyncPreview } from '../server/attendance-biometric-sync.js';
 import { applyAttendanceCommand, ATTENDANCE_COMMAND, validateAttendanceCertificate } from "../server/attendance-command.js";
@@ -1457,6 +1458,13 @@ const executarComandoOperacionalBloqueado=async({
       if(executed.idempotent)return {
         kind:"idempotent",data:current,updatedAt,
       };
+      if(command.type===OPERATIONAL_COMMAND.PAYROLL_FORTNIGHT_CLOSED){
+        const company=currentCompany();
+        const freshAttendance=await readFreshAttendance(transaction,company,current);
+        const check=await checkPayrollCertificates({data:freshAttendance,periodKey:command.payload.periodKey,company,transaction});
+        const blocker=payrollCertificateBlocker(check);
+        if(blocker)return {kind:"error",status:blocker.status,error:blocker.error};
+      }
       executed=await reconcileImportedStatement(executed,command,usuario,validarImportacaoAutomatica);
       if(protectClosedDre){
         const closedGuard=await validarImutabilidadeDreFechado({
@@ -2679,6 +2687,14 @@ async function handler(req, res) {
       return res.status(200).json(resposta);
     }
 
+    if(action==="payroll-certificate-check"){
+      res.setHeader("Cache-Control","private, no-store");
+      if(!["admin","rh"].includes(usuario.role)||usuario.obraId||!podeAcessarAba(usuario,"folha")){
+        return res.status(403).json({ok:false,error:"Seu perfil não pode conferir os atestados da folha da empresa."});
+      }
+      const check=await checkPayrollCertificates({data:atual,periodKey:req.body.periodKey,db,company:currentCompany()});
+      return res.status(check.status||200).json(check);
+    }
     // Ponto é persistido por fato, nunca pela substituição da seção projetada.
     // O payload permanece constante (um registro ou lote curto), a validação
     // usa o dataset autoritativo e a mesma RPC grava mutação + auditoria.
@@ -2929,6 +2945,11 @@ async function handler(req, res) {
         const result=await reconcileImportedStatement(applyOperationalCommand(base.payload,{...command,actorId:usuario.id,actorRole:usuario.role||"",actorObraId:usuario.obraId||"",actorName:usuario.nome||usuario.email||"Usuário autenticado"}),command,usuario,validarImportacaoAutomatica);
         if(!result.ok)return res.status(409).json({conflict:true,reason:result.reason,currentUpdatedAt:base.updatedAt});
         if(result.idempotent)return res.status(200).json({ok:true,idempotent:true,data:projectDataForUser(base.payload,usuario),updatedAt:base.updatedAt});
+        if(command.type===OPERATIONAL_COMMAND.PAYROLL_FORTNIGHT_CLOSED){
+          const check=await checkPayrollCertificates({data:base.payload,periodKey:command.payload.periodKey,db,company:currentCompany()});
+          const blocker=payrollCertificateBlocker(check);
+          if(blocker)return res.status(blocker.status).json({error:blocker.error,reason:blocker.error});
+        }
         const gravacao=await persistir(base,result.data);
         if(gravacao.applied){
           if(command.type===OPERATIONAL_COMMAND.BANK_TRANSACTIONS_IMPORTED)await sincronizarComprasAlteradas(base.payload,result.data,usuario);
@@ -3953,6 +3974,9 @@ async function handler(req, res) {
       if ((atual?.quinzenasArquivadas || {})[quinzenaId]) {
         return res.status(409).json({ error: "Esta quinzena já foi arquivada." });
       }
+      const certificateCheck=await checkPayrollCertificates({data:atual,periodKey:quinzenaId,archiveDates:dates,db,company:currentCompany()});
+      const certificateBlock=payrollCertificateBlocker(certificateCheck);
+      if(certificateBlock)return res.status(certificateBlock.status).json({error:certificateBlock.error});
       const { data: jaExiste } = await db.from("company_app_data")
         .select("key").eq("company_id", currentCompany()).eq("key", chaveArquivo(quinzenaId)).maybeSingle();
       if (jaExiste) {
