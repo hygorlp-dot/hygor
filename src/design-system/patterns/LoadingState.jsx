@@ -3,7 +3,7 @@ import {Spinner} from '../primitives/Spinner.jsx';
 import {UI_TEXT} from '../copy.js';
 
 // A moldura nasce com a espera; texto e anúncio só aparecem se ela persistir.
-export function LoadingState({label,title,description=label?undefined:UI_TEXT.feedback.loadingDescription}){
+export function LoadingState({label,title,description}){
  const [visible,setVisible]=useState(false);
  const message=label?`${UI_TEXT.feedback.loading} ${label}…`:title||UI_TEXT.feedback.loading;
  useEffect(()=>{const timer=setTimeout(()=>setVisible(true),200);return()=>clearTimeout(timer);},[]);

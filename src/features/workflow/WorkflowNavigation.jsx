@@ -41,6 +41,7 @@ export function ModuleWorkflow({moduleId,allowedTabs,active,meta,onNavigate}){
 const notes={
   purchases:"Pedido representa compromisso. O custo segue os documentos reconhecidos no razão; pagar ou receber material não cria esse custo novamente.",
   payroll:"O custo da mão de obra segue a competência dos apontamentos. O pagamento é uma saída de caixa e não deve duplicar o custo reconhecido.",
+  planning:"Consulte o custo reconhecido no mês. O valor do avanço é uma estimativa do cronograma.",
   rentals:"Receita, repasses e manutenção seguem o razão por competência. Cobrança e recebimento são acompanhados separadamente.",
 };
 

@@ -71,6 +71,7 @@ export function dreImpactMetrics(kind,current,workScoped=false){
   if(!current)return null;
   const value=key=>typeof current[key]==="number"?current[key]:null;
   if(kind==="purchases")return [{label:"Compras reconhecidas no DRE",value:value("comprasCost")}];
+  if(kind==="planning")return [{label:"Custo reconhecido no DRE",value:value("totalCustos")}];
   if(kind==="payroll")return [
     {label:"Mão de obra no DRE",value:workScoped?current.moData?.laborCost??null:value("laborCost")},
     {label:"Benefícios no DRE",value:workScoped?current.moData?.benefitCost??null:value("benefitCost")},

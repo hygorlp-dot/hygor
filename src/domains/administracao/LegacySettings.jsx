@@ -68,8 +68,8 @@ export const ACCESS_SECTORS=[
 
 //  Gestão de Usuários (dentro de Config)
 
-export function GestaoUsuarios({ data, update, showToast, currentUser }) {
-  useHelpTopic("config","config_membros",10);
+export function GestaoUsuarios({ data, update, showToast, currentUser, pageId="config" }) {
+  useHelpTopic(pageId,"config_membros",10);
   const emptyU = { id:"", nome:"", role:"engenheiro", email:"", obraId:"", maxDesconto:10, active:true, accessTabs:[...ROLE_TABS.engenheiro] };
   const [modal,   setModal]   = useState(false);
   const [editorTab,setEditorTab]=useState("dados");
@@ -194,7 +194,7 @@ export function GestaoUsuarios({ data, update, showToast, currentUser }) {
               options={[{v:"",l:"Todas as obras"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
             </div></TabsContent><TabsContent value="permissoes"><div style={{display:"flex",flexDirection:"column",gap:12}}><div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 12px"}}>
               <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>
-                O perfil-base preenche uma sugestão. O acesso efetivo é definido pelas telas marcadas abaixo.
+                O perfil preenche uma seleção inicial de telas. Confira também a restrição por obra em Dados do membro.
               </p>
             </div>
             {form.role==="admin"?<div style={{background:`${C.yellow}10`,border:`1px solid ${C.yellow}`,borderRadius:6,padding:"10px 12px"}}><p style={{fontSize:"var(--arcd-type-label)",color:C.yellowD,fontWeight:600}}>ADMINISTRADOR · ACESSO TOTAL</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>O administrador sempre acessa todos os setores, usuários e configurações.</p></div>:<div style={{display:"flex",flexDirection:"column",gap:8}}>

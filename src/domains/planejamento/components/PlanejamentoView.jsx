@@ -12,7 +12,9 @@ import {Button as StandardButton} from '../../../components/ui/button.jsx';
 import {RecordAction} from '../../../design-system/primitives/RecordAction.jsx';
 import PlanningPurchaseNeeds from "./PlanningPurchaseNeeds.jsx";
 import {podeAcessarAba} from "../../administracao/abas-acesso.js";
-import {useRememberWorkflowScope,useWorkflow} from "../../../features/workflow/WorkflowNavigation.jsx";
+import {DreIntegration,useRememberWorkflowScope,useWorkflow} from "../../../features/workflow/WorkflowNavigation.jsx";
+import {selectApprovedTechnicalMeasurements} from "../../medicoes/selectors.js";
+import {formatProgress} from "../../medicoes/progress-presentation.js";
 import {useWorkspaceState,useWorkspaceScroll} from "../../../features/workflow/workspace-session.jsx";
 import { PageHeader } from "../../../design-system/patterns/PageHeader";
 import { Button } from "../../../design-system/primitives/Button.jsx";
@@ -51,6 +53,7 @@ import { numeracaoEap } from "../export-hierarchy.js";
 import { dataCurtaComAno, faixasMensais } from "../export-timeline.js";
 import { chamarIA } from "../../../api";
 import {useSyncedWorkObra} from '../../../features/workflow/work-context.js';
+import { ScopeNote } from "../../../design-system/patterns/ScopeNote.jsx";
 
 // Cores do cronograma impresso (DESIGN.md "ARCD Carbon"): verde/azul/vermelho
 // só como estado; "a iniciar" neutro (aço), não o ouro da marca.
@@ -107,6 +110,8 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
     return aplicarRollup(fundirEvolucao(base, data.rdos, obraId), orc);
   }, [plano, orc, data.rdos, obraId]);
   const resumo  = useMemo(() => resumoPlano(tarefas.filter(t=>!t.titulo), orc), [tarefas, orc]);
+  const boletim = selectApprovedTechnicalMeasurements(data, obraId).at(-1);
+  const [anoDre,mesDre] = today().split("-").map(Number);
   const janela  = useMemo(() => janelaPlano(tarefas, plano.marcos), [tarefas, plano.marcos]);
   const progresso = useMemo(() => progressoPlano(tarefas.filter(t=>!t.titulo)), [tarefas]);
 
@@ -878,10 +883,18 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
       <PageHeader headingLevel={obraIdFixo?2:1} className="workspace-header" title="Planejamento" description="Cronograma e acompanhamento da execução por obra." secondaryActions={<Btn v="ghost" onClick={()=>{setSupplyTaskId(current=>current||tarefas.find(t=>!t.titulo&&t.etapaId)?.id||"sem-etapa");requestAnimationFrame(()=>{const panel=document.querySelector(".planning-purchase-needs");panel?.scrollIntoView({block:"start"});panel?.focus({preventScroll:true});});}}>Materiais e compras</Btn>}/>
 
       {/* Cabecalho: seletor de obra + progresso geral */}
-      <div className="planning-toolbar" style={{ display: "flex", flexWrap: "wrap", gap: "var(--arcd-space-2)", alignItems: "flex-end" }}>
-        {!obraIdFixo&&<div style={{ flex: 1, minWidth: 180 }}>
+      {!obraIdFixo&&<div className="planning-toolbar" style={{ display: "flex", flexWrap: "wrap", gap: "var(--arcd-space-2)", alignItems: "flex-end" }}>
+        <div style={{ flex: 1, minWidth: 180 }}>
           <Sel label="Obra" value={obraId} onChange={setObraId} options={obrasComOrc.map(obra=>({v:obra.id,l:obra.name}))}/>
-        </div>}
+        </div>
+      </div>}
+      <ScopeNote title="Orçamento em uso no cronograma">
+        {orc ? <>
+          V{orc.versionNumber||1} · {orc.nome||orc.codigo||"Orçamento sem nome"} · {planejamentoOrcamento.source==="baseline" ? "Orçamento de controle ativo."
+            : planejamentoOrcamento.source==="planejamento" ? "Rascunho vinculado ao plano." : "Rascunho de referência."}
+          {planejamentoOrcamento.source!=="baseline"&&" Etapas, custos e datas são preliminares. A aprovação financeira exige um orçamento de controle aprovado."}
+        </> : "Sem orçamento disponível para esta obra."}
+      </ScopeNote>
 <TaskDisclosure summary="Escala, calendário e colunas">        <div role="group" aria-label="Escala e opções do cronograma" style={{ display: "flex", gap: "var(--arcd-space-1)", alignItems: "center", flexWrap:"wrap" }}>
           {["dia", "semana", "mes"].map(z => (
             <Button key={z} variant="secondary" aria-pressed={zoom===z} onClick={() => setZoom(z)}>{{dia:"Dia",semana:"Semana",mes:"Mês"}[z]}</Button>
@@ -916,7 +929,6 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
           </div>
         </div>
 </TaskDisclosure>
-      </div>
       {needsBudgetSync&&<Alert variant="warning">
         <AlertDescription>
           As etapas do orçamento ainda precisam ser alinhadas ao cronograma. As tarefas existentes, suas datas e o progresso serão preservados.
@@ -925,31 +937,29 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
           {syncingBudget?"Atualizando cronograma…":"Atualizar cronograma pelo orçamento"}
         </Button>}
       </Alert>}
-      {orc&&planejamentoOrcamento.source!=="baseline"&&<div style={{
-        padding:"var(--arcd-space-2) var(--arcd-space-3)",borderRadius:8,border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)",
-        background:"color-mix(in srgb, var(--arcd-warning-text) 5%, transparent)",color:"var(--arcd-text-primary)",fontSize:"var(--arcd-type-label)",lineHeight:"var(--arcd-line-height-normal)",
-      }}>
-        <b style={{color:"var(--arcd-warning-text)"}}>Planejamento sobre orçamento em rascunho.</b>{" "}
-        Etapas, custos e datas são preliminares. A aprovação financeira exige uma linha de base aprovada (a versão do orçamento aceita para controle).
-      </div>}
 
-      <p>Evolução informada: média dos percentuais ponderada pela duração das tarefas. Na Medição física, o total pondera os valores dos serviços. O avanço oficial depende do boletim técnico aprovado.</p>
-      <ApprovedBaselinePanel key={obraId} data={data} obraId={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand}/>
-      {/* Resumo financeiro: o elo com o orcamento */}
-      <div className="planning-summary" style={{ display: "grid", gridTemplateColumns: cols(2, 4, 4), gap: "var(--arcd-space-2)" }}>
-        <MiniKpi label="Evolução informada" value={`${progresso.toFixed(0)}%`} cor={C.blue} />
-        <MiniKpi label="Planejado" value={fmt(resumo.planejado)} cor={C.yellow} />
-        <MiniKpi label="Executado" value={fmt(resumo.executado)} cor={C.green} />
-        <MiniKpi label="Cobertura do orçamento" value={`${resumo.coberto.toFixed(0)}%`}
-                 cor={resumo.coberto >= 99 ? C.green : C.orange}
-                 sub={resumo.coberto < 99 ? "faltam etapas" : "completo"} />
+      <div className="page-hero__stats" role="group" aria-label="Avanço e orçamento">
+        {[
+          ["Evolução informada", `${Math.round(progresso)}%`, "Ponderada pela duração das tarefas"],
+          ["Valor do avanço informado", fmt(resumo.executado), "Custo previsto × avanço de cada tarefa"],
+          ["Medição aprovada", boletim ? `${formatProgress(boletim.avancoFisico)}%` : "Sem boletim aprovado",
+            boletim ? `Medição ${boletim.numero} · ${fmtDateFull(boletim.dataMedicao || boletim.data)}` : "Consulte Avanço físico"],
+          ["Planejado", fmt(resumo.planejado), orc ? `${Math.round(resumo.coberto)}% de cobertura por valor` : "Sem orçamento"],
+        ].map(([label,value,detail])=><div className="page-hero__stat" key={label}>
+          <p className="page-hero__stat-label">{label}</p>
+          <p className="page-hero__stat-value">{value}</p>
+          <p className="page-hero__stat-detail">{detail}</p>
+        </div>)}
       </div>
+      {podeAcessarAba(currentUser,"dre")&&<DreIntegration key={`dre-${obraId}`} kind="planning" currentUser={currentUser} obraId={obraId} year={anoDre} month={mesDre-1}/>}
+      <ApprovedBaselinePanel key={obraId} data={data} obraId={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand}/>
 
       {/* ==== GANTT ==== */}
       {supplyTaskId&&<PlanningPurchaseNeeds data={data} obraId={obraId} tasks={tarefas} taskId={supplyTaskId} onTask={setSupplyTaskId} onClose={()=>setSupplyTaskId("")}
         canRequest={podeAcessarAba(currentUser,"cmp")&&Boolean(navigate)}
         onPrepare={needs=>navigate?.("cmp",{obraId},{action:"planning-request",record:{obraId,taskId:needs.taskId,budgetId:needs.budgetId}})}
-        onRequest={request=>navigate?.("cmp",{obraId},{action:"open-request",record:{requestId:request.id}})}/>}
+        onRequest={request=>navigate?.("cmp",{obraId},{action:"open-request",record:{requestId:request.id}})}
+        onOrder={order=>navigate?.("cmp",{obraId},{action:"open-order",record:{pedidoId:order.id}})}/>}
 
       <div className="planning-gantt" style={{ background: "var(--arcd-surface-card)", border: "1px solid var(--arcd-border-default)", borderRadius: 8, overflow: "hidden" }}>
         <div className="planning-gantt-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
@@ -1398,9 +1408,9 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
       {/* Fisico-financeiro em destaque: previsao de custo final e eficiencia */}
       {ff.linhas.length > 0 && (
         <div style={{ display: "grid", gridTemplateColumns: cols(2, 4, 4), gap: "var(--arcd-space-2)" }}>
-          <MiniKpi label="Avanço físico" value={`${ff.total.pctFisico.toFixed(0)}%`} cor={C.blue}
+          <MiniKpi label="Avanço por valor das tarefas" value={`${ff.total.pctFisico.toFixed(0)}%`} cor={C.blue}
                    sub="valor agregado / previsto" />
-          <MiniKpi label="Custo realizado" value={fmt(ff.total.realizado)} cor={C.purple}
+          <MiniKpi label="Custo lançado nas tarefas" value={fmt(ff.total.realizado)} cor={C.purple}
                    sub={ff.total.semCustoLancado ? `${contar(ff.total.semCustoLancado,"tarefa","tarefas")} com avanço e sem custo lançado` : "lançado nas tarefas"} />
           {totalMaterialAplicado(tarefasComCusto) > 0 && <MiniKpi label="Material aplicado" value={fmt(totalMaterialAplicado(tarefasComCusto))} cor={C.blue}
                    sub="consumido do estoque nas tarefas" />}
@@ -2309,7 +2319,7 @@ function ModalCalendario({ cal, onSalvar, onClose }) {
                       letterSpacing: "var(--arcd-letter-spacing-body)", marginBottom: "var(--arcd-space-2)" }}>Dias trabalhados</p>
           <div style={{ display: "flex", gap: "var(--arcd-space-1)", flexWrap: "wrap" }}>
             {DIAS.map(([lbl, d]) => (
-              <StandardButton variant="secondary" key={d} onClick={() => toggleDia(d)} style={{flex: 1,minWidth: 42}}>{lbl}</StandardButton>
+              <StandardButton variant="secondary" key={d} aria-pressed={dias.includes(d)} onClick={() => toggleDia(d)} style={{flex: 1,minWidth: 42}}>{lbl}</StandardButton>
             ))}
           </div>
         </div>
@@ -2329,7 +2339,7 @@ function ModalCalendario({ cal, onSalvar, onClose }) {
                 {fers.map(f => (
                   <div key={f.data} style={{ display: "flex", justifyContent: "space-between",
                        alignItems: "center", padding: "var(--arcd-space-1) var(--arcd-space-0)", borderBottom: "1px solid var(--arcd-border-default)" }}>
-                    <span style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-primary)" }}>{fmtDate(f.data)} - {f.nome}</span>
+                    <span style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-primary)" }}>{fmtDateFull(f.data)} - {f.nome}</span>
                     <StandardButton variant="secondary" onClick={() => setFers(prev => prev.filter(x => x.data !== f.data))}>Remover</StandardButton>
                   </div>
                 ))}

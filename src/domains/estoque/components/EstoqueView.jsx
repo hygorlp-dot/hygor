@@ -12,6 +12,9 @@ import { contar } from "../../../design-system/copy.js";
 import { exigeTarefaNoConsumo, tarefasParaConsumo } from "../task-allocation";
 import { useCallback, useMemo, useState } from "react";
 import { useSyncedWorkObra } from "../../../features/workflow/work-context.js";
+import { useWorkflow } from "../../../features/workflow/WorkflowNavigation.jsx";
+import { useWorkspaceState } from "../../../features/workflow/workspace-session.jsx";
+import { podeAcessarAba } from "../../administracao/abas-acesso.js";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
 import { Btn, Ic, Inp, Modal, Sel } from "../../../legacy/ui.jsx";
 import { C } from "../../../legacy/palette.js";
@@ -22,6 +25,8 @@ import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { TIPOS_MOV, SINAL_MOV, calcSaldos, saldoDe, baixarPorComposicao, calcCurvaABC, calcCurvaABCServicos, materiaisAbaixoMinimo } from "../calculations";
 import { STOCK_COMMAND } from "../commands";
 import { PageHeader } from "../../../design-system/patterns/PageHeader.jsx";
+import { ScopeNote } from "../../../design-system/patterns/ScopeNote.jsx";
+import { Button } from "../../../design-system/primitives/Button.jsx";
 import { WorkspaceNavigation } from "../../../design-system/patterns/WorkspaceNavigation.jsx";
 
 // Tarefa do cronograma onde o material foi aplicado: primeiro as em
@@ -161,9 +166,11 @@ function ModalExecutar({ onClose, onRun, composicoes, obras, obraAtual, materiai
 
 export default function Estoque({ data, update, showToast, currentUser, obraIdFixo="", dispatchCommand=null }) {
 
-  const [aba,      setAba]      = useState("saldo");   // saldo|movs|materiais|comp|abc
+  const {navigate}=useWorkflow();
+  const [aba, setAba] = useWorkspaceState("est","area","saldo",obraIdFixo);
   const [obraSel,  setObraSel]  = useState(obraIdFixo);
-  const [busca,    setBusca]    = useState("");
+  const [busca, setBusca] = useWorkspaceState("est","search","",obraIdFixo);
+  const podeAbrirPedido=!!navigate&&podeAcessarAba(currentUser,"cmp");
 
   const [matModal, setMatModal] = useState(null);
   const [movModal, setMovModal] = useState(null);
@@ -451,12 +458,13 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
   const nomeObra = (id) => obras.find(o => o.id === id)?.name || "-";
 
   return (
-    <div className="anim stock-workspace" style={{display:"flex",flexDirection:"column",gap:12}}>
+    <div className="stock-workspace" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-box-gap)"}}>
       <PageHeader className="workspace-header" headingLevel={obraIdFixo?2:1} title="Estoque" description="Controle físico dos materiais por obra, com alerta de reposição abaixo do mínimo."
         primaryAction={<Btn onClick={()=>setSrvModal(true)}><Ic n="check"/> Executei um serviço</Btn>}
         secondaryActions={<Btn v="ghost" onClick={()=>setMovModal({tipo:"entrada",obraId:obraAtual,materialId:"",qtd:"",valorUnit:"",data:new Date().toISOString().slice(0,10),descricao:"",etapa:""})}><Ic n="plus"/> Movimento avulso</Btn>}/>
 
 
+      {obraIdFixo&&<ScopeNote title="Obra do estoque">{nomeObra(obraIdFixo)}</ScopeNote>}
       <div className="stock-overview">
         {!obraIdFixo && <Sel label="Obra" value={obraAtual} onChange={setObraSel} options={obras.map(o=>({v:o.id,l:o.name}))}/>}
         <dl className="stock-summary">
@@ -470,7 +478,7 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
       {abaixoMin.length>0&&(
         <div style={{background:`${C.orange}0C`,border:`1.5px solid ${C.orange}`,borderRadius:6,padding:"10px 12px"}}>
           <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.orange}}>
-            {abaixoMin.length} MATERIAL(IS) ABAIXO DO ESTOQUE MÍNIMO
+            {contar(abaixoMin.length,"material abaixo do estoque mínimo","materiais abaixo do estoque mínimo")}
           </p>
           <div style={{marginTop:5,maxHeight:96,overflow:"auto"}}>
             {abaixoMin.slice(0,8).map((l,ix)=>(
@@ -479,15 +487,15 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
                 <b style={{color:C.orange}}> · repor {l.deficit.toLocaleString("pt-BR")}</b>
               </p>
             ))}
-            {abaixoMin.length>8&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.subtle,marginTop:3}}>e mais {abaixoMin.length-8} item(ns)...</p>}
+            {abaixoMin.length>8&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.subtle,marginTop:3}}>Mais {contar(abaixoMin.length-8,"item","itens")}</p>}
           </div>
           <div style={{marginTop:8}}>
             <Btn size="sm" v="warning" onClick={gerarReposicao} full>
-              <Ic n="cart"/> GERAR SOLICITAÇÃO DE REPOSIÇÃO
+              <Ic n="cart"/> Gerar solicitação de reposição
             </Btn>
           </div>
           <p style={{fontSize:"var(--arcd-type-caption)",color:C.subtle,marginTop:5,lineHeight:1.4}}>
-            Uma solicitação por obra, com o déficit já calculado. O setor de Compras recebe o alerta imediatamente.
+            {obraIdFixo ? "A solicitação é desta obra." : "A reposição inclui todas as obras da lista acima."} Compras recebe uma solicitação por obra.
           </p>
         </div>
       )}
@@ -538,6 +546,7 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
           : movs.map(x => {
             const t = TIPOS_MOV.find(t => t.v === x.tipo) || TIPOS_MOV[0];
             const m = matPorId(x.materialId);
+            const pedido=podeAbrirPedido&&x.pedidoId&&(data.pedidos||[]).find(item=>item.id===x.pedidoId&&item.obraId===x.obraId&&!item.deletedAt);
             return (
               <div key={x.id} style={{
                 background:C.card, border:`1px solid ${C.border}`,
@@ -553,6 +562,9 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
                     {x.descricao && (
                       <p className="brk" style={{fontSize:"var(--arcd-type-label)",color:C.subtle,marginTop:2}}>{x.descricao}</p>
                     )}
+                    {pedido&&<Button size="sm" variant="ghost" onClick={()=>navigate("cmp",{obraId:pedido.obraId},{action:"open-order",record:{pedidoId:pedido.id,origin:"estoque"}})}>
+                      {pedido.numero?`Abrir pedido ${pedido.numero}`:"Abrir pedido de origem"}
+                    </Button>}
                   </div>
                   <div style={{textAlign:"right",flexShrink:0}}>
                     <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:t.cor,whiteSpace:"nowrap"}}>

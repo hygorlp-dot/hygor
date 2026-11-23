@@ -42,7 +42,33 @@ for(const width of [390,1440])test.describe(`${width}px`,()=>{
   await page.getByRole('button',{name:'Abrir solicitação · SC-0005',exact:true}).click();await expect(page.locator('#purchase-record-legacy')).toBeFocused();await expect(page.locator('#purchase-record-legacy')).toHaveAttribute('data-purchase-highlight','true');await page.getByRole('navigation',{name:'Retornar ao contexto anterior'}).getByRole('button').click();await expect(page.getByRole('heading',{name:'Minhas aprovações pendentes',exact:true})).toBeVisible();await fits(page);check();
  });
  test('Comunicação abre o achado exato, preserva filtro e mostra conclusão',async({page})=>{
-  const check=await enter(page,'chat');await page.getByTestId('work-context-stamp').locator('select').selectOption('b');await expect(page.getByRole('heading',{name:'Corrigir acabamento da parede',exact:true})).toBeVisible();await expect(page.getByText('1 pendência(s) de conferência em aberto.',{exact:true})).toBeVisible();await expect(page.getByRole('heading',{name:'Ajuste cancelado',exact:true})).toHaveCount(0);await expect(page.getByText('Ajuste já validado',{exact:true})).toHaveCount(0);await shot(page,'tarefas',width);await page.getByRole('button',{name:'Abrir pendência · CONF-007',exact:true}).first().click();await expect(page.getByText('Corrigir acabamento da parede',{exact:true})).toBeVisible();await expect(page.getByText('Pendência de outro responsável',{exact:true})).toHaveCount(0);await expect(page.getByText('Pendência de origem',{exact:false})).toBeVisible();await shot(page,'origem',width);await page.getByRole('navigation',{name:'Retornar ao contexto anterior'}).getByRole('button').click();await expect(page.getByTestId('work-context-stamp').locator('select')).toHaveValue('b');await page.getByRole('combobox',{name:'Situação das tarefas',exact:true}).selectOption('closed');await expect(page.getByRole('heading',{name:'Ajuste já validado',exact:true})).toBeVisible();await expect(page.getByText(/Conclusão:.*15\/11\/2026/)).toBeVisible();await page.locator('section').filter({has:page.getByRole('heading',{name:'Ajuste já validado',exact:true})}).last().getByRole('button',{name:'Abrir pendência · CONF-007',exact:true}).click();await expect(page.getByText('Ajuste já validado',{exact:true})).toBeVisible();await page.getByRole('navigation',{name:'Retornar ao contexto anterior'}).getByRole('button').click();await expect(page.getByRole('combobox',{name:'Situação das tarefas',exact:true})).toHaveValue('closed');await fits(page);check();
+  const check=await enter(page,'chat');
+  const stamp=page.getByTestId('work-context-stamp').locator('select');
+  const heading=name=>page.getByRole('heading',{name,exact:true});
+  const openTask=name=>page.locator('section').filter({has:heading(name)}).last().getByRole('button',{name:'Abrir pendência · CONF-007',exact:true}).click();
+  const back=page.getByRole('navigation',{name:'Retornar ao contexto anterior'}).getByRole('button');
+  const taskStatus=page.getByRole('combobox',{name:'Situação das tarefas',exact:true});
+  await stamp.selectOption('b');
+  await expect(heading('Corrigir acabamento da parede')).toBeVisible();
+  await expect(heading('Ajuste cancelado')).toHaveCount(0);
+  await expect(heading('Ajuste já validado')).toHaveCount(0);
+  await shot(page,'tarefas',width);
+  await openTask('Corrigir acabamento da parede');
+  await expect(page.getByText('Corrigir acabamento da parede',{exact:true})).toBeVisible();
+  await expect(page.getByText('Pendência de outro responsável',{exact:true})).toHaveCount(0);
+  await expect(page.getByText('Pendência de origem',{exact:false})).toBeVisible();
+  await shot(page,'origem',width);
+  await back.click();
+  await expect(stamp).toHaveValue('b');
+  await taskStatus.selectOption('closed');
+  await expect(heading('Ajuste já validado')).toBeVisible();
+  await expect(page.getByText(/Conclusão:.*15\/11\/2026/)).toBeVisible();
+  await openTask('Ajuste já validado');
+  await expect(page.getByText('Ajuste já validado',{exact:true})).toBeVisible();
+  await back.click();
+  await expect(taskStatus).toHaveValue('closed');
+  await fits(page);
+  check();
  });
  test('indicadores comerciais explicam bases e limite financeiro',async({page})=>{
   const check=await enter(page,'com_dash');await page.getByText('Como são contados os indicadores comerciais',{exact:true}).click();await expect(page.getByRole('note').filter({hasText:'Vendas e conversão'})).toContainText('Não é a conversão do mês');await expect(page.getByRole('note').filter({hasText:'Resultado financeiro'})).toContainText('não são recebimento');await fits(page);check();

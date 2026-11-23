@@ -1,7 +1,7 @@
-import {CompanyAssetLink,CompanyAssetImage} from '../../../components/CompanyAsset.jsx';
 import {useHelpTopic} from '../../../features/help/HelpContext.jsx';
 import { contar } from "../../../design-system/copy.js";
 import {TaskDisclosure} from '../../../design-system/patterns/TaskDisclosure.jsx';
+import {ScopeNote} from '../../../design-system/patterns/ScopeNote.jsx';
 import {useMeasurementDraft} from './useMeasurementDraft.js';
 import {Alert,AlertDescription} from '../../../components/ui/alert.jsx';
 import TechnicalRetentions from '../../../features/financeiro/TechnicalRetentions.jsx';
@@ -1009,7 +1009,6 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
     <div className="anim terceiros-workspace">
 
       <PageHero
-        eyebrow="Subcontratados"
         title="Terceirizados"
         description={ehRH
           ? "Cadastros, contratos, documentos e alocação da equipe subcontratada."
@@ -1018,6 +1017,8 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
           <Ic n="plus"/> {contractDraft?"Continuar cadastro":"Novo contrato"}
         </Btn>}
       />
+
+      <ScopeNote title="Resumo e filas">{obraIdFixo ? obraName(obraIdFixo) : "Todas as obras disponíveis"}</ScopeNote>
 
       {/* Resumo operacional: uma faixa única evita quatro cartões concorrentes. */}
       <section className="terceiros-summary" aria-label="Resumo dos terceirizados">
@@ -1034,7 +1035,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
         <StandardButton variant="secondary" className="terceiros-pending" type="button" onClick={() => setView("medicoes")}>
           <span><Ic n="alert" s={15}/></span>
           <span className="terceiros-pending__copy">
-            <b>{medicoesAPagar.length} medição(ões) aguardando pagamento</b>
+            <b>{contar(medicoesAPagar.length,"medição","medições")} aguardando pagamento</b>
             <small>Revise os lançamentos medidos antes de pagar.</small>
           </span>
           <strong>{fmt(totalAPagarMed)}</strong>
@@ -1060,15 +1061,15 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
           <Sel label="Especialidade" value={filterSpec} onChange={setFilterSpec} options={[{v:"all",l:"Todas as especialidades"},...SPECIALTIES.map(s=>({v:s.v,l:s.l}))]}/>
           {obraIdFixo
             ? <Inp label="Obra" value={data.obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
-            : <Sel label="Obra" value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as obras"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>}
+            : <Sel label="Obra do cadastro" value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as obras"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>}
           </div>
         </section>
 </>}
       {/*  VIEW: KANBAN  */}
       {view === "kanban" && (<>
-        <p className="terceiros-kanban-help">
+        {kanbansPorObra.length>0&&<p className="terceiros-kanban-help">
           Arraste os cartões ou use os controles “Mover para”. Selecione um contrato para abrir {podeGerenciarMedicoes ? "as medições" : "o cadastro"}.
-        </p>
+        </p>}
         {/* Painel de documentos vencendo - so aparece quando ha pendencia */}
         {documentosPendentes.length > 0 && (
           <section className="terceiros-doc-alert" aria-label="Documentos críticos">
@@ -1098,11 +1099,8 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
         {kanbansPorObra.length === 0 && (
           <section className="terceiros-empty">
             <span className="terceiros-empty__icon"><Ic n="users" s={22}/></span>
-            <h3>Nenhum contrato de terceiro nesta obra</h3>
-            <p>Cadastre o primeiro prestador para acompanhar etapas, medições, documentos e pagamentos.</p>
-            {podeGerenciarContratos && <Btn onClick={() => { setForm(novoContratoVazio()); setModal(true); }}>
-              <Ic n="plus"/> Criar primeiro contrato
-            </Btn>}
+            <h3>{kanbanTerc.length ? "Nenhum contrato com estes filtros" : "Nenhum contrato de terceiro cadastrado"}</h3>
+            <p>{kanbanTerc.length ? "Confira a obra, a especialidade e a busca." : "Os contratos cadastrados aparecem aqui."}</p>
           </section>
         )}
 
@@ -1666,7 +1664,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                   })}
                 </div>
                 {m.observacao && <p style={{ fontSize:"var(--arcd-type-label)", color:"var(--arcd-text-secondary)", fontStyle:"italic", marginTop:"var(--arcd-space-1)" }}>"{m.observacao}"</p>}
-                {(m.fotos||[]).length?<div style={{marginTop:"var(--arcd-space-2)"}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"center",marginBottom:"var(--arcd-space-1)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-success-text)",textTransform:"uppercase"}}>Evidência fotográfica · {(m.fotos||[]).length}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Por {m.responsavelEvidencia||m.fotos?.[0]?.enviadoPor||"engenheiro"}</p></div><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(76px,1fr))",gap:"var(--arcd-space-1)"}}>{(m.fotos||[]).map(f=><CompanyAssetLink key={f.id||f.url} href={f.url} target="_blank" rel="noopener noreferrer" title="Ampliar fotografia" style={{display:"block",aspectRatio:"1/1",borderRadius:7,overflow:"hidden",border:"1px solid var(--arcd-border-default)",background:"var(--arcd-surface-muted)"}}><CompanyAssetImage src={f.url} alt={f.legenda||"Evidência da medição"} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/></CompanyAssetLink>)}</div></div>:<div style={{marginTop:"var(--arcd-space-2)",background:"color-mix(in srgb, var(--arcd-danger-text) 4%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-danger-text) 27%, transparent)",borderRadius:7,padding:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-danger-text)"}}>Medição sem evidência fotográfica</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Registro antigo: o financeiro será alertado antes do pagamento.</p></div>}
+                {(m.fotos||[]).length?<div style={{marginTop:"var(--arcd-space-2)"}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"center",marginBottom:"var(--arcd-space-1)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-success-text)",textTransform:"uppercase"}}>Evidência fotográfica · {(m.fotos||[]).length}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Por {m.responsavelEvidencia||m.fotos?.[0]?.enviadoPor||"engenheiro"}</p></div><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(76px,1fr))",gap:"var(--arcd-space-1)"}}>{(m.fotos||[]).map(f=><a key={f.id||f.url} href={f.url} target="_blank" rel="noopener noreferrer" title="Ampliar fotografia" style={{display:"block",aspectRatio:"1/1",borderRadius:7,overflow:"hidden",border:"1px solid var(--arcd-border-default)",background:"var(--arcd-surface-muted)"}}><img src={f.url} alt={f.legenda||"Evidência da medição"} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/></a>)}</div></div>:<div style={{marginTop:"var(--arcd-space-2)",background:"color-mix(in srgb, var(--arcd-danger-text) 4%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-danger-text) 27%, transparent)",borderRadius:7,padding:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-danger-text)"}}>Medição sem evidência fotográfica</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Registro antigo: o financeiro será alertado antes do pagamento.</p></div>}
                 <TechnicalRetentions data={data} obraId={m.obraId} measurementId={m.id} user={currentUser} dispatchCommand={dispatchCommand}/>
                 {/* Previa de retencao antes de pagar / decomposicao apos pago */}
                 {(() => {
@@ -2112,7 +2110,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                 <input ref={inputFotosMedRef} aria-label="Fotos da galeria para a medição" type="file" accept="image/*" multiple disabled={subindoFotosMed||medLocked} style={{display:"none"}} onChange={e=>{void anexarFotosMedicao(e.target.files);e.target.value="";}}/>
                 <input ref={inputCameraMedRef} aria-label="Foto da câmera para a medição" type="file" accept="image/*" capture="environment" disabled={subindoFotosMed||medLocked} style={{display:"none"}} onChange={e=>{void anexarFotosMedicao(e.target.files);e.target.value="";}}/>
               </div>
-              {(medForm.fotos||[]).length?<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(86px,1fr))",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)"}}>{(medForm.fotos||[]).map((f,i)=><div key={f.id||i} style={{minWidth:0}}><CompanyAssetLink href={f.url} target="_blank" rel="noopener noreferrer" style={{display:"block",aspectRatio:"1/1",borderRadius:7,overflow:"hidden",border:"1px solid var(--arcd-border-default)"}}><CompanyAssetImage src={f.url} alt={`Evidência ${i+1}`} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/></CompanyAssetLink><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>Foto {i+1} · {currentUser?.nome}</p></div>)}</div>:<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-2)"}}>Nenhuma fotografia anexada. Escolha fotos da galeria ou tire uma foto da execução.</p>}
+              {(medForm.fotos||[]).length?<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(86px,1fr))",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)"}}>{(medForm.fotos||[]).map((f,i)=><div key={f.id||i} style={{minWidth:0}}><a href={f.url} target="_blank" rel="noopener noreferrer" style={{display:"block",aspectRatio:"1/1",borderRadius:7,overflow:"hidden",border:"1px solid var(--arcd-border-default)"}}><img src={f.url} alt={`Evidência ${i+1}`} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/></a><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>Foto {i+1} · {currentUser?.nome}</p></div>)}</div>:<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-2)"}}>Nenhuma fotografia anexada. Escolha fotos da galeria ou tire uma foto da execução.</p>}
             </div>
 
             <div style={{background:"color-mix(in srgb, var(--arcd-success-text) 4%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-success-text) 27%, transparent)",borderRadius:8,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>

@@ -1,4 +1,3 @@
-import {CompanyAssetLink} from '../../../components/CompanyAsset.jsx';
 import { contar } from "../../../design-system/copy.js";
 import {openReportPreview} from '../../../reports/report-preview.js';
 import { PageHeader } from "../../../design-system/patterns/PageHeader";
@@ -585,7 +584,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
                 background: C.card,
               }}
             >
-              <CompanyAssetLink
+              <a
                 href={doc.url}
                 target="_blank"
                 rel="noreferrer"
@@ -599,7 +598,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
                 }}
               >
                 {doc.legenda || doc.nome} ↗
-              </CompanyAssetLink>
+              </a>
               <span style={{ fontSize:"var(--arcd-type-caption)", color: C.muted }}>
                 {doc.tamanho
                   ? `${(doc.tamanho / 1024 / 1024).toFixed(1)} MB`
@@ -1256,13 +1255,13 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
       <section className="commercial-command-card">
         <div>
 
-          <h2>{receitaMes>0?`${fmtCompact(receitaMes)} em vendas`:"Hora de transformar o funil em contratos"}</h2>
-          <p>{alertas.length?`${contar(alertas.length,"ponto","pontos")} precisam de ação para manter as oportunidades avançando.`:"A operação comercial está acompanhada e sem alertas críticos."}</p>
+          <h2>{vendasMes.length?`${fmtCompact(receitaMes)} em vendas`:"Sem vendas registradas neste mês"}</h2>
+          <p>{alertas.length?contar(alertas.length,"pendência comercial","pendências comerciais"):"Nenhuma pendência comercial"}</p>
         </div>
         <div className="commercial-goal">
           <div><span>Meta mensal</span><b>{meta?fmtCompact(meta):"Não definida"}</b></div>
-          <div className="commercial-goal-track"><i style={{transform:`scaleX(${progressoMeta/100})`}}/></div>
-          <small>{meta?`${progressoMeta.toFixed(0)}% realizado · ${fmtCompact(Math.max(0,meta-receitaMes))} restante`:"Cadastre uma meta para acompanhar o ritmo de vendas."}</small>
+          {meta>0&&<div aria-hidden="true" className="commercial-goal-track"><i style={{transform:`scaleX(${progressoMeta/100})`}}/></div>}
+          <small>{meta?`${Math.round(progressoMeta)}% da meta · ${fmtCompact(Math.max(0,meta-receitaMes))} restante`:"Cadastre uma meta para acompanhar as vendas."}</small>
         </div>
       </section>
 
@@ -1270,7 +1269,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
         <KpiCard label="Funil ativo" value={fmtCompact(funil)} sub={`${contar(leadAtivos.length,"oportunidade","oportunidades")}`} color={C.blue} icon="trending" tab="com_funil"/>
         <KpiCard label="Valor provável de venda" value={fmtCompact(ponderada)} sub="Valor ponderado pela probabilidade" color={C.yellowD} icon="chart" tab="com_funil"/>
         <KpiCard label="Vendas no mês" value={vendasMes.length} sub={`${fmtCompact(receitaMes)} em contratos`} color={C.green} icon="check" tab="com_contratos"/>
-        <KpiCard label="Conversão geral" value={`${conv.toFixed(1)}%`} sub={ticket?`Ticket do mês ${fmtCompact(ticket)}`:"Sem venda no mês"} color={conv>=20?C.green:C.orange} icon="target" tab="com_relatorios"/>
+        <KpiCard label="Conversão geral" value={`${conv.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%`} sub={ticket?`Ticket do mês ${fmtCompact(ticket)}`:"Sem venda no mês"} color={conv>=20?C.green:C.orange} icon="target" tab="com_relatorios"/>
       </div>
 
       <TaskDisclosure summary="Como são contados os indicadores comerciais">
@@ -1281,14 +1280,14 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
       </TaskDisclosure>
       <section className="commercial-panel">
         <div className="commercial-panel-head"><div><h3>Distribuição das oportunidades</h3></div><Btn size="sm" v="ghost" onClick={()=>onTab("com_funil")}>Abrir funil →</Btn></div>
-        <div className="commercial-pipeline">{fases.map(f=><button key={f.id} onClick={()=>onTab("com_funil")} style={{"--stage-color":f.cor}}>
-          <span>{f.label}</span><strong>{f.qtd}</strong><small>{fmtCompact(f.valor)}</small><i><em style={{width:`${leadAtivos.length?Math.max(5,f.qtd/leadAtivos.length*100):0}%`}}/></i>
+        <div className="commercial-pipeline">{fases.map(f=><button key={f.id} onClick={()=>onTab("com_funil")}>
+          <span>{f.label}</span><strong>{f.qtd}</strong><small>{fmtCompact(f.valor)}</small>{f.qtd>0&&<i aria-hidden="true"><em style={{width:`${f.qtd/leadAtivos.length*100}%`}}/></i>}
         </button>)}</div>
       </section>
 
       <div className="commercial-dashboard-columns">
         <section className="commercial-panel">
-          <div className="commercial-panel-head"><div><h3>Próximas ações</h3></div><span className="commercial-count-alert">{alertas.length}</span></div>
+          <div className="commercial-panel-head"><div><h3>Próximas ações</h3></div>{alertas.length>0&&<span className="commercial-count-alert">{alertas.length}</span>}</div>
           {!alertas.length?vazio("Nenhuma ação crítica agora."):<div className="commercial-action-list">{alertas.slice(0,6).map((a,i)=><button key={i} onClick={()=>{const l=leadBy(a.leadId);if(l){setLeadForm({...l});setLeadAba("geral");}}}>
             <i style={{background:a.cor}}/><span><b>{a.texto}</b><small>Abrir lead e registrar andamento</small></span><Ic n="chevronRight" s={12}/>
           </button>)}</div>}
@@ -1594,7 +1593,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
       {leadAba==="propostas"&&<div>{propostas.filter(p=>p.leadId===leadForm.id).map(p=><p key={p.id} style={{fontSize:"var(--arcd-type-label)",padding:6,borderBottom:`1px solid ${C.line}`}}>{p.numero} V{p.versao} · {fmt(p.valor)} · {p.status}</p>)}<Btn size="sm" onClick={()=>setPropostaForm(propostaVazia(leadForm.id))}>+ PROPOSTA</Btn></div>}
       {leadAba==="negociacoes"&&<div>{propostas.filter(p=>p.leadId===leadForm.id).flatMap(p=>(p.negociacoes||[]).map(n=><p key={n.id} style={{fontSize:"var(--arcd-type-label)",padding:6,borderBottom:`1px solid ${C.line}`}}>{comDateTime(n.data)} · {fmt(n.valorInicial)} → {fmt(n.valorNegociado)} · {n.objecoes}</p>))}</div>}
       {leadAba==="contratos"&&<LeadContracts data={data} lead={leadForm} user={currentUser} onOpen={openLeadContracts}/>}
-      {leadAba==="documentos"&&<div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr auto",gap:6,alignItems:"end"}}><Inp label="Nome do documento" value={docForm.nome} onChange={v=>setDocForm(f=>({...f,nome:v}))}/><Inp label="Link do arquivo" value={docForm.url} onChange={v=>setDocForm(f=>({...f,url:v}))}/><Btn size="sm" onClick={()=>{if(docForm.nome&&docForm.url){setLeadForm(f=>({...f,documentos:[...(f.documentos||[]),{id:uid(),...docForm,data:new Date().toISOString()}]}));setDocForm({nome:"",url:""});}}}>ADICIONAR</Btn></div>{(leadForm.documentos||[]).map(d=><p key={d.id} style={{fontSize:"var(--arcd-type-label)",padding:6}}><CompanyAssetLink href={d.url} target="_blank" rel="noreferrer">{d.nome}</CompanyAssetLink></p>)}</div>}
+      {leadAba==="documentos"&&<div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr auto",gap:6,alignItems:"end"}}><Inp label="Nome do documento" value={docForm.nome} onChange={v=>setDocForm(f=>({...f,nome:v}))}/><Inp label="Link do arquivo" value={docForm.url} onChange={v=>setDocForm(f=>({...f,url:v}))}/><Btn size="sm" onClick={()=>{if(docForm.nome&&docForm.url){setLeadForm(f=>({...f,documentos:[...(f.documentos||[]),{id:uid(),...docForm,data:new Date().toISOString()}]}));setDocForm({nome:"",url:""});}}}>ADICIONAR</Btn></div>{(leadForm.documentos||[]).map(d=><p key={d.id} style={{fontSize:"var(--arcd-type-label)",padding:6}}><a href={d.url} target="_blank" rel="noreferrer">{d.nome}</a></p>)}</div>}
       {leadAba==="financeiro"&&<div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}>{kpi("Propostas",fmt(propostas.filter(p=>p.leadId===leadForm.id).reduce((s,p)=>Math.max(s,p.valor),0)),C.blue)}{kpi("Contratos",fmt(contratos.filter(k=>k.leadId===leadForm.id).reduce((s,k)=>s+k.valor,0)),C.green)}{kpi("Recebido",fmt(recebidoDoLead(leadForm.id)),C.yellowD)}</div>}
       {leadAba==="historico"&&<div>{(leadForm.historico||[]).slice().reverse().map(h=><div key={h.id} style={{borderLeft:`1px solid ${C.blue}`,padding:"5px 8px",marginBottom:5}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{comDateTime(h.data)} · {h.tipo}</p><p style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{h.texto}</p></div>)}</div>}
       <div style={{display:"flex",gap:7,justifyContent:"space-between",flexWrap:"wrap"}}>{leadForm.id?<Btn v="danger" disabled={!!salvandoComercial} onClick={()=>excluirLead(leadForm)}><Ic n="trash"/> EXCLUIR LEAD</Btn>:<span/>}<div style={{display:"flex",gap:7}}><Btn v="ghost" onClick={()=>setLeadForm(null)}>CANCELAR</Btn><Btn disabled={!!salvandoComercial} onClick={salvarLead}><Ic n="check"/> {salvandoComercial==="lead"?"Salvando...":"SALVAR LEAD"}</Btn></div></div></div></Modal>}

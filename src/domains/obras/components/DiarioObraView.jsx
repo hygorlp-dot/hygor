@@ -1,4 +1,3 @@
-import {CompanyAssetLink} from '../../../components/CompanyAsset.jsx';
 import {openReportPreview} from '../../../reports/report-preview.js';
 import {CompanyAssetImage} from '../../../components/CompanyAsset.jsx';
 import {assetAuthorizationKey,resolveCompanyAssetUrl} from '../../../api.js';
@@ -15,7 +14,8 @@ import {RecordAction} from '../../../design-system/primitives/RecordAction.jsx';
 import {Input as StandardInput} from '../../../components/ui/input.jsx';
 import {ChoiceControl} from '../../../design-system/primitives/ChoiceControl.jsx';
 import { sessionContext } from "../../../lib/session-context.js";
-import { setWorkContextObra, useSyncedWorkObra, useWorkContextObra } from "../../../features/workflow/work-context.js";
+import { setWorkContextObra, useSyncedWorkObra, useWorkContextObra, workContextObraId } from "../../../features/workflow/work-context.js";
+import { useWorkflow } from "../../../features/workflow/WorkflowNavigation.jsx";
 // ===================================================================
 // DiarioObraView — tela do Diário de Obra (RDO), extraída de
 // src/LegacyApp.jsx em 2026-08-26 (Onda 7 do raio-X). Mesmo padrão já
@@ -34,7 +34,7 @@ import { C } from "../../../legacy/palette.js";
 import { comprimirImagem } from "../../../legacy/files.js";
 import { escapeHtml, fmt, fmtDate, obraContextoSalvo, today, uid } from "../../../legacy/format.js";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
-import { fieldReportCompletion, fieldReportIsReadOnly } from "../field-report-workflow";
+import { fieldReportCompletion, fieldReportDayTarget, fieldReportIsReadOnly, findFieldReportForDay } from "../field-report-workflow.js";
 import { aplicarRollup, montarTarefas, orcamentoDaObra } from "../../planejamento/legacy-engine";
 import { thirdPartySpecialty as specInfo } from "../../terceirizados/catalog";
 
@@ -47,13 +47,16 @@ const CLIMA_OPC = [
 
 export default function DiarioObra({ data, showToast, currentUser, obraIdFixo="", dispatchCommand=null }) {
   const { cols, isDesktop } = useBreakpoint();
+  const { intent } = useWorkflow();
 
   const obras = useMemo(() => (data.obras || []).filter(o => o.status !== "done"), [data.obras]);
-  const [obraId, setObraId] = useState(()=>obraIdFixo||(obras.some(o=>o.id===obraContextoSalvo())?obraContextoSalvo():(obras[0]?.id||"")));
-  const [dataRDO, setDataRDO] = useState(today());
-  const [modoRdo, setModoRdo] = useState("lista");
+  const [atalho] = useState(()=>obraIdFixo?null:fieldReportDayTarget(intent,obras,currentUser?.obraId));
+  const [obraId, setObraId] = useState(()=>atalho?.obraId||obraIdFixo||(obras.some(o=>o.id===obraContextoSalvo())?obraContextoSalvo():(obras[0]?.id||"")));
+  const [dataRDO, setDataRDO] = useState(()=>atalho?.date||today());
+  const [relatorioId,setRelatorioId]=useState(atalho?.reportId||"");
+  const [modoRdo, setModoRdo] = useState(atalho?"editor":"lista");
   const [buscaRdo, setBuscaRdo] = useState("");
-  const [filtroObraRdo, setFiltroObraRdo] = useState("all");
+  const [filtroObraRdo, setFiltroObraRdo] = useState(atalho?.obraId||"all");
   const [filtroStatusRdo, setFiltroStatusRdo] = useState("all");
   const [filtroClimaRdo, setFiltroClimaRdo] = useState("all");
   const [inicioRdo, setInicioRdo] = useState("");
@@ -86,7 +89,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
     [plano, orc]);
 
   // RDO do dia/obra selecionado (ou um novo em branco).
-  const rdoExistente = useMemo(() => (data.rdos || []).find(r => r.obraId === obraId && r.data === dataRDO), [data.rdos, obraId, dataRDO]);
+  const rdoExistente = useMemo(() => findFieldReportForDay(data.rdos||[],obraId,dataRDO,relatorioId), [data.rdos, obraId, dataRDO, relatorioId]);
   const proximoCodigoRdo = useMemo(() => Math.max(0, ...(data.rdos||[]).map(x=>Number(x.codigo||0)))+1, [data.rdos]);
   const rdo = rdoExistente || {
     id: "", obraId, data: dataRDO,
@@ -110,7 +113,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
   const [servicoModal, setServicoModal] = useState(null);
   const atividadesPrevistas=tarefas.filter(task=>task.inicio&&task.fim&&task.inicio<=dataRDO&&task.fim>=dataRDO);
   const filaSalvamentoRdoRef=useRef(Promise.resolve({ok:true}));
-  useEffect(()=>{const id=sessionContext.getItem("arcd_rdo_obra");if(id&&(data.obras||[]).some(o=>o.id===id)){setObraId(id);setFiltroObraRdo(id);}sessionContext.removeItem("arcd_rdo_obra");},[data.obras]);
+  useEffect(()=>{const id=sessionContext.getItem("arcd_rdo_obra");if(!atalho&&id&&(data.obras||[]).some(o=>o.id===id)){setObraId(id);setFiltroObraRdo(id);}sessionContext.removeItem("arcd_rdo_obra");},[data.obras,atalho]);
 
   // ---- Persistencia do RDO ----
   const executarSalvarRDO = async (mut) => {
@@ -128,7 +131,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
     ultimoSalvamentoFalhoRdoRef.current=mut;
     const idempotencyKey=`rdo-${uid()}-${Date.now()}`;
     const result=await dispatchCommand(atual=>{
-      const existente=(atual.rdos||[]).find(item=>item.obraId===obraId&&item.data===dataRDO);
+      const existente=findFieldReportForDay(atual.rdos||[],obraId,dataRDO,relatorioId);
       const base=existente
         ? {...existente,responsavel:existente.responsavel||responsavelAutomatico?.nome||"",responsavelId:existente.responsavelId||responsavelAutomatico?.id||"",registradoPor:existente.registradoPor||currentUser?.nome||"",registradoPorId:existente.registradoPorId||currentUser?.id||""}
         : {...rdo,id:uid(),criadoEm:new Date().toISOString(),atualizadoEm:new Date().toISOString()};
@@ -155,8 +158,8 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
   const confirmarCampoRdo=campo=>{const timer=timersCamposRdoRef.current.get(campo);if(!timer)return;window.clearTimeout(timer);salvarCampoRdoPendente(campo,camposRdoLocaisRef.current[campo]);};
   const sincronizarCamposRdo=async()=>{const entries=Object.entries(camposRdoLocaisRef.current);if(!entries.length)return {ok:true};entries.forEach(([campo])=>{const timer=timersCamposRdoRef.current.get(campo);if(timer)window.clearTimeout(timer);});const results=await Promise.all(entries.map(([campo,valor])=>salvarCampoRdoPendente(campo,valor)));return {ok:results.every(result=>result?.ok)};};
   useEffect(()=>()=>timersCamposRdoRef.current.forEach(timer=>window.clearTimeout(timer)),[]);
-  useEffect(()=>{timersCamposRdoRef.current.forEach(timer=>window.clearTimeout(timer));timersCamposRdoRef.current.clear();camposRdoLocaisRef.current={};setCamposRdoLocais({});},[obraId,dataRDO]);
-  const trocarContextoRdo=async(tipo,valor)=>{const result=await sincronizarCamposRdo();const pending=await filaSalvamentoRdoRef.current;if(!result.ok||!pending?.ok){showToast?.("A troca foi bloqueada porque há alterações que ainda não foram salvas.","error");return false;}if(tipo==="obra")setObraId(valor);else setDataRDO(valor);return true;};
+  useEffect(()=>{timersCamposRdoRef.current.forEach(timer=>window.clearTimeout(timer));timersCamposRdoRef.current.clear();camposRdoLocaisRef.current={};setCamposRdoLocais({});},[obraId,dataRDO,relatorioId]);
+  const trocarContextoRdo=async(tipo,valor)=>{const result=await sincronizarCamposRdo();const pending=await filaSalvamentoRdoRef.current;if(!result.ok||!pending?.ok){showToast?.("A troca foi bloqueada porque há alterações que ainda não foram salvas.","error");return false;}setRelatorioId("");if(tipo==="obra")setObraId(valor);else setDataRDO(valor);return true;};
 
   // Carimbo de contexto: na lista, o filtro de obra segue o carimbo (vazio é
   // "Todas"). No editor, a obra aberta vai para o carimbo, e a troca vinda do
@@ -167,11 +170,12 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
   const editorNoCarimbo=modoRdo==="editor"&&!obraIdFixo;
   useEffect(()=>{if(editorNoCarimbo&&obras.some(o=>o.id===obraId))setWorkContextObra(obraId);},[editorNoCarimbo,obraId]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(()=>{
-    if(!editorNoCarimbo||!carimboObra||carimboObra===obraId||!obras.some(o=>o.id===carimboObra))return;
-    trocarContextoRdo("obra",carimboObra).then(ok=>{if(!ok)setWorkContextObra(obraId);});
+    const destino=workContextObraId();
+    if(!editorNoCarimbo||!destino||destino===obraId||!obras.some(o=>o.id===destino))return;
+    trocarContextoRdo("obra",destino).then(ok=>{if(!ok)setWorkContextObra(obraId);});
   },[carimboObra]); // eslint-disable-line react-hooks/exhaustive-deps
-  const abrirRdo = item => { setObraId(item.obraId); setDataRDO(item.data); setModoRdo("editor"); };
-  const novoRdo = () => { setObraId(filtroObraRdo!=="all"?filtroObraRdo:(obraId||obras[0]?.id||"")); setDataRDO(today()); setModoRdo("editor"); };
+  const abrirRdo = item => { setRelatorioId(item.id); setObraId(item.obraId); setDataRDO(item.data); setModoRdo("editor"); };
+  const novoRdo = () => abrirRdo({id:"",obraId:filtroObraRdo!=="all"?filtroObraRdo:(obraId||obras[0]?.id||""),data:today()});
   const concluirRdo = async () => {
     if(!["engenheiro","engenheiro_auditor"].includes(currentUser?.role)){showToast?.("Somente um engenheiro pode revisar e concluir o diário.","error");return;}
     const reportEfetivo={...rdo,...camposRdoLocaisRef.current};
@@ -212,7 +216,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
     const copia={...conteudo,productionVersion:1,servicos:[],presencas:[],efetivo:[],terceirizados:[],equipamentos:[],id:uid(),codigo,status:"preparacao",data:novaData,fotos:[],anexos:[],revisaoEngenheiro:{aprovado:false,engenheiroId:"",engenheiro:"",revisadoEm:"",observacao:""},responsavel:responsavelAutomatico?.nome||"",responsavelId:responsavelAutomatico?.id||"",registradoPor:currentUser?.nome||"",registradoPorId:currentUser?.id||"",criadoEm:new Date().toISOString(),atualizadoEm:new Date().toISOString(),concluidoEm:""};
     const result=await dispatchCommand({type:OPERATIONAL_COMMAND.FIELD_REPORT_CHANGED,idempotencyKey:`rdo-duplicar-${copia.id}-${uid()}`,expectedVersion:0,actorId:currentUser?.id||"",actorName:currentUser?.nome||"",payload:{report:copia}});
     if(!result?.ok){showToast?.(result?.reason||"Não foi possível duplicar o diário.","error");return;}
-    setObraId(copia.obraId);setDataRDO(copia.data);setModoRdo("editor");showToast?.("Conteúdo copiado para um novo rascunho sem aprovação ou auditoria anterior.");
+    abrirRdo(copia);showToast?.("Conteúdo copiado para um novo rascunho sem aprovação ou auditoria anterior.");
   };
 
   const imprimirRdo = async item => {
@@ -499,7 +503,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
       <Bloco titulo="Relato por voz · opcional" acao={<div style={{display:"flex",gap:"var(--arcd-space-1)"}}><Btn size="sm" v={gravandoVoz?"danger":"info"} onClick={gravandoVoz?pararVoz:iniciarVoz} disabled={enviandoAudio}><Ic n={gravandoVoz?"stop":"mic"}/> {gravandoVoz?"Parar e salvar":"Gravar relato"}</Btn><FilePicker buttonLabel="Selecionar áudio" accept="audio/*" onChange={escolherAudioRdo} className="rdo-file-action"></FilePicker></div>}>
         {gravandoVoz&&<div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",color:"var(--arcd-danger-text)",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",marginBottom:"var(--arcd-space-2)"}}><span style={{width:9,height:9,borderRadius:99,background:"var(--arcd-danger-text)",boxShadow:"0 0 0 5px color-mix(in srgb, var(--arcd-danger-text) 9%, transparent)"}}/>Gravando e transcrevendo em português...</div>}
         <label className="rdo-field-label" htmlFor="rdo-transcricao">Transcrição revisável</label><TextareaControl id="rdo-transcricao" value={valorCampoRdo("transcricaoVoz")} onChange={e=>editarCampoRdo("transcricaoVoz",e.target.value)} onBlur={()=>confirmarCampoRdo("transcricaoVoz")} placeholder="A transcrição aparece aqui. Você também pode revisar ou complementar o relato antes da análise." rows={4} className="rdo-textarea"/>
-        {(rdo.audios||[]).length>0&&<div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-2)"}}>{rdo.audios.map(a=><div key={a.id||a.url} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2)",background:"var(--arcd-surface-muted)",borderRadius:7}}><CompanyAssetLink href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>▶ {a.nome}</CompanyAssetLink><StandardButton variant="secondary" aria-label={`Remover áudio ${a.nome}`} onClick={()=>salvarRDO(r=>({...r,audios:(r.audios||[]).filter(x=>(x.id||x.url)!==(a.id||a.url))}))}>×</StandardButton></div>)}</div>}
+        {(rdo.audios||[]).length>0&&<div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-2)"}}>{rdo.audios.map(a=><div key={a.id||a.url} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2)",background:"var(--arcd-surface-muted)",borderRadius:7}}><a href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>▶ {a.nome}</a><StandardButton variant="secondary" aria-label={`Remover áudio ${a.nome}`} onClick={()=>salvarRDO(r=>({...r,audios:(r.audios||[]).filter(x=>(x.id||x.url)!==(a.id||a.url))}))}>×</StandardButton></div>)}</div>}
         {enviandoAudio&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)",marginTop:"var(--arcd-space-2)"}}>Enviando áudio para a pasta do diário no OneDrive...</p>}
       </Bloco>
 
@@ -703,7 +707,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
       </Bloco>
 
       <Bloco titulo={`Documentos e anexos${(rdo.anexos||[]).length?` (${rdo.anexos.length})`:""}`}>
-        {(rdo.anexos||[]).map(a=><div key={a.id||a.url} style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-0)",borderBottom:"1px solid var(--arcd-border-default)"}}><CompanyAssetLink href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{a.nome} ↗</CompanyAssetLink><StandardButton variant="secondary" aria-label={`Remover documento ${a.nome}`} onClick={()=>salvarRDO(r=>({...r,anexos:(r.anexos||[]).filter(x=>(x.id||x.url)!==(a.id||a.url))}))}>×</StandardButton></div>)}
+        {(rdo.anexos||[]).map(a=><div key={a.id||a.url} style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-0)",borderBottom:"1px solid var(--arcd-border-default)"}}><a href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{a.nome} ↗</a><StandardButton variant="secondary" aria-label={`Remover documento ${a.nome}`} onClick={()=>salvarRDO(r=>({...r,anexos:(r.anexos||[]).filter(x=>(x.id||x.url)!==(a.id||a.url))}))}>×</StandardButton></div>)}
         <FilePicker buttonLabel="Selecionar anexo" onChange={escolherAnexoRdo} disabled={subindoAnexo} style={{display:"inline-flex",alignItems:"center",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-2)",padding:"var(--arcd-space-2)",border:"1px dashed var(--arcd-action-primary)",borderRadius:6,color:"var(--arcd-action-primary)",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",cursor:subindoAnexo?"wait":"pointer"}}></FilePicker>
       </Bloco>
 

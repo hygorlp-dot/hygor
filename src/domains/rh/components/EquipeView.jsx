@@ -389,18 +389,30 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
   };
 
   const lifecycleOf=e=>employeeLifecycleStatus(e,today());
-  const list = data.employees
-    .filter(e => statusFilter === "todos" || lifecycleOf(e) === statusFilter)
+  const teamMatches = data.employees
     .filter(e => filterObra === "all"
       || (filterObra==="__administrativo__"&&laborArea(e)==="central")
       || (filterObra==="__sem_obra__"&&!e.obra&&laborArea(e)!=="central")
       || e.obra === filterObra || e.lastObra === filterObra)
     .filter(e => [e.name, e.role, e.cpf, e.phone].join(" ").toLowerCase().includes(search.toLowerCase()))
-    .filter(e=>pendingFilter==='all'||(pendingFilter==='documents'?employeeComplianceStatus(e,today()).expired.length>0:!e.obra&&laborArea(e)!=='central'))
+    .filter(e=>pendingFilter==='all'||(pendingFilter==='documents'?employeeComplianceStatus(e,today()).expired.length>0:!e.obra&&laborArea(e)!=='central'));
+  const list = teamMatches
+    .filter(e => statusFilter === "todos" || lifecycleOf(e) === statusFilter)
     .sort((a, b) => a.name.localeCompare(b.name));
   const ativos = data.employees.filter(e=>lifecycleOf(e)==="ativo");
   const semObra = ativos.filter(e=>!e.obra&&laborArea(e)!=="central").length;
-  const lifecycleCounts=(data.employees||[]).reduce((acc,e)=>({...acc,[lifecycleOf(e)]:(acc[lifecycleOf(e)]||0)+1}),{});
+  const lifecycleCounts = {};
+  for (const employee of teamMatches) {
+    const status = lifecycleOf(employee);
+    lifecycleCounts[status] = (lifecycleCounts[status] || 0) + 1;
+  }
+  const teamStatuses = [
+    ["ativo", "Ativos", lifecycleCounts.ativo || 0],
+    ["desligamento_agendado", "Agendados", lifecycleCounts.desligamento_agendado || 0],
+    ["desligado", "Desligados", lifecycleCounts.desligado || 0],
+    ["arquivado", "Arquivados", lifecycleCounts.arquivado || 0],
+    ["todos", "Todas as situações", teamMatches.length],
+  ];
   const teamPage=useRecordPage('equipe',list,JSON.stringify([search,filterObra,statusFilter,pendingFilter]),obraIdFixo);
   const clearFilters=()=>{setSearch("");setFilterObra(obraIdFixo||"all");setStatusFilter("ativo");setPendingFilter('all');};
   const lifecycleLabel={ativo:"Ativo",desligamento_agendado:"Desligamento agendado",desligado:"Desligado",arquivado:"Arquivado"};
@@ -410,20 +422,14 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
     <div className="anim people-workspace" style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
       <PageHeader headingLevel={obraIdFixo?2:1} className="workspace-header"
         title="Equipes"
-        description="Pessoas, lotação e dados trabalhistas em uma visão única."
+        description="Consulte a lotação e o vínculo de cada funcionário."
         primaryAction={podeGerenciarEquipe?<Btn onClick={() => { setForm({ ...emptyEmp, obra: obraIdFixo||data.obras[0]?.id || "" }); setFormErrors({}); setModal(true); }}><Ic n="plus" /> Cadastrar funcionário</Btn>:null}
       />
 
-      <label className="team-status-select">Situação da equipe<SelectControl value={statusFilter} onChange={event=>setStatusFilter(event.target.value)}>{[["ativo","Ativos"],["desligamento_agendado","Agendados"],["desligado","Desligados"],["arquivado","Arquivados"],["todos","Todas as situações"]].map(([v,l])=><option key={v} value={v}>{l} · {v==="todos"?(data.employees||[]).length:lifecycleCounts[v]||0}</option>)}</SelectControl></label>
+      <label className="team-status-select">Situação da equipe<SelectControl value={statusFilter} onChange={event=>setStatusFilter(event.target.value)}>{teamStatuses.map(([value,label,count])=><option key={value} value={value}>{label} · {count}</option>)}</SelectControl></label>
       <div className="team-summary" aria-label="Resumo e filtros por situação">
-        {[
-          ["ativo","Ativos",lifecycleCounts.ativo||0],
-          ["desligamento_agendado","Agendados",lifecycleCounts.desligamento_agendado||0],
-          ["desligado","Desligados",lifecycleCounts.desligado||0],
-          ["arquivado","Arquivados",lifecycleCounts.arquivado||0],
-          ["todos","Todas as situações",(data.employees||[]).length],
-        ].map(([value,label,count])=><StandardButton variant="secondary" key={value} type="button" className={`team-summary__item${statusFilter===value?" is-active":""}`} onClick={()=>setStatusFilter(value)} aria-pressed={statusFilter===value}><span>{label}</span><strong>{count}</strong></StandardButton>)}
-        <StandardButton variant="secondary" type="button" className={`team-summary__item${filterObra==="__sem_obra__"?" is-active":""}`} onClick={()=>{setFilterObra("__sem_obra__");setStatusFilter("ativo");}} aria-pressed={filterObra==="__sem_obra__"}><span>Sem lotação</span><strong>{semObra}</strong></StandardButton>
+        {teamStatuses.map(([value,label,count])=><StandardButton variant="secondary" key={value} type="button" className={`team-summary__item${statusFilter===value?" is-active":""}`} onClick={()=>setStatusFilter(value)} aria-pressed={statusFilter===value}><span>{label}</span><strong>{count}</strong></StandardButton>)}
+        {!obraIdFixo&&<StandardButton variant="secondary" type="button" className={`team-summary__item${filterObra==="__sem_obra__"?" is-active":""}`} onClick={()=>{setFilterObra("__sem_obra__");setStatusFilter("ativo");}} aria-pressed={filterObra==="__sem_obra__"}><span>Sem lotação</span><strong>{semObra}</strong></StandardButton>}
       </div>
 
       <Inp label="Pesquisar na equipe" value={search} onChange={setSearch} placeholder="Nome, função, CPF ou telefone" />

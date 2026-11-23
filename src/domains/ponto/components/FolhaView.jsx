@@ -1,10 +1,10 @@
-import {podeAcessarAba} from '../../administracao/abas-acesso.js';
 import {openReportPreview} from '../../../reports/report-preview.js';
 import {ChoiceControl} from '../../../design-system/primitives/ChoiceControl.jsx';
 import {Checkbox} from '../../../design-system/primitives/Checkbox.jsx';
 import {SelectControl} from '../../../design-system/primitives/Select.jsx';
 import {RecordAction} from '../../../design-system/primitives/RecordAction.jsx';
 import {TaskDisclosure} from '../../../design-system/patterns/TaskDisclosure.jsx';
+import {podeAcessarAba} from '../../administracao/abas-acesso.js';
 import {RecordListPagination} from '../../../design-system/data/RecordListPagination.jsx';
 import {useRecordPage} from '../../../design-system/data/useRecordPage.js';
 import {useBreakpoint} from '../../../hooks/useBreakpoint.js';
@@ -139,6 +139,13 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
   const [q, setQ] = useState(savedScope?.cycle||(now.getDate() >= 6 && now.getDate() <= 20 ? "1" : "2"));
   const [filterObra, setFilterObra] = useState(currentUser?.obraId||savedScope?.obraId||"all");
   useRememberWorkflowScope("folha",{obraId:filterObra==="all"?"":filterObra,year,month,period:"mes",cycle:q});
+  const canOpenPoint = podeAcessarAba(currentUser, "ponto_geral");
+  const openPointForPayroll = () => {
+    const scope = {obraId: filterObra === "all" ? "" : filterObra, year, month};
+    const options = {action: "payroll-point-review", record: {cycle: q, laborGroup}};
+    if (navigate) navigate("ponto_geral", scope, options);
+    else onTab?.("ponto_geral", "", {...options, scope});
+  };
   const [expandedId, setExpandedId] = useState(entryScope?.employeeId||null);
   const [relatorioPendente, setRelatorioPendente] = useState("");
   const [closingModal,setClosingModal]=useState("");
@@ -1017,7 +1024,6 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
     <div className="anim payroll-workspace">
       {payrollView==='clt'&&<LaborAreaTabs value={laborGroup} onChange={changeLaborGroup}/>}
       {(payrollView==="payroll"||payrollView==="union")&&<>      <PageHero
-        eyebrow="Recursos humanos"
         title="Folha de Pagamento"
         description={isMobile?undefined:"Conferência quinzenal da equipe, dos apontamentos e do valor líquido por obra."}
         statsDisclosure={isMobile}
@@ -1034,7 +1040,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
           {label:"Funcionários",value:rows.length,detail:filterObra==="all"?"Todas as obras":obraName(filterObra)},
           {label:"Pagamento",value:paymentDateLabel,detail:paymentObs,color:paymentInfo.adjusted?C.orange:undefined},
         ]}
-        actions={<>{/* O fechamento é a ação que encerra a tela: o topo leva até ele e diz o que falta. */}{canManageClosing&&!closedTitles.length&&<Btn v="primary" onClick={()=>document.getElementById('folha-fechamento')?.scrollIntoView({behavior:'smooth',block:'start'})}>{closingBlockers.length?`Ir ao fechamento · ${contar(closingBlockers.length,"bloqueio","bloqueios")}`:"Ir ao fechamento"}</Btn>}{canReview&&<Btn v="secondary" onClick={()=>changePayrollView('readiness')}>Organizar pendências do RH</Btn>}{pendenciasRelatorio.length>0&&<Btn v="warning" onClick={()=>onTab?.("ponto_geral")}><Ic n="alert"/> Revisar ponto</Btn>}</>}
+        actions={<>{/* O fechamento é a ação que encerra a tela: o topo leva até ele e diz o que falta. */}{canManageClosing&&!closedTitles.length&&<Btn v="primary" onClick={()=>document.getElementById('folha-fechamento')?.scrollIntoView({behavior:'smooth',block:'start'})}>{closingBlockers.length?`Ir ao fechamento · ${contar(closingBlockers.length,"bloqueio","bloqueios")}`:"Ir ao fechamento"}</Btn>}{canReview&&<Btn v="secondary" onClick={()=>changePayrollView('readiness')}>Organizar pendências do RH</Btn>}{canOpenPoint&&pendenciasRelatorio.length>0&&<Btn v="secondary" onClick={openPointForPayroll}>Revisar ponto</Btn>}</>}
       />
       <TaskDisclosure enabled={!isDesktop} summary={`Competência e escopo · ${periodLabel} · ${reportScope}`}>
       <section className="payroll-controls" aria-label="Competência e escopo da folha">
@@ -1140,7 +1146,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
             {closingBlockers.map(reason=><p key={reason} style={{color:"var(--arcd-danger-text)"}}><Ic n="alert"/> {reason}</p>)}
             {!!missingCertificates.length&&shouldCheckCertificates&&<TaskDisclosure summary="Ver atestados pendentes">
               <ul>{missingCertificates.map(item=><li key={`${item.employeeId}:${item.date}`}>{item.name} · {fmtDateFull(item.date)}</li>)}</ul>
-              {podeAcessarAba(currentUser,"ponto_geral")&&<Btn v="secondary" onClick={()=>onTab?.("ponto_geral")}>Revisar ponto</Btn>}
+              {canOpenPoint&&<Btn v="secondary" onClick={openPointForPayroll}>Revisar ponto</Btn>}
             </TaskDisclosure>}
             {shouldCheckCertificates&&certificateResult&&certificateIssue&&<Btn v="secondary" onClick={()=>setCertificateRefresh(value=>value+1)}>Conferir anexos novamente</Btn>}
             {canManageClosing&&<Btn v="primary" disabled={closingBlockers.length>0||!rows.some(r=>r.net>0)} onClick={()=>setClosingModal("close")}><Ic n="check"/> Fechar quinzena</Btn>}
@@ -1166,7 +1172,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
         <h3>{pendenciasRelatorio.length?"Pendências para conferir":"Conferência da quinzena"}</h3>
         <p>{contar(pendenciasRelatorio.length,"funcionário com pendência","funcionários com pendência")} · {contar(totalDiasSemRegistro,"dia sem registro","dias sem registro")} · {contar(totalSemPix,"PIX ausente","PIX ausentes")}.</p>
         <p>Abra cada funcionário abaixo para conferir a composição. Gerar o relatório não registra um pagamento.</p>
-        {pendenciasRelatorio.length>0&&<Btn v="ghost" onClick={()=>onTab?.("ponto_geral")}>Abrir gestão do ponto</Btn>}
+        {canOpenPoint&&pendenciasRelatorio.length>0&&<Btn v="ghost" onClick={openPointForPayroll}>Abrir gestão do ponto</Btn>}
       </section>
       </TaskDisclosure>
       <div className="payroll-list-heading">
@@ -1174,7 +1180,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
         <span>{contar(rows.length,"registro","registros")}</span>
       </div>
 
-      {rows.length === 0 && <div className="payroll-empty"><Ic n="users" s={22}/><strong>Nenhuma movimentação nesta quinzena</strong><p>Revise a competência ou abra a gestão do ponto para lançar as presenças.</p><Btn v="ghost" onClick={()=>onTab?.("ponto_geral")}>Abrir gestão do ponto</Btn></div>}
+      {rows.length === 0 && <div className="payroll-empty"><Ic n="users" s={22}/><strong>Nenhuma movimentação nesta quinzena</strong><p>Confira a competência, o grupo e a obra.</p>{canOpenPoint&&<Btn v="ghost" onClick={openPointForPayroll}>Abrir gestão do ponto</Btn>}</div>}
 
       {!isDesktop&&rows.length>0&&<div className="grid gap-2">
         {!isMobile&&<Inp label="Buscar funcionário na folha" value={payrollSearch} onChange={setPayrollSearch}/>}
@@ -1315,7 +1321,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
 
             <p className="payroll-review__help">Corrija as informações agora ou gere o arquivo mantendo as pendências claramente identificadas.</p>
             <div className="payroll-review__actions">
-              <Btn v="primary" onClick={() => { setRelatorioPendente(""); onTab?.("ponto_geral"); }}>Corrigir ponto</Btn>
+              {canOpenPoint&&<Btn v="primary" onClick={() => { setRelatorioPendente(""); openPointForPayroll(); }}>Corrigir ponto</Btn>}
               <Btn v="ghost" onClick={() => { setRelatorioPendente(""); onTab?.("equipe"); }}>Preencher PIX / cadastro</Btn>
               <Btn v="warning" onClick={continuarComPendencias}>Gerar com pendências</Btn>
             </div>

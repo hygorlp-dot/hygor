@@ -26,6 +26,7 @@ import './records.css';
 import {contractsForLead} from './lead-contract-links.js';
 import {ScopeNote} from '../../../design-system/patterns/ScopeNote.jsx';
 import {TaskDisclosure} from '../../../design-system/patterns/TaskDisclosure.jsx';
+import {useBreakpoint} from '../../../hooks/useBreakpoint.js';
 
 const id=()=>crypto.randomUUID();
 const options=rows=>rows.map(([value,label])=>({value,label}));
@@ -58,26 +59,42 @@ function RevisionSummary({row,data}){
 
 
 export default function ContractWorkspace({data,currentUser,dispatchCommand,showToast,pageId='com_contratos',legacyContracts=[],onLegacyOpen,onFiles,leadContext=null,onClearLead,onReturnLead}){
+  const {isMobile}=useBreakpoint();
   const [area,setArea]=useState('records'),[selected,setSelected]=useState(null),[filters,setFilters]=useState({search:'',status:'',work:'',owner:'',from:'',to:''}),[companyOpen,setCompanyOpen]=useState(false);
   useHelpTopic(pageId,area==='models'?'com_contratos_modelos':'com_contratos');
   if(!currentUser||!['admin','comercial'].includes(currentUser.role))return <EmptyState title="Acesso indisponível" description="Contratos exige perfil Comercial ou Administrador."/>;
   const linked=leadContext?contractsForLead(data,leadContext.id,currentUser):null;
   const records=linked?.records||(data.commercialContractRecords||[]).filter(row=>mayReadContract(row,currentUser));
   const previousContracts=linked?.legacy||legacyContracts;
-  const rows=records.filter(row=>(!filters.status||row.status===filters.status)&&(!filters.work||row.obraId===filters.work)&&(!filters.owner||row.responsavelId===filters.owner)&&(!filters.from||row.createdAt?.slice(0,10)>=filters.from)&&(!filters.to||row.createdAt?.slice(0,10)<=filters.to)&&(!filters.search||`${row.number} ${row.titulo} ${template.name} ${(data.comercial?.clientes||[]).find(c=>c.id===row.clienteId)?.nome||''} ${(data.obras||[]).find(w=>w.id===row.obraId)?.name||''}`.toLocaleLowerCase('pt-BR').includes(filters.search.toLocaleLowerCase('pt-BR'))));
+  const proposalsById=new Map((data.comercial?.propostas||[]).map(proposal=>[proposal.id,proposal]));
+  const workNames=new Map((data.obras||[]).map(work=>[work.id,work.name]));
+  const clientNames=new Map((data.comercial?.clientes||[]).map(client=>[client.id,client.nome||client.razaoSocial]));
+  const search=filters.search.trim().toLocaleLowerCase('pt-BR');
+  const rows=records.filter(row=>{
+    if(filters.status&&row.status!==filters.status)return false;
+    if(filters.work&&row.obraId!==filters.work)return false;
+    if(filters.owner&&row.responsavelId!==filters.owner)return false;
+    if(filters.from&&!(row.createdAt?.slice(0,10)>=filters.from))return false;
+    if(filters.to&&!(row.createdAt?.slice(0,10)<=filters.to))return false;
+    const proposal=proposalsById.get(row.propostaId);
+    return !search||[row.number,row.titulo,row.modelo?.name,clientNames.get(row.clienteId),workNames.get(row.obraId),proposal?.numero,proposal?.objeto]
+      .join(' ').toLocaleLowerCase('pt-BR').includes(search);
+  });
   const filter=(key,value)=>setFilters(old=>({...old,[key]:value}));
-  const mainFilters=<FilterBar layout="grid" align="start" label="Filtros dos contratos">
-    <Input label="Pesquisar contrato" value={filters.search} onChange={e=>filter('search',e.target.value)} description="Número, título, cliente, obra ou modelo"/>
+  const mainFilters=<FilterBar layout="grid" align="start" label="Filtros dos contratos" className="contract-record-filters">
+    <Input label="Pesquisar contrato" value={filters.search} onChange={e=>filter('search',e.target.value)} description="Número, título, cliente, obra, proposta ou modelo"/>
     <Select label="Situação" value={filters.status} onChange={e=>filter('status',e.target.value)} options={[{value:'',label:'Todas'},...options(RECORD_STATES)]}/>
     <Select label="Obra" value={filters.work} onChange={e=>filter('work',e.target.value)} options={[{value:'',label:'Todas'},...(data.obras||[]).map(w=>({value:w.id,label:w.name}))]}/>
   </FilterBar>;
   return <div className="contract-record-workspace">
     <PageHeader title="Contratos" description={leadContext?undefined:'Cadastro, conferência e acompanhamento por cliente e obra.'} primaryAction={area==='records'?<Button onClick={()=>setSelected(initialRecord(currentUser,data))}>Novo contrato</Button>:undefined}/>
-    <ScopeNote title="Escopo dos contratos">Obra em foco não filtra esta central. Use Obra e os filtros da lista.</ScopeNote>
+    {area==='records'&&<ScopeNote title="Obra na lista">{workNames.get(filters.work)||'Todas as obras disponíveis'}</ScopeNote>}
     {onReturnLead&&<Button variant="secondary" onClick={onReturnLead}>Voltar à ficha do lead</Button>}
     {leadContext&&<ScopeNote title="Contratos do lead">{leadContext.nome}. <Button variant="ghost" onClick={onClearLead}>Consultar toda a central</Button></ScopeNote>}
     {currentUser.role==='admin'&&!leadContext&&<WorkspaceNavigation label="Áreas dos contratos" active={area} onChange={setArea} items={[{id:'records',label:'Contratos'},{id:'models',label:'Modelos de contrato'}]}/>}
-    {leadContext?<TaskDisclosure summary="Emissão de documentos indisponível"><Alert variant="warning"><AlertDescription>{emissionNotice}</AlertDescription></Alert></TaskDisclosure>:<Alert variant="warning"><AlertDescription>{emissionNotice}</AlertDescription></Alert>}
+    <TaskDisclosure enabled={Boolean(leadContext)||isMobile} summary="Emissão de documentos indisponível">
+      <Alert variant="warning"><AlertDescription>{emissionNotice}</AlertDescription></Alert>
+    </TaskDisclosure>
     {area==='models'?<>
       <FormSection title={template.name} description={`Versão ${template.version} · Texto protegido, importado para revisão. Não há edição de cláusulas nem publicação de variantes nesta entrega.`}>
         <p>Pessoa jurídica, múltiplos contratantes e obra sem loteamento exigem variante aprovada. A aprovação cadastral não publica um modelo.</p>
@@ -95,10 +112,17 @@ export default function ContractWorkspace({data,currentUser,dispatchCommand,show
        </FilterBar>
       </WorkspaceFilters>
       <p role="status">{rows.length} {rows.length===1?'contrato':'contratos'} no recorte</p>
-      {rows.map(row=><section className="contract-record-row" key={row.id}>
-        <div><RecordAction onClick={()=>setSelected(copied(row))}>{row.number} · {row.titulo}</RecordAction><p>{(data.comercial?.clientes||[]).find(c=>c.id===row.clienteId)?.nome||'Cliente ainda não vinculado'} · {(data.obras||[]).find(w=>w.id===row.obraId)?.name||'Obra ainda não vinculada'}</p><p>Revisão {row.revision} · {row.modelo.name} · versão {row.modelo.version}</p></div>
-        <div><Badge tone={row.status==='assinado'?'success':'neutral'}>{stateName(row.status)}</Badge><Button variant="secondary" onClick={()=>setSelected(copied(row))}>Abrir contrato</Button></div>
-      </section>)}
+      {rows.map(row=>{
+        const proposal=proposalsById.get(row.propostaId);
+        return <section className="contract-record-row" key={row.id}>
+          <div><RecordAction onClick={()=>setSelected(copied(row))}>{row.number} · {row.titulo}</RecordAction>
+            <p>{clientNames.get(row.clienteId)||'Cliente ainda não vinculado'} · {workNames.get(row.obraId)||'Obra ainda não vinculada'}</p>
+            {row.propostaId&&<p>Proposta · {proposal?.numero||proposal?.objeto||'Indisponível neste acesso'}</p>}
+            <p>Revisão {row.revision} · {row.modelo.name} · versão {row.modelo.version}</p>
+          </div>
+          <div><Badge tone={row.status==='assinado'?'success':'neutral'}>{stateName(row.status)}</Badge><Button variant="secondary" onClick={()=>setSelected(copied(row))}>Abrir contrato</Button></div>
+        </section>;
+      })}
       {!rows.length&&<EmptyState title={records.length?'Nenhum contrato neste recorte':leadContext?'Nenhum contrato atual vinculado a este lead':'Nenhum contrato cadastrado'} description={leadContext?'O vínculo dos contratos atuais usa a proposta deste lead. Consulte toda a central para ver os demais registros; nomes iguais não vinculam contratos.':'Use Novo contrato para iniciar. É possível salvar antes de cadastrar a obra.'}/>}
       {previousContracts.length>0&&<details><summary>Contratos anteriores ({previousContracts.length})</summary><p>Os registros anteriores conservam o fluxo existente. Não são convertidos em instrumentos deste modelo.</p>{previousContracts.map(row=><p key={row.id}><RecordAction onClick={()=>onLegacyOpen(row)}>{row.numero} · {row.contratante||row.objeto||'Contrato anterior'}</RecordAction></p>)}</details>}
     </>}

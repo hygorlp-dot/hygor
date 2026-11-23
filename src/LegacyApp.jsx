@@ -18,7 +18,12 @@ import {WorkspaceCommandBar,WorkspaceHeading} from './design-system/patterns/Wor
 import {WorkContextStamp} from './features/workflow/WorkContextStamp.jsx';
 import {ScopeNote} from './design-system/patterns/ScopeNote.jsx';
 import {EmptyState} from './design-system/patterns/FeedbackState.jsx';
+import {getPlanningBudget} from './domains/orcamentos/calculations.js';
 import {DashboardFinancialReading} from './domains/dashboard/components/DashboardFinancialReading.jsx';
+import {DashboardDailyOperation} from './domains/dashboard/components/DashboardDailyOperation.jsx';
+import {DashboardPriorities} from './domains/dashboard/components/DashboardPriorities.jsx';
+import {priorityContext} from './domains/dashboard/priority-context.js';
+import {OPEN_FIELD_REPORT_DAY} from './domains/obras/field-report-workflow.js';
 import {SectorTasks} from './features/workflow/SectorTasks.jsx';
 import {useRecordPage} from './design-system/data/useRecordPage.js';
 import {RecordListPagination} from './design-system/data/RecordListPagination.jsx';
@@ -165,6 +170,7 @@ import { useTheme } from "./design-system/theme/ThemeProvider.jsx";
 import { ThemeSettings } from "./design-system/theme/ThemeSettings";
 import { Button as DesignSystemButton } from "./design-system/primitives/Button.jsx";
 import { Dialog as DesignSystemDialog } from "./design-system/primitives/Dialog.jsx";
+import { Badge as DesignSystemBadge } from "./design-system/primitives/Badge.jsx";
 import { Input as DesignSystemInput } from "./design-system/primitives/Input.jsx";
 import { Select as DesignSystemSelect } from "./design-system/primitives/Select.jsx";
 import { Eye, EyeOff, ChevronLeft, ChevronRight, Search, RefreshCw, Delete, Maximize, Minimize } from "lucide-react";
@@ -261,8 +267,8 @@ import { rebuildTechnicalMeasurementProjection } from "./domains/medicoes";
 import { ProgressPercentageField } from "./domains/medicoes/components/ProgressPercentageField.jsx";
 import { calcSaldos } from "./domains/estoque/calculations";
 import { canManageAttendanceWorkforce, resolveEmployeeAttendanceObraId, resolveHolidayObraId } from "./domains/ponto/permissions";
-import { resumoGestaoAVista, ultimoMesFechado } from "./domains/dashboard/gestao-a-vista.js";
-import GestaoAVistaObras from "./domains/dashboard/components/GestaoAVistaObras.jsx";
+import { dashboardActiveWorks, resumoGestaoAVista, ultimoMesFechado } from "./domains/dashboard/gestao-a-vista.js";
+import GestaoAVistaObras, {WORK_SCORE_SEARCH_ID} from "./domains/dashboard/components/GestaoAVistaObras.jsx";
 import { applyAttendanceServerResult, applyAttendanceStatus, applyAttendanceStatusBatch } from "./domains/ponto/attendance-mutations";
 import { createAttendanceCommandQueue } from "./domains/ponto/attendance-command-queue";
 import { calculateAttendanceDayCost } from "./domains/ponto/payroll";
@@ -480,12 +486,10 @@ input:focus,select:focus,textarea:focus{
 @keyframes fadeInUp {from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:none}}
 @keyframes spin     {to{transform:rotate(360deg)}}
 @keyframes slideIn  {from{opacity:0;transform:translateX(-6px)} to{opacity:1;transform:none}}
-@keyframes arcdTvScan{0%{top:8%;opacity:0}12%{opacity:.55}88%{opacity:.25}100%{top:94%;opacity:0}}
 @keyframes arcdTvPhotoIn{0%{opacity:0;transform:scale(1.045)}12%{opacity:.82}100%{opacity:.86;transform:scale(1)}}
 .anim   {animation:fadeIn    .2s ease}
 .animUp {animation:fadeInUp  .3s ease}
 .animSl {animation:slideIn   .16s ease}
-.arcd-tv-scan{animation:arcdTvScan 8s linear infinite;pointer-events:none}
 .arcd-tv-photo{animation:arcdTvPhotoIn 7.8s ease-out both;will-change:opacity,transform}
 .arcd-tv:fullscreen{width:100vw;height:100vh;border-radius:0!important}
 .no-scroll{overflow:hidden}
@@ -678,7 +682,6 @@ div::-webkit-scrollbar{height:0;width:0}
    legenda caiam um sob o outro, sem espaçamento nem quebra responsiva). */
 .ponto-geral-controls{background:${C.card};border:1px solid ${C.border};border-radius:${C.rLg}px;padding:12px 14px}
 .ponto-geral-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 10px;align-items:end}
-.ponto-geral-count{font-size:var(--arcd-type-caption);color:${C.muted};font-weight:600;margin-top:10px;padding-top:10px;border-top:1px solid ${C.line}}
 .ponto-geral-legend{display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:var(--arcd-type-caption);color:${C.muted};padding:9px 2px}
 .ponto-legend-title{font-weight:600;color:${C.text}}
 .ponto-legend-chip{display:inline-flex;align-items:center;gap:5px}
@@ -2226,7 +2229,7 @@ const normalizeData = incoming => {
       codigo: Number(c.codigo || conferenciaIndex + 1),
       responsavelId: c.responsavelId || "",
       responsavel: c.responsavel || "",
-      status: c.status === "concluida" ? "concluida" : "em_andamento",
+      status: ["concluida","cancelada"].includes(c.status) ? c.status : "em_andamento",
       notaGeral: Math.max(0, Math.min(10, Number(c.notaGeral || 0))),
       observacoesGerais: c.observacoesGerais || "",
       pendencias: Array.isArray(c.pendencias) ? c.pendencias.map(p => ({
@@ -2240,7 +2243,7 @@ const normalizeData = incoming => {
         responsavelAjusteNome: p.responsavelAjusteNome || "",
         ajusteNecessario: p.ajusteNecessario || "",
         prazo: p.prazo || "",
-        status: p.status==="resolvida"?"resolvida":p.status==="aguardando_validacao"?"aguardando_validacao":(p.fotos||[]).some(f=>f.tipo==="ajuste")?"aguardando_validacao":["aberta","em_ajuste"].includes(p.status)?p.status:"aberta",
+        status: ["resolvida","cancelada","aguardando_validacao"].includes(p.status)?p.status:(p.fotos||[]).some(f=>f.tipo==="ajuste")?"aguardando_validacao":["aberta","em_ajuste"].includes(p.status)?p.status:"aberta",
         fotos: Array.isArray(p.fotos) ? p.fotos.map(f => ({
           id: f.id || uid(), url: f.url || "", legenda: f.legenda || "", path: f.path || "",
           tipo: f.tipo === "ajuste" ? "ajuste" : "registro",
@@ -2530,7 +2533,7 @@ function KpiCard({label,value,detail,icon,color=C.blue,onClick,animate=true}){
 }
 
 
-function DashboardTechHero({currentUser,ultimaSync,fila,onBuscar,onAtualizar,onAbrir,periodo,onAnterior,onProximo,proximoDesabilitado,clima,saveState=SAVE_QUEUE_STATE.IDLE}){
+function DashboardTechHero({currentUser,ultimaSync,onBuscar,onAtualizar,buscaObras,clima,saveState=SAVE_QUEUE_STATE.IDLE}){
   const agora=new Date(),nome=(currentUser?.nome||"operador").trim().split(/\s+/)[0];
   const saudacao=agora.getHours()<12?"Bom dia":agora.getHours()<18?"Boa tarde":"Boa noite";
   const syncLabel={
@@ -2543,26 +2546,34 @@ function DashboardTechHero({currentUser,ultimaSync,fila,onBuscar,onAtualizar,onA
   }[saveState];
   return <PageHeader className="workspace-header dashboard-tech-hero" title="Visão gerencial"
     description={<>{saudacao}, {nome}. <time dateTime={today()}>{agora.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"})}</time></>}
-    secondaryActions={<>{periodo&&<div className="workspace-period" role="group" aria-label="Competência dos indicadores">
-      <Button variant="ghost" size="icon" aria-label="Mês anterior" onClick={onAnterior}><ChevronLeft/></Button>
-      <span>{periodo}</span><Button variant="ghost" size="icon" aria-label="Próximo mês" onClick={onProximo} disabled={proximoDesabilitado}><ChevronRight/></Button>
-    </div>}{onBuscar&&<Button variant="outline" size="icon" aria-label="Buscar" onClick={onBuscar}><Search/></Button>}
-    {onAtualizar&&<Button variant="outline" size="icon" aria-label="Atualizar" onClick={onAtualizar}><RefreshCw/></Button>}</>}
-    primaryAction={<Button disabled={!fila.length} onClick={()=>fila[0]&&onAbrir(fila[0].tab)}>{fila.length?`Abrir prioridade de ${fila[0].setor}`:"Nenhuma ação urgente"}</Button>}>
-    <div className="dashboard-context"><span role="status">{syncLabel}</span><span>{contar(fila.length,"ação na Central","ações na Central")}</span>
+    secondaryActions={<>{buscaObras&&<Button type="button" variant="secondary" onClick={()=>document.getElementById(WORK_SCORE_SEARCH_ID)?.focus()}>Buscar obra no placar</Button>}
+    {onBuscar&&<Button variant="outline" size="icon" aria-label="Buscar no sistema" onClick={onBuscar}><Search/></Button>}
+    {onAtualizar&&<Button variant="outline" size="icon" aria-label="Atualizar" onClick={onAtualizar}><RefreshCw/></Button>}</>}>
+    <div className="dashboard-context"><span role="status">{syncLabel}</span>
       {clima&&<span>Caruaru: {clima.temperatura} °C · vento {clima.vento} km/h</span>}
     </div>
   </PageHeader>;
 }
 
+function dashboardHasWorkSearch(data,currentUser,tabs){
+  return tabs.some(tab=>["obras","ponto","ponto_geral","rdo"].includes(tab))&&dashboardActiveWorks(data,currentUser?.obraId).length>0;
+}
+
+function abrirPendenciaDashboard(onTab,item){
+  if(!item.obraId)return onTab(item.tab);
+  setWorkContextObra(item.obraId);
+  return onTab(item.tab,item.tab==="obras"?item.obraId:"",{scope:{obraId:item.obraId}});
+}
+
 function FilaOperador({fila,onTab}){
   const [filtro,setFiltro]=useState("todas");
   const setores=[...new Set(fila.map(x=>x.setor))];
-  const lista=filtro==="todas"?fila:fila.filter(x=>x.setor===filtro);
-  return <section id="dashboard-missoes" className="dashboard-mission-queue" style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:C.rLg,overflow:"hidden",boxShadow:"none"}}>
+  const setorAtivo=setores.includes(filtro)?filtro:"todas";
+  const lista=setorAtivo==="todas"?fila:fila.filter(x=>x.setor===setorAtivo);
+  return <section id="dashboard-missoes" tabIndex={-1} className="dashboard-mission-queue" style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:C.rLg,overflow:"hidden",boxShadow:"none"}}>
     <div className="dashboard-actions-header" style={{padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap",borderBottom:`1px solid ${C.line}`}}>
-      <div><h3 style={{...TYPO.h3,marginTop:3}}>Central de ações</h3></div>
-      <div className="dashboard-action-filters" style={{display:"flex",gap:4,overflowX:"auto",maxWidth:"100%"}}>{["todas",...setores].map(s=><button key={s} onClick={()=>setFiltro(s)} data-active={filtro===s} style={{border:`1px solid ${filtro===s?C.yellow:C.border}`,background:filtro===s?`${C.yellow}1F`:"transparent",color:filtro===s?C.yellowD:C.muted,borderRadius:99,padding:"5px 9px",fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}}>{s==="todas"?"Todas":s}</button>)}</div>
+      <div><h3 style={{...TYPO.h3,marginTop:3}}>Principais pendências</h3></div>
+      {setores.length>1&&<div className="dashboard-queue-filters" role="group" aria-label="Filtrar pendências por área">{["todas",...setores].map(setor=><Button key={setor} type="button" variant={setorAtivo===setor?"secondary":"ghost"} size="sm" onClick={()=>setFiltro(setor)} aria-pressed={setorAtivo===setor}>{setor==="todas"?"Todas":setor}</Button>)}</div>}
     </div>
     {!lista.length
       ? <div style={{padding:25,textAlign:"center",color:C.green,fontSize:"var(--arcd-type-label)"}}><Ic n="check" color={C.green}/> Nenhuma pendência no seu escopo.</div>
@@ -2735,53 +2746,67 @@ function CalendarioEmpresa({data,update,showToast,currentUser}){
   </div>;
 }
 
+const obrasDoDiarioNoDashboard=(data,currentUser)=>{
+  const role=currentUser?.role,userId=currentUser?.id;
+  const obrasAtivas=dashboardActiveWorks(data,currentUser?.obraId);
+  if(currentUser?.obraId||role!=="engenheiro")return obrasAtivas;
+  const atribuidas=obrasAtivas.filter(o=>(userId&&o.engineerId===userId)||(currentUser?.nome&&o.engineer===currentUser.nome));
+  return atribuidas.length?atribuidas:obrasAtivas;
+};
+
 const construirFilaOperador=(data,currentUser)=>{
   const role=currentUser?.role||"visualizador",userId=currentUser?.id||"",hoje=today();
   const acessos=new Set(allowedTabsForUser(currentUser));
-  const obrasAtivas=(data.obras||[]).filter(o=>o.status!=="done");
-  const minhasObras=role==="admin"?obrasAtivas:obrasAtivas.filter(o=>
-    !currentUser?.obraId||o.id===currentUser.obraId).filter(o=>role!=="engenheiro"||
-    o.engineerId===userId||o.engineer===currentUser?.nome||currentUser?.obraId===o.id);
-  const escopoEngenharia=minhasObras.length?minhasObras:(["engenheiro","engenheiro_auditor"].includes(role)?obrasAtivas.filter(o=>!currentUser?.obraId||o.id===currentUser.obraId):obrasAtivas);
+  const escopoEngenharia=obrasDoDiarioNoDashboard(data,currentUser);
   const idsObras=new Set(escopoEngenharia.map(o=>o.id));
+  const workNames=new Map((data.obras||[]).filter(o=>!currentUser?.obraId||String(o.id)===String(currentUser.obraId)).map(o=>[String(o.id),o.name]));
   const fila=[];
-  const incluir=(id,setor,titulo,detalhe,quantidade,severidade,tab,icon,color)=>{
+  const incluir=(id,setor,titulo,detalhe,quantidade,severidade,tab,icon,color,contexto)=>{
     if(!quantidade||!acessos.has(tab))return;
-    fila.push({id,setor,titulo,detalhe,quantidade,severidade,tab,icon,color});
+    fila.push({id,setor,titulo,detalhe,quantidade,severidade,tab,icon,color,...contexto});
   };
 
   if(role==="admin"||["engenheiro","engenheiro_auditor"].includes(role)||acessos.has("rdo")){
-    const semRdo=escopoEngenharia.filter(o=>!(data.rdos||[]).some(r=>r.obraId===o.id&&r.data===hoje&&r.status==="concluido"));
-    incluir("rdo-hoje","Engenharia","Diário de obra do dia",`${semRdo.slice(0,3).map(o=>o.name).join(", ")}${semRdo.length>3?` e mais ${semRdo.length-3}`:""}`,semRdo.length,2,"rdo","clipboard",C.blue);
+    const diariosConcluidos=new Set((data.rdos||[]).filter(r=>r.data===hoje&&r.status==="concluido").map(r=>String(r.obraId)));
+    const semRdo=escopoEngenharia.filter(o=>!diariosConcluidos.has(String(o.id)));
+    incluir("rdo-hoje","Engenharia","Diário de obra do dia",`${contar(semRdo.length,"obra","obras")} sem diário concluído`,semRdo.length,2,"rdo","clipboard",C.blue,
+      priorityContext(semRdo.map(o=>({obraId:o.id})),workNames,()=>hoje,"Referência"));
     const equipe=(data.employees||[]).filter(e=>e.active!==false&&(!idsObras.size||idsObras.has(e.obra)));
     const semPonto=equipe.filter(e=>!isValidAttendanceStatus(attStatus(data,e.id,hoje)));
-    incluir("ponto-hoje","Campo","Apontamentos de equipe incompletos",`${semPonto.length} de ${contar(equipe.length,"profissional","profissionais")} sem situação registrada hoje`,semPonto.length,semPonto.length===equipe.length?3:2,"ponto","clock",C.orange);
+    incluir("ponto-hoje","Campo","Apontamentos de equipe incompletos",`${semPonto.length} de ${contar(equipe.length,"profissional","profissionais")} sem situação registrada hoje`,semPonto.length,semPonto.length===equipe.length?3:2,"ponto","clock",C.orange,
+      priorityContext(semPonto.map(employee=>({obraId:resolveEmployeeAttendanceObraId({data,employee,date:hoje,record:null})})),workNames,()=>hoje,"Referência"));
     const fichas=(data.qualidadeRegistros||[]).filter(q=>idsObras.has(q.obraId)&&q.status!=="aprovada"&&(role==="admin"||!q.responsavelId||q.responsavelId===userId));
-    incluir("qualidade","Qualidade","FVS/FVM aguardando inspeção",`${fichas.filter(q=>q.status==="reprovada").length} ficha(s) reprovada(s) exigem correção`,fichas.length,fichas.some(q=>q.status==="reprovada")?3:1,"obras","check",C.purple);
+    incluir("qualidade","Qualidade","FVS/FVM aguardando inspeção",`${contar(fichas.filter(q=>q.status==="reprovada").length,"ficha reprovada","fichas reprovadas")} a corrigir`,fichas.length,fichas.some(q=>q.status==="reprovada")?3:1,"obras","check",C.purple,priorityContext(fichas,workNames));
     const patologias=(data.conferencias||[]).flatMap(c=>(c.pendencias||[]).filter(p=>p.status!=="resolvida"&&(role==="admin"||(role==="engenheiro_auditor"&&c.responsavelId===userId)||(role==="engenheiro"&&p.responsavelAjusteId===userId))).map(p=>({...p,obraId:c.obraId})));
-    incluir("patologias","Qualidade","Patologias e inconformidades abertas",`${contar(patologias.filter(p=>p.impacto==="critico").length,"crítica","críticas")} · ${patologias.filter(p=>!(p.fotos||[]).some(f=>f.tipo==="ajuste")).length} aguardando foto`,patologias.length,patologias.some(p=>p.impacto==="critico")?3:2,"conferencia","alert",C.red);
+    incluir("patologias","Qualidade","Patologias e inconformidades abertas",`${contar(patologias.filter(p=>p.impacto==="critico").length,"crítica","críticas")} · ${patologias.filter(p=>!(p.fotos||[]).some(f=>f.tipo==="ajuste")).length} aguardando foto`,patologias.length,patologias.some(p=>p.impacto==="critico")?3:2,"conferencia","alert",C.red,priorityContext(patologias,workNames));
   }
 
   if(role==="admin"||role==="compras"||acessos.has("cmp")){
     const solicitacoes=(data.solicitacoesCompra||[]).filter(s=>["enviada","em_analise"].includes(s.status));
-    incluir("solicitacoes","Compras","Solicitações aguardando processamento",`${contar(solicitacoes.filter(s=>s.prioridade==="urgente").length,"urgente","urgentes")} para cotar ou transformar em pedido`,solicitacoes.length,solicitacoes.some(s=>s.prioridade==="urgente")?3:2,"cmp","cart",C.orange);
+    const urgentes=solicitacoes.filter(s=>s.prioridade==="urgente").length;
+    const volume=urgentes?contar(urgentes,"urgente","urgentes"):contar(solicitacoes.length,"solicitação","solicitações");
+    incluir("solicitacoes","Compras","Solicitações aguardando processamento",`${volume} para cotar ou transformar em pedido`,solicitacoes.length,urgentes?3:2,"cmp","cart",C.orange,
+      priorityContext(solicitacoes,workNames,s=>s.necessidade,"Data necessária mais antiga"));
     const pedidos=(data.pedidos||[]).filter(p=>!["recebido","cancelado"].includes(p.status));
-    incluir("pedidos","Compras","Pedidos ainda não concluídos",`${pedidos.filter(p=>p.status==="parcial").length} com recebimento parcial`,pedidos.length,pedidos.some(p=>p.status==="parcial")?2:1,"cmp","box",C.yellowD);
+    incluir("pedidos","Compras","Pedidos ainda não concluídos",`${pedidos.filter(p=>p.status==="parcial").length} com recebimento parcial`,pedidos.length,pedidos.some(p=>p.status==="parcial")?2:1,"cmp","box",C.yellowD,
+      priorityContext(pedidos,workNames,p=>p.previsao,"Previsão mais antiga"));
   }
 
   if(role==="admin"||role==="financeiro"||acessos.has("conc")){
     const conciliacoes=(data.transacoes||[]).filter(t=>t.status==="pendente");
     incluir("conciliacao","Financeiro","Movimentos sem conciliação",`${contar(conciliacoes.length,"lançamento","lançamentos")} ainda sem obra/categoria confirmada`,conciliacoes.length,conciliacoes.length>10?3:2,"conc","receipt",C.purple);
     const notas=(data.notasFiscais||[]).filter(n=>n.status==="recebida");
-    incluir("fiscal","Financeiro","Notas aguardando conferência",`${contar(notas.filter(n=>n.divergencias?.length).length,"documento","documentos")} com divergência de pedido ou recebimento`,notas.length,notas.some(n=>n.divergencias?.length)?3:2,"fin","fileText",C.red);
+    incluir("fiscal","Financeiro","Notas aguardando conferência",`${contar(notas.filter(n=>n.divergencias?.length).length,"documento","documentos")} com divergência de pedido ou recebimento`,notas.length,notas.some(n=>n.divergencias?.length)?3:2,"fin","fileText",C.red,priorityContext(notas,workNames));
     const med=(data.medicoes||[]).filter(m=>statusRecebimentoMedicao(m)!=="recebida"&&(!m.dataVencimento||m.dataVencimento<=hoje));
-    incluir("medicoes","Financeiro","Medições a receber",contar(med.filter(m=>m.dataVencimento&&m.dataVencimento<hoje).length,"vencida","vencidas"),med.length,med.some(m=>m.dataVencimento&&m.dataVencimento<hoje)?3:1,"medicoes","ruler",C.green);
+    incluir("medicoes","Financeiro","Medições a receber",contar(med.filter(m=>m.dataVencimento&&m.dataVencimento<hoje).length,"vencida","vencidas"),med.length,med.some(m=>m.dataVencimento&&m.dataVencimento<hoje)?3:1,"medicoes","ruler",C.green,
+      priorityContext(med,workNames,m=>m.dataVencimento,"Vencimento mais antigo"));
   }
 
   if(role==="admin"||role==="rh"||acessos.has("ponto_geral")){
     const ativos=(data.employees||[]).filter(e=>e.active!==false);
     const semPonto=ativos.filter(e=>!isValidAttendanceStatus(attStatus(data,e.id,hoje)));
-    incluir("rh-ponto","RH","Fechamento diário do ponto",`${semPonto.length} de ${contar(ativos.length,"cadastro","cadastros")} sem apontamento`,semPonto.length,semPonto.length===ativos.length?3:2,"ponto_geral","users",C.green);
+    incluir("rh-ponto","RH","Fechamento diário do ponto",`${semPonto.length} de ${contar(ativos.length,"cadastro","cadastros")} sem apontamento`,semPonto.length,semPonto.length===ativos.length?3:2,"ponto_geral","users",C.green,
+      priorityContext(semPonto.map(employee=>({obraId:resolveEmployeeAttendanceObraId({data,employee,date:hoje,record:null})})),workNames,()=>hoje,"Referência"));
     const incompletos=ativos.filter(e=>!e.pixKey||!e.dailyRate||!e.obra);
     incluir("rh-cadastro","RH","Cadastros de equipe incompletos",`${incompletos.filter(e=>!e.pixKey).length} sem PIX · ${incompletos.filter(e=>!e.obra).length} sem lotação`,incompletos.length,1,"equipe","user",C.blue);
   }
@@ -2796,10 +2821,50 @@ const construirFilaOperador=(data,currentUser)=>{
   return fila.sort((a,b)=>b.severidade-a.severidade||b.quantidade-a.quantidade);
 };
 
+// O placar só agrega registros autorizados. O custo oficial continua vindo do DRE fechado.
+function DashboardWorkOverview({data,currentUser,ultimaSync,hoje,onAbrirObra,tabs}){
+  const {navigate}=useWorkflow();
+  const veObras=tabs.includes("obras");
+  const veCusto=tabs.includes("dre")||tabs.includes("dre_emp");
+  const showAttendance=tabs.includes("ponto")||tabs.includes("ponto_geral");
+  const showDiaries=tabs.includes("rdo");
+  const canPrepare=showDiaries&&["admin","engenheiro","engenheiro_auditor"].includes(currentUser?.role);
+  const workId=currentUser?.obraId;
+  const works=useMemo(()=>dashboardActiveWorks(data,workId),[data,workId]);
+  const diaryWorks=useMemo(()=>obrasDoDiarioNoDashboard(data,currentUser),[data,currentUser]);
+  const [custosObras,setCustosObras]=useState({status:"carregando",obras:{},custoAte:""});
+  const custoBuscadoEm=useRef({chave:"",em:0});
+  useEffect(()=>{
+    if(!veObras)return;
+    if(!veCusto){setCustosObras({status:"sem-acesso",obras:{},custoAte:""});return;}
+    const {ano,mes}=ultimoMesFechado(hoje);
+    const chave=`${ano}-${mes}`,agoraMs=Date.now();
+    if(custoBuscadoEm.current.chave===chave&&agoraMs-custoBuscadoEm.current.em<5*60*1000)return;
+    custoBuscadoEm.current={chave,em:agoraMs};
+    let ativo=true,concluida=false;
+    consultarCustoAcumuladoObras({year:ano,month:mes}).then(r=>{
+      concluida=true;
+      if(!ativo)return;
+      if(!r?.ok)custoBuscadoEm.current={chave:"",em:0};
+      setCustosObras(r?.ok?{status:"ok",obras:r.obras||{},custoAte:r.custoAte||""}:{status:"erro",obras:{},custoAte:""});
+    });
+    // Resposta descartada no meio do caminho não pode travar a próxima busca.
+    return ()=>{ativo=false;if(!concluida)custoBuscadoEm.current={chave:"",em:0};};
+  },[veObras,veCusto,hoje,ultimaSync]);
+  const gestaoAVista=useMemo(()=>veObras?resumoGestaoAVista(data,{hoje,workId,showAttendance,custoAcumulado:(_,obraId)=>veCusto?custosObras.obras[obraId]??null:null,
+    obraDoDia:(employee,date,record)=>resolveEmployeeAttendanceObraId({data,employee,date,record})}):null,[data,hoje,workId,showAttendance,veObras,veCusto,custosObras]);
+
+  if(!veObras&&!showAttendance&&!showDiaries)return null;
+  return <GestaoAVistaObras resumo={gestaoAVista} hoje={hoje} onAbrirObra={veObras?onAbrirObra:undefined} custoStatus={veCusto?custosObras.status:"sem-acesso"}
+    onAbrirDiario={canPrepare&&navigate?(obraId,date,reportId)=>navigate("rdo",{obraId},{action:OPEN_FIELD_REPORT_DAY,record:{date,reportId}}):undefined}
+    data={data} works={works} diaryWorks={diaryWorks} workId={workId} showAttendance={showAttendance} showDiaries={showDiaries}/>;
+}
+
 function DashboardEngenheiro({data,update,showToast,onTab,currentUser,ultimaSync,saveState}){
   const {cols,isDesktop}=useBreakpoint();
   const [obraFiltro,setObraFiltro]=useState("all");
   const ehAuditor=currentUser?.role==="engenheiro_auditor";
+  const tabs=allowedTabsForUser(currentUser);
   const conferencias=(data.conferencias||[]).filter(c=>ehAuditor?c.responsavelId===currentUser?.id:(c.pendencias||[]).some(p=>p.responsavelAjusteId===currentUser?.id));
   // A lista de obras não pode nascer das conferências: uma obra nova ou sem
   // vistoria atribuída desaparecia do dashboard do engenheiro. A única trava
@@ -2813,7 +2878,10 @@ function DashboardEngenheiro({data,update,showToast,onTab,currentUser,ultimaSync
   const abrir=c=>{setWorkContextObra(c.obraId);sessionContext.setItem("arcd_conferencia_obra",c.obraId);onTab("conferencia");};
   const impacto={baixo:C.green,medio:C.orange,alto:"#E26A2C",critico:C.red};
   return <div className="anim dashboard-tech-motion" style={{display:"flex",flexDirection:"column",gap:16}}>
-    <DashboardTechHero data={data} currentUser={currentUser} ultimaSync={ultimaSync} fila={fila} onAbrir={onTab} saveState={saveState}/>
+    <DashboardTechHero currentUser={currentUser} ultimaSync={ultimaSync} buscaObras={dashboardHasWorkSearch(data,currentUser,tabs)} saveState={saveState}/>
+    <DashboardPriorities queue={fila} onOpen={item=>abrirPendenciaDashboard(onTab,item)}/>
+    <DashboardDailyOperation data={data} workId={currentUser?.obraId} diaryWorks={obrasDoDiarioNoDashboard(data,currentUser)} tabs={tabs} onTab={onTab}/>
+    <DashboardWorkOverview data={data} currentUser={currentUser} ultimaSync={ultimaSync} hoje={today()} onAbrirObra={obraId=>onTab("obras",obraId)} tabs={tabs}/>
     <FilaOperador fila={fila} onTab={onTab}/>
     <div><p style={{...TYPO.eyebrow,color:C.blue}}>{ehAuditor?"Auditoria de engenharia":"Engenharia de campo"}</p><h2 style={{...TYPO.h2,marginTop:4}}>{ehAuditor?"Vistorias e validações":"Correções e evidências"}</h2><p style={{...TYPO.bodyMuted,marginTop:5}}>{ehAuditor?"Crie vistorias, registre os achados e valide as evidências enviadas pelos engenheiros de campo.":"Acesse apenas as pendências atribuídas a você e envie a foto da correção para validação do auditor."}</p></div>
     <div className="dashboard-kpi-grid" style={{display:"grid",gridTemplateColumns:cols(2,3,4),gap:9}}>{(ehAuditor?[["Pendências auditadas",abertas.length,C.blue,"clipboard"],["Críticas",criticas,C.red,"alert"],["Para sua validação",aguardandoValidacao,C.green,"check"],["Vistorias sob sua responsabilidade",conferencias.length,C.purple,"building"]]:[["Pendências para corrigir",abertas.length,C.blue,"clipboard"],["Críticas",criticas,C.red,"alert"],["Aguardando sua correção",aguardandoCorrecao,C.orange,"camera"]]).map(([l,v,c,i],idx)=><span key={l} style={{"--row-i":idx}}><KpiCard label={l} value={v} icon={i} color={c}/></span>)}</div>
@@ -2841,35 +2909,6 @@ function Dashboard({ data, update, showToast, onTab, onAbrirObra, ultimaSync, cu
   const fimMes=`${ym}-${String(new Date(year,month+1,0).getDate()).padStart(2,"0")}`;
   const abasPermitidas=allowedTabsForUser(currentUser);
   const filaOperador=useMemo(()=>construirFilaOperador(data,currentUser),[data,currentUser]);
-  // Gestão à vista: sempre o dia de hoje, independente do mês escolhido no topo.
-  // O custo vem do servidor (mesmo motor e títulos nativos do DRE por obra).
-  // Vai só até o mês fechado, então basta renová-lo a cada 5 minutos de
-  // sincronização: recalcular a cada salvamento pesaria no servidor à toa.
-  // Sem acesso à DRE, a coluna fica restrita.
-  const veObras=abasPermitidas.includes("obras");
-  const veCusto=abasPermitidas.includes("dre")||abasPermitidas.includes("dre_emp");
-  const [custosObras,setCustosObras]=useState({status:"carregando",obras:{},custoAte:""});
-  const custoBuscadoEm=useRef({chave:"",em:0});
-  useEffect(()=>{
-    if(!veObras)return;
-    if(!veCusto){setCustosObras({status:"sem-acesso",obras:{},custoAte:""});return;}
-    const {ano,mes}=ultimoMesFechado(hoje);
-    const chave=`${ano}-${mes}`,agoraMs=Date.now();
-    if(custoBuscadoEm.current.chave===chave&&agoraMs-custoBuscadoEm.current.em<5*60*1000)return;
-    custoBuscadoEm.current={chave,em:agoraMs};
-    let ativo=true,concluida=false;
-    consultarCustoAcumuladoObras({year:ano,month:mes}).then(r=>{
-      concluida=true;
-      if(!ativo)return;
-      if(!r?.ok)custoBuscadoEm.current={chave:"",em:0};
-      setCustosObras(r?.ok?{status:"ok",obras:r.obras||{},custoAte:r.custoAte||""}:{status:"erro",obras:{},custoAte:""});
-    });
-    // Resposta descartada no meio do caminho não pode travar a próxima busca.
-    return ()=>{ativo=false;if(!concluida)custoBuscadoEm.current={chave:"",em:0};};
-  },[veObras,veCusto,hoje,ultimaSync]);
-  const gestaoAVista=useMemo(()=>resumoGestaoAVista(data,{hoje,custoAcumulado:(_,obraId)=>custosObras.obras[obraId]??null,
-    obraDoDia:(employee,date,record)=>resolveEmployeeAttendanceObraId({data,employee,date,record})}),[data,hoje,custosObras]);
-
   // Resumo diário (clima + notícias do setor): carrega uma vez por sessão de
   // dashboard, cacheado 15min no servidor — não precisa refazer a cada render.
   const [resumoDiario,setResumoDiario]=useState({carregando:true,clima:null,noticias:[],noticiasCbicPe:[],cub:null});
@@ -2905,8 +2944,23 @@ function Dashboard({ data, update, showToast, onTab, onAbrirObra, ultimaSync, cu
   const superficie={background:C.card,border:`1px solid ${C.border}`,borderRadius:C.rLg,boxShadow:"none"};
 
   return <div className="anim dashboard-tech-motion dashboard-command-center" style={{position:"relative",display:"flex",flexDirection:"column",gap:14,paddingBottom:16}}>
-    <DashboardTechHero data={data} currentUser={currentUser} ultimaSync={ultimaSync} fila={filaOperador} onBuscar={onBuscar} onAtualizar={onAtualizar} onAbrir={onTab} periodo={`${fullMonth(month)} ${year}`} onAnterior={()=>irMes(-1)} onProximo={()=>irMes(1)} proximoDesabilitado={ehAtual} clima={resumoDiario.clima} saveState={saveState}/>
-    <ScopeNote title="Escopo dos indicadores">Consolidado do seu acesso · {fullMonth(month)} {year}. A seleção Obra em foco não filtra este painel. Suas obras hoje acompanha a operação na data de hoje.</ScopeNote>
+    <DashboardTechHero currentUser={currentUser} ultimaSync={ultimaSync} onBuscar={onBuscar} onAtualizar={onAtualizar} buscaObras={dashboardHasWorkSearch(data,currentUser,abasPermitidas)} clima={resumoDiario.clima} saveState={saveState}/>
+    <DashboardPriorities queue={filaOperador} onOpen={item=>abrirPendenciaDashboard(onTab,item)}/>
+    <DashboardDailyOperation data={data} workId={currentUser?.obraId} diaryWorks={obrasDoDiarioNoDashboard(data,currentUser)} tabs={abasPermitidas} onTab={onTab}/>
+    <DashboardWorkOverview data={data} currentUser={currentUser} ultimaSync={ultimaSync} hoje={hoje} onAbrirObra={onAbrirObra} tabs={abasPermitidas}/>
+      <div className="dashboard-work-grid__aside"><FilaOperador fila={filaOperador} onTab={onTab}/><details className="workspace-disclosure"><summary>Outras pendências ({prioridades.length})</summary><section id="dashboard-prioridades" style={{position:"relative",zIndex:1,padding:isDesktop?8:4}}>
+      <Titulo acao={<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:prioridades.length?C.red:C.green,background:`${prioridades.length?C.red:C.green}0D`,padding:"5px 9px",borderRadius:99}}>{prioridades.length?`${prioridades.length} para revisar`:"Tudo em ordem"}</span>}>Pendências que exigem atenção</Titulo>
+      {!prioridades.length?<div style={{padding:"18px 4px",display:"flex",alignItems:"center",gap:10,color:C.green}}><span style={{width:30,height:30,borderRadius:10,display:"grid",placeItems:"center",background:`${C.green}10`}}><Ic n="check"/></span><div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"var(--arcd-text-primary)"}}>Nenhuma pendência prioritária</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>A operação está sob controle.</p></div></div>:<div style={{display:"grid",gridTemplateColumns:isDesktop&&prioridades.length>3?"1fr 1fr":"1fr",columnGap:20}}>{prioridades.slice(0,8).map((a,i)=>{const cor=a.sev===3?C.red:a.sev===2?C.orange:C.blue;return <button key={`${a.texto}-${i}`} onClick={()=>onTab(a.tab)} style={{display:"flex",alignItems:"center",gap:11,width:"100%",textAlign:"left",border:0,borderTop:i>=(isDesktop&&prioridades.length>3?2:1)?"1px solid var(--arcd-border-subtle)":"none",background:"transparent",padding:"11px 3px",cursor:"pointer"}}><span style={{width:8,height:8,borderRadius:99,background:cor,boxShadow:`0 0 0 5px ${cor}0D`,flexShrink:0}}/><span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",lineHeight:1.35,flex:1}}>{a.texto}</span><span style={{fontSize:"var(--arcd-type-card-title)",color:"var(--arcd-text-secondary)"}}>›</span></button>;})}</div>}
+    </section></details>
+    </div>
+
+    <FilterBar label="Filtros dos indicadores mensais" align="start">
+      <div className="workspace-period" role="group" aria-label="Competência dos indicadores">
+        <Button type="button" variant="ghost" size="icon" aria-label="Mês anterior" onClick={()=>irMes(-1)}><ChevronLeft/></Button>
+        <span>{fullMonth(month)} {year}</span><Button type="button" variant="ghost" size="icon" aria-label="Próximo mês" onClick={()=>irMes(1)} disabled={ehAtual}><ChevronRight/></Button>
+      </div>
+      <ScopeNote title="Escopo dos indicadores">Consolidado do seu acesso. A seleção Obra em foco não filtra este painel. No Placar das obras, Hoje e Ontem alteram o ponto e o diário.</ScopeNote>
+    </FilterBar>
     <section id="dashboard-indicators" className="dashboard-executive-grid" data-expanded={todosIndicadores} style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:cols(2,3,4),gap:10}}>
       {[
         // Os quatro primeiros são os que pedem decisão; os demais ficam em "Mais indicadores".
@@ -2924,17 +2978,6 @@ function Dashboard({ data, update, showToast, onTab, onAbrirObra, ultimaSync, cu
     </section>
     <Button variant="ghost" className="dashboard-indicators-toggle" aria-expanded={todosIndicadores} aria-controls="dashboard-indicators" onClick={()=>setTodosIndicadores(value=>!value)}>{todosIndicadores?"Menos indicadores":"Mais indicadores"} <span aria-hidden="true">{todosIndicadores?"▴":"▾"}</span></Button>
     <DashboardFinancialReading dre={exec.dre} period={`${fullMonth(month)} ${year}`} showCash={abasPermitidas.includes('dre')} showResult={abasPermitidas.includes('dre_emp')}/>
-    <div className="dashboard-work-grid">
-    {veObras&&<GestaoAVistaObras resumo={gestaoAVista} hoje={hoje} onAbrirObra={onAbrirObra} custoStatus={custosObras.status}/>}
-
-      <div className="dashboard-work-grid__aside"><FilaOperador fila={filaOperador} onTab={onTab}/><details className="workspace-disclosure"><summary>Outras pendências ({prioridades.length})</summary><section id="dashboard-prioridades" style={{position:"relative",zIndex:1,padding:isDesktop?8:4}}>
-      <Titulo acao={<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:prioridades.length?C.red:C.green,background:`${prioridades.length?C.red:C.green}0D`,padding:"5px 9px",borderRadius:99}}>{prioridades.length?`${prioridades.length} para revisar`:"Tudo em ordem"}</span>}>Pendências que exigem atenção</Titulo>
-      {!prioridades.length?<div style={{padding:"18px 4px",display:"flex",alignItems:"center",gap:10,color:C.green}}><span style={{width:30,height:30,borderRadius:10,display:"grid",placeItems:"center",background:`${C.green}10`}}><Ic n="check"/></span><div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"var(--arcd-text-primary)"}}>Nenhuma pendência prioritária</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>A operação está sob controle.</p></div></div>:<div style={{display:"grid",gridTemplateColumns:isDesktop&&prioridades.length>3?"1fr 1fr":"1fr",columnGap:20}}>{prioridades.slice(0,8).map((a,i)=>{const cor=a.sev===3?C.red:a.sev===2?C.orange:C.blue;return <button key={`${a.texto}-${i}`} onClick={()=>onTab(a.tab)} style={{display:"flex",alignItems:"center",gap:11,width:"100%",textAlign:"left",border:0,borderTop:i>=(isDesktop&&prioridades.length>3?2:1)?"1px solid var(--arcd-border-subtle)":"none",background:"transparent",padding:"11px 3px",cursor:"pointer"}}><span style={{width:8,height:8,borderRadius:99,background:cor,boxShadow:`0 0 0 5px ${cor}0D`,flexShrink:0}}/><span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",lineHeight:1.35,flex:1}}>{a.texto}</span><span style={{fontSize:"var(--arcd-type-card-title)",color:"var(--arcd-text-secondary)"}}>›</span></button>;})}</div>}
-    </section></details>
-      </div>
-    </div>
-
-
     <details className="workspace-disclosure"><summary>Resumo financeiro e comercial</summary>    <section style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:isDesktop?"1fr 1fr":"1fr",gap:12}}>
       <div style={{...superficie,padding:18}}><Titulo acao={<DesignSystemButton variant="link" size="sm" className="dashboard-link-btn" onClick={()=>onTab("dre_emp")}>Detalhes →</DesignSystemButton>}>Resumo financeiro</Titulo><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"14px 22px"}}>{[["A receber",exec.dre.aReceber,C.orange],["Fluxo do período",exec.dre.saldoCaixa,(exec.dre.saldoCaixa>0?C.green:exec.dre.saldoCaixa<0?C.red:C.muted)],["Principais saídas",exec.dre.totalCustos,C.red],["Resultado do mês",exec.dre.lucroBruto,(exec.dre.lucroBruto>0?C.green:exec.dre.lucroBruto<0?C.red:C.muted)]].map(([l,v,c])=><div key={l}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{l}</p><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:c,marginTop:5,letterSpacing:-.3}}>{fmt(v)}</p></div>)}</div></div>
       <div style={{...superficie,padding:18}}><Titulo acao={<DesignSystemButton variant="link" size="sm" className="dashboard-link-btn" onClick={()=>onTab("com_dash")}>Abrir comercial →</DesignSystemButton>}>Resumo comercial</Titulo><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"14px 22px"}}>{[["Novos leads",novosLeads,C.blue],["Propostas abertas",propostasAbertas,C.orange],["Aguardando assinatura",contratosPendentes,C.red],["Vendas no mês",fmt(vendasMes),C.green]].map(([l,v,c])=><div key={l}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{l}</p><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:c,marginTop:5,letterSpacing:-.3}}>{v}</p></div>)}</div><div style={{height:5,display:"flex",overflow:"hidden",borderRadius:99,marginTop:17,background:"var(--arcd-surface-muted)"}}>{[["novo",C.blue],["qualificado",C.orange],["proposta",C.purple],["negociacao",C.yellowD]].map(([etapa,cor])=>{const qtd=leadsAtivos.filter(l=>l.etapa===etapa).length;return qtd?<span key={etapa} title={`${etapa}: ${qtd}`} style={{width:`${qtd/Math.max(1,leadsAtivos.length)*100}%`,background:cor}}/>:null;})}</div></div>
@@ -3574,7 +3617,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
         title="DRE por Obra"
         description="Faturamento, custos, resultado, caixa e posição dos contratos."
       />
-      <ScopeNote title="Recorte deste DRE">{view==='obra'?`Obra ${data.obras.find(o=>o.id===selObra)?.name||'não disponível'}`:'Consolidado do seu acesso'} · {view==='historico'?`Evolução mensal até ${fullMonth(month)} ${year}`:`${fullMonth(month)} ${year} · ${periodoDRE==='mes'?'mês completo':periodoDRE==='q1'?'1ª quinzena (06–20)':'2ª quinzena (21–05)'}`}. Os filtros deste demonstrativo definem a consulta; Obra em foco é preservada para as telas operacionais.</ScopeNote>
+      <ScopeNote title="Recorte deste DRE">{obraIdFixo||view==='obra'?`Obra ${data.obras.find(o=>o.id===obraFinanceiraId)?.name||'não disponível'}`:'Consolidado do seu acesso'} · {view==='historico'?`Evolução mensal até ${fullMonth(month)} ${year}`:`${fullMonth(month)} ${year} · ${periodoDRE==='mes'?'mês completo':periodoDRE==='q1'?'1ª quinzena (06–20)':'2ª quinzena (21–05)'}`}.</ScopeNote>
 
       <section ref={dreControls} className="dre-toolbar" aria-label="Filtros e visualização do DRE">
         {!isDesktop&&!obraIdFixo&&<Sel label="Visão do DRE" value={view} onChange={mudarVisaoDRE} options={dreViews.map(([v,l])=>({v,l}))}/>}
@@ -4042,6 +4085,9 @@ function CentralFiscal({data,update,showToast,currentUser,obraIdFiltro="all",onO
 }
 
 function CentralPagamentosFinanceiro({data,showToast,currentUser,onNovaNota,onAbrirFiscal,onReviewInvoice,dispatchCommand,obraId="all",onObraChange,onMemorial,view,onViewChange,onBank,C=C_ARCD_SETOR}){
+  const {navigate}=useWorkflow();
+  const selectedInvoice=view?.invoiceId&&(data.notasFiscais||[]).find(note=>String(note.id)===String(view.invoiceId));
+  const purchase=selectedInvoice&&financeNextAction(data,{sourceType:'pedido',sourceId:selectedInvoice.pedidoId,obraId:selectedInvoice.obraId},currentUser);
   const setObraId=onObraChange;
   const filtro=view.filter,busca=view.query;
   const setFiltro=filter=>onViewChange(previous=>({...previous,filter}));
@@ -4122,7 +4168,9 @@ function CentralPagamentosFinanceiro({data,showToast,currentUser,onNovaNota,onAb
   const abrirPagamento=item=>setPagamento({type:item.tipo,id:item.registro.id});
   if(!podeOperar)return <div style={{padding:30,textAlign:"center",border:`1px solid ${C.border}`,borderRadius:12,color:C.red}}>Central operacional exclusiva do Financeiro e da Administração.</div>;
   return <div className="anim payment-workspace mrc-command-workspace">
-    {view.invoiceId&&<div className="financial-origin-return" role="status"><p>Mostrando somente a obrigação do documento selecionado. Os valores do resumo continuam no escopo da obra.</p><Button variant="outline" onClick={()=>onViewChange(previous=>({...previous,invoiceId:''}))}>Mostrar todos os documentos</Button></div>}
+    {view.invoiceId&&<div className="financial-origin-return"><p role="status">Mostrando somente a obrigação do documento selecionado. Os valores do resumo continuam no escopo da obra.</p>
+      {purchase&&navigate&&<Button variant="outline" onClick={()=>navigate('cmp',{obraId:selectedInvoice.obraId},{action:'open-order',record:{orderId:purchase.id}})}>Abrir compra de origem</Button>}
+      <Button variant="outline" onClick={()=>onViewChange(previous=>({...previous,invoiceId:''}))}>Mostrar todos os documentos</Button></div>}
     <WorkspaceCommandBar label="Comandos de pagamentos" scope={<Sel label="Obra" value={obraId} onChange={setObraId} options={[{v:"all",l:"Todas as obras"},...obras.map(o=>({v:o.id,l:o.name}))]}/>} actions={<><Btn size="sm" v="ghost" onClick={onAbrirFiscal}><Ic n="file"/> Ver notas fiscais</Btn><Btn size="sm" onClick={onNovaNota}><Ic n="plus"/> Receber documento fiscal</Btn></>}>
       <Sel label="Situação" value={filtro} onChange={setFiltro} options={[{v:"fila",l:"Fila operacional"},{v:"vencidas",l:"Vencidas"},{v:"autorizadas",l:"Autorizadas a pagar"},{v:"conferencia",l:"Em conferência"},{v:"sem_nota",l:"Pedidos sem documento fiscal"},{v:"conciliar",l:"Pagos a conciliar"},{v:"pagas",l:"Pagas"},{v:"todas",l:"Todas"}]}/><Inp label="Pesquisar pagamentos" value={busca} onChange={setBusca} placeholder="Documento, pedido, fornecedor ou obra"/>
     </WorkspaceCommandBar>
@@ -5476,7 +5524,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
           const prazo = prazoObra(o);
           const risco = o._alertas.length > 0;
           return <article data-risk={risco} key={o.id} className="lift-card works-card" style={{background:"var(--arcd-surface-card)",border:`1px solid ${risco?"color-mix(in srgb, var(--arcd-danger-text) 40%, transparent)":"var(--arcd-border-default)"}`,borderRadius:15,overflow:"hidden",boxShadow:"var(--arcd-shadow-lg)",display:"flex",flexDirection:"column",minWidth:0}}>
-            <CompanyAssetBackground as={RecordAction} src={o.capaUrl} backgroundFor={url=>url?`linear-gradient(180deg,rgba(18,18,18,.08),rgba(18,18,18,.88)),url("${url}") center/cover`:`linear-gradient(135deg,#121212 0%,#242018 72%,#4B3D10 100%)`} data-has-image={!!o.capaUrl} className="works-card-cover" onClick={()=>onAbrirObra?.(o.id)} style={{position:"relative",height:132,border:0,padding:0,cursor:"pointer",textAlign:"left",overflow:"hidden",color:"var(--arcd-text-inverse)"}}>
+            <RecordAction data-has-image={!!o.capaUrl} className="works-card-cover" onClick={()=>onAbrirObra?.(o.id)} style={{position:"relative",height:132,border:0,padding:0,cursor:"pointer",textAlign:"left",overflow:"hidden",background:o.capaUrl?`linear-gradient(180deg,rgba(18,18,18,.08),rgba(18,18,18,.88)),url("${o.capaUrl}") center/cover`:`linear-gradient(135deg,#121212 0%,#242018 72%,#4B3D10 100%)`,color:"var(--arcd-text-inverse)"}}>
               {!o.capaUrl&&<><span aria-hidden="true" style={{position:"absolute",right:-24,top:-46,width:180,height:180,borderRadius:"50%",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 33%, transparent)",boxShadow:"none"}}/></>}
               <div style={{position:"absolute",inset:0,padding:"var(--arcd-space-3)",display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)"}}>
@@ -5488,7 +5536,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
                   <h3 className="brk" style={{fontFamily:FONT_DISPLAY,fontSize:"var(--arcd-type-section-title)",fontWeight:"var(--arcd-font-weight-semibold)",lineHeight:"var(--arcd-line-height-normal)",color:"var(--arcd-text-inverse)",paddingRight:"var(--arcd-space-3)"}}>{o.name}</h3>
                 </div>
               </div>
-            </CompanyAssetBackground>
+            </RecordAction>
             <div className="works-card-body" style={{padding:"var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)",flex:1}}>
               <div className="works-card-identity" style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"var(--arcd-space-2)"}}>
                 <div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",color:"var(--arcd-text-secondary)"}}>Cliente</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:o.cliente?"var(--arcd-text-primary)":"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.cliente||"Não vinculado"}</p></div>
@@ -5532,7 +5580,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
         <div style={{display:"grid",gridTemplateColumns:"74px minmax(220px,1.5fr) minmax(160px,1fr) 110px 145px 125px minmax(150px,.8fr) 72px",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-3)",background:"var(--arcd-surface-overlay)",borderBottom:"1px solid var(--arcd-border-default)",fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}><span>Código</span><span>Obra</span><span>Cliente</span><span>Status</span><span>Fase</span><span>Início</span><span>Responsável</span><span style={{textAlign:"right"}}>Ações</span></div>
         {list.map((o,index)=>{const st=statusMap[o.status]||statusMap.active;const fase=fases.find(f=>f.id===o.faseId);const equipe=(data.employees||[]).filter(e=>e.active!==false&&e.obra===o.id);const codigo=String(index+1).padStart(4,"0");return <div key={o.id} className="lift-card" onClick={()=>onAbrirObra?.(o.id)} style={{display:"grid",gridTemplateColumns:"74px minmax(220px,1.5fr) minmax(160px,1fr) 110px 145px 125px minmax(150px,.8fr) 72px",gap:"var(--arcd-space-2)",alignItems:"center",padding:"var(--arcd-space-3)",borderBottom:index<list.length-1?"1px solid var(--arcd-border-default)":"none",cursor:"pointer",background:"var(--arcd-surface-card)"}}>
           <span style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)"}}>#{codigo}</span>
-          <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",minWidth:0}}><CompanyAssetBackground as={'div'} src={o.capaUrl} backgroundFor={url=>url?`url("${url}") center/cover`:"linear-gradient(145deg,var(--arcd-text-primary),var(--arcd-action-primary))"} style={{width:38,height:38,borderRadius:10,flexShrink:0,display:"grid",placeItems:"center",overflow:"hidden",color:"white",fontWeight:"var(--arcd-font-weight-semibold)"}}>{!o.capaUrl&&(o.name||"O").charAt(0)}</CompanyAssetBackground><div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.name}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.address||`${Number(o.areaM2||0).toLocaleString("pt-BR")} m²`}</p></div></div>
+          <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",minWidth:0}}><div style={{width:38,height:38,borderRadius:10,flexShrink:0,display:"grid",placeItems:"center",overflow:"hidden",background:o.capaUrl?`url("${o.capaUrl}") center/cover`:"linear-gradient(145deg,var(--arcd-text-primary),var(--arcd-action-primary))",color:"white",fontWeight:"var(--arcd-font-weight-semibold)"}}>{!o.capaUrl&&(o.name||"O").charAt(0)}</div><div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.name}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.address||`${Number(o.areaM2||0).toLocaleString("pt-BR")} m²`}</p></div></div>
           <span style={{fontSize:"var(--arcd-type-label)",color:o.cliente?"var(--arcd-text-primary)":"var(--arcd-text-secondary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.cliente||"Não informado"}</span>
           <span><Badge color={st.c}>{st.l}</Badge></span>
           <span style={{display:"inline-flex",alignItems:"center",gap:"var(--arcd-space-1)",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:fase?.cor||"var(--arcd-text-secondary)"}}><i style={{width:7,height:7,borderRadius:99,background:fase?.cor||"var(--arcd-border-default)"}}/>{fase?.nome||"Sem fase"}</span>
@@ -5932,7 +5980,18 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
   const [,setPendingCellsRevision]=useState(0);
   const {intent:rhIntent,navigate:navigateEmployee}=useWorkflow();
   useEffect(()=>{
-    if(rhIntent?.tabId!=='ponto_geral'||rhIntent.action!=='rh-readiness')return;
+    if(rhIntent?.tabId!=='ponto_geral')return;
+    if(rhIntent.action==='payroll-point-review'){
+      const {year: payrollYear, month: payrollMonth, obraId} = rhIntent.scope;
+      setYear(payrollYear);
+      setMonth(payrollMonth);
+      setQ(rhIntent.record.cycle);
+      setLaborGroup(rhIntent.record.laborGroup);
+      setFilterObra(obraId||'all');
+      setBusca("");
+      return;
+    }
+    if(rhIntent.action!=='rh-readiness')return;
     const employee=data.employees.find(e=>String(e.id)===rhIntent.record?.employeeId);if(!employee)return;
     setLaborGroup(laborArea(employee));
     setYear(rhIntent.scope.year);setMonth(rhIntent.scope.month);setQ(rhIntent.record.cycle);setBusca(employee.name);setFilterObra(rhIntent.scope.obraId||'all');
@@ -6085,14 +6144,11 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
   const rotuloCurto=st=>st==="M"?"½":isValidAttendanceStatus(st)?st:"·";
   const salvandoCorrecao=correcaoAtestado&&pendingCellsRef.current.has(cellKeyFor(correcaoAtestado.employee.id,correcaoAtestado.date));
   return <div className="anim ponto-geral" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
-    <LaborAreaTabs value={laborGroup} onChange={setLaborGroup}/>
-    {laborGroup!=="all"&&<p style={{color:"var(--arcd-text-secondary)"}}>Para arquivar a quinzena da empresa, selecione Todos e Todas as obras.</p>}
-    <AttendancePayMode data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} onTab={onTab}/>
     <PageHero
-      eyebrow="Gestão do ponto"
       title="Ponto da quinzena"
-      description={`${periodo} · ${contar(employees.length,"funcionário","funcionários")}`}
+      description={`${periodo} · ${filterObra==="all"?"Todas as obras":obraName(filterObra)} · ${contar(employees.length,"funcionário","funcionários")}`}
     />
+    <LaborAreaTabs value={laborGroup} onChange={setLaborGroup}/>
 
     <div className="ponto-geral-controls">
       <FilterBar layout="grid" label="Filtros da gestão do ponto" className="ponto-geral-filters">
@@ -6102,11 +6158,11 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
         <Sel label="Obra" value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
         <Inp label="Buscar funcionário" value={busca} onChange={setBusca} placeholder="Nome, cargo ou obra..."/>
       </FilterBar>
-      <p className="ponto-geral-count">{contar(employees.length,"funcionário","funcionários")} neste filtro · marcação dia a dia, clicando na célula</p>
       {!arqMeta&&["admin","rh"].includes(currentUser?.role)&&<Suspense fallback={<LoadingState label="importação de ponto"/>}><ImportarDoREP data={data} employees={employees} days={days}
         getRecord={attendanceFor} canEdit={(obraId,date)=>canEditAttendance(data,obraId,date,currentUser?.id)} obraName={obraName}
         dispatchAttendanceCommand={dispatchAttendanceCommand} newOperationId={pointOperationId} showToast={showToast}/></Suspense>}
     </div>
+    <AttendancePayMode data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} onTab={onTab}/>
 
     {arqMeta ? (
       <div className="ponto-geral-archive" style={{background:"color-mix(in srgb, var(--arcd-action-primary) 6%, transparent)",border:"1px solid var(--arcd-action-primary)",borderRadius:8,padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
@@ -6125,7 +6181,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
       <div className="ponto-geral-archive" style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:8,padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
         <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>
           {quinzenaEncerrada
-            ? "Após conferir e pagar a folha, finalize a quinzena: o ponto vira um arquivo próprio, a edição é bloqueada e o sistema fica mais leve."
+            ? "Após conferir e pagar a folha, selecione Todos e Todas as obras para arquivar e bloquear a edição da quinzena."
             : "A quinzena ainda está em andamento. Finalize somente após o último dia do ciclo e o pagamento da folha."}
         </p>
         <Btn v="warning" size="sm" onClick={finalizarQuinzena} aria-label="Finalizar e arquivar quinzena" disabled={arqBusy||!quinzenaEncerrada||laborGroup!=='all'||filterObra!=='all'}
@@ -6141,7 +6197,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
     </div>
 
     <div className="ponto-geral-legend">
-      <span className="ponto-legend-title">Clique na célula para alternar</span>
+      <span className="ponto-legend-title">Selecione a célula para alterar o status</span>
       <span className="ponto-legend-chip"><i style={{background:"var(--arcd-success-text)"}}/>Presente</span>
       <span className="ponto-legend-chip"><i style={{background:"var(--arcd-action-primary)"}}/>Meio dia</span>
       <span className="ponto-legend-chip"><i style={{background:"var(--arcd-danger-text)"}}/>Falta</span>
@@ -7327,7 +7383,8 @@ function RelatoriosMensais({ data, showToast }) {
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth());
   const [filterObra, setFilterObra] = useState("all");
-  const [view, setView] = useState("custos"); // "custos" | "relatorio"
+  const [view, setView] = useState("custos");
+  const usesMonthlyPeriod = view === "custos" || view === "relatorio" || view === "administracao";
 
   const days = useMemo(() => getDays(year, month), [year, month]);
   const obraPorIdRel = useMemo(() => new Map(data.obras.map(o => [o.id, o])), [data.obras]);
@@ -7543,23 +7600,25 @@ function RelatoriosMensais({ data, showToast }) {
       <PageHero
         eyebrow="Inteligência gerencial"
         title="Relatórios e inteligência"
-        description="Custos, produtividade e presença em uma leitura técnica unificada."
-        actions={<span style={{display:"inline-flex",padding:"5px 8px",border:`1px solid ${C.border}`,borderRadius:5,background:C.surface,color:C.yellowD,fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:.3}}>{fullMonth(month)} · {year}</span>}
+        description="Consulte custos, presença, caixa e compras."
       />
 
-      <div className="no-print" style={{display:"flex",flexWrap:"wrap",gap:8,alignItems:"center"}}>
+      <div className="no-print" style={{display:"flex",flexWrap:"wrap",gap:"var(--arcd-space-2)",alignItems:"end"}}>
         <TabRow tabs={[["custos","Painel analítico"],["relatorio","Relatório executivo"],["caixa","Caixa de obra"],["compras","Relatório de compras"],["administracao","Recebimento por administração"]]} active={view} onChange={setView}/>
-        <div style={{display:"flex",gap:8,marginLeft:"auto"}}>
-          <Sel aria-label="Mês do relatório" value={String(month)} onChange={v => setMonth(Number(v))} options={Array.from({ length: 12 }, (_, i) => ({ v: String(i), l: fullMonth(i) }))} />
-          <Sel aria-label="Ano do relatório" value={String(year)} onChange={v => setYear(Number(v))} options={Array.from({ length: 4 }, (_, i) => new Date().getFullYear() - 1 + i).map(y => ({ v: String(y), l: String(y) }))} />
-        </div>
+        {usesMonthlyPeriod && <div style={{display:"flex",gap:"var(--arcd-space-2)",marginInlineStart:"auto"}}>
+          <Sel label="Mês do relatório" value={String(month)} onChange={v => setMonth(Number(v))} options={Array.from({ length: 12 }, (_, i) => ({ v: String(i), l: fullMonth(i) }))} />
+          <Sel label="Ano do relatório" value={String(year)} onChange={v => setYear(Number(v))} options={Array.from({ length: 4 }, (_, i) => new Date().getFullYear() - 1 + i).map(y => ({ v: String(y), l: String(y) }))} />
+        </div>}
       </div>
 
       {/*  RELATÓRIO MENSAL COMPLETO  */}
       {view === "relatorio" && <RelatorioMensal data={data} year={year} month={month} showToast={showToast}/>}
 
       {/*  CAIXA DE OBRA  */}
-      {view === "caixa" && <RelatorioCaixaObra data={data} showToast={showToast}/>}
+      {view === "caixa" && <>
+        <ScopeNote title="Escopo do caixa de obra">Saldo acumulado das obras com caixa ativo.</ScopeNote>
+        <RelatorioCaixaObra data={data} showToast={showToast}/>
+      </>}
 
       {/*  RELATÓRIO DE COMPRAS  */}
       {view === "compras" && <RelatorioCompras data={data} showToast={showToast}/>}
@@ -7569,7 +7628,11 @@ function RelatoriosMensais({ data, showToast }) {
 
       {/*  INDICADORES (view padrão)  */}
       {view === "custos" && <>
-      <div className="no-print" style={{display:"flex",alignItems:"end",gap:8,flexWrap:"wrap"}}><div style={{flex:"1 1 250px"}}><Sel label="Escopo da análise" value={filterObra} onChange={escolherEscopoObra} options={[{ v: "all", l: "Todas as obras" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]}/></div><Btn onClick={exportObraCosts} v="ghost"><Ic n="download" s={14}/> Exportar base</Btn></div>
+      <div className="no-print" style={{display:"flex",alignItems:"end",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
+        <div style={{flex:"1 1 12rem",minWidth:0}}><Sel label="Escopo da análise" value={filterObra} onChange={escolherEscopoObra} options={[{ v: "all", l: "Todas as obras" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]}/></div>
+        <Btn onClick={exportObraCosts} v="ghost"><Ic n="download" s={14}/> Exportar base</Btn>
+      </div>
+      <ScopeNote title="Indicadores e exportação">{filterObra === "all" ? "Todas as obras" : obraName(filterObra)} · {fullMonth(month)} {year}.</ScopeNote>
 
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(165px,1fr))",gap:8}}>
         <ReportMetric label="Mão de obra" value={fmt(totals.laborCost)} detail={`${totals.trabalhadores} profissionais ativos`} color={C.yellow} icon="users"/>
@@ -7590,7 +7653,7 @@ function RelatoriosMensais({ data, showToast }) {
               <div>
                 <p style={{ fontFamily:FONT_DISPLAY, fontWeight:600,fontSize:"var(--arcd-type-card-title)" }}>{r.name}</p>
                 <p style={{ color: C.muted, fontSize:"var(--arcd-type-label)",marginTop:2 }}>
-                  Área: {r.areaM2 > 0 ? `${r.areaM2.toLocaleString("pt-BR")} m²` : "não cadastrada"} · {r.trabalhadores} trabalhador(es)
+                  Área: {r.areaM2 > 0 ? `${r.areaM2.toLocaleString("pt-BR")} m²` : "não cadastrada"} · {contar(r.trabalhadores,"trabalhador","trabalhadores")}
                 </p>
                 <p style={{ color: C.subtle, fontSize:"var(--arcd-type-label)",marginTop:2 }}>
                   {r.presentes} presentes · {r.meiodia} meios períodos · {r.faltas} faltas · {r.semRegistro} sem registro
@@ -9672,8 +9735,17 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
   //  Últimas movimentações desta obra
   // Secoes abertas do acordeao. Financeiro e Equipe comecam abertos - sao o
   // que se olha primeiro ao abrir uma obra.
-  const [secoesAbertas, setSecoesAbertas] = useState({ financeiro: true, equipe: true });
-  const toggleSecao = (id) => setSecoesAbertas(p => ({ ...p, [id]: !p[id] }));
+  const [secaoVisaoGeral, setSecaoVisaoGeral] = useWorkspaceState("obras", "overview-section", "resumo", obraId);
+  const faixaVisaoGeral = useRef(null);
+  useLayoutEffect(() => {
+    const faixa = faixaVisaoGeral.current;
+    const ativa = faixa?.querySelector('[aria-selected="true"]');
+    if (!ativa) return;
+    const limite = faixa.getBoundingClientRect();
+    const aba = ativa.getBoundingClientRect();
+    if (aba.left < limite.left) faixa.scrollLeft += aba.left - limite.left;
+    else if (aba.right > limite.right) faixa.scrollLeft += Math.ceil(aba.right - limite.right);
+  }, [abaConteudo, obraId, secaoVisaoGeral]);
 
   // Pop-up de chegada de material: qual pedido esta sendo confirmado.
   const [chegadaModal, setChegadaModal] = useState(null);
@@ -9988,16 +10060,42 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
     const orcado=previsaoCustos.budget?previsaoCustos.totals.budget/100:0;
     const projecao=previsaoCustos.totals.forecast/100;
     const fimProjetado=janela.fim&&prazo.resumo.desvioObra>0?somaDias(janela.fim,prazo.resumo.desvioObra):janela.fim;
+    // The plan can still point to a draft or to an older budget version.
+    // Resolve that exact link for the stage display; financial indicators keep the control baseline.
+    const orcamentoDoPlano = plano?.budgetId
+      ? (data.orcamentos || []).find(orc => orc.id === plano.budgetId && orc.obraId === obraId
+        && (!plano.budgetVersionId || (orc.versionId || orc.id) === plano.budgetVersionId))
+      : resumo?.orc;
+    const tarefasPorVersao = orcamentoDoPlano === resumo?.orc ? executivas
+      : aplicarRollup(fundirEvolucao(montarTarefas(plano, orcamentoDoPlano), data.rdos, obraId), orcamentoDoPlano)
+        .filter(tarefa => !tarefa.titulo);
+    const etapasPorId = new Map((orcamentoDoPlano?.etapas || []).map(etapa => [etapa.id, etapa]));
+    const tarefasPorEtapa = new Map();
+    const desviosEtapas = tarefasPorVersao === executivas ? prazo : desvioAutomatico(tarefasPorVersao, hoje);
+    const desviosPorId = new Map(desviosEtapas.linhas.map(linha => [linha.id, linha]));
+    for (const tarefa of tarefasPorVersao) {
+      const etapa = etapasPorId.get(tarefa.etapaId);
+      if (!etapa) continue;
+      if (!tarefasPorEtapa.has(etapa.id)) tarefasPorEtapa.set(etapa.id, []);
+      tarefasPorEtapa.get(etapa.id).push(tarefa);
+    }
+    const etapas = Array.from(tarefasPorEtapa, ([id, vinculadas]) => {
+      const medicaoEtapa = resumoMedicao(vinculadas);
+      const progresso = vinculadas.length === 1 ? vinculadas[0].progresso
+        : (medicaoEtapa.temBaseValor ? medicaoEtapa.avancoFisico : null);
+      const atrasada = vinculadas.some(tarefa => desviosPorId.get(tarefa.id)?.situacao === "atrasada");
+      return { id, nome: etapasPorId.get(id).nome, progresso, atrasada };
+    });
     const tarefasCriticas=prazo.linhas.filter(l=>!l.titulo&&l.situacao==="atrasada").sort((a,b)=>Number(b.desvio||0)-Number(a.desvio||0)).slice(0,5);
     const medidoFinanceiro=(resumo?.medicoes||[]).reduce((s,m)=>s+Number(m.valorPrevisto||0),0);
     const percentualMedido=Number(obra?.contractValue||0)>0?medidoFinanceiro/Number(obra.contractValue)*100:0;
-    return{temPlano:!!plano&&executivas.length>0,tarefas:executivas,progresso:Math.round(medicao.avancoFisico||0),temBaseAvanco:medicao.temBaseValor,prazo:prazo.resumo,
+    return{temPlano:!!plano&&executivas.length>0,tarefas:executivas,etapas,progresso:Math.round(medicao.avancoFisico||0),temBaseAvanco:medicao.temBaseValor,prazo:prazo.resumo,
       inicio:janela.ini,fimPlanejado:janela.fim,fimProjetado,tarefasCriticas,custos:{orcado,comprometido,recebido,aplicado,projecao,saldo:orcado-projecao,temOrcamento:!!previsaoCustos.budget,reconferir:previsaoCustos.rows.some(r=>r.revision&&!r.reviewValid),semInicio:acumulado.missingStart?.includes(obraId),restante:previsaoCustos.totals.remaining/100,reserva:previsaoCustos.totals.contingency/100,mudancas:previsaoCustos.totals.changeImpact/100},percentualMedido};
   },[data,resumo?.orc,resumo?.orcTotal,resumo?.medicoes,obraId,obra?.contractValue,hoje]);
 
   const indicadoresGerais=useMemo(()=>{
     const pendencias=(data.conferencias||[]).filter(c=>c.obraId===obraId).flatMap(c=>c.pendencias||[]).filter(p=>p.status!=="resolvida");
-    return{progresso:previsaoObra.progresso,pendencias:pendencias.length,criticas:pendencias.filter(p=>p.impacto==="critico").length,atrasadas:previsaoObra.prazo.atrasadas||0};
+    return{pendencias:pendencias.length,criticas:pendencias.filter(p=>p.impacto==="critico").length,atrasadas:previsaoObra.prazo.atrasadas||0};
   },[data.conferencias,obraId,previsaoObra]);
 
   if (!obra || !resumo) {
@@ -10074,32 +10172,61 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
     setAbaConteudo(destino);
   };
 
-  // Uma secao do acordeao: cabecalho clicavel + corpo que abre/fecha.
-  // `cor` tinge o icone e o badge; `badge` aparece so quando ha algo a notar.
-  const Secao = ({ id, icone, titulo, cor, badge, atalho, children }) => {
-    const aberta = !!secoesAbertas[id];
-    return (
-      <div className="acc-sec" style={{ "--acc-color": cor || "var(--arcd-action-primary)" }}>
-        <StandardButton variant="secondary" className="acc-hd" data-open={aberta}
-                onClick={() => toggleSecao(id)} aria-expanded={aberta}>
-          <span className="acc-ic"><IcoObra n={icone} s={17}/></span>
-          <span className="acc-title">{titulo}</span>
-          {badge != null && <span className="acc-badge">{badge}</span>}
-          <span className="acc-chev"><ChevronBaixo s={14}/></span>
-        </StandardButton>
-        {aberta && (
-          <div className="acc-body">
-            {children}
-            {atalho && (
-              <StandardButton variant="secondary" className="acc-link" onClick={() => abrirModuloDaObra(atalho)}>
-                Abrir {workNavigationTarget(atalho,ehAdmin)?.label||"visão geral"}
-              </StandardButton>
-            )}
-          </div>
-        )}
-      </div>
-    );
-  };
+  const acoesVisaoGeral = [
+    previsaoObra.custos.temOrcamento && previsaoObra.custos.saldo < 0 && {
+      destino: "dre", texto: "Conferir risco de estouro do orçamento",
+      detalhe: `${fmt(Math.abs(previsaoObra.custos.saldo))} acima do orçamento na previsão`,
+    },
+    indicadoresGerais.atrasadas > 0 && {
+      destino: "plan", texto: "Revisar atrasos no planejamento",
+      detalhe: contar(indicadoresGerais.atrasadas, "tarefa atrasada", "tarefas atrasadas"),
+    },
+    indicadoresGerais.pendencias > 0 && {
+      destino: "conferencia", texto: "Revisar pendências de conferência",
+      detalhe: indicadoresGerais.criticas ? contar(indicadoresGerais.criticas, "pendência crítica", "pendências críticas")
+        : contar(indicadoresGerais.pendencias, "pendência aberta", "pendências abertas"),
+    },
+    resumo.abaixoMin > 0 && {
+      destino: "est", texto: "Conferir estoque mínimo",
+      detalhe: contar(resumo.abaixoMin, "material abaixo do mínimo", "materiais abaixo do mínimo"),
+    },
+    resumo.cmp.aReceber > 0.01 && {
+      destino: "cmp", texto: "Acompanhar compras a entregar",
+      detalhe: `${fmt(resumo.cmp.aReceber)} em compras a entregar`,
+    },
+  ].filter(Boolean);
+
+  const secoesVisaoGeral = [
+    ["resumo", "Resumo"],
+    ["detalhes", "Detalhes gerais"],
+    ["arquivos", ehAdmin ? "Arquivos da obra" : "Enviar e organizar arquivos"],
+    ["diarios", "Diário de obra"],
+    ["cliente", "Dados do cliente"],
+    ["tarefas", "Próximas tarefas"],
+    ["pagamentos", "Próximos recebimentos"],
+    ["financeiro", "Financeiro"],
+    ["equipe", "Equipe"],
+    ["orcamento", "Orçamento"],
+    ["compras", "Compras"],
+    ["estoque", "Estoque"],
+    ["medicoes", "Medições"],
+    ["atividade", "Atualizações da obra"],
+  ];
+  const titulosSecoes = new Map(secoesVisaoGeral);
+  const secaoAtual = titulosSecoes.has(secaoVisaoGeral) ? secaoVisaoGeral : "resumo";
+  const renderSecao = (id, children, atalho) => (
+    <TabsContent key={id} value={id} className="work-overview-section">
+      <section className="work-overview-panel">
+        <header className="work-overview-panel__header"><h2>{titulosSecoes.get(id)}</h2></header>
+        <div className="work-overview-section__body">
+          {children}
+          {atalho && <StandardButton variant="secondary" onClick={() => abrirModuloDaObra(atalho)}>
+            Abrir {workNavigationTarget(atalho, ehAdmin)?.label || "visão geral"}
+          </StandardButton>}
+        </div>
+      </section>
+    </TabsContent>
+  );
 
   const barra = (pct, cor) => (
     <div style={{marginTop:"var(--arcd-space-2)",height:6,background:"var(--arcd-border-default)",borderRadius:99,overflow:"hidden"}}>
@@ -10108,10 +10235,18 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
     </div>
   );
 
+  const resumoAcoesObra = (abaConteudo!=="geral" || obra.capaUrl)&&<details className="work-detail-summary" data-overview={abaConteudo==="geral"} open={abaConteudo==="geral"}><summary>Resumo e ações da obra</summary>
+        {abaConteudo!=="geral"&&<div className="work-detail-summary__actions"><Btn v="ghost" onClick={()=>inputCapaRef.current?.click()} disabled={enviandoCapa}>{enviandoCapa?"Enviando...":obra.capaUrl?"Alterar imagem":"Adicionar imagem"}</Btn><Btn onClick={onEditarObra}><Ic n="edit" s={14}/> Editar obra</Btn></div>}
+        {obra.capaUrl&&<img className="work-detail-image" src={obra.capaUrl} alt={`Imagem de ${obra.name}`}/>}
+</details>;
+
   return (
     <div className="anim work-detail-workspace" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
       <div className="work-detail-context">
-        <Btn v="ghost" onClick={onVoltar}>Todas as obras</Btn>
+        {abaConteudo === "orc" ? <div className="work-detail-budget-context">
+          <Btn v="ghost" onClick={onVoltar}>Todas as obras</Btn>
+          {resumoAcoesObra}
+        </div> : <Btn v="ghost" onClick={onVoltar}>Todas as obras</Btn>}
         <PageHeader className="workspace-header" title={obra.name}
           description={[obra.cliente,obra.engineer&&`Eng. ${obra.engineer}`].filter(Boolean).join(" · ")}
           primaryAction={abaConteudo==="geral"&&<Btn onClick={onEditarObra}><Ic n="edit" s={14}/> Editar obra</Btn>}
@@ -10120,14 +10255,11 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         </PageHeader>
         <input ref={inputCapaRef} type="file" accept="image/*" style={{display:"none"}}
           onChange={event=>{const file=event.target.files?.[0];if(file)enviarCapa(file);event.target.value="";}}/>
-        <details className="work-detail-summary" data-overview={abaConteudo==="geral"} open={abaConteudo==="geral"}><summary>Resumo e ações da obra</summary>
-        {abaConteudo!=="geral"&&<div className="work-detail-summary__actions"><Btn v="ghost" onClick={()=>inputCapaRef.current?.click()} disabled={enviandoCapa}>{enviandoCapa?"Enviando...":obra.capaUrl?"Alterar imagem":"Adicionar imagem"}</Btn><Btn onClick={onEditarObra}><Ic n="edit" s={14}/> Editar obra</Btn></div>}
-        {obra.capaUrl&&<CompanyAssetImage className="work-detail-image" src={obra.capaUrl} alt={`Imagem de ${obra.name}`}/>}
-        <dl className="work-detail-metrics">{[["Contrato",fmt(obra.contractValue)],["Recebido",fmt(resumo.recebido)],["Resultado",fmt(margem)]].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl></details>
+        {abaConteudo !== "orc" && resumoAcoesObra}
 
       {/* Navegação compacta em dois níveis. O primeiro nível acompanha a
           largura da tela; o segundo mostra apenas os módulos do grupo ativo. */}
-      {(()=>{const grupos=workNavigationGroups(ehAdmin);const grupo=grupos.find(g=>g.id===grupoMenuObra)||grupos[0];return <div style={{marginBottom:"var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>
+      {(()=>{const grupos=workNavigationGroups(ehAdmin);const grupo=grupos.find(g=>g.id===grupoMenuObra)||grupos[0];return <div className="work-detail-navigation" style={{marginBottom:"var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>
         <label className="work-detail-navigation__mobile"><span>Telas da obra</span><SelectControl aria-label="Telas da obra" value={abaConteudo} onChange={event=>{const id=event.target.value;const owner=grupos.find(group=>group.itens.some(item=>item[0]===id));if(!owner)return;setGrupoMenuObra(owner.id);const item=owner.itens.find(entry=>entry[0]===id);if(["geral","arquivos","portal","qualidade","seguranca"].includes(id))setAbaConteudo(id);else if(item?.[2])abrirModuloDaObra(item[2]);}}>{grupos.map(group=><optgroup key={group.id} label={group.label}>{group.itens.map(([id,label])=><option key={id} value={id}>{label}</option>)}</optgroup>)}</SelectControl></label>
         <div className="work-detail-navigation__desktop"><TabRow label="Áreas da obra" equal tabs={grupos.map(g=>[g.id,g.label])} active={grupoMenuObra} onChange={id=>{const first=grupos.find(group=>group.id===id)?.itens[0];if(first)abrirModuloDaObra(first[0]);}}/>
         {grupo.id!=="geral"&&<TabRow label="Telas da obra" equal tabs={grupo.itens.map(([id,label])=>[id,label])} active={abaConteudo} onChange={id=>{const item=grupo.itens.find(([iid])=>iid===id);if(["arquivos","portal","qualidade","seguranca"].includes(id))setAbaConteudo(id);else if(item?.[2])abrirModuloDaObra(item[2]);}}/>}
@@ -10137,15 +10269,55 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
 
       {!workNavigationTarget(abaConteudo,ehAdmin)&&<div role="alert"><p>Esta tela da obra não está disponível.</p><StandardButton onClick={()=>abrirModuloDaObra("geral")}>Voltar à visão geral</StandardButton></div>}
       {abaConteudo==="medicoes"&&<StandardButton onClick={()=>abrirModuloDaObra("medicoes")}>Abrir medições a faturar</StandardButton>}
-      {abaConteudo==="geral"?<>
-      <AditivosContrato obra={obra} data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast}/>
-      <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:"var(--arcd-space-2)",marginBottom:"var(--arcd-space-3)"}}>{[
-        ["Evolução por valor",indicadoresGerais.temBaseAvanco?`${indicadoresGerais.progresso}%`:"Sem base de valor",C.blue,"trending"],
-        ["Pendências abertas",indicadoresGerais.pendencias,indicadoresGerais.criticas?C.red:C.orange,"alert"],
-        ["Tarefas atrasadas",indicadoresGerais.atrasadas,indicadoresGerais.atrasadas?C.red:C.green,"calendar"],
-        ["A receber",fmt(resumo.aReceber),resumo.aReceber?C.orange:C.green,"dollar"],
-      ].map(([label,value,color,icon])=><div key={label} style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:10,padding:"var(--arcd-space-3)"}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>{label}</p><Ic n={icon} s={13} color={color}/></div><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color,marginTop:"var(--arcd-space-1)"}}>{value}</p>{label==="Pendências abertas"&&indicadoresGerais.criticas>0&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-danger-text)",marginTop:"var(--arcd-space-half)"}}>{contar(indicadoresGerais.criticas,"crítica","críticas")}</p>}</div>)}</div>
+      {abaConteudo==="geral"?<Tabs value={secaoAtual} onValueChange={setSecaoVisaoGeral} activationMode="manual" className="work-overview-tabs">
+        <TabsList ref={faixaVisaoGeral} aria-label="Informações da obra" className="work-overview-tabs__list">
+          {secoesVisaoGeral.map(([id, titulo]) => <TabsTrigger key={id} value={id} className="work-overview-tabs__trigger">{titulo}</TabsTrigger>)}
+        </TabsList>
+      <TabsContent value="resumo" className="work-overview-tabs__summary">
+      <div className="page-hero__stats work-overview-metrics" role="group" aria-label="Indicadores da obra">
+        {[
+          ["Orçado", previsaoObra.custos.temOrcamento ? fmt(previsaoObra.custos.orcado) : null, "Sem orçamento aprovado"],
+          ["Comprometido em compras", fmt(resumo.cmp.comprado)],
+          ["Custo reconhecido", fmt(resumo.despesas)],
+          ["Avanço físico", previsaoObra.temBaseAvanco ? pct1(previsaoObra.progresso) : null, "Sem base de valor"],
+        ].map(([label, value, missing]) => <div className="page-hero__stat" key={label}>
+          <p className="page-hero__stat-label">{label}</p>
+          {value == null ? <p className="page-hero__stat-detail">{missing}</p> : <p className="page-hero__stat-value">{value}</p>}
+        </div>)}
+      </div>
 
+      <div className="work-overview-grid">
+        <section className="work-overview-panel" aria-labelledby="work-stage-heading">
+          <header className="work-overview-panel__header">
+            <h2 id="work-stage-heading">Avanço por etapa</h2>
+            <StandardButton variant="secondary" onClick={() => abrirModuloDaObra("plan")}>Abrir planejamento</StandardButton>
+          </header>
+          {previsaoObra.etapas.length ? <table className="work-overview-table" aria-labelledby="work-stage-heading">
+            <thead><tr><th scope="col">Etapa</th><th scope="col">Situação</th><th scope="col" data-align="end">Avanço</th></tr></thead>
+            <tbody>{previsaoObra.etapas.map(({id, nome, progresso, atrasada}) => <tr key={id}>
+              <th scope="row">{nome}</th>
+              <td data-overdue={atrasada || undefined}>{atrasada ? "Em atraso" : progresso >= 100 ? "Concluída" : progresso > 0 ? "Em andamento" : progresso === 0 ? "Sem avanço" : "Sem base"}</td>
+              <td data-align="end">{progresso == null ? "Sem base" : <div className="work-overview-progress">
+                <progress aria-label={`Avanço de ${nome}`} max={100} value={progresso}/>
+                <span>{pct1(progresso)}</span>
+              </div>}</td>
+            </tr>)}</tbody>
+          </table> : <p className="work-overview-panel__message">Nenhuma etapa do orçamento está vinculada ao planejamento desta obra.</p>}
+        </section>
+
+        <section className="work-overview-panel" aria-labelledby="work-next-heading">
+          <header className="work-overview-panel__header"><h2 id="work-next-heading">Próximas ações</h2></header>
+          {acoesVisaoGeral.length ? <ul className="work-overview-actions">
+            {acoesVisaoGeral.map(({destino, texto, detalhe}) => <li key={destino}>
+              <StandardButton variant="ghost" onClick={() => abrirModuloDaObra(destino)}>
+                <span><strong>{texto}</strong><small>{detalhe}</small></span><span aria-hidden="true">›</span>
+              </StandardButton>
+            </li>)}
+          </ul> : <p className="work-overview-panel__message">Nenhuma ação prioritária registrada.</p>}
+        </section>
+      </div>
+
+      <TaskDisclosure summary="Previsão executiva da obra">
       <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderLeft:`1px solid ${previsaoObra.prazo.atrasadas||previsaoObra.custos.saldo<0?"var(--arcd-danger-text)":"var(--arcd-action-primary)"}`,borderRadius:10,padding:"var(--arcd-space-3)",marginBottom:"var(--arcd-space-3)"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}><div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Previsão executiva da obra</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>O avanço oficial vem do boletim técnico aprovado. A evolução informada no Planejamento pode ser diferente.</p></div><Btn size="sm" v="ghost" onClick={()=>abrirModuloDaObra("plan")}>Abrir planejamento</Btn></div>
         {!previsaoObra.temPlano?<div style={{marginTop:"var(--arcd-space-2)",background:"color-mix(in srgb, var(--arcd-warning-text) 4%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)",borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-warning-text)"}}>A obra ainda não possui cronograma executável.</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Crie ou sincronize o planejamento com o orçamento para habilitar previsão de prazo e avanço ponderado.</p></div>:<>
@@ -10166,23 +10338,11 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         {previsaoObra.custos.temOrcamento&&previsaoObra.custos.saldo<0&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-danger-text)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-2)"}}>Risco de estouro: previsão supera o orçamento em {fmt(Math.abs(previsaoObra.custos.saldo))}.</p>}
       </div>
 
-      {/* Alertas ficam FORA do acordeao: precisam ser vistos sem abrir nada */}
-      {resumo.abaixoMin > 0 && (
-        <div style={{background:"color-mix(in srgb, var(--arcd-danger-text) 5%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-danger-text) 40%, transparent)",borderRadius:6,
-                     padding:"var(--arcd-space-2) var(--arcd-space-3)",marginBottom:"var(--arcd-space-2)"}}>
-          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-danger-text)"}}>
-            {resumo.abaixoMin} material(is) abaixo do estoque mínimo
-          </p>
-        </div>
-      )}
-      {resumo.cmp.aReceber > 0.01 && (
-        <div style={{background:"color-mix(in srgb, var(--arcd-warning-text) 5%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 40%, transparent)",borderRadius:6,
-                     padding:"var(--arcd-space-2) var(--arcd-space-3)",marginBottom:"var(--arcd-space-2)"}}>
-          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-warning-text)"}}>
-            {fmt(resumo.cmp.aReceber)} comprado e ainda não entregue
-          </p>
-        </div>
-      )}
+      </TaskDisclosure>
+
+      <TaskDisclosure summary="Mudanças e aditivos">
+        <AditivosContrato obra={obra} data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast}/>
+      </TaskDisclosure>
 
       {/* POP-UP DE CHEGADA: material a caminho que a obra ainda nao confirmou.
           A equipe de campo confirma aqui - o material entra no estoque sozinho. */}
@@ -10209,7 +10369,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
                   <div style={{minWidth:0,flex:1}}>
                     <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Pedido {p.numero}</p>
                     <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-0)"}}>
-                      {forn?.nome || "-"} - {nItens} item(ns) a receber
+                      {forn?.nome || "Fornecedor não informado"} · {contar(nItens, "item a receber", "itens a receber")}
                     </p>
                   </div>
                   <Btn size="sm" onClick={() => setChegadaModal(p)}>Chegou</Btn>
@@ -10224,17 +10384,16 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
       {chegadaModal && (
         <Suspense fallback={<Modal title={`Confirmar chegada - pedido ${chegadaModal.numero}`} onClose={()=>!chegadaEnviando&&setChegadaModal(null)}><LoadingState label="recebimento"/></Modal>}>
           <ModalRecebimentoCompras pedido={chegadaModal} titulo={`Confirmar chegada - pedido ${chegadaModal.numero}`}
+            obraNome={(data.obras||[]).find(item=>item.id===chegadaModal.obraId)?.name}
             onClose={() => !chegadaEnviando && setChegadaModal(null)} onReceber={confirmarChegada}
             nomeMat={id => (data.materiais||[]).find(m => m.id === id)?.descricao || "Material"}
             nomeForn={id => (data.fornecedores||[]).find(f => f.id === id)?.nome || "-"}/>
         </Suspense>
       )}
 
-      {/* ==== SECOES EM ACORDEAO ==== */}
-      {/* Detalhes gerais: o cartao de identidade da obra, com o tipo de
-          contrato em destaque e atalho para editar. */}
-      <Secao id="detalhes" icone="orcamento" titulo="Detalhes gerais" cor={C.yellowD}
-             badge={CONTRACT_LABELS[obra.contractType]||obra.contractType}>
+      </TabsContent>
+
+      {renderSecao("detalhes", <>
         <div style={{display:"flex",justifyContent:"flex-end",marginBottom:"var(--arcd-space-2)"}}><Btn size="sm" v="ghost" onClick={onEditarObra}><Ic n="edit"/> Editar dados da obra</Btn></div>
         <div style={{display:"grid",gridTemplateColumns:cols(2,3,3),gap:"var(--arcd-space-2)"}}>
           {[["Tipo de contrato", CONTRACT_LABELS[obra.contractType]||obra.contractType],
@@ -10263,10 +10422,9 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
             </div>
           );
         })()}
-      </Secao>
+      </>)}
 
-      <Secao id="arquivos" icone="arquivos" titulo={ehAdmin?"Arquivos da obra":"Enviar e organizar arquivos"} cor={C.blue}
-             badge={obra.oneDriveUrl ? "OneDrive" : null}>
+      {renderSecao("arquivos", <>
         {ehAdmin&&obra.oneDriveUrl ? (
           <>
             <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)",marginBottom:"var(--arcd-space-2)"}}>
@@ -10300,18 +10458,17 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
           <input ref={inputDocumentoRef} type="file" style={{display:"none"}} onChange={e=>{enviarDocumento(e.target.files?.[0]);e.target.value="";}}/>
         </>}
         <div style={{marginTop:"var(--arcd-space-2)",paddingTop:"var(--arcd-space-2)",borderTop:"1px solid var(--arcd-border-default)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",marginBottom:"var(--arcd-space-1)"}}>Documentos disponíveis</p>{!(obra.documentosOneDrive||[]).length?<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhum documento enviado pelo ArcD.</p>:(obra.documentosOneDrive||[]).map(doc=>linkDocumentoObra(doc,true))}</div>
-      </Secao>
+      </>)}
 
-      <Secao id="diarios" icone="atividade" titulo="Diário de Obra" cor={C.green}
-             badge={(data.rdos||[]).filter(r=>r.obraId===obraId).length||null}>
+      {renderSecao("diarios", <>
         {(() => {const lista=(data.rdos||[]).filter(r=>r.obraId===obraId).sort((a,b)=>(b.data||"").localeCompare(a.data||"")).slice(0,3);return <>
           {lista.length?lista.map(r=><div key={r.id} style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-1) var(--arcd-space-0)",borderBottom:"1px solid var(--arcd-border-default)"}}><div><b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>RDO-{String(r.codigo||0).padStart(3,"0")} · {fmtDate(r.data)}</b><p style={{fontSize:"var(--arcd-type-caption)",color:r.status==="concluido"?"var(--arcd-success-text)":"var(--arcd-warning-text)"}}>{r.status==="concluido"?"Concluído":"Em preparação"} · {contar((r.fotos||[]).length,"foto","fotos")}</p></div></div>):<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhum relatório registrado para esta obra.</p>}
           <Btn full style={{marginTop:"var(--arcd-space-2)"}} onClick={()=>abrirModuloDaObra("rdo")}><Ic n="clipboard"/> Abrir histórico e registrar RDO</Btn>
         </>;})()}
-      </Secao>
+      </>)}
 
       {/* Dados do cliente */}
-      <Secao id="cliente" icone="equipe" titulo="Dados do cliente" cor={C.blue}>
+      {renderSecao("cliente", <>
         {!obra.cliente ? (
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Cliente não informado.</p><Btn size="sm" v="info" onClick={onEditarObra}><Ic n="plus"/> Cadastrar cliente</Btn></div>
         ) : (() => {
@@ -10331,7 +10488,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
             </div><div style={{display:"flex",justifyContent:"flex-end",marginTop:"var(--arcd-space-2)"}}><Btn size="sm" v="info" onClick={onEditarObra}><Ic n="edit"/> Editar obra ou cliente</Btn></div></>
           );
         })()}
-      </Secao>
+      </>)}
 
       {/* Proximas tarefas do cronograma */}
       {(() => {
@@ -10342,8 +10499,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
           .sort((a,b)=>(a.inicio||"").localeCompare(b.inicio||""))
           .slice(0,5) : [];
         return (
-          <Secao id="tarefas" icone="orcamento" titulo="Próximas tarefas" cor={C.purple}
-                 badge={tarefas.length||null} atalho="plan">
+          renderSecao("tarefas", <>
             {tarefas.length===0
               ? <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhuma tarefa pendente no cronograma.</p>
               : (
@@ -10366,11 +10522,11 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
                   ))}
                 </div>
               )}
-          </Secao>
+          </>, "plan")
         );
       })()}
 
-      {/* Proximos pagamentos (medicoes a receber) */}
+      {/* Próximos recebimentos do cliente */}
       {(() => {
         const pend = (data.medicoes||[])
           .filter(m=>m.obraId===obraId && statusRecebimentoMedicao(m)!=="recebida")
@@ -10378,8 +10534,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
           .slice(0,5);
         const total = pend.reduce((s,m)=>s+Number(m.valorPrevisto||0),0);
         return (
-          <Secao id="pagamentos" icone="medicoes" titulo="Próximos pagamentos" cor={C.green}
-                 badge={pend.length||null} atalho="medicoes">
+          renderSecao("pagamentos", <>
             {pend.length===0
               ? <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhuma parcela em aberto.</p>
               : (<>
@@ -10403,31 +10558,29 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
                   <b style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-success-text)"}}>{fmt(total)}</b>
                 </div>
               </>)}
-          </Secao>
+          </>, "medicoes")
         );
       })()}
 
 
 
-      <Secao id="financeiro" icone="financeiro" titulo="Financeiro" cor={C.green} atalho="dre">
+      {renderSecao("financeiro", <>
         <Par l="Recebido" v={fmt(resumo.recebido)} c={C.green}/>
         <Par l="A receber" v={fmt(resumo.aReceber)} c={C.orange}/>
         <Par l="Despesas" v={fmt(resumo.despesas)} c={C.red}/>
         <div style={{borderTop:"1px solid var(--arcd-border-default)",marginTop:"var(--arcd-space-2)",paddingTop:"var(--arcd-space-2)"}}>
           <Par l="Resultado" v={fmt(margem)} c={margem >= 0 ? C.green : C.red}/>
         </div>
-      </Secao>
+      </>, "dre")}
 
-      <Secao id="equipe" icone="equipe" titulo="Equipe"
-             cor={C.blue} atalho="ponto"
-             badge={resumo.presentesHoje > 0 ? resumo.presentesHoje : null}>
+      {renderSecao("equipe", <>
         <Par l="Lotados nesta obra" v={`${resumo.equipe}`}/>
         <Par l="Presentes hoje" v={`${resumo.presentesHoje}`}
              c={resumo.presentesHoje > 0 ? C.green : C.muted}/>
         <Par l="Terceirizados" v={`${resumo.terceiros}`}/>
-      </Secao>
+      </>, "ponto")}
 
-      <Secao id="orcamento" icone="orcamento" titulo="Orçamento" cor={C.yellow} atalho="orc">
+      {renderSecao("orcamento", <>
         {resumo.orc ? (<>
           <Par l="Custo orçado" v={fmt(resumo.orcTotal)}/>
           <Par l="Já comprado" v={fmt(resumo.cmp.comprado)} c={C.blue}/>
@@ -10440,35 +10593,33 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
             Sem orçamento vinculado a esta obra.
           </p>
         )}
-      </Secao>
+      </>, "orc")}
 
-      <Secao id="compras" icone="compras" titulo="Compras" cor={C.blue} atalho="cmp"
-             badge={resumo.pedAbertos.length || null}>
+      {renderSecao("compras", <>
         <Par l="Comprado" v={fmt(resumo.cmp.comprado)}/>
         <Par l="Recebido" v={fmt(resumo.cmp.recebido)} c={C.blue}/>
         <Par l="Aplicado" v={fmt(resumo.cmp.aplicado)} c={C.green}/>
         <Par l="Pedidos em aberto" v={`${resumo.pedAbertos.length}`}
              c={resumo.pedAbertos.length ? C.orange : C.muted}/>
-      </Secao>
+      </>, "cmp")}
 
-      <Secao id="estoque" icone="estoque" titulo="Estoque" cor={C.purple} atalho="est"
-             badge={resumo.abaixoMin || null}>
+      {renderSecao("estoque", <>
         <Par l="Itens com saldo" v={`${resumo.itensEstoque}`}/>
         <Par l="Valor parado" v={fmt(resumo.valorEstoque)} c={C.yellow}/>
         <Par l="Abaixo do mínimo" v={`${resumo.abaixoMin}`}
              c={resumo.abaixoMin ? C.red : C.green}/>
-      </Secao>
+      </>, "est")}
 
-      <Secao id="medicoes" icone="medicoes" titulo="Medições" cor={C.green} atalho="medicoes">
+      {renderSecao("medicoes", <>
         <Par l="Emitidas" v={`${resumo.medicoes.length}`}/>
         <Par l="Recebidas" v={`${resumo.medicoes.filter(m=>statusRecebimentoMedicao(m)==="recebida").length}`} c={C.green}/>
         <Par l="Em aberto" v={fmt(resumo.aReceber)} c={C.orange}/>
-      </Secao>
+      </>, "medicoes")}
 
-      <Secao id="atividade" icone="atividade" titulo="Atualizações da obra" cor={C.blue} badge={atualizacoesObra.length||null}>
+      {renderSecao("atividade", <>
         {atualizacoesObra.length===0?<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhuma atualização registrada ainda.</p>:<div style={{display:"flex",flexDirection:"column"}}>{atualizacoesObra.map((e,i)=>{const d=new Date(e.at);const hora=d.getHours()===0&&d.getMinutes()===0?"":d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});const cor=e.tipo==="removeu"?C.red:e.tipo==="criou"?C.green:e.tipo==="operacao"?C.orange:C.blue;return <div key={e.id} style={{display:"grid",gridTemplateColumns:"34px minmax(0,1fr) auto",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-0)",borderTop:i?"1px solid var(--arcd-border-default)":"none",alignItems:"start"}}><span style={{width:30,height:30,borderRadius:99,display:"grid",placeItems:"center",background:`${cor}12`,color:cor,fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{String(e.responsavel||"S").split(/\s+/).slice(0,2).map(n=>n[0]).join("").toUpperCase()}</span><div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",lineHeight:"var(--arcd-line-height-normal)"}}>{e.texto}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Responsável: <strong style={{color:"var(--arcd-text-primary)"}}>{e.responsavel}</strong></p></div><div style={{textAlign:"right",whiteSpace:"nowrap"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{d.toLocaleDateString("pt-BR")}</p>{hora&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{hora}</p>}{e.valor>0&&<p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-success-text)",marginTop:"var(--arcd-space-half)"}}>{fmt(e.valor)}</p>}</div></div>;})}</div>}
-      </Secao>
-      </>:<div style={{paddingTop:"var(--arcd-space-1)"}}>
+      </>)}
+      </Tabs>:<div style={{paddingTop:"var(--arcd-space-1)"}}>
         {abaConteudo==="orc"&&<Suspense fallback={<LoadingState label="orçamento"/>}><Orcamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} todasObras={data.obras} todosOrcamentosGlobais={data.orcamentos} todosPlanosGlobais={data.planos}/></Suspense>}
         {abaConteudo==="plan"&&<Suspense fallback={<LoadingState label="planejamento"/>}><Planejamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand}/></Suspense>}
         {abaConteudo==="rdo"&&<Suspense fallback={<LoadingState label="diário de obra"/>}><DiarioObra data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/></Suspense>}
@@ -10632,7 +10783,24 @@ function Qualidade({data,showToast,currentUser,obraIdFixo="",dispatchCommand=nul
     const result=await executar(atual=>{const vigente=(atual.qualidadeRegistros||[]).find(registro=>registro.id===ficha.id);return {type:OPERATIONAL_COMMAND.QUALITY_RECORD_RELEASED,idempotencyKey:`liberar-qualidade-${ficha.id}-${uid()}`,expectedVersion:Number(vigente?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",payload:{recordId:ficha.id}};},"Não foi possível liberar a ficha.");
     if(result?.ok)showToast("Ficha liberada para medição.");
   };
-  return <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}><PageHero eyebrow="Engenharia de campo" title="Qualidade · FVS e FVM" description="Inspeções, não conformidades e liberações confirmadas pelo servidor." actions={<Btn onClick={gerarPlano} disabled={gerando}><Ic n="plus"/> {gerando?"Gerando...":"Gerar/atualizar plano"}</Btn>}/><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"var(--arcd-space-2)"}}>{[["FVS",regs.filter(item=>item.tipo==="fvs").length,C.blue],["FVM",regs.filter(item=>item.tipo==="fvm").length,C.purple],["Liberadas",regs.filter(item=>item.status==="aprovada").length,C.green],["Não conformes",regs.filter(item=>item.status==="reprovada").length,C.red]].map(([label,value,color])=><div key={label} style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderTop:`3px solid ${color}`,borderRadius:7,padding:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{label}</p><b style={{fontSize:"var(--arcd-type-card-title)",color}}>{value}</b></div>)}</div>{regs.map(ficha=>{const open=aberto===ficha.id;const feitos=(ficha.itens||[]).filter(item=>item.status!=="pendente").length;const draft=rascunho(ficha.id);return <div key={ficha.id} style={{background:"var(--arcd-surface-card)",border:`1px solid ${ficha.status==="reprovada"?"var(--arcd-danger-text)":"var(--arcd-border-default)"}`,borderRadius:8,overflow:"hidden"}}><StandardButton variant="secondary" onClick={()=>setAberto(open?"":ficha.id)} style={{width:"100%",display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",textAlign:"left"}}><div><b style={{fontSize:"var(--arcd-type-label)",color:ficha.tipo==="fvs"?"var(--arcd-action-primary)":"var(--arcd-action-primary)"}}>{ficha.codigo} · {ficha.tipo.toUpperCase()}</b><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)"}}>{ficha.titulo}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Responsável: {ficha.responsavel||"Não definido"} · {feitos}/{(ficha.itens||[]).length} critérios</p></div><Badge color={ficha.status==="aprovada"?C.green:ficha.status==="reprovada"?C.red:C.orange}>{ficha.status}</Badge></StandardButton>{open&&<div style={{borderTop:"1px solid var(--arcd-border-default)",padding:"var(--arcd-space-2)"}}><Sel label="Responsável pela execução/correção" value={draft.responsavelId??ficha.responsavelId} onChange={value=>editarRascunho(ficha.id,{responsavelId:value})} options={[{v:"",l:"Selecione"},...usuarios.map(user=>({v:user.id,l:user.nome}))]}/><Inp label="Referência técnica (projeto, memorial, procedimento, norma)" value={draft.normaProjeto??ficha.normaProjeto} onChange={value=>editarRascunho(ficha.id,{normaProjeto:value})}/><Btn size="sm" v="ghost" style={{marginTop:"var(--arcd-space-2)"}} onClick={()=>salvarDetalhes(ficha)}>Salvar referência</Btn><div style={{marginTop:"var(--arcd-space-2)"}}>{(ficha.itens||[]).map(item=><div key={item.id} style={{padding:"var(--arcd-space-2) var(--arcd-space-0)",borderTop:"1px solid var(--arcd-border-default)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{item.criterio}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{item.metodo} · {item.tolerancia}</p><div style={{display:"flex",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-1)",flexWrap:"wrap"}}>{[["conforme","Conforme",C.green],["nao_conforme","Não conforme",C.red],["nao_aplicavel","N/A",C.muted]].map(([status,label,color])=><StandardButton variant="secondary" key={status} onClick={()=>inspecionar(ficha,item,status)} disabled={ficha.status==="aprovada"} style={{color}}>{label}</StandardButton>)}</div>{item.verificadoEm&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{item.responsavel} · {new Date(item.verificadoEm).toLocaleString("pt-BR")}</p>}</div>)}</div>{ficha.naoConformidade&&ficha.naoConformidade.status!=="encerrada"&&<div style={{background:"color-mix(in srgb, var(--arcd-danger-text) 3%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-danger-text) 33%, transparent)",borderRadius:7,padding:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-danger-text)"}}>NÃO CONFORMIDADE</p><Inp label="Ação corretiva" value={draft.acao??""} onChange={value=>editarRascunho(ficha.id,{acao:value})} multiline/><Inp label="Verificação de eficácia" value={draft.eficacia??""} onChange={value=>editarRascunho(ficha.id,{eficacia:value})} multiline/><Btn size="sm" v="success" onClick={()=>resolverNC(ficha)}>Encerrar NC após reinspeção</Btn></div>}<Btn full style={{marginTop:"var(--arcd-space-2)"}} onClick={()=>liberar(ficha)} disabled={ficha.status==="aprovada"}>Liberar ficha</Btn></div>}</div>;})}{!regs.length&&<p style={{textAlign:"center",padding:"var(--arcd-space-5)",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)"}}>Gere o plano para criar uma FVS para cada etapa de 1º nível e FVM para os materiais comprados.</p>}</div>;
+  const naoConformes=regs.filter(item=>item.status==="reprovada").length;
+  return <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-box-gap)"}}>
+    <PageHero
+      headingLevel={2}
+      title="Qualidade · FVS e FVM"
+      description="Confira os critérios de serviço e material antes de liberar a ficha."
+      actions={<Btn onClick={gerarPlano} disabled={gerando||!orc}><Ic n="plus"/> {gerando?"Gerando…":"Gerar/atualizar plano"}</Btn>}
+      stats={[
+        {label:"FVS",value:regs.filter(item=>item.tipo==="fvs").length},
+        {label:"FVM",value:regs.filter(item=>item.tipo==="fvm").length},
+        {label:"Liberadas",value:regs.filter(item=>item.status==="aprovada").length},
+        {label:"Não conformes",value:naoConformes,color:naoConformes?C.red:undefined},
+      ]}
+    />
+    {orc
+      ? <ScopeNote title="Orçamento de controle para gerar fichas">V{orc.versionNumber||1} · {orc.nome||orc.codigo||"Orçamento sem nome"}</ScopeNote>
+      : <Alert variant="warning" role="status"><AlertDescription>Para gerar o plano, confirme a versão de controle em Obras → Orçamento. As fichas já existentes continuam disponíveis.</AlertDescription></Alert>}
+    {regs.map(ficha=>{const open=aberto===ficha.id;const feitos=(ficha.itens||[]).filter(item=>item.status!=="pendente").length;const draft=rascunho(ficha.id);return <div key={ficha.id} style={{background:"var(--arcd-surface-card)",border:`1px solid ${ficha.status==="reprovada"?"var(--arcd-danger-text)":"var(--arcd-border-default)"}`,borderRadius:8,overflow:"hidden"}}><StandardButton variant="secondary" aria-expanded={open} onClick={()=>setAberto(open?"":ficha.id)} style={{width:"100%",display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",textAlign:"left"}}><div><b style={{fontSize:"var(--arcd-type-label)",color:ficha.tipo==="fvs"?"var(--arcd-action-primary)":"var(--arcd-action-primary)"}}>{ficha.codigo} · {ficha.tipo.toUpperCase()}</b><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)"}}>{ficha.titulo}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Responsável: {ficha.responsavel||"Não definido"} · {feitos}/{(ficha.itens||[]).length} critérios</p></div><Badge color={ficha.status==="aprovada"?C.green:ficha.status==="reprovada"?C.red:C.orange}>{ficha.status}</Badge></StandardButton>{open&&<div style={{borderTop:"1px solid var(--arcd-border-default)",padding:"var(--arcd-space-2)"}}><Sel label="Responsável pela execução/correção" value={draft.responsavelId??ficha.responsavelId} onChange={value=>editarRascunho(ficha.id,{responsavelId:value})} options={[{v:"",l:"Selecione"},...usuarios.map(user=>({v:user.id,l:user.nome}))]}/><Inp label="Referência técnica (projeto, memorial, procedimento, norma)" value={draft.normaProjeto??ficha.normaProjeto} onChange={value=>editarRascunho(ficha.id,{normaProjeto:value})}/><Btn size="sm" v="ghost" style={{marginTop:"var(--arcd-space-2)"}} onClick={()=>salvarDetalhes(ficha)}>Salvar referência</Btn><div style={{marginTop:"var(--arcd-space-2)"}}>{(ficha.itens||[]).map(item=><div key={item.id} style={{padding:"var(--arcd-space-2) var(--arcd-space-0)",borderTop:"1px solid var(--arcd-border-default)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{item.criterio}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{item.metodo} · {item.tolerancia}</p><div style={{display:"flex",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-1)",flexWrap:"wrap"}}>{[["conforme","Conforme",C.green],["nao_conforme","Não conforme",C.red],["nao_aplicavel","N/A",C.muted]].map(([status,label,color])=><StandardButton variant="secondary" key={status} onClick={()=>inspecionar(ficha,item,status)} disabled={ficha.status==="aprovada"} style={{color}}>{label}</StandardButton>)}</div>{item.verificadoEm&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{item.responsavel} · {new Date(item.verificadoEm).toLocaleString("pt-BR")}</p>}</div>)}</div>{ficha.naoConformidade&&ficha.naoConformidade.status!=="encerrada"&&<div style={{background:"color-mix(in srgb, var(--arcd-danger-text) 3%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-danger-text) 33%, transparent)",borderRadius:7,padding:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-danger-text)"}}>Não conformidade</p><Inp label="Ação corretiva" value={draft.acao??""} onChange={value=>editarRascunho(ficha.id,{acao:value})} multiline/><Inp label="Verificação de eficácia" value={draft.eficacia??""} onChange={value=>editarRascunho(ficha.id,{eficacia:value})} multiline/><Btn size="sm" v="success" onClick={()=>resolverNC(ficha)}>Encerrar NC após reinspeção</Btn></div>}<Btn full style={{marginTop:"var(--arcd-space-2)"}} onClick={()=>liberar(ficha)} disabled={ficha.status==="aprovada"}>Liberar ficha</Btn></div>}</div>;})}{!regs.length&&<EmptyState title="Nenhuma ficha de qualidade" description={orc?"Gere o plano para criar fichas de serviço por etapa e fichas de material a partir dos pedidos da obra.":undefined}/>}</div>;
 }
 
 
@@ -10962,10 +11130,14 @@ export function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", curren
   }
 
   return (
-    <div className="anim measurement-surface" style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
-      {!obraIdFixo&&<PageHeader className="workspace-header" title="Avanço físico" description="Medição técnica da evolução dos serviços executados na obra."/>}
+    <div className="measurement-surface" style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-box-gap)" }}>
+      <PageHeader headingLevel={obraIdFixo?2:1} className="workspace-header" title={obraIdFixo?"Medição física":"Avanço físico"} />
       {!obraIdFixo&&<Sel label="Obra" value={obraId} onChange={setObraId}
              options={obras.map(o => ({ v: o.id, l: o.name }))} />}
+      <ScopeNote title="Orçamento de controle da medição">
+        {orc ? `V${orc.versionNumber||1} · ${orc.nome||orc.codigo||"Orçamento sem nome"}. ` : "Sem orçamento de controle ativo. "}
+        O avanço oficial da obra vem do boletim aprovado.
+      </ScopeNote>
 
       {/* Resumo */}
       <div style={{ display: "grid", gridTemplateColumns: cols(2, 4, 4), gap: "var(--arcd-space-2)" }}>
@@ -10996,9 +11168,9 @@ export function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", curren
       <RecordListPagination pagination={servicesPage} label="serviços"/>
       <div style={{ background: "var(--arcd-surface-card)", border: "1px solid var(--arcd-border-default)", borderRadius: 8, overflow: "hidden" }}>
         <div style={{ padding: "var(--arcd-space-3)", borderBottom: "1px solid var(--arcd-border-default)" }}>
-          <p>O total pondera o valor dos serviços; no Planejamento, a duração. Sem valores vinculados, o total fica sem base de valor. O avanço oficial depende do boletim aprovado.</p><Inp label="Buscar serviço da medição" value={serviceSearch} onChange={setServiceSearch} placeholder="Nome do serviço"/><p style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)", textTransform: "uppercase", letterSpacing: "var(--arcd-letter-spacing-body)" }}>
-            Evolução por serviço
-          </p>
+          <h3 className="arcd-heading-section">Evolução por serviço</h3>
+          <p className="arcd-body-muted">A evolução por valor pondera o custo dos serviços vinculados. O Planejamento acompanha o avanço pela duração das tarefas.</p>
+          <Inp label="Buscar serviço da medição" value={serviceSearch} onChange={setServiceSearch} placeholder="Nome do serviço"/>
         </div>
         {visibleServices.length === 0 ? (
           <p style={{ padding: "var(--arcd-space-5)", fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)", textAlign: "center" }}>
@@ -13364,7 +13536,7 @@ function ChatFlutuante({ currentUser, usuarios, showToast, bottomOffset=20 }) {
                 {anexoPendente && (
                   <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 7, padding: "6px 8px", background: "#fff", borderRadius: 8, border: "1px solid #ddd" }}>
                     {anexoPendente.type?.startsWith("image/")
-                      ? <CompanyAssetImage src={anexoPendente.url} alt="" style={{ width: 32, height: 32, objectFit: "cover", borderRadius: 4 }} />
+                      ? <img src={anexoPendente.url} alt="" style={{ width: 32, height: 32, objectFit: "cover", borderRadius: 4 }} />
                       : <Ic n="file" s={16} color="#666" />}
                     <span style={{ fontSize:"var(--arcd-type-label)", color: "#222", fontWeight:600, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{anexoPendente.name}</span>
                     <button onClick={() => setAnexoPendente(null)} title="Remover anexo" aria-label="Remover anexo"

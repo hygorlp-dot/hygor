@@ -16,6 +16,8 @@ export const SITUACAO_REGRA = Object.freeze({ criticoDesvio: 5, atencaoDesvio: 2
 export const SITUACOES = Object.freeze({ critico: "Crítico", atencao: "Atenção", ok: "Em dia" });
 
 const ENCERRADAS = new Set(["done", "concluida", "concluido", "cancelada", "cancelado", "arquivada", "arquivado"]);
+export const dashboardActiveWorks = (data, workId) => (data.obras || []).filter(obra =>
+  obra?.id && !ENCERRADAS.has(String(obra.status || '').toLowerCase()) && (!workId || String(obra.id) === String(workId)));
 const dia = 86400000;
 const diasEntre = (de, ate) => Math.round((Date.parse(`${ate}T12:00:00Z`) - Date.parse(`${de}T12:00:00Z`)) / dia);
 const ultimoDiaUtil = hoje => {
@@ -30,9 +32,9 @@ export function situacaoDaObra({ desvio, diasEntrega, pendenciasPonto }, regra =
   if (desvio !== null && desvio > regra.criticoDesvio) return { situacao: "critico", motivo: `Custo ${fmtPontos(desvio)} à frente do avanço` };
   if (diasEntrega !== null && diasEntrega < 0) return { situacao: "critico", motivo: `Prazo vencido há ${contar(-diasEntrega, "dia", "dias")}` };
   if (desvio !== null && desvio >= regra.atencaoDesvio) return { situacao: "atencao", motivo: `Custo ${fmtPontos(desvio)} à frente do avanço` };
-  if (diasEntrega !== null && diasEntrega < regra.atencaoDiasEntrega) return { situacao: "atencao", motivo: `Entrega em ${contar(diasEntrega, "dia", "dias")}` };
+  if (diasEntrega !== null && diasEntrega < regra.atencaoDiasEntrega) return { situacao: "atencao", motivo: diasEntrega === 0 ? "Entrega hoje" : `Entrega em ${contar(diasEntrega, "dia", "dias")}` };
   if (pendenciasPonto > 0) return { situacao: "atencao", motivo: `${contar(pendenciasPonto, "pessoa", "pessoas")} sem ponto no último dia útil` };
-  return { situacao: "ok", motivo: "Sem pendências" };
+  return { situacao: "ok", motivo: "Sem alerta nos critérios da obra" };
 }
 const fmtPontos = valor => `${Math.round(valor).toLocaleString("pt-BR")} ponto${Math.round(valor) === 1 ? "" : "s"}`;
 
@@ -43,10 +45,10 @@ export const ultimoMesFechado = hoje => {
   return { ano: Number(hoje.slice(0, 4)) - (mesAtual === 0 ? 1 : 0), mes: mesAtual === 0 ? 11 : mesAtual - 1 };
 };
 
-export function resumoGestaoAVista(data, { hoje, custoAcumulado, obraDoDia }) {
+export function resumoGestaoAVista(data, { hoje, custoAcumulado, obraDoDia, workId, showAttendance = true }) {
   const { ano, mes } = ultimoMesFechado(hoje);
   const ontemUtil = ultimoDiaUtil(hoje);
-  const obras = (data.obras || []).filter(obra => obra?.id && !ENCERRADAS.has(String(obra.status || "").toLowerCase()));
+  const obras = dashboardActiveWorks(data, workId);
   const linhas = obras.map(obra => {
     const aprovado = getActiveBudgetBaseline(data, obra.id, "controle").budget;
     const orcado = aprovado ? calculateBudget(aprovado).custoDireto : null;
@@ -68,10 +70,11 @@ export function resumoGestaoAVista(data, { hoje, custoAcumulado, obraDoDia }) {
     }));
     const entrega = /^\d{4}-\d{2}-\d{2}$/.test(String(obra.contractEnd || "")) ? obra.contractEnd : null;
     const diasEntrega = entrega ? diasEntre(hoje, entrega) : null;
-    const lotados = (data.employees || []).filter(emp => emp.active !== false && obraDoDia(emp, ontemUtil, null) === obra.id
+    const equipe = showAttendance ? data.employees || [] : [];
+    const lotados = equipe.filter(emp => emp.active !== false && obraDoDia(emp, ontemUtil, null) === obra.id
       && remunerationModeOnDate(emp, ontemUtil) !== "mei" && (!emp.startDate || emp.startDate <= ontemUtil));
     const pendenciasPonto = lotados.filter(emp => !statusDe(data.attendance?.[emp.id]?.[ontemUtil])).length;
-    const equipeHoje = (data.employees || []).filter(emp => {
+    const equipeHoje = equipe.filter(emp => {
       const registro = data.attendance?.[emp.id]?.[hoje];
       return ["P", "M"].includes(statusDe(registro)) && obraDoDia(emp, hoje, registro) === obra.id;
     }).length;

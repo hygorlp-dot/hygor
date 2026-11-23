@@ -1,17 +1,13 @@
-import { createServer } from "vite";
+import { createServer, preview } from "vite";
 import { profile, data as initialData } from "./fixtures/workflow-priorities-data.mjs";
 import { applyOperationalCommand } from "../src/domains/sync/operational-commands.js";
 
 // Local-only review server. All /api requests terminate in this process.
 let data = structuredClone(initialData);
-const server = await createServer({
-  // Checkouts locais compartilham node_modules por junction; o cache não pode
-  // misturar runtimes React compilados para raízes diferentes.
-  cacheDir:"artifacts/vite-local-preview",
-  resolve:{dedupe:["react","react-dom"]},
-  server:{ host:"127.0.0.1", port:Number(process.env.MARCELL_PREVIEW_PORT||4196), strictPort:true, watch:{ignored:["**/artifacts/**"]} },
-  plugins:[{ name:"marcell-pilot-isolated-data", configureServer(vite) {
-    vite.middlewares.use("/api", async (req, res) => {
+const port = Number(process.env.MARCELL_PREVIEW_PORT || 4196);
+const outDir = process.env.MARCELL_PREVIEW_BUILD;
+const installDemoApi = vite => {
+  vite.middlewares.use("/api", async (req, res) => {
       try {
         let raw = ""; for await (const chunk of req) raw += chunk;
         const body = raw ? JSON.parse(raw) : {};
@@ -32,9 +28,21 @@ const server = await createServer({
         res.statusCode = 400;
         res.end(JSON.stringify({ ok:false, error:"A prévia local não conseguiu processar esta operação." }));
       }
-    });
-  } }],
-});
-await server.listen();
-console.log(`MARCELL com dados fictícios: http://127.0.0.1:${server.config.server.port}`);
+  });
+};
+const localAddress = { host:"127.0.0.1", port, strictPort:true };
+const plugins = [{ name:"marcell-pilot-isolated-data", configureServer:installDemoApi, configurePreviewServer:installDemoApi }];
+if (outDir) {
+  await preview({ build:{ outDir }, preview:localAddress, plugins });
+} else {
+  // O cache de React precisa ser específico da raiz do checkout.
+  const server = await createServer({
+    cacheDir:"artifacts/vite-local-preview",
+    resolve:{dedupe:["react","react-dom"]},
+    server:{ ...localAddress, watch:{ignored:["**/artifacts/**"]} },
+    plugins,
+  });
+  await server.listen();
+}
+console.log(`MARCELL com dados fictícios: http://127.0.0.1:${port}`);
 console.log(`Acesso: ${profile.email} | senha: piloto-local`);

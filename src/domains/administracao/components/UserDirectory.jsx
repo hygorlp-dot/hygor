@@ -1,19 +1,34 @@
 import {useMemo,useState} from 'react';
 import {Button} from '../../../components/ui/button.jsx';
-import {Input} from '../../../components/ui/input.jsx';
+import {Input} from '../../../design-system/primitives/Input.jsx';
 import {Select} from '../../../design-system/primitives/Select.jsx';
 import './user-directory.css';
 import {contar} from '../../../design-system/copy.js';
 
 const normalize=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 export default function UserDirectory({users,works,roles,currentUser,presences,onRefresh,refreshing,presenceError,formatActivity,onAdd,onEdit,onLogin,onPin,onToggle,onAllWorks}){
- const [query,setQuery]=useState(''),[status,setStatus]=useState('all'),[role,setRole]=useState('all');
+ const [query,setQuery]=useState(''),[status,setStatus]=useState('all'),[role,setRole]=useState('all'),[workScope,setWorkScope]=useState('');
  const admin=currentUser?.role==='admin';
- const visible=useMemo(()=>users.filter(u=>(status==='all'||(status==='active'?u.active!==false:u.active===false))&&(role==='all'||u.role===role)&&normalize(`${u.nome} ${u.email||''}`).includes(normalize(query).trim())),[users,query,status,role]);
+ const visible=useMemo(()=>{
+  const term=normalize(query).trim();
+  return users.filter(u=>(status==='all'||(status==='active'?u.active!==false:u.active===false))
+   &&(role==='all'||u.role===role)
+   &&(!workScope||(workScope==='unrestricted'?!u.obraId:`work:${u.obraId}`===workScope))
+   &&normalize(`${u.nome} ${u.email||''}`).includes(term));
+ },[users,query,status,role,workScope]);
  return <section className="user-directory" aria-label="Minha equipe MARCELL">
   <header><div><h2>Minha equipe</h2><p>Gerencie os membros, perfis e acessos da sua empresa.</p></div>{admin&&<Button onClick={onAdd}>Adicionar membro</Button>}</header>
   <p>{contar(users.length,'membro','membros')} · {contar(users.filter(u=>u.active!==false).length,'ativo','ativos')} · {contar(users.filter(u=>u.active===false).length,'inativo','inativos')}</p>
-  <div className="user-directory__filters"><label>Buscar membro<Input type="search" placeholder="Nome ou e-mail" value={query} onChange={e=>setQuery(e.target.value)}/></label><Select label="Situação do membro" value={status} onChange={e=>setStatus(e.target.value)} options={[{value:'all',label:'Todos'},{value:'active',label:'Ativos'},{value:'inactive',label:'Inativos'}]}/><Select label="Perfil do membro" value={role} onChange={e=>setRole(e.target.value)} options={[{value:'all',label:'Todos os perfis'},...roles.map(r=>({value:r.v,label:r.l}))]}/>{admin&&<Button variant="outline" disabled={refreshing} onClick={onRefresh}>{refreshing?'Atualizando…':'Atualizar on-line'}</Button>}</div>
+  <div className="user-directory__filters">
+   <Input label="Buscar membro" type="search" placeholder="Nome ou e-mail" value={query} onChange={e=>setQuery(e.target.value)}/>
+   <Select label="Situação do membro" value={status} onChange={e=>setStatus(e.target.value)} options={[{value:'all',label:'Todos'},{value:'active',label:'Ativos'},{value:'inactive',label:'Inativos'}]}/>
+   <Select label="Perfil do membro" value={role} onChange={e=>setRole(e.target.value)} options={[{value:'all',label:'Todos os perfis'},...roles.map(r=>({value:r.v,label:r.l}))]}/>
+   <Select label="Restrição por obra" value={workScope} onChange={e=>setWorkScope(e.target.value)} options={[
+    {value:'',label:'Qualquer acesso'},{value:'unrestricted',label:'Sem restrição de obra'},
+    ...works.map(work=>({value:`work:${work.id}`,label:work.name})),
+   ]}/>
+   {admin&&<Button variant="outline" disabled={refreshing} onClick={onRefresh}>{refreshing?'Atualizando…':'Atualizar on-line'}</Button>}
+  </div>
   {presenceError&&admin&&<p role="alert">{presenceError}</p>}
   <div className="user-directory__table"><table><caption>{contar(visible.length,'membro','membros')} no recorte</caption><thead><tr><th>Membro</th><th>Perfil</th><th>Acesso às obras</th><th>Situação</th>{admin&&<><th>Última atividade</th><th>Ações</th></>}</tr></thead><tbody>{visible.map(u=>{
    const sessions=presences.get(u.id)||[],online=sessions.filter(p=>p.online),last=online[0]||sessions[0];

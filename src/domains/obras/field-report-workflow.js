@@ -15,3 +15,21 @@ export const fieldReportCompletion=report=>{
 };
 
 export const fieldReportIsReadOnly=report=>["concluido","cancelado"].includes(String(report?.status||""));
+
+export const OPEN_FIELD_REPORT_DAY = 'open-field-report-day';
+
+export function fieldReportDayTarget(intent, works, workId) {
+  if (intent?.tabId !== 'rdo' || intent.action !== OPEN_FIELD_REPORT_DAY || !intent.linked) return null;
+  const id = String(intent.scope?.obraId || '');
+  const date = String(intent.record?.date || '');
+  if (!id || (workId && String(workId) !== id) || !works.some(work => String(work.id) === id)) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  const parsed = new Date(`${date}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date) return null;
+  return { obraId:id, date, reportId:String(intent.record?.reportId || '') };
+}
+
+export function findFieldReportForDay(reports, obraId, date, reportId) {
+  const sameDay = report => report.obraId === obraId && report.data === date;
+  return (reportId && reports.find(report => report.id === reportId && sameDay(report))) || reports.find(sameDay);
+}

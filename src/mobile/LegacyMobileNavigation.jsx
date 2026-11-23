@@ -2,6 +2,7 @@ import {Button} from '../design-system/primitives/Button.jsx';
 import {LoadingState} from '../design-system/patterns/LoadingState.jsx';
 import {Dialog} from '../design-system/primitives/Dialog.jsx';
 import { Suspense, useMemo, useState } from "react";
+import { Ellipsis } from "lucide-react";
 import { lazyWithCssRetry as lazy } from "../lib/lazy-with-css-retry.js";
 import "./styles.css";
 
@@ -72,7 +73,7 @@ export function LegacyMobileNavigation({
             "--mobile-group-color": group.color,
           }}
         >
-          {renderIcon?.(group.icon, active ? 20 : 18)}
+          {renderIcon?.(group.icon, 20)}
           <span className="mobile-primary-nav__label">
             {group.id==="fin_grp"?<><span className="mobile-primary-nav__full-label">Financeiro</span><span className="mobile-primary-nav__compact-label">Finanças</span></>:group.shortLabel||group.label}
           </span>
@@ -87,7 +88,7 @@ export function LegacyMobileNavigation({
         aria-controls={moreMenuId}
         onClick={() => setMoreOpen(true)}
       >
-        <span className="mobile-primary-nav__dots" aria-hidden="true">•••</span>
+        <Ellipsis aria-hidden="true" />
         <span className="mobile-primary-nav__label">Mais</span>
         {overflow.some(group => badges[group.id]) &&
           <span className="mobile-primary-nav__badge" aria-label="Há pendências" />}
@@ -102,7 +103,7 @@ export function LegacyMobileNavigation({
         items={overflow.map(group => ({
           id: group.id,
           label: group.label,
-          icon: renderIcon?.(group.icon, 19),
+          icon: renderIcon?.(group.icon, 20),
           active: group.id === activeGroupId,
         }))}
       /></Suspense>}

@@ -3,11 +3,11 @@ import {data,profile} from '../scripts/fixtures/workflow-priorities-data.mjs';
 
 // Dashboard com obras reais da fixture, lido a 100% e com o texto a 200% (zoom só de
 // texto: a largura em px não muda, então media query não ajuda). Nada pode passar da
-// tela, a tabela "Suas obras hoje" não pode rolar de lado e nenhuma célula corta texto.
+// tela, o Placar das obras não pode rolar de lado e nenhuma célula corta texto.
 async function entrar(page){
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.clock.setFixedTime(new Date('2026-11-01T12:00:00-03:00'));
-  await page.addInitScript(user=>{sessionStorage.setItem(`arcd-section:${user}`,'dashboard');localStorage.setItem('arcd-theme','saas');},profile.id);
+  await page.addInitScript(user=>{sessionStorage.setItem(`arcd-section:${user}`,'home');localStorage.setItem('arcd-theme','saas');},profile.id);
   await page.route('https://**/*',r=>r.abort());
   await page.route('**/api/**',r=>r.fulfill({json:{ok:true,items:[],bases:[],presencas:[],connected:false,reply:''}}));
   await page.route('**/api/data',r=>r.fulfill({json:{ok:true,usuarios:[profile],precisaSetup:false,usuario:profile,data,current:null,history:[],accessToken:'zoom-local-only',refreshToken:'zoom-local-only',updatedAt:'2026-11-01T15:00:00Z'}}));
@@ -17,10 +17,13 @@ async function entrar(page){
   return errors;
 }
 
-test('dashboard e "Suas obras hoje" cabem na tela com texto a 100% e 200%',async({page})=>{
+test('Dashboard e Placar das obras cabem na tela com texto a 100% e 200%',async({page})=>{
   const errors=await entrar(page);
+  const indicadores=page.getByRole('button',{name:'Ver indicadores de Residencial Alameda',exact:true});
   for(const escala of ['100%','200%']){
     await page.evaluate(v=>document.documentElement.style.fontSize=v,escala);
+    if(await indicadores.isVisible())await indicadores.click();
+    await expect(page.getByText('30/03/2027',{exact:true})).toBeVisible();
     const medida=await page.evaluate(()=>{
       const lista=document.querySelector('.gav-lista'),card=document.querySelector('.gav').getBoundingClientRect();
       const nome=[...document.querySelectorAll('.gav-obra__nome')].find(b=>b.textContent==='Residencial Alameda');
@@ -38,6 +41,5 @@ test('dashboard e "Suas obras hoje" cabem na tela com texto a 100% e 200%',async
     expect.soft(medida.foraDoCard,`fora do card a ${escala}`).toEqual([]);
     expect.soft(medida.nomeCortado,`nome curto cortado a ${escala}`).toBe(false);
   }
-  await expect(page.getByText('30/03/2027',{exact:true})).toBeVisible();
   expect(errors).toEqual([]);
 });

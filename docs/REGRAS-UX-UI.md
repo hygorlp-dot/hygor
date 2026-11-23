@@ -65,8 +65,7 @@ diz como usá-los; o `DESIGN.md` guarda o histórico das decisões visuais.
 ## 6. Layout e tipografia
 
 1. **Fonte Geist** (`--arcd-font-sans`; Geist Mono em `--arcd-font-mono`), servida do próprio projeto. **Escala compacta de `foundations.js`**
-   (direção Plataforma, 19/11/2026): título 22 px, indicador 18 px, corpo e tabela 13 px. Nada abaixo de 12 px (`--arcd-type-caption`);
-   nada de tamanho em px solto.
+   (direção Plataforma, 19/11/2026): título 22 px, indicador 18 px, corpo e tabela 13 px. No ERP web móvel com densidade Compacta, todos os temas usam título de 18 px, indicador de 15 px, corpo, tabela e botões de 12 px, seletores de 13 px e campos de digitação de 16 px. Nada abaixo de 12 px (`--arcd-type-caption`), nada de tamanho em px solto.
 2. **Texto corrido com até ~72 caracteres por linha.**
 3. **Abas numa linha só**, com rolagem lateral e borda esmaecida; nunca quebrando em duas linhas.
    No máximo dois níveis de navegação por tela (ex.: abas de fluxo + filtros do escopo).

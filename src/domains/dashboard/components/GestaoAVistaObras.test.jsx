@@ -48,9 +48,35 @@ it("o placar filtra e um segundo clique volta a mostrar todas", async () => {
   expect(nomes()).toEqual(["P1-08", "CA1-06"]);
 });
 
+it('busca por nome sem acento e mantém o filtro de situação', async () => {
+  const comAcento={...resumo,linhas:[resumo.linhas[0],{...resumo.linhas[1],nome:'Edifício São José'}]};
+  await act(async () => root.render(<GestaoAVistaObras resumo={comAcento} hoje="2026-10-30" onAbrirObra={onAbrirObra}/>));
+  const busca=container.querySelector('input[type="search"]');
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(busca,' SAO JOSE ');
+    busca.dispatchEvent(new Event('input',{bubbles:true}));
+  });
+  expect(nomes()).toEqual(['Edifício São José']);
+  await act(async () => placar('Crítico').click());
+  expect(nomes()).toEqual([]);
+  expect(container.textContent).toContain('Nenhuma obra encontrada com os filtros atuais.');
+});
+
 it("abre a obra pelo nome", async () => {
   await act(async () => container.querySelector(".gav-obra__nome").click());
   expect(onAbrirObra).toHaveBeenCalledWith("o1");
+});
+
+it('expande apenas a obra acionada e controla os três indicadores técnicos', async () => {
+  const controles = [...container.querySelectorAll('.gav-details-toggle button')];
+  expect(controles.every(button=>button.getAttribute('aria-expanded')==='false')).toBe(true);
+  await act(async () => controles[0].click());
+  expect(controles.map(button=>button.getAttribute('aria-expanded'))).toEqual(['true', 'false']);
+  for (const id of controles[0].getAttribute('aria-controls').split(' ')) {
+    expect(document.getElementById(id).closest('.gav-linha').dataset.detailsOpen).toBe('true');
+  }
+  await act(async () => controles[0].click());
+  expect(controles[0].getAttribute('aria-expanded')).toBe('false');
 });
 
 it("sem acesso à DRE não desenha barra de custo e avisa que a situação ignora o custo", async () => {
@@ -71,4 +97,27 @@ it("obra sem custo calculado nunca aparece como gasto 0%", async () => {
   semEtapa.querySelectorAll(".gav-etapas__nome").forEach(el=>el.remove());
   expect(semEtapa.textContent).not.toContain("0%");
   expect(container.textContent).toContain("Custo não calculado (obra sem data de início)");
+});
+
+it("troca o ponto e o diário por obra sem mudar o progresso do desafio", async () => {
+  const data = {
+    employees: [{ id:'a', obra:'o1' }, { id:'b', obra:'o2' }],
+    attendance: { a:{ '2026-10-30':'P', '2026-10-29':'F' }, b:{ '2026-10-30':'F' } },
+    rdos: [{ obraId:'o1', data:'2026-10-30', status:'concluido' },{ id:'rascunho-o2',obraId:'o2',data:'2026-10-30',status:'preparacao' }],
+  };
+  const abrirDiario=vi.fn();
+  await act(async () => root.render(<GestaoAVistaObras resumo={resumo} hoje="2026-10-30" data={data}
+    onAbrirDiario={abrirDiario} diaryWorks={[{ id:'o1' }, { id:'o2' }]} showAttendance showDiaries />));
+  const first = container.querySelectorAll('.gav-linha')[1];
+  expect(first.querySelector('.gav-ponto').textContent).toBe('1 presença0 faltas');
+  expect(first.querySelector('.gav-diario').textContent).toContain('Concluído');
+  expect(first.querySelector('.gav-diario button')).toBeNull();
+  await act(async ()=>container.querySelectorAll('.gav-linha')[2].querySelector('.gav-diario button').click());
+  expect(abrirDiario).toHaveBeenLastCalledWith('o2','2026-10-30','rascunho-o2');
+  await act(async () => [...container.querySelectorAll('.gav-periodo button')].find(el => el.textContent==='Ontem').click());
+  expect(first.querySelector('.gav-ponto').textContent).toBe('0 presenças1 falta');
+  expect(first.querySelector('.gav-diario').textContent).toContain('Sem diário');
+  expect(first.querySelector('.gav-diario').textContent).toContain('1/5 · Faltam 2 dias para o marco de 3');
+  await act(async ()=>first.querySelector('.gav-diario button').click());
+  expect(abrirDiario).toHaveBeenLastCalledWith('o1','2026-10-29',undefined);
 });

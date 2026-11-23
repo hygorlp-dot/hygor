@@ -17,7 +17,7 @@ import { FlowTabs } from "../../../features/workflow/WorkflowNavigation.jsx";
 
 import { useMemo, useState } from "react";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
-import { Badge, Btn, Ic, Inp, PageHero, Sel } from "../../../legacy/ui.jsx";
+import { Btn, Ic, Inp, PageHero, Sel } from "../../../legacy/ui.jsx";
 import { C } from "../../../legacy/palette.js";
 import { GestaoAprovacoes, GestaoUsuarios, ROLES } from "../LegacySettings.jsx";
 import { fmtDateFull, today } from "../../../legacy/format.js";
@@ -79,10 +79,8 @@ export default function CentralAdministrador({data,update,showToast,currentUser}
   );
   return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
     <PageHero
-      eyebrow="Governança · segurança · operação"
       title="Central do Administrador"
-      description="Auditoria de alterações, inteligência gerencial e controle integral dos operadores."
-      actions={<Badge color={C.green}>ACESSO TOTAL</Badge>}
+      description="Consulte membros, acessos de clientes, aprovações e auditoria."
     />
     <FlowTabs label="Áreas da administração" active={secao} onChange={setSecao} steps={[
       {id:"usuarios",label:"Usuários e permissões",description:"Confira o perfil e o escopo do operador antes de conceder acesso."},
@@ -90,7 +88,7 @@ export default function CentralAdministrador({data,update,showToast,currentUser}
       {id:"aprovacoes",label:"Aprovações",description:"Acompanhe as decisões que aguardam autorização."},
       {id:"auditoria",label:"Auditoria e resumo por IA",description:"Consulte quem alterou cada registro e sua origem."},
     ]} tools={[{id:"bases",label:"Bases de preço"},{id:"nucleo",label:"Núcleo relacional"},{id:"financeiro",label:"Motor financeiro"}]} toolsLabel="Referências e ferramentas técnicas"/>
-    {secao==="usuarios"?<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:14}}><div style={{background:`${C.yellow}0B`,border:`1px solid ${C.yellow}44`,borderRadius:7,padding:"9px 11px",marginBottom:12,fontSize:"var(--arcd-type-label)",color:C.muted}}>Nesta tela o administrador pode criar operadores, editar perfil e e-mail, restringir por obra, escolher telas individualmente, definir limite comercial, ativar/inativar, trocar PIN, ativar login por e-mail e redefinir senha.</div><GestaoUsuarios data={data} update={update} showToast={showToast} currentUser={currentUser}/></div>
+    {secao==="usuarios"?<GestaoUsuarios data={data} update={update} showToast={showToast} currentUser={currentUser} pageId="admin_central"/>
     :secao==="clientes"?<ClientPortalAccess data={data} currentUser={currentUser}/>
     :secao==="aprovacoes"?<GestaoAprovacoes data={data} update={update} showToast={showToast} currentUser={currentUser}/>
     :secao==="bases"?<BasesPrecoAdmin currentUser={currentUser} data={data} update={update}/>

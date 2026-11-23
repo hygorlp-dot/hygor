@@ -10,7 +10,9 @@
   }
   [data-theme] :is(.arcd-main,.arcd-dialog,.arcd-modal-panel) th { background:var(--arcd-surface-subtle) !important; }
   [data-theme] .arcd-main :is(td,th) { padding-block:calc(var(--arcd-panel-padding) * .65); }
-  [data-theme] :is(.arcd-modal-header,.arcd-dialog__header) { background:var(--arcd-surface-card) !important; }
+  [data-theme] :is(.arcd-dialog,.arcd-drawer,.arcd-modal-panel,.arcd-modal-header,.arcd-dialog__header) {
+    background:var(--arcd-surface-elevated) !important;
+  }
   [data-theme] .arcd-sidebar .nav-body p { color:var(--arcd-nav-text) !important; }
   [data-theme] .arcd-mobile-nav { backdrop-filter:none !important; }
   [data-theme] .mobile-primary-nav button[data-active="true"] { color:var(--arcd-action-primary);background:var(--arcd-action-primary-subtle);border-top-color:var(--arcd-action-primary);--ic-color:var(--arcd-action-primary) !important; }
@@ -78,13 +80,96 @@
   [data-theme] .arcd-main[data-workspace] .workspace-header { padding:var(--arcd-workspace-header-padding) !important; }
   [data-theme] .arcd-main .workspace-navigation { background:var(--arcd-workspace-nav-surface) !important; }
   [data-theme] .arcd-main .workspace-navigation__desktop { padding:var(--arcd-workspace-nav-padding); }
-  [data-theme] .arcd-main th { font-weight:var(--arcd-table-header-weight) !important; }
+  [data-theme] :is(.arcd-main,.arcd-dialog,.arcd-drawer,.arcd-modal-panel) th {
+    font-weight:var(--arcd-table-header-weight) !important;
+    text-transform:none;
+    letter-spacing:normal;
+  }
   [data-theme] .mrc-button[data-mrc-role=secondary] { color:var(--arcd-secondary-button-text);border-color:var(--arcd-secondary-button-border); }
   [data-theme] .arcd-main :is(td,th,.payroll-summary-strip strong,.purchase-money) { font-variant-numeric:tabular-nums; }
   [data-theme] .workspace-navigation__tab[aria-current=page] .workspace-navigation__count { color:var(--arcd-action-primary); }
   [data-theme] .arcd-main .purchase-queue-table tbody tr:nth-child(even):not(.purchase-group-row)>td { background:var(--arcd-table-stripe-surface) !important; }
   [data-theme] .arcd-main .purchase-queue-table tbody tr:not(.purchase-group-row):hover>td { background:var(--arcd-surface-muted) !important; }
+  [data-density="compact"] :is(.arcd-app-shell:not([data-tab="tv"]), body:has(.arcd-app-shell:not([data-tab="tv"])) > :is(.arcd-dialog-backdrop,.arcd-modal-overlay)) {
+    --arcd-type-page-title: var(--arcd-type-compact-title);
+    --arcd-type-section-title: var(--arcd-type-compact-heading);
+    --arcd-type-dialog-title: var(--arcd-type-compact-heading);
+    --arcd-type-kpi: var(--arcd-type-compact-kpi);
+    --arcd-type-body: var(--arcd-type-caption);
+    --arcd-type-label: var(--arcd-type-caption);
+    --arcd-type-control: var(--arcd-type-caption);
+    --arcd-type-table: var(--arcd-type-caption);
+    --arcd-line-height-normal: 1.35;
+    --arcd-panel-padding: var(--arcd-space-2);
+    --arcd-layout-gap: var(--arcd-space-2);
+    --arcd-box-padding: var(--arcd-panel-padding);
+    --arcd-box-gap: var(--arcd-space-2);
+    --arcd-box-header-gap: var(--arcd-space-2);
+    --arcd-page-padding: var(--arcd-space-4);
+    --arcd-button-gap: var(--arcd-space-1);
+    --arcd-button-padding: 0 var(--arcd-space-2);
+    --arcd-button-padding-sm: 0 var(--arcd-space-2);
+    --arcd-dialog-padding: var(--arcd-space-3);
+    --arcd-page-hero-stat-size: var(--arcd-type-kpi);
+    --arcd-workspace-subheading: var(--arcd-type-section-title);
+  }
+  [data-density="compact"] .arcd-app-shell:not([data-tab="tv"]) .arcd-main {
+    line-height: var(--arcd-line-height-normal);
+  }
+  [data-density="compact"] body:has(.arcd-app-shell:not([data-tab="tv"])) > .arcd-modal-overlay .arcd-modal-header {
+    padding: var(--arcd-space-2) var(--arcd-dialog-padding) !important;
+    gap: var(--arcd-box-header-gap);
+  }
+  @media(min-width:768px) {
+    [data-density="compact"] :is(.arcd-app-shell:not([data-tab="tv"]), body:has(.arcd-app-shell:not([data-tab="tv"])) > :is(.arcd-dialog-backdrop,.arcd-modal-overlay)) {
+      --arcd-control-height: var(--arcd-space-8);
+      --arcd-button-height-sm: var(--arcd-control-height);
+    }
+    [data-density="compact"] .arcd-app-shell:not([data-tab="tv"]) .arcd-topbar .app-header-inner {
+      padding: var(--arcd-space-2) var(--arcd-page-padding) !important;
+      gap: var(--arcd-layout-gap) !important;
+    }
+    [data-density="compact"] .arcd-app-shell:not([data-tab="tv"]) .arcd-main {
+      padding: var(--arcd-space-3) var(--arcd-page-padding) !important;
+    }
+    [data-density="compact"] .arcd-app-shell:not([data-tab="tv"]) .arcd-sidebar :is(.nav-item,.nav-grp-hd) {
+      min-height: var(--arcd-control-height);
+      padding-block: var(--arcd-space-1);
+    }
+    [data-density="compact"] :is(.arcd-app-shell:not([data-tab="tv"]), body:has(.arcd-app-shell:not([data-tab="tv"])) > :is(.arcd-dialog-backdrop,.arcd-modal-overlay))
+      :is(input:not([type=checkbox],[type=radio],[type=range],[type=file],[type=color]),select)[data-mrc-control] {
+      min-height: var(--arcd-control-height);
+      padding-block: var(--arcd-space-1);
+    }
+  }
   @media(max-width:767px) {
+    [data-density="compact"] :is(.arcd-app-shell:not([data-tab="tv"]), body:has(.arcd-app-shell:not([data-tab="tv"])) > :is(.arcd-dialog-backdrop,.arcd-modal-overlay)) {
+      --arcd-type-page-title: var(--arcd-type-mobile-compact-title);
+      --arcd-type-card-title: var(--arcd-type-compact-heading);
+      --arcd-type-kpi: var(--arcd-type-mobile-compact-kpi);
+      --arcd-page-padding-mobile: var(--arcd-space-2);
+    }
+    [data-density="compact"] :is(.arcd-app-shell:not([data-tab="tv"]), body:has(.arcd-app-shell:not([data-tab="tv"])) > :is(.arcd-dialog-backdrop,.arcd-modal-overlay)) select {
+      --arcd-type-control-touch: var(--arcd-type-mobile-compact-select);
+    }
+    [data-density="compact"] .arcd-app-shell:not([data-tab="tv"]) .arcd-topbar .app-header-inner {
+      padding: var(--arcd-space-1) var(--arcd-space-2) !important;
+      gap: var(--arcd-space-1) !important;
+    }
+    [data-density="compact"] .arcd-app-shell:not([data-tab="tv"]) .arcd-main {
+      padding: var(--arcd-space-1) var(--arcd-page-padding-mobile) !important;
+      font-size: var(--arcd-type-body);
+      line-height: var(--arcd-line-height-normal);
+    }
+    [data-density="compact"] .arcd-app-shell:not([data-tab="tv"]) .arcd-main :is(.dashboard-priorities, .dashboard-daily, .gav) {
+      padding-inline: var(--arcd-box-padding);
+    }
+    [data-density="compact"] .arcd-app-shell:not([data-tab="tv"]) .arcd-main .gav-linha:not(.gav-linha--cabecalho) {
+      padding-block: var(--arcd-space-2);
+    }
+    [data-density="compact"] .arcd-app-shell .dashboard-command-center {
+      gap: var(--arcd-box-gap) !important;
+    }
     [data-theme] .app-header-actions .app-save-status { min-height:2.75rem !important; }
     [data-theme] .arcd-choice-button { min-height:2.75rem; }
     [data-theme] .app-help-button { width:2.75rem;padding-inline:0;flex-shrink:0; }

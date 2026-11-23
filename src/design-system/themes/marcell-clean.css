@@ -344,8 +344,8 @@
    verde = em dia, âmbar = atenção, vermelho = crítico; sempre com texto/ícone. */
 /* O card é o container da tabela: a troca para linhas empilhadas depende da largura
    dele em rem, então vale também para texto ampliado, que não muda a largura em px. */
-.gav { position: relative; z-index: 1; background: var(--arcd-surface-card); border: 1px solid var(--arcd-border, #E6E3DC); border-radius: 12px; padding: 18px 20px 14px; container-type: inline-size; }
-.gav__topo { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px; margin-bottom: 14px; }
+.gav { position: relative; z-index: 1; background: var(--arcd-surface-card); border: 1px solid var(--arcd-border-default); border-radius: var(--arcd-box-radius); padding: var(--arcd-space-4); container-type: inline-size; }
+.gav__topo { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--arcd-space-3); margin-bottom: var(--arcd-space-3); }
 .gav__titulo { color: var(--arcd-text-primary); } /* tamanho e peso seguem a escala de títulos do tema */
 .gav__sub { margin-top: 3px; font-size: .8125rem; color: var(--arcd-text-secondary); font-variant-numeric: tabular-nums; }
 .gav-placar { display: grid; grid-template-columns: repeat(3, minmax(92px, 1fr)); gap: 8px; }
@@ -357,13 +357,17 @@
 .gav-placar__item.is-critico { background: var(--arcd-danger-surface); color: var(--arcd-danger-text); }
 .gav-placar__item[aria-pressed="true"] { border-color: currentColor; }
 .gav-placar__item:focus-visible, .gav-obra__nome:focus-visible { outline: 2px solid var(--arcd-text-primary); outline-offset: 2px; }
-/* Colunas em rem crescem junto com o texto; situação e entrega cabem "Atenção" e "30/03/2027". */
-.gav-linha { display: grid; grid-template-columns: minmax(8rem, 1.4fr) 6.5rem minmax(5rem, 1fr) 3rem minmax(6rem, 1.1fr) 6.5rem; gap: .75rem; align-items: center; padding: 12px 0; border-top: 1px solid var(--arcd-border-subtle); font-size: var(--arcd-type-table); }
+.gav-lista[data-management="true"] { --gav-status: minmax(7rem, .9fr); --gav-technical: minmax(7rem, 1fr) minmax(7rem, 1fr) minmax(5.5rem, .65fr); }
+.gav-lista[data-attendance="true"] { --gav-attendance: minmax(7rem, .85fr); }
+.gav-lista[data-diaries="true"] { --gav-diaries: minmax(8rem, 1fr); }
+.gav-linha { display: grid; grid-template-columns: minmax(9rem, 1.4fr) var(--gav-status,) var(--gav-attendance,) var(--gav-diaries,) var(--gav-technical,); gap: var(--arcd-space-3); align-items: start; padding: var(--arcd-space-3) 0; border-top: 1px solid var(--arcd-border-subtle); font-size: var(--arcd-type-table); }
 .gav-linha--cabecalho { padding: 0 0 8px; border-top: 0; font-size: .75rem; font-weight: 600; color: var(--arcd-text-secondary); }
+.gav-linha > [role="cell"] { min-width: 0; overflow-wrap: anywhere; }
 .gav-obra { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.gav-obra__nome { all: unset; cursor: pointer; font-weight: 600; color: var(--arcd-text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gav-obra__nome { all: unset; cursor: pointer; font-weight: 600; color: var(--arcd-text-primary); }
 .gav-obra__nome:hover { text-decoration: underline; }
 .gav-obra__motivo { font-size: .75rem; color: var(--arcd-text-secondary); }
+.gav-situacao { display: grid; justify-items: start; gap: var(--arcd-space-1); }
 .gav-chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 99px; font-size: .75rem; font-weight: 600; white-space: nowrap; }
 .gav-chip.is-ok { background: var(--arcd-success-surface); color: var(--arcd-success-text); }
 .gav-chip.is-atencao { background: var(--arcd-warning-surface); color: var(--arcd-warning-text); }
@@ -373,8 +377,24 @@
 .gav-etapas__passo { flex-basis: 0; min-width: 4px; border-radius: 2px; background: var(--arcd-surface-muted); }
 .gav-etapas__passo.is-feita { background: var(--arcd-text-primary); }
 .gav-etapas__passo.is-atual { background: var(--arcd-action-primary); }
-.gav-etapas__nome { font-size: .75rem; color: var(--arcd-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.gav-equipe { font-weight: 600; font-variant-numeric: tabular-nums; }
+.gav-etapas__nome { font-size: var(--arcd-type-caption); color: var(--arcd-text-secondary); }
+.gav-desafio, .gav-periodo { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--arcd-space-2); padding-block: var(--arcd-space-2); border-block-start: 1px solid var(--arcd-border-subtle); }
+.gav-desafio h3 { margin: 0; font-size: var(--arcd-type-card-title); }
+.gav-desafio p, .gav-periodo time { margin: 0; font-size: var(--arcd-type-caption); color: var(--arcd-text-secondary); }
+.gav-periodo.arcd-filter-bar { align-items: flex-end; }
+.gav-busca { flex: 1 1 14rem; max-inline-size: 24rem; min-inline-size: 0; }
+.gav-periodo__data { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--arcd-space-2); }
+.gav-resultado { margin-block: 0 var(--arcd-space-2); }
+.gav-desafio strong, .gav-diario strong { color: var(--arcd-text-primary); }
+.gav-ponto, .gav-diario { display: grid; gap: var(--arcd-space-1); font-variant-numeric: tabular-nums; }
+.gav-ponto [data-absence="true"] { color: var(--arcd-danger-text); font-weight: var(--arcd-font-weight-semibold); }
+.gav-diario__trilho { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--arcd-space-1); }
+.gav-diario__trilho span { block-size: var(--arcd-space-1); background: var(--arcd-border-default); }
+.gav-diario__trilho [data-complete="true"] { background: var(--arcd-action-primary); }
+.gav-diario .gav-diario__conquista { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--arcd-space-1); color: var(--arcd-success-text); }
+.gav-diario .gav-diario__acao { justify-self: start; padding-inline: 0; max-inline-size: 100%; white-space: normal; text-align: start; }
+.gav-mobile-label, .gav-details-toggle { display: none; }
+.gav__legenda summary { cursor: pointer; }
 .gav-custo { display: flex; flex-direction: column; gap: 5px; }
 .gav-custo__barra { position: relative; height: 8px; border-radius: 99px; background: var(--arcd-border-subtle); }
 .gav-custo__gasto { position: absolute; inset: 0 auto 0 0; border-radius: 99px; background: var(--arcd-text-primary); }
@@ -393,26 +413,25 @@
   .gav { padding: 14px; }
   .gav-placar { width: 100%; }
 }
-/* Abaixo da soma mínima das seis colunas (38,75rem), cada obra vira um bloco. */
-@container (max-width: 39rem) {
+@container (max-width: 55rem) {
+  .gav-busca, .gav-periodo__data { flex-basis: 100%; max-inline-size: none; }
   .gav-linha--cabecalho { display: none; }
-  .gav-linha { grid-template-columns: 1fr auto; grid-template-areas: "obra situacao" "etapa etapa" "custo custo" "equipe entrega"; gap: 8px 12px; }
-  .gav-linha > :nth-child(1) { grid-area: obra; }
-  .gav-linha > :nth-child(2) { grid-area: situacao; justify-self: end; }
-  .gav-linha > :nth-child(3) { grid-area: etapa; }
-  .gav-linha > :nth-child(4) { grid-area: equipe; font-size: .75rem; }
-  .gav-linha > :nth-child(5) { grid-area: custo; }
-  .gav-linha > :nth-child(6) { grid-area: entrega; justify-self: end; }
-  .gav-entrega { flex-direction: row; gap: 6px; font-size: .75rem; }
-  .gav-equipe::before { content: "Equipe hoje: "; font-weight: 400; color: var(--arcd-text-secondary); }
+  .gav-linha { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: var(--arcd-space-2) var(--arcd-space-3); }
+  .gav-situacao { justify-self: end; }
+  .gav-lista:not([data-management="true"]) .gav-obra, .gav-etapa-celula { grid-column: 1 / -1; }
+  .gav-mobile-label { display: block; margin-bottom: var(--arcd-space-1); color: var(--arcd-text-secondary); font-size: var(--arcd-type-caption); }
+  .gav-details-toggle { display: block; grid-column: 1 / -1; }
+  .gav-linha[data-details-open="false"] .gav-technical { display: none; }
+  .gav-lista[data-management="true"] .gav-linha[data-details-open="false"] .gav-diario__trilho { display: none; }
+  .gav-ponto { display: flex; flex-wrap: wrap; gap: var(--arcd-space-1) var(--arcd-space-2); }
 }
 /* Estreito (texto ampliado, celular pequeno): o selo não divide a linha com o nome
    e o placar vira uma lista, em vez de três caixas espremidas lado a lado. */
 @container (max-width: 18rem) {
   .gav-placar { grid-template-columns: minmax(0, 1fr); width: 100%; }
   .gav-placar__item { flex-direction: row; align-items: baseline; gap: .5rem; min-height: 0; }
-  .gav-linha { grid-template-columns: minmax(0, 1fr); grid-template-areas: "obra" "situacao" "etapa" "custo" "equipe" "entrega"; }
-  .gav-linha > :nth-child(2), .gav-linha > :nth-child(6) { justify-self: start; }
+  .gav-linha { grid-template-columns: minmax(0, 1fr); }
+  .gav-situacao { justify-self: start; }
   .gav-entrega { flex-wrap: wrap; }
   /* Coluna única: o nome da obra quebra linha em vez de virar reticências. */
   .gav-obra__nome { white-space: normal; overflow-wrap: anywhere; }

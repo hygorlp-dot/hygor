@@ -17,6 +17,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { lazyWithCssRetry as lazy } from "../../../lib/lazy-with-css-retry.js";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
 import {TaskDisclosure} from "../../../design-system/patterns/TaskDisclosure.jsx";
+import {ScopeNote} from "../../../design-system/patterns/ScopeNote.jsx";
 import { LoadingState, Badge, Btn, CampoCNPJ, Ic, Inp, MiniKpi, Modal, PageHero, Sel } from "../../../legacy/ui.jsx";
 import { C } from "../../../legacy/palette.js";
 import { escapeHtml, MONTHS, fmt, fmtDate, fmtDateFull, maiusculoOrcamento, today, uid } from "../../../legacy/format.js";
@@ -903,7 +904,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
   const mesesOpts = Array.from({length:12},(_,i)=>{ const d=new Date(now.getFullYear(),now.getMonth()-i,1); const v=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`; return {v,l:`${MONTHS[d.getMonth()]} ${d.getFullYear()}`}; });
 
   return (
-    <div className={`anim equipment-center ${contexto==="financeiro"?"is-financial":""}`} style={{display:"flex",flexDirection:"column",gap:12}}>
+    <div className={`equipment-center ${contexto==="financeiro"?"is-financial":""}`} style={{display:"flex",flexDirection:"column",gap:"var(--arcd-box-gap)"}}>
 
       <PageHero
         eyebrow={contexto==="financeiro"?"Financeiro · ativos e locações":"Engenharia"}
@@ -928,6 +929,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
           <Btn size="sm" v="ghost" onClick={()=>setDonoModal(donoVazio)}><Ic n="user"/> Proprietários</Btn>
         </>}
       />
+      {obraIdFixo&&<ScopeNote title="Obra de referência">{(data.obras||[]).find(obra=>obra.id===obraIdFixo)?.name||"Obra atual"}. As novas locações desta tela já vêm com a obra preenchida.</ScopeNote>}
 
       {/* Abas internas */}
       <TaskDisclosure enabled={isMobile&&aba==="frota"} summary={`Período de referência · ${mesLabel}`}>

@@ -2,8 +2,8 @@ import {UNCONFIRMED_COMMAND} from '../../../features/workflow/command-attempt.js
 import {HelpButton} from '../../../features/help/HelpButton.jsx';
 import {useHelpTopic} from '../../../features/help/HelpContext.jsx';
 import { useState, useRef } from "react";
+import { ScopeNote } from "../../../design-system/patterns/ScopeNote.jsx";
 import { Btn, Ic, Inp, Modal } from "../../../legacy/ui.jsx";
-import { C } from "../../../legacy/palette.js";
 import { fmt } from "../../../legacy/format.js";
 import { saldoPagamentoPedido, statusPagamentoPedido } from "../calculations";
 import { quantidadesQueFaltam } from "../receipt";
@@ -11,7 +11,7 @@ import { purchaseUnitOf, referenceQuantityOf } from "../unit-conversion";
 
 // R6: o mesmo modal para "Receber" (Compras) e "Chegou" (tela da obra). Já vem
 // preenchido com tudo o que falta; quem recebeu só uma parte ajusta aqui.
-export function ModalRecebimento({ pedido, onClose, onReceber, nomeMat, nomeForn, notice = null, titulo = "", attempt = null }) {
+export function ModalRecebimento({ pedido, onClose, onReceber, nomeMat, nomeForn, obraNome, notice = null, titulo = "", attempt = null }) {
   useHelpTopic("cmp","cmp_recebimentos",20);
   const [salvando,setSalvando]=useState(false);
   const lock=useRef(false),[error,setError]=useState('');
@@ -36,11 +36,11 @@ export function ModalRecebimento({ pedido, onClose, onReceber, nomeMat, nomeForn
       <HelpButton pageId="cmp" allowedTabs={["cmp"]}/>
       {!salvando&&attempt?.command&&<p role="status">{UNCONFIRMED_COMMAND}</p>}
       <fieldset disabled={salvando} style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
+        {obraNome&&<ScopeNote title="Obra que recebe o material">{obraNome}</ScopeNote>}
         <div style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
           <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{nomeForn(pedido.fornecedorId)}</p>
           <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>
-            Informe o que <strong>realmente chegou</strong>. Pode receber parcial - o
-            pedido fica em aberto até completar.
+            Informe quanto chegou. Em uma entrega parcial, o saldo continua em aberto.
           </p>
           {/* Conferência de pagamento: informa, não bloqueia (compra a prazo é o caso normal). */}
           <p className="purchase-receipt-payment" data-pago={statusPagamentoPedido(pedido)==="pago"||undefined}
@@ -76,7 +76,7 @@ export function ModalRecebimento({ pedido, onClose, onReceber, nomeMat, nomeForn
         <div style={{background:"color-mix(in srgb, var(--arcd-success-text) 4%, transparent)",border:"1.5px solid var(--arcd-success-text)",
                      borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
           <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>
-            Vai entrar no estoque da obra:
+            Valor dos materiais desta entrada
           </p>
           <p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-success-text)",marginTop:"var(--arcd-space-half)",
                      fontFamily:"var(--arcd-font-sans)"}}>{fmt(valorTotal)}</p>

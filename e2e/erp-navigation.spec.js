@@ -214,9 +214,10 @@ test("todos os módulos ficam acessíveis e locações sai do Financeiro",async(
   const app=await enter(page,"admin");
   const modules=["Visão gerencial","Financeiro","Obras e projetos","Compras e suprimentos","Equipamentos e locações","Pessoas e terceiros","Comercial","Administração"];
   if(page.viewportSize().width<1100){
-    await expect(page.locator(".mobile-primary-nav")).toBeVisible();
+    const navigation=page.locator(".mobile-primary-nav");
+    await expect(navigation).toBeVisible();
     for(const label of modules){
-      const direct=page.getByRole("button",{name:`Abrir ${label}`,exact:true});
+      const direct=navigation.getByRole("button",{name:new RegExp(`^Abrir ${label}(?: · .+)?$`)});
       if(await direct.count())await direct.click();
       else{
         await page.getByRole("button",{name:"Abrir mais módulos",exact:true}).click();
@@ -225,7 +226,7 @@ test("todos os módulos ficam acessíveis e locações sai do Financeiro",async(
         await page.getByRole("dialog").getByRole("button",{name:label,exact:true}).click();
       }
       await expectModule(page,label);
-      await expect(page.getByRole("button",{name:`Abrir ${label}`,exact:true})).toHaveAttribute("aria-current","page");
+      await expect(direct).toHaveAttribute("aria-current","page");
     }
     expect(await page.locator(".mobile-primary-nav > button").count()).toBeLessThanOrEqual(5);
   }else{
@@ -275,6 +276,11 @@ test("fluxos internos e atalho do DRE preservam competência e pagamentos",async
   else await expect(page.locator(".app-breadcrumb")).toContainText("DRE obras");
   await expect.poll(()=>requests.filter(body=>body.year===2026&&body.month===8).length).toBeGreaterThan(1);
   await open("Folha");
+  const scope=page.locator("summary").filter({hasText:/^Competência e escopo · /});
+  if(page.viewportSize().width<1100){
+    await scope.waitFor();
+    if(!await scope.evaluate(summary=>summary.parentElement.open))await scope.click();
+  }
   const controls=page.getByRole("region",{name:"Competência e escopo da folha"});await expect(controls).toBeVisible();
   const order=await page.locator(".payroll-workspace").evaluate(element=>{
     const filters=element.querySelector(".payroll-controls"),report=element.querySelector(".payroll-actionbar"),check=element.querySelector(".payroll-checklist");

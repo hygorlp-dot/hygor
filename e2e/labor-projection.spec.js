@@ -79,11 +79,15 @@ async function navigate(page, label) {
 
 test("Obras e Administração Central separam Folha e Gestão do ponto sem alterar a lotação", async ({ page }, testInfo) => {
   const app = await enter(page, "rh", { localAdministration: true });
-  const group = () => page.getByRole("navigation", { name: "Grupo da equipe", exact: true });
   for (const [screen, selector] of [["Folha", ".payroll-workspace"], ["Gestão do ponto", ".ponto-geral"], ["Ponto por obra", ".obra-attendance"]]) {
     await navigate(page, screen);
-    await page.locator('.labor-area-tabs').getByRole('button',{name:'Administrativo',exact:true}).click();
     const content = page.locator(selector);
+    await expect(content).toBeVisible();
+    if(screen==="Folha"){
+      const scope=content.locator(".payroll-controls");
+      if(!await scope.isVisible())await scope.locator("xpath=ancestor::details[1]/summary").click();
+    }
+    await content.locator('.labor-area-tabs').getByRole('button',{name:'Administrativo',exact:true}).click();
     for (const name of ["Pessoa administrativa QA", "Engenheira local QA", "Mestre local QA"]) await expect(content).toContainText(name);
     await expect(content).not.toContainText("Pessoa de campo QA");
     await page.locator('.labor-area-tabs').getByRole('button',{name:'Pessoal de obra',exact:true}).click();
@@ -95,10 +99,11 @@ test("Obras e Administração Central separam Folha e Gestão do ponto sem alter
   }
   await page.screenshot({ path: testInfo.outputPath("grupos-do-ponto.png"), fullPage: true });
   await navigate(page, "Equipes");
+  await page.getByRole("button", { name: "Filtros", exact: true }).click();
   await page.getByRole("combobox", { name: "Filtrar por lotação", exact: true }).selectOption("__administrativo__");
   const engineer = page.locator(".team-row").filter({ hasText: "Engenheira local QA" });
   await expect(engineer).toBeVisible();
-  await engineer.locator(".team-row__employee").click();
+  await engineer.getByRole("button", { name: "Abrir ficha de Engenheira local QA", exact: true }).click();
   await expect(page.getByRole("dialog").getByRole("combobox", { name: "Obra", exact: true })).toHaveValue("work");
   if (process.env.MRC_PR229_COMPAT === "1") {
     const schedule = page.getByRole("group", { name: "Escala de trabalho definida pelo RH" });

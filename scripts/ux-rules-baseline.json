@@ -3,7 +3,7 @@
     "src/domains/comercial/real-estate.css": 23,
     "src/domains/equipamentos/billing-center.css": 1,
     "src/domains/orcamentos/components/box-memory.css": 1,
-    "src/domains/orcamentos/components/budget-sheet.css": 50,
+    "src/domains/orcamentos/components/budget-sheet.css": 49,
     "src/domains/orcamentos/components/item-memory.css": 1,
     "src/domains/orcamentos/components/structural-memory.css": 1,
     "src/domains/ponto/components/clt-payslips.css": 7,
@@ -12,8 +12,7 @@
     "src/domains/rh/components/employee-edit.css": 3,
     "src/features/conciliacao/category-combobox.css": 12,
     "src/features/workflow/workflow.css": 1,
-    "src/index.css": 246,
-    "src/mobile/styles.css": 1
+    "src/index.css": 241
   },
   "plural-com-parenteses": {
     "src/design-system/copy.js": 1,
@@ -64,7 +63,7 @@
     "src/features/conciliacao/ConciliacaoView.jsx": 10,
     "src/features/financeiro/FinancialReportCenter.jsx": 1,
     "src/features/financeiro/LegacyDocumentTools.jsx": 1,
-    "src/LegacyApp.jsx": 12,
+    "src/LegacyApp.jsx": 9,
     "src/reports/labor-projection.js": 4,
     "src/reports/legacy-standard.js": 1
   },
@@ -72,7 +71,7 @@
   "percentual-com-ponto": {
     "src/components/charts/CubChart.jsx": 3,
     "src/components/charts/DreMargemChart.jsx": 2,
-    "src/domains/comercial/components/ComercialView.jsx": 7,
+    "src/domains/comercial/components/ComercialView.jsx": 5,
     "src/domains/comercial/legacy-model.js": 1,
     "src/domains/comercial/RealEstateCommercial.jsx": 1,
     "src/domains/compras/calculations.js": 1,
@@ -85,8 +84,8 @@
     "src/domains/estoque/components/EstoqueView.jsx": 1,
     "src/domains/licenciamento/components/LicenciamentoView.jsx": 2,
     "src/domains/medicoes/components/MedicoesView.jsx": 8,
-    "src/domains/orcamentos/components/OrcamentoView.jsx": 20,
-    "src/domains/planejamento/components/PlanejamentoView.jsx": 9,
+    "src/domains/orcamentos/components/OrcamentoView.jsx": 19,
+    "src/domains/planejamento/components/PlanejamentoView.jsx": 7,
     "src/domains/terceirizados/components/TerceirosView.jsx": 8,
     "src/features/conciliacao/ConciliacaoView.jsx": 1,
     "src/features/pilot/OperationalPilot.jsx": 1,
@@ -95,13 +94,13 @@
     "src/reports/legacy-standard.js": 2
   },
   "raio-fixo-em-css-de-tela": {
-    "src/index.css": 141
+    "src/index.css": 137
   },
   "raio-fixo-em-jsx": {
     "src/components/charts/CubChart.jsx": 2,
     "src/components/charts/RelatoriosChartPanel.jsx": 2,
     "src/domains/administracao/components/BasesPrecoAdmin.jsx": 12,
-    "src/domains/administracao/components/CentralAdministradorView.jsx": 6,
+    "src/domains/administracao/components/CentralAdministradorView.jsx": 4,
     "src/domains/administracao/components/FechamentoFinanceiroAdmin.jsx": 4,
     "src/domains/administracao/components/FinanceiroCanonicoAdmin.jsx": 7,
     "src/domains/administracao/components/NucleoRelacionalAdmin.jsx": 4,
@@ -115,13 +114,13 @@
     "src/domains/equipamentos/components/EquipamentosView.jsx": 38,
     "src/domains/estoque/components/EstoqueView.jsx": 12,
     "src/domains/estoque/LegacyEditors.jsx": 1,
-    "src/domains/licenciamento/components/LicenciamentoView.jsx": 13,
+    "src/domains/licenciamento/components/LicenciamentoView.jsx": 12,
     "src/domains/medicoes/components/MedicoesView.jsx": 32,
     "src/domains/obras/components/AditivosContrato.jsx": 1,
     "src/domains/obras/components/DiarioObraView.jsx": 26,
     "src/domains/orcamentos/components/OrcamentoView.jsx": 119,
     "src/domains/patrimonio/components/PatrimonioEmpresaView.jsx": 2,
-    "src/domains/planejamento/components/PlanejamentoView.jsx": 41,
+    "src/domains/planejamento/components/PlanejamentoView.jsx": 40,
     "src/domains/qualidade/components/ConferenciaView.jsx": 12,
     "src/domains/rh/components/EquipeView.jsx": 3,
     "src/domains/rh/components/IndicadoresView.jsx": 1,
@@ -133,17 +132,17 @@
     "src/features/financeiro/LegacyDocumentTools.jsx": 15,
     "src/legacy/palette.js": 3,
     "src/legacy/ui.jsx": 9,
-    "src/LegacyApp.jsx": 265,
+    "src/LegacyApp.jsx": 259,
     "src/supplier-acceptance/SupplierAcceptancePage.jsx": 7
   },
   "gap-fora-da-escala": {
-    "src/domains/administracao/components/user-directory.css": 2,
+    "src/domains/administracao/components/user-directory.css": 1,
     "src/domains/comercial/real-estate.css": 17,
     "src/domains/medicoes/components/measurement-entry.css": 2,
     "src/domains/ponto-eletronico/components/equipe-obras-tv.css": 1,
     "src/features/financeiro/work-financial-report.css": 1,
     "src/features/pilot/assisted-review.css": 1,
     "src/features/workflow/workflow.css": 4,
-    "src/index.css": 98
+    "src/index.css": 97
   }
 }

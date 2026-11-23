@@ -9,3 +9,7 @@
 .contract-record-clauses{display:flex;flex-direction:column;gap:var(--arcd-space-3);overflow-wrap:anywhere}
 @media(max-width:767px){.contract-record-grid{grid-template-columns:minmax(0,1fr)}.contract-record-row{flex-direction:column}.contract-record-actions>*{max-width:100%}}
 @media(max-width:767px){.contract-record-facts{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:767px){
+  .contract-record-filters{--arcd-filter-columns:repeat(2,minmax(0,1fr))}
+  .contract-record-filters > :first-child{grid-column:1 / -1}
+}

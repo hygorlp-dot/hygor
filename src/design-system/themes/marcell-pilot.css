@@ -55,7 +55,7 @@
   .workspace-header .arcd-page-header__description {
     margin: .25rem 0 0;
     font-size: var(--arcd-type-body);
-    line-height: 1.5;
+    line-height: var(--arcd-line-height-normal);
     color: var(--arcd-text-secondary);
   }
   .workspace-header .arcd-page-header__actions { align-items: flex-end; gap: .5rem; }
@@ -213,7 +213,6 @@
     .dashboard-executive-grid > span:nth-last-child(-n+2) { border-bottom: 0; }
     .arcd-main[data-workspace] .dashboard-kpi { min-height: 5rem; padding: .625rem .75rem; }
     .dashboard-work-grid__aside { display: flex; }
-    .dashboard-work-grid__aside { order: -1; }
     .dashboard-tech-hero .arcd-page-header__description time { display: block; margin: 0; }
     .dashboard-tech-hero .arcd-page-header__actions > [data-slot="button"]:last-child { flex: 1; }
     .dashboard-context > span:last-child { line-height: 1.5; }

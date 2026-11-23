@@ -5,9 +5,20 @@ import {validateOperationalCommandScope} from '../server/operational-command-pol
 import {projectDataForUser} from '../server/data-projection.js';
 import sourceModel from '../src/domains/comercial/contracts/administration-template.json' with {type:'json'};
 
-async function setup(page,actor,{seed=false}={}){
+async function setup(page,actor,{seed=false,linkedProposal=false,theme='marcell'}={}){
   let failNext=false;let data=fixture();data.usuarios=data.usuarios.map(u=>({...u,email:`${u.id}@example.invalid`}));
-  if(seed){const result=applyOperationalCommand(data,{type:'COMERCIAL_INSTRUMENTO_SALVO',idempotencyKey:'seed-browser-contract',actorId:admin.id,actorRole:admin.role,payload:{id:'seed-contract',record:recordFixture(),files:files()},expectedVersion:0,now:'2026-11-13T12:00:00Z'});data=result.data;}
+  if(linkedProposal)data.comercial.propostas=[
+    {id:'linked',leadId:'l1',numero:'PROP-0081',objeto:'Ampliação de teste'},
+    {id:'unlinked',leadId:'l1',numero:'PROP-0082',objeto:'Ampliação de teste'},
+  ];
+  if(seed){
+    const record=recordFixture();
+    if(linkedProposal)record.propostaId='linked';
+    const result=applyOperationalCommand(data,{type:'COMERCIAL_INSTRUMENTO_SALVO',idempotencyKey:'seed-browser-contract',actorId:admin.id,actorRole:admin.role,payload:{id:'seed-contract',record,files:files()},expectedVersion:0,now:'2026-11-13T12:00:00Z'});
+    expect(result.ok).toBe(true);
+    data=result.data;
+  }
+  await page.addInitScript(({id,theme})=>{sessionStorage.setItem(`arcd-section:${id}`,'com_contratos');localStorage.setItem('arcd-theme',theme);},{id:actor.id,theme});
   await page.route('**/api/**',route=>route.fulfill({json:{ok:true,items:[],presencas:[]}}));
   await page.route('**/api/data',async route=>{
     const body=route.request().postDataJSON()||{};
@@ -25,14 +36,45 @@ async function setup(page,actor,{seed=false}={}){
     return route.fulfill({json:{ok:true,accessToken:'contracts-isolated-token',refreshToken:'isolated-refresh',usuario:{...actor,email:`${actor.id}@example.invalid`},data:projectDataForUser(data,actor),updatedAt:new Date().toISOString()}});
   });
   await page.goto('/',{waitUntil:'domcontentloaded'});await page.locator('#login-email').fill(`${actor.id}@example.invalid`);await page.locator('#login-senha').fill('isolated-test');await page.getByRole('button',{name:'Acessar central MARCELL'}).click();
-  await page.keyboard.press('Control+k');const search=page.getByPlaceholder('Buscar obra, lead, pedido, funcionário, tela...');await search.fill('Propostas e contratos');await search.locator('xpath=../..').getByRole('button').filter({hasText:'Propostas e contratos'}).first().click();
-  const nav=page.getByRole('navigation',{name:'Áreas do comercial'});
-  if(page.viewportSize().width>=768)await nav.getByRole('button',{name:'Contratos',exact:true}).click();
-  else await page.getByRole('combobox',{name:'Áreas do comercial',exact:true}).selectOption('com_contratos');
   await expect(page.getByRole('heading',{name:'Contratos',exact:true})).toBeVisible();
   return {getData:()=>data,failOnce:()=>{failNext=true;}};
 }
 async function step(page,value){const nav=page.getByRole('navigation',{name:'Etapas do contrato'});if(page.viewportSize().width>=768)await nav.getByRole('button').filter({hasText:new RegExp(`^${String.fromCharCode(65+value)}\\.`)}).click();else await page.getByRole('combobox',{name:'Etapas do contrato',exact:true}).selectOption(String(value));}
+
+for(const theme of ['marcell','noite','plataforma'])test(`Contratos pesquisa pela proposta vinculada · ${theme}`,async({page},info)=>{
+  await setup(page,seller,{seed:true,linkedProposal:true,theme});
+  const search=page.getByLabel('Pesquisar contrato',{exact:true});
+  await search.fill('PROP-0081');
+  await expect(page.getByText('Proposta · PROP-0081',{exact:true})).toBeVisible();
+  await expect(page.getByText('1 contrato no recorte',{exact:true})).toBeVisible();
+  if(page.viewportSize().width===390){
+    const status=await page.getByLabel('Situação',{exact:true}).boundingBox();
+    const work=await page.getByLabel('Obra',{exact:true}).boundingBox();
+    expect(status.y).toBeCloseTo(work.y,0);
+  }
+  await page.screenshot({path:info.outputPath('proposta-vinculada.png'),animations:'disabled'});
+  await page.locator('.contract-record-row').screenshot({path:info.outputPath('contrato-encontrado.png'),animations:'disabled'});
+  await search.fill('PROP-0082');
+  await expect(page.getByText('0 contratos no recorte',{exact:true})).toBeVisible();
+  await search.fill('Ampliação de teste');
+  await expect(page.getByText('1 contrato no recorte',{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Abrir contrato',exact:true}).click();
+  await expect(page.getByLabel('Proposta vinculada',{exact:true})).toHaveValue('linked');
+  await expect(page.getByLabel('Obra vinculada',{exact:true})).toHaveValue('w1');
+  await expect(page.getByRole('button',{name:'Gerar PDF',exact:true})).toBeDisabled();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+});
+
+test('Contratos respeita o acesso limitado a outra obra',async({page})=>{
+  await setup(page,{...seller,obraId:'w2'},{seed:true,linkedProposal:true,theme:'plataforma'});
+  const search=page.getByLabel('Pesquisar contrato',{exact:true});
+  await search.fill('PROP-0081');
+  await expect(page.getByText('0 contratos no recorte',{exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Abrir contrato',exact:true})).toHaveCount(0);
+  const work=page.getByRole('region',{name:'Filtros dos contratos'}).getByLabel('Obra',{exact:true});
+  await expect(work.locator('option[value="w1"]')).toHaveCount(0);
+  await expect(work.locator('option[value="w2"]')).toHaveCount(1);
+});
 
 test('comercial cria, salva, reabre, cruza a obra, envia e conserva emissão desativada',async({page},testInfo)=>{
   const state=await setup(page,seller);
