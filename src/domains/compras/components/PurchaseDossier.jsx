@@ -49,6 +49,7 @@ export function PurchaseDossier({data,selection,onClose,inline=false,currentUser
       <section data-section="orders" tabIndex={-1}><h3>Pedidos e recebimentos · {f.orders.length}</h3>
         {!f.orders.length&&<p>A cotação ainda não gerou pedidos.</p>}
         {f.orders.map(p=><article key={p.id}><h4>{p.numero} · {p.historicoCondicoesPedido?.at(-1)?.fornecedor?.nome||name(p.fornecedorId)} · {p.status}</h4>
+          <p>Obra do pedido: {(data.obras||[]).find(obra=>obra.id===p.obraId)?.name||"Não identificada"}</p>
           <p>{fmt(totalPedido(p))} · Emissão {fmtDate(p.data)} · Entrega {p.previsao?fmtDate(p.previsao):"não informada"}</p>
           <p>Pagamento: {p.condicoesPagamento||"Condições não informadas"}</p>
           <OrderConditions order={p}/>
