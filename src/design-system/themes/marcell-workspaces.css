@@ -161,7 +161,9 @@
 }
 
 @media screen {
-  .arcd-app-shell[data-tab="tv"] { --arcd-font-sans: "Nimbus Sans", "Helvetica Neue", Arial, sans-serif; }
+  @media (max-width: 1099px) {
+    .arcd-app-shell[data-tab="tv"] { --arcd-font-sans: "Nimbus Sans", "Helvetica Neue", Arial, sans-serif; }
+  }
   [data-theme] :is(.arcd-modal-panel,.arcd-dialog,.arcd-drawer),
   [data-theme] :is(.arcd-modal-panel,.arcd-dialog,.arcd-drawer) :is(h1,h2,h3,h4,button,input,select,textarea) {
     font-family: var(--arcd-font-sans) !important;

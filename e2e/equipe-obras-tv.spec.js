@@ -1,12 +1,19 @@
 import { test, expect } from "@playwright/test";
 import { montarEquipeObras } from "../src/domains/ponto-eletronico/equipe-obras.js";
 
-async function entrar(page, autorizado = true) {
+async function entrar(page, autorizado = true, {panorama=false,theme='plataforma'}={}) {
   const usuario = { id: "tv-user", nome: "Operador", email: "tv@test.local", role: autorizado ? "admin" : "visualizador", active: true };
   const obras = [{ id: "a", name: "Residencial Alameda" }, { id: "b", name: "Galpão Industrial" }];
   const employees = Array.from({ length: 8 }, (_, i) => ({ id: `e${i}`, name: `Funcionário ${i + 1} Silva`, role: "Pedreiro", obra: "a", active: true }));
   const marcacoes = employees.slice(0, 7).map((e, i) => ({ eventId: String(i), employeeId: e.id, obraId: "a", tipoRegistro: "ponto", marcadoEm: "2026-10-28T10:00:00Z", horaConfiavel: true }));
   const state = { usuarios: [usuario], obras, employees, config: {} };
+  if(panorama){
+    obras.push(...Array.from({length:3},(_,index)=>({id:`extra-${index}`,name:`Obra de teste ${index+1}`})));
+    state.conferencias=[
+      {id:'current',obraId:'a',status:'em_andamento',pendencias:[{id:'open',status:'aberta'},{id:'closed',status:'cancelada',impacto:'critico'},{id:'resolved',status:'resolvida'}]},
+      {id:'canceled',obraId:'b',status:'cancelada',pendencias:[{id:'old-open',status:'aberta',impacto:'critico'}]},
+    ];
+  }
   let consultas = 0, negar = false;
   await page.route("https://fonts.googleapis.com/**", r => r.fulfill({ contentType: "text/css", body: "" }));
   await page.route("https://fonts.gstatic.com/**", r => r.abort());
@@ -21,17 +28,52 @@ async function entrar(page, autorizado = true) {
     return route.fulfill({ json: { ok: true, accessToken: "tv-test", refreshToken: "refresh-test", usuario, data: state } });
   });
   await page.route("**/api/presence", r => r.fulfill({ json: { ok: true, presencas: [] } }));
+  await page.addInitScript(({id,theme})=>{sessionStorage.setItem(`arcd-section:${id}`,'tv');localStorage.setItem('arcd-theme',theme);},{id:usuario.id,theme});
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await page.locator("#login-email").fill(usuario.email);
   await page.locator("#login-senha").fill("teste");
   await page.getByRole("button", { name: /Acessar central/ }).click();
   await expect(page.locator("#login-email")).toBeHidden();
-  await page.evaluate(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true })));
-  await page.getByPlaceholder(/Buscar/i).first().fill("Modo TV");
-  await page.getByText("Modo TV", { exact: true }).last().click();
   await expect(page.getByRole("heading", { name: "Panorama executivo das obras" })).toBeVisible();
   return { consultas: () => consultas, negar: () => { negar = true; } };
 }
+
+for(const theme of ['marcell','noite','plataforma','cristal'])test(`panorama mantém leitura pausada e conta pendências abertas · ${theme}`,async({page},info)=>{
+  await page.clock.install();
+  await entrar(page,true,{panorama:true,theme});
+  const summary=page.getByRole('region',{name:'Resumo do panorama'});
+  await expect(summary.getByText('Pendências técnicas',{exact:true}).locator('..').getByText('1',{exact:true})).toBeVisible();
+  const nav=page.getByRole('group',{name:'Navegação do panorama'});
+  const desktop=page.viewportSize().width>=1100;
+  const total=desktop?2:3;
+  await expect(page.locator(desktop?'.desktop-tv-work':'.arcd-tv-work')).toHaveCount(desktop?4:2);
+  await expect(page.locator('html')).toHaveAttribute('data-theme',theme);
+  if(desktop&&theme==='plataforma'){
+    await expect(page.getByRole('heading',{name:'Panorama executivo das obras'})).toHaveCSS('font-family',/^Inter\b/);
+  }
+  await expect(nav.getByText(`Página 1 de ${total}`)).toBeVisible();
+  await nav.getByRole('button',{name:'Pausar rotação'}).click();
+  await page.clock.fastForward(24000);
+  await expect(nav.getByText(`Página 1 de ${total}`)).toBeVisible();
+  await nav.getByRole('button',{name:'Próxima página'}).click();
+  await expect(nav.getByText(`Página 2 de ${total}`)).toBeVisible();
+  await nav.getByRole('button',{name:'Página anterior'}).click();
+  await nav.getByRole('button',{name:'Retomar rotação'}).click();
+  await page.clock.fastForward(12000);
+  await expect(nav.getByText(`Página 2 de ${total}`)).toBeVisible();
+  await page.screenshot({path:info.outputPath('panorama.png'),animations:'disabled'});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+});
+
+test('panorama inicia com rotação pausada quando a preferência reduz movimento',async({page})=>{
+  await page.emulateMedia({reducedMotion:'reduce'});
+  await page.clock.install();
+  await entrar(page,true,{panorama:true});
+  const nav=page.getByRole('group',{name:'Navegação do panorama'});
+  await page.clock.fastForward(24000);
+  await expect(nav.getByRole('button',{name:'Retomar rotação'})).toBeVisible();
+  await expect(nav.getByText(/^Página 1 de /)).toBeVisible();
+});
 
 test("equipe na TV pagina, pausa, atualiza e protege registros do APK atual", async ({ page }, info) => {
   await page.clock.install();

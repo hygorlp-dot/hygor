@@ -13,6 +13,9 @@ const shared = Object.freeze({
   "--arcd-font-sans":"'Geist', 'Inter', 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif",
   "--arcd-nav-focus":"#235bb0",
   "--arcd-surface-card":"#ffffff", "--arcd-surface-elevated":"#ffffff",
+  "--arcd-tv-canvas":"#101a28", "--arcd-tv-panel":"#1a2636", "--arcd-tv-border":"#405064",
+  "--arcd-tv-text":DISTANCE_VIEW_COLORS.text, "--arcd-tv-secondary":DISTANCE_VIEW_COLORS.muted,
+  "--arcd-tv-warning":DISTANCE_VIEW_COLORS.orange, "--arcd-tv-critical":DISTANCE_VIEW_COLORS.red,
   "--arcd-action-primary-text":"#ffffff", "--arcd-text-inverse":"#ffffff",
   "--arcd-success-text":"#24634b", "--arcd-success-surface":"#edf7f1", "--arcd-success-border":"#8cbba0",
   "--arcd-warning-text":"#805517", "--arcd-warning-surface":"#fff7e8", "--arcd-warning-border":"#d8b36f",
@@ -36,6 +39,19 @@ const shared = Object.freeze({
   "--arcd-material-blur":"0px", "--arcd-material-fallback":"var(--arcd-surface-card)", "--arcd-material-panel-surface":"var(--arcd-surface-card)",
 });
 const theme = (id,label,description,tokens) => Object.freeze({id,label,description,enabled:true,tokens:Object.freeze({...shared,...tokens})});
+const preciseTokens = Object.freeze({
+    "--arcd-surface-page":"#e9edf1", "--arcd-surface-card":"rgb(255 255 255 / 86%)", "--arcd-surface-muted":"#e6ebf0", "--arcd-surface-subtle":"#f1f4f7",
+    "--arcd-surface-inverse":"#0d1b2e", "--arcd-surface-overlay":"rgb(13 27 46 / 56%)",
+    "--arcd-text-primary":"#0d1b2e", "--arcd-text-secondary":"#4a5868", "--arcd-text-muted":"#4f5d6d",
+    "--arcd-border-subtle":"rgb(13 27 46 / 8%)", "--arcd-border-default":"rgb(13 27 46 / 13%)", "--arcd-border-strong":"#7f8b9a",
+    "--arcd-action-primary":"#0d1b2e", "--arcd-action-primary-hover":"#1b2c42", "--arcd-action-primary-active":"#060e1a",
+    "--arcd-action-primary-subtle":"#e4e9f0", "--arcd-focus-ring":"#235bb0", "--arcd-nav-focus":"#9cc4ff",
+    "--arcd-nav-surface":"#0d1b2e", "--arcd-nav-text":"#c4cfda", "--arcd-nav-active-text":"#ffffff",
+    "--arcd-nav-active-surface":"#1e3150", "--arcd-nav-hover-surface":"#16263c", "--arcd-nav-hover-text":"#ffffff",
+    "--arcd-nav-border":"#2a3a50", "--arcd-nav-brand-text":"#ffffff", "--arcd-radius-lg":".75rem",
+    "--arcd-table-stripe-surface":"rgb(13 27 46 / 3%)",
+    "--arcd-material-blur":"20px", "--arcd-material-fallback":"#f1f4f7", "--arcd-material-panel-surface":"rgb(255 255 255 / 62%)",
+});
 export const themeRegistry = Object.freeze({
   vidro:theme("vidro","MARCELL Vidro","Superfícies claras e translúcidas, com tons de pedra e azul-marinho.",{
     "--arcd-surface-page":"#eef2f4", "--arcd-surface-card":"rgb(248 251 253 / 76%)", "--arcd-surface-elevated":"#f8fbfd",
@@ -119,18 +135,20 @@ export const themeRegistry = Object.freeze({
     "--arcd-nav-border":"#e4e8ee", "--arcd-nav-brand-text":"#0d1b2e",
   }),
   // 19/11/2026 (direção Plataforma): caixas de vidro sobre o emblema claro (vidro-erp.css), ação principal em azul-marinho.
-  marcell:theme("marcell","MARCELL Preciso","Menu azul-marinho, caixas de vidro sobre o emblema e ações em azul-marinho.",{
-    "--arcd-surface-page":"#e9edf1", "--arcd-surface-card":"rgb(255 255 255 / 86%)", "--arcd-surface-muted":"#e6ebf0", "--arcd-surface-subtle":"#f1f4f7",
-    "--arcd-surface-inverse":"#0d1b2e", "--arcd-surface-overlay":"rgb(13 27 46 / 56%)",
-    "--arcd-text-primary":"#0d1b2e", "--arcd-text-secondary":"#4a5868", "--arcd-text-muted":"#4f5d6d",
-    "--arcd-border-subtle":"rgb(13 27 46 / 8%)", "--arcd-border-default":"rgb(13 27 46 / 13%)", "--arcd-border-strong":"#7f8b9a",
-    "--arcd-action-primary":"#0d1b2e", "--arcd-action-primary-hover":"#1b2c42", "--arcd-action-primary-active":"#060e1a",
-    "--arcd-action-primary-subtle":"#e4e9f0", "--arcd-focus-ring":"#235bb0", "--arcd-nav-focus":"#9cc4ff",
-    "--arcd-nav-surface":"#0d1b2e", "--arcd-nav-text":"#c4cfda", "--arcd-nav-active-text":"#ffffff",
-    "--arcd-nav-active-surface":"#1e3150", "--arcd-nav-hover-surface":"#16263c", "--arcd-nav-hover-text":"#ffffff",
-    "--arcd-nav-border":"#2a3a50", "--arcd-nav-brand-text":"#ffffff", "--arcd-radius-lg":".75rem",
-    "--arcd-table-stripe-surface":"rgb(13 27 46 / 3%)",
-    "--arcd-material-blur":"20px", "--arcd-material-fallback":"#f1f4f7", "--arcd-material-panel-surface":"rgb(255 255 255 / 62%)",
+  marcell:theme("marcell","MARCELL Preciso","Menu azul-marinho, caixas de vidro sobre o emblema e ações em azul-marinho.",preciseTokens),
+  plataforma:theme("plataforma","MARCELL Plataforma","Menu azul-ardósia, malha de projeto e caixas de vidro claro sobre a marca MARCELL.",{
+    ...preciseTokens,
+    "--arcd-font-sans":"'Inter', 'Geist', 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif",
+    "--arcd-page-padding":"var(--arcd-space-4)", "--arcd-page-padding-mobile":"var(--arcd-space-3)",
+    "--arcd-surface-page":"#e5e9ee", "--arcd-surface-card":"rgb(248 250 252 / 86%)",
+    "--arcd-surface-muted":"#e5eaf0", "--arcd-surface-subtle":"#eff2f6",
+    "--arcd-text-secondary":"#4d5e74", "--arcd-text-muted":"#526278",
+    "--arcd-nav-surface":"#222f40", "--arcd-nav-text":"#c4cedb",
+    "--arcd-nav-active-surface":"#344153", "--arcd-nav-hover-surface":"#2c3b4f",
+    "--arcd-nav-border":"#405064", "--arcd-radius-control":".5rem", "--arcd-radius-lg":"1rem",
+    "--arcd-workspace-tab-surface":"transparent", "--arcd-workspace-tab-border":"transparent",
+    "--arcd-workspace-tab-active-surface":"transparent", "--arcd-workspace-tab-active-border":"transparent",
+    "--arcd-material-panel-surface":"rgb(248 250 252 / 64%)",
   }),
 });
 export const enabledThemeIds = Object.freeze(Object.values(themeRegistry).filter(theme=>theme.enabled).map(theme=>theme.id));

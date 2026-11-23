@@ -3,7 +3,7 @@ const terminal = new Set(["resolvida", "cancelada"]);
 const activeConferenceFindings = conference =>
   (conference?.pendencias || []).filter(item => item?.status !== "cancelada");
 
-const openConferenceFindings = conference =>
+export const openConferenceFindings = conference =>
   activeConferenceFindings(conference).filter(item => !terminal.has(item?.status));
 
 export const conferenceProgress = conference => {

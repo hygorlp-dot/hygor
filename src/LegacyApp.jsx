@@ -7,6 +7,8 @@ import {activeCompany,companyStorageKey,companyIsolationActive} from './lib/comp
 import {trocarEmpresa} from './api.js';
 import {UI_TEXT} from './design-system/copy.js';
 import {workNavigationGroups,workNavigationTarget} from './domains/obras/work-navigation.js';
+import {DesktopTVWork} from './domains/dashboard/components/DesktopTVWork.jsx';
+import {openConferenceFindings} from './domains/qualidade/conference-workflow.js';
 import {DISTANCE_VIEW_COLORS} from './design-system/themes/themeRegistry.js';
 import {portalLoginUrl} from "./client-portal/routes.js";
 import {PublicationReview} from "./client-portal/components/PublicationReview.jsx";
@@ -165,7 +167,7 @@ import { Button as DesignSystemButton } from "./design-system/primitives/Button.
 import { Dialog as DesignSystemDialog } from "./design-system/primitives/Dialog.jsx";
 import { Input as DesignSystemInput } from "./design-system/primitives/Input.jsx";
 import { Select as DesignSystemSelect } from "./design-system/primitives/Select.jsx";
-import { Eye, EyeOff, ChevronLeft, ChevronRight, Search, RefreshCw, Delete } from "lucide-react";
+import { Eye, EyeOff, ChevronLeft, ChevronRight, Search, RefreshCw, Delete, Maximize, Minimize } from "lucide-react";
 import { cn } from "./lib/utils";
 import { features } from "./config/features";
 import { SUPPLIER_CATEGORIES as RAMOS_FORNECIMENTO } from "./domains/suppliers/categories";
@@ -5222,6 +5224,14 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
     ? `${contagensObras.atencao} ${contagensObras.atencao === 1 ? "obra com cadastro" : "obras com cadastro"} a completar`
     : "Cadastros das obras completos";
 
+  const buscaObras = (
+    <label className="works-search" style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)"}}>
+      <Ic n="search" s={16} color={C.muted}/>
+      <span className="sr-only">Buscar obras</span><StandardInput aria-label={isDesktop?"Buscar obras":undefined} value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar por obra, cliente, endereço, responsável ou fase..." style={{flex:1,minWidth:0}}/>
+      {(!isDesktop||search.trim())&&<span role={isDesktop?"status":undefined} style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",whiteSpace:"nowrap"}}>{contar(list.length,"resultado","resultados")}</span>}
+    </label>
+  );
+
   return (
     <div className="anim works-hub" style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
       <PageHero
@@ -5247,7 +5257,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
       />
 
       {erroPastas&&<div className="works-sync-error" role="alert"><Ic n="alert" s={14}/><p><strong>Pastas do OneDrive não preparadas.</strong> {erroPastas}</p><Btn v="secondary" size="sm" disabled={sincronizandoPastas} onClick={()=>sincronizarPastas(true)}>Tentar de novo</Btn><Btn v="ghost" size="sm" ariaLabel="Dispensar aviso" title="Dispensar aviso" onClick={()=>setErroPastas("")}><Ic n="x" s={14}/></Btn></div>}
-      <section className="works-filter-bar" style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:C.rLg,padding:"var(--arcd-space-2)",boxShadow:"none"}}>
+      <section className="works-filter-bar" aria-label={isDesktop?"Filtros de Obras":undefined} style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:C.rLg,padding:"var(--arcd-space-2)",boxShadow:"none"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
           <label className="works-category-select">Situação das obras<SelectControl value={categoria} onChange={event=>setCategoria(event.target.value)}>{categoriasObras.map(([v,l])=><option key={v} value={v}>{l} · {contagensObras[v]}</option>)}</SelectControl></label>
           <div className="works-category-tabs" style={{display:"flex",gap:"var(--arcd-space-1)",overflowX:"auto",paddingBottom:"var(--arcd-space-0)",maxWidth:"100%"}}>
@@ -5257,6 +5267,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
             {[["lista","Painel"],["quadro","Fluxo"]].map(([v,l])=><StandardButton variant="secondary" type="button" aria-pressed={vista===v} data-active={vista===v} key={v} onClick={()=>setVista(v)}>{l}</StandardButton>)}
           </div>
         </div>
+        {isDesktop&&vista==="lista"&&buscaObras}
       </section>
 
       {undoMove&&<div className="works-undo" role="status"><div><strong>Obra movida</strong><span>“{undoMove.obraName}” mudou de fase e a alteração foi registrada.</span></div><Btn v="ghost" onClick={desfazerMovimento}>Desfazer</Btn></div>}
@@ -5455,11 +5466,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
 
       {/*  LISTA  */}
       {vista === "lista" && <>
-      <label className="works-search" style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)"}}>
-        <Ic n="search" s={16} color={C.muted}/>
-        <span className="sr-only">Buscar obras</span><StandardInput value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar por obra, cliente, endereço, responsável ou fase..." style={{flex:1,minWidth:0}}/>
-        <span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",whiteSpace:"nowrap"}}>{list.length} resultado{list.length===1?"":"s"}</span>
-      </label>
+      {!isDesktop&&buscaObras}
 
       <RecordListPagination pagination={worksPage} label="obras"/>
       <div className="works-grid" style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:"var(--arcd-space-3)"}}>
@@ -12791,12 +12798,15 @@ function PainelTV({data,ultimaSync,onAtualizar,allowedTabs=[]}){
   const tvColors={...C,...DISTANCE_VIEW_COLORS};
   const [visao,setVisao]=useState("panorama");
   const podeVerEquipe=allowedTabs.includes("equipe_obras");
+  const visaoAtual=podeVerEquipe?visao:"panorama";
   const raizRef=useRef(null);
   const {isDesktop}=useBreakpoint();
   const [pagina,setPagina]=useState(0);
   const [agora,setAgora]=useState(()=>new Date());
   const [telaCheia,setTelaCheia]=useState(false);
   const [cicloImagem,setCicloImagem]=useState(0);
+  const [rotacaoPausada,setRotacaoPausada]=useState(()=>Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches));
+  const dia=today();
   const obras=useMemo(()=>(data.obras||[]).filter(o=>o.status!=="done"),[data.obras]);
   const linhas=useMemo(()=>obras.map(obra=>{
     const plano=(data.planos||[]).find(p=>p.obraId===obra.id);
@@ -12804,12 +12814,12 @@ function PainelTV({data,ultimaSync,onAtualizar,allowedTabs=[]}){
     const executivas=tarefas.filter(t=>!t.titulo);
     const progresso=executivas.length?Math.round(executivas.reduce((s,t)=>s+Number(t.progresso||0),0)/executivas.length):0;
     const tarefasComDatas=executivas.filter(t=>t.inicio&&t.fim);
-    const planejado=tarefasComDatas.length?Math.round(tarefasComDatas.reduce((s,t)=>s+Number(desvioTarefaAuto(t,today()).pctPrevisto||0),0)/tarefasComDatas.length):null;
-    const atrasadas=tarefas.filter(t=>t.fim&&t.fim<today()&&Number(t.progresso||0)<100);
+    const planejado=tarefasComDatas.length?Math.round(tarefasComDatas.reduce((s,t)=>s+Number(desvioTarefaAuto(t,dia).pctPrevisto||0),0)/tarefasComDatas.length):null;
+    const atrasadas=tarefas.filter(t=>t.fim&&t.fim<dia&&Number(t.progresso||0)<100);
     const equipe=(data.employees||[]).filter(e=>e.active!==false&&e.obra===obra.id);
-    const diarioHoje=(data.rdos||[]).find(r=>r.obraId===obra.id&&r.data===today()&&r.status==="concluido");
-    const pendencias=(data.conferencias||[]).filter(c=>c.obraId===obra.id)
-      .flatMap(c=>(c.pendencias||[]).filter(p=>p.status!=="resolvida"));
+    const diarioHoje=(data.rdos||[]).find(r=>r.obraId===obra.id&&r.data===dia&&r.status==="concluido");
+    const pendencias=(data.conferencias||[]).filter(c=>c.obraId===obra.id&&c.status!=="cancelada")
+      .flatMap(openConferenceFindings);
     const qualidade=(data.qualidadeRegistros||[]).filter(q=>q.obraId===obra.id&&!["aprovada","liberada_concessao"].includes(q.status));
     const compras=(data.solicitacoesCompra||[]).filter(s=>s.obraId===obra.id&&!["atendida","cancelada","concluida"].includes(s.status));
     const necessidades=[];
@@ -12818,9 +12828,9 @@ function PainelTV({data,ultimaSync,onAtualizar,allowedTabs=[]}){
     if(atrasadas.length)necessidades.push(`${contar(atrasadas.length,"atividade atrasada","atividades atrasadas")}`);
     if(pendencias.length)necessidades.push(`${contar(pendencias.length,"inconformidade aberta","inconformidades abertas")}`);
     if(qualidade.length)necessidades.push(`${qualidade.length} FVS/FVM em inspeção`);
-    if(compras.length)necessidades.push(`${compras.length} solicitação(ões) de compra`);
+    if(compras.length)necessidades.push(`${contar(compras.length,"solicitação","solicitações")} de compra`);
     const criticas=pendencias.filter(p=>p.impacto==="critico").length;
-    const prazo=obra.contractEnd?Math.ceil((new Date(`${obra.contractEnd}T12:00:00`)-new Date(`${today()}T12:00:00`))/86400000):null;
+    const prazo=obra.contractEnd?Math.ceil((new Date(`${obra.contractEnd}T12:00:00`)-new Date(`${dia}T12:00:00`))/86400000):null;
     const severidade=criticas||prazo!==null&&prazo<0?3:atrasadas.length||pendencias.length||!diarioHoje&&equipe.length?2:necessidades.length?1:0;
     const fotosRdo=(data.rdos||[]).filter(r=>r.obraId===obra.id&&(r.fotos||[]).length)
       .sort((a,b)=>String(b.data||"").localeCompare(String(a.data||"")))
@@ -12829,7 +12839,7 @@ function PainelTV({data,ultimaSync,onAtualizar,allowedTabs=[]}){
     const imagens=[...(obra.capaUrl?[{url:obra.capaUrl,tipo:"capa",legenda:"Imagem da obra",data:"",codigo:""}]:[]),...fotosRdo]
       .filter((foto,indice,lista)=>lista.findIndex(x=>x.url===foto.url)===indice);
     return {obra,progresso,planejado,temPlanejamento:planejado!==null,desvioFisico:planejado===null?null:progresso-planejado,equipe:equipe.length,diarioHoje:!!diarioHoje,atrasadas:atrasadas.length,pendencias:pendencias.length,criticas,qualidade:qualidade.length,compras:compras.length,necessidades,prazo,severidade,imagens};
-  }).sort((a,b)=>b.severidade-a.severidade||b.pendencias-a.pendencias||a.obra.name.localeCompare(b.obra.name)),[obras,data.planos,data.employees,data.rdos,data.conferencias,data.qualidadeRegistros,data.solicitacoesCompra]);
+  }).sort((a,b)=>b.severidade-a.severidade||b.pendencias-a.pendencias||a.obra.name.localeCompare(b.obra.name)),[obras,data.planos,data.employees,data.rdos,data.conferencias,data.qualidadeRegistros,data.solicitacoesCompra,dia]);
   const porPagina=isDesktop?4:2,totalPaginas=Math.max(1,Math.ceil(linhas.length/porPagina));
   const visiveis=linhas.slice(pagina*porPagina,pagina*porPagina+porPagina);
   const linhasPlanejadas=linhas.filter(o=>o.temPlanejamento);
@@ -12841,33 +12851,41 @@ function PainelTV({data,ultimaSync,onAtualizar,allowedTabs=[]}){
   const imagem=data.config?.companyImageUrl||data.config?.logoUrl||ARCD_LOGO;
 
   useEffect(()=>{const t=window.setInterval(()=>setAgora(new Date()),1000);return()=>window.clearInterval(t);},[]);
-  useEffect(()=>{const t=window.setInterval(()=>setPagina(p=>(p+1)%totalPaginas),12000);return()=>window.clearInterval(t);},[totalPaginas]);
-  useEffect(()=>{const t=window.setInterval(()=>setCicloImagem(c=>c+1),7800);return()=>window.clearInterval(t);},[]);
+  const rotacaoAtiva=visaoAtual==="panorama"&&!rotacaoPausada;
+  useEffect(()=>{if(!rotacaoAtiva||totalPaginas<2)return;const t=window.setInterval(()=>setPagina(p=>(p+1)%totalPaginas),12000);return()=>window.clearInterval(t);},[rotacaoAtiva,totalPaginas]);
+  useEffect(()=>{if(!rotacaoAtiva)return;const t=window.setInterval(()=>setCicloImagem(c=>c+1),7800);return()=>window.clearInterval(t);},[rotacaoAtiva]);
   useEffect(()=>setPagina(p=>Math.min(p,totalPaginas-1)),[totalPaginas]);
   useEffect(()=>{if(!onAtualizar)return undefined;const t=window.setInterval(()=>onAtualizar(),90000);return()=>window.clearInterval(t);},[onAtualizar]);
   useEffect(()=>{const fn=()=>setTelaCheia(document.fullscreenElement===raizRef.current);document.addEventListener("fullscreenchange",fn);return()=>document.removeEventListener("fullscreenchange",fn);},[]);
   const alternarTelaCheia=async()=>{if(document.fullscreenElement)await document.exitFullscreen?.();else await raizRef.current?.requestFullscreen?.();};
 
   return <div ref={raizRef} className="anim arcd-tv" style={{minHeight:telaCheia?"100vh":"calc(100vh - 126px)",background:"radial-gradient(circle at 78% 8%,rgba(212,175,55,.13),transparent 26%),linear-gradient(142deg,#111412,#1b1c18 62%,#111210)",color:tvColors.surface,borderRadius:telaCheia?0:16,overflow:"hidden",padding:"clamp(16px,2vw,28px)",position:"relative",display:"flex",flexDirection:"column",gap:"clamp(10px,1.3vw,17px)",boxShadow:"0 18px 60px rgba(18,18,18,.2)"}}>
-    <CompanyAssetImage src={imagem} alt="" aria-hidden="true" style={{position:"absolute",right:"3%",top:"5%",width:"min(30vw,420px)",height:"min(30vw,420px)",objectFit:"contain",opacity:.035,pointerEvents:"none"}}/>
-    <div aria-hidden="true" className="arcd-tv-scan" style={{position:"absolute",left:0,right:0,height:1,background:`linear-gradient(90deg,transparent,${tvColors.yellow}88,transparent)`,boxShadow:`0 0 18px ${tvColors.yellow}`}}/>
+    {!isDesktop&&<img src={imagem} alt="" aria-hidden="true" style={{position:"absolute",right:"3%",top:"5%",width:"min(30vw,420px)",height:"min(30vw,420px)",objectFit:"contain",opacity:.035,pointerEvents:"none"}}/>}
     <header className="arcd-tv-header" style={{position:"relative",zIndex:1,display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:18}}>
-      <div><div style={{display:"flex",alignItems:"center",gap:9}}><span style={{width:8,height:8,borderRadius:99,background:tvColors.green,boxShadow:`0 0 18px ${tvColors.green}`}}/><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:2,textTransform:"uppercase",color:tvColors.yellow}}>MARCELL · Centro de operações</span></div><h1 style={{fontFamily:"var(--arcd-font-sans)",fontSize:"clamp(24px,3vw,46px)",fontWeight:600,letterSpacing:-1.2,lineHeight:1,marginTop:9}}>{visao==="equipe"&&podeVerEquipe?"Equipe nas Obras":"Panorama executivo das obras"}</h1><p style={{fontSize:"var(--arcd-type-label)",color:"rgba(245,243,238,.5)",marginTop:7}}>{visao==="equipe"&&podeVerEquipe?"Equipe por obra e registros recebidos do ponto":"Visão contínua de avanço, campo, qualidade, suprimentos e prazos"}</p></div>
-      <div style={{display:"flex",alignItems:"center",gap:10}}><div style={{textAlign:"right"}}><p style={{fontFamily:"var(--arcd-font-sans)",fontSize:"clamp(20px,2.2vw,34px)",fontWeight:600,color:tvColors.yellow,lineHeight:1}}>{agora.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"rgba(245,243,238,.45)",marginTop:5}}>{agora.toLocaleDateString("pt-BR",{weekday:"short",day:"2-digit",month:"short"})}</p></div><button onClick={alternarTelaCheia} title="Alternar tela cheia" style={{width:40,height:40,borderRadius:11,border:`1px solid ${tvColors.yellow}44`,background:"rgba(212,175,55,.08)",color:tvColors.yellow,cursor:"pointer"}}><Ic n={telaCheia?"x":"eye"} s={15}/></button></div>
+      <div>{!isDesktop&&<div style={{display:"flex",alignItems:"center",gap:9}}><span style={{width:8,height:8,borderRadius:99,background:tvColors.green,boxShadow:`0 0 18px ${tvColors.green}`}}/><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:2,textTransform:"uppercase",color:tvColors.yellow}}>MARCELL · Centro de operações</span></div>}<h1 style={{fontFamily:"var(--arcd-font-sans)",fontSize:"clamp(24px,3vw,46px)",fontWeight:600,letterSpacing:-1.2,lineHeight:1,marginTop:9}}>{visao==="equipe"&&podeVerEquipe?"Equipe nas Obras":"Panorama executivo das obras"}</h1>{!isDesktop&&<p style={{fontSize:"var(--arcd-type-label)",color:"rgba(245,243,238,.5)",marginTop:7}}>{visao==="equipe"&&podeVerEquipe?"Equipe por obra e registros recebidos do ponto":"Visão contínua de avanço, campo, qualidade, suprimentos e prazos"}</p>}</div>
+      <div style={{display:"flex",alignItems:"center",gap:10}}><div style={{textAlign:"right"}}><p style={{fontFamily:"var(--arcd-font-sans)",fontSize:"clamp(20px,2.2vw,34px)",fontWeight:600,color:tvColors.yellow,lineHeight:1}}>{agora.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"rgba(245,243,238,.45)",marginTop:5}}>{agora.toLocaleDateString("pt-BR",{weekday:"short",day:"2-digit",month:"short"})}</p></div><button type="button" onClick={alternarTelaCheia} title="Alternar tela cheia" style={{width:40,height:40,borderRadius:11,border:`1px solid ${tvColors.yellow}44`,background:"rgba(212,175,55,.08)",color:tvColors.yellow,cursor:"pointer"}}>{isDesktop?(telaCheia?<Minimize size={16} aria-hidden="true"/>:<Maximize size={16} aria-hidden="true"/>):<Ic n={telaCheia?"x":"eye"} s={15}/>}</button></div>
     </header>
 
-    <Tabs value={podeVerEquipe?visao:"panorama"} onValueChange={setVisao} style={{display:"flex",flexDirection:"column",gap:16,flex:1,minHeight:0}}><TabsList className="arcd-tv-visoes" aria-label="Visão do Modo TV"><TabsTrigger value="panorama">Panorama executivo</TabsTrigger>{podeVerEquipe&&<TabsTrigger value="equipe">Equipe nas Obras</TabsTrigger>}</TabsList>
-    <TabsContent value="panorama" style={{display:visao==="panorama"||!podeVerEquipe?"flex":"none",flexDirection:"column",gap:16,flex:1,minHeight:0}}>
-    <div className="arcd-tv-summary" style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:isDesktop?"repeat(4,minmax(0,1fr))":"repeat(2,minmax(0,1fr))",gap:"clamp(7px,1vw,11px)"}}>{[
+    <Tabs className="arcd-tv-content" value={visaoAtual} onValueChange={setVisao} style={{display:"flex",flexDirection:"column",gap:16,flex:1,minHeight:0}}><TabsList className="arcd-tv-visoes" aria-label="Visão do Modo TV"><TabsTrigger value="panorama">Panorama executivo</TabsTrigger>{podeVerEquipe&&<TabsTrigger value="equipe">Equipe nas Obras</TabsTrigger>}</TabsList>
+    <TabsContent value="panorama" style={{display:visaoAtual==="panorama"?"flex":"none",flexDirection:"column",gap:16,flex:1,minHeight:0}}>
+    <div className="arcd-tv-pagination" role="group" aria-label="Navegação do panorama" style={{display:"flex",alignItems:"center",flexWrap:"wrap",gap:"var(--arcd-space-2)"}}>
+      <Btn v="ghost" size="sm" onClick={()=>setRotacaoPausada(value=>!value)}>{rotacaoPausada?"Retomar rotação":"Pausar rotação"}</Btn>
+      {totalPaginas>1&&<>
+        <Btn v="ghost" size="sm" iconOnly ariaLabel="Página anterior" onClick={()=>setPagina(p=>(p-1+totalPaginas)%totalPaginas)}><Ic n="chevL"/></Btn>
+        <span>Página {Math.min(pagina+1,totalPaginas)} de {totalPaginas}</span>
+        <Btn v="ghost" size="sm" iconOnly ariaLabel="Próxima página" onClick={()=>setPagina(p=>(p+1)%totalPaginas)}><Ic n="chevR"/></Btn>
+      </>}
+    </div>
+    <section aria-label="Resumo do panorama" className="arcd-tv-summary" style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:isDesktop?"repeat(4,minmax(0,1fr))":"repeat(2,minmax(0,1fr))",gap:"clamp(7px,1vw,11px)"}}>{[
       ["Obras em operação",linhas.length,"carteira ativa",tvColors.yellow],
-      ["Planejado × executado",linhasPlanejadas.length?`${planejadoGeral}% · ${progressoGeral}%`:"—",linhasPlanejadas.length?`${progressoGeral-planejadoGeral>=0?"+":""}${progressoGeral-planejadoGeral} p.p.`:"sem cronograma",linhasPlanejadas.length&&progressoGeral>=planejadoGeral?tvColors.green:tvColors.yellow],
-      ["Pendências técnicas",pendenciasTotal,"conferências",pendenciasTotal?tvColors.red:tvColors.green],
-      ["Obras em atenção",obrasAtencao,necessidadesTotal?`${necessidadesTotal} ações mapeadas`:"operação regular",obrasAtencao?tvColors.yellow:tvColors.green],
-    ].map(([l,v,s,c])=><div key={l} style={{background:"rgba(245,243,238,.055)",border:"1px solid rgba(245,243,238,.12)",borderRadius:10,padding:"clamp(9px,1vw,13px)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,textTransform:"uppercase",letterSpacing:.7,color:"rgba(245,243,238,.58)"}}>{l}</p><p style={{fontFamily:"var(--arcd-font-sans)",fontSize:"clamp(21px,2vw,32px)",fontWeight:600,color:c,lineHeight:1,marginTop:5}}>{v}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"rgba(245,243,238,.46)",marginTop:4}}>{s}</p></div>)}</div>
+      ["Planejado × executado",linhasPlanejadas.length?`${planejadoGeral}% · ${progressoGeral}%`:"—",linhasPlanejadas.length?`${progressoGeral-planejadoGeral>=0?"+":""}${progressoGeral-planejadoGeral} p.p.`:"sem cronograma",linhasPlanejadas.length&&progressoGeral>=planejadoGeral?tvColors.green:tvColors.yellow,linhasPlanejadas.length>0&&progressoGeral<planejadoGeral?"warning":undefined],
+      ["Pendências técnicas",pendenciasTotal,"conferências",pendenciasTotal?tvColors.red:tvColors.green,pendenciasTotal?"critical":undefined],
+      ["Obras em atenção",obrasAtencao,necessidadesTotal?`${necessidadesTotal} ações mapeadas`:"operação regular",obrasAtencao?tvColors.yellow:tvColors.green,obrasAtencao?"warning":undefined],
+    ].map(([l,v,s,c,tom])=><div key={l} data-tone={tom} style={{background:"rgba(245,243,238,.055)",border:"1px solid rgba(245,243,238,.12)",borderRadius:10,padding:"clamp(9px,1vw,13px)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,textTransform:"uppercase",letterSpacing:.7,color:"rgba(245,243,238,.58)"}}>{l}</p><p style={{fontFamily:"var(--arcd-font-sans)",fontSize:"clamp(21px,2vw,32px)",fontWeight:600,color:c,lineHeight:1,marginTop:5}}>{v}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"rgba(245,243,238,.46)",marginTop:4}}>{s}</p></div>)}</section>
 
     <section className="arcd-tv-grid" aria-live="polite" style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:isDesktop?"repeat(2,minmax(0,1fr))":"minmax(0,1fr)",gap:"clamp(8px,1vw,13px)",flex:1,minHeight:0}}>
-      {visiveis.map((item,cardIndex)=>{const cor=item.severidade===3?tvColors.red:item.severidade===2?tvColors.yellow:item.severidade===1?tvColors.cinza:tvColors.green;const indiceImagem=item.imagens.length?(cicloImagem+cardIndex)%item.imagens.length:0;const foto=item.imagens[indiceImagem];return <article className="arcd-tv-work" key={item.obra.id} style={{position:"relative",overflow:"hidden",border:`1px solid ${cor}66`,borderRadius:12,background:"linear-gradient(145deg,#171a17,#0e100f)",display:"flex",flexDirection:"column",minHeight:0,boxShadow:"inset 0 0 38px rgba(0,0,0,.2)"}}>
-        {foto&&<CompanyAssetImage key={`${item.obra.id}-${foto.url}-${cicloImagem}`} className="arcd-tv-photo" src={foto.url} alt="" aria-hidden="true" loading="eager" onError={e=>{e.currentTarget.style.display="none";}} style={{position:"absolute",inset:"-2%",width:"104%",height:"104%",objectFit:"cover",objectPosition:"center",filter:"saturate(.9) contrast(1.06) brightness(.94)",pointerEvents:"none"}}/>}
+      {visiveis.map((item,cardIndex)=>{const cor=item.severidade===3?tvColors.red:item.severidade===2?tvColors.yellow:item.severidade===1?tvColors.cinza:tvColors.green;const indiceImagem=item.imagens.length?(cicloImagem+cardIndex)%item.imagens.length:0;const foto=item.imagens[indiceImagem];if(isDesktop)return <DesktopTVWork key={item.obra.id} item={item} photo={foto}/>;return <article className="arcd-tv-work" key={item.obra.id} style={{position:"relative",overflow:"hidden",border:`1px solid ${cor}66`,borderRadius:12,background:"linear-gradient(145deg,#171a17,#0e100f)",display:"flex",flexDirection:"column",minHeight:0,boxShadow:"inset 0 0 38px rgba(0,0,0,.2)"}}>
+        {foto&&<img key={`${item.obra.id}-${foto.url}-${cicloImagem}`} className="arcd-tv-photo" src={foto.url} alt="" aria-hidden="true" loading="eager" onError={e=>{e.currentTarget.style.display="none";}} style={{position:"absolute",inset:"-2%",width:"104%",height:"104%",objectFit:"cover",objectPosition:"center",filter:"saturate(.9) contrast(1.06) brightness(.94)",pointerEvents:"none"}}/>}
         <div aria-hidden="true" style={{position:"absolute",inset:0,zIndex:1,background:"linear-gradient(90deg,rgba(6,8,9,.7) 0%,rgba(6,8,9,.4) 48%,rgba(6,8,9,.12) 100%),linear-gradient(0deg,rgba(5,6,7,.6) 0%,rgba(5,6,7,.02) 76%)"}}/>
         <div aria-hidden="true" style={{position:"absolute",inset:0,zIndex:1,opacity:.1,backgroundImage:`linear-gradient(${tvColors.yellow}55 1px,transparent 1px),linear-gradient(90deg,${tvColors.yellow}55 1px,transparent 1px)`,backgroundSize:"34px 34px",maskImage:"linear-gradient(90deg,transparent 20%,#000 100%)"}}/>
         {!foto&&<div aria-hidden="true" style={{position:"absolute",inset:0,zIndex:1,opacity:.2,backgroundImage:`linear-gradient(${tvColors.yellow}40 1px,transparent 1px),linear-gradient(90deg,${tvColors.yellow}40 1px,transparent 1px)`,backgroundSize:"30px 30px"}}/>}
@@ -12879,10 +12897,10 @@ function PainelTV({data,ultimaSync,onAtualizar,allowedTabs=[]}){
           <div style={{marginTop:"auto",paddingTop:10,display:"flex",gap:6,alignItems:"center",minWidth:0}}><span style={{width:6,height:6,borderRadius:99,background:cor,boxShadow:`0 0 10px ${cor}`,flexShrink:0}}/><p style={{fontSize:"var(--arcd-type-caption)",color:item.necessidades.length?"rgba(255,255,255,.82)":tvColors.green,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textShadow:"0 1px 8px #000"}}>{item.necessidades[0]||"Sem necessidade operacional crítica"}{item.necessidades.length>1?` · +${item.necessidades.length-1}`:""}</p>{item.prazo!==null&&<span style={{marginLeft:"auto",padding:"3px 6px",borderRadius:6,background:"rgba(4,5,6,.55)",fontSize:"var(--arcd-type-caption)",color:item.prazo<0?tvColors.red:"rgba(255,255,255,.62)",whiteSpace:"nowrap"}}>{item.prazo<0?`${Math.abs(item.prazo)}d vencido`:`${item.prazo}d restantes`}</span>}</div>
         </div>
       </article>;})}
-      {!visiveis.length&&<div style={{gridColumn:"1/-1",display:"grid",placeItems:"center",border:"1px dashed rgba(245,243,238,.15)",borderRadius:15,color:"rgba(245,243,238,.45)"}}>Nenhuma obra ativa para exibir.</div>}
+      {!visiveis.length&&<div className="arcd-tv-empty" style={{gridColumn:"1/-1",display:"grid",placeItems:"center",border:"1px dashed rgba(245,243,238,.15)",borderRadius:15,color:"rgba(245,243,238,.45)"}}>Nenhuma obra ativa para exibir.</div>}
     </section>
 
-    <footer className="arcd-tv-footer" style={{position:"relative",zIndex:1,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,color:"rgba(245,243,238,.46)",fontSize:"var(--arcd-type-caption)"}}><span>Sincronização automática · {ultimaSync?ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}):"agora"}</span><div style={{display:"flex",alignItems:"center",gap:6}}><button onClick={()=>setPagina(p=>(p-1+totalPaginas)%totalPaginas)} aria-label="Página anterior" style={{width:28,height:24,border:`1px solid rgba(245,243,238,.15)`,borderRadius:5,background:"transparent",color:tvColors.surface,cursor:"pointer"}}>‹</button>{Array.from({length:totalPaginas},(_,i)=><Btn key={i} v="ghost" iconOnly onClick={()=>setPagina(i)} ariaLabel={`Página ${i+1}`} aria-pressed={i===pagina}><span aria-hidden="true" style={{width:"var(--arcd-space-2)",height:"var(--arcd-space-2)",borderRadius:"var(--arcd-radius-control)",background:i===pagina?tvColors.yellow:tvColors.muted}}/></Btn>)}<span style={{margin:"0 2px"}}>{pagina+1}/{totalPaginas}</span><button onClick={()=>setPagina(p=>(p+1)%totalPaginas)} aria-label="Próxima página" style={{width:28,height:24,border:`1px solid rgba(245,243,238,.15)`,borderRadius:5,background:"transparent",color:tvColors.surface,cursor:"pointer"}}>›</button></div></footer>
+    <footer className="arcd-tv-footer">Última sincronização · {ultimaSync?ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}):"aguardando"}</footer>
     </TabsContent>
     {podeVerEquipe&&<TabsContent value="equipe" style={{flex:1}}><Suspense fallback={<LoadingState label="equipe"/>}><EquipeObrasTV /></Suspense></TabsContent>}
     </Tabs>

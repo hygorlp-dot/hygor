@@ -533,6 +533,8 @@ Confirme a data da última atualização.
 1. Escolha a visão disponível para apresentação.
 2. Leia os dados e os alertas apresentados.
 3. Use a atualização disponível quando precisar de dados recentes.
+4. No Panorama executivo, use Pausar rotação para manter a página e as fotos atuais. Use Página anterior e Próxima página para navegar. Retomar rotação volta a alternar as obras e as fotos. As atualizações de dados continuam durante a pausa.
+5. No computador, leia os totais na faixa superior. Em cada obra, compare o avanço executado com o planejado e confira o diário, os atrasos, a qualidade e as compras. A primeira pendência e o prazo aparecem no rodapé do quadro da obra.
 
 ### Como conferir se deu certo
 
@@ -636,9 +638,10 @@ Tenha o nome, o cliente e os dados contratuais da obra.
 2. No cadastro, preencha os dados solicitados, revise e salve. Informe datas que existam no calendário.
 3. Abra a obra para acessar orçamento, planejamento, equipe e demais áreas.
 4. Para organizar pastas no OneDrive, o administrador abre Arquivos e pastas e usa Preparar pastas quando a integração estiver conectada. Abrir a Central de obras só consulta os dados.
-5. No contrato por administração, escolha separadamente Equipamentos / locação e Engenharia de campo para definir se esses custos recebem a taxa. Para excluir engenharia, selecione a Categoria de custo da engenharia de campo já usada nos lançamentos. Não há vínculo por nome ou descrição. Revise a base antes de salvar.
-6. Na lista, confira o intervalo de resultados. Anterior e Próxima mostram até 12 registros por página; a busca considera toda a lista disponível, não só a página atual. Alterar o recorte volta à primeira página. Totais e relatórios continuam usando o conjunto completo.
-7. No celular, Indicadores da área reúne os totais da carteira sem afastar a busca. Abra para consultar; os filtros e a paginação ficam antes dos cartões.
+5. No computador, abra Painel e use Buscar obras no mesmo quadro dos filtros de situação. O total de resultados acompanha a busca.
+6. No contrato por administração, escolha separadamente Equipamentos / locação e Engenharia de campo para definir se esses custos recebem a taxa. Para excluir engenharia, selecione a Categoria de custo da engenharia de campo já usada nos lançamentos. Não há vínculo por nome ou descrição. Revise a base antes de salvar.
+7. Na lista, confira o intervalo de resultados. Anterior e Próxima mostram até 12 registros por página; a busca considera toda a lista disponível, não só a página atual. Alterar o recorte volta à primeira página. Totais e relatórios continuam usando o conjunto completo.
+8. No celular, Indicadores da área reúne os totais da carteira sem afastar a busca. Abra para consultar; os filtros e a paginação ficam antes dos cartões.
 
 ### Como conferir se deu certo
 

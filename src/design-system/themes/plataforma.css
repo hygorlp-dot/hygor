@@ -1,0 +1,92 @@
+/* Referência aprovada: azul-ardósia, malha de projeto e vidro claro.
+   A composição, os controles e a densidade continuam na base MARCELL. */
+@media screen {
+  [data-theme="plataforma"] {
+    --plataforma-grid: rgb(13 27 46 / 2%);
+    --vidro-fundo: var(--arcd-surface-card);
+    --vidro-borda: rgb(255 255 255 / 88%);
+    --vidro-sombra: none;
+  }
+  html[data-theme="plataforma"] .arcd-app-shell:not([data-tab="tv"]) {
+    background:
+      url("/brand/marcell/emblem-marca-dagua-clara.svg") no-repeat right -6vw top 14vh / min(80vw, 1200px) auto,
+      linear-gradient(var(--plataforma-grid) 1px, transparent 1px) 0 0 / 40px 40px,
+      linear-gradient(90deg, var(--plataforma-grid) 1px, transparent 1px) 0 0 / 40px 40px,
+      var(--arcd-surface-page) !important;
+    background-attachment: fixed !important;
+  }
+  [data-theme="plataforma"] .arcd-topbar {
+    margin: var(--arcd-space-4) var(--arcd-page-padding) 0;
+    border: 1px solid var(--vidro-borda) !important;
+    border-radius: var(--arcd-box-radius);
+  }
+  [data-theme="plataforma"][data-density="compact"] {
+    --arcd-panel-padding: var(--arcd-space-2);
+    --arcd-layout-gap: var(--arcd-space-2);
+  }
+  [data-theme="plataforma"] .arcd-main[data-workspace] {
+    padding-block: var(--arcd-space-3) !important;
+  }
+  [data-theme="plataforma"] .work-detail-context {
+    display: grid;
+    gap: var(--arcd-space-2);
+  }
+  [data-theme="plataforma"] .work-detail-context > .arcd-btn {
+    justify-self: start;
+    margin-block: 0;
+  }
+  [data-theme="plataforma"] .work-detail-navigation {
+    margin-block-end: 0 !important;
+  }
+  [data-theme="plataforma"] .dashboard-command-center {
+    gap: var(--arcd-box-gap) !important;
+  }
+  [data-theme="plataforma"] .dashboard-executive-grid .dashboard-kpi {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: var(--arcd-space-1);
+  }
+  [data-theme="plataforma"] .dashboard-executive-grid .dashboard-kpi__head {
+    align-items: flex-start;
+  }
+  [data-theme="plataforma"] .dashboard-executive-grid .dashboard-kpi__head > :last-child {
+    flex: 0 0 auto;
+  }
+  [data-theme="plataforma"] .dashboard-action-filters button[data-active="true"] {
+    background: var(--arcd-action-primary-subtle) !important;
+    border-color: var(--arcd-border-strong) !important;
+    color: var(--arcd-text-primary) !important;
+  }
+  @media (min-width: 1100px) {
+    [data-theme="plataforma"] .arcd-sidebar {
+      top: var(--arcd-space-4) !important;
+      left: var(--arcd-space-1) !important;
+      bottom: var(--arcd-space-4) !important;
+      border-radius: var(--arcd-box-radius);
+    }
+    [data-theme="plataforma"] .arcd-sidebar > div:first-child {
+      border-start-start-radius: inherit;
+      border-start-end-radius: inherit;
+    }
+    [data-theme="plataforma"] .arcd-sidebar > div:last-of-type {
+      border-end-start-radius: inherit;
+      border-end-end-radius: inherit;
+    }
+  }
+  @media (max-width: 767px) {
+    [data-theme="plataforma"] .arcd-topbar {
+      margin: var(--arcd-space-2) var(--arcd-page-padding-mobile) 0;
+    }
+    [data-theme="plataforma"] .dashboard-executive-grid .dashboard-kpi__head {
+      min-block-size: 3em;
+    }
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  [data-theme="plataforma"] { --vidro-fundo: var(--arcd-surface-elevated); }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  [data-theme="plataforma"] { --vidro-fundo: var(--arcd-surface-elevated); }
+}

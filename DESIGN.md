@@ -531,3 +531,9 @@ Aprovada pelo usuário a partir do canvas "ERP MARCELL — Direções visuais" (
 - **Cor:** ação primária do Preciso em azul-marinho `#0D1B2E` (hover `#1B2C42`); foco permanece azul `#235BB0`. Fundo `#E9EDF1` com luzes suaves de ouro e azul da marca, cartões em branco 86 %. Cor de estado só para desvio.
 - **Limite conhecido:** planilhas densas (Orçamento) ficam sobre superfície quase opaca; o vidro não deve atravessar números.
 - **Caixas e alinhamento (19/11/2026):** contrato em `src/design-system/themes/box-contract.css`, regras em `docs/REGRAS-UX-UI.md` §8 e tokens `--arcd-box-*` em `foundations.js`. Dois raios (controle e caixa), recuo interno pela densidade em caixas com campos, tabela encostada com primeira e última coluna recuadas na mesma vertical dos filtros, 16 px entre caixas irmãs e números à direita com algarismos tabulares. Raios em px do legado são convertidos para os dois níveis; o lint (`check-ux-rules.mjs`) barra raio em px e espaçamento fora da escala novos.
+
+### Modo TV no desktop e opção Plataforma em 23/11/2026
+
+O tema Plataforma está disponível como opção e usa Inter. No desktop, a partir de 1100 px, os cabeçalhos operacionais usam o mesmo recuo superior e a busca de Obras fica junto aos filtros de situação.
+
+O Modo TV desktop usa a fonte do tema, uma faixa de totais e quadros com uma barra de avanço por obra. Os prazos e as primeiras pendências aparecem junto dos indicadores. O fundo sólido azul-marinho mantém os textos e as fotos em áreas distintas. Âmbar e vermelho indicam desvios. Os controles de rotação e a navegação entre as visões ficam na mesma linha.

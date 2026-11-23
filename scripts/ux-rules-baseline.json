@@ -116,7 +116,7 @@
     "src/domains/estoque/components/EstoqueView.jsx": 12,
     "src/domains/estoque/LegacyEditors.jsx": 1,
     "src/domains/licenciamento/components/LicenciamentoView.jsx": 13,
-    "src/domains/medicoes/components/MedicoesView.jsx": 34,
+    "src/domains/medicoes/components/MedicoesView.jsx": 32,
     "src/domains/obras/components/AditivosContrato.jsx": 1,
     "src/domains/obras/components/DiarioObraView.jsx": 26,
     "src/domains/orcamentos/components/OrcamentoView.jsx": 119,
@@ -133,7 +133,7 @@
     "src/features/financeiro/LegacyDocumentTools.jsx": 15,
     "src/legacy/palette.js": 3,
     "src/legacy/ui.jsx": 9,
-    "src/LegacyApp.jsx": 279,
+    "src/LegacyApp.jsx": 265,
     "src/supplier-acceptance/SupplierAcceptancePage.jsx": 7
   },
   "gap-fora-da-escala": {

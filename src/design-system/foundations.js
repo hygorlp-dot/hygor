@@ -6,6 +6,7 @@ export const foundationTokens = Object.freeze({
   "--arcd-type-body":".8125rem", "--arcd-type-label":".8125rem", "--arcd-type-caption":".75rem", "--arcd-type-kpi":"1.125rem",
   "--arcd-type-control":".8125rem", "--arcd-type-table":".8125rem", "--arcd-type-dialog-title":"1rem",
   "--arcd-type-control-touch":"1rem", "--arcd-page-padding":"1.5rem", "--arcd-page-padding-mobile":".875rem",
+  "--arcd-type-distance-title":"clamp(1.5rem, 2.3vw, 2rem)",
   "--arcd-button-weight":"500", "--arcd-button-line-height":"1.35",
   "--arcd-button-gap":".5rem", "--arcd-button-padding":"0 .875rem",
   "--arcd-button-padding-sm":"0 .625rem", "--arcd-button-padding-lg":"0 1.25rem",

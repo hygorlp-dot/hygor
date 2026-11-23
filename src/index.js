@@ -15,6 +15,7 @@ import "./design-system/themes/noite.css";
 import "./design-system/themes/vidro-erp.css";
 import "./design-system/themes/box-contract.css";
 import "./design-system/themes/module-standard.css";
+import "./design-system/themes/plataforma.css";
 import "./design-system/themes/material.css";
 
 // Erros fora da renderização (clique, exportação, promessa sem catch) - o
