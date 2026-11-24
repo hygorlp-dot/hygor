@@ -247,6 +247,22 @@ test('Orçamento da obra abre a versão única e filtra itens sem mudar o total'
   expect(errors).toEqual([]);
 });
 
+test('Orçamento da obra fixa o cabeçalho da planilha no topo ao rolar', async ({ page }) => {
+  test.skip(page.viewportSize().width < 768, 'No celular, a planilha usa cartões sem cabeçalho de colunas.');
+  const fixture = structuredClone(data);
+  const budget = fixture.orcamentos[0];
+  budget.itens.push(...Array.from({ length: 40 }, (_, index) => ({
+    ...budget.itens[0], id: `item-scroll-${index}`,
+  })));
+  await enter(page, fixture);
+  await appearance(page, 'plataforma', 'compact');
+  const main = await openWorkBudget(page);
+  const header = main.locator('.budget-cols');
+  await expect(header).toBeVisible();
+  await header.evaluate(element => window.scrollBy(0, element.getBoundingClientRect().top + 120));
+  await expect.poll(async () => Math.abs((await header.boundingBox()).y)).toBeLessThan(1);
+});
+
 test('Orçamento da obra exibe a lista quando há duas versões', async ({ page }) => {
   const fixture = structuredClone(data);
   fixture.orcamentos.push({ ...structuredClone(fixture.orcamentos[0]), id: 'budget-revision', nome: 'Revisão de teste', versionNumber: 2 });
