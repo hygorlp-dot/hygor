@@ -904,24 +904,24 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
             <Button variant="secondary" onClick={() => setColsCronoAberto(a=>!a)} title="Colunas da tabela" aria-expanded={colsCronoAberto}>Colunas</Button>
             {colsCronoAberto && (
               <div style={{position:"absolute",top:"100%",right:0,marginTop:"var(--arcd-space-1)",zIndex:30,
-                           background:"var(--arcd-surface-page)",border:"1.5px solid var(--arcd-border-default)",borderRadius:6,
+                           background:"var(--arcd-surface-page)",border:"1.5px solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",
                            boxShadow:`0 8px 24px ${C.shadow}`,padding:"var(--arcd-space-2) var(--arcd-space-3)",minWidth:180}}>
                 <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",marginBottom:"var(--arcd-space-2)"}}>Colunas do cronograma</p>
                 {[["inicio","Data início"],["fim","Data fim"],["dias","Dias trabalhados"],["custo","Custo"],["progresso","Progresso"],["antecessora","Antecessora"],["sucessora","Sucessora"]].map(([k,l])=>(
                   <label key={k} style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-1) var(--arcd-space-0)",cursor:"pointer",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>
                     <ChoiceControl type="checkbox" checked={!!colsCrono[k]}
                       onChange={()=>setColsCrono(c=>({...c,[k]:!c[k]}))}
-                      style={{width:15,height:15,accentColor:"var(--arcd-action-primary)",cursor:"pointer"}}/>
+                      style={{width:15,accentColor:"var(--arcd-action-primary)",cursor:"pointer"}}/>
                     {l}
                   </label>
                 ))}
-                <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-2)",lineHeight:"var(--arcd-line-height-normal)",borderTop:"1px solid var(--arcd-border-default)",paddingTop:"var(--arcd-space-2)"}}>
+                <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-2)",lineHeight:"var(--arcd-line-height-normal)",borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)",paddingTop:"var(--arcd-space-2)"}}>
                   A coluna Atividade fica sempre visivel.
                 </p>
-                <label style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-0) var(--arcd-space-0)",cursor:"pointer",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",borderTop:"1px solid var(--arcd-border-default)",marginTop:"var(--arcd-space-2)"}}>
+                <label style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-0) var(--arcd-space-0)",cursor:"pointer",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)",marginTop:"var(--arcd-space-2)"}}>
                   <ChoiceControl type="checkbox" checked={planMostrarReal}
                     onChange={()=>setPlanMostrarReal(v=>!v)}
-                    style={{width:15,height:15,accentColor:"var(--arcd-action-primary)",cursor:"pointer"}}/>
+                    style={{width:15,accentColor:"var(--arcd-action-primary)",cursor:"pointer"}}/>
                   Mostrar linha "Realizado"
                 </label>
               </div>
@@ -961,9 +961,9 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
         onRequest={request=>navigate?.("cmp",{obraId},{action:"open-request",record:{requestId:request.id}})}
         onOrder={order=>navigate?.("cmp",{obraId},{action:"open-order",record:{pedidoId:order.id}})}/>}
 
-      <div className="planning-gantt" style={{ background: "var(--arcd-surface-card)", border: "1px solid var(--arcd-border-default)", borderRadius: 8, overflow: "hidden" }}>
+      <div className="planning-gantt" style={{ background: "var(--arcd-surface-card)", border: "var(--arcd-border-width) solid var(--arcd-border-default)", borderRadius: "var(--arcd-box-radius)", overflow: "hidden" }}>
         <div className="planning-gantt-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
-                      padding: "var(--arcd-space-3)", borderBottom: "1px solid var(--arcd-border-default)" }}>
+                      padding: "var(--arcd-space-3)", borderBottom: "var(--arcd-border-width) solid var(--arcd-border-default)" }}>
           <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)", textTransform: "uppercase", letterSpacing: "var(--arcd-letter-spacing-body)" }}>
             Cronograma
           </p>
@@ -995,13 +995,13 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
         </div>
 
         <details className="planning-legend"><summary>Legenda e orientações</summary><div style={{display:"flex",gap:"var(--arcd-space-3)",alignItems:"center",flexWrap:"wrap",padding:"var(--arcd-space-1) var(--arcd-space-3)",
-                     borderBottom:"1px solid var(--arcd-border-default)",background:"var(--arcd-surface-muted)"}}>
+                     borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)",background:"var(--arcd-surface-muted)"}}>
           <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Legenda tecnica</span>
-          <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)"}}><i style={{display:"inline-block",width:9,height:9,background:"color-mix(in srgb, var(--arcd-danger-text) 13%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-danger-text) 33%, transparent)",marginRight:"var(--arcd-space-1)"}}/>Não trabalhado</span>
-          <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)"}}><i style={{display:"inline-block",width:9,height:9,background:"color-mix(in srgb, var(--arcd-action-primary) 9%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 33%, transparent)",marginRight:"var(--arcd-space-1)"}}/>Fim de semana trabalhado</span>
-          <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)"}}><i style={{display:"inline-block",width:9,height:9,background:"color-mix(in srgb, var(--arcd-warning-text) 27%, transparent)",border:"1px solid var(--arcd-warning-text)",marginRight:"var(--arcd-space-1)"}}/>Feriado</span>
-          <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)"}}><i style={{display:"inline-block",height:10,borderLeft:"1px solid var(--arcd-danger-text)",marginRight:"var(--arcd-space-1)"}}/>Hoje</span>
-          <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)"}}><i style={{display:"inline-block",width:9,height:9,background:"color-mix(in srgb, var(--arcd-warning-text) 15%, transparent)",border:"1px solid var(--arcd-warning-text)",marginRight:"var(--arcd-space-1)"}}/>Conflito de vinculo</span>
+          <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)"}}><i style={{display:"inline-block",width:9,height:9,background:"color-mix(in srgb, var(--arcd-danger-text) 13%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-danger-text) 33%, transparent)",marginRight:"var(--arcd-space-1)"}}/>Não trabalhado</span>
+          <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)"}}><i style={{display:"inline-block",width:9,height:9,background:"color-mix(in srgb, var(--arcd-action-primary) 9%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-action-primary) 33%, transparent)",marginRight:"var(--arcd-space-1)"}}/>Fim de semana trabalhado</span>
+          <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)"}}><i style={{display:"inline-block",width:9,height:9,background:"color-mix(in srgb, var(--arcd-warning-text) 27%, transparent)",border:"var(--arcd-border-width) solid var(--arcd-warning-text)",marginRight:"var(--arcd-space-1)"}}/>Feriado</span>
+          <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)"}}><i style={{display:"inline-block",height:10,borderLeft:"var(--arcd-border-width) solid var(--arcd-danger-text)",marginRight:"var(--arcd-space-1)"}}/>Hoje</span>
+          <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)"}}><i style={{display:"inline-block",width:9,height:9,background:"color-mix(in srgb, var(--arcd-warning-text) 15%, transparent)",border:"var(--arcd-border-width) solid var(--arcd-warning-text)",marginRight:"var(--arcd-space-1)"}}/>Conflito de vinculo</span>
           <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)"}}><i style={{display:"inline-block",width:12,height:8,background:"var(--arcd-danger-text)",marginRight:"var(--arcd-space-1)",verticalAlign:"middle"}}/>Caminho crítico (folga zero)</span>
           <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Arraste a barra para mover · alças nas bordas ajustam início e fim</span>
           <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}} title="Total de dias de atraso que o projeto tolera fora do caminho crítico">Fim: dia útil {critico.fimProjeto ?? "-"}</span>
@@ -1022,7 +1022,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
             {/* Barra horizontal superior: fica sempre acessivel mesmo em cronogramas longos.
                 Sincronizada com a rolagem principal. */}
             <div ref={ganttTopScrollRef} onScroll={()=>sincronizarRolagemGantt("topo")}
-                 style={{overflowX:"auto",overflowY:"hidden",height:20,borderBottom:"1px solid var(--arcd-border-default)",
+                 style={{overflowX:"auto",overflowY:"hidden",height:20,borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)",
                          scrollbarGutter:"stable",background:"linear-gradient(180deg, var(--arcd-surface-muted), var(--arcd-surface-card))",
                          boxShadow:"inset 0 -1px 0 color-mix(in srgb, var(--arcd-border-default) 53%, transparent)"}}>
               <div style={{width:LARGURA_TOTAL_GANTT,height:1}} />
@@ -1033,16 +1033,16 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                           scrollbarGutter:"stable both-edges", overscrollBehavior:"contain" }}>
 
             {/* Colunas tecnicas fixas: edicao direta sem abrir popup */}
-            <div style={{ flexShrink: 0, borderRight: "1px solid var(--arcd-border-default)",
+            <div style={{ flexShrink: 0, borderRight: "var(--arcd-border-width) solid var(--arcd-border-default)",
                           position: isDesktop ? "sticky" : "relative", left: 0, background: "var(--arcd-surface-card)", zIndex: 5,
                           width:LARGURA_TAREFAS }}>
-              <div style={{ height: ALTURA_REGUA, borderBottom: "1px solid var(--arcd-border-default)",
+              <div style={{ height: ALTURA_REGUA, borderBottom: "var(--arcd-border-width) solid var(--arcd-border-default)",
                             display:"grid", gridTemplateColumns:COLUNAS_TAREFA, alignItems:"center" }}>
                 {colunasVisiveis.map((col,i)=>(
                   <span key={col.id}
                     className={`planning-gantt-header-cell${col.id==="inicio"||col.id==="fim"?" planning-gantt-header-cell--date":""}`}
                     style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",
-                    padding:"var(--arcd-space-0) var(--arcd-space-2)",borderLeft:i?"1px solid var(--arcd-border-default)":"none",height:"100%",
+                    padding:"var(--arcd-space-0) var(--arcd-space-2)",borderLeft:i?"var(--arcd-border-width) solid var(--arcd-border-default)":"none",height:"100%",
                     display:"flex",alignItems:"center"}}>{col.label}</span>
                 ))}
               </div>
@@ -1133,7 +1133,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                 };
                 return (
                   <div key={t.id} style={{height:ALTURA_LINHA,display:"grid",gridTemplateColumns:COLUNAS_TAREFA,
-                                          borderBottom:"1px solid var(--arcd-border-default)",background:conflitoVinculo?"color-mix(in srgb, var(--arcd-warning-text) 4%, transparent)":"transparent"}}>
+                                          borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)",background:conflitoVinculo?"color-mix(in srgb, var(--arcd-warning-text) 4%, transparent)":"transparent"}}>
                     {colunasVisiveis.map((col,i)=>(
                       <div key={col.id}
                         className={`planning-gantt-grid-cell${col.id==="inicio"||col.id==="fim"?" planning-gantt-grid-cell--date":""}`}
@@ -1153,10 +1153,10 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                           height:ALTURA_REGUA+tarefas.length*ALTURA_LINHA,
                           flexShrink:0, overflow: "hidden", isolation: "isolate" }}>
               {/* Regua tecnica: mes, numero do dia, dia da semana e excecoes */}
-              <div style={{ height: ALTURA_REGUA, position: "relative", borderBottom: "1px solid var(--arcd-border-default)" }}>
+              <div style={{ height: ALTURA_REGUA, position: "relative", borderBottom: "var(--arcd-border-width) solid var(--arcd-border-default)" }}>
                 {reguaMeses.map((m, i) => (
                   <div key={i} style={{ position: "absolute", left: m.x, top: 0, height: "100%",
-                                        borderLeft: "1px solid var(--arcd-border-default)", paddingLeft: "var(--arcd-space-1)",
+                                        borderLeft: "var(--arcd-border-width) solid var(--arcd-border-default)", paddingLeft: "var(--arcd-space-1)",
                                         display: "flex", alignItems: "flex-start", paddingTop:"var(--arcd-space-half)" }}>
                     <span style={{ fontSize:"var(--arcd-type-caption)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-secondary)", whiteSpace: "nowrap" }}>{m.label}</span>
                   </div>
@@ -1168,7 +1168,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                   return <div key={d.data}
                     title={`${fmtDateFull(d.data)}${d.feriado ? ` - ${d.feriado.nome}` : d.naoTrabalhado ? " - não trabalhado" : " - dia de trabalho"}`}
                     style={{position:"absolute",left:d.x,top:18,width:pxPorDia,height:ALTURA_REGUA-18,
-                      background:bg,borderRight:"1px solid var(--arcd-border-default)",overflow:"hidden",textAlign:"center"}}>
+                      background:bg,borderRight:"var(--arcd-border-width) solid var(--arcd-border-default)",overflow:"hidden",textAlign:"center"}}>
                     {mostrar && <><span style={{display:"block",fontSize:zoom==="dia"?"var(--arcd-type-caption)":"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",
                       color:d.feriado?"var(--arcd-warning-text)":d.naoTrabalhado?"var(--arcd-danger-text)":"var(--arcd-text-primary)",lineHeight:"var(--arcd-line-height-normal)"}}>{d.data.slice(8,10)}</span>
                     {zoom === "dia" && <span style={{display:"block",fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)"}}>{nomes[d.dow]}</span>}</>}
@@ -1177,7 +1177,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                 {/* Linha do hoje */}
                 {today() >= GANTT_INI && today() <= somaDias(GANTT_INI,totalDias-1) &&
                   <div style={{ position: "absolute", left: xDeData(today()), top: 0, height: "100%",
-                                borderLeft: "1px solid var(--arcd-danger-text)", opacity: .6 }} />}
+                                borderLeft: "var(--arcd-border-width) solid var(--arcd-danger-text)", opacity: .6 }} />}
               </div>
 
               {/* Fins de semana e feriados continuam visiveis em todas as linhas */}
@@ -1186,11 +1186,11 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                 {diasGrade.map(d => <div key={d.data} style={{
                   position:"absolute",left:d.x,top:0,width:pxPorDia,height:"100%",
                   background:d.feriado?"color-mix(in srgb, var(--arcd-warning-text) 13%, transparent)":d.naoTrabalhado?"color-mix(in srgb, var(--arcd-danger-text) 4%, transparent)":d.fimSemana?"color-mix(in srgb, var(--arcd-action-primary) 4%, transparent)":"transparent",
-                  borderRight:"1px solid color-mix(in srgb, var(--arcd-border-default) 53%, transparent)"
+                  borderRight:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-border-default) 53%, transparent)"
                 }}/>) }
                 {today() >= GANTT_INI && today() <= somaDias(GANTT_INI,totalDias-1) &&
                   <div style={{position:"absolute",left:xDeData(today()),top:0,height:"100%",
-                               borderLeft:"1px solid var(--arcd-danger-text)",opacity:.55,zIndex:1}}/>}
+                               borderLeft:"var(--arcd-border-width) solid var(--arcd-danger-text)",opacity:.55,zIndex:1}}/>}
               </div>
 
               {/* Linhas de fundo + barras */}
@@ -1209,7 +1209,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                 const larguraAlca = Math.max(6, Math.min(isMobile ? 18 : 12, Math.floor(w / 2) - 1));
                 return (
                   <div key={t.id} style={{ height: ALTURA_LINHA, position: "relative",
-                                           borderBottom: "1px solid var(--arcd-border-default)",
+                                           borderBottom: "var(--arcd-border-width) solid var(--arcd-border-default)",
                                            background: idx % 2 ? "color-mix(in srgb, var(--arcd-surface-muted) 33%, transparent)" : "transparent" }}>
                     {/* Barra */}
                     <div
@@ -1221,12 +1221,12 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                         top: t.titulo ? 14 : 7,
                         width: w, height: t.titulo ? ALTURA_LINHA - 28 : ALTURA_LINHA - 14,
                         background: t.titulo ? "var(--arcd-text-muted)" : (critico.criticas.includes(t.id) && !t.titulo ? "var(--arcd-danger-text)" : corTarefa(t)),
-                        borderRadius: t.titulo ? 3 : 6,
+                        borderRadius: t.titulo ? "var(--arcd-radius-control)" : "var(--arcd-radius-control)",
                         cursor: t.titulo ? "default" : "grab",
                         // Caminho crítico: barra vermelha (a cor de progresso é
                         // trocada pela criticidade; o preenchimento branco por
                         // cima continua mostrando o avanço).
-                        outline: critico.criticas.includes(t.id) ? `1.5px solid #7f0000` : "none",
+                        outline: critico.criticas.includes(t.id) ? "1.5px solid var(--arcd-danger-text)" : "none",
                         outlineOffset: 1,
                         boxShadow: emDrag ? `0 4px 14px ${corTarefa(t)}66` : "none",
                         display: "flex", alignItems: "center", overflow: "hidden",
@@ -1250,7 +1250,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                            style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: larguraAlca,
                                     display: "flex", alignItems: "center", justifyContent: "center",
                                     background: "color-mix(in srgb, var(--arcd-text-primary) 14%, transparent)", cursor: "ew-resize", touchAction: "none", zIndex: 2 }}>
-                        <span style={{ width: 2, height: "40%", borderRadius: 2, background: "color-mix(in srgb, var(--arcd-text-inverse) 85%, transparent)" }}/>
+                        <span style={{ width: 2, height: "40%", borderRadius: "var(--arcd-radius-control)", background: "color-mix(in srgb, var(--arcd-text-inverse) 85%, transparent)" }}/>
                       </div>}
                       {/* Alça de redimensionar - fim */}
                       {!t.titulo && <div onMouseDown={(e) => iniciarDrag(e, t, "fim")}
@@ -1259,7 +1259,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                            style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: larguraAlca,
                                     display: "flex", alignItems: "center", justifyContent: "center",
                                     background: "color-mix(in srgb, var(--arcd-text-primary) 14%, transparent)", cursor: "ew-resize", touchAction: "none", zIndex: 2 }}>
-                        <span style={{ width: 2, height: "40%", borderRadius: 2, background: "color-mix(in srgb, var(--arcd-text-inverse) 85%, transparent)" }}/>
+                        <span style={{ width: 2, height: "40%", borderRadius: "var(--arcd-radius-control)", background: "color-mix(in srgb, var(--arcd-text-inverse) 85%, transparent)" }}/>
                       </div>}
                     </div>
                     {/* Barra fina do REALIZADO (datas reais), sob a planejada.
@@ -1271,7 +1271,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                       return (
                         <div title={`Realizado: ${fmtDate(t.inicioReal)} → ${fmtDate(t.fimReal)}${atrasou?" (após o previsto)":""}`}
                              style={{ position:"absolute", left:xr, width:wr, bottom:3, height:5,
-                                      background: atrasou ? "var(--arcd-danger-text)" : "var(--arcd-action-primary)", borderRadius:99, zIndex:2 }} />
+                                      background: atrasou ? "var(--arcd-danger-text)" : "var(--arcd-action-primary)", borderRadius:"var(--arcd-radius-pill)", zIndex:2 }} />
                       );
                     })()}
                   </div>
@@ -1385,25 +1385,25 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
         <MiniKpi label="PPC semanal" value={ppcSemanal.total?`${Math.round(ppcSemanal.ppc*100)}%`:"—"} cor={ppcSemanal.total&&ppcSemanal.ppc<.8?C.orange:C.green} sub={ppcSemanal.total?`${ppcSemanal.completed} de ${ppcSemanal.total} compromissos concluídos${ppcSemanal.blocked?` · ${contar(ppcSemanal.blocked,"bloqueado","bloqueados")}`:""}`:"Sem compromisso registrado"}/>
       </div>
 
-      {(compromissosDaObra.length>0||podeConcluirCompromisso)&&<div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:8,overflow:"hidden"}}>
-        <div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:"1px solid var(--arcd-border-default)",display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"center"}}>
+      {(compromissosDaObra.length>0||podeConcluirCompromisso)&&<div style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)",overflow:"hidden"}}>
+        <div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)",display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"center"}}>
           <div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",letterSpacing:"var(--arcd-letter-spacing-body)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Plano de curto prazo</p><b style={{display:"block",fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)"}}>Compromissos da obra</b></div>
           <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)"}}><span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>{contar(ppcSemanal.completed,"concluído","concluídos")} de {ppcSemanal.total}{ppcSemanal.blocked?` · ${contar(ppcSemanal.blocked,"bloqueado","bloqueados")}`:""}</span>{podeConcluirCompromisso&&<Btn size="sm" v="ghost" onClick={abrirNovoCompromisso}>Adicionar</Btn>}</div>
         </div>
-        {novoCompromisso&&<div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",background:"var(--arcd-surface-muted)",borderBottom:"1px solid var(--arcd-border-default)"}}><div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:"var(--arcd-space-2)"}}><Sel label="Atividade" value={novoCompromisso.activityId} onChange={v=>setNovoCompromisso(form=>({...form,activityId:v}))} options={tarefas.filter(item=>!item.titulo).map(item=>({v:item.id,l:item.nome||"Atividade"}))}/><Inp label="Compromisso" value={novoCompromisso.descricao} onChange={v=>setNovoCompromisso(form=>({...form,descricao:v}))} placeholder="Ex.: Assentar alvenaria do pavimento"/><Inp label="Meta" type="number" value={novoCompromisso.quantidadePrometida} onChange={v=>setNovoCompromisso(form=>({...form,quantidadePrometida:v}))}/><Inp label="Data" type="date" value={novoCompromisso.data} onChange={v=>setNovoCompromisso(form=>({...form,data:v}))}/></div><div style={{marginTop:"var(--arcd-space-2)"}}><Inp label="Restrição de início (opcional)" value={novoCompromisso.blockingReason||""} onChange={v=>setNovoCompromisso(form=>({...form,blockingReason:v}))} placeholder="Ex.: aguardando entrega de material — cria como bloqueado"/></div><label style={{display:"inline-flex",alignItems:"center",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-2)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",cursor:"pointer"}}><ChoiceControl type="checkbox" checked={Boolean(novoCompromisso.criticalActivity)} onChange={event=>setNovoCompromisso(form=>({...form,criticalActivity:event.target.checked}))} style={{accentColor:"var(--arcd-warning-text)"}}/>Atividade crítica <span style={{color:"var(--arcd-text-secondary)"}}>· exige APR, permissão e equipe no avanço</span></label>{novoCompromisso.criticalActivity&&<div style={{marginTop:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Treinamentos (NR) exigidos da equipe <span style={{fontWeight:"var(--arcd-font-weight-medium)",color:"var(--arcd-text-secondary)"}}>· bloqueia o avanço se algum trabalhador estiver com o treinamento vencido</span></p><div style={{display:"flex",flexWrap:"wrap",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-1)"}}>{WORKER_TRAINING_TYPES.map(item=>{const checked=(novoCompromisso.requiredTrainings||[]).includes(item.key);return <label key={item.key} style={{display:"inline-flex",gap:"var(--arcd-space-1)",alignItems:"center",padding:"var(--arcd-space-1) var(--arcd-space-2)",border:`1px solid ${checked?"var(--arcd-warning-text)":"var(--arcd-border-default)"}`,borderRadius:6,background:checked?"color-mix(in srgb, var(--arcd-warning-text) 3%, transparent)":"var(--arcd-surface-card)",cursor:"pointer",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}><ChoiceControl type="checkbox" checked={checked} onChange={()=>alternarTreinamentoExigido(item.key)} style={{accentColor:"var(--arcd-warning-text)"}}/>{item.label}</label>;})}</div></div>}<div style={{display:"flex",justifyContent:"flex-end",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)"}}><Btn size="sm" v="ghost" onClick={()=>setNovoCompromisso(null)}>Cancelar</Btn><Btn size="sm" onClick={criarCompromissoSemanal}>Criar compromisso</Btn></div></div>}
-        {novoAvanco&&<div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",background:"var(--arcd-surface-muted)",borderBottom:"1px solid var(--arcd-border-default)"}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"baseline",marginBottom:"var(--arcd-space-2)"}}><div><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",color:"var(--arcd-action-primary)"}}>Registro de produção</p><b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>{novoAvanco.descricao}</b></div><span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>O avanço entra na evidência do compromisso.</span></div><div style={{display:"grid",gridTemplateColumns:cols(1,2,2),gap:"var(--arcd-space-2)"}}><Inp label="Quantidade executada" type="number" value={novoAvanco.quantity} onChange={v=>setNovoAvanco(form=>({...form,quantity:v}))}/><Inp label="Data" type="date" value={novoAvanco.data} onChange={v=>setNovoAvanco(form=>({...form,data:v}))}/></div><div style={{marginTop:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Equipe vinculada <span style={{fontWeight:"var(--arcd-font-weight-medium)",color:"var(--arcd-text-secondary)"}}>· obrigatória em atividade crítica</span></p><div style={{display:"flex",flexWrap:"wrap",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-1)"}}>{trabalhadoresDaObra.map(worker=>{const checked=(novoAvanco.workerIds||[]).includes(worker.id);return <label key={worker.id} style={{display:"inline-flex",gap:"var(--arcd-space-1)",alignItems:"center",padding:"var(--arcd-space-1) var(--arcd-space-2)",border:`1px solid ${checked?"var(--arcd-action-primary)":"var(--arcd-border-default)"}`,borderRadius:6,background:checked?"color-mix(in srgb, var(--arcd-action-primary) 3%, transparent)":"var(--arcd-surface-card)",cursor:"pointer",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}><ChoiceControl type="checkbox" checked={checked} onChange={()=>alternarTrabalhadorAvanco(worker.id)} style={{accentColor:"var(--arcd-action-primary)"}}/>{worker.name||worker.nome||"Colaborador"}</label>;})}{!trabalhadoresDaObra.length&&<span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)"}}>Nenhum colaborador ativo disponível para vincular.</span>}</div></div>{(novoAvanco.requiredTrainings||[]).length>0&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-warning-text)",marginTop:"var(--arcd-space-2)"}}>Exige treinamento em dia: {novoAvanco.requiredTrainings.map(key=>WORKER_TRAINING_TYPES.find(item=>item.key===key)?.label||key).join(" · ")}</p>}<div style={{display:"flex",justifyContent:"flex-end",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)"}}><Btn size="sm" v="ghost" onClick={()=>setNovoAvanco(null)}>Cancelar</Btn><Btn size="sm" onClick={registrarAvanco}>Registrar avanço</Btn></div></div>}
+        {novoCompromisso&&<div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",background:"var(--arcd-surface-muted)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}><div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:"var(--arcd-space-2)"}}><Sel label="Atividade" value={novoCompromisso.activityId} onChange={v=>setNovoCompromisso(form=>({...form,activityId:v}))} options={tarefas.filter(item=>!item.titulo).map(item=>({v:item.id,l:item.nome||"Atividade"}))}/><Inp label="Compromisso" value={novoCompromisso.descricao} onChange={v=>setNovoCompromisso(form=>({...form,descricao:v}))} placeholder="Ex.: Assentar alvenaria do pavimento"/><Inp label="Meta" type="number" value={novoCompromisso.quantidadePrometida} onChange={v=>setNovoCompromisso(form=>({...form,quantidadePrometida:v}))}/><Inp label="Data" type="date" value={novoCompromisso.data} onChange={v=>setNovoCompromisso(form=>({...form,data:v}))}/></div><div style={{marginTop:"var(--arcd-space-2)"}}><Inp label="Restrição de início (opcional)" value={novoCompromisso.blockingReason||""} onChange={v=>setNovoCompromisso(form=>({...form,blockingReason:v}))} placeholder="Ex.: aguardando entrega de material — cria como bloqueado"/></div><label style={{display:"inline-flex",alignItems:"center",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-2)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",cursor:"pointer"}}><ChoiceControl type="checkbox" checked={Boolean(novoCompromisso.criticalActivity)} onChange={event=>setNovoCompromisso(form=>({...form,criticalActivity:event.target.checked}))} style={{accentColor:"var(--arcd-warning-text)"}}/>Atividade crítica <span style={{color:"var(--arcd-text-secondary)"}}>· exige APR, permissão e equipe no avanço</span></label>{novoCompromisso.criticalActivity&&<div style={{marginTop:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Treinamentos (NR) exigidos da equipe <span style={{fontWeight:"var(--arcd-font-weight-medium)",color:"var(--arcd-text-secondary)"}}>· bloqueia o avanço se algum trabalhador estiver com o treinamento vencido</span></p><div style={{display:"flex",flexWrap:"wrap",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-1)"}}>{WORKER_TRAINING_TYPES.map(item=>{const checked=(novoCompromisso.requiredTrainings||[]).includes(item.key);return <label key={item.key} style={{display:"inline-flex",gap:"var(--arcd-space-1)",alignItems:"center",padding:"var(--arcd-space-1) var(--arcd-space-2)",border:`var(--arcd-border-width) solid ${checked?"var(--arcd-warning-text)":"var(--arcd-border-default)"}`,borderRadius:"var(--arcd-radius-control)",background:checked?"color-mix(in srgb, var(--arcd-warning-text) 3%, transparent)":"var(--arcd-surface-card)",cursor:"pointer",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}><ChoiceControl type="checkbox" checked={checked} onChange={()=>alternarTreinamentoExigido(item.key)} style={{accentColor:"var(--arcd-warning-text)"}}/>{item.label}</label>;})}</div></div>}<div style={{display:"flex",justifyContent:"flex-end",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)"}}><Btn size="sm" v="ghost" onClick={()=>setNovoCompromisso(null)}>Cancelar</Btn><Btn size="sm" onClick={criarCompromissoSemanal}>Criar compromisso</Btn></div></div>}
+        {novoAvanco&&<div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",background:"var(--arcd-surface-muted)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"baseline",marginBottom:"var(--arcd-space-2)"}}><div><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",color:"var(--arcd-action-primary)"}}>Registro de produção</p><b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>{novoAvanco.descricao}</b></div><span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>O avanço entra na evidência do compromisso.</span></div><div style={{display:"grid",gridTemplateColumns:cols(1,2,2),gap:"var(--arcd-space-2)"}}><Inp label="Quantidade executada" type="number" value={novoAvanco.quantity} onChange={v=>setNovoAvanco(form=>({...form,quantity:v}))}/><Inp label="Data" type="date" value={novoAvanco.data} onChange={v=>setNovoAvanco(form=>({...form,data:v}))}/></div><div style={{marginTop:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Equipe vinculada <span style={{fontWeight:"var(--arcd-font-weight-medium)",color:"var(--arcd-text-secondary)"}}>· obrigatória em atividade crítica</span></p><div style={{display:"flex",flexWrap:"wrap",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-1)"}}>{trabalhadoresDaObra.map(worker=>{const checked=(novoAvanco.workerIds||[]).includes(worker.id);return <label key={worker.id} style={{display:"inline-flex",gap:"var(--arcd-space-1)",alignItems:"center",padding:"var(--arcd-space-1) var(--arcd-space-2)",border:`var(--arcd-border-width) solid ${checked?"var(--arcd-action-primary)":"var(--arcd-border-default)"}`,borderRadius:"var(--arcd-radius-control)",background:checked?"color-mix(in srgb, var(--arcd-action-primary) 3%, transparent)":"var(--arcd-surface-card)",cursor:"pointer",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}><ChoiceControl type="checkbox" checked={checked} onChange={()=>alternarTrabalhadorAvanco(worker.id)} style={{accentColor:"var(--arcd-action-primary)"}}/>{worker.name||worker.nome||"Colaborador"}</label>;})}{!trabalhadoresDaObra.length&&<span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)"}}>Nenhum colaborador ativo disponível para vincular.</span>}</div></div>{(novoAvanco.requiredTrainings||[]).length>0&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-warning-text)",marginTop:"var(--arcd-space-2)"}}>Exige treinamento em dia: {novoAvanco.requiredTrainings.map(key=>WORKER_TRAINING_TYPES.find(item=>item.key===key)?.label||key).join(" · ")}</p>}<div style={{display:"flex",justifyContent:"flex-end",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)"}}><Btn size="sm" v="ghost" onClick={()=>setNovoAvanco(null)}>Cancelar</Btn><Btn size="sm" onClick={registrarAvanco}>Registrar avanço</Btn></div></div>}
         <div>{compromissosDaObra.slice(0,8).map(compromisso=>{
           const concluido=compromisso.status==="concluido",naoConcluido=compromisso.status==="nao_concluido",bloqueado=compromisso.status==="bloqueado",cor=concluido?C.green:(naoConcluido||bloqueado)?C.orange:C.blue;
           const meta=Math.max(0,Number(compromisso.quantidadePrometida||0)),feito=Math.max(0,Number(compromisso.quantidadeRealizada||0)),pct=meta?Math.min(100,feito/meta*100):0;
           const avancos=(avancosPorCompromisso.get(String(compromisso.id))||[]).slice().sort((a,b)=>String(b.data||"").localeCompare(String(a.data||"")));
-          return <div key={compromisso.id} style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderTop:"1px solid var(--arcd-border-default)"}}><div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:"var(--arcd-space-3)",alignItems:"center"}}>
-            <div style={{minWidth:0}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"baseline"}}><b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{compromisso.descricao||"Compromisso sem descrição"}</b><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:cor,textTransform:"uppercase",whiteSpace:"nowrap"}}>{concluido?"concluído":naoConcluido?"não concluído":bloqueado?"bloqueado":"em aberto"}</span></div><p style={{fontSize:"var(--arcd-type-caption)",color:bloqueado?"var(--arcd-warning-text)":"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{bloqueado?`Restrição: ${compromisso.blockingReason||"não informada"}`:`${feito} entregue de ${meta||"—"} prometido${compromisso.motivoNaoCumprimento?` · ${compromisso.motivoNaoCumprimento}`:""}`}</p><div style={{height:3,background:"var(--arcd-surface-muted)",borderRadius:99,overflow:"hidden",marginTop:"var(--arcd-space-1)"}}><i style={{display:"block",height:"100%",width:`${pct}%`,background:cor}}/></div></div>
+          return <div key={compromisso.id} style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)"}}><div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:"var(--arcd-space-3)",alignItems:"center"}}>
+            <div style={{minWidth:0}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"baseline"}}><b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{compromisso.descricao||"Compromisso sem descrição"}</b><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:cor,textTransform:"uppercase",whiteSpace:"nowrap"}}>{concluido?"concluído":naoConcluido?"não concluído":bloqueado?"bloqueado":"em aberto"}</span></div><p style={{fontSize:"var(--arcd-type-caption)",color:bloqueado?"var(--arcd-warning-text)":"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{bloqueado?`Restrição: ${compromisso.blockingReason||"não informada"}`:`${feito} entregue de ${meta||"—"} prometido${compromisso.motivoNaoCumprimento?` · ${compromisso.motivoNaoCumprimento}`:""}`}</p><div style={{height:3,background:"var(--arcd-surface-muted)",borderRadius:"var(--arcd-radius-pill)",overflow:"hidden",marginTop:"var(--arcd-space-1)"}}><i style={{display:"block",height:"100%",width:`${pct}%`,background:cor}}/></div></div>
             {!concluido&&!naoConcluido&&podeConcluirCompromisso&&<div style={{display:"flex",gap:"var(--arcd-space-1)",alignItems:"center"}}>{bloqueado?<Btn size="sm" v="ghost" onClick={()=>liberarCompromissoSemanal(compromisso)}>Liberar</Btn>:<><Btn size="sm" v="ghost" onClick={()=>abrirNovoAvanco(compromisso)}>Registrar avanço</Btn><Btn size="sm" v="ghost" onClick={()=>concluirCompromissoSemanal(compromisso)}>Concluir</Btn></>}</div>}
-          </div>{avancos.length>0&&<details style={{marginTop:"var(--arcd-space-2)"}}><summary style={{cursor:"pointer",fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Evidências de produção · {avancos.length}</summary><div style={{marginTop:"var(--arcd-space-1)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>{avancos.map(avanco=>{const cancelado=avanco.status==="cancelado";return <div key={avanco.id} style={{display:"grid",gridTemplateColumns:"1fr auto",alignItems:"center",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-1) var(--arcd-space-2)",border:"1px solid var(--arcd-border-default)",borderRadius:6,background:cancelado?"var(--arcd-surface-muted)":"var(--arcd-surface-card)"}}><span style={{fontSize:"var(--arcd-type-caption)",color:cancelado?"var(--arcd-text-secondary)":"var(--arcd-text-primary)"}}>{fmtDate(avanco.data)} · <b>{Number(avanco.quantity||0)}</b>{cancelado?` · estornado: ${avanco.motivoCancelamento||"sem motivo"}`:""}</span>{!cancelado&&podeConcluirCompromisso&&<Btn size="sm" v="ghost" onClick={()=>estornarAvanco(avanco)}>Estornar</Btn>}</div>;})}</div></details>}</div>;
+          </div>{avancos.length>0&&<details style={{marginTop:"var(--arcd-space-2)"}}><summary style={{cursor:"pointer",fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Evidências de produção · {avancos.length}</summary><div style={{marginTop:"var(--arcd-space-1)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>{avancos.map(avanco=>{const cancelado=avanco.status==="cancelado";return <div key={avanco.id} style={{display:"grid",gridTemplateColumns:"1fr auto",alignItems:"center",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-1) var(--arcd-space-2)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",background:cancelado?"var(--arcd-surface-muted)":"var(--arcd-surface-card)"}}><span style={{fontSize:"var(--arcd-type-caption)",color:cancelado?"var(--arcd-text-secondary)":"var(--arcd-text-primary)"}}>{fmtDate(avanco.data)} · <b>{Number(avanco.quantity||0)}</b>{cancelado?` · estornado: ${avanco.motivoCancelamento||"sem motivo"}`:""}</span>{!cancelado&&podeConcluirCompromisso&&<Btn size="sm" v="ghost" onClick={()=>estornarAvanco(avanco)}>Estornar</Btn>}</div>;})}</div></details>}</div>;
         })}{!compromissosDaObra.length&&!novoCompromisso&&<p style={{padding:"var(--arcd-space-3)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhum compromisso ativo. Adicione o que será entregue nesta semana para acompanhar o PPC.</p>}</div>
       </div>}
 
-      <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:8,overflow:"hidden"}}><div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:"1px solid var(--arcd-border-default)",display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"center"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",letterSpacing:"var(--arcd-letter-spacing-body)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Lookahead</p><b style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)"}}>Restrições antes da execução</b></div><Btn size="sm" v="ghost" onClick={criarLookahead} disabled={!!lookaheadsDaObra.length}>Criar 4 semanas</Btn></div>{lookaheadsDaObra.map(lookahead=><div key={lookahead.id} style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderTop:"1px solid var(--arcd-border-default)"}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>Janela de {lookahead.horizonteSemanas} semanas · {lookahead.pacotes?.length||0} pacotes</p><Btn size="sm" v="ghost" onClick={()=>setNovaRestricao({lookaheadId:lookahead.id,pacoteId:lookahead.pacotes?.[0]?.id||"",categoria:"outro",descricao:"",dataNecessidade:today()})}>Adicionar restrição</Btn></div>{novaRestricao?.lookaheadId===lookahead.id&&<div style={{marginTop:"var(--arcd-space-2)",display:"grid",gridTemplateColumns:cols(1,2,4),gap:"var(--arcd-space-2)"}}><Sel label="Pacote" value={novaRestricao.pacoteId} onChange={value=>setNovaRestricao(form=>({...form,pacoteId:value}))} options={(lookahead.pacotes||[]).map(item=>({v:item.id,l:item.descricao||item.id}))}/><Sel label="Categoria" value={novaRestricao.categoria} onChange={value=>setNovaRestricao(form=>({...form,categoria:value}))} options={["material","mao_de_obra","equipamento","seguranca","qualidade","projeto","outro"].map(value=>({v:value,l:value.replaceAll("_"," ")}))}/><Inp label="Necessária em" type="date" value={novaRestricao.dataNecessidade} onChange={value=>setNovaRestricao(form=>({...form,dataNecessidade:value}))}/><Inp label="Restrição" value={novaRestricao.descricao} onChange={value=>setNovaRestricao(form=>({...form,descricao:value}))}/><div style={{display:"flex",gap:"var(--arcd-space-1)",alignItems:"end"}}><Btn size="sm" v="ghost" onClick={()=>setNovaRestricao(null)}>Cancelar</Btn><Btn size="sm" onClick={adicionarRestricao}>Registrar</Btn></div></div>}<div style={{marginTop:"var(--arcd-space-2)"}}>{(lookahead.restricoes||[]).map(restricao=>{const liberada=restricao.status==="liberada";return <div key={restricao.id} style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-0)",borderTop:"1px solid var(--arcd-border-default)"}}><span style={{fontSize:"var(--arcd-type-label)",color:liberada?"var(--arcd-text-secondary)":"var(--arcd-text-primary)"}}>{restricao.descricao} · {restricao.categoria}</span>{liberada?<Badge color={C.green}>LIBERADA</Badge>:<Btn size="sm" v="ghost" onClick={()=>liberarRestricao(lookahead,restricao)}>Liberar</Btn>}</div>;})}{!(lookahead.restricoes||[]).length&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhuma restrição registrada.</p>}</div></div>)}{!lookaheadsDaObra.length&&<p style={{padding:"var(--arcd-space-3)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Crie uma janela de 4 semanas para antecipar material, projetos, equipe, segurança e demais bloqueios.</p>}</div>
+      <div style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)",overflow:"hidden"}}><div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)",display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"center"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",letterSpacing:"var(--arcd-letter-spacing-body)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Lookahead</p><b style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)"}}>Restrições antes da execução</b></div><Btn size="sm" v="ghost" onClick={criarLookahead} disabled={!!lookaheadsDaObra.length}>Criar 4 semanas</Btn></div>{lookaheadsDaObra.map(lookahead=><div key={lookahead.id} style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)"}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>Janela de {lookahead.horizonteSemanas} semanas · {lookahead.pacotes?.length||0} pacotes</p><Btn size="sm" v="ghost" onClick={()=>setNovaRestricao({lookaheadId:lookahead.id,pacoteId:lookahead.pacotes?.[0]?.id||"",categoria:"outro",descricao:"",dataNecessidade:today()})}>Adicionar restrição</Btn></div>{novaRestricao?.lookaheadId===lookahead.id&&<div style={{marginTop:"var(--arcd-space-2)",display:"grid",gridTemplateColumns:cols(1,2,4),gap:"var(--arcd-space-2)"}}><Sel label="Pacote" value={novaRestricao.pacoteId} onChange={value=>setNovaRestricao(form=>({...form,pacoteId:value}))} options={(lookahead.pacotes||[]).map(item=>({v:item.id,l:item.descricao||item.id}))}/><Sel label="Categoria" value={novaRestricao.categoria} onChange={value=>setNovaRestricao(form=>({...form,categoria:value}))} options={["material","mao_de_obra","equipamento","seguranca","qualidade","projeto","outro"].map(value=>({v:value,l:value.replaceAll("_"," ")}))}/><Inp label="Necessária em" type="date" value={novaRestricao.dataNecessidade} onChange={value=>setNovaRestricao(form=>({...form,dataNecessidade:value}))}/><Inp label="Restrição" value={novaRestricao.descricao} onChange={value=>setNovaRestricao(form=>({...form,descricao:value}))}/><div style={{display:"flex",gap:"var(--arcd-space-1)",alignItems:"end"}}><Btn size="sm" v="ghost" onClick={()=>setNovaRestricao(null)}>Cancelar</Btn><Btn size="sm" onClick={adicionarRestricao}>Registrar</Btn></div></div>}<div style={{marginTop:"var(--arcd-space-2)"}}>{(lookahead.restricoes||[]).map(restricao=>{const liberada=restricao.status==="liberada";return <div key={restricao.id} style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-0)",borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)"}}><span style={{fontSize:"var(--arcd-type-label)",color:liberada?"var(--arcd-text-secondary)":"var(--arcd-text-primary)"}}>{restricao.descricao} · {restricao.categoria}</span>{liberada?<Badge color={C.green}>LIBERADA</Badge>:<Btn size="sm" v="ghost" onClick={()=>liberarRestricao(lookahead,restricao)}>Liberar</Btn>}</div>;})}{!(lookahead.restricoes||[]).length&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhuma restrição registrada.</p>}</div></div>)}{!lookaheadsDaObra.length&&<p style={{padding:"var(--arcd-space-3)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Crie uma janela de 4 semanas para antecipar material, projetos, equipe, segurança e demais bloqueios.</p>}</div>
 
       {/* Fisico-financeiro em destaque: previsao de custo final e eficiencia */}
       {ff.linhas.length > 0 && (
@@ -1429,7 +1429,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
 
       {/* ==== FERRAMENTAS AUXILIARES ==== */}
       {tarefas.filter(t=>!t.titulo).length > 0 && (
-        <div style={{ background: "var(--arcd-surface-card)", border: "1px solid var(--arcd-border-default)", borderRadius: 8, overflow: "hidden" }}>
+        <div style={{ background: "var(--arcd-surface-card)", border: "var(--arcd-border-width) solid var(--arcd-border-default)", borderRadius: "var(--arcd-box-radius)", overflow: "hidden" }}>
           {/* Abas */}
           <div style={{ padding: "var(--arcd-space-2) var(--arcd-space-2) var(--arcd-space-0)" }}>
             <TabRow tabs={[["mensal","Financeiro mensal"],["curvaS","Curva S"],["ff","Físico-financeiro"],["lob","Linha de balanço"],["base","Planejado × Realizado"]]} active={aba} onChange={setAba}/>
@@ -1453,9 +1453,9 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                             <span style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)" }}>{fmtMesAno(d.mes + "-01")}</span>
                             <span style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-action-primary)" }}>{fmt(d.valor)}</span>
                           </div>
-                          <div style={{ height: 8, background: "var(--arcd-border-default)", borderRadius: 99, overflow: "hidden" }}>
+                          <div style={{ height: 8, background: "var(--arcd-border-default)", borderRadius: "var(--arcd-radius-pill)", overflow: "hidden" }}>
                             <div style={{ height: "100%", width: `${(d.valor / maxMes) * 100}%`,
-                                          background: "var(--arcd-action-primary)", borderRadius: 99 }} />
+                                          background: "var(--arcd-action-primary)", borderRadius: "var(--arcd-radius-pill)" }} />
                           </div>
                           <p style={{ fontSize:"var(--arcd-type-caption)", color: "var(--arcd-text-secondary)", marginTop: "var(--arcd-space-half)" }}>acumulado {fmt(d.acumulado)}</p>
                         </div>
@@ -1485,7 +1485,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
             {aba === "lob" && (
               linhaBalanco.lines.length===0
                 ? <div style={{padding:"var(--arcd-space-2) var(--arcd-space-0)"}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Ainda não há frentes repetitivas configuradas.</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)",lineHeight:"var(--arcd-line-height-normal)"}}>Abra uma tarefa, informe o mesmo grupo repetitivo e a frente ou pavimento. A Linha de Balanço mostrará a cadência e avisará se a sequência for invertida.</p></div>
-                : <div><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginBottom:"var(--arcd-space-3)",lineHeight:"var(--arcd-line-height-normal)"}}>Cada faixa representa a passagem de uma equipe pelas frentes. A cadência compara a distância entre inícios; âmbar só indica sequência invertida ou irregular.</p><div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>{linhaBalanco.lines.map(line=>{const warning=line.reversed.length>0||!line.stable;const color=warning?C.orange:C.blue;return <div key={line.group} style={{border:"1px solid var(--arcd-border-default)",borderLeft:`1px solid ${color}`,borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-3)",background:"var(--arcd-surface-card)"}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"baseline",flexWrap:"wrap"}}><b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>{line.group}</b><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:warning?"var(--arcd-warning-text)":"var(--arcd-text-secondary)"}}>{line.cadenceDays==null?"cadência indisponível":`${line.cadenceDays.toFixed(1).replace(".",",")} dia(s) por frente`}</span></div><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(105px,1fr))",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-2)"}}>{line.entries.map(entry=><div key={entry.activityId} style={{padding:"var(--arcd-space-2)",border:"1px solid var(--arcd-border-default)",borderRadius:6,background:"var(--arcd-surface-muted)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Frente {entry.front}</p><b style={{display:"block",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)"}}>{fmtDate(entry.start)} → {fmtDate(entry.finish)}</b><p style={{fontSize:"var(--arcd-type-caption)",color:entry.progress>=100?"var(--arcd-success-text)":"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{Number(entry.progress||0).toFixed(0)}% físico</p></div>)}</div>{warning&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-warning-text)",marginTop:"var(--arcd-space-2)"}}>{line.reversed.length?"Sequência invertida entre frentes: revise as datas antes de mobilizar a equipe.":"Cadência irregular entre frentes: confira a continuidade da equipe."}</p>}</div>;})}</div></div>
+                : <div><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginBottom:"var(--arcd-space-3)",lineHeight:"var(--arcd-line-height-normal)"}}>Cada faixa representa a passagem de uma equipe pelas frentes. A cadência compara a distância entre inícios; âmbar só indica sequência invertida ou irregular.</p><div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>{linhaBalanco.lines.map(line=>{const warning=line.reversed.length>0||!line.stable;const color=warning?C.orange:C.blue;return <div key={line.group} style={{border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderLeft:`var(--arcd-border-width) solid ${color}`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)",background:"var(--arcd-surface-card)"}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"baseline",flexWrap:"wrap"}}><b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>{line.group}</b><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:warning?"var(--arcd-warning-text)":"var(--arcd-text-secondary)"}}>{line.cadenceDays==null?"cadência indisponível":`${line.cadenceDays.toFixed(1).replace(".",",")} dia(s) por frente`}</span></div><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(105px,1fr))",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-2)"}}>{line.entries.map(entry=><div key={entry.activityId} style={{padding:"var(--arcd-space-2)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",background:"var(--arcd-surface-muted)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Frente {entry.front}</p><b style={{display:"block",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)"}}>{fmtDate(entry.start)} → {fmtDate(entry.finish)}</b><p style={{fontSize:"var(--arcd-type-caption)",color:entry.progress>=100?"var(--arcd-success-text)":"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{Number(entry.progress||0).toFixed(0)}% físico</p></div>)}</div>{warning&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-warning-text)",marginTop:"var(--arcd-space-2)"}}>{line.reversed.length?"Sequência invertida entre frentes: revise as datas antes de mobilizar a equipe.":"Cadência irregular entre frentes: confira a continuidade da equipe."}</p>}</div>;})}</div></div>
             )}
 
             {/* --- FISICO-FINANCEIRO --- */}
@@ -1497,7 +1497,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                 <div>
                   {/* Cabecalho: modo previsto/realizado + seletor de colunas */}
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:"var(--arcd-space-2)", flexWrap:"wrap", marginBottom:"var(--arcd-space-3)" }}>
-                    <div style={{ display:"flex", gap:"var(--arcd-space-1)", background:"var(--arcd-surface-muted)", borderRadius:8, padding:"var(--arcd-space-half)" }}>
+                    <div style={{ display:"flex", gap:"var(--arcd-space-1)", background:"var(--arcd-surface-muted)", borderRadius:"var(--arcd-box-radius)", padding:"var(--arcd-space-half)" }}>
                       {[["previsto","Previsto"],["realizado","Realizado"]].map(([v,l]) => (
                         <StandardButton variant="secondary" key={v} onClick={()=>setFfModo(v)}>{l}</StandardButton>
                       ))}
@@ -1505,11 +1505,11 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                     {ffM.meses.length > 0 && (
                       <details style={{ position:"relative" }}>
                         <summary style={{ listStyle:"none", cursor:"pointer", fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-action-primary)",
-                          border:"1px solid var(--arcd-border-default)", borderRadius:6, padding:"var(--arcd-space-1) var(--arcd-space-3)", userSelect:"none" }}>
+                          border:"var(--arcd-border-width) solid var(--arcd-border-default)", borderRadius:"var(--arcd-radius-control)", padding:"var(--arcd-space-1) var(--arcd-space-3)", userSelect:"none" }}>
                           Colunas ({mesesVisiveis.length}/{ffM.meses.length})
                         </summary>
                         <div style={{ position:"absolute", right:0, top:"110%", zIndex:20, background:"var(--arcd-surface-card)",
-                          border:"1px solid var(--arcd-border-default)", borderRadius:8, boxShadow:`0 8px 24px ${C.shadow}`,
+                          border:"var(--arcd-border-width) solid var(--arcd-border-default)", borderRadius:"var(--arcd-box-radius)", boxShadow:`0 8px 24px ${C.shadow}`,
                           padding:"var(--arcd-space-2)", minWidth:170, maxHeight:260, overflowY:"auto" }}>
                           {ffM.meses.map(m => {
                             const oculta = ffMesesOcultos.includes(m);
@@ -1536,22 +1536,22 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                   {ffM.linhas.length === 0 ? (
                     <p style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)" }}>Defina datas e custos nas tarefas para ver o físico-financeiro mensal.</p>
                   ) : (
-                    <div style={{ overflowX: "auto", border:"1px solid var(--arcd-border-default)", borderRadius:8 }}>
-                      <table style={{ borderCollapse: "collapse", fontSize:"var(--arcd-type-label)", minWidth: 520, width:"100%" }}>
+                    <div style={{ overflowX: "auto", border:"var(--arcd-border-width) solid var(--arcd-border-default)", borderRadius:"var(--arcd-box-radius)" }}>
+                      <table className="arcd-data-table__table" style={{ borderCollapse: "collapse", minWidth: 520, width:"100%" }}>
                         <thead>
                           <tr style={{ background:"var(--arcd-surface-muted)" }}>
-                            <th style={{ textAlign:"left", padding:"var(--arcd-space-2)", position:"sticky", left:0, background:"var(--arcd-surface-muted)", zIndex:2, minWidth:170, color:"var(--arcd-text-secondary)", fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", textTransform:"uppercase", borderBottom:"1px solid var(--arcd-border-default)" }}>Item</th>
-                            <th style={{ textAlign:"right", padding:"var(--arcd-space-2)", color:"var(--arcd-text-secondary)", fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", textTransform:"uppercase", borderBottom:"1px solid var(--arcd-border-default)", borderLeft:"1px solid var(--arcd-border-default)", minWidth:90 }}>Total</th>
+                            <th style={{ textAlign:"left", padding:"var(--arcd-space-2)", position:"sticky", left:0, background:"var(--arcd-surface-muted)", zIndex:2, minWidth:170, color:"var(--arcd-text-secondary)", fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", textTransform:"uppercase", borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)" }}>Item</th>
+                            <th style={{ textAlign:"right", padding:"var(--arcd-space-2)", color:"var(--arcd-text-secondary)", fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", textTransform:"uppercase", borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)", borderLeft:"var(--arcd-border-width) solid var(--arcd-border-default)", minWidth:90 }}>Total</th>
                             {mesesVisiveis.map(m => (
-                              <th key={m} style={{ textAlign:"right", padding:"var(--arcd-space-2)", color:"var(--arcd-text-secondary)", fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", textTransform:"uppercase", borderBottom:"1px solid var(--arcd-border-default)", borderLeft:"1px solid var(--arcd-border-default)", minWidth:92, whiteSpace:"nowrap" }}>{fmtMesCol(m)}</th>
+                              <th key={m} style={{ textAlign:"right", padding:"var(--arcd-space-2)", color:"var(--arcd-text-secondary)", fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", textTransform:"uppercase", borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)", borderLeft:"var(--arcd-border-width) solid var(--arcd-border-default)", minWidth:92, whiteSpace:"nowrap" }}>{fmtMesCol(m)}</th>
                             ))}
                           </tr>
                         </thead>
                         <tbody>
                           {ffM.linhas.map((l, i) => (
-                            <tr key={l.id} style={{ borderBottom:"1px solid var(--arcd-border-default)", background: i%2 ? "transparent" : "color-mix(in srgb, var(--arcd-surface-muted) 33%, transparent)" }}>
+                            <tr key={l.id} style={{ borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)", background: i%2 ? "transparent" : "color-mix(in srgb, var(--arcd-surface-muted) 33%, transparent)" }}>
                               <td className="brk" style={{ padding:"var(--arcd-space-2)", position:"sticky", left:0, zIndex:1, background: i%2 ? "var(--arcd-surface-card)" : "var(--arcd-surface-muted)", fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-text-primary)", minWidth:170 }}>{l.nome}</td>
-                              <td style={{ padding:"var(--arcd-space-2)", textAlign:"right", borderLeft:"1px solid var(--arcd-border-default)" }}>
+                              <td style={{ padding:"var(--arcd-space-2)", textAlign:"right", borderLeft:"var(--arcd-border-width) solid var(--arcd-border-default)" }}>
                                 <div style={{ fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-text-primary)" }}>{fmtCompact(l.total)}</div>
                                 <div style={{ fontSize:"var(--arcd-type-caption)", color:"var(--arcd-text-secondary)" }}>100%</div>
                               </td>
@@ -1559,7 +1559,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                                 const v = l.porMes[m] || 0;
                                 const pct = l.total ? (v/l.total*100) : 0;
                                 return (
-                                  <td key={m} style={{ padding:"var(--arcd-space-2)", textAlign:"right", borderLeft:"1px solid var(--arcd-border-default)" }}>
+                                  <td key={m} style={{ padding:"var(--arcd-space-2)", textAlign:"right", borderLeft:"var(--arcd-border-width) solid var(--arcd-border-default)" }}>
                                     {v > 0 ? (
                                       <>
                                         <div style={{ fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-text-primary)" }}>{fmtCompact(v)}</div>
@@ -1575,7 +1575,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                         <tfoot>
                           <tr style={{ background:"var(--arcd-surface-muted)", borderTop:"2px solid var(--arcd-border-default)" }}>
                             <td style={{ padding:"var(--arcd-space-2)", position:"sticky", left:0, background:"var(--arcd-surface-muted)", zIndex:1, fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-text-primary)" }}>Total do período</td>
-                            <td style={{ padding:"var(--arcd-space-2)", textAlign:"right", borderLeft:"1px solid var(--arcd-border-default)" }}>
+                            <td style={{ padding:"var(--arcd-space-2)", textAlign:"right", borderLeft:"var(--arcd-border-width) solid var(--arcd-border-default)" }}>
                               <div style={{ fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-action-primary)" }}>{fmtCompact(ffM.totalGeral)}</div>
                               <div style={{ fontSize:"var(--arcd-type-caption)", color:"var(--arcd-text-secondary)" }}>100%</div>
                             </td>
@@ -1583,7 +1583,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                               const v = ffM.totalPorMes[m] || 0;
                               const pct = ffM.totalGeral ? (v/ffM.totalGeral*100) : 0;
                               return (
-                                <td key={m} style={{ padding:"var(--arcd-space-2)", textAlign:"right", borderLeft:"1px solid var(--arcd-border-default)" }}>
+                                <td key={m} style={{ padding:"var(--arcd-space-2)", textAlign:"right", borderLeft:"var(--arcd-border-width) solid var(--arcd-border-default)" }}>
                                   <div style={{ fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-action-primary)" }}>{fmtCompact(v)}</div>
                                   <div style={{ fontSize:"var(--arcd-type-caption)", color:"var(--arcd-text-secondary)" }}>{pct.toFixed(2).replace(".",",")}%</div>
                                 </td>
@@ -1634,9 +1634,9 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                   </div>
 
                   <div style={{ overflowX: "auto" }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize:"var(--arcd-type-label)" }}>
+                    <table className="arcd-data-table__table" style={{ width: "100%", borderCollapse: "collapse" }}>
                       <thead>
-                        <tr style={{ borderBottom: "1px solid var(--arcd-border-default)" }}>
+                        <tr style={{ borderBottom: "var(--arcd-border-width) solid var(--arcd-border-default)" }}>
                           <th style={{ textAlign: "left", padding: "var(--arcd-space-1) var(--arcd-space-2)", color: "var(--arcd-text-secondary)", fontSize:"var(--arcd-type-label)" }}>Etapa / tarefa</th>
                           <th style={{ textAlign: "center", padding: "var(--arcd-space-1) var(--arcd-space-2)", color: "var(--arcd-text-secondary)", fontSize:"var(--arcd-type-label)" }}>Período planejado</th>
                           <th style={{ textAlign: "center", padding: "var(--arcd-space-1) var(--arcd-space-2)", color: "var(--arcd-text-secondary)", fontSize:"var(--arcd-type-label)" }}>Medido x previsto hoje</th>
@@ -1655,7 +1655,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                             : l.desvio < 0 ? `${l.desvio}d`
                             : "no prazo";
                           return (
-                            <tr key={l.id} style={{ borderBottom: "1px solid var(--arcd-border-default)", background: l.titulo ? "var(--arcd-surface-muted)" : "transparent" }}>
+                            <tr key={l.id} style={{ borderBottom: "var(--arcd-border-width) solid var(--arcd-border-default)", background: l.titulo ? "var(--arcd-surface-muted)" : "transparent" }}>
                               <td className="brk" style={{ padding: "var(--arcd-space-2)", color: "var(--arcd-text-primary)", maxWidth: 160, fontWeight: l.titulo ? 600 : 500 }}>
                                 {l.nome}
                                 {l.concluida && <span style={{ fontSize:"var(--arcd-type-caption)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-success-text)", marginLeft: "var(--arcd-space-1)" }}>100%</span>}
@@ -1724,9 +1724,9 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                     </div>
 
                     <div style={{ overflowX: "auto" }}>
-                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize:"var(--arcd-type-label)" }}>
+                      <table className="arcd-data-table__table" style={{ width: "100%", borderCollapse: "collapse" }}>
                         <thead>
-                          <tr style={{ borderBottom: "1px solid var(--arcd-border-default)" }}>
+                          <tr style={{ borderBottom: "var(--arcd-border-width) solid var(--arcd-border-default)" }}>
                             <th style={{ textAlign: "left", padding: "var(--arcd-space-1) var(--arcd-space-2)", color: "var(--arcd-text-secondary)", fontSize:"var(--arcd-type-label)" }}>Tarefa</th>
                             <th style={{ textAlign: "center", padding: "var(--arcd-space-1) var(--arcd-space-2)", color: "var(--arcd-text-secondary)", fontSize:"var(--arcd-type-label)" }}>Início base → realizado/atual</th>
                             <th style={{ textAlign: "center", padding: "var(--arcd-space-1) var(--arcd-space-2)", color: "var(--arcd-text-secondary)", fontSize:"var(--arcd-type-label)" }}>Fim base → realizado/atual</th>
@@ -1740,7 +1740,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                               : l.situacao === "adiantada" ? C.blue
                               : l.situacao === "sem-realizado" ? C.muted : C.green;
                             return (
-                              <tr key={l.id} style={{ borderBottom: "1px solid var(--arcd-border-default)" }}>
+                              <tr key={l.id} style={{ borderBottom: "var(--arcd-border-width) solid var(--arcd-border-default)" }}>
                                 <td className="brk" style={{ padding: "var(--arcd-space-2)", color: "var(--arcd-text-primary)", maxWidth: 150 }}>
                                   {l.nome}
                                   {critico.criticas.includes(l.id) && <span style={{ fontSize:"var(--arcd-type-caption)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-danger-text)", marginLeft: "var(--arcd-space-1)" }}>CRÍTICA</span>}
@@ -1781,7 +1781,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
         </div>
       )}
       {(plano.marcos || []).length > 0 && (
-        <div style={{ background: "var(--arcd-surface-card)", border: "1px solid var(--arcd-border-default)", borderRadius: 8, padding: "var(--arcd-space-3)" }}>
+        <div style={{ background: "var(--arcd-surface-card)", border: "var(--arcd-border-width) solid var(--arcd-border-default)", borderRadius: "var(--arcd-box-radius)", padding: "var(--arcd-space-3)" }}>
           <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)", textTransform: "uppercase",
                       letterSpacing: "var(--arcd-letter-spacing-body)", marginBottom: "var(--arcd-space-2)" }}>Marcos da obra</p>
           {[...(plano.marcos || [])].sort((a, b) => (a.data || "").localeCompare(b.data || "")).map(m => {
@@ -1789,7 +1789,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
             return (
               <div key={m.id} onClick={() => setMarcoModal({ modo: "editar", marco: m })}
                    style={{ display: "flex", alignItems: "center", gap: "var(--arcd-space-2)", padding: "var(--arcd-space-2) var(--arcd-space-0)",
-                            borderTop: "1px solid var(--arcd-border-default)", cursor: "pointer" }}>
+                            borderTop: "var(--arcd-border-width) solid var(--arcd-border-default)", cursor: "pointer" }}>
                 <div style={{ width: 11, height: 11, background: tp.c, transform: "rotate(45deg)",
                               flexShrink: 0, opacity: m.feito ? .4 : 1 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -1815,10 +1815,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-1)" }}>
             {etapasLivres.map(e => (
               <RecordAction key={e.id} onClick={() => { adicionarEtapa(e.id); setTarefaModal(null); }}
-                      className="lift-card" style={{
-                        display: "flex", justifyContent: "space-between", alignItems: "center",
-                        padding: "var(--arcd-space-3)", border: "1px solid var(--arcd-border-default)", borderRadius: 6,
-                        background: "var(--arcd-surface-muted)", cursor: "pointer", textAlign: "left" }}>
+                      className="lift-card" style={{display: "flex",justifyContent: "space-between",alignItems: "center",cursor: "pointer"}}>
                 <span style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)" }}>{e.nome}</span>
                 <span style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-action-primary)" }}>{fmt(custoEtapa(orc, e.id))}</span>
               </RecordAction>
@@ -1855,21 +1852,21 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
             Escolha quais colunas devem aparecer. A exportacao abre a impressao do navegador em <b>A2 paisagem</b>, ajustada para uma ou duas folhas. Selecione “Salvar como PDF” no destino da impressora.
           </p>
           <div style={{display:"grid",gridTemplateColumns:cols(1,2,2),gap:"var(--arcd-space-3)"}}>
-            <div style={{border:"1px solid var(--arcd-border-default)",borderRadius:7,padding:"var(--arcd-space-3)"}}>
+            <div style={{border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-3)"}}>
               <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",marginBottom:"var(--arcd-space-2)"}}>Colunas da exportacao</p>
               {COLS_CRONO_DEF.map(c=><label key={c.id} style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-1) var(--arcd-space-0)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",cursor:c.fixa?"default":"pointer"}}>
                 <ChoiceControl type="checkbox" checked={c.fixa?true:!!exportA2Cols[c.id]} disabled={c.fixa}
                   onChange={()=>!c.fixa&&setExportA2Cols(v=>({...v,[c.id]:!v[c.id]}))}
-                  style={{width:15,height:15,accentColor:"var(--arcd-action-primary)"}}/>{c.label}{c.fixa&&<span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>(obrigatoria)</span>}
+                  style={{width:15,accentColor:"var(--arcd-action-primary)"}}/>{c.label}{c.fixa&&<span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>(obrigatoria)</span>}
               </label>)}
             </div>
-            <div style={{border:"1px solid var(--arcd-border-default)",borderRadius:7,padding:"var(--arcd-space-3)"}}>
+            <div style={{border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-3)"}}>
               <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",marginBottom:"var(--arcd-space-2)"}}>Quantidade de folhas</p>
               {[1,2].map(n=><label key={n} style={{display:"flex",gap:"var(--arcd-space-2)",alignItems:"flex-start",padding:"var(--arcd-space-2) var(--arcd-space-0)",cursor:"pointer",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>
                 <ChoiceControl type="radio" name="folhasA2" checked={exportA2Folhas===n} onChange={()=>setExportA2Folhas(n)} style={{marginTop:"var(--arcd-space-half)",accentColor:"var(--arcd-action-primary)"}}/>
                 <span><b>{n} folha{n>1?"s":""} A2 em paisagem</b><small style={{display:"block",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",lineHeight:"var(--arcd-line-height-normal)"}}>{n===1?"Todo o período comprimido em uma folha.":"O período e dividido ao meio, com melhor legibilidade."}</small></span>
               </label>)}
-              <div style={{marginTop:"var(--arcd-space-3)",padding:"var(--arcd-space-2)",background:"var(--arcd-surface-muted)",borderRadius:6,fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)"}}>
+              <div style={{marginTop:"var(--arcd-space-3)",padding:"var(--arcd-space-2)",background:"var(--arcd-surface-muted)",borderRadius:"var(--arcd-radius-control)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)"}}>
                 Período: <b style={{color:"var(--arcd-text-primary)"}}>{fmtDate(GANTT_INI)} a {fmtDate(somaDias(GANTT_INI,totalDias-1))}</b><br/>Atividades: <b style={{color:"var(--arcd-text-primary)"}}>{tarefas.length}</b>
               </div>
             </div>
@@ -1894,8 +1891,8 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
           <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)",marginBottom:"var(--arcd-space-2)"}}>
             A ordem do orçamento não será alterada. A sucessora é calculada a partir das antecessoras para manter um único vínculo consistente.
           </p>
-          <div style={{border:"1px solid var(--arcd-border-default)",borderRadius:6,overflow:"hidden",maxHeight:420,overflowY:"auto"}}>
-            {vincPreview.linhas.map((l,i)=><div key={l.id} style={{padding:"var(--arcd-space-2)",borderBottom:i<vincPreview.linhas.length-1?"1px solid var(--arcd-border-default)":"none"}}>
+          <div style={{border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",overflow:"hidden",maxHeight:420,overflowY:"auto"}}>
+            {vincPreview.linhas.map((l,i)=><div key={l.id} style={{padding:"var(--arcd-space-2)",borderBottom:i<vincPreview.linhas.length-1?"var(--arcd-border-width) solid var(--arcd-border-default)":"none"}}>
               <div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)"}}>
                 <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{i+1}. {l.nome}</p>
                 <span style={{fontSize:"var(--arcd-type-caption)",color:l.alterada?"var(--arcd-warning-text)":"var(--arcd-text-secondary)",whiteSpace:"nowrap"}}>
@@ -1955,8 +1952,8 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
             </p>
 
             {questPreview.avisos.length > 0 && (
-              <div style={{ background: "color-mix(in srgb, var(--arcd-warning-text) 5%, transparent)", border: "1px solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)",
-                            borderRadius: 6, padding: "var(--arcd-space-2) var(--arcd-space-3)" }}>
+              <div style={{ background: "color-mix(in srgb, var(--arcd-warning-text) 5%, transparent)", border: "var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)",
+                            borderRadius: "var(--arcd-radius-control)", padding: "var(--arcd-space-2) var(--arcd-space-3)" }}>
                 <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-warning-text)", marginBottom: "var(--arcd-space-1)" }}>
                   Observações de boa prática
                 </p>
@@ -1967,10 +1964,10 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
             )}
 
             {/* Lista das tarefas propostas, na ordem imutavel do orcamento */}
-            <div style={{ border: "1px solid var(--arcd-border-default)", borderRadius: 6, overflow: "hidden" }}>
+            <div style={{ border: "var(--arcd-border-width) solid var(--arcd-border-default)", borderRadius: "var(--arcd-radius-control)", overflow: "hidden" }}>
               {questPreview.tarefas.map((t, i) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: "var(--arcd-space-2)",
-                     padding: "var(--arcd-space-2) var(--arcd-space-3)", borderBottom: i < questPreview.tarefas.length-1 ? "1px solid var(--arcd-border-default)" : "none" }}>
+                     padding: "var(--arcd-space-2) var(--arcd-space-3)", borderBottom: i < questPreview.tarefas.length-1 ? "var(--arcd-border-width) solid var(--arcd-border-default)" : "none" }}>
                   <span style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-primary)", minWidth: 0 }}>
                     <b style={{ color: "var(--arcd-text-secondary)" }}>{i+1}.</b> {t.nome}
                   </span>
@@ -1982,7 +1979,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
             </div>
 
             {questIA && (
-              <div style={{ background: "color-mix(in srgb, var(--arcd-action-primary) 3%, transparent)", border: "1px solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)", borderRadius: 6, padding: "var(--arcd-space-2) var(--arcd-space-3)" }}>
+              <div style={{ background: "color-mix(in srgb, var(--arcd-action-primary) 3%, transparent)", border: "var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)", borderRadius: "var(--arcd-radius-control)", padding: "var(--arcd-space-2) var(--arcd-space-3)" }}>
                 <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-action-primary)", marginBottom: "var(--arcd-space-1)" }}>Parecer da IA</p>
                 <div style={{ whiteSpace: "pre-wrap", fontSize:"var(--arcd-type-label)", lineHeight: "var(--arcd-line-height-normal)", color: "var(--arcd-text-primary)" }}>{questIA}</div>
               </div>
@@ -2031,7 +2028,7 @@ function QuestionarioPlanejamento({ orc, plano, onGerar, onClose }) {
         </p>
 
         {nEtapas === 0 ? (
-          <div style={{ background: "color-mix(in srgb, var(--arcd-warning-text) 5%, transparent)", border: "1px solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)", borderRadius: 6, padding: "var(--arcd-space-3)" }}>
+          <div style={{ background: "color-mix(in srgb, var(--arcd-warning-text) 5%, transparent)", border: "var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)", borderRadius: "var(--arcd-radius-control)", padding: "var(--arcd-space-3)" }}>
             <p style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-warning-text)", fontWeight:"var(--arcd-font-weight-semibold)", lineHeight: "var(--arcd-line-height-normal)" }}>
               Esta obra ainda não tem etapas no orçamento. Crie o orçamento com etapas antes de planejar.
             </p>
@@ -2114,10 +2111,10 @@ function CurvaSGrafico({ dados, real }) {
       {/* legenda */}
       <div style={{ display:"flex", gap:"var(--arcd-space-4)", marginBottom:"var(--arcd-space-2)", fontSize:"var(--arcd-type-label)", flexWrap:"wrap" }}>
         <span style={{ display:"flex", alignItems:"center", gap:"var(--arcd-space-1)", color:"var(--arcd-text-secondary)" }}>
-          <span style={{ width:14, height:3, background:"var(--arcd-action-primary)", borderRadius:2 }}/>Planejado
+          <span style={{ width:14, height:3, background:"var(--arcd-action-primary)", borderRadius:"var(--arcd-radius-control)" }}/>Planejado
         </span>
         {temReal && <span style={{ display:"flex", alignItems:"center", gap:"var(--arcd-space-1)", color:"var(--arcd-text-secondary)" }}>
-          <span style={{ width:14, height:3, background:"var(--arcd-action-primary)", borderRadius:2 }}/>Realizado
+          <span style={{ width:14, height:3, background:"var(--arcd-action-primary)", borderRadius:"var(--arcd-radius-control)" }}/>Realizado
         </span>}
         <span style={{color:"var(--arcd-text-secondary)"}}>Pontos semanais · valores por dia útil</span>
       </div>
@@ -2159,8 +2156,8 @@ function CurvaSGrafico({ dados, real }) {
       </svg>
       {/* tooltip */}
       {hover!==null && (
-        <div style={{ marginTop:"var(--arcd-space-2)", padding:"var(--arcd-space-2) var(--arcd-space-3)", background:"var(--arcd-surface-muted)", borderRadius:8,
-                      border:"1px solid var(--arcd-border-default)", fontSize:"var(--arcd-type-label)", display:"flex", gap:"var(--arcd-space-4)", flexWrap:"wrap" }}>
+        <div style={{ marginTop:"var(--arcd-space-2)", padding:"var(--arcd-space-2) var(--arcd-space-3)", background:"var(--arcd-surface-muted)", borderRadius:"var(--arcd-box-radius)",
+                      border:"var(--arcd-border-width) solid var(--arcd-border-default)", fontSize:"var(--arcd-type-label)", display:"flex", gap:"var(--arcd-space-4)", flexWrap:"wrap" }}>
           <b style={{ color:"var(--arcd-text-primary)" }}>{dados[hover].periodo==="semana"?`Semana de ${fmtDate(dados[hover].mes)}`:fmtMesAno(dados[hover].mes+"-01")}</b>
           <span style={{ color:"var(--arcd-text-secondary)" }}>Planejado acum.: <b style={{ color:"var(--arcd-action-primary)" }}>{dados[hover].pctAcum.toFixed(1)}%</b></span>
           {temReal && <span style={{ color:"var(--arcd-text-secondary)" }}>Realizado acum.: <b style={{ color:"var(--arcd-action-primary)" }}>{serieReal[hover].toFixed(1)}%</b></span>}
@@ -2174,7 +2171,7 @@ function CurvaSGrafico({ dados, real }) {
 // Mini-cartao para os totais do fisico-financeiro.
 function MiniFF({ label, v, c }) {
   return (
-    <div style={{ flex: 1, minWidth: 100, background: "var(--arcd-surface-muted)", borderRadius: 6, padding: "var(--arcd-space-2)" }}>
+    <div style={{ flex: 1, minWidth: 100, background: "var(--arcd-surface-muted)", borderRadius: "var(--arcd-radius-control)", padding: "var(--arcd-space-2)" }}>
       <p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-secondary)", textTransform: "uppercase", letterSpacing: "var(--arcd-letter-spacing-body)" }}>{label}</p>
       <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: c, marginTop: "var(--arcd-space-half)" }}>{v}</p>
     </div>
@@ -2217,15 +2214,15 @@ function ModalTarefa({ tarefa, cal, tarefas, onSalvar, onRemover, onClose, onMat
       {onMaterials&&<Btn v="ghost" onClick={onMaterials}>Materiais e compras desta etapa</Btn>}
       <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
         {tarefa.custo > 0 && (
-          <div style={{ background: "color-mix(in srgb, var(--arcd-action-primary) 7%, transparent)", border: "1px solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)",
-                        borderRadius: 6, padding: "var(--arcd-space-2) var(--arcd-space-3)" }}>
+          <div style={{ background: "color-mix(in srgb, var(--arcd-action-primary) 7%, transparent)", border: "var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)",
+                        borderRadius: "var(--arcd-radius-control)", padding: "var(--arcd-space-2) var(--arcd-space-3)" }}>
             <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>Custo da etapa (do orçamento)</p>
             <p style={{ fontSize: "var(--arcd-type-card-title)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-action-primary)" }}>{fmt(tarefa.custo)}</p>
           </div>
         )}
         {tarefa.orfa && (
-          <div style={{ background: "color-mix(in srgb, var(--arcd-danger-text) 5%, transparent)", border: "1px solid color-mix(in srgb, var(--arcd-danger-text) 33%, transparent)",
-                        borderRadius: 6, padding: "var(--arcd-space-2) var(--arcd-space-3)" }}>
+          <div style={{ background: "color-mix(in srgb, var(--arcd-danger-text) 5%, transparent)", border: "var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-danger-text) 33%, transparent)",
+                        borderRadius: "var(--arcd-radius-control)", padding: "var(--arcd-space-2) var(--arcd-space-3)" }}>
             <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-danger-text)" }}>
               A etapa do orçamento ligada a esta tarefa foi removida. Reassocie ou apague a tarefa.
             </p>
@@ -2239,14 +2236,14 @@ function ModalTarefa({ tarefa, cal, tarefas, onSalvar, onRemover, onClose, onMat
         {((ini && !ehDiaUtil(ini,cal)) || (fim && !ehDiaUtil(fim,cal))) && (
           <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-warning-text)" }}>Ao salvar, as datas serão ajustadas para os dias trabalhados mais próximos.</p>
         )}
-        <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 4%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 20%, transparent)",borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+        <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 4%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-action-primary) 20%, transparent)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
           <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>Avanço físico confirmado</p>
           <b style={{display:"block",fontSize:"var(--arcd-type-card-title)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)"}}>{Number(tarefa.progresso||0).toFixed(0)}%</b>
           <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Altere pelo boletim de medição para manter a trilha auditável.</p>
         </div>
-        {!tarefa.titulo&&<div style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",marginBottom:"var(--arcd-space-2)"}}>Linha de balanço</p><div style={{display:"grid",gridTemplateColumns:"1fr 110px",gap:"var(--arcd-space-2)"}}><Inp label="Grupo repetitivo" value={linhaBalancoGrupo} onChange={setLinhaBalancoGrupo} placeholder="Ex.: Alvenaria"/><Inp label="Frente / pavimento" type="number" value={linhaBalancoFrente} onChange={setLinhaBalancoFrente} placeholder="Ex.: 3"/></div><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>Preencha em tarefas repetidas para acompanhar a cadência entre frentes.</p></div>}
+        {!tarefa.titulo&&<div style={{background:"var(--arcd-surface-muted)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",marginBottom:"var(--arcd-space-2)"}}>Linha de balanço</p><div style={{display:"grid",gridTemplateColumns:"1fr 110px",gap:"var(--arcd-space-2)"}}><Inp label="Grupo repetitivo" value={linhaBalancoGrupo} onChange={setLinhaBalancoGrupo} placeholder="Ex.: Alvenaria"/><Inp label="Frente / pavimento" type="number" value={linhaBalancoFrente} onChange={setLinhaBalancoFrente} placeholder="Ex.: 3"/></div><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>Preencha em tarefas repetidas para acompanhar a cadência entre frentes.</p></div>}
         {!tarefa.titulo && (
-          <div style={{ background:"color-mix(in srgb, var(--arcd-action-primary) 4%, transparent)", border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 20%, transparent)", borderRadius:8, padding:"var(--arcd-space-2) var(--arcd-space-3)", display:"flex", flexDirection:"column", gap:"var(--arcd-space-2)" }}>
+          <div style={{ background:"color-mix(in srgb, var(--arcd-action-primary) 4%, transparent)", border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-action-primary) 20%, transparent)", borderRadius:"var(--arcd-box-radius)", padding:"var(--arcd-space-2) var(--arcd-space-3)", display:"flex", flexDirection:"column", gap:"var(--arcd-space-2)" }}>
             <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-action-primary)", textTransform:"uppercase", letterSpacing:"var(--arcd-letter-spacing-body)" }}>Realizado (execução)</p>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"var(--arcd-space-2)" }}>
               <Inp label="Início real" type="date" value={iniReal} onChange={setIniReal} />
@@ -2265,7 +2262,7 @@ function ModalTarefa({ tarefa, cal, tarefas, onSalvar, onRemover, onClose, onMat
         {!tarefa.titulo && (
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-2)"}}>
             {[["Antecessoras",candidatasPred,preds,setPreds],["Sucessoras",candidatasSuc,sucs,setSucs]].map(([titulo,lista,selecionadas,setter])=>(
-              <div key={titulo} style={{border:"1px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-2)",minWidth:0}}>
+              <div key={titulo} style={{border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2)",minWidth:0}}>
                 <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",marginBottom:"var(--arcd-space-1)"}}>{titulo}</p>
                 <div style={{maxHeight:135,overflowY:"auto",display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>
                   {lista.length===0 && <span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhuma atividade disponível</span>}
@@ -2326,7 +2323,7 @@ function ModalCalendario({ cal, onSalvar, onClose }) {
 
         <label style={{ display: "flex", alignItems: "center", gap: "var(--arcd-space-2)", cursor: "pointer" }}>
           <ChoiceControl type="checkbox" checked={pular} onChange={e => setPular(e.target.checked)}
-                 style={{ width: 18, height: 18, accentColor: "var(--arcd-action-primary)" }} />
+                 style={{width: 18,accentColor: "var(--arcd-action-primary)"}} />
           <span style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-primary)" }}>Retirar feriados do cronograma</span>
         </label>
 
@@ -2338,7 +2335,7 @@ function ModalCalendario({ cal, onSalvar, onClose }) {
               <div style={{ marginBottom: "var(--arcd-space-2)" }}>
                 {fers.map(f => (
                   <div key={f.data} style={{ display: "flex", justifyContent: "space-between",
-                       alignItems: "center", padding: "var(--arcd-space-1) var(--arcd-space-0)", borderBottom: "1px solid var(--arcd-border-default)" }}>
+                       alignItems: "center", padding: "var(--arcd-space-1) var(--arcd-space-0)", borderBottom: "var(--arcd-border-width) solid var(--arcd-border-default)" }}>
                     <span style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-primary)" }}>{fmtDateFull(f.data)} - {f.nome}</span>
                     <StandardButton variant="secondary" onClick={() => setFers(prev => prev.filter(x => x.data !== f.data))}>Remover</StandardButton>
                   </div>
@@ -2387,7 +2384,7 @@ function ModalMarco({ marco, onSalvar, onRemover, onClose }) {
         <Inp label="Nota (opcional)" value={nota} onChange={setNota} multiline />
         <label style={{ display: "flex", alignItems: "center", gap: "var(--arcd-space-2)", cursor: "pointer" }}>
           <ChoiceControl type="checkbox" checked={feito} onChange={e => setFeito(e.target.checked)}
-                 style={{ width: 18, height: 18, accentColor: "var(--arcd-success-text)" }} />
+                 style={{width: 18,accentColor: "var(--arcd-success-text)"}} />
           <span style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-primary)" }}>Já concluído</span>
         </label>
         <div style={{ display: "flex", gap: "var(--arcd-space-2)", marginTop: "var(--arcd-space-1)" }}>

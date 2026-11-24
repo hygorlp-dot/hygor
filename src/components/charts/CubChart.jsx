@@ -24,9 +24,9 @@ const CUB_PADRAO_ORDEM=["baixo","normal","alto","especial"];
 // explicação. Um aviso curto substitui o sumiço - só depois que o
 // carregamento terminou, para não piscar durante a busca normal.
 const CubIndisponivel=()=>(
-  <section className="cub-chart" style={{padding:"12px 14px",border:"1px dashed #d5d9db",borderRadius:10,background:"#f8f9f9"}}>
+  <section className="cub-chart" style={{padding:"var(--arcd-space-3) var(--arcd-space-3)",border:"var(--arcd-border-width) dashed var(--arcd-border-strong)",borderRadius:"var(--arcd-box-radius)",background:"var(--arcd-surface-subtle)"}}>
     <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:"var(--arcd-text-secondary)"}}>Índice de custo (CUB-PE) indisponível no momento</p>
-    <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>A fonte oficial (Sinduscon-PE) não respondeu a tempo. Recarregue a página em alguns minutos.</p>
+    <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>A fonte oficial (Sinduscon-PE) não respondeu a tempo. Recarregue a página em alguns minutos.</p>
   </section>
 );
 export default function CubChart({cub,carregando=false}){
@@ -89,19 +89,19 @@ export default function CubChart({cub,carregando=false}){
   const maior=valoresUltimo.reduce((a,b)=>!a||b.valor>a.valor?b:a,null);
   const menor=valoresUltimo.reduce((a,b)=>!a||b.valor<a.valor?b:a,null);
   const premiumPct=maior&&menor&&maior.tier!==menor.tier&&menor.valor>0?((maior.valor-menor.valor)/menor.valor*100):null;
-  return <section className="cub-chart" style={{position:"relative",zIndex:1,display:"flex",flexDirection:"column",gap:6}}>
+  return <section className="cub-chart" style={{position:"relative",zIndex:1,display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>
     <ChartPanel eyebrow="Índice de custo · Pernambuco" title={`CUB-PE · ${edificacao.label} (${edificacao.description})`} height={pick(170,210,230)}
       subtitle={`Comparativo por padrão construtivo · ${cub.regimeLabel||"valor oficial do Sinduscon-PE"}. Competência: ${ultimo?.mes||cub.atual?.mes||"—"}.`}
       legend={tiers.length>1?tiers.map(t=>({label:CUB_PADRAO_LABEL[t],color:CUB_PADRAO_COR[t]})):[]}
-      action={<div style={{display:"flex",gap:12,alignItems:"center",justifyContent:"flex-end",flexWrap:"wrap"}}>
-        <label style={{display:"flex",flexDirection:"column",gap:3,textAlign:"left"}}>
-          <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.5}}>Tipo de edificação</span>
+      action={<div style={{display:"flex",gap:"var(--arcd-space-3)",alignItems:"center",justifyContent:"flex-end",flexWrap:"wrap"}}>
+        <label style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-half)",textAlign:"left"}}>
+          <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:.5}}>Tipo de edificação</span>
           <select aria-label="Tipo de edificação CUB" value={edificacao.id} onChange={e=>selecionar(e.target.value)}
-            style={{minWidth:205,height:34,padding:"0 28px 0 9px",border:`1px solid ${C.border}`,borderRadius:6,background:C.card,color:C.text,fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>
+            style={{minWidth:205,height:34,padding:"0 var(--arcd-space-6) 0 var(--arcd-space-2)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",background:"var(--arcd-surface-card)",color:"var(--arcd-text-primary)",fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>
             {categorias.map(cat=><optgroup key={cat} label={cat}>{edificacoes.filter(e=>e.categoria===cat).map(e=><option key={e.id} value={e.id}>{e.label} · {e.description}</option>)}</optgroup>)}
           </select>
         </label>
-        {Number.isFinite(destaqueUltimo)&&<span><b style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:C.text}}>R$ {destaqueUltimo.toLocaleString("pt-BR",{minimumFractionDigits:2})}</b><small style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>/m² · {CUB_PADRAO_LABEL[destaqueTier].toLowerCase()}</small></span>}
+        {Number.isFinite(destaqueUltimo)&&<span><b style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:"var(--arcd-text-primary)"}}>R$ {destaqueUltimo.toLocaleString("pt-BR",{minimumFractionDigits:2})}</b><small style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>/m² · {CUB_PADRAO_LABEL[destaqueTier].toLowerCase()}</small></span>}
         {Number.isFinite(varMesPct)&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:varMesPct>=0?C.orange:C.green}}>{varMesPct>=0?"+":""}{varMesPct.toFixed(2)}% no mês</span>}
       </div>}>
       <ResponsiveContainer width="100%" height="100%">
@@ -116,7 +116,7 @@ export default function CubChart({cub,carregando=false}){
         </LineChart>
       </ResponsiveContainer>
     </ChartPanel>
-    {Number.isFinite(premiumPct)&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.text,padding:"0 4px",fontWeight:600}}>{CUB_PADRAO_LABEL[maior.tier]} está <b style={{color:C.yellowD}}>{premiumPct.toFixed(1)}%</b> acima do {CUB_PADRAO_LABEL[menor.tier].toLowerCase()} nesta competência.</p>}
-    <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,padding:"0 4px"}}>Fonte oficial: relatório mensal de composição CUB/m² do Sinduscon-PE, com mão de obra e encargos sociais sem desoneração. Referência técnica; não substitui o orçamento da obra.</p>
+    {Number.isFinite(premiumPct)&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)",padding:"0 var(--arcd-space-1)",fontWeight:600}}>{CUB_PADRAO_LABEL[maior.tier]} está <b style={{color:C.yellowD}}>{premiumPct.toFixed(1)}%</b> acima do {CUB_PADRAO_LABEL[menor.tier].toLowerCase()} nesta competência.</p>}
+    <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",padding:"0 var(--arcd-space-1)"}}>Fonte oficial: relatório mensal de composição CUB/m² do Sinduscon-PE, com mão de obra e encargos sociais sem desoneração. Referência técnica; não substitui o orçamento da obra.</p>
   </section>;
 }

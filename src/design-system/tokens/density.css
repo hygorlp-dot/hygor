@@ -28,3 +28,55 @@
   --arcd-border-default: #747d83;
   --arcd-text-secondary: #40484d;
 }
+
+/* Escala compacta da operação e dos diálogos abertos pela área. */
+@media screen {
+  [data-theme="plataforma"][data-density="compact"] {
+    --arcd-panel-padding: var(--arcd-space-2);
+    --arcd-layout-gap: var(--arcd-space-2);
+  }
+
+  [data-density="compact"] :is(.arcd-app-shell:not([data-tab="tv"]), body:has(.arcd-app-shell:not([data-tab="tv"])) > :is(.arcd-dialog-backdrop,.arcd-modal-overlay)) {
+    --arcd-type-page-title: var(--arcd-type-compact-title);
+    --arcd-type-section-title: var(--arcd-type-compact-heading);
+    --arcd-type-dialog-title: var(--arcd-type-compact-heading);
+    --arcd-type-kpi: var(--arcd-type-compact-kpi);
+    --arcd-type-body: var(--arcd-type-caption);
+    --arcd-type-label: var(--arcd-type-caption);
+    --arcd-type-control: var(--arcd-type-caption);
+    --arcd-type-table: var(--arcd-type-caption);
+    --arcd-line-height-normal: 1.35;
+    --arcd-panel-padding: var(--arcd-space-2);
+    --arcd-layout-gap: var(--arcd-space-2);
+    --arcd-box-padding: var(--arcd-panel-padding);
+    --arcd-box-gap: var(--arcd-space-2);
+    --arcd-box-header-gap: var(--arcd-space-2);
+    --arcd-page-padding: var(--arcd-space-4);
+    --arcd-button-gap: var(--arcd-space-1);
+    --arcd-button-padding: 0 var(--arcd-space-2);
+    --arcd-button-padding-sm: 0 var(--arcd-space-2);
+    --arcd-dialog-padding: var(--arcd-space-3);
+    --arcd-page-hero-stat-size: var(--arcd-type-kpi);
+  }
+
+  @media (min-width: 768px) {
+    [data-density="compact"] :is(.arcd-app-shell:not([data-tab="tv"]), body:has(.arcd-app-shell:not([data-tab="tv"])) > :is(.arcd-dialog-backdrop,.arcd-modal-overlay)) {
+      --arcd-control-height: var(--arcd-space-8);
+      --arcd-button-height-sm: var(--arcd-control-height);
+    }
+  }
+
+  @media (max-width: 767px) {
+    [data-theme] .arcd-main[data-workspace] { --arcd-control-height: var(--arcd-touch-target); }
+
+    [data-density="compact"] :is(.arcd-app-shell:not([data-tab="tv"]), body:has(.arcd-app-shell:not([data-tab="tv"])) > :is(.arcd-dialog-backdrop,.arcd-modal-overlay)) {
+      --arcd-type-page-title: var(--arcd-type-mobile-compact-title);
+      --arcd-type-card-title: var(--arcd-type-compact-heading);
+      --arcd-type-kpi: var(--arcd-type-mobile-compact-kpi);
+      --arcd-page-padding-mobile: var(--arcd-space-2);
+    }
+    [data-density="compact"] :is(.arcd-app-shell:not([data-tab="tv"]), body:has(.arcd-app-shell:not([data-tab="tv"])) > :is(.arcd-dialog-backdrop,.arcd-modal-overlay)) select {
+      --arcd-type-control-touch: var(--arcd-type-mobile-compact-select);
+    }
+  }
+}

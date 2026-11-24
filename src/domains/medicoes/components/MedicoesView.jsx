@@ -516,7 +516,7 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
   })();
 
   return (
-    <div className="anim" style={{display:"flex",flexDirection:"column",gap:14}}>
+    <div className="anim" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
 
       <PageHeader className="workspace-header" title="Medições a faturar" description="Parcela fixa, avanço físico e lançamentos de faturamento."/>
       <Sel label="Obra das medições" value={selObra} disabled={Boolean(editing)} onChange={setSelObra} options={data.obras.map(o=>({v:o.id,l:BILLING_LABELS[o.billingType]?`${o.name} · ${BILLING_LABELS[o.billingType]}`:o.name}))}/>
@@ -545,25 +545,25 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
         return (
 <TaskDisclosure summary={`Cobranças próximas e vencidas · Todas as obras disponíveis · ${proximasAll.length} · Saldo ${fmt(totalPendente)}`}>
           <ScopeNote title="Escopo da fila">Esta fila geral não é filtrada por Obra das medições. O saldo desconta os recebimentos já registrados; cobranças quitadas ou canceladas não entram. Confira a obra e o saldo antes de registrar o recebimento.</ScopeNote>
-          <div style={{background:vencidas.length>0?`${C.red}06`:`${C.orange}06`,border:`1.5px solid ${vencidas.length>0?C.red:C.orange}`,borderRadius:8,overflow:"hidden"}}>
-            <div style={{padding:"10px 14px",borderBottom:`1px solid ${vencidas.length>0?C.red+"33":C.orange+"33"}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div style={{background:vencidas.length>0?`${C.red}06`:`${C.orange}06`,border:`1.5px solid ${vencidas.length>0?C.red:C.orange}`,borderRadius:"var(--arcd-box-radius)",overflow:"hidden"}}>
+            <div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:`var(--arcd-border-width) solid ${vencidas.length>0?C.red+"33":C.orange+"33"}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <p style={{fontWeight:600,fontSize:"var(--arcd-type-body)",color:vencidas.length>0?C.red:C.orange}}>
                 {vencidas.length>0?` ${contar(vencidas.length,"vencida","vencidas")} + `:""}{proximasAll.length-vencidas.length} vencendo em até 7 dias
               </p>
-              <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{fmt(totalPendente)}</p>
+              <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"var(--arcd-text-primary)"}}>{fmt(totalPendente)}</p>
             </div>
             {proximasAll.map(m=>(
-              <div key={m.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",overflowWrap:"anywhere",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-3)",borderBottom:`1px solid ${C.line}33`}}>
+              <div key={m.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",overflowWrap:"anywhere",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-3)",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)33`}}>
                 <div>
-                  <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{m.obraName}</p>
-                  <p style={{fontSize:"var(--arcd-type-label)",color:m.diff<0?C.red:m.diff<=3?C.orange:C.muted}}>
+                  <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"var(--arcd-text-primary)"}}>{m.obraName}</p>
+                  <p style={{fontSize:"var(--arcd-type-label)",color:m.diff<0?C.red:m.diff<=3?C.orange:"var(--arcd-text-secondary)"}}>
                     {m.diff<0?`Venceu há ${Math.abs(m.diff)}d`:m.diff===0?"Vence HOJE":`Vence em ${m.diff}d`}
                     {" - "}{fmtDateFull(m.dataVencimento)}
                     {m.descricao?`  ${m.descricao}`:""}
                   </p>
                 </div>
                 <div style={{display:"flex",gap:"var(--arcd-space-2)",alignItems:"center",flexWrap:"wrap"}}>
-                  <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:m.diff<0?C.red:C.text}}>Saldo {fmt(saldoReceber(m))}</p>
+                  <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:m.diff<0?C.red:"var(--arcd-text-primary)"}}>Saldo {fmt(saldoReceber(m))}</p>
                   {canManageMeasurement(m) && <Button onClick={()=>openReceipt(m)}>Registrar recebimento</Button>}
                 </div>
               </div>
@@ -577,17 +577,17 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
 
       {obra && (<>
         {/* Card da obra com período do contrato */}
-        <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:8,overflow:"hidden",boxShadow:`0 1px 4px ${C.shadow}`}}>
-          <div style={{background:C.surface,borderBottom:`1.5px solid ${C.border}`,padding:"12px 16px",display:"flex",flexWrap:"wrap",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+        <div style={{background:"var(--arcd-surface-page)",border:`1.5px solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",overflow:"hidden",boxShadow:`0 1px 4px ${C.shadow}`}}>
+          <div style={{background:"var(--arcd-surface-card)",borderBottom:`1.5px solid var(--arcd-border-default)`,padding:"var(--arcd-space-3) var(--arcd-space-4)",display:"flex",flexWrap:"wrap",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-2)"}}>
             <div style={{flex:1}}>
-              <p style={{fontWeight:600,fontSize:"var(--arcd-type-card-title)",color:C.text}}>{obra.name}</p>
-              <p style={{fontSize:"var(--arcd-type-body)",color:C.muted,marginTop:2}}>
+              <p style={{fontWeight:600,fontSize:"var(--arcd-type-card-title)",color:"var(--arcd-text-primary)"}}>{obra.name}</p>
+              <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>
                 {CONTRACT_LABELS[obra.contractType]}  {BILLING_LABELS[obra.billingType]}
                 {obra.billingType==="mensal_fixo" && obra.parcelaMensal>0 && `  ${fmt(obra.parcelaMensal)}/mês`}
               </p>
               {/* Período do contrato */}
               {obra.contractStart && (
-                <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4}}>
+                <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>
                    {fmtDateFull(obra.contractStart)}{obra.contractEnd && ` → ${fmtDateFull(obra.contractEnd)}`}
                   {obra.totalParcelas>0 && `  ${obra.totalParcelas} parcelas`}
                 </p>
@@ -604,35 +604,35 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
 
           {/* Timeline do contrato */}
           {contratoInfo && (
-            <div style={{padding:"10px 16px",borderBottom:`1px solid ${C.line}`}}>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:10}}>
+            <div style={{padding:"var(--arcd-space-2) var(--arcd-space-4)",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"var(--arcd-space-2)",marginBottom:"var(--arcd-space-2)"}}>
                 {[
                   ["Decorrido",    `${contratoInfo.mesesDecorridos} meses`, C.blue],
                   ["Total prev.",  `${contratoInfo.total||"-"} meses`,     C.muted],
                   ["Prazo",        `${contratoInfo.pctTempo.toFixed(0)}%`,  contratoInfo.pctTempo>90?C.red:C.green],
                 ].map(([l,v,c])=>(
-                  <div key={l} style={{background:C.surface,borderRadius:6,padding:"6px 10px"}}>
-                    <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>{l}</p>
-                    <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:c,marginTop:2}}>{v}</p>
+                  <div key={l} style={{background:"var(--arcd-surface-card)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-1) var(--arcd-space-2)"}}>
+                    <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",fontWeight:600}}>{l}</p>
+                    <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:c,marginTop:"var(--arcd-space-half)"}}>{v}</p>
                   </div>
                 ))}
               </div>
               {/* Barra dupla: tempo x financeiro */}
-              <div style={{display:"flex",flexDirection:"column",gap:4}}>
+              <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>
                 <div style={{display:"flex",justifyContent:"space-between",marginBottom:1}}>
-                  <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600}}>PRAZO {contratoInfo.pctTempo.toFixed(0)}%</p>
-                  <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600}}>FINANCEIRO {pctFaturado.toFixed(0)}%</p>
+                  <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",fontWeight:600}}>PRAZO {contratoInfo.pctTempo.toFixed(0)}%</p>
+                  <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",fontWeight:600}}>FINANCEIRO {pctFaturado.toFixed(0)}%</p>
                 </div>
-                <div style={{height:5,background:C.surface,borderRadius:99,overflow:"hidden"}}>
-                  <div style={{height:"100%",width:`${Math.min(contratoInfo.pctTempo,100)}%`,background:contratoInfo.pctTempo>100?C.red:C.blue,borderRadius:99}}/>
+                <div style={{height:5,background:"var(--arcd-surface-card)",borderRadius:"var(--arcd-radius-pill)",overflow:"hidden"}}>
+                  <div style={{height:"100%",width:`${Math.min(contratoInfo.pctTempo,100)}%`,background:contratoInfo.pctTempo>100?C.red:C.blue,borderRadius:"var(--arcd-radius-pill)"}}/>
                 </div>
-                <div style={{height:4,background:C.surface,borderRadius:99,overflow:"hidden"}}>
-                  <div style={{height:"100%",width:`${Math.min(pctFaturado,100)}%`,background:C.yellow,borderRadius:99}}/>
+                <div style={{height:4,background:"var(--arcd-surface-card)",borderRadius:"var(--arcd-radius-pill)",overflow:"hidden"}}>
+                  <div style={{height:"100%",width:`${Math.min(pctFaturado,100)}%`,background:C.yellow,borderRadius:"var(--arcd-radius-pill)"}}/>
                 </div>
-                <div style={{height:3,background:C.surface,borderRadius:99,overflow:"hidden"}}>
-                  <div style={{height:"100%",width:`${Math.min(pctRecebido,100)}%`,background:C.green,borderRadius:99}}/>
+                <div style={{height:3,background:"var(--arcd-surface-card)",borderRadius:"var(--arcd-radius-pill)",overflow:"hidden"}}>
+                  <div style={{height:"100%",width:`${Math.min(pctRecebido,100)}%`,background:C.green,borderRadius:"var(--arcd-radius-pill)"}}/>
                 </div>
-                <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>
+                <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>
                   <span style={{color:C.blue}}></span> Prazo
                   <span style={{color:C.yellow}}></span> Faturado {pctFaturado.toFixed(0)}%
                   <span style={{color:C.green}}></span> Recebido {pctRecebido.toFixed(0)}%
@@ -642,16 +642,16 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
           )}
 
           {/* KPIs */}
-          <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),padding:"10px 16px",gap:8}}>
+          <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),padding:"var(--arcd-space-2) var(--arcd-space-4)",gap:"var(--arcd-space-2)"}}>
             {[
               ["Faturado",   fmt(totalPrevisto), C.yellow],
               ["Recebido",   fmt(totalRecebido), C.green],
               ["Pendente",   fmt(totalPendente), totalPendente>0?C.orange:C.muted],
               ["Saldo do contrato", fmt(saldo),         saldo>=0?C.blue:C.red],
             ].map(([l,v,c])=>(
-              <div key={l} style={{background:C.surface,padding:"7px 10px",borderRadius:6}}>
-                <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>{l}</p>
-                <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:c,marginTop:2}}>{v}</p>
+              <div key={l} style={{background:"var(--arcd-surface-card)",padding:"var(--arcd-space-2) var(--arcd-space-2)",borderRadius:"var(--arcd-radius-control)"}}>
+                <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",fontWeight:600}}>{l}</p>
+                <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:c,marginTop:"var(--arcd-space-half)"}}>{v}</p>
               </div>
             ))}
           </div>
@@ -659,8 +659,8 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
 
         {/* Lista de medições */}
         {medicoes.length===0 && (
-          <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:6,padding:20,textAlign:"center"}}>
-            <p style={{color:C.muted,fontSize:"var(--arcd-type-body)",marginBottom:8}}>Nenhuma medição registrada.</p>
+          <div style={{background:"var(--arcd-surface-card)",border:`1.5px solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-5)",textAlign:"center"}}>
+            <p style={{color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-body)",marginBottom:"var(--arcd-space-2)"}}>Nenhuma medição registrada.</p>
             {canManage && obra.billingType==="mensal_fixo" && obra.parcelaMensal>0 && obra.contractStart && (
               <Btn onClick={()=>setGerarModal(true)} v="primary"> Gerar todas as parcelas automaticamente</Btn>
             )}
@@ -708,63 +708,63 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
 
           return (
             <div key={m.id} style={{
-              background:m.recebido?`${C.green}06`:C.bg,
+              background:m.recebido?`${C.green}06`:"var(--arcd-surface-page)",
               border:`1.5px solid ${statusColor}`,
-              borderLeft:`1px solid ${statusColor}`,
-              borderRadius:6, padding:"12px 14px",
+              borderLeft:`var(--arcd-border-width) solid ${statusColor}`,
+              borderRadius:"var(--arcd-radius-control)", padding:"var(--arcd-space-3) var(--arcd-space-3)",
               boxShadow:`0 1px 3px ${C.shadow}`,
             }}>
               <div style={{display:"flex",flexDirection:isMobile?"column":"row",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-3)"}}>
                 <div style={{flex:1,minWidth:0,overflowWrap:"anywhere"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:4}}>
-                    {m.numeroParcela && <span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.muted}}>#{m.numeroParcela}</span>}
-                    <p style={{fontWeight:600,fontSize:"var(--arcd-type-card-title)",color:C.text}}>{compLabel(m.competencia)}</p>
+                  <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",flexWrap:"wrap",marginBottom:"var(--arcd-space-1)"}}>
+                    {m.numeroParcela && <span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"var(--arcd-text-secondary)"}}>#{m.numeroParcela}</span>}
+                    <p style={{fontWeight:600,fontSize:"var(--arcd-type-card-title)",color:"var(--arcd-text-primary)"}}>{compLabel(m.competencia)}</p>
                     <span style={{
-                      fontSize:"var(--arcd-type-label)",fontWeight:600,padding:"2px 8px",borderRadius:4,
+                      fontSize:"var(--arcd-type-label)",fontWeight:600,padding:"var(--arcd-space-half) var(--arcd-space-2)",borderRadius:"var(--arcd-radius-control)",
                       background:`${statusColor}18`,color:statusColor,
                     }}>{statusLabel}</span>
-                    {m.tipo==="percentual"&&<span style={{fontSize:"var(--arcd-type-label)",color:C.blue,fontWeight:600,background:`${C.blue}10`,padding:"2px 8px",borderRadius:4}}>{prevPct}%→{m.percentualAcumulado}% (+{m.percentualPeriodo.toFixed(1)}%)</span>}
+                    {m.tipo==="percentual"&&<span style={{fontSize:"var(--arcd-type-label)",color:C.blue,fontWeight:600,background:`${C.blue}10`,padding:"var(--arcd-space-half) var(--arcd-space-2)",borderRadius:"var(--arcd-radius-control)"}}>{prevPct}%→{m.percentualAcumulado}% (+{m.percentualPeriodo.toFixed(1)}%)</span>}
                   </div>
                   {active(m) && <p style={{fontSize:"var(--arcd-type-body)",marginBottom:"var(--arcd-space-2)"}}>
                     Saldo a receber <strong>{fmt(saldoReceber(m))}</strong>
                     {receiptStatus==="parcial" && " · Recebimento parcial"}
                     {m.billingDetails?.retencao>0 && ` · Retenção informada ${fmt(m.billingDetails.retencao)}`}
                   </p>}
-                  {m.descricao&&<p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginBottom:4}}>{m.descricao}</p>}
+                  {m.descricao&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginBottom:"var(--arcd-space-1)"}}>{m.descricao}</p>}
 
-                  <div style={{display:"flex",gap:14,flexWrap:"wrap"}}>
+                  <div style={{display:"flex",gap:"var(--arcd-space-3)",flexWrap:"wrap"}}>
                     {/* Componente MO fixo */}
                     {m.valorMOFixo>0&&(
-                      <div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>MO Fixo</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.yellow}}>{fmt(m.valorMOFixo)}</p></div>
+                      <div><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",fontWeight:600}}>MO Fixo</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.yellow}}>{fmt(m.valorMOFixo)}</p></div>
                     )}
                     {/* Componente Admin % */}
                     {m.valorAdminPct>0&&(
-                      <div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Admin {obra?.adminPercentage||0}%</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.purple}}>{fmt(m.valorAdminPct)}</p></div>
+                      <div><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",fontWeight:600}}>Admin {obra?.adminPercentage||0}%</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.purple}}>{fmt(m.valorAdminPct)}</p></div>
                     )}
                     {/* Total previsto */}
                     {m.valorPrevisto>0&&(
-                      <div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Total previsto</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{fmt(m.valorPrevisto)}</p></div>
+                      <div><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",fontWeight:600}}>Total previsto</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"var(--arcd-text-primary)"}}>{fmt(m.valorPrevisto)}</p></div>
                     )}
                     {/* Recebido */}
-                    {totalRecebidoMedicao(m)>0&&<><div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Recebido</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.green}}>{fmt(totalRecebidoMedicao(m))}</p></div>
-                    <div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Data pgto</p><p style={{fontSize:"var(--arcd-type-body)",color:C.muted}}>{fmtDateFull(m.dataPagamento)}</p></div></>}
+                    {totalRecebidoMedicao(m)>0&&<><div><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",fontWeight:600}}>Recebido</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.green}}>{fmt(totalRecebidoMedicao(m))}</p></div>
+                    <div><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",fontWeight:600}}>Data pgto</p><p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)"}}>{fmtDateFull(m.dataPagamento)}</p></div></>}
                   </div>
 
                   {/* Previsão + fechamento do valor de administração (se ainda não calculado) */}
                   {contemAdmin && m.valorAdminPct===0 && m.competencia && statusRecebimentoMedicao(m)!=="recebida" && previsaoAdmin && (
-                    <div style={{marginTop:8,padding:"8px 10px",border:`1px solid ${C.purple}44`,borderRadius:6,background:`${C.purple}08`}}>
-                      <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600,marginBottom:4}}>
+                    <div style={{marginTop:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-2)",border:`var(--arcd-border-width) solid ${C.purple}44`,borderRadius:"var(--arcd-radius-control)",background:`${C.purple}08`}}>
+                      <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",fontWeight:600,marginBottom:"var(--arcd-space-1)"}}>
                         Previsão de fechamento · {ehAdminOnly?"admin. sobre todos os custos":"admin. sobre materiais e terceirizados"}
                       </p>
-                      <p style={{fontSize:"var(--arcd-type-label)",color:C.subtle,lineHeight:1.5}}>
+                      <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-muted)",lineHeight:1.5}}>
                         {ehAdminOnly
                           ? `Custos do período: ${fmt(previsaoAdmin.totalCustos)} (MO, benefícios, materiais, terceirizados, equipamentos e rescisões).`
                           : `Materiais gastos: ${fmt(previsaoAdmin.materialCost)} · Terceirizados: ${fmt(previsaoAdmin.tercCost)}.`}
                       </p>
-                      <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.purple,marginTop:4}}>
+                      <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.purple,marginTop:"var(--arcd-space-1)"}}>
                         {obra?.adminPercentage||0}% de {fmt(previsaoAdmin.base)} = {fmt(previsaoAdmin.valor)}
                       </p>
-                      {editable && <Btn size="sm" v="ghost" style={{marginTop:6}} onClick={()=>{
+                      {editable && <Btn size="sm" v="ghost" style={{marginTop:"var(--arcd-space-1)"}} onClick={()=>{
                         if (previsaoAdmin.valor<=0) { showToast("Ainda não há custos lançados neste período para calcular.","error"); return; }
                         void fecharAdministracao(m,previsaoAdmin.valor);
                       }}>
@@ -789,9 +789,9 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
 
         <AditivosContrato obra={obra} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast}/>
         {contratoVigente>0&&(
-          <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:6,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",boxShadow:`0 1px 3px ${C.shadow}`}}>
-            <p style={{fontSize:"var(--arcd-type-body)",color:C.muted}}>Saldo do contrato: <strong style={{color:C.text}}>{fmt(saldo)}</strong></p>
-            <p style={{fontSize:"var(--arcd-type-body)",color:C.muted}}>Recebido: <strong style={{color:C.green}}>{pctRecebido.toFixed(1)}%</strong></p>
+          <div style={{background:"var(--arcd-surface-page)",border:`1.5px solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",justifyContent:"space-between",alignItems:"center",boxShadow:`0 1px 3px ${C.shadow}`}}>
+            <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)"}}>Saldo do contrato: <strong style={{color:"var(--arcd-text-primary)"}}>{fmt(saldo)}</strong></p>
+            <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)"}}>Recebido: <strong style={{color:C.green}}>{pctRecebido.toFixed(1)}%</strong></p>
           </div>
         )}
       </>)}
@@ -799,36 +799,36 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
       {/* Modal: nova/editar medição */}
       {modal && obra && (
         <Modal title={editId?"Editar medição":"Nova medição"} onClose={()=>setModal(false)}>
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+          <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
             {/* Tipo */}
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"var(--arcd-space-1)"}}>
               {[["mensal_fixo"," Fixo"],["percentual"," % Avanço"],["livre"," Livre"]].map(([v,l])=>(
                 <button key={v} onClick={()=>F("tipo")(v)} style={{
-                  padding:"8px 4px",border:`2px solid ${form.tipo===v?C.yellow:C.border}`,
+                  padding:"var(--arcd-space-2) var(--arcd-space-1)",border:`2px solid ${form.tipo===v?C.yellow:C.border}`,
                   background:form.tipo===v?`${C.yellow}15`:"transparent",
-                  color:form.tipo===v?C.text:C.muted,
+                  color:form.tipo===v?"var(--arcd-text-primary)":"var(--arcd-text-secondary)",
                   fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-control)",
-                  cursor:"pointer",borderRadius:6,textAlign:"center",
+                  cursor:"pointer",borderRadius:"var(--arcd-radius-control)",textAlign:"center",
                 }}>{l}</button>
               ))}
             </div>
 
             {/* Competência */}
             <div>
-              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,textTransform:"uppercase",marginBottom:5,letterSpacing:.7}}>Mês de competência *</p>
-              <input type="month" value={form.competencia} onChange={e=>F("competencia")(e.target.value)} style={{width:"100%",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"10px 12px",borderRadius:6,fontSize:"var(--arcd-type-control)",outline:"none",fontFamily:"var(--arcd-font-sans)"}}/>
+              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"var(--arcd-text-primary)",textTransform:"uppercase",marginBottom:"var(--arcd-space-1)",letterSpacing:.7}}>Mês de competência *</p>
+              <input type="month" value={form.competencia} onChange={e=>F("competencia")(e.target.value)} style={{width:"100%",background:"var(--arcd-surface-page)",border:`1.5px solid var(--arcd-border-default)`,color:"var(--arcd-text-primary)",padding:"var(--arcd-space-2) var(--arcd-space-3)",borderRadius:"var(--arcd-radius-control)",fontSize:"var(--arcd-type-control)",outline:"none",fontFamily:"var(--arcd-font-sans)"}}/>
             </div>
 
             {/* Fixo */}
             {form.tipo==="mensal_fixo"&&(
-              <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:6,padding:"10px 14px"}}>
-                <p style={{fontSize:"var(--arcd-type-body)",color:C.text,fontWeight:600,marginBottom:6}}>
+              <div style={{background:"var(--arcd-surface-card)",border:`1.5px solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+                <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)",fontWeight:600,marginBottom:"var(--arcd-space-1)"}}>
                   Parcela mensal fixa
-                  {obra.parcelaMensal>0&&<span style={{color:C.yellow,marginLeft:8}}>→ {fmt(obra.parcelaMensal)}</span>}
+                  {obra.parcelaMensal>0&&<span style={{color:C.yellow,marginLeft:"var(--arcd-space-2)"}}>→ {fmt(obra.parcelaMensal)}</span>}
                 </p>
                 <Inp label="Valor da parcela (R$)" type="number" value={form.valorPrevisto} onChange={F("valorPrevisto")} placeholder={obra.parcelaMensal>0?String(obra.parcelaMensal):"0,00"}/>
                 {!form.valorPrevisto && obra.parcelaMensal>0 && (
-                  <button onClick={()=>F("valorPrevisto")(String(obra.parcelaMensal))} style={{marginTop:6,background:"transparent",border:`1px solid ${C.yellow}`,color:C.yellow,padding:"4px 10px",borderRadius:4,fontSize:"var(--arcd-type-control)",cursor:"pointer",fontWeight:600}}>
+                  <button onClick={()=>F("valorPrevisto")(String(obra.parcelaMensal))} style={{marginTop:"var(--arcd-space-1)",background:"transparent",border:`var(--arcd-border-width) solid ${C.yellow}`,color:C.yellow,padding:"var(--arcd-space-1) var(--arcd-space-2)",borderRadius:"var(--arcd-radius-control)",fontSize:"var(--arcd-type-control)",cursor:"pointer",fontWeight:600}}>
                     Usar parcela configurada ({fmt(obra.parcelaMensal)})
                   </button>
                 )}
@@ -837,10 +837,10 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
 
             {/* % Avanço */}
             {form.tipo==="percentual"&&(
-              <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:6,padding:"10px 14px",display:"flex",flexDirection:"column",gap:8}}>
-                <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>
+              <div style={{background:"var(--arcd-surface-card)",border:`1.5px solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+                <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"var(--arcd-text-primary)"}}>
                   % acumulado da obra até este mês
-                  {contratoVigente>0&&<span style={{color:C.muted,marginLeft:4,fontWeight:400}}> (Contrato vigente: {fmt(contratoVigente)})</span>}
+                  {contratoVigente>0&&<span style={{color:"var(--arcd-text-secondary)",marginLeft:"var(--arcd-space-1)",fontWeight:400}}> (Contrato vigente: {fmt(contratoVigente)})</span>}
                 </p>
                 <Inp label="% acumulado *" type="number" value={form.percentualAcumulado} onChange={F("percentualAcumulado")} placeholder="Ex.: 35"/>
                 {Number(form.percentualAcumulado)>0 && contratoVigente>0 && (() => {
@@ -848,9 +848,9 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
                   const periodo = Math.max(0, Number(form.percentualAcumulado||0) - prev);
                   const val = (periodo/100)*contratoVigente;
                   return (
-                    <div style={{background:`${C.yellow}15`,borderRadius:6,padding:"8px 12px"}}>
-                      <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Anterior: <strong>{prev}%</strong> → Este período: <strong>+{periodo.toFixed(1)}%</strong></p>
-                      <p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:C.yellow,marginTop:2}}>{fmt(val)}</p>
+                    <div style={{background:`${C.yellow}15`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+                      <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Anterior: <strong>{prev}%</strong> → Este período: <strong>+{periodo.toFixed(1)}%</strong></p>
+                      <p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:C.yellow,marginTop:"var(--arcd-space-half)"}}>{fmt(val)}</p>
                     </div>
                   );
                 })()}
@@ -863,11 +863,11 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
             )}
 
             {/* Recebido? */}
-            <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"8px 12px",background:form.recebido?`${C.green}10`:"transparent",borderRadius:6,border:`1.5px solid ${form.recebido?C.green+"55":C.border}`}}>
-              <div onClick={()=>F("recebido")(!form.recebido)} style={{width:20,height:20,border:`2px solid ${form.recebido?C.green:C.muted}`,background:form.recebido?C.green:"transparent",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,cursor:"pointer"}}>
-                {form.recebido&&<span style={{color:"#fff",fontSize:"var(--arcd-type-body)",fontWeight:600}}>ok</span>}
+            <label style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",cursor:"pointer",padding:"var(--arcd-space-2) var(--arcd-space-3)",background:form.recebido?`${C.green}10`:"transparent",borderRadius:"var(--arcd-radius-control)",border:`1.5px solid ${form.recebido?C.green+"55":C.border}`}}>
+              <div onClick={()=>F("recebido")(!form.recebido)} style={{width:20,height:20,border:`2px solid ${form.recebido?C.green:C.muted}`,background:form.recebido?C.green:"transparent",borderRadius:"var(--arcd-radius-control)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,cursor:"pointer"}}>
+                {form.recebido&&<span style={{color:"var(--arcd-text-inverse)",fontSize:"var(--arcd-type-body)",fontWeight:600}}>ok</span>}
               </div>
-              <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:form.recebido?C.green:C.muted}}>Valor já recebido</p>
+              <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:form.recebido?C.green:"var(--arcd-text-secondary)"}}>Valor já recebido</p>
             </label>
 
             {form.recebido&&(<>
@@ -878,13 +878,13 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
             <Inp label="Descrição / observação" value={form.descricao} onChange={F("descricao")} placeholder="Ex.: Medição #3, Parcela março..."/>
 
             {formPrevisto>0&&(
-              <div style={{background:`${C.yellow}15`,border:`1px solid ${C.yellow}44`,borderRadius:6,padding:"8px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Valor que será registrado</p>
+              <div style={{background:`${C.yellow}15`,border:`var(--arcd-border-width) solid ${C.yellow}44`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Valor que será registrado</p>
                 <p style={{fontSize:"var(--arcd-type-section-title)",fontWeight:600,color:C.yellow}}>{fmt(formPrevisto)}</p>
               </div>
             )}
 
-            <div style={{display:"flex",gap:8}}>
+            <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
               <Btn v="ghost" onClick={()=>setModal(false)} full>Cancelar</Btn>
               <Btn onClick={saveMedicao} full><Ic n="check"/> Salvar medição</Btn>
             </div>
@@ -900,34 +900,34 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
           (new Date(today()) - new Date(m.dataVencimento)) / 86400000));
         const Opcao = ({ v, titulo, sub, cor }) => (
           <label onClick={()=>setConciliar(c=>({...c,modo:v}))}
-                 style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",padding:"10px 12px",
-                         background: conciliar.modo===v ? `${cor}12` : C.surface,
-                         border:`1.5px solid ${conciliar.modo===v ? cor : C.border}`,borderRadius:6}}>
+                 style={{display:"flex",alignItems:"flex-start",gap:"var(--arcd-space-2)",cursor:"pointer",padding:"var(--arcd-space-2) var(--arcd-space-3)",
+                         background: conciliar.modo===v ? `${cor}12` : "var(--arcd-surface-card)",
+                         border:`1.5px solid ${conciliar.modo===v ? cor : C.border}`,borderRadius:"var(--arcd-radius-control)"}}>
             <div style={{width:18,height:18,borderRadius:"50%",flexShrink:0,marginTop:1,
                          border:`2px solid ${conciliar.modo===v?cor:C.muted}`,display:"flex",alignItems:"center",justifyContent:"center"}}>
               {conciliar.modo===v && <div style={{width:9,height:9,borderRadius:"50%",background:cor}}/>}
             </div>
             <div>
-              <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:conciliar.modo===v?cor:C.text}}>{titulo}</p>
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2,lineHeight:1.5}}>{sub}</p>
+              <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:conciliar.modo===v?cor:"var(--arcd-text-primary)"}}>{titulo}</p>
+              <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",lineHeight:1.5}}>{sub}</p>
             </div>
           </label>
         );
         return (
           <Modal title={`Parcela vencida ${conciliar.idx+1} de ${conciliar.fila.length}`} onClose={conciliarDecidirDepois}>
-            <div style={{display:"flex",flexDirection:"column",gap:12}}>
-              <div style={{background:C.surface,border:`1px solid ${C.border}`,borderLeft:`1px solid ${C.red}`,borderRadius:6,padding:"11px 13px"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:8}}>
-                  <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{obra?.name}</p>
+            <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
+              <div style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderLeft:`var(--arcd-border-width) solid ${C.red}`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-3) var(--arcd-space-3)"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:"var(--arcd-space-2)"}}>
+                  <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"var(--arcd-text-primary)"}}>{obra?.name}</p>
                   <p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:C.yellow}}>{fmt(m.valorPrevisto)}</p>
                 </div>
-                <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3,lineHeight:1.5}}>
+                <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",lineHeight:1.5}}>
                   {m.descricao || "Parcela"}<br/>
                   Venceu em <b>{fmtDate(m.dataVencimento)}</b>{diasAtraso>0 && ` - há ${contar(diasAtraso,"dia","dias")}`}
                 </p>
               </div>
 
-              <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>
+              <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"var(--arcd-text-primary)"}}>
                 Esta parcela já foi paga?
               </p>
 
@@ -945,13 +945,13 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
                      titulo="Ainda não foi paga"
                      sub="A parcela continua em aberto e aparece como vencida no painel."/>
 
-              <div style={{display:"flex",gap:8}}>
+              <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
                 <Btn v="ghost" onClick={conciliarDecidirDepois} full>Decidir depois</Btn>
                 <Btn onClick={()=>conciliarAplicar()} full><Ic n="check"/> Confirmar</Btn>
               </div>
               {conciliar.fila.length - conciliar.idx > 1 && (
                 <button onClick={conciliarTodasNoVencimento}
-                        style={{background:"transparent",border:0,color:C.muted,fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer",textDecoration:"underline",padding:0}}>
+                        style={{background:"transparent",border:0,color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer",textDecoration:"underline",padding:0}}>
                   Todas as {conciliar.fila.length - conciliar.idx} restantes foram pagas no vencimento
                 </button>
               )}
@@ -1008,10 +1008,10 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
 
       {gerarModal && obra && (
         <Modal title="Gerar parcelas automaticamente" onClose={()=>setGerarModal(false)}>
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:6,padding:"12px 14px"}}>
-              <p style={{fontWeight:600,fontSize:"var(--arcd-type-body)",color:C.text,marginBottom:6}}>{obra.name}</p>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+          <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
+            <div style={{background:"var(--arcd-surface-card)",border:`1.5px solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-3) var(--arcd-space-3)"}}>
+              <p style={{fontWeight:600,fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)",marginBottom:"var(--arcd-space-1)"}}>{obra.name}</p>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-1)"}}>
                 {[
                   ["Parcela mensal",  fmt(obra.parcelaMensal)],
                   ["Total parcelas",  `${obra.totalParcelas||"-"}`],
@@ -1019,32 +1019,32 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
                   ["Fim previsto",    obra.contractEnd?fmtDateFull(obra.contractEnd):"-"],
                 ].map(([l,v])=>(
                   <div key={l}>
-                    <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>{l}</p>
-                    <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,marginTop:1}}>{v}</p>
+                    <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",fontWeight:600}}>{l}</p>
+                    <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"var(--arcd-text-primary)",marginTop:1}}>{v}</p>
                   </div>
                 ))}
               </div>
-              <div style={{marginTop:10,padding:"8px 0",borderTop:`1px solid ${C.line}`}}>
-                <p style={{fontSize:"var(--arcd-type-body)",color:C.text,fontWeight:600}}>
+              <div style={{marginTop:"var(--arcd-space-2)",padding:"var(--arcd-space-2) 0",borderTop:`var(--arcd-border-width) solid var(--arcd-border-subtle)`}}>
+                <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)",fontWeight:600}}>
                   Total gerado: {fmt(Number(obra.parcelaMensal)*(obra.totalParcelas||12))}
                 </p>
-                <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
+                <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>
                   {obra.totalParcelas||12} parcelas de {fmt(obra.parcelaMensal)}
                 </p>
               </div>
             </div>
 
-            <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"10px 12px",background:C.surface,borderRadius:6,border:`1.5px solid ${C.border}`}}>
-              <div onClick={()=>setGerarOpts(o=>({...o,sobreescrever:!o.sobreescrever}))} style={{width:18,height:18,border:`2px solid ${gerarOpts.sobreescrever?C.red:C.muted}`,background:gerarOpts.sobreescrever?C.red:"transparent",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0}}>
-                {gerarOpts.sobreescrever&&<span style={{color:"#fff",fontSize:"var(--arcd-type-label)",fontWeight:600}}>ok</span>}
+            <label style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",cursor:"pointer",padding:"var(--arcd-space-2) var(--arcd-space-3)",background:"var(--arcd-surface-card)",borderRadius:"var(--arcd-radius-control)",border:`1.5px solid var(--arcd-border-default)`}}>
+              <div onClick={()=>setGerarOpts(o=>({...o,sobreescrever:!o.sobreescrever}))} style={{width:18,height:18,border:`2px solid ${gerarOpts.sobreescrever?C.red:C.muted}`,background:gerarOpts.sobreescrever?C.red:"transparent",borderRadius:"var(--arcd-radius-control)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0}}>
+                {gerarOpts.sobreescrever&&<span style={{color:"var(--arcd-text-inverse)",fontSize:"var(--arcd-type-label)",fontWeight:600}}>ok</span>}
               </div>
               <div>
-                <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:gerarOpts.sobreescrever?C.red:C.muted}}>Substituir medições existentes</p>
-                <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Se desmarcado, pula meses que já têm medição</p>
+                <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:gerarOpts.sobreescrever?C.red:"var(--arcd-text-secondary)"}}>Substituir medições existentes</p>
+                <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Se desmarcado, pula meses que já têm medição</p>
               </div>
             </label>
 
-            <div style={{display:"flex",gap:8}}>
+            <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
               <Btn v="ghost" onClick={()=>setGerarModal(false)} full>Cancelar</Btn>
               <Btn v="primary" onClick={gerarParcelasFixas} full> Gerar {obra.totalParcelas||12} parcelas</Btn>
             </div>

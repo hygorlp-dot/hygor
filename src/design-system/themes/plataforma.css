@@ -17,12 +17,8 @@
   }
   [data-theme="plataforma"] .arcd-topbar {
     margin: var(--arcd-space-4) var(--arcd-page-padding) 0;
-    border: 1px solid var(--vidro-borda) !important;
+    border: var(--arcd-border-width) solid var(--vidro-borda) !important;
     border-radius: var(--arcd-box-radius);
-  }
-  [data-theme="plataforma"][data-density="compact"] {
-    --arcd-panel-padding: var(--arcd-space-2);
-    --arcd-layout-gap: var(--arcd-space-2);
   }
   [data-theme="plataforma"] .arcd-main[data-workspace] {
     padding-block: var(--arcd-space-3) !important;
@@ -40,19 +36,6 @@
   }
   [data-theme="plataforma"] .dashboard-command-center {
     gap: var(--arcd-box-gap) !important;
-  }
-  [data-theme="plataforma"] .dashboard-executive-grid .dashboard-kpi {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    justify-content: flex-start;
-    gap: var(--arcd-space-1);
-  }
-  [data-theme="plataforma"] .dashboard-executive-grid .dashboard-kpi__head {
-    align-items: flex-start;
-  }
-  [data-theme="plataforma"] .dashboard-executive-grid .dashboard-kpi__head > :last-child {
-    flex: 0 0 auto;
   }
   [data-theme="plataforma"] .dashboard-action-filters button[data-active="true"] {
     background: var(--arcd-action-primary-subtle) !important;
@@ -78,9 +61,6 @@
   @media (max-width: 767px) {
     [data-theme="plataforma"] .arcd-topbar {
       margin: var(--arcd-space-2) var(--arcd-page-padding-mobile) 0;
-    }
-    [data-theme="plataforma"] .dashboard-executive-grid .dashboard-kpi__head {
-      min-block-size: 3em;
     }
   }
 }

@@ -36,9 +36,9 @@
     .payroll-summary-strip, .workspace-disclosure, .finance-today__table-scroll, .arcd-chart-panel, .dre-toolbar,
     .purchase-queue-table, .purchase-by-work, .workspace-command-bar, .work-overview-panel,
     [style*="background: var(--arcd-surface-card)"], [style*="background-color: var(--arcd-surface-card)"]
-  ) {
+  ):not(.arcd-chart-panel) {
     background: var(--vidro-fundo) !important;
-    border: 1px solid var(--vidro-borda) !important;
+    border: var(--arcd-border-width) solid var(--vidro-borda) !important;
     box-shadow: var(--vidro-sombra) !important;
     -webkit-backdrop-filter: blur(18px) saturate(140%);
     backdrop-filter: blur(18px) saturate(140%);

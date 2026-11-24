@@ -15,10 +15,10 @@ const metricLabel = metric => ({
 }[metric] || "resultado");
 
 function Metric({ label, value, note, negative = false, highlight = false }) {
-  return <div className="bc-analysis__metric" data-negative={negative} data-highlight={highlight}>
-    <span>{label}</span>
-    <strong className="bc-mono">{value}</strong>
-    {note && <small>{note}</small>}
+  return <div className="bc-analysis__metric" data-negative={negative} data-tone={negative ? "danger" : undefined} data-highlight={highlight}>
+    <span className="mrc-kpi__label">{label}</span>
+    <strong className="mrc-kpi__value">{value}</strong>
+    {note && <small className="mrc-kpi__detail">{note}</small>}
   </div>;
 }
 
@@ -94,7 +94,7 @@ export default function BillingOwnershipAnalysis({
       {analysis.owners.length > 0 && <section className="bc-analysis__section" aria-labelledby="bc-analysis-owners">
         <div className="bc-analysis__section-head"><h4 id="bc-analysis-owners">Por proprietário</h4></div>
         <div className="bc-table-wrap">
-          <table className="bc-table bc-table--compact">
+          <table className="arcd-data-table__table bc-table bc-table--compact">
             <thead><tr><th scope="col">Proprietário</th><th scope="col" className="num">Equip.</th><th scope="col" className="num">Receita líquida</th><th scope="col" className="num">Repasse</th><th scope="col" className="num">Resultado</th><th scope="col" className="num">Margem</th></tr></thead>
             <tbody>{analysis.owners.map(owner => <tr key={owner.owner} data-negative={owner.finance.resultado < 0}>
               <td><strong>{owner.owner}</strong><span className="bc-note">{owner.locacoes} locação(ões)</span></td>
@@ -114,7 +114,7 @@ export default function BillingOwnershipAnalysis({
           <span className="bc-note">Selecione uma linha para abrir as locações que formam o resultado.</span>
         </div>
         <div className="bc-table-wrap">
-          <table className="bc-table bc-analysis__equipment-table">
+          <table className="arcd-data-table__table bc-table bc-analysis__equipment-table">
             <thead><tr><th scope="col">Equipamento</th><th scope="col">Proprietário / obras</th><th scope="col" className="num">Receita líquida</th><th scope="col" className="num">Repasse</th><th scope="col" className="num">Manutenção</th><th scope="col" className="num">Resultado</th><th scope="col" className="num">Margem</th><th scope="col">Diagnóstico</th></tr></thead>
             <tbody>{analysis.equipments.map(item => <tr key={item.id} data-selected={item.id === selected?.id} data-negative={item.finance.resultado < 0}>
               <td><button type="button" className="bc-link bc-strong" onClick={() => setEquipmentId(item.id)} aria-label={`Analisar ${item.equipamento.nome}`}>{item.equipamento.nome}</button><span className="bc-note">{item.equipamento.patrimonio || item.equipamento.categoria || "Sem identificação complementar"}</span></td>
@@ -136,7 +136,7 @@ export default function BillingOwnershipAnalysis({
           <strong className="bc-mono" data-negative={selected.finance.resultado < 0}>{signedMoney(selected.finance.resultado)}</strong>
         </div>
         <div className="bc-table-wrap">
-          <table className="bc-table">
+          <table className="arcd-data-table__table bc-table">
             <thead><tr><th scope="col">Obra / período</th><th scope="col">Composição cliente</th><th scope="col" className="num">Bruto</th><th scope="col" className="num">Desconto</th><th scope="col" className="num">Líquido</th><th scope="col">Composição repasse</th><th scope="col" className="num">Repasse</th><th scope="col" className="num">Resultado</th><th scope="col" className="num">Margem</th><th scope="col"><span className="bc-sr-only">Ação</span></th></tr></thead>
             <tbody>{selected.rentals.map(rental => <tr key={rental.id} data-negative={rental.resultado < 0}>
               <td><strong>{rental.obraRotulo}</strong><span className="bc-note bc-mono">{formatDate(rental.inicio)} → {formatDate(rental.fim)} · {rental.quantidade} un · {contar(rental.dias,"dia","dias")}</span></td>

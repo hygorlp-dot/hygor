@@ -1,0 +1,154 @@
+/* Shared presentation for workspace destinations, tablists and view filters.
+   The owning component retains its navigation, keyboard and selection behavior. */
+@media screen {
+  :root[data-theme] :is(.arcd-main, .arcd-dialog, .arcd-modal-panel, .arcd-drawer, .arcd-client-shell)
+  :is(
+    [role="tablist"],
+    .tab-row,
+    .workflow-tabs > nav,
+    .workflow-tools > nav,
+    .workspace-navigation__desktop > nav:first-child,
+    .workspace-navigation__tools > nav,
+    .mrc-submenu,
+    .works-category-tabs,
+    .works-view-toggle,
+    .ro-segments,
+    .app-help-modes,
+    .box-memory__tabs,
+    .dashboard-action-filters,
+    .dashboard-queue-filters,
+    .annual-dre__view-switch,
+    .arcd-client-subnav
+  ) {
+    --submenu-height: var(--arcd-control-height);
+    --submenu-ink: var(--arcd-text-primary);
+    --submenu-secondary: var(--arcd-text-secondary);
+    --submenu-hover: var(--arcd-surface-muted);
+    --submenu-border: var(--arcd-border-default);
+    --submenu-focus: var(--arcd-focus-ring);
+    min-inline-size: 0;
+    max-inline-size: 100%;
+    column-gap: var(--arcd-space-1) !important;
+    row-gap: 0 !important;
+    justify-content: flex-start;
+
+    &.arcd-tv-visoes {
+      --submenu-ink: var(--arcd-tv-text);
+      --submenu-secondary: var(--arcd-tv-secondary);
+      --submenu-hover: var(--arcd-tv-panel);
+      --submenu-border: var(--arcd-tv-border);
+    }
+
+    &:not(.workspace-navigation__tools > nav) {
+      padding: 0 !important;
+      border: 0 !important;
+      border-block-end: var(--arcd-border-width) solid var(--submenu-border) !important;
+      border-radius: 0 !important;
+      background: transparent !important;
+    }
+
+    @media (max-width: 767px) {
+      --submenu-height: var(--arcd-touch-target);
+      flex-wrap: wrap;
+    }
+
+    & > button, & .workspace-navigation__group button {
+      box-sizing: border-box;
+      min-height: var(--submenu-height) !important;
+      height: auto !important;
+      padding: var(--arcd-space-1) var(--arcd-space-3) !important;
+      gap: var(--arcd-space-1) !important;
+      border: 0 !important;
+      border-radius: 0 !important;
+      background: transparent !important;
+      color: var(--submenu-secondary) !important;
+      font-family: var(--arcd-font-sans) !important;
+      font-size: var(--arcd-type-control) !important;
+      font-weight: var(--arcd-font-weight-medium) !important;
+      line-height: var(--arcd-line-height-normal);
+      box-shadow: none !important;
+
+      &:hover:not(:disabled) {
+        background: var(--submenu-hover) !important;
+        color: var(--submenu-ink) !important;
+      }
+
+      &:is([aria-current="page"], [aria-current="true"], [aria-selected="true"], [aria-pressed="true"], [data-active="true"], [data-state="active"]) {
+        color: var(--submenu-ink) !important;
+        font-weight: var(--arcd-font-weight-semibold) !important;
+        box-shadow: inset 0 -2px var(--submenu-ink) !important;
+
+        @media (forced-colors: active) {
+          border-block-end: 2px solid Highlight !important;
+        }
+      }
+
+      &:focus-visible {
+        outline: 2px solid var(--submenu-focus) !important;
+        outline-offset: -2px;
+      }
+
+      & > :is(small, .tab-row__count, .workspace-navigation__count, .works-category-count, .ro-mono) {
+        min-inline-size: 0;
+        min-block-size: 0;
+        height: auto;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: transparent !important;
+        color: inherit !important;
+        font-size: inherit !important;
+        font-weight: inherit;
+        font-variant-numeric: tabular-nums;
+      }
+    }
+  }
+
+  :root[data-theme] .arcd-main .mrc-submenu {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  :root[data-theme] .arcd-main .workflow-tools > nav {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  :root[data-theme] .arcd-main :is(.workflow-tools, .workspace-navigation__tools) > summary {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--arcd-space-2);
+    list-style: none;
+    min-height: var(--arcd-control-height);
+    max-width: 100%;
+    padding: var(--arcd-space-1) var(--arcd-space-3);
+    border: 0;
+    background: transparent;
+    color: var(--arcd-text-secondary);
+    cursor: pointer;
+    font-size: var(--arcd-type-control);
+    font-weight: var(--arcd-font-weight-medium);
+
+    &::-webkit-details-marker { display: none; }
+
+    & > svg {
+      flex: none;
+      width: var(--arcd-space-4);
+      height: var(--arcd-space-4);
+    }
+
+    &:hover {
+      background: var(--arcd-surface-muted);
+      color: var(--arcd-text-primary);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--arcd-focus-ring);
+      outline-offset: -2px;
+    }
+  }
+
+  :root[data-theme] .arcd-main :is(.workflow-tools, .workspace-navigation__tools)[open] > summary > svg {
+    transform: rotate(180deg);
+  }
+
+}

@@ -513,7 +513,7 @@ describe("filtros combinados: indicadores, contagens e tabela falam do mesmo uni
     expect(kpiText(container, "Receita contratual no período")).toContain("R$ 280,00");
     expect(kpiText(container, "Faturas a receber")).toContain("R$ 280,00");
     expect(kpiText(container, "Faturas a receber")).toContain("1 fatura pendente");
-    expect(kpiText(container, "Equipamentos locados")).toContain("1 locação(ões)");
+    expect(kpiText(container, "Equipamentos locados")).toMatch(/· 1 locação$/);
     expect(norm(container.querySelector(".ro-summary").textContent)).toContain("1 locação em andamento");
     expect(kpiText(container, "Receita contratual no período")).toContain("Setembro 2026 · K1-04 — Terras Alpha · todas as situações · filtros ativos");
   });

@@ -1400,7 +1400,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
             por contrato, dentro da tela de um contrato específico. */}
         {podeGerenciarPagamentos && medicoesAguardandoAprovacao.length>0 && (
 <TaskDisclosure summary={`Aprovações pendentes · ${medicoesAguardandoAprovacao.length}`}>
-          <div style={{ background:"var(--arcd-surface-card)", border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 40%, transparent)", borderRadius:4, padding:"var(--arcd-space-3) var(--arcd-space-4)" }}>
+          <div style={{ background:"var(--arcd-surface-card)", border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-warning-text) 40%, transparent)", borderRadius:"var(--arcd-radius-control)", padding:"var(--arcd-space-3) var(--arcd-space-4)" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:"var(--arcd-space-2)", flexWrap:"wrap" }}>
               <p style={{ fontSize:"var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-text-primary)", textTransform:"uppercase" }}>Medições aguardando aprovação</p>
               <Badge color={C.orange}>{medicoesAguardandoAprovacao.length}</Badge>
@@ -1410,7 +1410,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                 const t=allTerc.find(x=>x.id===m.tercId);
                 return (
                   <div key={m.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:"var(--arcd-space-2)", flexWrap:"wrap",
-                                            background:"var(--arcd-surface-muted)", border:"1px solid var(--arcd-border-default)", borderRadius:7, padding:"var(--arcd-space-2) var(--arcd-space-3)" }}>
+                                            background:"var(--arcd-surface-muted)", border:"var(--arcd-border-width) solid var(--arcd-border-default)", borderRadius:"var(--arcd-radius-control)", padding:"var(--arcd-space-2) var(--arcd-space-3)" }}>
                     <div style={{ minWidth:0 }}>
                       <p style={{ fontSize:"var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-text-primary)" }}>{t?.name||"Prestador"} · {fmtDateFull(m.data)}</p>
                       <p style={{ fontSize:"var(--arcd-type-label)", color:"var(--arcd-text-secondary)", marginTop:"var(--arcd-space-half)" }}>{specInfo(t?.specialty).l} · {obraName(m.obraId)} · {contar(m.itens.length,"etapa","etapas")}</p>
@@ -1432,7 +1432,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
             ...kanbanTerc.map(t => ({ v:t.id, l:`${t.name} · ${specInfo(t.specialty).l}${t.obraId?` · ${obraName(t.obraId)}`:""}` }))]}/>
 
         {!tercSel && (
-          <div style={{ padding:"var(--arcd-space-6)", textAlign:"center", background:"var(--arcd-surface-card)", border:"1px solid var(--arcd-border-default)", borderRadius:10 }}>
+          <div style={{ padding:"var(--arcd-space-6)", textAlign:"center", background:"var(--arcd-surface-card)", border:"var(--arcd-border-width) solid var(--arcd-border-default)", borderRadius:"var(--arcd-box-radius)" }}>
             <p style={{ fontSize:"var(--arcd-type-body)", color:"var(--arcd-text-secondary)", lineHeight:"var(--arcd-line-height-normal)" }}>
               Escolha um contrato para subdividir em etapas e medir o avanço.<br/>
               Ex.: eletricista → rasgo de parede, eletrodutos, enfiação...
@@ -1447,7 +1447,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
             const col = colKanban(tercAtual.situacao);
             const docOk = tercAtual.documento ? validarDocumento(tercAtual.documento, tercAtual.tipoPessoa) : null;
             return (
-              <div style={{ background:"var(--arcd-surface-card)", border:`1px solid ${info.color}66`, borderRadius:4, padding:"var(--arcd-space-3) var(--arcd-space-4)" }}>
+              <div style={{ background:"var(--arcd-surface-card)", border:`var(--arcd-border-width) solid ${info.color}66`, borderRadius:"var(--arcd-radius-control)", padding:"var(--arcd-space-3) var(--arcd-space-4)" }}>
                 <div style={{ display:"flex", justifyContent:"space-between", gap:"var(--arcd-space-2)", flexWrap:"wrap" }}>
                   <div style={{ minWidth:0 }}>
                     <p style={{ fontSize:"var(--arcd-type-card-title)", fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-text-primary)" }}>{tercAtual.name}</p>
@@ -1456,7 +1456,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                     </p>
                   </div>
                   <div style={{ display:"flex", gap:"var(--arcd-space-1)", alignItems:"flex-start" }}>
-                    <span style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color:col.cor, background:`${col.cor}18`, borderRadius:99, padding:"var(--arcd-space-1) var(--arcd-space-2)", whiteSpace:"nowrap" }}>{col.l}</span>
+                    <span style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color:col.cor, background:`${col.cor}18`, borderRadius:"var(--arcd-radius-pill)", padding:"var(--arcd-space-1) var(--arcd-space-2)", whiteSpace:"nowrap" }}>{col.l}</span>
                     <Btn size="sm" v="info" onClick={()=>novoContratoDoPrestador(tercAtual)}>Outra obra</Btn>
                     <Btn size="sm" v="ghost" onClick={()=>editarTerc(tercAtual)}>Editar</Btn>
                   </div>
@@ -1487,7 +1487,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                       const dias = diasAte(doc.validade);
                       const cor = dias===null?C.muted:dias<=0?C.red:dias<=30?C.orange:C.green;
                       return (
-                        <span key={doc.id} style={{ fontSize:"var(--arcd-type-caption)", fontWeight:"var(--arcd-font-weight-semibold)", color:cor, background:`${cor}14`, borderRadius:6, padding:"var(--arcd-space-half) var(--arcd-space-2)" }}>
+                        <span key={doc.id} style={{ fontSize:"var(--arcd-type-caption)", fontWeight:"var(--arcd-font-weight-semibold)", color:cor, background:`${cor}14`, borderRadius:"var(--arcd-radius-control)", padding:"var(--arcd-space-half) var(--arcd-space-2)" }}>
                           {docTercInfo(doc.tipo).l.split(" ")[0]} {dias===null?"":dias<0?`vencida`:dias<=30?`${dias}d`:"ok"}
                         </span>
                       );
@@ -1500,7 +1500,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
 
           {/* Curva de evolução: medido acumulado ao longo das medições */}
           {medicoesTercAtual.length > 1 && (
-            <div style={{ background:"var(--arcd-surface-card)", border:"1px solid var(--arcd-border-default)", borderRadius:10, padding:"var(--arcd-space-3)" }}>
+            <div style={{ background:"var(--arcd-surface-card)", border:"var(--arcd-border-width) solid var(--arcd-border-default)", borderRadius:"var(--arcd-box-radius)", padding:"var(--arcd-space-3)" }}>
               <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-text-secondary)", textTransform:"uppercase", letterSpacing:"var(--arcd-letter-spacing-body)", marginBottom:"var(--arcd-space-2)" }}>Evolução do medido</p>
               <ResponsiveContainer width="100%" height={130}>
                 <LineChart data={(() => { let ac=0; return medicoesTercAtual.map(m => { ac+=Number(m.total||0); return { nome:`M${m.numero}`, acumulado:Math.round(ac) }; }); })()}
@@ -1537,7 +1537,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
           {/* A soma das etapas precisa fechar com o contrato, senao a medicao
               mede uma coisa e o contrato vale outra. */}
           {etapasTerc.length > 0 && Math.abs(somaEtapas - Number(tercAtual.contractValue||0)) > 0.5 && (
-            <div style={{ background:"color-mix(in srgb, var(--arcd-warning-text) 7%, transparent)", border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)", borderRadius:8, padding:"var(--arcd-space-2) var(--arcd-space-3)" }}>
+            <div style={{ background:"color-mix(in srgb, var(--arcd-warning-text) 7%, transparent)", border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)", borderRadius:"var(--arcd-box-radius)", padding:"var(--arcd-space-2) var(--arcd-space-3)" }}>
               <p style={{ fontSize:"var(--arcd-type-label)", color:"var(--arcd-warning-text)", lineHeight:"var(--arcd-line-height-normal)" }}>
                 As etapas somam <b>{fmt(somaEtapas)}</b> e o contrato é de <b>{fmt(tercAtual.contractValue)}</b> -
                 diferença de {fmt(Math.abs(somaEtapas - Number(tercAtual.contractValue||0)))}.
@@ -1556,7 +1556,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
               <Btn size="sm" onClick={()=>abrirMedicao()} disabled={!podeRegistrarEvidencia}><Ic n="plus"/> Nova medição</Btn>
             </div>
           </div>
-          {!podeRegistrarEvidencia&&<div style={{background:"color-mix(in srgb, var(--arcd-warning-text) 5%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)",borderRadius:8,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)",fontWeight:"var(--arcd-font-weight-semibold)"}}>A medição e suas fotografias devem ser registradas por um engenheiro de campo ou engenheiro auditor.</p></div>}
+          {!podeRegistrarEvidencia&&<div style={{background:"color-mix(in srgb, var(--arcd-warning-text) 5%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)",borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)",fontWeight:"var(--arcd-font-weight-semibold)"}}>A medição e suas fotografias devem ser registradas por um engenheiro de campo ou engenheiro auditor.</p></div>}
 
           <div className="terceiros-stage-list">
             {etapasTerc.map((e, i) => {
@@ -1596,7 +1596,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
           </div>
 
           {/* Cadastro de etapa */}
-          <div style={{ background:"var(--arcd-surface-muted)", border:"1px solid var(--arcd-border-default)", borderRadius:10, padding:"var(--arcd-space-3)",
+          <div style={{ background:"var(--arcd-surface-muted)", border:"var(--arcd-border-width) solid var(--arcd-border-default)", borderRadius:"var(--arcd-box-radius)", padding:"var(--arcd-space-3)",
                         display:"grid", gridTemplateColumns:formGrid(2), gap:"var(--arcd-space-2)", alignItems:"end" }}>
             <Inp label={etapaForm.id?"Editar etapa":"Nova etapa"} value={etapaForm.nome}
               onChange={v=>setEtapaForm(f=>({...f,nome:v}))} placeholder="Ex.: Rasgo de parede"/>
@@ -1619,8 +1619,8 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                 :m.status==="rejeitada"?"rejeitada pelo financeiro"
                 :m.pagamentoId?(technicalRetentionCents(m)>0?"principal baixado; confira a garantia":"paga"):"aguardando pagamento";
               return (
-              <div key={m.id} style={{ background:"var(--arcd-surface-card)", border:`1px solid ${borderColor}66`,
-                                       borderRadius:4, padding:"var(--arcd-space-2) var(--arcd-space-3)" }}>
+              <div key={m.id} style={{ background:"var(--arcd-surface-card)", border:`var(--arcd-border-width) solid ${borderColor}66`,
+                                       borderRadius:"var(--arcd-radius-control)", padding:"var(--arcd-space-2) var(--arcd-space-3)" }}>
                 <div style={{ display:"flex", justifyContent:"space-between", gap:"var(--arcd-space-2)", flexWrap:"wrap" }}>
                   <div>
                     <p style={{ fontSize:"var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-text-primary)" }}>
@@ -1644,7 +1644,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                     </span>
                   </div>
                 </div>
-                {m.status==="rejeitada"&&<div style={{marginTop:"var(--arcd-space-2)",background:"color-mix(in srgb, var(--arcd-danger-text) 4%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-danger-text) 27%, transparent)",borderRadius:7,padding:"var(--arcd-space-2)"}}>
+                {m.status==="rejeitada"&&<div style={{marginTop:"var(--arcd-space-2)",background:"color-mix(in srgb, var(--arcd-danger-text) 4%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-danger-text) 27%, transparent)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2)"}}>
                   <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-danger-text)"}}>Motivo da rejeição</p>
                   <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)"}}>{m.motivoRejeicao}</p>
                 </div>}
@@ -1664,7 +1664,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                   })}
                 </div>
                 {m.observacao && <p style={{ fontSize:"var(--arcd-type-label)", color:"var(--arcd-text-secondary)", fontStyle:"italic", marginTop:"var(--arcd-space-1)" }}>"{m.observacao}"</p>}
-                {(m.fotos||[]).length?<div style={{marginTop:"var(--arcd-space-2)"}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"center",marginBottom:"var(--arcd-space-1)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-success-text)",textTransform:"uppercase"}}>Evidência fotográfica · {(m.fotos||[]).length}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Por {m.responsavelEvidencia||m.fotos?.[0]?.enviadoPor||"engenheiro"}</p></div><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(76px,1fr))",gap:"var(--arcd-space-1)"}}>{(m.fotos||[]).map(f=><a key={f.id||f.url} href={f.url} target="_blank" rel="noopener noreferrer" title="Ampliar fotografia" style={{display:"block",aspectRatio:"1/1",borderRadius:7,overflow:"hidden",border:"1px solid var(--arcd-border-default)",background:"var(--arcd-surface-muted)"}}><img src={f.url} alt={f.legenda||"Evidência da medição"} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/></a>)}</div></div>:<div style={{marginTop:"var(--arcd-space-2)",background:"color-mix(in srgb, var(--arcd-danger-text) 4%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-danger-text) 27%, transparent)",borderRadius:7,padding:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-danger-text)"}}>Medição sem evidência fotográfica</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Registro antigo: o financeiro será alertado antes do pagamento.</p></div>}
+                {(m.fotos||[]).length?<div style={{marginTop:"var(--arcd-space-2)"}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"center",marginBottom:"var(--arcd-space-1)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-success-text)",textTransform:"uppercase"}}>Evidência fotográfica · {(m.fotos||[]).length}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Por {m.responsavelEvidencia||m.fotos?.[0]?.enviadoPor||"engenheiro"}</p></div><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(76px,1fr))",gap:"var(--arcd-space-1)"}}>{(m.fotos||[]).map(f=><a key={f.id||f.url} href={f.url} target="_blank" rel="noopener noreferrer" title="Ampliar fotografia" style={{display:"block",aspectRatio:"1/1",borderRadius:"var(--arcd-radius-control)",overflow:"hidden",border:"var(--arcd-border-width) solid var(--arcd-border-default)",background:"var(--arcd-surface-muted)"}}><img src={f.url} alt={f.legenda||"Evidência da medição"} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/></a>)}</div></div>:<div style={{marginTop:"var(--arcd-space-2)",background:"color-mix(in srgb, var(--arcd-danger-text) 4%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-danger-text) 27%, transparent)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-danger-text)"}}>Medição sem evidência fotográfica</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Registro antigo: o financeiro será alertado antes do pagamento.</p></div>}
                 <TechnicalRetentions data={data} obraId={m.obraId} measurementId={m.id} user={currentUser} dispatchCommand={dispatchCommand}/>
                 {/* Previa de retencao antes de pagar / decomposicao apos pago */}
                 {(() => {
@@ -1677,7 +1677,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                   const liquido = pg ? Number(pg.liquido ?? m.total) : ret.liquido;
                   if (iss + inss <= 0 && !pg && !technicalRetentionCents(m)) return null;
                   return (
-                    <div style={{ marginTop:"var(--arcd-space-2)", background:"var(--arcd-surface-muted)", border:"1px solid var(--arcd-border-default)", borderRadius:6, padding:"var(--arcd-space-2)" }}>
+                    <div style={{ marginTop:"var(--arcd-space-2)", background:"var(--arcd-surface-muted)", border:"var(--arcd-border-width) solid var(--arcd-border-default)", borderRadius:"var(--arcd-radius-control)", padding:"var(--arcd-space-2)" }}>
                       {pg && <div style={{ display:"flex", justifyContent:"space-between", fontSize:"var(--arcd-type-label)", color:"var(--arcd-text-secondary)", marginBottom:"var(--arcd-space-1)" }}>
                         <span>Origem do pagamento</span>
                         <b style={{ color:pg.pagador === "empresa" ? "var(--arcd-action-primary)" : "var(--arcd-warning-text)" }}>
@@ -1692,7 +1692,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                       {technicalRetentionCents(m)>0&&<p>Garantia técnica retida: {fmt(technicalRetentionCents(m)/100)}</p>}
                       {inss > 0 && <div style={{ display:"flex", justifyContent:"space-between", fontSize:"var(--arcd-type-label)", color:"var(--arcd-text-secondary)" }}>
                         <span>(-) INSS retido ({tercAtual.retINSS}%)</span><span>{fmt(inss)}</span></div>}
-                      <div style={{ display:"flex", justifyContent:"space-between", fontSize:"var(--arcd-type-label)", marginTop:"var(--arcd-space-half)", borderTop:"1px solid var(--arcd-border-default)", paddingTop:"var(--arcd-space-half)" }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", fontSize:"var(--arcd-type-label)", marginTop:"var(--arcd-space-half)", borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)", paddingTop:"var(--arcd-space-half)" }}>
                         <span style={{ fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-text-primary)" }}>Líquido ao prestador</span>
                         <b style={{ color:"var(--arcd-success-text)" }}>{fmt(liquido)}</b>
                       </div>
@@ -1714,7 +1714,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
             })}
             {!medicoesTercAtual.length && (
               <p style={{ padding:"var(--arcd-space-4)", textAlign:"center", fontSize:"var(--arcd-type-label)", color:"var(--arcd-text-secondary)",
-                          background:"var(--arcd-surface-card)", border:"1px solid var(--arcd-border-default)", borderRadius:8 }}>
+                          background:"var(--arcd-surface-card)", border:"var(--arcd-border-width) solid var(--arcd-border-default)", borderRadius:"var(--arcd-box-radius)" }}>
                 Nenhuma medição neste contrato.
               </p>
             )}
@@ -1724,7 +1724,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
 
       {/*  VIEW: PAGAMENTOS  */}
       {view === "pagamentos" && (<>
-        {pagamentosSemEvidencia.length>0&&<div style={{background:"color-mix(in srgb, var(--arcd-danger-text) 5%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-danger-text) 40%, transparent)",borderRadius:4,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-danger-text)",textTransform:"uppercase"}}>Auditoria financeira · {contar(pagamentosSemEvidencia.length,"pagamento","pagamentos")} sem foto</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)",marginTop:"var(--arcd-space-half)"}}>Foram pagos após reconhecimento explícito do risco. Revise as medições e solicite a comprovação da execução ao engenheiro responsável.</p></div>}
+        {pagamentosSemEvidencia.length>0&&<div style={{background:"color-mix(in srgb, var(--arcd-danger-text) 5%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-danger-text) 40%, transparent)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-danger-text)",textTransform:"uppercase"}}>Auditoria financeira · {contar(pagamentosSemEvidencia.length,"pagamento","pagamentos")} sem foto</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)",marginTop:"var(--arcd-space-half)"}}>Foram pagos após reconhecimento explícito do risco. Revise as medições e solicite a comprovação da execução ao engenheiro responsável.</p></div>}
         {/* Impostos retidos a recolher - mês da sexta atual. So aparece se ha
             retencao no periodo; e um lembrete de obrigacao, nao um card fixo. */}
         {(() => {
@@ -1734,7 +1734,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
           const inss = doMes.reduce((s, p) => s + Number(p.inssRetido || 0), 0);
           if (iss + inss <= 0) return null;
           return (
-            <div style={{ background:"color-mix(in srgb, var(--arcd-action-primary) 5%, transparent)", border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)", borderRadius:10, padding:"var(--arcd-space-3)" }}>
+            <div style={{ background:"color-mix(in srgb, var(--arcd-action-primary) 5%, transparent)", border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)", borderRadius:"var(--arcd-box-radius)", padding:"var(--arcd-space-3)" }}>
               <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-action-primary)", textTransform:"uppercase", letterSpacing:"var(--arcd-letter-spacing-body)" }}>
                 Impostos retidos a recolher · {compLabel(ym)}
               </p>
@@ -1783,7 +1783,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
 
         {/* Lista de terceirizados com status de pagamento */}
         {recurringTerc.length === 0 && (
-          <div style={{ background:"var(--arcd-surface-card)", border:"1px solid var(--arcd-border-default)", padding:"var(--arcd-space-6)", textAlign:"center", color:"var(--arcd-text-secondary)", borderRadius:10 }}>
+          <div style={{ background:"var(--arcd-surface-card)", border:"var(--arcd-border-width) solid var(--arcd-border-default)", padding:"var(--arcd-space-6)", textAlign:"center", color:"var(--arcd-text-secondary)", borderRadius:"var(--arcd-box-radius)" }}>
             Nenhum contrato semanal ou diário ativo. Contratos por medição são pagos na aba Medições.
           </div>
         )}
@@ -2054,7 +2054,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
               Evolução acumulada do contrato: <strong>{formatProgress(pctFisico)}% → {formatProgress(pctFisicoProposto)}%</strong>
             </p>}
 
-            <div style={{ border:"1px solid var(--arcd-border-default)", borderRadius:8, overflow:"hidden" }}>
+            <div style={{ border:"var(--arcd-border-width) solid var(--arcd-border-default)", borderRadius:"var(--arcd-box-radius)", overflow:"hidden" }}>
               {etapasTerc.map(e => {
                 const anterior = Number(acumuladoPorEtapa[e.id] || 0);
                 const atual    = pct(medForm.pcts?.[e.id] ?? anterior);
@@ -2081,7 +2081,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
 
             {/* A medição nova só reconhece avanço; correção da origem usa seu fluxo próprio. */}
             {itensDaMedicao().some(i => i.pctAcum < i.pctAnterior) && (
-              <div style={{ background:"color-mix(in srgb, var(--arcd-warning-text) 7%, transparent)", border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)", borderRadius:8, padding:"var(--arcd-space-2) var(--arcd-space-3)" }}>
+              <div style={{ background:"color-mix(in srgb, var(--arcd-warning-text) 7%, transparent)", border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)", borderRadius:"var(--arcd-box-radius)", padding:"var(--arcd-space-2) var(--arcd-space-3)" }}>
                 <p style={{ fontSize:"var(--arcd-type-label)", color:"var(--arcd-warning-text)", lineHeight:"var(--arcd-line-height-normal)" }}>
                   Há etapa com percentual menor que o anterior. Esta tela não cria um estorno.
                   Revise o percentual ou confira as opções de correção e cancelamento na medição de origem, conforme seu acesso.
@@ -2090,7 +2090,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
             )}
 
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:"var(--arcd-space-2)",
-                          background:"var(--arcd-surface-muted)", border:"1px solid var(--arcd-border-default)", borderRadius:8, padding:"var(--arcd-space-3)" }}>
+                          background:"var(--arcd-surface-muted)", border:"var(--arcd-border-width) solid var(--arcd-border-default)", borderRadius:"var(--arcd-box-radius)", padding:"var(--arcd-space-3)" }}>
               <span style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-text-secondary)", textTransform:"uppercase", letterSpacing:"var(--arcd-letter-spacing-body)" }}>Total desta medição</span>
               <b style={{ fontSize:"var(--arcd-type-section-title)", color:"var(--arcd-success-text)", fontFamily:"var(--arcd-font-sans)" }}>
                 {fmt(itensDaMedicao().reduce((s,i)=>s+i.valor,0))}
@@ -2100,7 +2100,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
             <Inp disabled={medLocked} label="Observação" value={medForm.observacao} onChange={v=>setMedForm(f=>({...f,observacao:v}))}
               placeholder="Ex.: pendente o quadro do 2º pavimento"/>
 
-            <div style={{background:"var(--arcd-surface-muted)",border:`1px solid ${(medForm.fotos||[]).length?"var(--arcd-success-text)":"var(--arcd-warning-text)"}66`,borderRadius:9,padding:"var(--arcd-space-3)"}}>
+            <div style={{background:"var(--arcd-surface-muted)",border:`var(--arcd-border-width) solid ${(medForm.fotos||[]).length?"var(--arcd-success-text)":"var(--arcd-warning-text)"}66`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-3)"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
                 <div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",textTransform:"uppercase"}}>Evidência fotográfica obrigatória</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>As imagens ficam na pasta de fotos da obra e identificam o engenheiro responsável.</p></div>
                 <div className="flex flex-wrap gap-2">
@@ -2110,10 +2110,10 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                 <input ref={inputFotosMedRef} aria-label="Fotos da galeria para a medição" type="file" accept="image/*" multiple disabled={subindoFotosMed||medLocked} style={{display:"none"}} onChange={e=>{void anexarFotosMedicao(e.target.files);e.target.value="";}}/>
                 <input ref={inputCameraMedRef} aria-label="Foto da câmera para a medição" type="file" accept="image/*" capture="environment" disabled={subindoFotosMed||medLocked} style={{display:"none"}} onChange={e=>{void anexarFotosMedicao(e.target.files);e.target.value="";}}/>
               </div>
-              {(medForm.fotos||[]).length?<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(86px,1fr))",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)"}}>{(medForm.fotos||[]).map((f,i)=><div key={f.id||i} style={{minWidth:0}}><a href={f.url} target="_blank" rel="noopener noreferrer" style={{display:"block",aspectRatio:"1/1",borderRadius:7,overflow:"hidden",border:"1px solid var(--arcd-border-default)"}}><img src={f.url} alt={`Evidência ${i+1}`} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/></a><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>Foto {i+1} · {currentUser?.nome}</p></div>)}</div>:<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-2)"}}>Nenhuma fotografia anexada. Escolha fotos da galeria ou tire uma foto da execução.</p>}
+              {(medForm.fotos||[]).length?<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(86px,1fr))",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)"}}>{(medForm.fotos||[]).map((f,i)=><div key={f.id||i} style={{minWidth:0}}><a href={f.url} target="_blank" rel="noopener noreferrer" style={{display:"block",aspectRatio:"1/1",borderRadius:"var(--arcd-radius-control)",overflow:"hidden",border:"var(--arcd-border-width) solid var(--arcd-border-default)"}}><img src={f.url} alt={`Evidência ${i+1}`} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/></a><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>Foto {i+1} · {currentUser?.nome}</p></div>)}</div>:<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-2)"}}>Nenhuma fotografia anexada. Escolha fotos da galeria ou tire uma foto da execução.</p>}
             </div>
 
-            <div style={{background:"color-mix(in srgb, var(--arcd-success-text) 4%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-success-text) 27%, transparent)",borderRadius:8,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+            <div style={{background:"color-mix(in srgb, var(--arcd-success-text) 4%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-success-text) 27%, transparent)",borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
               <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-success-text)",fontWeight:"var(--arcd-font-weight-semibold)",lineHeight:"var(--arcd-line-height-normal)"}}>Ao confirmar, a medição é enviada para aprovação do financeiro. Só depois de aprovada ela é reconhecida como despesa de terceirizado no DRE; o pagamento continua sendo apenas a baixa financeira dessa obrigação.</p>
             </div>
 
@@ -2123,7 +2123,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
 
       {notaTercModal&&<Modal title={`Vincular NF à medição ${notaTercModal.numero}`} onClose={()=>{setNotaTercModal(null);setNotaTercId("");}}>
         <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
-          <div style={{padding:"var(--arcd-space-2)",background:"color-mix(in srgb, var(--arcd-action-primary) 3%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 33%, transparent)",borderRadius:7}}>
+          <div style={{padding:"var(--arcd-space-2)",background:"color-mix(in srgb, var(--arcd-action-primary) 3%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-action-primary) 33%, transparent)",borderRadius:"var(--arcd-radius-control)"}}>
             <b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)"}}>Obrigação já reconhecida: {fmt(notaTercModal.total)}</b>
             <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>A nota será evidência fiscal da medição; não criará um segundo custo.</p>
           </div>
@@ -2134,7 +2134,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
 
       {medRejeitarModal&&<Modal title={`Rejeitar medição ${medRejeitarModal.numero}`} onClose={()=>{setMedRejeitarModal(null);setMotivoRejeicao("");}}>
         <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
-          <div style={{padding:"var(--arcd-space-2)",background:"color-mix(in srgb, var(--arcd-danger-text) 3%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-danger-text) 33%, transparent)",borderRadius:7}}>
+          <div style={{padding:"var(--arcd-space-2)",background:"color-mix(in srgb, var(--arcd-danger-text) 3%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-danger-text) 33%, transparent)",borderRadius:"var(--arcd-radius-control)"}}>
             <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)"}}>A medição volta para o engenheiro corrigir e reenviar. Ela não é lançada no DRE enquanto estiver rejeitada.</p>
           </div>
           <Inp label="Motivo da rejeição" value={motivoRejeicao} onChange={setMotivoRejeicao}
@@ -2163,13 +2163,13 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
               </div>
               <p className="terceiros-payment-review__date">Baixa em {fmtDateFull(today())} · custo reconhecido em {fmtDateFull(medPayModal.data)}</p>
             </div>
-            {!(medPayModal.fotos||[]).length?<label style={{display:"flex",alignItems:"flex-start",gap:"var(--arcd-space-2)",background:"color-mix(in srgb, var(--arcd-danger-text) 5%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-danger-text) 47%, transparent)",borderRadius:8,padding:"var(--arcd-space-2) var(--arcd-space-3)",marginBottom:"var(--arcd-space-3)",cursor:"pointer"}}><ChoiceControl type="checkbox" checked={riscoSemFotoAceito} onChange={e=>setRiscoSemFotoAceito(e.target.checked)} style={{marginTop:"var(--arcd-space-half)",accentColor:"var(--arcd-danger-text)"}}/><span><b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-danger-text)"}}>Risco financeiro: medição sem fotografia da execução</b><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)",marginTop:"var(--arcd-space-half)"}}>Sem evidência do engenheiro, o pagamento pode antecipar serviço não executado, incompleto ou fora da especificação. Marque somente se decidiu prosseguir mesmo assim; a exceção ficará registrada.</p></span></label>:<div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",background:"color-mix(in srgb, var(--arcd-success-text) 4%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-success-text) 27%, transparent)",borderRadius:8,padding:"var(--arcd-space-2)",marginBottom:"var(--arcd-space-3)"}}><Ic n="check" color={C.green}/><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-success-text)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{contar((medPayModal.fotos||[]).length,"fotografia validada","fotografias validadas")} · {medPayModal.responsavelEvidencia||medPayModal.fotos?.[0]?.enviadoPor||"engenheiro"}</p></div>}
+            {!(medPayModal.fotos||[]).length?<label style={{display:"flex",alignItems:"flex-start",gap:"var(--arcd-space-2)",background:"color-mix(in srgb, var(--arcd-danger-text) 5%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-danger-text) 47%, transparent)",borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-2) var(--arcd-space-3)",marginBottom:"var(--arcd-space-3)",cursor:"pointer"}}><ChoiceControl type="checkbox" checked={riscoSemFotoAceito} onChange={e=>setRiscoSemFotoAceito(e.target.checked)} style={{marginTop:"var(--arcd-space-half)",accentColor:"var(--arcd-danger-text)"}}/><span><b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-danger-text)"}}>Risco financeiro: medição sem fotografia da execução</b><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)",marginTop:"var(--arcd-space-half)"}}>Sem evidência do engenheiro, o pagamento pode antecipar serviço não executado, incompleto ou fora da especificação. Marque somente se decidiu prosseguir mesmo assim; a exceção ficará registrada.</p></span></label>:<div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",background:"color-mix(in srgb, var(--arcd-success-text) 4%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-success-text) 27%, transparent)",borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-2)",marginBottom:"var(--arcd-space-3)"}}><Ic n="check" color={C.green}/><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-success-text)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{contar((medPayModal.fotos||[]).length,"fotografia validada","fotografias validadas")} · {medPayModal.responsavelEvidencia||medPayModal.fotos?.[0]?.enviadoPor||"engenheiro"}</p></div>}
             <div style={{ display:"flex", flexDirection:"column", gap:"var(--arcd-space-3)" }}>
               <div>
                 <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-text-primary)", textTransform:"uppercase", letterSpacing:"var(--arcd-letter-spacing-body)", marginBottom:"var(--arcd-space-1)" }}>Quem realizou este pagamento? *</p>
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"var(--arcd-space-2)" }}>
                   {[["empresa","Empresa","Despesa administrativa"],["obra","Obra","Custo direto da obra"]].map(([v,l,dica])=>(
-                    <StandardButton variant="secondary" key={v} onClick={()=>setPaySource(v)} style={{textAlign:"left"}}>
+                    <StandardButton variant="secondary" key={v} onClick={()=>setPaySource(v)}>
                       <p style={{ fontSize:"var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color:paySource===v?"var(--arcd-text-primary)":"var(--arcd-text-secondary)" }}>{l}</p>
                       <p style={{ fontSize:"var(--arcd-type-caption)", color:"var(--arcd-text-secondary)", marginTop:"var(--arcd-space-half)" }}>{v==="obra"?`${dica}: ${obraName(medPayModal.obraId)}`:dica}</p>
                     </StandardButton>
@@ -2196,7 +2196,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
               <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-text-primary)", textTransform:"uppercase", letterSpacing:"var(--arcd-letter-spacing-body)", marginBottom:"var(--arcd-space-1)" }}>Quem realizou este pagamento? *</p>
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"var(--arcd-space-2)" }}>
                 {[["empresa","Empresa","Despesa administrativa"],["obra","Obra","Custo direto da obra"]].map(([v,l,dica])=>(
-                  <StandardButton variant="secondary" key={v} onClick={()=>setPaySource(v)} style={{textAlign:"left"}}>
+                  <StandardButton variant="secondary" key={v} onClick={()=>setPaySource(v)}>
                     <p style={{ fontSize:"var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color:paySource===v?"var(--arcd-text-primary)":"var(--arcd-text-secondary)" }}>{l}</p>
                     <p style={{ fontSize:"var(--arcd-type-caption)", color:"var(--arcd-text-secondary)", marginTop:"var(--arcd-space-half)" }}>{v==="obra"?`${dica}: ${obraName(payModal.obraId)}`:dica}</p>
                   </StandardButton>

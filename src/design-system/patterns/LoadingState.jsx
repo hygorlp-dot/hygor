@@ -1,5 +1,6 @@
 import {useEffect,useState} from 'react';
 import {Spinner} from '../primitives/Spinner.jsx';
+import './styles.css';
 import {UI_TEXT} from '../copy.js';
 
 // A moldura nasce com a espera; texto e anúncio só aparecem se ela persistir.

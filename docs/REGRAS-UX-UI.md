@@ -89,10 +89,10 @@ Toda tela é feita de caixas iguais, alinhadas pela mesma régua. Tokens em `fou
 `src/design-system/themes/box-contract.css` (vale para todos os temas, depois de `vidro-erp.css`).
 
 1. **Dois raios só.** Controle (botão, campo, selo, chip) usa `--arcd-radius-control`; caixa (cartão, painel, faixa de
-   indicadores, bloco de filtros, tabela) usa `--arcd-box-radius`. Pílula e círculo usam `--arcd-radius-pill` / `50%`.
-   Nada de raio em px. Raios em px do legado são convertidos para esses dois níveis pelo contrato até a tela ser migrada.
+   indicadores, bloco de filtros, tabela) usa `--arcd-box-radius`. Pílulas e elementos circulares usam `--arcd-radius-pill`.
+   Aplique esses tokens na origem do estilo.
 2. **Caixa padrão:** superfície `--arcd-surface-card` (ou o vidro do tema), borda de 1 px `--arcd-border-default`,
-   raio `--arcd-box-radius` e recuo interno `--arcd-box-padding`, que acompanha a densidade. Sombra vem do tema, nunca da tela.
+   raio `--arcd-box-radius` e recuo interno `--arcd-box-padding`, que acompanha a densidade. Use `--arcd-border-width` em divisórias e bordas comuns. Sombra vem do tema, nunca da tela.
    Caixa com campos (filtros, comandos) sempre tem recuo: rótulo e campo nunca encostam na borda.
 3. **Caixa com tabela não tem recuo:** a tabela encosta na borda e só a primeira e a última coluna recuam
    `--arcd-box-padding`. Assim o texto da tabela fica na mesma vertical do texto da caixa de filtros acima.

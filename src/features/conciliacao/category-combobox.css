@@ -4,7 +4,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--arcd-space-2);
-  color: var(--arcd-text-primary, #161616);
+  color: var(--arcd-text-primary);
   font-size: var(--arcd-type-control, 14px);
 }
 
@@ -20,7 +20,7 @@
   display: flex;
   align-items: stretch;
   min-width: 0;
-  gap: 4px;
+  gap: var(--arcd-space-1);
 }
 
 .reconciliation-category__input {
@@ -53,26 +53,26 @@
   overflow: auto;
   overscroll-behavior: contain;
   margin: 0;
-  padding: 4px;
+  padding: var(--arcd-space-1);
 }
 
 .reconciliation-category__popup li {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--arcd-space-2);
   min-height: 40px;
-  padding: 8px 10px;
+  padding: var(--arcd-space-2) var(--arcd-space-2);
   border-radius: var(--arcd-radius-sm, 6px);
   cursor: pointer;
   overflow-wrap: anywhere;
 }
 
 .reconciliation-category__popup li[data-active="true"] {
-  background: var(--arcd-surface-muted, #f4f4f4);
+  background: var(--arcd-surface-muted);
 }
 
 .reconciliation-category__popup li[aria-selected="true"] {
-  background: var(--arcd-action-primary-subtle, #eee5d5);
+  background: var(--arcd-action-primary-subtle);
 }
 
 .reconciliation-category__option-text {
@@ -84,7 +84,7 @@
   display: inline-flex;
   flex: 0 0 16px;
   width: 16px;
-  color: var(--arcd-text-primary, #161616);
+  color: var(--arcd-text-primary);
 }
 
 .reconciliation-category__popup strong {
@@ -95,16 +95,16 @@
 
 .reconciliation-category__popup small {
   display: block;
-  margin-top: 2px;
-  color: var(--arcd-text-secondary, #525252);
+  margin-top: var(--arcd-space-half);
+  color: var(--arcd-text-secondary);
   font-size: var(--arcd-type-caption, 12px);
   line-height: var(--arcd-line-height-normal, 1.5);
 }
 
 .reconciliation-category__popup p {
   margin: 0;
-  padding: 12px;
-  color: var(--arcd-text-secondary, #525252);
+  padding: var(--arcd-space-3);
+  color: var(--arcd-text-secondary);
   font-size: var(--arcd-type-caption, 12px);
   line-height: var(--arcd-line-height-normal, 1.5);
 }
@@ -124,7 +124,7 @@
 }
 
 .reconciliation-toolbar>.reconciliation-category{flex:1 1 230px;max-width:350px}.reconciliation-toolbar{align-items:flex-end}
-.reconciliation-dre-effect{padding:10px 12px;border:1px solid var(--color-border,#d4d8dc);border-radius:var(--arcd-radius-control);background:var(--color-surface,#f4f7fa);font-size:var(--arcd-type-caption,12px);line-height:1.5;overflow-wrap:anywhere}
-.reconciliation-dre-effect strong{display:block;margin-bottom:4px}.reconciliation-dre-effect p{margin:0}.reconciliation-dre-effect[data-effect="revenue"]{border-color:#6cae93}.reconciliation-dre-effect[data-effect="funding"],.reconciliation-dre-effect[data-effect="loan"],.reconciliation-dre-effect[data-effect="unallocated"]{border-color:#c4ad70}
-.reconciliation-existing-first{padding:12px;border:1px solid #8eaecb;border-radius:var(--arcd-radius-control);background:var(--color-surface,#f4f7fa);font-size:var(--arcd-type-label,13px);line-height:1.5}.reconciliation-existing-first p{margin:4px 0 9px}.reconciliation-existing-first>div{display:flex;gap:8px;flex-wrap:wrap}
+.reconciliation-dre-effect{padding:var(--arcd-space-2) var(--arcd-space-3);border:var(--arcd-border-width) solid var(--arcd-border-default);border-radius:var(--arcd-radius-control);background:var(--arcd-surface-card);font-size:var(--arcd-type-caption,12px);line-height:1.5;overflow-wrap:anywhere}
+.reconciliation-dre-effect strong{display:block;margin-bottom:var(--arcd-space-1)}.reconciliation-dre-effect p{margin:0}.reconciliation-dre-effect[data-effect="revenue"]{border-color:var(--arcd-success-border)}.reconciliation-dre-effect[data-effect="funding"],.reconciliation-dre-effect[data-effect="loan"],.reconciliation-dre-effect[data-effect="unallocated"]{border-color:var(--arcd-warning-border)}
+.reconciliation-existing-first{padding:var(--arcd-space-3);border:var(--arcd-border-width) solid var(--arcd-info-border);border-radius:var(--arcd-radius-control);background:var(--arcd-surface-card);font-size:var(--arcd-type-label,13px);line-height:1.5}.reconciliation-existing-first p{margin:var(--arcd-space-1) 0 var(--arcd-space-2)}.reconciliation-existing-first>div{display:flex;gap:var(--arcd-space-2);flex-wrap:wrap}
 @media(max-width:600px){.reconciliation-toolbar>.reconciliation-category{max-width:none;flex-basis:100%}}

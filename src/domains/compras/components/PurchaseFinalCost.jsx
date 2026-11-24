@@ -20,7 +20,7 @@ export function CostComparison({quote,supplierName}){
   return <section className="purchase-cost-comparison"><h3>Comparativo de custo final</h3>
     <p>Frete, desconto e despesas entram no custo dos itens por rateio proporcional. Compras parciais com adicionais exigem revisão da oferta. Só propostas completas para a mesma cesta recebem destaque.</p>
     {!rows.length&&<p>Nenhuma proposta cadastrada para comparar.</p>}
-    <div className="purchase-cost-scroll" role="region" aria-label="Valores das propostas" tabIndex={0}><table><thead><tr><th>Fornecedor</th><th>Itens</th><th>Frete</th><th>Desconto</th><th>Impostos adicionais</th><th>Despesas</th><th>Custo final</th><th>Entrega / pagamento</th></tr></thead><tbody>
+    <div className="purchase-cost-scroll" role="region" aria-label="Valores das propostas" tabIndex={0}><table className="arcd-data-table__table"><thead><tr><th>Fornecedor</th><th>Itens</th><th>Frete</th><th>Desconto</th><th>Impostos adicionais</th><th>Despesas</th><th>Custo final</th><th>Entrega / pagamento</th></tr></thead><tbody>
       {rows.map(r=><tr key={r.proposal.id}><th scope="row">{supplierName(r.proposal.fornecedorId)}</th><td data-label="Itens">{fmt(r.subtotal)}{!r.coberturaCompleta&&<small>Cesta incompleta</small>}</td>
         {Object.keys(CAMPOS_CUSTO_FINAL).map(key=><td key={key} data-label={CAMPOS_CUSTO_FINAL[key]}>{r.missing.includes(key)?"Não informado":r.invalid.includes(key)?"Valor inválido":fmt(Number(r.proposal.custoFinal[key]))}</td>)}
         <td className="purchase-cost-total" data-label="Custo final"><strong>{r.complete?fmt(r.total):"A revisar"}</strong>{minimum!==null&&r.complete&&r.coberturaCompleta&&r.total===minimum&&<small>Menor custo final</small>}</td>

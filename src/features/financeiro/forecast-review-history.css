@@ -2,9 +2,9 @@
 .forecast-review-history h4{font-size:var(--arcd-type-body);font-weight:var(--arcd-font-weight-semibold)}
 .forecast-review-history p{margin-block:var(--arcd-space-2);max-width:85ch}
 .forecast-review-history label{display:grid;gap:var(--arcd-space-1);margin-block:var(--arcd-space-4);max-width:360px}
-.forecast-review-history select{width:100%;min-height:44px;padding:var(--arcd-space-2);background:var(--arcd-surface-card);color:var(--arcd-text-primary);border:1px solid var(--arcd-border-strong);border-radius:var(--arcd-radius-md)}
+.forecast-review-history select{width:100%;min-height:44px;padding:var(--arcd-space-2);background:var(--arcd-surface-card);color:var(--arcd-text-primary);border:var(--arcd-border-width) solid var(--arcd-border-strong);border-radius:var(--arcd-radius-md)}
 .forecast-review-history ol{list-style:none;margin:0;padding:0}
-.forecast-review-history li{border-top:1px solid var(--arcd-border-default);padding-block:var(--arcd-space-4)}
+.forecast-review-history li{border-top:var(--arcd-border-width) solid var(--arcd-border-default);padding-block:var(--arcd-space-4)}
 .forecast-review-history dl{display:flex;flex-wrap:wrap;gap:var(--arcd-space-3) var(--arcd-space-6);margin-block:var(--arcd-space-3);font-variant-numeric:tabular-nums}
 .forecast-review-history dt{font-size:var(--arcd-type-label);color:var(--arcd-text-secondary)}
 .forecast-review-history dd{margin:var(--arcd-space-1) 0 0}

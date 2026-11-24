@@ -1,5 +1,6 @@
 import { Select } from "../../design-system/primitives/Select.jsx";
 import {Button} from '../../design-system/primitives/Button.jsx';
+import { ChevronDown } from "lucide-react";
 import { createContext, useContext, useEffect, useId, useRef, useState } from "react";
 import { consultarDreCanonico, consultarDreEmpresaCanonico } from "../../api.js";
 import { podeAcessarAba } from "../../domains/administracao/abas-acesso.js";
@@ -21,7 +22,12 @@ export function FlowTabs({label,steps,tools=[],active,onChange,toolsLabel="Consu
     <nav aria-label={label}>{steps.map(item=><Button variant="ghost" key={item.id} type="button" aria-current={active===item.id?"page":undefined} onClick={()=>onChange(item.id)} aria-label={item.count!=null?`${item.label} ${item.count}`:item.label}>
       <span>{item.label}</span>{item.count!=null&&<small>{' '}{item.count}</small>}
     </Button>)}</nav>
-    {tools.length>0&&<details className="workflow-tools" key={active} open={tools.some(item=>item.id===active)}><summary>{toolsLabel}{tools.some(item=>item.id===active)?` · ${selected.label}`:""}</summary><div>{tools.map(item=><Button variant="secondary" key={item.id} type="button" aria-current={active===item.id?"page":undefined} onClick={()=>onChange(item.id)}>{item.label}{item.count!=null?` · ${item.count}`:""}</Button>)}</div></details>}
+    {tools.length>0&&<details className="workflow-tools" key={active} open={tools.some(item=>item.id===active)}>
+      <summary><span>{toolsLabel}{tools.some(item=>item.id===active)?` · ${selected.label}`:""}</span><ChevronDown aria-hidden="true" /></summary>
+      <nav aria-label={toolsLabel}>{tools.map(item=><Button variant="ghost" key={item.id} type="button" aria-current={active===item.id?"page":undefined} onClick={()=>onChange(item.id)}>
+        <span>{item.label}</span>{item.count!=null&&<small>{' '}{item.count}</small>}
+      </Button>)}</nav>
+    </details>}
     {selected?.description&&<p className="workflow-description">{selected.description}</p>}
   </section>;
 }

@@ -19,7 +19,7 @@ import {buildPatrimonyReportHtml} from "../report.js";
 const CATEGORIAS=["Informática","Telefonia","Ferramentas","Máquinas","Móveis","Eletroeletrônicos","Veículos","Segurança","Outros"];
 const STATUS=[{v:"ativo",l:"Ativo"},{v:"em_uso",l:"Em uso"},{v:"manutencao",l:"Manutenção"},{v:"extraviado",l:"Extraviado"},{v:"baixado",l:"Baixado"}];
 const LOCAIS=[{v:"empresa",l:"Sede / empresa"},{v:"almoxarifado",l:"Almoxarifado"},{v:"obra",l:"Obra (somente localização)"},{v:"funcionario",l:"Com funcionário"},{v:"outro",l:"Outro"}];
-const card={background:C.card,border:"1px solid "+C.border,borderRadius:8,padding:14};
+const card={background:C.card,border:"1px solid "+C.border,borderRadius:"var(--arcd-box-radius)",padding:14};
 const money=v=>Number(v||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
 const digits=v=>String(v||"").replace(/\D/g,"");
 const key=prefix=>(prefix+"-"+(globalThis.crypto?.randomUUID?.()||Date.now()+"-"+Math.random().toString(36).slice(2))).replace(/[^a-zA-Z0-9_-]/g,"").slice(0,160);
@@ -47,30 +47,30 @@ function AssetForm({asset,setAsset,onSave,onClose,busy,showToast}){
       setAsset(current=>({...current,_photoUpload:{dataUrl:preview,ext,name:f.name||"foto",mime:f.type||"",size:Number(f.size||0)},_photoPreview:preview}));
     }catch(error){showToast(error?.message||"Não foi possível preparar a foto.","error");}
   };
-  return <Modal title={asset.version?"Editar patrimônio":"Novo patrimônio"} onClose={onClose}><div style={{display:"grid",gap:9}}>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:8}}><Inp label="Código patrimonial" value={asset.assetTag||""} onChange={F("assetTag")} placeholder="Gerado ao salvar: PAT-000001"/><Sel label="Categoria" value={asset.category||"Outros"} onChange={F("category")} options={CATEGORIAS.map(v=>({v,l:v}))}/></div>
+  return <Modal title={asset.version?"Editar patrimônio":"Novo patrimônio"} onClose={onClose}><div style={{display:"grid",gap:"var(--arcd-space-2)"}}>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:"var(--arcd-space-2)"}}><Inp label="Código patrimonial" value={asset.assetTag||""} onChange={F("assetTag")} placeholder="Gerado ao salvar: PAT-000001"/><Sel label="Categoria" value={asset.category||"Outros"} onChange={F("category")} options={CATEGORIAS.map(v=>({v,l:v}))}/></div>
     <Inp label="Bem *" value={asset.name||""} onChange={F("name")} placeholder="Ex.: Notebook Dell Latitude"/>
     <Inp label="Descrição" value={asset.description||""} onChange={F("description")}/>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:8}}><Inp label="Fabricante" value={asset.manufacturer||""} onChange={F("manufacturer")}/><Inp label="Modelo" value={asset.model||""} onChange={F("model")}/></div>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:8}}><Inp label="Nº de série" value={asset.serialNumber||""} onChange={F("serialNumber")}/><Inp label="IMEI" value={asset.imei||""} onChange={F("imei")}/><Inp label="Placa" value={asset.plate||""} onChange={F("plate")}/></div>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:8}}><Inp label="Valor de aquisição" type="number" value={asset.acquisitionValue||0} onChange={F("acquisitionValue")}/><Inp label="Data de aquisição" type="date" value={asset.acquisitionDate||""} onChange={F("acquisitionDate")}/></div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:"var(--arcd-space-2)"}}><Inp label="Fabricante" value={asset.manufacturer||""} onChange={F("manufacturer")}/><Inp label="Modelo" value={asset.model||""} onChange={F("model")}/></div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:"var(--arcd-space-2)"}}><Inp label="Nº de série" value={asset.serialNumber||""} onChange={F("serialNumber")}/><Inp label="IMEI" value={asset.imei||""} onChange={F("imei")}/><Inp label="Placa" value={asset.plate||""} onChange={F("plate")}/></div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:"var(--arcd-space-2)"}}><Inp label="Valor de aquisição" type="number" value={asset.acquisitionValue||0} onChange={F("acquisitionValue")}/><Inp label="Data de aquisição" type="date" value={asset.acquisitionDate||""} onChange={F("acquisitionDate")}/></div>
     {!asset.version&&<>
       <Sel label="Localização inicial" value={asset.location?.type||"empresa"} onChange={v=>setAsset(s=>({...s,location:{...(s.location||{}),type:v}}))} options={LOCAIS}/>
       <Inp label="Local inicial" value={asset.location?.label||""} onChange={v=>setAsset(s=>({...s,location:{...(s.location||{}),label:v}}))} placeholder="Sede, almoxarifado ou local atual"/>
       <Inp label="Responsável inicial pelo bem" value={asset.custodian?.name||""} onChange={v=>setAsset(s=>({...s,custodian:{...(s.custodian||{}),name:v,type:v?"external":""}}))}/>
     </>}
-    {!!asset.version&&<div style={card}><b>Controle operacional</b><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4}}>Situação: {STATUS.find(s=>s.v===asset.status)?.l||asset.status} · Local: {asset.location?.label||"Sede"}. Use as ações "Mover" e "Status" na lista para manter o histórico auditável.</p></div>}
+    {!!asset.version&&<div style={card}><b>Controle operacional</b><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>Situação: {STATUS.find(s=>s.v===asset.status)?.l||asset.status} · Local: {asset.location?.label||"Sede"}. Use as ações "Mover" e "Status" na lista para manter o histórico auditável.</p></div>}
     <div style={card}>
       <b>Foto do bem</b>
-      <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4}}>Tire uma foto ou escolha da galeria. JPG, PNG ou WEBP, até {PATRIMONY_DOCUMENT_MAX_MB} MB.</p>
-      {asset._photoPreview&&<img src={asset._photoPreview} alt={"Prévia de "+(asset.name||"patrimônio")} style={{width:120,height:90,objectFit:"cover",borderRadius:7,border:"1px solid "+C.border,marginTop:8}}/>}
-      {!asset._photoPreview&&asset.photo?.path&&<button type="button" onClick={async()=>{const tab=window.open("about:blank","_blank");const r=await obterDocumentoPatrimonio(asset.photo.path);if(r.ok&&r.url&&tab){tab.location.href=r.url;}else{tab?.close();showToast(r.error||"Não foi possível abrir a foto.","error");}}} style={{display:"block",border:0,background:"transparent",padding:"6px 0 0",color:C.blue,textAlign:"left",cursor:"pointer"}}>Abrir foto atual</button>}
-      <input type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>selectPhoto(e.target.files?.[0]||null)} style={{marginTop:8}}/>
-      {asset._photoUpload&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.green,marginTop:4}}>Nova foto pronta para salvar.</p>}
+      <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>Tire uma foto ou escolha da galeria. JPG, PNG ou WEBP, até {PATRIMONY_DOCUMENT_MAX_MB} MB.</p>
+      {asset._photoPreview&&<img src={asset._photoPreview} alt={"Prévia de "+(asset.name||"patrimônio")} style={{width:120,height:90,objectFit:"cover",borderRadius:"var(--arcd-radius-control)",border:"1px solid "+C.border,marginTop:"var(--arcd-space-2)"}}/>}
+      {!asset._photoPreview&&asset.photo?.path&&<button type="button" onClick={async()=>{const tab=window.open("about:blank","_blank");const r=await obterDocumentoPatrimonio(asset.photo.path);if(r.ok&&r.url&&tab){tab.location.href=r.url;}else{tab?.close();showToast(r.error||"Não foi possível abrir a foto.","error");}}} style={{display:"block",border:0,background:"transparent",padding:"var(--arcd-space-1) 0 0",color:C.blue,textAlign:"left",cursor:"pointer"}}>Abrir foto atual</button>}
+      <input type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>selectPhoto(e.target.files?.[0]||null)} style={{marginTop:"var(--arcd-space-2)"}}/>
+      {asset._photoUpload&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.green,marginTop:"var(--arcd-space-1)"}}>Nova foto pronta para salvar.</p>}
     </div>
-    <div style={card}><b>Nota fiscal</b><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4}}>{asset.invoice?.number?"NF "+asset.invoice.number+" · "+(asset.invoice.supplierName||"Fornecedor"):"Sem nota vinculada"}</p>{asset.invoice?.document?.path&&<button type="button" onClick={async()=>{const tab=window.open("about:blank","_blank");const r=await obterDocumentoPatrimonio(asset.invoice.document.path);if(r.ok&&r.url&&tab){tab.location.href=r.url;}else{tab?.close();}}} style={{border:0,background:"transparent",padding:0,color:C.blue,textAlign:"left",cursor:"pointer"}}>Abrir documento fiscal</button>}</div>
+    <div style={card}><b>Nota fiscal</b><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>{asset.invoice?.number?"NF "+asset.invoice.number+" · "+(asset.invoice.supplierName||"Fornecedor"):"Sem nota vinculada"}</p>{asset.invoice?.document?.path&&<button type="button" onClick={async()=>{const tab=window.open("about:blank","_blank");const r=await obterDocumentoPatrimonio(asset.invoice.document.path);if(r.ok&&r.url&&tab){tab.location.href=r.url;}else{tab?.close();}}} style={{border:0,background:"transparent",padding:0,color:C.blue,textAlign:"left",cursor:"pointer"}}>Abrir documento fiscal</button>}</div>
     <Inp label="Observações" value={asset.notes||""} onChange={F("notes")}/>
-    <div style={{display:"flex",justifyContent:"flex-end",gap:8}}><Btn v="ghost" onClick={onClose}>Cancelar</Btn><Btn onClick={onSave} disabled={busy||!String(asset.name||"").trim()}>{busy?"Salvando...":"Salvar"}</Btn></div>
+    <div style={{display:"flex",justifyContent:"flex-end",gap:"var(--arcd-space-2)"}}><Btn v="ghost" onClick={onClose}>Cancelar</Btn><Btn onClick={onSave} disabled={busy||!String(asset.name||"").trim()}>{busy?"Salvando...":"Salvar"}</Btn></div>
   </div></Modal>;
 }
 
@@ -125,14 +125,14 @@ function ImportInvoice({data,dispatchCommand,showToast,onClose}){
       showToast(String(assets.length)+" bem(ns) incluído(s) no patrimônio da empresa.");onClose();
     }catch(e){showToast(e.message||"Falha ao gravar patrimônio.","error");}finally{setBusy(false);}
   };
-  return <Modal title="Importar NF para patrimônio" onClose={onClose}><div style={{display:"grid",gap:10}}>
-    <div style={{...card,borderStyle:"dashed"}}><b>XML, PDF ou foto da nota fiscal</b><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4}}>XML é lido diretamente. PDF/foto usa IA e exige revisão antes de salvar. Máx. {PATRIMONY_DOCUMENT_MAX_MB} MB por arquivo.</p><input type="file" accept=".xml,application/xml,text/xml,application/pdf,image/jpeg,image/png,image/webp" onChange={e=>prepare(e.target.files?.[0]||null)} style={{marginTop:10}}/></div>
+  return <Modal title="Importar NF para patrimônio" onClose={onClose}><div style={{display:"grid",gap:"var(--arcd-space-2)"}}>
+    <div style={{...card,borderStyle:"dashed"}}><b>XML, PDF ou foto da nota fiscal</b><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>XML é lido diretamente. PDF/foto usa IA e exige revisão antes de salvar. Máx. {PATRIMONY_DOCUMENT_MAX_MB} MB por arquivo.</p><input type="file" accept=".xml,application/xml,text/xml,application/pdf,image/jpeg,image/png,image/webp" onChange={e=>prepare(e.target.files?.[0]||null)} style={{marginTop:"var(--arcd-space-2)"}}/></div>
     {busy&&!proposal&&<div style={card}>Lendo documento...</div>}
-    {proposal&&<><div style={card}><b>{"NF "+(proposal.invoice?.numero||"—")}</b><p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>{(proposal.invoice?.fornecedorNome||"Fornecedor não identificado")+" · "+money(proposal.invoice?.valorBruto)}{fornecedor?" · fornecedor já cadastrado":""}</p>{proposal.source==="ai"&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.orange}}>Leitura por IA: revise antes de gravar.</p>}</div>
-    <div style={{display:"grid",gap:7,maxHeight:"44vh",overflowY:"auto"}}>{(proposal.items||[]).map((i,index)=><div key={index} style={{...card,borderColor:i.patrimonial?C.green:C.border}}>
-      <label style={{display:"flex",gap:8}}><input type="checkbox" checked={!!i.patrimonial} onChange={e=>patch(index,{patrimonial:e.target.checked})}/><span><b>{i.descricao||"Item"}</b><small style={{display:"block",color:C.muted}}>{String(i.quantidade||1)+" un. · "+money(i.valorUnitario||i.valorTotal)}</small></span></label>
-      {i.patrimonial&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:6,marginTop:8}}><Sel label="Categoria" value={i.categoria||"Outros"} onChange={v=>patch(index,{categoria:v})} options={CATEGORIAS.map(v=>({v,l:v}))}/><Inp label="Qtd. patrimonial" type="number" value={i.quantidade||1} onChange={v=>patch(index,{quantidade:v})}/><Inp label="Marca" value={i.marca||""} onChange={v=>patch(index,{marca:v})}/><Inp label="Modelo" value={i.modelo||""} onChange={v=>patch(index,{modelo:v})}/><Inp label="Série" value={i.numeroSerie||""} onChange={v=>patch(index,{numeroSerie:v})}/><Inp label="IMEI" value={i.imei||""} onChange={v=>patch(index,{imei:v})}/></div>}
-    </div>)}</div><div style={{display:"flex",justifyContent:"flex-end",gap:8}}><Btn v="ghost" onClick={onClose}>Cancelar</Btn><Btn onClick={save} disabled={busy}>{busy?"Salvando...":"Cadastrar selecionados"}</Btn></div></>}
+    {proposal&&<><div style={card}><b>{"NF "+(proposal.invoice?.numero||"—")}</b><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>{(proposal.invoice?.fornecedorNome||"Fornecedor não identificado")+" · "+money(proposal.invoice?.valorBruto)}{fornecedor?" · fornecedor já cadastrado":""}</p>{proposal.source==="ai"&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.orange}}>Leitura por IA: revise antes de gravar.</p>}</div>
+    <div style={{display:"grid",gap:"var(--arcd-space-2)",maxHeight:"44vh",overflowY:"auto"}}>{(proposal.items||[]).map((i,index)=><div key={index} style={{...card,borderColor:i.patrimonial?C.green:"var(--arcd-border-default)"}}>
+      <label style={{display:"flex",gap:"var(--arcd-space-2)"}}><input type="checkbox" checked={!!i.patrimonial} onChange={e=>patch(index,{patrimonial:e.target.checked})}/><span><b>{i.descricao||"Item"}</b><small style={{display:"block",color:"var(--arcd-text-secondary)"}}>{String(i.quantidade||1)+" un. · "+money(i.valorUnitario||i.valorTotal)}</small></span></label>
+      {i.patrimonial&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-2)"}}><Sel label="Categoria" value={i.categoria||"Outros"} onChange={v=>patch(index,{categoria:v})} options={CATEGORIAS.map(v=>({v,l:v}))}/><Inp label="Qtd. patrimonial" type="number" value={i.quantidade||1} onChange={v=>patch(index,{quantidade:v})}/><Inp label="Marca" value={i.marca||""} onChange={v=>patch(index,{marca:v})}/><Inp label="Modelo" value={i.modelo||""} onChange={v=>patch(index,{modelo:v})}/><Inp label="Série" value={i.numeroSerie||""} onChange={v=>patch(index,{numeroSerie:v})}/><Inp label="IMEI" value={i.imei||""} onChange={v=>patch(index,{imei:v})}/></div>}
+    </div>)}</div><div style={{display:"flex",justifyContent:"flex-end",gap:"var(--arcd-space-2)"}}><Btn v="ghost" onClick={onClose}>Cancelar</Btn><Btn onClick={save} disabled={busy}>{busy?"Salvando...":"Cadastrar selecionados"}</Btn></div></>}
   </div></Modal>;
 }
 
@@ -175,7 +175,7 @@ export default function PatrimonioEmpresaView({data,showToast,dispatchCommand}){
     openReportPreview(html);
   };
   const newAsset=<Btn onClick={()=>setEditor(vazio())}><Ic n="plus"/> Novo bem</Btn>;
-  return <div className="anim patrimony-workspace" style={{display:"flex",flexDirection:"column",gap:12}}>
+  return <div className="anim patrimony-workspace" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
     <PageHero title="Patrimônio da empresa" description="Cadastre bens e consulte a localização e o histórico." statsDisclosure={isMobile}
       stats={[{label:"Bens ativos",value:String(active.length),color:C.green},{label:"Valor de aquisição",value:money(total)},{label:"Com nota/documento",value:String(docs)+"/"+String(active.length),color:docs===active.length?C.green:C.orange}]}
       actions={<div className="flex flex-wrap gap-2">
@@ -216,22 +216,22 @@ export default function PatrimonioEmpresaView({data,showToast,dispatchCommand}){
     </section>
     {editor&&<AssetForm asset={editor} setAsset={setEditor} onSave={save} onClose={()=>setEditor(null)} busy={busy} showToast={showToast}/>}
     {importing&&<ImportInvoice data={data} dispatchCommand={dispatchCommand} showToast={showToast} onClose={()=>setImporting(false)}/>}
-    {move&&<Modal title="Movimentar patrimônio" onClose={()=>setMove(null)}><div style={{display:"grid",gap:9}}>
+    {move&&<Modal title="Movimentar patrimônio" onClose={()=>setMove(null)}><div style={{display:"grid",gap:"var(--arcd-space-2)"}}>
       <b>{move.name}</b>
       <Sel label="Tipo de localização" value={move.location?.type||"empresa"} onChange={v=>setMove(s=>({...s,location:{...(s.location||{}),type:v}}))} options={LOCAIS}/>
       <Inp label="Local atual" value={move.location?.label||""} onChange={v=>setMove(s=>({...s,location:{...(s.location||{}),label:v}}))} placeholder="Ex.: Sede, almoxarifado, H2 04"/>
       <Inp label="Responsável pelo bem" value={move.custodian?.name||""} onChange={v=>setMove(s=>({...s,custodian:{...(s.custodian||{}),name:v,type:v?"external":""}}))}/>
       <Inp label="Motivo / observação" value={move.reason||""} onChange={v=>setMove(s=>({...s,reason:v}))}/>
-      <div style={{display:"flex",justifyContent:"flex-end",gap:8}}><Btn v="ghost" onClick={()=>setMove(null)}>Cancelar</Btn><Btn onClick={saveMove} disabled={busy}>{busy?"Salvando...":"Registrar movimentação"}</Btn></div>
+      <div style={{display:"flex",justifyContent:"flex-end",gap:"var(--arcd-space-2)"}}><Btn v="ghost" onClick={()=>setMove(null)}>Cancelar</Btn><Btn onClick={saveMove} disabled={busy}>{busy?"Salvando...":"Registrar movimentação"}</Btn></div>
     </div></Modal>}
-    {statusEdit&&<Modal title="Alterar situação patrimonial" onClose={()=>setStatusEdit(null)}><div style={{display:"grid",gap:9}}>
+    {statusEdit&&<Modal title="Alterar situação patrimonial" onClose={()=>setStatusEdit(null)}><div style={{display:"grid",gap:"var(--arcd-space-2)"}}>
       <b>{statusEdit.name}</b>
       <Sel label="Nova situação" value={statusEdit.nextStatus||"ativo"} onChange={v=>setStatusEdit(s=>({...s,nextStatus:v}))} options={STATUS}/>
       <Inp label="Motivo" value={statusEdit.reason||""} onChange={v=>setStatusEdit(s=>({...s,reason:v}))} placeholder="Obrigatório para baixa ou extravio"/>
-      <div style={{display:"flex",justifyContent:"flex-end",gap:8}}><Btn v="ghost" onClick={()=>setStatusEdit(null)}>Cancelar</Btn><Btn onClick={saveStatus} disabled={busy}>{busy?"Salvando...":"Confirmar"}</Btn></div>
+      <div style={{display:"flex",justifyContent:"flex-end",gap:"var(--arcd-space-2)"}}><Btn v="ghost" onClick={()=>setStatusEdit(null)}>Cancelar</Btn><Btn onClick={saveStatus} disabled={busy}>{busy?"Salvando...":"Confirmar"}</Btn></div>
     </div></Modal>}
-    {history&&<Modal title={"Histórico · "+history.name} onClose={()=>setHistory(null)}><div style={{display:"grid",gap:8,maxHeight:"60vh",overflowY:"auto"}}>
-      {!(history.operationalHistory||[]).length?<p style={{color:C.muted}}>Sem eventos registrados.</p>:[...(history.operationalHistory||[])].reverse().map(event=><div key={event.id} style={card}><b style={{fontSize:"var(--arcd-type-body)"}}>{event.type}</b><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3}}>{event.at?new Date(event.at).toLocaleString("pt-BR"):""}{event.actorName?" · "+event.actorName:""}</p>{event.after?.reason&&<p style={{fontSize:"var(--arcd-type-label)",marginTop:4}}>{event.after.reason}</p>}</div>)}
+    {history&&<Modal title={"Histórico · "+history.name} onClose={()=>setHistory(null)}><div style={{display:"grid",gap:"var(--arcd-space-2)",maxHeight:"60vh",overflowY:"auto"}}>
+      {!(history.operationalHistory||[]).length?<p style={{color:"var(--arcd-text-secondary)"}}>Sem eventos registrados.</p>:[...(history.operationalHistory||[])].reverse().map(event=><div key={event.id} style={card}><b style={{fontSize:"var(--arcd-type-body)"}}>{event.type}</b><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{event.at?new Date(event.at).toLocaleString("pt-BR"):""}{event.actorName?" · "+event.actorName:""}</p>{event.after?.reason&&<p style={{fontSize:"var(--arcd-type-label)",marginTop:"var(--arcd-space-1)"}}>{event.after.reason}</p>}</div>)}
     </div></Modal>}
   </div>;
 }

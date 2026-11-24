@@ -218,7 +218,7 @@ export default function RentalOperationsPanel({
       <section className="ro-kpis" aria-label="Indicadores do recorte">
         <SummaryCard label="Equipamentos locados" icon={<Truck />} value={`${kpis.equipamentosLocados.unidadesNoPico} un.`}
           detail={<span title={scope}>{scope}</span>}>
-          <div className="ro-kpi-note">Pico de unidades simultâneas · {contar(kpis.equipamentosLocados.equipamentos,"equipamento","equipamentos")} · {kpis.equipamentosLocados.locacoes} locação(ões)</div>
+          <div className="ro-kpi-note">Pico de unidades simultâneas · {contar(kpis.equipamentosLocados.equipamentos,"equipamento","equipamentos")} · {contar(kpis.equipamentosLocados.locacoes,"locação","locações")}</div>
         </SummaryCard>
         <SummaryCard label="Taxa de ocupação" icon={<Gauge />} value={kpis.ocupacao.pct == null ? "—" : `${kpis.ocupacao.pct.toFixed(0)}%`}
           detail={<span title={scope}>{scope}</span>}>
@@ -277,7 +277,7 @@ export default function RentalOperationsPanel({
             action={<Button variant="secondary" onClick={clearAll}>Limpar filtros</Button>} />
         : <>
           <div className="ro-table-wrap">
-            <table className="ro-table">
+            <table className="arcd-data-table__table ro-table">
               <caption className="ro-sr-only">Locações de equipamentos</caption>
               <thead><tr>{COLUMNS.map(column => <SortHeader key={column.key} column={column} effectiveSort={results.effectiveSort} onSort={key => change({ sort: nextRentalSort(view.sort || results.effectiveSort, key) })} />)}</tr></thead>
               <tbody>{results.entries.map(entry => entry.type === "group"

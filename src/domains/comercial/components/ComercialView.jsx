@@ -508,10 +508,10 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
     <div
       style={{
         gridColumn: "1/-1",
-        padding: "10px",
-        border: `1px solid ${C.border}`,
-        borderRadius: 8,
-        background: C.surface,
+        padding: "var(--arcd-space-2)",
+        border: `var(--arcd-border-width) solid var(--arcd-border-default)`,
+        borderRadius: "var(--arcd-box-radius)",
+        background: "var(--arcd-surface-card)",
       }}
     >
       <div
@@ -519,15 +519,15 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          gap: 8,
+          gap: "var(--arcd-space-2)",
           flexWrap: "wrap",
         }}
       >
         <div>
-          <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color: C.text }}>
+          <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color: "var(--arcd-text-primary)" }}>
             Documentos anexados
           </p>
-          <p style={{ fontSize:"var(--arcd-type-caption)", color: C.muted, marginTop: 2 }}>
+          <p style={{ fontSize:"var(--arcd-type-caption)", color: "var(--arcd-text-secondary)", marginTop: "var(--arcd-space-half)" }}>
             PDF, Word, Excel ou imagem · máximo de 5,5 MB por arquivo
           </p>
         </div>
@@ -535,11 +535,11 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
           style={{
             display: "inline-flex",
             alignItems: "center",
-            gap: 5,
-            padding: "7px 10px",
-            border: `1px solid ${C.blue}`,
-            borderRadius: 6,
-            background: C.card,
+            gap: "var(--arcd-space-1)",
+            padding: "var(--arcd-space-2) var(--arcd-space-2)",
+            border: `var(--arcd-border-width) solid ${C.blue}`,
+            borderRadius: "var(--arcd-radius-control)",
+            background: "var(--arcd-surface-card)",
             color: C.blue,
             fontSize:"var(--arcd-type-label)",
             fontWeight:600,
@@ -566,8 +566,8 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
           style={{
             display: "flex",
             flexDirection: "column",
-            gap: 5,
-            marginTop: 8,
+            gap: "var(--arcd-space-1)",
+            marginTop: "var(--arcd-space-2)",
           }}
         >
           {registro.documentos.map((doc) => (
@@ -576,12 +576,12 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
               style={{
                 display: "grid",
                 gridTemplateColumns: "minmax(0,1fr) auto auto",
-                gap: 6,
+                gap: "var(--arcd-space-1)",
                 alignItems: "center",
-                padding: "7px 8px",
-                border: `1px solid ${C.line}`,
-                borderRadius: 6,
-                background: C.card,
+                padding: "var(--arcd-space-2) var(--arcd-space-2)",
+                border: `var(--arcd-border-width) solid var(--arcd-border-subtle)`,
+                borderRadius: "var(--arcd-radius-control)",
+                background: "var(--arcd-surface-card)",
               }}
             >
               <a
@@ -599,7 +599,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
               >
                 {doc.legenda || doc.nome} ↗
               </a>
-              <span style={{ fontSize:"var(--arcd-type-caption)", color: C.muted }}>
+              <span style={{ fontSize:"var(--arcd-type-caption)", color: "var(--arcd-text-secondary)" }}>
                 {doc.tamanho
                   ? `${(doc.tamanho / 1024 / 1024).toFixed(1)} MB`
                   : ""}
@@ -618,9 +618,9 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
                 style={{
                   width: 25,
                   height: 25,
-                  border: `1px solid ${C.border}`,
-                  borderRadius: 5,
-                  background: C.card,
+                  border: `var(--arcd-border-width) solid var(--arcd-border-default)`,
+                  borderRadius: "var(--arcd-radius-control)",
+                  background: "var(--arcd-surface-card)",
                   color: C.red,
                   cursor: "pointer",
                 }}
@@ -642,27 +642,27 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
     <div
       key={l}
       style={{
-        background: C.card,
-        border: `1px solid ${C.border}`,
-        borderRadius: 6,
-        padding: "10px 11px",
+        background: "var(--arcd-surface-card)",
+        border: `var(--arcd-border-width) solid var(--arcd-border-default)`,
+        borderRadius: "var(--arcd-radius-control)",
+        padding: "var(--arcd-space-2) var(--arcd-space-3)",
       }}
     >
       <p
         style={{
           fontSize:"var(--arcd-type-caption)",
-          color: C.muted,
+          color: "var(--arcd-text-secondary)",
           fontWeight:600,
           textTransform: "uppercase",
         }}
       >
         {l}
       </p>
-      <p style={{ fontSize: "var(--arcd-type-card-title)", fontWeight:600, color: c, marginTop: 2 }}>
+      <p style={{ fontSize: "var(--arcd-type-card-title)", fontWeight:600, color: c, marginTop: "var(--arcd-space-half)" }}>
         {v}
       </p>
       {sub && (
-        <p style={{ fontSize:"var(--arcd-type-caption)", color: C.muted, marginTop: 1 }}>{sub}</p>
+        <p style={{ fontSize:"var(--arcd-type-caption)", color: "var(--arcd-text-secondary)", marginTop: 1 }}>{sub}</p>
       )}
     </div>
   );
@@ -670,17 +670,17 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
     <button
       onClick={() => tab && onTab(tab)}
       style={{
-        background: C.card,
-        border: `1px solid ${C.border}`,
-        padding: "12px 13px",
-        borderRadius: 8,
+        background: "var(--arcd-surface-card)",
+        border: `var(--arcd-border-width) solid var(--arcd-border-default)`,
+        padding: "var(--arcd-space-3) var(--arcd-space-3)",
+        borderRadius: "var(--arcd-box-radius)",
         textAlign: "left",
-        color: C.text,
+        color: "var(--arcd-text-primary)",
         cursor: tab ? "pointer" : "default",
         transition: "border-color .12s, background .12s",
         display: "flex",
         flexDirection: "column",
-        gap: 7,
+        gap: "var(--arcd-space-2)",
       }}
       onMouseEnter={(e) => {
         if (tab) e.currentTarget.style.borderColor = color;
@@ -698,7 +698,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
       >
         <span
           style={{
-            color: C.muted,
+            color: "var(--arcd-text-secondary)",
             fontSize:"var(--arcd-type-caption)",
             fontWeight:600,
             textTransform: "uppercase",
@@ -713,7 +713,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
         style={{
           fontFamily: "var(--arcd-font-sans)",
           fontWeight:600,
-          color: C.text,
+          color: "var(--arcd-text-primary)",
           fontSize: "var(--arcd-type-section-title)",
           letterSpacing: -0.3,
           lineHeight: 1,
@@ -722,13 +722,13 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
         {value}
       </p>
       {sub && (
-        <p style={{ color: C.muted, fontSize:"var(--arcd-type-label)", marginTop: -1 }}>{sub}</p>
+        <p style={{ color: "var(--arcd-text-secondary)", fontSize:"var(--arcd-type-label)", marginTop: -1 }}>{sub}</p>
       )}
       <div
         style={{
           height: 2,
           background: color,
-          borderRadius: 99,
+          borderRadius: "var(--arcd-radius-pill)",
           opacity: 0.85,
           marginTop: 1,
         }}
@@ -780,7 +780,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
           style={{
             display: "grid",
             gridTemplateColumns: cols(2, 4, 4),
-            gap: 8,
+            gap: "var(--arcd-space-2)",
           }}
         >
           <KpiCard
@@ -841,8 +841,8 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
             style={{
               background: `${C.yellow}0C`,
               border: `1.5px solid ${C.yellow}66`,
-              borderRadius: 10,
-              padding: "12px 14px",
+              borderRadius: "var(--arcd-box-radius)",
+              padding: "var(--arcd-space-3) var(--arcd-space-3)",
             }}
           >
             <p
@@ -850,7 +850,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
                 fontSize: "var(--arcd-type-body)",
                 fontWeight:600,
                 color: C.yellowD,
-                marginBottom: 3,
+                marginBottom: "var(--arcd-space-half)",
               }}
             >
               {acoes.length} ação(ões) para gerar indicação agora
@@ -858,15 +858,15 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
             <p
               style={{
                 fontSize:"var(--arcd-type-label)",
-                color: C.muted,
-                marginBottom: 9,
+                color: "var(--arcd-text-secondary)",
+                marginBottom: "var(--arcd-space-2)",
                 lineHeight: 1.45,
               }}
             >
               Indicação não é sorte: existem momentos em que o cliente está mais
               propenso.
             </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-1)" }}>
               {acoes.slice(0, 8).map((a, i) => {
                 const cor =
                   a.tipo === "recuperar"
@@ -880,14 +880,14 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
                   <div
                     key={i}
                     style={{
-                      background: C.card,
-                      border: `1px solid ${C.border}`,
-                      borderLeft: `1px solid ${cor}`,
-                      borderRadius: 7,
-                      padding: "8px 11px",
+                      background: "var(--arcd-surface-card)",
+                      border: `var(--arcd-border-width) solid var(--arcd-border-default)`,
+                      borderLeft: `var(--arcd-border-width) solid ${cor}`,
+                      borderRadius: "var(--arcd-radius-control)",
+                      padding: "var(--arcd-space-2) var(--arcd-space-3)",
                       display: "flex",
                       justifyContent: "space-between",
-                      gap: 8,
+                      gap: "var(--arcd-space-2)",
                       alignItems: "center",
                     }}
                   >
@@ -896,13 +896,13 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
                         style={{
                           fontSize:"var(--arcd-type-label)",
                           fontWeight:600,
-                          color: C.text,
+                          color: "var(--arcd-text-primary)",
                         }}
                       >
                         {a.titulo}
                       </p>
                       <p
-                        style={{ fontSize:"var(--arcd-type-caption)", color: C.muted, marginTop: 2 }}
+                        style={{ fontSize:"var(--arcd-type-caption)", color: "var(--arcd-text-secondary)", marginTop: "var(--arcd-space-half)" }}
                       >
                         {a.obraNome}
                         {a.clienteNome ? ` · ${a.clienteNome}` : ""} —{" "}
@@ -952,10 +952,10 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
             style={{
               fontSize:"var(--arcd-type-label)",
               fontWeight:600,
-              color: C.muted,
+              color: "var(--arcd-text-secondary)",
               textTransform: "uppercase",
               letterSpacing: 0.8,
-              marginBottom: 6,
+              marginBottom: "var(--arcd-space-1)",
             }}
           >
             Quem traz negócio
@@ -965,25 +965,25 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
               "Nenhuma indicação registrada ainda. Preencha 'Indicado por' ao cadastrar o lead.",
             )
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-1)" }}>
               {rank.map((r, i) => (
                 <div
                   key={r.chave}
                   style={{
-                    background: C.card,
-                    border: `1px solid ${C.border}`,
-                    borderLeft: `1px solid ${i === 0 ? C.yellow : C.border}`,
-                    borderRadius: 7,
-                    padding: "10px 12px",
+                    background: "var(--arcd-surface-card)",
+                    border: `var(--arcd-border-width) solid var(--arcd-border-default)`,
+                    borderLeft: `var(--arcd-border-width) solid ${i === 0 ? C.yellow : C.border}`,
+                    borderRadius: "var(--arcd-radius-control)",
+                    padding: "var(--arcd-space-2) var(--arcd-space-3)",
                     display: "grid",
                     gridTemplateColumns: "minmax(0,1fr) auto",
-                    gap: 8,
+                    gap: "var(--arcd-space-2)",
                     alignItems: "center",
                   }}
                 >
                   <div style={{ minWidth: 0 }}>
                     <p
-                      style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.text }}
+                      style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: "var(--arcd-text-primary)" }}
                     >
                       {r.nome}
                       {i === 0 && (
@@ -992,17 +992,17 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
                             fontSize:"var(--arcd-type-caption)",
                             color: C.yellowD,
                             fontWeight:600,
-                            marginLeft: 6,
+                            marginLeft: "var(--arcd-space-1)",
                             background: `${C.yellow}22`,
-                            padding: "1px 6px",
-                            borderRadius: 99,
+                            padding: "1px var(--arcd-space-1)",
+                            borderRadius: "var(--arcd-radius-pill)",
                           }}
                         >
                           MAIOR INDICADOR
                         </span>
                       )}
                     </p>
-                    <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginTop: 2 }}>
+                    <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", marginTop: "var(--arcd-space-half)" }}>
                       {r.total} indicação(ões) · {contar(r.ganhos,"fechada","fechadas")} ·{" "}
                       {r.emAberto} em aberto
                       {r.perdidos > 0 ? ` · ${contar(r.perdidos,"perdida","perdidas")}` : ""}
@@ -1010,8 +1010,8 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
                     <p
                       style={{
                         fontSize:"var(--arcd-type-caption)",
-                        color: r.conversao >= 50 ? C.green : C.muted,
-                        marginTop: 2,
+                        color: r.conversao >= 50 ? C.green : "var(--arcd-text-secondary)",
+                        marginTop: "var(--arcd-space-half)",
                         fontWeight:600,
                       }}
                     >
@@ -1022,7 +1022,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
                     <b style={{ fontSize: "var(--arcd-type-body)", color: C.yellowD }}>
                       {fmt(r.valorGerado)}
                     </b>
-                    <p style={{ fontSize:"var(--arcd-type-caption)", color: C.muted, marginTop: 2 }}>
+                    <p style={{ fontSize:"var(--arcd-type-caption)", color: "var(--arcd-text-secondary)", marginTop: "var(--arcd-space-half)" }}>
                       gerado
                     </p>
                   </div>
@@ -1038,10 +1038,10 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
             style={{
               fontSize:"var(--arcd-type-label)",
               fontWeight:600,
-              color: C.muted,
+              color: "var(--arcd-text-secondary)",
               textTransform: "uppercase",
               letterSpacing: 0.8,
-              marginBottom: 6,
+              marginBottom: "var(--arcd-space-1)",
             }}
           >
             Onde o funil vaza
@@ -1050,10 +1050,10 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
             <div
               style={{
                 background: `${C.red}0A`,
-                border: `1px solid ${C.red}44`,
-                borderRadius: 8,
-                padding: "9px 12px",
-                marginBottom: 8,
+                border: `var(--arcd-border-width) solid ${C.red}44`,
+                borderRadius: "var(--arcd-box-radius)",
+                padding: "var(--arcd-space-2) var(--arcd-space-3)",
+                marginBottom: "var(--arcd-space-2)",
               }}
             >
               <p
@@ -1071,9 +1071,9 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
           )}
           <div
             style={{
-              background: C.card,
-              border: `1px solid ${C.border}`,
-              borderRadius: 8,
+              background: "var(--arcd-surface-card)",
+              border: `var(--arcd-border-width) solid var(--arcd-border-default)`,
+              borderRadius: "var(--arcd-box-radius)",
               overflow: "hidden",
             }}
           >
@@ -1085,24 +1085,24 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
                 <div
                   key={l.id}
                   style={{
-                    padding: "8px 12px",
-                    borderTop: i ? `1px solid ${C.line}` : "none",
+                    padding: "var(--arcd-space-2) var(--arcd-space-3)",
+                    borderTop: i ? `var(--arcd-border-width) solid var(--arcd-border-subtle)` : "none",
                   }}
                 >
                   <div
                     style={{
                       display: "flex",
                       justifyContent: "space-between",
-                      gap: 8,
-                      marginBottom: 3,
+                      gap: "var(--arcd-space-2)",
+                      marginBottom: "var(--arcd-space-half)",
                     }}
                   >
                     <span
-                      style={{ fontSize:"var(--arcd-type-label)", color: C.text, fontWeight: 600 }}
+                      style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-primary)", fontWeight: 600 }}
                     >
                       {l.label}
                     </span>
-                    <span style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>
+                    <span style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>
                       {l.alcancaram}
                       {i > 0 && (
                         <b
@@ -1113,7 +1113,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
                                 : l.taxaDaAnterior >= 40
                                   ? C.orange
                                   : C.red,
-                            marginLeft: 6,
+                            marginLeft: "var(--arcd-space-1)",
                           }}
                         >
                           {l.taxaDaAnterior.toFixed(0)}%
@@ -1124,8 +1124,8 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
                   <div
                     style={{
                       height: 6,
-                      background: C.surface,
-                      borderRadius: 3,
+                      background: "var(--arcd-surface-card)",
+                      borderRadius: "var(--arcd-radius-control)",
                       overflow: "hidden",
                     }}
                   >
@@ -1134,7 +1134,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
                         height: "100%",
                         width: `${largura}%`,
                         background: l.cor || C.blue,
-                        borderRadius: 3,
+                        borderRadius: "var(--arcd-radius-control)",
                       }}
                     />
                   </div>
@@ -1150,10 +1150,10 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
             style={{
               fontSize:"var(--arcd-type-label)",
               fontWeight:600,
-              color: C.muted,
+              color: "var(--arcd-text-secondary)",
               textTransform: "uppercase",
               letterSpacing: 0.8,
-              marginBottom: 6,
+              marginBottom: "var(--arcd-space-1)",
             }}
           >
             Satisfação na entrega
@@ -1161,7 +1161,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
           {(com.pesquisas || []).length === 0 ? (
             vazio("Nenhuma pesquisa registrada.")
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-1)" }}>
               {(com.pesquisas || [])
                 .slice()
                 .sort((a, b) => (b.data || "").localeCompare(a.data || ""))
@@ -1182,14 +1182,14 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
                     <div
                       key={p.id}
                       style={{
-                        background: C.card,
-                        border: `1px solid ${C.border}`,
-                        borderLeft: `1px solid ${cor}`,
-                        borderRadius: 7,
-                        padding: "9px 12px",
+                        background: "var(--arcd-surface-card)",
+                        border: `var(--arcd-border-width) solid var(--arcd-border-default)`,
+                        borderLeft: `var(--arcd-border-width) solid ${cor}`,
+                        borderRadius: "var(--arcd-radius-control)",
+                        padding: "var(--arcd-space-2) var(--arcd-space-3)",
                         display: "grid",
                         gridTemplateColumns: "auto minmax(0,1fr)",
-                        gap: 10,
+                        gap: "var(--arcd-space-2)",
                         alignItems: "center",
                       }}
                     >
@@ -1211,20 +1211,20 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
                           style={{
                             fontSize:"var(--arcd-type-label)",
                             fontWeight:600,
-                            color: C.text,
+                            color: "var(--arcd-text-primary)",
                           }}
                         >
                           {cli?.nome || obr?.cliente || "Cliente"}
                         </p>
-                        <p style={{ fontSize:"var(--arcd-type-caption)", color: C.muted }}>
+                        <p style={{ fontSize:"var(--arcd-type-caption)", color: "var(--arcd-text-secondary)" }}>
                           {obr?.name || "-"} · {p.data ? fmtDate(p.data) : ""}
                         </p>
                         {p.comentario && (
                           <p
                             style={{
                               fontSize:"var(--arcd-type-label)",
-                              color: C.subtle,
-                              marginTop: 3,
+                              color: "var(--arcd-text-muted)",
+                              marginTop: "var(--arcd-space-half)",
                               fontStyle: "italic",
                             }}
                           >
@@ -1250,7 +1250,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
     const topOrigens=[...origens].sort((a,b)=>b.receita-a.receita||b.leads-a.leads);
     conteudo=<div className="commercial-dashboard">
       <Titulo titulo="Comando comercial" sub={`${contar(leadAtivos.length,"oportunidade ativa","oportunidades ativas")} · acompanhamento do mês atual`}
-        acao={<div style={{display:"flex",gap:6,flexWrap:"wrap"}}><Btn v="ghost" onClick={()=>onTab("com_agenda")}><Ic n="calendar"/> Agenda</Btn><Btn onClick={()=>{setLeadForm(leadVazio());setLeadAba("geral");}}><Ic n="plus"/> Novo lead</Btn></div>}/>
+        acao={<div style={{display:"flex",gap:"var(--arcd-space-1)",flexWrap:"wrap"}}><Btn v="ghost" onClick={()=>onTab("com_agenda")}><Ic n="calendar"/> Agenda</Btn><Btn onClick={()=>{setLeadForm(leadVazio());setLeadAba("geral");}}><Ic n="plus"/> Novo lead</Btn></div>}/>
 
       <section className="commercial-command-card">
         <div>
@@ -1307,20 +1307,20 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
         <section className="commercial-panel">
           <div className="commercial-panel-head"><div><h3>Pendências da operação</h3></div></div>
           <div className="commercial-health-grid">
-            <button onClick={()=>onTab("com_leads")}><b style={{color:semAt?C.red:C.text}}>{semAt}</b><span>Sem atendimento</span></button>
+            <button onClick={()=>onTab("com_leads")}><b style={{color:semAt?C.red:"var(--arcd-text-primary)"}}>{semAt}</b><span>Sem atendimento</span></button>
             <button onClick={()=>onTab("com_reunioes")}><b style={{color:C.purple}}>{reu}</b><span>Reuniões agendadas</span></button>
             <button onClick={()=>onTab("com_propostas")}><b style={{color:C.orange}}>{prop}</b><span>Propostas enviadas</span></button>
-            <button onClick={()=>onTab("com_contratos")}><b style={{color:cont?C.red:C.text}}>{cont}</b><span>Sem assinatura</span></button>
+            <button onClick={()=>onTab("com_contratos")}><b style={{color:cont?C.red:"var(--arcd-text-primary)"}}>{cont}</b><span>Sem assinatura</span></button>
           </div>
           {!!Object.keys(perdas).length&&<p className="commercial-loss-note">Principal perda: <b>{Object.entries(perdas).sort((a,b)=>b[1]-a[1])[0]?.[0]}</b></p>}
         </section>
       </div>
     </div>;
   } else if(commercialView==="com_leads"){
-    const lista=leads.filter(l=>isVisibleLead(l)&&[l.nome,l.telefone,l.email,l.cidade,l.servico,l.origem].join(" ").toLowerCase().includes(busca.toLowerCase()));conteudo=<><Titulo titulo="Leads" sub={`${contar(leads.filter(isVisibleLead).length,"cadastrado","cadastrados")}`} acao={<Btn onClick={()=>{setLeadForm(leadVazio());setLeadAba("geral");}}><Ic n="plus"/> Novo lead</Btn>}/><Inp value={busca} onChange={setBusca} placeholder="Buscar nome, telefone, cidade, serviço ou origem..."/><div style={{display:"flex",flexDirection:"column",gap:6}}>{lista.map(l=><button key={l.id} onClick={()=>{setLeadForm({...l});setLeadAba("geral");}} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:8,background:C.card,border:`1px solid ${C.border}`,borderLeft:`1px solid ${COM_TEMPERATURA[l.temperatura]||C.muted}`,borderRadius:6,padding:"9px 11px",cursor:"pointer",textAlign:"left"}}><div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{l.nome}</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",marginTop:2}}>{l.servico||"Sem serviço"} · {l.cidade||"-"} · {l.origem||"Sem origem"}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.blue,marginTop:3}}>{comEtapaLabel(l.etapa)} · {nomeUsuario(l.responsavelId)} · próxima: {l.proximaAtividade||"-"} {l.proximaAtividadeEm?comDateTime(l.proximaAtividadeEm):""}</p></div><div style={{textAlign:"right"}}><b style={{fontSize:"var(--arcd-type-body)",color:C.yellowD}}>{fmt(l.orcamentoEstimado)}</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{l.probabilidade}% · {l.temperatura}</p></div></button>)}{!lista.length&&vazio("Nenhum lead encontrado.")}</div></>;
+    const lista=leads.filter(l=>isVisibleLead(l)&&[l.nome,l.telefone,l.email,l.cidade,l.servico,l.origem].join(" ").toLowerCase().includes(busca.toLowerCase()));conteudo=<><Titulo titulo="Leads" sub={`${contar(leads.filter(isVisibleLead).length,"cadastrado","cadastrados")}`} acao={<Btn onClick={()=>{setLeadForm(leadVazio());setLeadAba("geral");}}><Ic n="plus"/> Novo lead</Btn>}/><Inp value={busca} onChange={setBusca} placeholder="Buscar nome, telefone, cidade, serviço ou origem..."/><div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>{lista.map(l=><button key={l.id} onClick={()=>{setLeadForm({...l});setLeadAba("geral");}} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:"var(--arcd-space-2)",background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderLeft:`var(--arcd-border-width) solid ${COM_TEMPERATURA[l.temperatura]||C.muted}`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)",cursor:"pointer",textAlign:"left"}}><div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"var(--arcd-text-primary)"}}>{l.nome}</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",marginTop:"var(--arcd-space-half)"}}>{l.servico||"Sem serviço"} · {l.cidade||"-"} · {l.origem||"Sem origem"}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.blue,marginTop:"var(--arcd-space-half)"}}>{comEtapaLabel(l.etapa)} · {nomeUsuario(l.responsavelId)} · próxima: {l.proximaAtividade||"-"} {l.proximaAtividadeEm?comDateTime(l.proximaAtividadeEm):""}</p></div><div style={{textAlign:"right"}}><b style={{fontSize:"var(--arcd-type-body)",color:C.yellowD}}>{fmt(l.orcamentoEstimado)}</b><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{l.probabilidade}% · {l.temperatura}</p></div></button>)}{!lista.length&&vazio("Nenhum lead encontrado.")}</div></>;
   } else if(commercialView==="com_funil"){
     const pipelineViewControl=<Sel label="Visualização do Pipeline" value={pipelineView} onChange={setPipelineView} options={[{v:"list",l:"Lista · toque e teclado"},{v:"board",l:"Quadro por etapa"}]}/>;
-    conteudo=<><Titulo titulo="Funil de vendas" sub={isMobile?undefined:"Na Lista, pesquise e mova a etapa por botão. O Quadro mantém a visão por etapa. Toda mudança conserva o histórico."} acao={<Btn onClick={()=>{setLeadForm(leadVazio());setLeadAba("geral");}}><Ic n="plus"/> LEAD</Btn>}/>{pipelineView==="list"?<PipelineList viewControl={pipelineViewControl} leads={leads.filter(isVisibleLead)} users={usuarios} onOpen={lead=>{setLeadForm({...lead});setLeadAba("geral");}} onMove={moverLead} busy={!!salvandoComercial}/>:<>{pipelineViewControl}<div style={{...KB.scroll,flexWrap:"wrap",overflowX:"visible",scrollSnapType:"none",rowGap:28,columnGap:8}}>{COM_ETAPAS.filter(([id])=>id!=="arquivado").map(([id,label])=>{const ls=leads.filter(l=>isVisibleLead(l)&&l.etapa===id);const soma=ls.reduce((s,l)=>s+(l.orcamentoEstimado||0),0);return <div key={id} onDragOver={e=>e.preventDefault()} onDrop={e=>{const l=leadBy(e.dataTransfer.getData("leadId"));if(l)moverLead(l,id);}} style={KB.coluna(C.blue,false)}><div onClick={()=>setColunaResumo({label,leads:ls})} title="Ver resumo de quem está nesta etapa" style={{...KB.colHead(C.blue),cursor:"pointer"}}><b style={{fontSize:"var(--arcd-type-label)",color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0}}>{label.toUpperCase()}</b><div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:2,flexShrink:0}}><span style={KB.contador}>{ls.length}</span>{soma>0&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.yellowD}}>{fmt(soma)}</span>}</div></div><div style={KB.colBody}>{ls.map(l=><div key={l.id} draggable onDragStart={e=>e.dataTransfer.setData("leadId",l.id)} onClick={()=>{setLeadForm({...l});setLeadAba("geral");}} style={{...KB.card(l.proximaAtividadeEm&&new Date(l.proximaAtividadeEm).getTime()<agora?C.red:null),borderLeft:`1px solid ${COM_TEMPERATURA[l.temperatura]||C.muted}`}}><div style={{display:"flex",justifyContent:"space-between",gap:5}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0}}>{l.nome}</p><span style={{fontSize:"var(--arcd-type-caption)",color:C.yellowD,fontWeight:600,flexShrink:0}}>{fmt(l.orcamentoEstimado)}</span></div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{l.servico||"-"}</p><div style={{display:"flex",justifyContent:"space-between",gap:5,alignItems:"center"}}><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{nomeUsuario(l.responsavelId)} · {l.probabilidade}%</span><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:comDias(l.etapaDesde)>=5?C.orange:C.muted}}>{comDias(l.etapaDesde)}d</span></div><p style={{fontSize:"var(--arcd-type-caption)",color:l.proximaAtividadeEm&&new Date(l.proximaAtividadeEm).getTime()<agora?C.red:C.blue,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{l.proximaAtividadeEm&&new Date(l.proximaAtividadeEm).getTime()<agora?"⚠ ":""}{l.proximaAtividade||"Sem próxima atividade"}</p></div>)}{!ls.length&&<div style={{padding:"12px 6px",textAlign:"center",fontSize:"var(--arcd-type-caption)",color:C.muted,border:`1px dashed ${C.border}`,borderRadius:6,margin:"2px 0"}}>Solte aqui</div>}</div></div>;})}</div></>}</>;
+    conteudo=<><Titulo titulo="Funil de vendas" sub={isMobile?undefined:"Na Lista, pesquise e mova a etapa por botão. O Quadro mantém a visão por etapa. Toda mudança conserva o histórico."} acao={<Btn onClick={()=>{setLeadForm(leadVazio());setLeadAba("geral");}}><Ic n="plus"/> LEAD</Btn>}/>{pipelineView==="list"?<PipelineList viewControl={pipelineViewControl} leads={leads.filter(isVisibleLead)} users={usuarios} onOpen={lead=>{setLeadForm({...lead});setLeadAba("geral");}} onMove={moverLead} busy={!!salvandoComercial}/>:<>{pipelineViewControl}<div style={{...KB.scroll,flexWrap:"wrap",overflowX:"visible",scrollSnapType:"none",rowGap:"var(--arcd-space-6)",columnGap:"var(--arcd-space-2)"}}>{COM_ETAPAS.filter(([id])=>id!=="arquivado").map(([id,label])=>{const ls=leads.filter(l=>isVisibleLead(l)&&l.etapa===id);const soma=ls.reduce((s,l)=>s+(l.orcamentoEstimado||0),0);return <div key={id} onDragOver={e=>e.preventDefault()} onDrop={e=>{const l=leadBy(e.dataTransfer.getData("leadId"));if(l)moverLead(l,id);}} style={KB.coluna(C.blue,false)}><div onClick={()=>setColunaResumo({label,leads:ls})} title="Ver resumo de quem está nesta etapa" style={{...KB.colHead(C.blue),cursor:"pointer"}}><b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0}}>{label.toUpperCase()}</b><div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:"var(--arcd-space-half)",flexShrink:0}}><span style={KB.contador}>{ls.length}</span>{soma>0&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.yellowD}}>{fmt(soma)}</span>}</div></div><div style={KB.colBody}>{ls.map(l=><div key={l.id} draggable onDragStart={e=>e.dataTransfer.setData("leadId",l.id)} onClick={()=>{setLeadForm({...l});setLeadAba("geral");}} style={{...KB.card(l.proximaAtividadeEm&&new Date(l.proximaAtividadeEm).getTime()<agora?C.red:null),borderLeft:`var(--arcd-border-width) solid ${COM_TEMPERATURA[l.temperatura]||C.muted}`}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-1)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"var(--arcd-text-primary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0}}>{l.nome}</p><span style={{fontSize:"var(--arcd-type-caption)",color:C.yellowD,fontWeight:600,flexShrink:0}}>{fmt(l.orcamentoEstimado)}</span></div><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{l.servico||"-"}</p><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-1)",alignItems:"center"}}><span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{nomeUsuario(l.responsavelId)} · {l.probabilidade}%</span><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:comDias(l.etapaDesde)>=5?C.orange:"var(--arcd-text-secondary)"}}>{comDias(l.etapaDesde)}d</span></div><p style={{fontSize:"var(--arcd-type-caption)",color:l.proximaAtividadeEm&&new Date(l.proximaAtividadeEm).getTime()<agora?C.red:C.blue,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{l.proximaAtividadeEm&&new Date(l.proximaAtividadeEm).getTime()<agora?"⚠ ":""}{l.proximaAtividade||"Sem próxima atividade"}</p></div>)}{!ls.length&&<div style={{padding:"var(--arcd-space-3) var(--arcd-space-1)",textAlign:"center",fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",border:`var(--arcd-border-width) dashed var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",margin:"var(--arcd-space-half) 0"}}>Solte aqui</div>}</div></div>;})}</div></>}</>;
   } else if(commercialView==="com_jornada"){
     // KANBAN DA JORNADA DO CLIENTE
     // Colunas = fases da jornada (não as 20 etapas). O lead cai na coluna certa
@@ -1359,10 +1359,10 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
               {/* Cabeçalho da fase */}
               <div style={KB.colHead(fase.cor)}>
                 <div style={{minWidth:0}}>
-                  <b style={{fontSize:"var(--arcd-type-label)",color:C.text,letterSpacing:.3,whiteSpace:"nowrap"}}>{fase.label.toUpperCase()}</b>
-                  <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{fase.desc}</p>
+                  <b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",letterSpacing:.3,whiteSpace:"nowrap"}}>{fase.label.toUpperCase()}</b>
+                  <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{fase.desc}</p>
                 </div>
-                <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:2,flexShrink:0}}>
+                <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:"var(--arcd-space-half)",flexShrink:0}}>
                   <span style={KB.contador}>{naFase.length}</span>
                   <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.yellowD,whiteSpace:"nowrap"}}>{fmt(valorFase)}</span>
                 </div>
@@ -1376,17 +1376,17 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
                     <div key={l.id} draggable
                       onDragStart={e=>e.dataTransfer.setData("leadId",l.id)}
                       onClick={()=>{setLeadForm({...l});setLeadAba("geral");}}
-                      style={{...KB.card(vencido?C.red:null),borderLeft:`1px solid ${COM_TEMPERATURA[l.temperatura]||C.muted}`}}>
-                      <div style={{display:"flex",justifyContent:"space-between",gap:5}}>
-                        <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0}}>{l.nome}</p>
+                      style={{...KB.card(vencido?C.red:null),borderLeft:`var(--arcd-border-width) solid ${COM_TEMPERATURA[l.temperatura]||C.muted}`}}>
+                      <div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-1)"}}>
+                        <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"var(--arcd-text-primary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0}}>{l.nome}</p>
                         <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.yellowD,flexShrink:0}}>{fmt(l.orcamentoEstimado)}</span>
                       </div>
-                      <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                      <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
                         {comEtapaLabel(l.etapa)}
                       </p>
-                      <div style={{display:"flex",justifyContent:"space-between",gap:5,alignItems:"center"}}>
-                        <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{nomeUsuario(l.responsavelId)}</span>
-                        <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:diasParado>=5?C.orange:C.muted}}>{diasParado}d</span>
+                      <div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-1)",alignItems:"center"}}>
+                        <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{nomeUsuario(l.responsavelId)}</span>
+                        <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:diasParado>=5?C.orange:"var(--arcd-text-secondary)"}}>{diasParado}d</span>
                       </div>
                       {l.proximaAtividade
                         ? <p style={{fontSize:"var(--arcd-type-caption)",color:vencido?C.red:C.blue,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
@@ -1396,13 +1396,13 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
                     </div>
                   );
                 })}
-                {!naFase.length && <div style={{padding:"12px 6px",textAlign:"center",fontSize:"var(--arcd-type-caption)",color:C.muted,border:`1px dashed ${C.border}`,borderRadius:6,margin:"2px 0"}}>Vazio</div>}
+                {!naFase.length && <div style={{padding:"var(--arcd-space-3) var(--arcd-space-1)",textAlign:"center",fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",border:`var(--arcd-border-width) dashed var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",margin:"var(--arcd-space-half) 0"}}>Vazio</div>}
               </div>
             </div>
           );
         })}
       </div>
-      <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2,lineHeight:1.5}}>
+      <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",lineHeight:1.5}}>
         Os cards se movem sozinhos quando você registra ações (proposta enviada, contrato assinado…).
         Dentro de cada fase, o topo é sempre o mais urgente. Clique para abrir; arraste só se precisar corrigir a fase manualmente.
       </p>
@@ -1419,47 +1419,47 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
       const dia=`${calAno}-${String(calMesIdx+1).padStart(2,"0")}-${String(i+1).padStart(2,"0")}`;
       return {dia,numero:i+1,itens:calItensPorDia[dia]||[]};
     })];
-    conteudo=<><Titulo titulo={commercialView==="com_agenda"?"Agenda comercial":commercialView==="com_reunioes"?"Reuniões":"Tarefas e follow-ups"} sub="Compromissos, responsáveis, próximos passos e histórico por lead" acao={<div style={{display:"flex",gap:6,flexWrap:"wrap"}}><Btn size="sm" v="ghost" onClick={()=>onTab("com_funil")}>‹ Voltar ao Funil</Btn><Btn size="sm" onClick={()=>setAtividadeForm({id:"",leadId:"",tipo:"followup",titulo:"",dataHora:"",responsavelId:currentUser?.id||"",status:"pendente",observacoes:""})}>+ TAREFA</Btn><Btn size="sm" v="ghost" onClick={()=>setReuniaoForm({id:"",leadId:"",dataHora:"",tipo:"presencial",local:"",participantes:"",responsavelComercialId:currentUser?.id||"",responsavelTecnicoId:"",pauta:"",resumo:"",necessidades:"",objecoes:"",orcamentoDisponivel:"",proximosPassos:"",proximoContato:"",status:"agendada",documentos:[]})}>+ REUNIÃO</Btn></div>}/>
-    {commercialView==="com_agenda"&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:10}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-        <button onClick={()=>setCalMes(m=>m-1)} style={{background:"transparent",border:0,cursor:"pointer",color:C.muted,fontSize:"var(--arcd-type-control)",padding:"2px 10px"}}>‹</button>
-        <b style={{fontSize:"var(--arcd-type-body)",color:C.text}}>{(s=>s.charAt(0).toUpperCase()+s.slice(1))(calRef.toLocaleDateString("pt-BR",{month:"long",year:"numeric"}))}</b>
-        <button onClick={()=>setCalMes(m=>m+1)} style={{background:"transparent",border:0,cursor:"pointer",color:C.muted,fontSize:"var(--arcd-type-control)",padding:"2px 10px"}}>›</button>
+    conteudo=<><Titulo titulo={commercialView==="com_agenda"?"Agenda comercial":commercialView==="com_reunioes"?"Reuniões":"Tarefas e follow-ups"} sub="Compromissos, responsáveis, próximos passos e histórico por lead" acao={<div style={{display:"flex",gap:"var(--arcd-space-1)",flexWrap:"wrap"}}><Btn size="sm" v="ghost" onClick={()=>onTab("com_funil")}>‹ Voltar ao Funil</Btn><Btn size="sm" onClick={()=>setAtividadeForm({id:"",leadId:"",tipo:"followup",titulo:"",dataHora:"",responsavelId:currentUser?.id||"",status:"pendente",observacoes:""})}>+ TAREFA</Btn><Btn size="sm" v="ghost" onClick={()=>setReuniaoForm({id:"",leadId:"",dataHora:"",tipo:"presencial",local:"",participantes:"",responsavelComercialId:currentUser?.id||"",responsavelTecnicoId:"",pauta:"",resumo:"",necessidades:"",objecoes:"",orcamentoDisponivel:"",proximosPassos:"",proximoContato:"",status:"agendada",documentos:[]})}>+ REUNIÃO</Btn></div>}/>
+    {commercialView==="com_agenda"&&<div style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-2)"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"var(--arcd-space-2)"}}>
+        <button onClick={()=>setCalMes(m=>m-1)} style={{background:"transparent",border:0,cursor:"pointer",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-control)",padding:"var(--arcd-space-half) var(--arcd-space-2)"}}>‹</button>
+        <b style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)"}}>{(s=>s.charAt(0).toUpperCase()+s.slice(1))(calRef.toLocaleDateString("pt-BR",{month:"long",year:"numeric"}))}</b>
+        <button onClick={()=>setCalMes(m=>m+1)} style={{background:"transparent",border:0,cursor:"pointer",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-control)",padding:"var(--arcd-space-half) var(--arcd-space-2)"}}>›</button>
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3,marginBottom:4}}>
-        {["D","S","T","Q","Q","S","S"].map((d,i)=><span key={i} style={{textAlign:"center",fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted}}>{d}</span>)}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:"var(--arcd-space-half)",marginBottom:"var(--arcd-space-1)"}}>
+        {["D","S","T","Q","Q","S","S"].map((d,i)=><span key={i} style={{textAlign:"center",fontSize:"var(--arcd-type-caption)",fontWeight:600,color:"var(--arcd-text-secondary)"}}>{d}</span>)}
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:"var(--arcd-space-half)"}}>
         {calCelulas.map((c,i)=>c?(
           <button key={c.dia} onClick={()=>setCalDia(v=>v===c.dia?"":c.dia)}
-            style={{aspectRatio:"1/1",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:2,
-              border:`1px solid ${calDia===c.dia?C.blue:C.border}`,borderRadius:6,
+            style={{aspectRatio:"1/1",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:"var(--arcd-space-half)",
+              border:`var(--arcd-border-width) solid ${calDia===c.dia?C.blue:C.border}`,borderRadius:"var(--arcd-radius-control)",
               background:calDia===c.dia?`${C.blue}14`:c.dia===today()?`${C.yellowD}10`:"transparent",cursor:"pointer"}}>
-            <span style={{fontSize:"var(--arcd-type-label)",fontWeight:calDia===c.dia?600:600,color:calDia===c.dia?C.blue:C.text}}>{c.numero}</span>
-            {c.itens.length>0&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.yellowD,background:`${C.yellowD}18`,borderRadius:99,padding:"0 4px"}}>{c.itens.length}</span>}
+            <span style={{fontSize:"var(--arcd-type-label)",fontWeight:calDia===c.dia?600:600,color:calDia===c.dia?C.blue:"var(--arcd-text-primary)"}}>{c.numero}</span>
+            {c.itens.length>0&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.yellowD,background:`${C.yellowD}18`,borderRadius:"var(--arcd-radius-pill)",padding:"0 var(--arcd-space-1)"}}>{c.itens.length}</span>}
           </button>
         ):<div key={`vazio-${i}`}/>)}
       </div>
     </div>}
     {commercialView==="com_agenda"&&calDia&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-      <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Mostrando compromissos de {fmtDate(calDia)}</p>
+      <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Mostrando compromissos de {fmtDate(calDia)}</p>
       <button onClick={()=>setCalDia("")} style={{background:"transparent",border:0,color:C.blue,fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>Ver todos</button>
     </div>}
-    <div style={{display:"flex",flexDirection:"column",gap:6}}>{filtrados.map(x=>{const venc=x.dataHora&&new Date(x.dataHora).getTime()<agora&&!["concluida","realizada","cancelada"].includes(x.status);return <div key={`${x._tipo}-${x.id}`} style={{display:"grid",gridTemplateColumns:"145px minmax(0,1fr) auto",gap:8,alignItems:"center",background:C.card,border:`1px solid ${venc?C.red:C.border}`,borderLeft:`1px solid ${x.status==="realizada"?C.green:venc?C.red:C.blue}`,borderRadius:6,padding:"8px 10px"}}><div><b style={{fontSize:"var(--arcd-type-label)",color:x.status==="realizada"?C.green:venc?C.red:C.blue}}>{comDateTime(x.dataHora)}</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{x._tipo.toUpperCase()} · {x.status}</p></div><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>{x.titulo||`Reunião · ${leadBy(x.leadId)?.nome||"Lead"}`}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{leadBy(x.leadId)?.nome||"-"} · {x.local||x.observacoes||""}</p>{x._tipo==="reuniao"&&x.status==="realizada"&&x.resumo&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.green,marginTop:3}}>Executada · {x.resumo}</p>}</div><div style={{display:"flex",gap:4,flexWrap:"wrap",justifyContent:"flex-end"}}>{x._tipo==="atividade"&&x.status!=="concluida"&&<Btn size="sm" v="success" onClick={()=>setCom({atividades:atividades.map(a=>a.id===x.id?{...a,status:"concluida"}:a)})}>OK</Btn>}{x._tipo==="reuniao"&&x.status!=="realizada"&&x.status!=="cancelada"&&<Btn size="sm" v="success" onClick={()=>setReuniaoForm({...x,status:"realizada"})}><Ic n="check"/> Confirmar execução</Btn>}<Btn size="sm" v="ghost" onClick={()=>x._tipo==="atividade"?setAtividadeForm({...x}):setReuniaoForm({...x})}>{x._tipo==="reuniao"?"Abrir":"Editar"}</Btn></div></div>;})}{!filtrados.length&&vazio("Nenhum compromisso cadastrado.")}</div></>;
+    <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>{filtrados.map(x=>{const venc=x.dataHora&&new Date(x.dataHora).getTime()<agora&&!["concluida","realizada","cancelada"].includes(x.status);return <div key={`${x._tipo}-${x.id}`} style={{display:"grid",gridTemplateColumns:"145px minmax(0,1fr) auto",gap:"var(--arcd-space-2)",alignItems:"center",background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid ${venc?C.red:C.border}`,borderLeft:`var(--arcd-border-width) solid ${x.status==="realizada"?C.green:venc?C.red:C.blue}`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-2)"}}><div><b style={{fontSize:"var(--arcd-type-label)",color:x.status==="realizada"?C.green:venc?C.red:C.blue}}>{comDateTime(x.dataHora)}</b><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{x._tipo.toUpperCase()} · {x.status}</p></div><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"var(--arcd-text-primary)"}}>{x.titulo||`Reunião · ${leadBy(x.leadId)?.nome||"Lead"}`}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{leadBy(x.leadId)?.nome||"-"} · {x.local||x.observacoes||""}</p>{x._tipo==="reuniao"&&x.status==="realizada"&&x.resumo&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.green,marginTop:"var(--arcd-space-half)"}}>Executada · {x.resumo}</p>}</div><div style={{display:"flex",gap:"var(--arcd-space-1)",flexWrap:"wrap",justifyContent:"flex-end"}}>{x._tipo==="atividade"&&x.status!=="concluida"&&<Btn size="sm" v="success" onClick={()=>setCom({atividades:atividades.map(a=>a.id===x.id?{...a,status:"concluida"}:a)})}>OK</Btn>}{x._tipo==="reuniao"&&x.status!=="realizada"&&x.status!=="cancelada"&&<Btn size="sm" v="success" onClick={()=>setReuniaoForm({...x,status:"realizada"})}><Ic n="check"/> Confirmar execução</Btn>}<Btn size="sm" v="ghost" onClick={()=>x._tipo==="atividade"?setAtividadeForm({...x}):setReuniaoForm({...x})}>{x._tipo==="reuniao"?"Abrir":"Editar"}</Btn></div></div>;})}{!filtrados.length&&vazio("Nenhum compromisso cadastrado.")}</div></>;
   } else if(["com_propostas","com_negociacoes"].includes(commercialView)){
-    const lista=commercialView==="com_negociacoes"?propostas.filter(p=>(p.negociacoes||[]).length||p.status==="negociacao"):propostas;conteudo=<><Titulo titulo={commercialView==="com_propostas"?"Propostas":"Negociações"} sub="Versões, envio, visualização, descontos, aceite e rejeição" acao={<Btn onClick={()=>setPropostaForm(propostaVazia(leadAtivos[0]?.id||""))}><Ic n="plus"/> PROPOSTA</Btn>}/><div style={{display:"flex",flexDirection:"column",gap:7}}>{lista.map(p=>{const l=leadBy(p.leadId);return <div key={p.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:"9px 11px"}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{p.numero} · V{p.versao} · {l?.nome}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{p.objeto} · validade {fmtDate(p.validade)}</p></div><div style={{textAlign:"right"}}><b style={{color:C.yellowD}}>{fmt(p.valor)}</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.blue}}>{p.status}</p></div></div>{(p.negociacoes||[]).slice(-1).map(n=><p key={n.id} style={{fontSize:"var(--arcd-type-caption)",color:C.orange,marginTop:5}}>Negociado: {fmt(n.valorInicial)} → {fmt(n.valorNegociado)} · desconto {n.desconto}%</p>)}<div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:7}}><Btn size="sm" v="ghost" onClick={()=>setPropostaForm({...p,versao:p.versao+1})}><Ic n="edit"/></Btn><Btn size="sm" v="ghost" onClick={()=>pdfProposta(p)}>PDF</Btn><Btn size="sm" v="success" onClick={()=>compartilharProposta(p)}>WHATSAPP</Btn><a href={`mailto:${encodeURIComponent(l?.email||"")}?subject=${encodeURIComponent(`Proposta ${p.numero}`)}&body=${encodeURIComponent(`Olá ${l?.nome||""}, segue nossa proposta ${p.numero}, versão ${p.versao}, no valor de ${fmt(p.valor)}.`)}`} style={{textDecoration:"none"}}><Btn size="sm" v="ghost">E-MAIL</Btn></a>{p.status==="rascunho"&&<Btn size="sm" disabled={!!salvandoComercial} onClick={()=>statusProposta(p,"enviada")}>{salvandoComercial===`proposta-status-${p.id}`?"ENVIANDO...":"ENVIAR"}</Btn>}{p.status==="enviada"&&<Btn size="sm" v="ghost" disabled={!!salvandoComercial} onClick={()=>statusProposta(p,"visualizada")}>VISUALIZADA</Btn>}<Btn size="sm" v="ghost" onClick={()=>setNegForm({propostaId:p.id,valorInicial:p.valor,valorNegociado:p.valor,desconto:"",formaPagamento:p.formaPagamento,parcelas:"",alteracaoEscopo:"",objecoes:"",respostas:"",aprovadorId:""})}>NEGOCIAR</Btn>{!["aceita","rejeitada"].includes(p.status)&&<Btn size="sm" v="success" disabled={!!salvandoComercial} onClick={()=>statusProposta(p,"aceita")}>{salvandoComercial===`proposta-status-${p.id}`?"CONFIRMANDO...":"ACEITAR"}</Btn>}{p.status==="aceita"&&<Btn size="sm" onClick={()=>criarContrato(p)}>GERAR CONTRATO</Btn>}</div></div>;})}{!lista.length&&vazio("Nenhuma proposta.")}</div></>;
+    const lista=commercialView==="com_negociacoes"?propostas.filter(p=>(p.negociacoes||[]).length||p.status==="negociacao"):propostas;conteudo=<><Titulo titulo={commercialView==="com_propostas"?"Propostas":"Negociações"} sub="Versões, envio, visualização, descontos, aceite e rejeição" acao={<Btn onClick={()=>setPropostaForm(propostaVazia(leadAtivos[0]?.id||""))}><Ic n="plus"/> PROPOSTA</Btn>}/><div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>{lista.map(p=>{const l=leadBy(p.leadId);return <div key={p.id} style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)"}}><div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"var(--arcd-text-primary)"}}>{p.numero} · V{p.versao} · {l?.nome}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{p.objeto} · validade {fmtDate(p.validade)}</p></div><div style={{textAlign:"right"}}><b style={{color:C.yellowD}}>{fmt(p.valor)}</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.blue}}>{p.status}</p></div></div>{(p.negociacoes||[]).slice(-1).map(n=><p key={n.id} style={{fontSize:"var(--arcd-type-caption)",color:C.orange,marginTop:"var(--arcd-space-1)"}}>Negociado: {fmt(n.valorInicial)} → {fmt(n.valorNegociado)} · desconto {n.desconto}%</p>)}<div style={{display:"flex",gap:"var(--arcd-space-1)",flexWrap:"wrap",marginTop:"var(--arcd-space-2)"}}><Btn size="sm" v="ghost" onClick={()=>setPropostaForm({...p,versao:p.versao+1})}><Ic n="edit"/></Btn><Btn size="sm" v="ghost" onClick={()=>pdfProposta(p)}>PDF</Btn><Btn size="sm" v="success" onClick={()=>compartilharProposta(p)}>WHATSAPP</Btn><a href={`mailto:${encodeURIComponent(l?.email||"")}?subject=${encodeURIComponent(`Proposta ${p.numero}`)}&body=${encodeURIComponent(`Olá ${l?.nome||""}, segue nossa proposta ${p.numero}, versão ${p.versao}, no valor de ${fmt(p.valor)}.`)}`} style={{textDecoration:"none"}}><Btn size="sm" v="ghost">E-MAIL</Btn></a>{p.status==="rascunho"&&<Btn size="sm" disabled={!!salvandoComercial} onClick={()=>statusProposta(p,"enviada")}>{salvandoComercial===`proposta-status-${p.id}`?"ENVIANDO...":"ENVIAR"}</Btn>}{p.status==="enviada"&&<Btn size="sm" v="ghost" disabled={!!salvandoComercial} onClick={()=>statusProposta(p,"visualizada")}>VISUALIZADA</Btn>}<Btn size="sm" v="ghost" onClick={()=>setNegForm({propostaId:p.id,valorInicial:p.valor,valorNegociado:p.valor,desconto:"",formaPagamento:p.formaPagamento,parcelas:"",alteracaoEscopo:"",objecoes:"",respostas:"",aprovadorId:""})}>NEGOCIAR</Btn>{!["aceita","rejeitada"].includes(p.status)&&<Btn size="sm" v="success" disabled={!!salvandoComercial} onClick={()=>statusProposta(p,"aceita")}>{salvandoComercial===`proposta-status-${p.id}`?"CONFIRMANDO...":"ACEITAR"}</Btn>}{p.status==="aceita"&&<Btn size="sm" onClick={()=>criarContrato(p)}>GERAR CONTRATO</Btn>}</div></div>;})}{!lista.length&&vazio("Nenhuma proposta.")}</div></>;
   } else if(commercialView==="com_contratos"){
     conteudo=<Suspense fallback={<LoadingState label="contratos"/>}><ContractWorkspace data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} pageId={view} leadContext={contractLead} onClearLead={()=>setContractLead(null)} onReturnLead={leadReturn?returnLead:null} legacyContracts={contratos} onLegacyOpen={row=>setContratoForm({...row})} onFiles={obraId=>onTab("arquivos",obraId)}/></Suspense>;
   } else if(commercialView==="com_clientes"){
-    conteudo=<><Titulo titulo="Clientes" sub="Qualificação completa para propostas, contratos e documentos" acao={<Btn onClick={()=>setClienteForm(clienteVazio())}><Ic n="plus"/> CLIENTE</Btn>}/><div style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:7}}>{clientes.map(c=>{const pend=pendenciasCliente(c),pronto=!pend.length;return <div key={c.id} style={{background:C.card,border:`1px solid ${pronto?C.green:C.border}`,borderLeft:`1px solid ${pronto?C.green:C.orange}`,borderRadius:6,padding:"10px 11px"}}><div style={{display:"flex",justifyContent:"space-between",gap:6,alignItems:"flex-start"}}><div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{c.tipoPessoa==="PJ"?(c.razaoSocial||c.nome):c.nome}</p>{c.tipoPessoa==="PJ"&&c.nomeFantasia&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{c.nomeFantasia}</p>}</div><Btn size="sm" v="ghost" onClick={()=>setClienteForm({...clienteVazio(),...c})}><Ic n="edit"/></Btn></div><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3}}>{c.tipoPessoa} · {c.documento?maskDoc(c.documento,c.tipoPessoa):"sem documento"} · {c.cidade||"-"}/{c.uf||"-"}</p><p style={{fontSize:"var(--arcd-type-label)",color:C.blue,marginTop:3}}>{c.whatsapp||c.telefone||"-"} · {c.email||"-"}</p><p style={{fontSize:"var(--arcd-type-caption)",color:pronto?C.green:C.orange,marginTop:5,fontWeight:600}}>{pronto?"CADASTRO CONTRATUAL COMPLETO":`${contar(pend.length,"pendência","pendências")}: ${pend.slice(0,3).join(", ")}${pend.length>3?"...":""}`}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.green,marginTop:5}}>{contar((vendasPorCliente.get(c.id)||[]).length,"contrato","contratos")} · {fmt((vendasPorCliente.get(c.id)||[]).reduce((s,v)=>s+v.valor,0))}</p></div>;})}{!clientes.length&&vazio("Nenhum cliente cadastrado.")}</div></>;
+    conteudo=<><Titulo titulo="Clientes" sub="Qualificação completa para propostas, contratos e documentos" acao={<Btn onClick={()=>setClienteForm(clienteVazio())}><Ic n="plus"/> CLIENTE</Btn>}/><div style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:"var(--arcd-space-2)"}}>{clientes.map(c=>{const pend=pendenciasCliente(c),pronto=!pend.length;return <div key={c.id} style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid ${pronto?C.green:C.border}`,borderLeft:`var(--arcd-border-width) solid ${pronto?C.green:C.orange}`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-1)",alignItems:"flex-start"}}><div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"var(--arcd-text-primary)"}}>{c.tipoPessoa==="PJ"?(c.razaoSocial||c.nome):c.nome}</p>{c.tipoPessoa==="PJ"&&c.nomeFantasia&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{c.nomeFantasia}</p>}</div><Btn size="sm" v="ghost" onClick={()=>setClienteForm({...clienteVazio(),...c})}><Ic n="edit"/></Btn></div><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{c.tipoPessoa} · {c.documento?maskDoc(c.documento,c.tipoPessoa):"sem documento"} · {c.cidade||"-"}/{c.uf||"-"}</p><p style={{fontSize:"var(--arcd-type-label)",color:C.blue,marginTop:"var(--arcd-space-half)"}}>{c.whatsapp||c.telefone||"-"} · {c.email||"-"}</p><p style={{fontSize:"var(--arcd-type-caption)",color:pronto?C.green:C.orange,marginTop:"var(--arcd-space-1)",fontWeight:600}}>{pronto?"CADASTRO CONTRATUAL COMPLETO":`${contar(pend.length,"pendência","pendências")}: ${pend.slice(0,3).join(", ")}${pend.length>3?"...":""}`}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.green,marginTop:"var(--arcd-space-1)"}}>{contar((vendasPorCliente.get(c.id)||[]).length,"contrato","contratos")} · {fmt((vendasPorCliente.get(c.id)||[]).reduce((s,v)=>s+v.valor,0))}</p></div>;})}{!clientes.length&&vazio("Nenhum cliente cadastrado.")}</div></>;
   } else if(commercialView==="com_parceiros"){
-    conteudo=<><Titulo titulo="Parceiros e indicações" sub="Origem, percentual de comissão e resultados" acao={<Btn onClick={()=>setParceiroForm({id:"",nome:"",tipo:"indicador",telefone:"",email:"",comissaoPct:"",observacoes:""})}><Ic n="plus"/> PARCEIRO</Btn>}/>{parceiros.map(p=><div key={p.id} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto auto",gap:8,background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:"9px 11px",marginBottom:6}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600}}>{p.nome}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{p.tipo} · {p.telefone||p.email||"-"}</p></div><b style={{color:C.green}}>{p.comissaoPct}%</b><Btn size="sm" v="ghost" onClick={()=>setParceiroForm({...p})}><Ic n="edit"/></Btn></div>)}{!parceiros.length&&vazio("Nenhum parceiro.")}</>;
+    conteudo=<><Titulo titulo="Parceiros e indicações" sub="Origem, percentual de comissão e resultados" acao={<Btn onClick={()=>setParceiroForm({id:"",nome:"",tipo:"indicador",telefone:"",email:"",comissaoPct:"",observacoes:""})}><Ic n="plus"/> PARCEIRO</Btn>}/>{parceiros.map(p=><div key={p.id} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto auto",gap:"var(--arcd-space-2)",background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)",marginBottom:"var(--arcd-space-1)"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600}}>{p.nome}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{p.tipo} · {p.telefone||p.email||"-"}</p></div><b style={{color:C.green}}>{p.comissaoPct}%</b><Btn size="sm" v="ghost" onClick={()=>setParceiroForm({...p})}><Ic n="edit"/></Btn></div>)}{!parceiros.length&&vazio("Nenhum parceiro.")}</>;
   } else if(commercialView==="com_metas"){
-    conteudo=<><Titulo titulo="Metas e comissões" sub="Metas por vendedor/equipe e comissões das vendas" acao={<Btn onClick={()=>setMetaForm({id:"",responsavelId:"",equipe:"",periodo:mesAtual,receita:"",contratos:"",ticketMedio:"",conversao:""})}><Ic n="plus"/> META</Btn>}/><div style={{display:"grid",gridTemplateColumns:cols("1fr","1fr","1fr 1fr"),gap:9}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,marginBottom:6}}>METAS</p>{metas.map(m=>{const realizado=vendas.filter(v=>v.fechadaEm?.slice(0,7)===m.periodo&&(!m.responsavelId||v.responsavelId===m.responsavelId)).reduce((s,v)=>s+v.valor,0),pct=m.receita?Math.min(100,realizado/m.receita*100):0;return <div key={m.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:"8px 10px",marginBottom:6}}><div style={{display:"flex",justifyContent:"space-between"}}><b style={{fontSize:"var(--arcd-type-label)"}}>{m.periodo} · {nomeUsuario(m.responsavelId)}</b><button onClick={()=>setMetaForm({...m})} style={{border:0,background:"transparent",color:C.blue,cursor:"pointer"}}>editar</button></div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>Meta {fmt(m.receita)} · realizado {fmt(realizado)}</p><div style={{height:6,background:C.surface,borderRadius:6,marginTop:5}}><div style={{height:"100%",width:`${pct}%`,background:pct>=100?C.green:C.blue,borderRadius:6}}/></div></div>})}{!metas.length&&vazio("Nenhuma meta.")}</div><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,marginBottom:6}}>COMISSÕES</p>{comissoes.map(c=><div key={c.id} style={{display:"grid",gridTemplateColumns:"1fr auto",gap:8,background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:"8px 10px",marginBottom:6}}><div><b style={{fontSize:"var(--arcd-type-label)"}}>{nomeUsuario(c.responsavelId)}</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Base {fmt(c.base)} · {c.percentual}% · {c.status}</p></div><b style={{color:C.green}}>{fmt(c.valor)}</b></div>)}{!comissoes.length&&vazio("Nenhuma comissão calculada.")}</div></div></>;
+    conteudo=<><Titulo titulo="Metas e comissões" sub="Metas por vendedor/equipe e comissões das vendas" acao={<Btn onClick={()=>setMetaForm({id:"",responsavelId:"",equipe:"",periodo:mesAtual,receita:"",contratos:"",ticketMedio:"",conversao:""})}><Ic n="plus"/> META</Btn>}/><div style={{display:"grid",gridTemplateColumns:cols("1fr","1fr","1fr 1fr"),gap:"var(--arcd-space-2)"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,marginBottom:"var(--arcd-space-1)"}}>METAS</p>{metas.map(m=>{const realizado=vendas.filter(v=>v.fechadaEm?.slice(0,7)===m.periodo&&(!m.responsavelId||v.responsavelId===m.responsavelId)).reduce((s,v)=>s+v.valor,0),pct=m.receita?Math.min(100,realizado/m.receita*100):0;return <div key={m.id} style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-2)",marginBottom:"var(--arcd-space-1)"}}><div style={{display:"flex",justifyContent:"space-between"}}><b style={{fontSize:"var(--arcd-type-label)"}}>{m.periodo} · {nomeUsuario(m.responsavelId)}</b><button onClick={()=>setMetaForm({...m})} style={{border:0,background:"transparent",color:C.blue,cursor:"pointer"}}>editar</button></div><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Meta {fmt(m.receita)} · realizado {fmt(realizado)}</p><div style={{height:6,background:"var(--arcd-surface-card)",borderRadius:"var(--arcd-radius-control)",marginTop:"var(--arcd-space-1)"}}><div style={{height:"100%",width:`${pct}%`,background:pct>=100?C.green:C.blue,borderRadius:"var(--arcd-radius-control)"}}/></div></div>})}{!metas.length&&vazio("Nenhuma meta.")}</div><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,marginBottom:"var(--arcd-space-1)"}}>COMISSÕES</p>{comissoes.map(c=><div key={c.id} style={{display:"grid",gridTemplateColumns:"1fr auto",gap:"var(--arcd-space-2)",background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-2)",marginBottom:"var(--arcd-space-1)"}}><div><b style={{fontSize:"var(--arcd-type-label)"}}>{nomeUsuario(c.responsavelId)}</b><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Base {fmt(c.base)} · {c.percentual}% · {c.status}</p></div><b style={{color:C.green}}>{fmt(c.valor)}</b></div>)}{!comissoes.length&&vazio("Nenhuma comissão calculada.")}</div></div></>;
   } else if(commercialView==="com_perdas"){
-    const perdidos=leads.filter(l=>l.etapa==="perdido");conteudo=<><Titulo titulo="Motivos de perda" sub="Análise, concorrentes e reativação futura"/><div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:7}}>{COM_PERDAS.map(m=>kpi(m,perdidos.filter(l=>l.motivoPerda===m).length,perdidos.some(l=>l.motivoPerda===m)?C.red:C.muted))}</div>{perdidos.map(l=><div key={l.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:"8px 10px",marginTop:6}}><div style={{display:"flex",justifyContent:"space-between"}}><div><b style={{fontSize:"var(--arcd-type-label)"}}>{l.nome} · {l.motivoPerda}</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Concorrente: {l.concorrente||"-"} · {fmt(l.valorConcorrente)} · reativação {fmtDate(l.reativacaoEm)}</p></div>{l.reativacaoEm&&l.reativacaoEm<=today()&&<Btn size="sm" v="success" onClick={()=>moverLead(l,"novo")}>REATIVAR</Btn>}</div></div>)}{!perdidos.length&&vazio("Nenhuma perda registrada.")}</>;
+    const perdidos=leads.filter(l=>l.etapa==="perdido");conteudo=<><Titulo titulo="Motivos de perda" sub="Análise, concorrentes e reativação futura"/><div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:"var(--arcd-space-2)"}}>{COM_PERDAS.map(m=>kpi(m,perdidos.filter(l=>l.motivoPerda===m).length,perdidos.some(l=>l.motivoPerda===m)?C.red:C.muted))}</div>{perdidos.map(l=><div key={l.id} style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-2)",marginTop:"var(--arcd-space-1)"}}><div style={{display:"flex",justifyContent:"space-between"}}><div><b style={{fontSize:"var(--arcd-type-label)"}}>{l.nome} · {l.motivoPerda}</b><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Concorrente: {l.concorrente||"-"} · {fmt(l.valorConcorrente)} · reativação {fmtDate(l.reativacaoEm)}</p></div>{l.reativacaoEm&&l.reativacaoEm<=today()&&<Btn size="sm" v="success" onClick={()=>moverLead(l,"novo")}>REATIVAR</Btn>}</div></div>)}{!perdidos.length&&vazio("Nenhuma perda registrada.")}</>;
   } else if(commercialView==="com_relatorios"){
-    conteudo=<><Titulo titulo="Relatórios comerciais" sub="Desempenho por vendedor, origem, receita, conversão e funil" acao={<Btn onClick={exportarRelatorio}>EXPORTAR EXCEL</Btn>}/><div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:6}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:"var(--arcd-type-label)"}}><thead><tr style={{background:C.surface}}>{["VENDEDOR","LEADS","VENDAS","RECEITA","CONVERSÃO"].map(h=><th key={h} style={{padding:7,textAlign:h==="VENDEDOR"?"left":"right"}}>{h}</th>)}</tr></thead><tbody>{vendedores.map(v=><tr key={v.id} style={{borderTop:`1px solid ${C.line}`}}><td style={{padding:7}}>{v.nome}</td><td style={{padding:7,textAlign:"right"}}>{v.leads}</td><td style={{padding:7,textAlign:"right"}}>{v.vendas}</td><td style={{padding:7,textAlign:"right"}}>{fmt(v.receita)}</td><td style={{padding:7,textAlign:"right"}}>{v.conversao.toFixed(1)}%</td></tr>)}</tbody></table></div><div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:6}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:"var(--arcd-type-label)"}}><thead><tr style={{background:C.surface}}>{["ORIGEM","LEADS","VENDAS","RECEITA"].map(h=><th key={h} style={{padding:7,textAlign:h==="ORIGEM"?"left":"right"}}>{h}</th>)}</tr></thead><tbody>{origens.map(o=><tr key={o.origem} style={{borderTop:`1px solid ${C.line}`}}><td style={{padding:7}}>{o.origem}</td><td style={{padding:7,textAlign:"right"}}>{o.leads}</td><td style={{padding:7,textAlign:"right"}}>{o.vendas}</td><td style={{padding:7,textAlign:"right"}}>{fmt(o.receita)}</td></tr>)}</tbody></table></div></>;
+    conteudo=<><Titulo titulo="Relatórios comerciais" sub="Desempenho por vendedor, origem, receita, conversão e funil" acao={<Btn onClick={exportarRelatorio}>EXPORTAR EXCEL</Btn>}/><div style={{overflowX:"auto",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)"}}><table className="arcd-data-table__table" style={{width:"100%",borderCollapse:"collapse"}}><thead><tr style={{background:"var(--arcd-surface-card)"}}>{["VENDEDOR","LEADS","VENDAS","RECEITA","CONVERSÃO"].map(h=><th key={h} style={{padding:"var(--arcd-space-2)",textAlign:h==="VENDEDOR"?"left":"right"}}>{h}</th>)}</tr></thead><tbody>{vendedores.map(v=><tr key={v.id} style={{borderTop:`var(--arcd-border-width) solid var(--arcd-border-subtle)`}}><td style={{padding:"var(--arcd-space-2)"}}>{v.nome}</td><td style={{padding:"var(--arcd-space-2)",textAlign:"right"}}>{v.leads}</td><td style={{padding:"var(--arcd-space-2)",textAlign:"right"}}>{v.vendas}</td><td style={{padding:"var(--arcd-space-2)",textAlign:"right"}}>{fmt(v.receita)}</td><td style={{padding:"var(--arcd-space-2)",textAlign:"right"}}>{v.conversao.toFixed(1)}%</td></tr>)}</tbody></table></div><div style={{overflowX:"auto",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)"}}><table className="arcd-data-table__table" style={{width:"100%",borderCollapse:"collapse"}}><thead><tr style={{background:"var(--arcd-surface-card)"}}>{["ORIGEM","LEADS","VENDAS","RECEITA"].map(h=><th key={h} style={{padding:"var(--arcd-space-2)",textAlign:h==="ORIGEM"?"left":"right"}}>{h}</th>)}</tr></thead><tbody>{origens.map(o=><tr key={o.origem} style={{borderTop:`var(--arcd-border-width) solid var(--arcd-border-subtle)`}}><td style={{padding:"var(--arcd-space-2)"}}>{o.origem}</td><td style={{padding:"var(--arcd-space-2)",textAlign:"right"}}>{o.leads}</td><td style={{padding:"var(--arcd-space-2)",textAlign:"right"}}>{o.vendas}</td><td style={{padding:"var(--arcd-space-2)",textAlign:"right"}}>{fmt(o.receita)}</td></tr>)}</tbody></table></div></>;
   }
 
   const showRealEstateHub=view==="com_real_estate";
@@ -1482,17 +1482,17 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
     view==="com_deals"||dealsSections.some(s=>s.id===commercialView) ? dealsSections
     : view==="com_management"||managementSections.some(s=>s.id===commercialView) ? managementSections
     : null;
-  return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
+  return <div className="anim" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
     {showRealEstateHub&&<><PageHeader className="workspace-header" title="Venda de imóveis" description="Disponibilidade, reservas e vendas do portfólio."/><WorkspaceNavigation label="Áreas dos imóveis" active={activeCommercialSection} onChange={id=>openCommercialSection(COM_IMOBILIARIO_SECTIONS.find(section=>section.id===id))} items={COM_IMOBILIARIO_SECTIONS}/></>}
     {activeSubNav&&<WorkspaceNavigation label="Áreas do comercial" active={commercialView} onChange={onTab} items={activeSubNav.map(section=>({id:section.id,label:section.l}))}/>}
     {showRealEstateHub?<Suspense fallback={<LoadingState label="gestão imobiliária"/>}><LazyRealEstateCommercial section={activeCommercialSection} commercial={com} appData={data} currentUser={currentUser} showToast={showToast} onSave={(next,message)=>persistirComercial(next,{mensagem:message})} onUploadFile={anexarArquivoImobiliario} onLegacyNavigate={onTab}/></Suspense>:conteudo}
     {npsForm&&<Modal title="Pesquisa de satisfação na entrega" onClose={()=>setNpsForm(null)}>
-      <div style={{display:"flex",flexDirection:"column",gap:12}}>
-        <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.5}}>
+      <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
+        <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:1.5}}>
           De 0 a 10, o quanto o cliente recomendaria a MARCELL. Nota 9-10 é promotor
           (candidato a indicar), 7-8 neutro, 0-6 detrator (precisa de atenção).
         </p>
-        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:9}}>
+        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}>
           <Sel label="Obra *" value={npsForm.obraId}
             onChange={v=>{
               const o=(data.obras||[]).find(x=>x.id===v);
@@ -1508,23 +1508,23 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
 
         {/* Nota de 0 a 10 em botoes - mais rapido no celular que digitar */}
         <div>
-          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginBottom:6}}>Nota *</p>
-          <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"var(--arcd-text-primary)",marginBottom:"var(--arcd-space-1)"}}>Nota *</p>
+          <div style={{display:"flex",flexWrap:"wrap",gap:"var(--arcd-space-1)"}}>
             {Array.from({length:11},(_,n)=>{
               const sel=String(npsForm.nota)===String(n);
               const cor=n>=9?C.green:n>=7?C.orange:C.red;
               return (
                 <button key={n} type="button" onClick={()=>setNpsForm(f=>({...f,nota:n}))}
-                  style={{width:34,height:34,borderRadius:8,cursor:"pointer",
+                  style={{width:34,height:34,borderRadius:"var(--arcd-box-radius)",cursor:"pointer",
                     border:`1.5px solid ${sel?cor:C.border}`,
-                    background:sel?`${cor}1E`:C.bg,
-                    color:sel?cor:C.muted,fontSize:"var(--arcd-type-control)",fontWeight:sel?600:600,
+                    background:sel?`${cor}1E`:"var(--arcd-surface-page)",
+                    color:sel?cor:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-control)",fontWeight:sel?600:600,
                     fontFamily:"var(--arcd-font-sans)"}}>{n}</button>
               );
             })}
           </div>
           {npsForm.nota!=="" && npsForm.nota!==null && (
-            <p style={{fontSize:"var(--arcd-type-label)",marginTop:6,fontWeight:600,
+            <p style={{fontSize:"var(--arcd-type-label)",marginTop:"var(--arcd-space-1)",fontWeight:600,
                  color:Number(npsForm.nota)>=9?C.green:Number(npsForm.nota)>=7?C.orange:C.red}}>
               {Number(npsForm.nota)>=9?"Promotor - peça indicação logo após a entrega."
                :Number(npsForm.nota)>=7?"Neutro - satisfeito, mas não vai indicar sozinho."
@@ -1537,14 +1537,14 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
              onChange={v=>setNpsForm(f=>({...f,comentario:v}))} multiline
              placeholder="O que ele destacou, o que faltou..."/>
 
-        <label style={{display:"flex",alignItems:"center",gap:8,fontSize:"var(--arcd-type-label)",color:C.text,cursor:"pointer"}}>
+        <label style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",cursor:"pointer"}}>
           <input type="checkbox" checked={!!npsForm.pediuIndicacao}
             onChange={e=>setNpsForm(f=>({...f,pediuIndicacao:e.target.checked}))}
             style={{width:15,height:15,accentColor:C.yellowD,cursor:"pointer"}}/>
           Já pedi indicação a este cliente
         </label>
 
-        <div style={{display:"flex",gap:8}}>
+        <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
           <Btn v="ghost" onClick={()=>setNpsForm(null)} full>Cancelar</Btn>
           <Btn disabled={!!salvandoComercial} onClick={salvarNps} full><Ic n="check"/> {salvandoComercial==="nps"?"Salvando...":"Salvar"}</Btn>
         </div>
@@ -1552,24 +1552,24 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
     </Modal>}
 
     {colunaResumo&&<Modal title={`${colunaResumo.label} · ${contar(colunaResumo.leads.length,"lead","leads")}`} onClose={()=>setColunaResumo(null)}>
-      <div style={{display:"flex",flexDirection:"column",gap:7}}>
-        <div style={{display:"flex",justifyContent:"space-between",fontSize:"var(--arcd-type-label)",color:C.muted}}>
+      <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>
           <span>Valor somado</span><b style={{color:C.yellowD}}>{fmt(colunaResumo.leads.reduce((s,l)=>s+(l.orcamentoEstimado||0),0))}</b>
         </div>
         {colunaResumo.leads.map(l=><button key={l.id} onClick={()=>{setColunaResumo(null);setLeadForm({...l});setLeadAba("geral");}}
-          style={{textAlign:"left",display:"flex",justifyContent:"space-between",gap:8,background:C.card,border:`1px solid ${C.border}`,borderLeft:`1px solid ${COM_TEMPERATURA[l.temperatura]||C.muted}`,borderRadius:6,padding:"8px 10px",cursor:"pointer"}}>
+          style={{textAlign:"left",display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderLeft:`var(--arcd-border-width) solid ${COM_TEMPERATURA[l.temperatura]||C.muted}`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-2)",cursor:"pointer"}}>
           <div style={{minWidth:0}}>
-            <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{l.nome}</p>
-            <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{nomeUsuario(l.responsavelId)} · {comDias(l.etapaDesde)}d nesta etapa</p>
+            <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"var(--arcd-text-primary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{l.nome}</p>
+            <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{nomeUsuario(l.responsavelId)} · {comDias(l.etapaDesde)}d nesta etapa</p>
           </div>
           <b style={{fontSize:"var(--arcd-type-label)",color:C.yellowD,flexShrink:0}}>{fmt(l.orcamentoEstimado)}</b>
         </button>)}
-        {!colunaResumo.leads.length&&<p style={{textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted,padding:12}}>Nenhum lead nesta etapa.</p>}
+        {!colunaResumo.leads.length&&<p style={{textAlign:"center",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",padding:"var(--arcd-space-3)"}}>Nenhum lead nesta etapa.</p>}
       </div>
     </Modal>}
 
-    {leadForm&&<Modal title={leadForm.id?`Lead · ${leadForm.nome}`:"Novo lead"} onClose={()=>setLeadForm(null)} wide><div style={{display:"flex",flexDirection:"column",gap:10}}><WorkspaceNavigation label="Áreas do lead" active={leadAba} onChange={setLeadAba} items={[["geral","Visão geral"],["cadastro","Dados cadastrais"],["projeto","Projeto/serviço"],["qualificacao","Qualificação"],["atividades","Atividades"],["reunioes","Reuniões"],["propostas","Propostas"],["negociacoes","Negociações"],["contratos","Contratos"],["documentos","Documentos"],["financeiro","Financeiro"],["historico","Histórico"]].map(([id,label])=>({id,label}))}/>
-      {leadAba==="geral"&&<div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Inp label="Nome *" value={leadForm.nome} onChange={v=>setLeadForm(f=>({...f,nome:v}))}/><SelBtn label="Etapa" value={leadForm.etapa} onChange={v=>setLeadForm(f=>({...f,etapa:v}))} options={COM_ETAPAS.map(([v,l])=>({v,l}))}/><Sel label="Responsável *" value={leadForm.responsavelId} onChange={v=>setLeadForm(f=>({...f,responsavelId:v}))} options={[{v:"",l:"Selecione"},...usuarios.map(u=>({v:u.id,l:u.nome}))]}/><Inp label="Serviço de interesse" value={leadForm.servico} onChange={v=>setLeadForm(f=>({...f,servico:v}))}/><Inp label="Orçamento estimado" type="number" value={leadForm.orcamentoEstimado} onChange={v=>setLeadForm(f=>({...f,orcamentoEstimado:v}))}/><Inp label="Fechamento previsto" type="date" value={leadForm.fechamentoPrevisto} onChange={v=>setLeadForm(f=>({...f,fechamentoPrevisto:v}))}/><Inp label="Probabilidade %" type="number" value={leadForm.probabilidade} onChange={v=>setLeadForm(f=>({...f,probabilidade:v,temperatura:Number(v)>=70?"quente":Number(v)>=35?"morno":"frio"}))}/><Sel label="Temperatura" value={leadForm.temperatura} onChange={v=>setLeadForm(f=>({...f,temperatura:v}))} options={[{v:"frio",l:"Frio"},{v:"morno",l:"Morno"},{v:"quente",l:"Quente"}]}/><Inp label="Prazo desejado" value={leadForm.prazoDesejado} onChange={v=>setLeadForm(f=>({...f,prazoDesejado:v}))}/><Inp label="Próxima atividade *" value={leadForm.proximaAtividade} onChange={v=>setLeadForm(f=>({...f,proximaAtividade:v}))}/><Inp label="Data da próxima atividade *" type="datetime-local" value={leadForm.proximaAtividadeEm} onChange={v=>setLeadForm(f=>({...f,proximaAtividadeEm:v}))}/><Sel label="Origem" value={leadForm.origem} onChange={v=>setLeadForm(f=>({...f,origem:v}))} options={[{v:"",l:"Selecione"},...['Indicação','Site','Instagram','WhatsApp','Parceiro','Tráfego pago','Prospecção','Outro'].map(v=>({v,l:v}))]}/>
+    {leadForm&&<Modal title={leadForm.id?`Lead · ${leadForm.nome}`:"Novo lead"} onClose={()=>setLeadForm(null)} wide><div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}><WorkspaceNavigation label="Áreas do lead" active={leadAba} onChange={setLeadAba} items={[["geral","Visão geral"],["cadastro","Dados cadastrais"],["projeto","Projeto/serviço"],["qualificacao","Qualificação"],["atividades","Atividades"],["reunioes","Reuniões"],["propostas","Propostas"],["negociacoes","Negociações"],["contratos","Contratos"],["documentos","Documentos"],["financeiro","Financeiro"],["historico","Histórico"]].map(([id,label])=>({id,label}))}/>
+      {leadAba==="geral"&&<div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:"var(--arcd-space-2)"}}><Inp label="Nome *" value={leadForm.nome} onChange={v=>setLeadForm(f=>({...f,nome:v}))}/><SelBtn label="Etapa" value={leadForm.etapa} onChange={v=>setLeadForm(f=>({...f,etapa:v}))} options={COM_ETAPAS.map(([v,l])=>({v,l}))}/><Sel label="Responsável *" value={leadForm.responsavelId} onChange={v=>setLeadForm(f=>({...f,responsavelId:v}))} options={[{v:"",l:"Selecione"},...usuarios.map(u=>({v:u.id,l:u.nome}))]}/><Inp label="Serviço de interesse" value={leadForm.servico} onChange={v=>setLeadForm(f=>({...f,servico:v}))}/><Inp label="Orçamento estimado" type="number" value={leadForm.orcamentoEstimado} onChange={v=>setLeadForm(f=>({...f,orcamentoEstimado:v}))}/><Inp label="Fechamento previsto" type="date" value={leadForm.fechamentoPrevisto} onChange={v=>setLeadForm(f=>({...f,fechamentoPrevisto:v}))}/><Inp label="Probabilidade %" type="number" value={leadForm.probabilidade} onChange={v=>setLeadForm(f=>({...f,probabilidade:v,temperatura:Number(v)>=70?"quente":Number(v)>=35?"morno":"frio"}))}/><Sel label="Temperatura" value={leadForm.temperatura} onChange={v=>setLeadForm(f=>({...f,temperatura:v}))} options={[{v:"frio",l:"Frio"},{v:"morno",l:"Morno"},{v:"quente",l:"Quente"}]}/><Inp label="Prazo desejado" value={leadForm.prazoDesejado} onChange={v=>setLeadForm(f=>({...f,prazoDesejado:v}))}/><Inp label="Próxima atividade *" value={leadForm.proximaAtividade} onChange={v=>setLeadForm(f=>({...f,proximaAtividade:v}))}/><Inp label="Data da próxima atividade *" type="datetime-local" value={leadForm.proximaAtividadeEm} onChange={v=>setLeadForm(f=>({...f,proximaAtividadeEm:v}))}/><Sel label="Origem" value={leadForm.origem} onChange={v=>setLeadForm(f=>({...f,origem:v}))} options={[{v:"",l:"Selecione"},...['Indicação','Site','Instagram','WhatsApp','Parceiro','Tráfego pago','Prospecção','Outro'].map(v=>({v,l:v}))]}/>
       {/* QUEM INDICOU: so aparece quando a origem e indicacao. E o dado que
           alimenta o ranking de indicadores - sem ele o motor fica cego. */}
       {leadForm.origem==="Indicação" && (<>
@@ -1585,26 +1585,26 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
              onChange={v=>setLeadForm(f=>({...f,indicadoPorObraId:v}))}
              options={[{v:"",l:"Não informado"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
       </>)}<div style={{gridColumn:"1/-1"}}><Inp label="Observações" value={leadForm.observacoes} onChange={v=>setLeadForm(f=>({...f,observacoes:v}))} multiline/></div></div>}
-      {leadAba==="cadastro"&&<div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Sel label="Pessoa" value={leadForm.tipoPessoa} onChange={v=>setLeadForm(f=>({...f,tipoPessoa:v}))} options={[{v:"PF",l:"Pessoa física"},{v:"PJ",l:"Pessoa jurídica"}]}/><Inp label="Telefone" value={leadForm.telefone} onChange={v=>setLeadForm(f=>({...f,telefone:v}))}/><Inp label="WhatsApp" value={leadForm.whatsapp} onChange={v=>setLeadForm(f=>({...f,whatsapp:v}))}/><Inp label="E-mail" value={leadForm.email} onChange={v=>setLeadForm(f=>({...f,email:v}))}/><Inp label="Cidade" value={leadForm.cidade} onChange={v=>setLeadForm(f=>({...f,cidade:v}))}/><Inp label="Endereço" value={leadForm.endereco} onChange={v=>setLeadForm(f=>({...f,endereco:v}))}/><Inp label="Condomínio" value={leadForm.condominio} onChange={v=>setLeadForm(f=>({...f,condominio:v}))}/><Inp label="Lote" value={leadForm.lote} onChange={v=>setLeadForm(f=>({...f,lote:v}))}/><Sel label="Parceiro indicador" value={leadForm.parceiroId||""} onChange={v=>setLeadForm(f=>({...f,parceiroId:v}))} options={[{v:"",l:"Nenhum"},...parceiros.map(p=>({v:p.id,l:p.nome}))]}/></div>}
-      {leadAba==="projeto"&&<div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Inp label="Área do terreno (m²)" type="number" value={leadForm.areaTerreno} onChange={v=>setLeadForm(f=>({...f,areaTerreno:v}))}/><Inp label="Área estimada da construção" type="number" value={leadForm.areaConstrucao} onChange={v=>setLeadForm(f=>({...f,areaConstrucao:v}))}/><Inp label="Pavimentos" type="number" value={leadForm.pavimentos} onChange={v=>setLeadForm(f=>({...f,pavimentos:v}))}/><Inp label="Tipo de serviço" value={leadForm.tipoServico} onChange={v=>setLeadForm(f=>({...f,tipoServico:v}))}/><Inp label="Prazo pretendido" value={leadForm.prazoPretendido} onChange={v=>setLeadForm(f=>({...f,prazoPretendido:v}))}/><Sel label="Padrão construtivo" value={leadForm.padrao} onChange={v=>setLeadForm(f=>({...f,padrao:v}))} options={[{v:"economico",l:"Econômico"},{v:"medio",l:"Médio"},{v:"alto",l:"Alto padrão"}]}/><Inp label="Orçamento disponível" type="number" value={leadForm.orcamentoDisponivel} onChange={v=>setLeadForm(f=>({...f,orcamentoDisponivel:v}))}/><div style={{gridColumn:"1/-1"}}><Inp label="Projetos/documentos existentes" value={leadForm.projetosExistentes} onChange={v=>setLeadForm(f=>({...f,projetosExistentes:v}))} multiline/></div></div>}
+      {leadAba==="cadastro"&&<div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:"var(--arcd-space-2)"}}><Sel label="Pessoa" value={leadForm.tipoPessoa} onChange={v=>setLeadForm(f=>({...f,tipoPessoa:v}))} options={[{v:"PF",l:"Pessoa física"},{v:"PJ",l:"Pessoa jurídica"}]}/><Inp label="Telefone" value={leadForm.telefone} onChange={v=>setLeadForm(f=>({...f,telefone:v}))}/><Inp label="WhatsApp" value={leadForm.whatsapp} onChange={v=>setLeadForm(f=>({...f,whatsapp:v}))}/><Inp label="E-mail" value={leadForm.email} onChange={v=>setLeadForm(f=>({...f,email:v}))}/><Inp label="Cidade" value={leadForm.cidade} onChange={v=>setLeadForm(f=>({...f,cidade:v}))}/><Inp label="Endereço" value={leadForm.endereco} onChange={v=>setLeadForm(f=>({...f,endereco:v}))}/><Inp label="Condomínio" value={leadForm.condominio} onChange={v=>setLeadForm(f=>({...f,condominio:v}))}/><Inp label="Lote" value={leadForm.lote} onChange={v=>setLeadForm(f=>({...f,lote:v}))}/><Sel label="Parceiro indicador" value={leadForm.parceiroId||""} onChange={v=>setLeadForm(f=>({...f,parceiroId:v}))} options={[{v:"",l:"Nenhum"},...parceiros.map(p=>({v:p.id,l:p.nome}))]}/></div>}
+      {leadAba==="projeto"&&<div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:"var(--arcd-space-2)"}}><Inp label="Área do terreno (m²)" type="number" value={leadForm.areaTerreno} onChange={v=>setLeadForm(f=>({...f,areaTerreno:v}))}/><Inp label="Área estimada da construção" type="number" value={leadForm.areaConstrucao} onChange={v=>setLeadForm(f=>({...f,areaConstrucao:v}))}/><Inp label="Pavimentos" type="number" value={leadForm.pavimentos} onChange={v=>setLeadForm(f=>({...f,pavimentos:v}))}/><Inp label="Tipo de serviço" value={leadForm.tipoServico} onChange={v=>setLeadForm(f=>({...f,tipoServico:v}))}/><Inp label="Prazo pretendido" value={leadForm.prazoPretendido} onChange={v=>setLeadForm(f=>({...f,prazoPretendido:v}))}/><Sel label="Padrão construtivo" value={leadForm.padrao} onChange={v=>setLeadForm(f=>({...f,padrao:v}))} options={[{v:"economico",l:"Econômico"},{v:"medio",l:"Médio"},{v:"alto",l:"Alto padrão"}]}/><Inp label="Orçamento disponível" type="number" value={leadForm.orcamentoDisponivel} onChange={v=>setLeadForm(f=>({...f,orcamentoDisponivel:v}))}/><div style={{gridColumn:"1/-1"}}><Inp label="Projetos/documentos existentes" value={leadForm.projetosExistentes} onChange={v=>setLeadForm(f=>({...f,projetosExistentes:v}))} multiline/></div></div>}
       {leadAba==="qualificacao"&&<Inp label="Qualificação, necessidades, restrições e objeções" value={leadForm.qualificacao} onChange={v=>setLeadForm(f=>({...f,qualificacao:v}))} multiline/>}
-      {leadAba==="atividades"&&<div>{atividades.filter(a=>a.leadId===leadForm.id).map(a=><p key={a.id} style={{fontSize:"var(--arcd-type-label)",padding:6,borderBottom:`1px solid ${C.line}`}}>{comDateTime(a.dataHora)} · {a.titulo} · {a.status}</p>)}<Btn size="sm" onClick={()=>setAtividadeForm({id:"",leadId:leadForm.id,tipo:"followup",titulo:"",dataHora:"",responsavelId:leadForm.responsavelId,status:"pendente",observacoes:""})}>+ ATIVIDADE</Btn></div>}
-      {leadAba==="reunioes"&&<div style={{display:"flex",flexDirection:"column",gap:6}}>{reunioes.filter(r=>r.leadId===leadForm.id).sort((a,b)=>(b.dataHora||"").localeCompare(a.dataHora||"")).map(r=><div key={r.id} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:8,padding:"8px 9px",border:`1px solid ${C.border}`,borderLeft:`1px solid ${r.status==="realizada"?C.green:C.blue}`,borderRadius:7}}><div><b style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{comDateTime(r.dataHora)} · {r.tipo}</b><p style={{fontSize:"var(--arcd-type-caption)",color:r.status==="realizada"?C.green:C.muted,marginTop:2}}>{r.status==="realizada"?"Executada":"Agendada"}{r.resumo?` · ${r.resumo}`:""}</p>{r.proximosPassos&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Próximo passo: {r.proximosPassos}</p>}</div><div style={{display:"flex",gap:4,alignItems:"center"}}>{r.status!=="realizada"&&r.status!=="cancelada"&&<Btn size="sm" v="success" onClick={()=>setReuniaoForm({...r,status:"realizada"})}>Confirmar</Btn>}<Btn size="sm" v="ghost" onClick={()=>setReuniaoForm({...r})}>Abrir</Btn></div></div>)}{!reunioes.some(r=>r.leadId===leadForm.id)&&vazio("Nenhuma reunião para este lead.")}<Btn size="sm" onClick={()=>setReuniaoForm({id:"",leadId:leadForm.id,dataHora:"",tipo:"presencial",local:"",participantes:"",responsavelComercialId:leadForm.responsavelId||currentUser?.id||"",responsavelTecnicoId:"",pauta:"",resumo:"",necessidades:"",objecoes:"",orcamentoDisponivel:leadForm.orcamentoDisponivel||"",proximosPassos:"",proximoContato:"",status:"agendada",documentos:[]})}>+ NOVA REUNIÃO</Btn></div>}
-      {leadAba==="propostas"&&<div>{propostas.filter(p=>p.leadId===leadForm.id).map(p=><p key={p.id} style={{fontSize:"var(--arcd-type-label)",padding:6,borderBottom:`1px solid ${C.line}`}}>{p.numero} V{p.versao} · {fmt(p.valor)} · {p.status}</p>)}<Btn size="sm" onClick={()=>setPropostaForm(propostaVazia(leadForm.id))}>+ PROPOSTA</Btn></div>}
-      {leadAba==="negociacoes"&&<div>{propostas.filter(p=>p.leadId===leadForm.id).flatMap(p=>(p.negociacoes||[]).map(n=><p key={n.id} style={{fontSize:"var(--arcd-type-label)",padding:6,borderBottom:`1px solid ${C.line}`}}>{comDateTime(n.data)} · {fmt(n.valorInicial)} → {fmt(n.valorNegociado)} · {n.objecoes}</p>))}</div>}
+      {leadAba==="atividades"&&<div>{atividades.filter(a=>a.leadId===leadForm.id).map(a=><p key={a.id} style={{fontSize:"var(--arcd-type-label)",padding:"var(--arcd-space-1)",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`}}>{comDateTime(a.dataHora)} · {a.titulo} · {a.status}</p>)}<Btn size="sm" onClick={()=>setAtividadeForm({id:"",leadId:leadForm.id,tipo:"followup",titulo:"",dataHora:"",responsavelId:leadForm.responsavelId,status:"pendente",observacoes:""})}>+ ATIVIDADE</Btn></div>}
+      {leadAba==="reunioes"&&<div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>{reunioes.filter(r=>r.leadId===leadForm.id).sort((a,b)=>(b.dataHora||"").localeCompare(a.dataHora||"")).map(r=><div key={r.id} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-2)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderLeft:`var(--arcd-border-width) solid ${r.status==="realizada"?C.green:C.blue}`,borderRadius:"var(--arcd-radius-control)"}}><div><b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>{comDateTime(r.dataHora)} · {r.tipo}</b><p style={{fontSize:"var(--arcd-type-caption)",color:r.status==="realizada"?C.green:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{r.status==="realizada"?"Executada":"Agendada"}{r.resumo?` · ${r.resumo}`:""}</p>{r.proximosPassos&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Próximo passo: {r.proximosPassos}</p>}</div><div style={{display:"flex",gap:"var(--arcd-space-1)",alignItems:"center"}}>{r.status!=="realizada"&&r.status!=="cancelada"&&<Btn size="sm" v="success" onClick={()=>setReuniaoForm({...r,status:"realizada"})}>Confirmar</Btn>}<Btn size="sm" v="ghost" onClick={()=>setReuniaoForm({...r})}>Abrir</Btn></div></div>)}{!reunioes.some(r=>r.leadId===leadForm.id)&&vazio("Nenhuma reunião para este lead.")}<Btn size="sm" onClick={()=>setReuniaoForm({id:"",leadId:leadForm.id,dataHora:"",tipo:"presencial",local:"",participantes:"",responsavelComercialId:leadForm.responsavelId||currentUser?.id||"",responsavelTecnicoId:"",pauta:"",resumo:"",necessidades:"",objecoes:"",orcamentoDisponivel:leadForm.orcamentoDisponivel||"",proximosPassos:"",proximoContato:"",status:"agendada",documentos:[]})}>+ NOVA REUNIÃO</Btn></div>}
+      {leadAba==="propostas"&&<div>{propostas.filter(p=>p.leadId===leadForm.id).map(p=><p key={p.id} style={{fontSize:"var(--arcd-type-label)",padding:"var(--arcd-space-1)",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`}}>{p.numero} V{p.versao} · {fmt(p.valor)} · {p.status}</p>)}<Btn size="sm" onClick={()=>setPropostaForm(propostaVazia(leadForm.id))}>+ PROPOSTA</Btn></div>}
+      {leadAba==="negociacoes"&&<div>{propostas.filter(p=>p.leadId===leadForm.id).flatMap(p=>(p.negociacoes||[]).map(n=><p key={n.id} style={{fontSize:"var(--arcd-type-label)",padding:"var(--arcd-space-1)",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`}}>{comDateTime(n.data)} · {fmt(n.valorInicial)} → {fmt(n.valorNegociado)} · {n.objecoes}</p>))}</div>}
       {leadAba==="contratos"&&<LeadContracts data={data} lead={leadForm} user={currentUser} onOpen={openLeadContracts}/>}
-      {leadAba==="documentos"&&<div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr auto",gap:6,alignItems:"end"}}><Inp label="Nome do documento" value={docForm.nome} onChange={v=>setDocForm(f=>({...f,nome:v}))}/><Inp label="Link do arquivo" value={docForm.url} onChange={v=>setDocForm(f=>({...f,url:v}))}/><Btn size="sm" onClick={()=>{if(docForm.nome&&docForm.url){setLeadForm(f=>({...f,documentos:[...(f.documentos||[]),{id:uid(),...docForm,data:new Date().toISOString()}]}));setDocForm({nome:"",url:""});}}}>ADICIONAR</Btn></div>{(leadForm.documentos||[]).map(d=><p key={d.id} style={{fontSize:"var(--arcd-type-label)",padding:6}}><a href={d.url} target="_blank" rel="noreferrer">{d.nome}</a></p>)}</div>}
-      {leadAba==="financeiro"&&<div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}>{kpi("Propostas",fmt(propostas.filter(p=>p.leadId===leadForm.id).reduce((s,p)=>Math.max(s,p.valor),0)),C.blue)}{kpi("Contratos",fmt(contratos.filter(k=>k.leadId===leadForm.id).reduce((s,k)=>s+k.valor,0)),C.green)}{kpi("Recebido",fmt(recebidoDoLead(leadForm.id)),C.yellowD)}</div>}
-      {leadAba==="historico"&&<div>{(leadForm.historico||[]).slice().reverse().map(h=><div key={h.id} style={{borderLeft:`1px solid ${C.blue}`,padding:"5px 8px",marginBottom:5}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{comDateTime(h.data)} · {h.tipo}</p><p style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{h.texto}</p></div>)}</div>}
-      <div style={{display:"flex",gap:7,justifyContent:"space-between",flexWrap:"wrap"}}>{leadForm.id?<Btn v="danger" disabled={!!salvandoComercial} onClick={()=>excluirLead(leadForm)}><Ic n="trash"/> EXCLUIR LEAD</Btn>:<span/>}<div style={{display:"flex",gap:7}}><Btn v="ghost" onClick={()=>setLeadForm(null)}>CANCELAR</Btn><Btn disabled={!!salvandoComercial} onClick={salvarLead}><Ic n="check"/> {salvandoComercial==="lead"?"Salvando...":"SALVAR LEAD"}</Btn></div></div></div></Modal>}
+      {leadAba==="documentos"&&<div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr auto",gap:"var(--arcd-space-1)",alignItems:"end"}}><Inp label="Nome do documento" value={docForm.nome} onChange={v=>setDocForm(f=>({...f,nome:v}))}/><Inp label="Link do arquivo" value={docForm.url} onChange={v=>setDocForm(f=>({...f,url:v}))}/><Btn size="sm" onClick={()=>{if(docForm.nome&&docForm.url){setLeadForm(f=>({...f,documentos:[...(f.documentos||[]),{id:uid(),...docForm,data:new Date().toISOString()}]}));setDocForm({nome:"",url:""});}}}>ADICIONAR</Btn></div>{(leadForm.documentos||[]).map(d=><p key={d.id} style={{fontSize:"var(--arcd-type-label)",padding:"var(--arcd-space-1)"}}><a href={d.url} target="_blank" rel="noreferrer">{d.nome}</a></p>)}</div>}
+      {leadAba==="financeiro"&&<div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:"var(--arcd-space-2)"}}>{kpi("Propostas",fmt(propostas.filter(p=>p.leadId===leadForm.id).reduce((s,p)=>Math.max(s,p.valor),0)),C.blue)}{kpi("Contratos",fmt(contratos.filter(k=>k.leadId===leadForm.id).reduce((s,k)=>s+k.valor,0)),C.green)}{kpi("Recebido",fmt(recebidoDoLead(leadForm.id)),C.yellowD)}</div>}
+      {leadAba==="historico"&&<div>{(leadForm.historico||[]).slice().reverse().map(h=><div key={h.id} style={{borderLeft:`var(--arcd-border-width) solid ${C.blue}`,padding:"var(--arcd-space-1) var(--arcd-space-2)",marginBottom:"var(--arcd-space-1)"}}><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{comDateTime(h.data)} · {h.tipo}</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>{h.texto}</p></div>)}</div>}
+      <div style={{display:"flex",gap:"var(--arcd-space-2)",justifyContent:"space-between",flexWrap:"wrap"}}>{leadForm.id?<Btn v="danger" disabled={!!salvandoComercial} onClick={()=>excluirLead(leadForm)}><Ic n="trash"/> EXCLUIR LEAD</Btn>:<span/>}<div style={{display:"flex",gap:"var(--arcd-space-2)"}}><Btn v="ghost" onClick={()=>setLeadForm(null)}>CANCELAR</Btn><Btn disabled={!!salvandoComercial} onClick={salvarLead}><Ic n="check"/> {salvandoComercial==="lead"?"Salvando...":"SALVAR LEAD"}</Btn></div></div></div></Modal>}
 
-    {atividadeForm&&<Modal title="Tarefa / follow-up" onClose={()=>setAtividadeForm(null)}><div style={{display:"flex",flexDirection:"column",gap:9}}><Sel label="Lead *" value={atividadeForm.leadId} onChange={v=>setAtividadeForm(f=>({...f,leadId:v}))} options={[{v:"",l:"Selecione"},...leads.map(l=>({v:l.id,l:l.nome}))]}/><Inp label="Título *" value={atividadeForm.titulo} onChange={v=>setAtividadeForm(f=>({...f,titulo:v}))}/><Inp label="Data e hora *" type="datetime-local" value={atividadeForm.dataHora} onChange={v=>setAtividadeForm(f=>({...f,dataHora:v}))}/><Sel label="Responsável" value={atividadeForm.responsavelId} onChange={v=>setAtividadeForm(f=>({...f,responsavelId:v}))} options={usuarios.map(u=>({v:u.id,l:u.nome}))}/><Inp label="Observações" value={atividadeForm.observacoes} onChange={v=>setAtividadeForm(f=>({...f,observacoes:v}))} multiline/><Btn disabled={!!salvandoComercial} onClick={()=>salvarAtividade(atividadeForm)}>{salvandoComercial==="atividade"?"Salvando...":"SALVAR"}</Btn></div></Modal>}
-    {reuniaoForm&&<Modal title={reuniaoForm.id?`Reunião · ${leadBy(reuniaoForm.leadId)?.nome||"Lead"}`:"Nova reunião comercial"} onClose={()=>setReuniaoForm(null)} wide><div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>{reuniaoForm.status==="realizada"&&<div style={{gridColumn:"1/-1",padding:"9px 11px",border:`1px solid ${C.green}`,borderRadius:7,background:`${C.green}0B`}}><b style={{fontSize:"var(--arcd-type-label)",color:C.green}}>CONFIRMAR REUNIÃO EXECUTADA</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Preencha o resumo e os próximos passos. Ao salvar, o registro entrará automaticamente no histórico do lead.</p></div>}<Sel label="Lead *" value={reuniaoForm.leadId} onChange={v=>setReuniaoForm(f=>({...f,leadId:v}))} options={[{v:"",l:"Selecione"},...leads.map(l=>({v:l.id,l:l.nome}))]}/><Inp label="Data e hora *" type="datetime-local" value={reuniaoForm.dataHora} onChange={v=>setReuniaoForm(f=>({...f,dataHora:v}))}/><Sel label="Situação" value={reuniaoForm.status||"agendada"} onChange={v=>setReuniaoForm(f=>({...f,status:v}))} options={[{v:"agendada",l:"Agendada"},{v:"realizada",l:"Executada"},{v:"cancelada",l:"Cancelada"}]}/><Sel label="Tipo" value={reuniaoForm.tipo} onChange={v=>setReuniaoForm(f=>({...f,tipo:v}))} options={[{v:"presencial",l:"Presencial"},{v:"online",l:"On-line"},{v:"visita",l:"Visita técnica"}]}/><Inp label="Local ou link" value={reuniaoForm.local} onChange={v=>setReuniaoForm(f=>({...f,local:v}))}/><Inp label="Participantes" value={reuniaoForm.participantes} onChange={v=>setReuniaoForm(f=>({...f,participantes:v}))}/><Sel label="Responsável técnico" value={reuniaoForm.responsavelTecnicoId} onChange={v=>setReuniaoForm(f=>({...f,responsavelTecnicoId:v}))} options={[{v:"",l:"Selecione"},...usuarios.map(u=>({v:u.id,l:u.nome}))]}/>{[["pauta","Pauta"],["resumo",reuniaoForm.status==="realizada"?"Resumo da reunião *":"Resumo"],["necessidades","Necessidades"],["objecoes","Objeções"],["proximosPassos","Próximos passos"]].map(([k,l])=><div key={k} style={{gridColumn:"1/-1"}}><Inp label={l} value={reuniaoForm[k]} onChange={v=>setReuniaoForm(f=>({...f,[k]:v}))} multiline/></div>)}<Inp label="Orçamento disponível" type="number" value={reuniaoForm.orcamentoDisponivel} onChange={v=>setReuniaoForm(f=>({...f,orcamentoDisponivel:v}))}/><Inp label="Próximo contato" type="date" value={reuniaoForm.proximoContato} onChange={v=>setReuniaoForm(f=>({...f,proximoContato:v}))}/><div style={{gridColumn:"1/-1",display:"flex",gap:7}}><Btn v="ghost" onClick={()=>setReuniaoForm(null)} full>Cancelar</Btn><Btn v={reuniaoForm.status==="realizada"?"success":"primary"} disabled={!!salvandoComercial} onClick={()=>salvarReuniao(reuniaoForm)} full>{salvandoComercial==="reuniao"?"Salvando...":reuniaoForm.status==="realizada"?"CONFIRMAR EXECUÇÃO E SALVAR NO LEAD":"SALVAR REUNIÃO"}</Btn></div></div></Modal>}
-    {propostaForm&&<Modal title="Proposta comercial" onClose={()=>setPropostaForm(null)} wide><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Inp label="Número" value={propostaForm.numero} onChange={v=>setPropostaForm(f=>({...f,numero:v}))}/><Inp label="Versão" type="number" value={propostaForm.versao} onChange={v=>setPropostaForm(f=>({...f,versao:v}))}/><Sel label="Lead" value={propostaForm.leadId} onChange={v=>setPropostaForm(f=>({...f,leadId:v}))} options={[{v:"",l:"Vincular depois"},...leads.map(l=>({v:l.id,l:l.nome}))]}/><Inp label="Objeto" value={propostaForm.objeto} onChange={v=>setPropostaForm(f=>({...f,objeto:v}))}/><Inp label="Valor" type="number" value={propostaForm.valor} onChange={v=>setPropostaForm(f=>({...f,valor:v}))}/><Inp label="Validade" type="date" value={propostaForm.validade} onChange={v=>setPropostaForm(f=>({...f,validade:v}))}/>{[["escopo","Escopo"],["inclusos","Serviços inclusos"],["exclusos","Não inclusos"],["entregaveis","Entregáveis"],["formaPagamento","Forma de pagamento"],["responsabilidades","Responsabilidades"],["premissas","Premissas"]].map(([k,l])=><div key={k} style={{gridColumn:"1/-1"}}><Inp label={l} value={propostaForm[k]} onChange={v=>setPropostaForm(f=>({...f,[k]:v}))} multiline/></div>)}<Inp label="Prazo" value={propostaForm.prazo} onChange={v=>setPropostaForm(f=>({...f,prazo:v}))}/><Inp label="Desconto %" type="number" value={propostaForm.desconto} onChange={v=>setPropostaForm(f=>({...f,desconto:v}))}/><DocumentosComerciais tipo="proposta" registro={propostaForm} setRegistro={setPropostaForm}/><div style={{gridColumn:"1/-1"}}><Btn onClick={()=>salvarProposta(propostaForm)} full disabled={subindoDocumentoComercial||!!salvandoComercial}><Ic n="check"/> {salvandoComercial==="proposta"?"Salvando...":"Salvar rascunho"}</Btn></div></div></Modal>}
-    {negForm&&<Modal title="Registrar negociação" onClose={()=>setNegForm(null)} wide><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Inp label="Valor inicial" type="number" value={negForm.valorInicial} onChange={v=>setNegForm(f=>({...f,valorInicial:v}))}/><Inp label="Valor negociado" type="number" value={negForm.valorNegociado} onChange={v=>setNegForm(f=>({...f,valorNegociado:v}))}/><Inp label="Desconto %" type="number" value={negForm.desconto} onChange={v=>setNegForm(f=>({...f,desconto:v}))}/><Inp label="Forma de pagamento" value={negForm.formaPagamento} onChange={v=>setNegForm(f=>({...f,formaPagamento:v}))}/><Inp label="Parcelas" type="number" value={negForm.parcelas} onChange={v=>setNegForm(f=>({...f,parcelas:v}))}/><Sel label="Aprovador" value={negForm.aprovadorId} onChange={v=>setNegForm(f=>({...f,aprovadorId:v}))} options={[{v:"",l:"Selecione"},...usuarios.map(u=>({v:u.id,l:u.nome}))]}/>{[["alteracaoEscopo","Alteração de escopo"],["objecoes","Objeções do cliente"],["respostas","Respostas dadas"]].map(([k,l])=><div key={k} style={{gridColumn:"1/-1"}}><Inp label={l} value={negForm[k]} onChange={v=>setNegForm(f=>({...f,[k]:v}))} multiline/></div>)}<div style={{gridColumn:"1/-1"}}><Btn disabled={!!salvandoComercial} onClick={()=>salvarNegociacao(negForm)} full>{salvandoComercial==="negociacao"?"Salvando...":"SALVAR NEGOCIAÇÃO"}</Btn></div></div></Modal>}
-    {contratoForm&&<Modal title="Contrato comercial" onClose={()=>setContratoForm(null)} wide><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Inp label="Número" value={contratoForm.numero} onChange={v=>setContratoForm(f=>({...f,numero:v}))}/><Sel label="Lead" value={contratoForm.leadId||""} onChange={v=>{const lead=leadBy(v);setContratoForm(f=>({...f,leadId:v,contratante:f.contratante||lead?.nome||""}));}} options={[{v:"",l:"Vincular depois"},...leads.map(l=>({v:l.id,l:l.nome}))]}/><Inp label="Contratante" value={contratoForm.contratante} onChange={v=>setContratoForm(f=>({...f,contratante:v}))}/><Inp label="Valor" type="number" value={contratoForm.valor} onChange={v=>setContratoForm(f=>({...f,valor:v}))}/><Inp label="Entrada" type="number" value={contratoForm.entrada} onChange={v=>setContratoForm(f=>({...f,entrada:v}))}/><Inp label="Parcelas" type="number" value={contratoForm.parcelas} onChange={v=>setContratoForm(f=>({...f,parcelas:v}))}/><Inp label="Dia de vencimento" type="number" value={contratoForm.diaVencimento} onChange={v=>setContratoForm(f=>({...f,diaVencimento:v}))}/><Inp label="Início" type="date" value={contratoForm.inicio} onChange={v=>setContratoForm(f=>({...f,inicio:v}))}/><Inp label="Conclusão" type="date" value={contratoForm.conclusao} onChange={v=>setContratoForm(f=>({...f,conclusao:v}))}/><Inp label="Prazo" value={contratoForm.prazo} onChange={v=>setContratoForm(f=>({...f,prazo:v}))}/><Sel label="Responsável comercial" value={contratoForm.responsavelComercialId} onChange={v=>setContratoForm(f=>({...f,responsavelComercialId:v}))} options={usuarios.map(u=>({v:u.id,l:u.nome}))}/><Sel label="Responsável técnico" value={contratoForm.responsavelTecnicoId} onChange={v=>setContratoForm(f=>({...f,responsavelTecnicoId:v}))} options={[{v:"",l:"Definir depois"},...usuarios.map(u=>({v:u.id,l:u.nome}))]}/><Inp label="Link para assinatura eletrônica" value={contratoForm.assinaturaUrl||""} onChange={v=>setContratoForm(f=>({...f,assinaturaUrl:v}))}/>{[["objeto","Objeto"],["escopo","Escopo"],["responsabilidades","Responsabilidades"]].map(([k,l])=><div key={k} style={{gridColumn:"1/-1"}}><Inp label={l} value={contratoForm[k]} onChange={v=>setContratoForm(f=>({...f,[k]:v}))} multiline/></div>)}<div style={{gridColumn:"1/-1",display:"flex",gap:8,flexWrap:"wrap"}}>{[["documentosRecebidos","Documentos recebidos"],["entradaPaga","Entrada confirmada"],["escopoValidado","Escopo validado"]].map(([k,l])=><label key={k} style={{fontSize:"var(--arcd-type-label)",color:C.text,display:"flex",gap:5,alignItems:"center"}}><input type="checkbox" checked={!!contratoForm[k]} onChange={e=>setContratoForm(f=>({...f,[k]:e.target.checked}))}/>{l}</label>)}</div><DocumentosComerciais tipo="contrato" registro={contratoForm} setRegistro={setContratoForm}/><div style={{gridColumn:"1/-1"}}><Btn onClick={()=>salvarContrato(contratoForm)} full disabled={subindoDocumentoComercial||!!salvandoComercial}><Ic n="check"/> {salvandoComercial==="contrato"?"Salvando...":"Salvar rascunho"}</Btn></div></div></Modal>}
-    {clienteForm&&<Modal title={clienteForm.id?"Editar qualificação do cliente":"Novo cliente"} onClose={()=>setClienteForm(null)} wide><div style={{display:"flex",flexDirection:"column",gap:12}}>
-      <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}>
+    {atividadeForm&&<Modal title="Tarefa / follow-up" onClose={()=>setAtividadeForm(null)}><div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}><Sel label="Lead *" value={atividadeForm.leadId} onChange={v=>setAtividadeForm(f=>({...f,leadId:v}))} options={[{v:"",l:"Selecione"},...leads.map(l=>({v:l.id,l:l.nome}))]}/><Inp label="Título *" value={atividadeForm.titulo} onChange={v=>setAtividadeForm(f=>({...f,titulo:v}))}/><Inp label="Data e hora *" type="datetime-local" value={atividadeForm.dataHora} onChange={v=>setAtividadeForm(f=>({...f,dataHora:v}))}/><Sel label="Responsável" value={atividadeForm.responsavelId} onChange={v=>setAtividadeForm(f=>({...f,responsavelId:v}))} options={usuarios.map(u=>({v:u.id,l:u.nome}))}/><Inp label="Observações" value={atividadeForm.observacoes} onChange={v=>setAtividadeForm(f=>({...f,observacoes:v}))} multiline/><Btn disabled={!!salvandoComercial} onClick={()=>salvarAtividade(atividadeForm)}>{salvandoComercial==="atividade"?"Salvando...":"SALVAR"}</Btn></div></Modal>}
+    {reuniaoForm&&<Modal title={reuniaoForm.id?`Reunião · ${leadBy(reuniaoForm.leadId)?.nome||"Lead"}`:"Nova reunião comercial"} onClose={()=>setReuniaoForm(null)} wide><div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}>{reuniaoForm.status==="realizada"&&<div style={{gridColumn:"1/-1",padding:"var(--arcd-space-2) var(--arcd-space-3)",border:`var(--arcd-border-width) solid ${C.green}`,borderRadius:"var(--arcd-radius-control)",background:`${C.green}0B`}}><b style={{fontSize:"var(--arcd-type-label)",color:C.green}}>CONFIRMAR REUNIÃO EXECUTADA</b><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Preencha o resumo e os próximos passos. Ao salvar, o registro entrará automaticamente no histórico do lead.</p></div>}<Sel label="Lead *" value={reuniaoForm.leadId} onChange={v=>setReuniaoForm(f=>({...f,leadId:v}))} options={[{v:"",l:"Selecione"},...leads.map(l=>({v:l.id,l:l.nome}))]}/><Inp label="Data e hora *" type="datetime-local" value={reuniaoForm.dataHora} onChange={v=>setReuniaoForm(f=>({...f,dataHora:v}))}/><Sel label="Situação" value={reuniaoForm.status||"agendada"} onChange={v=>setReuniaoForm(f=>({...f,status:v}))} options={[{v:"agendada",l:"Agendada"},{v:"realizada",l:"Executada"},{v:"cancelada",l:"Cancelada"}]}/><Sel label="Tipo" value={reuniaoForm.tipo} onChange={v=>setReuniaoForm(f=>({...f,tipo:v}))} options={[{v:"presencial",l:"Presencial"},{v:"online",l:"On-line"},{v:"visita",l:"Visita técnica"}]}/><Inp label="Local ou link" value={reuniaoForm.local} onChange={v=>setReuniaoForm(f=>({...f,local:v}))}/><Inp label="Participantes" value={reuniaoForm.participantes} onChange={v=>setReuniaoForm(f=>({...f,participantes:v}))}/><Sel label="Responsável técnico" value={reuniaoForm.responsavelTecnicoId} onChange={v=>setReuniaoForm(f=>({...f,responsavelTecnicoId:v}))} options={[{v:"",l:"Selecione"},...usuarios.map(u=>({v:u.id,l:u.nome}))]}/>{[["pauta","Pauta"],["resumo",reuniaoForm.status==="realizada"?"Resumo da reunião *":"Resumo"],["necessidades","Necessidades"],["objecoes","Objeções"],["proximosPassos","Próximos passos"]].map(([k,l])=><div key={k} style={{gridColumn:"1/-1"}}><Inp label={l} value={reuniaoForm[k]} onChange={v=>setReuniaoForm(f=>({...f,[k]:v}))} multiline/></div>)}<Inp label="Orçamento disponível" type="number" value={reuniaoForm.orcamentoDisponivel} onChange={v=>setReuniaoForm(f=>({...f,orcamentoDisponivel:v}))}/><Inp label="Próximo contato" type="date" value={reuniaoForm.proximoContato} onChange={v=>setReuniaoForm(f=>({...f,proximoContato:v}))}/><div style={{gridColumn:"1/-1",display:"flex",gap:"var(--arcd-space-2)"}}><Btn v="ghost" onClick={()=>setReuniaoForm(null)} full>Cancelar</Btn><Btn v={reuniaoForm.status==="realizada"?"success":"primary"} disabled={!!salvandoComercial} onClick={()=>salvarReuniao(reuniaoForm)} full>{salvandoComercial==="reuniao"?"Salvando...":reuniaoForm.status==="realizada"?"CONFIRMAR EXECUÇÃO E SALVAR NO LEAD":"SALVAR REUNIÃO"}</Btn></div></div></Modal>}
+    {propostaForm&&<Modal title="Proposta comercial" onClose={()=>setPropostaForm(null)} wide><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:"var(--arcd-space-2)"}}><Inp label="Número" value={propostaForm.numero} onChange={v=>setPropostaForm(f=>({...f,numero:v}))}/><Inp label="Versão" type="number" value={propostaForm.versao} onChange={v=>setPropostaForm(f=>({...f,versao:v}))}/><Sel label="Lead" value={propostaForm.leadId} onChange={v=>setPropostaForm(f=>({...f,leadId:v}))} options={[{v:"",l:"Vincular depois"},...leads.map(l=>({v:l.id,l:l.nome}))]}/><Inp label="Objeto" value={propostaForm.objeto} onChange={v=>setPropostaForm(f=>({...f,objeto:v}))}/><Inp label="Valor" type="number" value={propostaForm.valor} onChange={v=>setPropostaForm(f=>({...f,valor:v}))}/><Inp label="Validade" type="date" value={propostaForm.validade} onChange={v=>setPropostaForm(f=>({...f,validade:v}))}/>{[["escopo","Escopo"],["inclusos","Serviços inclusos"],["exclusos","Não inclusos"],["entregaveis","Entregáveis"],["formaPagamento","Forma de pagamento"],["responsabilidades","Responsabilidades"],["premissas","Premissas"]].map(([k,l])=><div key={k} style={{gridColumn:"1/-1"}}><Inp label={l} value={propostaForm[k]} onChange={v=>setPropostaForm(f=>({...f,[k]:v}))} multiline/></div>)}<Inp label="Prazo" value={propostaForm.prazo} onChange={v=>setPropostaForm(f=>({...f,prazo:v}))}/><Inp label="Desconto %" type="number" value={propostaForm.desconto} onChange={v=>setPropostaForm(f=>({...f,desconto:v}))}/><DocumentosComerciais tipo="proposta" registro={propostaForm} setRegistro={setPropostaForm}/><div style={{gridColumn:"1/-1"}}><Btn onClick={()=>salvarProposta(propostaForm)} full disabled={subindoDocumentoComercial||!!salvandoComercial}><Ic n="check"/> {salvandoComercial==="proposta"?"Salvando...":"Salvar rascunho"}</Btn></div></div></Modal>}
+    {negForm&&<Modal title="Registrar negociação" onClose={()=>setNegForm(null)} wide><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:"var(--arcd-space-2)"}}><Inp label="Valor inicial" type="number" value={negForm.valorInicial} onChange={v=>setNegForm(f=>({...f,valorInicial:v}))}/><Inp label="Valor negociado" type="number" value={negForm.valorNegociado} onChange={v=>setNegForm(f=>({...f,valorNegociado:v}))}/><Inp label="Desconto %" type="number" value={negForm.desconto} onChange={v=>setNegForm(f=>({...f,desconto:v}))}/><Inp label="Forma de pagamento" value={negForm.formaPagamento} onChange={v=>setNegForm(f=>({...f,formaPagamento:v}))}/><Inp label="Parcelas" type="number" value={negForm.parcelas} onChange={v=>setNegForm(f=>({...f,parcelas:v}))}/><Sel label="Aprovador" value={negForm.aprovadorId} onChange={v=>setNegForm(f=>({...f,aprovadorId:v}))} options={[{v:"",l:"Selecione"},...usuarios.map(u=>({v:u.id,l:u.nome}))]}/>{[["alteracaoEscopo","Alteração de escopo"],["objecoes","Objeções do cliente"],["respostas","Respostas dadas"]].map(([k,l])=><div key={k} style={{gridColumn:"1/-1"}}><Inp label={l} value={negForm[k]} onChange={v=>setNegForm(f=>({...f,[k]:v}))} multiline/></div>)}<div style={{gridColumn:"1/-1"}}><Btn disabled={!!salvandoComercial} onClick={()=>salvarNegociacao(negForm)} full>{salvandoComercial==="negociacao"?"Salvando...":"SALVAR NEGOCIAÇÃO"}</Btn></div></div></Modal>}
+    {contratoForm&&<Modal title="Contrato comercial" onClose={()=>setContratoForm(null)} wide><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:"var(--arcd-space-2)"}}><Inp label="Número" value={contratoForm.numero} onChange={v=>setContratoForm(f=>({...f,numero:v}))}/><Sel label="Lead" value={contratoForm.leadId||""} onChange={v=>{const lead=leadBy(v);setContratoForm(f=>({...f,leadId:v,contratante:f.contratante||lead?.nome||""}));}} options={[{v:"",l:"Vincular depois"},...leads.map(l=>({v:l.id,l:l.nome}))]}/><Inp label="Contratante" value={contratoForm.contratante} onChange={v=>setContratoForm(f=>({...f,contratante:v}))}/><Inp label="Valor" type="number" value={contratoForm.valor} onChange={v=>setContratoForm(f=>({...f,valor:v}))}/><Inp label="Entrada" type="number" value={contratoForm.entrada} onChange={v=>setContratoForm(f=>({...f,entrada:v}))}/><Inp label="Parcelas" type="number" value={contratoForm.parcelas} onChange={v=>setContratoForm(f=>({...f,parcelas:v}))}/><Inp label="Dia de vencimento" type="number" value={contratoForm.diaVencimento} onChange={v=>setContratoForm(f=>({...f,diaVencimento:v}))}/><Inp label="Início" type="date" value={contratoForm.inicio} onChange={v=>setContratoForm(f=>({...f,inicio:v}))}/><Inp label="Conclusão" type="date" value={contratoForm.conclusao} onChange={v=>setContratoForm(f=>({...f,conclusao:v}))}/><Inp label="Prazo" value={contratoForm.prazo} onChange={v=>setContratoForm(f=>({...f,prazo:v}))}/><Sel label="Responsável comercial" value={contratoForm.responsavelComercialId} onChange={v=>setContratoForm(f=>({...f,responsavelComercialId:v}))} options={usuarios.map(u=>({v:u.id,l:u.nome}))}/><Sel label="Responsável técnico" value={contratoForm.responsavelTecnicoId} onChange={v=>setContratoForm(f=>({...f,responsavelTecnicoId:v}))} options={[{v:"",l:"Definir depois"},...usuarios.map(u=>({v:u.id,l:u.nome}))]}/><Inp label="Link para assinatura eletrônica" value={contratoForm.assinaturaUrl||""} onChange={v=>setContratoForm(f=>({...f,assinaturaUrl:v}))}/>{[["objeto","Objeto"],["escopo","Escopo"],["responsabilidades","Responsabilidades"]].map(([k,l])=><div key={k} style={{gridColumn:"1/-1"}}><Inp label={l} value={contratoForm[k]} onChange={v=>setContratoForm(f=>({...f,[k]:v}))} multiline/></div>)}<div style={{gridColumn:"1/-1",display:"flex",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>{[["documentosRecebidos","Documentos recebidos"],["entradaPaga","Entrada confirmada"],["escopoValidado","Escopo validado"]].map(([k,l])=><label key={k} style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",display:"flex",gap:"var(--arcd-space-1)",alignItems:"center"}}><input type="checkbox" checked={!!contratoForm[k]} onChange={e=>setContratoForm(f=>({...f,[k]:e.target.checked}))}/>{l}</label>)}</div><DocumentosComerciais tipo="contrato" registro={contratoForm} setRegistro={setContratoForm}/><div style={{gridColumn:"1/-1"}}><Btn onClick={()=>salvarContrato(contratoForm)} full disabled={subindoDocumentoComercial||!!salvandoComercial}><Ic n="check"/> {salvandoComercial==="contrato"?"Salvando...":"Salvar rascunho"}</Btn></div></div></Modal>}
+    {clienteForm&&<Modal title={clienteForm.id?"Editar qualificação do cliente":"Novo cliente"} onClose={()=>setClienteForm(null)} wide><div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
+      <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:"var(--arcd-space-2)"}}>
         <Sel label="Tipo de pessoa *" value={clienteForm.tipoPessoa} onChange={v=>setClienteForm(f=>({...f,tipoPessoa:v,documento:""}))} options={[{v:"PF",l:"Pessoa física"},{v:"PJ",l:"Pessoa jurídica"}]}/>
         <Inp label={clienteForm.tipoPessoa==="PJ"?"Nome para identificação *":"Nome completo *"} value={clienteForm.nome} onChange={v=>setClienteForm(f=>({...f,nome:v}))}/>
         <Inp label={`${clienteForm.tipoPessoa==="PJ"?"CNPJ":"CPF"} *`} value={maskDoc(clienteForm.documento,clienteForm.tipoPessoa)} onChange={v=>setClienteForm(f=>({...f,documento:soDigitos(v)}))}/>
@@ -1612,7 +1612,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
 
       {clienteForm.tipoPessoa==="PF"?<>
         <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.yellowD,textTransform:"uppercase"}}>Qualificação pessoal</p>
-        <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}>
+        <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:"var(--arcd-space-2)"}}>
           <Inp label="RG / documento de identidade" value={clienteForm.rg} onChange={v=>setClienteForm(f=>({...f,rg:v}))}/>
           <Inp label="Órgão expedidor / UF" value={clienteForm.orgaoExpedidor} onChange={v=>setClienteForm(f=>({...f,orgaoExpedidor:v}))} placeholder="Ex.: SDS/PE"/>
           <Inp label="Data de nascimento" type="date" value={clienteForm.dataNascimento} onChange={v=>setClienteForm(f=>({...f,dataNascimento:v}))}/>
@@ -1621,17 +1621,17 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
           <Inp label="Regime de bens (se aplicável)" value={clienteForm.regimeBens} onChange={v=>setClienteForm(f=>({...f,regimeBens:v}))} placeholder="Ex.: comunhão parcial"/>
           <Inp label="Profissão" value={clienteForm.profissao} onChange={v=>setClienteForm(f=>({...f,profissao:v}))}/>
         </div>
-        {["Casado(a)","União estável"].includes(clienteForm.estadoCivil)&&<div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Inp label="Nome completo do cônjuge/companheiro" value={clienteForm.conjugeNome} onChange={v=>setClienteForm(f=>({...f,conjugeNome:v}))}/><Inp label="CPF do cônjuge/companheiro" value={maskDoc(clienteForm.conjugeCpf,"PF")} onChange={v=>setClienteForm(f=>({...f,conjugeCpf:soDigitos(v)}))}/></div>}
+        {["Casado(a)","União estável"].includes(clienteForm.estadoCivil)&&<div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:"var(--arcd-space-2)"}}><Inp label="Nome completo do cônjuge/companheiro" value={clienteForm.conjugeNome} onChange={v=>setClienteForm(f=>({...f,conjugeNome:v}))}/><Inp label="CPF do cônjuge/companheiro" value={maskDoc(clienteForm.conjugeCpf,"PF")} onChange={v=>setClienteForm(f=>({...f,conjugeCpf:soDigitos(v)}))}/></div>}
       </>:<>
         <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.yellowD,textTransform:"uppercase"}}>Qualificação da empresa</p>
-        <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}>
+        <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:"var(--arcd-space-2)"}}>
           <Inp label="Razão social *" value={clienteForm.razaoSocial} onChange={v=>setClienteForm(f=>({...f,razaoSocial:v}))}/>
           <Inp label="Nome fantasia" value={clienteForm.nomeFantasia} onChange={v=>setClienteForm(f=>({...f,nomeFantasia:v}))}/>
           <Inp label="Inscrição estadual" value={clienteForm.inscricaoEstadual} onChange={v=>setClienteForm(f=>({...f,inscricaoEstadual:v}))} placeholder="Isento, se aplicável"/>
           <Inp label="Inscrição municipal" value={clienteForm.inscricaoMunicipal} onChange={v=>setClienteForm(f=>({...f,inscricaoMunicipal:v}))}/>
         </div>
         <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.yellowD,textTransform:"uppercase"}}>Representante legal</p>
-        <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}>
+        <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:"var(--arcd-space-2)"}}>
           <Inp label="Nome completo *" value={clienteForm.representanteNome} onChange={v=>setClienteForm(f=>({...f,representanteNome:v}))}/>
           <Inp label="CPF *" value={maskDoc(clienteForm.representanteCpf,"PF")} onChange={v=>setClienteForm(f=>({...f,representanteCpf:soDigitos(v)}))}/>
           <Inp label="RG" value={clienteForm.representanteRg} onChange={v=>setClienteForm(f=>({...f,representanteRg:v}))}/>
@@ -1644,14 +1644,14 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
       </>}
 
       <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.yellowD,textTransform:"uppercase"}}>Contato</p>
-      <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}>
+      <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:"var(--arcd-space-2)"}}>
         <Inp label="Telefone para contato *" value={clienteForm.telefone} onChange={v=>setClienteForm(f=>({...f,telefone:v}))}/>
         <Inp label="WhatsApp" value={clienteForm.whatsapp} onChange={v=>setClienteForm(f=>({...f,whatsapp:v}))}/>
         <Inp label="E-mail *" type="email" value={clienteForm.email} onChange={v=>setClienteForm(f=>({...f,email:v}))}/>
       </div>
 
       <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.yellowD,textTransform:"uppercase"}}>{clienteForm.tipoPessoa==="PJ"?"Sede / domicílio contratual":"Endereço onde reside"}</p>
-      <div style={{display:"grid",gridTemplateColumns:formGrid(4),gap:8}}>
+      <div style={{display:"grid",gridTemplateColumns:formGrid(4),gap:"var(--arcd-space-2)"}}>
         <Inp label="CEP *" value={clienteForm.cep} onChange={v=>setClienteForm(f=>({...f,cep:v}))}/>
         <Inp label="Logradouro *" value={clienteForm.endereco} onChange={v=>setClienteForm(f=>({...f,endereco:v}))} placeholder="Rua, avenida..."/>
         <Inp label="Número *" value={clienteForm.numero} onChange={v=>setClienteForm(f=>({...f,numero:v}))}/>
@@ -1661,19 +1661,19 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
         <Inp label="UF *" value={clienteForm.uf} onChange={v=>setClienteForm(f=>({...f,uf:v.toUpperCase().slice(0,2)}))}/>
       </div>
       <Inp label="Observações contratuais" value={clienteForm.observacoes} onChange={v=>setClienteForm(f=>({...f,observacoes:v}))} multiline placeholder="Procurador, segundo contratante, dados do cônjuge, condições especiais..."/>
-      {pendenciasCliente(clienteForm).length>0&&<div style={{background:`${C.orange}0B`,border:`1px solid ${C.orange}44`,borderRadius:6,padding:"8px 10px"}}><p style={{fontSize:"var(--arcd-type-label)",color:C.orange,fontWeight:600}}>Ainda faltam para a qualificação: {pendenciasCliente(clienteForm).join(", ")}.</p></div>}
-      <div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={()=>setClienteForm(null)} full>Cancelar</Btn><Btn disabled={!!salvandoComercial} onClick={()=>salvarCliente(clienteForm)} full><Ic n="check"/> {salvandoComercial==="cliente"?"Salvando...":"Salvar cliente"}</Btn></div>
+      {pendenciasCliente(clienteForm).length>0&&<div style={{background:`${C.orange}0B`,border:`var(--arcd-border-width) solid ${C.orange}44`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-label)",color:C.orange,fontWeight:600}}>Ainda faltam para a qualificação: {pendenciasCliente(clienteForm).join(", ")}.</p></div>}
+      <div style={{display:"flex",gap:"var(--arcd-space-2)"}}><Btn v="ghost" onClick={()=>setClienteForm(null)} full>Cancelar</Btn><Btn disabled={!!salvandoComercial} onClick={()=>salvarCliente(clienteForm)} full><Ic n="check"/> {salvandoComercial==="cliente"?"Salvando...":"Salvar cliente"}</Btn></div>
     </div></Modal>}
 
-    {parceiroForm&&<Modal title="Parceiro / indicação" onClose={()=>setParceiroForm(null)}><div style={{display:"flex",flexDirection:"column",gap:8}}><Inp label="Nome *" value={parceiroForm.nome} onChange={v=>setParceiroForm(f=>({...f,nome:v}))}/><Sel label="Tipo" value={parceiroForm.tipo} onChange={v=>setParceiroForm(f=>({...f,tipo:v}))} options={[{v:"indicador",l:"Indicador"},{v:"arquiteto",l:"Arquiteto"},{v:"corretor",l:"Corretor"},{v:"outro",l:"Outro"}]}/><Inp label="Telefone" value={parceiroForm.telefone} onChange={v=>setParceiroForm(f=>({...f,telefone:v}))}/><Inp label="E-mail" value={parceiroForm.email} onChange={v=>setParceiroForm(f=>({...f,email:v}))}/><Inp label="Comissão %" type="number" value={parceiroForm.comissaoPct} onChange={v=>setParceiroForm(f=>({...f,comissaoPct:v}))}/><Inp label="Observações" value={parceiroForm.observacoes} onChange={v=>setParceiroForm(f=>({...f,observacoes:v}))} multiline/><Btn disabled={!!salvandoComercial} onClick={()=>salvarParceiro(parceiroForm)}>{salvandoComercial==="parceiro"?"Salvando...":"SALVAR"}</Btn></div></Modal>}
-    {metaForm&&<Modal title="Meta comercial" onClose={()=>setMetaForm(null)}><div style={{display:"flex",flexDirection:"column",gap:8}}><Inp label="Período" type="month" value={metaForm.periodo} onChange={v=>setMetaForm(f=>({...f,periodo:v}))}/><Sel label="Vendedor" value={metaForm.responsavelId} onChange={v=>setMetaForm(f=>({...f,responsavelId:v}))} options={[{v:"",l:"Equipe"},...usuarios.map(u=>({v:u.id,l:u.nome}))]}/><Inp label="Equipe" value={metaForm.equipe} onChange={v=>setMetaForm(f=>({...f,equipe:v}))}/><Inp label="Meta de receita" type="number" value={metaForm.receita} onChange={v=>setMetaForm(f=>({...f,receita:v}))}/><Inp label="Contratos" type="number" value={metaForm.contratos} onChange={v=>setMetaForm(f=>({...f,contratos:v}))}/><Inp label="Ticket médio" type="number" value={metaForm.ticketMedio} onChange={v=>setMetaForm(f=>({...f,ticketMedio:v}))}/><Inp label="Conversão %" type="number" value={metaForm.conversao} onChange={v=>setMetaForm(f=>({...f,conversao:v}))}/><Btn disabled={!!salvandoComercial} onClick={()=>salvarMeta(metaForm)}>{salvandoComercial==="meta"?"Salvando...":"SALVAR META"}</Btn></div></Modal>}
-    {perdaForm&&<Modal title="Registrar perda obrigatória" onClose={()=>setPerdaForm(null)}><div style={{display:"flex",flexDirection:"column",gap:8}}><Sel label="Motivo *" value={perdaForm.motivo} onChange={v=>setPerdaForm(f=>({...f,motivo:v}))} options={[{v:"",l:"Selecione"},...COM_PERDAS.map(v=>({v,l:v}))]}/><Inp label="Concorrente" value={perdaForm.concorrente} onChange={v=>setPerdaForm(f=>({...f,concorrente:v}))}/><Inp label="Valor do concorrente" type="number" value={perdaForm.valorConcorrente} onChange={v=>setPerdaForm(f=>({...f,valorConcorrente:v}))}/><Inp label="Possível reativação" type="date" value={perdaForm.reativacaoEm} onChange={v=>setPerdaForm(f=>({...f,reativacaoEm:v}))}/><Inp label="Observações" value={perdaForm.observacoes} onChange={v=>setPerdaForm(f=>({...f,observacoes:v}))} multiline/><Btn v="danger" disabled={!!salvandoComercial} onClick={salvarPerda}>{salvandoComercial==="perda"?"Salvando...":"CONFIRMAR PERDA"}</Btn></div></Modal>}
+    {parceiroForm&&<Modal title="Parceiro / indicação" onClose={()=>setParceiroForm(null)}><div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}><Inp label="Nome *" value={parceiroForm.nome} onChange={v=>setParceiroForm(f=>({...f,nome:v}))}/><Sel label="Tipo" value={parceiroForm.tipo} onChange={v=>setParceiroForm(f=>({...f,tipo:v}))} options={[{v:"indicador",l:"Indicador"},{v:"arquiteto",l:"Arquiteto"},{v:"corretor",l:"Corretor"},{v:"outro",l:"Outro"}]}/><Inp label="Telefone" value={parceiroForm.telefone} onChange={v=>setParceiroForm(f=>({...f,telefone:v}))}/><Inp label="E-mail" value={parceiroForm.email} onChange={v=>setParceiroForm(f=>({...f,email:v}))}/><Inp label="Comissão %" type="number" value={parceiroForm.comissaoPct} onChange={v=>setParceiroForm(f=>({...f,comissaoPct:v}))}/><Inp label="Observações" value={parceiroForm.observacoes} onChange={v=>setParceiroForm(f=>({...f,observacoes:v}))} multiline/><Btn disabled={!!salvandoComercial} onClick={()=>salvarParceiro(parceiroForm)}>{salvandoComercial==="parceiro"?"Salvando...":"SALVAR"}</Btn></div></Modal>}
+    {metaForm&&<Modal title="Meta comercial" onClose={()=>setMetaForm(null)}><div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}><Inp label="Período" type="month" value={metaForm.periodo} onChange={v=>setMetaForm(f=>({...f,periodo:v}))}/><Sel label="Vendedor" value={metaForm.responsavelId} onChange={v=>setMetaForm(f=>({...f,responsavelId:v}))} options={[{v:"",l:"Equipe"},...usuarios.map(u=>({v:u.id,l:u.nome}))]}/><Inp label="Equipe" value={metaForm.equipe} onChange={v=>setMetaForm(f=>({...f,equipe:v}))}/><Inp label="Meta de receita" type="number" value={metaForm.receita} onChange={v=>setMetaForm(f=>({...f,receita:v}))}/><Inp label="Contratos" type="number" value={metaForm.contratos} onChange={v=>setMetaForm(f=>({...f,contratos:v}))}/><Inp label="Ticket médio" type="number" value={metaForm.ticketMedio} onChange={v=>setMetaForm(f=>({...f,ticketMedio:v}))}/><Inp label="Conversão %" type="number" value={metaForm.conversao} onChange={v=>setMetaForm(f=>({...f,conversao:v}))}/><Btn disabled={!!salvandoComercial} onClick={()=>salvarMeta(metaForm)}>{salvandoComercial==="meta"?"Salvando...":"SALVAR META"}</Btn></div></Modal>}
+    {perdaForm&&<Modal title="Registrar perda obrigatória" onClose={()=>setPerdaForm(null)}><div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}><Sel label="Motivo *" value={perdaForm.motivo} onChange={v=>setPerdaForm(f=>({...f,motivo:v}))} options={[{v:"",l:"Selecione"},...COM_PERDAS.map(v=>({v,l:v}))]}/><Inp label="Concorrente" value={perdaForm.concorrente} onChange={v=>setPerdaForm(f=>({...f,concorrente:v}))}/><Inp label="Valor do concorrente" type="number" value={perdaForm.valorConcorrente} onChange={v=>setPerdaForm(f=>({...f,valorConcorrente:v}))}/><Inp label="Possível reativação" type="date" value={perdaForm.reativacaoEm} onChange={v=>setPerdaForm(f=>({...f,reativacaoEm:v}))}/><Inp label="Observações" value={perdaForm.observacoes} onChange={v=>setPerdaForm(f=>({...f,observacoes:v}))} multiline/><Btn v="danger" disabled={!!salvandoComercial} onClick={salvarPerda}>{salvandoComercial==="perda"?"Salvando...":"CONFIRMAR PERDA"}</Btn></div></Modal>}
 
     {confirmModal && (
       <Modal title={confirmModal.titulo} onClose={()=>setConfirmModal(null)}>
-        <div style={{display:"flex",flexDirection:"column",gap:14}}>
-          <p style={{fontSize:"var(--arcd-type-body)",color:C.muted,lineHeight:1.5,whiteSpace:"pre-line"}}>{confirmModal.mensagem}</p>
-          <div style={{display:"flex",gap:8}}>
+        <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
+          <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)",lineHeight:1.5,whiteSpace:"pre-line"}}>{confirmModal.mensagem}</p>
+          <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
             <Btn v="ghost" onClick={()=>setConfirmModal(null)} style={{flex:1}}>Cancelar</Btn>
             <Btn v={confirmModal.tom==="danger"?"danger":undefined} style={{flex:1}}
               onClick={()=>{const acao=confirmModal.onConfirmar;setConfirmModal(null);acao();}}>

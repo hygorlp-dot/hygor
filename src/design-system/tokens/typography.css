@@ -1,7 +1,7 @@
 /* Nimbus remains available for standalone documents. Operational typography
    follows the theme registry; legacy aliases must consume the same tokens. */
 /* Inter (variável, todos os pesos num arquivo): mais compacta que a IBM Plex e feita para tela. A Plex fica como reserva. */
-/* Geist (variável): fonte operacional desde 19/11/2026, mais técnica e sóbria. Inter e Plex ficam como reserva. */
+/* Fontes locais da interface, das famílias de reserva e dos documentos. */
 @font-face {font-family:"Geist";src:url("/fonts/geist/Geist-Variable.woff2") format("woff2");font-style:normal;font-weight:100 900;font-display:swap;}
 @font-face {font-family:"Geist Mono";src:url("/fonts/geist/GeistMono-Variable.woff2") format("woff2");font-style:normal;font-weight:100 900;font-display:swap;}
 @font-face {font-family:"Inter";src:url("/fonts/inter/InterVariable.woff2") format("woff2");font-style:normal;font-weight:100 900;font-display:swap;}
@@ -13,7 +13,7 @@
 @font-face {font-family:"P052";font-style:normal;font-weight:400;font-display:swap;src:url("/fonts/marcell/P052-Roman.woff2") format("woff2");}
 
 :root {
-  --arcd-font-sans: "Geist", "Inter", "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --arcd-font-sans: "Inter", "Geist", "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
   --arcd-font-mono: "Geist Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --arcd-font-numeric: var(--arcd-font-sans);
 
@@ -33,8 +33,7 @@
   --arcd-font-weight-semibold: 600;
   --arcd-font-weight-bold: 700;
 
-  /* Espelho de foundations.js (fonte única, aplicada pelo ThemeProvider). Mantidos iguais
-     para a primeira pintura, antes do tema carregar, não divergir da escala real. */
+  /* Escala da interface, aplicada desde a primeira pintura. */
   --arcd-type-page-title: 1.375rem;
   --arcd-type-section-title: .9375rem;
   --arcd-type-card-title: .875rem;
@@ -42,10 +41,17 @@
   --arcd-type-label: 0.8125rem;
   --arcd-type-caption: 0.75rem;
   --arcd-type-kpi: 1.125rem;
-  --arcd-type-control: var(--arcd-type-body);
+  --arcd-type-control: 0.8125rem;
   --arcd-type-control-touch: 1rem;
-  --arcd-type-table: var(--arcd-type-body);
-  --arcd-type-dialog-title: var(--arcd-type-section-title);
+  --arcd-type-table: 0.8125rem;
+  --arcd-type-dialog-title: 1rem;
+  --arcd-type-distance-title: clamp(1.5rem, 2.3vw, 2rem);
+  --arcd-type-compact-title: 1.25rem;
+  --arcd-type-compact-heading: .875rem;
+  --arcd-type-compact-kpi: 1rem;
+  --arcd-type-mobile-compact-title: 1.125rem;
+  --arcd-type-mobile-compact-kpi: .9375rem;
+  --arcd-type-mobile-compact-select: .8125rem;
   --arcd-icon-size-sm: 0.8125rem;
   --arcd-icon-size-md: 1rem;
   --arcd-icon-size-lg: 1.25rem;

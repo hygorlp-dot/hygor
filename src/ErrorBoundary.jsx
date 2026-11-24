@@ -92,42 +92,42 @@ export default class ErrorBoundary extends Component {
 
     return (
       <div style={{
-        minHeight: "100vh", background: "#F5F3EE",
+        minHeight: "100vh", background: "var(--arcd-surface-subtle)",
         display: "flex", alignItems: "center", justifyContent: "center",
-        padding: 20, fontFamily: "var(--arcd-font-sans)",
+        padding: "var(--arcd-space-5)", fontFamily: "var(--arcd-font-sans)",
       }}>
         <div style={{
           maxWidth: 420, width: "100%",
-          background: "#FFFFFF", border: "1px solid #C8C2B6",
-          borderRadius: 14, padding: 26,
-          boxShadow: "0 8px 32px rgba(18,18,18,.07)",
+          background: "var(--arcd-surface-elevated)", border: "var(--arcd-border-width) solid var(--arcd-border-default)",
+          borderRadius: "var(--arcd-box-radius)", padding: "var(--arcd-space-6)",
+          boxShadow: "var(--arcd-shadow-hairline)",
         }}>
           <div style={{
-            width: 42, height: 42, borderRadius: 10,
-            background: "#B71C1C12", color: "#B71C1C",
+            width: 42, height: 42, borderRadius: "var(--arcd-box-radius)",
+            background: "color-mix(in srgb, var(--arcd-danger-surface) 7%, transparent)", color: "var(--arcd-danger-text)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: "var(--arcd-type-section-title)", marginBottom: 14,
+            fontSize: "var(--arcd-type-section-title)", marginBottom: "var(--arcd-space-3)",
           }}>!</div>
 
           <h1 style={{
             fontFamily: "var(--arcd-font-sans)",
-            fontSize: "var(--arcd-type-section-title)", fontWeight: 600, color: "#121212", margin: "0 0 6px",
+            fontSize: "var(--arcd-type-section-title)", fontWeight: 600, color: "var(--arcd-text-primary)", margin: "0 0 var(--arcd-space-1)",
           }}>
             {copy.title}
           </h1>
 
-          <p style={{ fontSize: "var(--arcd-type-body)", color: "#6B6459", lineHeight: 1.55, margin: "0 0 6px" }}>
+          <p style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)", lineHeight: 1.55, margin: "0 0 var(--arcd-space-1)" }}>
             {copy.message}
           </p>
 
-          <p style={{ fontSize: "var(--arcd-type-caption)", color: "#6B6459", lineHeight: 1.5, margin: "0 0 18px" }}>
+          <p style={{ fontSize: "var(--arcd-type-caption)", color: "var(--arcd-text-secondary)", lineHeight: 1.5, margin: "0 0 var(--arcd-space-4)" }}>
             Rascunhos já salvos neste navegador permanecem disponíveis. Após recarregar, confira o resultado da ação antes de repeti-la. Se o erro continuar, copie o diagnóstico para pedir ajuda.
           </p>
 
           <pre style={{
-            background: "#F9F7F2", border: "1px solid #E0DAD0", borderRadius: 8,
-            padding: "10px 12px", fontSize: "var(--arcd-type-caption)", color: "#3D3530",
-            overflowX: "auto", margin: "0 0 18px", whiteSpace: "pre-wrap",
+            background: "var(--arcd-surface-subtle)", border: "var(--arcd-border-width) solid var(--arcd-border-default)", borderRadius: "var(--arcd-box-radius)",
+            padding: "var(--arcd-space-2) var(--arcd-space-3)", fontSize: "var(--arcd-type-caption)", color: "var(--arcd-text-primary)",
+            overflowX: "auto", margin: "0 0 var(--arcd-space-4)", whiteSpace: "pre-wrap",
           }}>
             {diagnostic.text}
             {componentStack ? `\nOrigem: ${componentStack.trim().split("\n")[0].trim()}` : ""}

@@ -19,7 +19,7 @@ const CHECK_LABELS={
   canonical_integrity:"Integridade estrutural do razão",
 };
 
-const card={background:C.card,border:`1px solid ${C.border}`,borderRadius:9,padding:12};
+const card={background:C.card,border:`1px solid ${C.border}`,borderRadius:"var(--arcd-box-radius)",padding:12};
 
 const fmtDate=value=>{
   if(!value)return "—";
@@ -46,7 +46,7 @@ export default function FinanceiroCanonicoAdmin({currentUser}){
   useEffect(()=>{carregar();},[]);
 
   if(currentUser?.role!=="admin"){
-    return <div style={{padding:30,textAlign:"center",color:C.red}}>Acesso exclusivo da administração.</div>;
+    return <div style={{padding:"var(--arcd-space-8)",textAlign:"center",color:C.red}}>Acesso exclusivo da administração.</div>;
   }
 
   if(estado==="carregando"){
@@ -54,9 +54,9 @@ export default function FinanceiroCanonicoAdmin({currentUser}){
   }
 
   if(estado==="erro"){
-    return <div style={{background:`${C.red}0C`,border:`1px solid ${C.red}44`,borderRadius:9,padding:14}}>
+    return <div style={{background:`${C.red}0C`,border:`var(--arcd-border-width) solid ${C.red}44`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-3)"}}>
       <p style={{fontSize:"var(--arcd-type-label)",color:C.red,fontWeight:600}}>{erro}</p>
-      <Btn size="sm" v="ghost" onClick={carregar} style={{marginTop:8}}><Ic n="refresh"/> Tentar novamente</Btn>
+      <Btn size="sm" v="ghost" onClick={carregar} style={{marginTop:"var(--arcd-space-2)"}}><Ic n="refresh"/> Tentar novamente</Btn>
     </div>;
   }
 
@@ -72,23 +72,23 @@ export default function FinanceiroCanonicoAdmin({currentUser}){
   const totalChecks=checks.length;
   const passedChecks=checks.filter(check=>check.ok).length;
 
-  return <div style={{display:"flex",flexDirection:"column",gap:12}}>
+  return <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
     <div style={{
       background:ready?`${C.green}0A`:`${C.orange}0B`,
-      border:`1px solid ${ready?C.green+"44":C.orange+"55"}`,
-      borderRadius:10,padding:14,
+      border:`var(--arcd-border-width) solid ${ready?C.green+"44":C.orange+"55"}`,
+      borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-3)",
     }}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-3)",flexWrap:"wrap"}}>
         <div>
           <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:ready?C.green:C.orange,textTransform:"uppercase"}}>Homologação do motor financeiro</p>
-          <p style={{fontSize:"var(--arcd-type-section-title)",fontWeight:600,color:C.text,marginTop:4}}>
+          <p style={{fontSize:"var(--arcd-type-section-title)",fontWeight:600,color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-1)"}}>
             {ready?"Verificações concluídas":relatorio?"Verificações pendentes":"Verificações indisponíveis"}
           </p>
-          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:5,lineHeight:1.55,maxWidth:780}}>
+          <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)",lineHeight:1.55,maxWidth:780}}>
             A consulta não muda a ativação do motor. Mesmo com o motor ativo, a comparação com os registros de origem pode ter pendências.
           </p>
         </div>
-        <div style={{display:"flex",gap:7,alignItems:"center",flexWrap:"wrap"}}>
+        <div style={{display:"flex",gap:"var(--arcd-space-2)",alignItems:"center",flexWrap:"wrap"}}>
           <Badge color={relatorio?.engineEnforced?C.green:C.muted}>{relatorio?.engineEnforced===true?"Motor financeiro ativo":relatorio?.engineEnforced===false?"Motor em observação":"Estado do motor não informado"}</Badge>
           <Badge color={ready?C.green:C.orange}>{totalChecks?`${passedChecks}/${totalChecks} verificações concluídas`:"Sem verificações disponíveis"}</Badge>
           <Btn size="sm" v="ghost" onClick={carregar}><Ic n="refresh"/> Atualizar</Btn>
@@ -98,7 +98,7 @@ export default function FinanceiroCanonicoAdmin({currentUser}){
 
     <FechamentoFinanceiroAdmin/>
 
-    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:8}}>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:"var(--arcd-space-2)"}}>
       {[
         ["Fatos legados",counts.fatosLegados??0,C.blue],
         ["Títulos canônicos",counts.titulos??0,C.purple],
@@ -111,36 +111,36 @@ export default function FinanceiroCanonicoAdmin({currentUser}){
         ["Casos qualidade abertos",counts.divergenciasAbertas??0,(counts.divergenciasAbertas??0)?C.red:C.green],
         ["Erros estruturais",counts.errosIntegridadeCanonica??0,(counts.errosIntegridadeCanonica??0)?C.red:C.green],
       ].map(([label,value,color])=><div key={label} style={{...card,borderTop:`3px solid ${color}`}}>
-        <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>{label}</p>
-        <p style={{fontSize:"var(--arcd-type-section-title)",fontWeight:600,color,marginTop:4}}>{value}</p>
+        <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>{label}</p>
+        <p style={{fontSize:"var(--arcd-type-section-title)",fontWeight:600,color,marginTop:"var(--arcd-space-1)"}}>{value}</p>
       </div>)}
     </div>
 
     <div style={card}>
-      <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"baseline",flexWrap:"wrap"}}>
+      <div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"baseline",flexWrap:"wrap"}}>
         <div>
           <b style={{fontSize:"var(--arcd-type-body)"}}>Evidências obrigatórias para ativação</b>
-          <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>Todas precisam permanecer verdes na mesma fotografia financeira.</p>
+          <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Todas precisam permanecer verdes na mesma fotografia financeira.</p>
         </div>
-        <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Última carga: {fmtDate(relatorio?.ultimaCarga?.created_at)}</span>
+        <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Última carga: {fmtDate(relatorio?.ultimaCarga?.created_at)}</span>
       </div>
 
-      <div style={{display:"grid",gap:7,marginTop:10}}>
+      <div style={{display:"grid",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)"}}>
         {checks.length?checks.map(check=><div key={check.code} style={{
-          display:"grid",gridTemplateColumns:"auto minmax(0,1fr)",gap:9,alignItems:"start",
-          padding:"9px 10px",borderRadius:8,border:`1px solid ${check.ok?C.green+"33":C.red+"44"}`,
+          display:"grid",gridTemplateColumns:"auto minmax(0,1fr)",gap:"var(--arcd-space-2)",alignItems:"start",
+          padding:"var(--arcd-space-2) var(--arcd-space-2)",borderRadius:"var(--arcd-box-radius)",border:`var(--arcd-border-width) solid ${check.ok?C.green+"33":C.red+"44"}`,
           background:check.ok?`${C.green}08`:`${C.red}08`,
         }}>
           <span style={{
-            width:22,height:22,borderRadius:99,display:"grid",placeItems:"center",
+            width:22,height:22,borderRadius:"var(--arcd-radius-pill)",display:"grid",placeItems:"center",
             background:check.ok?`${C.green}18`:`${C.red}16`,color:check.ok?C.green:C.red,
             fontWeight:700,fontSize:"var(--arcd-type-caption)",
           }}>{check.ok?"✓":"!"}</span>
           <div>
-            <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>{CHECK_LABELS[check.code]||check.code}</p>
-            <p style={{fontSize:"var(--arcd-type-caption)",color:check.ok?C.muted:C.red,marginTop:2,lineHeight:1.45}}>{check.detail}</p>
+            <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"var(--arcd-text-primary)"}}>{CHECK_LABELS[check.code]||check.code}</p>
+            <p style={{fontSize:"var(--arcd-type-caption)",color:check.ok?"var(--arcd-text-secondary)":C.red,marginTop:"var(--arcd-space-half)",lineHeight:1.45}}>{check.detail}</p>
           </div>
-        </div>):<div style={{padding:12,borderRadius:8,background:`${C.orange}0B`,border:`1px solid ${C.orange}44`}}>
+        </div>):<div style={{padding:"var(--arcd-space-3)",borderRadius:"var(--arcd-box-radius)",background:`${C.orange}0B`,border:`var(--arcd-border-width) solid ${C.orange}44`}}>
           <p style={{fontSize:"var(--arcd-type-label)",color:C.orange}}>O backend ainda não devolveu o gate detalhado. Atualize o deploy antes de tomar qualquer decisão de ativação.</p>
         </div>}
       </div>
@@ -148,35 +148,35 @@ export default function FinanceiroCanonicoAdmin({currentUser}){
 
     {!!relatorio?.bankDivergences?.length&&<div style={{...card,borderColor:C.red+"44"}}>
       <b style={{fontSize:"var(--arcd-type-label)",color:C.red}}>Divergências no extrato bancário legado</b>
-      <div style={{marginTop:7,display:"grid",gap:4}}>
-        {relatorio.bankDivergences.slice(0,20).map((item,index)=><p key={index} style={{fontSize:"var(--arcd-type-caption)",color:C.text}}>
+      <div style={{marginTop:"var(--arcd-space-2)",display:"grid",gap:"var(--arcd-space-1)"}}>
+        {relatorio.bankDivergences.slice(0,20).map((item,index)=><p key={index} style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)"}}>
           {item.code||"divergência"} · <code>{item.legacyId||"sem id"}</code>{item.fields?.length?` · ${item.fields.join(", ")}`:""}
         </p>)}
-        {relatorio.bankDivergences.length>20&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>+ {contar(relatorio.bankDivergences.length-20,"divergência omitida","divergências omitidas")} nesta visualização.</p>}
+        {relatorio.bankDivergences.length>20&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>+ {contar(relatorio.bankDivergences.length-20,"divergência omitida","divergências omitidas")} nesta visualização.</p>}
       </div>
     </div>}
     {!!relatorio?.staleLegacyLinks?.length&&<div style={{...card,borderColor:C.red+"44"}}>
       <b style={{fontSize:"var(--arcd-type-label)",color:C.red}}>Vínculos legados com fotografia desatualizada</b>
-      <div style={{marginTop:7,display:"grid",gap:4}}>
-        {relatorio.staleLegacyLinks.slice(0,20).map((item,index)=><p key={index} style={{fontSize:"var(--arcd-type-caption)",color:C.text}}>
+      <div style={{marginTop:"var(--arcd-space-2)",display:"grid",gap:"var(--arcd-space-1)"}}>
+        {relatorio.staleLegacyLinks.slice(0,20).map((item,index)=><p key={index} style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)"}}>
           {item.legacyType||"fato"} · <code>{item.legacyId||"sem id"}</code>
         </p>)}
-        {relatorio.staleLegacyLinks.length>20&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>+ {contar(relatorio.staleLegacyLinks.length-20,"vínculo omitido","vínculos omitidos")} nesta visualização.</p>}
+        {relatorio.staleLegacyLinks.length>20&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>+ {contar(relatorio.staleLegacyLinks.length-20,"vínculo omitido","vínculos omitidos")} nesta visualização.</p>}
       </div>
     </div>}
 
     {!!relatorio?.missingLegacyLinks?.length&&<div style={{...card,borderColor:C.red+"44"}}>
       <b style={{fontSize:"var(--arcd-type-label)",color:C.red}}>Fatos legados sem vínculo canônico</b>
-      <div style={{marginTop:7,display:"grid",gap:4}}>
-        {relatorio.missingLegacyLinks.slice(0,20).map((item,index)=><p key={index} style={{fontSize:"var(--arcd-type-caption)",color:C.text}}>
+      <div style={{marginTop:"var(--arcd-space-2)",display:"grid",gap:"var(--arcd-space-1)"}}>
+        {relatorio.missingLegacyLinks.slice(0,20).map((item,index)=><p key={index} style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)"}}>
           {item.legacyType||"fato"} · <code>{item.legacyId||"sem id"}</code>
         </p>)}
-        {relatorio.missingLegacyLinks.length>20&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>+ {contar(relatorio.missingLegacyLinks.length-20,"vínculo omitido","vínculos omitidos")} nesta visualização.</p>}
+        {relatorio.missingLegacyLinks.length>20&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>+ {contar(relatorio.missingLegacyLinks.length-20,"vínculo omitido","vínculos omitidos")} nesta visualização.</p>}
       </div>
     </div>}
 
-    <div style={{padding:"10px 12px",borderRadius:9,border:`1px solid ${C.blue}33`,background:`${C.blue}07`}}>
-      <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,lineHeight:1.5}}>
+    <div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderRadius:"var(--arcd-box-radius)",border:`var(--arcd-border-width) solid ${C.blue}33`,background:`${C.blue}07`}}>
+      <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",lineHeight:1.5}}>
         Próximo gate operacional após todas as evidências verdes: executar criação, liquidação, reversão e fechamento de competência em homologação, conferir o Golden Master e só então avaliar a ativação de produção.
       </p>
     </div>

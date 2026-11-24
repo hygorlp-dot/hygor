@@ -26,4 +26,17 @@
   --arcd-orange-500: #855a24;
   --arcd-blue-500: #355874;
   --arcd-purple-500: #536171;
+
+  /* Acesso institucional e ilustração do clima. */
+  --arcd-login-canvas: #171b20;
+  --arcd-login-visual: #10161c;
+  --arcd-login-veil-desktop: linear-gradient(90deg, rgb(12 18 26 / 6%) 32%, rgb(15 22 30 / 36%) 64%, var(--arcd-login-canvas) 100%);
+  --arcd-login-veil-mobile: linear-gradient(180deg, rgb(8 13 20 / 5%), #080d14 92%);
+  --arcd-login-mark-border: rgb(212 175 55 / 28%);
+  --arcd-login-mark-surface: rgb(212 175 55 / 6%);
+  --arcd-weather-sky: #fafafa;
+  --arcd-weather-sun: #fbf3d8;
+  --arcd-weather-cloud: #eef0f1;
+  --arcd-weather-rain: #e6ebee;
+  --arcd-weather-storm: #e2e1e6;
 }

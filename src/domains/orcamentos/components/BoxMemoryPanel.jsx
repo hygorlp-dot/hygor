@@ -301,7 +301,7 @@ function BoxEditor({budget, element, isSaved, drafts, onSave, onRemove, onDuplic
       <h3 id={`rev-${element.id}`}>Confira antes de gravar</h3>
       <p className="box-hint">A quantidade de cada serviço abaixo será substituída na planilha. Preço unitário e BDI não mudam.</p>
       <div className="box-review__table">
-        <table>
+        <table className="arcd-data-table__table">
           <thead><tr><th scope="col">Serviço</th><th scope="col">Hoje</th><th scope="col">Novo</th><th scope="col">Valor hoje</th><th scope="col">Valor novo</th></tr></thead>
           <tbody>{changes.map(c => <tr key={c.item.id}>
             <th scope="row"><span className="box-item__meta">{c.item.codigoItem}</span> {c.item.descricao}</th>

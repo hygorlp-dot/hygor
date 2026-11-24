@@ -3,7 +3,7 @@ import { Badge, Btn, Inp } from "../../../legacy/ui.jsx";
 import { C } from "../../../legacy/palette.js";
 import {consultarPreviaFechamentoFinanceiro} from "../../../api";
 
-const card={background:C.card,border:`1px solid ${C.border}`,borderRadius:9,padding:12};
+const card={background:C.card,border:`1px solid ${C.border}`,borderRadius:"var(--arcd-box-radius)",padding:12};
 const moneyCents=value=>(Number(value||0)/100).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
 
 const previousMonth=()=>{
@@ -49,11 +49,11 @@ export default function FechamentoFinanceiroAdmin(){
   };
 
   return <section style={{...card,borderTop:`3px solid ${C.blue}`}}>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap"}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-3)",flexWrap:"wrap"}}>
       <div>
         <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.blue,textTransform:"uppercase"}}>Fechamento mensal · homologação</p>
-        <b style={{display:"block",fontSize:"var(--arcd-type-body)",marginTop:3}}>Prévia da competência</b>
-        <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:4,maxWidth:760,lineHeight:1.5}}>
+        <b style={{display:"block",fontSize:"var(--arcd-type-body)",marginTop:"var(--arcd-space-half)"}}>Prévia da competência</b>
+        <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)",maxWidth:760,lineHeight:1.5}}>
           A prévia é somente leitura. O servidor recalcula razão, caixa e DRE canônica; nenhum valor desta tela é usado para fechar o mês.
         </p>
       </div>
@@ -62,19 +62,19 @@ export default function FechamentoFinanceiroAdmin(){
       </Badge>
     </div>
 
-    <div style={{display:"grid",gridTemplateColumns:"minmax(180px,240px) auto",gap:8,alignItems:"end",marginTop:12}}>
+    <div style={{display:"grid",gridTemplateColumns:"minmax(180px,240px) auto",gap:"var(--arcd-space-2)",alignItems:"end",marginTop:"var(--arcd-space-3)"}}>
       <Inp label="Competência" type="month" value={competencia} onChange={value=>{setCompetencia(value);setPreview(null);setErro("");setEstado("idle");}}/>
       <Btn onClick={consultar} disabled={!period||estado==="loading"}>
         {estado==="loading"?"Conferindo...":"Gerar prévia"}
       </Btn>
     </div>
 
-    {erro&&<div style={{marginTop:10,padding:"9px 10px",borderRadius:8,border:`1px solid ${C.red}44`,background:`${C.red}08`}}>
+    {erro&&<div style={{marginTop:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-2)",borderRadius:"var(--arcd-box-radius)",border:`var(--arcd-border-width) solid ${C.red}44`,background:`${C.red}08`}}>
       <p style={{fontSize:"var(--arcd-type-label)",color:C.red,fontWeight:600}}>{erro}</p>
     </div>}
 
     {snapshot&&<>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:7,marginTop:12}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-3)"}}>
         {[
           ["Receita",snapshot.revenueCents,C.green],
           ["Custos",snapshot.costCents,C.red],
@@ -85,31 +85,31 @@ export default function FechamentoFinanceiroAdmin(){
           ["A receber",snapshot.receivableCents,C.blue],
           ["A pagar",snapshot.payableCents,C.orange],
           ["Comprometido",snapshot.commitmentCents,C.purple],
-        ].map(([label,value,color])=><div key={label} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:9}}>
-          <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{label}</p>
-          <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color,marginTop:3}}>{moneyCents(value)}</p>
+        ].map(([label,value,color])=><div key={label} style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-2)"}}>
+          <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{label}</p>
+          <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color,marginTop:"var(--arcd-space-half)"}}>{moneyCents(value)}</p>
         </div>)}
       </div>
 
-      <div style={{...card,marginTop:10,background:C.card}}>
-        <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+      <div style={{...card,marginTop:"var(--arcd-space-2)",background:"var(--arcd-surface-card)"}}>
+        <div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"center",flexWrap:"wrap"}}>
           <b style={{fontSize:"var(--arcd-type-label)"}}>Conferência financeira</b>
           <Badge color={checks.length&&checksOk===checks.length?C.green:C.orange}>
             {checks.length?`${checksOk}/${checks.length} CHECKS`:"SEM CHECKS"}
           </Badge>
         </div>
-        <div style={{display:"grid",gap:5,marginTop:8}}>
-          {checks.map((check,index)=><div key={check.code||index} style={{display:"flex",gap:7,alignItems:"flex-start"}}>
+        <div style={{display:"grid",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-2)"}}>
+          {checks.map((check,index)=><div key={check.code||index} style={{display:"flex",gap:"var(--arcd-space-2)",alignItems:"flex-start"}}>
             <span style={{color:check.ok?C.green:C.red,fontWeight:700}}>{check.ok?"✓":"!"}</span>
             <div>
-              <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.text}}>{check.label||check.code||"Conferência"}</p>
-              {check.detail&&<p style={{fontSize:"var(--arcd-type-caption)",color:check.ok?C.muted:C.red,marginTop:1}}>{check.detail}</p>}
+              <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:"var(--arcd-text-primary)"}}>{check.label||check.code||"Conferência"}</p>
+              {check.detail&&<p style={{fontSize:"var(--arcd-type-caption)",color:check.ok?"var(--arcd-text-secondary)":C.red,marginTop:1}}>{check.detail}</p>}
             </div>
           </div>)}
         </div>
       </div>
 
-      <div style={{marginTop:10,padding:"9px 10px",borderRadius:8,border:`1px solid ${C.orange}44`,background:`${C.orange}08`}}>
+      <div style={{marginTop:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-2)",borderRadius:"var(--arcd-box-radius)",border:`var(--arcd-border-width) solid ${C.orange}44`,background:`${C.orange}08`}}>
         <p style={{fontSize:"var(--arcd-type-caption)",color:C.orange,lineHeight:1.5}}>
           O botão de confirmar fechamento permanece deliberadamente indisponível até a homologação dos guards de imutabilidade de competência. Esta tela apenas antecipa a conferência.
         </p>

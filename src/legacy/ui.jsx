@@ -1,7 +1,5 @@
 import {TaskDisclosure} from '../design-system/patterns/TaskDisclosure.jsx';
-import {useDialogLifecycle} from '../design-system/primitives/useDialogLifecycle.js';
-import {createPortal} from 'react-dom';
-import {useRecoveredEditor,SaveRecoveryShortcut} from '../features/workflow/SaveRecoveryContext.jsx';
+import {DialogSurface} from '../design-system/primitives/Dialog.jsx';
 export {LoadingState} from '../design-system/patterns/LoadingState.jsx';
 // Declarações extraídas literalmente da entrada legada; não importar LegacyApp aqui.
 import { C, semanticToneFromLegacyColor } from "./palette.js";
@@ -17,7 +15,6 @@ import { useState } from "react";
 import { Select as DesignSystemSelect } from "../design-system/primitives/Select.jsx";
 import { useRef } from "react";
 import { useEffect } from "react";
-import { useBreakpoint } from "../hooks/useBreakpoint";
 
 
 // Consulta pública de CNPJ (BrasilAPI - gratuita, sem chave). Devolve os campos
@@ -278,16 +275,16 @@ export function SelBtn({ label, value, onChange, options = [], disabled = false 
   }, [open]);
   const atual = options.find(o => String(o.v) === String(value ?? ""));
   return (
-    <div ref={ref} style={{ position: "relative", display: "flex", flexDirection: "column", gap: 4 }}>
+    <div ref={ref} style={{ position: "relative", display: "flex", flexDirection: "column", gap: "var(--arcd-space-1)" }}>
       {label && <span className="arcd-field__label" style={{
-        color: C.text, fontSize:"var(--arcd-type-label)", fontWeight:600, letterSpacing: 0.1,
+        color: "var(--arcd-text-primary)", fontSize:"var(--arcd-type-label)", fontWeight:600, letterSpacing: 0.1,
         fontFamily: "var(--arcd-font-sans)",
       }}>{textoUi(label)}</span>}
       <button type="button" disabled={disabled} onClick={() => setOpen(v => !v)}
         style={{
-          width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
-          background: disabled ? C.surface : C.bg, border: `1.5px solid ${C.line}`, color: C.text,
-          padding: "8px 10px", borderRadius: 7, fontSize: "var(--arcd-type-control)", cursor: disabled ? "default" : "pointer",
+          width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--arcd-space-2)",
+          background: disabled ? "var(--arcd-surface-card)" : "var(--arcd-surface-page)", border: `1.5px solid var(--arcd-border-subtle)`, color: "var(--arcd-text-primary)",
+          padding: "var(--arcd-space-2) var(--arcd-space-2)", borderRadius: "var(--arcd-radius-control)", fontSize: "var(--arcd-type-control)", cursor: disabled ? "default" : "pointer",
           fontFamily: "var(--arcd-font-sans)", textAlign: "left",
         }}>
         <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{atual?.l || "Selecione"}</span>
@@ -295,18 +292,18 @@ export function SelBtn({ label, value, onChange, options = [], disabled = false 
       </button>
       {open && (
         <div style={{
-          position: "absolute", top: "100%", left: 0, right: 0, marginTop: 4, zIndex: 20,
-          background: C.card, border: `1px solid ${C.border}`, borderRadius: 8,
-          boxShadow: "0 6px 18px rgba(18,18,18,.14)", maxHeight: 260, overflowY: "auto", padding: 4,
+          position: "absolute", top: "100%", left: 0, right: 0, marginTop: "var(--arcd-space-1)", zIndex: 20,
+          background: "var(--arcd-surface-card)", border: `var(--arcd-border-width) solid var(--arcd-border-default)`, borderRadius: "var(--arcd-box-radius)",
+          boxShadow: "var(--arcd-shadow-hairline)", maxHeight: 260, overflowY: "auto", padding: "var(--arcd-space-1)",
         }}>
           {options.map(o => {
             const selecionada = String(o.v) === String(value ?? "");
             return (
               <button key={String(o.v)} type="button" onClick={() => { onChange(o.v); setOpen(false); }}
                 style={{
-                  width: "100%", textAlign: "left", padding: "7px 9px", borderRadius: 6, border: 0,
+                  width: "100%", textAlign: "left", padding: "var(--arcd-space-2) var(--arcd-space-2)", borderRadius: "var(--arcd-radius-control)", border: 0,
                   background: selecionada ? `${C.blue}14` : "transparent",
-                  color: selecionada ? C.blue : C.text, fontWeight: selecionada ? 600 : 500,
+                  color: selecionada ? C.blue : "var(--arcd-text-primary)", fontWeight: selecionada ? 600 : 500,
                   fontSize: "var(--arcd-type-control)", cursor: "pointer", fontFamily: "var(--arcd-font-sans)",
                 }}>
                 {o.l}
@@ -325,17 +322,17 @@ export function Badge({ children, color = C.yellow }) {
     <span style={{
       display: "inline-flex",
       alignItems: "center",
-      gap: 4,
-      padding: "3px 10px",
+      gap: "var(--arcd-space-1)",
+      padding: "var(--arcd-space-half) var(--arcd-space-2)",
       border: 0,
       background: `${color}1F`,
       color,
       fontSize:"var(--arcd-type-caption)",
       fontWeight:400,
       letterSpacing: 0,
-      marginTop: 2,
-      marginRight: 3,
-      borderRadius: 999,
+      marginTop: "var(--arcd-space-half)",
+      marginRight: "var(--arcd-space-half)",
+      borderRadius: "var(--arcd-radius-pill)",
     }}>
       {conteudoUi(children)}
     </span>
@@ -346,15 +343,11 @@ export function Badge({ children, color = C.yellow }) {
 export function ArcdChartTooltip({ active, payload, label, formatter }) {
   if (!active || !payload?.length) return null;
   return (
-    <div style={{
-      minWidth:160, padding:"10px 12px", background:"rgba(18,18,18,.94)",
-      color:"#fff", border:`1px solid ${C.yellow}66`, borderRadius:10,
-      boxShadow:"0 14px 38px rgba(18,18,18,.2)", backdropFilter:"blur(12px)",
-    }}>
-      <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:.9,textTransform:"uppercase",color:C.cinza,marginBottom:7}}>{label}</p>
-      {payload.filter(p=>p.value!==undefined).map((p,i)=><div key={`${p.dataKey}-${i}`} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:18,marginTop:i?5:0}}>
-        <span style={{display:"flex",alignItems:"center",gap:6,fontSize:"var(--arcd-type-label)",color:"#E9E7E1"}}><i style={{width:7,height:7,borderRadius:2,background:p.color||p.fill,display:"block"}}/>{p.name}</span>
-        <b style={{fontSize:"var(--arcd-type-label)",color:"#fff"}}>{formatter?formatter(p.value,p.name):compactNumber(p.value)}</b>
+    <div className="arcd-chart-tooltip">
+      <p>{label}</p>
+      {payload.filter(p=>p.value!==undefined).map((p,i)=><div key={`${p.dataKey}-${i}`}>
+        <span><i aria-hidden="true" style={{background:p.color||p.fill}}/>{p.name}</span>
+        <b>{formatter?formatter(p.value,p.name):compactNumber(p.value)}</b>
       </div>)}
     </div>
   );
@@ -362,22 +355,21 @@ export function ArcdChartTooltip({ active, payload, label, formatter }) {
 
 
 export function ChartLegend({ items=[] }) {
-  return <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>{items.map(i=><span key={i.label} style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600}}><i style={{width:14,height:3,borderRadius:99,background:i.color,display:"block"}}/>{i.label}</span>)}</div>;
+  return <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-3)",flexWrap:"wrap"}}>{items.map(i=><span key={i.label} style={{display:"inline-flex",alignItems:"center",gap:"var(--arcd-space-1)",fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",fontWeight:600}}><i style={{width:14,height:3,borderRadius:"var(--arcd-radius-pill)",background:i.color,display:"block"}}/>{i.label}</span>)}</div>;
 }
 
 
-export function ChartPanel({ eyebrow="Análise visual", title, subtitle, legend=[], action, children, height=240 }) {
-  return <section className="arcd-chart-panel" style={{
-    position:"relative",overflow:"hidden",background:C.card,border:`1px solid ${C.line}`,
-    borderRadius:14,boxShadow:"0 10px 30px rgba(18,18,18,.045)",
-  }}>
-
-    <header style={{position:"relative",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,padding:"14px 16px 11px",borderBottom:`1px solid ${C.line}`,background:"rgba(255,255,255,.86)",backdropFilter:"blur(8px)"}}>
-      <div style={{minWidth:0}}><h3 style={{fontFamily:"var(--arcd-font-sans)",fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,letterSpacing:-.2,marginTop:2}}>{title}</h3>{subtitle&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{subtitle}</p>}</div>
-      {action&&<div className="no-print" style={{flexShrink:0}}>{action}</div>}
+export function ChartPanel({ title, subtitle, legend=[], action, children, height=240 }) {
+  return <section className="mrc-box arcd-chart-panel">
+    <header className="mrc-box__header arcd-chart-panel__header">
+      <div>
+        <h3>{title}</h3>
+        {subtitle&&<p>{subtitle}</p>}
+      </div>
+      {action&&<div className="no-print">{action}</div>}
     </header>
-    {!!legend.length&&<div style={{position:"relative",padding:"9px 16px 0"}}><ChartLegend items={legend}/></div>}
-    <div style={{position:"relative",height,padding:"8px 8px 10px 2px"}}>{children}</div>
+    {!!legend.length&&<div className="arcd-chart-panel__legend"><ChartLegend items={legend}/></div>}
+    <div className="arcd-chart-panel__content" style={{height}}>{children}</div>
   </section>;
 }
 
@@ -446,61 +438,15 @@ export function TabRow({ tabs, active, onChange, equal = false, label = "Selecio
 
 
 export function Divider() {
-  return <div style={{ height: 1, background: `linear-gradient(90deg, transparent, ${C.line}, transparent)`, margin: "12px 0" }} />;
+  return <div style={{ height: 1, background: `linear-gradient(90deg, transparent, ${C.line}, transparent)`, margin: "var(--arcd-space-3) 0" }} />;
 }
 
 
 export function Modal({ title, children, onClose, wide = false, panelClass = "", footer = null }) {
-  const {stale,editorId}=useRecoveredEditor();
-  const { isDesktop } = useBreakpoint();
-  const panelRef = useRef(null);
-  const overlayRef = useRef(null);
-  useDialogLifecycle(true,panelRef,onClose,undefined,overlayRef);
-
-  return createPortal(
-    <div
-      ref={overlayRef}
-      className="no-print arcd-modal-overlay"
-      style={{
-        position:"fixed", inset:0, zIndex:"var(--arcd-layer-modal)",
-        background:"var(--arcd-surface-overlay)",
-        backdropFilter:"none",
-        display:"flex", alignItems:"center", justifyContent:"center", padding:"var(--arcd-space-4)",
-      }}
-      onMouseDown={e => { if(e.target===e.currentTarget) onClose?.(); }}
-    >
-      <div
-        ref={panelRef} data-recovery-editor={editorId}
-        role="dialog"
-        aria-modal="true"
-        aria-label={textoUi(title)}
-        tabIndex={-1}
-        className={`animUp arcd-modal-panel ${panelClass}`.trim()}
-        style={{
-        width:"100%", maxWidth: wide ? (isDesktop?860:720) : (isDesktop?520:460),
-        maxHeight:"min(92dvh, 900px)", overflowY:"auto",
-        background:"var(--arcd-surface-card)",
-        border:"1px solid var(--arcd-border-default)",
-        borderRadius:"var(--arcd-radius-lg)",
-      }}>
-        <div className="arcd-modal-header" style={{
-          display:"flex", justifyContent:"space-between", alignItems:"center",
-          padding:"var(--arcd-space-3) var(--arcd-space-4)",
-          borderBottom:"1px solid var(--arcd-border-default)",
-          background:"var(--arcd-surface-card)",
-          borderRadius:"var(--arcd-radius-lg) var(--arcd-radius-lg) 0 0",
-        }}>
-          <h3 className="arcd-dialog__title">{textoUi(title)}</h3>
-          <Btn v="ghost" size="sm" iconOnly onClick={onClose} title="Fechar" ariaLabel="Fechar">
-            <Ic n="x" s={13}/>
-          </Btn>
-        </div>
-        <div className="arcd-modal-notice" />
-        <div className="arcd-modal-body" style={{padding:"var(--arcd-panel-padding)"}}><SaveRecoveryShortcut stale={stale}/><fieldset disabled={stale} className="m-0 min-w-0 border-0 p-0">{children}</fieldset></div>
-        {footer&&<div className="arcd-modal-footer"><fieldset disabled={stale} className="m-0 min-w-0 border-0 p-0 flex flex-wrap gap-2">{footer}</fieldset></div>}
-      </div>
-    </div>, document.body
-  );
+  return <DialogSurface open legacy size={wide?"wide":"compact"} title={textoUi(title)}
+    onOpenChange={()=>onClose?.()} className={panelClass} footer={footer}>
+    {children}
+  </DialogSurface>;
 }
 
 // A tela de Planejamento (Gantt editável, com QuestionarioPlanejamento,
@@ -511,12 +457,12 @@ export function Modal({ title, children, onClose, wide = false, panelClass = "",
 
 export function MiniKpi({ label, value, cor, sub }) {
   return (
-    <div className="mrc-mini-kpi" data-tone={semanticToneFromLegacyColor(cor)} style={{ background: C.card, border: `1px solid ${C.border}`,
-                  borderTop: `3px solid ${cor}`, borderRadius: 8, padding: "10px 12px" }}>
-      <p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color: C.muted, textTransform: "uppercase", letterSpacing: .6 }}>{label}</p>
-      <p style={{ fontSize: "var(--arcd-type-section-title)", fontWeight:600, color: cor, marginTop: 3,
+    <div className="mrc-mini-kpi" data-tone={semanticToneFromLegacyColor(cor)} style={{ background: "var(--arcd-surface-card)", border: `var(--arcd-border-width) solid var(--arcd-border-default)`,
+                  borderTop: `3px solid ${cor}`, borderRadius: "var(--arcd-box-radius)", padding: "var(--arcd-space-2) var(--arcd-space-3)" }}>
+      <p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color: "var(--arcd-text-secondary)", textTransform: "uppercase", letterSpacing: .6 }}>{label}</p>
+      <p style={{ fontSize: "var(--arcd-type-section-title)", fontWeight:600, color: cor, marginTop: "var(--arcd-space-half)",
                   fontFamily: "var(--arcd-font-sans)" }}>{value}</p>
-      {sub && <p style={{ fontSize:"var(--arcd-type-caption)", color: C.muted, marginTop: 2 }}>{sub}</p>}
+      {sub && <p style={{ fontSize:"var(--arcd-type-caption)", color: "var(--arcd-text-secondary)", marginTop: "var(--arcd-space-half)" }}>{sub}</p>}
     </div>
   );
 }
@@ -527,7 +473,7 @@ export function MiniKpi({ label, value, cor, sub }) {
 export function Bloco({ id, titulo, acao, children }) {
   return (
     <section id={id} className="rdo-block mrc-form-section">
-      <div className="mrc-section-heading" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+      <div className="mrc-section-heading" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--arcd-space-2)" }}>
         <h2>{titulo}</h2>
         {acao}
       </div>

@@ -237,14 +237,14 @@ const EditableField = ({ label, value, onChange, unit, ariaLabel, width }) => (
     <span style={{position:"relative",display:"flex"}}>
       <StandardInput type="number" min="0" step="any" aria-label={ariaLabel||label} value={value}
         onChange={e=>onChange(e.target.value.replace(",","."))}
-        style={{width:"100%",boxSizing:"border-box",padding:unit?"7px 28px 7px 8px":"7px 8px",border:"1px solid var(--arcd-border-default)",borderRadius:5,background:"var(--arcd-surface-card)",color:"var(--arcd-text-primary)",textAlign:"right",fontSize:"var(--arcd-type-control)",fontVariantNumeric:"tabular-nums"}}/>
+        style={{width:"100%",boxSizing:"border-box",padding:unit?"var(--arcd-space-2) var(--arcd-space-6) var(--arcd-space-2) var(--arcd-space-2)":"var(--arcd-space-2) var(--arcd-space-2)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",background:"var(--arcd-surface-card)",color:"var(--arcd-text-primary)",textAlign:"right",fontSize:"var(--arcd-type-control)",fontVariantNumeric:"tabular-nums"}}/>
       {unit&&<span style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-muted)",pointerEvents:"none"}}>{unit}</span>}
     </span>
   </label>
 );
 
 const CalculatedValue = ({ label, value, unit }) => (
-  <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-half)",background:"var(--arcd-surface-muted)",borderRadius:6,padding:"var(--arcd-space-1) var(--arcd-space-2)"}}>
+  <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-half)",background:"var(--arcd-surface-muted)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-1) var(--arcd-space-2)"}}>
     <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)"}}>{label}</span>
     <span style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",fontVariantNumeric:"tabular-nums"}}>{value}{unit&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",marginLeft:"var(--arcd-space-half)"}}>{unit}</span>}</span>
   </div>
@@ -253,7 +253,7 @@ const CalculatedValue = ({ label, value, unit }) => (
 const ResultValue = ({ label, value, unit, tone="purple" }) => {
   const cor = tone==="blue" ? C.blue : C.purple;
   return (
-    <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-half)",background:`${cor}0c`,border:`1px solid ${cor}33`,borderRadius:6,padding:"var(--arcd-space-2)"}}>
+    <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-half)",background:`${cor}0c`,border:`var(--arcd-border-width) solid ${cor}33`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2)"}}>
       <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:cor}}>{label}</span>
       <span style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:cor,fontVariantNumeric:"tabular-nums"}}>{value}{unit&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",marginLeft:"var(--arcd-space-half)"}}>{unit}</span>}</span>
     </div>
@@ -263,7 +263,7 @@ const ResultValue = ({ label, value, unit, tone="purple" }) => {
 const Warning = ({ children, tone="warn" }) => {
   const cor = tone==="error" ? C.red : C.orange;
   return (
-    <div style={{background:`${cor}0d`,border:`1px solid ${cor}44`,borderRadius:6,padding:"var(--arcd-space-2)"}}>
+    <div style={{background:`${cor}0d`,border:`var(--arcd-border-width) solid ${cor}44`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2)"}}>
       <p style={{fontSize:"var(--arcd-type-caption)",color:cor,fontWeight:"var(--arcd-font-weight-semibold)",lineHeight:"var(--arcd-line-height-normal)"}}>⚠ {children}</p>
     </div>
   );
@@ -299,8 +299,8 @@ const FloorSection = ({ id, sectionRef, title, resumo, children }) => (
 );
 
 const StructuralElementSection = ({ id, sectionRef, title, subtitle, open, onToggle, resumo, warning, children }) => (
-  <div ref={sectionRef} id={id} style={{border:"1px solid var(--arcd-border-default)",borderRadius:4,background:"var(--arcd-surface-page)",scrollMarginTop:SCROLL_MARGIN,overflow:"hidden"}}>
-    <StandardButton variant="secondary" onClick={onToggle} aria-expanded={open} style={{width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"var(--arcd-space-3)",textAlign:"left"}}>
+  <div ref={sectionRef} id={id} style={{border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",background:"var(--arcd-surface-page)",scrollMarginTop:SCROLL_MARGIN,overflow:"hidden"}}>
+    <StandardButton variant="secondary" onClick={onToggle} aria-expanded={open} style={{width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap"}}>
       <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",minWidth:0}}>
         <span style={{display:"flex",flexShrink:0,transform:open?"rotate(90deg)":"none",transition:"transform 120ms ease-out"}}><Ic n="chevR" s={12} color={C.muted}/></span>
         <span style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",whiteSpace:"nowrap"}}>{title}</span>
@@ -326,7 +326,7 @@ const TabelaEditavel = ({ colunas, linhas, onChange, onAdd, onRemove, totalLabel
   return (
     <div style={{display:"flex",flexDirection:"column",gap:0}}>
       {linhas.length>0&&(
-        <div style={{display:"grid",gridTemplateColumns:grid,gap:"var(--arcd-space-1)",padding:"var(--arcd-space-0) var(--arcd-space-half) var(--arcd-space-1)",borderBottom:"1px solid var(--arcd-border-default)",marginBottom:"var(--arcd-space-1)"}}>
+        <div style={{display:"grid",gridTemplateColumns:grid,gap:"var(--arcd-space-1)",padding:"var(--arcd-space-0) var(--arcd-space-half) var(--arcd-space-1)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)",marginBottom:"var(--arcd-space-1)"}}>
           {colunas.map(c=><span key={c.chave} style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-muted)",textAlign:c.numero?"right":"left"}}>{c.rotulo}</span>)}
           <span/>
         </div>
@@ -337,14 +337,14 @@ const TabelaEditavel = ({ colunas, linhas, onChange, onAdd, onRemove, totalLabel
             <span key={c.chave}>
               {c.opcoes ? (
                 <SelectControl aria-label={c.rotulo} value={linha[c.chave]||""} onChange={e=>onChange(i,{[c.chave]:e.target.value})}
-                  style={{width:"100%",boxSizing:"border-box",padding:"var(--arcd-space-1) var(--arcd-space-2)",border:"1px solid var(--arcd-border-default)",borderRadius:5,background:"var(--arcd-surface-card)",color:"var(--arcd-text-primary)",fontSize:"var(--arcd-type-control)"}}>
+                  style={{width:"100%",boxSizing:"border-box"}}>
                   <option value="">-</option>
                   {c.opcoes.map(o=><option key={o} value={o}>{o}</option>)}
                 </SelectControl>
               ) : (
                 <StandardInput type={c.numero?"number":"text"} min={c.numero?0:undefined} step={c.numero?"any":undefined} aria-label={c.rotulo} value={linha[c.chave]}
                   onChange={e=>onChange(i,{[c.chave]:c.numero?e.target.value.replace(",","."):e.target.value})}
-                  style={{width:"100%",boxSizing:"border-box",padding:"var(--arcd-space-1) var(--arcd-space-2)",border:"1px solid var(--arcd-border-default)",borderRadius:5,background:"var(--arcd-surface-card)",color:"var(--arcd-text-primary)",textAlign:c.numero?"right":"left",fontSize:"var(--arcd-type-control)"}}/>
+                  style={{width:"100%",boxSizing:"border-box",padding:"var(--arcd-space-1) var(--arcd-space-2)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",background:"var(--arcd-surface-card)",color:"var(--arcd-text-primary)",textAlign:c.numero?"right":"left",fontSize:"var(--arcd-type-control)"}}/>
               )}
             </span>
           ))}
@@ -1234,7 +1234,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     return (
       <div style={{display:"flex",flexDirection:"column",gap:0}}>
         {lista.length>0&&(
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 22px",gap:"var(--arcd-space-1)",padding:"var(--arcd-space-0) var(--arcd-space-half) var(--arcd-space-1)",borderBottom:"1px solid var(--arcd-border-default)",marginBottom:"var(--arcd-space-1)"}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 22px",gap:"var(--arcd-space-1)",padding:"var(--arcd-space-0) var(--arcd-space-half) var(--arcd-space-1)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)",marginBottom:"var(--arcd-space-1)"}}>
             <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-muted)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>Bitola</span>
             <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-muted)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",textAlign:"right"}}>Peso</span>
             <span/>
@@ -1242,11 +1242,11 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
         )}
         {lista.map((l,i)=>(
           <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr 22px",gap:"var(--arcd-space-1)",alignItems:"center",padding:"var(--arcd-space-half) var(--arcd-space-0)"}}>
-            <SelectControl aria-label="Bitola" value={l.bitola} onChange={e=>atualizarLinha(i,{bitola:e.target.value})} style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",border:"1px solid var(--arcd-border-default)",borderRadius:5,background:"var(--arcd-surface-page)",color:"var(--arcd-text-primary)",fontSize:"var(--arcd-type-control)"}}>
+            <SelectControl aria-label="Bitola" value={l.bitola} onChange={e=>atualizarLinha(i,{bitola:e.target.value})}>
               {BITOLAS_ACO.map(b=><option key={b} value={b}>∅{b}</option>)}
             </SelectControl>
             <div style={{position:"relative"}}>
-              <StandardInput type="number" min="0" step="any" aria-label="Peso em kg" value={l.kg} onChange={e=>atualizarLinha(i,{kg:e.target.value.replace(",",".")})} style={{width:"100%",boxSizing:"border-box",padding:"var(--arcd-space-1) var(--arcd-space-6) var(--arcd-space-1) var(--arcd-space-2)",border:"1px solid var(--arcd-border-default)",borderRadius:5,background:"var(--arcd-surface-page)",color:"var(--arcd-text-primary)",textAlign:"right",fontSize:"var(--arcd-type-control)"}}/>
+              <StandardInput type="number" min="0" step="any" aria-label="Peso em kg" value={l.kg} onChange={e=>atualizarLinha(i,{kg:e.target.value.replace(",",".")})} style={{width:"100%",boxSizing:"border-box",padding:"var(--arcd-space-1) var(--arcd-space-6) var(--arcd-space-1) var(--arcd-space-2)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",background:"var(--arcd-surface-page)",color:"var(--arcd-text-primary)",textAlign:"right",fontSize:"var(--arcd-type-control)"}}/>
               <span style={{position:"absolute",right:7,top:"50%",transform:"translateY(-50%)",fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-muted)",pointerEvents:"none"}}>kg</span>
             </div>
             <StandardButton variant="secondary" aria-label="Remover esta bitola" title="Remover" onClick={()=>removerLinha(i)} style={{display:"flex",justifyContent:"center"}}><Ic n="trash" s={13}/></StandardButton>
@@ -1397,18 +1397,17 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
         <div>
           <p style={LABEL_GRUPO}>Aço da laje</p>
           <div style={{display:"grid",gridTemplateColumns:isMobile||laje.somenteTelaSoldada?"1fr":"3fr 2fr",gap:"var(--arcd-space-2)",alignItems:"start"}}>
-            {!laje.somenteTelaSoldada&&<div style={{border:"1px solid var(--arcd-border-default)",borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>
+            {!laje.somenteTelaSoldada&&<div style={{border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>
               <div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Maciça - aço por bitola</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Não inclui vigota - a treliça pré-moldada não entra no Resumo Aço do projeto.</p></div>
               {renderEditorAcoPorBitola(laje.acoPorBitola, lista=>salvarLajeDoPavimento(pav,{acoPorBitola:lista}), "Total aço maciça")}
             </div>}
-            <div style={{border:"1px solid var(--arcd-border-default)",borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+            <div style={{border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
               <div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Vigota - tela soldada</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Peso = área x peso/m² da malha - não soma com o aço da maciça.</p></div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-2)"}}>
                 <label style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-half)"}}>
                   <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>MALHA</span>
                   <SelectControl aria-label="Malha da tela soldada da vigota" value={laje.malhaVigota}
-                    onChange={e=>salvarLajeDoPavimento(pav,{malhaVigota:e.target.value,pesoMalhaVigotaKgM2:PESO_TELA_SOLDADA_KG_M2[e.target.value]})}
-                    style={{padding:"var(--arcd-space-2)",border:"1px solid var(--arcd-border-default)",borderRadius:5,background:"var(--arcd-surface-card)",color:"var(--arcd-text-primary)",fontSize:"var(--arcd-type-control)"}}>
+                    onChange={e=>salvarLajeDoPavimento(pav,{malhaVigota:e.target.value,pesoMalhaVigotaKgM2:PESO_TELA_SOLDADA_KG_M2[e.target.value]})}>
                     {MALHAS_TELA_SOLDADA.map(m=><option key={m} value={m}>{m}</option>)}
                   </SelectControl>
                 </label>
@@ -3494,7 +3493,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
         />
 
         {undoOrc && (
-          <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 5%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 33%, transparent)",borderRadius:8,padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)"}}>
+          <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 5%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-action-primary) 33%, transparent)",borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)"}}>
             <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)"}}>Orçamento "{undoOrc.orc?.nome}" removido.</p>
             <Btn size="sm" v="ghost" onClick={desfazerDelOrc}><Ic n="refresh" s={13}/> Desfazer</Btn>
           </div>
@@ -3525,13 +3524,13 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
         )}
 
         {obraIdFixo&&!getActiveBudgetBaseline(data,obraIdFixo,"controle").budget&&orcamentos.length>0&&(
-          <div style={{background:"color-mix(in srgb, var(--arcd-warning-text) 5%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 40%, transparent)",borderRadius:8,padding:"var(--arcd-space-2) var(--arcd-space-3)",fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)",lineHeight:"var(--arcd-line-height-normal)"}}>
+          <div style={{background:"color-mix(in srgb, var(--arcd-warning-text) 5%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-warning-text) 40%, transparent)",borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-2) var(--arcd-space-3)",fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)",lineHeight:"var(--arcd-line-height-normal)"}}>
             <b style={{color:"var(--arcd-warning-text)"}}>Baseline ainda não definida.</b> Abra a versão correta e use <b>“Aprovar e adotar baseline”</b>. Enquanto isso, planejamento, medições, qualidade e comparativos não usarão nenhum orçamento desta obra.
           </div>
         )}
 
         {orcamentos.length===0 && (
-          <div style={{background:"var(--arcd-surface-page)",border:"1.5px solid var(--arcd-border-default)",borderRadius:8,padding:"var(--arcd-space-8)",textAlign:"center",boxShadow:`0 1px 4px ${C.shadow}`}}>
+          <div style={{background:"var(--arcd-surface-page)",border:"1.5px solid var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-8)",textAlign:"center",boxShadow:`0 1px 4px ${C.shadow}`}}>
             <div style={{display:"flex",justifyContent:"center",marginBottom:"var(--arcd-space-2)"}}><Ic n="fileText" s={38} color={C.muted}/></div>
             <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginBottom:"var(--arcd-space-1)"}}>Nenhum orçamento criado</p>
             <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)"}}>Crie um orçamento, importe a base SINAPI ou ORSE<br/>e monte a planilha por etapas.</p>
@@ -3547,7 +3546,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           const ehBaseline=(data.budgetBaselines||[]).some(b=>b.ativo!==false&&b.tipo==="controle"&&b.budgetId===o.id);
           const bloqueado=budgetIsImmutable(o);
           return (
-            <div key={o.id} style={{background:"var(--arcd-surface-page)",border:"1.5px solid var(--arcd-border-default)",borderLeft:"1px solid var(--arcd-border-strong)",borderRadius:8,padding:"var(--arcd-space-3)",boxShadow:`0 1px 4px ${C.shadow}`}}>
+            <div key={o.id} style={{background:"var(--arcd-surface-page)",border:"1.5px solid var(--arcd-border-default)",borderLeft:"var(--arcd-border-width) solid var(--arcd-border-strong)",borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-3)",boxShadow:`0 1px 4px ${C.shadow}`}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-2)"}}>
                 <div style={{flex:1,minWidth:0}}>
                   <p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{o.nome}</p>
@@ -3608,11 +3607,11 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 <Inp label="Data-base" value={form.dataBase} onChange={F("dataBase")} placeholder="Ex.: mai/2026"/>
                 <Inp label="BDI (%)" type="number" value={form.bdi} onChange={F("bdi")} placeholder="23.25"/>
               </div>
-              <label style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",cursor:"pointer",padding:"var(--arcd-space-2) var(--arcd-space-3)",background:form.desonerado?"color-mix(in srgb, var(--arcd-success-text) 3%, transparent)":"var(--arcd-surface-muted)",borderRadius:6,border:`1.5px solid ${form.desonerado?"var(--arcd-success-text)"+"55":"var(--arcd-border-default)"}`}}>
+              <label style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",cursor:"pointer",padding:"var(--arcd-space-2) var(--arcd-space-3)",background:form.desonerado?"color-mix(in srgb, var(--arcd-success-text) 3%, transparent)":"var(--arcd-surface-muted)",borderRadius:"var(--arcd-radius-control)",border:`1.5px solid ${form.desonerado?"var(--arcd-success-text)"+"55":"var(--arcd-border-default)"}`}}>
                 <span style={{position:"relative",width:19,height:19,flexShrink:0,display:"inline-block"}}>
                   <ChoiceControl type="checkbox" checked={form.desonerado!==false} onChange={e=>F("desonerado")(e.target.checked)}
-                    style={{position:"absolute",inset:0,width:"100%",height:"100%",margin:0,opacity:0,cursor:"pointer"}}/>
-                  <div aria-hidden="true" style={{width:19,height:19,border:`2px solid ${form.desonerado?"var(--arcd-success-text)":"var(--arcd-text-secondary)"}`,background:form.desonerado?"var(--arcd-success-text)":"transparent",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",pointerEvents:"none"}}>
+                    style={{position:"absolute",inset:0,width:"100%",margin:0,opacity:0,cursor:"pointer"}}/>
+                  <div aria-hidden="true" style={{width:19,height:19,border:`2px solid ${form.desonerado?"var(--arcd-success-text)":"var(--arcd-text-secondary)"}`,background:form.desonerado?"var(--arcd-success-text)":"transparent",borderRadius:"var(--arcd-radius-control)",display:"flex",alignItems:"center",justifyContent:"center",pointerEvents:"none"}}>
                     {form.desonerado && <span style={{color:"var(--arcd-text-inverse)",fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)"}}>ok</span>}
                   </div>
                 </span>
@@ -3664,13 +3663,13 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 {copiarModal.orcOrigemId && (
                   <label style={{display:"flex",alignItems:"flex-start",gap:"var(--arcd-space-2)",cursor:"pointer",padding:"var(--arcd-space-2) var(--arcd-space-3)",
                           background: copiarModal.repetirQuantidades ? "color-mix(in srgb, var(--arcd-action-primary) 6%, transparent)" : "var(--arcd-surface-muted)",
-                          border:`1.5px solid ${copiarModal.repetirQuantidades ? "var(--arcd-action-primary)" : "var(--arcd-border-default)"}`,borderRadius:6}}>
+                          border:`1.5px solid ${copiarModal.repetirQuantidades ? "var(--arcd-action-primary)" : "var(--arcd-border-default)"}`,borderRadius:"var(--arcd-radius-control)"}}>
                     <span style={{position:"relative",width:18,height:18,flexShrink:0,marginTop:"var(--arcd-space-0)",display:"inline-block"}}>
                       <ChoiceControl type="checkbox" checked={copiarModal.repetirQuantidades}
                         onChange={e=>setCopiarModal(m=>({...m,repetirQuantidades:e.target.checked}))}
-                        style={{position:"absolute",inset:0,width:"100%",height:"100%",margin:0,opacity:0,cursor:"pointer"}}/>
+                        style={{position:"absolute",inset:0,width:"100%",margin:0,opacity:0,cursor:"pointer"}}/>
                       <div aria-hidden="true"
-                           style={{width:18,height:18,borderRadius:4,
+                           style={{width:18,height:18,borderRadius:"var(--arcd-radius-control)",
                                    border:`2px solid ${copiarModal.repetirQuantidades?"var(--arcd-action-primary)":"var(--arcd-text-secondary)"}`,background:copiarModal.repetirQuantidades?"var(--arcd-action-primary)":"transparent",
                                    display:"flex",alignItems:"center",justifyContent:"center",pointerEvents:"none"}}>
                         {copiarModal.repetirQuantidades && <span style={{color:"var(--arcd-text-inverse)",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>ok</span>}
@@ -3791,7 +3790,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   }catch(error){showToast(error.message,'warn');}
                   setDraggedStage(null);setStageDrop(null);
                 }} style={{
-                  outline:stageDrop===no.id?'2px solid #3377ff':undefined,
+                  outline:stageDrop===no.id?"2px solid var(--arcd-info-text)":undefined,
                   outlineOffset:-2,
                   paddingLeft: 8 + recuo,
                 }}>
@@ -3956,7 +3955,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                     {buscaLinha.itemId===it.id && buscaLinha.termo.trim().length>=2 && (
                       <div className="budget-search-pop" style={{
                         gridColumn:"4 / -1",minWidth:0,maxHeight:230,overflowY:"auto",
-                        background:"var(--arcd-surface-page)",border:"1px solid var(--arcd-action-primary)",borderRadius:4,
+                        background:"var(--arcd-surface-page)",border:"var(--arcd-border-width) solid var(--arcd-action-primary)",borderRadius:"var(--arcd-radius-control)",
                         boxShadow:`0 4px 12px ${C.shadow}`,padding:"var(--arcd-space-1)",zIndex:20,margin:"var(--arcd-space-half) var(--arcd-space-0)",
                       }}>
                           {it.codigo&&<StandardButton variant="secondary" type="button" disabled={codigoAtualizando===it.id} onMouseDown={e=>e.preventDefault()} onClick={async()=>{
@@ -3972,7 +3971,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                             <StandardButton variant="secondary" key={`${resultado.fonte}-${resultado.codigo}-${indice}`}
                               onMouseDown={e=>e.preventDefault()}
                               onClick={()=>selecionarReferenciaLinha(it.id,resultado)}
-                              style={{width:"100%",display:"grid",gridTemplateColumns:"74px minmax(0,1fr) 78px",gap:"var(--arcd-space-2)",alignItems:"center",borderTop:indice?"1px solid var(--arcd-border-default)":"none",textAlign:"left"}}>
+                              style={{width:"100%",display:"grid",gridTemplateColumns:"74px minmax(0,1fr) 78px",alignItems:"center"}}>
                               <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:resultado.fonte==="ORSE"?"var(--arcd-action-primary)":"var(--arcd-action-primary)",whiteSpace:"nowrap"}}>
                                 {resultado.fonte||"SINAPI"} {resultado.codigo}
                               </span>
@@ -4014,18 +4013,18 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               <StandardButton variant="secondary" type="button" className="budget-tool" aria-expanded={colsOrcAberto} onClick={()=>setColsOrcAberto(a=>!a)}>Colunas</StandardButton>
               {colsOrcAberto && (
                 <div style={{position:"absolute",top:"100%",right:0,marginTop:"var(--arcd-space-1)",zIndex:41,
-                             background:"var(--arcd-surface-page)",border:"1px solid var(--arcd-border-default)",borderRadius:4,
+                             background:"var(--arcd-surface-page)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",
                              boxShadow:`0 4px 12px ${C.shadow}`,padding:"var(--arcd-space-2) var(--arcd-space-3)",minWidth:190}}>
                   <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",marginBottom:"var(--arcd-space-2)"}}>Colunas visíveis</p>
                   {[["codigo","Código"],["unidade","Unidade"],["custoUnit","Unitário sem BDI"],["bdi","BDI por item"],["unitBdi","Unitário com BDI"],["total","Total com BDI"]].map(([k,l])=>(
                     <label key={k} style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-1) var(--arcd-space-0)",cursor:"pointer",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>
                       <ChoiceControl type="checkbox" checked={k==="unitBdi"?(colsOrc.unitBdi ?? true):!!colsOrc[k]}
                         onChange={()=>setColsOrc(c=>({...c,[k]:k==="unitBdi"?!(c.unitBdi ?? true):!c[k]}))}
-                        style={{width:15,height:15,accentColor:"var(--arcd-action-primary)",cursor:"pointer"}}/>
+                        style={{width:15,accentColor:"var(--arcd-action-primary)",cursor:"pointer"}}/>
                       {l}
                     </label>
                   ))}
-                  <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-2)",lineHeight:"var(--arcd-line-height-normal)",borderTop:"1px solid var(--arcd-border-default)",paddingTop:"var(--arcd-space-2)"}}>
+                  <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-2)",lineHeight:"var(--arcd-line-height-normal)",borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)",paddingTop:"var(--arcd-space-2)"}}>
                     Fonte, descrição e quantidade ficam sempre visíveis.
                   </p>
                 </div>
@@ -4092,7 +4091,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
         <Btn onClick={()=>{try{const stageId=itemPosition.stageId ?? orc.itens.find(i=>i.id===itemPosition.id)?.etapaId;if(!orc.etapas.some(s=>s.id===stageId))throw new Error('Selecione uma etapa.');salvarOrc({itens:repositionBudgetItem(orc.itens,itemPosition.id,itemPosition.position,stageId)});setItemPosition(null);}catch(error){showToast(error.message,'warn');}}}>Mover</Btn>
       </Modal>}
       {undoEtapa && (
-        <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 5%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 33%, transparent)",borderRadius:4,padding:"var(--arcd-space-1) var(--arcd-space-2)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)"}}>
+        <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 5%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-action-primary) 33%, transparent)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-1) var(--arcd-space-2)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)"}}>
           <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)"}}>Etapa removida.</p>
           <StandardButton variant="secondary" type="button" className="budget-tool" onClick={desfazerDelEtapa}>Desfazer</StandardButton>
         </div>
@@ -4175,8 +4174,8 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
       {orcAba==="orcamento"&&controleCustosAberto&&<div className="budget-panel">
         <div>
           <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginBottom:"var(--arcd-space-1)"}}>Controle integrado de custos <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-regular)",color:"var(--arcd-text-secondary)"}}>· orçamento, compras, recebimento, aplicação e pagamento por etapa de 1º nível</span></p>
-          <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:"var(--arcd-space-1)",marginBottom:"var(--arcd-space-2)"}}>{[["Orçado",controleCustos.total.orcado,C.blue],["Comprometido",controleCustos.total.comprometido,C.orange],["Saldo",controleCustos.total.saldo,controleCustos.total.saldo<0?C.red:C.green],["Projeção",controleCustos.total.projecao,controleCustos.total.projecao>controleCustos.total.orcado?C.red:C.purple]].map(([l,v,c])=><div key={l} style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderTop:`3px solid ${c}`,borderRadius:6,padding:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-bold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>{l}</p><p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-bold)",color:c,marginTop:"var(--arcd-space-half)"}}>{fmt(v)}</p></div>)}</div>
-          <div style={{overflowX:"auto",border:"1px solid var(--arcd-border-default)",borderRadius:7}}><table style={{width:"100%",minWidth:850,borderCollapse:"collapse",fontSize:"var(--arcd-type-caption)"}}><thead><tr style={{background:"var(--arcd-surface-muted)",color:"var(--arcd-text-secondary)",textAlign:"right"}}>{["Etapa de 1º nível","Orçado","Solicitado","Comprometido","Recebido","Aplicado","Pago","Saldo"].map((h,i)=><th key={h} style={{padding:"var(--arcd-space-2)",textAlign:i?"right":"left",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead><tbody>{controleCustos.etapas.map(l=><tr key={l.id} style={{borderTop:"1px solid var(--arcd-border-default)"}}><td style={{padding:"var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-bold)",color:"var(--arcd-text-primary)"}}>{l.nome}</td>{[l.orcado,l.solicitado,l.comprometido,l.recebido,l.aplicado,l.pago,l.saldo].map((v,i)=><td key={i} style={{padding:"var(--arcd-space-2)",textAlign:"right",whiteSpace:"nowrap",fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontWeight:i===6?850:600,color:i===6&&v<0?"var(--arcd-danger-text)":"var(--arcd-text-primary)"}}>{fmt(v)}</td>)}</tr>)}</tbody></table></div>
+          <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:"var(--arcd-space-1)",marginBottom:"var(--arcd-space-2)"}}>{[["Orçado",controleCustos.total.orcado,C.blue],["Comprometido",controleCustos.total.comprometido,C.orange],["Saldo",controleCustos.total.saldo,controleCustos.total.saldo<0?C.red:C.green],["Projeção",controleCustos.total.projecao,controleCustos.total.projecao>controleCustos.total.orcado?C.red:C.purple]].map(([l,v,c])=><div key={l} style={{background:"var(--arcd-surface-muted)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderTop:`3px solid ${c}`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-bold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>{l}</p><p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-bold)",color:c,marginTop:"var(--arcd-space-half)"}}>{fmt(v)}</p></div>)}</div>
+          <div style={{overflowX:"auto",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)"}}><table className="arcd-data-table__table" style={{width:"100%",minWidth:850,borderCollapse:"collapse"}}><thead><tr style={{background:"var(--arcd-surface-muted)",color:"var(--arcd-text-secondary)",textAlign:"right"}}>{["Etapa de 1º nível","Orçado","Solicitado","Comprometido","Recebido","Aplicado","Pago","Saldo"].map((h,i)=><th key={h} style={{padding:"var(--arcd-space-2)",textAlign:i?"right":"left",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead><tbody>{controleCustos.etapas.map(l=><tr key={l.id} style={{borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)"}}><td style={{padding:"var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-bold)",color:"var(--arcd-text-primary)"}}>{l.nome}</td>{[l.orcado,l.solicitado,l.comprometido,l.recebido,l.aplicado,l.pago,l.saldo].map((v,i)=><td key={i} style={{padding:"var(--arcd-space-2)",textAlign:"right",whiteSpace:"nowrap",fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontWeight:i===6?850:600,color:i===6&&v<0?"var(--arcd-danger-text)":"var(--arcd-text-primary)"}}>{fmt(v)}</td>)}</tr>)}</tbody></table></div>
           {Object.values(controleCustos.semApropriacao).some(v=>v>0)&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-warning-text)",marginTop:"var(--arcd-space-2)",lineHeight:"var(--arcd-line-height-normal)"}}>Atenção: existem valores sem linha orçamentária vinculada — solicitado {fmt(controleCustos.semApropriacao.solicitado)}, comprometido {fmt(controleCustos.semApropriacao.comprometido)}, recebido {fmt(controleCustos.semApropriacao.recebido)} e aplicado {fmt(controleCustos.semApropriacao.aplicado)}. Eles não foram distribuídos artificialmente entre as etapas.</p>}
           <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>Projeção atual = maior valor entre orçamento e compromissos assumidos. “Pago” exige pedido vinculado a uma transação conciliada.</p>
         </div>
@@ -4194,7 +4193,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 ["Atenções",auditoriaResultado?.resumo.atencoes||0,C.orange],
                 ["Cotações",auditoriaResultado?.resumo.cotacoes||0,C.blue],
                 ["Confirmar escopo",auditoriaResultado?.resumo.escopo||0,C.purple],
-              ].map(([label,value,color])=><div key={label} style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderTop:`3px solid ${color}`,borderRadius:6,padding:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>{label}</p><p style={{fontSize:"var(--arcd-type-section-title)",fontWeight:"var(--arcd-font-weight-semibold)",color}}>{value}</p></div>)}
+              ].map(([label,value,color])=><div key={label} style={{background:"var(--arcd-surface-muted)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderTop:`3px solid ${color}`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>{label}</p><p style={{fontSize:"var(--arcd-type-section-title)",fontWeight:"var(--arcd-font-weight-semibold)",color}}>{value}</p></div>)}
             </div>
 
             <div style={{display:"flex",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-2)",overflowX:"auto"}}>
@@ -4208,7 +4207,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 const cor=achado.nivel==="critico"?C.red:achado.nivel==="atencao"?C.orange:achado.nivel==="cotacao"?C.blue:C.purple;
                 const rotulo=achado.nivel==="critico"?"FALHA PROVÁVEL":achado.nivel==="atencao"?"ATENÇÃO":achado.nivel==="cotacao"?"COTAÇÃO":"CONFIRMAR ESCOPO";
                 const corStatus=achado.status==="corrigido"?C.green:achado.status==="ignorado"?C.muted:C.orange;
-                return <div key={achado.id} style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderLeft:`1px solid ${cor}`,borderRadius:7,padding:"var(--arcd-space-2)",opacity:achado.ativo===false?.72:1}}><div style={{display:"flex",gap:"var(--arcd-space-2)",alignItems:"center",flexWrap:"wrap"}}><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:cor,background:`${cor}12`,padding:"var(--arcd-space-half) var(--arcd-space-1)",borderRadius:4}}>{rotulo}</span><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:corStatus,background:`${corStatus}12`,padding:"var(--arcd-space-half) var(--arcd-space-1)",borderRadius:4}}>{achado.status==="corrigido"?"CORRIGIDO":achado.status==="ignorado"?"IGNORADO":"PENDENTE"}</span>{achado.origem==="ia"&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)"}}>IA</span>}<p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",flex:"1 1 220px"}}>{achado.titulo}</p><Btn size="sm" v="ghost" onClick={()=>setCheckEdit({...achado})}>Revisar</Btn></div><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)",marginTop:"var(--arcd-space-half)"}}>{achado.detalhe}</p>{achado.acaoSugerida&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-muted)",lineHeight:"var(--arcd-line-height-normal)",marginTop:"var(--arcd-space-1)"}}><b>Próxima ação:</b> {achado.acaoSugerida}</p>}{achado.observacao&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-1)",padding:"var(--arcd-space-1) var(--arcd-space-2)",background:"var(--arcd-surface-card)",borderRadius:5}}><b>Decisão:</b> {achado.observacao}{achado.atualizadoPor?` · ${achado.atualizadoPor}`:""}</p>}</div>;
+                return <div key={achado.id} style={{background:"var(--arcd-surface-muted)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderLeft:`var(--arcd-border-width) solid ${cor}`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2)",opacity:achado.ativo===false?.72:1}}><div style={{display:"flex",gap:"var(--arcd-space-2)",alignItems:"center",flexWrap:"wrap"}}><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:cor,background:`${cor}12`,padding:"var(--arcd-space-half) var(--arcd-space-1)",borderRadius:"var(--arcd-radius-control)"}}>{rotulo}</span><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:corStatus,background:`${corStatus}12`,padding:"var(--arcd-space-half) var(--arcd-space-1)",borderRadius:"var(--arcd-radius-control)"}}>{achado.status==="corrigido"?"CORRIGIDO":achado.status==="ignorado"?"IGNORADO":"PENDENTE"}</span>{achado.origem==="ia"&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)"}}>IA</span>}<p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",flex:"1 1 220px"}}>{achado.titulo}</p><Btn size="sm" v="ghost" onClick={()=>setCheckEdit({...achado})}>Revisar</Btn></div><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)",marginTop:"var(--arcd-space-half)"}}>{achado.detalhe}</p>{achado.acaoSugerida&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-muted)",lineHeight:"var(--arcd-line-height-normal)",marginTop:"var(--arcd-space-1)"}}><b>Próxima ação:</b> {achado.acaoSugerida}</p>}{achado.observacao&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-1)",padding:"var(--arcd-space-1) var(--arcd-space-2)",background:"var(--arcd-surface-card)",borderRadius:"var(--arcd-radius-control)"}}><b>Decisão:</b> {achado.observacao}{achado.atualizadoPor?` · ${achado.atualizadoPor}`:""}</p>}</div>;
               })}
               {checklistAuditoria.filter(item=>checkFiltro==="todos"||item.status===checkFiltro).length===0&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",padding:"var(--arcd-space-2)",textAlign:"center"}}>Nenhum item neste estado.</p>}
             </div>
@@ -4217,7 +4216,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               <Btn v="ghost" size="sm" full onClick={analisarDimensionalIA} disabled={confIALoad||!(orc.itens||[]).some(item=>item.tipo!=="titulo")}>
                 {confIALoad ? "Auditando orçamento..." : (<><Ic n="brain" s={14}/> Pedir segunda análise da IA</>)}
               </Btn>
-              {confIA && <div style={{marginTop:"var(--arcd-space-2)",background:"color-mix(in srgb, var(--arcd-action-primary) 3%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 20%, transparent)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-muted)",lineHeight:"var(--arcd-line-height-normal)"}}>{confIA.resumo}</p>{confIA.achados?.length>0&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-1)"}}>{contar(confIA.achados.length,"novo","novos")} item(ns) incluído(s) no checklist acima.</p>}{confIA.perguntas?.map((pergunta,i)=><p key={i} style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>• {pergunta}</p>)}</div>}
+              {confIA && <div style={{marginTop:"var(--arcd-space-2)",background:"color-mix(in srgb, var(--arcd-action-primary) 3%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-action-primary) 20%, transparent)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-muted)",lineHeight:"var(--arcd-line-height-normal)"}}>{confIA.resumo}</p>{confIA.achados?.length>0&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-1)"}}>{contar(confIA.achados.length,"novo","novos")} item(ns) incluído(s) no checklist acima.</p>}{confIA.perguntas?.map((pergunta,i)=><p key={i} style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>• {pergunta}</p>)}</div>}
             </div>
 
             <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-3)",marginBottom:"var(--arcd-space-1)",textTransform:"uppercase"}}>Conferência dimensional</p>
@@ -4242,8 +4241,8 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                     const cor = l.status === "alto" ? C.red
                               : l.status === "baixo" ? C.orange : C.green;
                     return (
-                      <div key={l.chave} style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",
-                           borderLeft:`1px solid ${cor}`,borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+                      <div key={l.chave} style={{background:"var(--arcd-surface-muted)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",
+                           borderLeft:`var(--arcd-border-width) solid ${cor}`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
                         <div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"flex-start"}}>
                           <div style={{minWidth:0,flex:1}}>
                             <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",textTransform:"capitalize"}}>{l.nome}</p>
@@ -4294,20 +4293,20 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
         : basesVinculadas.length > 0 ? (
           <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>
             {basesVinculadas.map(base => { const cor=base.fonte==="ORSE"?C.purple:C.blue; return (
-              <div key={base.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"var(--arcd-space-2)",background:`${cor}0B`,border:`1px solid ${cor}3D`,padding:"var(--arcd-space-2)",borderRadius:6}}>
+              <div key={base.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"var(--arcd-space-2)",background:`${cor}0B`,border:`var(--arcd-border-width) solid ${cor}3D`,padding:"var(--arcd-space-2)",borderRadius:"var(--arcd-radius-control)"}}>
                 <div style={{minWidth:0}}>
                   <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:cor}}>{base.fonte} · {base.dataBase}{base.uf?` · ${base.uf}`:""}</p>
                   <p title={base.arquivo} style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{base.fonte==="ORSE"?"Pesquisa oficial CEHOP":`${base.total.toLocaleString("pt-BR")} composições no Supabase`}{base.arquivo?` · ${base.arquivo}`:""}</p>
                 </div>
-                {ehAdmin&&<StandardButton variant="secondary" onClick={()=>desvincularBase(base)} title="Desvincular" style={{width:28,height:28}}>×</StandardButton>}
+                {ehAdmin&&<StandardButton variant="secondary" onClick={()=>desvincularBase(base)} title="Desvincular" style={{width:28}}>×</StandardButton>}
               </div>); })}
           </div>
-        ) : <div style={{background:"var(--arcd-surface-muted)",border:"1px dashed var(--arcd-border-default)",padding:"var(--arcd-space-2)",borderRadius:6}}><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhuma base do Supabase vinculada a este orçamento.</p></div>}
+        ) : <div style={{background:"var(--arcd-surface-muted)",border:"var(--arcd-border-width) dashed var(--arcd-border-default)",padding:"var(--arcd-space-2)",borderRadius:"var(--arcd-radius-control)"}}><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhuma base do Supabase vinculada a este orçamento.</p></div>}
 
         {basesDisponiveis.length>0 && <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:"var(--arcd-space-2)",alignItems:"end"}}><Sel label="Vincular uma base já cadastrada" value={baseParaVincular} onChange={setBaseParaVincular} options={[{v:"",l:"Selecione"},...basesDisponiveis.map(base=>({v:base.id,l:`${base.fonte} ${base.dataBase}${base.uf?` · ${base.uf}`:""} · ${base.total||"oficial"}`}))]}/><Btn size="sm" v="info" disabled={!baseParaVincular} onClick={vincularBaseExistente}>Vincular</Btn></div>}
         <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)"}}>Ao alterar um código na linha, fonte, descrição, unidade e custo unitário são consultados e atualizados automaticamente. Cadastro de novas bases é feito pelo administrador em Central do Administrador → Bases de preço.</p>
         {(data.baseFavoritos||[]).length > 0 && (
-          <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",paddingTop:"var(--arcd-space-2)",borderTop:"1px solid var(--arcd-border-default)"}}>
+          <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",paddingTop:"var(--arcd-space-2)",borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)"}}>
             {(data.baseFavoritos||[]).length} composição(ões) na sua base de favoritos (sempre disponível, sem depender de nenhuma base vinculada)
           </p>
         )}
@@ -4319,9 +4318,9 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 
       {false&&<>
       {/*  CURVA ABC  */}
-      <div style={{background:"var(--arcd-surface-page)",border:"1.5px solid var(--arcd-border-default)",borderRadius:8,overflow:"hidden",boxShadow:`0 1px 4px ${C.shadow}`}}>
+      <div style={{background:"var(--arcd-surface-page)",border:"1.5px solid var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)",overflow:"hidden",boxShadow:`0 1px 4px ${C.shadow}`}}>
         <StandardButton variant="secondary" onClick={()=>setAbcAberta(a=>!a)}
-                style={{width:"100%",borderBottom:abcAberta?"1.5px solid var(--arcd-border-default)":"0",display:"flex",alignItems:"center",justifyContent:"space-between",gap:"var(--arcd-space-2)",textAlign:"left"}}>
+                style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div>
             <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>Análise de Pareto</p>
             <p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-0)"}}>Curva ABC</p>
@@ -4358,8 +4357,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               {/* Resumo por classe */}
               <div style={{display:"grid",gridTemplateColumns:cols(1,3,3),gap:"var(--arcd-space-2)"}}>
                 {abc.resumo.map(r => (
-                  <StandardButton variant="secondary" key={r.classe} onClick={()=>setAbcFiltro(f=>f===r.classe?"todas":r.classe)}
-                          style={{textAlign:"left",borderLeft:`1px solid ${r.cor}`}}>
+                  <StandardButton variant="secondary" key={r.classe} onClick={()=>setAbcFiltro(f=>f===r.classe?"todas":r.classe)}>
                     <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:"var(--arcd-space-1)"}}>
                       <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:r.cor}}>Classe {r.classe}</p>
                       <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>{r.qtd} item(ns)  {r.pctItens.toFixed(0)}%</p>
@@ -4371,7 +4369,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               </div>
 
               {/* Grafico: barras = custo, linha = % acumulado */}
-              <div style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-3) var(--arcd-space-2) var(--arcd-space-1)"}}>
+              <div style={{background:"var(--arcd-surface-muted)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-3) var(--arcd-space-2) var(--arcd-space-1)"}}>
                 <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",paddingLeft:"var(--arcd-space-1)",marginBottom:"var(--arcd-space-1)"}}>
                   20 itens de maior custo  linha = % acumulado
                 </p>
@@ -4400,7 +4398,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               <div style={{display:"flex",flexWrap:"wrap",alignItems:"center",gap:"var(--arcd-space-2)",justifyContent:"space-between"}}>
                 <label style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",cursor:"pointer"}}>
                   <div onClick={()=>setAbcAgrupar(v=>!v)}
-                       style={{width:18,height:18,borderRadius:4,flexShrink:0,cursor:"pointer",
+                       style={{width:18,height:18,borderRadius:"var(--arcd-radius-control)",flexShrink:0,cursor:"pointer",
                                border:`2px solid ${abcAgrupar?"var(--arcd-success-text)":"var(--arcd-text-secondary)"}`,background:abcAgrupar?"var(--arcd-success-text)":"transparent",
                                display:"flex",alignItems:"center",justifyContent:"center"}}>
                     {abcAgrupar && <span style={{color:"var(--arcd-text-inverse)",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>ok</span>}
@@ -4415,9 +4413,9 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               </div>
 
               {/* Tabela */}
-              <div style={{border:"1px solid var(--arcd-border-default)",borderRadius:6,overflow:"hidden"}}>
+              <div style={{border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",overflow:"hidden"}}>
                 <div className="scroll-x" style={{maxHeight:360,overflowY:"auto"}}>
-                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:"var(--arcd-type-label)",minWidth:660}}>
+                  <table className="arcd-data-table__table" style={{width:"100%",borderCollapse:"collapse",minWidth:660}}>
                     <thead style={{position:"sticky",top:0,zIndex:1}}>
                       <tr style={{background:"var(--arcd-surface-muted)"}}>
                         {["#","Cl.","Código","Descrição","Un.","Qtd.","Custo direto","% item","% acum."].map((h,i)=>(
@@ -4429,10 +4427,10 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                     </thead>
                     <tbody>
                       {listaAbc.map(i => (
-                        <tr key={`${i.codigo}-${i.ordem}`} style={{borderBottom:"1px solid var(--arcd-border-default)"}}>
+                        <tr key={`${i.codigo}-${i.ordem}`} style={{borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}>
                           <td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",color:"var(--arcd-text-secondary)"}}>{i.ordem}</td>
                           <td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)"}}>
-                            <span style={{display:"inline-block",minWidth:17,textAlign:"center",padding:"var(--arcd-space-0) var(--arcd-space-1)",borderRadius:4,
+                            <span style={{display:"inline-block",minWidth:17,textAlign:"center",padding:"var(--arcd-space-0) var(--arcd-space-1)",borderRadius:"var(--arcd-radius-control)",
                                           background:`${CLASSE_ABC[i.classe].cor}18`,color:CLASSE_ABC[i.classe].cor,
                                           fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{i.classe}</span>
                           </td>
@@ -4468,7 +4466,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
       </div>
 
       {/* Importar planilha do orçamento (código + qtd) */}
-      <div style={{background:"var(--arcd-surface-page)",border:"1.5px solid var(--arcd-border-default)",borderRadius:8,padding:"var(--arcd-space-3) var(--arcd-space-4)",boxShadow:`0 1px 4px ${C.shadow}`}}>
+      <div style={{background:"var(--arcd-surface-page)",border:"1.5px solid var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-3) var(--arcd-space-4)",boxShadow:`0 1px 4px ${C.shadow}`}}>
         <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginBottom:"var(--arcd-space-half)"}}>Importar planilha do orçamento</p>
         <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginBottom:"var(--arcd-space-2)",lineHeight:"var(--arcd-line-height-normal)"}}>
           A planilha precisa das colunas <b>Código</b> e <b>Qtd.</b> - descrição, unidade e preço
@@ -4595,7 +4593,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               <span style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Descrição</span>
               <TextareaControl value={form.descricao||""} onChange={e=>F("descricao")(e.target.value)} rows={3}
                 placeholder="Escopo, objetivo ou observações do orçamento"
-                style={{background:"var(--arcd-surface-page)",border:"1.5px solid var(--arcd-border-default)",color:"var(--arcd-text-primary)",padding:"var(--arcd-space-2) var(--arcd-space-3)",borderRadius:7,fontSize:"var(--arcd-type-control)",outline:"none",resize:"vertical",fontFamily:"var(--arcd-font-sans)"}}/>
+                style={{background:"var(--arcd-surface-page)",border:"1.5px solid var(--arcd-border-default)",color:"var(--arcd-text-primary)",padding:"var(--arcd-space-2) var(--arcd-space-3)",borderRadius:"var(--arcd-radius-control)",fontSize:"var(--arcd-type-control)",outline:"none",resize:"vertical",fontFamily:"var(--arcd-font-sans)"}}/>
             </label>
             <Sel label="Obra vinculada" value={form.obraId} onChange={F("obraId")}
               options={[{v:"",l:"- Nenhuma -"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
@@ -4613,7 +4611,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 {v:"rascunho",l:"Rascunho"},{v:"revisao",l:"Em revisão"},{v:"enviado",l:"Enviado"},
               ]}/>
             </div>
-            <label style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",cursor:"pointer",padding:"var(--arcd-space-2) var(--arcd-space-3)",background:form.desonerado?"color-mix(in srgb, var(--arcd-success-text) 3%, transparent)":"var(--arcd-surface-muted)",borderRadius:6,border:`1.5px solid ${form.desonerado?"var(--arcd-success-text)"+"55":"var(--arcd-border-default)"}`}}>
+            <label style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",cursor:"pointer",padding:"var(--arcd-space-2) var(--arcd-space-3)",background:form.desonerado?"color-mix(in srgb, var(--arcd-success-text) 3%, transparent)":"var(--arcd-surface-muted)",borderRadius:"var(--arcd-radius-control)",border:`1.5px solid ${form.desonerado?"var(--arcd-success-text)"+"55":"var(--arcd-border-default)"}`}}>
               <ChoiceControl type="checkbox" checked={form.desonerado!==false} onChange={e=>F("desonerado")(e.target.checked)}/>
               <span style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Encargos desonerados</span>
             </label>
@@ -4652,7 +4650,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   onChange={e => P(k)(e.target.value)}
                   style={{width:"100%",background:"var(--arcd-surface-page)",
                           border:`1.5px solid ${fora ? "var(--arcd-warning-text)" : "var(--arcd-border-default)"}`,color:"var(--arcd-text-primary)",
-                          padding:"var(--arcd-space-2)",borderRadius:6,fontSize:"var(--arcd-type-control)",outline:"none",
+                          padding:"var(--arcd-space-2)",borderRadius:"var(--arcd-radius-control)",fontSize:"var(--arcd-type-control)",outline:"none",
                           fontFamily:"var(--arcd-font-sans)"}}/>
                 <span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>%</span>
               </div>
@@ -4695,7 +4693,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   ].map(([l,val,cor,sub])=>{
                     const atual = Math.abs(Number(orc.bdi) - val) < 0.005;
                     return (
-                      <StandardButton variant="secondary" key={l} onClick={()=>aplicarBDI(val, bdiTipo, null)} style={{textAlign:"center"}}>
+                      <StandardButton variant="secondary" key={l} onClick={()=>aplicarBDI(val, bdiTipo, null)}>
                         <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>{l}</p>
                         <p style={{fontFamily:"var(--arcd-font-sans)",fontVariantNumeric:"tabular-nums",fontSize:"var(--arcd-type-section-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:cor,marginTop:"var(--arcd-space-half)",lineHeight:"var(--arcd-line-height-normal)"}}>
                           {val.toFixed(2)}%
@@ -4707,7 +4705,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   })}
                 </div>
 
-                <div style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+                <div style={{background:"var(--arcd-surface-muted)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
                   <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)"}}>
                     Estes valores são o BDI <strong>total</strong>. Se você precisa demonstrar a
                     memória de cálculo (comum em perícia e em obra pública), use a aba
@@ -4718,7 +4716,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 
               {/*  ABA: CÁLCULO DETALHADO  */}
               {bdiAba === "detalhado" && (<>
-                <div style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+                <div style={{background:"var(--arcd-surface-muted)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
                   <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",marginBottom:"var(--arcd-space-half)"}}>Fórmula do TCU</p>
                   <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",fontFamily:"var(--arcd-font-mono)",lineHeight:"var(--arcd-line-height-normal)"}}>
                     BDI = [ (1+AC+S+R+G) x (1+DF) x (1+L)  (1I) ]  1
@@ -4750,7 +4748,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   const usaDes = orc.desonerado !== false;
                   const temCprb = Number(bdiP.cprb || 0) > 0;
                   if (usaDes && !temCprb) return (
-                    <div style={{background:"color-mix(in srgb, var(--arcd-warning-text) 6%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 27%, transparent)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+                    <div style={{background:"color-mix(in srgb, var(--arcd-warning-text) 6%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-warning-text) 27%, transparent)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
                       <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)",fontWeight:"var(--arcd-font-weight-semibold)"}}>! Orçamento desonerado sem CPRB</p>
                       <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",lineHeight:"var(--arcd-line-height-normal)"}}>
                         Você escolheu a tabela <strong>desonerada</strong>, então a empresa recolhe CPRB (4,5% sobre a
@@ -4759,7 +4757,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                     </div>
                   );
                   if (!usaDes && temCprb) return (
-                    <div style={{background:"color-mix(in srgb, var(--arcd-warning-text) 6%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 27%, transparent)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+                    <div style={{background:"color-mix(in srgb, var(--arcd-warning-text) 6%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-warning-text) 27%, transparent)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
                       <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)",fontWeight:"var(--arcd-font-weight-semibold)"}}>! Orçamento não desonerado com CPRB</p>
                       <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",lineHeight:"var(--arcd-line-height-normal)"}}>
                         A tabela é <strong>não desonerada</strong> (encargos já na folha), logo não há CPRB.
@@ -4771,7 +4769,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 })()}
 
                 {/* Resultado */}
-                <div style={{background:`${sit.cor}0A`,border:`2px solid ${sit.cor}`,borderRadius:8,padding:"var(--arcd-space-3) var(--arcd-space-4)"}}>
+                <div style={{background:`${sit.cor}0A`,border:`2px solid ${sit.cor}`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-3) var(--arcd-space-4)"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                     <div>
                       <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>BDI calculado</p>
@@ -4781,7 +4779,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                       {r.erro ? "-" : `${r.bdi.toFixed(2)}%`}
                     </p>
                   </div>
-                  <div style={{marginTop:"var(--arcd-space-2)",paddingTop:"var(--arcd-space-2)",borderTop:`1px solid ${sit.cor}33`}}>
+                  <div style={{marginTop:"var(--arcd-space-2)",paddingTop:"var(--arcd-space-2)",borderTop:`var(--arcd-border-width) solid ${sit.cor}33`}}>
                     <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:sit.cor}}>
                       {sit.st==="dentro" ? "Dentro da faixa TCU" : sit.st==="acima" ? "Acima do 3º quartil" : "Abaixo do 1º quartil"}
                     </p>
@@ -4834,7 +4832,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               const pai = orc.etapas.find(e=>e.id===etapaModal.paiId);
               const nivelPai = nivelDaEtapa(orc.etapas, etapaModal.paiId);
               return (
-                <div style={{background:"var(--arcd-surface-muted)",border:"1.5px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+                <div style={{background:"var(--arcd-surface-muted)",border:"1.5px solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
                   <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",fontWeight:"var(--arcd-font-weight-semibold)",letterSpacing:"var(--arcd-letter-spacing-body)"}}>Dentro de</p>
                   <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)"}}>{pai?.nome}</p>
                   <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>
@@ -4863,12 +4861,12 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               placeholder={temBasePesquisa ? "Ex.: 93358, alvenaria, contrapiso..." : "Vincule uma base ou use seus favoritos"}/>
 
             {!temBasePesquisa && (
-              <div style={{background:"var(--arcd-surface-muted)",border:"1.5px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-4)",textAlign:"center"}}>
+              <div style={{background:"var(--arcd-surface-muted)",border:"1.5px solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-4)",textAlign:"center"}}>
                 <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)"}}>Nenhuma base vinculada. Cadastre ou vincule uma base SINAPI/ORSE neste orçamento.</p>
               </div>
             )}
             {buscaRemotaLoading && <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>Pesquisando nas bases vinculadas...</p>}
-            {buscaRemotaAviso && <div style={{background:"color-mix(in srgb, var(--arcd-warning-text) 4%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 27%, transparent)",borderRadius:7,padding:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)"}}>{buscaRemotaAviso}</p></div>}
+            {buscaRemotaAviso && <div style={{background:"color-mix(in srgb, var(--arcd-warning-text) 4%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-warning-text) 27%, transparent)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)"}}>{buscaRemotaAviso}</p></div>}
 
             {!busca && baseBusca.some(i=>i._fav) && (
               <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",display:"flex",alignItems:"center",gap:"var(--arcd-space-1)"}}><Ic n="star" s={11} color={C.yellow}/> Seus favoritos</p>
@@ -4876,7 +4874,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 
             <div style={{maxHeight:340,overflowY:"auto",display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>
               {resultados.map((r,i)=>(
-                <StandardButton variant="secondary" key={`${r.codigo}-${i}`} onClick={()=>{setQtdModal(r);setQtd("");setBuscaModal(false);}} style={{borderLeft:`1px solid ${r._fav?"var(--arcd-action-primary)":(r.fonte==="ORSE"?"var(--arcd-action-primary)":"var(--arcd-action-primary)")}`,textAlign:"left",flexShrink:0,justifyContent:"flex-start"}}>
+                <StandardButton variant="secondary" key={`${r.codigo}-${i}`} onClick={()=>{setQtdModal(r);setQtd("");setBuscaModal(false);}} style={{flexShrink:0,justifyContent:"flex-start"}}>
                   <div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"flex-start",flex:1,minWidth:0}}>
                     <div style={{flex:1,minWidth:0}}>
                       <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)",lineHeight:"var(--arcd-line-height-normal)"}}>{r.descricao}</p>
@@ -4907,7 +4905,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               const pu = precoDoItem(qtdModal, orc);
               const substituido = precoFoiSubstituido(qtdModal, orc);
               return (<>
-                <div style={{background:"var(--arcd-surface-muted)",border:"1.5px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-3)"}}>
+                <div style={{background:"var(--arcd-surface-muted)",border:"1.5px solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-3)"}}>
                   <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)",lineHeight:"var(--arcd-line-height-normal)"}}>{qtdModal.descricao}</p>
                   <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>
                     <span style={{fontWeight:"var(--arcd-font-weight-semibold)",color:qtdModal.fonte==="ORSE"?"var(--arcd-action-primary)":"var(--arcd-action-primary)"}}>{qtdModal.fonte||"SINAPI"}</span>
@@ -4923,7 +4921,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 </div>
                 <Inp label={`Quantidade (${qtdModal.unidade}) *`} type="number" value={qtd} onChange={setQtd} placeholder="0,00"/>
                 {qtd && Number(qtd)>0 && (
-                  <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 7%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+                  <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 7%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
                     <div style={{display:"flex",justifyContent:"space-between",marginBottom:"var(--arcd-space-half)"}}>
                       <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Custo direto</p>
                       <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>{fmt(Number(qtd)*pu)}</p>
@@ -4961,7 +4959,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               <span style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Composição / memória de preços</span>
               <TextareaControl value={editItem.composicao||""} onChange={e=>setEditItem(x=>({...x,composicao:e.target.value}))}
                 placeholder="Material, mão de obra, equipamentos, coeficientes e valores..." rows={5}
-                style={{background:"var(--arcd-surface-page)",border:"1.5px solid var(--arcd-border-default)",color:"var(--arcd-text-primary)",padding:"var(--arcd-space-2) var(--arcd-space-3)",borderRadius:7,fontSize:"var(--arcd-type-control)",outline:"none",resize:"vertical",fontFamily:"var(--arcd-font-sans)"}}/>
+                style={{background:"var(--arcd-surface-page)",border:"1.5px solid var(--arcd-border-default)",color:"var(--arcd-text-primary)",padding:"var(--arcd-space-2) var(--arcd-space-3)",borderRadius:"var(--arcd-radius-control)",fontSize:"var(--arcd-type-control)",outline:"none",resize:"vertical",fontFamily:"var(--arcd-font-sans)"}}/>
             </label>
             <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
               <Btn v="ghost" onClick={()=>setEditItem(null)} full>Cancelar</Btn>
@@ -4989,7 +4987,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               <span style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Composição / detalhes da cotação</span>
               <TextareaControl value={externoForm.composicao} onChange={e=>setExternoForm(f=>({...f,composicao:e.target.value}))}
                 rows={5} placeholder="Materiais, mão de obra, fornecedor, validade, coeficientes..."
-                style={{background:"var(--arcd-surface-page)",border:"1.5px solid var(--arcd-border-default)",color:"var(--arcd-text-primary)",padding:"var(--arcd-space-2) var(--arcd-space-3)",borderRadius:7,fontSize:"var(--arcd-type-control)",outline:"none",resize:"vertical",fontFamily:"var(--arcd-font-sans)"}}/>
+                style={{background:"var(--arcd-surface-page)",border:"1.5px solid var(--arcd-border-default)",color:"var(--arcd-text-primary)",padding:"var(--arcd-space-2) var(--arcd-space-3)",borderRadius:"var(--arcd-radius-control)",fontSize:"var(--arcd-type-control)",outline:"none",resize:"vertical",fontFamily:"var(--arcd-font-sans)"}}/>
             </label>
             <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
               <Btn v="ghost" onClick={()=>setExternoModal(false)} full>Cancelar</Btn>
@@ -5002,16 +5000,16 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 
       {orcAba==="insumos" && (
         <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
-          <div style={{background:"var(--arcd-surface-page)",border:"1px solid var(--arcd-border-default)",borderLeft:"1px solid var(--arcd-action-primary)",borderRadius:6,padding:"var(--arcd-space-2)"}}>
+          <div style={{background:"var(--arcd-surface-page)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderLeft:"var(--arcd-border-width) solid var(--arcd-action-primary)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2)"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",flexWrap:"wrap",marginBottom:"var(--arcd-space-2)"}}>
               <div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>CONSULTA ANALÍTICA DAS BASES</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Pesquise e abra separadamente os insumos ou as composições SINAPI/ORSE vinculadas.</p></div>
               <div style={{display:"flex",gap:"var(--arcd-space-1)"}}>{[["TODOS","TODOS"],["INSUMO","INSUMOS"],["COMPOSICAO","COMPOSIÇÕES"]].map(([valor,label])=><StandardButton variant="secondary" key={valor} onClick={()=>setCompTipoBusca(valor)}>{label}</StandardButton>)}</div>
             </div>
             <Inp value={compBusca} onChange={setCompBusca} placeholder={compTipoBusca==="INSUMO"?"Pesquisar insumo por código ou descrição...":compTipoBusca==="COMPOSICAO"?"Pesquisar composição por código ou descrição...":"Pesquisar insumo ou composição por código ou descrição..."}/>
-            {(compBusca.trim().length>=2||compBuscaLoading)&&<div style={{marginTop:"var(--arcd-space-1)",maxHeight:250,overflowY:"auto",border:"1px solid var(--arcd-border-default)",borderRadius:7}}>
+            {(compBusca.trim().length>=2||compBuscaLoading)&&<div style={{marginTop:"var(--arcd-space-1)",maxHeight:250,overflowY:"auto",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)"}}>
               {compBuscaLoading&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)",padding:"var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-semibold)"}}>PESQUISANDO...</p>}
               {compBuscaAviso&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)",padding:"var(--arcd-space-2)"}}>{compBuscaAviso}</p>}
-              {compResultados.map((item,index)=><div key={`${item.fonte}-${item.codigo}-${index}`} style={{display:"grid",gridTemplateColumns:"115px minmax(0,1fr) 95px auto",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2)",borderTop:index?"1px solid var(--arcd-border-default)":"none",alignItems:"center"}}>
+              {compResultados.map((item,index)=><div key={`${item.fonte}-${item.codigo}-${index}`} style={{display:"grid",gridTemplateColumns:"115px minmax(0,1fr) 95px auto",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2)",borderTop:index?"var(--arcd-border-width) solid var(--arcd-border-default)":"none",alignItems:"center"}}>
                 <span><b style={{display:"block",fontSize:"var(--arcd-type-caption)",color:item.fonte==="ORSE"?"var(--arcd-action-primary)":"var(--arcd-action-primary)"}}>{item.fonte} {item.codigo}</b><small style={{fontSize:"var(--arcd-type-caption)",color:item.tipoItem==="COMPOSICAO"?"var(--arcd-success-text)":"var(--arcd-warning-text)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{item.tipoItem==="COMPOSICAO"?"COMPOSIÇÃO":"INSUMO"}</small></span>
                 <span title={item.descricao} style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</span>
                 <span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)",textAlign:"right"}}>{fmt(precoDoItem(item,orc))}/{item.unidade}</span>
@@ -5021,7 +5019,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             </div>}
           </div>
 
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-1)",background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-1)"}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-1)",background:"var(--arcd-surface-muted)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-1)"}}>
             {[["insumos","CURVA ABC DE INSUMOS"],["composicoes","CURVA ABC DE COMPOSIÇÕES"]].map(([valor,label])=><StandardButton variant="secondary" key={valor} onClick={()=>{setAbcTipo(valor);setAbcFiltro("todas");setAbcInsumoFiltro("todas");}}>{label}</StandardButton>)}
           </div>
 
@@ -5036,13 +5034,13 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               <Btn size="sm" v="success" onClick={exportarABCInsumos}>EXCEL</Btn>
             </div>
           </div>
-          {detalhesAviso&&<div style={{background:"color-mix(in srgb, var(--arcd-warning-text) 6%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)",borderRadius:7,padding:"var(--arcd-space-2)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)"}}>{detalhesAviso}</div>}
+          {detalhesAviso&&<div style={{background:"color-mix(in srgb, var(--arcd-warning-text) 6%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)"}}>{detalhesAviso}</div>}
 
           {/* Alerta acionavel: nao basta dizer "faltam N composicoes da fonte X" -
               sem o codigo e a descricao, o administrador nao sabe qual composicao
               especifica precisa ir buscar/importar na base analitica. Ordenada por
               custo para a mais cara (mais urgente) aparecer primeiro. */}
-          {composicoesNaoDocumentadas.length>0&&<div style={{background:"color-mix(in srgb, var(--arcd-warning-text) 6%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 40%, transparent)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+          {composicoesNaoDocumentadas.length>0&&<div style={{background:"color-mix(in srgb, var(--arcd-warning-text) 6%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-warning-text) 40%, transparent)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
             <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-warning-text)"}}>⚠ COMPOSIÇÕES SEM DOCUMENTAÇÃO ANALÍTICA - BUSQUE A COMPOSIÇÃO CORRESPONDENTE</p>
             <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)",marginTop:"var(--arcd-space-half)"}}>
               Estas composições entraram inteiras na curva (marcadas como COMPOSIÇÃO) porque a base vinculada não tem a relação delas com insumos.
@@ -5051,17 +5049,16 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             <div style={{display:"flex",gap:"var(--arcd-space-1)",flexWrap:"wrap",marginTop:"var(--arcd-space-2)"}}>
               {naoAbertasPorFonte.map(linha=>(
                 <StandardButton variant="secondary" key={linha.fonte} onClick={()=>{setAbcInsumoTipo("COMPOSICAO");setAbcInsumoFiltro("todas");}}
-                  title="Ver só as composições não abertas"
-                  style={{textAlign:"left"}}>
+                  title="Ver só as composições não abertas">
                   <b style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:linha.fonte==="ORSE"?"var(--arcd-action-primary)":"var(--arcd-action-primary)"}}>{linha.fonte}</b>
                   <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginLeft:"var(--arcd-space-1)"}}>{linha.qtd} composição(ões) · {fmt(linha.custo)}</span>
                 </StandardButton>
               ))}
             </div>
-            <div style={{marginTop:"var(--arcd-space-2)",maxHeight:180,overflowY:"auto",border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 20%, transparent)",borderRadius:5}}>
-              <table style={{width:"100%",borderCollapse:"collapse",fontSize:"var(--arcd-type-label)"}}>
-                <thead><tr style={{background:"var(--arcd-surface-page)"}}>{["FONTE","CÓDIGO","DESCRIÇÃO","CUSTO NO ORÇAMENTO"].map(h=><th key={h} style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",textAlign:h==="CUSTO NO ORÇAMENTO"?"right":"left",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)",position:"sticky",top:0,background:"var(--arcd-surface-page)",borderBottom:"1px solid var(--arcd-border-default)"}}>{h}</th>)}</tr></thead>
-                <tbody>{composicoesNaoDocumentadas.map(item=><tr key={`${item.fonte}-${item.codigo}`} style={{borderBottom:"1px solid var(--arcd-border-default)"}}>
+            <div style={{marginTop:"var(--arcd-space-2)",maxHeight:180,overflowY:"auto",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-warning-text) 20%, transparent)",borderRadius:"var(--arcd-radius-control)"}}>
+              <table className="arcd-data-table__table" style={{width:"100%",borderCollapse:"collapse"}}>
+                <thead><tr style={{background:"var(--arcd-surface-page)"}}>{["FONTE","CÓDIGO","DESCRIÇÃO","CUSTO NO ORÇAMENTO"].map(h=><th key={h} style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",textAlign:h==="CUSTO NO ORÇAMENTO"?"right":"left",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)",position:"sticky",top:0,background:"var(--arcd-surface-page)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}>{h}</th>)}</tr></thead>
+                <tbody>{composicoesNaoDocumentadas.map(item=><tr key={`${item.fonte}-${item.codigo}`} style={{borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}>
                   <td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-semibold)",color:item.fonte==="ORSE"?"var(--arcd-action-primary)":"var(--arcd-action-primary)"}}>{item.fonte}</td>
                   <td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",color:"var(--arcd-text-primary)"}}>{item.codigo}</td>
                   <td title={item.descricao} style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",color:"var(--arcd-text-primary)",maxWidth:320,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</td>
@@ -5076,7 +5073,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               [abcInsumos.qtdComposicoes,"COMPOSIÇÕES NÃO ABERTAS",abcInsumos.qtdComposicoes?C.orange:C.green],
               [fmt(abcInsumosCurva.total),abcInsumoTipo==="INSUMO"?"CUSTO EM INSUMOS":abcInsumoTipo==="COMPOSICAO"?"CUSTO EM COMPOSIÇÕES":"CUSTO ANALÍTICO",C.yellow],
               [abcInsumos.semPreco.length,"SEM PREÇO",abcInsumos.semPreco.length?C.red:C.green],
-            ].map(([valor,label,cor])=><div key={label} style={{background:"var(--arcd-surface-page)",border:"1px solid var(--arcd-border-default)",borderTop:`3px solid ${cor}`,borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+            ].map(([valor,label,cor])=><div key={label} style={{background:"var(--arcd-surface-page)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderTop:`3px solid ${cor}`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
               <p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:cor}}>{valor}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-half)"}}>{label}</p>
             </div>)}
           </div>
@@ -5090,10 +5087,10 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           <div style={{display:"flex",gap:"var(--arcd-space-1)",flexWrap:"wrap"}}>
             {["todas","A","B","C"].map(classe=><StandardButton variant="secondary" key={classe} onClick={()=>setAbcInsumoFiltro(classe)}>{classe==="todas"?"TODAS":`CLASSE ${classe}`}</StandardButton>)}
           </div>
-          <div style={{overflowX:"auto",border:"1px solid var(--arcd-border-default)",borderRadius:6,background:"var(--arcd-surface-page)"}}>
-            <table style={{width:"100%",minWidth:940,borderCollapse:"collapse",fontSize:"var(--arcd-type-label)"}}>
-              <thead><tr style={{background:"var(--arcd-surface-muted)"}}>{["CL.","TIPO","FONTE","CÓDIGO","DESCRIÇÃO","UN.","QUANTIDADE","CUSTO UNIT.","CUSTO TOTAL","%","% ACUM."].map(h=><th key={h} style={{padding:"var(--arcd-space-2)",textAlign:h.includes("CUSTO")||h.includes("%")||h==="QUANTIDADE"?"right":"left",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)",borderBottom:"1px solid var(--arcd-border-default)",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
-              <tbody>{abcInsumosCurva.itens.filter(item=>abcInsumoFiltro==="todas"||item.classe===abcInsumoFiltro).map(item=><tr key={`${item.tipo}-${item.fonte}-${item.codigo}-${item.unidade}`} style={{borderBottom:"1px solid var(--arcd-border-default)"}}>
+          <div style={{overflowX:"auto",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",background:"var(--arcd-surface-page)"}}>
+            <table className="arcd-data-table__table" style={{width:"100%",minWidth:940,borderCollapse:"collapse"}}>
+              <thead><tr style={{background:"var(--arcd-surface-muted)"}}>{["CL.","TIPO","FONTE","CÓDIGO","DESCRIÇÃO","UN.","QUANTIDADE","CUSTO UNIT.","CUSTO TOTAL","%","% ACUM."].map(h=><th key={h} style={{padding:"var(--arcd-space-2)",textAlign:h.includes("CUSTO")||h.includes("%")||h==="QUANTIDADE"?"right":"left",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
+              <tbody>{abcInsumosCurva.itens.filter(item=>abcInsumoFiltro==="todas"||item.classe===abcInsumoFiltro).map(item=><tr key={`${item.tipo}-${item.fonte}-${item.codigo}-${item.unidade}`} style={{borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}>
                 <td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-semibold)",color:CLASSE_ABC[item.classe].cor}}>{item.classe}</td>
                 <td title={item.tipo==="COMPOSICAO"?"Composição que a base analítica não abriu em insumos":"Insumo"} style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-semibold)",fontSize:"var(--arcd-type-table)",color:item.tipo==="COMPOSICAO"?"var(--arcd-success-text)":"var(--arcd-warning-text)"}}>{item.tipo==="COMPOSICAO"?"COMPOSIÇÃO":"INSUMO"}</td>
                 <td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-semibold)",color:item.fonte==="ORSE"?"var(--arcd-action-primary)":"var(--arcd-action-primary)"}}>{item.fonte}</td>
@@ -5112,7 +5109,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           {/* SEM DETALHAMENTO (chaves cruas fonte|codigo) some daqui - o alerta
               acionavel acima ja mostra a mesma informacao com codigo, descricao
               e custo, que e o que importa para ir buscar a composicao certa. */}
-          {abcInsumos.semPreco.length>0&&<div style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+          {abcInsumos.semPreco.length>0&&<div style={{background:"var(--arcd-surface-muted)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
             <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-danger-text)",lineHeight:"var(--arcd-line-height-normal)"}}><b>SEM PREÇO:</b> {abcInsumos.semPreco.slice(0,20).join(", ")}{abcInsumos.semPreco.length>20?"...":""}</p>
           </div>}
           </>}
@@ -5123,17 +5120,17 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               <Btn size="sm" v="success" onClick={exportXLSXCurvaABC}>EXCEL</Btn>
             </div>
             <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:"var(--arcd-space-2)"}}>
-              <div style={{background:"var(--arcd-surface-page)",border:"1px solid var(--arcd-border-default)",borderTop:"3px solid var(--arcd-action-primary)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)"}}>{abc?.itens?.length||0}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-half)"}}>COMPOSIÇÕES CONSOLIDADAS</p></div>
-              <div style={{background:"var(--arcd-surface-page)",border:"1px solid var(--arcd-border-default)",borderTop:"3px solid var(--arcd-action-primary)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)"}}>{fmt(abc?.totalCD||0)}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-half)"}}>CUSTO DIRETO DAS COMPOSIÇÕES</p></div>
-              {(abc?.resumo||[]).map(r=><div key={r.classe} style={{background:"var(--arcd-surface-page)",border:"1px solid var(--arcd-border-default)",borderTop:`3px solid ${r.cor}`,borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:r.cor}}>{r.qtd}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-half)"}}>CLASSE {r.classe} · {r.pctValor.toFixed(1)}%</p></div>)}
+              <div style={{background:"var(--arcd-surface-page)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderTop:"3px solid var(--arcd-action-primary)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)"}}>{abc?.itens?.length||0}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-half)"}}>COMPOSIÇÕES CONSOLIDADAS</p></div>
+              <div style={{background:"var(--arcd-surface-page)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderTop:"3px solid var(--arcd-action-primary)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)"}}>{fmt(abc?.totalCD||0)}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-half)"}}>CUSTO DIRETO DAS COMPOSIÇÕES</p></div>
+              {(abc?.resumo||[]).map(r=><div key={r.classe} style={{background:"var(--arcd-surface-page)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderTop:`3px solid ${r.cor}`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:r.cor}}>{r.qtd}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-half)"}}>CLASSE {r.classe} · {r.pctValor.toFixed(1)}%</p></div>)}
             </div>
             <div style={{display:"flex",gap:"var(--arcd-space-1)",flexWrap:"wrap"}}>
               {["todas","A","B","C"].map(classe=><StandardButton variant="secondary" key={classe} onClick={()=>setAbcFiltro(classe)}>{classe==="todas"?"TODAS":`CLASSE ${classe}`}</StandardButton>)}
             </div>
-            <div style={{overflowX:"auto",border:"1px solid var(--arcd-border-default)",borderRadius:6,background:"var(--arcd-surface-page)"}}>
-              <table style={{width:"100%",minWidth:940,borderCollapse:"collapse",fontSize:"var(--arcd-type-label)"}}>
-                <thead><tr style={{background:"var(--arcd-surface-muted)"}}>{["CL.","FONTE","CÓDIGO","DESCRIÇÃO DA COMPOSIÇÃO","UN.","QUANTIDADE","CUSTO UNIT.","CUSTO TOTAL","%","% ACUM."].map(h=><th key={h} style={{padding:"var(--arcd-space-2)",textAlign:h.includes("CUSTO")||h.includes("%")||h==="QUANTIDADE"?"right":"left",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)",borderBottom:"1px solid var(--arcd-border-default)",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
-                <tbody>{(abc?.itens||[]).filter(item=>abcFiltro==="todas"||item.classe===abcFiltro).map(item=><tr key={`${item.codigo}-${item.ordem}`} style={{borderBottom:"1px solid var(--arcd-border-default)"}}>
+            <div style={{overflowX:"auto",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",background:"var(--arcd-surface-page)"}}>
+              <table className="arcd-data-table__table" style={{width:"100%",minWidth:940,borderCollapse:"collapse"}}>
+                <thead><tr style={{background:"var(--arcd-surface-muted)"}}>{["CL.","FONTE","CÓDIGO","DESCRIÇÃO DA COMPOSIÇÃO","UN.","QUANTIDADE","CUSTO UNIT.","CUSTO TOTAL","%","% ACUM."].map(h=><th key={h} style={{padding:"var(--arcd-space-2)",textAlign:h.includes("CUSTO")||h.includes("%")||h==="QUANTIDADE"?"right":"left",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
+                <tbody>{(abc?.itens||[]).filter(item=>abcFiltro==="todas"||item.classe===abcFiltro).map(item=><tr key={`${item.codigo}-${item.ordem}`} style={{borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}>
                   <td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-semibold)",color:CLASSE_ABC[item.classe].cor}}>{item.classe}</td><td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-semibold)",color:item.fonte==="ORSE"?"var(--arcd-action-primary)":"var(--arcd-action-primary)"}}>{item.fonte||"-"}</td><td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",color:"var(--arcd-text-primary)"}}>{item.codigo}</td>
                   <td title={item.descricao} style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",color:"var(--arcd-text-primary)",maxWidth:440,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</td><td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",color:"var(--arcd-text-secondary)"}}>{item.unidade}</td>
                   <td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",textAlign:"right"}}>{Number(item.quantidade||0).toLocaleString("pt-BR",{maximumFractionDigits:6})}</td><td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",textAlign:"right"}}>{fmt(item.precoUnit)}</td><td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",textAlign:"right",fontWeight:"var(--arcd-font-weight-semibold)"}}>{fmt(item.custoDireto)}</td><td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",textAlign:"right",color:"var(--arcd-text-secondary)"}}>{item.pct.toFixed(2)}%</td><td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",textAlign:"right",fontWeight:"var(--arcd-font-weight-semibold)",color:CLASSE_ABC[item.classe].cor}}>{item.pctAcum.toFixed(2)}%</td>
@@ -5147,7 +5144,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 
       {orcAba==="proprias" && (
         <div style={{display:"grid",gridTemplateColumns:cols("1fr","1fr","300px minmax(0,1fr)"),gap:"var(--arcd-space-2)",alignItems:"start"}}>
-          <div style={{background:"var(--arcd-surface-page)",border:"1px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-2)"}}>
+          <div style={{background:"var(--arcd-surface-page)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2)"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-1)",marginBottom:"var(--arcd-space-2)"}}>
               <div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>COMPOSIÇÕES SALVAS</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{contar(composicoesEmpresa.length,"cadastrada","cadastradas")} na empresa</p></div>
               <Btn size="sm" v="ghost" onClick={()=>novaComposicao()}>NOVA</Btn>
@@ -5155,21 +5152,21 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             <Inp label="Buscar nas composições salvas" value={buscaComposicoesSalvas} onChange={setBuscaComposicoesSalvas} placeholder="Ex.: baldrame concreto — palavras em qualquer ordem"/>
             <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>{composicoesEmpresa.filter(comp=>correspondeBuscaComposicao(comp,buscaComposicoesSalvas)).map(comp=>{
               const custo=(comp.itens||[]).reduce((s,item)=>s+Number(item.coeficiente||0)*Number(item.precoUnit||0),0);
-              return <div key={comp.id} style={{border:`1px solid ${compForm.id===comp.id?"var(--arcd-action-primary)":"var(--arcd-border-default)"}`,borderRadius:7,padding:"var(--arcd-space-2)",background:compForm.id===comp.id?"color-mix(in srgb, var(--arcd-action-primary) 3%, transparent)":"var(--arcd-surface-muted)"}}>
+              return <div key={comp.id} style={{border:`var(--arcd-border-width) solid ${compForm.id===comp.id?"var(--arcd-action-primary)":"var(--arcd-border-default)"}`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2)",background:compForm.id===comp.id?"color-mix(in srgb, var(--arcd-action-primary) 3%, transparent)":"var(--arcd-surface-muted)"}}>
                 <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)"}}>{comp.codigo} · {comp.unidade}</p>
                 <p title={comp.descricao} style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",marginTop:"var(--arcd-space-half)"}}>{comp.descricao}</p>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)",flexWrap:"wrap"}}>
                   <b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)"}}>{fmt(custo)}</b>
                   <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-1)",flexWrap:"wrap"}}>
-                    <StandardButton variant="secondary" onClick={()=>setCompForm({...comp,itens:(comp.itens||[]).map(item=>({...item}))})} style={{display:"inline-flex",alignItems:"center",gap:"var(--arcd-space-1)",minHeight:28}}><Ic n="edit" s={11}/> Editar</StandardButton>
-                    <StandardButton variant="secondary" title="Criar uma nova composição a partir desta" onClick={()=>novaComposicao({...comp,id:"",itens:(comp.itens||[]).map(item=>({...item,id:uid()})),codigo:proximoCodigoProprio()})} style={{display:"inline-flex",alignItems:"center",gap:"var(--arcd-space-1)",minHeight:28}}><Ic n="copy" s={11}/> Duplicar</StandardButton>
-                    <StandardButton variant="secondary" onClick={()=>excluirComposicaoPropria(comp)} style={{display:"inline-flex",alignItems:"center",gap:"var(--arcd-space-1)",minHeight:28}}><Ic n="trash" s={11}/> Excluir</StandardButton>
+                    <StandardButton variant="secondary" onClick={()=>setCompForm({...comp,itens:(comp.itens||[]).map(item=>({...item}))})} style={{display:"inline-flex",alignItems:"center"}}><Ic n="edit" s={11}/> Editar</StandardButton>
+                    <StandardButton variant="secondary" title="Criar uma nova composição a partir desta" onClick={()=>novaComposicao({...comp,id:"",itens:(comp.itens||[]).map(item=>({...item,id:uid()})),codigo:proximoCodigoProprio()})} style={{display:"inline-flex",alignItems:"center"}}><Ic n="copy" s={11}/> Duplicar</StandardButton>
+                    <StandardButton variant="secondary" onClick={()=>excluirComposicaoPropria(comp)} style={{display:"inline-flex",alignItems:"center"}}><Ic n="trash" s={11}/> Excluir</StandardButton>
                   </div>
                 </div>
               </div>;
             })}{!composicoesEmpresa.some(comp=>correspondeBuscaComposicao(comp,buscaComposicoesSalvas))&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",textAlign:"center",padding:"var(--arcd-space-3)"}}>Nenhuma composição encontrada.</p>}</div>
           </div>
-          <div style={{background:"var(--arcd-surface-page)",border:"1px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+          <div style={{background:"var(--arcd-surface-page)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
               <div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{compForm.id?"EDITAR COMPOSIÇÃO":"NOVA COMPOSIÇÃO PRÓPRIA"}</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Comece do zero ou traga uma composição pronta da base e ajuste coeficientes e preços. O custo unitário é calculado pelos coeficientes.</p></div>
               <Btn size="sm" v="info" onClick={()=>{setCompTipoBusca("COMPOSICAO");buscaCompRef.current?.focus();}}>
@@ -5179,21 +5176,21 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:"var(--arcd-space-2)"}}>
               <Inp label="Código automático" value={compForm.codigo} onChange={()=>{}} disabled/>
               <Inp label="Unidade *" value={compForm.unidade} onChange={valor=>setCompForm(form=>({...form,unidade:valor}))} placeholder="M2"/>
-              <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 6%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)",borderRadius:7,padding:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>CUSTO UNITÁRIO</p><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",marginTop:"var(--arcd-space-half)"}}>{fmt(custoCompForm)}</p></div>
+              <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 6%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>CUSTO UNITÁRIO</p><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",marginTop:"var(--arcd-space-half)"}}>{fmt(custoCompForm)}</p></div>
             </div>
             <Inp label="Descrição *" value={compForm.descricao} onChange={valor=>setCompForm(form=>({...form,descricao:valor}))} placeholder="DESCRIÇÃO DA COMPOSIÇÃO"/>
-            {compForm.origemCodigo&&<div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 3%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 21%, transparent)",borderRadius:7,padding:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>COMPOSIÇÃO COPIADA DE</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-half)"}}>{compForm.origemFonte} {compForm.origemCodigo}{compForm.origemDataBase?` · ${compForm.origemDataBase}`:""}{compForm.origemUf?` · ${compForm.origemUf}`:""}</p></div>}
+            {compForm.origemCodigo&&<div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 3%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-action-primary) 21%, transparent)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>COMPOSIÇÃO COPIADA DE</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-half)"}}>{compForm.origemFonte} {compForm.origemCodigo}{compForm.origemDataBase?` · ${compForm.origemDataBase}`:""}{compForm.origemUf?` · ${compForm.origemUf}`:""}</p></div>}
             <div style={{position:"relative"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"end",gap:"var(--arcd-space-2)",flexWrap:"wrap",marginBottom:"var(--arcd-space-1)"}}>
                 <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Pesquisar nas bases vinculadas</p>
                 <div style={{display:"flex",gap:"var(--arcd-space-1)"}}>{[["TODOS","TODOS"],["INSUMO","INSUMOS"],["COMPOSICAO","COMPOSIÇÕES"]].map(([valor,label])=><StandardButton variant="secondary" key={valor} onClick={()=>setCompTipoBusca(valor)}>{label}</StandardButton>)}</div>
               </div>
               <Inp inputRef={buscaCompRef} value={compBusca} onChange={setCompBusca} placeholder={compTipoBusca==="INSUMO"?"Pesquisar insumo por código ou descrição...":compTipoBusca==="COMPOSICAO"?"Pesquisar composição pronta para importar...":"Pesquisar insumo ou composição..."}/>
-              {compItemSubstituirId&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-1)",padding:"var(--arcd-space-1) var(--arcd-space-2)",borderRadius:6,background:"color-mix(in srgb, var(--arcd-warning-text) 6%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 27%, transparent)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)"}}><span>Selecione abaixo o insumo que substituirá a linha escolhida.</span><StandardButton variant="secondary" onClick={()=>{setCompItemSubstituirId("");setCompBusca("");}}>Cancelar</StandardButton></div>}
-              {(compBusca.trim().length>=2||compBuscaLoading)&&<div style={{marginTop:"var(--arcd-space-1)",maxHeight:240,overflowY:"auto",border:"1px solid var(--arcd-action-primary)",borderRadius:7,padding:"var(--arcd-space-1)"}}>
+              {compItemSubstituirId&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-1)",padding:"var(--arcd-space-1) var(--arcd-space-2)",borderRadius:"var(--arcd-radius-control)",background:"color-mix(in srgb, var(--arcd-warning-text) 6%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-warning-text) 27%, transparent)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)"}}><span>Selecione abaixo o insumo que substituirá a linha escolhida.</span><StandardButton variant="secondary" onClick={()=>{setCompItemSubstituirId("");setCompBusca("");}}>Cancelar</StandardButton></div>}
+              {(compBusca.trim().length>=2||compBuscaLoading)&&<div style={{marginTop:"var(--arcd-space-1)",maxHeight:240,overflowY:"auto",border:"var(--arcd-border-width) solid var(--arcd-action-primary)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-1)"}}>
                 {compBuscaLoading&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)",padding:"var(--arcd-space-1)"}}>PESQUISANDO...</p>}
                 {compBuscaAviso&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)",padding:"var(--arcd-space-1)"}}>{compBuscaAviso}</p>}
-                {compResultados.map((item,index)=><div key={`${item.fonte}-${item.codigo}-${index}`} style={{display:"grid",gridTemplateColumns:"105px minmax(0,1fr) 82px auto",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-1) var(--arcd-space-2)",borderTop:index?"1px solid var(--arcd-border-default)":"none",alignItems:"center"}}>
+                {compResultados.map((item,index)=><div key={`${item.fonte}-${item.codigo}-${index}`} style={{display:"grid",gridTemplateColumns:"105px minmax(0,1fr) 82px auto",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-1) var(--arcd-space-2)",borderTop:index?"var(--arcd-border-width) solid var(--arcd-border-default)":"none",alignItems:"center"}}>
                   <span><b style={{display:"block",fontSize:"var(--arcd-type-caption)",color:item.fonte==="ORSE"?"var(--arcd-action-primary)":"var(--arcd-action-primary)"}}>{item.fonte} {item.codigo}</b><small style={{fontSize:"var(--arcd-type-caption)",color:item.tipoItem==="COMPOSICAO"?"var(--arcd-success-text)":"var(--arcd-warning-text)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{item.tipoItem==="COMPOSICAO"?"COMPOSIÇÃO":"INSUMO"}</small></span><span title={item.descricao} style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</span><span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)",textAlign:"right"}}>{fmt(precoDoItem(item,orc))}/{item.unidade}</span>
                   <span style={{display:"flex",gap:"var(--arcd-space-1)"}}>
                     <StandardButton variant="secondary" onClick={()=>analisarItemReferencia(item)}>Analisar</StandardButton>
@@ -5203,15 +5200,15 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 </div>)}
                 {!compBuscaLoading&&!compResultados.length&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",textAlign:"center",padding:"var(--arcd-space-2)"}}>Nenhum resultado.</p>}
               </div>}
-              {compBusca.trim()&&compTipoBusca!=="COMPOSICAO"&&<StandardButton variant="secondary" onClick={criarInsumoDaBusca} style={{display:"inline-flex",alignItems:"center",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-1)"}}><Ic n="plus"/> Criar insumo “{compBusca.trim().slice(0,55)}{compBusca.trim().length>55?"…":""}”</StandardButton>}
+              {compBusca.trim()&&compTipoBusca!=="COMPOSICAO"&&<StandardButton variant="secondary" onClick={criarInsumoDaBusca} style={{display:"inline-flex",alignItems:"center",marginTop:"var(--arcd-space-1)"}}><Ic n="plus"/> Criar insumo “{compBusca.trim().slice(0,55)}{compBusca.trim().length>55?"…":""}”</StandardButton>}
             </div>
-            <div style={{overflowX:"auto",border:"1px solid var(--arcd-border-default)",borderRadius:7}}><table style={{width:"100%",minWidth:750,borderCollapse:"collapse",fontSize:"var(--arcd-type-label)"}}>
-              <thead><tr style={{background:"var(--arcd-surface-muted)"}}>{["TIPO","FONTE","CÓDIGO","DESCRIÇÃO","UN.","COEFICIENTE","PREÇO UNIT.","TOTAL",""] .map(h=><th key={h} style={{padding:"var(--arcd-space-1)",textAlign:h.includes("PREÇO")||h==="TOTAL"||h==="COEFICIENTE"?"right":"left",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)",borderBottom:"1px solid var(--arcd-border-default)"}}>{h}</th>)}</tr></thead>
-              <tbody>{(compForm.itens||[]).map(item=><tr key={item.id} style={{borderBottom:"1px solid var(--arcd-border-default)"}}>
+            <div style={{overflowX:"auto",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)"}}><table className="arcd-data-table__table" style={{width:"100%",minWidth:750,borderCollapse:"collapse"}}>
+              <thead><tr style={{background:"var(--arcd-surface-muted)"}}>{["TIPO","FONTE","CÓDIGO","DESCRIÇÃO","UN.","COEFICIENTE","PREÇO UNIT.","TOTAL",""] .map(h=><th key={h} style={{padding:"var(--arcd-space-1)",textAlign:h.includes("PREÇO")||h==="TOTAL"||h==="COEFICIENTE"?"right":"left",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}>{h}</th>)}</tr></thead>
+              <tbody>{(compForm.itens||[]).map(item=><tr key={item.id} style={{borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}>
                 <td style={{padding:"var(--arcd-space-1)",color:"var(--arcd-text-secondary)"}}>{item.tipoItem}</td><td style={{padding:"var(--arcd-space-1)",fontWeight:"var(--arcd-font-weight-semibold)",color:item.fonte==="ORSE"?"var(--arcd-action-primary)":"var(--arcd-action-primary)"}}>{item.fonte}</td><td style={{padding:"var(--arcd-space-1)"}}>{item.codigo}</td>
-                <td style={{padding:"var(--arcd-space-1)",maxWidth:300}}><StandardInput title="Edite para pesquisar e substituir este insumo" value={compItemSubstituirId===item.id?compBusca:item.descricao} onFocus={()=>{setCompItemSubstituirId(item.id);setCompTipoBusca("INSUMO");setCompBusca(item.descricao||"");}} onChange={e=>{setCompItemSubstituirId(item.id);setCompTipoBusca("INSUMO");setCompBusca(e.target.value);}} style={{width:"100%",boxSizing:"border-box",padding:"var(--arcd-space-1)",border:`1px solid ${compItemSubstituirId===item.id?"var(--arcd-action-primary)":"var(--arcd-border-default)"}`,borderRadius:4,background:"var(--arcd-surface-page)",color:"var(--arcd-text-primary)",fontSize:"var(--arcd-type-control)"}}/></td><td style={{padding:"var(--arcd-space-1)"}}>{item.unidade}</td>
-                <td style={{padding:"var(--arcd-space-1)"}}><StandardInput type="number" step="any" value={item.coeficiente} onChange={e=>setCompForm(form=>({...form,itens:form.itens.map(x=>x.id===item.id?{...x,coeficiente:e.target.value}:x)}))} style={{width:85,boxSizing:"border-box",padding:"var(--arcd-space-1)",border:"1px solid var(--arcd-border-default)",borderRadius:4,background:"var(--arcd-surface-page)",color:"var(--arcd-text-primary)",textAlign:"right"}}/></td>
-                <td style={{padding:"var(--arcd-space-1)"}}><StandardInput type="number" step="any" value={item.precoUnit} onChange={e=>setCompForm(form=>({...form,itens:form.itens.map(x=>x.id===item.id?{...x,precoUnit:e.target.value}:x)}))} style={{width:90,boxSizing:"border-box",padding:"var(--arcd-space-1)",border:"1px solid var(--arcd-border-default)",borderRadius:4,background:"var(--arcd-surface-page)",color:"var(--arcd-text-primary)",textAlign:"right"}}/></td>
+                <td style={{padding:"var(--arcd-space-1)",maxWidth:300}}><StandardInput title="Edite para pesquisar e substituir este insumo" value={compItemSubstituirId===item.id?compBusca:item.descricao} onFocus={()=>{setCompItemSubstituirId(item.id);setCompTipoBusca("INSUMO");setCompBusca(item.descricao||"");}} onChange={e=>{setCompItemSubstituirId(item.id);setCompTipoBusca("INSUMO");setCompBusca(e.target.value);}} style={{width:"100%",boxSizing:"border-box",padding:"var(--arcd-space-1)",border:`var(--arcd-border-width) solid ${compItemSubstituirId===item.id?"var(--arcd-action-primary)":"var(--arcd-border-default)"}`,borderRadius:"var(--arcd-radius-control)",background:"var(--arcd-surface-page)",color:"var(--arcd-text-primary)",fontSize:"var(--arcd-type-control)"}}/></td><td style={{padding:"var(--arcd-space-1)"}}>{item.unidade}</td>
+                <td style={{padding:"var(--arcd-space-1)"}}><StandardInput type="number" step="any" value={item.coeficiente} onChange={e=>setCompForm(form=>({...form,itens:form.itens.map(x=>x.id===item.id?{...x,coeficiente:e.target.value}:x)}))} style={{width:85,boxSizing:"border-box",padding:"var(--arcd-space-1)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",background:"var(--arcd-surface-page)",color:"var(--arcd-text-primary)",textAlign:"right"}}/></td>
+                <td style={{padding:"var(--arcd-space-1)"}}><StandardInput type="number" step="any" value={item.precoUnit} onChange={e=>setCompForm(form=>({...form,itens:form.itens.map(x=>x.id===item.id?{...x,precoUnit:e.target.value}:x)}))} style={{width:90,boxSizing:"border-box",padding:"var(--arcd-space-1)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",background:"var(--arcd-surface-page)",color:"var(--arcd-text-primary)",textAlign:"right"}}/></td>
                 <td style={{padding:"var(--arcd-space-1)",textAlign:"right",fontWeight:"var(--arcd-font-weight-semibold)"}}>{fmt(Number(item.coeficiente||0)*Number(item.precoUnit||0))}</td><td style={{padding:"var(--arcd-space-1)"}}><StandardButton variant="secondary" onClick={()=>setCompForm(form=>({...form,itens:form.itens.filter(x=>x.id!==item.id)}))}>x</StandardButton></td>
               </tr>)}</tbody>
             </table>{!(compForm.itens||[]).length&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",textAlign:"center",padding:"var(--arcd-space-3)"}}>Pesquise e adicione os insumos.</p>}</div>
@@ -5246,7 +5243,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             }}>{issue.label} — {issue.message}</StandardButton>)}
           </details>}
 
-          <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 4%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 20%, transparent)",borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+          <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 4%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-action-primary) 20%, transparent)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
             <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)"}}>
               Os quantitativos vinculados atualizam automaticamente o orçamento ao salvar as medidas. Os totais são recalculados. Dados ausentes ou incompatíveis preservam a quantidade anterior e aparecem na conferência abaixo.
             </p>
@@ -5304,7 +5301,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             }}/>}
           {disciplinaMemoria==="estrutural" && (<>
           {!budgetIsImmutable(orc) && <div><Btn onClick={()=>setAddFloorOpen(true)}>+ Adicionar pavimento</Btn></div>}
-          <div style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",flexWrap:"wrap",gap:"var(--arcd-space-1) var(--arcd-space-6)",alignItems:"center"}}>
+          <div style={{background:"var(--arcd-surface-muted)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",flexWrap:"wrap",gap:"var(--arcd-space-1) var(--arcd-space-6)",alignItems:"center"}}>
             <span style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Resumo geral</span>
             <Metric label="Concreto total" value={fmtNum(resumoGeralMemoria.concreto)} unit="m³"/>
             <Metric label="Fôrma total" value={fmtNum(resumoGeralMemoria.forma)} unit="m²"/>
@@ -5322,13 +5319,13 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             <summary>Importar projeto PDF</summary>
             <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
             <div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>IMPORTAR PROJETO (PDF)</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Sinalize qual documento é e o sistema tenta preencher a memória de cálculo sozinho - você sempre confere antes de aplicar.</p></div>
-            <SelectControl aria-label="Tipo de documento do PDF" value={pdfTipoDocumento} onChange={e=>setPdfTipoDocumento(e.target.value)} style={{padding:"var(--arcd-space-2)",border:"1px solid var(--arcd-border-default)",borderRadius:6,background:"var(--arcd-surface-card)",color:"var(--arcd-text-primary)",fontSize:"var(--arcd-type-control)",fontWeight:"var(--arcd-font-weight-semibold)",maxWidth:360}}>
+            <SelectControl aria-label="Tipo de documento do PDF" value={pdfTipoDocumento} onChange={e=>setPdfTipoDocumento(e.target.value)} style={{maxWidth:360}}>
               <option value="estrutural-completo">Projeto estrutural completo - Fundação, Pilares, Vigas e Laje</option>
               <option value="quantitativos">Quantitativos de superfícies e volumes - concreto/fôrma de vigas e laje</option>
             </SelectControl>
             <FilePicker buttonLabel="Selecionar PDF" accept=".pdf" disabled={pdfProcessando} onChange={e=>{const arquivo=e.target.files?.[0];e.target.value="";if(arquivo)processarPdfProjeto(arquivo);}} onDragOver={e=>{e.preventDefault();setPdfArrastando(true);}} onDragLeave={()=>setPdfArrastando(false)}
               onDrop={e=>{e.preventDefault();setPdfArrastando(false);const arquivo=e.dataTransfer.files?.[0];if(arquivo)processarPdfProjeto(arquivo);}}
-              style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"var(--arcd-space-1)",border:`1.5px dashed ${pdfArrastando?"var(--arcd-action-primary)":"var(--arcd-border-default)"}`,background:pdfArrastando?"color-mix(in srgb, var(--arcd-action-primary) 4%, transparent)":"transparent",borderRadius:7,padding:"var(--arcd-space-3) var(--arcd-space-2)",cursor:pdfProcessando?"wait":"pointer"}}>
+              style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"var(--arcd-space-1)",border:`1.5px dashed ${pdfArrastando?"var(--arcd-action-primary)":"var(--arcd-border-default)"}`,background:pdfArrastando?"color-mix(in srgb, var(--arcd-action-primary) 4%, transparent)":"transparent",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-3) var(--arcd-space-2)",cursor:pdfProcessando?"wait":"pointer"}}>
 
               <Ic n="download" s={16} color={C.muted}/>
               <span style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)"}}>{pdfProcessando?"Lendo PDF...":"Selecionar PDF"}</span>
@@ -5344,10 +5341,10 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 </SelectControl>
               </label>)}
             </div>}
-            {pdfPreviewCompleto&&<div style={{border:"1px solid color-mix(in srgb, var(--arcd-success-text) 33%, transparent)",background:"color-mix(in srgb, var(--arcd-success-text) 4%, transparent)",borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+            {pdfPreviewCompleto&&<div style={{border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-success-text) 33%, transparent)",background:"color-mix(in srgb, var(--arcd-success-text) 4%, transparent)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
               <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-success-text)"}}>Encontrado - confira antes de aplicar.</p>
               {pdfPreviewCompleto.avisos?.map((aviso,i)=><Warning key={i}>{aviso}</Warning>)}
-              <div style={{border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)",background:"color-mix(in srgb, var(--arcd-warning-text) 7%, transparent)",borderRadius:6,padding:"var(--arcd-space-2)"}}>
+              <div style={{border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)",background:"color-mix(in srgb, var(--arcd-warning-text) 7%, transparent)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2)"}}>
                 <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-warning-text)"}}>⚠ Reimportar substitui a versão anterior de cada pavimento - nunca soma/duplica. É possível desfazer a última alteração após salvar.</p>
               </div>
 
@@ -5357,7 +5354,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   const totalCalculado=pdfPreviewCompleto.sapatas.reduce((s,sapata)=>s+calcularSapataTipo(sapata).pesoAcoTotal,0);
                   const diferenca=Math.abs(totalCalculado-pdfPreviewCompleto.resumoAcoSapatas.totalKg);
                   const bateu=diferenca<=pdfPreviewCompleto.resumoAcoSapatas.totalKg*0.02; // até 2% de diferença por arredondamento
-                  return <div style={{border:`1px solid ${bateu?"var(--arcd-success-text)":"var(--arcd-warning-text)"}55`,background:"var(--arcd-surface-card)",borderRadius:6,padding:"var(--arcd-space-2)"}}>
+                  return <div style={{border:`var(--arcd-border-width) solid ${bateu?"var(--arcd-success-text)":"var(--arcd-warning-text)"}55`,background:"var(--arcd-surface-card)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2)"}}>
                     <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:bateu?"var(--arcd-success-text)":"var(--arcd-warning-text)"}}>{bateu?"✓":"⚠"} Conferência com o Resumo Aço da folha</p>
                     <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Extraído (com os comprimentos resolvidos): <b>{totalCalculado.toFixed(1)} kg</b> · Total pronto do projeto: <b>{pdfPreviewCompleto.resumoAcoSapatas.totalKg.toFixed(1)} kg</b>{!bateu&&" - confira comprimentos, armaduras superiores, repetições e arredondamentos do projeto."}</p>
                   </div>;
@@ -5391,7 +5388,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               <div style={{display:"flex",gap:"var(--arcd-space-2)"}}><Btn size="sm" v="ghost" onClick={()=>setPdfPreviewCompleto(null)}>DESCARTAR</Btn><Btn size="sm" onClick={()=>setConfirmarAplicarPdf(true)}><Ic n="check"/> APLICAR (SUBSTITUI A VERSÃO ANTERIOR)</Btn></div>
             </div>}
 
-            {pdfPreviewQuantitativos&&<div style={{border:"1px solid color-mix(in srgb, var(--arcd-success-text) 33%, transparent)",background:"color-mix(in srgb, var(--arcd-success-text) 4%, transparent)",borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+            {pdfPreviewQuantitativos&&<div style={{border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-success-text) 33%, transparent)",background:"color-mix(in srgb, var(--arcd-success-text) 4%, transparent)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
               <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-success-text)"}}>Pavimentos encontrados - confira antes de aplicar:</p>
               <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-half)"}}>
                 {pdfPreviewQuantitativos.map(grupo=><p key={grupo.pavimento} style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)"}}>
@@ -5424,8 +5421,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               onChange={e=>{
                 const item=ITENS_NAV_MEMORIA.find(i=>i.elementos.some(el=>el.id===e.target.value));
                 navegarParaSecaoMemoria(e.target.value, item&&item.id!=="fundacao"?e.target.value:null);
-              }}
-              style={{padding:"var(--arcd-space-2)",border:"1px solid var(--arcd-border-default)",borderRadius:6,background:"var(--arcd-surface-card)",color:"var(--arcd-text-primary)",fontSize:"var(--arcd-type-control)",fontWeight:"var(--arcd-font-weight-semibold)"}}>
+              }}>
               {ITENS_NAV_MEMORIA.map(item=>(
                 <optgroup key={item.id} label={item.label}>
                   {item.elementos.map(el=><option key={el.id} value={el.id}>{el.label}</option>)}
@@ -5439,9 +5435,9 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               <nav aria-label="Índice da memória de cálculo" style={{position:"sticky",top:SCROLL_MARGIN,width:160,flexShrink:0,display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)",maxHeight:`calc(100vh - ${SCROLL_MARGIN+16}px)`,overflowY:"auto",paddingBottom:"var(--arcd-space-2)"}}>
                 {ITENS_NAV_MEMORIA.map(item=>(
                   <div key={item.id} style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-half)"}}>
-                    <StandardButton variant="secondary" onClick={()=>navegarParaSecaoMemoria(item.id)} style={{textAlign:"left"}}>{item.label}</StandardButton>
+                    <StandardButton variant="secondary" onClick={()=>navegarParaSecaoMemoria(item.id)}>{item.label}</StandardButton>
                     {item.elementos.length>1 && item.elementos.map(el=>(
-                      <StandardButton variant="secondary" key={el.id} onClick={()=>navegarParaSecaoMemoria(el.id,el.id)} style={{textAlign:"left",borderLeft:`1px solid ${secaoAtivaMemoria===el.id?"var(--arcd-action-primary)":"transparent"}`}}>{el.label}</StandardButton>
+                      <StandardButton variant="secondary" key={el.id} onClick={()=>navegarParaSecaoMemoria(el.id,el.id)}>{el.label}</StandardButton>
                     ))}
                   </div>
                 ))}
@@ -5462,7 +5458,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
                 <div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>SAPATAS</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Uma linha por tipo de sapata (peças com a mesma dimensão), com a quantidade de peças daquele tipo - mesmo agrupamento que o próprio projeto estrutural já usa.</p></div>
                 <div style={{display:"flex",gap:"var(--arcd-space-1)",flexWrap:"wrap",alignItems:"center"}}>
-                  <div title="Espaçamento das colunas na tela - vale para a memória de cálculo de todos os orçamentos até você trocar de novo" style={{display:"flex",border:"1px solid var(--arcd-border-default)",borderRadius:6,overflow:"hidden"}}>
+                  <div title="Espaçamento das colunas na tela - vale para a memória de cálculo de todos os orçamentos até você trocar de novo" style={{display:"flex",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",overflow:"hidden"}}>
                     {[["compacto","COMPACTO"],["normal","NORMAL"],["confortavel","CONFORTÁVEL"]].map(([valor,label])=>(
                       <StandardButton variant="secondary" key={valor} aria-pressed={densidadeMemoria===valor} onClick={()=>salvarDensidadeMemoria(valor)}>{label}</StandardButton>
                     ))}
@@ -5476,7 +5472,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               {/* Glossário sempre visível - achado da crítica Impeccable: antes só
                   existia como tooltip de hover em 2 colunas, inacessível por teclado
                   e invisível até passar o mouse por cima. */}
-              <div style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-2)",display:"flex",flexWrap:"wrap",gap:"var(--arcd-space-half) var(--arcd-space-4)"}}>
+              <div style={{background:"var(--arcd-surface-muted)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2)",display:"flex",flexWrap:"wrap",gap:"var(--arcd-space-half) var(--arcd-space-4)"}}>
                 {[["Folga","quanto a cova é maior que a sapata, de cada lado"],
                   ["Tronco","parte da sapata que sobe até o pilar, acima da base"],
                   ["Conc. magro","concreto pobre só de regularização, sob a sapata"],
@@ -5487,30 +5483,30 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               </div>
 
               {undoSapata && (
-                <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 5%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 33%, transparent)",borderRadius:8,padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)"}}>
+                <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 5%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-action-primary) 33%, transparent)",borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)"}}>
                   <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>Tipo "{undoSapata.tipo?.tipo||"sem nome"}" removido.</p>
                   <Btn size="sm" v="ghost" onClick={desfazerRemocaoSapata}><Ic n="refresh" s={13}/> Desfazer</Btn>
                 </div>
               )}
 
-              <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 4%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 20%, transparent)",borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+              <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 4%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-action-primary) 20%, transparent)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
                 <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Vai usar o padrão de folga (20cm) e profundidade (1,5m) de escavação em todas as sapatas, ou tipos diferentes precisam de valores próprios?</p>
                 <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)"}}>Ajuste os dois valores abaixo e aplique de uma vez a todos os tipos - depois, se algum tipo específico precisar de um valor diferente (ex.: um pilar mais profundo), edite só a linha dele na tabela.</p>
                 <div style={{display:"flex",gap:"var(--arcd-space-2)",flexWrap:"wrap",alignItems:"flex-end"}}>
-                  <label style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-half)"}}><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)"}}>FOLGA PADRÃO (m)</span><StandardInput type="number" step="any" min="0" value={padraoEscavacaoFundacao.folga} onChange={e=>salvarPadraoEscavacaoFundacao({folga:e.target.value.replace(",",".")})} style={{width:80,padding:"var(--arcd-space-1) var(--arcd-space-2)",border:"1px solid var(--arcd-border-default)",borderRadius:5,background:"var(--arcd-surface-card)",color:"var(--arcd-text-primary)",textAlign:"right"}}/></label>
-                  <label style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-half)"}}><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)"}}>PROFUNDIDADE PADRÃO (m)</span><StandardInput type="number" step="any" min="0" value={padraoEscavacaoFundacao.profundidade} onChange={e=>salvarPadraoEscavacaoFundacao({profundidade:e.target.value.replace(",",".")})} style={{width:90,padding:"var(--arcd-space-1) var(--arcd-space-2)",border:"1px solid var(--arcd-border-default)",borderRadius:5,background:"var(--arcd-surface-card)",color:"var(--arcd-text-primary)",textAlign:"right"}}/></label>
+                  <label style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-half)"}}><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)"}}>FOLGA PADRÃO (m)</span><StandardInput type="number" step="any" min="0" value={padraoEscavacaoFundacao.folga} onChange={e=>salvarPadraoEscavacaoFundacao({folga:e.target.value.replace(",",".")})} style={{width:80,padding:"var(--arcd-space-1) var(--arcd-space-2)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",background:"var(--arcd-surface-card)",color:"var(--arcd-text-primary)",textAlign:"right"}}/></label>
+                  <label style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-half)"}}><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)"}}>PROFUNDIDADE PADRÃO (m)</span><StandardInput type="number" step="any" min="0" value={padraoEscavacaoFundacao.profundidade} onChange={e=>salvarPadraoEscavacaoFundacao({profundidade:e.target.value.replace(",",".")})} style={{width:90,padding:"var(--arcd-space-1) var(--arcd-space-2)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",background:"var(--arcd-surface-card)",color:"var(--arcd-text-primary)",textAlign:"right"}}/></label>
                   <Btn size="sm" onClick={aplicarPadraoEscavacaoATodos} disabled={!sapatasFundacao.length}><Ic n="check"/> APLICAR A TODOS OS TIPOS</Btn>
                 </div>
               </div>
 
-              <details open={larguraColunasAberto} onToggle={e=>setLarguraColunasAberto(e.target.open)} style={{background:"var(--arcd-surface-page)",border:"1px solid var(--arcd-border-default)",borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+              <details open={larguraColunasAberto} onToggle={e=>setLarguraColunasAberto(e.target.open)} style={{background:"var(--arcd-surface-page)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
                 <summary style={{cursor:"pointer",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>AJUSTAR LARGURA DAS COLUNAS <span style={{fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)"}}>(vale pra empresa inteira, até você trocar de novo)</span></summary>
                 <div style={{display:"flex",flexWrap:"wrap",gap:"var(--arcd-space-1) var(--arcd-space-2)",marginTop:"var(--arcd-space-2)",maxHeight:180,overflowY:"auto"}}>
                   {COLUNAS_SAPATAS.filter(col=>col.chave!=="acoes").map(col=>(
                     <label key={col.chave} style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-1)"}}>
                       <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",minWidth:98}}>{col.rotulo||"AÇÕES"}</span>
                       <StandardInput type="number" min={col.largura} step="1" value={larguraColunaEfetiva(col.chave)} onChange={e=>salvarLarguraColunaSapatas(col.chave,e.target.value)}
-                        style={{width:52,padding:"var(--arcd-space-half) var(--arcd-space-1)",border:"1px solid var(--arcd-border-default)",borderRadius:4,background:"var(--arcd-surface-card)",color:"var(--arcd-text-primary)",textAlign:"right",fontSize:"var(--arcd-type-control)"}}/>
+                        style={{width:52,padding:"var(--arcd-space-half) var(--arcd-space-1)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",background:"var(--arcd-surface-card)",color:"var(--arcd-text-primary)",textAlign:"right",fontSize:"var(--arcd-type-control)"}}/>
                     </label>
                   ))}
                 </div>
@@ -5521,8 +5517,8 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   cortava o valor digitado (achado do usuário via screenshot). */}
               <style>{`.sapata-num-input::-webkit-outer-spin-button,.sapata-num-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}.sapata-num-input{-moz-appearance:textfield}`}</style>
               <p className="sapata-scroll-hint">Dimensões em metros. Quantitativos calculados para todas as peças de cada linha. Deslize a tabela para consultar os demais grupos.</p>
-              <div className="sapata-table-scroll" role="region" aria-label="Dimensões e quantitativos das sapatas" tabIndex={0} style={{overflow:"auto",maxHeight:"62vh",border:"1px solid var(--arcd-border-default)",borderRadius:7}}>
-                <table className="sapata-table" style={{width:"100%",minWidth:COLUNAS_SAPATAS.reduce((s,c)=>s+larguraColunaEfetiva(c.chave),0),tableLayout:"fixed",borderCollapse:"separate",borderSpacing:0,fontSize:dSapatas.fonte,userSelect:colunaArrastando?"none":"auto"}}>
+              <div className="sapata-table-scroll" role="region" aria-label="Dimensões e quantitativos das sapatas" tabIndex={0} style={{overflow:"auto",maxHeight:"62vh",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)"}}>
+                <table className="arcd-data-table__table sapata-table" data-table-layout="editable-matrix" style={{width:"100%",minWidth:COLUNAS_SAPATAS.reduce((s,c)=>s+larguraColunaEfetiva(c.chave),0),tableLayout:"fixed",borderCollapse:"separate",borderSpacing:0,fontSize:dSapatas.fonte,userSelect:colunaArrastando?"none":"auto"}}>
                   <colgroup>{COLUNAS_SAPATAS.map(col=><col key={col.chave} style={{width:larguraColunaEfetiva(col.chave)}}/>)}</colgroup>
                   <thead style={{position:"sticky",top:0,zIndex:4,background:"var(--arcd-surface-muted)"}}>
                     {/* Cabeçalho em dois níveis - agrupa as 23 colunas em blocos
@@ -5535,14 +5531,14 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                         pedido do usuário (28/08/2026), tabela ganhou altura máxima
                         com rolagem própria pra isso funcionar. */}
                     <tr style={{background:"var(--arcd-surface-muted)"}}>
-                      <th colSpan={2} style={{position:"sticky",left:0,zIndex:2,background:"var(--arcd-surface-muted)",borderBottom:"1px solid var(--arcd-border-default)"}}/>
+                      <th colSpan={2} style={{position:"sticky",left:0,zIndex:2,background:"var(--arcd-surface-muted)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}/>
                       {GRUPOS_CABECALHO_SAPATAS.filter(g=>g.nome).map(g=>
-                        <th key={g.nome} colSpan={g.span} style={{padding:dSapatas.pad,textAlign:"center",color:"var(--arcd-text-muted)",fontSize:dSapatas.fonteGrupo,fontWeight:"var(--arcd-font-weight-semibold)",letterSpacing:"var(--arcd-letter-spacing-body)",borderBottom:"1px solid var(--arcd-border-default)",borderLeft:"1px solid var(--arcd-border-default)"}}>{g.nome}</th>
+                        <th key={g.nome} colSpan={g.span} style={{padding:dSapatas.pad,textAlign:"center",color:"var(--arcd-text-muted)",fontSize:dSapatas.fonteGrupo,fontWeight:"var(--arcd-font-weight-semibold)",letterSpacing:"var(--arcd-letter-spacing-body)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)",borderLeft:"var(--arcd-border-width) solid var(--arcd-border-default)"}}>{g.nome}</th>
                       )}
-                      <th colSpan={2} style={{borderBottom:"1px solid var(--arcd-border-default)"}}/>
+                      <th colSpan={2} style={{borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}/>
                     </tr>
                     <tr style={{background:"var(--arcd-surface-muted)"}}>
-                      {COLUNAS_SAPATAS.map((col,i)=><th key={col.chave} scope="col" style={{position:"relative",padding:dSapatas.padHeader,textAlign:/\(m|QTD|PEÇAS/.test(col.rotulo)?"right":"left",color:"var(--arcd-text-secondary)",fontSize:dSapatas.fonteHeader,borderBottom:"1px solid var(--arcd-border-default)",whiteSpace:"normal",wordBreak:"break-word",lineHeight:"var(--arcd-line-height-normal)",
+                      {COLUNAS_SAPATAS.map((col,i)=><th key={col.chave} scope="col" style={{position:"relative",padding:dSapatas.padHeader,textAlign:/\(m|QTD|PEÇAS/.test(col.rotulo)?"right":"left",color:"var(--arcd-text-secondary)",fontSize:dSapatas.fonteHeader,borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)",whiteSpace:"normal",wordBreak:"break-word",lineHeight:"var(--arcd-line-height-normal)",
                         ...(i===0?{position:"sticky",left:0,zIndex:2,background:"var(--arcd-surface-muted)"}:{}),
                         ...(i===1?{position:"sticky",left:larguraColunaEfetiva("tipo"),zIndex:2,background:"var(--arcd-surface-muted)",borderRight:"1px solid var(--arcd-border-default)"}:{}),
                       }}>{col.rotulo}
@@ -5559,7 +5555,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                       // um valor truncado/inválido no campo. Normaliza para ponto antes
                       // de gravar.
                       const numInput=(campo,largura="100%",rotulo=ROTULO_CAMPO_SAPATA[campo])=><StandardInput type="number" step="any" min="0" className="sapata-num-input" aria-label={rotulo} value={tipo[campo]} onChange={e=>atualizarSapataTipo(tipo.id,{[campo]:e.target.value.replace(",",".")})}
-                        style={{width:largura,boxSizing:"border-box",padding:dSapatas.pad,border:"1px solid var(--arcd-border-default)",borderRadius:4,background:"var(--arcd-surface-page)",color:"var(--arcd-text-primary)",textAlign:"right",fontSize:dSapatas.fonte}}/>;
+                        style={{width:largura,boxSizing:"border-box",padding:dSapatas.pad,border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",background:"var(--arcd-surface-page)",color:"var(--arcd-text-primary)",textAlign:"right",fontSize:dSapatas.fonte}}/>;
                       const resultadoGeometria = (valor, campoConferido) => {
                         const conferido = campoConferido && tipo[campoConferido] != null && tipo[campoConferido] !== "";
                         if (tipo.geometriaPendente && !conferido) return <span style={{color:"var(--arcd-warning-text)"}} title="Geometria ainda não conferida. Não representa quantidade zero.">Pendente</span>;
@@ -5572,9 +5568,9 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                         return <span title={`Referência do PDF: ${tipo.alturasProjetoCm} cm (total / borda). O trecho superior é inclinado; seu volume depende das dimensões do topo.`} style={{color:"var(--arcd-text-primary)"}}>{Number.isFinite(valor) && valor >= 0 ? valor.toLocaleString("pt-BR",{minimumFractionDigits:2}) : "Pendente"}</span>;
                       };
                       const armInput=(direcao,campo,largura="100%")=><StandardInput type="number" step="any" min="0" className="sapata-num-input" aria-label={`${campo==="quantidade"?"Quantidade":"Comprimento"} da armadura ${direcao==="armaduraX"?"X":"Y"}`} value={tipo[direcao]?.[campo]} onChange={e=>atualizarSapataTipo(tipo.id,{[direcao]:{...tipo[direcao],[campo]:e.target.value.replace(",",".")}})}
-                        style={{width:largura,boxSizing:"border-box",padding:dSapatas.pad,border:"1px solid var(--arcd-border-default)",borderRadius:4,background:"var(--arcd-surface-page)",color:"var(--arcd-text-primary)",textAlign:"right",fontSize:dSapatas.fonte}}/>;
+                        style={{width:largura,boxSizing:"border-box",padding:dSapatas.pad,border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",background:"var(--arcd-surface-page)",color:"var(--arcd-text-primary)",textAlign:"right",fontSize:dSapatas.fonte}}/>;
                       const armSelect=direcao=><SelectControl aria-label={`Bitola da armadura ${direcao==="armaduraX"?"X":"Y"}`} value={tipo[direcao]?.bitola} onChange={e=>atualizarSapataTipo(tipo.id,{[direcao]:{...tipo[direcao],bitola:e.target.value}})}
-                        style={{width:"100%",boxSizing:"border-box",padding:dSapatas.pad,border:"1px solid var(--arcd-border-default)",borderRadius:4,background:"var(--arcd-surface-page)",color:"var(--arcd-text-primary)",fontSize:dSapatas.fonte}}>
+                        style={{width:"100%",boxSizing:"border-box"}}>
                         {BITOLAS_ACO.map(b=><option key={b} value={b}>∅{b}</option>)}
                       </SelectControl>;
                       // Vermelho ganha de laranja: escavação insuficiente é um erro de
@@ -5582,15 +5578,15 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                       const corLinha = calc.escavacaoInsuficiente ? `${C.red}0a` : (tipo.precisaRevisar ? `${C.orange}08` : "transparent");
                       const corFixa = calc.escavacaoInsuficiente ? (C.red+"14") : (tipo.precisaRevisar ? (C.orange+"10") : C.bg);
                       return (
-                        <tr key={tipo.id} style={{borderBottom:"1px solid var(--arcd-border-default)",background:corLinha}}>
+                        <tr key={tipo.id} style={{borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)",background:corLinha}}>
                           <td style={{padding:dSapatas.pad,position:"sticky",left:0,zIndex:1,background:corFixa}}>
                             <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-1)"}}>
                               {tipo.precisaRevisar&&<span title="Importado do PDF - ainda não revisado. Editar qualquer campo desta linha remove este aviso." style={{flexShrink:0,width:7,height:7,borderRadius:"50%",background:"var(--arcd-warning-text)"}}/>}
-                              <StandardInput aria-label="Tipo (referência dos pilares)" value={tipo.tipo} onChange={e=>atualizarSapataTipo(tipo.id,{tipo:e.target.value})} placeholder="Ex.: P1, P4, P5..." style={{width:"100%",boxSizing:"border-box",padding:dSapatas.pad,border:"1px solid var(--arcd-border-default)",borderRadius:4,background:"var(--arcd-surface-page)",color:"var(--arcd-text-primary)",fontSize:dSapatas.fonte}}/>
+                              <StandardInput aria-label="Tipo (referência dos pilares)" value={tipo.tipo} onChange={e=>atualizarSapataTipo(tipo.id,{tipo:e.target.value})} placeholder="Ex.: P1, P4, P5..." style={{width:"100%",boxSizing:"border-box",padding:dSapatas.pad,border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",background:"var(--arcd-surface-page)",color:"var(--arcd-text-primary)",fontSize:dSapatas.fonte}}/>
                             </div>
 
                           </td>
-                          <td style={{padding:dSapatas.pad,position:"sticky",left:larguraColunaEfetiva("tipo"),zIndex:1,background:corFixa,borderRight:"1px solid var(--arcd-border-default)"}}>{numInput("qtd")}</td>
+                          <td style={{padding:dSapatas.pad,position:"sticky",left:larguraColunaEfetiva("tipo"),zIndex:1,background:corFixa,borderRight:"var(--arcd-border-width) solid var(--arcd-border-default)"}}>{numInput("qtd")}</td>
                           <td style={{padding:dSapatas.pad}}>{numInput("largura")}</td>
                           <td style={{padding:dSapatas.pad}}>{numInput("comprimento")}</td>
                           <td style={{padding:dSapatas.pad}}>{alturaGeometria("alturaBase")}</td>
@@ -5622,7 +5618,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   {resumoSapatasFundacao.linhas.length>0&&<tfoot>
                     <tr style={{background:"var(--arcd-surface-muted)",fontWeight:"var(--arcd-font-weight-semibold)"}}>
                       <td style={{padding:dSapatas.padHeader,position:"sticky",left:0,zIndex:1,background:"var(--arcd-surface-muted)"}}>TOTAIS</td>
-                      <td style={{position:"sticky",left:larguraColunaEfetiva("tipo"),zIndex:1,background:"var(--arcd-surface-muted)",borderRight:"1px solid var(--arcd-border-default)"}}/>
+                      <td style={{position:"sticky",left:larguraColunaEfetiva("tipo"),zIndex:1,background:"var(--arcd-surface-muted)",borderRight:"var(--arcd-border-width) solid var(--arcd-border-default)"}}/>
                       <td/><td/><td/><td/><td/><td/>
                       <td style={{padding:dSapatas.padHeader,textAlign:"right",color:"var(--arcd-action-primary)"}}>{resumoSapatasFundacao.totais.volumeEscavacao.toFixed(2)}</td>
                       <td style={{padding:dSapatas.padHeader,textAlign:"right"}}>{resumoSapatasFundacao.totais.areaConcretoMagro.toFixed(2)}</td>
@@ -5659,13 +5655,13 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 </div>)}
               </details>)}
               </details>
-              {resumoSapatasFundacao.acoPorBitola.length>0&&<div style={{background:"var(--arcd-surface-page)",border:"1px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+              {resumoSapatasFundacao.acoPorBitola.length>0&&<div style={{background:"var(--arcd-surface-page)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
                 <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)"}}>RESUMO DE AÇO POR BITOLA (já com 10% de perda)</p>
                 <div style={{display:"flex",gap:"var(--arcd-space-2)",flexWrap:"wrap",marginTop:"var(--arcd-space-1)"}}>
-                  {resumoSapatasFundacao.acoPorBitola.map(l=><div key={l.bitola} style={{border:"1px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-1) var(--arcd-space-2)"}}>
+                  {resumoSapatasFundacao.acoPorBitola.map(l=><div key={l.bitola} style={{border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-1) var(--arcd-space-2)"}}>
                     <b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>∅{l.bitola}mm</b><span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginLeft:"var(--arcd-space-1)"}}>{l.kg.toFixed(1)} kg</span>
                   </div>)}
-                  <div style={{border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 33%, transparent)",background:"color-mix(in srgb, var(--arcd-action-primary) 5%, transparent)",borderRadius:6,padding:"var(--arcd-space-1) var(--arcd-space-2)"}}>
+                  <div style={{border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-action-primary) 33%, transparent)",background:"color-mix(in srgb, var(--arcd-action-primary) 5%, transparent)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-1) var(--arcd-space-2)"}}>
                     <b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)"}}>TOTAL</b><span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)",marginLeft:"var(--arcd-space-1)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{resumoSapatasFundacao.totais.pesoAco.toFixed(1)} kg</span>
                   </div>
                 </div>
@@ -5720,20 +5716,20 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             };
             return (
               <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
-                <div style={{background:"var(--arcd-surface-page)",border:"1px solid var(--arcd-border-default)",borderRadius:7,padding:"var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+                <div style={{background:"var(--arcd-surface-page)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
                   <div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>IMPORTAR PROJETO HIDROSSANITÁRIO (PDF)</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Lê a folha "Tabelas e Detalhes" do projeto (a que consolida o quantitativo da obra inteira) e preenche as 8 tabelas abaixo - você sempre confere antes de aplicar.</p></div>
                   <FilePicker buttonLabel="Selecionar PDF" accept=".pdf" disabled={pdfProcessando} onChange={e=>{const arquivo=e.target.files?.[0];e.target.value="";if(arquivo)processarPdfProjeto(arquivo,"hidrossanitario");}} onDragOver={e=>{e.preventDefault();setPdfArrastando(true);}} onDragLeave={()=>setPdfArrastando(false)}
                     onDrop={e=>{e.preventDefault();setPdfArrastando(false);const arquivo=e.dataTransfer.files?.[0];if(arquivo)processarPdfProjeto(arquivo,"hidrossanitario");}}
-                    style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"var(--arcd-space-1)",border:`1.5px dashed ${pdfArrastando?"var(--arcd-action-primary)":"var(--arcd-border-default)"}`,background:pdfArrastando?"color-mix(in srgb, var(--arcd-action-primary) 4%, transparent)":"transparent",borderRadius:7,padding:"var(--arcd-space-3) var(--arcd-space-2)",cursor:pdfProcessando?"wait":"pointer"}}>
+                    style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"var(--arcd-space-1)",border:`1.5px dashed ${pdfArrastando?"var(--arcd-action-primary)":"var(--arcd-border-default)"}`,background:pdfArrastando?"color-mix(in srgb, var(--arcd-action-primary) 4%, transparent)":"transparent",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-3) var(--arcd-space-2)",cursor:pdfProcessando?"wait":"pointer"}}>
 
                     <Ic n="download" s={16} color={C.muted}/>
                     <span style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)"}}>{pdfProcessando?"Lendo PDF...":"Selecionar PDF"}</span>
                     <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>ou arraste o arquivo aqui</span>
                   </FilePicker>
                   {pdfAviso&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)",lineHeight:"var(--arcd-line-height-normal)"}}>{pdfAviso}</p>}
-                  {pdfPreviewHidrossanitario&&<div style={{border:"1px solid color-mix(in srgb, var(--arcd-success-text) 33%, transparent)",background:"color-mix(in srgb, var(--arcd-success-text) 4%, transparent)",borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+                  {pdfPreviewHidrossanitario&&<div style={{border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-success-text) 33%, transparent)",background:"color-mix(in srgb, var(--arcd-success-text) 4%, transparent)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
                     <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-success-text)"}}>Encontrado - confira antes de aplicar.</p>
-                    <div style={{border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)",background:"color-mix(in srgb, var(--arcd-warning-text) 7%, transparent)",borderRadius:6,padding:"var(--arcd-space-2)"}}>
+                    <div style={{border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)",background:"color-mix(in srgb, var(--arcd-warning-text) 7%, transparent)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2)"}}>
                       <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-warning-text)"}}>⚠ Reimportar substitui cada tabela inteira - nunca soma/duplica. É possível desfazer a última alteração após salvar.</p>
                     </div>
                     <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-half)"}}>
@@ -5750,7 +5746,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   description={descricaoSubstituicaoHidrossanitario()}
                   onConfirm={()=>{aplicarPdfPreviewHidrossanitario();setConfirmarAplicarHidrossanitario(false);}}/>
 
-                <div style={{background:"var(--arcd-surface-page)",border:"1px solid var(--arcd-border-default)",borderRadius:7,padding:"var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+                <div style={{background:"var(--arcd-surface-page)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
                     <div>
                       <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>ASSOCIAR ÀS COMPOSIÇÕES (IA)</p>
@@ -5777,7 +5773,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                             const m = porItemId.get(item.id);
                             const associado = m?.status==="associado";
                             return (
-                              <div key={item.id} style={{border:`1px solid ${associado?"var(--arcd-success-text)"+"44":"var(--arcd-warning-text)"+"44"}`,background:associado?"color-mix(in srgb, var(--arcd-success-text) 3%, transparent)":"color-mix(in srgb, var(--arcd-warning-text) 3%, transparent)",borderRadius:6,padding:"var(--arcd-space-2)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-half)"}}>
+                              <div key={item.id} style={{border:`var(--arcd-border-width) solid ${associado?"var(--arcd-success-text)"+"44":"var(--arcd-warning-text)"+"44"}`,background:associado?"color-mix(in srgb, var(--arcd-success-text) 3%, transparent)":"color-mix(in srgb, var(--arcd-warning-text) 3%, transparent)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-half)"}}>
                                 <div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"baseline"}}>
                                   <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{item.descricao} <span style={{color:"var(--arcd-text-secondary)",fontWeight:"var(--arcd-font-weight-medium)"}}>({fmtNum(item.quantidade)} {item.unidade})</span></p>
                                   <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:associado?"var(--arcd-success-text)":"var(--arcd-warning-text)",whiteSpace:"nowrap"}}>{associado?"ASSOCIADO":"PENDENTE"}</span>
@@ -5844,9 +5840,9 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 
       {checkEdit&&<Modal title="Revisar item do orçamento" onClose={()=>setCheckEdit(null)} wide>
         <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
-          <div style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{checkEdit.titulo}</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)",marginTop:"var(--arcd-space-1)"}}>{checkEdit.detalhe}</p>{checkEdit.acaoSugerida&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-muted)",lineHeight:"var(--arcd-line-height-normal)",marginTop:"var(--arcd-space-1)"}}><b>Próxima ação sugerida:</b> {checkEdit.acaoSugerida}</p>}</div>
+          <div style={{background:"var(--arcd-surface-muted)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{checkEdit.titulo}</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)",marginTop:"var(--arcd-space-1)"}}>{checkEdit.detalhe}</p>{checkEdit.acaoSugerida&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-muted)",lineHeight:"var(--arcd-line-height-normal)",marginTop:"var(--arcd-space-1)"}}><b>Próxima ação sugerida:</b> {checkEdit.acaoSugerida}</p>}</div>
           <div><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",marginBottom:"var(--arcd-space-1)"}}>Decisão do operador</p><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:"var(--arcd-space-1)"}}>{[["pendente","Pendente",C.orange],["corrigido","Corrigido",C.green],["ignorado","Ignorar",C.muted]].map(([status,label,color])=><StandardButton variant="secondary" key={status} onClick={()=>setCheckEdit(item=>({...item,status}))}>{label}</StandardButton>)}</div></div>
-          <label style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}><span style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Observação {checkEdit.status==="ignorado"?"*":""}</span><TextareaControl rows={4} value={checkEdit.observacao||""} onChange={e=>setCheckEdit(item=>({...item,observacao:e.target.value}))} placeholder={checkEdit.status==="corrigido"?"Descreva o que foi corrigido e onde conferir.":checkEdit.status==="ignorado"?"Justifique por que o item não se aplica ao escopo.":"Registre a dúvida, responsável ou ação combinada."} style={{background:"var(--arcd-surface-page)",border:"1.5px solid var(--arcd-border-default)",color:"var(--arcd-text-primary)",padding:"var(--arcd-space-2)",borderRadius:7,fontSize:"var(--arcd-type-control)",outline:"none",resize:"vertical",fontFamily:"var(--arcd-font-sans)"}}/></label>
+          <label style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}><span style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Observação {checkEdit.status==="ignorado"?"*":""}</span><TextareaControl rows={4} value={checkEdit.observacao||""} onChange={e=>setCheckEdit(item=>({...item,observacao:e.target.value}))} placeholder={checkEdit.status==="corrigido"?"Descreva o que foi corrigido e onde conferir.":checkEdit.status==="ignorado"?"Justifique por que o item não se aplica ao escopo.":"Registre a dúvida, responsável ou ação combinada."} style={{background:"var(--arcd-surface-page)",border:"1.5px solid var(--arcd-border-default)",color:"var(--arcd-text-primary)",padding:"var(--arcd-space-2)",borderRadius:"var(--arcd-radius-control)",fontSize:"var(--arcd-type-control)",outline:"none",resize:"vertical",fontFamily:"var(--arcd-font-sans)"}}/></label>
           <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>A decisão ficará vinculada a este orçamento com operador e data. A IA nunca marca um item como corrigido ou ignorado automaticamente.</p>
           <div style={{display:"flex",gap:"var(--arcd-space-2)"}}><Btn v="ghost" onClick={()=>setCheckEdit(null)} full>Cancelar</Btn><Btn onClick={salvarRevisaoChecklist} full><Ic n="check"/> Salvar revisão</Btn></div>
         </div>
@@ -5854,7 +5850,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 
       {analiseReferencia&&<Modal title={`${analiseReferencia.tipoItem==="COMPOSICAO"?"Composição":"Insumo"} ${analiseReferencia.fonte} ${analiseReferencia.codigo}`} onClose={()=>{setAnaliseReferencia(null);setAnaliseComponentes([]);setAnaliseReferenciaAviso("");}} wide>
         <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
-          <div style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-2)"}}>
+          <div style={{background:"var(--arcd-surface-muted)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2)"}}>
             <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{analiseReferencia.descricao}</p>
             <div style={{display:"flex",gap:"var(--arcd-space-3)",flexWrap:"wrap",marginTop:"var(--arcd-space-2)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>
               <span><b>Tipo:</b> {analiseReferencia.tipoItem==="COMPOSICAO"?"Composição":"Insumo"}</span>
@@ -5869,18 +5865,18 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           </div>
 
           {analiseReferenciaLoading&&<p style={{padding:"var(--arcd-space-4)",textAlign:"center",fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>CARREGANDO ANÁLISE...</p>}
-          {analiseReferenciaAviso&&<div style={{background:"color-mix(in srgb, var(--arcd-warning-text) 6%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)",borderRadius:7,padding:"var(--arcd-space-2)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)"}}>{analiseReferenciaAviso}</div>}
+          {analiseReferenciaAviso&&<div style={{background:"color-mix(in srgb, var(--arcd-warning-text) 6%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)"}}>{analiseReferenciaAviso}</div>}
 
-          {analiseReferencia.memoriaTexto&&<div style={{background:"var(--arcd-surface-page)",border:"1px solid var(--arcd-border-default)",borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+          {analiseReferencia.memoriaTexto&&<div style={{background:"var(--arcd-surface-page)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
             <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginBottom:"var(--arcd-space-1)"}}>MEMÓRIA DE PREÇOS DO ITEM</p>
             <pre style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)",whiteSpace:"pre-wrap",fontFamily:"var(--arcd-font-sans)",margin:0}}>{analiseReferencia.memoriaTexto}</pre>
           </div>}
 
           {analiseReferencia.tipoItem==="COMPOSICAO"&&!analiseReferenciaLoading&&analiseComponentes.length>0&&<>
             <div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"center"}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>COMPOSIÇÃO ANALÍTICA DIRETA</p><b style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-action-primary)"}}>{fmt(analiseComponentes.reduce((s,item)=>s+Number(item.coeficiente||0)*precoDoItem(item,orc),0))}</b></div>
-            <div style={{overflowX:"auto",border:"1px solid var(--arcd-border-default)",borderRadius:7,maxHeight:390,overflowY:"auto"}}><table style={{width:"100%",minWidth:760,borderCollapse:"collapse",fontSize:"var(--arcd-type-label)"}}>
-              <thead style={{position:"sticky",top:0,zIndex:1}}><tr style={{background:"var(--arcd-surface-muted)"}}>{["TIPO","FONTE","CÓDIGO","DESCRIÇÃO","UN.","COEFICIENTE","PREÇO UNIT.","TOTAL"].map(h=><th key={h} style={{padding:"var(--arcd-space-2) var(--arcd-space-1)",textAlign:["COEFICIENTE","PREÇO UNIT.","TOTAL"].includes(h)?"right":"left",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)",borderBottom:"1px solid var(--arcd-border-default)"}}>{h}</th>)}</tr></thead>
-              <tbody>{analiseComponentes.map((item,index)=><tr key={`${item.itemType}-${item.itemCode}-${index}`} style={{borderBottom:"1px solid var(--arcd-border-default)"}}>
+            <div style={{overflowX:"auto",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",maxHeight:390,overflowY:"auto"}}><table className="arcd-data-table__table" style={{width:"100%",minWidth:760,borderCollapse:"collapse"}}>
+              <thead style={{position:"sticky",top:0,zIndex:1}}><tr style={{background:"var(--arcd-surface-muted)"}}>{["TIPO","FONTE","CÓDIGO","DESCRIÇÃO","UN.","COEFICIENTE","PREÇO UNIT.","TOTAL"].map(h=><th key={h} style={{padding:"var(--arcd-space-2) var(--arcd-space-1)",textAlign:["COEFICIENTE","PREÇO UNIT.","TOTAL"].includes(h)?"right":"left",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}>{h}</th>)}</tr></thead>
+              <tbody>{analiseComponentes.map((item,index)=><tr key={`${item.itemType}-${item.itemCode}-${index}`} style={{borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}>
                 <td style={{padding:"var(--arcd-space-1)",color:item.itemType==="COMPOSICAO"?"var(--arcd-success-text)":"var(--arcd-warning-text)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{item.itemType}</td>
                 <td style={{padding:"var(--arcd-space-1)",fontWeight:"var(--arcd-font-weight-semibold)",color:item.fonte==="ORSE"?"var(--arcd-action-primary)":"var(--arcd-action-primary)"}}>{item.fonte}</td><td style={{padding:"var(--arcd-space-1)"}}>{item.itemCode}</td>
                 <td title={item.descricao} style={{padding:"var(--arcd-space-1)",maxWidth:310,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</td><td style={{padding:"var(--arcd-space-1)"}}>{item.unidade}</td>

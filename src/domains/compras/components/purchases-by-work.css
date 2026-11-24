@@ -1,13 +1,13 @@
 /* Comparativo "Compras por obra". Só tokens do design system (DESIGN.md), sem cores literais. */
-.purchase-by-work{border:1px solid var(--purchase-line);border-radius:var(--arcd-radius-lg);background:var(--purchase-paper);min-width:0;overflow:hidden}
+.purchase-by-work{border:var(--arcd-border-width) solid var(--purchase-line);border-radius:var(--arcd-radius-lg);background:var(--purchase-paper);min-width:0;overflow:hidden}
 .purchase-by-work>header{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--arcd-space-3);flex-wrap:wrap;padding:var(--arcd-space-4) var(--arcd-space-4) var(--arcd-space-3)}
 .purchase-by-work h4{margin:0;font-size:var(--arcd-type-card-title);line-height:1.35;color:var(--purchase-ink)}
 .purchase-by-work header p{margin:var(--arcd-space-1) 0 0;max-width:640px;color:var(--purchase-muted);font-size:var(--arcd-type-caption);line-height:1.5}
 .purchase-by-work__note{padding:var(--arcd-space-1) var(--arcd-space-2);border-radius:var(--arcd-radius-sm);background:var(--arcd-color-surface-muted);color:var(--arcd-color-text-muted);font-size:var(--arcd-type-caption);font-weight:var(--arcd-font-weight-semibold)}
 
 .purchase-work-table{width:100%;border-collapse:collapse;text-align:left;font-size:var(--arcd-type-caption);color:var(--purchase-ink)}
-.purchase-work-table thead th{padding:var(--arcd-space-2) var(--arcd-space-3);background:var(--arcd-color-surface-muted);border-block:1px solid var(--purchase-line);color:var(--purchase-muted);font-size:var(--arcd-type-label);font-weight:var(--arcd-font-weight-semibold);text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}
-.purchase-work-table tbody td,.purchase-work-table tfoot td{padding:var(--arcd-space-3);vertical-align:top;border-bottom:1px solid var(--arcd-border-subtle);line-height:1.5}
+.purchase-work-table thead th{padding:var(--arcd-space-2) var(--arcd-space-3);background:var(--arcd-color-surface-muted);border-block:var(--arcd-border-width) solid var(--purchase-line);color:var(--purchase-muted);font-size:var(--arcd-type-label);font-weight:var(--arcd-font-weight-semibold);text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}
+.purchase-work-table tbody td,.purchase-work-table tfoot td{padding:var(--arcd-space-3);vertical-align:top;border-bottom:var(--arcd-border-width) solid var(--arcd-border-subtle);line-height:1.5}
 .purchase-work-name{min-width:190px}
 .purchase-work-table tbody .purchase-work-name b{display:block;font-weight:var(--arcd-font-weight-semibold)}
 .purchase-work-table tbody tr:hover{background:var(--arcd-color-surface-subtle)}
@@ -34,7 +34,7 @@
 @media(max-width:700px){
   .purchase-work-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
   .purchase-work-table,.purchase-work-table tbody,.purchase-work-table tfoot,.purchase-work-table tr,.purchase-work-table td{display:block;width:100%}
-  .purchase-work-table tr{padding:var(--arcd-space-3) var(--arcd-space-3);border-bottom:1px solid var(--purchase-line)}
+  .purchase-work-table tr{padding:var(--arcd-space-3) var(--arcd-space-3);border-bottom:var(--arcd-border-width) solid var(--purchase-line)}
   .purchase-work-table tbody td,.purchase-work-table tfoot td{padding:var(--arcd-space-1) 0;border:0;min-width:0;background:transparent}
   .purchase-work-table td[data-label]{display:flex;justify-content:space-between;gap:var(--arcd-space-3);text-align:right}
   .purchase-work-table td[data-label]::before{content:attr(data-label);flex:0 0 auto;color:var(--purchase-muted);font-weight:var(--arcd-font-weight-semibold);text-align:left}

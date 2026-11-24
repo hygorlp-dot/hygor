@@ -2,10 +2,10 @@
 .contract-record-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--arcd-space-3)}
 .contract-record-actions{display:flex;flex-wrap:wrap;align-items:center;gap:var(--arcd-space-2)}
 .contract-record-fieldset{border:0;padding:0;margin:0;min-width:0}
-.contract-record-row{display:flex;justify-content:space-between;gap:var(--arcd-space-4);padding:var(--arcd-space-4);background:var(--arcd-surface-card);border:1px solid var(--arcd-border-default);border-radius:var(--arcd-radius-md)}
+.contract-record-row{display:flex;justify-content:space-between;gap:var(--arcd-space-4);padding:var(--arcd-space-4);background:var(--arcd-surface-card);border:var(--arcd-border-width) solid var(--arcd-border-default);border-radius:var(--arcd-radius-md)}
 .contract-record-row>div{display:flex;flex-direction:column;align-items:flex-start;gap:var(--arcd-space-2);min-width:0;overflow-wrap:anywhere}
 .contract-record-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--arcd-space-3);margin:0}.contract-record-facts>div{min-width:0;overflow-wrap:anywhere}.contract-record-facts dt{color:var(--arcd-text-secondary)}.contract-record-facts dd{margin:0}
-.contract-record-table{overflow-x:auto}.contract-record-table table{width:100%;border-collapse:collapse}.contract-record-table td{border:1px solid var(--arcd-border-default);padding:var(--arcd-space-2)}
+.contract-record-table{overflow-x:auto}.contract-record-table table{width:100%;border-collapse:collapse}.contract-record-table td{border:var(--arcd-border-width) solid var(--arcd-border-default);padding:var(--arcd-space-2)}
 .contract-record-clauses{display:flex;flex-direction:column;gap:var(--arcd-space-3);overflow-wrap:anywhere}
 @media(max-width:767px){.contract-record-grid{grid-template-columns:minmax(0,1fr)}.contract-record-row{flex-direction:column}.contract-record-actions>*{max-width:100%}}
 @media(max-width:767px){.contract-record-facts{grid-template-columns:minmax(0,1fr)}}

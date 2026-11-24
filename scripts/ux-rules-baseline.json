@@ -1,19 +1,5 @@
 {
-  "cor-fixa-em-css-de-tela": {
-    "src/domains/comercial/real-estate.css": 23,
-    "src/domains/equipamentos/billing-center.css": 1,
-    "src/domains/orcamentos/components/box-memory.css": 1,
-    "src/domains/orcamentos/components/budget-sheet.css": 49,
-    "src/domains/orcamentos/components/item-memory.css": 1,
-    "src/domains/orcamentos/components/structural-memory.css": 1,
-    "src/domains/ponto/components/clt-payslips.css": 7,
-    "src/domains/ponto-eletronico/components/equipe-obras-tv.css": 9,
-    "src/domains/ponto-eletronico/components/equipe-obras.css": 2,
-    "src/domains/rh/components/employee-edit.css": 3,
-    "src/features/conciliacao/category-combobox.css": 12,
-    "src/features/workflow/workflow.css": 1,
-    "src/index.css": 241
-  },
+  "cor-fixa-em-css-de-tela": {},
   "plural-com-parenteses": {
     "src/design-system/copy.js": 1,
     "src/domains/administracao/components/BasesPrecoAdmin.jsx": 3,
@@ -93,56 +79,16 @@
     "src/reports/adjustable-tables.js": 2,
     "src/reports/legacy-standard.js": 2
   },
-  "raio-fixo-em-css-de-tela": {
-    "src/index.css": 137
-  },
+  "raio-fixo-em-css-de-tela": {},
   "raio-fixo-em-jsx": {
-    "src/components/charts/CubChart.jsx": 2,
-    "src/components/charts/RelatoriosChartPanel.jsx": 2,
-    "src/domains/administracao/components/BasesPrecoAdmin.jsx": 12,
-    "src/domains/administracao/components/CentralAdministradorView.jsx": 4,
-    "src/domains/administracao/components/FechamentoFinanceiroAdmin.jsx": 4,
-    "src/domains/administracao/components/FinanceiroCanonicoAdmin.jsx": 7,
-    "src/domains/administracao/components/NucleoRelacionalAdmin.jsx": 4,
-    "src/domains/administracao/LegacySettings.jsx": 19,
-    "src/domains/aprovacoes/components/AprovacoesPendentesView.jsx": 2,
-    "src/domains/comercial/components/ComercialView.jsx": 38,
-    "src/domains/compras/components/ComprasView.jsx": 68,
-    "src/domains/compras/components/ContratosFornecimentoView.jsx": 4,
-    "src/domains/compras/components/ReceiptModal.jsx": 3,
-    "src/domains/compras/LegacySupport.jsx": 5,
-    "src/domains/equipamentos/components/EquipamentosView.jsx": 38,
-    "src/domains/estoque/components/EstoqueView.jsx": 12,
-    "src/domains/estoque/LegacyEditors.jsx": 1,
-    "src/domains/licenciamento/components/LicenciamentoView.jsx": 12,
-    "src/domains/medicoes/components/MedicoesView.jsx": 32,
-    "src/domains/obras/components/AditivosContrato.jsx": 1,
-    "src/domains/obras/components/DiarioObraView.jsx": 26,
-    "src/domains/orcamentos/components/OrcamentoView.jsx": 119,
-    "src/domains/patrimonio/components/PatrimonioEmpresaView.jsx": 2,
-    "src/domains/planejamento/components/PlanejamentoView.jsx": 40,
-    "src/domains/qualidade/components/ConferenciaView.jsx": 12,
-    "src/domains/rh/components/EquipeView.jsx": 3,
-    "src/domains/rh/components/IndicadoresView.jsx": 1,
-    "src/domains/rh/components/RescisaoView.jsx": 14,
-    "src/domains/suprimentos/components/MarcosCurvaASuprimentos.jsx": 2,
-    "src/domains/terceirizados/components/TerceirosView.jsx": 30,
-    "src/ErrorBoundary.jsx": 3,
-    "src/features/conciliacao/ConciliacaoView.jsx": 41,
-    "src/features/financeiro/LegacyDocumentTools.jsx": 15,
-    "src/legacy/palette.js": 3,
-    "src/legacy/ui.jsx": 9,
-    "src/LegacyApp.jsx": 259,
-    "src/supplier-acceptance/SupplierAcceptancePage.jsx": 7
+    "src/domains/compras/components/ComprasView.jsx": 2,
+    "src/domains/licenciamento/components/LicenciamentoView.jsx": 4,
+    "src/domains/medicoes/components/MedicoesView.jsx": 2,
+    "src/domains/orcamentos/components/OrcamentoView.jsx": 3,
+    "src/domains/terceirizados/components/TerceirosView.jsx": 1,
+    "src/LegacyApp.jsx": 24
   },
   "gap-fora-da-escala": {
-    "src/domains/administracao/components/user-directory.css": 1,
-    "src/domains/comercial/real-estate.css": 17,
-    "src/domains/medicoes/components/measurement-entry.css": 2,
-    "src/domains/ponto-eletronico/components/equipe-obras-tv.css": 1,
-    "src/features/financeiro/work-financial-report.css": 1,
-    "src/features/pilot/assisted-review.css": 1,
-    "src/features/workflow/workflow.css": 4,
-    "src/index.css": 97
+    "src/domains/administracao/components/user-directory.css": 1
   }
 }

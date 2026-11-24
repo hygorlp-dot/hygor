@@ -352,15 +352,15 @@ import { arcdApprovalEngine as motorAprovacaoGenerico } from "./domains/aprovaco
 import { ROLE_TABS, allowedTabsForUser, podeAcessarAba } from "./domains/administracao/abas-acesso.js";
 
 const G = `
-@keyframes chatMentionPulse{0%,100%{box-shadow:0 6px 18px rgba(0,0,0,.28)}50%{box-shadow:0 0 0 8px rgba(212,175,55,.28),0 6px 18px rgba(0,0,0,.28)}}
-@keyframes chatMessageFlash{0%,100%{outline-color:transparent}35%{outline-color:#D4AF37}}
+@keyframes chatMentionPulse{0%,100%{box-shadow:var(--arcd-shadow-md)}50%{box-shadow:0 0 0 8px color-mix(in srgb, var(--arcd-focus-ring) 28%, transparent), var(--arcd-shadow-md)}}
+@keyframes chatMessageFlash{0%,100%{outline-color:transparent}35%{outline-color:var(--arcd-focus-ring)}}
 .chat-mention-pulse{animation:chatMentionPulse 1.4s ease-in-out infinite}
 .chat-msg-flash{outline:3px solid transparent;animation:chatMessageFlash 1.2s ease-in-out 2}
 :root{
-  --bg:${C.bg};--surface:${C.surface};--card:${C.card};
-  --gold:${C.yellow};--text:${C.text};--muted:${C.muted};
-  --green:${C.green};--red:${C.red};--blue:${C.blue};
-  --grafite:#121212;--areia:#F5F3EE;--cinza:#BFBFBF;
+  --bg:var(--arcd-surface-page);--surface:var(--arcd-surface-card);--card:var(--arcd-surface-card);
+  --gold:var(--arcd-gold-400);--text:var(--arcd-text-primary);--muted:var(--arcd-text-secondary);
+  --green:var(--arcd-success-text);--red:var(--arcd-danger-text);--blue:var(--arcd-info-text);
+  --grafite:var(--arcd-text-primary);--areia:var(--arcd-surface-subtle);--cinza:var(--arcd-neutral-border);
   --type-display:var(--arcd-font-sans);
   --type-body:var(--arcd-font-sans);
   --type-data:var(--arcd-font-mono);
@@ -368,7 +368,7 @@ const G = `
   --fs-page-title:var(--arcd-type-page-title);
   --fs-section-title:var(--arcd-type-section-title);
   --fs-card-title:var(--arcd-type-card-title);
-  --radius-control:8px;--radius-card:8px;
+  --radius-control:var(--arcd-radius-control);--radius-card:var(--arcd-box-radius);
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body,#root{width:100%;min-width:0;max-width:100%;min-height:100%}
@@ -396,8 +396,8 @@ body{min-width:320px}
 /* Tabelas largas (orçamento, DRE) rolam sozinhas em vez de rasgar a página */
 .scroll-x{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
 body{
-  background:${C.bg};
-  color:${C.text};
+  background:var(--arcd-surface-page);
+  color:var(--arcd-text-primary);
   font-family:var(--type-body);
   -webkit-tap-highlight-color:transparent;
   font-size:var(--arcd-type-body);
@@ -411,7 +411,7 @@ main h1{font-family:var(--type-display)!important;font-size:var(--fs-page-title)
 main h2:not(.page-hero__title){font-family:var(--type-display)!important;font-size:var(--fs-section-title)!important;font-weight:600!important;line-height:1.18!important;letter-spacing:-.32px!important}
 main h3:not(.arcd-dialog__title):not(.arcd-heading-page){font-family:var(--type-display)!important;font-size:var(--fs-card-title)!important;font-weight:600!important;line-height:1.24!important;letter-spacing:-.12px!important}
 main table{font-size:var(--arcd-type-body);font-variant-numeric:tabular-nums}
-main th{font-size:var(--arcd-type-label);font-weight:600;letter-spacing:.1px;text-transform:none;color:${C.muted}}
+main th{font-size:var(--arcd-type-label);font-weight:600;letter-spacing:.1px;text-transform:none;color:var(--arcd-text-secondary)}
 main input:not([type="checkbox"]):not([type="radio"]),main select,main textarea{font-size:var(--arcd-type-body)!important;line-height:1.5}
 main textarea{min-height:76px}
 main label>span:first-child{font-size:var(--arcd-type-label)!important;font-weight:500!important;letter-spacing:.1px!important}
@@ -425,16 +425,16 @@ button:disabled{opacity:.4;cursor:not-allowed!important}
 button{touch-action:manipulation;transition:background .12s ease,border-color .12s ease,color .12s ease}
 button:not(:disabled):hover{filter:brightness(.98)}
 button:not(:disabled):active{filter:brightness(.94)}
-button:focus-visible{outline:2px solid ${C.yellow};outline-offset:2px}
+button:focus-visible{outline:2px solid var(--arcd-gold-400);outline-offset:2px}
 .arcd-btn{
-  min-height:40px;border-width:1px!important;border-radius:var(--radius-control)!important;
+  min-height:40px;border-width:var(--arcd-border-width)!important;border-radius:var(--radius-control)!important;
   font-size:var(--arcd-type-body)!important;font-weight:600!important;letter-spacing:.08px!important;
   text-transform:none!important;line-height:1.1;white-space:nowrap;
   box-shadow:none!important;
   transition:background .15s ease,border-color .15s ease,color .15s ease,transform .1s ease!important;
 }
-.arcd-btn[data-size="sm"]{min-height:36px;padding:6px 10px!important;font-size:var(--arcd-type-label)!important;border-radius:var(--radius-control)!important}
-.arcd-btn[data-size="lg"]{min-height:42px;padding:9px 16px!important;font-size:var(--arcd-type-body)!important;border-radius:var(--radius-control)!important}
+.arcd-btn[data-size="sm"]{min-height:36px;padding:var(--arcd-space-1) var(--arcd-space-2)!important;font-size:var(--arcd-type-label)!important;border-radius:var(--radius-control)!important}
+.arcd-btn[data-size="lg"]{min-height:42px;padding:var(--arcd-space-2) var(--arcd-space-4)!important;font-size:var(--arcd-type-body)!important;border-radius:var(--radius-control)!important}
 .arcd-btn svg{width:13px!important;height:13px!important;flex:0 0 13px}
 .arcd-btn[data-size="sm"] svg{width:11px!important;height:11px!important;flex-basis:11px}
 .arcd-btn[data-icon-only="true"]{width:36px;padding:0!important}
@@ -454,33 +454,33 @@ button:focus-visible{outline:2px solid ${C.yellow};outline-offset:2px}
     min-width:var(--arcd-touch-target-min)!important;min-height:var(--arcd-touch-target-min)!important;
   }
 }
-.arcd-tab{min-height:32px;padding:6px 10px!important;border:0!important;border-bottom:2px solid transparent!important;background:transparent!important;border-radius:0!important;color:${C.muted};font-size:var(--arcd-type-label)!important;font-weight:600!important;white-space:nowrap}
-.arcd-tab[data-active="true"]{color:${C.text}!important;border-bottom-color:${C.yellow}!important;font-weight:600!important}
-.arcd-tab:hover{color:${C.text};filter:none!important}
-.arcd-pill{min-height:23px;padding:3px 7px!important;border-radius:99px!important;font-size:var(--arcd-type-caption)!important;font-weight:600!important;letter-spacing:.08px}
+.arcd-tab{min-height:32px;padding:var(--arcd-space-1) var(--arcd-space-2)!important;border:0!important;border-bottom:2px solid transparent!important;background:transparent!important;border-radius:0!important;color:var(--arcd-text-secondary);font-size:var(--arcd-type-label)!important;font-weight:600!important;white-space:nowrap}
+.arcd-tab[data-active="true"]{color:var(--arcd-text-primary)!important;border-bottom-color:var(--arcd-gold-400)!important;font-weight:600!important}
+.arcd-tab:hover{color:var(--arcd-text-primary);filter:none!important}
+.arcd-pill{min-height:23px;padding:var(--arcd-space-half) var(--arcd-space-2)!important;border-radius:var(--arcd-radius-pill)!important;font-size:var(--arcd-type-caption)!important;font-weight:600!important;letter-spacing:.08px}
 button:not(.arcd-btn)[title="Editar"],button:not(.arcd-btn)[title="Excluir"],button:not(.arcd-btn)[title="Remover"],button:not(.arcd-btn)[title="Editar obra"],button:not(.arcd-btn)[title="Excluir obra"]{
   width:28px!important;height:28px!important;min-width:28px!important;min-height:28px!important;
   padding:0!important;display:inline-grid!important;place-items:center!important;border-radius:var(--radius-control)!important;
-  border:1px solid ${C.border}!important;background:${C.card}!important;box-shadow:none!important;
+  border:var(--arcd-border-width) solid var(--arcd-border-default)!important;background:var(--arcd-surface-card)!important;box-shadow:none!important;
 }
 input:focus,select:focus,textarea:focus{
   outline:none;
-  border-color:${C.yellow}!important;
-  box-shadow:0 0 0 2px ${C.yellow}22;
+  border-color:var(--arcd-gold-400)!important;
+  box-shadow:0 0 0 2px color-mix(in srgb, var(--arcd-gold-400) 13%, transparent);
 }
 /* Cards e elevação */
 .lift-card{transition:background .15s ease,border-color .15s ease}
-.lift-card:hover{border-color:${C.yellow}88;background:${C.card2}}
+.lift-card:hover{border-color:color-mix(in srgb, var(--arcd-gold-400) 53%, transparent);background:var(--arcd-surface-muted)}
 /* Elevação padrão para cards em fundo branco */
 .card-base{
-  background:${C.card};
-  border:1px solid ${C.border};
+  background:var(--arcd-surface-card);
+  border:var(--arcd-border-width) solid var(--arcd-border-default);
   box-shadow:none;
-  border-radius:4px;
+  border-radius:var(--arcd-radius-control);
 }
 /* Linha de acento ouro */
 .brand-slice{position:relative;overflow:hidden}
-.brand-slice:after{content:"";position:absolute;bottom:0;left:0;right:0;height:2px;background:${C.yellow}}
+.brand-slice:after{content:"";position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--arcd-gold-400)}
 /* Animações */
 @keyframes fadeIn   {from{opacity:0;transform:translateY(6px)}  to{opacity:1;transform:none}}
 @keyframes fadeInUp {from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:none}}
@@ -508,18 +508,18 @@ input:focus,select:focus,textarea:focus{
 
 /* Cabeçalho do grupo - clicável */
 .nav-grp-hd{
-  width:100%; display:flex; align-items:center; gap:7px;
-  padding:6px 8px; margin-bottom:1px;
-  background:transparent; border:0; border-radius:${C.rSm}px;
+  width:100%; display:flex; align-items:center; gap:var(--arcd-space-2);
+  padding:var(--arcd-space-1) var(--arcd-space-2); margin-bottom:1px;
+  background:transparent; border:0; border-radius:var(--arcd-radius-control);
   cursor:pointer; text-align:left;
-  color:${C.muted};
+  color:var(--arcd-text-secondary);
   font-family:var(--type-body);
   font-size:var(--arcd-type-caption); font-weight:600; letter-spacing:.6px; text-transform:uppercase;
   transition:background .12s ease, color .12s ease;
 }
 .nav-grp-hd:hover{ background:var(--gc-hov); color:var(--gc); }
 .nav-grp-hd[data-open="true"]{ color:var(--gc); }
-.nav-grp-hd:focus-visible{ outline:2px solid ${C.yellow}; outline-offset:1px; }
+.nav-grp-hd:focus-visible{ outline:2px solid var(--arcd-gold-400); outline-offset:1px; }
 
 /* Seta */
 .nav-chev{
@@ -533,14 +533,14 @@ input:focus,select:focus,textarea:focus{
 .nav-count{
   margin-left:auto; flex-shrink:0;
   font-size:var(--arcd-type-caption); font-weight:600; letter-spacing:0;
-  color:${C.muted}; opacity:.6;
+  color:var(--arcd-text-secondary); opacity:.6;
 }
 
 /* Corpo do grupo: o trilho vive aqui */
 .nav-body{
   overflow:hidden;
-  margin-left:14px;
-  border-left:1px solid var(--gc-rail);
+  margin-left:var(--arcd-space-3);
+  border-left:var(--arcd-border-width) solid var(--gc-rail);
   padding-left:0;
   animation:navOpen .18s ease;
 }
@@ -552,22 +552,22 @@ input:focus,select:focus,textarea:focus{
 /* Aba */
 .nav-item{
   position:relative;
-  width:100%; display:flex; align-items:center; gap:8px;
-  padding:6px 10px 6px 12px; margin-bottom:0;
-  background:transparent; border:0; border-radius:0 ${C.rSm}px ${C.rSm}px 0;
+  width:100%; display:flex; align-items:center; gap:var(--arcd-space-2);
+  padding:var(--arcd-space-1) var(--arcd-space-2) var(--arcd-space-1) var(--arcd-space-3); margin-bottom:0;
+  background:transparent; border:0; border-radius:0 var(--arcd-radius-control) var(--arcd-radius-control) 0;
   cursor:pointer; text-align:left;
-  color:${C.muted};
+  color:var(--arcd-text-secondary);
   font-family:var(--type-body);
   font-size:12px; font-weight:500;
   transition:background .12s ease, color .12s ease;
-  --ic-color:${C.muted};
+  --ic-color:var(--arcd-text-secondary);
 }
 
 /* O marcador que assenta no trilho */
 .nav-item::before{
   content:""; position:absolute; left:-1.5px; top:50%;
   transform:translateY(-50%);
-  width:2.5px; height:0; border-radius:0 2px 2px 0;
+  width:2.5px; height:0; border-radius:0 var(--arcd-radius-control) var(--arcd-radius-control) 0;
   background:var(--gc);
   transition:height .16s ease, opacity .16s ease;
   opacity:0;
@@ -575,21 +575,21 @@ input:focus,select:focus,textarea:focus{
 
 .nav-item:hover{
   background:var(--gc-hov);
-  color:${C.subtle};
+  color:var(--arcd-text-muted);
   --ic-color:var(--gc);
 }
 .nav-item:hover::before{ height:13px; opacity:.45; }
 
 .nav-item[data-active="true"]{
   background:var(--gc-act);
-  color:${C.text};
+  color:var(--arcd-text-primary);
   font-weight:600;
   --ic-color:var(--gc);
 }
 .nav-item[data-active="true"]::before{ height:100%; opacity:1; }
 
 .nav-item:focus-visible{
-  outline:2px solid ${C.yellow};
+  outline:2px solid var(--arcd-gold-400);
   outline-offset:-2px;
 }
 
@@ -597,7 +597,7 @@ input:focus,select:focus,textarea:focus{
 .nav-dot{
   margin-left:auto; flex-shrink:0;
   width:5px; height:5px; border-radius:50%;
-  background:${C.red};
+  background:var(--arcd-danger-text);
 }
 
 /* Quem prefere menos movimento não leva movimento nenhum */
@@ -613,39 +613,39 @@ input:focus,select:focus,textarea:focus{
    rolar muito; o acordeao deixa aberto so o que interessa agora.
    ============================================================== */
 .acc-sec{
-  background:${C.card};
-  border:1px solid ${C.border};
-  border-radius:8px;
+  background:var(--arcd-surface-card);
+  border:var(--arcd-border-width) solid var(--arcd-border-default);
+  border-radius:var(--arcd-box-radius);
   overflow:hidden;
-  margin-bottom:9px;
+  margin-bottom:var(--arcd-space-2);
 }
 .acc-hd{
-  width:100%; display:flex; align-items:center; gap:9px;
-  padding:14px 15px;
+  width:100%; display:flex; align-items:center; gap:var(--arcd-space-2);
+  padding:var(--arcd-space-3) var(--arcd-space-4);
   background:transparent; border:0; cursor:pointer; text-align:left;
   font-family:var(--type-display);
   transition:background .14s ease;
 }
-.acc-hd:hover{ background:${C.surface}; }
-.acc-hd:focus-visible{ outline:2px solid ${C.yellow}; outline-offset:-2px; }
+.acc-hd:hover{ background:var(--arcd-surface-card); }
+.acc-hd:focus-visible{ outline:2px solid var(--arcd-gold-400); outline-offset:-2px; }
 .acc-ic{ flex-shrink:0; --ic-color:var(--acc-color); }
 .acc-title{
   flex:1; min-width:0;
-  font-size:13.5px; font-weight:600; color:${C.text};
+  font-size:13.5px; font-weight:600; color:var(--arcd-text-primary);
 }
 .acc-badge{
-  flex-shrink:0; min-width:20px; height:20px; padding:0 6px;
+  flex-shrink:0; min-width:20px; height:20px; padding:0 var(--arcd-space-1);
   display:flex; align-items:center; justify-content:center;
-  border-radius:6px; font-size:var(--arcd-type-caption); font-weight:600;
-  background:var(--acc-color); color:#fff;
+  border-radius:var(--arcd-radius-control); font-size:var(--arcd-type-caption); font-weight:600;
+  background:var(--acc-color); color:var(--arcd-text-inverse);
 }
 .acc-chev{
-  flex-shrink:0; font-size:var(--arcd-type-caption); color:${C.muted};
+  flex-shrink:0; font-size:var(--arcd-type-caption); color:var(--arcd-text-secondary);
   transition:transform .18s ease;
 }
 .acc-hd[data-open="true"] .acc-chev{ transform:rotate(180deg); }
 .acc-body{
-  padding:0 15px 14px;
+  padding:0 var(--arcd-space-4) var(--arcd-space-3);
   animation:accOpen .18s ease;
 }
 @keyframes accOpen{
@@ -653,14 +653,14 @@ input:focus,select:focus,textarea:focus{
   to  { opacity:1; transform:none }
 }
 .acc-link{
-  width:100%; margin-top:11px; padding:9px;
-  background:transparent; border:1px solid ${C.border};
-  border-radius:8px; cursor:pointer;
-  color:${C.yellowD}; font-size:var(--arcd-type-caption); font-weight:600;
+  width:100%; margin-top:var(--arcd-space-3); padding:var(--arcd-space-2);
+  background:transparent; border:var(--arcd-border-width) solid var(--arcd-border-default);
+  border-radius:var(--arcd-box-radius); cursor:pointer;
+  color:var(--arcd-gold-400); font-size:var(--arcd-type-caption); font-weight:600;
   font-family:var(--type-display);
   transition:background .14s ease, border-color .14s ease;
 }
-.acc-link:hover{ background:${C.yellow}0F; border-color:${C.yellow}; }
+.acc-link:hover{ background:color-mix(in srgb, var(--arcd-gold-400) 6%, transparent); border-color:var(--arcd-gold-400); }
 
 @media (prefers-reduced-motion: reduce){
   .acc-hd, .acc-chev{ transition:none }
@@ -668,8 +668,8 @@ input:focus,select:focus,textarea:focus{
 }
 /* Scrollbar */
 ::-webkit-scrollbar{width:4px;height:4px}
-::-webkit-scrollbar-track{background:${C.surface}}
-::-webkit-scrollbar-thumb{background:${C.cinza};border-radius:99px}
+::-webkit-scrollbar-track{background:var(--arcd-surface-card)}
+::-webkit-scrollbar-thumb{background:var(--arcd-text-muted);border-radius:var(--arcd-radius-pill)}
 /* Print */
 @media print{
   .no-print{display:none!important}
@@ -680,16 +680,11 @@ input:focus,select:focus,textarea:focus{
 div::-webkit-scrollbar{height:0;width:0}
 /* Ponto da quinzena: controles e legenda (sem estas regras os filtros e a
    legenda caiam um sob o outro, sem espaçamento nem quebra responsiva). */
-.ponto-geral-controls{background:${C.card};border:1px solid ${C.border};border-radius:${C.rLg}px;padding:12px 14px}
-.ponto-geral-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 10px;align-items:end}
-.ponto-geral-legend{display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:var(--arcd-type-caption);color:${C.muted};padding:9px 2px}
-.ponto-legend-title{font-weight:600;color:${C.text}}
-.ponto-legend-chip{display:inline-flex;align-items:center;gap:5px}
-.ponto-legend-chip>i{width:8px;height:8px;border-radius:99px;display:block;flex-shrink:0}
+.ponto-legend-chip{display:inline-flex;align-items:center;gap:var(--arcd-space-1)}
+.ponto-legend-chip>i{width:8px;height:8px;border-radius:var(--arcd-radius-pill);display:block;flex-shrink:0}
 .ponto-legend-help{margin-left:auto;font-style:italic}
 @media(max-width:767px){
-  .ponto-geral-filters{grid-template-columns:1fr 1fr}
-  .ponto-legend-help{margin-left:0;width:100%}
+    .ponto-legend-help{margin-left:0;width:100%}
 }
 `;
 const pointOperationId=()=>crypto.randomUUID();
@@ -2436,19 +2431,19 @@ function ChevronBaixo({ s = 14 }) {
 function BrandMark({ compact = false, dark = false, signature = true }) {
   const {theme} = useTheme();
   dark = dark && theme === "marcell";
-  return <div className="arcd-brand-mark" style={{display:"flex",alignItems:"center",gap:12,minWidth:0}}>
+  return <div className="arcd-brand-mark" style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-3)",minWidth:0}}>
     <CompanyAssetImage src={dark?BRAND.monogramOnDark:BRAND.monogram} alt="MRC" width={compact?34:46} style={{height:"auto",flexShrink:0}}/>
-    {!compact&&<div className="arcd-brand-word"><p style={{fontFamily:"var(--arcd-font-sans)",color:dark?"#FFFFFF":C.text,fontSize:"var(--arcd-type-card-title)",fontWeight:600,letterSpacing:".13em",lineHeight:1.2}}>MARCELL</p>{signature&&<p style={{fontSize:"var(--arcd-type-caption)",color:dark?"#C1CBD7":C.muted,lineHeight:1.5}}>Engenharia e construção</p>}</div>}
+    {!compact&&<div className="arcd-brand-word"><p style={{fontFamily:"var(--arcd-font-sans)",color:dark?"var(--arcd-text-inverse)":"var(--arcd-text-primary)",fontSize:"var(--arcd-type-card-title)",fontWeight:600,letterSpacing:".13em",lineHeight:1.2}}>MARCELL</p>{signature&&<p style={{fontSize:"var(--arcd-type-caption)",color:dark?"var(--arcd-text-secondary)":"var(--arcd-text-secondary)",lineHeight:1.5}}>Engenharia e construção</p>}</div>}
   </div>;
 }
 
 function ReportMetric({ label, value, detail, color=C.yellow, icon="chart", active=false, onClick }) {
   const Comp=onClick?"button":"div";
   return <Comp type={onClick?"button":undefined} onClick={onClick} className={onClick?"lift-card":""} style={{
-    appearance:"none",textAlign:"left",width:"100%",background:active?`${color}0D`:C.card,
-    border:`1px solid ${active?color:C.line}`,borderRadius:9,padding:"10px 11px",cursor:onClick?"pointer":"default",
+    appearance:"none",textAlign:"left",width:"100%",background:active?`${color}0D`:"var(--arcd-surface-card)",
+    border:`var(--arcd-border-width) solid ${active?color:C.line}`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-2) var(--arcd-space-3)",cursor:onClick?"pointer":"default",
     boxShadow:active?`0 0 0 2px ${color}12`:C.shHair,position:"relative",overflow:"hidden",
-  }}><span style={{position:"absolute",left:0,top:0,bottom:0,width:3,background:color}}/><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:.8,textTransform:"uppercase",color:C.muted}}>{label}</p><span style={{width:24,height:24,borderRadius:7,display:"grid",placeItems:"center",background:`${color}10`,color}}><Ic n={icon} s={12} color={color}/></span></div><p style={{fontFamily:FONT_DISPLAY,fontSize:"clamp(17px,2vw,21px)",fontWeight:600,letterSpacing:-.55,color:C.text,lineHeight:1,marginTop:7}}>{value}</p>{detail&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:4}}>{detail}</p>}</Comp>;
+  }}><span style={{position:"absolute",left:0,top:0,bottom:0,width:3,background:color}}/><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:.8,textTransform:"uppercase",color:"var(--arcd-text-secondary)"}}>{label}</p><span style={{width:24,height:24,borderRadius:"var(--arcd-radius-control)",display:"grid",placeItems:"center",background:`${color}10`,color}}><Ic n={icon} s={12} color={color}/></span></div><p style={{fontFamily:FONT_DISPLAY,fontSize:"clamp(17px,2vw,21px)",fontWeight:600,letterSpacing:-.55,color:"var(--arcd-text-primary)",lineHeight:1,marginTop:"var(--arcd-space-2)"}}>{value}</p>{detail&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>{detail}</p>}</Comp>;
 }
 
 function Toast({ toast }) {
@@ -2467,10 +2462,10 @@ function Toast({ toast }) {
       position:"fixed", left:"50%", bottom:20,
       transform:"translateX(-50%)", zIndex:1200,
       maxWidth:"calc(100vw - 28px)",
-      background:C.bg,
-      border:`1px solid ${color}`,
-      borderLeft:`1px solid ${color}`,
-      color:C.text, padding:"9px 13px",
+      background:"var(--arcd-surface-page)",
+      border:`var(--arcd-border-width) solid ${color}`,
+      borderLeft:`var(--arcd-border-width) solid ${color}`,
+      color:"var(--arcd-text-primary)", padding:"var(--arcd-space-2) var(--arcd-space-3)",
       boxShadow:"none",
       fontSize:"var(--arcd-type-label)", fontWeight:600, borderRadius:C.rMd,
       fontFamily:FONT_DISPLAY,
@@ -2570,14 +2565,14 @@ function FilaOperador({fila,onTab}){
   const setores=[...new Set(fila.map(x=>x.setor))];
   const setorAtivo=setores.includes(filtro)?filtro:"todas";
   const lista=setorAtivo==="todas"?fila:fila.filter(x=>x.setor===setorAtivo);
-  return <section id="dashboard-missoes" tabIndex={-1} className="dashboard-mission-queue" style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:C.rLg,overflow:"hidden",boxShadow:"none"}}>
-    <div className="dashboard-actions-header" style={{padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap",borderBottom:`1px solid ${C.line}`}}>
-      <div><h3 style={{...TYPO.h3,marginTop:3}}>Principais pendências</h3></div>
+  return <section id="dashboard-missoes" tabIndex={-1} className="dashboard-mission-queue" style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:C.rLg,overflow:"hidden",boxShadow:"none"}}>
+    <div className="dashboard-actions-header" style={{padding:"var(--arcd-space-3) var(--arcd-space-4)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",flexWrap:"wrap",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`}}>
+      <div><h3 style={{...TYPO.h3,marginTop:"var(--arcd-space-half)"}}>Principais pendências</h3></div>
       {setores.length>1&&<div className="dashboard-queue-filters" role="group" aria-label="Filtrar pendências por área">{["todas",...setores].map(setor=><Button key={setor} type="button" variant={setorAtivo===setor?"secondary":"ghost"} size="sm" onClick={()=>setFiltro(setor)} aria-pressed={setorAtivo===setor}>{setor==="todas"?"Todas":setor}</Button>)}</div>}
     </div>
     {!lista.length
-      ? <div style={{padding:25,textAlign:"center",color:C.green,fontSize:"var(--arcd-type-label)"}}><Ic n="check" color={C.green}/> Nenhuma pendência no seu escopo.</div>
-      : <div className="dashboard-mission-rows" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))"}}>{lista.map((m,i)=>{const cor=m.severidade===3?C.red:C.muted;return <button key={m.id} onClick={()=>onTab(m.tab)} style={{"--row-i":i,display:"grid",gridTemplateColumns:"38px minmax(0,1fr) auto",alignItems:"center",gap:10,textAlign:"left",border:0,borderRight:`1px solid ${C.line}`,borderBottom:`1px solid ${C.line}`,background:"transparent",padding:"13px 15px",cursor:"pointer",color:C.text}}><span className="dashboard-mission-icon" style={{width:36,height:36,borderRadius:9,display:"grid",placeItems:"center",background:`${cor}12`,border:`1px solid ${cor}35`,color:cor}}><Ic n={m.icon} s={15} color={C.muted}/></span><span style={{minWidth:0}}><b style={{display:"block",fontSize:"var(--arcd-type-label)",fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{m.titulo}</b><small style={{display:"block",fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{m.detalhe}</small></span><span className="dashboard-mission-count" style={{minWidth:27,height:27,borderRadius:9,display:"grid",placeItems:"center",fontSize:"var(--arcd-type-label)",fontWeight:600,color:cor,background:`${cor}12`}}>{m.quantidade}</span></button>;})}</div>}
+      ? <div style={{padding:"var(--arcd-space-6)",textAlign:"center",color:C.green,fontSize:"var(--arcd-type-label)"}}><Ic n="check" color={C.green}/> Nenhuma pendência no seu escopo.</div>
+      : <div className="dashboard-mission-rows" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))"}}>{lista.map((m,i)=>{const cor=m.severidade===3?C.red:C.muted;return <button key={m.id} onClick={()=>onTab(m.tab)} style={{"--row-i":i,display:"grid",gridTemplateColumns:"38px minmax(0,1fr) auto",alignItems:"center",gap:"var(--arcd-space-2)",textAlign:"left",border:0,borderRight:`var(--arcd-border-width) solid var(--arcd-border-subtle)`,borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`,background:"transparent",padding:"var(--arcd-space-3) var(--arcd-space-4)",cursor:"pointer",color:"var(--arcd-text-primary)"}}><span className="dashboard-mission-icon" style={{width:36,height:36,borderRadius:"var(--arcd-box-radius)",display:"grid",placeItems:"center",background:`${cor}12`,border:`var(--arcd-border-width) solid ${cor}35`,color:cor}}><Ic n={m.icon} s={15} color={C.muted}/></span><span style={{minWidth:0}}><b style={{display:"block",fontSize:"var(--arcd-type-label)",fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{m.titulo}</b><small style={{display:"block",fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{m.detalhe}</small></span><span className="dashboard-mission-count" style={{minWidth:27,height:27,borderRadius:"var(--arcd-box-radius)",display:"grid",placeItems:"center",fontSize:"var(--arcd-type-label)",fontWeight:600,color:cor,background:`${cor}12`}}>{m.quantidade}</span></button>;})}</div>}
   </section>;
 }
 
@@ -2586,26 +2581,26 @@ function FilaOperador({fila,onTab}){
 // buscar em outro lugar.
 function NoticiasSetor({carregando,noticias,titulo="Notícias do setor",subtitulo="Construção civil e engenharia"}){
   if(!carregando&&!noticias.length)return null;
-  return <section className="dashboard-news" style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:C.rLg,overflow:"hidden",boxShadow:"none"}}>
-    <div className="dashboard-news-header" style={{padding:"14px 16px",borderBottom:`1px solid ${C.line}`,display:"flex",alignItems:"center",gap:8}}>
+  return <section className="dashboard-news" style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:C.rLg,overflow:"hidden",boxShadow:"none"}}>
+    <div className="dashboard-news-header" style={{padding:"var(--arcd-space-3) var(--arcd-space-4)",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`,display:"flex",alignItems:"center",gap:"var(--arcd-space-2)"}}>
       <Ic n="fileText" s={14} color={C.yellowD}/>
       <h3 style={TYPO.h4}>{titulo}</h3>
       <span style={TYPO.small}>{subtitulo}</span>
     </div>
     {carregando
-      ? <div style={{padding:"4px 0"}}>{[0,1,2].map(i=>(
-          <div key={i} className="dashboard-news-skeleton" style={{padding:"12px 16px",borderTop:i?`1px solid ${C.line}`:"none"}}>
-            <div style={{height:11,width:`${70-i*12}%`,borderRadius:4,background:C.card2}}/>
+      ? <div style={{padding:"var(--arcd-space-1) 0"}}>{[0,1,2].map(i=>(
+          <div key={i} className="dashboard-news-skeleton" style={{padding:"var(--arcd-space-3) var(--arcd-space-4)",borderTop:i?`var(--arcd-border-width) solid var(--arcd-border-subtle)`:"none"}}>
+            <div style={{height:11,width:`${70-i*12}%`,borderRadius:"var(--arcd-radius-control)",background:"var(--arcd-surface-muted)"}}/>
           </div>
         ))}</div>
       : <div>{noticias.map((n,i)=>(
           <a key={n.link||i} href={n.link} target="_blank" rel="noopener noreferrer"
-             className="dashboard-news-row" style={{"--row-i":i,display:"flex",alignItems:"center",gap:10,padding:"12px 16px",borderTop:i?`1px solid ${C.line}`:"none",textDecoration:"none",color:C.text}}>
+             className="dashboard-news-row" style={{"--row-i":i,display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-3) var(--arcd-space-4)",borderTop:i?`var(--arcd-border-width) solid var(--arcd-border-subtle)`:"none",textDecoration:"none",color:"var(--arcd-text-primary)"}}>
             <span style={{minWidth:0,flex:1}}>
               <span style={{display:"block",fontSize:"var(--arcd-type-body)",fontWeight:600,lineHeight:1.4}}>{n.titulo}</span>
-              {n.fonte&&<small style={{display:"block",fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>{n.fonte}</small>}
+              {n.fonte&&<small style={{display:"block",fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{n.fonte}</small>}
             </span>
-            <span style={{fontSize:"var(--arcd-type-card-title)",color:C.muted,flexShrink:0}}>›</span>
+            <span style={{fontSize:"var(--arcd-type-card-title)",color:"var(--arcd-text-secondary)",flexShrink:0}}>›</span>
           </a>
         ))}</div>}
   </section>;
@@ -2671,73 +2666,73 @@ function CalendarioEmpresa({data,update,showToast,currentUser}){
   })];
   const proximos=eventos.filter(e=>e.data>=today()).sort((a,b)=>a.data.localeCompare(b.data)).slice(0,8);
 
-  return <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:C.rLg,boxShadow:"none",padding:18}}>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,gap:8,flexWrap:"wrap"}}>
+  return <div style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:C.rLg,boxShadow:"none",padding:"var(--arcd-space-4)"}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"var(--arcd-space-3)",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
       <h3 style={TYPO.h3}>Calendário da empresa</h3>
       <Btn size="sm" onClick={()=>setEventoForm({id:"",titulo:"",data:diaSelecionado||today(),tipo:"outro",descricao:""})}><Ic n="plus"/> Novo evento</Btn>
     </div>
-    <div style={{display:"grid",gridTemplateColumns:isDesktop?"minmax(0,1fr) 220px":"1fr",gap:16}}>
+    <div style={{display:"grid",gridTemplateColumns:isDesktop?"minmax(0,1fr) 220px":"1fr",gap:"var(--arcd-space-4)"}}>
       <div>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-          <button type="button" aria-label="Mês anterior" onClick={()=>setMesOffset(m=>m-1)} style={{background:"transparent",border:0,cursor:"pointer",color:C.muted,fontSize:"var(--arcd-type-control)",padding:"2px 10px",minWidth:44,minHeight:44}}>‹</button>
-          <b style={{fontSize:"var(--arcd-type-body)",color:C.text}}>{(s=>s.charAt(0).toUpperCase()+s.slice(1))(calRef.toLocaleDateString("pt-BR",{month:"long",year:"numeric"}))}</b>
-          <button type="button" aria-label="Próximo mês" onClick={()=>setMesOffset(m=>m+1)} style={{background:"transparent",border:0,cursor:"pointer",color:C.muted,fontSize:"var(--arcd-type-control)",padding:"2px 10px",minWidth:44,minHeight:44}}>›</button>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"var(--arcd-space-2)"}}>
+          <button type="button" aria-label="Mês anterior" onClick={()=>setMesOffset(m=>m-1)} style={{background:"transparent",border:0,cursor:"pointer",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-control)",padding:"var(--arcd-space-half) var(--arcd-space-2)",minWidth:44,minHeight:44}}>‹</button>
+          <b style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)"}}>{(s=>s.charAt(0).toUpperCase()+s.slice(1))(calRef.toLocaleDateString("pt-BR",{month:"long",year:"numeric"}))}</b>
+          <button type="button" aria-label="Próximo mês" onClick={()=>setMesOffset(m=>m+1)} style={{background:"transparent",border:0,cursor:"pointer",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-control)",padding:"var(--arcd-space-half) var(--arcd-space-2)",minWidth:44,minHeight:44}}>›</button>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3,marginBottom:4}}>
-          {["D","S","T","Q","Q","S","S"].map((d,i)=><span key={i} style={{textAlign:"center",fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted}}>{d}</span>)}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:"var(--arcd-space-half)",marginBottom:"var(--arcd-space-1)"}}>
+          {["D","S","T","Q","Q","S","S"].map((d,i)=><span key={i} style={{textAlign:"center",fontSize:"var(--arcd-type-caption)",fontWeight:600,color:"var(--arcd-text-secondary)"}}>{d}</span>)}
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:"var(--arcd-space-half)"}}>
           {celulas.map((c,i)=>c?(
             <button key={c.dia} onClick={()=>setDiaSelecionado(v=>v===c.dia?"":c.dia)}
-              style={{minHeight:52,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start",gap:3,padding:"4px 2px",
-                border:`1px solid ${diaSelecionado===c.dia?C.blue:C.border}`,borderRadius:6,
+              style={{minHeight:52,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start",gap:"var(--arcd-space-half)",padding:"var(--arcd-space-1) var(--arcd-space-half)",
+                border:`var(--arcd-border-width) solid ${diaSelecionado===c.dia?C.blue:C.border}`,borderRadius:"var(--arcd-radius-control)",
                 background:diaSelecionado===c.dia?`${C.blue}14`:c.dia===today()?`${C.yellowD}10`:"transparent",cursor:"pointer"}}>
-              <span style={{fontSize:"var(--arcd-type-label)",fontWeight:diaSelecionado===c.dia?600:600,color:diaSelecionado===c.dia?C.blue:C.text}}>{c.numero}</span>
-              <div style={{display:"flex",gap:2,flexWrap:"wrap",justifyContent:"center"}}>
-                {c.eventos.slice(0,3).map(e=><span key={e.id} title={e.titulo} style={{width:5,height:5,borderRadius:99,background:(TIPO_EVENTO_EMPRESA[e.tipo]||TIPO_EVENTO_EMPRESA.outro).c}}/>)}
+              <span style={{fontSize:"var(--arcd-type-label)",fontWeight:diaSelecionado===c.dia?600:600,color:diaSelecionado===c.dia?C.blue:"var(--arcd-text-primary)"}}>{c.numero}</span>
+              <div style={{display:"flex",gap:"var(--arcd-space-half)",flexWrap:"wrap",justifyContent:"center"}}>
+                {c.eventos.slice(0,3).map(e=><span key={e.id} title={e.titulo} style={{width:5,height:5,borderRadius:"var(--arcd-radius-pill)",background:(TIPO_EVENTO_EMPRESA[e.tipo]||TIPO_EVENTO_EMPRESA.outro).c}}/>)}
               </div>
             </button>
           ):<div key={`vazio-${i}`}/>)}
         </div>
-        {diaSelecionado&&<div style={{marginTop:10,display:"flex",flexDirection:"column",gap:6}}>
+        {diaSelecionado&&<div style={{marginTop:"var(--arcd-space-2)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>{fmtDate(diaSelecionado)}</p>
+            <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"var(--arcd-text-primary)"}}>{fmtDate(diaSelecionado)}</p>
             <button onClick={()=>setDiaSelecionado("")} style={{background:"transparent",border:0,color:C.blue,fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>Fechar</button>
           </div>
-          {(eventosPorDia[diaSelecionado]||[]).map(e=><div key={e.id} style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"7px 9px"}}>
+          {(eventosPorDia[diaSelecionado]||[]).map(e=><div key={e.id} style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"center",background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-2)"}}>
             <div style={{minWidth:0}}>
-              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>{e.titulo}</p>
-              <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:1}}>{(TIPO_EVENTO_EMPRESA[e.tipo]||TIPO_EVENTO_EMPRESA.outro).l}{e.descricao?` · ${e.descricao}`:""}</p>
+              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"var(--arcd-text-primary)"}}>{e.titulo}</p>
+              <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:1}}>{(TIPO_EVENTO_EMPRESA[e.tipo]||TIPO_EVENTO_EMPRESA.outro).l}{e.descricao?` · ${e.descricao}`:""}</p>
             </div>
-            <div style={{display:"flex",gap:4,flexShrink:0}}>
+            <div style={{display:"flex",gap:"var(--arcd-space-1)",flexShrink:0}}>
               <button onClick={()=>setEventoForm({...e})} style={{background:"transparent",border:0,color:C.blue,fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>Editar</button>
               <button onClick={()=>excluirEvento(e)} style={{background:"transparent",border:0,color:C.red,fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>Excluir</button>
             </div>
           </div>)}
-          {!(eventosPorDia[diaSelecionado]||[]).length&&<p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhum evento neste dia.</p>}
+          {!(eventosPorDia[diaSelecionado]||[]).length&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhum evento neste dia.</p>}
         </div>}
       </div>
       <div>
-        <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:500,color:C.muted,marginBottom:8}}>Próximos eventos</p>
-        <div style={{display:"flex",flexDirection:"column",gap:6}}>
-          {proximos.map(e=><div key={e.id} style={{display:"flex",gap:7,alignItems:"flex-start"}}>
-            <span style={{width:6,height:6,borderRadius:99,background:(TIPO_EVENTO_EMPRESA[e.tipo]||TIPO_EVENTO_EMPRESA.outro).c,marginTop:4,flexShrink:0}}/>
+        <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:500,color:"var(--arcd-text-secondary)",marginBottom:"var(--arcd-space-2)"}}>Próximos eventos</p>
+        <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>
+          {proximos.map(e=><div key={e.id} style={{display:"flex",gap:"var(--arcd-space-2)",alignItems:"flex-start"}}>
+            <span style={{width:6,height:6,borderRadius:"var(--arcd-radius-pill)",background:(TIPO_EVENTO_EMPRESA[e.tipo]||TIPO_EVENTO_EMPRESA.outro).c,marginTop:"var(--arcd-space-1)",flexShrink:0}}/>
             <div style={{minWidth:0}}>
-              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{e.titulo}</p>
-              <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{fmtDate(e.data)}</p>
+              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"var(--arcd-text-primary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{e.titulo}</p>
+              <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{fmtDate(e.data)}</p>
             </div>
           </div>)}
-          {!proximos.length&&<p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhum evento futuro.</p>}
+          {!proximos.length&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhum evento futuro.</p>}
         </div>
       </div>
     </div>
     {eventoForm&&<Modal title={eventoForm.id?"Editar evento":"Novo evento"} onClose={()=>setEventoForm(null)}>
-      <div style={{display:"flex",flexDirection:"column",gap:9}}>
+      <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
         <Inp label="Título *" value={eventoForm.titulo} onChange={v=>setEventoForm(f=>({...f,titulo:v}))}/>
         <Inp label="Data *" type="date" value={eventoForm.data} onChange={v=>setEventoForm(f=>({...f,data:v}))}/>
         <Sel label="Tipo" value={eventoForm.tipo} onChange={v=>setEventoForm(f=>({...f,tipo:v}))} options={Object.entries(TIPO_EVENTO_EMPRESA).map(([v,o])=>({v,l:o.l}))}/>
         <Inp label="Descrição" value={eventoForm.descricao} onChange={v=>setEventoForm(f=>({...f,descricao:v}))}/>
-        <div style={{display:"flex",gap:8}}>
+        <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
           <Btn v="ghost" full onClick={()=>setEventoForm(null)}>Cancelar</Btn>
           <Btn full onClick={salvarEvento}><Ic n="check"/> Salvar</Btn>
         </div>
@@ -2877,16 +2872,16 @@ function DashboardEngenheiro({data,update,showToast,onTab,currentUser,ultimaSync
   const fila=useMemo(()=>construirFilaOperador(data,currentUser),[data,currentUser]);
   const abrir=c=>{setWorkContextObra(c.obraId);sessionContext.setItem("arcd_conferencia_obra",c.obraId);onTab("conferencia");};
   const impacto={baixo:C.green,medio:C.orange,alto:"#E26A2C",critico:C.red};
-  return <div className="anim dashboard-tech-motion" style={{display:"flex",flexDirection:"column",gap:16}}>
+  return <div className="anim dashboard-tech-motion" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-4)"}}>
     <DashboardTechHero currentUser={currentUser} ultimaSync={ultimaSync} buscaObras={dashboardHasWorkSearch(data,currentUser,tabs)} saveState={saveState}/>
     <DashboardPriorities queue={fila} onOpen={item=>abrirPendenciaDashboard(onTab,item)}/>
     <DashboardDailyOperation data={data} workId={currentUser?.obraId} diaryWorks={obrasDoDiarioNoDashboard(data,currentUser)} tabs={tabs} onTab={onTab}/>
     <DashboardWorkOverview data={data} currentUser={currentUser} ultimaSync={ultimaSync} hoje={today()} onAbrirObra={obraId=>onTab("obras",obraId)} tabs={tabs}/>
     <FilaOperador fila={fila} onTab={onTab}/>
-    <div><p style={{...TYPO.eyebrow,color:C.blue}}>{ehAuditor?"Auditoria de engenharia":"Engenharia de campo"}</p><h2 style={{...TYPO.h2,marginTop:4}}>{ehAuditor?"Vistorias e validações":"Correções e evidências"}</h2><p style={{...TYPO.bodyMuted,marginTop:5}}>{ehAuditor?"Crie vistorias, registre os achados e valide as evidências enviadas pelos engenheiros de campo.":"Acesse apenas as pendências atribuídas a você e envie a foto da correção para validação do auditor."}</p></div>
-    <div className="dashboard-kpi-grid" style={{display:"grid",gridTemplateColumns:cols(2,3,4),gap:9}}>{(ehAuditor?[["Pendências auditadas",abertas.length,C.blue,"clipboard"],["Críticas",criticas,C.red,"alert"],["Para sua validação",aguardandoValidacao,C.green,"check"],["Vistorias sob sua responsabilidade",conferencias.length,C.purple,"building"]]:[["Pendências para corrigir",abertas.length,C.blue,"clipboard"],["Críticas",criticas,C.red,"alert"],["Aguardando sua correção",aguardandoCorrecao,C.orange,"camera"]]).map(([l,v,c,i],idx)=><span key={l} style={{"--row-i":idx}}><KpiCard label={l} value={v} icon={i} color={c}/></span>)}</div>
-    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:C.rLg,boxShadow:"none",display:"flex",gap:8,alignItems:"end",flexWrap:"wrap",padding:12}}><div style={{minWidth:240,flex:1}}><Sel label="Filtrar conferências por obra" value={obraFiltro} onChange={setObraFiltro} options={[{v:"all",l:"Todas as obras disponíveis"},...obras.map(o=>({v:o.id,l:o.name}))]}/></div><Btn v="ghost" onClick={()=>onTab("obras")}><Ic n="building"/> Abrir todas as obras</Btn>{currentUser?.obraId&&<p style={{width:"100%",fontSize:"var(--arcd-type-caption)",color:C.orange}}>Seu cadastro está restrito a uma obra. O administrador pode liberar “Todas as obras” na Central do Administrador.</p>}</div>
-    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:C.rLg,overflow:"hidden",boxShadow:"none"}}><div style={{padding:"13px 15px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between"}}><b style={{fontSize:"var(--arcd-type-body)",color:C.text}}>Pendências sob sua responsabilidade</b><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{ehAuditor?"Análise e validação técnica":"Somente envio da correção"}</span></div>{!abertas.length?<div style={{padding:30,textAlign:"center"}}><Ic n="check" s={24} color={C.green}/><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,marginTop:7}}>Nenhuma pendência aberta neste filtro</p></div>:abertas.map(({p,c,obra},index)=>{const acao=ehAuditor?(p.status==="aguardando_validacao"?"Validar evidência":"Acompanhar vistoria"):(p.status==="aguardando_validacao"?"Aguardando auditor":"Enviar correção");const corAcao=acao==="Validar evidência"?C.green:acao==="Enviar correção"?C.orange:C.blue;return <button key={`${c.id}-${p.id}`} onClick={()=>abrir(c)} style={{width:"100%",border:0,borderTop:index?`1px solid ${C.line}`:"none",background:"transparent",padding:"13px 15px",display:"grid",gridTemplateColumns:isDesktop?"minmax(170px,.7fr) minmax(260px,1.5fr) 130px 140px 26px":"1fr auto",gap:12,alignItems:"center",textAlign:"left",cursor:"pointer"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.blue}}>{obra?.name||"Obra"}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>CONF-{String(c.codigo||0).padStart(3,"0")}</p></div><div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.descricao}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.ajusteNecessario}</p></div><span style={{display:isDesktop?"inline-flex":"none",justifySelf:"start"}}><Badge color={impacto[p.impacto]||C.orange}>{p.impacto}</Badge></span><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:corAcao,whiteSpace:"nowrap"}}>{acao}</span><span style={{fontSize:"var(--arcd-type-section-title)",color:C.muted}}>›</span></button>;})}</div>
+    <div><p style={{...TYPO.eyebrow,color:C.blue}}>{ehAuditor?"Auditoria de engenharia":"Engenharia de campo"}</p><h2 style={{...TYPO.h2,marginTop:"var(--arcd-space-1)"}}>{ehAuditor?"Vistorias e validações":"Correções e evidências"}</h2><p style={{...TYPO.bodyMuted,marginTop:"var(--arcd-space-1)"}}>{ehAuditor?"Crie vistorias, registre os achados e valide as evidências enviadas pelos engenheiros de campo.":"Acesse apenas as pendências atribuídas a você e envie a foto da correção para validação do auditor."}</p></div>
+    <div className="dashboard-kpi-grid" style={{display:"grid",gridTemplateColumns:cols(2,3,4),gap:"var(--arcd-space-2)"}}>{(ehAuditor?[["Pendências auditadas",abertas.length,C.blue,"clipboard"],["Críticas",criticas,C.red,"alert"],["Para sua validação",aguardandoValidacao,C.green,"check"],["Vistorias sob sua responsabilidade",conferencias.length,C.purple,"building"]]:[["Pendências para corrigir",abertas.length,C.blue,"clipboard"],["Críticas",criticas,C.red,"alert"],["Aguardando sua correção",aguardandoCorrecao,C.orange,"camera"]]).map(([l,v,c,i],idx)=><span key={l} style={{"--row-i":idx}}><KpiCard label={l} value={v} icon={i} color={c}/></span>)}</div>
+    <div style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:C.rLg,boxShadow:"none",display:"flex",gap:"var(--arcd-space-2)",alignItems:"end",flexWrap:"wrap",padding:"var(--arcd-space-3)"}}><div style={{minWidth:240,flex:1}}><Sel label="Filtrar conferências por obra" value={obraFiltro} onChange={setObraFiltro} options={[{v:"all",l:"Todas as obras disponíveis"},...obras.map(o=>({v:o.id,l:o.name}))]}/></div><Btn v="ghost" onClick={()=>onTab("obras")}><Ic n="building"/> Abrir todas as obras</Btn>{currentUser?.obraId&&<p style={{width:"100%",fontSize:"var(--arcd-type-caption)",color:C.orange}}>Seu cadastro está restrito a uma obra. O administrador pode liberar “Todas as obras” na Central do Administrador.</p>}</div>
+    <div style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:C.rLg,overflow:"hidden",boxShadow:"none"}}><div style={{padding:"var(--arcd-space-3) var(--arcd-space-4)",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`,display:"flex",justifyContent:"space-between"}}><b style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)"}}>Pendências sob sua responsabilidade</b><span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{ehAuditor?"Análise e validação técnica":"Somente envio da correção"}</span></div>{!abertas.length?<div style={{padding:"var(--arcd-space-8)",textAlign:"center"}}><Ic n="check" s={24} color={C.green}/><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-2)"}}>Nenhuma pendência aberta neste filtro</p></div>:abertas.map(({p,c,obra},index)=>{const acao=ehAuditor?(p.status==="aguardando_validacao"?"Validar evidência":"Acompanhar vistoria"):(p.status==="aguardando_validacao"?"Aguardando auditor":"Enviar correção");const corAcao=acao==="Validar evidência"?C.green:acao==="Enviar correção"?C.orange:C.blue;return <button key={`${c.id}-${p.id}`} onClick={()=>abrir(c)} style={{width:"100%",border:0,borderTop:index?`var(--arcd-border-width) solid var(--arcd-border-subtle)`:"none",background:"transparent",padding:"var(--arcd-space-3) var(--arcd-space-4)",display:"grid",gridTemplateColumns:isDesktop?"minmax(170px,.7fr) minmax(260px,1.5fr) 130px 140px 26px":"1fr auto",gap:"var(--arcd-space-3)",alignItems:"center",textAlign:"left",cursor:"pointer"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.blue}}>{obra?.name||"Obra"}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>CONF-{String(c.codigo||0).padStart(3,"0")}</p></div><div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"var(--arcd-text-primary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.descricao}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.ajusteNecessario}</p></div><span style={{display:isDesktop?"inline-flex":"none",justifySelf:"start"}}><Badge color={impacto[p.impacto]||C.orange}>{p.impacto}</Badge></span><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:corAcao,whiteSpace:"nowrap"}}>{acao}</span><span style={{fontSize:"var(--arcd-type-section-title)",color:"var(--arcd-text-secondary)"}}>›</span></button>;})}</div>
     <CalendarioEmpresa data={data} update={update} showToast={showToast} currentUser={currentUser}/>
   </div>;
 }
@@ -2940,17 +2935,17 @@ function Dashboard({ data, update, showToast, onTab, onAbrirObra, ultimaSync, cu
     ...alertasBase,
   ].filter(a=>abasPermitidas.includes(a.tab)).filter((a,i,arr)=>arr.findIndex(x=>x.texto===a.texto)===i).sort((a,b)=>b.sev-a.sev);
 
-  const Titulo=({children,acao})=><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,marginBottom:12}}><div><h3 style={TYPO.h3}>{children}</h3></div>{acao}</div>;
+  const Titulo=({children,acao})=><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"var(--arcd-space-2)",marginBottom:"var(--arcd-space-3)"}}><div><h3 style={TYPO.h3}>{children}</h3></div>{acao}</div>;
   const superficie={background:C.card,border:`1px solid ${C.border}`,borderRadius:C.rLg,boxShadow:"none"};
 
-  return <div className="anim dashboard-tech-motion dashboard-command-center" style={{position:"relative",display:"flex",flexDirection:"column",gap:14,paddingBottom:16}}>
+  return <div className="anim dashboard-tech-motion dashboard-command-center" style={{position:"relative",display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)",paddingBottom:"var(--arcd-space-4)"}}>
     <DashboardTechHero currentUser={currentUser} ultimaSync={ultimaSync} onBuscar={onBuscar} onAtualizar={onAtualizar} buscaObras={dashboardHasWorkSearch(data,currentUser,abasPermitidas)} clima={resumoDiario.clima} saveState={saveState}/>
     <DashboardPriorities queue={filaOperador} onOpen={item=>abrirPendenciaDashboard(onTab,item)}/>
     <DashboardDailyOperation data={data} workId={currentUser?.obraId} diaryWorks={obrasDoDiarioNoDashboard(data,currentUser)} tabs={abasPermitidas} onTab={onTab}/>
     <DashboardWorkOverview data={data} currentUser={currentUser} ultimaSync={ultimaSync} hoje={hoje} onAbrirObra={onAbrirObra} tabs={abasPermitidas}/>
-      <div className="dashboard-work-grid__aside"><FilaOperador fila={filaOperador} onTab={onTab}/><details className="workspace-disclosure"><summary>Outras pendências ({prioridades.length})</summary><section id="dashboard-prioridades" style={{position:"relative",zIndex:1,padding:isDesktop?8:4}}>
-      <Titulo acao={<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:prioridades.length?C.red:C.green,background:`${prioridades.length?C.red:C.green}0D`,padding:"5px 9px",borderRadius:99}}>{prioridades.length?`${prioridades.length} para revisar`:"Tudo em ordem"}</span>}>Pendências que exigem atenção</Titulo>
-      {!prioridades.length?<div style={{padding:"18px 4px",display:"flex",alignItems:"center",gap:10,color:C.green}}><span style={{width:30,height:30,borderRadius:10,display:"grid",placeItems:"center",background:`${C.green}10`}}><Ic n="check"/></span><div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"var(--arcd-text-primary)"}}>Nenhuma pendência prioritária</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>A operação está sob controle.</p></div></div>:<div style={{display:"grid",gridTemplateColumns:isDesktop&&prioridades.length>3?"1fr 1fr":"1fr",columnGap:20}}>{prioridades.slice(0,8).map((a,i)=>{const cor=a.sev===3?C.red:a.sev===2?C.orange:C.blue;return <button key={`${a.texto}-${i}`} onClick={()=>onTab(a.tab)} style={{display:"flex",alignItems:"center",gap:11,width:"100%",textAlign:"left",border:0,borderTop:i>=(isDesktop&&prioridades.length>3?2:1)?"1px solid var(--arcd-border-subtle)":"none",background:"transparent",padding:"11px 3px",cursor:"pointer"}}><span style={{width:8,height:8,borderRadius:99,background:cor,boxShadow:`0 0 0 5px ${cor}0D`,flexShrink:0}}/><span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",lineHeight:1.35,flex:1}}>{a.texto}</span><span style={{fontSize:"var(--arcd-type-card-title)",color:"var(--arcd-text-secondary)"}}>›</span></button>;})}</div>}
+      <div className="dashboard-work-grid__aside"><FilaOperador fila={filaOperador} onTab={onTab}/><details className="workspace-disclosure"><summary>Outras pendências ({prioridades.length})</summary><section id="dashboard-prioridades" style={{position:"relative",zIndex:1,padding:isDesktop?"var(--arcd-space-2)":"var(--arcd-space-1)"}}>
+      <Titulo acao={<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:prioridades.length?C.red:C.green,background:`${prioridades.length?C.red:C.green}0D`,padding:"var(--arcd-space-1) var(--arcd-space-2)",borderRadius:"var(--arcd-radius-pill)"}}>{prioridades.length?`${prioridades.length} para revisar`:"Tudo em ordem"}</span>}>Pendências que exigem atenção</Titulo>
+      {!prioridades.length?<div style={{padding:"var(--arcd-space-4) var(--arcd-space-1)",display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",color:C.green}}><span style={{width:30,height:30,borderRadius:"var(--arcd-box-radius)",display:"grid",placeItems:"center",background:`${C.green}10`}}><Ic n="check"/></span><div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"var(--arcd-text-primary)"}}>Nenhuma pendência prioritária</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>A operação está sob controle.</p></div></div>:<div style={{display:"grid",gridTemplateColumns:isDesktop&&prioridades.length>3?"1fr 1fr":"1fr",columnGap:"var(--arcd-space-5)"}}>{prioridades.slice(0,8).map((a,i)=>{const cor=a.sev===3?C.red:a.sev===2?C.orange:C.blue;return <button key={`${a.texto}-${i}`} onClick={()=>onTab(a.tab)} style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-3)",width:"100%",textAlign:"left",border:0,borderTop:i>=(isDesktop&&prioridades.length>3?2:1)?"var(--arcd-border-width) solid var(--arcd-border-subtle)":"none",background:"transparent",padding:"var(--arcd-space-3) var(--arcd-space-half)",cursor:"pointer"}}><span style={{width:8,height:8,borderRadius:"var(--arcd-radius-pill)",background:cor,boxShadow:`0 0 0 5px ${cor}0D`,flexShrink:0}}/><span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",lineHeight:1.35,flex:1}}>{a.texto}</span><span style={{fontSize:"var(--arcd-type-card-title)",color:"var(--arcd-text-secondary)"}}>›</span></button>;})}</div>}
     </section></details>
     </div>
 
@@ -2961,7 +2956,7 @@ function Dashboard({ data, update, showToast, onTab, onAbrirObra, ultimaSync, cu
       </div>
       <ScopeNote title="Escopo dos indicadores">Consolidado do seu acesso. A seleção Obra em foco não filtra este painel. No Placar das obras, Hoje e Ontem alteram o ponto e o diário.</ScopeNote>
     </FilterBar>
-    <section id="dashboard-indicators" className="dashboard-executive-grid" data-expanded={todosIndicadores} style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:cols(2,3,4),gap:10}}>
+    <section id="dashboard-indicators" className="dashboard-executive-grid" data-expanded={todosIndicadores} style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:cols(2,3,4),gap:"var(--arcd-space-2)"}}>
       {[
         // Os quatro primeiros são os que pedem decisão; os demais ficam em "Mais indicadores".
         // Cor só quando há desvio (negativo, crítico, pendente); o resto fica neutro.
@@ -2978,17 +2973,17 @@ function Dashboard({ data, update, showToast, onTab, onAbrirObra, ultimaSync, cu
     </section>
     <Button variant="ghost" className="dashboard-indicators-toggle" aria-expanded={todosIndicadores} aria-controls="dashboard-indicators" onClick={()=>setTodosIndicadores(value=>!value)}>{todosIndicadores?"Menos indicadores":"Mais indicadores"} <span aria-hidden="true">{todosIndicadores?"▴":"▾"}</span></Button>
     <DashboardFinancialReading dre={exec.dre} period={`${fullMonth(month)} ${year}`} showCash={abasPermitidas.includes('dre')} showResult={abasPermitidas.includes('dre_emp')}/>
-    <details className="workspace-disclosure"><summary>Resumo financeiro e comercial</summary>    <section style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:isDesktop?"1fr 1fr":"1fr",gap:12}}>
-      <div style={{...superficie,padding:18}}><Titulo acao={<DesignSystemButton variant="link" size="sm" className="dashboard-link-btn" onClick={()=>onTab("dre_emp")}>Detalhes →</DesignSystemButton>}>Resumo financeiro</Titulo><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"14px 22px"}}>{[["A receber",exec.dre.aReceber,C.orange],["Fluxo do período",exec.dre.saldoCaixa,(exec.dre.saldoCaixa>0?C.green:exec.dre.saldoCaixa<0?C.red:C.muted)],["Principais saídas",exec.dre.totalCustos,C.red],["Resultado do mês",exec.dre.lucroBruto,(exec.dre.lucroBruto>0?C.green:exec.dre.lucroBruto<0?C.red:C.muted)]].map(([l,v,c])=><div key={l}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{l}</p><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:c,marginTop:5,letterSpacing:-.3}}>{fmt(v)}</p></div>)}</div></div>
-      <div style={{...superficie,padding:18}}><Titulo acao={<DesignSystemButton variant="link" size="sm" className="dashboard-link-btn" onClick={()=>onTab("com_dash")}>Abrir comercial →</DesignSystemButton>}>Resumo comercial</Titulo><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"14px 22px"}}>{[["Novos leads",novosLeads,C.blue],["Propostas abertas",propostasAbertas,C.orange],["Aguardando assinatura",contratosPendentes,C.red],["Vendas no mês",fmt(vendasMes),C.green]].map(([l,v,c])=><div key={l}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{l}</p><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:c,marginTop:5,letterSpacing:-.3}}>{v}</p></div>)}</div><div style={{height:5,display:"flex",overflow:"hidden",borderRadius:99,marginTop:17,background:"var(--arcd-surface-muted)"}}>{[["novo",C.blue],["qualificado",C.orange],["proposta",C.purple],["negociacao",C.yellowD]].map(([etapa,cor])=>{const qtd=leadsAtivos.filter(l=>l.etapa===etapa).length;return qtd?<span key={etapa} title={`${etapa}: ${qtd}`} style={{width:`${qtd/Math.max(1,leadsAtivos.length)*100}%`,background:cor}}/>:null;})}</div></div>
+    <details className="workspace-disclosure"><summary>Resumo financeiro e comercial</summary>    <section style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:isDesktop?"1fr 1fr":"1fr",gap:"var(--arcd-space-3)"}}>
+      <div style={{...superficie,padding:"var(--arcd-space-4)"}}><Titulo acao={<DesignSystemButton variant="link" size="sm" className="dashboard-link-btn" onClick={()=>onTab("dre_emp")}>Detalhes →</DesignSystemButton>}>Resumo financeiro</Titulo><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-3) var(--arcd-space-5)"}}>{[["A receber",exec.dre.aReceber,C.orange],["Fluxo do período",exec.dre.saldoCaixa,(exec.dre.saldoCaixa>0?C.green:exec.dre.saldoCaixa<0?C.red:C.muted)],["Principais saídas",exec.dre.totalCustos,C.red],["Resultado do mês",exec.dre.lucroBruto,(exec.dre.lucroBruto>0?C.green:exec.dre.lucroBruto<0?C.red:C.muted)]].map(([l,v,c])=><div key={l}><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{l}</p><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:c,marginTop:"var(--arcd-space-1)",letterSpacing:-.3}}>{fmt(v)}</p></div>)}</div></div>
+      <div style={{...superficie,padding:"var(--arcd-space-4)"}}><Titulo acao={<DesignSystemButton variant="link" size="sm" className="dashboard-link-btn" onClick={()=>onTab("com_dash")}>Abrir comercial →</DesignSystemButton>}>Resumo comercial</Titulo><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-3) var(--arcd-space-5)"}}>{[["Novos leads",novosLeads,C.blue],["Propostas abertas",propostasAbertas,C.orange],["Aguardando assinatura",contratosPendentes,C.red],["Vendas no mês",fmt(vendasMes),C.green]].map(([l,v,c])=><div key={l}><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{l}</p><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:c,marginTop:"var(--arcd-space-1)",letterSpacing:-.3}}>{v}</p></div>)}</div><div style={{height:5,display:"flex",overflow:"hidden",borderRadius:"var(--arcd-radius-pill)",marginTop:"var(--arcd-space-4)",background:"var(--arcd-surface-muted)"}}>{[["novo",C.blue],["qualificado",C.orange],["proposta",C.purple],["negociacao",C.yellowD]].map(([etapa,cor])=>{const qtd=leadsAtivos.filter(l=>l.etapa===etapa).length;return qtd?<span key={etapa} title={`${etapa}: ${qtd}`} style={{width:`${qtd/Math.max(1,leadsAtivos.length)*100}%`,background:cor}}/>:null;})}</div></div>
     </section></details>
 
     <section style={{position:"relative",zIndex:1}}><Titulo>Ações rápidas</Titulo><div className="dashboard-quick-actions">{[
       ["Nova compra","cart","cmp"],["Novo lead","user","com_leads"],["Lançar despesa","dollar","dre_emp"],["Abrir ponto","clock","ponto"],["Revisar medições","ruler","medicoes"],["Conferências","check","conferencia"],
-    ].filter(([, ,tab])=>abasPermitidas.includes(tab)).map(([label,icon,tab])=><button key={label} onClick={()=>onTab(tab)} className="dashboard-quick-action" style={{minHeight:70,border:`1px solid ${C.border}`,background:C.card,borderRadius:C.rLg,padding:11,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"flex-start",justifyContent:"space-between",textAlign:"left",...TYPO.label}}><span style={{width:28,height:28,borderRadius:9,background:C.card2,display:"grid",placeItems:"center",color:C.blue}}><Ic n={icon} s={13}/></span>{label}</button>)}</div></section>
+    ].filter(([, ,tab])=>abasPermitidas.includes(tab)).map(([label,icon,tab])=><button key={label} onClick={()=>onTab(tab)} className="dashboard-quick-action" style={{minHeight:70,border:`var(--arcd-border-width) solid var(--arcd-border-default)`,background:"var(--arcd-surface-card)",borderRadius:C.rLg,padding:"var(--arcd-space-3)",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"flex-start",justifyContent:"space-between",textAlign:"left",...TYPO.label}}><span style={{width:28,height:28,borderRadius:"var(--arcd-box-radius)",background:"var(--arcd-surface-muted)",display:"grid",placeItems:"center",color:C.blue}}><Ic n={icon} s={13}/></span>{label}</button>)}</div></section>
     <CalendarioEmpresa data={data} update={update} showToast={showToast} currentUser={currentUser}/>
     <details className="workspace-disclosure"><summary>Mercado e índices da construção</summary>
-    <section style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:isDesktop?"1fr 1fr":"1fr",gap:12}}>
+    <section style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:isDesktop?"1fr 1fr":"1fr",gap:"var(--arcd-space-3)"}}>
       <NoticiasSetor carregando={resumoDiario.carregando} noticias={resumoDiario.noticias}/>
       <NoticiasSetor carregando={resumoDiario.carregando} noticias={resumoDiario.noticiasCbicPe} titulo="CBIC Pernambuco" subtitulo="Sinduscon-PE e câmara regional"/>
     </section>
@@ -3074,7 +3069,7 @@ function FinanceiroObraPainel({data,showToast,currentUser=null,obraId,dispatchCo
     }
   };
   const Metric=({label,value,detail,tone="neutral"})=><div className={`obra-fin-metric ${tone}`}><span>{label}</span><strong>{fmt(value)}</strong><small>{detail}</small></div>;
-  const Tabela=({lista})=><div className="obra-fin-table-wrap"><table className="obra-fin-table"><thead><tr><th>Movimentação</th><th>Origem</th><th>Data</th><th>Natureza</th><th>Valor</th></tr></thead><tbody>{lista.map(m=><tr key={m.id}><td data-label="Movimentação"><b>{m.descricao}</b><small>{m.documento||m.grupo}</small></td><td data-label="Origem">{m.origem}</td><td data-label="Data">{m.data?fmtDate(m.data):"—"}</td><td data-label="Natureza"><span className={`obra-fin-status ${m.status}`}>{m.tipo==="receita"?"Receita reconhecida":m.tipo==="custo"?"Custo incorrido":m.tipo==="entrada"?"Entrada de caixa":"Saída de caixa"}</span></td><td data-label="Valor" className={["custo","saida"].includes(m.tipo)?"despesa":"receita"}>{["custo","saida"].includes(m.tipo)?"− ":"+ "}{fmt(m.valor)}</td></tr>)}</tbody></table>{!lista.length&&<div className="obra-fin-empty">Nenhuma movimentação encontrada neste filtro.</div>}</div>;
+  const Tabela=({lista})=><div className="obra-fin-table-wrap"><table className="arcd-data-table__table obra-fin-table"><thead><tr><th>Movimentação</th><th>Origem</th><th>Data</th><th>Natureza</th><th>Valor</th></tr></thead><tbody>{lista.map(m=><tr key={m.id}><td data-label="Movimentação"><b>{m.descricao}</b><small>{m.documento||m.grupo}</small></td><td data-label="Origem">{m.origem}</td><td data-label="Data">{m.data?fmtDate(m.data):"—"}</td><td data-label="Natureza"><span className={`obra-fin-status ${m.status}`}>{m.tipo==="receita"?"Receita reconhecida":m.tipo==="custo"?"Custo incorrido":m.tipo==="entrada"?"Entrada de caixa":"Saída de caixa"}</span></td><td data-label="Valor" className={["custo","saida"].includes(m.tipo)?"despesa":"receita"}>{["custo","saida"].includes(m.tipo)?"− ":"+ "}{fmt(m.valor)}</td></tr>)}</tbody></table>{!lista.length&&<div className="obra-fin-empty">Nenhuma movimentação encontrada neste filtro.</div>}</div>;
 
   return <div className="obra-financeiro">
     <header className="obra-fin-header"><div><p>CONTROLE FINANCEIRO DA OBRA</p><h2>{obra?.name||"Obra"}</h2><span>Recebimentos, compromissos e pagamentos em uma única visão.</span></div><DesignSystemButton onClick={()=>{setDespForm({obraId,competencia:periodo,categoria:"material",descricao:"",valor:""});setDespModal(true);}}><Ic n="plus"/> Nova despesa</DesignSystemButton></header>
@@ -3338,10 +3333,10 @@ Regras: diferencie faturamento de recebimento; não conclua excesso de pessoas a
     <div style={{
       display:"flex",justifyContent:"space-between",alignItems:"center",
       padding:`${bold?"8px":"5px"} 12px 5px ${12+indent*12}px`,
-      borderBottom:`1px solid ${C.line}22`,
+      borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)22`,
       background:bold?"var(--arcd-surface-subtle)":"transparent",
     }}>
-      <p style={{fontSize:"var(--arcd-type-body)",color:bold?C.text:C.muted,fontWeight:bold?600:400}}>{label}</p>
+      <p style={{fontSize:"var(--arcd-type-body)",color:bold?"var(--arcd-text-primary)":"var(--arcd-text-secondary)",fontWeight:bold?600:400}}>{label}</p>
       <div style={{textAlign:"right",flexShrink:0,fontVariantNumeric:"tabular-nums"}}>
         <p style={{fontSize:bold?"var(--arcd-type-card-title)":"var(--arcd-type-body)",color:tom,fontWeight:600}}>{fmt(value)}</p>
         {(pct!==null||marginBase!==null)&&<p style={{fontSize:"var(--arcd-type-caption)",color:tom,marginTop:1}}>{marginBase===null?pct1(pct):dreMargin(marginBase,pct)}</p>}
@@ -3349,11 +3344,11 @@ Regras: diferencie faturamento de recebimento; não conclua excesso de pessoas a
     </div>
   ); };
   const DRESection = ({title,color=C.yellow}) => (
-    <div style={{background:`${color}15`,borderLeft:`1px solid ${color}`,padding:"5px 12px",marginTop:6}}>
+    <div style={{background:`${color}15`,borderLeft:`var(--arcd-border-width) solid ${color}`,padding:"var(--arcd-space-1) var(--arcd-space-3)",marginTop:"var(--arcd-space-1)"}}>
       <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color,textTransform:"uppercase",letterSpacing:1}}>{title}</p>
     </div>
   );
-  const DRESeparator = () => <div style={{height:1,background:`linear-gradient(90deg,transparent,${C.line},transparent)`,margin:"4px 0"}}/>;
+  const DRESeparator = () => <div style={{height:1,background:`linear-gradient(90deg,transparent,${C.line},transparent)`,margin:"var(--arcd-space-1) 0"}}/>;
 
   //  DRE de uma obra (card)
   const renderObraDRE = (d, compact=false) => {
@@ -3361,26 +3356,26 @@ Regras: diferencie faturamento de recebimento; não conclua excesso de pessoas a
     const lucroCor = (d.lucroBruto>0?C.green:d.lucroBruto<0?C.red:C.muted);
     const caixaCor = d.saldoCaixa>=0?C.blue:C.red;
     return (
-      <div key={d.obra.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`1px solid ${lucroCor}`,borderRadius:10,overflow:"hidden"}}>
+      <div key={d.obra.id} style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderLeft:`var(--arcd-border-width) solid ${lucroCor}`,borderRadius:"var(--arcd-box-radius)",overflow:"hidden"}}>
         {/* Header obra */}
-        <div style={{background:`${lucroCor}10`,padding:"10px 14px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+        <div style={{background:`${lucroCor}10`,padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`,display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-2)"}}>
           <div>
             <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-card-title)"}}>{d.obra.name}</p>
-            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
+            <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>
               {CONTRACT_LABELS[d.obra.contractType]||"Contrato"}
               {d.obra.contractValue>0&&`  ${fmt(d.obra.contractValue)}`}
               {d.pctAvanco>0&&`  ${d.pctAvanco}% executado`}
             </p>
           </div>
           <div style={{textAlign:"right",flexShrink:0}}>
-            <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Lucro Bruto</p>
+            <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",fontWeight:600}}>Lucro Bruto</p>
             <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-section-title)",color:lucroCor,letterSpacing:.5}}>{fmt(d.lucroBruto)}</p>
             <p style={{fontSize:"var(--arcd-type-label)",color:lucroCor}}>{dreMargin(d.faturamento,d.margemBruta)}</p>
           </div>
         </div>
 
         {/* DRE */}
-        <div style={{padding:"8px 0"}}>
+        <div style={{padding:"var(--arcd-space-2) 0"}}>
           <DRESection title="Receitas" color={C.green}/>
           <DRERow label="Faturamento emitido" value={d.faturamento} color={C.green} bold/>
           {d.equipReceita>0&&<DRERow label="↳ inclui locação de equip. (líq.)" value={d.equipLucro} color={C.blue} indent={1}/>}
@@ -3392,8 +3387,8 @@ Regras: diferencie faturamento de recebimento; não conclua excesso de pessoas a
           <DRERow label="(-) Benefícios VT/VR" value={d.moData.benefitCost} color={C.muted}   indent={1}/>
           <DRERow label="(-) Terceirizados (obra)" value={d.tercCost}          color={C.purple}  indent={1}/>
           {d.tercPago>0&&(
-            <div style={{padding:"5px 12px 5px 24px",display:"flex",justifyContent:"space-between",alignItems:"center",opacity:.75}}>
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,fontStyle:"italic"}}>↳ já pago em caixa (referência, não afeta a margem desta obra)</p>
+            <div style={{padding:"var(--arcd-space-1) var(--arcd-space-3) var(--arcd-space-1) var(--arcd-space-6)",display:"flex",justifyContent:"space-between",alignItems:"center",opacity:.75}}>
+              <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",fontStyle:"italic"}}>↳ já pago em caixa (referência, não afeta a margem desta obra)</p>
               <p style={{fontSize:"var(--arcd-type-label)",color:C.green,fontWeight:600}}>{fmt(d.tercPago)}</p>
             </div>
           )}
@@ -3403,9 +3398,9 @@ Regras: diferencie faturamento de recebimento; não conclua excesso de pessoas a
           {d.outrasTotal>0&&<DRERow label="(-) Outras despesas" value={d.outrasTotal} color={C.orange} indent={1}/>}
           <DRERow label="Total custos" value={d.totalCustos} color={C.red} bold/>
           {d.tercEmpresaObra>0&&(
-            <div style={{padding:"5px 12px 5px 24px",display:"flex",justifyContent:"space-between",alignItems:"center",opacity:.75}}>
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,fontStyle:"italic"}}>Terceirizados pagos pela empresa (referência, não afeta a margem desta obra)</p>
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,fontWeight:600}}>{fmt(d.tercEmpresaObra)}</p>
+            <div style={{padding:"var(--arcd-space-1) var(--arcd-space-3) var(--arcd-space-1) var(--arcd-space-6)",display:"flex",justifyContent:"space-between",alignItems:"center",opacity:.75}}>
+              <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",fontStyle:"italic"}}>Terceirizados pagos pela empresa (referência, não afeta a margem desta obra)</p>
+              <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",fontWeight:600}}>{fmt(d.tercEmpresaObra)}</p>
             </div>
           )}
 
@@ -3421,27 +3416,27 @@ Regras: diferencie faturamento de recebimento; não conclua excesso de pessoas a
             <DRERow label="A receber (acum.)"  value={d.aReceberAcum} color={d.aReceberAcum>0?C.orange:C.muted}/>
             <DRERow label="Backlog disponível"  value={d.backlog}      color={d.backlog>0?C.yellow:C.muted}/>
             {/* Barra de progresso do contrato */}
-            <div style={{padding:"8px 14px 4px"}}>
-              <div style={{height:5,background:C.surface,borderRadius:99,overflow:"hidden",marginBottom:2}}>
-                <div style={{height:"100%",width:`${Math.min(d.pctFaturado,100)}%`,background:C.blue,borderRadius:99}}/>
+            <div style={{padding:"var(--arcd-space-2) var(--arcd-space-3) var(--arcd-space-1)"}}>
+              <div style={{height:5,background:"var(--arcd-surface-card)",borderRadius:"var(--arcd-radius-pill)",overflow:"hidden",marginBottom:"var(--arcd-space-half)"}}>
+                <div style={{height:"100%",width:`${Math.min(d.pctFaturado,100)}%`,background:C.blue,borderRadius:"var(--arcd-radius-pill)"}}/>
               </div>
-              <div style={{height:3,background:C.surface,borderRadius:99,overflow:"hidden"}}>
-                <div style={{height:"100%",width:`${Math.min(d.pctRecebido,100)}%`,background:C.green,borderRadius:99}}/>
+              <div style={{height:3,background:"var(--arcd-surface-card)",borderRadius:"var(--arcd-radius-pill)",overflow:"hidden"}}>
+                <div style={{height:"100%",width:`${Math.min(d.pctRecebido,100)}%`,background:C.green,borderRadius:"var(--arcd-radius-pill)"}}/>
               </div>
-              <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}> Faturado {d.pctFaturado.toFixed(0)}%  <span style={{color:C.green}}></span> Recebido {d.pctRecebido.toFixed(0)}%</p>
+              <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}> Faturado {d.pctFaturado.toFixed(0)}%  <span style={{color:C.green}}></span> Recebido {d.pctRecebido.toFixed(0)}%</p>
             </div>
           </>)}
 
           {/* Outras despesas detalhadas */}
           {!compact && d.outrasDesp.length>0&&(
-            <div style={{padding:"6px 14px 8px"}}>
-              <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600,marginBottom:4}}>Detalhamento outras despesas</p>
+            <div style={{padding:"var(--arcd-space-1) var(--arcd-space-3) var(--arcd-space-2)"}}>
+              <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",fontWeight:600,marginBottom:"var(--arcd-space-1)"}}>Detalhamento outras despesas</p>
               {d.outrasDesp.map(x=>(
-                <div key={x.id} style={{display:"flex",justifyContent:"space-between",fontSize:"var(--arcd-type-label)",color:C.muted,padding:"2px 0"}}>
-                  <span>{x.descricao||x.categoria} <span style={{color:C.muted,fontSize:"var(--arcd-type-caption)"}}>({fmtDateFull(x.competencia+"-01")})</span></span>
-                  <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                <div key={x.id} style={{display:"flex",justifyContent:"space-between",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",padding:"var(--arcd-space-half) 0"}}>
+                  <span>{x.descricao||x.categoria} <span style={{color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-caption)"}}>({fmtDateFull(x.competencia+"-01")})</span></span>
+                  <div style={{display:"flex",gap:"var(--arcd-space-2)",alignItems:"center"}}>
                     <span style={{color:C.orange,fontWeight:600}}>{fmt(x.valor)}</span>
-                    <button disabled={expenseCommandPending} onClick={()=>delDesp(x.id)} style={{background:"transparent",border:0,color:C.muted,cursor:"pointer",fontSize:"var(--arcd-type-control)",padding:0}}>x</button>
+                    <button disabled={expenseCommandPending} onClick={()=>delDesp(x.id)} style={{background:"transparent",border:0,color:"var(--arcd-text-secondary)",cursor:"pointer",fontSize:"var(--arcd-type-control)",padding:0}}>x</button>
                   </div>
                 </div>
               ))}
@@ -3610,7 +3605,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
     (!(obraIdFixo||view==="obra")||d.obraId===obraFinanceiraId));
 
   return (
-    <div className="anim dre-page" style={{display:"flex",flexDirection:"column",gap:14}}>
+    <div className="anim dre-page" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
 
       <PageHero
         eyebrow="Demonstrativo gerencial"
@@ -3663,14 +3658,14 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
       {/* KPI cards do recorte atual */}
       <div className="dre-kpi-grid">
         {[
-          ["faturamento","Faturamento",  dreResumo.faturamento,  C.green,  `${period}`],
-          ["recebido","Recebido",     dreResumo.recebido,     C.blue,   `a receber: ${fmt(dreResumo.aReceber)}`],
-          ["custos","Total de custos", dreResumo.totalCustos,  C.red,    `MO + terceiros + outros`],
-          ["lucro","Lucro bruto",  dreResumo.lucroBruto,   (dreResumo.lucroBruto>0?C.green:dreResumo.lucroBruto<0?C.red:C.muted), `margem ${dreMargin(dreResumo.faturamento,dreResumo.margemBruta)}`],
-        ].map(([k,l,v,c,s])=>(
-          <button type="button" className="dre-kpi-card" key={l} onClick={()=>{setDetalheKpi(k);setFiltroDetalhe({busca:"",categoria:"todos",obra:"todas",ordem:"data_desc"});}} style={{"--dre-kpi-color":c}}>
-            <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted}}>{l}</p>
-            <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,color:k==="lucro"?c:"var(--arcd-text-primary)",fontSize:"var(--arcd-type-page-title)",lineHeight:1.1,marginTop:4}}>{fmt(v)}</p>
+          ["faturamento","Faturamento",  dreResumo.faturamento,  `${period}`],
+          ["recebido","Recebido",     dreResumo.recebido,     `a receber: ${fmt(dreResumo.aReceber)}`],
+          ["custos","Total de custos", dreResumo.totalCustos,  `MO + terceiros + outros`],
+          ["lucro","Lucro bruto",  dreResumo.lucroBruto,   `margem ${dreMargin(dreResumo.faturamento,dreResumo.margemBruta)}`],
+        ].map(([k,l,v,s])=>(
+          <button type="button" className="dre-kpi-card" key={l} onClick={()=>{setDetalheKpi(k);setFiltroDetalhe({busca:"",categoria:"todos",obra:"todas",ordem:"data_desc"});}}>
+            <p>{l}</p>
+            <p data-tone={k==="lucro"&&v<0?"danger":undefined}>{fmt(v)}</p>
             <span className="dre-kpi-footer"><span>{s}</span><b>Ver movimentos <span aria-hidden="true">→</span></b></span>
           </button>
         ))}
@@ -3678,9 +3673,9 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
 
       {/*  VIEW: CONSOLIDADO  */}
       {view==="consolidado"&&(
-        <div style={{display:"flex",flexDirection:"column",gap:6}}>
-          <TaskDisclosure summary="Demonstrativo consolidado completo" defaultOpen={isDesktop}><div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
-            <div style={{padding:"8px 14px",background:`${C.green}10`,borderBottom:`1px solid ${C.line}`}}>
+        <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>
+          <TaskDisclosure summary="Demonstrativo consolidado completo" defaultOpen={isDesktop}><div style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",overflow:"hidden"}}>
+            <div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",background:`${C.green}10`,borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`}}>
               <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-card-title)",color:C.green,textTransform:"uppercase"}}>DRE Consolidado - {period}</p>
             </div>
             <DRESection title="Receitas" color={C.green}/>
@@ -3719,7 +3714,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
 
           </TaskDisclosure>
           {/* Por obra compact */}
-          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:1}}>Resumo por obra</p>
+          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:1}}>Resumo por obra</p>
           <Inp label="Pesquisar obra no resumo do DRE" value={dreWorkSearch} onChange={setDreWorkSearch}/>
           <ScopeNote title="Resumo por obra">A busca e a paginação não alteram os totais consolidados nem o relatório exportado.</ScopeNote>
           <RecordListPagination pagination={dreWorksPage} label="obras no DRE"/>
@@ -3738,7 +3733,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
 
       {/*  VIEW: POR OBRA  */}
       {view==="obra"&&(
-        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
           {!isDesktop&&<TaskDisclosure summary="Demonstrativo da obra">{renderObraDRE(dreObra,false)}</TaskDisclosure>}
           <TaskDisclosure enabled={!isDesktop} summary="Avaliação do CFO">
           <section className="dre-ai-full-report" style={{marginTop:0}}>
@@ -3752,8 +3747,8 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
               <div><span>Custo de mão de obra</span><strong>{fmt(dreObra.moData.laborCost+dreObra.moData.benefitCost)}</strong><small>folha e benefícios no período</small></div>
               <div><span>Histórico analisado</span><strong>6 meses</strong><small>faturamento, caixa, custo e margem</small></div>
             </div>
-            {!avaliacaoCFOObra?<p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.55,marginTop:10}}>O CFO cruza resultado, caixa, custo da equipe, homem-dias e evolução mensal. Quando faltarem avanço físico ou produção executada, ele indicará que não há base para afirmar excesso de pessoal.</p>:<>
-              <div className="dre-ai-conclusion" style={{marginTop:10}}><span>Veredicto · {avaliacaoCFOObra.veredicto||"inconclusivo"}</span><p>{avaliacaoCFOObra.avaliacao}</p></div>
+            {!avaliacaoCFOObra?<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:1.55,marginTop:"var(--arcd-space-2)"}}>O CFO cruza resultado, caixa, custo da equipe, homem-dias e evolução mensal. Quando faltarem avanço físico ou produção executada, ele indicará que não há base para afirmar excesso de pessoal.</p>:<>
+              <div className="dre-ai-conclusion" style={{marginTop:"var(--arcd-space-2)"}}><span>Veredicto · {avaliacaoCFOObra.veredicto||"inconclusivo"}</span><p>{avaliacaoCFOObra.avaliacao}</p></div>
               <div className="dre-ai-diagnosis-grid">
                 <article><span>Mão de obra · {avaliacaoCFOObra.maoDeObra?.veredicto||"inconclusivo"}</span><p>{avaliacaoCFOObra.maoDeObra?.analise}</p><small>{avaliacaoCFOObra.maoDeObra?.decisao}</small></article>
                 <article><span>Evolução mês a mês · {avaliacaoCFOObra.historico?.tendencia||"inconclusiva"}</span><p>{avaliacaoCFOObra.historico?.leitura}</p><small>Melhor: {avaliacaoCFOObra.historico?.melhorMes||"—"} · Pior: {avaliacaoCFOObra.historico?.piorMes||"—"}</small></article>
@@ -3772,20 +3767,20 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
       </>}
       {/*  VIEW: HISTÓRICO  */}
       {view==="historico"&&(
-        <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
-            <div style={{padding:"8px 14px",borderBottom:`1px solid ${C.line}`,display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr",gap:4}}>
+        <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+          <div style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",overflow:"hidden"}}>
+            <div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`,display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr",gap:"var(--arcd-space-1)"}}>
               {["Mês","Faturamento","Recebido","Lucro","Margem"].map(h=>(
-                <p key={h} style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>{h}</p>
+                <p key={h} style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>{h}</p>
               ))}
             </div>
             {hist.map((h,i)=>(
               <div key={i} style={{
-                padding:"8px 14px",borderBottom:i<hist.length-1?`1px solid ${C.line}22`:"none",
-                display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr",gap:4,
+                padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:i<hist.length-1?`var(--arcd-border-width) solid var(--arcd-border-subtle)22`:"none",
+                display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr",gap:"var(--arcd-space-1)",
                 background:h.m===month&&h.y===year?`${C.yellow}0a`:"transparent",
               }}>
-                <p style={{fontSize:"var(--arcd-type-body)",fontWeight:h.m===month&&h.y===year?600:500,color:h.m===month&&h.y===year?C.yellow:C.text}}>{h.mes}{h.m===month&&h.y===year?" ":""}</p>
+                <p style={{fontSize:"var(--arcd-type-body)",fontWeight:h.m===month&&h.y===year?600:500,color:h.m===month&&h.y===year?C.yellow:"var(--arcd-text-primary)"}}>{h.mes}{h.m===month&&h.y===year?" ":""}</p>
                 <p style={{fontSize:"var(--arcd-type-body)",color:C.green,fontWeight:600}}>{fmt(h.faturamento)}</p>
                 <p style={{fontSize:"var(--arcd-type-body)",color:C.blue}}>{fmt(h.recebido)}</p>
                 <p style={{fontSize:"var(--arcd-type-body)",color:(h.lucroBruto>0?C.green:h.lucroBruto<0?C.red:C.muted),fontWeight:600}}>{fmt(h.lucroBruto)}</p>
@@ -3802,26 +3797,26 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
 
       {/* Botão: lançar outras despesas */}
       <button onClick={()=>{setDespForm({obraId:obraFinanceiraId||data.obras[0]?.id||"",competencia:`${year}-${String(month+1).padStart(2,"0")}`,categoria:"material",descricao:"",valor:""});setDespModal(true);}} style={{
-        background:`${C.orange}10`,border:`1px dashed ${C.orange}66`,borderRadius:8,
-        color:C.orange,padding:"10px 14px",cursor:"pointer",fontFamily:"var(--arcd-font-sans)",
-        fontWeight:600,fontSize:"var(--arcd-type-control)",letterSpacing:.5,textAlign:"left",display:"flex",alignItems:"center",gap:8,
+        background:`${C.orange}10`,border:`var(--arcd-border-width) dashed ${C.orange}66`,borderRadius:"var(--arcd-box-radius)",
+        color:C.orange,padding:"var(--arcd-space-2) var(--arcd-space-3)",cursor:"pointer",fontFamily:"var(--arcd-font-sans)",
+        fontWeight:600,fontSize:"var(--arcd-type-control)",letterSpacing:.5,textAlign:"left",display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",
       }}>
         <Ic n="plus" color={C.orange}/> Lançar outras despesas (materiais, equipamentos, taxas...)
       </button>
 
       {/* Outras despesas do mês */}
       {!carregandoObra&&despesasVisiveis.length>0&&(
-        <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
-          <div style={{padding:"8px 14px",borderBottom:`1px solid ${C.line}`,background:`${C.orange}10`}}>
+        <div style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",overflow:"hidden"}}>
+          <div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`,background:`${C.orange}10`}}>
             <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-body)",color:C.orange,textTransform:"uppercase"}}>Outras despesas - {period}</p>
           </div>
           {despesasVisiveis.map(d=>(
-            <div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 14px",borderBottom:`1px solid ${C.line}22`}}>
+            <div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)22`}}>
               <div>
                 <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600}}>{d.descricao||d.categoria}</p>
-                <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>{rotuloCategoria(data, d.categoria)}  {data.obras.find(o=>o.id===d.obraId)?.name||"-"}</p>
+                <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>{rotuloCategoria(data, d.categoria)}  {data.obras.find(o=>o.id===d.obraId)?.name||"-"}</p>
               </div>
-              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              <div style={{display:"flex",gap:"var(--arcd-space-2)",alignItems:"center"}}>
                 <p style={{color:C.orange,fontWeight:600}}>{fmt(d.valor)}</p>
                 <Btn size="sm" v="danger" disabled={expenseCommandPending} onClick={()=>delDesp(d.id)}><Ic n="trash"/></Btn>
               </div>
@@ -3831,7 +3826,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
       )}
 
       {/* Exportações */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-2)"}}>
         <Btn onClick={gerarPDF} disabled={bloquearPdfObra} v="secondary" full><Ic n="file"/> DRE PDF</Btn>
         <Btn onClick={exportXLS} disabled={carregandoObra} v="success" full><Ic n="download"/> Excel Completo</Btn>
       </div>
@@ -3883,7 +3878,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
 
       {/* Modal: outras despesas */}
       <DesignSystemDialog open={despModal} onOpenChange={setDespModal} title="Lançar Outras Despesas">
-        <div style={{display:"grid",gap:10}}>
+        <div style={{display:"grid",gap:"var(--arcd-space-2)"}}>
           {obraIdFixo
             ? <DesignSystemInput label="Obra" value={data.obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
             : <DesignSystemSelect label="Obra" required value={despForm.obraId} onChange={e=>DF("obraId")(e.target.value)} options={[{value:"",label:"Selecione"},...data.obras.map(o=>({value:o.id,label:o.name}))]}/>
@@ -3896,15 +3891,15 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
             (data.obras.find(o=>o.id===(obraIdFixo||despForm.obraId))||{}).contractType
           ) && (
             <div>
-              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.subtle,textTransform:"uppercase",marginBottom:5}}>Este material entra na taxa de administração?</p>
-              <div style={{display:"flex",gap:8}}>
+              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"var(--arcd-text-muted)",textTransform:"uppercase",marginBottom:"var(--arcd-space-1)"}}>Este material entra na taxa de administração?</p>
+              <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
                 <DesignSystemButton size="sm" variant={despForm.contaAdmin!==false?"success":"ghost"} onClick={()=>DF("contaAdmin")(true)} style={{flex:1}}>Sim, entra</DesignSystemButton>
                 <DesignSystemButton size="sm" variant={despForm.contaAdmin===false?"danger":"ghost"} onClick={()=>DF("contaAdmin")(false)} style={{flex:1}}>Não entra</DesignSystemButton>
               </div>
-              <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:5,lineHeight:1.4}}>Material comprado direto pelo cliente ou já embutido no contrato, por exemplo, não deve entrar na base do percentual de administração.</p>
+              <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)",lineHeight:1.4}}>Material comprado direto pelo cliente ou já embutido no contrato, por exemplo, não deve entrar na base do percentual de administração.</p>
             </div>
           )}
-          <div style={{display:"flex",gap:8}}>
+          <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
             <DesignSystemButton variant="ghost" onClick={()=>setDespModal(false)} style={{flex:1}}>Cancelar</DesignSystemButton>
             <DesignSystemButton disabled={expenseCommandPending} onClick={saveDesp} style={{flex:1}}><Ic n="check"/> {expenseCommandPending?"Salvando...":"Lançar"}</DesignSystemButton>
           </div>
@@ -4058,7 +4053,7 @@ function CentralFiscal({data,update,showToast,currentUser,obraIdFiltro="all",onO
   };
   const notasEscopo=notas.filter(n=>obraIdFiltro==="all"||n.obraId===obraIdFiltro||n.rateios?.some(r=>r.obraId===obraIdFiltro));
   const lista=notasEscopo.filter(n=>filtro==="todas"||n.status===filtro||filtro==='recebida'&&n.conferenciaFiscalPendente);const valorPendente=contasPagarFiscal.balanceCents/100;
-  return <div style={{display:"flex",flexDirection:"column",gap:10}}>
+  return <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
     <PageHero headingLevel={2}
       eyebrow="Recepção e auditoria fiscal"
       title="Central de notas fiscais"
@@ -4071,7 +4066,7 @@ function CentralFiscal({data,update,showToast,currentUser,obraIdFiltro="all",onO
       ]}
       actions={<Btn onClick={()=>{setSugestoesNota([]);setForm(vazia());}}><Ic n="plus"/> Receber nota</Btn>}
     />
-    <Sel label="Obra" value={obraIdFiltro} onChange={onObraChange} options={[{v:"all",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/><div style={{display:"flex",gap:4,overflowX:"auto"}}>{[["todas","Todas"],["recebida","Em conferência"],["aprovada","Aprovadas"],["paga","Pagas"],["rejeitada","Rejeitadas"]].map(([v,l])=><button key={v} onClick={()=>setFiltro(v)} style={{padding:"6px 9px",border:`1px solid ${filtro===v?C.purple:C.border}`,borderRadius:7,background:filtro===v?`${C.purple}12`:C.card,color:filtro===v?C.purple:C.muted,fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>{l}</button>)}</div>{lista.map(n=><div key={n.id} style={{padding:"10px 11px",border:`1px solid ${C.border}`,borderLeft:`1px solid ${n.divergencias?.length?C.red:n.status==="aprovada"?C.green:C.blue}`,borderRadius:9,background:C.card}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><div><b style={{fontSize:"var(--arcd-type-body)"}}>{n.tipo.toUpperCase()} {n.numero} · {n.fornecedorNome||"Fornecedor"}</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{(data.obras||[]).find(o=>o.id===n.obraId)?.name} · emissão {fmtDate(n.emissao)} · {contar(n.documentos.length,"arquivo","arquivos")} no Drive</p></div><b style={{color:C.yellowD}}>{fmt(n.valorLiquido)}</b></div>{n.conferenciaFiscalPendente&&<p role="status">Conferência fiscal pendente. O pagamento registrado não substitui a revisão do documento.</p>}{n.divergencias?.map((d,i)=><p key={i} style={{fontSize:"var(--arcd-type-caption)",color:C.red,marginTop:4}}>⚠ {d}</p>)}{n.status==="rejeitada"&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.red,marginTop:4}}>Rejeitada por {n.rejeitadoPor||"-"}: {n.motivoRejeicao||"sem motivo registrado"}</p>}<div style={{display:"flex",gap:5,marginTop:7,flexWrap:"wrap"}}><Btn size="sm" v="ghost" onClick={()=>setForm({...n,valorBruto:String(n.valorBruto),valorLiquido:String(n.valorLiquido)})}>Verificar</Btn><Btn size="sm" v="ghost" onClick={()=>onMemorial?.({title:`Nota ${n.numero}`,items:[financialEntry(data,{sourceType:"nota_fiscal",sourceId:n.id,obraId:n.obraId,amountCents:Math.round(Number(n.valorLiquido||n.valorBruto||0)*100)})],context:"Documento fiscal e dados vinculados"})}>Ver memorial</Btn>{(n.status==="recebida"||n.conferenciaFiscalPendente)&&<Btn size="sm" v="success" onClick={()=>aprovar(n)}>Concluir conferência fiscal</Btn>}{["recebida","aprovada"].includes(n.status)&&<Btn size="sm" v="danger" onClick={()=>rejeitar(n)}>Rejeitar</Btn>}{n.documentos.map(a=><CompanyAssetLink key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-caption)",color:C.blue,padding:"6px"}}>{a.legenda||a.nome} ↗</CompanyAssetLink>)}</div></div>)}{!lista.length&&<p style={{padding:20,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhuma nota neste estágio.</p>}{form&&<Modal title={form.id?`Conferir nota ${form.numero}`:"Receber documento fiscal"} onClose={invoiceExit.requestClose} wide panelClass="invoice-conference-modal"><InvoiceConference documents={form.documentos||[]} driveId={(data.obras||[]).find(obra=>obra.id===(notas.find(nota=>nota.id===form.id)?.obraId||form.obraId))?.oneDriveDriveId} resolveFile={obterLinkArquivoOneDrive}><div style={{display:"flex",flexDirection:"column",gap:10}}><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Sel label="Tipo" value={form.tipo} onChange={F("tipo")} options={[{v:"nfe",l:"NF-e de produto"},{v:"nfse",l:"NFS-e de serviço"},{v:"cte",l:"CT-e / frete"},{v:"outro",l:"Outro documento"}]}/><Sel label="Obra *" value={form.obraId} onChange={v=>setForm(f=>({...f,obraId:v,pedidoId:""}))} options={[{v:"",l:"Selecione"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/><Sel label="Pedido relacionado" value={form.pedidoId} onChange={v=>setForm(f=>({...f,pedidoId:v,...(f.itensNota?.length?{itensNota:ligarItensAoPedido(f.itensNota,v)}:{})}))} options={[{v:"",l:"Sem pedido"},...(data.pedidos||[]).filter(p=>p.obraId===form.obraId).map(p=>({v:p.id,l:`${p.numero} · ${fmt(totalPedido(p))}`}))]}/><Inp label="Número *" value={form.numero} onChange={F("numero")}/><Inp label="Série" value={form.serie} onChange={F("serie")}/><Inp label="Chave de acesso" value={form.chave} onChange={F("chave")}/><Inp label="Emissão" type="date" value={form.emissao} onChange={F("emissao")}/><Inp label="Vencimento" type="date" value={form.vencimento} onChange={F("vencimento")}/><Inp label="Fornecedor" value={form.fornecedorNome} onChange={F("fornecedorNome")}/><Sel label="Categoria" value={form.categoria||""} onChange={F("categoria")} options={[{v:"",l:"Não informada"},...categoriasDesp(data),...(form.categoria&&!categoriasDesp(data).some(c=>c.v===form.categoria)?[{v:form.categoria,l:form.categoria}]:[])]}/><Inp label="Valor bruto *" type="number" value={form.valorBruto} onChange={v=>setForm(f=>({...f,valorBruto:v,valorLiquido:String(Math.max(0,Number(v||0)-totalRet(f)))}))}/><Inp label="Retenções" value={fmt(totalRet(form))} onChange={()=>{}} disabled/><Inp label="Valor líquido" type="number" value={form.valorLiquido} onChange={F("valorLiquido")}/></div><div style={{display:"grid",gridTemplateColumns:formGrid(4),gap:6}}>{Object.keys(form.retencoes).map(k=><Inp key={k} label={k.toUpperCase()} type="number" value={form.retencoes[k]} onChange={v=>setRetencao(k,v)}/>)}</div><label style={{padding:"12px",border:`2px solid ${C.green}66`,borderRadius:9,textAlign:"center",cursor:"pointer",color:C.green,fontSize:"var(--arcd-type-label)",fontWeight:600,background:`${C.green}08`}}>Importar XML da NF-e (preenche a nota e confere com o pedido)<input type="file" accept=".xml,text/xml,application/xml" onChange={importarXmlNfe} style={{display:"none"}}/></label>{sugestoesNota.length>1&&<div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Outros pedidos do fornecedor:</span>{sugestoesNota.map(s=><Btn key={s.pedido.id} size="sm" v={form.pedidoId===s.pedido.id?"success":"ghost"} onClick={()=>setForm(f=>({...f,obraId:s.pedido.obraId,pedidoId:s.pedido.id,...(f.itensNota?.length?{itensNota:ligarItensAoPedido(f.itensNota,s.pedido.id)}:{})}))}>{s.pedido.numero} · {fmt(s.total)} · {s.casados} item(ns)</Btn>)}</div>}{form.itensNota?.length>0&&(()=>{const ped=(data.pedidos||[]).find(p=>p.id===form.pedidoId);const nomeItem=i=>(data.materiais||[]).find(m=>m.id===i.materialId)?.descricao||i.descricaoRef||"Item";const usados=new Set(form.itensNota.map(i=>i.pedidoItemId).filter(Boolean));return <div style={{border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 10px",background:C.surface}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Itens da nota × pedido {ped?.numero||""}</p>{form.itensNota.map((it,ix)=>{const itemPed=ped?.itens?.find(x=>x.id===it.pedidoItemId);const divs=it.pedidoItemId?divergenciasDoItem(it,itemPed):[ped?"Sem item correspondente: vincule manualmente.":"Escolha o pedido para conferir."];return <div key={ix} style={{marginTop:6,paddingTop:6,borderTop:`1px solid ${C.line}`,display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)",gap:6,alignItems:"center"}}><span className="brk" style={{fontSize:"var(--arcd-type-label)",color:C.text}}><b>{it.descricao}</b><small style={{display:"block",color:C.muted}}>{Number(it.qtd).toLocaleString("pt-BR")} {it.unidade} × {fmt(it.precoUnit)} = {fmt(it.valorTotal)}</small></span><Sel label="Item do pedido" value={it.pedidoItemId||""} onChange={v=>setForm(f=>({...f,itensNota:f.itensNota.map((x,k)=>k===ix?{...x,pedidoItemId:v}:x)}))} options={[{v:"",l:"Sem vínculo"},...(ped?.itens||[]).filter(x=>x.id===it.pedidoItemId||!usados.has(x.id)).map(x=>({v:x.id,l:`${nomeItem(x)} · ${Number(x.qtd).toLocaleString("pt-BR")} × ${fmt(x.precoUnit)}`}))]}/>{divs.map((d,k)=><p key={k} style={{gridColumn:"1/-1",fontSize:"var(--arcd-type-caption)",color:C.red,fontWeight:600}}>⚠ {d}</p>)}</div>;})}{ped&&<p style={{fontSize:"var(--arcd-type-caption)",color:Math.abs(Number(form.valorBruto||0)-totalPedido(ped))>0.01?C.orange:C.green,fontWeight:600,marginTop:6}}>Nota {fmt(Number(form.valorBruto||0))} · pedido {fmt(totalPedido(ped))} · recebido {fmt(recebidoPedido(ped))}. A conferência completa roda ao salvar.</p>}</div>;})()}<label style={{padding:"12px",border:`2px dashed ${C.blue}55`,borderRadius:9,textAlign:"center",cursor:"pointer",color:C.blue,fontSize:"var(--arcd-type-label)",fontWeight:600}}>{subindo?"Enviando e lendo documento...":form.documentos?.length?"+ Anexar outro XML, PDF ou imagem":"Anexar XML, PDF ou imagem da nota"}<input type="file" accept=".xml,.pdf,image/*" onChange={importar} disabled={subindo} style={{display:"none"}}/></label>{form.documentos?.map(a=><CompanyAssetLink key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-label)",color:C.blue,textDecoration:"underline"}}>{a.legenda||a.nome} · visualizar no OneDrive ↗</CompanyAssetLink>)}{pedido&&<div style={{padding:"9px 10px",background:C.surface,borderRadius:8,fontSize:"var(--arcd-type-label)"}}>Pedido {pedido.numero}: <b>{fmt(totalPedido(pedido))}</b> · recebido: <b>{fmt(recebidoPedido(pedido))}</b></div>}<RecordRecoveryPanel data={data} recovery={invoiceRecovery} draft={form} fields={invoiceRecoveryFields} user={currentUser} onRebase={setForm} onConfirmed={async result=>{await update({__adotarServidorPatch:true,updatedAt:result.updatedAt,sections:{notasFiscais:result.data.notasFiscais,operationalCommandReceipts:result.data.operationalCommandReceipts}});setForm(null);}}/><div style={{display:"flex",gap:8}}><Btn v="ghost" disabled={invoiceCommandPending} onClick={invoiceExit.requestClose} full>Cancelar</Btn><Btn onClick={salvar} disabled={invoiceCommandPending} loading={invoiceCommandPending&&"Salvando…"} full>Salvar e conferir</Btn></div></div></InvoiceConference></Modal>}{form&&<UnsavedChangesPrompt guard={invoiceExit}/>}{xmlPreview&&<Modal title="Prévia da importação XML" wide onClose={()=>setXmlPreview(null)}><FinancialPreview
+    <Sel label="Obra" value={obraIdFiltro} onChange={onObraChange} options={[{v:"all",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/><div style={{display:"flex",gap:"var(--arcd-space-1)",overflowX:"auto"}}>{[["todas","Todas"],["recebida","Em conferência"],["aprovada","Aprovadas"],["paga","Pagas"],["rejeitada","Rejeitadas"]].map(([v,l])=><button key={v} onClick={()=>setFiltro(v)} style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",border:`var(--arcd-border-width) solid ${filtro===v?C.purple:C.border}`,borderRadius:"var(--arcd-radius-control)",background:filtro===v?`${C.purple}12`:"var(--arcd-surface-card)",color:filtro===v?C.purple:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>{l}</button>)}</div>{lista.map(n=><div key={n.id} style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderLeft:`var(--arcd-border-width) solid ${n.divergencias?.length?C.red:n.status==="aprovada"?C.green:C.blue}`,borderRadius:"var(--arcd-box-radius)",background:"var(--arcd-surface-card)"}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)"}}><div><b style={{fontSize:"var(--arcd-type-body)"}}>{n.tipo.toUpperCase()} {n.numero} · {n.fornecedorNome||"Fornecedor"}</b><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{(data.obras||[]).find(o=>o.id===n.obraId)?.name} · emissão {fmtDate(n.emissao)} · {contar(n.documentos.length,"arquivo","arquivos")} no Drive</p></div><b style={{color:C.yellowD}}>{fmt(n.valorLiquido)}</b></div>{n.conferenciaFiscalPendente&&<p role="status">Conferência fiscal pendente. O pagamento registrado não substitui a revisão do documento.</p>}{n.divergencias?.map((d,i)=><p key={i} style={{fontSize:"var(--arcd-type-caption)",color:C.red,marginTop:"var(--arcd-space-1)"}}>⚠ {d}</p>)}{n.status==="rejeitada"&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.red,marginTop:"var(--arcd-space-1)"}}>Rejeitada por {n.rejeitadoPor||"-"}: {n.motivoRejeicao||"sem motivo registrado"}</p>}<div style={{display:"flex",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-2)",flexWrap:"wrap"}}><Btn size="sm" v="ghost" onClick={()=>setForm({...n,valorBruto:String(n.valorBruto),valorLiquido:String(n.valorLiquido)})}>Verificar</Btn><Btn size="sm" v="ghost" onClick={()=>onMemorial?.({title:`Nota ${n.numero}`,items:[financialEntry(data,{sourceType:"nota_fiscal",sourceId:n.id,obraId:n.obraId,amountCents:Math.round(Number(n.valorLiquido||n.valorBruto||0)*100)})],context:"Documento fiscal e dados vinculados"})}>Ver memorial</Btn>{(n.status==="recebida"||n.conferenciaFiscalPendente)&&<Btn size="sm" v="success" onClick={()=>aprovar(n)}>Concluir conferência fiscal</Btn>}{["recebida","aprovada"].includes(n.status)&&<Btn size="sm" v="danger" onClick={()=>rejeitar(n)}>Rejeitar</Btn>}{n.documentos.map(a=><CompanyAssetLink key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-caption)",color:C.blue,padding:"var(--arcd-space-1)"}}>{a.legenda||a.nome} ↗</CompanyAssetLink>)}</div></div>)}{!lista.length&&<p style={{padding:"var(--arcd-space-5)",textAlign:"center",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhuma nota neste estágio.</p>}{form&&<Modal title={form.id?`Conferir nota ${form.numero}`:"Receber documento fiscal"} onClose={invoiceExit.requestClose} wide panelClass="invoice-conference-modal"><InvoiceConference documents={form.documentos||[]} driveId={(data.obras||[]).find(obra=>obra.id===(notas.find(nota=>nota.id===form.id)?.obraId||form.obraId))?.oneDriveDriveId} resolveFile={obterLinkArquivoOneDrive}><div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:"var(--arcd-space-2)"}}><Sel label="Tipo" value={form.tipo} onChange={F("tipo")} options={[{v:"nfe",l:"NF-e de produto"},{v:"nfse",l:"NFS-e de serviço"},{v:"cte",l:"CT-e / frete"},{v:"outro",l:"Outro documento"}]}/><Sel label="Obra *" value={form.obraId} onChange={v=>setForm(f=>({...f,obraId:v,pedidoId:""}))} options={[{v:"",l:"Selecione"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/><Sel label="Pedido relacionado" value={form.pedidoId} onChange={v=>setForm(f=>({...f,pedidoId:v,...(f.itensNota?.length?{itensNota:ligarItensAoPedido(f.itensNota,v)}:{})}))} options={[{v:"",l:"Sem pedido"},...(data.pedidos||[]).filter(p=>p.obraId===form.obraId).map(p=>({v:p.id,l:`${p.numero} · ${fmt(totalPedido(p))}`}))]}/><Inp label="Número *" value={form.numero} onChange={F("numero")}/><Inp label="Série" value={form.serie} onChange={F("serie")}/><Inp label="Chave de acesso" value={form.chave} onChange={F("chave")}/><Inp label="Emissão" type="date" value={form.emissao} onChange={F("emissao")}/><Inp label="Vencimento" type="date" value={form.vencimento} onChange={F("vencimento")}/><Inp label="Fornecedor" value={form.fornecedorNome} onChange={F("fornecedorNome")}/><Sel label="Categoria" value={form.categoria||""} onChange={F("categoria")} options={[{v:"",l:"Não informada"},...categoriasDesp(data),...(form.categoria&&!categoriasDesp(data).some(c=>c.v===form.categoria)?[{v:form.categoria,l:form.categoria}]:[])]}/><Inp label="Valor bruto *" type="number" value={form.valorBruto} onChange={v=>setForm(f=>({...f,valorBruto:v,valorLiquido:String(Math.max(0,Number(v||0)-totalRet(f)))}))}/><Inp label="Retenções" value={fmt(totalRet(form))} onChange={()=>{}} disabled/><Inp label="Valor líquido" type="number" value={form.valorLiquido} onChange={F("valorLiquido")}/></div><div style={{display:"grid",gridTemplateColumns:formGrid(4),gap:"var(--arcd-space-1)"}}>{Object.keys(form.retencoes).map(k=><Inp key={k} label={k.toUpperCase()} type="number" value={form.retencoes[k]} onChange={v=>setRetencao(k,v)}/>)}</div><label style={{padding:"var(--arcd-space-3)",border:`2px solid ${C.green}66`,borderRadius:"var(--arcd-box-radius)",textAlign:"center",cursor:"pointer",color:C.green,fontSize:"var(--arcd-type-label)",fontWeight:600,background:`${C.green}08`}}>Importar XML da NF-e (preenche a nota e confere com o pedido)<input type="file" accept=".xml,text/xml,application/xml" onChange={importarXmlNfe} style={{display:"none"}}/></label>{sugestoesNota.length>1&&<div style={{display:"flex",gap:"var(--arcd-space-1)",flexWrap:"wrap",alignItems:"center"}}><span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Outros pedidos do fornecedor:</span>{sugestoesNota.map(s=><Btn key={s.pedido.id} size="sm" v={form.pedidoId===s.pedido.id?"success":"ghost"} onClick={()=>setForm(f=>({...f,obraId:s.pedido.obraId,pedidoId:s.pedido.id,...(f.itensNota?.length?{itensNota:ligarItensAoPedido(f.itensNota,s.pedido.id)}:{})}))}>{s.pedido.numero} · {fmt(s.total)} · {s.casados} item(ns)</Btn>)}</div>}{form.itensNota?.length>0&&(()=>{const ped=(data.pedidos||[]).find(p=>p.id===form.pedidoId);const nomeItem=i=>(data.materiais||[]).find(m=>m.id===i.materialId)?.descricao||i.descricaoRef||"Item";const usados=new Set(form.itensNota.map(i=>i.pedidoItemId).filter(Boolean));return <div style={{border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-2) var(--arcd-space-2)",background:"var(--arcd-surface-card)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"var(--arcd-text-primary)"}}>Itens da nota × pedido {ped?.numero||""}</p>{form.itensNota.map((it,ix)=>{const itemPed=ped?.itens?.find(x=>x.id===it.pedidoItemId);const divs=it.pedidoItemId?divergenciasDoItem(it,itemPed):[ped?"Sem item correspondente: vincule manualmente.":"Escolha o pedido para conferir."];return <div key={ix} style={{marginTop:"var(--arcd-space-1)",paddingTop:"var(--arcd-space-1)",borderTop:`var(--arcd-border-width) solid var(--arcd-border-subtle)`,display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)",gap:"var(--arcd-space-1)",alignItems:"center"}}><span className="brk" style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}><b>{it.descricao}</b><small style={{display:"block",color:"var(--arcd-text-secondary)"}}>{Number(it.qtd).toLocaleString("pt-BR")} {it.unidade} × {fmt(it.precoUnit)} = {fmt(it.valorTotal)}</small></span><Sel label="Item do pedido" value={it.pedidoItemId||""} onChange={v=>setForm(f=>({...f,itensNota:f.itensNota.map((x,k)=>k===ix?{...x,pedidoItemId:v}:x)}))} options={[{v:"",l:"Sem vínculo"},...(ped?.itens||[]).filter(x=>x.id===it.pedidoItemId||!usados.has(x.id)).map(x=>({v:x.id,l:`${nomeItem(x)} · ${Number(x.qtd).toLocaleString("pt-BR")} × ${fmt(x.precoUnit)}`}))]}/>{divs.map((d,k)=><p key={k} style={{gridColumn:"1/-1",fontSize:"var(--arcd-type-caption)",color:C.red,fontWeight:600}}>⚠ {d}</p>)}</div>;})}{ped&&<p style={{fontSize:"var(--arcd-type-caption)",color:Math.abs(Number(form.valorBruto||0)-totalPedido(ped))>0.01?C.orange:C.green,fontWeight:600,marginTop:"var(--arcd-space-1)"}}>Nota {fmt(Number(form.valorBruto||0))} · pedido {fmt(totalPedido(ped))} · recebido {fmt(recebidoPedido(ped))}. A conferência completa roda ao salvar.</p>}</div>;})()}<label style={{padding:"var(--arcd-space-3)",border:`2px dashed ${C.blue}55`,borderRadius:"var(--arcd-box-radius)",textAlign:"center",cursor:"pointer",color:C.blue,fontSize:"var(--arcd-type-label)",fontWeight:600}}>{subindo?"Enviando e lendo documento...":form.documentos?.length?"+ Anexar outro XML, PDF ou imagem":"Anexar XML, PDF ou imagem da nota"}<input type="file" accept=".xml,.pdf,image/*" onChange={importar} disabled={subindo} style={{display:"none"}}/></label>{form.documentos?.map(a=><CompanyAssetLink key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-label)",color:C.blue,textDecoration:"underline"}}>{a.legenda||a.nome} · visualizar no OneDrive ↗</CompanyAssetLink>)}{pedido&&<div style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",background:"var(--arcd-surface-card)",borderRadius:"var(--arcd-box-radius)",fontSize:"var(--arcd-type-label)"}}>Pedido {pedido.numero}: <b>{fmt(totalPedido(pedido))}</b> · recebido: <b>{fmt(recebidoPedido(pedido))}</b></div>}<RecordRecoveryPanel data={data} recovery={invoiceRecovery} draft={form} fields={invoiceRecoveryFields} user={currentUser} onRebase={setForm} onConfirmed={async result=>{await update({__adotarServidorPatch:true,updatedAt:result.updatedAt,sections:{notasFiscais:result.data.notasFiscais,operationalCommandReceipts:result.data.operationalCommandReceipts}});setForm(null);}}/><div style={{display:"flex",gap:"var(--arcd-space-2)"}}><Btn v="ghost" disabled={invoiceCommandPending} onClick={invoiceExit.requestClose} full>Cancelar</Btn><Btn onClick={salvar} disabled={invoiceCommandPending} loading={invoiceCommandPending&&"Salvando…"} full>Salvar e conferir</Btn></div></div></InvoiceConference></Modal>}{form&&<UnsavedChangesPrompt guard={invoiceExit}/>}{xmlPreview&&<Modal title="Prévia da importação XML" wide onClose={()=>setXmlPreview(null)}><FinancialPreview
       description={`${xmlPreview.filename}. Aplicar preenche a ficha aberta; não salva nem cria uma nota fiscal.`}
       columns={["Campo","Na ficha","Do XML / proposta"]}
       rows={[["Número","numero"],["Série","serie"],["Chave","chave"],["Fornecedor","fornecedorNome"],["CNPJ / CPF","documentoFornecedor"],["Emissão","emissao"],["Vencimento","vencimento"],["Valor bruto","valorBruto"],["Valor líquido após retenções","valorLiquido"],["Pedido","pedidoId"]].map(([label,key])=>({id:key,cells:[label,xmlPreviewValue(key,xmlPreview.before[key]),xmlPreviewValue(key,xmlPreview.proposed[key])]}))}
@@ -4166,7 +4161,7 @@ function CentralPagamentosFinanceiro({data,showToast,currentUser,onNovaNota,onAb
     {numero:6,label:"A conciliar",valor:totalAConciliar,cor:C.orange,filtro:"conciliar"},
   ];
   const abrirPagamento=item=>setPagamento({type:item.tipo,id:item.registro.id});
-  if(!podeOperar)return <div style={{padding:30,textAlign:"center",border:`1px solid ${C.border}`,borderRadius:12,color:C.red}}>Central operacional exclusiva do Financeiro e da Administração.</div>;
+  if(!podeOperar)return <div style={{padding:"var(--arcd-space-8)",textAlign:"center",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",color:C.red}}>Central operacional exclusiva do Financeiro e da Administração.</div>;
   return <div className="anim payment-workspace mrc-command-workspace">
     {view.invoiceId&&<div className="financial-origin-return"><p role="status">Mostrando somente a obrigação do documento selecionado. Os valores do resumo continuam no escopo da obra.</p>
       {purchase&&navigate&&<Button variant="outline" onClick={()=>navigate('cmp',{obraId:selectedInvoice.obraId},{action:'open-order',record:{orderId:purchase.id}})}>Abrir compra de origem</Button>}
@@ -4254,24 +4249,24 @@ function FinanceiroAdministrativo({data,update,showToast,currentUser,C=C_ARCD_SE
     />
     <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:"var(--arcd-space-2)"}}><Sel label="Obra" value={obraId} onChange={setObraId} options={[{v:"all",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/><Sel label="Mês" value={String(mes)} onChange={v=>setMes(Number(v))} options={Array.from({length:12},(_,i)=>({v:String(i),l:fullMonth(i)}))}/><Sel label="Ano" value={String(ano)} onChange={v=>setAno(Number(v))} options={Array.from({length:5},(_,i)=>agora.getFullYear()-2+i).map(v=>({v:String(v),l:String(v)}))}/></div>
     {aba==="resumo"&&<>
-      <div style={{display:"grid",gridTemplateColumns:cols(2,3,3),gap:"var(--arcd-space-2)"}}>{[["Faturamento",faturamento,C.green,"emitido"],["Recebido",recebido,C.blue,"entrada de caixa"],["A receber",aReceber,C.orange,`${contar(receitasAbertas.length,"título","títulos")}`],["Custos e despesas",custos,C.red,despesasAdministrativas?`${fmt(despesasAdministrativas)} administrativo`:"regime gerencial"],["Notas em aberto",valorNotasAbertas,C.purple,`${contar(notasAbertas.length,"documento","documentos")}`],["Resultado",resultado,(resultado>0?C.green:resultado<0?C.red:C.muted),faturamento?`${((resultado/faturamento)*100).toFixed(1)}% de margem`:"sem faturamento"]].map(([l,v,c,s])=><div key={l} style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderTop:`3px solid ${c}`,borderRadius:9,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>{l}</p><p style={{fontSize:"var(--arcd-type-section-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:c,marginTop:"var(--arcd-space-half)"}}>{fmt(v)}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{s}</p></div>)}</div>
+      <div style={{display:"grid",gridTemplateColumns:cols(2,3,3),gap:"var(--arcd-space-2)"}}>{[["Faturamento",faturamento,C.green,"emitido"],["Recebido",recebido,C.blue,"entrada de caixa"],["A receber",aReceber,C.orange,`${contar(receitasAbertas.length,"título","títulos")}`],["Custos e despesas",custos,C.red,despesasAdministrativas?`${fmt(despesasAdministrativas)} administrativo`:"regime gerencial"],["Notas em aberto",valorNotasAbertas,C.purple,`${contar(notasAbertas.length,"documento","documentos")}`],["Resultado",resultado,(resultado>0?C.green:resultado<0?C.red:C.muted),faturamento?`${((resultado/faturamento)*100).toFixed(1)}% de margem`:"sem faturamento"]].map(([l,v,c,s])=><div key={l} style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderTop:`3px solid ${c}`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>{l}</p><p style={{fontSize:"var(--arcd-type-section-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:c,marginTop:"var(--arcd-space-half)"}}>{fmt(v)}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{s}</p></div>)}</div>
       <div style={{display:"grid",gridTemplateColumns:cols("1fr","1fr","1fr 1fr"),gap:"var(--arcd-space-2)"}}>
-        <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:9,overflow:"hidden"}}><div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:"1px solid var(--arcd-border-default)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>Próximas receitas</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Medições ainda não recebidas</p></div><div style={{maxHeight:230,overflowY:"auto"}}>{receitasAbertas.slice(0,12).map(item=>{const vencida=item.dataVencimento&&item.dataVencimento<today();return <div key={item.id} style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:"1px solid var(--arcd-border-default)",display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{item.descricao||`Medição ${item.numeroParcela||""}`}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{obraNome(item.obraId)} · {item.dataVencimento?fmtDate(item.dataVencimento):"sem vencimento"}</p></div><b style={{fontSize:"var(--arcd-type-label)",color:vencida?"var(--arcd-danger-text)":"var(--arcd-success-text)",whiteSpace:"nowrap"}}>{fmt(item.valorPrevisto)}</b></div>})}{!receitasAbertas.length&&<p style={{padding:"var(--arcd-space-4)",textAlign:"center",fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Nenhuma receita em aberto no período.</p>}</div></div>
-        <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:9,overflow:"hidden"}}><div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:"1px solid var(--arcd-border-default)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>Próximas obrigações</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Notas aguardando pagamento ou conferência</p></div><div style={{maxHeight:230,overflowY:"auto"}}>{notasAbertas.sort((a,b)=>String(a.vencimento).localeCompare(String(b.vencimento))).slice(0,12).map(item=>{const vencida=item.vencimento&&item.vencimento<today();return <div key={item.id} style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:"1px solid var(--arcd-border-default)",display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{item.fornecedorNome||`Nota ${item.numero}`}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{obraNome(item.obraId)} · {item.vencimento?fmtDate(item.vencimento):"sem vencimento"}</p></div><b style={{fontSize:"var(--arcd-type-label)",color:vencida?"var(--arcd-danger-text)":"var(--arcd-warning-text)",whiteSpace:"nowrap"}}>{fmt(item.valorLiquido||item.valorBruto)}</b></div>})}{!notasAbertas.length&&<p style={{padding:"var(--arcd-space-4)",textAlign:"center",fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Nenhuma obrigação fiscal em aberto.</p>}</div></div>
+        <div style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)",overflow:"hidden"}}><div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>Próximas receitas</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Medições ainda não recebidas</p></div><div style={{maxHeight:230,overflowY:"auto"}}>{receitasAbertas.slice(0,12).map(item=>{const vencida=item.dataVencimento&&item.dataVencimento<today();return <div key={item.id} style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)",display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{item.descricao||`Medição ${item.numeroParcela||""}`}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{obraNome(item.obraId)} · {item.dataVencimento?fmtDate(item.dataVencimento):"sem vencimento"}</p></div><b style={{fontSize:"var(--arcd-type-label)",color:vencida?"var(--arcd-danger-text)":"var(--arcd-success-text)",whiteSpace:"nowrap"}}>{fmt(item.valorPrevisto)}</b></div>})}{!receitasAbertas.length&&<p style={{padding:"var(--arcd-space-4)",textAlign:"center",fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Nenhuma receita em aberto no período.</p>}</div></div>
+        <div style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)",overflow:"hidden"}}><div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>Próximas obrigações</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Notas aguardando pagamento ou conferência</p></div><div style={{maxHeight:230,overflowY:"auto"}}>{notasAbertas.sort((a,b)=>String(a.vencimento).localeCompare(String(b.vencimento))).slice(0,12).map(item=>{const vencida=item.vencimento&&item.vencimento<today();return <div key={item.id} style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)",display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{item.fornecedorNome||`Nota ${item.numero}`}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{obraNome(item.obraId)} · {item.vencimento?fmtDate(item.vencimento):"sem vencimento"}</p></div><b style={{fontSize:"var(--arcd-type-label)",color:vencida?"var(--arcd-danger-text)":"var(--arcd-warning-text)",whiteSpace:"nowrap"}}>{fmt(item.valorLiquido||item.valorBruto)}</b></div>})}{!notasAbertas.length&&<p style={{padding:"var(--arcd-space-4)",textAlign:"center",fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Nenhuma obrigação fiscal em aberto.</p>}</div></div>
       </div>
-      {obraId==="all"&&<div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:9,overflowX:"auto"}}><table style={{width:"100%",minWidth:720,borderCollapse:"collapse",fontSize:"var(--arcd-type-caption)"}}><thead><tr style={{background:"var(--arcd-surface-muted)"}}>{["Obra","Faturado","Recebido","Custos","Resultado","A receber","Margem"].map(h=><th key={h} style={{padding:"var(--arcd-space-2)",textAlign:h==="Obra"?"left":"right",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)",borderBottom:"1px solid var(--arcd-border-default)"}}>{h}</th>)}</tr></thead><tbody>{linhasObra.map(l=>{const res=l.faturamento-l.totalCustos;return <tr key={l.obra.id} onClick={()=>setObraId(l.obra.id)} style={{borderBottom:"1px solid var(--arcd-border-default)",cursor:"pointer"}}><td style={{padding:"var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{l.obra.name}</td>{[l.faturamento,l.recebido,l.totalCustos,res,l.aReceber].map((v,i)=><td key={i} style={{padding:"var(--arcd-space-2)",textAlign:"right",fontWeight:i===3?600:600,color:i===3?(v>=0?"var(--arcd-success-text)":"var(--arcd-danger-text)"):"var(--arcd-text-primary)"}}>{fmt(v)}</td>)}<td style={{padding:"var(--arcd-space-2)",textAlign:"right",fontWeight:"var(--arcd-font-weight-semibold)",color:res>=0?"var(--arcd-success-text)":"var(--arcd-danger-text)"}}>{l.faturamento?`${pct1(res/l.faturamento*100)}`:"-"}</td></tr>})}</tbody></table></div>}
+      {obraId==="all"&&<div style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)",overflowX:"auto"}}><table className="arcd-data-table__table" style={{width:"100%",minWidth:720,borderCollapse:"collapse"}}><thead><tr style={{background:"var(--arcd-surface-muted)"}}>{["Obra","Faturado","Recebido","Custos","Resultado","A receber","Margem"].map(h=><th key={h} style={{padding:"var(--arcd-space-2)",textAlign:h==="Obra"?"left":"right",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}>{h}</th>)}</tr></thead><tbody>{linhasObra.map(l=>{const res=l.faturamento-l.totalCustos;return <tr key={l.obra.id} onClick={()=>setObraId(l.obra.id)} style={{borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)",cursor:"pointer"}}><td style={{padding:"var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{l.obra.name}</td>{[l.faturamento,l.recebido,l.totalCustos,res,l.aReceber].map((v,i)=><td key={i} style={{padding:"var(--arcd-space-2)",textAlign:"right",fontWeight:i===3?600:600,color:i===3?(v>=0?"var(--arcd-success-text)":"var(--arcd-danger-text)"):"var(--arcd-text-primary)"}}>{fmt(v)}</td>)}<td style={{padding:"var(--arcd-space-2)",textAlign:"right",fontWeight:"var(--arcd-font-weight-semibold)",color:res>=0?"var(--arcd-success-text)":"var(--arcd-danger-text)"}}>{l.faturamento?`${pct1(res/l.faturamento*100)}`:"-"}</td></tr>})}</tbody></table></div>}
     </>}
     {["receitas","despesas"].includes(aba)&&<>
-      <div style={{display:"grid",gridTemplateColumns:cols(1,3,3),gap:"var(--arcd-space-2)"}}>{(aba==="receitas"?[["Faturado",faturamento,C.green],["Recebido",recebido,C.blue],["A receber",aReceber,C.orange]]:[["Custos e despesas",custos,C.red],["Notas em aberto",valorNotasAbertas,C.purple],["Documentos fiscais",notas.length,C.blue]]).map(([l,v,c])=><div key={l} style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderTop:`3px solid ${c}`,borderRadius:9,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>{l}</p><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:c,marginTop:"var(--arcd-space-half)"}}>{typeof v==="number"&&l!=="Documentos fiscais"?fmt(v):v}</p></div>)}</div>
+      <div style={{display:"grid",gridTemplateColumns:cols(1,3,3),gap:"var(--arcd-space-2)"}}>{(aba==="receitas"?[["Faturado",faturamento,C.green],["Recebido",recebido,C.blue],["A receber",aReceber,C.orange]]:[["Custos e despesas",custos,C.red],["Notas em aberto",valorNotasAbertas,C.purple],["Documentos fiscais",notas.length,C.blue]]).map(([l,v,c])=><div key={l} style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderTop:`3px solid ${c}`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>{l}</p><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:c,marginTop:"var(--arcd-space-half)"}}>{typeof v==="number"&&l!=="Documentos fiscais"?fmt(v):v}</p></div>)}</div>
       <Inp label={`Pesquisar em ${aba}`} value={buscaMov} onChange={setBuscaMov} placeholder="Descrição, obra, origem ou situação..."/>
-      <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:9,overflowX:"auto"}}><table style={{width:"100%",minWidth:920,borderCollapse:"collapse",fontSize:"var(--arcd-type-caption)"}}><thead><tr style={{background:"var(--arcd-surface-muted)"}}>{["Data","Origem","Descrição","Obra","Situação","Valor","Documentos"].map(h=><th key={h} style={{padding:"var(--arcd-space-2)",textAlign:h==="Valor"?"right":"left",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)",borderBottom:"1px solid var(--arcd-border-default)"}}>{h}</th>)}</tr></thead><tbody>{movimentosVisiveis.map(item=>{const cor=statusCor(item.status);const anexos=documentosDoMovimento(item);return <tr key={item.id} style={{borderBottom:"1px solid var(--arcd-border-default)"}}><td style={{padding:"var(--arcd-space-2)",whiteSpace:"nowrap"}}>{item.data?fmtDate(item.data):"-"}</td><td style={{padding:"var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-semibold)",color:aba==="receitas"?"var(--arcd-success-text)":"var(--arcd-danger-text)"}}>{item.tipo}</td><td style={{padding:"var(--arcd-space-2)",maxWidth:290,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} title={item.descricao}>{item.descricao}</td><td style={{padding:"var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{obraNome(item.obraId)}</td><td style={{padding:"var(--arcd-space-2)"}}><span style={{display:"inline-flex",padding:"var(--arcd-space-half) var(--arcd-space-1)",borderRadius:5,background:`${cor}12`,color:cor,fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",textTransform:"uppercase"}}>{item.status}</span></td><td style={{padding:"var(--arcd-space-2)",textAlign:"right",fontWeight:"var(--arcd-font-weight-semibold)",color:aba==="receitas"?"var(--arcd-success-text)":"var(--arcd-danger-text)",whiteSpace:"nowrap"}}>{fmt(item.valor)}</td><td style={{padding:"var(--arcd-space-2)"}}><LinksDocumentosAuditaveis documentos={anexos} subindo={subindoAnexoMov&&anexoMov?.item?.id===item.id} onSelecionar={e=>selecionarDocumentoMovimento(item,e)} C={C}/></td></tr>})}</tbody></table>{!movimentosVisiveis.length&&<p style={{padding:"var(--arcd-space-6)",textAlign:"center",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhuma movimentação encontrada neste período.</p>}</div>
+      <div style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)",overflowX:"auto"}}><table className="arcd-data-table__table" style={{width:"100%",minWidth:920,borderCollapse:"collapse"}}><thead><tr style={{background:"var(--arcd-surface-muted)"}}>{["Data","Origem","Descrição","Obra","Situação","Valor","Documentos"].map(h=><th key={h} style={{padding:"var(--arcd-space-2)",textAlign:h==="Valor"?"right":"left",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}>{h}</th>)}</tr></thead><tbody>{movimentosVisiveis.map(item=>{const cor=statusCor(item.status);const anexos=documentosDoMovimento(item);return <tr key={item.id} style={{borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}><td style={{padding:"var(--arcd-space-2)",whiteSpace:"nowrap"}}>{item.data?fmtDate(item.data):"-"}</td><td style={{padding:"var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-semibold)",color:aba==="receitas"?"var(--arcd-success-text)":"var(--arcd-danger-text)"}}>{item.tipo}</td><td style={{padding:"var(--arcd-space-2)",maxWidth:290,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} title={item.descricao}>{item.descricao}</td><td style={{padding:"var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{obraNome(item.obraId)}</td><td style={{padding:"var(--arcd-space-2)"}}><span style={{display:"inline-flex",padding:"var(--arcd-space-half) var(--arcd-space-1)",borderRadius:"var(--arcd-radius-control)",background:`${cor}12`,color:cor,fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",textTransform:"uppercase"}}>{item.status}</span></td><td style={{padding:"var(--arcd-space-2)",textAlign:"right",fontWeight:"var(--arcd-font-weight-semibold)",color:aba==="receitas"?"var(--arcd-success-text)":"var(--arcd-danger-text)",whiteSpace:"nowrap"}}>{fmt(item.valor)}</td><td style={{padding:"var(--arcd-space-2)"}}><LinksDocumentosAuditaveis documentos={anexos} subindo={subindoAnexoMov&&anexoMov?.item?.id===item.id} onSelecionar={e=>selecionarDocumentoMovimento(item,e)} C={C}/></td></tr>})}</tbody></table>{!movimentosVisiveis.length&&<p style={{padding:"var(--arcd-space-6)",textAlign:"center",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhuma movimentação encontrada neste período.</p>}</div>
       <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>As origens permanecem identificadas para evitar confundir faturamento, caixa, documento fiscal e transação bancária.</p>
     </>}
     {aba==="resultados"&&<>
-      <div style={{display:"grid",gridTemplateColumns:cols("1fr","1fr","1.1fr .9fr"),gap:"var(--arcd-space-2)"}}><div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:10,padding:"var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>Composição do período</p>{[["Faturamento",faturamento,C.green],["Recebido",recebido,C.blue],["Custos",custos,C.red],["Resultado",Math.abs(resultado),(resultado>0?C.green:resultado<0?C.red:C.muted)]].map(([l,v,c])=><div key={l} style={{marginTop:"var(--arcd-space-3)"}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",fontSize:"var(--arcd-type-caption)"}}><span style={{fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{l}</span><b style={{color:c}}>{l==="Resultado"&&resultado<0?"- ":""}{fmt(v)}</b></div><div style={{height:7,borderRadius:99,background:"var(--arcd-surface-muted)",overflow:"hidden",marginTop:"var(--arcd-space-1)"}}><i style={{display:"block",height:"100%",width:`${Math.max(2,v/maiorGrafico*100)}%`,background:c,borderRadius:99}}/></div></div>)}</div><div style={{background:`linear-gradient(145deg,${(resultado>0?C.green:resultado<0?C.red:C.muted)}12,var(--arcd-surface-card))`,border:`1px solid ${resultado>=0?"var(--arcd-success-text)":"var(--arcd-danger-text)"}55`,borderRadius:10,padding:"var(--arcd-space-3)",display:"flex",flexDirection:"column",justifyContent:"center"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Resultado gerencial</p><p style={{fontSize:"clamp(25px,5vw,40px)",fontWeight:"var(--arcd-font-weight-semibold)",color:resultado>=0?"var(--arcd-success-text)":"var(--arcd-danger-text)",marginTop:"var(--arcd-space-1)"}}>{fmt(resultado)}</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>{faturamento?`${pct1(resultado/faturamento*100)} de margem no período`:"Sem faturamento no período"}</p></div></div>
-      <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:9,overflowX:"auto"}}><table style={{width:"100%",minWidth:720,borderCollapse:"collapse",fontSize:"var(--arcd-type-caption)"}}><thead><tr style={{background:"var(--arcd-surface-muted)"}}>{["Obra","Faturado","Recebido","Custos","Resultado","A receber","Margem"].map(h=><th key={h} style={{padding:"var(--arcd-space-2)",textAlign:h==="Obra"?"left":"right",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)",borderBottom:"1px solid var(--arcd-border-default)"}}>{h}</th>)}</tr></thead><tbody>{linhasObra.map(l=>{const res=l.faturamento-l.totalCustos;return <tr key={l.obra.id} onClick={()=>setObraId(l.obra.id)} style={{borderBottom:"1px solid var(--arcd-border-default)",cursor:"pointer"}}><td style={{padding:"var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{l.obra.name}</td>{[l.faturamento,l.recebido,l.totalCustos,res,l.aReceber].map((v,i)=><td key={i} style={{padding:"var(--arcd-space-2)",textAlign:"right",fontWeight:i===3?600:600,color:i===3?(v>=0?"var(--arcd-success-text)":"var(--arcd-danger-text)"):"var(--arcd-text-primary)"}}>{fmt(v)}</td>)}<td style={{padding:"var(--arcd-space-2)",textAlign:"right",fontWeight:"var(--arcd-font-weight-semibold)",color:res>=0?"var(--arcd-success-text)":"var(--arcd-danger-text)"}}>{l.faturamento?`${pct1(res/l.faturamento*100)}`:"-"}</td></tr>})}</tbody></table></div>
+      <div style={{display:"grid",gridTemplateColumns:cols("1fr","1fr","1.1fr .9fr"),gap:"var(--arcd-space-2)"}}><div style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>Composição do período</p>{[["Faturamento",faturamento,C.green],["Recebido",recebido,C.blue],["Custos",custos,C.red],["Resultado",Math.abs(resultado),(resultado>0?C.green:resultado<0?C.red:C.muted)]].map(([l,v,c])=><div key={l} style={{marginTop:"var(--arcd-space-3)"}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",fontSize:"var(--arcd-type-caption)"}}><span style={{fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{l}</span><b style={{color:c}}>{l==="Resultado"&&resultado<0?"- ":""}{fmt(v)}</b></div><div style={{height:7,borderRadius:"var(--arcd-radius-pill)",background:"var(--arcd-surface-muted)",overflow:"hidden",marginTop:"var(--arcd-space-1)"}}><i style={{display:"block",height:"100%",width:`${Math.max(2,v/maiorGrafico*100)}%`,background:c,borderRadius:"var(--arcd-radius-pill)"}}/></div></div>)}</div><div style={{background:`linear-gradient(145deg,${(resultado>0?C.green:resultado<0?C.red:C.muted)}12,var(--arcd-surface-card))`,border:`var(--arcd-border-width) solid ${resultado>=0?"var(--arcd-success-text)":"var(--arcd-danger-text)"}55`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-3)",display:"flex",flexDirection:"column",justifyContent:"center"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Resultado gerencial</p><p style={{fontSize:"clamp(25px,5vw,40px)",fontWeight:"var(--arcd-font-weight-semibold)",color:resultado>=0?"var(--arcd-success-text)":"var(--arcd-danger-text)",marginTop:"var(--arcd-space-1)"}}>{fmt(resultado)}</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>{faturamento?`${pct1(resultado/faturamento*100)} de margem no período`:"Sem faturamento no período"}</p></div></div>
+      <div style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)",overflowX:"auto"}}><table className="arcd-data-table__table" style={{width:"100%",minWidth:720,borderCollapse:"collapse"}}><thead><tr style={{background:"var(--arcd-surface-muted)"}}>{["Obra","Faturado","Recebido","Custos","Resultado","A receber","Margem"].map(h=><th key={h} style={{padding:"var(--arcd-space-2)",textAlign:h==="Obra"?"left":"right",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}>{h}</th>)}</tr></thead><tbody>{linhasObra.map(l=>{const res=l.faturamento-l.totalCustos;return <tr key={l.obra.id} onClick={()=>setObraId(l.obra.id)} style={{borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)",cursor:"pointer"}}><td style={{padding:"var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{l.obra.name}</td>{[l.faturamento,l.recebido,l.totalCustos,res,l.aReceber].map((v,i)=><td key={i} style={{padding:"var(--arcd-space-2)",textAlign:"right",fontWeight:i===3?600:600,color:i===3?(v>=0?"var(--arcd-success-text)":"var(--arcd-danger-text)"):"var(--arcd-text-primary)"}}>{fmt(v)}</td>)}<td style={{padding:"var(--arcd-space-2)",textAlign:"right",fontWeight:"var(--arcd-font-weight-semibold)",color:res>=0?"var(--arcd-success-text)":"var(--arcd-danger-text)"}}>{l.faturamento?`${pct1(res/l.faturamento*100)}`:"-"}</td></tr>})}</tbody></table></div>
     </>}
-    {aba==="documentos"&&<><div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:"var(--arcd-space-2)",alignItems:"end"}}><Inp label="Pesquisar nota, fornecedor, obra ou arquivo" value={buscaDoc} onChange={setBuscaDoc} placeholder="Ex.: B2-04, energia, fornecedor..."/><StandardButton variant="secondary" onClick={()=>setDocPeriodo(v=>v==="periodo"?"todos":"periodo")} style={{height:36,border:"1px solid var(--arcd-border-default)",background:"var(--arcd-surface-card)",color:"var(--arcd-text-primary)",borderRadius:7,padding:"var(--arcd-space-0) var(--arcd-space-2)",fontSize:"var(--arcd-type-control)",fontWeight:"var(--arcd-font-weight-semibold)",cursor:"pointer"}}>{docPeriodo==="periodo"?`${fullMonth(mes)} ${ano}`:"Todo o histórico"}</StandardButton></div><div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>{documentos.map(item=>{const cor=statusCor(item.status);return <div key={item.id} style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderLeft:`1px solid ${item.url?"var(--arcd-action-primary)":"var(--arcd-warning-text)"}`,borderRadius:8,padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}><div style={{minWidth:0,flex:1}}><div style={{display:"flex",gap:"var(--arcd-space-1)",alignItems:"center",flexWrap:"wrap"}}><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textTransform:"uppercase"}}>{item.tipo}</span><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:cor,background:`${cor}12`,borderRadius:4,padding:"var(--arcd-space-half) var(--arcd-space-1)"}}>{item.status||"cadastrado"}</span></div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.referencia} · {item.nome}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{obraNome(item.obraId)}{item.fornecedor?` · ${item.fornecedor}`:""}{item.data?` · ${fmtDate(item.data)}`:""}{item.valor?` · ${fmt(item.valor)}`:""}</p></div>{item.url?<CompanyAssetLink href={item.url} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",gap:"var(--arcd-space-1)",border:"1px solid var(--arcd-action-primary)",background:"color-mix(in srgb, var(--arcd-action-primary) 5%, transparent)",color:"var(--arcd-action-primary)",borderRadius:7,padding:"var(--arcd-space-1) var(--arcd-space-2)",fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",textDecoration:"none"}}><Ic n="file" s={12}/> Visualizar</CompanyAssetLink>:<span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-warning-text)",fontWeight:"var(--arcd-font-weight-semibold)"}}>SEM ANEXO</span>}</div>})}{!documentos.length&&<div style={{padding:"var(--arcd-space-6)",textAlign:"center",border:"1px dashed var(--arcd-border-default)",borderRadius:9,color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)"}}>Nenhuma nota ou documento encontrado com os filtros escolhidos.</div>}</div></>}
+    {aba==="documentos"&&<><div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:"var(--arcd-space-2)",alignItems:"end"}}><Inp label="Pesquisar nota, fornecedor, obra ou arquivo" value={buscaDoc} onChange={setBuscaDoc} placeholder="Ex.: B2-04, energia, fornecedor..."/><StandardButton variant="secondary" onClick={()=>setDocPeriodo(v=>v==="periodo"?"todos":"periodo")} style={{cursor:"pointer"}}>{docPeriodo==="periodo"?`${fullMonth(mes)} ${ano}`:"Todo o histórico"}</StandardButton></div><div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>{documentos.map(item=>{const cor=statusCor(item.status);return <div key={item.id} style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderLeft:`var(--arcd-border-width) solid ${item.url?"var(--arcd-action-primary)":"var(--arcd-warning-text)"}`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}><div style={{minWidth:0,flex:1}}><div style={{display:"flex",gap:"var(--arcd-space-1)",alignItems:"center",flexWrap:"wrap"}}><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textTransform:"uppercase"}}>{item.tipo}</span><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:cor,background:`${cor}12`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-half) var(--arcd-space-1)"}}>{item.status||"cadastrado"}</span></div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.referencia} · {item.nome}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{obraNome(item.obraId)}{item.fornecedor?` · ${item.fornecedor}`:""}{item.data?` · ${fmtDate(item.data)}`:""}{item.valor?` · ${fmt(item.valor)}`:""}</p></div>{item.url?<CompanyAssetLink href={item.url} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",gap:"var(--arcd-space-1)",border:"var(--arcd-border-width) solid var(--arcd-action-primary)",background:"color-mix(in srgb, var(--arcd-action-primary) 5%, transparent)",color:"var(--arcd-action-primary)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-1) var(--arcd-space-2)",fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",textDecoration:"none"}}><Ic n="file" s={12}/> Visualizar</CompanyAssetLink>:<span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-warning-text)",fontWeight:"var(--arcd-font-weight-semibold)"}}>SEM ANEXO</span>}</div>})}{!documentos.length&&<div style={{padding:"var(--arcd-space-6)",textAlign:"center",border:"var(--arcd-border-width) dashed var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)"}}>Nenhuma nota ou documento encontrado com os filtros escolhidos.</div>}</div></>}
     <ModalLegendaDocumento anexo={anexoMov} setAnexo={setAnexoMov} onClose={()=>!subindoAnexoMov&&setAnexoMov(null)} onSalvar={salvarDocumentoMovimento} salvando={subindoAnexoMov} titulo="Anexar documento à movimentação" C={C}/>
   </div>;
 }
@@ -4284,12 +4279,12 @@ function RankingFinanceiro({data,year,month,obraId="",onSelecionarObra,C=C_ARCD_
   const media=ranking.length?Math.round(ranking.reduce((s,r)=>s+r.nota,0)/ranking.length):0;
   const corNota=nota=>nota>=80?C.green:nota>=70?C.blue:nota>=55?C.orange:C.red;
   const conceitoNota=r=>r?.faixa?.conceito||r?.conceito||(r?.nota>=90?"A+":r?.nota>=80?"A":r?.nota>=70?"B":r?.nota>=55?"C":"D");
-  return <section style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:11,overflow:"hidden",boxShadow:C.shHair}}>
-    <div style={{padding:"11px 13px",display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start",flexWrap:"wrap",background:`linear-gradient(135deg,${C.surface},${C.card})`,borderBottom:`1px solid ${C.line}`}}><div><h3 style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:C.text,marginTop:2}}>Análise financeira das obras</h3><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Eficiência, caixa e conformidade no período selecionado.</p></div><div style={{display:"flex",gap:4,flexWrap:"wrap"}}>{[["todos","Todas"],["saudaveis","Saudáveis"],["atencao","Atenção"],["criticas","Críticas"]].map(([v,l])=><button key={v} onClick={()=>setFiltro(v)} style={{border:`1px solid ${filtro===v?C.yellow:C.border}`,background:filtro===v?`${C.yellow}16`:C.card,color:filtro===v?C.yellowD:C.muted,borderRadius:7,padding:"5px 8px",fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>{l}</button>)}</div></div>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:1,background:C.line,borderBottom:`1px solid ${C.line}`}}>{[["Obras avaliadas",ranking.length,C.text],["Nota média",`${media}/100`,corNota(media)],["Resultado negativo",ranking.filter(r=>r.resultado<0).length,C.red],["Com alertas",ranking.filter(r=>r.alertas.length).length,C.orange]].map(([l,v,c])=><div key={l} style={{padding:"8px 10px",background:C.bg}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.4}}>{l}</p><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:c,marginTop:2}}>{v}</p></div>)}</div>
-    <div className="scroll-x" tabIndex={0} role="region" aria-label="Conferência financeira das obras"><table style={{width:"100%",minWidth:1020,borderCollapse:"collapse"}}><thead><tr>{["#","Obra","Nota","Resultado","Margem","Recebido / faturado","Saldo de caixa","NF vencida","Sem NF","A conciliar"].map(h=><th key={h} style={{padding:"7px 8px",textAlign:["#","Obra"].includes(h)?"left":"right",borderBottom:`1px solid ${C.line}`,fontSize:"var(--arcd-type-label)",color:C.muted,textTransform:"uppercase"}}>{h}</th>)}</tr></thead><tbody>{linhas.map(r=><tr key={r.id} onClick={()=>onSelecionarObra?.(r.id)} style={{cursor:onSelecionarObra?"pointer":"default",background:C.card}}><td style={{padding:"8px",fontWeight:600,color:r.posicao<=3?C.yellowD:C.muted,borderBottom:`1px solid ${C.line}`}}>{r.posicao}</td><td style={{padding:"8px",borderBottom:`1px solid ${C.line}`}}><button type="button" aria-label={`Ver análise de ${r.nome}`} onClick={event=>{event.stopPropagation();onSelecionarObra?.(r.id);}} style={{fontSize:"var(--arcd-type-control)",fontWeight:600,color:C.text,border:0,background:"transparent",textAlign:"left",padding:"4px 0",cursor:"pointer"}}>{r.nome}</button><p style={{fontSize:"var(--arcd-type-caption)",color:r.alertas.length?C.orange:C.green,marginTop:2,maxWidth:360,whiteSpace:"normal"}}>{r.alertas.length?r.alertas.join(" · "):"sem alertas relevantes"}</p></td><td style={{padding:"8px",textAlign:"right",borderBottom:`1px solid ${C.line}`}}><span style={{display:"inline-flex",alignItems:"center",gap:5}}><Badge color={corNota(r.nota)}>{conceitoNota(r)}</Badge><b style={{fontSize:"var(--arcd-type-body)",color:corNota(r.nota)}}>{r.nota}</b></span></td><td style={{padding:"8px",textAlign:"right",fontWeight:600,color:(r.resultado>0?C.green:r.resultado<0?C.red:C.muted),borderBottom:`1px solid ${C.line}`}}>{fmt(r.resultado)}</td><td style={{padding:"8px",textAlign:"right",fontWeight:600,color:(r.margemPct>0?C.green:r.margemPct<0?C.red:C.muted),borderBottom:`1px solid ${C.line}`}}>{pct1(r.margemPct)}</td><td style={{padding:"8px",textAlign:"right",borderBottom:`1px solid ${C.line}`}}>{pct1(r.recebimentoPct)}</td><td style={{padding:"8px",textAlign:"right",fontWeight:600,color:(r.saldoCaixa>0?C.green:r.saldoCaixa<0?C.red:C.muted),borderBottom:`1px solid ${C.line}`}}>{fmt(r.saldoCaixa)}</td>{[r.notasVencidas,r.pedidosSemNota,r.naoConciliados].map((v,i)=><td key={i} style={{padding:"8px",textAlign:"right",fontWeight:v?600:500,color:v?(i===0?C.red:C.orange):C.muted,borderBottom:`1px solid ${C.line}`}}>{v}</td>)}</tr>)}</tbody></table></div>
-    {!linhas.length&&<div style={{padding:22,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhuma obra com movimentação financeira neste filtro.</div>}
-    <details style={{padding:"8px 11px",fontSize:"var(--arcd-type-caption)",color:C.muted}}><summary style={{cursor:"pointer",fontWeight:600,color:C.blue}}>Como a nota é calculada</summary><div style={{marginTop:7,lineHeight:1.55}}><strong>Margem real — 35%:</strong> resultado depois dos custos da obra. <strong>Recebimento — 25%:</strong> quanto do faturamento virou caixa. <strong>Saúde do caixa — 20%:</strong> recebido menos custos no período. <strong>Conformidade — 20%:</strong> parte de 100 e perde pontos por notas vencidas, pedidos sem NF e pagamentos não conciliados. Obras sem qualquer movimentação no período não entram no ranking. Clique em uma linha para filtrar os demais KPIs pela obra.</div></details>
+  return <section style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",overflow:"hidden",boxShadow:C.shHair}}>
+    <div style={{padding:"var(--arcd-space-3) var(--arcd-space-3)",display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"flex-start",flexWrap:"wrap",background:`linear-gradient(135deg,${C.surface},${C.card})`,borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`}}><div><h3 style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)"}}>Análise financeira das obras</h3><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Eficiência, caixa e conformidade no período selecionado.</p></div><div style={{display:"flex",gap:"var(--arcd-space-1)",flexWrap:"wrap"}}>{[["todos","Todas"],["saudaveis","Saudáveis"],["atencao","Atenção"],["criticas","Críticas"]].map(([v,l])=><button key={v} onClick={()=>setFiltro(v)} style={{border:`var(--arcd-border-width) solid ${filtro===v?C.yellow:C.border}`,background:filtro===v?`${C.yellow}16`:"var(--arcd-surface-card)",color:filtro===v?C.yellowD:"var(--arcd-text-secondary)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-1) var(--arcd-space-2)",fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>{l}</button>)}</div></div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:1,background:"var(--arcd-border-subtle)",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`}}>{[["Obras avaliadas",ranking.length,C.text],["Nota média",`${media}/100`,corNota(media)],["Resultado negativo",ranking.filter(r=>r.resultado<0).length,C.red],["Com alertas",ranking.filter(r=>r.alertas.length).length,C.orange]].map(([l,v,c])=><div key={l} style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",background:"var(--arcd-surface-page)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:.4}}>{l}</p><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:c,marginTop:"var(--arcd-space-half)"}}>{v}</p></div>)}</div>
+    <div className="scroll-x" tabIndex={0} role="region" aria-label="Conferência financeira das obras"><table className="arcd-data-table__table" style={{width:"100%",minWidth:1020,borderCollapse:"collapse"}}><thead><tr>{["#","Obra","Nota","Resultado","Margem","Recebido / faturado","Saldo de caixa","NF vencida","Sem NF","A conciliar"].map(h=><th key={h} style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",textAlign:["#","Obra"].includes(h)?"left":"right",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`,fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>{h}</th>)}</tr></thead><tbody>{linhas.map(r=><tr key={r.id} onClick={()=>onSelecionarObra?.(r.id)} style={{cursor:onSelecionarObra?"pointer":"default",background:"var(--arcd-surface-card)"}}><td style={{padding:"var(--arcd-space-2)",fontWeight:600,color:r.posicao<=3?C.yellowD:"var(--arcd-text-secondary)",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`}}>{r.posicao}</td><td style={{padding:"var(--arcd-space-2)",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`}}><button type="button" aria-label={`Ver análise de ${r.nome}`} onClick={event=>{event.stopPropagation();onSelecionarObra?.(r.id);}} style={{fontSize:"var(--arcd-type-control)",fontWeight:600,color:"var(--arcd-text-primary)",border:0,background:"transparent",textAlign:"left",padding:"var(--arcd-space-1) 0",cursor:"pointer"}}>{r.nome}</button><p style={{fontSize:"var(--arcd-type-caption)",color:r.alertas.length?C.orange:C.green,marginTop:"var(--arcd-space-half)",maxWidth:360,whiteSpace:"normal"}}>{r.alertas.length?r.alertas.join(" · "):"sem alertas relevantes"}</p></td><td style={{padding:"var(--arcd-space-2)",textAlign:"right",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`}}><span style={{display:"inline-flex",alignItems:"center",gap:"var(--arcd-space-1)"}}><Badge color={corNota(r.nota)}>{conceitoNota(r)}</Badge><b style={{fontSize:"var(--arcd-type-body)",color:corNota(r.nota)}}>{r.nota}</b></span></td><td style={{padding:"var(--arcd-space-2)",textAlign:"right",fontWeight:600,color:(r.resultado>0?C.green:r.resultado<0?C.red:C.muted),borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`}}>{fmt(r.resultado)}</td><td style={{padding:"var(--arcd-space-2)",textAlign:"right",fontWeight:600,color:(r.margemPct>0?C.green:r.margemPct<0?C.red:C.muted),borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`}}>{pct1(r.margemPct)}</td><td style={{padding:"var(--arcd-space-2)",textAlign:"right",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`}}>{pct1(r.recebimentoPct)}</td><td style={{padding:"var(--arcd-space-2)",textAlign:"right",fontWeight:600,color:(r.saldoCaixa>0?C.green:r.saldoCaixa<0?C.red:C.muted),borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`}}>{fmt(r.saldoCaixa)}</td>{[r.notasVencidas,r.pedidosSemNota,r.naoConciliados].map((v,i)=><td key={i} style={{padding:"var(--arcd-space-2)",textAlign:"right",fontWeight:v?600:500,color:v?(i===0?C.red:C.orange):"var(--arcd-text-secondary)",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`}}>{v}</td>)}</tr>)}</tbody></table></div>
+    {!linhas.length&&<div style={{padding:"var(--arcd-space-5)",textAlign:"center",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhuma obra com movimentação financeira neste filtro.</div>}
+    <details style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}><summary style={{cursor:"pointer",fontWeight:600,color:C.blue}}>Como a nota é calculada</summary><div style={{marginTop:"var(--arcd-space-2)",lineHeight:1.55}}><strong>Margem real — 35%:</strong> resultado depois dos custos da obra. <strong>Recebimento — 25%:</strong> quanto do faturamento virou caixa. <strong>Saúde do caixa — 20%:</strong> recebido menos custos no período. <strong>Conformidade — 20%:</strong> parte de 100 e perde pontos por notas vencidas, pedidos sem NF e pagamentos não conciliados. Obras sem qualquer movimentação no período não entram no ranking. Clique em uma linha para filtrar os demais KPIs pela obra.</div></details>
   </section>;
 }
 
@@ -4391,12 +4386,12 @@ function FechamentoFinanceiroMensal({data,update,showToast,currentUser,onMemoria
   };
   const fechamentos=(data.fechamentosFinanceiros||[]).slice().sort((a,b)=>String(b.competencia).localeCompare(String(a.competencia)));
   const snap=previa.ok?previa.closing.snapshot:null;
-  return <div className="anim" style={{display:"flex",flexDirection:"column",gap:10}}>
+  return <div className="anim" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
     <PageHero headingLevel={2} eyebrow="Fechamento contábil" title="Fechamento mensal imutável" description="Selecione a competência e confira os valores e as pendências antes de fechar o período."/>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,240px),1fr))",gap:8,alignItems:"end"}}>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,240px),1fr))",gap:"var(--arcd-space-2)",alignItems:"end"}}>
       <Inp label="Competência" type="month" disabled={processando} value={competencia} onChange={value=>{setCompetencia(value);setClosingError('');setExceptionReason('');}}/>
-      <div style={{padding:"9px 11px",border:`1px solid ${previa.ok?C.border:C.red}`,borderRadius:8,background:previa.ok?C.card:`${C.red}08`}}>
-        <b style={{fontSize:"var(--arcd-type-label)",color:previa.ok?C.text:C.red}}>{previa.ok?"Conferência do motor concluída. Revise os controles abaixo.":previa.error}</b>
+      <div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",border:`var(--arcd-border-width) solid ${previa.ok?C.border:C.red}`,borderRadius:"var(--arcd-box-radius)",background:previa.ok?"var(--arcd-surface-card)":`${C.red}08`}}>
+        <b style={{fontSize:"var(--arcd-type-label)",color:previa.ok?"var(--arcd-text-primary)":C.red}}>{previa.ok?"Conferência do motor concluída. Revise os controles abaixo.":previa.error}</b>
       </div>
     </div>
     <ClosingPending data={data} competence={competencia} conference={previa.conference} controls={controls} onOpen={onMemorial} onCorrect={onCorrect} onBank={onBank} onDocuments={()=>onDocuments(competencia)}/>
@@ -4406,15 +4401,15 @@ function FechamentoFinanceiroMensal({data,update,showToast,currentUser,onMemoria
     {closingError&&<Alert variant="destructive" role="alert"><AlertDescription>{closingError} A competência selecionada foi mantida. Confira o estado do período antes de repetir a confirmação.</AlertDescription></Alert>}
     {closingStatus===401&&<SessionRenewalFields user={currentUser} onRenew={async password=>{try{const result=await renewEditingSession({email:currentUser.email,password,userId:currentUser.id});if(!result.ok){setClosingError(result.error);return;}setClosingStatus(0);setClosingError('');setClosingNotice('Acesso renovado. Confira a competência e confirme novamente quando estiver pronto.');}catch(error){setClosingError(error.message||'Não foi possível renovar o acesso.');}}}/>}
     {closingNotice&&<p role="status">{closingNotice}</p>}
-    {snap&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(145px,1fr))",gap:6}}>{[
+    {snap&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(145px,1fr))",gap:"var(--arcd-space-1)"}}>{[
       ["Receita",snap.revenueCents],["Custos",snap.costCents],["Resultado",snap.resultCents],
       ["Entradas",snap.cashInCents],["Saídas",snap.cashOutCents],["A receber",snap.receivableCents],
       ["A pagar",snap.payableCents],["Comprometido",snap.commitmentCents],
-    ].map(([label,cents])=><div key={label} style={{padding:"9px 10px",background:C.card,border:`1px solid ${C.border}`,borderRadius:8}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600,textTransform:"uppercase"}}>{label}</p><b style={{fontSize:"var(--arcd-type-card-title)",color:C.text}}>{fmt(Number(cents||0)/100)}</b></div>)}</div>}
+    ].map(([label,cents])=><div key={label} style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)"}}><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",fontWeight:600,textTransform:"uppercase"}}>{label}</p><b style={{fontSize:"var(--arcd-type-card-title)",color:"var(--arcd-text-primary)"}}>{fmt(Number(cents||0)/100)}</b></div>)}</div>}
     <div className="financial-closing__action"><p>{ready?`Competência ${competencia} pronta para confirmação.`:controls.blockers.length?"Resolva os bloqueios para fechar a competência.":requiresException?"Confira a exceção documental para prosseguir.":previa.error||"Confira a competência antes de fechar."}</p><Btn v="success" onClick={fechar} disabled={processando||!ready}>{processando?"Fechando...":"Fechar competência"}</Btn></div>
-    <div style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
-      <div style={{padding:"8px 11px",background:C.surface}}><b style={{fontSize:"var(--arcd-type-label)"}}>Competências fechadas</b></div>
-      {!fechamentos.length?<p style={{padding:18,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhum fechamento mensal registrado.</p>:fechamentos.map(item=><div key={item.id} style={{display:"grid",gridTemplateColumns:"120px minmax(0,1fr) auto",gap:8,padding:"9px 11px",borderTop:`1px solid ${C.line}`,alignItems:"center"}}><b style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{item.competencia}</b><div style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Fechado por {item.fechadoPor||"Administrador"} · {contar(item.snapshot?.eventCount||0,"evento","eventos")} congelados{item.documentException&&<TaskDisclosure summary="Exceção documental"><p>{item.documentException.reason}</p><p>Aprovada por {item.documentException.approvedBy||"Administrador"} · {contar(item.documentException.documentIds?.length||0,"registro","registros")}</p></TaskDisclosure>}</div><Badge color={C.green}>FECHADO</Badge></div>)}
+    <div style={{border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",overflow:"hidden"}}>
+      <div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",background:"var(--arcd-surface-card)"}}><b style={{fontSize:"var(--arcd-type-label)"}}>Competências fechadas</b></div>
+      {!fechamentos.length?<p style={{padding:"var(--arcd-space-4)",textAlign:"center",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhum fechamento mensal registrado.</p>:fechamentos.map(item=><div key={item.id} style={{display:"grid",gridTemplateColumns:"120px minmax(0,1fr) auto",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-3)",borderTop:`var(--arcd-border-width) solid var(--arcd-border-subtle)`,alignItems:"center"}}><b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>{item.competencia}</b><div style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Fechado por {item.fechadoPor||"Administrador"} · {contar(item.snapshot?.eventCount||0,"evento","eventos")} congelados{item.documentException&&<TaskDisclosure summary="Exceção documental"><p>{item.documentException.reason}</p><p>Aprovada por {item.documentException.approvedBy||"Administrador"} · {contar(item.documentException.documentIds?.length||0,"registro","registros")}</p></TaskDisclosure>}</div><Badge color={C.green}>FECHADO</Badge></div>)}
     </div>
   </div>;
 }
@@ -4653,8 +4648,8 @@ function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatch
   const obraName = id => obraPorIdFin.get(id)?.name||"-";
 
   const StatusBar = ({pct, color=C.green}) => (
-    <div style={{height:6,background:"var(--arcd-surface-muted)",borderRadius:99,overflow:"hidden",marginTop:"var(--arcd-space-1)"}}>
-      <div style={{height:"100%",width:`${Math.min(pct,100)}%`,background:pct>100?"var(--arcd-danger-text)":color,borderRadius:99,transition:"width .3s"}}/>
+    <div style={{height:6,background:"var(--arcd-surface-muted)",borderRadius:"var(--arcd-radius-pill)",overflow:"hidden",marginTop:"var(--arcd-space-1)"}}>
+      <div style={{height:"100%",width:`${Math.min(pct,100)}%`,background:pct>100?"var(--arcd-danger-text)":color,borderRadius:"var(--arcd-radius-pill)",transition:"width .3s"}}/>
     </div>
   );
 
@@ -4692,15 +4687,15 @@ function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatch
       </div>
 
       <FinancialOverviewMetrics totals={T} margin={totalMarginPct} onSelect={openMetric}/>{memorialPanel}
-      <div className="financial-secondary-metrics">
+      <div className="mrc-kpi-strip mrc-kpi-strip--summary">
         {[
-          ["Custos comprometidos",fmt(T.committed),C.text],
-          ["Recebimentos não alocados",fmt(T.unallocatedReceipts),T.unallocatedReceipts?C.orange:C.text],
-          ["Pagamentos não alocados",fmt(T.unallocatedPayments),T.unallocatedPayments?C.orange:C.text],
-          ["Estornos e cancelamentos",fmt(T.reversals),C.text],
-        ].map(([label,value,color],index)=><div key={label}>
-          <p><StandardButton variant="secondary" type="button" className="financial-kpi-link" onClick={()=>openSecondaryMetric(index)}>{label}</StandardButton></p><b style={{color}}>{value}</b>
-          {index===3&&<small>{contar(T.reversalCount,"estorno","estornos")} · {contar(T.cancelledCount,"cancelamento","cancelamentos")}</small>}
+          ["Custos comprometidos",fmt(T.committed)],
+          ["Recebimentos não alocados",fmt(T.unallocatedReceipts),T.unallocatedReceipts],
+          ["Pagamentos não alocados",fmt(T.unallocatedPayments),T.unallocatedPayments],
+          ["Estornos e cancelamentos",fmt(T.reversals)],
+        ].map(([label,value,warning],index)=><div className="mrc-kpi-strip__item" data-tone={warning?"warning":undefined} key={label}>
+          <StandardButton variant="secondary" type="button" className="financial-kpi-link" onClick={()=>openSecondaryMetric(index)}>{label}</StandardButton><b className="mrc-kpi__value">{value}</b>
+          {index===3&&<small className="mrc-kpi__detail">{contar(T.reversalCount,"estorno","estornos")} · {contar(T.cancelledCount,"cancelamento","cancelamentos")}</small>}
         </div>)}
       </div>
 
@@ -4723,12 +4718,8 @@ function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatch
         const exp = expanded===r.id;
         const commitColor = r.commitment!=null&&r.commitment>100 ? C.red : r.commitment!=null&&r.commitment>80 ? C.orange : C.green;
         return (
-          <div key={r.id} style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:10,overflow:"hidden"}}>
-            <StandardButton variant="secondary" onClick={()=>setExpanded(exp?null:r.id)} style={{
-              width:"100%",background:"transparent",border:0,color:"var(--arcd-text-primary)",
-              padding:"var(--arcd-space-3) var(--arcd-space-4)",textAlign:"left",cursor:"pointer",
-
-            }}>
+          <div key={r.id} style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)",overflow:"hidden"}}>
+            <StandardButton variant="secondary" onClick={()=>setExpanded(exp?null:r.id)} style={{width:"100%",cursor:"pointer"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-2)"}}>
                 <div style={{flex:1}}>
                   <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:"var(--arcd-font-weight-semibold)",fontSize:"var(--arcd-type-section-title)",letterSpacing:"var(--arcd-letter-spacing-body)"}}>{r.name}</p>
@@ -4749,7 +4740,7 @@ function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatch
                   ["Custo MO",fmt(r.laborCost),C.orange],
                   ["Recebido",fmt(r.received),C.blue],
                 ].map(([l,v,c])=>(
-                  <div key={l} style={{background:"var(--arcd-surface-muted)",padding:"var(--arcd-space-1) var(--arcd-space-2)",borderRadius:8}}>
+                  <div key={l} style={{background:"var(--arcd-surface-muted)",padding:"var(--arcd-space-1) var(--arcd-space-2)",borderRadius:"var(--arcd-box-radius)"}}>
                     <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",fontWeight:"var(--arcd-font-weight-semibold)"}}>{l}</p>
                     <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:c}}>{v}</p>
                   </div>
@@ -4807,7 +4798,7 @@ function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatch
             </StandardButton>
 
             {exp && (
-              <div style={{borderTop:"1px solid var(--arcd-border-default)",padding:"var(--arcd-space-3) var(--arcd-space-4)",background:"var(--arcd-surface-muted)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+              <div style={{borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)",padding:"var(--arcd-space-3) var(--arcd-space-4)",background:"var(--arcd-surface-muted)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
                 <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"var(--arcd-space-2)"}}>
                   {[
                     ["Contrato",fmt(r.contractValue),C.subtle],
@@ -4827,7 +4818,7 @@ function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatch
                     ["Resultado competência",fmt(r.margin),(r.margin>0?C.green:r.margin<0?C.red:C.muted)],
                     ["Custos comprometidos",fmt(r.committed),C.orange],
                   ].map(([l,v,c])=>(
-                    <div key={l} style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",padding:"var(--arcd-space-2)",borderRadius:8}}>
+                    <div key={l} style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",padding:"var(--arcd-space-2)",borderRadius:"var(--arcd-box-radius)"}}>
                       <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",fontWeight:"var(--arcd-font-weight-semibold)",marginBottom:"var(--arcd-space-half)"}}>{l}</p>
                       <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:c}}>{v}</p>
                     </div>
@@ -4847,9 +4838,9 @@ function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatch
         <Btn onClick={()=>setPayModal(true)} size="sm"><Ic n="plus"/> Novo</Btn>
       </div>
 
-      {allPayments.length===0&&<div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",padding:"var(--arcd-space-5)",textAlign:"center",color:"var(--arcd-text-secondary)",borderRadius:10}}>Nenhum recebimento registrado ainda.</div>}
+      {allPayments.length===0&&<div style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",padding:"var(--arcd-space-5)",textAlign:"center",color:"var(--arcd-text-secondary)",borderRadius:"var(--arcd-box-radius)"}}>Nenhum recebimento registrado ainda.</div>}
       {allPayments.map(p=>(
-        <div key={p.id} style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderLeft:"1px solid var(--arcd-success-text)",padding:"var(--arcd-space-3)",borderRadius:10,display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)"}}>
+        <div key={p.id} style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderLeft:"var(--arcd-border-width) solid var(--arcd-success-text)",padding:"var(--arcd-space-3)",borderRadius:"var(--arcd-box-radius)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)"}}>
           <div>
             <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:"var(--arcd-font-weight-semibold)",fontSize:"var(--arcd-type-card-title)"}}>{p.description}</p>
             <p style={{color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-body)"}}>{obraName(p.obraId)}  {fmtDateFull(p.date)}</p>
@@ -5305,13 +5296,13 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
       />
 
       {erroPastas&&<div className="works-sync-error" role="alert"><Ic n="alert" s={14}/><p><strong>Pastas do OneDrive não preparadas.</strong> {erroPastas}</p><Btn v="secondary" size="sm" disabled={sincronizandoPastas} onClick={()=>sincronizarPastas(true)}>Tentar de novo</Btn><Btn v="ghost" size="sm" ariaLabel="Dispensar aviso" title="Dispensar aviso" onClick={()=>setErroPastas("")}><Ic n="x" s={14}/></Btn></div>}
-      <section className="works-filter-bar" aria-label={isDesktop?"Filtros de Obras":undefined} style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:C.rLg,padding:"var(--arcd-space-2)",boxShadow:"none"}}>
+      <section className="works-filter-bar" aria-label={isDesktop?"Filtros de Obras":undefined} style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:C.rLg,padding:"var(--arcd-space-2)",boxShadow:"none"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
           <label className="works-category-select">Situação das obras<SelectControl value={categoria} onChange={event=>setCategoria(event.target.value)}>{categoriasObras.map(([v,l])=><option key={v} value={v}>{l} · {contagensObras[v]}</option>)}</SelectControl></label>
           <div className="works-category-tabs" style={{display:"flex",gap:"var(--arcd-space-1)",overflowX:"auto",paddingBottom:"var(--arcd-space-0)",maxWidth:"100%"}}>
             {categoriasObras.map(([v,l])=><StandardButton variant="secondary" type="button" aria-pressed={categoria===v} data-active={categoria===v} key={v} onClick={()=>setCategoria(v)}>{l} <span>{contagensObras[v]}</span></StandardButton>)}
           </div>
-          <div className="works-view-toggle" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-1)",background:"var(--arcd-surface-muted)",padding:"var(--arcd-space-half)",borderRadius:9}}>
+          <div className="works-view-toggle">
             {[["lista","Painel"],["quadro","Fluxo"]].map(([v,l])=><StandardButton variant="secondary" type="button" aria-pressed={vista===v} data-active={vista===v} key={v} onClick={()=>setVista(v)}>{l}</StandardButton>)}
           </div>
         </div>
@@ -5328,7 +5319,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
             resumo, não dá pra saber se alguma obra sumiu ou só está fora da
             tela, numa coluna que exige rolar. */}
         <div style={{
-          background:"var(--arcd-surface-muted)", border:"1px solid var(--arcd-border-default)", borderRadius:6,
+          background:"var(--arcd-surface-muted)", border:"var(--arcd-border-width) solid var(--arcd-border-default)", borderRadius:"var(--arcd-radius-control)",
           padding:"var(--arcd-space-2) var(--arcd-space-3)", display:"flex", justifyContent:"space-between",
           alignItems:"center", gap:"var(--arcd-space-2)", flexWrap:"wrap",
         }}>
@@ -5345,7 +5336,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
           </div>
           {somaQuadro !== (data.obras||[]).length && (
             <span style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-danger-text)",
-                          background:"color-mix(in srgb, var(--arcd-danger-text) 7%, transparent)",padding:"var(--arcd-space-1) var(--arcd-space-2)",borderRadius:6}}>
+                          background:"color-mix(in srgb, var(--arcd-danger-text) 7%, transparent)",padding:"var(--arcd-space-1) var(--arcd-space-2)",borderRadius:"var(--arcd-radius-control)"}}>
               ! {somaQuadro} exibidas de {(data.obras||[]).length}
             </span>
           )}
@@ -5367,9 +5358,9 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
                 style={KB.coluna(fase.cor, alvo)}>
 
                 {/* Cabeçalho da coluna */}
-                <div style={{padding:"var(--arcd-space-2)", borderTop:`3px solid ${fase.cor}`, borderTopLeftRadius:8, borderTopRightRadius:8, borderBottom:"1px solid var(--arcd-border-default)", position:"sticky", top:0, zIndex:1, background:"inherit"}}>
+                <div style={{padding:"var(--arcd-space-2)", borderTop:`3px solid ${fase.cor}`, borderTopLeftRadius:"var(--arcd-box-radius)", borderTopRightRadius:"var(--arcd-box-radius)", borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)", position:"sticky", top:0, zIndex:1, background:"inherit"}}>
                   <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-1)"}}>
-                    <span style={{width:9,height:9,borderRadius:2,background:fase.cor,flexShrink:0}}/>
+                    <span style={{width:9,height:9,borderRadius:"var(--arcd-radius-control)",background:fase.cor,flexShrink:0}}/>
                     <p style={{
                       flex:1, minWidth:0, fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)",
                       textTransform:"uppercase", letterSpacing:"var(--arcd-letter-spacing-body)", color:"var(--arcd-text-primary)",
@@ -5408,7 +5399,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
                         onDragEnd={() => { setArrastando(null); setSobreFase(null); }}
                         style={{
                           ...KB.card(null),
-                          border:"1px solid var(--arcd-border-default)",
+                          border:"var(--arcd-border-width) solid var(--arcd-border-default)",
                           opacity: arrastando===o.id ? .4 : 1,
                           position:"relative",
                         }}>
@@ -5430,7 +5421,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
 
                         <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-1)",flexWrap:"wrap"}}>
                           <Badge color={st.c}>{st.l}</Badge>
-                          <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",background:"var(--arcd-surface-muted)",borderRadius:4,padding:"var(--arcd-space-0) var(--arcd-space-1)"}}>
+                          <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",background:"var(--arcd-surface-muted)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-0) var(--arcd-space-1)"}}>
                             {CONTRACT_LABELS[o.contractType]||o.contractType}
                           </span>
                           {Number(o.areaM2)>0 && (
@@ -5473,20 +5464,20 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
                           <div style={{
                             position:"absolute", top:28, right:8, zIndex:20,
                             background:"var(--arcd-surface-page)", border:"1.5px solid var(--arcd-border-default)",
-                            borderRadius:6, boxShadow:`0 6px 20px ${C.shadow}`,
+                            borderRadius:"var(--arcd-radius-control)", boxShadow:`0 6px 20px ${C.shadow}`,
                             minWidth:180, padding:"var(--arcd-space-1)",
                           }}>
                             <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",
                                        letterSpacing:"var(--arcd-letter-spacing-body)",padding:"var(--arcd-space-1) var(--arcd-space-2)"}}>Mover para</p>
                             {fases.filter(f=>f.id!==fase.id).map(f=>(
-                              <StandardButton variant="secondary" key={f.id} onClick={()=>moverObra(o.id, f.id)} style={{width:"100%",textAlign:"left",display:"flex",alignItems:"center",gap:"var(--arcd-space-1)"}}>
-                                <span style={{width:7,height:7,borderRadius:2,background:f.cor,flexShrink:0}}/>
+                              <StandardButton variant="secondary" key={f.id} onClick={()=>moverObra(o.id, f.id)} style={{width:"100%",display:"flex",alignItems:"center"}}>
+                                <span style={{width:7,height:7,borderRadius:"var(--arcd-radius-control)",background:f.cor,flexShrink:0}}/>
                                 {f.nome}
                               </StandardButton>
                             ))}
                             <div style={{height:1,background:"var(--arcd-border-default)",margin:"var(--arcd-space-1) var(--arcd-space-0)"}}/>
                             {ehAdmin&&<StandardButton variant="secondary" onClick={()=>{abrirEditorObra(o);setMenuCard(null);}}
-                              style={{width:"100%",textAlign:"left"}}>
+                              style={{width:"100%"}}>
                                Editar obra
                             </StandardButton>}
                           </div>
@@ -5523,13 +5514,13 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
           const codigo = String(Math.max(0,(data.obras||[]).findIndex(x=>x.id===o.id))+1).padStart(4,"0");
           const prazo = prazoObra(o);
           const risco = o._alertas.length > 0;
-          return <article data-risk={risco} key={o.id} className="lift-card works-card" style={{background:"var(--arcd-surface-card)",border:`1px solid ${risco?"color-mix(in srgb, var(--arcd-danger-text) 40%, transparent)":"var(--arcd-border-default)"}`,borderRadius:15,overflow:"hidden",boxShadow:"var(--arcd-shadow-lg)",display:"flex",flexDirection:"column",minWidth:0}}>
-            <RecordAction data-has-image={!!o.capaUrl} className="works-card-cover" onClick={()=>onAbrirObra?.(o.id)} style={{position:"relative",height:132,border:0,padding:0,cursor:"pointer",textAlign:"left",overflow:"hidden",background:o.capaUrl?`linear-gradient(180deg,rgba(18,18,18,.08),rgba(18,18,18,.88)),url("${o.capaUrl}") center/cover`:`linear-gradient(135deg,#121212 0%,#242018 72%,#4B3D10 100%)`,color:"var(--arcd-text-inverse)"}}>
-              {!o.capaUrl&&<><span aria-hidden="true" style={{position:"absolute",right:-24,top:-46,width:180,height:180,borderRadius:"50%",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 33%, transparent)",boxShadow:"none"}}/></>}
+          return <article data-risk={risco} key={o.id} className="lift-card works-card" style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid ${risco?"color-mix(in srgb, var(--arcd-danger-text) 40%, transparent)":"var(--arcd-border-default)"}`,borderRadius:"var(--arcd-box-radius)",overflow:"hidden",boxShadow:"var(--arcd-shadow-lg)",display:"flex",flexDirection:"column",minWidth:0}}>
+            <RecordAction data-has-image={!!o.capaUrl} className="works-card-cover" onClick={()=>onAbrirObra?.(o.id)} style={{position:"relative",cursor:"pointer",overflow:"hidden"}}>
+              {!o.capaUrl&&<><span aria-hidden="true" style={{position:"absolute",right:-24,top:-46,width:180,height:180,borderRadius:"50%",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-action-primary) 33%, transparent)",boxShadow:"none"}}/></>}
               <div style={{position:"absolute",inset:0,padding:"var(--arcd-space-3)",display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)"}}>
                   <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",letterSpacing:"var(--arcd-letter-spacing-body)",color:"var(--arcd-action-primary-subtle)"}}>MARCELL · #{codigo}</span>
-                  <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",color:st.c,background:"color-mix(in srgb, var(--arcd-text-inverse) 94%, transparent)",borderRadius:99,padding:"var(--arcd-space-1) var(--arcd-space-2)"}}>{st.l}</span>
+                  <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",color:st.c,background:"color-mix(in srgb, var(--arcd-text-inverse) 94%, transparent)",borderRadius:"var(--arcd-radius-pill)",padding:"var(--arcd-space-1) var(--arcd-space-2)"}}>{st.l}</span>
                 </div>
                 <div style={{position:"relative"}}>
                   <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",color:"var(--arcd-text-inverse)",marginBottom:"var(--arcd-space-half)"}}>{o._fase?.nome||"Fase não definida"}</p>
@@ -5540,16 +5531,16 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
             <div className="works-card-body" style={{padding:"var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)",flex:1}}>
               <div className="works-card-identity" style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"var(--arcd-space-2)"}}>
                 <div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",color:"var(--arcd-text-secondary)"}}>Cliente</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:o.cliente?"var(--arcd-text-primary)":"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.cliente||"Não vinculado"}</p></div>
-                <div title={o.engineer||"Sem responsável"} style={{width:34,height:34,flexShrink:0,borderRadius:99,display:"grid",placeItems:"center",background:o.engineer?"var(--arcd-text-primary)":"var(--arcd-surface-muted)",border:`1px solid ${o.engineer?"var(--arcd-text-primary)":"var(--arcd-border-default)"}`,color:o.engineer?"var(--arcd-text-inverse)":"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{(o.engineer||"?").split(" ").slice(0,2).map(n=>n[0]).join("")}</div>
+                <div title={o.engineer||"Sem responsável"} style={{width:34,height:34,flexShrink:0,borderRadius:"var(--arcd-radius-pill)",display:"grid",placeItems:"center",background:o.engineer?"var(--arcd-text-primary)":"var(--arcd-surface-muted)",border:`var(--arcd-border-width) solid ${o.engineer?"var(--arcd-text-primary)":"var(--arcd-border-default)"}`,color:o.engineer?"var(--arcd-text-inverse)":"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{(o.engineer||"?").split(" ").slice(0,2).map(n=>n[0]).join("")}</div>
               </div>
 
               <div className="works-card-metrics" style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:"var(--arcd-space-1)"}}>
-                {[["Contrato",Number(o.contractValue)>0?fmt(o.contractValue):"—"],["Área",Number(o.areaM2)>0?`${Number(o.areaM2).toLocaleString("pt-BR")} m²`:"—"],["Equipe",`${o._equipe.length}`]].map(([l,v])=><div key={l} style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-surface-muted)",borderRadius:8,padding:"var(--arcd-space-2) var(--arcd-space-2) var(--arcd-space-1)",minWidth:0}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",color:"var(--arcd-text-secondary)"}}>{l}</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{v}</p></div>)}
+                {[["Contrato",Number(o.contractValue)>0?fmt(o.contractValue):"—"],["Área",Number(o.areaM2)>0?`${Number(o.areaM2).toLocaleString("pt-BR")} m²`:"—"],["Equipe",`${o._equipe.length}`]].map(([l,v])=><div key={l} style={{background:"var(--arcd-surface-muted)",border:"var(--arcd-border-width) solid var(--arcd-surface-muted)",borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-2) var(--arcd-space-2) var(--arcd-space-1)",minWidth:0}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",color:"var(--arcd-text-secondary)"}}>{l}</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{v}</p></div>)}
               </div>
 
               <div className="works-card-health">
                 <div style={{display:"flex",justifyContent:"space-between",fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",marginBottom:"var(--arcd-space-1)"}}><span>Dados essenciais preenchidos</span><span>{o._completude}%</span></div>
-                <div style={{height:4,borderRadius:99,background:"var(--arcd-surface-muted)",overflow:"hidden"}}><i style={{display:"block",height:"100%",width:`${o._completude}%`,borderRadius:99,background:o._completude>=80?"var(--arcd-success-text)":o._completude>=55?"var(--arcd-action-primary)":"var(--arcd-danger-text)"}}/></div>
+                <div style={{height:4,borderRadius:"var(--arcd-radius-pill)",background:"var(--arcd-surface-muted)",overflow:"hidden"}}><i style={{display:"block",height:"100%",width:`${o._completude}%`,borderRadius:"var(--arcd-radius-pill)",background:o._completude>=80?"var(--arcd-success-text)":o._completude>=55?"var(--arcd-action-primary)":"var(--arcd-danger-text)"}}/></div>
               </div>
 
               {risco?<div className="works-alerts"><StandardButton variant="secondary" type="button" aria-expanded={expandedAlerts.has(o.id)} onClick={()=>setExpandedAlerts(current=>{const next=new Set(current);next.has(o.id)?next.delete(o.id):next.add(o.id);return next;})}><Ic n="alert" s={14}/><span><strong>{contar(o._alertas.length,"pendência","pendências")}</strong><small>{expandedAlerts.has(o.id)?"Ocultar ações":"Ver como corrigir"}</small></span><Ic n="chevron" s={12}/></StandardButton>{expandedAlerts.has(o.id)&&<div className="works-alerts__list">{o._alertas.map(alert=>{const action=projectAlertAction(alert);return <div key={alert}><span>{alert}</span><StandardButton variant="secondary" type="button" onClick={()=>ehAdmin?abrirEditorObra(o):onAbrirObra?.(o.id)}>{ehAdmin?action.label:"Abrir obra"}</StandardButton></div>;})}</div>}</div>:<div className="works-regular"><Ic n="check" s={14}/><span>Cadastro operacional regular</span></div>}
@@ -5563,29 +5554,29 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
                 {/* Botão cheio só no cartão que tem pendência; nos demais, secundário. Assim a tela tem um destaque, não três. */}<Btn v={risco?"dark":"secondary"} full onClick={()=>onAbrirObra?.(o.id)}>Abrir obra <span>→</span></Btn>
                 {ehAdmin&&o.oneDriveUrl&&<Btn v="ghost" iconOnly onClick={()=>abrirOneDrive(o.oneDriveUrl)} title="Abrir arquivos" ariaLabel="Abrir arquivos"><Ic n="folder" s={14}/></Btn>}
               </div>
-              <div className="works-card-footer" style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:"var(--arcd-space-2)",borderTop:"1px solid var(--arcd-border-default)"}}>
+              <div className="works-card-footer" style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:"var(--arcd-space-2)",borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)"}}>
                 <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{CONTRACT_LABELS[o.contractType]||"Contrato"}</span>
                 {ehAdmin&&<div style={{display:"flex",gap:"var(--arcd-space-half)"}}><Btn v="ghost" size="sm" iconOnly onClick={()=>abrirEditorObra(o)} title="Editar obra" ariaLabel="Editar obra"><Ic n="edit" s={12}/></Btn><details className="record-more"><summary aria-label="Mais ações da obra" title="Mais ações">⋯</summary><div role="menu"><Btn v="danger" size="sm" onClick={()=>remove(o.id)} title="Excluir obra" ariaLabel="Excluir obra"><Ic n="trash" s={12}/> Excluir obra</Btn></div></details></div>}
               </div>
             </div>
           </article>;
         })}
-        {!list.length&&<div style={{gridColumn:"1/-1",textAlign:"center",padding:"var(--arcd-space-10)",background:"var(--arcd-surface-card)",border:"1px dashed var(--arcd-border-default)",borderRadius:14}}><div style={{width:46,height:46,borderRadius:99,display:"grid",placeItems:"center",margin:"var(--arcd-space-0) auto",background:"var(--arcd-surface-muted)",color:"var(--arcd-text-secondary)"}}><Ic n="building" s={22}/></div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-2)"}}>Nenhuma obra nesta categoria</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Altere o filtro ou a busca para ampliar os resultados.</p></div>}
+        {!list.length&&<div style={{gridColumn:"1/-1",textAlign:"center",padding:"var(--arcd-space-10)",background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) dashed var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)"}}><div style={{width:46,height:46,borderRadius:"var(--arcd-radius-pill)",display:"grid",placeItems:"center",margin:"var(--arcd-space-0) auto",background:"var(--arcd-surface-muted)",color:"var(--arcd-text-secondary)"}}><Ic n="building" s={22}/></div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-2)"}}>Nenhuma obra nesta categoria</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Altere o filtro ou a busca para ampliar os resultados.</p></div>}
       </div>
 
       {/* A grade acima é a única representação da visão Painel. As duas
           implementações antigas (tabela desktop e cartões móveis) foram
           removidas para que semântica, permissões e estados não divirjam. */}
       {false&&isDesktop&&<div hidden aria-hidden="true">
-        <div style={{display:"grid",gridTemplateColumns:"74px minmax(220px,1.5fr) minmax(160px,1fr) 110px 145px 125px minmax(150px,.8fr) 72px",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-3)",background:"var(--arcd-surface-overlay)",borderBottom:"1px solid var(--arcd-border-default)",fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}><span>Código</span><span>Obra</span><span>Cliente</span><span>Status</span><span>Fase</span><span>Início</span><span>Responsável</span><span style={{textAlign:"right"}}>Ações</span></div>
-        {list.map((o,index)=>{const st=statusMap[o.status]||statusMap.active;const fase=fases.find(f=>f.id===o.faseId);const equipe=(data.employees||[]).filter(e=>e.active!==false&&e.obra===o.id);const codigo=String(index+1).padStart(4,"0");return <div key={o.id} className="lift-card" onClick={()=>onAbrirObra?.(o.id)} style={{display:"grid",gridTemplateColumns:"74px minmax(220px,1.5fr) minmax(160px,1fr) 110px 145px 125px minmax(150px,.8fr) 72px",gap:"var(--arcd-space-2)",alignItems:"center",padding:"var(--arcd-space-3)",borderBottom:index<list.length-1?"1px solid var(--arcd-border-default)":"none",cursor:"pointer",background:"var(--arcd-surface-card)"}}>
+        <div style={{display:"grid",gridTemplateColumns:"74px minmax(220px,1.5fr) minmax(160px,1fr) 110px 145px 125px minmax(150px,.8fr) 72px",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-3)",background:"var(--arcd-surface-overlay)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)",fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}><span>Código</span><span>Obra</span><span>Cliente</span><span>Status</span><span>Fase</span><span>Início</span><span>Responsável</span><span style={{textAlign:"right"}}>Ações</span></div>
+        {list.map((o,index)=>{const st=statusMap[o.status]||statusMap.active;const fase=fases.find(f=>f.id===o.faseId);const equipe=(data.employees||[]).filter(e=>e.active!==false&&e.obra===o.id);const codigo=String(index+1).padStart(4,"0");return <div key={o.id} className="lift-card" onClick={()=>onAbrirObra?.(o.id)} style={{display:"grid",gridTemplateColumns:"74px minmax(220px,1.5fr) minmax(160px,1fr) 110px 145px 125px minmax(150px,.8fr) 72px",gap:"var(--arcd-space-2)",alignItems:"center",padding:"var(--arcd-space-3)",borderBottom:index<list.length-1?"var(--arcd-border-width) solid var(--arcd-border-default)":"none",cursor:"pointer",background:"var(--arcd-surface-card)"}}>
           <span style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)"}}>#{codigo}</span>
-          <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",minWidth:0}}><div style={{width:38,height:38,borderRadius:10,flexShrink:0,display:"grid",placeItems:"center",overflow:"hidden",background:o.capaUrl?`url("${o.capaUrl}") center/cover`:"linear-gradient(145deg,var(--arcd-text-primary),var(--arcd-action-primary))",color:"white",fontWeight:"var(--arcd-font-weight-semibold)"}}>{!o.capaUrl&&(o.name||"O").charAt(0)}</div><div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.name}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.address||`${Number(o.areaM2||0).toLocaleString("pt-BR")} m²`}</p></div></div>
+          <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",minWidth:0}}><div style={{width:38,height:38,borderRadius:"var(--arcd-box-radius)",flexShrink:0,display:"grid",placeItems:"center",overflow:"hidden",background:o.capaUrl?`url("${o.capaUrl}") center/cover`:"linear-gradient(145deg,var(--arcd-text-primary),var(--arcd-action-primary))",color:"var(--arcd-text-inverse)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{!o.capaUrl&&(o.name||"O").charAt(0)}</div><div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.name}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.address||`${Number(o.areaM2||0).toLocaleString("pt-BR")} m²`}</p></div></div>
           <span style={{fontSize:"var(--arcd-type-label)",color:o.cliente?"var(--arcd-text-primary)":"var(--arcd-text-secondary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.cliente||"Não informado"}</span>
           <span><Badge color={st.c}>{st.l}</Badge></span>
-          <span style={{display:"inline-flex",alignItems:"center",gap:"var(--arcd-space-1)",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:fase?.cor||"var(--arcd-text-secondary)"}}><i style={{width:7,height:7,borderRadius:99,background:fase?.cor||"var(--arcd-border-default)"}}/>{fase?.nome||"Sem fase"}</span>
+          <span style={{display:"inline-flex",alignItems:"center",gap:"var(--arcd-space-1)",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:fase?.cor||"var(--arcd-text-secondary)"}}><i style={{width:7,height:7,borderRadius:"var(--arcd-radius-pill)",background:fase?.cor||"var(--arcd-border-default)"}}/>{fase?.nome||"Sem fase"}</span>
           <span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>{fmtDate(o.contractStart||o.startDate)||"—"}</span>
-          <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",minWidth:0}}><span style={{width:28,height:28,borderRadius:99,display:"grid",placeItems:"center",background:"color-mix(in srgb, var(--arcd-action-primary) 8%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 20%, transparent)",color:"var(--arcd-action-primary)",fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{(o.engineer||"?").split(" ").slice(0,2).map(n=>n[0]).join("")}</span><span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.engineer||"Não definido"}{equipe.length>0&&<small style={{display:"block",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-caption)"}}>{equipe.length} na equipe</small>}</span></div>
+          <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",minWidth:0}}><span style={{width:28,height:28,borderRadius:"var(--arcd-radius-pill)",display:"grid",placeItems:"center",background:"color-mix(in srgb, var(--arcd-action-primary) 8%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-action-primary) 20%, transparent)",color:"var(--arcd-action-primary)",fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{(o.engineer||"?").split(" ").slice(0,2).map(n=>n[0]).join("")}</span><span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.engineer||"Não definido"}{equipe.length>0&&<small style={{display:"block",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-caption)"}}>{equipe.length} na equipe</small>}</span></div>
           <div onClick={e=>e.stopPropagation()} style={{display:"flex",justifyContent:"flex-end",gap:"var(--arcd-space-half)"}}><Btn v="ghost" size="sm" iconOnly onClick={()=>{setForm({...o,areaM2:String(o.areaM2||""),diaVenc1:String(o.diaVenc1||DIA_VENC_1_PADRAO),diaVenc2:String(o.diaVenc2||DIA_VENC_2_PADRAO)});setModal(true);}} title="Editar obra" ariaLabel="Editar obra"><Ic n="edit" s={13}/></Btn>{ehAdmin&&<Btn v="danger" size="sm" iconOnly onClick={()=>remove(o.id)} title="Excluir obra" ariaLabel="Excluir obra"><Ic n="trash" s={13}/></Btn>}</div>
         </div>;})}
         {!list.length&&<div style={{textAlign:"center",padding:"var(--arcd-space-8)",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-body)"}}>Nenhuma obra encontrada.</div>}
@@ -5599,24 +5590,24 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
         const fase = fases.find(f=>f.id===o.faseId);
         const prazo = prazoObra(o);
         return (
-          <div key={o.id} className="lift-card" style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:12,overflow:"hidden",boxShadow:C.shCard,display:"flex",flexDirection:"column",minWidth:0}}>
-            <StandardButton variant="secondary" onClick={()=>onAbrirObra?.(o.id)} style={{position:"relative",height:112,textAlign:"left"}}>
+          <div key={o.id} className="lift-card" style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)",overflow:"hidden",boxShadow:C.shCard,display:"flex",flexDirection:"column",minWidth:0}}>
+            <StandardButton variant="secondary" onClick={()=>onAbrirObra?.(o.id)} style={{position:"relative"}}>
               {!o.capaUrl&&<span style={{position:"absolute",right:16,top:5,fontFamily:"var(--arcd-font-sans)",fontSize:"var(--arcd-type-page-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:"color-mix(in srgb, var(--arcd-text-inverse) 8%, transparent)",lineHeight:"var(--arcd-line-height-normal)"}}>{(o.name||"O").charAt(0)}</span>}
               <div style={{position:"absolute",inset:0,padding:"var(--arcd-space-3)",display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-1)"}}><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",letterSpacing:"var(--arcd-letter-spacing-body)",textTransform:"uppercase",background:"color-mix(in srgb, var(--arcd-text-inverse) 92%, transparent)",color:st.c,borderRadius:99,padding:"var(--arcd-space-1) var(--arcd-space-2)"}}>{st.l}</span>{fase&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"color-mix(in srgb, var(--arcd-text-inverse) 85%, transparent)"}}>{fase.nome}</span>}</div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-1)"}}><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",letterSpacing:"var(--arcd-letter-spacing-body)",textTransform:"uppercase",background:"color-mix(in srgb, var(--arcd-text-inverse) 92%, transparent)",color:st.c,borderRadius:"var(--arcd-radius-pill)",padding:"var(--arcd-space-1) var(--arcd-space-2)"}}>{st.l}</span>{fase&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"color-mix(in srgb, var(--arcd-text-inverse) 85%, transparent)"}}>{fase.nome}</span>}</div>
                 <div><h3 className="brk" style={{fontFamily:FONT_DISPLAY,fontSize:"var(--arcd-type-section-title)",fontWeight:"var(--arcd-font-weight-semibold)",lineHeight:"var(--arcd-line-height-normal)",color:"var(--arcd-text-inverse)"}}>{o.name}</h3>{o.cliente&&<p style={{fontSize:"var(--arcd-type-label)",color:"color-mix(in srgb, var(--arcd-text-inverse) 82%, transparent)",marginTop:"var(--arcd-space-half)"}}>{o.cliente}</p>}</div>
               </div>
             </StandardButton>
             <div style={{padding:"var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)",flex:1}}>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"var(--arcd-space-2)"}}>{[["Contrato",Number(o.contractValue)>0?fmtCompact(o.contractValue):"-"],["Área",area>0?`${area.toLocaleString("pt-BR")} m²`:"-"],["Equipe",`${count}`]].map(([l,v])=><div key={l} style={{background:"var(--arcd-surface-muted)",borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-1)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>{l}</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{v}</p></div>)}</div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"var(--arcd-space-2)"}}>{[["Contrato",Number(o.contractValue)>0?fmtCompact(o.contractValue):"-"],["Área",area>0?`${area.toLocaleString("pt-BR")} m²`:"-"],["Equipe",`${count}`]].map(([l,v])=><div key={l} style={{background:"var(--arcd-surface-muted)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-1)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>{l}</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{v}</p></div>)}</div>
               <div style={{minHeight:37}}>{o.address&&<p className="brk" style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-muted)",lineHeight:"var(--arcd-line-height-normal)"}}>{o.address}</p>}{o.engineer&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Responsável · <b style={{color:"var(--arcd-text-primary)"}}>{o.engineer}</b></p>}{prazo&&<p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:prazo.cor,marginTop:"var(--arcd-space-half)"}}>{prazo.rotulo}</p>}</div>
               <div style={{display:"grid",gridTemplateColumns:ehAdmin&&o.oneDriveUrl?"1fr 1fr":"1fr",gap:"var(--arcd-space-1)",marginTop:"auto"}}><Btn size="sm" onClick={()=>onAbrirObra?.(o.id)}>Abrir painel →</Btn>{ehAdmin&&o.oneDriveUrl&&<Btn size="sm" v="ghost" onClick={()=>abrirOneDrive(o.oneDriveUrl)}><Ic n="folder"/> Arquivos</Btn>}</div>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderTop:"1px solid var(--arcd-border-default)",paddingTop:"var(--arcd-space-2)"}}><span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{CONTRACT_LABELS[o.contractType]||"Contrato"}</span><div style={{display:"flex",gap:"var(--arcd-space-half)"}}><Btn v="ghost" size="sm" iconOnly onClick={()=>{setForm({...o,areaM2:String(o.areaM2||""),diaVenc1:String(o.diaVenc1||DIA_VENC_1_PADRAO),diaVenc2:String(o.diaVenc2||DIA_VENC_2_PADRAO)});setModal(true);}} title="Editar obra" ariaLabel="Editar obra"><Ic n="edit" s={14}/></Btn>{ehAdmin&&<Btn v="danger" size="sm" iconOnly onClick={()=>remove(o.id)} title="Excluir obra" ariaLabel="Excluir obra"><Ic n="trash" s={14}/></Btn>}</div></div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)",paddingTop:"var(--arcd-space-2)"}}><span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{CONTRACT_LABELS[o.contractType]||"Contrato"}</span><div style={{display:"flex",gap:"var(--arcd-space-half)"}}><Btn v="ghost" size="sm" iconOnly onClick={()=>{setForm({...o,areaM2:String(o.areaM2||""),diaVenc1:String(o.diaVenc1||DIA_VENC_1_PADRAO),diaVenc2:String(o.diaVenc2||DIA_VENC_2_PADRAO)});setModal(true);}} title="Editar obra" ariaLabel="Editar obra"><Ic n="edit" s={14}/></Btn>{ehAdmin&&<Btn v="danger" size="sm" iconOnly onClick={()=>remove(o.id)} title="Excluir obra" ariaLabel="Excluir obra"><Ic n="trash" s={14}/></Btn>}</div></div>
             </div>
           </div>
         );
       })}
-      {!list.length&&<div style={{gridColumn:"1/-1",textAlign:"center",padding:"var(--arcd-space-8)",border:"1px dashed var(--arcd-border-default)",borderRadius:10}}><Ic n="building" s={25} color={C.muted}/><p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-2)"}}>Nenhuma obra encontrada.</p></div>}
+      {!list.length&&<div style={{gridColumn:"1/-1",textAlign:"center",padding:"var(--arcd-space-8)",border:"var(--arcd-border-width) dashed var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)"}}><Ic n="building" s={25} color={C.muted}/><p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-2)"}}>Nenhuma obra encontrada.</p></div>}
       </div>}
       </>}
 
@@ -5632,15 +5623,15 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
               <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginBottom:"var(--arcd-space-1)"}}>Cor</p>
               <div style={{display:"flex",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
                 {CORES_FASE.map(c=>(
-                  <StandardButton variant="secondary" type="button" key={c} aria-label={`Usar cor ${c}`} aria-pressed={faseCor===c} title={`Cor ${c}`} onClick={()=>setFaseCor(c)} style={{width:44,height:44}}/>
+                  <StandardButton variant="secondary" type="button" key={c} aria-label={`Usar cor ${c}`} aria-pressed={faseCor===c} title={`Cor ${c}`} onClick={()=>setFaseCor(c)} style={{width:44}}/>
                 ))}
               </div>
             </div>
 
             {/* Prévia da coluna */}
-            <div style={{background:"var(--arcd-surface-muted)",border:"1.5px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+            <div style={{background:"var(--arcd-surface-muted)",border:"1.5px solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
               <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-1)"}}>
-                <span style={{width:9,height:9,borderRadius:2,background:faseCor}}/>
+                <span style={{width:9,height:9,borderRadius:"var(--arcd-radius-control)",background:faseCor}}/>
                 <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",color:"var(--arcd-text-primary)"}}>
                   {faseNome || "Nome da fase"}
                 </p>
@@ -5734,7 +5725,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
             ) : (
               <Sel label="Dia de vencimento *" value={String(form.diaVenc1||DIA_VENC_1_PADRAO)} onChange={setField("diaVenc1")} options={DIA_OPTS} error={projectErrors.diaVenc1}/>
             )}
-            <div style={{gridColumn:"1/-1",background:"color-mix(in srgb, var(--arcd-action-primary) 7%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+            <div style={{gridColumn:"1/-1",background:"color-mix(in srgb, var(--arcd-action-primary) 7%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
               <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-muted)",lineHeight:"var(--arcd-line-height-normal)"}}>
                 {form.billingFrequency === "quinzenal"
                   ? <>Cada mês gera 2 parcelas: uma no dia <b>{form.diaVenc1||DIA_VENC_1_PADRAO}</b> e outra no dia <b>{form.diaVenc2||DIA_VENC_2_PADRAO}</b>. Padrão do contrato: 15 e 30.</>
@@ -5751,7 +5742,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
               <Inp label="Data da entrada" type="date" value={form.entradaDate} onChange={setField("entradaDate")} error={projectErrors.entradaDate}/>
             </>)}
             {form.contractValue && form.totalParcelas && Number(form.totalParcelas)>0 && form.contractType !== "admin_only" && !form.parcelaMensal && (
-              <div style={{gridColumn:"1/-1",background:"color-mix(in srgb, var(--arcd-action-primary) 7%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+              <div style={{gridColumn:"1/-1",background:"color-mix(in srgb, var(--arcd-action-primary) 7%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
                 <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Parcela MO sugerida: <strong style={{color:"var(--arcd-action-primary)"}}>{(((Number(form.contractValue)-Number(form.entrada||0))/Number(form.totalParcelas))).toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</strong></p>
                 <Btn v="primary" size="sm" style={{marginTop:"var(--arcd-space-1)"}} onClick={()=>setField("parcelaMensal")(String(Math.round((Number(form.contractValue)-Number(form.entrada||0))/Number(form.totalParcelas))))}>
                   Usar este valor →
@@ -5880,7 +5871,7 @@ function WorkerMovementModal({ data, showToast, employee, initialMode = "transfe
   return (
     <Modal title={mode === "transfer" ? "Transferir trabalhador" : "Registrar desligamento"} onClose={onClose}>
       <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
-        <div style={{ background: "var(--arcd-surface-card)", border: "1px solid var(--arcd-border-default)", borderLeft: `1px solid ${mode === "transfer" ? "var(--arcd-action-primary)" : "var(--arcd-danger-text)"}`, padding: "var(--arcd-space-3)" }}>
+        <div style={{ background: "var(--arcd-surface-card)", border: "var(--arcd-border-width) solid var(--arcd-border-default)", borderLeft: `var(--arcd-border-width) solid ${mode === "transfer" ? "var(--arcd-action-primary)" : "var(--arcd-danger-text)"}`, padding: "var(--arcd-space-3)" }}>
           <p style={{ fontFamily:"var(--arcd-font-sans)", fontWeight:"var(--arcd-font-weight-semibold)", fontSize: "var(--arcd-type-section-title)" }}>{employee.name}</p>
           <p style={{ color: "var(--arcd-text-secondary)", fontSize: "var(--arcd-type-body)" }}>Obra atual: {obraName(employee.obra)}{employee.role ? `  ${employee.role}` : ""}</p>
         </div>
@@ -5943,7 +5934,7 @@ function UnlockRequestModal({ data, dispatchAttendanceCommand, showToast, obraId
   return (
     <Modal title="Solicitar permissão" onClose={onClose}>
       <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
-        <div style={{ background: "var(--arcd-surface-card)", border: "1px solid var(--arcd-border-default)", borderLeft: "1px solid var(--arcd-action-primary)", padding: "var(--arcd-space-3)" }}>
+        <div style={{ background: "var(--arcd-surface-card)", border: "var(--arcd-border-width) solid var(--arcd-border-default)", borderLeft: "var(--arcd-border-width) solid var(--arcd-action-primary)", padding: "var(--arcd-space-3)" }}>
           <p style={{ fontFamily:"var(--arcd-font-sans)", fontWeight:"var(--arcd-font-weight-semibold)", fontSize: "var(--arcd-type-section-title)" }}>{obraName}</p>
           <p style={{ color: "var(--arcd-text-secondary)", fontSize: "var(--arcd-type-body)" }}>Data bloqueada: {fmtDateFull(date)}</p>
           {employee?.name && <p style={{ color: "var(--arcd-text-secondary)", fontSize: "var(--arcd-type-body)" }}>Trabalhador: {employee.name}</p>}
@@ -6165,7 +6156,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
     <AttendancePayMode data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} onTab={onTab}/>
 
     {arqMeta ? (
-      <div className="ponto-geral-archive" style={{background:"color-mix(in srgb, var(--arcd-action-primary) 6%, transparent)",border:"1px solid var(--arcd-action-primary)",borderRadius:8,padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
+      <div className="ponto-geral-archive" style={{background:"color-mix(in srgb, var(--arcd-action-primary) 6%, transparent)",border:"var(--arcd-border-width) solid var(--arcd-action-primary)",borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
         <div>
           <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:"var(--arcd-font-weight-semibold)",fontSize:"var(--arcd-type-body)",color:"var(--arcd-action-primary)",display:"flex",alignItems:"center",gap:"var(--arcd-space-1)"}}><Ic n="lock"/> QUINZENA FINALIZADA E ARQUIVADA</p>
           <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>
@@ -6178,7 +6169,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
         </div>
       </div>
     ) : podeArquivar ? (
-      <div className="ponto-geral-archive" style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:8,padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
+      <div className="ponto-geral-archive" style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
         <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>
           {quinzenaEncerrada
             ? "Após conferir e pagar a folha, selecione Todos e Todas as obras para arquivar e bloquear a edição da quinzena."
@@ -6206,25 +6197,25 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
       <span className="ponto-legend-help">Para mudar a obra do dia, clique no texto abaixo do status.</span>
     </div>
 
-    <div className="ponto-geral-table-wrap" style={{overflow:"auto",border:"1px solid var(--arcd-border-default)",borderRadius:8,background:"var(--arcd-surface-card)",maxHeight:"70vh"}}>
-      <table className="ponto-geral-table" style={{borderCollapse:"separate",borderSpacing:0,minWidth:Math.max(900,284+days.length*64),width:"100%",fontSize:"var(--arcd-type-label)"}}>
+    <div className="ponto-geral-table-wrap" style={{overflow:"auto",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)",background:"var(--arcd-surface-card)",maxHeight:"70vh"}}>
+      <table className="arcd-data-table__table ponto-geral-table" style={{borderCollapse:"separate",borderSpacing:0,minWidth:Math.max(900,284+days.length*64),width:"100%"}}>
         <thead><tr>
-          <th className="ponto-col-funcionario" style={{position:"sticky",left:0,zIndex:7,minWidth:220,background:"var(--arcd-surface-muted)",color:"var(--arcd-text-primary)",padding:"var(--arcd-space-2) var(--arcd-space-3)",textAlign:"left",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",letterSpacing:"var(--arcd-letter-spacing-body)",borderBottom:"1px solid var(--arcd-border-default)"}}>Funcionário</th>
-          <th className="ponto-col-total" style={{minWidth:64,background:"var(--arcd-surface-muted)",color:"var(--arcd-text-primary)",padding:"var(--arcd-space-2)",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",borderBottom:"1px solid var(--arcd-border-default)"}}>DIAS</th>
-          {days.map(date=>{const feriado=feriados.includes(date);return <th className={`ponto-col-dia${feriado?" ponto-feriado":""}`} key={date} title={feriado?(nomesFeriados.get(date)||"Feriado"):""} style={{minWidth:64,background:feriado?"color-mix(in srgb, var(--arcd-danger-text) 8%, transparent)":"var(--arcd-surface-muted)",color:feriado?"var(--arcd-danger-text)":"var(--arcd-text-primary)",padding:"var(--arcd-space-1)",borderLeft:"1px solid var(--arcd-border-default)",borderBottom:"1px solid var(--arcd-border-default)"}}><div style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{diaLabel(date)}</div><div style={{fontSize:"var(--arcd-type-caption)",fontWeight:feriado?600:600,opacity:1}}>{semana(date)}</div>{feriado&&<span className="ponto-feriado-label">Feriado</span>}</th>;})}
+          <th className="ponto-col-funcionario" style={{position:"sticky",left:0,zIndex:7,minWidth:220,background:"var(--arcd-surface-muted)",color:"var(--arcd-text-primary)",padding:"var(--arcd-space-2) var(--arcd-space-3)",textAlign:"left",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",letterSpacing:"var(--arcd-letter-spacing-body)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}>Funcionário</th>
+          <th className="ponto-col-total" style={{minWidth:64,background:"var(--arcd-surface-muted)",color:"var(--arcd-text-primary)",padding:"var(--arcd-space-2)",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}>DIAS</th>
+          {days.map(date=>{const feriado=feriados.includes(date);return <th className={`ponto-col-dia${feriado?" ponto-feriado":""}`} key={date} title={feriado?(nomesFeriados.get(date)||"Feriado"):""} style={{minWidth:64,background:feriado?"color-mix(in srgb, var(--arcd-danger-text) 8%, transparent)":"var(--arcd-surface-muted)",color:feriado?"var(--arcd-danger-text)":"var(--arcd-text-primary)",padding:"var(--arcd-space-1)",borderLeft:"var(--arcd-border-width) solid var(--arcd-border-default)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}><div style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{diaLabel(date)}</div><div style={{fontSize:"var(--arcd-type-caption)",fontWeight:feriado?600:600,opacity:1}}>{semana(date)}</div>{feriado&&<span className="ponto-feriado-label">Feriado</span>}</th>;})}
         </tr></thead>
-        <tbody>{employees.map(emp=>{const equivalentes=days.reduce((s,d)=>{const st=attendanceFor(emp.id,d)?.status;return s+(st==="P"?1:st==="M"?.5:0);},0);return <tr key={emp.id} style={{borderTop:"1px solid var(--arcd-border-default)"}}>
-          <td className="ponto-col-funcionario" style={{position:"sticky",left:0,zIndex:2,background:"var(--arcd-surface-card)",padding:"var(--arcd-space-2) var(--arcd-space-3)",borderTop:"1px solid var(--arcd-border-default)",minWidth:290}}>
+        <tbody>{employees.map(emp=>{const equivalentes=days.reduce((s,d)=>{const st=attendanceFor(emp.id,d)?.status;return s+(st==="P"?1:st==="M"?.5:0);},0);return <tr key={emp.id} style={{borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)"}}>
+          <td className="ponto-col-funcionario" style={{position:"sticky",left:0,zIndex:2,background:"var(--arcd-surface-card)",padding:"var(--arcd-space-2) var(--arcd-space-3)",borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)",minWidth:290}}>
             <RecordAction className="ponto-employee-name" type="button" onClick={()=>{if(!['admin','rh'].includes(currentUser?.role)){gerarFichaFuncionarioPDF(data,emp,showToast);return;}sessionContext.setItem("arcd_editar_funcionario",emp.id);if(navigateEmployee)navigateEmployee('equipe',{year,month,obraId:filterObra==='all'?'':filterObra});else onTab?.("equipe");}} title="Abrir ficha do funcionário">{emp.name}</RecordAction>
             <div className="ponto-employee-role">{emp.active===false&&'Desligado · '}{emp.role||'Funcionário'} · {obraName(emp.obra)}</div>
           </td>
-          <td className="ponto-col-total" style={{textAlign:"center",fontWeight:"var(--arcd-font-weight-semibold)",fontSize:"var(--arcd-type-table)",color:"var(--arcd-action-primary)",borderTop:"1px solid var(--arcd-border-default)",fontFamily:"var(--arcd-font-sans)"}}>{equivalentes.toFixed(1).replace(".0","")}</td>
+          <td className="ponto-col-total" style={{textAlign:"center",fontWeight:"var(--arcd-font-weight-semibold)",fontSize:"var(--arcd-type-table)",color:"var(--arcd-action-primary)",borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)",fontFamily:"var(--arcd-font-sans)"}}>{equivalentes.toFixed(1).replace(".0","")}</td>
           {days.map(date=>{
             const cellKey=cellKeyFor(emp.id,date),pending=pendingCellsRef.current.has(cellKey);
             const att=attendanceFor(emp.id,date),st=att?.status,obraId=obraDoRegistro(emp,date,att),fora=!employeeRelevantOnDate(data,emp,date),feriado=feriados.includes(date);
             const foraDeLotacao=st&&obraId&&obraId!==emp.obra;   // trabalhou em obra diferente da lotação
             const aberto=obraCell===cellKey;
-            return <td className={`ponto-dia-cell${feriado?" ponto-feriado":""}`} key={date} style={{padding:"var(--arcd-space-1)",borderTop:"1px solid var(--arcd-border-default)",borderLeft:"1px solid var(--arcd-border-default)",background:feriado?"color-mix(in srgb, var(--arcd-danger-text) 2%, transparent)":fora?"var(--arcd-surface-muted)":"var(--arcd-surface-card)",verticalAlign:"middle"}}>
+            return <td className={`ponto-dia-cell${feriado?" ponto-feriado":""}`} key={date} style={{padding:"var(--arcd-space-1)",borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)",borderLeft:"var(--arcd-border-width) solid var(--arcd-border-default)",background:feriado?"color-mix(in srgb, var(--arcd-danger-text) 2%, transparent)":fora?"var(--arcd-surface-muted)":"var(--arcd-surface-card)",verticalAlign:"middle"}}>
               {fora?<div style={{textAlign:"center",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)"}}>—</div>:<>
                 <RecordAction onClick={()=>{
                   if(st==="AT"){
@@ -6237,10 +6228,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
                   aria-busy={pending}
                   aria-haspopup={st==="AT"?"dialog":undefined}
                   title={pending?"Salvando...":ATTENDANCE_STATUS_LABEL[st]||"Sem registro"}
-                  style={{width:"100%",height:30,textAlign:"center",border:`1.5px solid ${st?corStatus(st):"var(--arcd-border-default)"}`,borderRadius:"var(--arcd-radius-control)",
-                          background:st?corStatus(st):"var(--arcd-surface-page)",color:st?"var(--arcd-text-inverse)":"var(--arcd-text-secondary)",
-                          fontWeight:"var(--arcd-font-weight-semibold)",cursor:"pointer",fontSize:"var(--arcd-type-control)",fontFamily:"var(--arcd-font-sans)",
-                          boxShadow:pending?"0 0 0 2px color-mix(in srgb, var(--arcd-action-primary) 20%, transparent)":"none",opacity:pending ? .82 : 1}}>
+                  style={{width:"100%",cursor:"pointer",opacity:pending ? .82 : 1}}>
                   {st?rotuloCurto(st):feriado?"Feriado":rotuloCurto(st)}
                 </RecordAction>
                 {st==="AT"&&<RecordAction title="Anexar atestado" onClick={()=>openCertificate(emp,date,true)}>Anexar atestado</RecordAction>}
@@ -6248,18 +6236,18 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
                     obra do dia difere da lotação; toque abre a troca. */}
                 {aberto ? (
                   <SelectControl autoFocus value={obraId} onChange={e=>{salvarCelula(emp,date,{obraId:e.target.value});setObraCell(null);}} onBlur={()=>setObraCell(null)}
-                    style={{width:"100%",marginTop:"var(--arcd-space-half)",border:"1px solid var(--arcd-action-primary)",borderRadius:4,background:"var(--arcd-surface-page)",color:"var(--arcd-text-primary)",fontSize:"var(--arcd-type-control)",padding:"var(--arcd-space-half) var(--arcd-space-0)"}}>
+                    style={{width:"100%",marginTop:"var(--arcd-space-half)"}}>
                     <option value="">Sem obra</option>
                     {(data.obras||[]).map(o=><option key={o.id} value={o.id}>{o.name}</option>)}
                   </SelectControl>
                 ) : foraDeLotacao ? (
                   <RecordAction onClick={()=>setObraCell(cellKey)} title={`Obra do dia: ${obraName(obraId)}`}
-                    style={{width:"100%",marginTop:"var(--arcd-space-half)",border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)",background:"color-mix(in srgb, var(--arcd-warning-text) 7%, transparent)",color:"var(--arcd-warning-text)",borderRadius:"var(--arcd-radius-control)",fontSize:"var(--arcd-type-control)",fontWeight:"var(--arcd-font-weight-semibold)",cursor:"pointer",padding:"var(--arcd-space-half)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                    style={{width:"100%",marginTop:"var(--arcd-space-half)",cursor:"pointer",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                     {obraName(obraId)}
                   </RecordAction>
                 ) : st ? (
                   <RecordAction onClick={()=>setObraCell(cellKey)} title="Trocar a obra deste dia"
-                    style={{width:"100%",marginTop:"var(--arcd-space-half)",border:0,background:"transparent",color:"var(--arcd-text-secondary)",borderRadius:"var(--arcd-radius-control)",fontSize:"var(--arcd-type-control)",cursor:"pointer",padding:"var(--arcd-space-half)",opacity:.55}}>
+                    style={{width:"100%",marginTop:"var(--arcd-space-half)",cursor:"pointer",opacity:.55}}>
                     trocar obra
                   </RecordAction>
                 ) : null}
@@ -6312,13 +6300,13 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
         <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginBottom:"var(--arcd-space-2)"}}>
           Período {fmtDateFull(arqView.meta?.inicio)} a {fmtDateFull(arqView.meta?.fim)} · arquivado por {arqView.meta?.archivedBy?.nome||"-"}. Valores calculados com a diária da época (congelada no arquivo).
         </p>
-        <div style={{overflow:"auto",border:"1px solid var(--arcd-border-default)",borderRadius:8}}>
-          <table style={{borderCollapse:"collapse",width:"100%",fontSize:"var(--arcd-type-label)"}}>
+        <div style={{overflow:"auto",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)"}}>
+          <table className="arcd-data-table__table" style={{borderCollapse:"collapse",width:"100%"}}>
             <thead><tr style={{background:"var(--arcd-surface-muted)"}}>
-              {["Funcionário","P","½","F","HE","Dias","Diária","Custo"].map(h=><th key={h} style={{padding:"var(--arcd-space-2)",textAlign:h==="Funcionário"?"left":"center",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",borderBottom:"1px solid var(--arcd-border-default)"}}>{h}</th>)}
+              {["Funcionário","P","½","F","HE","Dias","Diária","Custo"].map(h=><th key={h} style={{padding:"var(--arcd-space-2)",textAlign:h==="Funcionário"?"left":"center",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}>{h}</th>)}
             </tr></thead>
             <tbody>
-              {linhas.map(l=><tr key={l.id} style={{borderTop:"1px solid var(--arcd-border-default)"}}>
+              {linhas.map(l=><tr key={l.id} style={{borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)"}}>
                 <td style={{padding:"var(--arcd-space-2)"}}><b>{l.name}</b><div style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{l.role||"Funcionário"}</div></td>
                 <td style={{textAlign:"center",color:"var(--arcd-success-text)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{l.p}</td>
                 <td style={{textAlign:"center",color:"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{l.m}</td>
@@ -6762,7 +6750,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
       <ScopeNote title={isMobile?"Alcance do lote":"Ações em lote"}>A busca e a paginação organizam a leitura. Os lotes continuam abrangendo os {list.length} funcionários da obra e do grupo selecionados.</ScopeNote>
       <div className="obra-attendance__bulk">
         <Btn v="success" size="sm" onClick={() => markAll("P")} disabled={filterObra==="all"||!selectedObraCanEdit||list.length===0} full title={filterObra==="all"?"Selecione uma obra para usar ações em lote":undefined}><Ic n="check" /> Todos presentes</Btn>
-        <Btn v="ghost" size="sm" onClick={() => markAll("F")} disabled={filterObra==="all"||!selectedObraCanEdit||list.length===0} full title={filterObra==="all"?"Selecione uma obra para usar ações em lote":undefined} style={{color:"var(--arcd-danger-text)"}}><Ic n="x" /> Todos com falta</Btn>
+        <Btn v="ghost" size="sm" onClick={() => markAll("F")} disabled={filterObra==="all"||!selectedObraCanEdit||list.length===0} full title={filterObra==="all"?"Selecione uma obra para usar ações em lote":undefined}><Ic n="x" /> Todos com falta</Btn>
       </div>
       </TaskDisclosure>
 
@@ -6895,7 +6883,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
             <Inp label="Retorno do intervalo" type="time" value={timeForm.intervaloRetorno} onChange={v=>setTimeForm(f=>({...f,intervaloRetorno:v}))}/>
             <Inp label="Saída" type="time" value={timeForm.saida} onChange={v=>setTimeForm(f=>({...f,saida:v}))}/>
           </div>
-          <div style={{marginTop:"var(--arcd-space-3)",padding:"var(--arcd-space-2)",border:`1px solid ${timekeepingPreview?.valid?"var(--arcd-border-default)":"var(--arcd-danger-text)"}`,borderRadius:7,background:"var(--arcd-surface-muted)"}}>
+          <div style={{marginTop:"var(--arcd-space-3)",padding:"var(--arcd-space-2)",border:`var(--arcd-border-width) solid ${timekeepingPreview?.valid?"var(--arcd-border-default)":"var(--arcd-danger-text)"}`,borderRadius:"var(--arcd-radius-control)",background:"var(--arcd-surface-muted)"}}>
             {timekeepingPreview?.valid
               ? <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>
                   Total: {formatMinutes(timekeepingPreview.workedMinutes)}
@@ -6978,73 +6966,73 @@ function FluxoCaixa({ data, year, month, obraId="all" }) {
   const projOut = cashflow.filter(c=>c.isProjection).reduce((s,c)=>s+c.totalOut,0);
 
   return (
-    <div style={{display:"flex",flexDirection:"column",gap:12}}>
+    <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div>
           <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.blue,textTransform:"uppercase",letterSpacing:1}}>Histórico + Projeção</p>
-          <h3 style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-page-title)",letterSpacing:1.5,color:C.text}}>Fluxo de Caixa</h3><p>Referência: {fullMonth(nowM)} {nowY} · {obraId==="all"?"Todas as obras":data.obras.find(o=>o.id===obraId)?.name}. Janela de {months} meses até a referência e 3 meses seguintes. Valores posteriores ao mês atual são estimativas.</p>
+          <h3 style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-page-title)",letterSpacing:1.5,color:"var(--arcd-text-primary)"}}>Fluxo de Caixa</h3><p>Referência: {fullMonth(nowM)} {nowY} · {obraId==="all"?"Todas as obras":data.obras.find(o=>o.id===obraId)?.name}. Janela de {months} meses até a referência e 3 meses seguintes. Valores posteriores ao mês atual são estimativas.</p>
         </div>
         <Sel aria-label="Período da consulta" value={String(months)} onChange={v=>setMonths(Number(v))} options={[{v:"3",l:"3 meses"},{v:"6",l:"6 meses"},{v:"12",l:"12 meses"}]}/>
       </div>
 
       {/* KPIs */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:"var(--arcd-space-2)"}}>
         {[
           ["Recebido (real)", fmt(totalReceived),    C.green],
           ["Saída (real)",    fmt(totalOut),          C.red],
           ["Receita proj.",   fmt(projReceived),      C.blue],
           ["Saída proj.",     fmt(projOut),           C.orange],
         ].map(([l,v,c])=>(
-          <div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,padding:"10px 12px",borderRadius:10}}>
-            <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>{l}</p>
-            <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,color:c,fontSize:"var(--arcd-type-section-title)",lineHeight:1.1,marginTop:3}}>{v}</p>
+          <div key={l} style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderTop:`3px solid ${c}`,padding:"var(--arcd-space-2) var(--arcd-space-3)",borderRadius:"var(--arcd-box-radius)"}}>
+            <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>{l}</p>
+            <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,color:c,fontSize:"var(--arcd-type-section-title)",lineHeight:1.1,marginTop:"var(--arcd-space-half)"}}>{v}</p>
           </div>
         ))}
       </div>
 
       {/* Gráfico visual (barras CSS customizadas) */}
-      <div style={{background:C.card,border:`1px solid ${C.border}`,padding:14,borderRadius:12}}>
-        <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.8,marginBottom:12}}>Receita x Saída por mês</p>
-        <div style={{display:"flex",gap:6,alignItems:"flex-end",height:140}}>
+      <div style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,padding:"var(--arcd-space-3)",borderRadius:"var(--arcd-box-radius)"}}>
+        <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:.8,marginBottom:"var(--arcd-space-3)"}}>Receita x Saída por mês</p>
+        <div style={{display:"flex",gap:"var(--arcd-space-1)",alignItems:"flex-end",height:140}}>
           {cashflow.map((c,i)=>{
             const hRec = Math.round((c.received/maxVal)*120);
             const hOut = Math.round((c.totalOut/maxVal)*120);
             const isPos = c.balance >= 0;
             return (
-              <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
-                <div style={{display:"flex",gap:2,alignItems:"flex-end",height:120}}>
-                  <div style={{width:12,height:hRec||2,background:c.isProjection?C.blue+"88":C.green,borderRadius:"3px 3px 0 0",transition:"height .3s"}}/>
-                  <div style={{width:12,height:hOut||2,background:c.isProjection?C.orange+"88":C.red,borderRadius:"3px 3px 0 0",transition:"height .3s"}}/>
+              <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:"var(--arcd-space-half)"}}>
+                <div style={{display:"flex",gap:"var(--arcd-space-half)",alignItems:"flex-end",height:120}}>
+                  <div style={{width:12,height:hRec||2,background:c.isProjection?C.blue+"88":C.green,borderRadius:"var(--arcd-radius-control) var(--arcd-radius-control) 0 0",transition:"height .3s"}}/>
+                  <div style={{width:12,height:hOut||2,background:c.isProjection?C.orange+"88":C.red,borderRadius:"var(--arcd-radius-control) var(--arcd-radius-control) 0 0",transition:"height .3s"}}/>
                 </div>
-                <p style={{fontSize:"var(--arcd-type-caption)",color:c.isCurrent?C.yellow:c.isProjection?C.blue:C.muted,fontWeight:c.isCurrent?600:600,textAlign:"center",whiteSpace:"nowrap"}}>{c.mes}</p>
-                <div style={{width:12,height:3,background:isPos?C.green:C.red,borderRadius:99}}/>
+                <p style={{fontSize:"var(--arcd-type-caption)",color:c.isCurrent?C.yellow:c.isProjection?C.blue:"var(--arcd-text-secondary)",fontWeight:c.isCurrent?600:600,textAlign:"center",whiteSpace:"nowrap"}}>{c.mes}</p>
+                <div style={{width:12,height:3,background:isPos?C.green:C.red,borderRadius:"var(--arcd-radius-pill)"}}/>
               </div>
             );
           })}
         </div>
-        <div style={{display:"flex",gap:12,marginTop:10,flexWrap:"wrap"}}>
+        <div style={{display:"flex",gap:"var(--arcd-space-3)",marginTop:"var(--arcd-space-2)",flexWrap:"wrap"}}>
           {[[" Recebido/Proj",C.green],[" Saída/Proj",C.red],[" Projeção",C.blue+"88"]].map(([l,c])=>(
             <p key={l} style={{fontSize:"var(--arcd-type-label)",color:c,fontWeight:600}}>{l}</p>
           ))}
-          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}> Saldo (verde=positivo)</p>
+          <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}> Saldo (verde=positivo)</p>
         </div>
       </div>
 
       {/* Tabela mês a mês */}
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
-        <div style={{padding:"10px 14px",borderBottom:`1px solid ${C.line}`,display:"grid",gridTemplateColumns:"1.2fr 1fr 1fr 1fr",gap:4}}>
+      <div style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",overflow:"hidden"}}>
+        <div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`,display:"grid",gridTemplateColumns:"1.2fr 1fr 1fr 1fr",gap:"var(--arcd-space-1)"}}>
           {["Mês","Entradas","Saídas","Saldo"].map(h=>(
-            <p key={h} style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>{h}</p>
+            <p key={h} style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>{h}</p>
           ))}
         </div>
         {cashflow.map((c,i)=>(
           <div key={i} style={{
-            padding:"9px 14px",
-            borderBottom:i<cashflow.length-1?`1px solid ${C.line}`:"none",
-            display:"grid",gridTemplateColumns:"1.2fr 1fr 1fr 1fr",gap:4,
+            padding:"var(--arcd-space-2) var(--arcd-space-3)",
+            borderBottom:i<cashflow.length-1?`var(--arcd-border-width) solid var(--arcd-border-subtle)`:"none",
+            display:"grid",gridTemplateColumns:"1.2fr 1fr 1fr 1fr",gap:"var(--arcd-space-1)",
             background:c.isCurrent?`${C.yellow}0a`:c.isProjection?`${C.blue}07`:"transparent",
           }}>
-            <p style={{fontSize:"var(--arcd-type-body)",fontWeight:c.isCurrent?600:600,color:c.isCurrent?C.yellow:c.isProjection?C.blue:C.text}}>
+            <p style={{fontSize:"var(--arcd-type-body)",fontWeight:c.isCurrent?600:600,color:c.isCurrent?C.yellow:c.isProjection?C.blue:"var(--arcd-text-primary)"}}>
               {c.mes}{c.isProjection?" *":""}{c.isCurrent?" ":""}
             </p>
             <p style={{fontSize:"var(--arcd-type-body)",color:C.green,fontWeight:600}}>{fmt(c.received)}</p>
@@ -7052,8 +7040,8 @@ function FluxoCaixa({ data, year, month, obraId="all" }) {
             <p style={{fontSize:"var(--arcd-type-body)",color:(c.balance>0?C.green:c.balance<0?C.red:C.muted),fontWeight:600}}>{fmt(c.balance)}</p>
           </div>
         ))}
-        <div style={{padding:"8px 14px",background:C.surface,borderTop:`2px solid ${C.line}`}}>
-          <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>* Projeção: MO estimada com 82% de presença · Terceiros com 4,3 semanas/mês</p>
+        <div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",background:"var(--arcd-surface-card)",borderTop:`2px solid var(--arcd-border-subtle)`}}>
+          <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>* Projeção: MO estimada com 82% de presença · Terceiros com 4,3 semanas/mês</p>
         </div>
       </div>
     </div>
@@ -7078,28 +7066,28 @@ function RelatorioCaixaObra({ data, showToast }) {
 
   if (!obrasComCaixa.length) {
     return (
-      <div style={{padding:24,textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:10,color:C.muted,fontSize:"var(--arcd-type-label)"}}>
+      <div style={{padding:"var(--arcd-space-6)",textAlign:"center",border:`var(--arcd-border-width) dashed var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)"}}>
         Nenhuma obra com caixa ativado. Ative em <strong>Obras</strong> · "Esta obra possui caixa de obra".
       </div>
     );
   }
 
   return (
-    <div style={{display:"flex",flexDirection:"column",gap:10}}>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(165px,1fr))",gap:8}}>
+    <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(165px,1fr))",gap:"var(--arcd-space-2)"}}>
         <ReportMetric label="Total de entradas" value={fmt(totalAportes)} color={C.green} icon="download"/>
         <ReportMetric label="Total de gastos" value={fmt(totalDespesas)} color={C.red} icon="cart"/>
         <ReportMetric label="Devoluções" value={fmt(totalDevolucoes)} color={C.muted} icon="wallet"/>
         <ReportMetric label="Saldo consolidado" value={fmt(totalSaldo)} color={(totalSaldo>0?C.green:totalSaldo<0?C.red:C.muted)} icon="wallet"/>
       </div>
-      <div style={{display:"flex",flexDirection:"column",gap:7}}>
+      <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
         {linhas.map(l => (
-          <div key={l.obra.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,padding:"11px 13px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+          <div key={l.obra.id} style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-3) var(--arcd-space-3)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
             <div>
-              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>{l.obra.name}</p>
-              <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{contar(l.movimentos.length,"lançamento","lançamentos")} · entradas {fmt(l.totalAportes)} · despesas {fmt(l.totalDespesas)} · devoluções {fmt(l.totalDevolucoes)}</p>
+              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"var(--arcd-text-primary)"}}>{l.obra.name}</p>
+              <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{contar(l.movimentos.length,"lançamento","lançamentos")} · entradas {fmt(l.totalAportes)} · despesas {fmt(l.totalDespesas)} · devoluções {fmt(l.totalDevolucoes)}</p>
             </div>
-            <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)"}}>
               <b style={{fontSize:"var(--arcd-type-card-title)",color:(l.saldo>0?C.green:l.saldo<0?C.red:C.muted)}}>{fmt(l.saldo)}</b>
               <Btn size="sm" v="ghost" onClick={()=>gerarRelatorioCaixaObraPDF(data,l.obra,l,showToast)}><Ic n="download" s={12}/> PDF</Btn>
             </div>
@@ -7185,14 +7173,14 @@ function RelatorioCompras({ data, showToast }) {
   }, [linhas]);
 
   return (
-    <div style={{display:"flex",flexDirection:"column",gap:10}}>
-      <div className="no-print" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:8}}>
+    <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+      <div className="no-print" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:"var(--arcd-space-2)"}}>
         <Inp label="De" type="date" value={inicio} onChange={setInicio}/>
         <Inp label="Até" type="date" value={fim} onChange={setFim}/>
         <Sel label="Obra" value={obraId} onChange={setObraId} options={[{v:"all",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
         <Sel label="Quem pagou" value={origem} onChange={setOrigem} options={[{v:"todas",l:"Todos"},{v:"empresa",l:origemPagamentoLabel("empresa")},{v:"caixa_obra",l:origemPagamentoLabel("caixa_obra")},{v:"cliente_direto",l:origemPagamentoLabel("cliente_direto")}]}/>
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(165px,1fr))",gap:8}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(165px,1fr))",gap:"var(--arcd-space-2)"}}>
         <ReportMetric label="Total comprado" value={fmt(totais.comprado)} color={C.blue} icon="cart"/>
         <ReportMetric label="Total pago" value={fmt(totais.pago)} color={C.green} icon="check"/>
         <ReportMetric label="Saldo a pagar" value={fmt(totais.pendente)} color={totais.pendente>0?C.orange:C.green} icon="wallet"/>
@@ -7200,23 +7188,23 @@ function RelatorioCompras({ data, showToast }) {
       <div className="no-print" style={{display:"flex",justifyContent:"flex-end"}}>
         <Btn size="sm" v="ghost" onClick={()=>gerarRelatorioComprasPDF(data,{inicio,fim,obraId,origem,linhas,totais},showToast)}><Ic n="download" s={12}/> Exportar PDF</Btn>
       </div>
-      <div className="scroll-x" style={{border:`1px solid ${C.border}`,borderRadius:9,overflow:"hidden"}}>
-        <table style={{width:"100%",minWidth:900,borderCollapse:"collapse",background:C.card}}>
-          <thead><tr>{["Data","Pedido","Obra","Fornecedor","Item","Qtd","Preço unit.","Subtotal","Quem pagou","Status"].map(h=><th key={h} style={{padding:"7px 8px",textAlign:["Qtd","Preço unit.","Subtotal"].includes(h)?"right":"left",fontSize:"var(--arcd-type-label)",color:C.muted,textTransform:"uppercase",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead>
-          <tbody>{linhas.map((l,i)=><tr key={`${l.pedidoId}-${i}`} style={{borderTop:`1px solid ${C.line}`}}>
-            <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-table)",color:C.muted,whiteSpace:"nowrap"}}>{fmtDate(l.data)}</td>
-            <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-table)",fontWeight:600,color:C.blue}}>{l.numero}</td>
-            <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-table)"}}>{l.obra}</td>
-            <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-table)"}}>{l.fornecedor}</td>
-            <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-table)",maxWidth:220,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{l.item}</td>
-            <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-table)",textAlign:"right",whiteSpace:"nowrap"}}>{l.qtd} {l.unidade}</td>
-            <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-table)",textAlign:"right"}}>{fmt(l.precoUnit)}</td>
-            <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-table)",fontWeight:600,textAlign:"right"}}>{fmt(l.subtotal)}</td>
-            <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-table)"}}>{l.origemPagamento}</td>
-            <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-table)"}}><Badge color={l.statusLabel==="Pago"?C.green:l.statusLabel==="Parcial"?C.orange:l.statusLabel==="Cancelado"?C.red:C.muted}>{l.statusLabel}</Badge></td>
+      <div className="scroll-x" style={{border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",overflow:"hidden"}}>
+        <table className="arcd-data-table__table" style={{width:"100%",minWidth:900,borderCollapse:"collapse",background:"var(--arcd-surface-card)"}}>
+          <thead><tr>{["Data","Pedido","Obra","Fornecedor","Item","Qtd","Preço unit.","Subtotal","Quem pagou","Status"].map(h=><th key={h} style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",textAlign:["Qtd","Preço unit.","Subtotal"].includes(h)?"right":"left",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-default)`}}>{h}</th>)}</tr></thead>
+          <tbody>{linhas.map((l,i)=><tr key={`${l.pedidoId}-${i}`} style={{borderTop:`var(--arcd-border-width) solid var(--arcd-border-subtle)`}}>
+            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)",color:"var(--arcd-text-secondary)",whiteSpace:"nowrap"}}>{fmtDate(l.data)}</td>
+            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)",fontWeight:600,color:C.blue}}>{l.numero}</td>
+            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)"}}>{l.obra}</td>
+            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)"}}>{l.fornecedor}</td>
+            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)",maxWidth:220,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{l.item}</td>
+            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)",textAlign:"right",whiteSpace:"nowrap"}}>{l.qtd} {l.unidade}</td>
+            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)",textAlign:"right"}}>{fmt(l.precoUnit)}</td>
+            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)",fontWeight:600,textAlign:"right"}}>{fmt(l.subtotal)}</td>
+            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)"}}>{l.origemPagamento}</td>
+            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)"}}><Badge color={l.statusLabel==="Pago"?C.green:l.statusLabel==="Parcial"?C.orange:l.statusLabel==="Cancelado"?C.red:C.muted}>{l.statusLabel}</Badge></td>
           </tr>)}</tbody>
         </table>
-        {!linhas.length&&<div style={{padding:24,textAlign:"center",color:C.muted,fontSize:"var(--arcd-type-label)"}}>Nenhuma compra encontrada neste filtro.</div>}
+        {!linhas.length&&<div style={{padding:"var(--arcd-space-6)",textAlign:"center",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)"}}>Nenhuma compra encontrada neste filtro.</div>}
       </div>
     </div>
   );
@@ -7330,13 +7318,13 @@ function RelatorioAdministracao({ data, year, month, showToast }) {
 
   const period = `${fullMonth(month)} · ${year}`;
   const celulaCategoria = (valor, incluido) => (
-    <span style={{color:incluido?C.text:C.muted,textDecoration:incluido?"none":"line-through"}}>{fmt(valor)}</span>
+    <span style={{color:incluido?"var(--arcd-text-primary)":"var(--arcd-text-secondary)",textDecoration:incluido?"none":"line-through"}}>{fmt(valor)}</span>
   );
 
   return (
-    <div style={{display:"flex",flexDirection:"column",gap:10}}>
-      <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>A base de cálculo usa exatamente o que está configurado no cadastro de cada obra (Obras → Contrato financeiro). Valores riscados não entram na base dessa obra.</p>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(165px,1fr))",gap:8}}>
+    <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+      <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>A base de cálculo usa exatamente o que está configurado no cadastro de cada obra (Obras → Contrato financeiro). Valores riscados não entram na base dessa obra.</p>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(165px,1fr))",gap:"var(--arcd-space-2)"}}>
         <ReportMetric label="Previsto no período" value={fmt(totais.previsto)} color={C.purple} icon="dollar"/>
         <ReportMetric label="Já fechado nas medições" value={fmt(totais.fechado)} color={C.green} icon="check"/>
         <ReportMetric label="Pendente de fechamento" value={fmt(totais.pendente)} color={totais.pendente>0?C.orange:C.green} icon="wallet"/>
@@ -7344,24 +7332,24 @@ function RelatorioAdministracao({ data, year, month, showToast }) {
       <div className="no-print" style={{display:"flex",justifyContent:"flex-end"}}>
         <Btn size="sm" v="ghost" onClick={()=>gerarRelatorioAdministracaoPDF(data,{ period, linhas, totais },showToast)}><Ic n="download" s={12}/> Exportar PDF</Btn>
       </div>
-      <div className="scroll-x" style={{border:`1px solid ${C.border}`,borderRadius:9,overflow:"hidden"}}>
-        <table style={{width:"100%",minWidth:1050,borderCollapse:"collapse",background:C.card}}>
-          <thead><tr>{["Obra","Modalidade","% Admin.","Mão de obra","Materiais","Terceirizados","Base calculada","Previsto","Já fechado","Pendente","Ações"].map(h=><th key={h} style={{padding:"7px 8px",textAlign:["Obra","Modalidade","Ações"].includes(h)?"left":"right",fontSize:"var(--arcd-type-label)",color:C.muted,textTransform:"uppercase",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead>
-          <tbody>{linhas.map(l=><tr key={l.obra.id} style={{borderTop:`1px solid ${C.line}`}}>
-            <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-table)",fontWeight:600}}>{l.obra.name}</td>
-            <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-table)",color:C.muted}}>{CONTRACT_LABELS[l.obra.contractType]||l.obra.contractType}</td>
-            <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-table)",textAlign:"right"}}>{l.ap}%</td>
-            <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-table)",textAlign:"right"}}>{celulaCategoria(l.laborBase,l.incluiMaoDeObra)}</td>
-            <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-table)",textAlign:"right"}}>{celulaCategoria(l.materialCost,l.incluiMateriais)}</td>
-            <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-table)",textAlign:"right"}}>{celulaCategoria(l.tercCost,l.incluiTerceirizados)}</td>
-            <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-table)",textAlign:"right",fontWeight:600}}>{fmt(l.adminBase)}</td>
-            <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-table)",fontWeight:600,textAlign:"right",color:C.purple}}>{fmt(l.valorAdmin)}</td>
-            <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-table)",textAlign:"right",color:C.green}}>{fmt(l.jaFechado)}</td>
-            <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-table)",textAlign:"right",fontWeight:600,color:l.pendente>0?C.orange:C.green}}>{fmt(l.pendente)}</td>
-            <td style={{padding:"7px 8px"}}><Btn size="sm" v="ghost" onClick={()=>gerarRelatorioCobrancaAdministracaoPDF(data,{l,period},showToast)}><Ic n="download" s={11}/> Cobrança</Btn></td>
+      <div className="scroll-x" style={{border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",overflow:"hidden"}}>
+        <table className="arcd-data-table__table" style={{width:"100%",minWidth:1050,borderCollapse:"collapse",background:"var(--arcd-surface-card)"}}>
+          <thead><tr>{["Obra","Modalidade","% Admin.","Mão de obra","Materiais","Terceirizados","Base calculada","Previsto","Já fechado","Pendente","Ações"].map(h=><th key={h} style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",textAlign:["Obra","Modalidade","Ações"].includes(h)?"left":"right",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-default)`}}>{h}</th>)}</tr></thead>
+          <tbody>{linhas.map(l=><tr key={l.obra.id} style={{borderTop:`var(--arcd-border-width) solid var(--arcd-border-subtle)`}}>
+            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)",fontWeight:600}}>{l.obra.name}</td>
+            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)",color:"var(--arcd-text-secondary)"}}>{CONTRACT_LABELS[l.obra.contractType]||l.obra.contractType}</td>
+            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)",textAlign:"right"}}>{l.ap}%</td>
+            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)",textAlign:"right"}}>{celulaCategoria(l.laborBase,l.incluiMaoDeObra)}</td>
+            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)",textAlign:"right"}}>{celulaCategoria(l.materialCost,l.incluiMateriais)}</td>
+            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)",textAlign:"right"}}>{celulaCategoria(l.tercCost,l.incluiTerceirizados)}</td>
+            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)",textAlign:"right",fontWeight:600}}>{fmt(l.adminBase)}</td>
+            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)",fontWeight:600,textAlign:"right",color:C.purple}}>{fmt(l.valorAdmin)}</td>
+            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)",textAlign:"right",color:C.green}}>{fmt(l.jaFechado)}</td>
+            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)",textAlign:"right",fontWeight:600,color:l.pendente>0?C.orange:C.green}}>{fmt(l.pendente)}</td>
+            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)"}}><Btn size="sm" v="ghost" onClick={()=>gerarRelatorioCobrancaAdministracaoPDF(data,{l,period},showToast)}><Ic n="download" s={11}/> Cobrança</Btn></td>
           </tr>)}</tbody>
         </table>
-        {!linhas.length&&<div style={{padding:24,textAlign:"center",color:C.muted,fontSize:"var(--arcd-type-label)"}}>Nenhuma obra por administração (admin_only ou mista) encontrada.</div>}
+        {!linhas.length&&<div style={{padding:"var(--arcd-space-6)",textAlign:"center",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)"}}>Nenhuma obra por administração (admin_only ou mista) encontrada.</div>}
       </div>
     </div>
   );
@@ -7596,7 +7584,7 @@ function RelatoriosMensais({ data, showToast }) {
   useSyncedWorkObra(filterObra, escolherEscopoObra, { allowedIds: (data.obras || []).map(o => o.id), allValue: "all" });
 
   return (
-    <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <div className="anim" style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
       <PageHero
         eyebrow="Inteligência gerencial"
         title="Relatórios e inteligência"
@@ -7634,7 +7622,7 @@ function RelatoriosMensais({ data, showToast }) {
       </div>
       <ScopeNote title="Indicadores e exportação">{filterObra === "all" ? "Todas as obras" : obraName(filterObra)} · {fullMonth(month)} {year}.</ScopeNote>
 
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(165px,1fr))",gap:8}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(165px,1fr))",gap:"var(--arcd-space-2)"}}>
         <ReportMetric label="Mão de obra" value={fmt(totals.laborCost)} detail={`${totals.trabalhadores} profissionais ativos`} color={C.yellow} icon="users"/>
         <ReportMetric label="Custo por m²" value={totals.areaM2>0?fmt(totalLaborCostPerM2):"Sem área"} detail={`${totals.areaM2.toLocaleString("pt-BR")} m² analisados`} color={totals.areaM2>0?C.green:C.muted} icon="ruler"/>
         <ReportMetric label="Custo total" value={fmt(totals.totalCost)} detail={`${fmt(totals.benefitCost)} em VT/VR`} color={C.blue} icon="wallet"/>
@@ -7645,37 +7633,37 @@ function RelatoriosMensais({ data, showToast }) {
         <LazyRelatoriosChartPanel byObra={byObra} chartMode={chartMode} setChartMode={setChartMode} highlightObra={highlightObra} setHighlightObra={setHighlightObra}/>
       </Suspense>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:1,textTransform:"uppercase",color:C.muted}}>Leitura técnica por obra</p>{highlightObra&&<button onClick={()=>setHighlightObra("")} style={{border:0,background:"transparent",color:C.yellowD,fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>Limpar destaque</button>}</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-2)" }}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:1,textTransform:"uppercase",color:"var(--arcd-text-secondary)"}}>Leitura técnica por obra</p>{highlightObra&&<button onClick={()=>setHighlightObra("")} style={{border:0,background:"transparent",color:C.yellowD,fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>Limpar destaque</button>}</div>
         {[...filteredRows].sort((a,b)=>(b.id===highlightObra)-(a.id===highlightObra)).map(r => (
-          <div key={r.id} onClick={()=>setHighlightObra(r.id)} className="lift-card" style={{ background:C.card,border:`1px solid ${highlightObra===r.id?C.yellow:C.line}`,borderRadius:12,padding:13,cursor:"pointer",opacity:highlightObra&&highlightObra!==r.id?0.72:1,boxShadow:highlightObra===r.id?`0 8px 24px ${C.yellow}12`:C.shHair }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
+          <div key={r.id} onClick={()=>setHighlightObra(r.id)} className="lift-card" style={{ background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid ${highlightObra===r.id?C.yellow:C.line}`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-3)",cursor:"pointer",opacity:highlightObra&&highlightObra!==r.id?0.72:1,boxShadow:highlightObra===r.id?`0 8px 24px ${C.yellow}12`:C.shHair }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--arcd-space-2)", alignItems: "flex-start" }}>
               <div>
                 <p style={{ fontFamily:FONT_DISPLAY, fontWeight:600,fontSize:"var(--arcd-type-card-title)" }}>{r.name}</p>
-                <p style={{ color: C.muted, fontSize:"var(--arcd-type-label)",marginTop:2 }}>
+                <p style={{ color: "var(--arcd-text-secondary)", fontSize:"var(--arcd-type-label)",marginTop:"var(--arcd-space-half)" }}>
                   Área: {r.areaM2 > 0 ? `${r.areaM2.toLocaleString("pt-BR")} m²` : "não cadastrada"} · {contar(r.trabalhadores,"trabalhador","trabalhadores")}
                 </p>
-                <p style={{ color: C.subtle, fontSize:"var(--arcd-type-label)",marginTop:2 }}>
+                <p style={{ color: "var(--arcd-text-muted)", fontSize:"var(--arcd-type-label)",marginTop:"var(--arcd-space-half)" }}>
                   {r.presentes} presentes · {r.meiodia} meios períodos · {r.faltas} faltas · {r.semRegistro} sem registro
                 </p>
               </div>
               <div style={{ textAlign: "right" }}>
                 <p style={{ color: C.yellow, fontWeight:600 }}>{fmt(r.laborCost)}</p>
-                <p style={{ color: r.areaM2 > 0 ? C.green : C.muted, fontSize: "var(--arcd-type-body)", fontWeight:600 }}>
+                <p style={{ color: r.areaM2 > 0 ? C.green : "var(--arcd-text-secondary)", fontSize: "var(--arcd-type-body)", fontWeight:600 }}>
                   {r.areaM2 > 0 ? `${fmt(r.laborCostPerM2)}/m` : "sem m"}
                 </p>
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, marginTop: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "var(--arcd-space-1)", marginTop: "var(--arcd-space-2)" }}>
               {[
                 ["Feriados pagos", fmt(r.holidayPay), C.green],
                 ["VT/VR", fmt(r.benefitCost), C.blue],
                 ["Total", fmt(r.totalCost), C.yellow],
               ].map(([label, value, color]) => (
-                <div key={label} style={{ background:C.surface,border:`1px solid ${C.line}`,borderRadius:8,padding:"7px 9px" }}>
-                  <p style={{ fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600,letterSpacing:.5 }}>{label}</p>
-                  <p style={{ color:C.text,fontWeight:600,fontSize:"var(--arcd-type-body)",marginTop:2 }}>{value}</p>
+                <div key={label} style={{ background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-subtle)`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-2) var(--arcd-space-2)" }}>
+                  <p style={{ fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",fontWeight:600,letterSpacing:.5 }}>{label}</p>
+                  <p style={{ color:"var(--arcd-text-primary)",fontWeight:600,fontSize:"var(--arcd-type-body)",marginTop:"var(--arcd-space-half)" }}>{value}</p>
                 </div>
               ))}
             </div>
@@ -7683,12 +7671,12 @@ function RelatoriosMensais({ data, showToast }) {
         ))}
       </div>
 
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14 }}>
-        <h3 style={{ fontFamily:FONT_DISPLAY, color: C.yellow, textTransform: "uppercase", marginBottom: 8 }}>Top custos do mês</h3>
-        {topCost.length === 0 && <p style={{ color: C.muted, fontSize: "var(--arcd-type-body)" }}>Nenhum custo lançado no período.</p>}
+      <div style={{ background: "var(--arcd-surface-card)", border: `var(--arcd-border-width) solid var(--arcd-border-default)`, padding: "var(--arcd-space-3)" }}>
+        <h3 style={{ fontFamily:FONT_DISPLAY, color: C.yellow, textTransform: "uppercase", marginBottom: "var(--arcd-space-2)" }}>Top custos do mês</h3>
+        {topCost.length === 0 && <p style={{ color: "var(--arcd-text-secondary)", fontSize: "var(--arcd-type-body)" }}>Nenhum custo lançado no período.</p>}
         {topCost.map(i => (
-          <div key={`${i.name}-${i.obra}`} style={{ borderTop: `1px solid ${C.border}`, padding: "9px 0", display: "flex", justifyContent: "space-between" }}>
-            <div><p style={{ fontWeight:600 }}>{i.name}</p><p style={{ color: C.muted, fontSize: "var(--arcd-type-body)" }}>{i.obra}</p></div>
+          <div key={`${i.name}-${i.obra}`} style={{ borderTop: `var(--arcd-border-width) solid var(--arcd-border-default)`, padding: "var(--arcd-space-2) 0", display: "flex", justifyContent: "space-between" }}>
+            <div><p style={{ fontWeight:600 }}>{i.name}</p><p style={{ color: "var(--arcd-text-secondary)", fontSize: "var(--arcd-type-body)" }}>{i.obra}</p></div>
             <p style={{ color: C.yellow, fontWeight:600 }}>{fmt(i.total)}</p>
           </div>
         ))}
@@ -7847,16 +7835,16 @@ function RelatorioMensal({ data, year, month, showToast }) {
 
   //  UI
   return (
-    <div style={{display:"flex",flexDirection:"column",gap:14}} className="anim">
+    <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}} className="anim">
 
       <PageHero
         eyebrow="Inteligência gerencial"
         title="Relatório executivo"
         description="Visão consolidada de receita, custo e resultado por obra."
-        actions={<span style={{display:"inline-flex",padding:"5px 8px",border:`1px solid ${C.border}`,borderRadius:5,background:C.surface,color:C.yellowD,fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:.3}}>{fullMonth(month)} · {year}</span>}
+        actions={<span style={{display:"inline-flex",padding:"var(--arcd-space-1) var(--arcd-space-2)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",background:"var(--arcd-surface-card)",color:C.yellowD,fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:.3}}>{fullMonth(month)} · {year}</span>}
       />
 
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:8}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:"var(--arcd-space-2)"}}>
         <ReportMetric label="Receita recebida" value={fmt(tot.received)} detail="Caixa realizado no período" color={C.yellow} icon="wallet"/>
         <ReportMetric label="Margem global" value={fmt(tot.margem)} detail={tot.received?`${((tot.margem/tot.received)*100).toFixed(1)}% da receita`:"Sem receita no período"} color={(tot.margem>0?C.green:tot.margem<0?C.red:C.muted)} icon="trending"/>
         <ReportMetric label="Total de despesas" value={fmt(tot.totalDespesas)} detail="Custos diretos e benefícios" color={C.red} icon="receipt"/>
@@ -7864,7 +7852,7 @@ function RelatorioMensal({ data, year, month, showToast }) {
       </div>
 
       {/* Ações */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:8}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:"var(--arcd-space-2)"}}>
         <Btn onClick={gerarPDF} v="danger" full><Ic n="file"/> Relatório PDF</Btn>
         <Btn onClick={exportXLS} v="success" full><Ic n="download"/> Excel Completo</Btn>
       </div>
@@ -7874,14 +7862,14 @@ function RelatorioMensal({ data, year, month, showToast }) {
         const margemColor = r.margem >= 0 ? C.green : C.red;
         return (
           <div key={r.obra.id} style={{
-            background:C.card, border:`1px solid ${C.border}`,
-            borderTop:`2px solid ${margemColor}`, borderRadius:10, overflow:"hidden",
+            background:"var(--arcd-surface-card)", border:`var(--arcd-border-width) solid var(--arcd-border-default)`,
+            borderTop:`2px solid ${margemColor}`, borderRadius:"var(--arcd-box-radius)", overflow:"hidden",
           }}>
             {/* Header da obra */}
-            <div style={{padding:"12px 16px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
+            <div style={{padding:"var(--arcd-space-3) var(--arcd-space-4)",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`,display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-2)"}}>
               <div>
                 <p style={{fontFamily:FONT_DISPLAY,fontWeight:600,fontSize:"var(--arcd-type-section-title)",letterSpacing:.3}}>{r.obra.name}</p>
-                <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:4}}>
+                <div style={{display:"flex",gap:"var(--arcd-space-1)",flexWrap:"wrap",marginTop:"var(--arcd-space-1)"}}>
                   <Badge color={C.yellow}>{CONTRACT_LABELS[r.obra.contractType]||"Contrato"}</Badge>
                   <Badge color={C.blue}>{r.activeEmps} func.</Badge>
                   {r.activeTercs>0&&<Badge color={C.orange}>{r.activeTercs} terceiros</Badge>}
@@ -7890,26 +7878,26 @@ function RelatorioMensal({ data, year, month, showToast }) {
               </div>
               <div style={{textAlign:"right",flexShrink:0}}>
                 <p style={{fontFamily:FONT_DISPLAY,fontWeight:600,fontSize:"var(--arcd-type-section-title)",color:margemColor,letterSpacing:.5,lineHeight:1}}>{fmt(r.margem)}</p>
-                <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>margem {r.margemPct.toFixed(0)}%</p>
+                <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>margem {r.margemPct.toFixed(0)}%</p>
               </div>
             </div>
 
             {/* DRE mini */}
-            <div style={{padding:"10px 16px",display:"flex",flexDirection:"column",gap:0}}>
+            <div style={{padding:"var(--arcd-space-2) var(--arcd-space-4)",display:"flex",flexDirection:"column",gap:0}}>
               {/* Receitas */}
-              <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.8,marginBottom:4}}>Receitas</p>
+              <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:.8,marginBottom:"var(--arcd-space-1)"}}>Receitas</p>
               {[
                 ["Recebido no mês",  r.received,         C.green],
                 ["Esperado (contrato)", r.revenueEsperada, C.subtle],
               ].map(([l,v,c])=>(
-                <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"3px 0",borderBottom:`1px solid ${C.line}44`}}>
+                <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"var(--arcd-space-half) 0",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)44`}}>
                   <p style={{fontSize:"var(--arcd-type-body)",color:c}}>{l}</p>
                   <p style={{fontSize:"var(--arcd-type-body)",color:c,fontWeight:600}}>{fmt(v)}</p>
                 </div>
               ))}
 
               {/* Despesas */}
-              <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.8,marginTop:8,marginBottom:4}}>Despesas</p>
+              <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:.8,marginTop:"var(--arcd-space-2)",marginBottom:"var(--arcd-space-1)"}}>Despesas</p>
               {[
                 ["(-) MO própria",       r.moData.laborCost,   C.orange],
                 ["(-) Benefícios VT/VR", r.moData.benefitCost, C.muted],
@@ -7917,42 +7905,42 @@ function RelatorioMensal({ data, year, month, showToast }) {
                 ["(-) Rescisões",        r.rescTotal,          C.red,    r.rescTotal===0],
                 ["(-) Adiantamentos",    r.adiantTotal,        C.muted,  r.adiantTotal===0],
               ].filter(([,,, skip])=>!skip).map(([l,v,c])=>(
-                <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"3px 0",borderBottom:`1px solid ${C.line}44`}}>
-                  <p style={{fontSize:"var(--arcd-type-body)",color:C.muted}}>{l}</p>
+                <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"var(--arcd-space-half) 0",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)44`}}>
+                  <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)"}}>{l}</p>
                   <p style={{fontSize:"var(--arcd-type-body)",color:c,fontWeight:600}}>{fmt(v)}</p>
                 </div>
               ))}
 
               {/* Totais */}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginTop:10}}>
-                <div style={{background:C.surface,border:`1px solid ${C.border}`,padding:"8px 10px",borderRadius:8}}>
-                  <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Total despesas</p>
-                  <p style={{fontSize:"var(--arcd-type-card-title)",color:C.red,fontWeight:600,marginTop:2}}>{fmt(r.totalDespesas)}</p>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-2)"}}>
+                <div style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,padding:"var(--arcd-space-2) var(--arcd-space-2)",borderRadius:"var(--arcd-box-radius)"}}>
+                  <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",fontWeight:600}}>Total despesas</p>
+                  <p style={{fontSize:"var(--arcd-type-card-title)",color:C.red,fontWeight:600,marginTop:"var(--arcd-space-half)"}}>{fmt(r.totalDespesas)}</p>
                 </div>
-                <div style={{background:C.surface,border:`1px solid ${margemColor}44`,padding:"8px 10px",borderRadius:8}}>
-                  <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Margem esp.</p>
-                  <p style={{fontSize:"var(--arcd-type-card-title)",color:(r.margemEsperada>0?C.green:r.margemEsperada<0?C.red:C.muted),fontWeight:600,marginTop:2}}>{fmt(r.margemEsperada)}</p>
+                <div style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid ${margemColor}44`,padding:"var(--arcd-space-2) var(--arcd-space-2)",borderRadius:"var(--arcd-box-radius)"}}>
+                  <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",fontWeight:600}}>Margem esp.</p>
+                  <p style={{fontSize:"var(--arcd-type-card-title)",color:(r.margemEsperada>0?C.green:r.margemEsperada<0?C.red:C.muted),fontWeight:600,marginTop:"var(--arcd-space-half)"}}>{fmt(r.margemEsperada)}</p>
                 </div>
               </div>
 
               {/* Detalhe terceiros/rescisões se houver */}
               {r.tercDetalhes.length>0&&(
-                <div style={{marginTop:8}}>
-                  <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.purple,textTransform:"uppercase",marginBottom:3}}>Terceiros pagos</p>
+                <div style={{marginTop:"var(--arcd-space-2)"}}>
+                  <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.purple,textTransform:"uppercase",marginBottom:"var(--arcd-space-half)"}}>Terceiros pagos</p>
                   {r.tercDetalhes.map(p=>(
-                    <div key={p.id} style={{display:"flex",justifyContent:"space-between",fontSize:"var(--arcd-type-label)",color:C.muted,padding:"2px 0"}}>
-                      <span>{p.tercName||"-"} <span style={{color:C.muted,fontSize:"var(--arcd-type-label)"}}>({fmtDateFull(p.date)})</span></span>
+                    <div key={p.id} style={{display:"flex",justifyContent:"space-between",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",padding:"var(--arcd-space-half) 0"}}>
+                      <span>{p.tercName||"-"} <span style={{color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)"}}>({fmtDateFull(p.date)})</span></span>
                       <span style={{color:C.purple,fontWeight:600}}>{fmt(p.amount)}</span>
                     </div>
                   ))}
                 </div>
               )}
               {r.rescDetalhes.length>0&&(
-                <div style={{marginTop:8}}>
-                  <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.red,textTransform:"uppercase",marginBottom:3}}>Rescisões</p>
+                <div style={{marginTop:"var(--arcd-space-2)"}}>
+                  <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.red,textTransform:"uppercase",marginBottom:"var(--arcd-space-half)"}}>Rescisões</p>
                   {r.rescDetalhes.map(rc=>(
-                    <div key={rc.id} style={{display:"flex",justifyContent:"space-between",fontSize:"var(--arcd-type-label)",color:C.muted,padding:"2px 0"}}>
-                      <span>{rc.empName||"-"} <span style={{color:C.muted,fontSize:"var(--arcd-type-label)"}}>({TIPO_LABEL[rc.tipo]||rc.tipo})</span></span>
+                    <div key={rc.id} style={{display:"flex",justifyContent:"space-between",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",padding:"var(--arcd-space-half) 0"}}>
+                      <span>{rc.empName||"-"} <span style={{color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)"}}>({TIPO_LABEL[rc.tipo]||rc.tipo})</span></span>
                       <span style={{color:C.red,fontWeight:600}}>{fmt(rc.totalLiquido)}</span>
                     </div>
                   ))}
@@ -7964,8 +7952,8 @@ function RelatorioMensal({ data, year, month, showToast }) {
       })}
 
       {/* Totais finais */}
-      <div style={{background:C.card,border:`2px solid ${C.yellow}`,borderRadius:10,padding:"14px 16px"}}>
-        <p style={{fontFamily:FONT_DISPLAY,fontWeight:600,fontSize:"var(--arcd-type-card-title)",color:C.yellow,textTransform:"uppercase",letterSpacing:.5,marginBottom:10}}>Consolidado Geral - {fullMonth(month)} {year}</p>
+      <div style={{background:"var(--arcd-surface-card)",border:`2px solid ${C.yellow}`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-3) var(--arcd-space-4)"}}>
+        <p style={{fontFamily:FONT_DISPLAY,fontWeight:600,fontSize:"var(--arcd-type-card-title)",color:C.yellow,textTransform:"uppercase",letterSpacing:.5,marginBottom:"var(--arcd-space-2)"}}>Consolidado Geral - {fullMonth(month)} {year}</p>
         {[
           ["Receita recebida",  tot.received,          C.green],
           ["Receita esperada",  tot.revenueEsp,        C.subtle],
@@ -7977,14 +7965,14 @@ function RelatorioMensal({ data, year, month, showToast }) {
           ["Total despesas",    tot.totalDespesas,     C.red],
           ["Margem global",     tot.margem,            (tot.margem>0?C.green:tot.margem<0?C.red:C.muted)],
         ].map(([l,v,c])=>(
-          <div key={l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:`1px solid ${C.line}44`}}>
-            <p style={{fontSize:"var(--arcd-type-body)",color:C.muted}}>{l}</p>
+          <div key={l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"var(--arcd-space-1) 0",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)44`}}>
+            <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)"}}>{l}</p>
             <p style={{fontSize:"var(--arcd-type-body)",color:c,fontWeight:600}}>{fmt(v)}</p>
           </div>
         ))}
       </div>
 
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-2)"}}>
         <Btn onClick={gerarPDF} v="danger" full><Ic n="file"/> PDF</Btn>
         <Btn onClick={exportXLS} v="success" full><Ic n="download"/> Excel</Btn>
       </div>
@@ -8299,48 +8287,48 @@ function AgenteIA({ data, showToast, onTab }) {
   };
 
   return (
-    <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <div className="anim" style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
       <PageHero
         eyebrow="Assistente operacional"
         title="Agente IA ArcD"
         description="Analisa ponto, folha, obras, pendências, custo por obra e custo de mão de obra por m²."
       />
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "var(--arcd-space-2)" }}>
         {[
           [ctx.allPointsDoneToday ? "Ponto completo" : "Ponto pendente", ctx.allPointsDoneToday ? "Todas as obras" : `${contar(ctx.pendingPointObras.length,"obra","obras")}`, ctx.allPointsDoneToday ? C.green : C.red],
           ["Funcionários ativos", ctx.activeEmployees, C.yellow],
           ["Solicitações", ctx.pendingUnlocks.length, ctx.pendingUnlocks.length ? C.red : C.green],
           ["Obras sem m", ctx.noAreaObras.length, ctx.noAreaObras.length ? C.orange : C.green],
         ].map(([label, value, color]) => (
-          <div key={label} style={{ background: C.card, border: `1px solid ${C.border}`, borderTop: `3px solid ${color}`, padding: 12, borderRadius: 8 }}>
-            <p style={{ color: C.muted, fontSize:"var(--arcd-type-label)", textTransform: "uppercase", fontWeight:600 }}>{label}</p>
+          <div key={label} style={{ background: "var(--arcd-surface-card)", border: `var(--arcd-border-width) solid var(--arcd-border-default)`, borderTop: `3px solid ${color}`, padding: "var(--arcd-space-3)", borderRadius: "var(--arcd-box-radius)" }}>
+            <p style={{ color: "var(--arcd-text-secondary)", fontSize:"var(--arcd-type-label)", textTransform: "uppercase", fontWeight:600 }}>{label}</p>
             <p style={{ color, fontFamily:"var(--arcd-font-sans)", fontSize: "var(--arcd-type-kpi)", fontWeight:600 }}>{value}</p>
           </div>
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--arcd-space-2)" }}>
         <Btn v="warning" onClick={goToPendingPoint} full><Ic n="clock" /> Ir para Ponto</Btn>
         <Btn v="ghost" onClick={() => onTab?.("relat")} full><Ic n="chart" /> Ver Relatórios</Btn>
       </div>
 
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14, borderRadius: 10 }}>
-        <h3 style={{ fontFamily:"var(--arcd-font-sans)", color: C.yellow, fontSize: "var(--arcd-type-section-title)", textTransform: "uppercase", marginBottom: 10 }}>
+      <div style={{ background: "var(--arcd-surface-card)", border: `var(--arcd-border-width) solid var(--arcd-border-default)`, padding: "var(--arcd-space-3)", borderRadius: "var(--arcd-box-radius)" }}>
+        <h3 style={{ fontFamily:"var(--arcd-font-sans)", color: C.yellow, fontSize: "var(--arcd-type-section-title)", textTransform: "uppercase", marginBottom: "var(--arcd-space-2)" }}>
           Perguntas rápidas
         </h3>
-        <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: "var(--arcd-space-2)", flexWrap: "wrap" }}>
           {quickPrompts.map(p => (
             <button
               key={p}
               onClick={() => sendQuestion(p)}
               style={{
-                background: C.surface,
-                color: C.text,
-                border: `1px solid ${C.border}`,
-                borderLeft: `1px solid ${C.yellow}`,
-                padding: "8px 10px",
-                borderRadius: 999,
+                background: "var(--arcd-surface-card)",
+                color: "var(--arcd-text-primary)",
+                border: `var(--arcd-border-width) solid var(--arcd-border-default)`,
+                borderLeft: `var(--arcd-border-width) solid ${C.yellow}`,
+                padding: "var(--arcd-space-2) var(--arcd-space-2)",
+                borderRadius: "var(--arcd-radius-pill)",
                 cursor: "pointer",
                 fontSize: "var(--arcd-type-control)",
                 fontWeight:600,
@@ -8352,27 +8340,27 @@ function AgenteIA({ data, showToast, onTab }) {
         </div>
       </div>
 
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 12, borderRadius: 10, minHeight: 300 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+      <div style={{ background: "var(--arcd-surface-card)", border: `var(--arcd-border-width) solid var(--arcd-border-default)`, padding: "var(--arcd-space-3)", borderRadius: "var(--arcd-box-radius)", minHeight: 300 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--arcd-space-2)" }}>
           <h3 style={{ fontFamily:"var(--arcd-font-sans)", color: C.yellow, fontSize: "var(--arcd-type-section-title)", textTransform: "uppercase" }}>
             Conversa com o agente
           </h3>
           <Btn v="ghost" size="sm" onClick={copyLastAnswer}><Ic n="copy" /> Copiar</Btn>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 9, maxHeight: 390, overflowY: "auto", paddingRight: 3 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-2)", maxHeight: 390, overflowY: "auto", paddingRight: "var(--arcd-space-half)" }}>
           {messages.map((m, idx) => (
             <div
               key={`${m.role}-${idx}`}
               style={{
                 alignSelf: m.role === "user" ? "flex-end" : "stretch",
                 maxWidth: m.role === "user" ? "86%" : "100%",
-                background: m.role === "user" ? C.yellow : C.surface,
-                color: m.role === "user" ? C.bg : C.text,
-                border: `1px solid ${m.role === "user" ? C.yellow : C.border}`,
+                background: m.role === "user" ? C.yellow : "var(--arcd-surface-card)",
+                color: m.role === "user" ? "var(--arcd-surface-page)" : "var(--arcd-text-primary)",
+                border: `var(--arcd-border-width) solid ${m.role === "user" ? C.yellow : C.border}`,
                 borderLeft: m.role === "assistant" ? `4px solid ${C.yellow}` : undefined,
-                borderRadius: 8,
-                padding: "10px 12px",
+                borderRadius: "var(--arcd-box-radius)",
+                padding: "var(--arcd-space-2) var(--arcd-space-3)",
                 whiteSpace: "pre-wrap",
                 fontSize: "var(--arcd-type-body)",
                 lineHeight: 1.35,
@@ -8382,14 +8370,14 @@ function AgenteIA({ data, showToast, onTab }) {
             </div>
           ))}
           {thinking && (
-            <div style={{ color: C.yellow, fontSize: "var(--arcd-type-body)", fontWeight:600, padding: "6px 2px" }}>
+            <div style={{ color: C.yellow, fontSize: "var(--arcd-type-body)", fontWeight:600, padding: "var(--arcd-space-1) var(--arcd-space-half)" }}>
               Agente analisando dados...
             </div>
           )}
         </div>
       </div>
 
-      <div className="fluid-grid" style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+      <div className="fluid-grid" style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "var(--arcd-space-2)" }}>
         <Inp
           value={input}
           onChange={setInput}
@@ -8400,7 +8388,7 @@ function AgenteIA({ data, showToast, onTab }) {
         </Btn>
       </div>
 
-      <p style={{ color: C.muted, fontSize:"var(--arcd-type-label)", lineHeight: 1.35 }}>
+      <p style={{ color: "var(--arcd-text-secondary)", fontSize:"var(--arcd-type-label)", lineHeight: 1.35 }}>
         O agente usa os dados já cadastrados no sistema. Se existir uma rota segura <strong>/api/ai-agent</strong>, ele usa IA generativa; caso contrário, responde com análise local automática, sem expor chaves no navegador.
       </p>
     </div>
@@ -8446,19 +8434,19 @@ function IntegracaoGemini({ showToast, standalone=false }) {
     if(!result.ok){showToast(result.error||"Não foi possível desconectar.","error");return;}
     await carregarStatusIA();showToast(result.configured?"Configuração do administrador removida; a chave do ambiente continua ativa.":"Gemini desconectado.");
   };
-  return <div className={standalone?"anim":""} style={{background:C.card,border:`1px solid ${aiStatus.configured&&aiStatus.validationStatus!=="rate_limit"?C.green:aiStatus.configured?C.orange:C.border}`,borderLeft:`1px solid ${aiStatus.configured&&aiStatus.validationStatus!=="rate_limit"?C.green:C.yellow}`,borderRadius:10,padding:14}}>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap"}}><div><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.yellow,letterSpacing:1,textTransform:"uppercase"}}>Inteligência artificial corporativa</p><h3 style={{fontSize:"var(--arcd-type-card-title)",marginTop:3}}>Google Gemini · integração única</h3><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4,maxWidth:720}}>Esta autenticação atende Compras, Financeiro, Diário de Obra, Orçamento, Planejamento, auditoria administrativa e o agente geral. A chave fica criptografada no servidor e não aparece novamente.</p></div><Badge color={aiStatus.carregando?C.orange:aiStatus.configured&&aiStatus.validationStatus!=="rate_limit"?C.green:aiStatus.configured?C.orange:C.red}>{aiStatus.carregando?"VERIFICANDO":!aiStatus.configured?"NÃO CONFIGURADA":aiStatus.validationStatus==="rate_limit"?"CHAVE SALVA · COTA ATINGIDA":"GEMINI CONECTADO"}</Badge></div>
-    {aiStatus.configured&&<div style={{marginTop:10,padding:"8px 10px",borderRadius:8,background:`${C.green}0A`,border:`1px solid ${C.green}33`,fontSize:"var(--arcd-type-label)",color:C.subtle}}>Modelo: <strong>{aiStatus.model||"Gemini"}</strong> · origem: {aiStatus.source==="admin"?"configurada pelo administrador":"ambiente seguro da Vercel"}{aiStatus.updatedBy?` · por ${aiStatus.updatedBy}`:""}</div>}
-    {aiStatus.error&&<p style={{fontSize:"var(--arcd-type-label)",color:C.red,marginTop:8}}>{aiStatus.error}</p>}
-    {resultadoConfiguracao.mensagem&&<div role="status" style={{marginTop:9,padding:"9px 10px",borderRadius:8,background:resultadoConfiguracao.tipo==="sucesso"?`${C.green}0D`:`${resultadoConfiguracao.tipo==="aviso"?C.orange:C.red}0D`,border:`1px solid ${resultadoConfiguracao.tipo==="sucesso"?C.green:resultadoConfiguracao.tipo==="aviso"?C.orange:C.red}55`,fontSize:"var(--arcd-type-label)",fontWeight:600,color:resultadoConfiguracao.tipo==="sucesso"?C.green:resultadoConfiguracao.tipo==="aviso"?C.orange:C.red}}>{resultadoConfiguracao.mensagem}</div>}
-    {aiStatus.validationMessage&&<div style={{marginTop:9,padding:"9px 10px",borderRadius:8,background:`${C.orange}0D`,border:`1px solid ${C.orange}44`,fontSize:"var(--arcd-type-label)",color:C.text}}>{aiStatus.validationMessage} <a href="https://aistudio.google.com/app/usage" target="_blank" rel="noreferrer" style={{color:C.blue,fontWeight:600}}>Ver uso e limites ↗</a></div>}
-    <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:9,marginTop:12,alignItems:"end"}}><Inp label={aiStatus.configured?"Substituir chave de API":"Chave da API Gemini"} type="password" value={geminiKey} onChange={setGeminiKey} placeholder="Cole a chave somente aqui"/><div style={{display:"flex",gap:7,flexWrap:"wrap"}}><Btn onClick={salvarIntegracaoIA} disabled={salvandoIA||!geminiKey.trim()}><Ic n="check"/> {salvandoIA?"Validando...":aiStatus.configured?"Validar e substituir":"Validar e conectar"}</Btn>{aiStatus.source==="admin"&&<Btn v="danger" onClick={desconectarIntegracaoIA} disabled={salvandoIA}>Desconectar</Btn>}</div></div>
-    <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:9}}>Crie e copie a chave em <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{color:C.blue,fontWeight:600}}>Google AI Studio · Chaves de API ↗</a>. O nível gratuito tem limites de uso e o Google informa que entradas e respostas podem ser usadas para melhorar seus produtos; avalie isso antes de enviar documentos sigilosos ou dados pessoais.</p>
+  return <div className={standalone?"anim":""} style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid ${aiStatus.configured&&aiStatus.validationStatus!=="rate_limit"?C.green:aiStatus.configured?C.orange:C.border}`,borderLeft:`var(--arcd-border-width) solid ${aiStatus.configured&&aiStatus.validationStatus!=="rate_limit"?C.green:C.yellow}`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-3)"}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}><div><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.yellow,letterSpacing:1,textTransform:"uppercase"}}>Inteligência artificial corporativa</p><h3 style={{fontSize:"var(--arcd-type-card-title)",marginTop:"var(--arcd-space-half)"}}>Google Gemini · integração única</h3><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)",maxWidth:720}}>Esta autenticação atende Compras, Financeiro, Diário de Obra, Orçamento, Planejamento, auditoria administrativa e o agente geral. A chave fica criptografada no servidor e não aparece novamente.</p></div><Badge color={aiStatus.carregando?C.orange:aiStatus.configured&&aiStatus.validationStatus!=="rate_limit"?C.green:aiStatus.configured?C.orange:C.red}>{aiStatus.carregando?"VERIFICANDO":!aiStatus.configured?"NÃO CONFIGURADA":aiStatus.validationStatus==="rate_limit"?"CHAVE SALVA · COTA ATINGIDA":"GEMINI CONECTADO"}</Badge></div>
+    {aiStatus.configured&&<div style={{marginTop:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-2)",borderRadius:"var(--arcd-box-radius)",background:`${C.green}0A`,border:`var(--arcd-border-width) solid ${C.green}33`,fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-muted)"}}>Modelo: <strong>{aiStatus.model||"Gemini"}</strong> · origem: {aiStatus.source==="admin"?"configurada pelo administrador":"ambiente seguro da Vercel"}{aiStatus.updatedBy?` · por ${aiStatus.updatedBy}`:""}</div>}
+    {aiStatus.error&&<p style={{fontSize:"var(--arcd-type-label)",color:C.red,marginTop:"var(--arcd-space-2)"}}>{aiStatus.error}</p>}
+    {resultadoConfiguracao.mensagem&&<div role="status" style={{marginTop:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-2)",borderRadius:"var(--arcd-box-radius)",background:resultadoConfiguracao.tipo==="sucesso"?`${C.green}0D`:`${resultadoConfiguracao.tipo==="aviso"?C.orange:C.red}0D`,border:`var(--arcd-border-width) solid ${resultadoConfiguracao.tipo==="sucesso"?C.green:resultadoConfiguracao.tipo==="aviso"?C.orange:C.red}55`,fontSize:"var(--arcd-type-label)",fontWeight:600,color:resultadoConfiguracao.tipo==="sucesso"?C.green:resultadoConfiguracao.tipo==="aviso"?C.orange:C.red}}>{resultadoConfiguracao.mensagem}</div>}
+    {aiStatus.validationMessage&&<div style={{marginTop:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-2)",borderRadius:"var(--arcd-box-radius)",background:`${C.orange}0D`,border:`var(--arcd-border-width) solid ${C.orange}44`,fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>{aiStatus.validationMessage} <a href="https://aistudio.google.com/app/usage" target="_blank" rel="noreferrer" style={{color:C.blue,fontWeight:600}}>Ver uso e limites ↗</a></div>}
+    <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-3)",alignItems:"end"}}><Inp label={aiStatus.configured?"Substituir chave de API":"Chave da API Gemini"} type="password" value={geminiKey} onChange={setGeminiKey} placeholder="Cole a chave somente aqui"/><div style={{display:"flex",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}><Btn onClick={salvarIntegracaoIA} disabled={salvandoIA||!geminiKey.trim()}><Ic n="check"/> {salvandoIA?"Validando...":aiStatus.configured?"Validar e substituir":"Validar e conectar"}</Btn>{aiStatus.source==="admin"&&<Btn v="danger" onClick={desconectarIntegracaoIA} disabled={salvandoIA}>Desconectar</Btn>}</div></div>
+    <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-2)"}}>Crie e copie a chave em <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{color:C.blue,fontWeight:600}}>Google AI Studio · Chaves de API ↗</a>. O nível gratuito tem limites de uso e o Google informa que entradas e respostas podem ser usadas para melhorar seus produtos; avalie isso antes de enviar documentos sigilosos ou dados pessoais.</p>
   </div>;
 }
 
 function ConfiguracaoIA({ showToast }) {
-  return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
+  return <div className="anim" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
     <PageHero
       eyebrow="Administração da IA"
       title="Configurar Gemini"
@@ -8533,7 +8521,7 @@ function Config({ data, update, showToast, currentUser, onLogout, dispatchAttend
   };
 
   return (
-    <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <div className="anim" style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
       <PageHero
         eyebrow="Sistema"
         title="Configurações"
@@ -8545,9 +8533,9 @@ function Config({ data, update, showToast, currentUser, onLogout, dispatchAttend
       </TaskDisclosure>
 
       <TaskDisclosure enabled={isMobile} summary="Empresa">
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14 }}>
-        <h3 style={{ fontFamily:"var(--arcd-font-sans)", color: C.yellow, textTransform: "uppercase", marginBottom: 10 }}>Empresa</h3>
-        <div style={{ display: "grid", gridTemplateColumns:formGrid(2), gap: 10 }}>
+      <div style={{ background: "var(--arcd-surface-card)", border: `var(--arcd-border-width) solid var(--arcd-border-default)`, padding: "var(--arcd-space-3)" }}>
+        <h3 style={{ fontFamily:"var(--arcd-font-sans)", color: C.yellow, textTransform: "uppercase", marginBottom: "var(--arcd-space-2)" }}>Empresa</h3>
+        <div style={{ display: "grid", gridTemplateColumns:formGrid(2), gap: "var(--arcd-space-2)" }}>
           <Inp label="Empresa" value={form.companyName} onChange={setField("companyName")} />
           <Inp label="Produto" value={form.productName} onChange={setField("productName")} />
           <CampoCNPJ value={form.cnpj} onChange={setField("cnpj")} onEncontrado={d=>setForm(f=>({...f, companyName: f.companyName||d.razaoSocial||d.nome }))}/>
@@ -8557,7 +8545,7 @@ function Config({ data, update, showToast, currentUser, onLogout, dispatchAttend
           <Inp label="WhatsApp de Compras (c/ DDI)" value={form.whatsappCompras} onChange={setField("whatsappCompras")} placeholder="5581999990000" />
           <Inp label="E-mail aprovador" value={form.approverEmail} onChange={setField("approverEmail")} />
         </div>
-        <div style={{ marginTop: 12 }}><Btn onClick={saveConfig}><Ic n="check" /> Salvar configurações</Btn></div>
+        <div style={{ marginTop: "var(--arcd-space-3)" }}><Btn onClick={saveConfig}><Ic n="check" /> Salvar configurações</Btn></div>
       </div>
       </TaskDisclosure>
 
@@ -8567,41 +8555,41 @@ function Config({ data, update, showToast, currentUser, onLogout, dispatchAttend
 
       {/* DRE - Alíquotas e tributação */}
       <TaskDisclosure enabled={isMobile} summary="DRE e tributação">
-      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:14 }}>
-        <h3 style={{ fontFamily:"var(--arcd-font-sans)", fontWeight:600, color:C.yellow, textTransform:"uppercase", letterSpacing:.5, marginBottom:4, fontSize:"var(--arcd-type-body)" }}>DRE - Tributação</h3>
-        <p style={{ fontSize:"var(--arcd-type-label)", color:C.muted, marginBottom:12 }}>Configure as alíquotas para o cálculo automático do DRE da empresa.</p>
-        <div style={{ display:"grid", gridTemplateColumns:formGrid(2), gap:10 }}>
+      <div style={{ background:"var(--arcd-surface-card)", border:`var(--arcd-border-width) solid var(--arcd-border-default)`, borderRadius:"var(--arcd-box-radius)", padding:"var(--arcd-space-3)" }}>
+        <h3 style={{ fontFamily:"var(--arcd-font-sans)", fontWeight:600, color:C.yellow, textTransform:"uppercase", letterSpacing:.5, marginBottom:"var(--arcd-space-1)", fontSize:"var(--arcd-type-body)" }}>DRE - Tributação</h3>
+        <p style={{ fontSize:"var(--arcd-type-label)", color:"var(--arcd-text-secondary)", marginBottom:"var(--arcd-space-3)" }}>Configure as alíquotas para o cálculo automático do DRE da empresa.</p>
+        <div style={{ display:"grid", gridTemplateColumns:formGrid(2), gap:"var(--arcd-space-2)" }}>
           <Inp label="ISS (%)" type="number" value={String(form.aliquotaISS||"")} onChange={v=>setField("aliquotaISS")(v)} placeholder="Ex.: 5"/>
           <Inp label="PIS (%)" type="number" value={String(form.aliquotaPIS||"")} onChange={v=>setField("aliquotaPIS")(v)} placeholder="Ex.: 0.65"/>
           <Inp label="COFINS (%)" type="number" value={String(form.aliquotaCOFINS||"")} onChange={v=>setField("aliquotaCOFINS")(v)} placeholder="Ex.: 3"/>
-          <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"8px 12px",display:"flex",alignItems:"center"}}>
-            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Simples Nacional: use ISS apenas (alíquota efetiva total)</p>
+          <div style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",alignItems:"center"}}>
+            <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Simples Nacional: use ISS apenas (alíquota efetiva total)</p>
           </div>
           <Inp label="IR - Alíquota estimada (%)" type="number" value={String(form.aliquotaIR||"")} onChange={v=>setField("aliquotaIR")(v)} placeholder="Ex.: 15"/>
           <Inp label="CSLL - Alíquota estimada (%)" type="number" value={String(form.aliquotaCSLL||"")} onChange={v=>setField("aliquotaCSLL")(v)} placeholder="Ex.: 9"/>
         </div>
         {(Number(form.aliquotaISS||0)+Number(form.aliquotaPIS||0)+Number(form.aliquotaCOFINS||0))>0&&(
-          <div style={{marginTop:10,background:`${C.yellow}10`,border:`1px solid ${C.yellow}33`,borderRadius:6,padding:"8px 12px"}}>
-            <p style={{fontSize:"var(--arcd-type-label)",color:C.text}}>
+          <div style={{marginTop:"var(--arcd-space-2)",background:`${C.yellow}10`,border:`var(--arcd-border-width) solid ${C.yellow}33`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+            <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>
               Carga sobre faturamento: <strong style={{color:C.yellow}}>{(Number(form.aliquotaISS||0)+Number(form.aliquotaPIS||0)+Number(form.aliquotaCOFINS||0)).toFixed(2)}%</strong>
               {(Number(form.aliquotaIR||0)+Number(form.aliquotaCSLL||0))>0&&<>  Provisão IR+CSLL: <strong style={{color:C.yellow}}>{(Number(form.aliquotaIR||0)+Number(form.aliquotaCSLL||0)).toFixed(1)}%</strong></>}
             </p>
           </div>
         )}
-        <div style={{marginTop:10}}><Btn onClick={saveConfig}><Ic n="check"/> Salvar alíquotas</Btn></div>
+        <div style={{marginTop:"var(--arcd-space-2)"}}><Btn onClick={saveConfig}><Ic n="check"/> Salvar alíquotas</Btn></div>
       </div>
       </TaskDisclosure>
 
       <TaskDisclosure enabled={isMobile} summary={`Solicitações pendentes · ${pending.length}`}>
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14 }}>
-        <h3 style={{ fontFamily:"var(--arcd-font-sans)", color: C.yellow, textTransform: "uppercase", marginBottom: 10 }}>Solicitações pendentes</h3>
-        {pending.length === 0 && <p style={{ color: C.muted, fontSize: "var(--arcd-type-body)" }}>Nenhuma solicitação pendente.</p>}
+      <div style={{ background: "var(--arcd-surface-card)", border: `var(--arcd-border-width) solid var(--arcd-border-default)`, padding: "var(--arcd-space-3)" }}>
+        <h3 style={{ fontFamily:"var(--arcd-font-sans)", color: C.yellow, textTransform: "uppercase", marginBottom: "var(--arcd-space-2)" }}>Solicitações pendentes</h3>
+        {pending.length === 0 && <p style={{ color: "var(--arcd-text-secondary)", fontSize: "var(--arcd-type-body)" }}>Nenhuma solicitação pendente.</p>}
         {pending.map(r => (
-          <div key={r.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderLeft: `1px solid ${C.yellow}`, padding: 12, marginBottom: 8 }}>
+          <div key={r.id} style={{ background: "var(--arcd-surface-card)", border: `var(--arcd-border-width) solid var(--arcd-border-default)`, borderLeft: `var(--arcd-border-width) solid ${C.yellow}`, padding: "var(--arcd-space-3)", marginBottom: "var(--arcd-space-2)" }}>
             <p style={{ fontWeight:600 }}>{r.obraName}  {fmtDateFull(r.date)}</p>
-            <p style={{ color: C.muted, fontSize: "var(--arcd-type-body)" }}>{r.employeeName || "Todos / obra"}</p>
-            <p style={{ color: C.subtle, fontSize: "var(--arcd-type-body)", marginTop: 5 }}>{r.reason}</p>
-            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <p style={{ color: "var(--arcd-text-secondary)", fontSize: "var(--arcd-type-body)" }}>{r.employeeName || "Todos / obra"}</p>
+            <p style={{ color: "var(--arcd-text-muted)", fontSize: "var(--arcd-type-body)", marginTop: "var(--arcd-space-1)" }}>{r.reason}</p>
+            <div style={{ display: "flex", gap: "var(--arcd-space-2)", marginTop: "var(--arcd-space-2)" }}>
               <Btn v="success" size="sm" onClick={() => approveRequest(r.id)}><Ic n="unlock" /> Aprovar 30 min</Btn>
               <Btn v="danger" size="sm" onClick={() => rejectRequest(r.id)}><Ic n="x" /> Recusar</Btn>
             </div>
@@ -8611,49 +8599,49 @@ function Config({ data, update, showToast, currentUser, onLogout, dispatchAttend
       </TaskDisclosure>
 
       <TaskDisclosure enabled={isMobile} summary="Histórico de permissões">
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14 }}>
-        <h3 style={{ fontFamily:"var(--arcd-font-sans)", color: C.yellow, textTransform: "uppercase", marginBottom: 10 }}>Histórico de permissões</h3>
-        {recent.length === 0 && <p style={{ color: C.muted, fontSize: "var(--arcd-type-body)" }}>Sem solicitações registradas.</p>}
+      <div style={{ background: "var(--arcd-surface-card)", border: `var(--arcd-border-width) solid var(--arcd-border-default)`, padding: "var(--arcd-space-3)" }}>
+        <h3 style={{ fontFamily:"var(--arcd-font-sans)", color: C.yellow, textTransform: "uppercase", marginBottom: "var(--arcd-space-2)" }}>Histórico de permissões</h3>
+        {recent.length === 0 && <p style={{ color: "var(--arcd-text-secondary)", fontSize: "var(--arcd-type-body)" }}>Sem solicitações registradas.</p>}
         {recent.map(r => (
-          <div key={r.id} style={{ borderBottom: `1px solid ${C.border}`, padding: "8px 0" }}>
+          <div key={r.id} style={{ borderBottom: `var(--arcd-border-width) solid var(--arcd-border-default)`, padding: "var(--arcd-space-2) 0" }}>
             <p style={{ color: r.status === "approved" ? C.green : r.status === "rejected" ? C.red : C.yellow, fontWeight:600, fontSize: "var(--arcd-type-body)" }}>{String(r.status || "pending").toUpperCase()}  {r.obraName}  {fmtDateFull(r.date)}</p>
-            <p style={{ color: C.muted, fontSize: "var(--arcd-type-body)" }}>{r.employeeName || "Todos / obra"}  {r.reason}</p>
+            <p style={{ color: "var(--arcd-text-secondary)", fontSize: "var(--arcd-type-body)" }}>{r.employeeName || "Todos / obra"}  {r.reason}</p>
           </div>
         ))}
       </div>
       </TaskDisclosure>
 
       <TaskDisclosure enabled={isMobile} summary="Feriados considerados">
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 14 }}>
-        <h3 style={{ fontFamily:"var(--arcd-font-sans)", color: C.yellow, textTransform: "uppercase", marginBottom: 10 }}>Feriados considerados</h3>
+      <div style={{ background: "var(--arcd-surface-card)", border: `var(--arcd-border-width) solid var(--arcd-border-default)`, padding: "var(--arcd-space-3)" }}>
+        <h3 style={{ fontFamily:"var(--arcd-font-sans)", color: C.yellow, textTransform: "uppercase", marginBottom: "var(--arcd-space-2)" }}>Feriados considerados</h3>
           <Sel aria-label="Ano dos feriados" value={String(holidayYear)} onChange={v => setHolidayYear(Number(v))} options={Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 1 + i).map(y => ({ v: String(y), l: String(y) }))} />
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 6, marginTop: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: "var(--arcd-space-1)", marginTop: "var(--arcd-space-2)" }}>
           {holidays.map(h => <Badge key={h} color={C.blue}>{fmtDateFull(h)}</Badge>)}
         </div>
       </div>
       </TaskDisclosure>
 
       <TaskDisclosure enabled={isMobile} summary="Backup">
-      <div style={{ background:C.card, border:`1px solid ${C.border}`, padding:14, borderRadius:8 }}>
-        <h3 style={{ fontFamily:"var(--arcd-font-sans)", color:C.yellow, textTransform:"uppercase", marginBottom:10, fontSize:"var(--arcd-type-body)", fontWeight:600 }}>Backup</h3>
+      <div style={{ background:"var(--arcd-surface-card)", border:`var(--arcd-border-width) solid var(--arcd-border-default)`, padding:"var(--arcd-space-3)", borderRadius:"var(--arcd-box-radius)" }}>
+        <h3 style={{ fontFamily:"var(--arcd-font-sans)", color:C.yellow, textTransform:"uppercase", marginBottom:"var(--arcd-space-2)", fontSize:"var(--arcd-type-body)", fontWeight:600 }}>Backup</h3>
         <Btn v="ghost" onClick={exportBackup}><Ic n="download"/> Exportar backup JSON</Btn>
       </div>
       </TaskDisclosure>
 
       {/* Gestão de usuários */}
       <TaskDisclosure enabled={isMobile} summary="Usuários e permissões">
-      <div style={{ background:C.card, border:`1px solid ${C.border}`, padding:14, borderRadius:8 }}>
-        <h3 style={{ fontFamily:"var(--arcd-font-sans)", color:C.yellow, textTransform:"uppercase", marginBottom:12, fontSize:"var(--arcd-type-body)", fontWeight:600 }}>Usuários e Permissões</h3>
+      <div style={{ background:"var(--arcd-surface-card)", border:`var(--arcd-border-width) solid var(--arcd-border-default)`, padding:"var(--arcd-space-3)", borderRadius:"var(--arcd-box-radius)" }}>
+        <h3 style={{ fontFamily:"var(--arcd-font-sans)", color:C.yellow, textTransform:"uppercase", marginBottom:"var(--arcd-space-3)", fontSize:"var(--arcd-type-body)", fontWeight:600 }}>Usuários e Permissões</h3>
         <GestaoUsuarios data={data} update={update} showToast={showToast} currentUser={currentUser}/>
       </div>
       </TaskDisclosure>
 
       {/* Logout */}
-      <div style={{ background:C.surface, border:`1.5px solid ${C.border}`, padding:14, borderRadius:8 }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+      <div style={{ background:"var(--arcd-surface-card)", border:`1.5px solid var(--arcd-border-default)`, padding:"var(--arcd-space-3)", borderRadius:"var(--arcd-box-radius)" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"var(--arcd-space-2)" }}>
           <div>
-            <p style={{ fontWeight:600, fontSize:"var(--arcd-type-body)", color:C.text }}>{currentUser?.nome||"-"}</p>
-            <p style={{ fontSize:"var(--arcd-type-label)", color:C.muted, marginTop:2 }}>{ROLES.find(r=>r.v===currentUser?.role)?.l||"-"}</p>
+            <p style={{ fontWeight:600, fontSize:"var(--arcd-type-body)", color:"var(--arcd-text-primary)" }}>{currentUser?.nome||"-"}</p>
+            <p style={{ fontSize:"var(--arcd-type-label)", color:"var(--arcd-text-secondary)", marginTop:"var(--arcd-space-half)" }}>{ROLES.find(r=>r.v===currentUser?.role)?.l||"-"}</p>
           </div>
           <Btn v="danger" size="sm" onClick={onLogout}>Sair</Btn>
         </div>
@@ -9187,7 +9175,7 @@ function CotacoesMaterial({ data, update, showToast, onTab }) {
     .map(l => ({ descricao: l.descricao, qtd: Number(l.quantidade.toFixed(2)), unidade: l.unidade || "" }));
 
   return (
-    <div className="anim" style={{ display:"flex", flexDirection:"column", gap:12 }}>
+    <div className="anim" style={{ display:"flex", flexDirection:"column", gap:"var(--arcd-space-3)" }}>
       <PageHero
         eyebrow="Compras"
         title="Curva de compra e preços"
@@ -9199,7 +9187,7 @@ function CotacoesMaterial({ data, update, showToast, onTab }) {
         onClose={()=>setCotWppS(false)}/>}
 
       {/* KPIs rápidos */}
-      <div style={{ display:"grid", gridTemplateColumns:formGrid(2), gap:8 }}>
+      <div style={{ display:"grid", gridTemplateColumns:formGrid(2), gap:"var(--arcd-space-2)" }}>
         <MiniKpi label="Comprar já (atrasado)" value={totalAtrasado} cor={totalAtrasado?C.red:C.muted}/>
         <MiniKpi label="Comprar em breve" value={totalUrgente} cor={totalUrgente?C.orange:C.muted}/>
         <MiniKpi label="A pesquisar preço" value={curva.alertasPesquisa.length} cor={curva.alertasPesquisa.length?C.orange:C.green}/>
@@ -9210,15 +9198,15 @@ function CotacoesMaterial({ data, update, showToast, onTab }) {
       <TabRow tabs={[["curva","Curva de necessidade"],["precos","Comparação de preços"],["alertas","Pesquisa de preço"]]} active={aba} onChange={setAba}/>
 
       {/* filtros comuns */}
-      <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
+      <div style={{ display:"flex", gap:"var(--arcd-space-2)", flexWrap:"wrap", alignItems:"center" }}>
         <div style={{ flex:1, minWidth:160 }}><Inp label="" value={busca} onChange={setBusca} placeholder="Buscar material ou código..."/></div>
-        <div style={{ display:"flex", gap:4 }}>
+        <div style={{ display:"flex", gap:"var(--arcd-space-1)" }}>
           {["todas","A","B","C"].map(cl=>(
             <button key={cl} onClick={()=>setFiltroClasse(cl)} style={{
-              border:`1px solid ${filtroClasse===cl?(CLASSE_COR[cl]||C.text):C.border}`,
+              border:`var(--arcd-border-width) solid ${filtroClasse===cl?(CLASSE_COR[cl]||C.text):C.border}`,
               background: filtroClasse===cl?`${CLASSE_COR[cl]||C.text}12`:"transparent",
-              color: filtroClasse===cl?(CLASSE_COR[cl]||C.text):C.muted,
-              borderRadius:6, padding:"6px 11px", fontSize:"var(--arcd-type-control)", fontWeight:600, cursor:"pointer" }}>
+              color: filtroClasse===cl?(CLASSE_COR[cl]||C.text):"var(--arcd-text-secondary)",
+              borderRadius:"var(--arcd-radius-control)", padding:"var(--arcd-space-1) var(--arcd-space-3)", fontSize:"var(--arcd-type-control)", fontWeight:600, cursor:"pointer" }}>
               {cl==="todas"?"Todas":`Classe ${cl}`}
             </button>
           ))}
@@ -9226,41 +9214,41 @@ function CotacoesMaterial({ data, update, showToast, onTab }) {
       </div>
 
       {curva.linhas.length===0 && (
-        <div style={{ padding:24, textAlign:"center", color:C.muted, fontSize:"var(--arcd-type-body)", border:`1px dashed ${C.border}`, borderRadius:8 }}>
+        <div style={{ padding:"var(--arcd-space-6)", textAlign:"center", color:"var(--arcd-text-secondary)", fontSize:"var(--arcd-type-body)", border:`var(--arcd-border-width) dashed var(--arcd-border-default)`, borderRadius:"var(--arcd-box-radius)" }}>
           Nenhum material encontrado. A curva se monta cruzando o <b>planejamento</b> (datas das etapas) com o <b>orçamento</b> (materiais de cada etapa). Verifique se as obras têm plano e orçamento vinculados.
         </div>
       )}
 
       {/* ---------- CURVA DE NECESSIDADE ---------- */}
       {aba==="curva" && curva.linhas.length>0 && (
-        <div style={{ overflow:"auto", border:`1px solid ${C.border}`, borderRadius:8, background:C.card }}>
-          <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"var(--arcd-type-label)", minWidth:680 }}>
-            <thead><tr style={{ borderBottom:`1px solid ${C.border}` }}>
+        <div style={{ overflow:"auto", border:`var(--arcd-border-width) solid var(--arcd-border-default)`, borderRadius:"var(--arcd-box-radius)", background:"var(--arcd-surface-card)" }}>
+          <table className="arcd-data-table__table" style={{ width:"100%", borderCollapse:"collapse", minWidth:680 }}>
+            <thead><tr style={{ borderBottom:`var(--arcd-border-width) solid var(--arcd-border-default)` }}>
               {["Material","Classe","Qtd","Comprar até","Situação","Obra(s)"].map((h,i)=>(
-                <th key={h} style={{ textAlign:i===2?"right":"left", padding:"8px 9px", color:C.muted, fontSize:"var(--arcd-type-label)", fontWeight:600, textTransform:"uppercase", whiteSpace:"nowrap" }}>{h}</th>
+                <th key={h} style={{ textAlign:i===2?"right":"left", padding:"var(--arcd-space-2) var(--arcd-space-2)", color:"var(--arcd-text-secondary)", fontSize:"var(--arcd-type-label)", fontWeight:600, textTransform:"uppercase", whiteSpace:"nowrap" }}>{h}</th>
               ))}
             </tr></thead>
             <tbody>
               {linhasCurva.map(l=>{
                 const st = STAT[l.statusCompra];
                 return (
-                  <tr key={l.codigo} style={{ borderBottom:`1px solid ${C.line}` }}>
-                    <td style={{ padding:"8px 9px" }}>
-                      <div style={{ fontWeight:600, color:C.text }}>{l.descricao}</div>
-                      <div style={{ fontSize:"var(--arcd-type-caption)", color:C.muted }}>{l.fonte} {l.codigo}</div>
+                  <tr key={l.codigo} style={{ borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)` }}>
+                    <td style={{ padding:"var(--arcd-space-2) var(--arcd-space-2)" }}>
+                      <div style={{ fontWeight:600, color:"var(--arcd-text-primary)" }}>{l.descricao}</div>
+                      <div style={{ fontSize:"var(--arcd-type-caption)", color:"var(--arcd-text-secondary)" }}>{l.fonte} {l.codigo}</div>
                     </td>
-                    <td style={{ padding:"8px 9px" }}>
-                      <span style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color:CLASSE_COR[l.classe], background:`${CLASSE_COR[l.classe]}14`, padding:"2px 7px", borderRadius:99 }}>{l.classe}</span>
+                    <td style={{ padding:"var(--arcd-space-2) var(--arcd-space-2)" }}>
+                      <span style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color:CLASSE_COR[l.classe], background:`${CLASSE_COR[l.classe]}14`, padding:"var(--arcd-space-half) var(--arcd-space-2)", borderRadius:"var(--arcd-radius-pill)" }}>{l.classe}</span>
                     </td>
-                    <td style={{ padding:"8px 9px", textAlign:"right", color:C.text, whiteSpace:"nowrap" }}>{l.quantidade.toLocaleString("pt-BR")} {l.unidade}</td>
-                    <td style={{ padding:"8px 9px", whiteSpace:"nowrap" }}>
-                      {l.dataCompra ? <span style={{ color:st.c, fontWeight:600 }}>{fmtDate(l.dataCompra)}</span> : <span style={{ color:C.muted }}>—</span>}
-                      {l.diasAteComprar!==null && <div style={{ fontSize:"var(--arcd-type-caption)", color:C.muted }}>{l.diasAteComprar<0?`${-l.diasAteComprar}d atrás`:`em ${l.diasAteComprar}d`}</div>}
+                    <td style={{ padding:"var(--arcd-space-2) var(--arcd-space-2)", textAlign:"right", color:"var(--arcd-text-primary)", whiteSpace:"nowrap" }}>{l.quantidade.toLocaleString("pt-BR")} {l.unidade}</td>
+                    <td style={{ padding:"var(--arcd-space-2) var(--arcd-space-2)", whiteSpace:"nowrap" }}>
+                      {l.dataCompra ? <span style={{ color:st.c, fontWeight:600 }}>{fmtDate(l.dataCompra)}</span> : <span style={{ color:"var(--arcd-text-secondary)" }}>—</span>}
+                      {l.diasAteComprar!==null && <div style={{ fontSize:"var(--arcd-type-caption)", color:"var(--arcd-text-secondary)" }}>{l.diasAteComprar<0?`${-l.diasAteComprar}d atrás`:`em ${l.diasAteComprar}d`}</div>}
                     </td>
-                    <td style={{ padding:"8px 9px" }}>
+                    <td style={{ padding:"var(--arcd-space-2) var(--arcd-space-2)" }}>
                       <span style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color:st.c }}>{st.l}</span>
                     </td>
-                    <td style={{ padding:"8px 9px", fontSize:"var(--arcd-type-table)", color:C.muted, maxWidth:130, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{l.obras.join(", ")}</td>
+                    <td style={{ padding:"var(--arcd-space-2) var(--arcd-space-2)", fontSize:"var(--arcd-type-table)", color:"var(--arcd-text-secondary)", maxWidth:130, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{l.obras.join(", ")}</td>
                   </tr>
                 );
               })}
@@ -9271,49 +9259,49 @@ function CotacoesMaterial({ data, update, showToast, onTab }) {
 
       {/* ---------- COMPARAÇÃO DE PREÇOS ---------- */}
       {aba==="precos" && curva.linhas.length>0 && (
-        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+        <div style={{ display:"flex", flexDirection:"column", gap:"var(--arcd-space-2)" }}>
           {linhasFiltradas.map(l=>{
             const temCot = !!l.melhorCotacao;
             const maisBarato = l.economiaVsBase > 0;
             return (
-              <div key={l.codigo} style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:"11px 13px" }}>
-                <div style={{ display:"flex", justifyContent:"space-between", gap:8, marginBottom:8, flexWrap:"wrap" }}>
+              <div key={l.codigo} style={{ background:"var(--arcd-surface-card)", border:`var(--arcd-border-width) solid var(--arcd-border-default)`, borderRadius:"var(--arcd-box-radius)", padding:"var(--arcd-space-3) var(--arcd-space-3)" }}>
+                <div style={{ display:"flex", justifyContent:"space-between", gap:"var(--arcd-space-2)", marginBottom:"var(--arcd-space-2)", flexWrap:"wrap" }}>
                   <div style={{ minWidth:0 }}>
-                    <span style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color:CLASSE_COR[l.classe], background:`${CLASSE_COR[l.classe]}14`, padding:"1px 6px", borderRadius:99, marginRight:6 }}>{l.classe}</span>
-                    <b style={{ fontSize:"var(--arcd-type-body)", color:C.text }}>{l.descricao}</b>
-                    <div style={{ fontSize:"var(--arcd-type-caption)", color:C.muted, marginTop:1 }}>{l.fonte} {l.codigo} · {l.unidade}</div>
+                    <span style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color:CLASSE_COR[l.classe], background:`${CLASSE_COR[l.classe]}14`, padding:"1px var(--arcd-space-1)", borderRadius:"var(--arcd-radius-pill)", marginRight:"var(--arcd-space-1)" }}>{l.classe}</span>
+                    <b style={{ fontSize:"var(--arcd-type-body)", color:"var(--arcd-text-primary)" }}>{l.descricao}</b>
+                    <div style={{ fontSize:"var(--arcd-type-caption)", color:"var(--arcd-text-secondary)", marginTop:1 }}>{l.fonte} {l.codigo} · {l.unidade}</div>
                   </div>
                   <Btn size="sm" v="ghost" onClick={()=>setCotModal({ codigo:l.codigo, descricao:l.descricao, unidade:l.unidade, fornecedorId:"", fornecedorNome:"", preco:"", data:today(), obs:"" })}>
                     <Ic n="plus"/> Cotação
                   </Btn>
                 </div>
-                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 }}>
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:"var(--arcd-space-2)" }}>
                   <div>
-                    <p style={{ fontSize:"var(--arcd-type-caption)", color:C.muted, textTransform:"uppercase", letterSpacing:.4 }}>Base ({l.fonte})</p>
-                    <p style={{ fontSize:"var(--arcd-type-body)", fontWeight:600, color:C.text }}>{fmt(l.precoBase)}</p>
+                    <p style={{ fontSize:"var(--arcd-type-caption)", color:"var(--arcd-text-secondary)", textTransform:"uppercase", letterSpacing:.4 }}>Base ({l.fonte})</p>
+                    <p style={{ fontSize:"var(--arcd-type-body)", fontWeight:600, color:"var(--arcd-text-primary)" }}>{fmt(l.precoBase)}</p>
                   </div>
                   <div>
-                    <p style={{ fontSize:"var(--arcd-type-caption)", color:C.muted, textTransform:"uppercase", letterSpacing:.4 }}>Melhor fornecedor</p>
+                    <p style={{ fontSize:"var(--arcd-type-caption)", color:"var(--arcd-text-secondary)", textTransform:"uppercase", letterSpacing:.4 }}>Melhor fornecedor</p>
                     {temCot
                       ? <><p style={{ fontSize:"var(--arcd-type-body)", fontWeight:600, color:maisBarato?C.green:C.red }}>{fmt(l.melhorCotacao.preco)}</p>
-                          <p style={{ fontSize:"var(--arcd-type-caption)", color:C.muted }}>{l.melhorCotacao.fornecedorNome} · {fmtDate(l.melhorCotacao.data)}</p></>
-                      : <p style={{ fontSize:"var(--arcd-type-body)", color:C.muted, marginTop:3 }}>Sem cotação</p>}
+                          <p style={{ fontSize:"var(--arcd-type-caption)", color:"var(--arcd-text-secondary)" }}>{l.melhorCotacao.fornecedorNome} · {fmtDate(l.melhorCotacao.data)}</p></>
+                      : <p style={{ fontSize:"var(--arcd-type-body)", color:"var(--arcd-text-secondary)", marginTop:"var(--arcd-space-half)" }}>Sem cotação</p>}
                   </div>
                   <div>
-                    <p style={{ fontSize:"var(--arcd-type-caption)", color:C.muted, textTransform:"uppercase", letterSpacing:.4 }}>Diferença</p>
+                    <p style={{ fontSize:"var(--arcd-type-caption)", color:"var(--arcd-text-secondary)", textTransform:"uppercase", letterSpacing:.4 }}>Diferença</p>
                     {temCot
                       ? <p style={{ fontSize:"var(--arcd-type-body)", fontWeight:600, color:maisBarato?C.green:C.red }}>
                           {maisBarato?"−":"+"}{fmt(Math.abs(l.economiaVsBase))}
                           <span style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600 }}> ({Math.abs(l.economiaPct).toFixed(0)}%)</span>
                         </p>
-                      : <p style={{ fontSize:"var(--arcd-type-body)", color:C.muted, marginTop:3 }}>—</p>}
+                      : <p style={{ fontSize:"var(--arcd-type-body)", color:"var(--arcd-text-secondary)", marginTop:"var(--arcd-space-half)" }}>—</p>}
                   </div>
                 </div>
                 {/* Sugestão de fornecedor */}
                 {temCot && (
-                  <div style={{ marginTop:8, paddingTop:8, borderTop:`1px solid ${C.line}`, display:"flex", alignItems:"center", gap:7 }}>
+                  <div style={{ marginTop:"var(--arcd-space-2)", paddingTop:"var(--arcd-space-2)", borderTop:`var(--arcd-border-width) solid var(--arcd-border-subtle)`, display:"flex", alignItems:"center", gap:"var(--arcd-space-2)" }}>
                     <Ic n="check" s={13} color={C.green}/>
-                    <span style={{ fontSize:"var(--arcd-type-label)", color:C.text }}>
+                    <span style={{ fontSize:"var(--arcd-type-label)", color:"var(--arcd-text-primary)" }}>
                       Sugestão: <b>{l.melhorCotacao.fornecedorNome}</b> a {fmt(l.melhorCotacao.preco)}/{l.unidade}
                       {maisBarato && <span style={{ color:C.green }}> — economia de {fmt(l.economiaVsBase*l.quantidade)} no total</span>}
                     </span>
@@ -9327,20 +9315,20 @@ function CotacoesMaterial({ data, update, showToast, onTab }) {
 
       {/* ---------- PESQUISA DE PREÇO (ALERTAS ABC) ---------- */}
       {aba==="alertas" && curva.linhas.length>0 && (
-        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-          <div style={{ background:`${C.blue}0C`, border:`1px solid ${C.blue}33`, borderRadius:8, padding:"10px 12px", fontSize:"var(--arcd-type-label)", color:C.subtle, lineHeight:1.5 }}>
+        <div style={{ display:"flex", flexDirection:"column", gap:"var(--arcd-space-2)" }}>
+          <div style={{ background:`${C.blue}0C`, border:`var(--arcd-border-width) solid ${C.blue}33`, borderRadius:"var(--arcd-box-radius)", padding:"var(--arcd-space-2) var(--arcd-space-3)", fontSize:"var(--arcd-type-label)", color:"var(--arcd-text-muted)", lineHeight:1.5 }}>
             Regra de pesquisa por curva ABC: <b style={{color:CLASSE_COR.A}}>classe A</b> a cada 1 mês, <b style={{color:CLASSE_COR.B}}>classe B</b> a cada 2 meses, <b style={{color:CLASSE_COR.C}}>classe C</b> a cada 3 meses. Itens abaixo estão com pesquisa vencida.
           </div>
           {curva.alertasPesquisa.filter(l=>filtroClasse==="todas"||l.classe===filtroClasse).length===0
-            ? <div style={{ padding:20, textAlign:"center", color:C.green, fontSize:"var(--arcd-type-body)" }}><Ic n="check" s={14} color={C.green}/> Nenhuma pesquisa vencida. Preços em dia.</div>
+            ? <div style={{ padding:"var(--arcd-space-5)", textAlign:"center", color:C.green, fontSize:"var(--arcd-type-body)" }}><Ic n="check" s={14} color={C.green}/> Nenhuma pesquisa vencida. Preços em dia.</div>
             : curva.alertasPesquisa.filter(l=>filtroClasse==="todas"||l.classe===filtroClasse).map(l=>(
-              <div key={l.codigo} style={{ background:C.card, border:`1px solid ${C.border}`, borderLeft:`1px solid ${CLASSE_COR[l.classe]}`, borderRadius:8, padding:"10px 12px", display:"flex", justifyContent:"space-between", gap:8, alignItems:"center", flexWrap:"wrap" }}>
+              <div key={l.codigo} style={{ background:"var(--arcd-surface-card)", border:`var(--arcd-border-width) solid var(--arcd-border-default)`, borderLeft:`var(--arcd-border-width) solid ${CLASSE_COR[l.classe]}`, borderRadius:"var(--arcd-box-radius)", padding:"var(--arcd-space-2) var(--arcd-space-3)", display:"flex", justifyContent:"space-between", gap:"var(--arcd-space-2)", alignItems:"center", flexWrap:"wrap" }}>
                 <div style={{ minWidth:0 }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                    <span style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color:CLASSE_COR[l.classe], background:`${CLASSE_COR[l.classe]}14`, padding:"1px 6px", borderRadius:99 }}>{l.classe}</span>
-                    <b style={{ fontSize:"var(--arcd-type-body)", color:C.text }}>{l.descricao}</b>
+                  <div style={{ display:"flex", alignItems:"center", gap:"var(--arcd-space-1)" }}>
+                    <span style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color:CLASSE_COR[l.classe], background:`${CLASSE_COR[l.classe]}14`, padding:"1px var(--arcd-space-1)", borderRadius:"var(--arcd-radius-pill)" }}>{l.classe}</span>
+                    <b style={{ fontSize:"var(--arcd-type-body)", color:"var(--arcd-text-primary)" }}>{l.descricao}</b>
                   </div>
-                  <p style={{ fontSize:"var(--arcd-type-caption)", color:C.muted, marginTop:2 }}>
+                  <p style={{ fontSize:"var(--arcd-type-caption)", color:"var(--arcd-text-secondary)", marginTop:"var(--arcd-space-half)" }}>
                     {l.ultimaPesquisa
                       ? `Última pesquisa há ${l.diasDesdePesquisa} dias (limite ${l.periodoPesquisa}d)`
                       : "Nunca pesquisado"}
@@ -9358,17 +9346,17 @@ function CotacoesMaterial({ data, update, showToast, onTab }) {
       {/* Modal de cotação */}
       {cotModal && (
         <Modal title="Registrar cotação de preço" onClose={()=>setCotModal(null)}>
-          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-            <div style={{ background:C.surface, borderRadius:6, padding:"8px 10px" }}>
-              <p style={{ fontSize:"var(--arcd-type-body)", fontWeight:600, color:C.text }}>{cotModal.descricao}</p>
-              <p style={{ fontSize:"var(--arcd-type-caption)", color:C.muted }}>{cotModal.codigo} · {cotModal.unidade}</p>
+          <div style={{ display:"flex", flexDirection:"column", gap:"var(--arcd-space-2)" }}>
+            <div style={{ background:"var(--arcd-surface-card)", borderRadius:"var(--arcd-radius-control)", padding:"var(--arcd-space-2) var(--arcd-space-2)" }}>
+              <p style={{ fontSize:"var(--arcd-type-body)", fontWeight:600, color:"var(--arcd-text-primary)" }}>{cotModal.descricao}</p>
+              <p style={{ fontSize:"var(--arcd-type-caption)", color:"var(--arcd-text-secondary)" }}>{cotModal.codigo} · {cotModal.unidade}</p>
             </div>
             <Sel label="Fornecedor" value={cotModal.fornecedorId} onChange={v=>setCotModal(f=>({...f,fornecedorId:v}))}
               options={[{v:"",l:"— escolher / digitar abaixo —"}, ...fornecedores.map(f=>({v:f.id,l:f.nome}))]}/>
             {!cotModal.fornecedorId && (
               <Inp label="Ou nome do fornecedor" value={cotModal.fornecedorNome} onChange={v=>setCotModal(f=>({...f,fornecedorNome:v}))} placeholder="Depósito X"/>
             )}
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"var(--arcd-space-2)" }}>
               <Inp label="Preço unitário (R$) *" type="number" value={cotModal.preco} onChange={v=>setCotModal(f=>({...f,preco:v}))}/>
               <Inp label="Data" type="date" value={cotModal.data} onChange={v=>setCotModal(f=>({...f,data:v}))}/>
             </div>
@@ -9529,7 +9517,7 @@ function RankingFornecedores({data,showToast,currentUser,dispatchCommand}){
           subtitle:row=>`${row.posicao}º · ${(row.fornecedor.categorias||[]).slice(0,2).map(rotuloRamo).join(" · ")||row.fornecedor.cidade||"Ramo não informado"}`,
           primaryFields:["geral"],
         }}
-      />:<div className="supplier-table-wrap"><table className="supplier-table">
+      />:<div className="supplier-table-wrap"><table className="arcd-data-table__table supplier-table">
         <thead><tr><th>#</th><th>Fornecedor</th><th>Nota geral</th><th>Preço</th><th>Frete</th><th>Prazo</th><th>Qualidade</th><th>Base</th><th></th></tr></thead>
         <tbody>{suppliersPage.rows.map((r,i)=><tr key={r.fornecedor.id} onClick={()=>setSelecionadoId(r.fornecedor.id)} className={selecionadoId===r.fornecedor.id?"is-selected":""}>
           <td data-label="Posição"><b className={suppliersPage.start+i<=3?"supplier-rank top": "supplier-rank"}>{suppliersPage.start+i}º</b></td>
@@ -9944,7 +9932,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
       if(janela)janela.location.href=resposta.url;else window.location.assign(resposta.url);
     }catch(err){janela?.close();showToast?.(err.message||"Não foi possível abrir o documento.","error");}
   };
-  const linkDocumentoObra=(doc,compacto=false)=><CompanyAssetLink key={doc.id||doc.url} href={urlArquivoInterna(doc.url)?doc.url:"#visualizar-arquivo"} target="_blank" rel="noopener noreferrer" onClick={e=>abrirDocumentoSeguro(e,doc)} title={`Visualizar ${doc.nome||"documento"}`} style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",padding:compacto?"6px 0":"9px 10px",border:compacto?0:"1px solid var(--arcd-border-default)",borderTop:compacto?"1px solid var(--arcd-border-default)":undefined,borderRadius:compacto?0:8,color:"var(--arcd-action-primary)",textDecoration:"none",fontSize:compacto?"var(--arcd-type-caption)":"var(--arcd-type-caption)"}}><Ic n="file"/><span style={{flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{doc.nome||"Documento"}</span><span style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>Visualizar ↗</span></CompanyAssetLink>;
+  const linkDocumentoObra=(doc,compacto=false)=><CompanyAssetLink key={doc.id||doc.url} href={urlArquivoInterna(doc.url)?doc.url:"#visualizar-arquivo"} target="_blank" rel="noopener noreferrer" onClick={e=>abrirDocumentoSeguro(e,doc)} title={`Visualizar ${doc.nome||"documento"}`} style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",padding:compacto?"var(--arcd-space-1) 0":"var(--arcd-space-2) var(--arcd-space-2)",border:compacto?0:"var(--arcd-border-width) solid var(--arcd-border-default)",borderTop:compacto?"var(--arcd-border-width) solid var(--arcd-border-default)":undefined,borderRadius:compacto?0:"var(--arcd-box-radius)",color:"var(--arcd-action-primary)",textDecoration:"none",fontSize:compacto?"var(--arcd-type-caption)":"var(--arcd-type-caption)"}}><Ic n="file"/><span style={{flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{doc.nome||"Documento"}</span><span style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>Visualizar ↗</span></CompanyAssetLink>;
 
   const criarSubpasta = async () => {
     const nomePasta=novaPasta.trim();
@@ -10149,13 +10137,13 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         <div style={{flex:"1 1 260px",minWidth:0}}><Inp label={`Nova pasta em ${pastaAtual?.nome||"Arquivos da obra"}`} value={novaPasta} onChange={setNovaPasta} placeholder="Ex.: Projetos estruturais"/></div>
         <Btn v="info" onClick={criarSubpasta} disabled={!novaPasta.trim()||criandoPasta} style={{flex:"0 0 auto",maxWidth:"100%"}}><Ic n="folder"/> {criandoPasta?"Criando...":"Criar pasta"}</Btn>
       </div>
-      <div style={{borderTop:"1px solid var(--arcd-border-default)",paddingTop:"var(--arcd-space-3)",minWidth:0}}>
+      <div style={{borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)",paddingTop:"var(--arcd-space-3)",minWidth:0}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",marginBottom:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Conteúdo da pasta</p>{!carregandoPasta&&<span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",whiteSpace:"nowrap"}}>{contar(pastas.length,"pasta","pastas")} · {contar(arquivos.length||arquivosFallback.length,"arquivo","arquivos")}</span>}</div>
         {carregandoPasta?<LoadingState label="pastas e arquivos"/>:<>
-          {!!pastas.length&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,210px),1fr))",gap:"var(--arcd-space-2)",marginBottom:"var(--arcd-space-2)"}}>{pastas.map(pasta=><StandardButton variant="secondary" key={pasta.id} onClick={()=>abrirPastaInterna(pasta)} title={`Abrir ${pasta.name}`} style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",minWidth:0,width:"100%",textAlign:"left"}}><span style={{flex:"0 0 auto",color:"var(--arcd-action-primary)"}}><Ic n="folder"/></span><span style={{flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{pasta.name}</span><span style={{flex:"0 0 auto",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-body)"}}>›</span></StandardButton>)}</div>}
+          {!!pastas.length&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,210px),1fr))",gap:"var(--arcd-space-2)",marginBottom:"var(--arcd-space-2)"}}>{pastas.map(pasta=><StandardButton variant="secondary" key={pasta.id} onClick={()=>abrirPastaInterna(pasta)} title={`Abrir ${pasta.name}`} style={{display:"flex",alignItems:"center",minWidth:0,width:"100%"}}><span style={{flex:"0 0 auto",color:"var(--arcd-action-primary)"}}><Ic n="folder"/></span><span style={{flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{pasta.name}</span><span style={{flex:"0 0 auto",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-body)"}}>›</span></StandardButton>)}</div>}
           {!!arquivos.length&&<div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>{arquivos.map(doc=>linkDocumentoObra(doc))}</div>}
           {!arquivos.length&&!!arquivosFallback.length&&<div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>{arquivosFallback.map(doc=>linkDocumentoObra(doc))}</div>}
-          {!pastas.length&&!arquivos.length&&!arquivosFallback.length&&<div style={{padding:"var(--arcd-space-5) var(--arcd-space-2)",textAlign:"center",border:"1px dashed var(--arcd-border-default)",borderRadius:9}}><Ic n="folder" color={C.muted}/><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-1)"}}>Esta pasta está vazia</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Crie uma subpasta ou carregue um arquivo aqui.</p></div>}
+          {!pastas.length&&!arquivos.length&&!arquivosFallback.length&&<div style={{padding:"var(--arcd-space-5) var(--arcd-space-2)",textAlign:"center",border:"var(--arcd-border-width) dashed var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)"}}><Ic n="folder" color={C.muted}/><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-1)"}}>Esta pasta está vazia</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Crie uma subpasta ou carregue um arquivo aqui.</p></div>}
         </>}
       </div>
     </div>;
@@ -10229,9 +10217,9 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
   );
 
   const barra = (pct, cor) => (
-    <div style={{marginTop:"var(--arcd-space-2)",height:6,background:"var(--arcd-border-default)",borderRadius:99,overflow:"hidden"}}>
+    <div style={{marginTop:"var(--arcd-space-2)",height:6,background:"var(--arcd-border-default)",borderRadius:"var(--arcd-radius-pill)",overflow:"hidden"}}>
       <div style={{height:"100%",width:`${Math.min(100,Math.max(0,pct))}%`,
-                   background:cor,borderRadius:99}}/>
+                   background:cor,borderRadius:"var(--arcd-radius-pill)"}}/>
     </div>
   );
 
@@ -10287,12 +10275,12 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
       </div>
 
       <div className="work-overview-grid">
-        <section className="work-overview-panel" aria-labelledby="work-stage-heading">
-          <header className="work-overview-panel__header">
+        <section className="mrc-box" aria-labelledby="work-stage-heading">
+          <header className="mrc-box__header">
             <h2 id="work-stage-heading">Avanço por etapa</h2>
             <StandardButton variant="secondary" onClick={() => abrirModuloDaObra("plan")}>Abrir planejamento</StandardButton>
           </header>
-          {previsaoObra.etapas.length ? <table className="work-overview-table" aria-labelledby="work-stage-heading">
+          {previsaoObra.etapas.length ? <table className="arcd-data-table__table work-overview-table" aria-labelledby="work-stage-heading">
             <thead><tr><th scope="col">Etapa</th><th scope="col">Situação</th><th scope="col" data-align="end">Avanço</th></tr></thead>
             <tbody>{previsaoObra.etapas.map(({id, nome, progresso, atrasada}) => <tr key={id}>
               <th scope="row">{nome}</th>
@@ -10305,31 +10293,31 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
           </table> : <p className="work-overview-panel__message">Nenhuma etapa do orçamento está vinculada ao planejamento desta obra.</p>}
         </section>
 
-        <section className="work-overview-panel" aria-labelledby="work-next-heading">
-          <header className="work-overview-panel__header"><h2 id="work-next-heading">Próximas ações</h2></header>
+        <section className="mrc-box" aria-labelledby="work-next-heading">
+          <header className="mrc-box__header"><h2 id="work-next-heading">Próximas ações</h2></header>
           {acoesVisaoGeral.length ? <ul className="work-overview-actions">
             {acoesVisaoGeral.map(({destino, texto, detalhe}) => <li key={destino}>
-              <StandardButton variant="ghost" onClick={() => abrirModuloDaObra(destino)}>
+              <RecordAction layout="row" style={{"--record-columns":"minmax(0, 1fr) auto"}} onClick={() => abrirModuloDaObra(destino)}>
                 <span><strong>{texto}</strong><small>{detalhe}</small></span><span aria-hidden="true">›</span>
-              </StandardButton>
+              </RecordAction>
             </li>)}
           </ul> : <p className="work-overview-panel__message">Nenhuma ação prioritária registrada.</p>}
         </section>
       </div>
 
       <TaskDisclosure summary="Previsão executiva da obra">
-      <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderLeft:`1px solid ${previsaoObra.prazo.atrasadas||previsaoObra.custos.saldo<0?"var(--arcd-danger-text)":"var(--arcd-action-primary)"}`,borderRadius:10,padding:"var(--arcd-space-3)",marginBottom:"var(--arcd-space-3)"}}>
+      <div style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderLeft:`var(--arcd-border-width) solid ${previsaoObra.prazo.atrasadas||previsaoObra.custos.saldo<0?"var(--arcd-danger-text)":"var(--arcd-action-primary)"}`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-3)",marginBottom:"var(--arcd-space-3)"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}><div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Previsão executiva da obra</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>O avanço oficial vem do boletim técnico aprovado. A evolução informada no Planejamento pode ser diferente.</p></div><Btn size="sm" v="ghost" onClick={()=>abrirModuloDaObra("plan")}>Abrir planejamento</Btn></div>
-        {!previsaoObra.temPlano?<div style={{marginTop:"var(--arcd-space-2)",background:"color-mix(in srgb, var(--arcd-warning-text) 4%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)",borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-warning-text)"}}>A obra ainda não possui cronograma executável.</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Crie ou sincronize o planejamento com o orçamento para habilitar previsão de prazo e avanço ponderado.</p></div>:<>
+        {!previsaoObra.temPlano?<div style={{marginTop:"var(--arcd-space-2)",background:"color-mix(in srgb, var(--arcd-warning-text) 4%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-warning-text)"}}>A obra ainda não possui cronograma executável.</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Crie ou sincronize o planejamento com o orçamento para habilitar previsão de prazo e avanço ponderado.</p></div>:<>
           <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)"}}>{[
             ["Avanço físico",`${previsaoObra.progresso}%`,C.blue],
             ["Desvio de prazo",`${previsaoObra.prazo.desvioObra>0?"+":""}${contar(previsaoObra.prazo.desvioObra||0,"dia","dias")}`,previsaoObra.prazo.desvioObra>0?C.red:C.green],
             ["Conclusão prevista",previsaoObra.fimProjetado?fmtDate(previsaoObra.fimProjetado):"Sem data",previsaoObra.prazo.desvioObra>0?C.orange:C.green],
             ["Medição financeira",`${Math.min(999,previsaoObra.percentualMedido).toFixed(1)}%`,C.purple],
-          ].map(([l,v,c])=><div key={l} style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:7,padding:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>{l}</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:c,marginTop:"var(--arcd-space-half)"}}>{v}</p></div>)}</div>
-          {previsaoObra.tarefasCriticas.length>0&&<div style={{marginTop:"var(--arcd-space-2)",borderTop:"1px solid var(--arcd-border-default)",paddingTop:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-danger-text)",textTransform:"uppercase"}}>Maiores atrasos medidos</p>{previsaoObra.tarefasCriticas.map(t=><div key={t.id} style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-1)"}}><span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.nome}</span><b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-danger-text)",whiteSpace:"nowrap"}}>+{t.desvio} dias · {Number(t.pctMedido||0).toFixed(0)}%</b></div>)}</div>}
+          ].map(([l,v,c])=><div key={l} style={{background:"var(--arcd-surface-muted)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>{l}</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:c,marginTop:"var(--arcd-space-half)"}}>{v}</p></div>)}</div>
+          {previsaoObra.tarefasCriticas.length>0&&<div style={{marginTop:"var(--arcd-space-2)",borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)",paddingTop:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-danger-text)",textTransform:"uppercase"}}>Maiores atrasos medidos</p>{previsaoObra.tarefasCriticas.map(t=><div key={t.id} style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-1)"}}><span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.nome}</span><b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-danger-text)",whiteSpace:"nowrap"}}>+{t.desvio} dias · {Number(t.pctMedido||0).toFixed(0)}%</b></div>)}</div>}
         </>}
-        <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)",borderTop:"1px solid var(--arcd-border-default)",paddingTop:"var(--arcd-space-2)"}}>{[
+        <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)",borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)",paddingTop:"var(--arcd-space-2)"}}>{[
           ["Orçado",previsaoObra.custos.orcado,C.blue],["Comprometido",previsaoObra.custos.comprometido,C.orange],
           ["Recebido na obra",previsaoObra.custos.recebido,C.purple],["Custo final estimado",previsaoObra.custos.projecao,previsaoObra.custos.temOrcamento&&previsaoObra.custos.projecao>previsaoObra.custos.orcado?C.red:C.green],
         ].map(([l,v,c])=><div key={l}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>{l}</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:c,marginTop:"var(--arcd-space-half)"}}>{fmt(v)}</p></div>)}</div>
@@ -10348,7 +10336,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
           A equipe de campo confirma aqui - o material entra no estoque sozinho. */}
       {update && resumo.pedAbertos.length > 0 && (
         <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 5%, transparent)",border:"1.5px solid color-mix(in srgb, var(--arcd-action-primary) 33%, transparent)",
-                     borderRadius:8,padding:"var(--arcd-space-3)",marginBottom:"var(--arcd-space-2)"}}>
+                     borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-3)",marginBottom:"var(--arcd-space-2)"}}>
           <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",marginBottom:"var(--arcd-space-2)"}}>
             <Ic n="alert" s={16} color={C.blue}/>
             <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)"}}>
@@ -10365,7 +10353,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
               const nItens = (p.itens||[]).filter(i => Number(i.qtd||0) > Number(i.qtdRecebida||0)).length;
               return (
                 <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",
-                     gap:"var(--arcd-space-2)",background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+                     gap:"var(--arcd-space-2)",background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
                   <div style={{minWidth:0,flex:1}}>
                     <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Pedido {p.numero}</p>
                     <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-0)"}}>
@@ -10457,12 +10445,12 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
           <Btn full onClick={()=>inputDocumentoRef.current?.click()} disabled={enviandoDocumento} style={{marginTop:"var(--arcd-space-2)"}}><Ic n="file"/> {enviandoDocumento?"Enviando...":"Enviar documento"}</Btn>
           <input ref={inputDocumentoRef} type="file" style={{display:"none"}} onChange={e=>{enviarDocumento(e.target.files?.[0]);e.target.value="";}}/>
         </>}
-        <div style={{marginTop:"var(--arcd-space-2)",paddingTop:"var(--arcd-space-2)",borderTop:"1px solid var(--arcd-border-default)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",marginBottom:"var(--arcd-space-1)"}}>Documentos disponíveis</p>{!(obra.documentosOneDrive||[]).length?<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhum documento enviado pelo ArcD.</p>:(obra.documentosOneDrive||[]).map(doc=>linkDocumentoObra(doc,true))}</div>
+        <div style={{marginTop:"var(--arcd-space-2)",paddingTop:"var(--arcd-space-2)",borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",marginBottom:"var(--arcd-space-1)"}}>Documentos disponíveis</p>{!(obra.documentosOneDrive||[]).length?<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhum documento enviado pelo ArcD.</p>:(obra.documentosOneDrive||[]).map(doc=>linkDocumentoObra(doc,true))}</div>
       </>)}
 
       {renderSecao("diarios", <>
         {(() => {const lista=(data.rdos||[]).filter(r=>r.obraId===obraId).sort((a,b)=>(b.data||"").localeCompare(a.data||"")).slice(0,3);return <>
-          {lista.length?lista.map(r=><div key={r.id} style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-1) var(--arcd-space-0)",borderBottom:"1px solid var(--arcd-border-default)"}}><div><b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>RDO-{String(r.codigo||0).padStart(3,"0")} · {fmtDate(r.data)}</b><p style={{fontSize:"var(--arcd-type-caption)",color:r.status==="concluido"?"var(--arcd-success-text)":"var(--arcd-warning-text)"}}>{r.status==="concluido"?"Concluído":"Em preparação"} · {contar((r.fotos||[]).length,"foto","fotos")}</p></div></div>):<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhum relatório registrado para esta obra.</p>}
+          {lista.length?lista.map(r=><div key={r.id} style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-1) var(--arcd-space-0)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}><div><b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>RDO-{String(r.codigo||0).padStart(3,"0")} · {fmtDate(r.data)}</b><p style={{fontSize:"var(--arcd-type-caption)",color:r.status==="concluido"?"var(--arcd-success-text)":"var(--arcd-warning-text)"}}>{r.status==="concluido"?"Concluído":"Em preparação"} · {contar((r.fotos||[]).length,"foto","fotos")}</p></div></div>):<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhum relatório registrado para esta obra.</p>}
           <Btn full style={{marginTop:"var(--arcd-space-2)"}} onClick={()=>abrirModuloDaObra("rdo")}><Ic n="clipboard"/> Abrir histórico e registrar RDO</Btn>
         </>;})()}
       </>)}
@@ -10506,7 +10494,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
                 <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>
                   {tarefas.map(t=>(
                     <div key={t.id} style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",
-                         alignItems:"center",padding:"var(--arcd-space-2) var(--arcd-space-0)",borderBottom:"1px solid var(--arcd-border-default)"}}>
+                         alignItems:"center",padding:"var(--arcd-space-2) var(--arcd-space-0)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}>
                       <div style={{minWidth:0,flex:1}}>
                         <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",fontWeight:"var(--arcd-font-weight-semibold)",whiteSpace:"nowrap",
                                    overflow:"hidden",textOverflow:"ellipsis"}}>{t.nome}</p>
@@ -10541,7 +10529,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
                 <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>
                   {pend.map(m=>(
                     <div key={m.id} style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",
-                         alignItems:"center",padding:"var(--arcd-space-2) var(--arcd-space-0)",borderBottom:"1px solid var(--arcd-border-default)"}}>
+                         alignItems:"center",padding:"var(--arcd-space-2) var(--arcd-space-0)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}>
                       <div style={{minWidth:0,flex:1}}>
                         <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>
                           {m.descricao||m.competencia||"Parcela"}
@@ -10568,7 +10556,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         <Par l="Recebido" v={fmt(resumo.recebido)} c={C.green}/>
         <Par l="A receber" v={fmt(resumo.aReceber)} c={C.orange}/>
         <Par l="Despesas" v={fmt(resumo.despesas)} c={C.red}/>
-        <div style={{borderTop:"1px solid var(--arcd-border-default)",marginTop:"var(--arcd-space-2)",paddingTop:"var(--arcd-space-2)"}}>
+        <div style={{borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)",marginTop:"var(--arcd-space-2)",paddingTop:"var(--arcd-space-2)"}}>
           <Par l="Resultado" v={fmt(margem)} c={margem >= 0 ? C.green : C.red}/>
         </div>
       </>, "dre")}
@@ -10617,7 +10605,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
       </>, "medicoes")}
 
       {renderSecao("atividade", <>
-        {atualizacoesObra.length===0?<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhuma atualização registrada ainda.</p>:<div style={{display:"flex",flexDirection:"column"}}>{atualizacoesObra.map((e,i)=>{const d=new Date(e.at);const hora=d.getHours()===0&&d.getMinutes()===0?"":d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});const cor=e.tipo==="removeu"?C.red:e.tipo==="criou"?C.green:e.tipo==="operacao"?C.orange:C.blue;return <div key={e.id} style={{display:"grid",gridTemplateColumns:"34px minmax(0,1fr) auto",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-0)",borderTop:i?"1px solid var(--arcd-border-default)":"none",alignItems:"start"}}><span style={{width:30,height:30,borderRadius:99,display:"grid",placeItems:"center",background:`${cor}12`,color:cor,fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{String(e.responsavel||"S").split(/\s+/).slice(0,2).map(n=>n[0]).join("").toUpperCase()}</span><div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",lineHeight:"var(--arcd-line-height-normal)"}}>{e.texto}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Responsável: <strong style={{color:"var(--arcd-text-primary)"}}>{e.responsavel}</strong></p></div><div style={{textAlign:"right",whiteSpace:"nowrap"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{d.toLocaleDateString("pt-BR")}</p>{hora&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{hora}</p>}{e.valor>0&&<p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-success-text)",marginTop:"var(--arcd-space-half)"}}>{fmt(e.valor)}</p>}</div></div>;})}</div>}
+        {atualizacoesObra.length===0?<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhuma atualização registrada ainda.</p>:<div style={{display:"flex",flexDirection:"column"}}>{atualizacoesObra.map((e,i)=>{const d=new Date(e.at);const hora=d.getHours()===0&&d.getMinutes()===0?"":d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});const cor=e.tipo==="removeu"?C.red:e.tipo==="criou"?C.green:e.tipo==="operacao"?C.orange:C.blue;return <div key={e.id} style={{display:"grid",gridTemplateColumns:"34px minmax(0,1fr) auto",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-0)",borderTop:i?"var(--arcd-border-width) solid var(--arcd-border-default)":"none",alignItems:"start"}}><span style={{width:30,height:30,borderRadius:"var(--arcd-radius-pill)",display:"grid",placeItems:"center",background:`${cor}12`,color:cor,fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{String(e.responsavel||"S").split(/\s+/).slice(0,2).map(n=>n[0]).join("").toUpperCase()}</span><div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",lineHeight:"var(--arcd-line-height-normal)"}}>{e.texto}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Responsável: <strong style={{color:"var(--arcd-text-primary)"}}>{e.responsavel}</strong></p></div><div style={{textAlign:"right",whiteSpace:"nowrap"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{d.toLocaleDateString("pt-BR")}</p>{hora&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{hora}</p>}{e.valor>0&&<p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-success-text)",marginTop:"var(--arcd-space-half)"}}>{fmt(e.valor)}</p>}</div></div>;})}</div>}
       </>)}
       </Tabs>:<div style={{paddingTop:"var(--arcd-space-1)"}}>
         {abaConteudo==="orc"&&<Suspense fallback={<LoadingState label="orçamento"/>}><Orcamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} todasObras={data.obras} todosOrcamentosGlobais={data.orcamentos} todosPlanosGlobais={data.planos}/></Suspense>}
@@ -10639,7 +10627,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         {abaConteudo==="licenca"&&<Suspense fallback={<LoadingState label="licenciamento"/>}><Licenciamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand}/></Suspense>}
         {abaConteudo==="portal"&&ehAdmin&&<PublicationReview domains={portalReview} busy={portalBusy} onClose={()=>setPortalReview(null)} onConfirm={publicarPortalSeguro}/>}
         {abaConteudo==="portal"&&ehAdmin&&<div style={{display:"grid",gap:"var(--arcd-space-3)"}}>
-          <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderLeft:`1px solid ${portal.ativo?"var(--arcd-success-text)":"var(--arcd-text-secondary)"}`,borderRadius:12,padding:"var(--arcd-space-4)"}}>
+          <div style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderLeft:`var(--arcd-border-width) solid ${portal.ativo?"var(--arcd-success-text)":"var(--arcd-text-secondary)"}`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-4)"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-3)",flexWrap:"wrap"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>Experiência do cliente</p><h2 style={{fontSize:"var(--arcd-type-section-title)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)"}}>Portal transparente da obra</h2><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)",maxWidth:690,lineHeight:"var(--arcd-line-height-normal)"}}>Escolha exatamente o que o cliente poderá consultar. Dados bancários, PIX, margem, conciliação e observações internas permanecem privados. Administração e equipe pode liberar nomes, folha por funcionário, reservas e ponto da obra para perfis autorizados; confira as opções antes de publicar.</p></div><Btn v={portal.ativo?"danger":"success"} disabled={portalBusy} onClick={alternarPortal}><Ic n={portal.ativo?"x":"check"}/> {portal.ativo?"Desativar acesso":"Ativar portal"}</Btn></div>
             <div style={{marginTop:"var(--arcd-space-3)"}}><Inp label="Mensagem de abertura" value={portal.mensagem||""} onChange={v=>atualizarPortal({mensagem:v})} placeholder="Ex.: Sua obra avança com qualidade e segurança."/></div>
             <div style={{marginTop:"var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",marginBottom:"var(--arcd-space-2)"}}>Informações publicadas</p><div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:"var(--arcd-space-2)"}}>{[
@@ -10654,26 +10642,26 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
               ["publicarNotasFiscais","Notas fiscais","Fornecedor, valores e situação",!!portal.publicarNotasFiscais],
               ["publicarCompras","Compras","Pedidos, itens e entregas",!!portal.publicarCompras],
               ["publicarCotacoes","Cotações","Propostas, preços e prazos",!!portal.publicarCotacoes],
-            ].map(([k,l,sub,checked])=><label key={k} style={{display:"grid",gridTemplateColumns:"18px minmax(0,1fr)",columnGap:"var(--arcd-space-2)",alignItems:"start",padding:"var(--arcd-space-2) var(--arcd-space-3)",minHeight:58,border:`1px solid ${checked?"var(--arcd-action-primary)":"var(--arcd-border-default)"}`,borderRadius:8,background:checked?"color-mix(in srgb, var(--arcd-action-primary) 3%, transparent)":"var(--arcd-surface-muted)",cursor:"pointer",color:"var(--arcd-text-primary)"}}><ChoiceControl type="checkbox" checked={checked} onChange={e=>atualizarPortal({[k]:e.target.checked})} style={{marginTop:"var(--arcd-space-half)"}}/><span><b style={{display:"block",fontSize:"var(--arcd-type-label)"}}>{l}</b><small style={{display:"block",marginTop:"var(--arcd-space-half)",fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-medium)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)"}}>{sub}</small></span></label>)}</div></div>
+            ].map(([k,l,sub,checked])=><label key={k} style={{display:"grid",gridTemplateColumns:"18px minmax(0,1fr)",columnGap:"var(--arcd-space-2)",alignItems:"start",padding:"var(--arcd-space-2) var(--arcd-space-3)",minHeight:58,border:`var(--arcd-border-width) solid ${checked?"var(--arcd-action-primary)":"var(--arcd-border-default)"}`,borderRadius:"var(--arcd-box-radius)",background:checked?"color-mix(in srgb, var(--arcd-action-primary) 3%, transparent)":"var(--arcd-surface-muted)",cursor:"pointer",color:"var(--arcd-text-primary)"}}><ChoiceControl type="checkbox" checked={checked} onChange={e=>atualizarPortal({[k]:e.target.checked})} style={{marginTop:"var(--arcd-space-half)"}}/><span><b style={{display:"block",fontSize:"var(--arcd-type-label)"}}>{l}</b><small style={{display:"block",marginTop:"var(--arcd-space-half)",fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-medium)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)"}}>{sub}</small></span></label>)}</div></div>
             <div style={{display:"flex",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-3)",flexWrap:"wrap"}}><Btn onClick={copiarLinkPortal}><Ic n="link"/> Copiar link de login</Btn><Btn v="primary" onClick={()=>window.open(linkNovoPortal,"_blank","noopener,noreferrer")}><Ic n="lock"/> Abrir login do cliente</Btn><Btn v="ghost" onClick={conferirPublicacaoPortal} disabled={portalBusy||!portal.ativo}><Ic n="refresh"/> Atualizar dados publicados</Btn>{portal.ativo&&<Btn v={visualizandoComoCliente?"primary":"ghost"} onClick={()=>setVisualizandoComoCliente(v=>!v)}><Ic n="eye"/> {visualizandoComoCliente?"Fechar visualização":"Visualizar legado"}</Btn>}<Btn v="ghost" onClick={()=>{setVisualizandoComoCliente(false);atualizarPortal({token:globalThis.crypto?.randomUUID?.()||uid()+uid()});}}><Ic n="refresh"/> Revogar link anterior</Btn></div>
             <p style={{marginTop:"var(--arcd-space-2)",fontSize:"var(--arcd-type-label)",lineHeight:"var(--arcd-line-height-normal)",color:"var(--arcd-text-secondary)"}}>O endereço de login exige acesso individual. Salve as opções antes de Atualizar dados publicados. Criar acesso não publica conteúdo. A visualização e a revogação de link anterior abaixo atendem somente ao legado.</p>
           </div>
-          <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:12,padding:"var(--arcd-space-4)"}}>
+          <div style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-4)"}}>
             <h3 style={{fontSize:"var(--arcd-type-card-title)",color:"var(--arcd-text-primary)"}}>Acessos individuais</h3>
             <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Cadastre o cliente, defina a senha inicial e vincule-o a esta obra. Atualizar o mesmo e-mail troca a senha da conta em todas as obras e encerra suas sessões.</p>
             <div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-3)"}}>
-              <label style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>E-mail<StandardInput value={portalForm.email} onChange={e=>setPortalForm(form=>({...form,email:e.target.value}))} type="email" placeholder="cliente@email.com" style={{display:"block",width:"100%",marginTop:"var(--arcd-space-1)",padding:"var(--arcd-space-2)",border:"1px solid var(--arcd-border-default)",borderRadius:6}}/></label>
-              <label style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Telefone<StandardInput value={portalForm.phone} onChange={e=>setPortalForm(form=>({...form,phone:e.target.value}))} placeholder="(81) 99999-9999" style={{display:"block",width:"100%",marginTop:"var(--arcd-space-1)",padding:"var(--arcd-space-2)",border:"1px solid var(--arcd-border-default)",borderRadius:6}}/></label>
-              <label style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Perfil<SelectControl value={portalForm.profile} onChange={e=>setPortalForm(form=>({...form,profile:e.target.value}))} style={{display:"block",width:"100%",marginTop:"var(--arcd-space-1)",padding:"var(--arcd-space-2)",border:"1px solid var(--arcd-border-default)",borderRadius:6}}><option value="owner">Proprietário</option><option value="spouse">Cônjuge</option><option value="representative">Representante</option><option value="financial">Financeiro</option><option value="external_architect">Arquiteto externo</option><option value="observer">Observador</option></SelectControl></label>
-              <label style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Senha inicial<div style={{display:"flex",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-1)"}}><StandardInput value={portalForm.password} onChange={e=>setPortalForm(form=>({...form,password:e.target.value}))} style={{width:"100%",padding:"var(--arcd-space-2)",border:"1px solid var(--arcd-border-default)",borderRadius:6}}/><Btn size="sm" v="ghost" onClick={gerarSenhaPortal}>Gerar</Btn></div></label>
+              <label style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>E-mail<StandardInput value={portalForm.email} onChange={e=>setPortalForm(form=>({...form,email:e.target.value}))} type="email" placeholder="cliente@email.com" style={{display:"block",width:"100%",marginTop:"var(--arcd-space-1)",padding:"var(--arcd-space-2)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)"}}/></label>
+              <label style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Telefone<StandardInput value={portalForm.phone} onChange={e=>setPortalForm(form=>({...form,phone:e.target.value}))} placeholder="(81) 99999-9999" style={{display:"block",width:"100%",marginTop:"var(--arcd-space-1)",padding:"var(--arcd-space-2)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)"}}/></label>
+              <label style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Perfil<SelectControl value={portalForm.profile} onChange={e=>setPortalForm(form=>({...form,profile:e.target.value}))} style={{display:"block",width:"100%",marginTop:"var(--arcd-space-1)"}}><option value="owner">Proprietário</option><option value="spouse">Cônjuge</option><option value="representative">Representante</option><option value="financial">Financeiro</option><option value="external_architect">Arquiteto externo</option><option value="observer">Observador</option></SelectControl></label>
+              <label style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Senha inicial<div style={{display:"flex",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-1)"}}><StandardInput value={portalForm.password} onChange={e=>setPortalForm(form=>({...form,password:e.target.value}))} style={{width:"100%",padding:"var(--arcd-space-2)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)"}}/><Btn size="sm" v="ghost" onClick={gerarSenhaPortal}>Gerar</Btn></div></label>
             </div>
             <div style={{display:"flex",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-3)",flexWrap:"wrap"}}><Btn onClick={cadastrarAcessoPortal} disabled={portalBusy||!portalForm.email||!portalForm.password}><Ic n="user"/> {portalBusy?"Salvando...":"Criar ou atualizar acesso"}</Btn>{portalForm.password&&<Btn v="ghost" onClick={()=>navigator.clipboard.writeText(`Portal MARCELL: ${linkNovoPortal}\nE-mail: ${portalForm.email}\nSenha inicial: ${portalForm.password}`)}><Ic n="copy"/> Copiar convite</Btn>}</div>
-            <div style={{marginTop:"var(--arcd-space-3)"}}>{!acessosPortal.length?<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhum cliente com acesso individual nesta obra.</p>:acessosPortal.map(acesso=><div key={acesso.id} style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-0)",borderTop:"1px solid var(--arcd-border-default)",fontSize:"var(--arcd-type-label)"}}><div style={{flex:1}}><strong style={{color:"var(--arcd-text-primary)"}}>{acesso.email}</strong><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{acesso.profile} · {acesso.active?"Ativo":"Revogado"}{acesso.lastLoginAt?` · último acesso ${new Date(acesso.lastLoginAt).toLocaleString("pt-BR")}`:""}</p></div>{acesso.active&&<Btn size="sm" v="danger" onClick={()=>revogarAcessoPortal(acesso.id)} disabled={portalBusy}><Ic n="x"/> Revogar</Btn>}</div>)}</div>
+            <div style={{marginTop:"var(--arcd-space-3)"}}>{!acessosPortal.length?<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhum cliente com acesso individual nesta obra.</p>:acessosPortal.map(acesso=><div key={acesso.id} style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-0)",borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)",fontSize:"var(--arcd-type-label)"}}><div style={{flex:1}}><strong style={{color:"var(--arcd-text-primary)"}}>{acesso.email}</strong><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{acesso.profile} · {acesso.active?"Ativo":"Revogado"}{acesso.lastLoginAt?` · último acesso ${new Date(acesso.lastLoginAt).toLocaleString("pt-BR")}`:""}</p></div>{acesso.active&&<Btn size="sm" v="danger" onClick={()=>revogarAcessoPortal(acesso.id)} disabled={portalBusy}><Ic n="x"/> Revogar</Btn>}</div>)}</div>
           </div>
-          {visualizandoComoCliente&&portal.ativo&&<div style={{background:"var(--arcd-surface-inverse)",border:"1px solid var(--arcd-border-default)",borderRadius:14,overflow:"hidden",boxShadow:`0 14px 38px ${C.shadow}`}}><div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-3)",background:"var(--arcd-surface-inverse)",borderBottom:"1px solid var(--arcd-border-default)"}}><span style={{width:9,height:9,borderRadius:99,background:"var(--arcd-surface-inverse)"}}/><span style={{width:9,height:9,borderRadius:99,background:"var(--arcd-surface-inverse)"}}/><span style={{width:9,height:9,borderRadius:99,background:"var(--arcd-surface-inverse)"}}/><div style={{flex:1,background:"var(--arcd-surface-card)",borderRadius:6,padding:"var(--arcd-space-1) var(--arcd-space-2)",fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{linkPortal}</div><Btn size="sm" v="ghost" onClick={()=>window.open(linkPortal,"_blank","noopener,noreferrer")}>Abrir em nova aba ↗</Btn></div><div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",background:"color-mix(in srgb, var(--arcd-action-primary) 4%, transparent)",borderBottom:"1px solid color-mix(in srgb, var(--arcd-action-primary) 15%, transparent)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>PRÉ-VISUALIZAÇÃO EXATA · abaixo está a mesma página acessada pelo cliente</div><iframe title={`Portal do cliente · ${obra.name}`} src={linkPortal} sandbox="allow-scripts allow-same-origin allow-popups" style={{display:"block",width:"100%",height:"min(760px,75vh)",border:0,background:"var(--arcd-surface-card)"}}/></div>}
-          <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:12,padding:"var(--arcd-space-4)"}}><h3 style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)"}}>Documentos liberados ao cliente</h3><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",margin:"var(--arcd-space-half) var(--arcd-space-0) var(--arcd-space-2)"}}>O documento só aparece no portal quando marcado individualmente.</p>{!(obra.documentosOneDrive||[]).length?<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhum documento enviado.</p>:(obra.documentosOneDrive||[]).map(doc=><label key={doc.id} style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-0)",borderTop:"1px solid var(--arcd-border-default)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}><ChoiceControl type="checkbox" checked={doc.publicarCliente===true} onChange={e=>update({...data,obras:(data.obras||[]).map(o=>o.id===obraId?{...o,documentosOneDrive:(o.documentosOneDrive||[]).map(d=>d.id===doc.id?{...d,publicarCliente:e.target.checked}:d)}:o)})}/><Ic n="file"/><span style={{flex:1}}>{doc.nome}</span><span style={{color:doc.publicarCliente?"var(--arcd-success-text)":"var(--arcd-text-secondary)"}}>{doc.publicarCliente?"Publicado":"Interno"}</span></label>)}</div>
+          {visualizandoComoCliente&&portal.ativo&&<div style={{background:"var(--arcd-surface-inverse)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)",overflow:"hidden",boxShadow:`0 14px 38px ${C.shadow}`}}><div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-3)",background:"var(--arcd-surface-inverse)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}><span style={{width:9,height:9,borderRadius:"var(--arcd-radius-pill)",background:"var(--arcd-surface-inverse)"}}/><span style={{width:9,height:9,borderRadius:"var(--arcd-radius-pill)",background:"var(--arcd-surface-inverse)"}}/><span style={{width:9,height:9,borderRadius:"var(--arcd-radius-pill)",background:"var(--arcd-surface-inverse)"}}/><div style={{flex:1,background:"var(--arcd-surface-card)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-1) var(--arcd-space-2)",fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{linkPortal}</div><Btn size="sm" v="ghost" onClick={()=>window.open(linkPortal,"_blank","noopener,noreferrer")}>Abrir em nova aba ↗</Btn></div><div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",background:"color-mix(in srgb, var(--arcd-action-primary) 4%, transparent)",borderBottom:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-action-primary) 15%, transparent)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>PRÉ-VISUALIZAÇÃO EXATA · abaixo está a mesma página acessada pelo cliente</div><iframe title={`Portal do cliente · ${obra.name}`} src={linkPortal} sandbox="allow-scripts allow-same-origin allow-popups" style={{display:"block",width:"100%",height:"min(760px,75vh)",border:0,background:"var(--arcd-surface-card)"}}/></div>}
+          <div style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-4)"}}><h3 style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)"}}>Documentos liberados ao cliente</h3><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",margin:"var(--arcd-space-half) var(--arcd-space-0) var(--arcd-space-2)"}}>O documento só aparece no portal quando marcado individualmente.</p>{!(obra.documentosOneDrive||[]).length?<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhum documento enviado.</p>:(obra.documentosOneDrive||[]).map(doc=><label key={doc.id} style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-0)",borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}><ChoiceControl type="checkbox" checked={doc.publicarCliente===true} onChange={e=>update({...data,obras:(data.obras||[]).map(o=>o.id===obraId?{...o,documentosOneDrive:(o.documentosOneDrive||[]).map(d=>d.id===doc.id?{...d,publicarCliente:e.target.checked}:d)}:o)})}/><Ic n="file"/><span style={{flex:1}}>{doc.nome}</span><span style={{color:doc.publicarCliente?"var(--arcd-success-text)":"var(--arcd-text-secondary)"}}>{doc.publicarCliente?"Publicado":"Interno"}</span></label>)}</div>
         </div>}
-        {abaConteudo==="arquivos"&&<div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:14,padding:"var(--arcd-panel-padding)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)",minWidth:0}}>
+        {abaConteudo==="arquivos"&&<div style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-panel-padding)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)",minWidth:0}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-2)",flexWrap:"wrap",minWidth:0}}>
             <div style={{flex:"1 1 320px",minWidth:0}}><h2 style={{fontSize:"var(--arcd-type-section-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Pastas do OneDrive</h2><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)",lineHeight:"var(--arcd-line-height-normal)"}}>{ehAdmin?"Pastas físicas do OneDrive desta obra. Para documentos com revisões e permissões da central, use Abrir central de documentos.":"Navegue, crie subpastas e envie arquivos pelo ArcD. O acesso direto ao OneDrive permanece protegido."}</p>{podeAcessarAba(currentUser,"arquivos")&&<StandardButton onClick={()=>{setWorkContextObra(obraId);onTab("arquivos");}}>Abrir central de documentos</StandardButton>}</div>
             <div style={{display:"flex",gap:"var(--arcd-space-2)",flexWrap:"wrap",maxWidth:"100%"}}>{ehAdmin&&obra.oneDriveUrl&&<Btn v="ghost" onClick={()=>abrirOneDrive(obra.oneDriveUrl)}><Ic n="folder"/> Abrir no OneDrive</Btn>}<Btn onClick={()=>inputDocumentoRef.current?.click()} disabled={enviandoDocumento}><Ic n="file"/> {enviandoDocumento?"Enviando...":"Carregar arquivo"}</Btn><input ref={inputDocumentoRef} type="file" style={{display:"none"}} onChange={e=>{enviarDocumento(e.target.files?.[0]);e.target.value="";}}/></div>
@@ -10728,7 +10716,7 @@ function SegurancaObra({data,showToast,currentUser,obraIdFixo="",dispatchCommand
   };
   const atividadeNome=id=>(atividades.find(item=>item.id===id)?.nome||atividades.find(item=>item.id===id)?.descricao||id||"Atividade não identificada");
   const activityOptions=[{v:"",l:"Selecione"},...atividades.map(item=>({v:item.id,l:item.nome||item.descricao||item.id}))];
-  return <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}><PageHero eyebrow="Engenharia de campo" title="Segurança operacional" description="APR e Permissão de Trabalho que liberam atividades críticas de forma auditável."/><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))",gap:"var(--arcd-space-2)"}}><div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:9,padding:"var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Nova APR</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>A aprovação exige risco e controle definidos.</p><div style={{marginTop:"var(--arcd-space-2)",display:"grid",gap:"var(--arcd-space-2)"}}><Sel label="Atividade" value={apr.activityId} onChange={value=>setApr(form=>({...form,activityId:value}))} options={activityOptions}/><Inp label="Riscos (um por linha)" multiline value={apr.riscos} onChange={value=>setApr(form=>({...form,riscos:value}))} placeholder="Queda de altura"/><Inp label="Controles (um por linha)" multiline value={apr.controles} onChange={value=>setApr(form=>({...form,controles:value}))} placeholder="Linha de vida inspecionada"/><div style={{display:"flex",gap:"var(--arcd-space-2)"}}><Btn v="ghost" full onClick={()=>salvarApr("rascunho")}>Salvar rascunho</Btn><Btn full onClick={()=>salvarApr("aprovada")}>Aprovar APR</Btn></div></div></div><div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:9,padding:"var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Permissão de trabalho</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Só é liberada quando houver APR aprovada para a atividade.</p><div style={{marginTop:"var(--arcd-space-2)",display:"grid",gap:"var(--arcd-space-2)"}}><Sel label="Atividade" value={pt.activityId} onChange={value=>setPt(form=>({...form,activityId:value}))} options={activityOptions}/><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-2)"}}><Inp label="Início" type="date" value={pt.validFrom} onChange={value=>setPt(form=>({...form,validFrom:value}))}/><Inp label="Fim" type="date" value={pt.validUntil} onChange={value=>setPt(form=>({...form,validUntil:value}))}/></div><Btn full onClick={liberarPt}>Liberar permissão</Btn></div></div></div><div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:9,overflow:"hidden"}}><div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:"1px solid var(--arcd-border-default)",display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Liberadores de atividades críticas</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>O avanço físico será bloqueado até APR aprovada e PT liberada.</p></div><Badge color={C.green}>{permits.filter(item=>item.status==="liberada").length} PT liberada(s)</Badge></div>{[...new Set([...aprs.map(item=>item.activityId),...permits.map(item=>item.activityId)])].map(activityId=>{const aprAtiva=aprs.find(item=>item.activityId===activityId&&item.status==="aprovada"),ptAtiva=permits.find(item=>item.activityId===activityId&&item.status==="liberada");const liberada=aprAtiva&&ptAtiva;return <div key={activityId} style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderTop:"1px solid var(--arcd-border-default)",display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"center"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{atividadeNome(activityId)}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>APR {aprAtiva?"aprovada":"pendente"} · PT {ptAtiva?`${ptAtiva.validFrom} a ${ptAtiva.validUntil}`:"pendente"}</p></div><Badge color={liberada?C.green:C.orange}>{liberada?"LIBERADA":"PENDENTE"}</Badge></div>;})}{!aprs.length&&!permits.length&&<p style={{padding:"var(--arcd-space-4)",textAlign:"center",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Ainda não há APR ou permissão registradas nesta obra.</p>}</div></div>;
+  return <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}><PageHero eyebrow="Engenharia de campo" title="Segurança operacional" description="APR e Permissão de Trabalho que liberam atividades críticas de forma auditável."/><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))",gap:"var(--arcd-space-2)"}}><div style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Nova APR</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>A aprovação exige risco e controle definidos.</p><div style={{marginTop:"var(--arcd-space-2)",display:"grid",gap:"var(--arcd-space-2)"}}><Sel label="Atividade" value={apr.activityId} onChange={value=>setApr(form=>({...form,activityId:value}))} options={activityOptions}/><Inp label="Riscos (um por linha)" multiline value={apr.riscos} onChange={value=>setApr(form=>({...form,riscos:value}))} placeholder="Queda de altura"/><Inp label="Controles (um por linha)" multiline value={apr.controles} onChange={value=>setApr(form=>({...form,controles:value}))} placeholder="Linha de vida inspecionada"/><div style={{display:"flex",gap:"var(--arcd-space-2)"}}><Btn v="ghost" full onClick={()=>salvarApr("rascunho")}>Salvar rascunho</Btn><Btn full onClick={()=>salvarApr("aprovada")}>Aprovar APR</Btn></div></div></div><div style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Permissão de trabalho</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Só é liberada quando houver APR aprovada para a atividade.</p><div style={{marginTop:"var(--arcd-space-2)",display:"grid",gap:"var(--arcd-space-2)"}}><Sel label="Atividade" value={pt.activityId} onChange={value=>setPt(form=>({...form,activityId:value}))} options={activityOptions}/><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-2)"}}><Inp label="Início" type="date" value={pt.validFrom} onChange={value=>setPt(form=>({...form,validFrom:value}))}/><Inp label="Fim" type="date" value={pt.validUntil} onChange={value=>setPt(form=>({...form,validUntil:value}))}/></div><Btn full onClick={liberarPt}>Liberar permissão</Btn></div></div></div><div style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)",overflow:"hidden"}}><div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)",display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Liberadores de atividades críticas</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>O avanço físico será bloqueado até APR aprovada e PT liberada.</p></div><Badge color={C.green}>{permits.filter(item=>item.status==="liberada").length} PT liberada(s)</Badge></div>{[...new Set([...aprs.map(item=>item.activityId),...permits.map(item=>item.activityId)])].map(activityId=>{const aprAtiva=aprs.find(item=>item.activityId===activityId&&item.status==="aprovada"),ptAtiva=permits.find(item=>item.activityId===activityId&&item.status==="liberada");const liberada=aprAtiva&&ptAtiva;return <div key={activityId} style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)",display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"center"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{atividadeNome(activityId)}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>APR {aprAtiva?"aprovada":"pendente"} · PT {ptAtiva?`${ptAtiva.validFrom} a ${ptAtiva.validUntil}`:"pendente"}</p></div><Badge color={liberada?C.green:C.orange}>{liberada?"LIBERADA":"PENDENTE"}</Badge></div>;})}{!aprs.length&&!permits.length&&<p style={{padding:"var(--arcd-space-4)",textAlign:"center",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Ainda não há APR ou permissão registradas nesta obra.</p>}</div></div>;
 }
 
 function Qualidade({data,showToast,currentUser,obraIdFixo="",dispatchCommand=null}){
@@ -10800,7 +10788,7 @@ function Qualidade({data,showToast,currentUser,obraIdFixo="",dispatchCommand=nul
     {orc
       ? <ScopeNote title="Orçamento de controle para gerar fichas">V{orc.versionNumber||1} · {orc.nome||orc.codigo||"Orçamento sem nome"}</ScopeNote>
       : <Alert variant="warning" role="status"><AlertDescription>Para gerar o plano, confirme a versão de controle em Obras → Orçamento. As fichas já existentes continuam disponíveis.</AlertDescription></Alert>}
-    {regs.map(ficha=>{const open=aberto===ficha.id;const feitos=(ficha.itens||[]).filter(item=>item.status!=="pendente").length;const draft=rascunho(ficha.id);return <div key={ficha.id} style={{background:"var(--arcd-surface-card)",border:`1px solid ${ficha.status==="reprovada"?"var(--arcd-danger-text)":"var(--arcd-border-default)"}`,borderRadius:8,overflow:"hidden"}}><StandardButton variant="secondary" aria-expanded={open} onClick={()=>setAberto(open?"":ficha.id)} style={{width:"100%",display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",textAlign:"left"}}><div><b style={{fontSize:"var(--arcd-type-label)",color:ficha.tipo==="fvs"?"var(--arcd-action-primary)":"var(--arcd-action-primary)"}}>{ficha.codigo} · {ficha.tipo.toUpperCase()}</b><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)"}}>{ficha.titulo}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Responsável: {ficha.responsavel||"Não definido"} · {feitos}/{(ficha.itens||[]).length} critérios</p></div><Badge color={ficha.status==="aprovada"?C.green:ficha.status==="reprovada"?C.red:C.orange}>{ficha.status}</Badge></StandardButton>{open&&<div style={{borderTop:"1px solid var(--arcd-border-default)",padding:"var(--arcd-space-2)"}}><Sel label="Responsável pela execução/correção" value={draft.responsavelId??ficha.responsavelId} onChange={value=>editarRascunho(ficha.id,{responsavelId:value})} options={[{v:"",l:"Selecione"},...usuarios.map(user=>({v:user.id,l:user.nome}))]}/><Inp label="Referência técnica (projeto, memorial, procedimento, norma)" value={draft.normaProjeto??ficha.normaProjeto} onChange={value=>editarRascunho(ficha.id,{normaProjeto:value})}/><Btn size="sm" v="ghost" style={{marginTop:"var(--arcd-space-2)"}} onClick={()=>salvarDetalhes(ficha)}>Salvar referência</Btn><div style={{marginTop:"var(--arcd-space-2)"}}>{(ficha.itens||[]).map(item=><div key={item.id} style={{padding:"var(--arcd-space-2) var(--arcd-space-0)",borderTop:"1px solid var(--arcd-border-default)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{item.criterio}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{item.metodo} · {item.tolerancia}</p><div style={{display:"flex",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-1)",flexWrap:"wrap"}}>{[["conforme","Conforme",C.green],["nao_conforme","Não conforme",C.red],["nao_aplicavel","N/A",C.muted]].map(([status,label,color])=><StandardButton variant="secondary" key={status} onClick={()=>inspecionar(ficha,item,status)} disabled={ficha.status==="aprovada"} style={{color}}>{label}</StandardButton>)}</div>{item.verificadoEm&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{item.responsavel} · {new Date(item.verificadoEm).toLocaleString("pt-BR")}</p>}</div>)}</div>{ficha.naoConformidade&&ficha.naoConformidade.status!=="encerrada"&&<div style={{background:"color-mix(in srgb, var(--arcd-danger-text) 3%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-danger-text) 33%, transparent)",borderRadius:7,padding:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-danger-text)"}}>Não conformidade</p><Inp label="Ação corretiva" value={draft.acao??""} onChange={value=>editarRascunho(ficha.id,{acao:value})} multiline/><Inp label="Verificação de eficácia" value={draft.eficacia??""} onChange={value=>editarRascunho(ficha.id,{eficacia:value})} multiline/><Btn size="sm" v="success" onClick={()=>resolverNC(ficha)}>Encerrar NC após reinspeção</Btn></div>}<Btn full style={{marginTop:"var(--arcd-space-2)"}} onClick={()=>liberar(ficha)} disabled={ficha.status==="aprovada"}>Liberar ficha</Btn></div>}</div>;})}{!regs.length&&<EmptyState title="Nenhuma ficha de qualidade" description={orc?"Gere o plano para criar fichas de serviço por etapa e fichas de material a partir dos pedidos da obra.":undefined}/>}</div>;
+    {regs.map(ficha=>{const open=aberto===ficha.id;const feitos=(ficha.itens||[]).filter(item=>item.status!=="pendente").length;const draft=rascunho(ficha.id);return <div key={ficha.id} style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid ${ficha.status==="reprovada"?"var(--arcd-danger-text)":"var(--arcd-border-default)"}`,borderRadius:"var(--arcd-box-radius)",overflow:"hidden"}}><StandardButton variant="secondary" aria-expanded={open} onClick={()=>setAberto(open?"":ficha.id)} style={{width:"100%",display:"flex",justifyContent:"space-between"}}><div><b style={{fontSize:"var(--arcd-type-label)",color:ficha.tipo==="fvs"?"var(--arcd-action-primary)":"var(--arcd-action-primary)"}}>{ficha.codigo} · {ficha.tipo.toUpperCase()}</b><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)"}}>{ficha.titulo}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Responsável: {ficha.responsavel||"Não definido"} · {feitos}/{(ficha.itens||[]).length} critérios</p></div><Badge color={ficha.status==="aprovada"?C.green:ficha.status==="reprovada"?C.red:C.orange}>{ficha.status}</Badge></StandardButton>{open&&<div style={{borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)",padding:"var(--arcd-space-2)"}}><Sel label="Responsável pela execução/correção" value={draft.responsavelId??ficha.responsavelId} onChange={value=>editarRascunho(ficha.id,{responsavelId:value})} options={[{v:"",l:"Selecione"},...usuarios.map(user=>({v:user.id,l:user.nome}))]}/><Inp label="Referência técnica (projeto, memorial, procedimento, norma)" value={draft.normaProjeto??ficha.normaProjeto} onChange={value=>editarRascunho(ficha.id,{normaProjeto:value})}/><Btn size="sm" v="ghost" style={{marginTop:"var(--arcd-space-2)"}} onClick={()=>salvarDetalhes(ficha)}>Salvar referência</Btn><div style={{marginTop:"var(--arcd-space-2)"}}>{(ficha.itens||[]).map(item=><div key={item.id} style={{padding:"var(--arcd-space-2) var(--arcd-space-0)",borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{item.criterio}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{item.metodo} · {item.tolerancia}</p><div style={{display:"flex",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-1)",flexWrap:"wrap"}}>{[["conforme","Conforme",C.green],["nao_conforme","Não conforme",C.red],["nao_aplicavel","N/A",C.muted]].map(([status,label,color])=><StandardButton variant="secondary" key={status} onClick={()=>inspecionar(ficha,item,status)} disabled={ficha.status==="aprovada"}>{label}</StandardButton>)}</div>{item.verificadoEm&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{item.responsavel} · {new Date(item.verificadoEm).toLocaleString("pt-BR")}</p>}</div>)}</div>{ficha.naoConformidade&&ficha.naoConformidade.status!=="encerrada"&&<div style={{background:"color-mix(in srgb, var(--arcd-danger-text) 3%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-danger-text) 33%, transparent)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-danger-text)"}}>Não conformidade</p><Inp label="Ação corretiva" value={draft.acao??""} onChange={value=>editarRascunho(ficha.id,{acao:value})} multiline/><Inp label="Verificação de eficácia" value={draft.eficacia??""} onChange={value=>editarRascunho(ficha.id,{eficacia:value})} multiline/><Btn size="sm" v="success" onClick={()=>resolverNC(ficha)}>Encerrar NC após reinspeção</Btn></div>}<Btn full style={{marginTop:"var(--arcd-space-2)"}} onClick={()=>liberar(ficha)} disabled={ficha.status==="aprovada"}>Liberar ficha</Btn></div>}</div>;})}{!regs.length&&<EmptyState title="Nenhuma ficha de qualidade" description={orc?"Gere o plano para criar fichas de serviço por etapa e fichas de material a partir dos pedidos da obra.":undefined}/>}</div>;
 }
 
 
@@ -10837,11 +10825,11 @@ export function TerceirosNaMedicao({ data, obraId, tarefas, currentUser, dispatc
   };
 
   const chip = (texto, cor) => <span style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color: cor, background: `${cor}14`,
-    border: `1px solid ${cor}44`, borderRadius: 99, padding: "var(--arcd-space-half) var(--arcd-space-2)", whiteSpace: "nowrap" }}>{texto}</span>;
+    border: `var(--arcd-border-width) solid ${cor}44`, borderRadius: "var(--arcd-radius-pill)", padding: "var(--arcd-space-half) var(--arcd-space-2)", whiteSpace: "nowrap" }}>{texto}</span>;
 
   return (
-    <div style={{ background: "var(--arcd-surface-card)", border: "1px solid var(--arcd-border-default)", borderRadius: 8, overflow: "hidden" }}>
-      <div style={{ padding: "var(--arcd-space-3)", borderBottom: "1px solid var(--arcd-border-default)" }}>
+    <div style={{ background: "var(--arcd-surface-card)", border: "var(--arcd-border-width) solid var(--arcd-border-default)", borderRadius: "var(--arcd-box-radius)", overflow: "hidden" }}>
+      <div style={{ padding: "var(--arcd-space-3)", borderBottom: "var(--arcd-border-width) solid var(--arcd-border-default)" }}>
         <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)", textTransform: "uppercase", letterSpacing: "var(--arcd-letter-spacing-body)" }}>
           Terceirizados desta obra
         </p>
@@ -10856,7 +10844,7 @@ export function TerceirosNaMedicao({ data, obraId, tarefas, currentUser, dispatc
       ) : contratos.map(c => {
         const esp = specInfo(c.especialidade);
         return (
-          <div key={c.id} style={{ padding: "var(--arcd-space-3)", borderTop: "1px solid var(--arcd-border-default)", display: "flex", flexDirection: "column", gap: "var(--arcd-space-2)" }}>
+          <div key={c.id} style={{ padding: "var(--arcd-space-3)", borderTop: "var(--arcd-border-width) solid var(--arcd-border-default)", display: "flex", flexDirection: "column", gap: "var(--arcd-space-2)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--arcd-space-2)", flexWrap: "wrap" }}>
               <div style={{ minWidth: 0 }}>
                 <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)" }}>{c.nome}</p>
@@ -10883,16 +10871,16 @@ export function TerceirosNaMedicao({ data, obraId, tarefas, currentUser, dispatc
             {c.etapas.length === 0 ? (
               <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>Contrato ainda sem etapas. Subdivida-o em Terceiros para poder medir.</p>
             ) : (
-              <div style={{ border: "1px solid var(--arcd-border-default)", borderRadius: 7, overflow: "hidden" }}>
+              <div style={{ border: "var(--arcd-border-width) solid var(--arcd-border-default)", borderRadius: "var(--arcd-radius-control)", overflow: "hidden" }}>
                 {c.etapas.map((e, i) => {
                   const vinculada = e.tarefaId ? tarefasPorId.get(e.tarefaId) : null;
                   const orfa = e.tarefaId && !vinculada;
                   return (
-                    <div key={e.id} style={{ padding: "var(--arcd-space-2)", borderTop: i ? "1px solid var(--arcd-border-default)" : 0,
+                    <div key={e.id} style={{ padding: "var(--arcd-space-2)", borderTop: i ? "var(--arcd-border-width) solid var(--arcd-border-default)" : 0,
                          display: "grid", gridTemplateColumns: isMobile ? "minmax(0,1fr) 70px" : "minmax(0,1.3fr) minmax(170px,1fr) 70px", gap: "var(--arcd-space-2)", alignItems: "center" }}>
                       <div style={{ minWidth: 0 }}>
                         <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)" }}>{e.nome} <span style={{ fontWeight: "var(--arcd-font-weight-regular)", color: "var(--arcd-text-secondary)" }}>· {fmt(e.valor)}</span></p>
-                        <div style={{ marginTop: "var(--arcd-space-1)", height: 5, background: "var(--arcd-border-default)", borderRadius: 99, overflow: "hidden", position: "relative" }}>
+                        <div style={{ marginTop: "var(--arcd-space-1)", height: 5, background: "var(--arcd-border-default)", borderRadius: "var(--arcd-radius-pill)", overflow: "hidden", position: "relative" }}>
                           <div style={{ position: "absolute", inset: 0, width: `${e.pctEnviado}%`, background: "color-mix(in srgb, var(--arcd-warning-text) 40%, transparent)" }} />
                           <div style={{ position: "absolute", inset: 0, width: `${e.pctAprovado}%`, background: e.pctAprovado >= 100 ? "var(--arcd-success-text)" : "var(--arcd-action-primary)" }} />
                         </div>
@@ -10901,8 +10889,7 @@ export function TerceirosNaMedicao({ data, obraId, tarefas, currentUser, dispatc
                         <SelectControl aria-label={`Serviço do planejamento para a etapa ${e.nome}`} value={orfa ? "" : e.tarefaId}
                           disabled={!podeVincular || salvando === `${c.id}:${e.id}`}
                           onChange={ev => vincular(c.id, e.id, ev.target.value)}
-                          style={{ gridColumn: isMobile ? "1 / -1" : undefined, gridRow: isMobile ? 2 : undefined, width: "100%", minWidth: 0, fontSize:"var(--arcd-type-control)", padding: "var(--arcd-space-1) var(--arcd-space-2)", borderRadius: 6,
-                                   border: `1px solid ${orfa ? "var(--arcd-danger-text)" : "var(--arcd-border-default)"}`, background: "var(--arcd-surface-page)", color: "var(--arcd-text-primary)" }}>
+                          style={{gridColumn: isMobile ? "1 / -1" : undefined,gridRow: isMobile ? 2 : undefined,width: "100%",minWidth: 0}}>
                           <option value="">{orfa ? "Serviço removido — vincular de novo" : "Sem vínculo com o planejamento"}</option>
                           {tarefas.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
                         </SelectControl>
@@ -11166,8 +11153,8 @@ export function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", curren
 
       {/* Tabela de evolucao */}
       <RecordListPagination pagination={servicesPage} label="serviços"/>
-      <div style={{ background: "var(--arcd-surface-card)", border: "1px solid var(--arcd-border-default)", borderRadius: 8, overflow: "hidden" }}>
-        <div style={{ padding: "var(--arcd-space-3)", borderBottom: "1px solid var(--arcd-border-default)" }}>
+      <div style={{ background: "var(--arcd-surface-card)", border: "var(--arcd-border-width) solid var(--arcd-border-default)", borderRadius: "var(--arcd-box-radius)", overflow: "hidden" }}>
+        <div style={{ padding: "var(--arcd-space-3)", borderBottom: "var(--arcd-border-width) solid var(--arcd-border-default)" }}>
           <h3 className="arcd-heading-section">Evolução por serviço</h3>
           <p className="arcd-body-muted">A evolução por valor pondera o custo dos serviços vinculados. O Planejamento acompanha o avanço pela duração das tarefas.</p>
           <Inp label="Buscar serviço da medição" value={serviceSearch} onChange={setServiceSearch} placeholder="Nome do serviço"/>
@@ -11177,7 +11164,7 @@ export function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", curren
             {serviceSearch?"Nenhum serviço corresponde à busca. Limpe o campo para ver todos.":"Sem serviços no planejamento desta obra."}
           </p>
         ) : servicesPage.rows.map(t => (
-          <div key={t.id} style={{ padding: "var(--arcd-space-3)", borderTop: "1px solid var(--arcd-border-default)" }}>
+          <div key={t.id} style={{ padding: "var(--arcd-space-3)", borderTop: "var(--arcd-border-width) solid var(--arcd-border-default)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--arcd-space-2)" }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p className="brk" style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)" }}>{t.nome}</p>
@@ -11204,24 +11191,24 @@ export function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", curren
               {editando === t.id ? (
                 <div style={{ display: "flex", gap: "var(--arcd-space-1)", alignItems: "center" }}>
                   <StandardInput type="number" defaultValue={t.progresso} min="0" max="100"
-                         id={`prog-${t.id}`} style={{ width: 60, padding: "var(--arcd-space-1)", borderRadius: 6,
-                         border: "1px solid var(--arcd-border-default)", fontSize: "var(--arcd-type-control)", textAlign: "center" }} />
+                         id={`prog-${t.id}`} style={{ width: 60, padding: "var(--arcd-space-1)", borderRadius: "var(--arcd-radius-control)",
+                         border: "var(--arcd-border-width) solid var(--arcd-border-default)", fontSize: "var(--arcd-type-control)", textAlign: "center" }} />
                   <Btn size="sm" onClick={() => {
                     const v = document.getElementById(`prog-${t.id}`).value;
                     ajustarManual(t.id, v); setEditando(null);
                   }}><Ic n="check" /></Btn>
                 </div>
               ) : (
-                <StandardButton variant="secondary" onClick={() => setEditando(t.id)} style={{display: "flex",alignItems: "center",gap: "var(--arcd-space-1)",flexShrink: 0}}>
+                <StandardButton variant="secondary" onClick={() => setEditando(t.id)} style={{display: "flex",alignItems: "center",flexShrink: 0}}>
                   <span style={{ fontSize: "var(--arcd-type-card-title)", fontWeight:"var(--arcd-font-weight-semibold)",
                                  color: t.progresso >= 100 ? "var(--arcd-success-text)" : "var(--arcd-action-primary)" }}>{t.progresso}%</span>
                   <Ic n="edit" s={13} color={C.muted} />
                 </StandardButton>
               )}
             </div>
-            <div style={{ marginTop: "var(--arcd-space-2)", height: 6, background: "var(--arcd-border-default)", borderRadius: 99, overflow: "hidden" }}>
+            <div style={{ marginTop: "var(--arcd-space-2)", height: 6, background: "var(--arcd-border-default)", borderRadius: "var(--arcd-radius-pill)", overflow: "hidden" }}>
               <div style={{ height: "100%", width: `${t.progresso}%`,
-                            background: t.progresso >= 100 ? "var(--arcd-success-text)" : "var(--arcd-action-primary)", borderRadius: 99 }} />
+                            background: t.progresso >= 100 ? "var(--arcd-success-text)" : "var(--arcd-action-primary)", borderRadius: "var(--arcd-radius-pill)" }} />
             </div>
           </div>
         ))}
@@ -11238,9 +11225,9 @@ export function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", curren
       </section>}
 
       {/* Boletim de medição: confirma o avanço contra o diário */}
-      <div style={{ background: "var(--arcd-surface-card)", border: "1px solid var(--arcd-border-default)", borderRadius: 8, overflow: "hidden" }}>
+      <div style={{ background: "var(--arcd-surface-card)", border: "var(--arcd-border-width) solid var(--arcd-border-default)", borderRadius: "var(--arcd-box-radius)", overflow: "hidden" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--arcd-space-2)",
-                      padding: "var(--arcd-space-3)", borderBottom: "1px solid var(--arcd-border-default)", flexWrap: "wrap" }}>
+                      padding: "var(--arcd-space-3)", borderBottom: "var(--arcd-border-width) solid var(--arcd-border-default)", flexWrap: "wrap" }}>
           <div>
             <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)", textTransform: "uppercase", letterSpacing: "var(--arcd-letter-spacing-body)" }}>
               Boletins de medição
@@ -11265,7 +11252,7 @@ export function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", curren
             const divergentes = m.itens.filter(i => Math.abs(i.pctConfirmado - i.pctDiario) > 0.01).length;
             const faturamento=(data.medicoes||[]).find(item=>item.medicaoTecnicaId===m.id&&item.status!=="cancelada");
             return (
-              <div key={m.id} style={{ padding: "var(--arcd-space-3)", borderTop: "1px solid var(--arcd-border-default)" }}>
+              <div key={m.id} style={{ padding: "var(--arcd-space-3)", borderTop: "var(--arcd-border-width) solid var(--arcd-border-default)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--arcd-space-2)", flexWrap: "wrap" }}>
                   <div>
                     <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)" }}>
@@ -11321,7 +11308,7 @@ export function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", curren
               ser o confirmado.
             </p>
             <Inp label="Data efetiva da medição" type="date" value={confData} onChange={setConfData}/>
-            <div style={{ border: "1px solid var(--arcd-border-default)", borderRadius: 8, overflow: "hidden" }}>
+            <div style={{ border: "var(--arcd-border-width) solid var(--arcd-border-default)", borderRadius: "var(--arcd-box-radius)", overflow: "hidden" }}>
               {tarefas.map(t => {
                 const conf = Number(confPct[t.id]) || 0;
                 const terc = avancoTerceiros.get(t.id);
@@ -11354,11 +11341,11 @@ export function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", curren
       )}
       {fatModal&&<Modal title={`Faturar medição técnica ${fatModal.numero}`} onClose={()=>setFatModal(null)}>
         <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
-          <div style={{padding:"var(--arcd-space-2)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 33%, transparent)",borderRadius:7,background:"color-mix(in srgb, var(--arcd-action-primary) 3%, transparent)"}}>
+          <div style={{padding:"var(--arcd-space-2)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-action-primary) 33%, transparent)",borderRadius:"var(--arcd-radius-control)",background:"color-mix(in srgb, var(--arcd-action-primary) 3%, transparent)"}}>
             <b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)"}}>Avanço físico confirmado: {Number(fatModal.avancoFisico||0).toFixed(1)}%</b>
             <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>O valor é calculado pelo contrato e pelo avanço ainda não faturado; não há digitação manual.</p>
           </div>
-          {faturamentoPreview?.ok?<div style={{padding:"var(--arcd-space-2)",border:"1px solid color-mix(in srgb, var(--arcd-success-text) 33%, transparent)",borderRadius:7,background:"color-mix(in srgb, var(--arcd-success-text) 3%, transparent)"}}><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Faturamento incremental calculado</p><b style={{fontSize:"var(--arcd-type-card-title)",color:"var(--arcd-success-text)"}}>{fmt(faturamentoPreview.measurement.valorPrevisto)}</b></div>:<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-danger-text)"}}>{faturamentoPreview?.error}</p>}
+          {faturamentoPreview?.ok?<div style={{padding:"var(--arcd-space-2)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-success-text) 33%, transparent)",borderRadius:"var(--arcd-radius-control)",background:"color-mix(in srgb, var(--arcd-success-text) 3%, transparent)"}}><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Faturamento incremental calculado</p><b style={{fontSize:"var(--arcd-type-card-title)",color:"var(--arcd-success-text)"}}>{fmt(faturamentoPreview.measurement.valorPrevisto)}</b></div>:<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-danger-text)"}}>{faturamentoPreview?.error}</p>}
           <Inp label="Competência" type="month" value={fatForm.competencia} onChange={competencia=>setFatForm(form=>({...form,competencia}))}/>
           <Inp label="Vencimento" type="date" value={fatForm.dataVencimento} onChange={dataVencimento=>setFatForm(form=>({...form,dataVencimento}))}/>
           <div style={{display:"flex",gap:"var(--arcd-space-2)"}}><Btn v="ghost" disabled={billingPending} full onClick={()=>setFatModal(null)}>Cancelar</Btn><Btn v="success" disabled={billingPending} full onClick={confirmarFaturamento}>{billingPending?"Gerando...":"Gerar faturamento"}</Btn></div>
@@ -11407,20 +11394,20 @@ function Obsoletos({ data, update, showToast, onTab, dispatchCommand }) {
   };
 
   return (
-    <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <div className="anim" style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
       <PageHeader className="workspace-header" title="Telas antigas" description="Obras inativas e funcionários desligados para consulta e reativação."/>
-      <div style={{ display: "flex", gap: 6 }}>
+      <div style={{ display: "flex", gap: "var(--arcd-space-1)" }}>
         {[["obras", `Obras (${obrasInativas.length})`], ["equipe", `Equipe (${equipeInativa.length})`]].map(([id, lbl]) => (
           <button key={id} onClick={() => setVisao(id)} style={{
-            padding: "9px 14px", borderRadius: 6, cursor: "pointer",
+            padding: "var(--arcd-space-2) var(--arcd-space-3)", borderRadius: "var(--arcd-radius-control)", cursor: "pointer",
             border: `1.5px solid ${visao === id ? C.yellow : C.border}`,
             background: visao === id ? `${C.yellow}18` : "transparent",
-            color: visao === id ? C.yellowD : C.muted, fontSize: "var(--arcd-type-control)", fontWeight:600,
+            color: visao === id ? C.yellowD : "var(--arcd-text-secondary)", fontSize: "var(--arcd-type-control)", fontWeight:600,
           }}>{lbl}</button>
         ))}
       </div>
 
-      <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, lineHeight: 1.5, padding: "0 2px" }}>
+      <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", lineHeight: 1.5, padding: "0 var(--arcd-space-half)" }}>
         Aqui ficam obras concluídas ou pausadas e funcionários desligados. Nada foi
         apagado - ponto, DRE e contratos seguem preservados para consulta.
       </p>
@@ -11430,27 +11417,27 @@ function Obsoletos({ data, update, showToast, onTab, dispatchCommand }) {
         obrasInativas.length === 0
           ? <VazioObs texto="Nenhuma obra concluida ou pausada." />
           : (
-            <div style={{ display: "grid", gridTemplateColumns: cols(1, 1, 2), gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: cols(1, 1, 2), gap: "var(--arcd-space-2)" }}>
               {obrasInativas.map(o => {
                 const st = STATUS_OBRA[o.status] || STATUS_OBRA.done;
                 return (
-                  <div key={o.id} style={{ background: C.card, border: `1px solid ${C.border}`,
-                       borderRadius: 8, padding: "13px 14px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
+                  <div key={o.id} style={{ background: "var(--arcd-surface-card)", border: `var(--arcd-border-width) solid var(--arcd-border-default)`,
+                       borderRadius: "var(--arcd-box-radius)", padding: "var(--arcd-space-3) var(--arcd-space-3)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--arcd-space-2)", alignItems: "flex-start" }}>
                       <div style={{ minWidth: 0 }}>
-                        <p className="brk" style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.text,
+                        <p className="brk" style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: "var(--arcd-text-primary)",
                                    fontFamily: "var(--arcd-font-sans)" }}>{o.name}</p>
-                        {o.address && <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginTop: 2 }}>{o.address}</p>}
+                        {o.address && <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", marginTop: "var(--arcd-space-half)" }}>{o.address}</p>}
                       </div>
                       <Badge color={st.c}>{st.l}</Badge>
                     </div>
-                    <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", gap: "var(--arcd-space-2)", marginTop: "var(--arcd-space-2)", flexWrap: "wrap" }}>
                       {o.contractValue > 0 && (
-                        <span style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>Contrato {fmt(o.contractValue)}</span>
+                        <span style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>Contrato {fmt(o.contractValue)}</span>
                       )}
-                      {o.engineer && <span style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>{o.engineer}</span>}
+                      {o.engineer && <span style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>{o.engineer}</span>}
                     </div>
-                    <div style={{ display: "flex", gap: 6, marginTop: 11 }}>
+                    <div style={{ display: "flex", gap: "var(--arcd-space-1)", marginTop: "var(--arcd-space-3)" }}>
                       <Btn v="ghost" size="sm" onClick={() => { onTab?.("obras"); }}>Ver dados</Btn>
                       <Btn v="ghost" size="sm" onClick={() => reativarObra(o.id)}>Reativar</Btn>
                     </div>
@@ -11466,19 +11453,19 @@ function Obsoletos({ data, update, showToast, onTab, dispatchCommand }) {
         equipeInativa.length === 0
           ? <VazioObs texto="Nenhum funcionário desligado." />
           : (
-            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+            <div style={{ background: "var(--arcd-surface-card)", border: `var(--arcd-border-width) solid var(--arcd-border-default)`, borderRadius: "var(--arcd-box-radius)", overflow: "hidden" }}>
               {equipeInativa.map(e => (
-                <div key={e.id} style={{ padding: "12px 14px", borderBottom: `1px solid ${C.line}`,
-                     display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+                <div key={e.id} style={{ padding: "var(--arcd-space-3) var(--arcd-space-3)", borderBottom: `var(--arcd-border-width) solid var(--arcd-border-subtle)`,
+                     display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--arcd-space-2)" }}>
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <p className="brk" style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.text }}>{e.name}</p>
-                    <div style={{ display: "flex", gap: 8, marginTop: 2, flexWrap: "wrap" }}>
-                      {e.role && <span style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>{e.role}</span>}
-                      {e.endDate && <span style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>Saída {fmtDate(e.endDate)}</span>}
+                    <p className="brk" style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: "var(--arcd-text-primary)" }}>{e.name}</p>
+                    <div style={{ display: "flex", gap: "var(--arcd-space-2)", marginTop: "var(--arcd-space-half)", flexWrap: "wrap" }}>
+                      {e.role && <span style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>{e.role}</span>}
+                      {e.endDate && <span style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>Saída {fmtDate(e.endDate)}</span>}
                       {e.terminationReason && <span style={{ fontSize:"var(--arcd-type-label)", color: C.red }}>{e.terminationReason}</span>}
                     </div>
                   </div>
-                  <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
+                  <div style={{display:"flex",gap:"var(--arcd-space-1)",alignItems:"center",flexShrink:0}}>
                     <Btn v="ghost" size="sm" onClick={()=>{
                       sessionContext.setItem("arcd_editar_funcionario",e.id);
                       onTab?.("equipe");
@@ -11496,9 +11483,9 @@ function Obsoletos({ data, update, showToast, onTab, dispatchCommand }) {
 
 function VazioObs({ texto }) {
   return (
-    <div style={{ padding: 28, textAlign: "center", background: C.card,
-                  border: `1px solid ${C.border}`, borderRadius: 8 }}>
-      <p style={{ fontSize: "var(--arcd-type-body)", color: C.muted }}>{texto}</p>
+    <div style={{ padding: "var(--arcd-space-6)", textAlign: "center", background: "var(--arcd-surface-card)",
+                  border: `var(--arcd-border-width) solid var(--arcd-border-default)`, borderRadius: "var(--arcd-box-radius)" }}>
+      <p style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)" }}>{texto}</p>
     </div>
   );
 }
@@ -11709,8 +11696,8 @@ function Cadastros({ data, update, showToast, onTab, currentUser, dispatchComman
 
   const Voltar = () => (
     <button onClick={()=>{setSec("menu");setBusca("");}} style={{
-      background:"transparent", border:0, color:C.muted, cursor:"pointer",
-      fontSize:"var(--arcd-type-control)", padding:0, marginBottom:2, textAlign:"left",
+      background:"transparent", border:0, color:"var(--arcd-text-secondary)", cursor:"pointer",
+      fontSize:"var(--arcd-type-control)", padding:0, marginBottom:"var(--arcd-space-half)", textAlign:"left",
       fontFamily:"var(--arcd-font-sans)", fontWeight:600,
     }}>← Cadastros</button>
   );
@@ -11719,34 +11706,34 @@ function Cadastros({ data, update, showToast, onTab, currentUser, dispatchComman
     <button
       onClick={() => atalho ? onTab(atalho) : setSec(id)}
       style={{
-        background:C.card, border:`1px solid ${C.border}`, borderRadius:8,
-        padding:"13px 14px", cursor:"pointer", textAlign:"left", width:"100%",
+        background:"var(--arcd-surface-card)", border:`var(--arcd-border-width) solid var(--arcd-border-default)`, borderRadius:"var(--arcd-box-radius)",
+        padding:"var(--arcd-space-3) var(--arcd-space-3)", cursor:"pointer", textAlign:"left", width:"100%",
       }}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-2)"}}>
         <div style={{minWidth:0}}>
-          <p style={{fontSize:"var(--arcd-type-section-title)",marginBottom:4}}>{icone}</p>
+          <p style={{fontSize:"var(--arcd-type-section-title)",marginBottom:"var(--arcd-space-1)"}}>{icone}</p>
           <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,
-                     fontSize:"var(--arcd-type-body)",color:C.text}}>{titulo}</p>
-          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2,lineHeight:1.4}}>{sub}</p>
+                     fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)"}}>{titulo}</p>
+          <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",lineHeight:1.4}}>{sub}</p>
         </div>
         <div style={{textAlign:"right",flexShrink:0}}>
           <p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:C.yellow,
                      fontFamily:"var(--arcd-font-sans)"}}>{qtd}</p>
-          {atalho && <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>abrir →</p>}
+          {atalho && <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>abrir →</p>}
         </div>
       </div>
     </button>
   );
 
   const Linha = ({ titulo, sub, onEdit, onDel }) => (
-    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,
-                 padding:"10px 12px",display:"flex",justifyContent:"space-between",
-                 alignItems:"center",gap:8}}>
+    <div style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",
+                 padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",justifyContent:"space-between",
+                 alignItems:"center",gap:"var(--arcd-space-2)"}}>
       <div onClick={onEdit} style={{minWidth:0,flex:1,cursor:"pointer"}}>
-        <p className="brk" style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{titulo}</p>
-        {sub && <p className="brk" style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>{sub}</p>}
+        <p className="brk" style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"var(--arcd-text-primary)"}}>{titulo}</p>
+        {sub && <p className="brk" style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{sub}</p>}
       </div>
-      <div style={{display:"flex",gap:4,flexShrink:0}}>
+      <div style={{display:"flex",gap:"var(--arcd-space-1)",flexShrink:0}}>
         <Btn size="sm" v="ghost" onClick={onEdit}></Btn>
         {onDel && <Btn size="sm" v="danger" onClick={onDel}>x</Btn>}
       </div>
@@ -11754,17 +11741,17 @@ function Cadastros({ data, update, showToast, onTab, currentUser, dispatchComman
   );
 
   return (
-    <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
+    <div className="anim" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
       <PageHeader className="workspace-header" title="Cadastros" description="Referências utilizadas no orçamento, estoque, compras e folha."/>
 
       {/*  MENU  */}
       {sec === "menu" && (<>
-        <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.55}}>
+        <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:1.55}}>
           As tabelas de referência do sistema. O que você cadastra aqui alimenta
           orçamento, estoque, compras e folha.
         </p>
 
-        <div style={{display:"grid",gridTemplateColumns:cols(1,2,2),gap:9}}>
+        <div style={{display:"grid",gridTemplateColumns:cols(1,2,2),gap:"var(--arcd-space-2)"}}>
           <Card id="unidades" icone="" titulo="Unidades de medida"
                 qtd={unidades.length}
                 sub="sc, m, kg... a base de tudo que se mede"/>
@@ -11788,13 +11775,13 @@ function Cadastros({ data, update, showToast, onTab, currentUser, dispatchComman
                 sub="como as despesas se agrupam no resultado"/>
         </div>
 
-        <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:6,lineHeight:1.5}}>
+        <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)",lineHeight:1.5}}>
           Obras, Equipe e Usuários têm cadastro próprio, com regras de contrato,
           CLT e permissão. Ficam nas abas deles - duplicar aqui só criaria dois
           lugares para o mesmo bug.
         </p>
 
-        <div style={{display:"grid",gridTemplateColumns:cols(1,3,3),gap:9}}>
+        <div style={{display:"grid",gridTemplateColumns:cols(1,3,3),gap:"var(--arcd-space-2)"}}>
           <Card icone="" titulo="Obras" qtd={(data.obras||[]).length}
                 sub="contratos, Kanban" atalho="obras"/>
           <Card icone="" titulo="Equipe" qtd={(data.employees||[]).filter(e=>e.active!==false).length}
@@ -11807,10 +11794,10 @@ function Cadastros({ data, update, showToast, onTab, currentUser, dispatchComman
       {/*  UNIDADES  */}
       {sec === "unidades" && (<>
         <Voltar/>
-        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 12px"}}>
-          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.55}}>
-            Antes a unidade era texto livre - alguém digitava <strong style={{color:C.text}}>sc</strong>,
-            outro <strong style={{color:C.text}}>SC</strong>, outro <strong style={{color:C.text}}>saco</strong>,
+        <div style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+          <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:1.55}}>
+            Antes a unidade era texto livre - alguém digitava <strong style={{color:"var(--arcd-text-primary)"}}>sc</strong>,
+            outro <strong style={{color:"var(--arcd-text-primary)"}}>SC</strong>, outro <strong style={{color:"var(--arcd-text-primary)"}}>saco</strong>,
             e o sistema tratava como três coisas diferentes. Soma errada, curva ABC errada,
             composição que não baixa. Agora é uma lista fechada.
           </p>
@@ -11870,14 +11857,14 @@ function Cadastros({ data, update, showToast, onTab, currentUser, dispatchComman
       {/*  COMPOSIÇÕES  */}
       {sec === "composicoes" && (<>
         <Voltar/>
-        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 12px"}}>
-          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.55}}>
+        <div style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+          <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:1.55}}>
             As composições da empresa alimentam todos os orçamentos. Você pode copiar uma composição
             SINAPI ou ORSE, alterar seus insumos e salvá-la com um código próprio, sem modificar a referência oficial.
           </p>
         </div>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,flexWrap:"wrap",marginTop:2}}>
-          <div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.blue}}>COMPOSIÇÕES DA EMPRESA PARA ORÇAMENTO</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Catálogo comum a todas as obras e orçamentos.</p></div>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"var(--arcd-space-2)",flexWrap:"wrap",marginTop:"var(--arcd-space-half)"}}>
+          <div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.blue}}>COMPOSIÇÕES DA EMPRESA PARA ORÇAMENTO</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Catálogo comum a todas as obras e orçamentos.</p></div>
           <Btn size="sm" v="ghost" onClick={()=>onTab("orc")}>PESQUISAR E CLONAR SINAPI/ORSE →</Btn>
         </div>
         {compsEmpresa.map(c => {
@@ -11890,9 +11877,9 @@ function Cadastros({ data, update, showToast, onTab, currentUser, dispatchComman
         })}
         {!compsEmpresa.length&&<VazioObs texto="Nenhuma composição da empresa. Use o orçamento para pesquisar e clonar uma composição SINAPI/ORSE."/>}
 
-        <div style={{borderTop:`1px solid ${C.border}`,paddingTop:12,marginTop:4}}>
-          <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>COMPOSIÇÕES DE ESTOQUE / BAIXA AUTOMÁTICA</p>
-          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>Quanto cada serviço executado consome dos materiais cadastrados no estoque.</p>
+        <div style={{borderTop:`var(--arcd-border-width) solid var(--arcd-border-default)`,paddingTop:"var(--arcd-space-3)",marginTop:"var(--arcd-space-1)"}}>
+          <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"var(--arcd-text-primary)"}}>COMPOSIÇÕES DE ESTOQUE / BAIXA AUTOMÁTICA</p>
+          <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Quanto cada serviço executado consome dos materiais cadastrados no estoque.</p>
         </div>
         <Btn onClick={()=>setCompModal({id:"",codigo:proximoCodigoArcd(data),nome:"",unidade:"m2",itens:[{materialId:"",coef:""}]})} full>
           <Ic n="plus"/> Nova composição de estoque
@@ -11907,16 +11894,16 @@ function Cadastros({ data, update, showToast, onTab, currentUser, dispatchComman
       {/*  FASES  */}
       {sec === "fases" && (<>
         <Voltar/>
-        <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.55}}>
+        <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:1.55}}>
           As colunas do quadro Kanban. Editar cor, ordem e nome é mais natural
           no próprio quadro, onde você vê o efeito.
         </p>
         {(data.fases||[]).sort((a,b)=>a.ordem-b.ordem).map(f => (
-          <div key={f.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,
-                                  padding:"10px 12px",display:"flex",alignItems:"center",gap:9}}>
-            <span style={{width:11,height:11,borderRadius:3,background:f.cor,flexShrink:0}}/>
-            <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,flex:1,minWidth:0}}>{f.nome}</p>
-            <span style={{fontSize:"var(--arcd-type-label)",color:C.muted,flexShrink:0}}>
+          <div key={f.id} style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",
+                                  padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",alignItems:"center",gap:"var(--arcd-space-2)"}}>
+            <span style={{width:11,height:11,borderRadius:"var(--arcd-radius-control)",background:f.cor,flexShrink:0}}/>
+            <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"var(--arcd-text-primary)",flex:1,minWidth:0}}>{f.nome}</p>
+            <span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",flexShrink:0}}>
               {contar((data.obras||[]).filter(o=>o.faseId===f.id).length,"obra","obras")}
             </span>
           </div>
@@ -11927,10 +11914,10 @@ function Cadastros({ data, update, showToast, onTab, currentUser, dispatchComman
       {/*  CATEGORIAS DO DRE  */}
       {sec === "categorias" && (<>
         <Voltar/>
-        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 12px"}}>
-          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.55}}>
-            Como as despesas se agrupam no DRE. Crie as suas (ex.: <strong style={{color:C.text}}>Combustivel</strong>,
-            <strong style={{color:C.text}}> EPI</strong>, <strong style={{color:C.text}}>Ferramentas</strong>).
+        <div style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+          <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:1.55}}>
+            Como as despesas se agrupam no DRE. Crie as suas (ex.: <strong style={{color:"var(--arcd-text-primary)"}}>Combustivel</strong>,
+            <strong style={{color:"var(--arcd-text-primary)"}}> EPI</strong>, <strong style={{color:"var(--arcd-text-primary)"}}>Ferramentas</strong>).
             Categoria em uso não pode ser apagada - reclassifique antes.
           </p>
         </div>
@@ -11939,15 +11926,15 @@ function Cadastros({ data, update, showToast, onTab, currentUser, dispatchComman
           const emUso = (data.outrasDesp||[]).filter(d=>d.categoria===c.v).length
                       + (data.despesasEmpresa||[]).filter(d=>d.categoria===c.v).length;
           return (
-            <div key={c.v} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,
-                                   padding:"10px 12px",display:"flex",alignItems:"center",gap:9}}>
-              <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,flex:1,minWidth:0}}>{c.l}</p>
-              {emUso > 0 && <span style={{fontSize:"var(--arcd-type-label)",color:C.muted,flexShrink:0}}>{emUso} lanc.</span>}
+            <div key={c.v} style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",
+                                   padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",alignItems:"center",gap:"var(--arcd-space-2)"}}>
+              <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"var(--arcd-text-primary)",flex:1,minWidth:0}}>{c.l}</p>
+              {emUso > 0 && <span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",flexShrink:0}}>{emUso} lanc.</span>}
               <button onClick={()=>setCatModal({ v:c.v, l:c.l })} style={{background:"transparent",
-                      border:0,color:C.muted,cursor:"pointer",padding:4}}><Ic n="edit" s={14}/></button>
+                      border:0,color:"var(--arcd-text-secondary)",cursor:"pointer",padding:"var(--arcd-space-1)"}}><Ic n="edit" s={14}/></button>
               {c.v !== "outros" && (
                 <button onClick={()=>excluirCategoria(c)} style={{background:"transparent",
-                        border:0,color:C.red,cursor:"pointer",padding:4}}><Ic n="trash" s={14}/></button>
+                        border:0,color:C.red,cursor:"pointer",padding:"var(--arcd-space-1)"}}><Ic n="trash" s={14}/></button>
               )}
             </div>
           );
@@ -11957,10 +11944,10 @@ function Cadastros({ data, update, showToast, onTab, currentUser, dispatchComman
       {/*  MODAIS  */}
       {catModal && (
         <Modal title={catModal.v ? "Editar categoria" : "Nova categoria"} onClose={()=>setCatModal(null)}>
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+          <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
             <Inp label="Nome da categoria *" value={catModal.l}
                  onChange={v=>setCatModal(f=>({...f,l:v}))} placeholder="Ex.: Combustivel"/>
-            <div style={{display:"flex",gap:8}}>
+            <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
               <Btn v="ghost" onClick={()=>setCatModal(null)} full>Cancelar</Btn>
               <Btn onClick={()=>salvarCategoria(catModal)} full><Ic n="check"/> Salvar</Btn>
             </div>
@@ -11970,14 +11957,14 @@ function Cadastros({ data, update, showToast, onTab, currentUser, dispatchComman
 
       {uniModal && (
         <Modal title={uniModal.id ? "Editar unidade" : "Nova unidade"} onClose={()=>setUniModal(null)}>
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:11}}>
+          <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
+            <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-3)"}}>
               <Inp label="Sigla *" value={uniModal.sigla}
                    onChange={v=>setUniModal(f=>({...f,sigla:v}))} placeholder="sc"/>
               <Inp label="Nome" value={uniModal.nome}
                    onChange={v=>setUniModal(f=>({...f,nome:v}))} placeholder="Saco"/>
             </div>
-            <div style={{display:"flex",gap:8}}>
+            <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
               <Btn v="ghost" onClick={()=>setUniModal(null)} full>Cancelar</Btn>
               <Btn onClick={()=>salvarUnidade(uniModal)} full><Ic n="check"/> Salvar</Btn>
             </div>
@@ -11989,30 +11976,30 @@ function Cadastros({ data, update, showToast, onTab, currentUser, dispatchComman
                                   unidades={unidades}/>}
       {fornModal && <FornecedorEditorPilot form={fornModal} setForm={setFornModal} onSave={salvarForn}/>}
       {compEmpresaModal && <Modal title="Editar composição da empresa" onClose={()=>setCompEmpresaModal(null)} wide>
-        <div style={{display:"flex",flexDirection:"column",gap:11}}>
-          {compEmpresaModal.origemCodigo&&<div style={{background:`${C.blue}08`,border:`1px solid ${C.blue}35`,borderRadius:7,padding:"8px 10px"}}>
-            <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600}}>ORIGEM PRESERVADA</p>
-            <p style={{fontSize:"var(--arcd-type-label)",color:C.blue,fontWeight:600,marginTop:2}}>{compEmpresaModal.origemFonte} {compEmpresaModal.origemCodigo}{compEmpresaModal.origemDataBase?` · ${compEmpresaModal.origemDataBase}`:""}{compEmpresaModal.origemUf?` · ${compEmpresaModal.origemUf}`:""}</p>
+        <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
+          {compEmpresaModal.origemCodigo&&<div style={{background:`${C.blue}08`,border:`var(--arcd-border-width) solid ${C.blue}35`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-2)"}}>
+            <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",fontWeight:600}}>ORIGEM PRESERVADA</p>
+            <p style={{fontSize:"var(--arcd-type-label)",color:C.blue,fontWeight:600,marginTop:"var(--arcd-space-half)"}}>{compEmpresaModal.origemFonte} {compEmpresaModal.origemCodigo}{compEmpresaModal.origemDataBase?` · ${compEmpresaModal.origemDataBase}`:""}{compEmpresaModal.origemUf?` · ${compEmpresaModal.origemUf}`:""}</p>
           </div>}
-          <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:9}}>
+          <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:"var(--arcd-space-2)"}}>
             <Inp label="Código automático" value={compEmpresaModal.codigo} onChange={()=>{}} disabled/>
             <Inp label="Unidade *" value={compEmpresaModal.unidade} onChange={v=>setCompEmpresaModal(f=>({...f,unidade:v}))}/>
-            <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"7px 9px"}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600}}>CUSTO UNITÁRIO</p><p style={{fontSize:"var(--arcd-type-card-title)",color:C.yellowD,fontWeight:600,marginTop:2}}>{fmt((compEmpresaModal.itens||[]).reduce((s,i)=>s+Number(i.coeficiente||0)*Number(i.precoUnit||0),0))}</p></div>
+            <div style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",fontWeight:600}}>CUSTO UNITÁRIO</p><p style={{fontSize:"var(--arcd-type-card-title)",color:C.yellowD,fontWeight:600,marginTop:"var(--arcd-space-half)"}}>{fmt((compEmpresaModal.itens||[]).reduce((s,i)=>s+Number(i.coeficiente||0)*Number(i.precoUnit||0),0))}</p></div>
           </div>
           <Inp label="Descrição *" value={compEmpresaModal.descricao} onChange={v=>setCompEmpresaModal(f=>({...f,descricao:v}))}/>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>INSUMOS E COMPOSIÇÕES AUXILIARES</p><Btn size="sm" v="ghost" onClick={()=>setCompEmpresaModal(f=>({...f,itens:[...(f.itens||[]),{id:uid(),fonte:"SINAPI",tipoItem:"INSUMO",codigo:"",descricao:"",unidade:"UN",coeficiente:"1",precoUnit:"0",dataBase:"",uf:""}]}))}><Ic n="plus"/> ITEM MANUAL</Btn></div>
-          <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:7}}><table style={{width:"100%",minWidth:980,borderCollapse:"collapse",fontSize:"var(--arcd-type-label)"}}>
-            <thead><tr style={{background:C.surface}}>{["TIPO","FONTE","CÓDIGO","DESCRIÇÃO","UN.","COEFICIENTE","PREÇO UNIT.","TOTAL",""] .map(h=><th key={h} style={{padding:6,textAlign:["COEFICIENTE","PREÇO UNIT.","TOTAL"].includes(h)?"right":"left",color:C.muted,fontSize:"var(--arcd-type-label)",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead>
-            <tbody>{(compEmpresaModal.itens||[]).map(item=><tr key={item.id} style={{borderBottom:`1px solid ${C.line}`}}>
-              <td style={{padding:4}}><select value={item.tipoItem||"INSUMO"} onChange={e=>setCompEmpresaModal(f=>({...f,itens:f.itens.map(x=>x.id===item.id?{...x,tipoItem:e.target.value}:x)}))} style={{width:100,padding:5,border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text}}><option value="INSUMO">INSUMO</option><option value="COMPOSICAO">COMPOSIÇÃO</option></select></td>
-              {[["fonte",80],["codigo",105],["descricao",300],["unidade",65]].map(([campo,largura])=><td key={campo} style={{padding:4}}><input value={item[campo]||""} onChange={e=>setCompEmpresaModal(f=>({...f,itens:f.itens.map(x=>x.id===item.id?{...x,[campo]:e.target.value}:x)}))} style={{width:largura,boxSizing:"border-box",padding:"5px 6px",border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text}}/></td>)}
-              <td style={{padding:4}}><input type="number" step="any" value={item.coeficiente} onChange={e=>setCompEmpresaModal(f=>({...f,itens:f.itens.map(x=>x.id===item.id?{...x,coeficiente:e.target.value}:x)}))} style={{width:90,padding:"5px 6px",boxSizing:"border-box",border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,textAlign:"right"}}/></td>
-              <td style={{padding:4}}><input type="number" step="any" value={item.precoUnit} onChange={e=>setCompEmpresaModal(f=>({...f,itens:f.itens.map(x=>x.id===item.id?{...x,precoUnit:e.target.value}:x)}))} style={{width:95,padding:"5px 6px",boxSizing:"border-box",border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,textAlign:"right"}}/></td>
-              <td style={{padding:6,textAlign:"right",fontWeight:600}}>{fmt(Number(item.coeficiente||0)*Number(item.precoUnit||0))}</td>
-              <td style={{padding:4}}><button onClick={()=>setCompEmpresaModal(f=>({...f,itens:f.itens.filter(x=>x.id!==item.id)}))} style={{border:0,background:"transparent",color:C.red,cursor:"pointer"}}>x</button></td>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"var(--arcd-text-primary)"}}>INSUMOS E COMPOSIÇÕES AUXILIARES</p><Btn size="sm" v="ghost" onClick={()=>setCompEmpresaModal(f=>({...f,itens:[...(f.itens||[]),{id:uid(),fonte:"SINAPI",tipoItem:"INSUMO",codigo:"",descricao:"",unidade:"UN",coeficiente:"1",precoUnit:"0",dataBase:"",uf:""}]}))}><Ic n="plus"/> ITEM MANUAL</Btn></div>
+          <div style={{overflowX:"auto",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)"}}><table className="arcd-data-table__table" style={{width:"100%",minWidth:980,borderCollapse:"collapse"}}>
+            <thead><tr style={{background:"var(--arcd-surface-card)"}}>{["TIPO","FONTE","CÓDIGO","DESCRIÇÃO","UN.","COEFICIENTE","PREÇO UNIT.","TOTAL",""] .map(h=><th key={h} style={{padding:"var(--arcd-space-1)",textAlign:["COEFICIENTE","PREÇO UNIT.","TOTAL"].includes(h)?"right":"left",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-default)`}}>{h}</th>)}</tr></thead>
+            <tbody>{(compEmpresaModal.itens||[]).map(item=><tr key={item.id} style={{borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`}}>
+              <td style={{padding:"var(--arcd-space-1)"}}><select value={item.tipoItem||"INSUMO"} onChange={e=>setCompEmpresaModal(f=>({...f,itens:f.itens.map(x=>x.id===item.id?{...x,tipoItem:e.target.value}:x)}))} style={{width:100,padding:"var(--arcd-space-1)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",background:"var(--arcd-surface-page)",color:"var(--arcd-text-primary)"}}><option value="INSUMO">INSUMO</option><option value="COMPOSICAO">COMPOSIÇÃO</option></select></td>
+              {[["fonte",80],["codigo",105],["descricao",300],["unidade",65]].map(([campo,largura])=><td key={campo} style={{padding:"var(--arcd-space-1)"}}><input value={item[campo]||""} onChange={e=>setCompEmpresaModal(f=>({...f,itens:f.itens.map(x=>x.id===item.id?{...x,[campo]:e.target.value}:x)}))} style={{width:largura,boxSizing:"border-box",padding:"var(--arcd-space-1) var(--arcd-space-1)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",background:"var(--arcd-surface-page)",color:"var(--arcd-text-primary)"}}/></td>)}
+              <td style={{padding:"var(--arcd-space-1)"}}><input type="number" step="any" value={item.coeficiente} onChange={e=>setCompEmpresaModal(f=>({...f,itens:f.itens.map(x=>x.id===item.id?{...x,coeficiente:e.target.value}:x)}))} style={{width:90,padding:"var(--arcd-space-1) var(--arcd-space-1)",boxSizing:"border-box",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",background:"var(--arcd-surface-page)",color:"var(--arcd-text-primary)",textAlign:"right"}}/></td>
+              <td style={{padding:"var(--arcd-space-1)"}}><input type="number" step="any" value={item.precoUnit} onChange={e=>setCompEmpresaModal(f=>({...f,itens:f.itens.map(x=>x.id===item.id?{...x,precoUnit:e.target.value}:x)}))} style={{width:95,padding:"var(--arcd-space-1) var(--arcd-space-1)",boxSizing:"border-box",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",background:"var(--arcd-surface-page)",color:"var(--arcd-text-primary)",textAlign:"right"}}/></td>
+              <td style={{padding:"var(--arcd-space-1)",textAlign:"right",fontWeight:600}}>{fmt(Number(item.coeficiente||0)*Number(item.precoUnit||0))}</td>
+              <td style={{padding:"var(--arcd-space-1)"}}><button onClick={()=>setCompEmpresaModal(f=>({...f,itens:f.itens.filter(x=>x.id!==item.id)}))} style={{border:0,background:"transparent",color:C.red,cursor:"pointer"}}>x</button></td>
             </tr>)}</tbody>
           </table></div>
-          <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn v="ghost" onClick={()=>setCompEmpresaModal(null)}>CANCELAR</Btn><Btn onClick={()=>salvarComposicaoEmpresa(compEmpresaModal)}><Ic n="check"/> SALVAR NO CADASTRO</Btn></div>
+          <div style={{display:"flex",gap:"var(--arcd-space-2)",justifyContent:"flex-end"}}><Btn v="ghost" onClick={()=>setCompEmpresaModal(null)}>CANCELAR</Btn><Btn onClick={()=>salvarComposicaoEmpresa(compEmpresaModal)}><Ic n="check"/> SALVAR NO CADASTRO</Btn></div>
         </div>
       </Modal>}
       {compModal && <ModalComposicao form={compModal} setForm={setCompModal} onSave={salvarComposicao}
@@ -12021,7 +12008,7 @@ function Cadastros({ data, update, showToast, onTab, currentUser, dispatchComman
       {tercModal && (
         <Modal title={tercModal.id ? "Editar terceirizado" : "Novo terceirizado"}
                onClose={()=>setTercModal(null)} wide>
-          <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:11}}>
+          <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-3)"}}>
             <Inp label="Nome *" value={tercModal.nome}
                  onChange={v=>setTercModal(f=>({...f,nome:v}))} placeholder="Equipe Gesso Silva"/>
             <Inp label="Serviço" value={tercModal.servico}
@@ -12046,7 +12033,7 @@ function Cadastros({ data, update, showToast, onTab, currentUser, dispatchComman
                    options={[{v:"",l:"- sem obra fixa -"},
                              ...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
             </div>
-            <div style={{gridColumn:"1/-1",display:"flex",gap:8}}>
+            <div style={{gridColumn:"1/-1",display:"flex",gap:"var(--arcd-space-2)"}}>
               <Btn v="ghost" onClick={()=>setTercModal(null)} full>Cancelar</Btn>
               <Btn onClick={()=>salvarTerc(tercModal)} full><Ic n="check"/> Salvar</Btn>
             </div>
@@ -12523,8 +12510,8 @@ td.val{text-align:right;font-weight:700;min-width:110px}
   const DRow = ({label,value,color,bold=false,indent=0,pct=null,noBorder=false,sources})=>{
     const c = color||(value>=0?C.text:C.red);
     return (
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:`${bold?"8px":"5px"} 0 5px ${indent*14}px`,borderBottom:noBorder?"none":`1px solid ${C.line}22`,background:bold?`${c}05`:"transparent"}}>
-        <p style={{fontSize:bold?"var(--arcd-type-body)":"var(--arcd-type-body)",color:bold?c:C.muted,fontWeight:bold?600:400}}>{label}</p>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:`${bold?"8px":"5px"} 0 5px ${indent*14}px`,borderBottom:noBorder?"none":`var(--arcd-border-width) solid var(--arcd-border-subtle)22`,background:bold?`${c}05`:"transparent"}}>
+        <p style={{fontSize:bold?"var(--arcd-type-body)":"var(--arcd-type-body)",color:bold?c:"var(--arcd-text-secondary)",fontWeight:bold?600:400}}>{label}</p>
         <div style={{textAlign:"right",flexShrink:0}}>
           <p style={{fontSize:bold?"var(--arcd-type-card-title)":"var(--arcd-type-body)",color:c,fontWeight:600}}>{sources?<Button variant="ghost" className="dre-monthly-memorial-trigger" disabled={razaoCarregando||!razaoEmpresa?.current} aria-label={`Consultar memorial: ${label}`} onClick={()=>setMemorialDetail({row:{label,sources},month:dre,period,value})}>{value<0?`(${fmt(Math.abs(value))})`:fmt(value)}</Button>:value<0?`(${fmt(Math.abs(value))})`:fmt(value)}</p>
           {pct!==null&&<p style={{fontSize:"var(--arcd-type-caption)",color:c,marginTop:1}}>{pct1(pct)}</p>}
@@ -12533,13 +12520,13 @@ td.val{text-align:right;font-weight:700;min-width:110px}
     );
   };
   const DSec=({title,color=C.yellow,value=null})=>(
-    <div style={{background:color==="separator"?C.line:C.surface,borderLeft:`1px solid ${color==="separator"?C.line:color}`,padding:"5px 10px",marginTop:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-      <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:color==="separator"?C.muted:color,textTransform:"uppercase",letterSpacing:1}}>{title}</p>
+    <div style={{background:color==="separator"?"var(--arcd-border-subtle)":"var(--arcd-surface-card)",borderLeft:`var(--arcd-border-width) solid ${color==="separator"?C.line:color}`,padding:"var(--arcd-space-1) var(--arcd-space-2)",marginTop:"var(--arcd-space-2)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+      <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:color==="separator"?"var(--arcd-text-secondary)":color,textTransform:"uppercase",letterSpacing:1}}>{title}</p>
       {value!==null&&<p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:value<0?C.red:C.green}}>{value<0?`(${fmt(Math.abs(value))})`:fmt(value)}</p>}
     </div>
   );
   const DResult=({label,value,pct,size=1})=>(
-    <div style={{background:value>=0?`${C.green}08`:`${C.red}08`,border:`1px solid ${(value>0?C.green:value<0?C.red:C.muted)}55`,borderRadius:6,padding:"8px 12px",marginTop:4,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+    <div style={{background:value>=0?`${C.green}08`:`${C.red}08`,border:`var(--arcd-border-width) solid ${(value>0?C.green:value<0?C.red:C.muted)}55`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)",marginTop:"var(--arcd-space-1)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
       <p style={{fontSize:"var(--arcd-type-label)"+size,fontWeight:600,color:(value>0?C.green:value<0?C.red:C.muted)}}>{label}</p>
       <div style={{textAlign:"right"}}>
         <p style={{fontSize:14+size,fontWeight:600,color:(value>0?C.green:value<0?C.red:C.muted)}}>{value<0?`(${fmt(Math.abs(value))})`:fmt(value)}</p>
@@ -12549,7 +12536,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
   );
 
   return (
-    <div className="anim dre-company" data-view={abaDRE} style={{display:"flex",flexDirection:"column",gap:12}}>
+    <div className="anim dre-company" data-view={abaDRE} style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
       {razaoEmpresa&&memorialDetail&&<MonthlyDreMemorial detail={memorialDetail} onClose={()=>setMemorialDetail(null)} onOpenWork={onOpenWork}/>}
 
       <PageHero
@@ -12589,7 +12576,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
         <Button variant="outline" onClick={()=>setNovaConsulta(n=>n+1)}>Tentar novamente</Button>
       </Alert>:<>
       {/* KPI bar */}
-      <div className="dre-company-kpis" style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:8}}>
+      <div className="dre-company-kpis" style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:"var(--arcd-space-2)"}}>
         {[
           ["Faturamento",dre.faturamentoTotal,`Obras ${fmt(dre.faturamentoObras)} · locações ${fmt(dre.receitaLocacoes)}`],
           ["Receita líquida",dre.receitaLiquida,`${((dre.totalDeducoes/Math.max(dre.faturamentoTotal,1))*100).toFixed(1)}% em deduções`],
@@ -12688,11 +12675,11 @@ td.val{text-align:right;font-weight:700;min-width:110px}
       </section>
 
       {/* DRE estruturado */}
-      <div className="dre-company-panel dre-company-statement" style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:8,overflow:"hidden",boxShadow:`0 1px 4px ${C.shadow}`}}>
-        <div style={{background:C.surface,padding:"10px 14px",borderBottom:`1px solid ${C.border}`}}>
-          <p style={{fontWeight:600,fontSize:"var(--arcd-type-body)",color:C.text,textTransform:"uppercase",letterSpacing:.5}}>DRE - {period}</p>
+      <div className="dre-company-panel dre-company-statement" style={{background:"var(--arcd-surface-page)",border:`1.5px solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",overflow:"hidden",boxShadow:`0 1px 4px ${C.shadow}`}}>
+        <div style={{background:"var(--arcd-surface-card)",padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-default)`}}>
+          <p style={{fontWeight:600,fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)",textTransform:"uppercase",letterSpacing:.5}}>DRE - {period}</p>
         </div>
-        <div style={{padding:"8px 14px"}}>
+        <div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
           <p className="annual-dre__note">Clique nos valores dos lançamentos para consultar obras, datas e notas fiscais.</p>
 
           <DSec title="Receita Bruta da Empresa" color={C.green} value={dre.faturamentoTotal}/>
@@ -12752,47 +12739,47 @@ td.val{text-align:right;font-weight:700;min-width:110px}
 
       {/* Receitas e despesas POR OBRA - analise gerencial */}
       {dre.porObra.length > 0 && (
-        <div className="dre-company-panel dre-company-works" style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:8,overflow:"hidden",boxShadow:`0 1px 4px ${C.shadow}`}}>
-          <div style={{background:C.surface,padding:"10px 14px",borderBottom:`1px solid ${C.border}`}}>
-            <p style={{fontWeight:600,fontSize:"var(--arcd-type-body)",color:C.text,textTransform:"uppercase",letterSpacing:.5}}>Receitas e despesas por obra - {period}</p>
-            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>Quem contribui e quem drena o resultado no mes. Ordenado pelo resultado.</p>
+        <div className="dre-company-panel dre-company-works" style={{background:"var(--arcd-surface-page)",border:`1.5px solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",overflow:"hidden",boxShadow:`0 1px 4px ${C.shadow}`}}>
+          <div style={{background:"var(--arcd-surface-card)",padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-default)`}}>
+            <p style={{fontWeight:600,fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)",textTransform:"uppercase",letterSpacing:.5}}>Receitas e despesas por obra - {period}</p>
+            <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Quem contribui e quem drena o resultado no mes. Ordenado pelo resultado.</p>
           </div>
           <div style={{overflowX:"auto"}}>
-            <table style={{width:"100%",borderCollapse:"collapse",fontSize:"var(--arcd-type-label)",minWidth:520}}>
+            <table className="arcd-data-table__table" style={{width:"100%",borderCollapse:"collapse",minWidth:520}}>
               <thead>
-                <tr style={{background:C.surface,color:C.muted,textAlign:"right"}}>
-                  <th style={{padding:"8px 12px",textAlign:"left",fontWeight:600}}>Obra</th>
-                  <th style={{padding:"8px 12px",fontWeight:600}}>Receita</th>
-                  <th style={{padding:"8px 12px",fontWeight:600}}>Despesa</th>
-                  <th style={{padding:"8px 12px",fontWeight:600}}>Resultado</th>
-                  <th style={{padding:"8px 12px",fontWeight:600}}>Margem</th>
+                <tr style={{background:"var(--arcd-surface-card)",color:"var(--arcd-text-secondary)",textAlign:"right"}}>
+                  <th style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",textAlign:"left",fontWeight:600}}>Obra</th>
+                  <th style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",fontWeight:600}}>Receita</th>
+                  <th style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",fontWeight:600}}>Despesa</th>
+                  <th style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",fontWeight:600}}>Resultado</th>
+                  <th style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",fontWeight:600}}>Margem</th>
                 </tr>
               </thead>
               <tbody>
                 {dre.porObra.map(o => (
-                  <tr key={o.id} style={{borderTop:`1px solid ${C.line}`}}>
-                    <td style={{padding:"8px 12px",color:C.text,fontWeight:600}}>{o.name}</td>
-                    <td style={{padding:"8px 12px",textAlign:"right",color:C.green}}>{fmt(o.receita)}</td>
-                    <td style={{padding:"8px 12px",textAlign:"right",color:C.orange}} title={`MO ${fmt(o.laborCost)} + Benef ${fmt(o.benefitCost)} + Terc ${fmt(o.terc)} + Outras ${fmt(o.outras)}`}>{fmt(o.despesa)}</td>
-                    <td style={{padding:"8px 12px",textAlign:"right",fontWeight:600,color:(o.resultado>0?C.green:o.resultado<0?C.red:C.muted)}}>{fmt(o.resultado)}</td>
-                    <td style={{padding:"8px 12px",textAlign:"right",color:o.margemPct==null?C.muted:(o.margemPct>0?C.green:o.margemPct<0?C.red:C.muted)}}>
+                  <tr key={o.id} style={{borderTop:`var(--arcd-border-width) solid var(--arcd-border-subtle)`}}>
+                    <td style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",color:"var(--arcd-text-primary)",fontWeight:600}}>{o.name}</td>
+                    <td style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",textAlign:"right",color:C.green}}>{fmt(o.receita)}</td>
+                    <td style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",textAlign:"right",color:C.orange}} title={`MO ${fmt(o.laborCost)} + Benef ${fmt(o.benefitCost)} + Terc ${fmt(o.terc)} + Outras ${fmt(o.outras)}`}>{fmt(o.despesa)}</td>
+                    <td style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",textAlign:"right",fontWeight:600,color:(o.resultado>0?C.green:o.resultado<0?C.red:C.muted)}}>{fmt(o.resultado)}</td>
+                    <td style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",textAlign:"right",color:o.margemPct==null?"var(--arcd-text-secondary)":(o.margemPct>0?C.green:o.margemPct<0?C.red:C.muted)}}>
                       {o.margemPct==null?"-":`${o.margemPct.toFixed(0)}%`}
                     </td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
-                <tr style={{borderTop:`2px solid ${C.border}`,background:C.surface,fontWeight:600}}>
-                  <td style={{padding:"9px 12px",color:C.text}}>Total</td>
-                  <td style={{padding:"9px 12px",textAlign:"right",color:C.green}}>{fmt(dre.porObra.reduce((s,o)=>s+o.receita,0))}</td>
-                  <td style={{padding:"9px 12px",textAlign:"right",color:C.orange}}>{fmt(dre.porObra.reduce((s,o)=>s+o.despesa,0))}</td>
-                  <td style={{padding:"9px 12px",textAlign:"right",color:dre.porObra.reduce((s,o)=>s+o.resultado,0)>=0?C.green:C.red}}>{fmt(dre.porObra.reduce((s,o)=>s+o.resultado,0))}</td>
-                  <td style={{padding:"9px 12px"}}></td>
+                <tr style={{borderTop:`2px solid var(--arcd-border-default)`,background:"var(--arcd-surface-card)",fontWeight:600}}>
+                  <td style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",color:"var(--arcd-text-primary)"}}>Total</td>
+                  <td style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",textAlign:"right",color:C.green}}>{fmt(dre.porObra.reduce((s,o)=>s+o.receita,0))}</td>
+                  <td style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",textAlign:"right",color:C.orange}}>{fmt(dre.porObra.reduce((s,o)=>s+o.despesa,0))}</td>
+                  <td style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",textAlign:"right",color:dre.porObra.reduce((s,o)=>s+o.resultado,0)>=0?C.green:C.red}}>{fmt(dre.porObra.reduce((s,o)=>s+o.resultado,0))}</td>
+                  <td style={{padding:"var(--arcd-space-2) var(--arcd-space-3)"}}></td>
                 </tr>
               </tfoot>
             </table>
           </div>
-          <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,padding:"8px 14px",lineHeight:1.5}}>
+          <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",padding:"var(--arcd-space-2) var(--arcd-space-3)",lineHeight:1.5}}>
             Despesa por obra = mao de obra + beneficios + terceiros + outras despesas diretas do mes.
             Passe o mouse sobre a despesa para ver a composicao.
           </p>
@@ -12800,13 +12787,13 @@ td.val{text-align:right;font-weight:700;min-width:110px}
       )}
 
       {/* Gestão de despesas operacionais */}
-      <div className="dre-company-panel dre-company-expenses" style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:9,overflow:"hidden",boxShadow:C.shHair}}>
-        <div style={{background:C.surface,padding:"14px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+      <div className="dre-company-panel dre-company-expenses" style={{background:"var(--arcd-surface-page)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",overflow:"hidden",boxShadow:C.shHair}}>
+        <div style={{background:"var(--arcd-surface-card)",padding:"var(--arcd-space-3)",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-default)`,display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-3)",flexWrap:"wrap"}}>
           <div>
-            <p style={{fontWeight:600,fontSize:"var(--arcd-type-card-title)",color:C.text}}>Central de despesas operacionais</p>
-            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3}}>Competência, pagamento e classificação do DRE em uma única página · {period}</p>
+            <p style={{fontWeight:600,fontSize:"var(--arcd-type-card-title)",color:"var(--arcd-text-primary)"}}>Central de despesas operacionais</p>
+            <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Competência, pagamento e classificação do DRE em uma única página · {period}</p>
           </div>
-          <div style={{display:"flex",gap:5}}>
+          <div style={{display:"flex",gap:"var(--arcd-space-1)"}}>
             <Btn size="sm" v="ghost" disabled={expenseCommandPending} onClick={replicarRecorrentes}><Ic n="copy"/> Replicar</Btn>
             <Btn size="sm" onClick={openNewCompanyExpense}>
               <Ic n="plus"/> Nova despesa
@@ -12814,27 +12801,27 @@ td.val{text-align:right;font-weight:700;min-width:110px}
           </div>
         </div>
 
-        <div style={{display:"grid",gridTemplateColumns:cols(4),borderBottom:`1px solid ${C.border}`,background:C.bg}}>
+        <div style={{display:"grid",gridTemplateColumns:cols(4),borderBottom:`var(--arcd-border-width) solid var(--arcd-border-default)`,background:"var(--arcd-surface-page)"}}>
           {[
             ["Despesas do mês",dre.totalDespOp,C.red],
             ["Pagas",expenseControl.paid,C.green],
             ["Em aberto",expenseControl.open,C.orange],
             ["Vencidas",expenseControl.overdue,expenseControl.overdue?C.red:C.muted],
-          ].map(([label,value,color],index)=><div key={label} style={{padding:"12px 14px",borderRight:index<3?`1px solid ${C.line}`:"none"}}>
-            <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,textTransform:"uppercase",letterSpacing:.7,color:C.muted}}>{label}</p>
-            <p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color,marginTop:3}}>{fmt(value)}</p>
+          ].map(([label,value,color],index)=><div key={label} style={{padding:"var(--arcd-space-3) var(--arcd-space-3)",borderRight:index<3?`var(--arcd-border-width) solid var(--arcd-border-subtle)`:"none"}}>
+            <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,textTransform:"uppercase",letterSpacing:.7,color:"var(--arcd-text-secondary)"}}>{label}</p>
+            <p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color,marginTop:"var(--arcd-space-half)"}}>{fmt(value)}</p>
           </div>)}
         </div>
 
-        <div style={{display:"grid",gridTemplateColumns:cols(4),gap:7,padding:"10px 11px",borderBottom:`1px solid ${C.border}`,background:C.surface}}>
+        <div style={{display:"grid",gridTemplateColumns:cols(4),gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-default)`,background:"var(--arcd-surface-card)"}}>
           {GRUPOS_DESP.map(group=><button key={group.v} type="button" onClick={()=>setExpenseGroupFilter(current=>current===group.v?"all":group.v)}
-            style={{textAlign:"left",padding:"9px 10px",borderRadius:8,cursor:"pointer",border:`1px solid ${expenseGroupFilter===group.v?C.yellowD:C.line}`,background:expenseGroupFilter===group.v?`${C.yellow}14`:C.bg,color:C.text}}>
-            <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted}}>{group.shortLabel}</span>
-            <strong style={{display:"block",fontSize:"var(--arcd-type-body)",marginTop:2}}>{fmt(expenseGroupTotals[group.v])}</strong>
+            style={{textAlign:"left",padding:"var(--arcd-space-2) var(--arcd-space-2)",borderRadius:"var(--arcd-box-radius)",cursor:"pointer",border:`var(--arcd-border-width) solid ${expenseGroupFilter===group.v?C.yellowD:C.line}`,background:expenseGroupFilter===group.v?`${C.yellow}14`:"var(--arcd-surface-page)",color:"var(--arcd-text-primary)"}}>
+            <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:"var(--arcd-text-secondary)"}}>{group.shortLabel}</span>
+            <strong style={{display:"block",fontSize:"var(--arcd-type-body)",marginTop:"var(--arcd-space-half)"}}>{fmt(expenseGroupTotals[group.v])}</strong>
           </button>)}
         </div>
 
-        <div style={{display:"grid",gridTemplateColumns:cols(2),gap:8,padding:"9px 11px",borderBottom:`1px solid ${C.border}`}}>
+        <div style={{display:"grid",gridTemplateColumns:cols(2),gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-default)`}}>
           <Inp value={expenseSearch} onChange={setExpenseSearch} placeholder="Buscar descrição, fornecedor, documento ou cartão..." />
           <Sel aria-label="Grupo da despesa" value={expenseGroupFilter} onChange={setExpenseGroupFilter} options={[
             {v:"all",l:"Todas as divisões do DRE"},
@@ -12843,47 +12830,47 @@ td.val{text-align:right;font-weight:700;min-width:110px}
         </div>
 
         {dre.despEmp.length===0 && (
-          <div style={{padding:"20px 14px",textAlign:"center"}}>
-            <p style={{color:C.muted,fontSize:"var(--arcd-type-body)",marginBottom:8}}>Nenhuma despesa operacional lançada em {period}.</p>
+          <div style={{padding:"var(--arcd-space-5) var(--arcd-space-3)",textAlign:"center"}}>
+            <p style={{color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-body)",marginBottom:"var(--arcd-space-2)"}}>Nenhuma despesa operacional lançada em {period}.</p>
             <Btn size="sm" v="ghost" disabled={expenseCommandPending} onClick={replicarRecorrentes}> Replicar despesas do mês anterior</Btn>
           </div>
         )}
 
-        {dre.despEmp.length>0&&visibleCompanyExpenses.length===0&&<div style={{padding:18,textAlign:"center",color:C.muted,fontSize:"var(--arcd-type-label)"}}>Nenhuma despesa corresponde aos filtros.</div>}
+        {dre.despEmp.length>0&&visibleCompanyExpenses.length===0&&<div style={{padding:"var(--arcd-space-4)",textAlign:"center",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)"}}>Nenhuma despesa corresponde aos filtros.</div>}
 
         {visibleCompanyExpenses.map(d=>{
           const category=companyExpenseCategory(d.categoria);
           const group=companyExpenseGroup(d.categoria);
           const payment=COMPANY_PAYMENT_METHODS.find(item=>item.id===d.formaPagamento)?.label||"Forma não informada";
           const overdue=d.pago!==true&&d.vencimento&&d.vencimento<today();
-          return <div key={d.id} style={{display:"grid",gridTemplateColumns:"minmax(240px,1.6fr) minmax(150px,.8fr) minmax(135px,.65fr) auto",alignItems:"center",padding:"9px 11px",borderBottom:`1px solid ${C.line}`,gap:10}}>
+          return <div key={d.id} style={{display:"grid",gridTemplateColumns:"minmax(240px,1.6fr) minmax(150px,.8fr) minmax(135px,.65fr) auto",alignItems:"center",padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`,gap:"var(--arcd-space-2)"}}>
             <div style={{minWidth:0}}>
-              <div style={{display:"flex",alignItems:"center",gap:6}}>
-                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{d.descricao||category.label}</p>
-                {d.recorrente&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,background:`${C.blue}12`,color:C.blue,padding:"2px 5px",borderRadius:4}}>RECORRENTE</span>}
-                <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,background:d.pago?`${C.green}12`:`${overdue?C.red:C.orange}12`,color:d.pago?C.green:overdue?C.red:C.orange,padding:"2px 5px",borderRadius:4}}>{d.pago?"PAGA":overdue?"VENCIDA":"EM ABERTO"}</span>
+              <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-1)"}}>
+                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"var(--arcd-text-primary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{d.descricao||category.label}</p>
+                {d.recorrente&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,background:`${C.blue}12`,color:C.blue,padding:"var(--arcd-space-half) var(--arcd-space-1)",borderRadius:"var(--arcd-radius-control)"}}>RECORRENTE</span>}
+                <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,background:d.pago?`${C.green}12`:`${overdue?C.red:C.orange}12`,color:d.pago?C.green:overdue?C.red:C.orange,padding:"var(--arcd-space-half) var(--arcd-space-1)",borderRadius:"var(--arcd-radius-control)"}}>{d.pago?"PAGA":overdue?"VENCIDA":"EM ABERTO"}</span>
               </div>
-              <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{group.shortLabel} · {category.label}{d.fornecedor?` · ${d.fornecedor}`:""}</p>
+              <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{group.shortLabel} · {category.label}{d.fornecedor?` · ${d.fornecedor}`:""}</p>
             </div>
             <div style={{minWidth:0}}>
-              <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted}}>PAGAMENTO</p>
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.text,marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{payment}{d.cartao?` · ${d.cartao}`:""}</p>
-              <p style={{fontSize:"var(--arcd-type-caption)",color:overdue?C.red:C.muted,marginTop:1}}>{d.pago&&d.dataPagamento?`Pago em ${fmtDate(d.dataPagamento)}`:d.vencimento?`Vence em ${fmtDate(d.vencimento)}`:"Sem vencimento"}</p>
+              <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:"var(--arcd-text-secondary)"}}>PAGAMENTO</p>
+              <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{payment}{d.cartao?` · ${d.cartao}`:""}</p>
+              <p style={{fontSize:"var(--arcd-type-caption)",color:overdue?C.red:"var(--arcd-text-secondary)",marginTop:1}}>{d.pago&&d.dataPagamento?`Pago em ${fmtDate(d.dataPagamento)}`:d.vencimento?`Vence em ${fmtDate(d.vencimento)}`:"Sem vencimento"}</p>
             </div>
             <div>
-              <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted}}>VALOR</p>
-              <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.red,marginTop:2}}>({fmt(d.valor)})</p>
-              {Number(d.parcelas||1)>1&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{d.parcelas} parcelas</p>}
+              <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:"var(--arcd-text-secondary)"}}>VALOR</p>
+              <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.red,marginTop:"var(--arcd-space-half)"}}>({fmt(d.valor)})</p>
+              {Number(d.parcelas||1)>1&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{d.parcelas} parcelas</p>}
             </div>
-            <div style={{display:"flex",gap:5,alignItems:"center",justifyContent:"flex-end"}}>
-              {d.native?<span style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Gerido pelo título de origem</span>:<><Btn size="sm" v="ghost" title="Editar" onClick={()=>openEditCompanyExpense(d)}><Ic n="edit"/></Btn>
+            <div style={{display:"flex",gap:"var(--arcd-space-1)",alignItems:"center",justifyContent:"flex-end"}}>
+              {d.native?<span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Gerido pelo título de origem</span>:<><Btn size="sm" v="ghost" title="Editar" onClick={()=>openEditCompanyExpense(d)}><Ic n="edit"/></Btn>
               <Btn size="sm" v="danger" disabled={expenseCommandPending} title="Excluir" onClick={()=>delDesp(d.id)}><Ic n="trash"/></Btn></>}
             </div>
           </div>;
         })}
 
-        <div style={{padding:"8px 11px",background:C.surface,display:"flex",justifyContent:"space-between"}}>
-          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Total despesas operacionais</p>
+        <div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",background:"var(--arcd-surface-card)",display:"flex",justifyContent:"space-between"}}>
+          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"var(--arcd-text-primary)"}}>Total despesas operacionais</p>
           <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.red}}>({fmt(dre.totalDespOp)})</p>
         </div>
       </div>
@@ -12904,10 +12891,10 @@ td.val{text-align:right;font-weight:700;min-width:110px}
       </Modal>}
       {despModal&&(
         <Modal title={editDesp?"Editar despesa":"Nova despesa operacional"} onClose={()=>{setDespModal(false);setEditDesp(null);}} wide>
-          <div style={{display:"grid",gridTemplateColumns:cols(2),gap:12}}>
+          <div style={{display:"grid",gridTemplateColumns:cols(2),gap:"var(--arcd-space-3)"}}>
             <div>
-              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,textTransform:"uppercase",marginBottom:5,letterSpacing:.7}}>Competência (mês/ano) *</p>
-              <input type="month" value={despForm.competencia} onChange={e=>DF("competencia")(e.target.value)} style={{width:"100%",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"10px 12px",borderRadius:6,fontSize:"var(--arcd-type-control)",outline:"none",fontFamily:"var(--arcd-font-sans)"}}/>
+              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"var(--arcd-text-primary)",textTransform:"uppercase",marginBottom:"var(--arcd-space-1)",letterSpacing:.7}}>Competência (mês/ano) *</p>
+              <input type="month" value={despForm.competencia} onChange={e=>DF("competencia")(e.target.value)} style={{width:"100%",background:"var(--arcd-surface-page)",border:`1.5px solid var(--arcd-border-default)`,color:"var(--arcd-text-primary)",padding:"var(--arcd-space-2) var(--arcd-space-3)",borderRadius:"var(--arcd-radius-control)",fontSize:"var(--arcd-type-control)",outline:"none",fontFamily:"var(--arcd-font-sans)"}}/>
             </div>
             <Sel label="Categoria *" value={despForm.categoria} onChange={DF("categoria")}
               options={companyExpenseCategoryOptions()}/>
@@ -12928,23 +12915,23 @@ td.val{text-align:right;font-weight:700;min-width:110px}
             <Inp label="Quantidade de parcelas" type="number" min="1" max="120" value={despForm.parcelas} onChange={DF("parcelas")}/>
             <div style={{gridColumn:"1/-1"}}><Inp label="Observações" value={despForm.observacao} onChange={DF("observacao")} placeholder="Informações complementares para conferência"/></div>
 
-            <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"8px 12px",background:despForm.recorrente?`${C.blue}08`:"transparent",borderRadius:6,border:`1.5px solid ${despForm.recorrente?C.blue+"55":C.border}`}}>
-              <div onClick={()=>DF("recorrente")(!despForm.recorrente)} style={{width:18,height:18,border:`2px solid ${despForm.recorrente?C.blue:C.muted}`,background:despForm.recorrente?C.blue:"transparent",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,cursor:"pointer"}}>
-                {despForm.recorrente&&<span style={{color:"#fff",fontSize:"var(--arcd-type-label)",fontWeight:600}}>ok</span>}
+            <label style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",cursor:"pointer",padding:"var(--arcd-space-2) var(--arcd-space-3)",background:despForm.recorrente?`${C.blue}08`:"transparent",borderRadius:"var(--arcd-radius-control)",border:`1.5px solid ${despForm.recorrente?C.blue+"55":C.border}`}}>
+              <div onClick={()=>DF("recorrente")(!despForm.recorrente)} style={{width:18,height:18,border:`2px solid ${despForm.recorrente?C.blue:C.muted}`,background:despForm.recorrente?C.blue:"transparent",borderRadius:"var(--arcd-radius-control)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,cursor:"pointer"}}>
+                {despForm.recorrente&&<span style={{color:"var(--arcd-text-inverse)",fontSize:"var(--arcd-type-label)",fontWeight:600}}>ok</span>}
               </div>
               <div>
-                <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:despForm.recorrente?C.blue:C.muted}}>Despesa recorrente</p>
-                <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Aparece no botão "Replicar" do próximo mês</p>
+                <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:despForm.recorrente?C.blue:"var(--arcd-text-secondary)"}}>Despesa recorrente</p>
+                <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Aparece no botão "Replicar" do próximo mês</p>
               </div>
             </label>
 
-            <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"8px 12px",background:despForm.pago?`${C.green}08`:"transparent",borderRadius:6,border:`1.5px solid ${despForm.pago?C.green+"55":C.border}`}}>
+            <label style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",cursor:"pointer",padding:"var(--arcd-space-2) var(--arcd-space-3)",background:despForm.pago?`${C.green}08`:"transparent",borderRadius:"var(--arcd-radius-control)",border:`1.5px solid ${despForm.pago?C.green+"55":C.border}`}}>
               <input type="checkbox" checked={despForm.pago===true} onChange={event=>DF("pago")(event.target.checked)} style={{width:18,height:18,accentColor:C.green}}/>
-              <div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:despForm.pago?C.green:C.muted}}>Despesa já paga</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Se não estiver paga, permanece como conta a pagar.</p></div>
+              <div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:despForm.pago?C.green:"var(--arcd-text-secondary)"}}>Despesa já paga</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Se não estiver paga, permanece como conta a pagar.</p></div>
             </label>
             {despForm.pago&&<Inp label="Data do pagamento *" type="date" value={despForm.dataPagamento} onChange={DF("dataPagamento")}/>}
 
-            <div style={{display:"flex",gap:8,gridColumn:"1/-1"}}>
+            <div style={{display:"flex",gap:"var(--arcd-space-2)",gridColumn:"1/-1"}}>
               <Btn v="ghost" onClick={()=>{setDespModal(false);setEditDesp(null);}} full>Cancelar</Btn>
               <Btn disabled={expenseCommandPending} onClick={saveDesp} full><Ic n="check"/> {expenseCommandPending?"Salvando...":"Salvar"}</Btn>
             </div>
@@ -13146,7 +13133,7 @@ function Comunicacao({ data, currentUser, showToast }) {
   };
 
   return (
-    <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <div className="anim" style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
       <PageHero
         eyebrow="Comunicação interna"
         title="Comunicação"
@@ -13155,22 +13142,22 @@ function Comunicacao({ data, currentUser, showToast }) {
       <TabRow equal tabs={[["notificacoes", "Notificações"], ["ranking", "Ranking"]]} active={aba} onChange={setAba}/>
 
       {aba === "notificacoes" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-2)" }}>
           <SectorTasks data={data} user={currentUser}/>
           <TaskDisclosure enabled={isMobile} summary="Prioridades da equipe">
-          <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>Prioridades do dia por engenheiro de campo: ponto, diário de obra e conferências.</p>
-          {!checklistPorUsuario.length && <p style={{ padding: 20, textAlign: "center", color: C.muted, fontSize:"var(--arcd-type-label)" }}>Nenhum engenheiro de campo cadastrado.</p>}
+          <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>Prioridades do dia por engenheiro de campo: ponto, diário de obra e conferências.</p>
+          {!checklistPorUsuario.length && <p style={{ padding: "var(--arcd-space-5)", textAlign: "center", color: "var(--arcd-text-secondary)", fontSize:"var(--arcd-type-label)" }}>Nenhum engenheiro de campo cadastrado.</p>}
           {checklistPorUsuario.map(c => (
-            <div key={c.usuario.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 9, padding: "11px 13px" }}>
-              <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color: C.text }}>{c.usuario.nome}</p>
-              <div style={{ display: "flex", gap: 14, marginTop: 6, flexWrap: "wrap" }}>
+            <div key={c.usuario.id} style={{ background: "var(--arcd-surface-card)", border: `var(--arcd-border-width) solid var(--arcd-border-default)`, borderRadius: "var(--arcd-box-radius)", padding: "var(--arcd-space-3) var(--arcd-space-3)" }}>
+              <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color: "var(--arcd-text-primary)" }}>{c.usuario.nome}</p>
+              <div style={{ display: "flex", gap: "var(--arcd-space-3)", marginTop: "var(--arcd-space-1)", flexWrap: "wrap" }}>
                 {[["Ponto", c.pontoOk], ["Diário de obra", c.diarioOk], ["Conferências", c.conferenciasOk]].map(([l, ok]) => (
-                  <span key={l} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize:"var(--arcd-type-label)", color: ok ? C.green : C.red, fontWeight:600 }}>
+                  <span key={l} style={{ display: "inline-flex", alignItems: "center", gap: "var(--arcd-space-1)", fontSize:"var(--arcd-type-label)", color: ok ? C.green : C.red, fontWeight:600 }}>
                     <Ic n={ok ? "check" : "alert"} s={12} color={ok ? C.green : C.red} />{l}
                   </span>
                 ))}
               </div>
-              {!c.conferenciasOk && <p style={{ fontSize:"var(--arcd-type-caption)", color: C.red, marginTop: 4 }}>{contar(c.pendenciasAbertas,"pendência","pendências")} de conferência em aberto.</p>}
+              {!c.conferenciasOk && <p style={{ fontSize:"var(--arcd-type-caption)", color: C.red, marginTop: "var(--arcd-space-1)" }}>{contar(c.pendenciasAbertas,"pendência","pendências")} de conferência em aberto.</p>}
             </div>
           ))}
           </TaskDisclosure>
@@ -13178,33 +13165,33 @@ function Comunicacao({ data, currentUser, showToast }) {
       )}
 
       {aba === "ranking" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>10 pontos por item do checklist de hoje (ponto, diário, conferências) + ajustes manuais do administrador.</p>
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-2)" }}>
+          <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>10 pontos por item do checklist de hoje (ponto, diário, conferências) + ajustes manuais do administrador.</p>
           {ranking.map((r, idx) => (
-            <div key={r.usuario.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, background: C.card, border: `1px solid ${idx === 0 ? C.yellow : C.border}`, borderRadius: 9, padding: "10px 13px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                <span style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: idx < 3 ? C.yellowD : C.muted, width: 20 }}>{idx + 1}º</span>
+            <div key={r.usuario.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--arcd-space-2)", background: "var(--arcd-surface-card)", border: `var(--arcd-border-width) solid ${idx === 0 ? C.yellow : C.border}`, borderRadius: "var(--arcd-box-radius)", padding: "var(--arcd-space-2) var(--arcd-space-3)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "var(--arcd-space-2)", minWidth: 0 }}>
+                <span style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: idx < 3 ? C.yellowD : "var(--arcd-text-secondary)", width: 20 }}>{idx + 1}º</span>
                 <div style={{ minWidth: 0 }}>
-                  <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color: C.text }}>{r.usuario.nome}</p>
-                  <p style={{ fontSize:"var(--arcd-type-caption)", color: C.muted, marginTop: 2 }}>{r.pontosAutomaticos} pts checklist{r.pontosManual ? ` · ${r.pontosManual > 0 ? "+" : ""}${r.pontosManual} ajuste` : ""}</p>
+                  <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color: "var(--arcd-text-primary)" }}>{r.usuario.nome}</p>
+                  <p style={{ fontSize:"var(--arcd-type-caption)", color: "var(--arcd-text-secondary)", marginTop: "var(--arcd-space-half)" }}>{r.pontosAutomaticos} pts checklist{r.pontosManual ? ` · ${r.pontosManual > 0 ? "+" : ""}${r.pontosManual} ajuste` : ""}</p>
                 </div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                <b style={{ fontSize: "var(--arcd-type-card-title)", color: C.text }}>{r.total}</b>
+              <div style={{ display: "flex", alignItems: "center", gap: "var(--arcd-space-2)", flexShrink: 0 }}>
+                <b style={{ fontSize: "var(--arcd-type-card-title)", color: "var(--arcd-text-primary)" }}>{r.total}</b>
                 {ehAdmin && <Btn size="sm" v="ghost" onClick={() => setAjusteModal({ usuario: r.usuario })}><Ic n="edit" s={11} /> Ajustar</Btn>}
               </div>
             </div>
           ))}
           {ehAdmin && !!ajustes.length && (
-            <div style={{ marginTop: 8 }}>
-              <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color: C.muted, textTransform: "uppercase", letterSpacing: .6, marginBottom: 6 }}>Histórico de ajustes</p>
+            <div style={{ marginTop: "var(--arcd-space-2)" }}>
+              <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color: "var(--arcd-text-secondary)", textTransform: "uppercase", letterSpacing: .6, marginBottom: "var(--arcd-space-1)" }}>Histórico de ajustes</p>
               {ajustes.map(a => {
                 const u = (data.usuarios || []).find(x => x.id === a.userId);
                 return (
-                  <div key={a.id} style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", padding: "7px 0", borderTop: `1px solid ${C.line}` }}>
+                  <div key={a.id} style={{ display: "flex", justifyContent: "space-between", gap: "var(--arcd-space-2)", alignItems: "center", padding: "var(--arcd-space-2) 0", borderTop: `var(--arcd-border-width) solid var(--arcd-border-subtle)` }}>
                     <div style={{ minWidth: 0 }}>
                       <p style={{ fontSize:"var(--arcd-type-label)" }}><b>{u?.nome || "Usuário"}</b> {a.pontos > 0 ? "+" : ""}{a.pontos} pts · {a.motivo}</p>
-                      <p style={{ fontSize:"var(--arcd-type-caption)", color: C.muted, marginTop: 2 }}>{a.criadoPor} · {fmtDateFull(String(a.criadoEm || "").slice(0, 10))}</p>
+                      <p style={{ fontSize:"var(--arcd-type-caption)", color: "var(--arcd-text-secondary)", marginTop: "var(--arcd-space-half)" }}>{a.criadoPor} · {fmtDateFull(String(a.criadoEm || "").slice(0, 10))}</p>
                     </div>
                     <Btn size="sm" v="ghost" iconOnly title="Remover ajuste" ariaLabel="Remover ajuste" onClick={() => removerAjuste(a.id)}><Ic n="trash" s={11} /></Btn>
                   </div>
@@ -13217,10 +13204,10 @@ function Comunicacao({ data, currentUser, showToast }) {
 
       {ajusteModal && (
         <Modal title={`Ajustar ranking · ${ajusteModal.usuario.nome}`} onClose={() => setAjusteModal(null)}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-2)" }}>
             <Inp label="Pontos (use negativo para descontar) *" type="number" value={pontosForm} onChange={setPontosForm} placeholder="Ex.: 10 ou -5" />
             <Inp label="Justificativa *" value={motivoForm} onChange={setMotivoForm} multiline placeholder="Ex.: Entregou o diário atrasado três vezes na semana." />
-            <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "flex", gap: "var(--arcd-space-2)" }}>
               <Btn v="ghost" onClick={() => setAjusteModal(null)} full>Cancelar</Btn>
               <Btn onClick={salvarAjuste} full>Salvar ajuste</Btn>
             </div>
@@ -13422,13 +13409,13 @@ function ChatFlutuante({ currentUser, usuarios, showToast, bottomOffset=20 }) {
       {aberto && (
         <div style={{
           width: "min(360px, calc(100vw - 32px))", height: "min(520px, calc(100dvh - var(--chat-bottom) - 88px))",
-          background: WA.bg, borderRadius: 12, overflow: "hidden", marginBottom: 12,
-          boxShadow: "0 12px 40px rgba(0,0,0,.28)", display: "flex", flexDirection: "column",
-          border: "1px solid rgba(0,0,0,.08)",
+          background: WA.bg, borderRadius: "var(--arcd-box-radius)", overflow: "hidden", marginBottom: "var(--arcd-space-3)",
+          boxShadow: "var(--arcd-shadow-hairline)", display: "flex", flexDirection: "column",
+          border: "var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-border-strong) 8%, transparent)",
         }}>
           {/* Cabeçalho estilo WhatsApp */}
-          <div style={{ background: WA.header, color: "#fff", padding: "11px 12px", display: "flex", alignItems: "center", gap: 9, flexShrink: 0 }}>
-            <div style={{ width: 34, height: 34, borderRadius: "50%", background: "rgba(255,255,255,.18)", display: "grid", placeItems: "center", flexShrink: 0 }}>
+          <div style={{ background: WA.header, color: "var(--arcd-text-inverse)", padding: "var(--arcd-space-3) var(--arcd-space-3)", display: "flex", alignItems: "center", gap: "var(--arcd-space-2)", flexShrink: 0 }}>
+            <div style={{ width: 34, height: 34, borderRadius: "50%", background: "color-mix(in srgb, var(--arcd-surface-elevated) 18%, transparent)", display: "grid", placeItems: "center", flexShrink: 0 }}>
               <IconeChat size={18} />
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -13437,26 +13424,26 @@ function ChatFlutuante({ currentUser, usuarios, showToast, bottomOffset=20 }) {
             </div>
             {ehAdmin && (
               <button onClick={() => setGestaoAberta(v => !v)} title="Gerenciar grupo" aria-label="Gerenciar grupo"
-                style={{ background: "transparent", border: 0, color: "#fff", opacity: .85, cursor: "pointer", padding: 6 }}>
+                style={{ background: "transparent", border: 0, color: "var(--arcd-text-inverse)", opacity: .85, cursor: "pointer", padding: "var(--arcd-space-1)" }}>
                 <Ic n="settings" s={16} />
               </button>
             )}
             <button onClick={() => setAberto(false)} title="Minimizar" aria-label="Minimizar"
-              style={{ background: "transparent", border: 0, color: "#fff", cursor: "pointer", padding: 6 }}>
+              style={{ background: "transparent", border: 0, color: "var(--arcd-text-inverse)", cursor: "pointer", padding: "var(--arcd-space-1)" }}>
               <Ic n="chevron" s={16} />
             </button>
           </div>
 
           {gestaoAberta ? (
-            <div style={{ flex: 1, overflowY: "auto", background: "#fff", padding: 12 }}>
-              <button onClick={() => setGestaoAberta(false)} style={{ background: "transparent", border: 0, color: WA.header, fontSize:"var(--arcd-type-control)", fontWeight:600, cursor: "pointer", marginBottom: 10 }}>← Voltar para a conversa</button>
-              <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color: "#666", textTransform: "uppercase", letterSpacing: .6, marginBottom: 8 }}>Silenciar participantes</p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div style={{ flex: 1, overflowY: "auto", background: "var(--arcd-surface-elevated)", padding: "var(--arcd-space-3)" }}>
+              <button onClick={() => setGestaoAberta(false)} style={{ background: "transparent", border: 0, color: WA.header, fontSize:"var(--arcd-type-control)", fontWeight:600, cursor: "pointer", marginBottom: "var(--arcd-space-2)" }}>← Voltar para a conversa</button>
+              <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color: "var(--arcd-text-secondary)", textTransform: "uppercase", letterSpacing: .6, marginBottom: "var(--arcd-space-2)" }}>Silenciar participantes</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-1)" }}>
                 {(usuarios || []).filter(u => u.active !== false && u.id !== currentUser?.id).map(u => {
                   const mutado = mutados.some(m => m.userId === u.id);
                   return (
-                    <div key={u.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "7px 0", borderTop: "1px solid #eee" }}>
-                      <span style={{ fontSize:"var(--arcd-type-label)", color: "#222" }}>{u.nome}</span>
+                    <div key={u.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--arcd-space-2)", padding: "var(--arcd-space-2) 0", borderTop: "var(--arcd-border-width) solid var(--arcd-border-default)" }}>
+                      <span style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-primary)" }}>{u.nome}</span>
                       <Btn size="sm" v={mutado ? "danger" : "ghost"} onClick={() => alternarMudo(u.id, mutado)}>{mutado ? "Dessilenciar" : "Silenciar"}</Btn>
                     </div>
                   );
@@ -13465,47 +13452,47 @@ function ChatFlutuante({ currentUser, usuarios, showToast, bottomOffset=20 }) {
             </div>
           ) : (
             <>
-              <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6, padding: "10px 10px" }}>
-                {!mensagens.length && <p style={{ fontSize:"var(--arcd-type-label)", color: "#8a8a8a", textAlign: "center", marginTop: 20 }}>Nenhuma mensagem ainda. Comece a conversa.</p>}
+              <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "var(--arcd-space-1)", padding: "var(--arcd-space-2) var(--arcd-space-2)" }}>
+                {!mensagens.length && <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", textAlign: "center", marginTop: "var(--arcd-space-5)" }}>Nenhuma mensagem ainda. Comece a conversa.</p>}
                 {mensagens.map(m => {
                   const minha = m.userId === currentUser?.id;
                   const apagada = !!m.deletedAt;
                   const destacada = mencaoDestacadaId === m.id;
                   return (
-                    <div key={m.id} data-msg-id={m.id} style={{ alignSelf: minha ? "flex-end" : "flex-start", maxWidth: "82%", display: "flex", alignItems: "flex-end", gap: 4 }}>
+                    <div key={m.id} data-msg-id={m.id} style={{ alignSelf: minha ? "flex-end" : "flex-start", maxWidth: "82%", display: "flex", alignItems: "flex-end", gap: "var(--arcd-space-1)" }}>
                       <div className={destacada ? "chat-msg-flash" : ""} style={{
-                        padding: "6px 9px", borderRadius: 8, background: apagada ? "#f2f2f2" : (minha ? WA.bubbleMine : WA.bubbleTheirs),
-                        boxShadow: "0 1px 1px rgba(0,0,0,.12)",
+                        padding: "var(--arcd-space-1) var(--arcd-space-2)", borderRadius: "var(--arcd-box-radius)", background: apagada ? "var(--arcd-surface-subtle)" : (minha ? WA.bubbleMine : WA.bubbleTheirs),
+                        boxShadow: "var(--arcd-shadow-hairline)",
                       }}>
-                        {!minha && !apagada && <p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color: "#1565C0", marginBottom: 1 }}>{m.userName}</p>}
+                        {!minha && !apagada && <p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color: "var(--arcd-info-text)", marginBottom: 1 }}>{m.userName}</p>}
                         {!apagada && m.attachment && (
                           m.attachment.type?.startsWith("image/") ? (
-                            <CompanyAssetLink href={m.attachment.url} target="_blank" rel="noopener noreferrer" style={{ display: "block", marginBottom: m.text ? 6 : 2 }}>
-                              <CompanyAssetImage src={m.attachment.url} alt={m.attachment.name} style={{ maxWidth: "100%", maxHeight: 180, borderRadius: 6, display: "block" }} />
+                            <CompanyAssetLink href={m.attachment.url} target="_blank" rel="noopener noreferrer" style={{ display: "block", marginBottom: m.text ? "var(--arcd-space-1)" : "var(--arcd-space-half)" }}>
+                              <CompanyAssetImage src={m.attachment.url} alt={m.attachment.name} style={{ maxWidth: "100%", maxHeight: 180, borderRadius: "var(--arcd-radius-control)", display: "block" }} />
                             </CompanyAssetLink>
                           ) : (
                             <CompanyAssetLink href={m.attachment.url} target="_blank" rel="noopener noreferrer" style={{
-                              display: "flex", alignItems: "center", gap: 6, padding: "6px 8px", borderRadius: 6,
-                              background: "rgba(0,0,0,.05)", marginBottom: m.text ? 6 : 2, textDecoration: "none",
+                              display: "flex", alignItems: "center", gap: "var(--arcd-space-1)", padding: "var(--arcd-space-1) var(--arcd-space-2)", borderRadius: "var(--arcd-radius-control)",
+                              background: "color-mix(in srgb, var(--arcd-surface-inverse) 5%, transparent)", marginBottom: m.text ? "var(--arcd-space-1)" : "var(--arcd-space-half)", textDecoration: "none",
                             }}>
                               <Ic n="file" s={16} color="#666" />
-                              <span style={{ fontSize:"var(--arcd-type-label)", color: "#222", fontWeight:600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{m.attachment.name}</span>
+                              <span style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-primary)", fontWeight:600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{m.attachment.name}</span>
                               <Ic n="download" s={13} color="#888" />
                             </CompanyAssetLink>
                           )
                         )}
-                        {(m.text || apagada) && <p style={{ fontSize: "var(--arcd-type-body)", color: apagada ? "#999" : "#111", fontStyle: apagada ? "italic" : "normal", lineHeight: 1.35, wordBreak: "break-word" }}>
+                        {(m.text || apagada) && <p style={{ fontSize: "var(--arcd-type-body)", color: apagada ? "var(--arcd-text-secondary)" : "var(--arcd-text-primary)", fontStyle: apagada ? "italic" : "normal", lineHeight: 1.35, wordBreak: "break-word" }}>
                           {apagada ? "Mensagem apagada pelo administrador" : splitMentionText(m.text, m.mentions).map((part, index) => part.mentioned
-                            ? <b key={index} style={{ color: WA.header, background: WA.mentionBg, borderRadius:4, padding:"0 3px" }}>{part.text}</b>
+                            ? <b key={index} style={{ color: WA.header, background: WA.mentionBg, borderRadius:"var(--arcd-radius-control)", padding:"0 var(--arcd-space-half)" }}>{part.text}</b>
                             : <span key={index}>{part.text}</span>)}
                         </p>}
-                        <p style={{ fontSize:"var(--arcd-type-caption)", color: "#8a8a8a", textAlign: "right", marginTop: 2 }}>
+                        <p style={{ fontSize:"var(--arcd-type-caption)", color: "var(--arcd-text-secondary)", textAlign: "right", marginTop: "var(--arcd-space-half)" }}>
                           {new Date(m.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                         </p>
                       </div>
                       {ehAdmin && !apagada && (
                         <button onClick={() => apagar(m.id)} title="Apagar mensagem" aria-label="Apagar mensagem"
-                          style={{ background: "transparent", border: 0, color: "#b0453d", cursor: "pointer", padding: 3, flexShrink: 0 }}>
+                          style={{ background: "transparent", border: 0, color: "var(--arcd-danger-text)", cursor: "pointer", padding: "var(--arcd-space-half)", flexShrink: 0 }}>
                           <Ic n="trash" s={10} />
                         </button>
                       )}
@@ -13513,48 +13500,48 @@ function ChatFlutuante({ currentUser, usuarios, showToast, bottomOffset=20 }) {
                   );
                 })}
               </div>
-              <div style={{ padding: 8, background: "#F0F0F0", flexShrink: 0, position: "relative" }}>
+              <div style={{ padding: "var(--arcd-space-2)", background: "var(--arcd-surface-subtle)", flexShrink: 0, position: "relative" }}>
                 {sugestoesMencao.length > 0 && (
                   <div style={{
-                    position: "absolute", left: 8, right: 8, bottom: "100%", marginBottom: 6, background: "#fff",
-                    borderRadius: 8, boxShadow: "0 4px 16px rgba(0,0,0,.18)", border: "1px solid #ddd", overflow: "hidden", zIndex: 2,
+                    position: "absolute", left: 8, right: 8, bottom: "100%", marginBottom: "var(--arcd-space-1)", background: "var(--arcd-surface-elevated)",
+                    borderRadius: "var(--arcd-box-radius)", boxShadow: "var(--arcd-shadow-hairline)", border: "var(--arcd-border-width) solid var(--arcd-border-default)", overflow: "hidden", zIndex: 2,
                   }}>
                     {sugestoesMencao.map(u => (
                       <button key={u.id} onClick={() => escolherMencao(u)} style={{
-                        display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 10px",
+                        display: "flex", alignItems: "center", gap: "var(--arcd-space-2)", width: "100%", padding: "var(--arcd-space-2) var(--arcd-space-2)",
                         border: 0, background: "transparent", cursor: "pointer", textAlign: "left",
                       }}>
                         <span style={{
-                          width: 24, height: 24, borderRadius: "50%", background: WA.header, color: "#fff",
+                          width: 24, height: 24, borderRadius: "50%", background: WA.header, color: "var(--arcd-text-inverse)",
                           fontSize:"var(--arcd-type-label)", fontWeight:600, display: "grid", placeItems: "center", flexShrink: 0,
                         }}>{(u.nome || "?").slice(0, 1).toUpperCase()}</span>
-                        <span style={{ fontSize: "var(--arcd-type-body)", color: "#222", fontWeight:600 }}>{u.nome}</span>
+                        <span style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-primary)", fontWeight:600 }}>{u.nome}</span>
                       </button>
                     ))}
                   </div>
                 )}
                 {anexoPendente && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 7, padding: "6px 8px", background: "#fff", borderRadius: 8, border: "1px solid #ddd" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "var(--arcd-space-2)", marginBottom: "var(--arcd-space-2)", padding: "var(--arcd-space-1) var(--arcd-space-2)", background: "var(--arcd-surface-elevated)", borderRadius: "var(--arcd-box-radius)", border: "var(--arcd-border-width) solid var(--arcd-border-default)" }}>
                     {anexoPendente.type?.startsWith("image/")
-                      ? <img src={anexoPendente.url} alt="" style={{ width: 32, height: 32, objectFit: "cover", borderRadius: 4 }} />
+                      ? <img src={anexoPendente.url} alt="" style={{ width: 32, height: 32, objectFit: "cover", borderRadius: "var(--arcd-radius-control)" }} />
                       : <Ic n="file" s={16} color="#666" />}
-                    <span style={{ fontSize:"var(--arcd-type-label)", color: "#222", fontWeight:600, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{anexoPendente.name}</span>
+                    <span style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-primary)", fontWeight:600, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{anexoPendente.name}</span>
                     <button onClick={() => setAnexoPendente(null)} title="Remover anexo" aria-label="Remover anexo"
-                      style={{ background: "transparent", border: 0, color: "#999", cursor: "pointer", padding: 3 }}>
+                      style={{ background: "transparent", border: 0, color: "var(--arcd-text-secondary)", cursor: "pointer", padding: "var(--arcd-space-half)" }}>
                       <Ic n="x" s={13} />
                     </button>
                   </div>
                 )}
-                <div style={{ display: "flex", gap: 7 }}>
+                <div style={{ display: "flex", gap: "var(--arcd-space-2)" }}>
                   <input ref={fileInputRef} type="file" onChange={escolherArquivo} style={{ display: "none" }}
                     accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,audio/*" />
                   <button onClick={() => fileInputRef.current?.click()} disabled={euEstouMutado || subindoAnexo}
                     title="Anexar arquivo" aria-label="Anexar arquivo" style={{
-                      width: 36, height: 36, borderRadius: "50%", border: 0, flexShrink: 0, background: "#fff", color: "#555",
+                      width: 36, height: 36, borderRadius: "50%", border: 0, flexShrink: 0, background: "var(--arcd-surface-elevated)", color: "var(--arcd-text-secondary)",
                       display: "grid", placeItems: "center", cursor: euEstouMutado ? "default" : "pointer", opacity: subindoAnexo ? .6 : 1,
                     }}>
                     {subindoAnexo
-                      ? <div style={{ width: 14, height: 14, border: "2px solid #ccc", borderTopColor: WA.header, borderRadius: 99, animation: "spin 1s linear infinite" }} />
+                      ? <div style={{ width: 14, height: 14, border: "2px solid var(--arcd-border-default)", borderTopColor: WA.header, borderRadius: "var(--arcd-radius-pill)", animation: "spin 1s linear infinite" }} />
                       : <Ic n="attach" s={16} />}
                   </button>
                   <input ref={inputRef} value={texto} onChange={e => aoDigitar(e.target.value)} disabled={euEstouMutado || enviando}
@@ -13563,11 +13550,11 @@ function ChatFlutuante({ currentUser, usuarios, showToast, bottomOffset=20 }) {
                       if (e.key === "Escape") setMencaoQuery(null);
                     }}
                     placeholder={euEstouMutado ? "Você foi silenciado" : "Mensagem · use @ para marcar alguém"}
-                    style={{ flex: 1, height: 36, border: "1px solid #ddd", borderRadius: 20, background: "#fff", color: "#111", padding: "0 13px", fontSize: "var(--arcd-type-control)", outline: "none" }} />
+                    style={{ flex: 1, height: 36, border: "var(--arcd-border-width) solid var(--arcd-border-default)", borderRadius: "var(--arcd-box-radius)", background: "var(--arcd-surface-elevated)", color: "var(--arcd-text-primary)", padding: "0 var(--arcd-space-3)", fontSize: "var(--arcd-type-control)", outline: "none" }} />
                   <button onClick={enviar} disabled={euEstouMutado || enviando || (!texto.trim() && !anexoPendente)} title="Enviar" aria-label="Enviar"
                     style={{
                       width: 36, height: 36, borderRadius: "50%", border: 0, flexShrink: 0,
-                      background: (euEstouMutado || (!texto.trim() && !anexoPendente)) ? "#b8e3c9" : WA.green, color: "#fff",
+                      background: (euEstouMutado || (!texto.trim() && !anexoPendente)) ? "var(--arcd-success-surface)" : WA.green, color: "var(--arcd-text-inverse)",
                       display: "grid", placeItems: "center", cursor: (euEstouMutado || (!texto.trim() && !anexoPendente)) ? "default" : "pointer",
                     }}>
                     <Ic n="chevR" s={15} />
@@ -13626,36 +13613,36 @@ function BuscaGlobal({ indice, allowedTabs, onIr, onFechar }) {
 
   return (
     <div onClick={onFechar} style={{
-      position:"fixed", inset:0, zIndex:9999, background:"rgba(18,18,18,.45)",
+      position:"fixed", inset:0, zIndex:9999, background:"color-mix(in srgb, var(--arcd-surface-inverse) 45%, transparent)",
       display:"flex", alignItems:"flex-start", justifyContent:"center", padding:"12vh 16px 16px" }}>
       <div onClick={e=>e.stopPropagation()} style={{
-        width:"100%", maxWidth:560, background:C.card, border:`1px solid ${C.border}`,
-        borderRadius:12, boxShadow:"0 24px 60px rgba(0,0,0,.35)", overflow:"hidden" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:9, padding:"12px 14px", borderBottom:`1px solid ${C.line}` }}>
+        width:"100%", maxWidth:560, background:"var(--arcd-surface-card)", border:`var(--arcd-border-width) solid var(--arcd-border-default)`,
+        borderRadius:"var(--arcd-box-radius)", boxShadow:"var(--arcd-shadow-hairline)", overflow:"hidden" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:"var(--arcd-space-2)", padding:"var(--arcd-space-3) var(--arcd-space-3)", borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)` }}>
           <Ic n="funnel" s={16} color={C.muted}/>
           <input ref={inputRef} value={q} onChange={e=>setQ(e.target.value)} onKeyDown={onKey}
             placeholder="Buscar obra, lead, pedido, funcionário, tela..."
-            style={{ flex:1, border:0, outline:"none", background:"transparent", fontSize:"var(--arcd-type-control)", color:C.text }}/>
-          <span style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color:C.muted, border:`1px solid ${C.border}`, borderRadius:5, padding:"2px 6px" }}>ESC</span>
+            style={{ flex:1, border:0, outline:"none", background:"transparent", fontSize:"var(--arcd-type-control)", color:"var(--arcd-text-primary)" }}/>
+          <span style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color:"var(--arcd-text-secondary)", border:`var(--arcd-border-width) solid var(--arcd-border-default)`, borderRadius:"var(--arcd-radius-control)", padding:"var(--arcd-space-half) var(--arcd-space-1)" }}>ESC</span>
         </div>
         <div style={{ maxHeight:"48vh", overflowY:"auto" }}>
-          {!termo && <p style={{ padding:"18px 16px", fontSize:"var(--arcd-type-body)", color:C.muted, textAlign:"center" }}>Digite para buscar em todo o sistema.</p>}
-          {termo && resultados.length===0 && <p style={{ padding:"18px 16px", fontSize:"var(--arcd-type-body)", color:C.muted, textAlign:"center" }}>Nada encontrado para "{q}".</p>}
+          {!termo && <p style={{ padding:"var(--arcd-space-4) var(--arcd-space-4)", fontSize:"var(--arcd-type-body)", color:"var(--arcd-text-secondary)", textAlign:"center" }}>Digite para buscar em todo o sistema.</p>}
+          {termo && resultados.length===0 && <p style={{ padding:"var(--arcd-space-4) var(--arcd-space-4)", fontSize:"var(--arcd-type-body)", color:"var(--arcd-text-secondary)", textAlign:"center" }}>Nada encontrado para "{q}".</p>}
           {resultados.map((r,i) => (
             <button key={i} onClick={()=>escolher(r)} onMouseEnter={()=>setSel(i)} style={{
-              display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left",
+              display:"flex", alignItems:"center", gap:"var(--arcd-space-2)", width:"100%", textAlign:"left",
               background: i===sel ? `${C.yellow}12` : "transparent", border:0,
-              borderLeft:`1px solid ${i===sel ? C.yellow : "transparent"}`,
-              padding:"9px 14px", cursor:"pointer" }}>
-              <span style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color:corTipo(r.tipo), background:`${corTipo(r.tipo)}14`, padding:"2px 7px", borderRadius:99, flexShrink:0, textTransform:"uppercase", minWidth:78, textAlign:"center" }}>{r.tipo}</span>
+              borderLeft:`var(--arcd-border-width) solid ${i===sel ? C.yellow : "transparent"}`,
+              padding:"var(--arcd-space-2) var(--arcd-space-3)", cursor:"pointer" }}>
+              <span style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color:corTipo(r.tipo), background:`${corTipo(r.tipo)}14`, padding:"var(--arcd-space-half) var(--arcd-space-2)", borderRadius:"var(--arcd-radius-pill)", flexShrink:0, textTransform:"uppercase", minWidth:78, textAlign:"center" }}>{r.tipo}</span>
               <span style={{ minWidth:0, flex:1 }}>
-                <span style={{ fontSize:"var(--arcd-type-body)", fontWeight:600, color:C.text, display:"block", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{r.rotulo}</span>
-                {r.sub && <span style={{ fontSize:"var(--arcd-type-label)", color:C.muted, display:"block", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{r.sub}</span>}
+                <span style={{ fontSize:"var(--arcd-type-body)", fontWeight:600, color:"var(--arcd-text-primary)", display:"block", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{r.rotulo}</span>
+                {r.sub && <span style={{ fontSize:"var(--arcd-type-label)", color:"var(--arcd-text-secondary)", display:"block", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{r.sub}</span>}
               </span>
             </button>
           ))}
         </div>
-        <div style={{ display:"flex", justifyContent:"space-between", padding:"7px 14px", borderTop:`1px solid ${C.line}`, fontSize:"var(--arcd-type-caption)", color:C.muted }}>
+        <div style={{ display:"flex", justifyContent:"space-between", padding:"var(--arcd-space-2) var(--arcd-space-3)", borderTop:`var(--arcd-border-width) solid var(--arcd-border-subtle)`, fontSize:"var(--arcd-type-caption)", color:"var(--arcd-text-secondary)" }}>
           <span>↑↓ navegar · Enter abrir</span>
           <span>{contar(resultados.length,"resultado","resultados")}</span>
         </div>
@@ -13667,17 +13654,17 @@ function BuscaGlobal({ indice, allowedTabs, onIr, onFechar }) {
 function PortalClientePublico({ obraId, token }) {
   const [estado,setEstado]=useState({loading:true,portal:null,error:""});
   useEffect(()=>{let ativo=true;(async()=>{try{const resp=await fetch("/api/data",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"client-portal",companyId:activeCompany(),obraId,token})});const json=await resp.json();if(!resp.ok)throw new Error(json.error||"Portal indisponível.");if(ativo)setEstado({loading:false,portal:json.portal,error:""});}catch(e){if(ativo)setEstado({loading:false,portal:null,error:e.message});}})();return()=>{ativo=false};},[obraId,token]);
-  if(estado.loading)return <><style>{G}</style><div style={{minHeight:"100vh",display:"grid",placeItems:"center",background:C.bg,color:C.muted}}>Carregando portal da obra...</div></>;
-  if(estado.error)return <><style>{G}</style><div style={{minHeight:"100vh",display:"grid",placeItems:"center",background:C.bg,padding:24}}><div style={{maxWidth:460,textAlign:"center",background:C.card,border:`1px solid ${C.border}`,borderRadius:16,padding:26}}><BrandMark/><h1 style={{fontSize:"var(--arcd-type-section-title)",color:C.text,marginTop:18}}>Este link não está disponível</h1><p style={{fontSize:"var(--arcd-type-body)",color:C.muted,marginTop:8,lineHeight:1.6}}>{estado.error}<br/>Solicite um novo acesso à construtora.</p></div></div></>;
+  if(estado.loading)return <><style>{G}</style><div style={{minHeight:"100vh",display:"grid",placeItems:"center",background:"var(--arcd-surface-page)",color:"var(--arcd-text-secondary)"}}>Carregando portal da obra...</div></>;
+  if(estado.error)return <><style>{G}</style><div style={{minHeight:"100vh",display:"grid",placeItems:"center",background:"var(--arcd-surface-page)",padding:"var(--arcd-space-6)"}}><div style={{maxWidth:460,textAlign:"center",background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-6)"}}><BrandMark/><h1 style={{fontSize:"var(--arcd-type-section-title)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-4)"}}>Este link não está disponível</h1><p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-2)",lineHeight:1.6}}>{estado.error}<br/>Solicite um novo acesso à construtora.</p></div></div></>;
   const p=estado.portal,o=p.obra,concluidas=(p.cronograma||[]).filter(t=>t.progresso>=100).length;
-  return <><style>{G}</style><div style={{minHeight:"100vh",background:C.bg,color:C.text}}><header style={{background:"#101828",color:"white",padding:"16px clamp(16px,5vw,56px)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:12}}><BrandMark/><span style={{fontSize:"var(--arcd-type-label)",opacity:.72}}>ACOMPANHAMENTO SEGURO · SOMENTE LEITURA</span></header><main style={{maxWidth:1120,margin:"0 auto",padding:"24px clamp(14px,4vw,34px) 50px"}}>
-    <section style={{minHeight:230,borderRadius:20,overflow:"hidden",padding:"clamp(22px,5vw,48px)",display:"flex",alignItems:"flex-end",background:o.capaUrl?`linear-gradient(90deg,rgba(8,15,28,.92),rgba(8,15,28,.35)),url(${o.capaUrl}) center/cover`:`linear-gradient(135deg,#101828,#194b72)`,color:"white",boxShadow:`0 18px 45px ${C.shadow}`}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,letterSpacing:1,textTransform:"uppercase",color:"#f3c531"}}>Sua obra</p><h1 style={{fontSize:"clamp(30px,6vw,52px)",lineHeight:1,marginTop:7}}>{o.nome}</h1><p style={{fontSize:"var(--arcd-type-body)",opacity:.82,marginTop:10}}>{[o.endereco,o.engenheiro&&`Responsável técnico: ${o.engenheiro}`].filter(Boolean).join(" · ")}</p></div></section>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:10,marginTop:14}}>{[["Avanço físico",`${p.progresso}%`,C.blue],["Etapas concluídas",`${concluidas}/${p.cronograma.length}`,C.green],["Últimos diários",p.diarios.length,C.orange],["Fotos publicadas",p.fotos.length,C.purple]].map(([l,v,c])=><div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:13,padding:16}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:"var(--arcd-type-kpi)",fontWeight:600,color:c,marginTop:5}}>{v}</p></div>)}</div>
-    <section style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18,marginTop:14}}><h2 style={{fontSize:"var(--arcd-type-card-title)"}}>Panorama da obra</h2><p style={{fontSize:"var(--arcd-type-body)",color:C.muted,lineHeight:1.65,marginTop:7}}>{p.mensagem}</p><div style={{height:8,borderRadius:99,background:C.line,overflow:"hidden",marginTop:14}}><div style={{height:"100%",width:`${p.progresso}%`,background:`linear-gradient(90deg,${C.blue},${C.green})`}}/></div><div style={{display:"flex",justifyContent:"space-between",fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:5}}><span>Início {fmtDateFull(o.inicio)}</span><span>Previsão {fmtDateFull(o.terminoPrevisto)}</span></div></section>
-    {!!p.fotos.length&&<section style={{marginTop:22}}><h2 style={{fontSize:"var(--arcd-type-section-title)",marginBottom:10}}>Registro fotográfico</h2><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:9}}>{p.fotos.map((f,i)=><figure key={`${f.url}-${i}`} style={{margin:0,background:C.card,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden"}}><CompanyAssetImage src={f.url} alt={f.legenda||"Evolução da obra"} style={{width:"100%",aspectRatio:"1",objectFit:"cover",display:"block"}}/><figcaption style={{padding:9,fontSize:"var(--arcd-type-label)",color:C.muted}}>{f.legenda||`RDO-${String(f.rdoCodigo||0).padStart(3,"0")}`} · {fmtDateFull(f.data)}</figcaption></figure>)}</div></section>}
-    {!!p.cronograma.length&&<section style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18,marginTop:22}}><h2 style={{fontSize:"var(--arcd-type-card-title)"}}>Cronograma resumido</h2>{p.cronograma.map(t=><div key={t.id} style={{padding:"10px 0",borderTop:`1px solid ${C.line}`}}><div style={{display:"flex",justifyContent:"space-between",gap:10,fontSize:"var(--arcd-type-label)"}}><b>{t.nome}</b><span style={{fontWeight:600,color:t.progresso>=100?C.green:C.blue}}>{t.progresso}%</span></div><div style={{height:5,borderRadius:99,background:C.line,marginTop:6}}><div style={{height:"100%",width:`${t.progresso}%`,borderRadius:99,background:t.progresso>=100?C.green:C.blue}}/></div></div>)}</section>}
-    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:14,marginTop:22}}>{!!p.documentos.length&&<section style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}><h2 style={{fontSize:"var(--arcd-type-card-title)"}}>Documentos liberados</h2>{p.documentos.map(d=><CompanyAssetLink key={d.id} href={d.url} target="_blank" rel="noreferrer" style={{display:"flex",gap:8,padding:"10px 0",borderTop:`1px solid ${C.line}`,color:C.blue,fontSize:"var(--arcd-type-label)",textDecoration:"none"}}><Ic n="file"/> {d.nome} ↗</CompanyAssetLink>)}</section>}{!!p.medicoes.length&&<section style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18}}><h2 style={{fontSize:"var(--arcd-type-card-title)"}}>Medições e pagamentos</h2>{p.medicoes.map(m=><div key={m.id} style={{display:"flex",justifyContent:"space-between",gap:10,padding:"10px 0",borderTop:`1px solid ${C.line}`,fontSize:"var(--arcd-type-label)"}}><span>{m.descricao}<small style={{display:"block",color:C.muted}}>{m.recebido?"Recebido":"Em aberto"}</small></span><b style={{color:m.recebido?C.green:C.orange}}>{fmt(m.recebido?m.valorRecebido:m.valorPrevisto)}</b></div>)}</section>}</div>
-    {!!p.atualizacoes.length&&<section style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:18,marginTop:22}}><h2 style={{fontSize:"var(--arcd-type-card-title)"}}>Atualizações recentes</h2>{p.atualizacoes.slice(0,8).map(a=><div key={a.id} style={{padding:"10px 0",borderTop:`1px solid ${C.line}`}}><p style={{fontSize:"var(--arcd-type-label)"}}>{a.mensagem}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>{a.responsavel} · {a.at?new Date(a.at).toLocaleString("pt-BR"):""}</p></div>)}</section>}
+  return <><style>{G}</style><div style={{minHeight:"100vh",background:"var(--arcd-surface-page)",color:"var(--arcd-text-primary)"}}><header style={{background:"var(--arcd-surface-inverse)",color:"var(--arcd-text-inverse)",padding:"16px clamp(16px,5vw,56px)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-3)"}}><BrandMark/><span style={{fontSize:"var(--arcd-type-label)",opacity:.72}}>ACOMPANHAMENTO SEGURO · SOMENTE LEITURA</span></header><main style={{maxWidth:1120,margin:"0 auto",padding:"24px clamp(14px,4vw,34px) 50px"}}>
+    <section style={{minHeight:230,borderRadius:"var(--arcd-box-radius)",overflow:"hidden",padding:"clamp(22px,5vw,48px)",display:"flex",alignItems:"flex-end",background:o.capaUrl?`linear-gradient(90deg,rgba(8,15,28,.92),rgba(8,15,28,.35)),url(${o.capaUrl}) center/cover`:"linear-gradient(135deg,var(--arcd-surface-inverse),var(--arcd-info-surface))",color:"var(--arcd-text-inverse)",boxShadow:`0 18px 45px ${C.shadow}`}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,letterSpacing:1,textTransform:"uppercase",color:"var(--arcd-warning-text)"}}>Sua obra</p><h1 style={{fontSize:"clamp(30px,6vw,52px)",lineHeight:1,marginTop:"var(--arcd-space-2)"}}>{o.nome}</h1><p style={{fontSize:"var(--arcd-type-body)",opacity:.82,marginTop:"var(--arcd-space-2)"}}>{[o.endereco,o.engenheiro&&`Responsável técnico: ${o.engenheiro}`].filter(Boolean).join(" · ")}</p></div></section>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-3)"}}>{[["Avanço físico",`${p.progresso}%`,C.blue],["Etapas concluídas",`${concluidas}/${p.cronograma.length}`,C.green],["Últimos diários",p.diarios.length,C.orange],["Fotos publicadas",p.fotos.length,C.purple]].map(([l,v,c])=><div key={l} style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-4)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>{l}</p><p style={{fontSize:"var(--arcd-type-kpi)",fontWeight:600,color:c,marginTop:"var(--arcd-space-1)"}}>{v}</p></div>)}</div>
+    <section style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-4)",marginTop:"var(--arcd-space-3)"}}><h2 style={{fontSize:"var(--arcd-type-card-title)"}}>Panorama da obra</h2><p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)",lineHeight:1.65,marginTop:"var(--arcd-space-2)"}}>{p.mensagem}</p><div style={{height:8,borderRadius:"var(--arcd-radius-pill)",background:"var(--arcd-border-subtle)",overflow:"hidden",marginTop:"var(--arcd-space-3)"}}><div style={{height:"100%",width:`${p.progresso}%`,background:`linear-gradient(90deg,${C.blue},${C.green})`}}/></div><div style={{display:"flex",justifyContent:"space-between",fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}><span>Início {fmtDateFull(o.inicio)}</span><span>Previsão {fmtDateFull(o.terminoPrevisto)}</span></div></section>
+    {!!p.fotos.length&&<section style={{marginTop:"var(--arcd-space-5)"}}><h2 style={{fontSize:"var(--arcd-type-section-title)",marginBottom:"var(--arcd-space-2)"}}>Registro fotográfico</h2><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:"var(--arcd-space-2)"}}>{p.fotos.map((f,i)=><figure key={`${f.url}-${i}`} style={{margin:0,background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",overflow:"hidden"}}><CompanyAssetImage src={f.url} alt={f.legenda||"Evolução da obra"} style={{width:"100%",aspectRatio:"1",objectFit:"cover",display:"block"}}/><figcaption style={{padding:"var(--arcd-space-2)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>{f.legenda||`RDO-${String(f.rdoCodigo||0).padStart(3,"0")}`} · {fmtDateFull(f.data)}</figcaption></figure>)}</div></section>}
+    {!!p.cronograma.length&&<section style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-4)",marginTop:"var(--arcd-space-5)"}}><h2 style={{fontSize:"var(--arcd-type-card-title)"}}>Cronograma resumido</h2>{p.cronograma.map(t=><div key={t.id} style={{padding:"var(--arcd-space-2) 0",borderTop:`var(--arcd-border-width) solid var(--arcd-border-subtle)`}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",fontSize:"var(--arcd-type-label)"}}><b>{t.nome}</b><span style={{fontWeight:600,color:t.progresso>=100?C.green:C.blue}}>{t.progresso}%</span></div><div style={{height:5,borderRadius:"var(--arcd-radius-pill)",background:"var(--arcd-border-subtle)",marginTop:"var(--arcd-space-1)"}}><div style={{height:"100%",width:`${t.progresso}%`,borderRadius:"var(--arcd-radius-pill)",background:t.progresso>=100?C.green:C.blue}}/></div></div>)}</section>}
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:"var(--arcd-space-3)",marginTop:"var(--arcd-space-5)"}}>{!!p.documentos.length&&<section style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-4)"}}><h2 style={{fontSize:"var(--arcd-type-card-title)"}}>Documentos liberados</h2>{p.documentos.map(d=><CompanyAssetLink key={d.id} href={d.url} target="_blank" rel="noreferrer" style={{display:"flex",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) 0",borderTop:`var(--arcd-border-width) solid var(--arcd-border-subtle)`,color:C.blue,fontSize:"var(--arcd-type-label)",textDecoration:"none"}}><Ic n="file"/> {d.nome} ↗</CompanyAssetLink>)}</section>}{!!p.medicoes.length&&<section style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-4)"}}><h2 style={{fontSize:"var(--arcd-type-card-title)"}}>Medições e pagamentos</h2>{p.medicoes.map(m=><div key={m.id} style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) 0",borderTop:`var(--arcd-border-width) solid var(--arcd-border-subtle)`,fontSize:"var(--arcd-type-label)"}}><span>{m.descricao}<small style={{display:"block",color:"var(--arcd-text-secondary)"}}>{m.recebido?"Recebido":"Em aberto"}</small></span><b style={{color:m.recebido?C.green:C.orange}}>{fmt(m.recebido?m.valorRecebido:m.valorPrevisto)}</b></div>)}</section>}</div>
+    {!!p.atualizacoes.length&&<section style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-4)",marginTop:"var(--arcd-space-5)"}}><h2 style={{fontSize:"var(--arcd-type-card-title)"}}>Atualizações recentes</h2>{p.atualizacoes.slice(0,8).map(a=><div key={a.id} style={{padding:"var(--arcd-space-2) 0",borderTop:`var(--arcd-border-width) solid var(--arcd-border-subtle)`}}><p style={{fontSize:"var(--arcd-type-label)"}}>{a.mensagem}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{a.responsavel} · {a.at?new Date(a.at).toLocaleString("pt-BR"):""}</p></div>)}</section>}
   </main></div></>;
 }
 
@@ -14584,9 +14571,9 @@ function CompanyApp({onCompanyChanged}) {
     return (
       <>
         <style>{G}</style>
-        <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:C.bg }}>
+        <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:"var(--arcd-surface-page)" }}>
           <div style={{ textAlign:"center" }}>
-            <div style={{ width:44, height:44, border:`4px solid ${C.border}`, borderTopColor:C.yellow, borderRadius:"50%", animation:"spin 1s linear infinite", margin:"0 auto 14px" }}/>
+            <div style={{ width:44, height:44, border:`4px solid var(--arcd-border-default)`, borderTopColor:C.yellow, borderRadius:"50%", animation:"spin 1s linear infinite", margin:"0 auto var(--arcd-space-3)" }}/>
             <BrandMark/>
             <LoadingState label="operação"/>
           </div>
@@ -14626,8 +14613,8 @@ function CompanyApp({onCompanyChanged}) {
     <SaveRecoveryContext.Provider value={{visible:recoveryAvailable&&!recoveryOpen&&![SAVE_QUEUE_STATE.SAVING,SAVE_QUEUE_STATE.RETRY_SCHEDULED].includes(estadoSalvar),open:()=>setRecoveryOpen(true),revision:recoveryRevision,automaticSaveReady:recoveryReady&&!recoveryAvailable&&!recoveryOpen&&!memoryEditCount&&estadoSalvar===SAVE_QUEUE_STATE.IDLE}}>
       <style>{G}</style>
       <div className="arcd-app-shell" data-tab={tab} style={{
-        minHeight:"100vh", background:"transparent", color:C.text,
-        paddingBottom: isDesktop ? 8 : `calc(${navHeight + 8}px + env(safe-area-inset-bottom))`,
+        minHeight:"100vh", background:"transparent", color:"var(--arcd-text-primary)",
+        paddingBottom: isDesktop ? "var(--arcd-space-2)" : `calc(${navHeight + 8}px + env(safe-area-inset-bottom))`,
         paddingLeft: isDesktop ? SIDEBAR_W : 0,   // abre espaço p/ a sidebar
         transition: sidebarResizing ? "none" : "padding-left .18s ease",
       }}>
@@ -14636,16 +14623,16 @@ function CompanyApp({onCompanyChanged}) {
         {isDesktop && (
           <aside id="menu-lateral" className="no-print arcd-sidebar" data-resizing={sidebarResizing || undefined} style={{
             position:"fixed", top:0, left:0, bottom:0, width:SIDEBAR_W, zIndex:90,
-            background:C.bg, borderRight:`1px solid ${C.border}`,
+            background:"var(--arcd-surface-page)", borderRight:`var(--arcd-border-width) solid var(--arcd-border-default)`,
             display:"flex", flexDirection:"column",
             boxShadow:"none",
             transition:sidebarResizing ? "none" : "width .18s ease",
           }}>
             {/* Marca */}
             <div style={{
-              minHeight:64, padding:sidebarCompacta ? "12px 9px" : "13px 10px 12px 16px",
-              borderBottom:`1px solid ${C.line}`, display:"flex", alignItems:"center",
-              justifyContent:"space-between", gap:8,
+              minHeight:64, padding:sidebarCompacta ? "var(--arcd-space-3) var(--arcd-space-2)" : "var(--arcd-space-3) var(--arcd-space-2) var(--arcd-space-3) var(--arcd-space-4)",
+              borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`, display:"flex", alignItems:"center",
+              justifyContent:"space-between", gap:"var(--arcd-space-2)",
             }}>
               {sidebarCompacta
                 ? <div style={{ width:30, height:30, borderRadius:C.rMd, display:"grid", placeItems:"center", background:C.yellowDim }}>
@@ -14658,29 +14645,29 @@ function CompanyApp({onCompanyChanged}) {
                 aria-label={sidebarCompacta ? "Expandir menu lateral" : "Minimizar menu lateral"}
                 style={{
                   width:30, height:30, flexShrink:0, borderRadius:C.rMd, cursor:"pointer",
-                  border:`1px solid ${C.border}`, background:C.surface, color:C.muted,
+                  border:`var(--arcd-border-width) solid var(--arcd-border-default)`, background:"var(--arcd-surface-card)", color:"var(--arcd-text-secondary)",
                   display:"grid", placeItems:"center", fontSize:"var(--arcd-type-control)", lineHeight:1,
                 }}
               >{sidebarCompacta ? "›" : "‹"}</button>
             </div>
 
             {/* Busca global: atalho visível para o Ctrl/Cmd+K. */}
-            <div style={{ padding:"10px 10px 4px" }}>
+            <div style={{ padding:"var(--arcd-space-2) var(--arcd-space-2) var(--arcd-space-1)" }}>
               <button onClick={()=>setBuscaAberta(true)} style={{
-                display:"flex", alignItems:"center", justifyContent:sidebarCompacta ? "center" : "flex-start", gap:8, width:"100%",
-                background:C.surface, border:`1px solid ${C.border}`, borderRadius:C.rMd,
-                padding:sidebarCompacta ? "8px" : "8px 10px", cursor:"pointer", color:C.muted }}
+                display:"flex", alignItems:"center", justifyContent:sidebarCompacta ? "center" : "flex-start", gap:"var(--arcd-space-2)", width:"100%",
+                background:"var(--arcd-surface-card)", border:`var(--arcd-border-width) solid var(--arcd-border-default)`, borderRadius:C.rMd,
+                padding:sidebarCompacta ? "var(--arcd-space-2)" : "var(--arcd-space-2) var(--arcd-space-2)", cursor:"pointer", color:"var(--arcd-text-secondary)" }}
                 title={sidebarCompacta ? "Buscar (Ctrl + K)" : undefined}
                 aria-label={sidebarCompacta?"Buscar no sistema":undefined}>
                 <Ic n="search" s={14} color={C.muted}/>
                 {!sidebarCompacta && <span style={{ fontSize:"var(--arcd-type-body)", flex:1, textAlign:"left" }}>Buscar no sistema</span>}
-                {!sidebarCompacta && <span aria-hidden="true" style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, border:`1px solid ${C.border}`, borderRadius:4, padding:"1px 5px" }}>⌘K</span>}
+                {!sidebarCompacta && <span aria-hidden="true" style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, border:`var(--arcd-border-width) solid var(--arcd-border-default)`, borderRadius:"var(--arcd-radius-control)", padding:"1px var(--arcd-space-1)" }}>⌘K</span>}
               </button>
             </div>
             {/* Navegação: grupos colapsáveis. Clique no cabeçalho abre/fecha;
                 o grupo da aba atual já começa aberto. O trilho na cor do grupo
                 dá o senso de nível - filho pende do pai. */}
-            <nav style={{ flex:1, overflowY:"auto", padding:"10px 8px" }}>
+            <nav style={{ flex:1, overflowY:"auto", padding:"var(--arcd-space-2) var(--arcd-space-2)" }}>
               {visibleGroups.map(group => {
                 const aberto = !!gruposAbertos[group.id];
                 const badge = groupBadge[group.id];
@@ -14697,10 +14684,10 @@ function CompanyApp({onCompanyChanged}) {
                       setSidebarCompacta(false);
                     }}
                     style={{
-                      width:"100%", height:42, marginBottom:4, borderRadius:9, cursor:"pointer",
-                      border:contémAtiva ? `1px solid ${group.color}55` : "1px solid transparent",
+                      width:"100%", height:42, marginBottom:"var(--arcd-space-1)", borderRadius:"var(--arcd-box-radius)", cursor:"pointer",
+                      border:contémAtiva ? `var(--arcd-border-width) solid ${group.color}55` : "var(--arcd-border-width) solid transparent",
                       background:contémAtiva ? `${group.color}18` : "transparent",
-                      color:contémAtiva ? group.color : C.muted,
+                      color:contémAtiva ? group.color : "var(--arcd-text-secondary)",
                       display:"grid", placeItems:"center", position:"relative",
                     }}
                   >
@@ -14720,7 +14707,7 @@ function CompanyApp({onCompanyChanged}) {
                 };
 
                 return (
-                  <div key={group.id} style={{ marginBottom:2, ...vars }}>
+                  <div key={group.id} style={{ marginBottom:"var(--arcd-space-half)", ...vars }}>
                     {/* Cabeçalho clicável. Um grupo fechado que contém a aba
                         atual mostra um ponto na sua cor - você não perde de
                         vista onde está, mesmo com o grupo recolhido. */}
@@ -14737,7 +14724,7 @@ function CompanyApp({onCompanyChanged}) {
                       {!badge && !aberto && contémAtiva &&
                         <span style={{ marginLeft:"auto", width:5, height:5, borderRadius:"50%",
                                        background:"var(--gc)" }}/>}
-                      <span className="nav-chev" style={{ marginLeft:(badge||(!aberto&&contémAtiva)) ? 8 : "auto" }}>›</span>
+                      <span className="nav-chev" style={{ marginLeft:(badge||(!aberto&&contémAtiva)) ? "var(--arcd-space-2)" : "auto" }}>›</span>
                     </button>
 
                     {/* Corpo - só monta quando aberto */}
@@ -14762,7 +14749,7 @@ function CompanyApp({onCompanyChanged}) {
                           );
                         })}
                         {group.id==="eng_grp" && obrasMenuEngenharia.length>0 && (<>
-                          <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.6,margin:"8px 10px 3px"}}>Obras ativas</p>
+                          <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:.6,margin:"var(--arcd-space-2) var(--arcd-space-2) var(--arcd-space-half)"}}>Obras ativas</p>
                           {obrasMenuEngenharia.map(obra => (
                             <button
                               key={obra.id}
@@ -14785,9 +14772,9 @@ function CompanyApp({onCompanyChanged}) {
             </nav>
 
             {/* Usuário + sair */}
-            <div style={{ padding:sidebarCompacta ? "10px 8px" : "10px 12px", borderTop:`1px solid ${C.line}`, background:C.surface }}>
+            <div style={{ padding:sidebarCompacta ? "var(--arcd-space-2) var(--arcd-space-2)" : "var(--arcd-space-2) var(--arcd-space-3)", borderTop:`var(--arcd-border-width) solid var(--arcd-border-subtle)`, background:"var(--arcd-surface-card)" }}>
               {sidebarCompacta ? (
-                <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:7 }}>
+                <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:"var(--arcd-space-2)" }}>
                   <div title={`${currentUser?.nome} · ${ROLES.find(r=>r.v===currentUser?.role)?.l || "Usuário"}`} style={{
                     width:30, height:30, borderRadius:"50%", display:"grid", placeItems:"center",
                     background:`${ROLES.find(r=>r.v===currentUser?.role)?.color || C.yellow}22`,
@@ -14795,27 +14782,27 @@ function CompanyApp({onCompanyChanged}) {
                     fontSize:"var(--arcd-type-body)", fontWeight:600,
                   }}>{(currentUser?.nome || "U").trim().charAt(0).toUpperCase()}</div>
                   <button onClick={sairDoSistema} title="Sair do sistema" aria-label="Sair do sistema" style={{
-                    width:30, height:28, background:"transparent", border:0, color:C.muted,
+                    width:30, height:28, background:"transparent", border:0, color:"var(--arcd-text-secondary)",
                     fontSize:"var(--arcd-type-control)", cursor:"pointer", lineHeight:1,
                   }}>x</button>
                 </div>
               ) : (
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:6 }}>
-                <div style={{ display:"flex", alignItems:"center", gap:6, minWidth:0 }}>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:"var(--arcd-space-1)" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:"var(--arcd-space-1)", minWidth:0 }}>
                   <div style={{
                     width:7, height:7, borderRadius:"50%", flexShrink:0,
                     background: ROLES.find(r=>r.v===currentUser?.role)?.color || C.yellow,
                   }}/>
                   <div style={{ minWidth:0 }}>
-                    <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                    <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color:"var(--arcd-text-primary)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                       {currentUser?.nome}
                     </p>
-                    <p style={{ fontSize:"var(--arcd-type-caption)", color:C.muted }}>
+                    <p style={{ fontSize:"var(--arcd-type-caption)", color:"var(--arcd-text-secondary)" }}>
                       {ROLES.find(r=>r.v===currentUser?.role)?.l}
                     </p>
                   </div>
                 </div>
-                <div style={{display:"flex",gap:2,flexShrink:0}}>
+                <div style={{display:"flex",gap:"var(--arcd-space-half)",flexShrink:0}}>
                   <Btn v="ghost" iconOnly onClick={trocarDeUsuario} title="Trocar usuário (tablet compartilhado)" ariaLabel="Trocar usuário"><Ic n="users"/></Btn>
                   <Btn v="ghost" iconOnly onClick={sairDoSistema} title="Sair do sistema" ariaLabel="Sair do sistema"><Ic n="x"/></Btn>
                 </div>
@@ -14832,22 +14819,22 @@ function CompanyApp({onCompanyChanged}) {
         <div className="app-header-region" style={{ position:conflito?"sticky":"relative", top:conflito?0:undefined, zIndex:50 }}>
         <header className="no-print arcd-topbar" style={{
           background:"var(--arcd-surface-card)",
-          borderBottom:`1px solid ${C.border}`,
+          borderBottom:`var(--arcd-border-width) solid var(--arcd-border-default)`,
           boxShadow:"none",
         }}>
-          <div className="app-header-inner" style={{ maxWidth:maxConteudo, margin:"0 auto", padding: isDesktop ? "12px 22px" : "10px 14px", display:"flex", justifyContent:"space-between", alignItems:"center", gap:10 }}>
-            <div className="app-header-context" style={{ display:"flex", alignItems:"center", gap:12 }}>
+          <div className="app-header-inner" style={{ maxWidth:maxConteudo, margin:"0 auto", padding: isDesktop ? "var(--arcd-space-3) var(--arcd-space-5)" : "var(--arcd-space-2) var(--arcd-space-3)", display:"flex", justifyContent:"space-between", alignItems:"center", gap:"var(--arcd-space-2)" }}>
+            <div className="app-header-context" style={{ display:"flex", alignItems:"center", gap:"var(--arcd-space-3)" }}>
               {/* No desktop a marca vive na sidebar - repetir aqui é ruído */}
               {!isDesktop && <BrandMark compact/>}
               {/* Breadcrumb */}
-              {(isDesktop||!operationalWorkspace)&&<div className="app-breadcrumb" style={{ display:"flex", alignItems:"center", gap:6 }}>
+              {(isDesktop||!operationalWorkspace)&&<div className="app-breadcrumb" style={{ display:"flex", alignItems:"center", gap:"var(--arcd-space-1)" }}>
                 <span style={{ fontSize:"var(--arcd-type-label)", color:activeGroup?.color, fontWeight:600, textTransform:"uppercase", letterSpacing:.8 }}>
                   {activeGroup?.label}
                 </span>
                 {hasSubTabs && (
                   <>
-                    <span aria-hidden="true" style={{ fontSize:"var(--arcd-type-label)", color:C.muted }}>›</span>
-                    <span style={{ fontSize:"var(--arcd-type-label)", color:C.muted, fontWeight:600 }}>
+                    <span aria-hidden="true" style={{ fontSize:"var(--arcd-type-label)", color:"var(--arcd-text-secondary)" }}>›</span>
+                    <span style={{ fontSize:"var(--arcd-type-label)", color:"var(--arcd-text-secondary)", fontWeight:600 }}>
                       {TAB_META[tab]?.label}
                     </span>
                   </>
@@ -14875,12 +14862,12 @@ function CompanyApp({onCompanyChanged}) {
                 <span className="app-save-status-label">{syncStatus.label}</span>
               </div>
               {/* Badge do usuário - no desktop já aparece no rodapé da sidebar */}
-              <div className="app-user-badge" style={{ display: isDesktop ? "none" : "flex", alignItems:"center", gap:6, padding:"4px 10px", background:C.surface, borderRadius:C.rMd, border:`1px solid ${C.border}` }}>
+              <div className="app-user-badge" style={{ display: isDesktop ? "none" : "flex", alignItems:"center", gap:"var(--arcd-space-1)", padding:"var(--arcd-space-1) var(--arcd-space-2)", background:"var(--arcd-surface-card)", borderRadius:C.rMd, border:`var(--arcd-border-width) solid var(--arcd-border-default)` }}>
                 <div style={{ width:7, height:7, borderRadius:"50%", background:ROLES.find(r=>r.v===currentUser?.role)?.color||C.yellow, flexShrink:0 }}/>
-                <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color:C.text, maxWidth:80, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{currentUser?.nome}</p>
+                <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color:"var(--arcd-text-primary)", maxWidth:80, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{currentUser?.nome}</p>
                 <button onClick={sairDoSistema} style={{
-                  background:"transparent", border:0, color:C.muted, fontSize:"var(--arcd-type-control)",
-                  cursor:"pointer", lineHeight:1, padding:"0 2px",
+                  background:"transparent", border:0, color:"var(--arcd-text-secondary)", fontSize:"var(--arcd-type-control)",
+                  cursor:"pointer", lineHeight:1, padding:"0 var(--arcd-space-half)",
                 }} title="Sair">x</button>
               </div>
 
@@ -14911,7 +14898,7 @@ function CompanyApp({onCompanyChanged}) {
         {/*  CONTEÚDO  */}
         </div>
 
-        <main inert={switchingCompany?"":undefined} className="arcd-main" data-workspace={operationalWorkspace?tab:undefined} style={{ maxWidth:maxConteudo, margin:"0 auto", padding: isDesktop ? "24px 24px" : 14 }}>
+        <main inert={switchingCompany?"":undefined} className="arcd-main" data-workspace={operationalWorkspace?tab:undefined} style={{ maxWidth:maxConteudo, margin:"0 auto", padding: isDesktop ? "var(--arcd-space-6) var(--arcd-space-6)" : "var(--arcd-space-3)" }}>
           {data.localCompanySimulation?.enabled&&<ScopeNote title="Simulação local">Empresa {data.localCompanySimulation.companyId.toUpperCase()}. Pastas e fotos usam cópias privadas. Somente a limpeza de conciliação desta cópia pode ser gravada; os demais envios e as conexões com a nuvem estão bloqueados.</ScopeNote>}
           {conflito&&<Alert variant="warning" className="mb-3"><AlertDescription>
             <strong>Conflito de salvamento.</strong> Outra pessoa salvou alterações. Confira antes de reaplicar: sua versão pode substituir edições do mesmo registro. Mantenha esta aba aberta até resolver.
@@ -14990,8 +14977,8 @@ function CompanyApp({onCompanyChanged}) {
         {!isDesktop && (
         <nav className="no-print arcd-mobile-nav" style={{
           position:"fixed", bottom:0, left:0, right:0, zIndex:80,
-          background:"rgba(255,255,255,.98)", backdropFilter:"blur(20px)",
-          borderTop:`1px solid ${C.border}`,
+          background:"color-mix(in srgb, var(--arcd-surface-elevated) 98%, transparent)", backdropFilter:"blur(20px)",
+          borderTop:`var(--arcd-border-width) solid var(--arcd-border-default)`,
           boxShadow:"none",
         }}>
           <div style={{ maxWidth:maxConteudo, margin:"0 auto" }}>
@@ -14999,8 +14986,8 @@ function CompanyApp({onCompanyChanged}) {
             {/* Sub-tabs (só aparece quando grupo tem >1 aba) */}
             {hasSubTabs&&!operationalWorkspace && (
               <div className="mobile-subnav" style={{
-                display:"flex", gap:5, overflowX:"auto", padding:"8px 12px 6px",
-                borderBottom:`1px solid ${C.line}55`,
+                display:"flex", gap:"var(--arcd-space-1)", overflowX:"auto", padding:"var(--arcd-space-2) var(--arcd-space-3) var(--arcd-space-1)",
+                borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)55`,
                 scrollbarWidth:"none",
               }}>
                 {activeGroup?.tabs.map(tabId => {
@@ -15010,12 +14997,12 @@ function CompanyApp({onCompanyChanged}) {
                     <button key={tabId} data-active={isActive} onClick={() => irPara(tabId)} style={{
                       flexShrink:0,
                       background: isActive ? `${activeGroup.color}22` : "transparent",
-                      color: isActive ? activeGroup.color : C.muted,
+                      color: isActive ? activeGroup.color : "var(--arcd-text-secondary)",
                       border: `1.5px solid ${isActive ? activeGroup.color : C.line}`,
-                      borderRadius:999, padding:"5px 14px",
+                      borderRadius:"var(--arcd-radius-pill)", padding:"var(--arcd-space-1) var(--arcd-space-3)",
                       fontFamily:"var(--arcd-font-sans)", fontWeight:600, fontSize:"var(--arcd-type-control)",
                       letterSpacing:.5, cursor:"pointer", whiteSpace:"nowrap",
-                      display:"flex", alignItems:"center", gap:5,
+                      display:"flex", alignItems:"center", gap:"var(--arcd-space-1)",
                       transition:"all .15s ease",
                       "--ic-color": isActive ? activeGroup.color : C.muted,
                     }}>
@@ -15031,12 +15018,12 @@ function CompanyApp({onCompanyChanged}) {
                     <button key={obra.id} data-active={isActive} onClick={() => irPara("obras", obra.id)} style={{
                       flexShrink:0,
                       background: isActive ? `${activeGroup.color}22` : "transparent",
-                      color: isActive ? activeGroup.color : C.muted,
+                      color: isActive ? activeGroup.color : "var(--arcd-text-secondary)",
                       border: `1.5px solid ${isActive ? activeGroup.color : C.line}`,
-                      borderRadius:999, padding:"5px 14px",
+                      borderRadius:"var(--arcd-radius-pill)", padding:"var(--arcd-space-1) var(--arcd-space-3)",
                       fontFamily:"var(--arcd-font-sans)", fontWeight:600, fontSize:"var(--arcd-type-control)",
                       letterSpacing:.5, cursor:"pointer", whiteSpace:"nowrap",
-                      display:"flex", alignItems:"center", gap:5,
+                      display:"flex", alignItems:"center", gap:"var(--arcd-space-1)",
                       transition:"all .15s ease",
                       "--ic-color": isActive ? activeGroup.color : C.muted,
                     }}>

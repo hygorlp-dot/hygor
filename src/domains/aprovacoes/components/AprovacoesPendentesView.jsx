@@ -69,18 +69,18 @@ function AprovacoesPendentes({ data, showToast, currentUser, dispatchCommand = n
     showToast(decisao==="aprovado" ? "Aprovação registrada." : "Reprovação registrada.");
   };
 
-  return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
+  return <div className="anim" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
     <PageHero eyebrow="Aprovações" title="Minhas aprovações pendentes" description="Etapas de qualquer processo onde você está entre os aprovadores elegíveis."/>
     <ScopeNote title="O que entra nesta fila">Somente etapas formais em andamento em que você é elegível agora.</ScopeNote>
     {!pendentes.length&&<EmptyState title="Nenhuma decisão formal pendente para você" description="Isso não significa que todas as solicitações de Compras estejam aprovadas. Confira abaixo os registros sem fluxo compatível, quando disponíveis no seu acesso."/>}
-    {pendentes.map(({instancia,etapas})=><div key={instancia.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:12,display:"flex",flexDirection:"column",gap:9}}>
-      <b style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{rotuloEntidadeAprovacao(instancia,data)}</b>
+    {pendentes.map(({instancia,etapas})=><div key={instancia.id} style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+      <b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>{rotuloEntidadeAprovacao(instancia,data)}</b>
       {instancia.entidadeTipo==='solicitacaoCompra'&&podeAcessarAba(currentUser,'cmp')&&navigate&&(()=>{const sol=(data.solicitacoesCompra||[]).find(s=>s.id===instancia.entidadeId&&(!currentUser.obraId||s.obraId===currentUser.obraId));return sol?<Button variant="secondary" onClick={()=>abrirSolicitacao(sol)}>Consultar solicitação · {sol.numero}</Button>:null;})()}
-      {etapas.map(({etapa,resultado})=><div key={etapa.id} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:10,display:"flex",flexDirection:"column",gap:7}}>
-        <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>{etapa.nome||"Etapa de aprovação"}</p>
+      {etapas.map(({etapa,resultado})=><div key={etapa.id} style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-2)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+        <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"var(--arcd-text-primary)"}}>{etapa.nome||"Etapa de aprovação"}</p>
         {(resultado.autoaprovacaoDestacada||resultado.semAprovadorEncontrado) && <p style={{fontSize:"var(--arcd-type-caption)",color:C.yellowD}}>{resultado.autoaprovacaoDestacada?"Você é o próprio solicitante - autoaprovação permitida pela política.":"Sem aprovador elegível originalmente - encaminhado à fila do administrador."}</p>}
         <Inp label="Justificativa (obrigatória para reprovar)" value={justificativas[`${instancia.id}:${etapa.id}`]||""} onChange={v=>setJustificativas(j=>({...j,[`${instancia.id}:${etapa.id}`]:v}))} multiline/>
-        <div style={{display:"flex",gap:8}}>
+        <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
           <Btn v="danger" onClick={()=>decidir(instancia,etapa.id,"reprovado")}><Ic n="x"/> Reprovar</Btn>
           <Btn onClick={()=>decidir(instancia,etapa.id,"aprovado")}><Ic n="check"/> Aprovar</Btn>
         </div>

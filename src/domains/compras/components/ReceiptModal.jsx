@@ -32,12 +32,18 @@ export function ModalRecebimento({ pedido, onClose, onReceber, nomeMat, nomeForn
   const valorTotal = linhas.reduce((s,l) => s + l.chegou * Number(l.precoUnit||0), 0);
 
   return (
-    <Modal title={titulo||`Receber - ${pedido.numero}`} onClose={()=>!salvando&&onClose()} wide panelClass="purchase-form-panel">
+    <Modal title={titulo||`Receber - ${pedido.numero}`} onClose={()=>!salvando&&onClose()} wide panelClass="purchase-form-panel" footer={<>
+      {error&&<p className="arcd-dialog__error" role="alert">{error}</p>}
+      <Btn v="ghost" onClick={onClose} disabled={salvando}>Cancelar</Btn>
+      <Btn onClick={confirmar} loading={salvando&&"Confirmando…"} disabled={salvando || quantidadeInvalida || !linhas.some(l=>l.chegou>0)}>
+        <Ic n="check"/> Dar entrada no estoque
+      </Btn>
+    </>}>
       <HelpButton pageId="cmp" allowedTabs={["cmp"]}/>
       {!salvando&&attempt?.command&&<p role="status">{UNCONFIRMED_COMMAND}</p>}
       <fieldset disabled={salvando} style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
         {obraNome&&<ScopeNote title="Obra que recebe o material">{obraNome}</ScopeNote>}
-        <div style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+        <div style={{background:"var(--arcd-surface-muted)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
           <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{nomeForn(pedido.fornecedorId)}</p>
           <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>
             Informe quanto chegou. Em uma entrega parcial, o saldo continua em aberto.
@@ -52,8 +58,8 @@ export function ModalRecebimento({ pedido, onClose, onReceber, nomeMat, nomeForn
         {linhas.map(l => (
           <div key={l.id} style={{
             background: l.excede ? "color-mix(in srgb, var(--arcd-danger-text) 3%, transparent)" : "var(--arcd-surface-card)",
-            border:`1px solid ${l.excede ? "var(--arcd-danger-text)" : "var(--arcd-border-default)"}`,
-            borderRadius:6, padding:"var(--arcd-space-2) var(--arcd-space-3)",
+            border:`var(--arcd-border-width) solid ${l.excede ? "var(--arcd-danger-text)" : "var(--arcd-border-default)"}`,
+            borderRadius:"var(--arcd-radius-control)", padding:"var(--arcd-space-2) var(--arcd-space-3)",
           }}>
             <p className="brk" style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{nomeMat(l.materialId)}</p>
             <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",marginBottom:"var(--arcd-space-2)"}}>
@@ -74,7 +80,7 @@ export function ModalRecebimento({ pedido, onClose, onReceber, nomeMat, nomeForn
         ))}
 
         <div style={{background:"color-mix(in srgb, var(--arcd-success-text) 4%, transparent)",border:"1.5px solid var(--arcd-success-text)",
-                     borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+                     borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
           <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>
             Valor dos materiais desta entrada
           </p>
@@ -86,14 +92,7 @@ export function ModalRecebimento({ pedido, onClose, onReceber, nomeMat, nomeForn
           </p>
         </div>
 
-        <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
-          <Btn v="ghost" onClick={onClose} disabled={salvando} full>Cancelar</Btn>
-          <Btn onClick={confirmar} full loading={salvando&&"Confirmando…"} disabled={salvando || quantidadeInvalida || !linhas.some(l=>l.chegou>0)}>
-            <Ic n="check"/> Dar entrada no estoque
-          </Btn>
-        </div>
       </fieldset>
-      {error&&<p role="alert">{error}</p>}
       {notice}
     </Modal>
   );

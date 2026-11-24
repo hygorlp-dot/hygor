@@ -43,7 +43,7 @@ function ModalMovimento({ form, setForm, onSave, obras, materiais, data }) {
   const F = k => v => setForm(f => ({ ...f, [k]: v }));
   return (
     <Modal title="Movimento de estoque" onClose={()=>setForm(null)} wide>
-      <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:11}}>
+      <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-3)"}}>
         <Sel label="Tipo *" value={form.tipo} onChange={F("tipo")}
              options={TIPOS_MOV.map(t=>({v:t.v,l:t.l}))}/>
         <Sel label="Obra *" value={form.obraId} onChange={F("obraId")}
@@ -61,7 +61,7 @@ function ModalMovimento({ form, setForm, onSave, obras, materiais, data }) {
           <Inp label="Observação" value={form.descricao} onChange={F("descricao")}
                placeholder="NF 1234, fornecedor..."/>
         </div>
-        <div style={{gridColumn:"1/-1",display:"flex",gap:8}}>
+        <div style={{gridColumn:"1/-1",display:"flex",gap:"var(--arcd-space-2)"}}>
           <Btn v="ghost" onClick={()=>setForm(null)} full>Cancelar</Btn>
           <Btn onClick={()=>onSave(form)} full><Ic n="check"/> Registrar</Btn>
         </div>
@@ -98,15 +98,15 @@ function ModalExecutar({ onClose, onRun, composicoes, obras, obraAtual, materiai
 
   return (
     <Modal title="Executei um serviço" onClose={onClose} wide>
-      <div style={{display:"flex",flexDirection:"column",gap:12}}>
+      <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
         {composicoes.length === 0 ? (
-          <p style={{fontSize:"var(--arcd-type-body)",color:C.muted,lineHeight:1.55,padding:"10px 0"}}>
+          <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)",lineHeight:1.55,padding:"var(--arcd-space-2) 0"}}>
             Nenhuma composição cadastrada ainda. Vá na aba <strong>Composições</strong> e
             defina, por exemplo, quanto 1 m de alvenaria consome de tijolo, cimento e areia.
             Depois é só informar aqui o quanto executou.
           </p>
         ) : (<>
-          <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:11}}>
+          <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-3)"}}>
             <Sel label="Serviço *" value={compId} onChange={setCompId}
                  options={composicoes.map(c=>({v:c.id,l:`${c.nome} (${c.unidade})`}))}/>
             <Sel label="Obra *" value={obraId} onChange={setObraId}
@@ -124,26 +124,26 @@ function ModalExecutar({ onClose, onRun, composicoes, obras, obraAtual, materiai
             <div style={{
               background: temFalta ? `${C.red}08` : `${C.green}08`,
               border:`1.5px solid ${temFalta ? C.red : C.green}`,
-              borderRadius:6, padding:"11px 12px",
+              borderRadius:"var(--arcd-radius-control)", padding:"var(--arcd-space-3) var(--arcd-space-3)",
             }}>
-              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color: temFalta ? C.red : C.green,marginBottom:7}}>
+              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color: temFalta ? C.red : C.green,marginBottom:"var(--arcd-space-2)"}}>
                 {temFalta ? "! Saldo insuficiente" : "Vai sair do estoque"}
               </p>
               {previa.map((p,i) => (
-                <div key={i} style={{display:"flex",justifyContent:"space-between",gap:8,
-                                     fontSize:"var(--arcd-type-label)",marginTop:3,alignItems:"baseline"}}>
-                  <span className="brk" style={{color:C.text,minWidth:0}}>{p.mat?.descricao || "-"}</span>
+                <div key={i} style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",
+                                     fontSize:"var(--arcd-type-label)",marginTop:"var(--arcd-space-half)",alignItems:"baseline"}}>
+                  <span className="brk" style={{color:"var(--arcd-text-primary)",minWidth:0}}>{p.mat?.descricao || "-"}</span>
                   <span style={{whiteSpace:"nowrap",flexShrink:0,
-                                color: p.falta ? C.red : C.text, fontWeight:600}}>
+                                color: p.falta ? C.red : "var(--arcd-text-primary)", fontWeight:600}}>
                     {p.qtd} {p.mat?.unidade}
-                    <span style={{color:C.muted,fontWeight:400,fontSize:"var(--arcd-type-label)"}}>
+                    <span style={{color:"var(--arcd-text-secondary)",fontWeight:400,fontSize:"var(--arcd-type-label)"}}>
                       {" "}(tem {p.disp.toFixed(2)})
                     </span>
                   </span>
                 </div>
               ))}
               {temFalta && (
-                <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:7,lineHeight:1.45}}>
+                <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-2)",lineHeight:1.45}}>
                   Registre a entrada do que falta antes de baixar. O sistema não deixa o
                   saldo ficar negativo - estoque negativo contamina todo relatório depois.
                 </p>
@@ -151,7 +151,7 @@ function ModalExecutar({ onClose, onRun, composicoes, obras, obraAtual, materiai
             </div>
           )}
 
-          <div style={{display:"flex",gap:8}}>
+          <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
             <Btn v="ghost" onClick={onClose} full>Cancelar</Btn>
             <Btn onClick={()=>onRun(compId, obraId, qtd, quando, etapa, tarefaId)} full
                  disabled={temFalta || !Number(qtd) || faltaTarefa}>
@@ -476,25 +476,25 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
 
       {/* Reposicao automatica: o minimo deixou de ser cosmetico */}
       {abaixoMin.length>0&&(
-        <div style={{background:`${C.orange}0C`,border:`1.5px solid ${C.orange}`,borderRadius:6,padding:"10px 12px"}}>
+        <div style={{background:`${C.orange}0C`,border:`1.5px solid ${C.orange}`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
           <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.orange}}>
             {contar(abaixoMin.length,"material abaixo do estoque mínimo","materiais abaixo do estoque mínimo")}
           </p>
-          <div style={{marginTop:5,maxHeight:96,overflow:"auto"}}>
+          <div style={{marginTop:"var(--arcd-space-1)",maxHeight:96,overflow:"auto"}}>
             {abaixoMin.slice(0,8).map((l,ix)=>(
-              <p key={ix} style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
-                <b style={{color:C.text}}>{l.obraNome}</b> · {l.descricao} — saldo {l.saldo.toLocaleString("pt-BR")} de {l.minimo.toLocaleString("pt-BR")} {l.unidade}
+              <p key={ix} style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>
+                <b style={{color:"var(--arcd-text-primary)"}}>{l.obraNome}</b> · {l.descricao} — saldo {l.saldo.toLocaleString("pt-BR")} de {l.minimo.toLocaleString("pt-BR")} {l.unidade}
                 <b style={{color:C.orange}}> · repor {l.deficit.toLocaleString("pt-BR")}</b>
               </p>
             ))}
-            {abaixoMin.length>8&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.subtle,marginTop:3}}>Mais {contar(abaixoMin.length-8,"item","itens")}</p>}
+            {abaixoMin.length>8&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-muted)",marginTop:"var(--arcd-space-half)"}}>Mais {contar(abaixoMin.length-8,"item","itens")}</p>}
           </div>
-          <div style={{marginTop:8}}>
+          <div style={{marginTop:"var(--arcd-space-2)"}}>
             <Btn size="sm" v="warning" onClick={gerarReposicao} full>
               <Ic n="cart"/> Gerar solicitação de reposição
             </Btn>
           </div>
-          <p style={{fontSize:"var(--arcd-type-caption)",color:C.subtle,marginTop:5,lineHeight:1.4}}>
+          <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-muted)",marginTop:"var(--arcd-space-1)",lineHeight:1.4}}>
             {obraIdFixo ? "A solicitação é desta obra." : "A reposição inclui todas as obras da lista acima."} Compras recebe uma solicitação por obra.
           </p>
         </div>
@@ -508,27 +508,27 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
       {/*  SALDO  */}
       {aba === "saldo" && (
         linhasSaldo.length === 0
-          ? <p style={{fontSize:"var(--arcd-type-body)",color:C.muted,textAlign:"center",padding:20}}>
+          ? <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)",textAlign:"center",padding:"var(--arcd-space-5)"}}>
               Nenhum material com saldo nesta obra. Registre uma entrada.
             </p>
           : linhasSaldo.map(({m, saldo, critico}) => (
             <div key={m.id} className="stock-balance-row" style={{
-              background:C.card, border:`1px solid ${critico ? C.red : C.border}`,
-              borderLeft:`1px solid ${critico ? C.red : C.green}`,
-              borderRadius:6, padding:"10px 12px",
+              background:"var(--arcd-surface-card)", border:`var(--arcd-border-width) solid ${critico ? C.red : C.border}`,
+              borderLeft:`var(--arcd-border-width) solid ${critico ? C.red : C.green}`,
+              borderRadius:"var(--arcd-radius-control)", padding:"var(--arcd-space-2) var(--arcd-space-3)",
             }}>
-              <div className="fluid-grid" style={{display:"grid",gridTemplateColumns:"1fr auto",gap:8,alignItems:"center"}}>
+              <div className="fluid-grid" style={{display:"grid",gridTemplateColumns:"1fr auto",gap:"var(--arcd-space-2)",alignItems:"center"}}>
                 <div style={{minWidth:0}}>
-                  <p className="brk" style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{m.descricao}</p>
-                  <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
+                  <p className="brk" style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"var(--arcd-text-primary)"}}>{m.descricao}</p>
+                  <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>
                     {m.codigo && `${m.codigo}  `}mín. {m.estoqueMin} {m.unidade}
                     {Number(m.precoMedio)>0 && `  ${fmt(m.precoMedio)}/${m.unidade}`}
                   </p>
                 </div>
                 <div style={{textAlign:"right",flexShrink:0}}>
                   <p style={{fontFamily:"var(--arcd-font-sans)",fontSize:"var(--arcd-type-card-title)",fontWeight:600,
-                             color: critico ? C.red : C.text, whiteSpace:"nowrap"}}>
-                    {saldo.toFixed(2)} <span style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>{m.unidade}</span>
+                             color: critico ? C.red : "var(--arcd-text-primary)", whiteSpace:"nowrap"}}>
+                    {saldo.toFixed(2)} <span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>{m.unidade}</span>
                   </p>
                   {critico && (
                     <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.red,marginTop:1}}>! REPOR</p>
@@ -542,25 +542,25 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
       {/*  MOVIMENTOS  */}
       {aba === "movs" && (
         movs.length === 0
-          ? <p style={{fontSize:"var(--arcd-type-body)",color:C.muted,textAlign:"center",padding:20}}>Nenhum movimento.</p>
+          ? <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)",textAlign:"center",padding:"var(--arcd-space-5)"}}>Nenhum movimento.</p>
           : movs.map(x => {
             const t = TIPOS_MOV.find(t => t.v === x.tipo) || TIPOS_MOV[0];
             const m = matPorId(x.materialId);
             const pedido=podeAbrirPedido&&x.pedidoId&&(data.pedidos||[]).find(item=>item.id===x.pedidoId&&item.obraId===x.obraId&&!item.deletedAt);
             return (
               <div key={x.id} style={{
-                background:C.card, border:`1px solid ${C.border}`,
-                borderLeft:`1px solid ${t.cor}`, borderRadius:6, padding:"9px 11px",
+                background:"var(--arcd-surface-card)", border:`var(--arcd-border-width) solid var(--arcd-border-default)`,
+                borderLeft:`var(--arcd-border-width) solid ${t.cor}`, borderRadius:"var(--arcd-radius-control)", padding:"var(--arcd-space-2) var(--arcd-space-3)",
               }}>
-                <div className="fluid-grid" style={{display:"grid",gridTemplateColumns:"1fr auto",gap:8}}>
+                <div className="fluid-grid" style={{display:"grid",gridTemplateColumns:"1fr auto",gap:"var(--arcd-space-2)"}}>
                   <div style={{minWidth:0}}>
-                    <p className="brk" style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{m?.descricao || "-"}</p>
-                    <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
+                    <p className="brk" style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"var(--arcd-text-primary)"}}>{m?.descricao || "-"}</p>
+                    <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>
                       {t.l}  {fmtDate(x.data)}
                       {x.servicoId && "  baixa automática"}
                     </p>
                     {x.descricao && (
-                      <p className="brk" style={{fontSize:"var(--arcd-type-label)",color:C.subtle,marginTop:2}}>{x.descricao}</p>
+                      <p className="brk" style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-muted)",marginTop:"var(--arcd-space-half)"}}>{x.descricao}</p>
                     )}
                     {pedido&&<Button size="sm" variant="ghost" onClick={()=>navigate("cmp",{obraId:pedido.obraId},{action:"open-order",record:{pedidoId:pedido.id,origin:"estoque"}})}>
                       {pedido.numero?`Abrir pedido ${pedido.numero}`:"Abrir pedido de origem"}
@@ -571,8 +571,8 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
                       {t.sinal > 0 ? "+" : ""} {x.qtd} {m?.unidade}
                     </p>
                     <button onClick={()=>excluirMov(x.id)} style={{
-                      background:"transparent",border:0,color:C.muted,fontSize:"var(--arcd-type-control)",
-                      cursor:"pointer",marginTop:3,textDecoration:"underline",
+                      background:"transparent",border:0,color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-control)",
+                      cursor:"pointer",marginTop:"var(--arcd-space-half)",textDecoration:"underline",
                     }}>excluir</button>
                   </div>
                 </div>
@@ -591,10 +591,10 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
           .filter(m => !busca.trim() || m.descricao.toLowerCase().includes(busca.toLowerCase()))
           .map(m => (
           <div key={m.id} onClick={()=>setMatModal({...m, estoqueMin:String(m.estoqueMin), precoMedio:String(m.precoMedio)})}
-            style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,
-                    padding:"9px 11px",cursor:"pointer"}}>
-            <p className="brk" style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{m.descricao}</p>
-            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
+            style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",
+                    padding:"var(--arcd-space-2) var(--arcd-space-3)",cursor:"pointer"}}>
+            <p className="brk" style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"var(--arcd-text-primary)"}}>{m.descricao}</p>
+            <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>
               {m.codigo && `${m.codigo}  `}{m.unidade}  mín. {m.estoqueMin}
               {Number(m.precoMedio)>0 && `  ${fmt(m.precoMedio)}`}
             </p>
@@ -604,9 +604,9 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
 
       {/*  COMPOSIÇÕES  */}
       {aba === "comp" && (<>
-        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 12px"}}>
-          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.55}}>
-            Cadastre <strong style={{color:C.text}}>uma vez</strong> quanto cada serviço consome por unidade.
+        <div style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+          <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:1.55}}>
+            Cadastre <strong style={{color:"var(--arcd-text-primary)"}}>uma vez</strong> quanto cada serviço consome por unidade.
             Depois é só informar quanto foi executado - o estoque baixa sozinho.
             <br/><br/>
             A base SINAPI que importamos traz <em>preços</em>, não os coeficientes de composição.
@@ -617,24 +617,24 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
           <Ic n="plus"/> Nova composição
         </Btn>
         {(data.composicoes||[]).map(c => (
-          <div key={c.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 12px"}}>
-            <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"flex-start"}}>
+          <div key={c.id} style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+            <div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"flex-start"}}>
               <div style={{minWidth:0,flex:1}}>
-                <p className="brk" style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{c.codigo} · {c.nome}</p>
-                <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:1}}>por 1 {c.unidade}</p>
+                <p className="brk" style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"var(--arcd-text-primary)"}}>{c.codigo} · {c.nome}</p>
+                <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:1}}>por 1 {c.unidade}</p>
               </div>
-              <div style={{display:"flex",gap:4,flexShrink:0}}>
+              <div style={{display:"flex",gap:"var(--arcd-space-1)",flexShrink:0}}>
                 <Btn size="sm" v="ghost" onClick={()=>setCompModal({...c, itens: c.itens.map(i=>({...i,coef:String(i.coef)}))})}></Btn>
                 <Btn size="sm" v="danger" onClick={()=>excluirComposicao(c.id)}>x</Btn>
               </div>
             </div>
-            <div style={{marginTop:7,paddingTop:7,borderTop:`1px solid ${C.line}`}}>
+            <div style={{marginTop:"var(--arcd-space-2)",paddingTop:"var(--arcd-space-2)",borderTop:`var(--arcd-border-width) solid var(--arcd-border-subtle)`}}>
               {c.itens.map((i,k) => {
                 const m = matPorId(i.materialId);
                 return (
-                  <div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
+                  <div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>
                     <span className="brk">{m?.descricao || "-"}</span>
-                    <span style={{fontWeight:600,color:C.text,whiteSpace:"nowrap",marginLeft:8}}>
+                    <span style={{fontWeight:600,color:"var(--arcd-text-primary)",whiteSpace:"nowrap",marginLeft:"var(--arcd-space-2)"}}>
                       {i.coef} {m?.unidade}
                     </span>
                   </div>
@@ -651,25 +651,25 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
         return (<>
           {/* O consumo de estoque só registra INSUMO. O serviço é remontado
               agrupando os consumos pelo servicoId que eles carregam. */}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-1)"}}>
             {[["insumo","Por insumo"],["composicao","Por composição"]].map(([v,l])=>(
               <button key={v} onClick={()=>setAbcModo(v)} style={{
-                padding:"8px 6px",borderRadius:6,cursor:"pointer",
+                padding:"var(--arcd-space-2) var(--arcd-space-1)",borderRadius:"var(--arcd-radius-control)",cursor:"pointer",
                 border:`2px solid ${abcModo===v?C.yellow:C.border}`,
                 background:abcModo===v?`${C.yellow}12`:"transparent",
-                color:abcModo===v?C.text:C.muted,
+                color:abcModo===v?"var(--arcd-text-primary)":"var(--arcd-text-secondary)",
                 fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-control)",
               }}>{l}</button>
             ))}
           </div>
 
-          <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 12px"}}>
-            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.5}}>
-              <strong style={{color:C.text}}>A</strong> = os poucos que valem 80% do gasto - controle rigoroso.
-              <strong style={{color:C.text}}> B</strong> = 15%. <strong style={{color:C.text}}>C</strong> = os muitos que
+          <div style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+            <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:1.5}}>
+              <strong style={{color:"var(--arcd-text-primary)"}}>A</strong> = os poucos que valem 80% do gasto - controle rigoroso.
+              <strong style={{color:"var(--arcd-text-primary)"}}> B</strong> = 15%. <strong style={{color:"var(--arcd-text-primary)"}}>C</strong> = os muitos que
               valem 5% - não vale a pena vigiar.
             </p>
-            <p style={{fontSize:"var(--arcd-type-label)",color:C.subtle,lineHeight:1.5,marginTop:6}}>
+            <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-muted)",lineHeight:1.5,marginTop:"var(--arcd-space-1)"}}>
               {abcModo==="composicao"
                 ? "Serviços executados, com o material que cada um consumiu. Executar um serviço baixa os insumos da composição - aqui eles voltam a ser somados sob o serviço que os consumiu."
                 : "Insumos consumidos na obra. Um serviço não aparece aqui: ele se dissolve nos insumos que baixou. Para vê-lo inteiro, use Por composição."}
@@ -677,7 +677,7 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
           </div>
 
           {lista.length===0
-            ? <p style={{fontSize:"var(--arcd-type-body)",color:C.muted,textAlign:"center",padding:20,lineHeight:1.6}}>
+            ? <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)",textAlign:"center",padding:"var(--arcd-space-5)",lineHeight:1.6}}>
                 {abcModo==="composicao"
                   ? <>Nenhum serviço executado ainda.<br/>Use <strong>Executar serviço</strong> para baixar uma composição - ela passa a aparecer aqui.</>
                   : "Sem consumo registrado ainda."}
@@ -685,21 +685,21 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
             : lista.map(x => {
               const cor = x.classe === "A" ? C.red : x.classe === "B" ? C.orange : C.muted;
               return (
-                <div key={x.id} style={{background:C.card,border:`1px solid ${C.border}`,
-                                        borderLeft:`1px solid ${cor}`,borderRadius:6,padding:"9px 11px"}}>
-                  <div className="fluid-grid" style={{display:"grid",gridTemplateColumns:"auto 1fr auto",gap:8,alignItems:"center"}}>
-                    <span style={{width:22,height:22,borderRadius:5,background:`${cor}18`,color:cor,
+                <div key={x.id} style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,
+                                        borderLeft:`var(--arcd-border-width) solid ${cor}`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+                  <div className="fluid-grid" style={{display:"grid",gridTemplateColumns:"auto 1fr auto",gap:"var(--arcd-space-2)",alignItems:"center"}}>
+                    <span style={{width:22,height:22,borderRadius:"var(--arcd-radius-control)",background:`${cor}18`,color:cor,
                                   display:"flex",alignItems:"center",justifyContent:"center",
                                   fontWeight:600,fontSize:"var(--arcd-type-label)",flexShrink:0}}>{x.classe}</span>
                     <div style={{minWidth:0}}>
-                      <p className="brk" style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:x.avulso?C.muted:C.text}}>{x.nome}</p>
+                      <p className="brk" style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:x.avulso?"var(--arcd-text-secondary)":"var(--arcd-text-primary)"}}>{x.nome}</p>
                       {abcModo==="composicao"&&!x.avulso&&x.execucoes>0&&(
-                        <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:1}}>{x.execucoes} execução(ões)</p>
+                        <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:1}}>{x.execucoes} execução(ões)</p>
                       )}
                     </div>
                     <div style={{textAlign:"right",flexShrink:0}}>
-                      <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,whiteSpace:"nowrap"}}>{fmt(x.valor)}</p>
-                      <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{x.pctAcum.toFixed(0)}% acum.</p>
+                      <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"var(--arcd-text-primary)",whiteSpace:"nowrap"}}>{fmt(x.valor)}</p>
+                      <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{x.pctAcum.toFixed(0)}% acum.</p>
                     </div>
                   </div>
                 </div>
@@ -710,8 +710,8 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
 
       <details className="workspace-disclosure stock-accounting-note">
         <summary>Como o estoque se relaciona com o DRE</summary>
-      <div style={{background:`${C.blue}0A`,border:`1px solid ${C.blue}44`,borderRadius:6,padding:"9px 11px"}}>
-        <p style={{fontSize:"var(--arcd-type-label)",color:C.subtle,lineHeight:1.55}}>
+      <div style={{background:`${C.blue}0A`,border:`var(--arcd-border-width) solid ${C.blue}44`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+        <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-muted)",lineHeight:1.55}}>
           <strong style={{color:C.blue}}>Controle físico.</strong> O custo do material já entra no DRE
           pela Conciliação, no momento da compra. O estoque não lança nada de novo - se lançasse,
           o mesmo material contaria duas vezes.

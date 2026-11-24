@@ -106,7 +106,7 @@ export function RentalDetailDrawer({ row, data, user, periodoLabel, busy, return
           <h3 id="ro-detail-cobrancas">Cobranças</h3>
           {row.chargeItems.length === 0
             ? <p className="ro-detail__empty">Nenhuma linha de cobrança ou medição registrada para esta locação.</p>
-            : <table className="ro-detail__table">
+            : <table className="arcd-data-table__table ro-detail__table">
               <caption className="ro-sr-only">Linhas de cobrança</caption>
               <thead><tr><th scope="col">Competência</th><th scope="col">Descrição</th><th scope="col">Situação</th><th scope="col" className="ro-num">Líquido</th></tr></thead>
               <tbody>{row.chargeItems.map(item => (
@@ -119,7 +119,7 @@ export function RentalDetailDrawer({ row, data, user, periodoLabel, busy, return
           <h3 id="ro-detail-faturas">Faturas</h3>
           {row.invoices.length === 0
             ? <p className="ro-detail__empty">Nenhuma fatura emitida para esta locação.</p>
-            : <table className="ro-detail__table">
+            : <table className="arcd-data-table__table ro-detail__table">
               <caption className="ro-sr-only">Faturas</caption>
               <thead><tr><th scope="col">Fatura</th><th scope="col">Vencimento</th><th scope="col">Situação</th><th scope="col" className="ro-num">Saldo</th></tr></thead>
               <tbody>{row.invoices.map(invoice => (

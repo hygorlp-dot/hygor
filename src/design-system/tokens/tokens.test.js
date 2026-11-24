@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ARCD_TOKEN_NAMESPACE } from "./index.js";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { themeRegistry } from "../themes/themeRegistry.js";
 
 describe("tokens do design system ARCD", () => {
   it("expõe o ponto de entrada de tokens", () => {
@@ -14,7 +15,7 @@ describe("tokens do design system ARCD", () => {
     expect(source).toContain('"./semantic.css"');
     expect(source).toContain('"./density.css"');
     expect(source).toContain('"../themes/marcell.css"');
-    expect(source).toContain('"../themes/print.css"');
+    expect(source).toContain('"./print.css"');
     expect(source).toContain('"./breakpoints.css"');
     expect(source).toContain('"./touch.css"');
     expect(source).toContain('"./safe-area.css"');
@@ -29,5 +30,13 @@ describe("tokens do design system ARCD", () => {
   it("expõe a escala tipográfica e de ícones adotada pelo dashboard",()=>{
     const source=readFileSync(resolve(process.cwd(),"src/design-system/tokens/typography.css"),"utf8");
     ["--arcd-type-page-title","--arcd-type-section-title","--arcd-type-card-title","--arcd-type-body","--arcd-type-label","--arcd-type-caption","--arcd-type-kpi","--arcd-icon-size-sm","--arcd-icon-size-md","--arcd-icon-size-lg"].forEach(token=>expect(source).toContain(token));
+  });
+
+  it("carrega família e escala da interface pelo CSS comum a todos os temas",()=>{
+    const source=readFileSync(resolve(process.cwd(),"src/design-system/tokens/typography.css"),"utf8");
+    expect(source).toMatch(/--arcd-font-sans:\s*["']Inter["']/);
+    for(const {tokens} of Object.values(themeRegistry)){
+      expect(Object.keys(tokens).filter(token=>/^--arcd-(?:type-|font-(?:sans|mono|numeric)$)/.test(token))).toEqual([]);
+    }
   });
 });

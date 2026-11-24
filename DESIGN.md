@@ -37,7 +37,7 @@ colors:
   operational-control-border: "#8A96A5"
 typography:
   saas-body:
-    fontFamily: 'Geist, Inter, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
+    fontFamily: 'Inter, Geist, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '0.8125rem'
     lineHeight: 1.5
   print-document:
@@ -45,15 +45,15 @@ typography:
     fontSize: '11px'
     lineHeight: 1.4
   pilot-metric:
-    fontFamily: 'Geist, Inter, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
+    fontFamily: 'Inter, Geist, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '1.125rem'
     lineHeight: 1.35
   pilot-metric-compact:
-    fontFamily: 'Geist, Inter, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
+    fontFamily: 'Inter, Geist, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '1rem'
     lineHeight: 1.35
   pilot-touch-control:
-    fontFamily: 'Geist, Inter, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
+    fontFamily: 'Inter, Geist, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '1rem'
     lineHeight: 1.5
   display:
@@ -62,45 +62,45 @@ typography:
     fontWeight: 400
     lineHeight: 1.2
   navigation:
-    fontFamily: 'Geist, Inter, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
+    fontFamily: 'Inter, Geist, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '0.75rem'
     fontWeight: 400
   dashboard-title:
-    fontFamily: 'Geist, Inter, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
+    fontFamily: 'Inter, Geist, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '1.375rem'
     fontWeight: 500
   headline:
-    fontFamily: 'Geist, Inter, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
+    fontFamily: 'Inter, Geist, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '1.375rem'
     fontWeight: 600
     lineHeight: 1.35
     letterSpacing: '-0.02em'
   title:
-    fontFamily: 'Geist, Inter, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
+    fontFamily: 'Inter, Geist, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '0.9375rem'
     fontWeight: 600
     lineHeight: 1.35
   card-title:
-    fontFamily: 'Geist, Inter, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
+    fontFamily: 'Inter, Geist, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '0.875rem'
     fontWeight: 600
     lineHeight: 1.35
   body:
-    fontFamily: 'Geist, Inter, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
+    fontFamily: 'Inter, Geist, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '0.8125rem'
     fontWeight: 400
     lineHeight: 1.5
     letterSpacing: '0.01rem'
   label:
-    fontFamily: 'Geist, Inter, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
+    fontFamily: 'Inter, Geist, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '0.8125rem'
     fontWeight: 400
     letterSpacing: '0.01rem'
   caption:
-    fontFamily: 'Geist, Inter, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
+    fontFamily: 'Inter, Geist, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '0.75rem'
   kpi:
-    fontFamily: 'Geist, Inter, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
+    fontFamily: 'Inter, Geist, IBM Plex Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '1.125rem'
     fontWeight: 600
   data-mono:
@@ -166,6 +166,10 @@ components:
 ---
 
 # Design System: MARCELL
+
+## Fonte e escala unificadas — 24/11/2026
+
+Inter é a fonte de interface em todos os temas do ERP e no Modo TV. A família e os tamanhos de referência vêm de `src/design-system/tokens/typography.css`. A densidade vem de `tokens/density.css`. Impressão e PDFs usam Nimbus Sans.
 
 ## Contrato vigente — conferido em 15/11/2026
 

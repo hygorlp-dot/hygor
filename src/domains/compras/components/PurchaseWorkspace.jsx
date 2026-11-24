@@ -97,7 +97,7 @@ export function PurchaseWorkspace({ model, area, filters, onFiltersChange, onOpe
           <span className="purchase-deadline" data-tone={row.deadline.tone}>{row.deadline.label}</span><small>{dateLabel(row.date)}</small><p>{row.responsible}</p>
           {row.total!=null&&<strong>{money(row.total)}</strong>}{canAct(row)?<Button variant="secondary" size="sm" onClick={()=>onOpen(row)} aria-label={`${row.action} · ${row.code}`}>{row.action}<ArrowRight size={14} aria-hidden="true"/></Button>:<p>Seu perfil permite somente consultar esta etapa.</p>}
         </>}/>
-      </>:<div className="purchase-table-scroll" tabIndex={0} role="region" aria-label="Registros da fila de compras"><table className="purchase-queue-table">
+      </>:<div className="purchase-table-scroll" tabIndex={0} role="region" aria-label="Registros da fila de compras"><table className="arcd-data-table__table purchase-queue-table">
         <caption className="purchase-sr-only">Compras em andamento com obra, prazo e próxima ação</caption>
         <thead><tr><th scope="col">Registro / obra</th><th scope="col">Material e situação</th><th scope="col">Prazo</th><th scope="col">Contato / solicitante</th><th scope="col">Próxima ação</th></tr></thead>
         {groups.length ? groups.map(group => {

@@ -69,7 +69,7 @@ export function AditivosContrato({ obra, data={}, currentUser, dispatchCommand, 
     await enviar({ type:OPERATIONAL_COMMAND.CONTRACT_AMENDMENT_CANCELLED, payload:{ obraId:obra.id, amendmentId:item.id, expectedVersion:item.version, reason:motivo } }, "Aditivo cancelado.");
   };
 
-  return <section className="amendment-workspace" style={{ background:"var(--arcd-surface-card)", border:"1px solid var(--arcd-border-default)", borderRadius:8, padding:"var(--arcd-space-3)", display:"flex", flexDirection:"column", gap:"var(--arcd-space-2)" }} aria-label="Mudanças e aditivos">
+  return <section className="amendment-workspace" style={{ background:"var(--arcd-surface-card)", border:"var(--arcd-border-width) solid var(--arcd-border-default)", borderRadius:"var(--arcd-box-radius)", padding:"var(--arcd-space-3)", display:"flex", flexDirection:"column", gap:"var(--arcd-space-2)" }} aria-label="Mudanças e aditivos">
     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:"var(--arcd-space-2)", flexWrap:"wrap" }}>
       <div>
         <p style={{ fontSize:"var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-text-primary)" }}>Mudanças e aditivos</p>
@@ -82,7 +82,7 @@ export function AditivosContrato({ obra, data={}, currentUser, dispatchCommand, 
     <p style={{color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)"}}>Contrato e custo são valores diferentes. Informe apenas o custo que ainda falta incorrer. Se já estiver na previsão da etapa, escolha Já incluído. Pendências geram avisos e permitem continuar.</p>
     <ForecastDuplicationWarnings warnings={duplicationWarnings}/>
     {aditivos.length === 0 && <p style={{ fontSize:"var(--arcd-type-label)", color:"var(--arcd-text-secondary)" }}>Nenhum aditivo registrado. Mudança de escopo, valor ou prazo pedida pelo cliente entra aqui.</p>}
-    {aditivos.map(item => <div key={item.id} style={{ display:"flex", justifyContent:"space-between", gap:"var(--arcd-space-2)", flexWrap:"wrap", borderTop:"1px solid var(--arcd-border-default)", paddingTop:"var(--arcd-space-2)" }}>
+    {aditivos.map(item => <div key={item.id} style={{ display:"flex", justifyContent:"space-between", gap:"var(--arcd-space-2)", flexWrap:"wrap", borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)", paddingTop:"var(--arcd-space-2)" }}>
       <div style={{ minWidth:0 }}>
         <p style={{ fontSize:"var(--arcd-type-label)", color:"var(--arcd-text-primary)" }}><b>Aditivo {item.numero}</b> · {item.descricao}</p>
         <p style={{ fontSize:"var(--arcd-type-caption)", color:"var(--arcd-text-secondary)" }}>{fmt(item.valor)}{item.prazoDias ? ` · ${item.prazoDias > 0 ? "+" : ""}${contar(item.prazoDias,"dia","dias")}` : ""} · <span style={{ color:COR[item.status] }}>{ROTULO[item.status] || item.status}</span>{item.evidenciaDecisao ? ` · ${item.evidenciaDecisao}` : ""}</p>

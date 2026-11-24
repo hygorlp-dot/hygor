@@ -508,7 +508,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
                 </div>
                 {advs.length === 0 && <p style={{ color: "var(--arcd-text-secondary)", fontSize: "var(--arcd-type-body)" }}>Nenhum adiantamento.</p>}
                 {advs.map(a => (
-                  <div key={a.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--arcd-border-default)", padding: "var(--arcd-space-2) var(--arcd-space-0)",opacity:advanceActive(a)?1:.55 }}>
+                  <div key={a.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "var(--arcd-border-width) solid var(--arcd-border-default)", padding: "var(--arcd-space-2) var(--arcd-space-0)",opacity:advanceActive(a)?1:.55 }}>
                     <div>
                       <p style={{ fontWeight:"var(--arcd-font-weight-semibold)", fontSize: "var(--arcd-type-body)" }}>{a.description}</p>
                       <p style={{ color: "var(--arcd-text-secondary)", fontSize:"var(--arcd-type-label)" }}>{fmtDateFull(a.date)} · {a.installmentCount||1}x {a.frequency==="mensal"?"mensal":"quinzenal"}{!advanceActive(a)?" · cancelado":""}</p>
@@ -608,7 +608,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
         const openAdvanceTotal=openAdvances.reduce((sum,item)=>sum+Number(item.amount||0),0);
         return <Modal title={dismissalModal.status==="desligamento_agendado"?"Corrigir desligamento":"Registrar desligamento"} onClose={()=>setDismissalModal(null)}>
           <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
-            <div style={{border:"1px solid color-mix(in srgb, var(--arcd-danger-text) 33%, transparent)",background:"color-mix(in srgb, var(--arcd-danger-text) 4%, transparent)",padding:"var(--arcd-space-3)",borderRadius:8}}>
+            <div style={{border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-danger-text) 33%, transparent)",background:"color-mix(in srgb, var(--arcd-danger-text) 4%, transparent)",padding:"var(--arcd-space-3)",borderRadius:"var(--arcd-box-radius)"}}>
               <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{dismissalModal.name}</p>
               <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{dismissalModal.role||"Função não informada"} · {dismissalModal.workArea==="administrativo"?"Administração Central":obraName(dismissalModal.obra)}</p>
             </div>
@@ -622,7 +622,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
               {v:"outro",l:"Outro motivo"},
             ]}/>
             <Inp label={dismissalForm.reason==="outro"?"Observações *":"Observações"} value={dismissalForm.notes} onChange={value=>setDismissalForm(form=>({...form,notes:value}))} multiline placeholder="Aviso-prévio, documentos pendentes ou referência interna"/>
-            {openAdvanceTotal>0&&<div style={{border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 40%, transparent)",background:"color-mix(in srgb, var(--arcd-warning-text) 4%, transparent)",padding:"var(--arcd-space-2)",borderRadius:7}}>
+            {openAdvanceTotal>0&&<div style={{border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-warning-text) 40%, transparent)",background:"color-mix(in srgb, var(--arcd-warning-text) 4%, transparent)",padding:"var(--arcd-space-2)",borderRadius:"var(--arcd-radius-control)"}}>
               <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-warning-text)"}}>Atenção: existem {contar(openAdvances.length,"adiantamento","adiantamentos")}, totalizando {fmt(openAdvanceTotal)}.</p>
               <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Os lançamentos serão preservados para conferência no acerto da rescisão.</p>{onTab&&<Btn v="ghost" size="sm" onClick={()=>{setDismissalModal(null);onTab("resc");}}>Ir para Rescisões</Btn>}
             </div>}
@@ -649,7 +649,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
               <Sel label="Frequência do desconto" value={advForm.frequency} onChange={v=>setAdvForm(f=>({...f,frequency:v}))} options={[{v:"quinzenal",l:"A cada quinzena"},{v:"mensal",l:"Uma vez por mês"}]}/>
               <Inp label="Primeiro desconto na folha" type="date" value={advForm.firstDueDate} onChange={v=>setAdvForm(f=>({...f,firstDueDate:v}))}/>
             </div>
-            {Number(advForm.amount)>0&&Number(advForm.installmentCount)>0&&<div style={{padding:"var(--arcd-space-2)",background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:6}}>
+            {Number(advForm.amount)>0&&Number(advForm.installmentCount)>0&&<div style={{padding:"var(--arcd-space-2)",background:"var(--arcd-surface-muted)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)"}}>
               <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Programação dos descontos</p>
               <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-1)",lineHeight:"var(--arcd-line-height-normal)"}}>{buildAdvanceInstallments({
                 advanceId:"previa",amount:Number(advForm.amount),installmentCount:Number(advForm.installmentCount),

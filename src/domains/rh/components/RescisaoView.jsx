@@ -314,7 +314,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
       />
 
       {/* Selecionar funcionário */}
-      <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderTop:"3px solid var(--arcd-action-primary)",padding:"var(--arcd-space-3)",borderRadius:10,display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+      <div style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderTop:"3px solid var(--arcd-action-primary)",padding:"var(--arcd-space-3)",borderRadius:"var(--arcd-box-radius)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
         <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}> Trabalhador</p>
         <Sel label="Selecionar da lista (ou preencha manualmente abaixo)"
           value={form.empId}
@@ -330,7 +330,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
       </div>
 
       {/* Datas e valores */}
-      <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderTop:"3px solid var(--arcd-warning-text)",padding:"var(--arcd-space-3)",borderRadius:10,display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+      <div style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderTop:"3px solid var(--arcd-warning-text)",padding:"var(--arcd-space-3)",borderRadius:"var(--arcd-box-radius)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
         <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-warning-text)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}> Período e Valores</p>
         <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}>
           <Inp label="Data de admissão *"  type="date" value={form.admissao}    onChange={F("admissao")}/>
@@ -345,7 +345,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
 
         {/* Acordo interno - campo especial */}
         {form.tipo === "acordo_interno" && (
-          <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 7%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)",borderLeft:"1px solid var(--arcd-action-primary)",padding:"var(--arcd-space-3)",borderRadius:8,display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+          <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 7%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)",borderLeft:"var(--arcd-border-width) solid var(--arcd-action-primary)",padding:"var(--arcd-space-3)",borderRadius:"var(--arcd-box-radius)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
             <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)"}}> Acordo Interno - cálculo simplificado</p>
             <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-muted)"}}>
               Total = Valor fixo mensal x meses ativos (+ fração proporcional de dias).
@@ -358,7 +358,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
               placeholder={form.valorMensal ? `Sugerido: R$ ${Number(form.valorMensal).toLocaleString("pt-BR")}` : "Ex.: 3.000,00"}
             />
             {calc && calc.isAcordoInterno && (
-              <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 13%, transparent)",borderRadius:8,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+              <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 13%, transparent)",borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
                 <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>
                   {fmt(Number(form.valorFixoAcordo||form.valorMensal||0))} x {calc.mesesAtivos.toFixed(2)} meses = {fmt(calc.totalBruto)}
                 </p>
@@ -371,7 +371,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
         )}
 
         {form.admissao && form.demissao && calc && (
-          <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 7%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 20%, transparent)",padding:"var(--arcd-space-2) var(--arcd-space-3)",borderRadius:8}}>
+          <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 7%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-action-primary) 20%, transparent)",padding:"var(--arcd-space-2) var(--arcd-space-3)",borderRadius:"var(--arcd-box-radius)"}}>
             <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>
                {calc.anos > 0 ? `${contar(calc.anos,"ano","anos")}, ` : ""}{calc.totalMeses % 12} mês(es) e {contar(calc.diasResto,"dia","dias")} de serviço
                <span style={{color:"var(--arcd-text-muted)"}}>{contar(calc.avos13,"avo","avos")} para 13º e férias</span>
@@ -382,7 +382,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
 
       {/* Verbas rescisórias - ocultar no acordo interno */}
       {form.tipo !== "acordo_interno" && (
-      <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderTop:"3px solid var(--arcd-success-text)",padding:"var(--arcd-space-3)",borderRadius:10,display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+      <div style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderTop:"3px solid var(--arcd-success-text)",padding:"var(--arcd-space-3)",borderRadius:"var(--arcd-box-radius)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
         <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-success-text)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}> Verbas rescisórias</p>
         {[
           ["incluirSaldo",  "Saldo de salário",              true],
@@ -390,8 +390,8 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
           ["incluirFerias", "Férias proporcionais + 1/3",    true],
           ["incluirAviso",  "Aviso prévio (30 dias)",        false],
         ].map(([key, label, def]) => (
-          <label key={key} style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",cursor:"pointer",padding:"var(--arcd-space-2)",background:form[key]?"color-mix(in srgb, var(--arcd-success-text) 5%, transparent)":"transparent",borderRadius:8,border:`1px solid ${form[key]?"var(--arcd-success-text)"+"33":"var(--arcd-border-default)"}`}}>
-            <div onClick={()=>F(key)(!form[key])} style={{width:20,height:20,border:`2px solid ${form[key]?"var(--arcd-success-text)":"var(--arcd-text-secondary)"}`,background:form[key]?"var(--arcd-success-text)":"transparent",borderRadius:5,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,cursor:"pointer"}}>
+          <label key={key} style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",cursor:"pointer",padding:"var(--arcd-space-2)",background:form[key]?"color-mix(in srgb, var(--arcd-success-text) 5%, transparent)":"transparent",borderRadius:"var(--arcd-box-radius)",border:`var(--arcd-border-width) solid ${form[key]?"var(--arcd-success-text)"+"33":"var(--arcd-border-default)"}`}}>
+            <div onClick={()=>F(key)(!form[key])} style={{width:20,height:20,border:`2px solid ${form[key]?"var(--arcd-success-text)":"var(--arcd-text-secondary)"}`,background:form[key]?"var(--arcd-success-text)":"transparent",borderRadius:"var(--arcd-radius-control)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,cursor:"pointer"}}>
               {form[key] && <span style={{color:"var(--arcd-text-inverse)",fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",lineHeight:"var(--arcd-line-height-normal)"}}>ok</span>}
             </div>
             <div style={{flex:1}}>
@@ -412,7 +412,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
       )} {/* fim {form.tipo !== "acordo_interno"} */}
 
       {/* Descontos */}
-      <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderTop:"3px solid var(--arcd-danger-text)",padding:"var(--arcd-space-3)",borderRadius:10,display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+      <div style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderTop:"3px solid var(--arcd-danger-text)",padding:"var(--arcd-space-3)",borderRadius:"var(--arcd-box-radius)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
         <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-danger-text)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}> Descontos</p>
         <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}>
           <Inp label="Adiantamentos (R$)" type="number" value={form.descAdiantamento} onChange={F("descAdiantamento")} placeholder="0,00"/>
@@ -423,7 +423,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
 
       {/* Resultado */}
       {calc ? (
-        <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 7%, transparent)",color:"var(--arcd-text-primary)",padding:"var(--arcd-space-4) var(--arcd-space-5)",borderRadius:12,border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)"}}>
+        <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 7%, transparent)",color:"var(--arcd-text-primary)",padding:"var(--arcd-space-4) var(--arcd-space-5)",borderRadius:"var(--arcd-box-radius)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)"}}>
           <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",letterSpacing:"var(--arcd-letter-spacing-body)",textTransform:"uppercase",color:"var(--arcd-action-primary)"}}>Total líquido a receber</p>
           <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:"var(--arcd-font-weight-semibold)",fontSize:"var(--arcd-type-page-title)",letterSpacing:"var(--arcd-letter-spacing-body)",lineHeight:"var(--arcd-line-height-normal)",color:"var(--arcd-text-primary)"}}>{fmt(calc.totalLiquido)}</p>
           <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-1)",color:"var(--arcd-text-secondary)"}}>{valorPorExtenso(calc.totalLiquido)}</p>
@@ -433,7 +433,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
               ["Descontos",  fmt(calc.totalDesc)],
               ["Líquido",    fmt(calc.totalLiquido)],
             ].map(([l,v])=>(
-              <div key={l} style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",padding:"var(--arcd-space-2)",borderRadius:8}}>
+              <div key={l} style={{background:"var(--arcd-surface-muted)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",padding:"var(--arcd-space-2)",borderRadius:"var(--arcd-box-radius)"}}>
                 <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",textTransform:"uppercase",color:"var(--arcd-text-secondary)"}}>{l}</p>
                 <p style={{fontWeight:"var(--arcd-font-weight-semibold)",fontSize:"var(--arcd-type-card-title)",color:"var(--arcd-text-primary)"}}>{v}</p>
               </div>
@@ -441,7 +441,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
           </div>
         </div>
       ) : (
-        <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",padding:"var(--arcd-space-5)",textAlign:"center",color:"var(--arcd-text-secondary)",borderRadius:10}}>
+        <div style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",padding:"var(--arcd-space-5)",textAlign:"center",color:"var(--arcd-text-secondary)",borderRadius:"var(--arcd-box-radius)"}}>
           Preencha nome, datas e valor mensal para calcular.
         </div>
       )}
@@ -456,18 +456,18 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
       <Btn onClick={salvar} full disabled={!calc||salvando}><Ic n="check"/> {salvando?"Salvando e auditando...":"Salvar no histórico"}</Btn>
 
       {/* Histórico */}
-      <StandardButton variant="secondary" onClick={()=>setHistory(h=>!h)} style={{textTransform:"uppercase",textAlign:"left"}}>
+      <StandardButton variant="secondary" onClick={()=>setHistory(h=>!h)} aria-expanded={history} className="justify-start text-left">
         {history?" Ocultar":" Ver"} Histórico de rescisões ({rescisoes.length})
       </StandardButton>
 
       {history && rescisoes.length === 0 && (
-        <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",padding:"var(--arcd-space-4)",textAlign:"center",color:"var(--arcd-text-secondary)",borderRadius:10}}>
+        <div style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",padding:"var(--arcd-space-4)",textAlign:"center",color:"var(--arcd-text-secondary)",borderRadius:"var(--arcd-box-radius)"}}>
           Nenhuma rescisão salva ainda.
         </div>
       )}
 
       {history && rescisoes.map(r => (
-        <div key={r.id} style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderLeft:"1px solid var(--arcd-danger-text)",padding:"var(--arcd-space-3) var(--arcd-space-4)",borderRadius:10}}>
+        <div key={r.id} style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderLeft:"var(--arcd-border-width) solid var(--arcd-danger-text)",padding:"var(--arcd-space-3) var(--arcd-space-4)",borderRadius:"var(--arcd-box-radius)"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-2)"}}>
             <div>
               <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:"var(--arcd-font-weight-semibold)",fontSize:"var(--arcd-type-card-title)"}}>{r.empName}</p>

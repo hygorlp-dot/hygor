@@ -966,24 +966,24 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                 <article key={e.id} className="equipment-fleet-card" data-status={e.status||"disponivel"} data-compact={isMobile||undefined}>
                   {!isMobile&&<EquipmentImage equipment={e}/>}
                   <div className="equipment-fleet-card__body">
-                  <div style={{display:"flex",justifyContent:"space-between",gap:8,marginBottom:6}}>
+                  <div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",marginBottom:"var(--arcd-space-1)"}}>
                     <div style={{minWidth:0}}>
                       <RecordAction className="equipment-fleet-card__name" aria-label={`Abrir cadastro de ${e.nome}`} onClick={()=>setEquipModal(e)}>{e.nome}</RecordAction>
-                      <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{e.categoria||"Sem categoria"}{e.patrimonio?` · ${e.patrimonio}`:""}</p>
+                      <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{e.categoria||"Sem categoria"}{e.patrimonio?` · ${e.patrimonio}`:""}</p>
                     </div>
-                    <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:st.c,background:`${st.c}14`,padding:"2px 7px",borderRadius:99,flexShrink:0,textTransform:"uppercase",height:"fit-content"}}>{st.l}</span>
+                    <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:st.c,background:`${st.c}14`,padding:"var(--arcd-space-half) var(--arcd-space-2)",borderRadius:"var(--arcd-radius-pill)",flexShrink:0,textTransform:"uppercase",height:"fit-content"}}>{st.l}</span>
                   </div>
                   {isMobile&&e.status==="locado"&&e.obraAtualId&&<p>Em {obraName(e.obraAtualId)}</p>}
                   <TaskDisclosure enabled={isMobile} summary="Detalhes do equipamento">
                   {isMobile&&equipmentImageFor(e).src&&<EquipmentImage equipment={e}/>}
-                  <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:7}}>
-                    <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:proprio?C.green:C.purple,background:`${proprio?C.green:C.purple}12`,padding:"2px 6px",borderRadius:5}}>{proprio?"PRÓPRIO":`DE ${donoName(e.proprietarioId).toUpperCase()}`}</span>
-                    {e.sinapiCodigo&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.blue,background:`${C.blue}0C`,border:`1px solid ${C.blue}28`,padding:"2px 6px",borderRadius:5}}>SINAPI {e.sinapiCodigo}</span>}
-                    {!isMobile&&e.status==="locado" && e.obraAtualId && <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted,padding:"2px 0"}}>em {obraName(e.obraAtualId)}</span>}
+                  <div style={{display:"flex",gap:"var(--arcd-space-1)",flexWrap:"wrap",marginBottom:"var(--arcd-space-2)"}}>
+                    <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:proprio?C.green:C.purple,background:`${proprio?C.green:C.purple}12`,padding:"var(--arcd-space-half) var(--arcd-space-1)",borderRadius:"var(--arcd-radius-control)"}}>{proprio?"PRÓPRIO":`DE ${donoName(e.proprietarioId).toUpperCase()}`}</span>
+                    {e.sinapiCodigo&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.blue,background:`${C.blue}0C`,border:`var(--arcd-border-width) solid ${C.blue}28`,padding:"var(--arcd-space-half) var(--arcd-space-1)",borderRadius:"var(--arcd-radius-control)"}}>SINAPI {e.sinapiCodigo}</span>}
+                    {!isMobile&&e.status==="locado" && e.obraAtualId && <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",padding:"var(--arcd-space-half) 0"}}>em {obraName(e.obraAtualId)}</span>}
                   </div>
                   {e.sinapiCodigo&&Number(e.valorAquisicao||0)>0&&Number(e.sinapiPreco||0)>0&&(()=>{
                     const variacao=(Number(e.valorAquisicao)-Number(e.sinapiPreco))/Number(e.sinapiPreco)*100;
-                    return <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginBottom:7}}>Compra <b style={{color:variacao>0?C.red:C.green}}>{Math.abs(variacao).toFixed(1)}% {variacao>0?"acima":"abaixo"}</b> da referência SINAPI.</p>;
+                    return <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginBottom:"var(--arcd-space-2)"}}>Compra <b style={{color:variacao>0?C.red:C.green}}>{Math.abs(variacao).toFixed(1)}% {variacao>0?"acima":"abaixo"}</b> da referência SINAPI.</p>;
                   })()}
                   {(() => {
                     const dp = picoUsoNoPeriodo(data,e,fleetPeriodDays,eventsByEquipment.get(String(e.id))||[]);
@@ -993,21 +993,21 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                     return (<>
                       {/* Estoque do item: total, quantos na rua e quantos livres */}
                       {dp.total > 1 && (
-                        <div style={{display:"flex",gap:6,marginBottom:7,flexWrap:"wrap"}}>
+                        <div style={{display:"flex",gap:"var(--arcd-space-1)",marginBottom:"var(--arcd-space-2)",flexWrap:"wrap"}}>
                           {[["Total",dp.total,C.muted],["Em uso",dp.pico,C.blue],
                             ["Livre",dp.livreNoPico,dp.livreNoPico<0?C.red:dp.livreNoPico===0?C.orange:C.green]].map(([l,v,cor])=>(
-                            <span key={l} style={{fontSize:"var(--arcd-type-caption)",color:C.muted,background:C.surface,
-                                  border:`1px solid ${C.border}`,borderRadius:6,padding:"3px 7px"}}>
+                            <span key={l} style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",background:"var(--arcd-surface-card)",
+                                  border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-half) var(--arcd-space-2)"}}>
                               {l} <b style={{color:cor,fontSize:"var(--arcd-type-label)"}}>{v}</b>
                             </span>
                           ))}
                           {dp.excedido && (
                             <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.red,background:`${C.red}12`,
-                                  borderRadius:6,padding:"3px 7px"}}>alocado além do que existe</span>
+                                  borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-half) var(--arcd-space-2)"}}>alocado além do que existe</span>
                           )}
                         </div>
                       )}
-                      <div style={{display:"flex",justifyContent:"space-between",gap:8,fontSize:"var(--arcd-type-caption)",color:C.muted,paddingTop:6,borderTop:`1px solid ${C.line}`}}>
+                      <div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",paddingTop:"var(--arcd-space-1)",borderTop:`var(--arcd-border-width) solid var(--arcd-border-subtle)`}}>
                         <span style={{minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                           {menor || <span style={{color:C.orange}}>sem tarifa</span>}
                         </span>
@@ -1046,46 +1046,46 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
           </Btn>}
         </div>
 
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(145px,1fr))",gap:8}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(145px,1fr))",gap:"var(--arcd-space-2)"}}>
           <MiniKpi label="Modelos" value={String(physicalRegistry.models.length)} cor={C.text} sub="produto ou classe"/>
           <MiniKpi label="Lotes" value={String(physicalRegistry.lots.length)} cor={C.blue} sub="controle por quantidade"/>
           <MiniKpi label="Unidades físicas" value={String(physicalRegistry.units.length)} cor={C.green} sub="ativos individualizados"/>
           <MiniKpi label="Revisão manual" value={String(physicalRegistry.report.ambiguous.length)} cor={physicalRegistry.report.ambiguous.length?C.orange:C.green} sub="classificação ambígua"/>
         </div>
 
-        <div style={{padding:"10px 12px",border:`1px solid ${physicalMigration?C.green:C.blue}55`,borderRadius:9,background:`${physicalMigration?C.green:C.blue}09`}}>
+        <div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",border:`var(--arcd-border-width) solid ${physicalMigration?C.green:C.blue}55`,borderRadius:"var(--arcd-box-radius)",background:`${physicalMigration?C.green:C.blue}09`}}>
           <p style={{fontSize:"var(--arcd-type-label)",color:physicalMigration?C.green:C.blue,fontWeight:600}}>{physicalMigration?"Cadastro físico materializado e versionado.":"Prévia compatível calculada a partir da frota atual."}</p>
-          <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>A localização abaixo não usa o campo legado de obra atual; ela é composta por locações, reservas, manutenções e bloqueios ativos.</p>
+          <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>A localização abaixo não usa o campo legado de obra atual; ela é composta por locações, reservas, manutenções e bloqueios ativos.</p>
         </div>
 
-        {physicalRegistry.report.manualReview.length>0&&<div style={{border:`1px solid ${C.orange}66`,borderRadius:9,background:`${C.orange}0B`,padding:"11px 13px"}}>
+        {physicalRegistry.report.manualReview.length>0&&<div style={{border:`var(--arcd-border-width) solid ${C.orange}66`,borderRadius:"var(--arcd-box-radius)",background:`${C.orange}0B`,padding:"var(--arcd-space-3) var(--arcd-space-3)"}}>
           <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.orange}}>Registros que exigem revisão</p>
-          <div style={{display:"grid",gap:5,marginTop:7}}>{physicalRegistry.report.manualReview.map(item=>{
+          <div style={{display:"grid",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-2)"}}>{physicalRegistry.report.manualReview.map(item=>{
             const source=(data.equipamentos||[]).find(equipment=>String(equipment.id)===String(item.equipmentId));
-            return <div key={item.equipmentId} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,fontSize:"var(--arcd-type-caption)",color:C.muted}}><span><b style={{color:C.text}}>{source?.nome||item.equipmentId}</b> — {item.reason}</span>{physicalMigration&&currentUser?.role==="admin"&&<Btn size="sm" v="ghost" onClick={()=>setPhysicalReview({equipmentId:item.equipmentId,kind:Number(source?.quantidadeTotal||1)>1?"lot":"unit",lotCode:`LOTE-${item.equipmentId}`,unit:"un",assetTags:source?.patrimonio||""})}>Revisar</Btn>}</div>;
+            return <div key={item.equipmentId} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}><span><b style={{color:"var(--arcd-text-primary)"}}>{source?.nome||item.equipmentId}</b> — {item.reason}</span>{physicalMigration&&currentUser?.role==="admin"&&<Btn size="sm" v="ghost" onClick={()=>setPhysicalReview({equipmentId:item.equipmentId,kind:Number(source?.quantidadeTotal||1)>1?"lot":"unit",lotCode:`LOTE-${item.equipmentId}`,unit:"un",assetTags:source?.patrimonio||""})}>Revisar</Btn>}</div>;
           })}</div>
         </div>}
 
-        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:9}}>
+        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}>
           {physicalRegistry.models.map(model=>{
             const lots=physicalRegistry.lots.filter(item=>item.modelId===model.id);
             const units=physicalRegistry.units.filter(item=>item.modelId===model.id);
             const assetIds=new Set([...lots.map(item=>item.id),...units.map(item=>item.id)]);
             const allocations=physicalRegistry.allocations.filter(item=>assetIds.has(item.lotId||item.unitId));
-            return <article key={model.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 13px"}}>
-              <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"start"}}>
-                <div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{model.name}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{model.category||"Sem categoria"}{model.manufacturer?` · ${model.manufacturer}`:""}</p></div>
-                <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:units.length?C.green:C.blue,background:`${units.length?C.green:C.blue}12`,borderRadius:99,padding:"3px 7px",whiteSpace:"nowrap"}}>{units.length?`${contar(units.length,"unidade","unidades")}`:`${lots.reduce((sum,lot)=>sum+Number(lot.quantity||0),0)} em lote`}</span>
+            return <article key={model.id} style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-3) var(--arcd-space-3)"}}>
+              <div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"start"}}>
+                <div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"var(--arcd-text-primary)"}}>{model.name}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{model.category||"Sem categoria"}{model.manufacturer?` · ${model.manufacturer}`:""}</p></div>
+                <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:units.length?C.green:C.blue,background:`${units.length?C.green:C.blue}12`,borderRadius:"var(--arcd-radius-pill)",padding:"var(--arcd-space-half) var(--arcd-space-2)",whiteSpace:"nowrap"}}>{units.length?`${contar(units.length,"unidade","unidades")}`:`${lots.reduce((sum,lot)=>sum+Number(lot.quantity||0),0)} em lote`}</span>
               </div>
-              <div style={{display:"grid",gap:5,marginTop:10}}>{allocations.map(allocation=>{
+              <div style={{display:"grid",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-2)"}}>{allocations.map(allocation=>{
                 const label=allocation.type==="work"?obraName(allocation.locationId):allocation.type==="depot"?"Depósito":allocation.type==="maintenance"?"Manutenção":allocation.type==="transport"?"Em transporte":allocation.type==="exceeded"?"Conflito de quantidade":"Bloqueado";
                 const color=allocation.type==="work"?C.blue:allocation.type==="depot"?C.green:allocation.type==="exceeded"?C.red:C.orange;
                 const unit=allocation.unitId?units.find(item=>item.id===allocation.unitId):null;
-                return <div key={allocation.key} style={{display:"flex",justifyContent:"space-between",gap:8,padding:"6px 8px",borderRadius:7,background:`${color}0B`,border:`1px solid ${color}28`}}>
-                  <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}><b style={{color}}>{label}</b>{unit?.assetTag?` · ${unit.assetTag}`:""}</span><b style={{fontSize:"var(--arcd-type-label)",color}}>{allocation.quantity} un.</b>
+                return <div key={allocation.key} style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-1) var(--arcd-space-2)",borderRadius:"var(--arcd-radius-control)",background:`${color}0B`,border:`var(--arcd-border-width) solid ${color}28`}}>
+                  <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}><b style={{color}}>{label}</b>{unit?.assetTag?` · ${unit.assetTag}`:""}</span><b style={{fontSize:"var(--arcd-type-label)",color}}>{allocation.quantity} un.</b>
                 </div>;
               })}</div>
-              {!allocations.length&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:10}}>Sem posição física disponível.</p>}
+              {!allocations.length&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-2)"}}>Sem posição física disponível.</p>}
             </article>;
           })}
         </div>
@@ -1119,7 +1119,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
         const ehFimSemana = iso => { const d=new Date(iso+"T00:00:00").getDay(); return d===0||d===6; };
 
         return (<>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:8}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:"var(--arcd-space-2)"}}>
             <Sel label="Mês" value={ym} onChange={setYm} options={mesesOpts}/>
             {obraIdFixo
               ? <Inp label="Obra" value={(data.obras||[]).find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
@@ -1129,7 +1129,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
             <Inp label="Buscar" value={busca} onChange={setBusca} placeholder="Nome, categoria, patrimônio..."/>
           </div>
 
-          <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
+          <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}>
             <MiniKpi label="Ocupação da frota" value={`${ocupGeral.toFixed(0)}%`}
                      cor={ocupGeral>=70?C.green:ocupGeral>=40?C.orange:C.red}
                      sub={`${contar(tot.locado,"dia locado","dias locados")}`}/>
@@ -1140,29 +1140,29 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                      cor={(tot.receita-tot.custo)>=0?C.green:C.red} sub="receita - custo de terceiro"/>
           </div>
 
-          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,padding:"0 2px",lineHeight:1.5}}>
+          <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",padding:"0 var(--arcd-space-half)",lineHeight:1.5}}>
             Cada linha é um equipamento e cada coluna um dia. A cor indica em qual obra ele estava;
             <b> · </b> é dia parado. Toque num equipamento para abrir a locação.
           </p>
 
           {linhas.length===0
-            ? <div style={{padding:24,textAlign:"center",color:C.muted,fontSize:"var(--arcd-type-body)"}}>Nenhum equipamento no filtro.</div>
-            : <div tabIndex={0} role="region" aria-label="Demonstrativo financeiro dos equipamentos" style={{overflow:"auto",border:`1px solid ${C.border}`,borderRadius:8,background:C.card,maxHeight:"70vh"}}>
-              <table style={{borderCollapse:"separate",borderSpacing:0,fontSize:"var(--arcd-type-label)"}}>
+            ? <div style={{padding:"var(--arcd-space-6)",textAlign:"center",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-body)"}}>Nenhum equipamento no filtro.</div>
+            : <div tabIndex={0} role="region" aria-label="Demonstrativo financeiro dos equipamentos" style={{overflow:"auto",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",background:"var(--arcd-surface-card)",maxHeight:"70vh"}}>
+              <table className="arcd-data-table__table" data-table-layout="matrix">
                 <thead>
                   <tr>
-                    <th style={{position:"sticky",left:0,top:0,zIndex:3,background:C.surface,textAlign:"left",
-                                padding:"7px 9px",borderBottom:`1px solid ${C.border}`,borderRight:`1px solid ${C.border}`,
-                                minWidth:150,fontSize:"var(--arcd-type-label)",color:C.muted,textTransform:"uppercase"}}>Equipamento</th>
+                    <th style={{position:"sticky",left:0,top:0,zIndex:3,background:"var(--arcd-surface-card)",textAlign:"left",
+                                padding:"var(--arcd-space-2) var(--arcd-space-2)",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRight:`var(--arcd-border-width) solid var(--arcd-border-default)`,
+                                minWidth:150,fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Equipamento</th>
                     {diasMes.map(d=>(
-                      <th key={d} style={{position:"sticky",top:0,zIndex:2,background:ehFimSemana(d)?`${C.blue}10`:C.surface,
-                                          padding:"7px 0",minWidth:42,borderBottom:`1px solid ${C.border}`,
-                                          fontSize:"var(--arcd-type-label)",color:C.muted,fontWeight:600}}>{diaCurto(d)}</th>
+                      <th key={d} style={{position:"sticky",top:0,zIndex:2,background:ehFimSemana(d)?`${C.blue}10`:"var(--arcd-surface-card)",
+                                          padding:"var(--arcd-space-2) 0",minWidth:42,borderBottom:`var(--arcd-border-width) solid var(--arcd-border-default)`,
+                                          fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",fontWeight:600}}>{diaCurto(d)}</th>
                     ))}
                     {["Dias","Ocup.","Receita","Result."].map(h=>(
-                      <th key={h} style={{position:"sticky",top:0,zIndex:2,background:C.surface,padding:"7px 9px",
-                                          borderBottom:`1px solid ${C.border}`,borderLeft:`1px solid ${C.border}`,
-                                          fontSize:"var(--arcd-type-label)",color:C.muted,textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>
+                      <th key={h} style={{position:"sticky",top:0,zIndex:2,background:"var(--arcd-surface-card)",padding:"var(--arcd-space-2) var(--arcd-space-2)",
+                                          borderBottom:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderLeft:`var(--arcd-border-width) solid var(--arcd-border-default)`,
+                                          fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -1170,14 +1170,14 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                   {linhas.map(({eq,r})=>(
                     <tr key={eq.id}>
                       <td onClick={()=>setEquipModal(eq)} title="Abrir o equipamento"
-                          style={{position:"sticky",left:0,zIndex:1,background:C.card,padding:"6px 9px",
-                                  borderBottom:`1px solid ${C.line}`,borderRight:`1px solid ${C.border}`,cursor:"pointer"}}>
-                        <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:150}}>{eq.nome}</p>
-                        <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,whiteSpace:"nowrap"}}>
+                          style={{position:"sticky",left:0,zIndex:1,background:"var(--arcd-surface-card)",padding:"var(--arcd-space-1) var(--arcd-space-2)",
+                                  borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`,borderRight:`var(--arcd-border-width) solid var(--arcd-border-default)`,cursor:"pointer"}}>
+                        <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"var(--arcd-text-primary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:150}}>{eq.nome}</p>
+                        <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",whiteSpace:"nowrap"}}>
                           {donoName(eq.proprietarioId)}
                           {Number(eq.quantidadeTotal||1)>1 && (()=>{
                             const pk = picoUsoNoPeriodo(data,eq,diasMes,eventsByEquipment.get(String(eq.id))||[]);
-                            return <span style={{color:pk.excedido?C.red:C.muted}}>
+                            return <span style={{color:pk.excedido?C.red:"var(--arcd-text-secondary)"}}>
                               {" · "}pico {pk.pico}/{pk.total}{pk.excedido?" (estourou)":""}
                             </span>;
                           })()}
@@ -1200,10 +1200,10 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                                 if(principal.maintenanceId){const maintenance=(data.manutencoesEquip||[]).find(item=>item.id===principal.maintenanceId);if(maintenance)setManutModal(maintenance);return;}
                                 const explicit=(data.equipmentUnavailability||[]).find(item=>item.id===principal.id);if(explicit)setIndispModal(explicit);
                               }}
-                              style={{textAlign:"center",padding:"6px 0",borderBottom:`1px solid ${C.line}`,
+                              style={{textAlign:"center",padding:"var(--arcd-space-1) 0",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`,
                                       background:estourou?`${C.red}35`:principal?`${corTipo[principal.type]||C.muted}24`:ehFimSemana(g.data)?`${C.blue}08`:"transparent",
                                       cursor:principal?"pointer":"default"}}>
-                            <span style={{display:"block",fontSize:"var(--arcd-type-caption)",fontWeight:600,color:estourou?C.red:principal?(corTipo[principal.type]||C.text):C.muted}}>{resumoTipos.join(" ")||"—"}</span>
+                            <span style={{display:"block",fontSize:"var(--arcd-type-caption)",fontWeight:600,color:estourou?C.red:principal?(corTipo[principal.type]||C.text):"var(--arcd-text-secondary)"}}>{resumoTipos.join(" ")||"—"}</span>
                             {/* Só o número - "livre" repetido em 24+ células por linha era ruído
                                 puro (achado de auditoria de design); a cor e o tooltip já dizem
                                 o que o número significa. */}
@@ -1211,12 +1211,12 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                           </td>
                         );
                       })}
-                      <td style={{padding:"6px 9px",textAlign:"center",borderBottom:`1px solid ${C.line}`,borderLeft:`1px solid ${C.border}`,fontWeight:600,color:C.text}}>{r.diasLocado}</td>
-                      <td style={{padding:"6px 9px",textAlign:"center",borderBottom:`1px solid ${C.line}`,
+                      <td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",textAlign:"center",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`,borderLeft:`var(--arcd-border-width) solid var(--arcd-border-default)`,fontWeight:600,color:"var(--arcd-text-primary)"}}>{r.diasLocado}</td>
+                      <td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",textAlign:"center",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`,
                                   color:r.ocupacaoPct>=70?C.green:r.ocupacaoPct>=40?C.orange:C.red,fontWeight:600}}>{r.ocupacaoPct.toFixed(0)}%</td>
-                      <td style={{padding:"6px 9px",textAlign:"right",borderBottom:`1px solid ${C.line}`,color:C.green,fontWeight:600,whiteSpace:"nowrap"}}>{fmt(r.receita)}</td>
-                      <td style={{padding:"6px 9px",textAlign:"right",borderBottom:`1px solid ${C.line}`,
-                                  color:r.resultado>=0?C.text:C.red,fontWeight:600,whiteSpace:"nowrap"}}>{fmt(r.resultado)}</td>
+                      <td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",textAlign:"right",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`,color:C.green,fontWeight:600,whiteSpace:"nowrap"}}>{fmt(r.receita)}</td>
+                      <td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",textAlign:"right",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`,
+                                  color:r.resultado>=0?"var(--arcd-text-primary)":C.red,fontWeight:600,whiteSpace:"nowrap"}}>{fmt(r.resultado)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1225,17 +1225,17 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
 
           {/* Legenda das obras */}
           {(data.obras||[]).length>0 && (
-            <div style={{display:"flex",gap:10,flexWrap:"wrap",padding:"0 2px"}}>
+            <div style={{display:"flex",gap:"var(--arcd-space-2)",flexWrap:"wrap",padding:"0 var(--arcd-space-half)"}}>
               {(data.obras||[]).filter(o=>linhas.some(l=>l.r.obras.includes(o.id))).map(o=>(
-                <span key={o.id} style={{display:"inline-flex",alignItems:"center",gap:5,fontSize:"var(--arcd-type-label)",color:C.muted}}>
-                  <span style={{width:9,height:9,borderRadius:2,background:corDaObra(o.id)}}/>{o.name}
+                <span key={o.id} style={{display:"inline-flex",alignItems:"center",gap:"var(--arcd-space-1)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>
+                  <span style={{width:9,height:9,borderRadius:"var(--arcd-radius-control)",background:corDaObra(o.id)}}/>{o.name}
                 </span>
               ))}
             </div>
           )}
-          <div style={{display:"flex",gap:10,flexWrap:"wrap",padding:"0 2px"}}>
+          <div style={{display:"flex",gap:"var(--arcd-space-2)",flexWrap:"wrap",padding:"0 var(--arcd-space-half)"}}>
             {Object.entries(siglaTipo).map(([type,sigla])=><span key={type} style={{fontSize:"var(--arcd-type-caption)",color:corTipo[type]||C.muted,fontWeight:600}}>{sigla} = {EQUIPMENT_UNAVAILABILITY_LABEL[type]}</span>)}
-            <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600}}>Número abaixo da sigla = unidades livres no dia</span>
+            <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",fontWeight:600}}>Número abaixo da sigla = unidades livres no dia</span>
           </div>
         </>);
       })()}
@@ -1259,16 +1259,16 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
               const jaDescartado=!equipamento||equipamento.ativo===false;
               return (
                 <article key={m.id} className="equipment-record" data-maintenance={m.tipo||"corretiva"}>
-                  <div style={{display:"flex",justifyContent:"space-between",gap:8,flexWrap:"wrap"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
                     <div style={{minWidth:0}}>
-                      <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{equipName(m.equipamentoId)}{jaDescartado&&<span style={{marginLeft:6}}><Badge color={C.muted}>Descartado</Badge></span>}</p>
-                      <p style={{fontSize:"var(--arcd-type-caption)",color:cancelada?C.red:C.muted}}>
+                      <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"var(--arcd-text-primary)"}}>{equipName(m.equipamentoId)}{jaDescartado&&<span style={{marginLeft:"var(--arcd-space-1)"}}><Badge color={C.muted}>Descartado</Badge></span>}</p>
+                      <p style={{fontSize:"var(--arcd-type-caption)",color:cancelada?C.red:"var(--arcd-text-secondary)"}}>
                         {fmtDate(m.inicio||m.data)} {cancelada?"→ excluída":m.fim?`→ ${fmtDate(m.fim)}`:"→ prazo indeterminado"} · {m.tipo}{m.descricao?` · ${m.descricao}`:""}
                       </p>
-                      <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:1}}>Pago por {m.pagoPor==="proprietario"?"proprietário":"empresa"}{m.fornecedor?` · ${m.fornecedor}`:""}</p>
+                      <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:1}}>Pago por {m.pagoPor==="proprietario"?"proprietário":"empresa"}{m.fornecedor?` · ${m.fornecedor}`:""}</p>
                     </div>
                     <div style={{textAlign:"right"}}>
-                      <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:cancelada?C.muted:C.red}}>{fmt(m.custo)}</p>
+                      <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:cancelada?"var(--arcd-text-secondary)":C.red}}>{fmt(m.custo)}</p>
                     </div>
                   </div>
                   <div className="equipment-record-actions">
@@ -1321,43 +1321,43 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
       {/* ===== MODAIS ===== */}
       {equipModal && (
         <Modal title={equipModal.id?"Editar equipamento":"Novo equipamento"} onClose={()=>{setEquipModal(null);setBuscaSinapiEquip("");setResultadosSinapiEquip([]);setAvisoSinapiEquip("");}} wide>
-          <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
+          <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}>
             <div className="equipment-sinapi-reference" style={{gridColumn:"1/-1"}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,flexWrap:"wrap",marginBottom:9}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-2)",flexWrap:"wrap",marginBottom:"var(--arcd-space-2)"}}>
                 <div>
-                  <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Referência de compra SINAPI</p>
-                  <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Consulte somente equipamentos, vincule o código oficial e compare o preço de aquisição.</p>
+                  <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"var(--arcd-text-primary)"}}>Referência de compra SINAPI</p>
+                  <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Consulte somente equipamentos, vincule o código oficial e compare o preço de aquisição.</p>
                 </div>
                 {equipModal.sinapiCodigo&&<Badge color={C.blue}>SINAPI {equipModal.sinapiCodigo}</Badge>}
               </div>
-              <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
+              <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}>
                 <Sel label="Base SINAPI" value={baseSinapiEquipId} onChange={v=>{setBaseSinapiEquipId(v);setBuscaSinapiEquip("");setResultadosSinapiEquip([]);}}
                   options={[{v:"",l:basesSinapiEquip.length?"Selecione a base":"Nenhuma base SINAPI pronta"},...basesSinapiEquip.map(b=>({v:b.id,l:`${b.dataBase||"Sem data"}${b.uf?` · ${b.uf}`:""} · ${b.desonerado===false?"não desonerada":"desonerada"}`}))]}/>
                 <Inp label="Pesquisar equipamento" value={buscaSinapiEquip} onChange={setBuscaSinapiEquip} placeholder="Código, betoneira, compactador, gerador..."/>
               </div>
-              {(carregandoSinapiEquip||avisoSinapiEquip||resultadosSinapiEquip.length>0)&&<div style={{marginTop:7,maxHeight:210,overflowY:"auto",background:C.card,border:`1px solid ${C.border}`,borderRadius:5}}>
+              {(carregandoSinapiEquip||avisoSinapiEquip||resultadosSinapiEquip.length>0)&&<div style={{marginTop:"var(--arcd-space-2)",maxHeight:210,overflowY:"auto",background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)"}}>
                 {carregandoSinapiEquip&&<LoadingState label="equipamentos no SINAPI"/>}
-                {avisoSinapiEquip&&<p style={{fontSize:"var(--arcd-type-label)",color:C.orange,padding:9,lineHeight:1.45}}>{avisoSinapiEquip}</p>}
+                {avisoSinapiEquip&&<p style={{fontSize:"var(--arcd-type-label)",color:C.orange,padding:"var(--arcd-space-2)",lineHeight:1.45}}>{avisoSinapiEquip}</p>}
                 {resultadosSinapiEquip.map((item,index)=>{
                   const base=basesSinapiEquip.find(b=>b.id===baseSinapiEquipId);
                   const preco=(base?.desonerado===false?Number(item.precoNao||0):Number(item.precoDes||0))||Number(item.precoDes||0)||Number(item.precoNao||0);
-                  return <button type="button" key={`${item.codigo}-${index}`} onClick={()=>selecionarEquipamentoSinapi(item)} style={{display:"grid",gridTemplateColumns:"90px minmax(0,1fr) 110px",gap:8,width:"100%",alignItems:"center",padding:"8px 9px",border:0,borderTop:index?`1px solid ${C.line}`:"none",background:"transparent",cursor:"pointer",textAlign:"left"}}>
+                  return <button type="button" key={`${item.codigo}-${index}`} onClick={()=>selecionarEquipamentoSinapi(item)} style={{display:"grid",gridTemplateColumns:"90px minmax(0,1fr) 110px",gap:"var(--arcd-space-2)",width:"100%",alignItems:"center",padding:"var(--arcd-space-2) var(--arcd-space-2)",border:0,borderTop:index?`var(--arcd-border-width) solid var(--arcd-border-subtle)`:"none",background:"transparent",cursor:"pointer",textAlign:"left"}}>
                     <b style={{fontSize:"var(--arcd-type-caption)",color:C.blue}}>{item.codigo}</b>
-                    <span style={{fontSize:"var(--arcd-type-label)",color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.descricao}</span>
+                    <span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.descricao}</span>
                     <b style={{fontSize:"var(--arcd-type-caption)",color:C.yellowD,textAlign:"right"}}>{fmt(preco)}/{item.unidade||"UN"}</b>
                   </button>;
                 })}
               </div>}
-              {equipModal.sinapiCodigo&&<div style={{marginTop:9,display:"grid",gridTemplateColumns:formGrid(3),gap:7}}>
-                <div style={{padding:"8px 9px",background:C.card,border:`1px solid ${C.border}`,borderRadius:5}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Referência SINAPI</p><b style={{fontSize:"var(--arcd-type-body)",color:C.text}}>{fmt(Number(equipModal.sinapiPreco||0))}</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{equipModal.sinapiUnidade||"UN"} · {equipModal.sinapiDataBase||"sem data"}{equipModal.sinapiUf?` · ${equipModal.sinapiUf}`:""}</p></div>
-                <div style={{padding:"8px 9px",background:C.card,border:`1px solid ${C.border}`,borderRadius:5}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Valor de compra</p><b style={{fontSize:"var(--arcd-type-body)",color:C.text}}>{Number(equipModal.valorAquisicao||0)>0?fmt(Number(equipModal.valorAquisicao)):"A informar"}</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>valor efetivamente negociado</p></div>
+              {equipModal.sinapiCodigo&&<div style={{marginTop:"var(--arcd-space-2)",display:"grid",gridTemplateColumns:formGrid(3),gap:"var(--arcd-space-2)"}}>
+                <div style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)"}}><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",fontWeight:600}}>Referência SINAPI</p><b style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)"}}>{fmt(Number(equipModal.sinapiPreco||0))}</b><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{equipModal.sinapiUnidade||"UN"} · {equipModal.sinapiDataBase||"sem data"}{equipModal.sinapiUf?` · ${equipModal.sinapiUf}`:""}</p></div>
+                <div style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)"}}><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",fontWeight:600}}>Valor de compra</p><b style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)"}}>{Number(equipModal.valorAquisicao||0)>0?fmt(Number(equipModal.valorAquisicao)):"A informar"}</b><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>valor efetivamente negociado</p></div>
                 {(()=>{
                   const ref=Number(equipModal.sinapiPreco||0),compra=Number(equipModal.valorAquisicao||0);
                   const diferenca=compra-ref,pct=ref>0&&compra>0?diferenca/ref*100:0;
                   const cor=diferenca>0?C.red:C.green;
-                  return <div style={{padding:"8px 9px",background:C.card,border:`1px solid ${C.border}`,borderRadius:5}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Comparação</p>{ref>0&&compra>0?<><b style={{fontSize:"var(--arcd-type-body)",color:cor}}>{diferenca>0?"+":""}{fmt(diferenca)} · {pct>0?"+":""}{pct.toFixed(1)}%</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{diferenca>0?"acima da referência":"abaixo da referência"}</p></>:<><b style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Aguardando valor</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>preencha a aquisição</p></>}</div>;
+                  return <div style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)"}}><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",fontWeight:600}}>Comparação</p>{ref>0&&compra>0?<><b style={{fontSize:"var(--arcd-type-body)",color:cor}}>{diferenca>0?"+":""}{fmt(diferenca)} · {pct>0?"+":""}{pct.toFixed(1)}%</b><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{diferenca>0?"acima da referência":"abaixo da referência"}</p></>:<><b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Aguardando valor</b><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>preencha a aquisição</p></>}</div>;
                 })()}
-                <p style={{gridColumn:"1/-1",fontSize:"var(--arcd-type-caption)",color:C.muted,lineHeight:1.4}}>Referência gerencial. Confirme unidade, especificação, data-base, frete e condições comerciais antes de decidir a compra.</p>
+                <p style={{gridColumn:"1/-1",fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",lineHeight:1.4}}>Referência gerencial. Confirme unidade, especificação, data-base, frete e condições comerciais antes de decidir a compra.</p>
               </div>}
             </div>
             <section className="equipment-image-editor" style={{gridColumn:"1/-1"}}>
@@ -1392,13 +1392,13 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
             {/* TABELA DE TARIFAS: dia, semana, quinzena e mes. Deixe zerado o que
                 nao for oferecido. Na cobranca o sistema monta a combinacao mais
                 barata para o periodo - nunca cobra a mais que a modalidade menor. */}
-            <div style={{gridColumn:"1/-1",background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,padding:"11px 13px"}}>
-              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginBottom:3}}>Tarifas cobradas do cliente</p>
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginBottom:9,lineHeight:1.45}}>
+            <div style={{gridColumn:"1/-1",background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-3) var(--arcd-space-3)"}}>
+              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"var(--arcd-text-primary)",marginBottom:"var(--arcd-space-half)"}}>Tarifas cobradas do cliente</p>
+              <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginBottom:"var(--arcd-space-2)",lineHeight:1.45}}>
                 Preencha só as modalidades que você oferece. Quando o período puder ser
                 cobrado de mais de um jeito, o sistema usa sempre o <b>menor valor</b>.
               </p>
-              <div style={{display:"grid",gridTemplateColumns:formGrid(4),gap:8}}>
+              <div style={{display:"grid",gridTemplateColumns:formGrid(4),gap:"var(--arcd-space-2)"}}>
                 {[["dia","Por dia"],["semana","Por semana"],["quinzena","Por quinzena"],["mes","Por mês"]].map(([k,l])=>(
                   <Inp key={k} label={`${l} (R$)`} type="number" min="0"
                        value={equipModal.tarifas?.[k] ?? ""}
@@ -1408,11 +1408,11 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
               {(() => {
                 const t = equipModal.tarifas || {};
                 const algum = ["dia","semana","quinzena","mes"].some(k=>Number(t[k]||0)>0);
-                if (!algum) return <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:8}}>Opcional no cadastro. Você pode informar a tarifa agora ou negociar ao criar a locação.</p>;
+                if (!algum) return <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-2)"}}>Opcional no cadastro. Você pode informar a tarifa agora ou negociar ao criar a locação.</p>;
                 // Previa: quanto sai um mes cheio pela combinacao mais barata.
                 const p30 = melhorTarifa(t, 30);
                 return (
-                  <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:8}}>
+                  <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-2)"}}>
                     Exemplo: 30 dias sairiam <b style={{color:C.green}}>{fmt(p30.total)}</b> ({textoComposicao(p30.composicao)}).
                   </p>
                 );
@@ -1420,9 +1420,9 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
             </div>
 
             {equipModal.proprietarioId && (
-              <div style={{gridColumn:"1/-1",background:`${C.blue}07`,border:`1px solid ${C.blue}33`,borderRadius:9,padding:"11px 13px"}}>
-                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginBottom:3}}>Repasse ao proprietário</p>
-                <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.45}}>
+              <div style={{gridColumn:"1/-1",background:`${C.blue}07`,border:`var(--arcd-border-width) solid ${C.blue}33`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-3) var(--arcd-space-3)"}}>
+                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"var(--arcd-text-primary)",marginBottom:"var(--arcd-space-half)"}}>Repasse ao proprietário</p>
+                <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:1.45}}>
                   O repasse acompanha automaticamente o <b>valor líquido da locação</b>.
                   Não existe uma segunda tabela de tarifas para o proprietário.
                 </p>
@@ -1433,7 +1433,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
             <Inp label="Data de aquisição" type="date" value={equipModal.aquisicao} onChange={v=>setEquipModal(f=>({...f,aquisicao:v}))}/>
             <Inp label="Valor de aquisição (R$)" type="number" value={equipModal.valorAquisicao} onChange={v=>setEquipModal(f=>({...f,valorAquisicao:v}))}/>
             <div style={{gridColumn:"1/-1"}}><Inp label="Observações" value={equipModal.obs} onChange={v=>setEquipModal(f=>({...f,obs:v}))} multiline/></div>
-            <div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:equipModal.id?"minmax(140px,.35fr) minmax(200px,1fr)":"1fr",gap:8}}>
+            <div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:equipModal.id?"minmax(140px,.35fr) minmax(200px,1fr)":"1fr",gap:"var(--arcd-space-2)"}}>
               {equipModal.id&&<Btn full v="danger" loading={salvandoEquipamento==="exclusao"} disabled={!!salvandoEquipamento}
                 onClick={()=>excluirEquip(equipModal)}><Ic n="trash"/> {salvandoEquipamento==="exclusao"?"Excluindo...":"Excluir equipamento"}</Btn>}
               <Btn full loading={salvandoEquipamento==="equipamento"} disabled={!!salvandoEquipamento}
@@ -1445,7 +1445,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
 
       {donoModal && (
         <Modal title={donoModal.id?"Editar proprietário":"Novo proprietário (terceiro)"} onClose={()=>setDonoModal(null)}>
-          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
             <Inp label="Nome *" value={donoModal.nome} onChange={v=>setDonoModal(f=>({...f,nome:v}))}/>
             <CampoCNPJ label="CNPJ (busca) / CPF" value={donoModal.documento} onChange={v=>setDonoModal(f=>({...f,documento:v}))}
               onEncontrado={d=>setDonoModal(f=>({...f, nome:f.nome||d.nome, telefone:f.telefone||d.telefone, email:f.email||d.email }))}/>
@@ -1460,53 +1460,53 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
       )}
 
       {physicalReview&&(()=>{const source=(data.equipamentos||[]).find(item=>String(item.id)===String(physicalReview.equipmentId));const expected=Math.max(1,Number(source?.quantidadeTotal||1));return <Modal title={`Revisar cadastro físico · ${source?.nome||"Equipamento"}`} onClose={()=>setPhysicalReview(null)}>
-        <div style={{display:"flex",flexDirection:"column",gap:9}}>
+        <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
           <Sel label="Classificação *" value={physicalReview.kind} onChange={v=>setPhysicalReview(form=>({...form,kind:v}))} options={[{v:"lot",l:"Lote controlado por quantidade"},{v:"unit",l:"Unidades físicas individualizadas"}]}/>
-          {physicalReview.kind==="lot"?<><Inp label="Identificação do lote *" value={physicalReview.lotCode} onChange={v=>setPhysicalReview(form=>({...form,lotCode:v}))}/><Inp label="Unidade de controle" value={physicalReview.unit} onChange={v=>setPhysicalReview(form=>({...form,unit:v}))}/><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Quantidade preservada do cadastro: <b>{expected}</b>.</p></>:<><Inp label={`Patrimônios / séries (${expected}) *`} value={physicalReview.assetTags} onChange={v=>setPhysicalReview(form=>({...form,assetTags:v}))} multiline placeholder="Separe por vírgula ou uma linha por unidade"/><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Informe exatamente {expected} identificação(ões) única(s).</p></>}
+          {physicalReview.kind==="lot"?<><Inp label="Identificação do lote *" value={physicalReview.lotCode} onChange={v=>setPhysicalReview(form=>({...form,lotCode:v}))}/><Inp label="Unidade de controle" value={physicalReview.unit} onChange={v=>setPhysicalReview(form=>({...form,unit:v}))}/><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Quantidade preservada do cadastro: <b>{expected}</b>.</p></>:<><Inp label={`Patrimônios / séries (${expected}) *`} value={physicalReview.assetTags} onChange={v=>setPhysicalReview(form=>({...form,assetTags:v}))} multiline placeholder="Separe por vírgula ou uma linha por unidade"/><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Informe exatamente {expected} identificação(ões) única(s).</p></>}
           <Btn full disabled={!!salvandoEquipamento} onClick={()=>salvarRevisaoFisica(physicalReview)}>{salvandoEquipamento===`revisao-fisica-${physicalReview.equipmentId}`?"Salvando...":"Salvar classificação física"}</Btn>
         </div>
       </Modal>;})()}
 
       {rentalInvoiceModal&&(()=>{const rental=(data.locacoesEquip||[]).find(item=>item.id===rentalInvoiceModal.rentalId);const eligible=(data.rentalChargeItems||[]).filter(item=>item.rentalId===rentalInvoiceModal.rentalId&&item.competence===rentalInvoiceModal.competence&&["open","measured"].includes(item.status));const selected=eligible.filter(item=>(rentalInvoiceModal.chargeItemIds||[]).includes(item.id)),total=selected.reduce((sum,item)=>sum+Number(item.netAmountCents||0),0);return <Modal title={`Emitir fatura · ${equipName(rental?.equipamentoId)}`} onClose={()=>setRentalInvoiceModal(null)} wide>
-        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
-          <div style={{gridColumn:"1/-1",padding:"9px 11px",border:`1px solid ${C.orange}44`,borderRadius:8,background:`${C.orange}08`}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.orange}}>EMISSÃO · AINDA NÃO RECEBIDA</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>A emissão congela as linhas selecionadas e cria saldo em aberto, sem movimentar banco.</p></div>
+        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}>
+          <div style={{gridColumn:"1/-1",padding:"var(--arcd-space-2) var(--arcd-space-3)",border:`var(--arcd-border-width) solid ${C.orange}44`,borderRadius:"var(--arcd-box-radius)",background:`${C.orange}08`}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.orange}}>EMISSÃO · AINDA NÃO RECEBIDA</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>A emissão congela as linhas selecionadas e cria saldo em aberto, sem movimentar banco.</p></div>
           <Inp label="Número da fatura *" value={rentalInvoiceModal.number} onChange={v=>setRentalInvoiceModal(form=>({...form,number:v}))}/>
           <Inp label="Competência *" type="month" disabled value={rentalInvoiceModal.competence} onChange={()=>{}}/>
           <Inp label="Data de emissão *" type="date" value={rentalInvoiceModal.issueDate} onChange={v=>setRentalInvoiceModal(form=>({...form,issueDate:v}))}/>
           <Inp label="Vencimento *" type="date" value={rentalInvoiceModal.dueDate} onChange={v=>setRentalInvoiceModal(form=>({...form,dueDate:v}))}/>
-          <div style={{gridColumn:"1/-1",border:`1px solid ${C.border}`,borderRadius:8,padding:"9px 11px"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.text}}>LINHAS DA FATURA</p>{eligible.map(item=>{const checked=(rentalInvoiceModal.chargeItemIds||[]).includes(item.id);return <label key={item.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,padding:"7px 0",fontSize:"var(--arcd-type-label)",borderBottom:`1px solid ${C.line}`}}><span><input type="checkbox" checked={checked} onChange={()=>setRentalInvoiceModal(form=>({...form,chargeItemIds:checked?form.chargeItemIds.filter(id=>id!==item.id):[...form.chargeItemIds,item.id]}))} style={{marginRight:7}}/>{item.description}</span><b>{fmt(Number(item.netAmountCents||0)/100)}</b></label>;})}</div>
+          <div style={{gridColumn:"1/-1",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:"var(--arcd-text-primary)"}}>LINHAS DA FATURA</p>{eligible.map(item=>{const checked=(rentalInvoiceModal.chargeItemIds||[]).includes(item.id);return <label key={item.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) 0",fontSize:"var(--arcd-type-label)",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`}}><span><input type="checkbox" checked={checked} onChange={()=>setRentalInvoiceModal(form=>({...form,chargeItemIds:checked?form.chargeItemIds.filter(id=>id!==item.id):[...form.chargeItemIds,item.id]}))} style={{marginRight:"var(--arcd-space-2)"}}/>{item.description}</span><b>{fmt(Number(item.netAmountCents||0)/100)}</b></label>;})}</div>
           <div style={{gridColumn:"1/-1",display:"flex",justifyContent:"space-between",fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.orange}}><span>Total faturado</span><span>{fmt(total/100)}</span></div>
-          <div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Btn v="ghost" full onClick={()=>setRentalInvoiceModal(null)}>Cancelar</Btn><Btn full disabled={!!salvandoEquipamento||!selected.length||total<=0} loading={salvandoEquipamento===`fatura-${rentalInvoiceModal.rentalId}`} onClick={()=>salvarFaturaLocacao(rentalInvoiceModal)}>Emitir com saldo aberto</Btn></div>
+          <div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-2)"}}><Btn v="ghost" full onClick={()=>setRentalInvoiceModal(null)}>Cancelar</Btn><Btn full disabled={!!salvandoEquipamento||!selected.length||total<=0} loading={salvandoEquipamento===`fatura-${rentalInvoiceModal.rentalId}`} onClick={()=>salvarFaturaLocacao(rentalInvoiceModal)}>Emitir com saldo aberto</Btn></div>
         </div>
       </Modal>;})()}
 
       {rentalReceiptModal&&(()=>{const invoice=(data.rentalInvoices||[]).find(item=>item.id===rentalReceiptModal.invoiceId);const rental=(data.locacoesEquip||[]).find(item=>item.id===rentalReceiptModal.rentalId);const candidates=(data.transacoes||[]).filter(t=>Number(t.valor)>0).slice().sort((a,b)=>(b.data||"").localeCompare(a.data||"")).slice(0,80);return <Modal title={`Vincular recebimento · ${invoice?.number||""}`} onClose={()=>setRentalReceiptModal(null)}>
-        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
-          <div style={{gridColumn:"1/-1",padding:"9px 11px",border:`1px solid ${C.green}44`,borderRadius:8,background:`${C.green}08`}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.green}}>RECEBIMENTO · CONCILIAÇÃO BANCÁRIA</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{equipName(rental?.equipamentoId)} · saldo em aberto {fmt(Number(invoice?.openAmountCents||0)/100)}</p></div>
+        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}>
+          <div style={{gridColumn:"1/-1",padding:"var(--arcd-space-2) var(--arcd-space-3)",border:`var(--arcd-border-width) solid ${C.green}44`,borderRadius:"var(--arcd-box-radius)",background:`${C.green}08`}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.green}}>RECEBIMENTO · CONCILIAÇÃO BANCÁRIA</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{equipName(rental?.equipamentoId)} · saldo em aberto {fmt(Number(invoice?.openAmountCents||0)/100)}</p></div>
           <div style={{gridColumn:"1/-1"}}><Sel label="Transação bancária recebida *" value={rentalReceiptModal.transactionId} onChange={v=>setRentalReceiptModal(form=>({...form,transactionId:v}))}
             options={[{v:"",l:"Selecione..."},...candidates.map(t=>({v:t.id,l:`${fmtDate(t.data)} · ${fmt(Number(t.valor||0))} · ${t.descricao||"Entrada bancária"}`}))]}/></div>
           <Inp label="Valor recebido (R$) *" value={rentalReceiptModal.amount} onChange={v=>setRentalReceiptModal(form=>({...form,amount:v}))}/>
           <Inp label="Data do recebimento *" type="date" value={rentalReceiptModal.paymentDate} onChange={v=>setRentalReceiptModal(form=>({...form,paymentDate:v}))}/>
           <div style={{gridColumn:"1/-1"}}><Inp label="Observação" value={rentalReceiptModal.notes} onChange={v=>setRentalReceiptModal(form=>({...form,notes:v}))}/></div>
-          <div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Btn v="ghost" full onClick={()=>setRentalReceiptModal(null)}>Cancelar</Btn><Btn full disabled={!!salvandoEquipamento||!rentalReceiptModal.transactionId} loading={salvandoEquipamento===`recebimento-${rentalReceiptModal.invoiceId}`} onClick={()=>salvarRecebimentoFatura(rentalReceiptModal)}>Vincular recebimento</Btn></div>
+          <div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-2)"}}><Btn v="ghost" full onClick={()=>setRentalReceiptModal(null)}>Cancelar</Btn><Btn full disabled={!!salvandoEquipamento||!rentalReceiptModal.transactionId} loading={salvandoEquipamento===`recebimento-${rentalReceiptModal.invoiceId}`} onClick={()=>salvarRecebimentoFatura(rentalReceiptModal)}>Vincular recebimento</Btn></div>
         </div>
       </Modal>;})()}
 
       {rentalMeasurementModal&&(()=>{const rental=(data.locacoesEquip||[]).find(item=>item.id===rentalMeasurementModal.rentalId),equipment=(data.equipamentos||[]).find(item=>item.id===rental?.equipamentoId);const preview=buildRentalPeriodicCharge({rental,equipment,utilizationStart:rentalMeasurementModal.utilizationStart,utilizationEnd:rentalMeasurementModal.utilizationEnd,competence:rentalMeasurementModal.competence,fixedDiscountCents:Math.round((Number(String(rentalMeasurementModal.fixedDiscount||0).replace(",","."))||0)*100)});return <Modal title={`Medir competência · ${equipName(rental?.equipamentoId)}`} onClose={()=>setRentalMeasurementModal(null)}>
-        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
-          <div style={{gridColumn:"1/-1",padding:"9px 11px",border:`1px solid ${C.blue}44`,borderRadius:8,background:`${C.blue}08`}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.blue}}>MEDIÇÃO CONTRATUAL · NÃO FATURADA</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Utilização, competência, emissão e pagamento permanecem etapas separadas.</p></div>
+        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}>
+          <div style={{gridColumn:"1/-1",padding:"var(--arcd-space-2) var(--arcd-space-3)",border:`var(--arcd-border-width) solid ${C.blue}44`,borderRadius:"var(--arcd-box-radius)",background:`${C.blue}08`}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.blue}}>MEDIÇÃO CONTRATUAL · NÃO FATURADA</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Utilização, competência, emissão e pagamento permanecem etapas separadas.</p></div>
           <Inp label="Competência *" type="month" value={rentalMeasurementModal.competence} onChange={v=>setRentalMeasurementModal(form=>({...form,competence:v}))}/>
           <Inp label="Desconto fixo desta medição (R$)" value={rentalMeasurementModal.fixedDiscount} onChange={v=>setRentalMeasurementModal(form=>({...form,fixedDiscount:v}))}/>
           <Inp label="Início da utilização *" type="date" value={rentalMeasurementModal.utilizationStart} onChange={v=>setRentalMeasurementModal(form=>({...form,utilizationStart:v}))}/>
           <Inp label="Fim da utilização *" type="date" value={rentalMeasurementModal.utilizationEnd} onChange={v=>setRentalMeasurementModal(form=>({...form,utilizationEnd:v}))}/>
-          <div style={{gridColumn:"1/-1",padding:"10px 12px",border:`1px solid ${preview.ok?C.green:C.red}44`,borderRadius:8}}>{preview.ok?<><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Regra: {preview.record.billingRule} · bruto {fmt(preview.record.grossAmountCents/100)} · descontos {fmt(preview.record.discountAmountCents/100)}</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.green,marginTop:3}}>Líquido medido: {fmt(preview.record.netAmountCents/100)}</p></>:<p style={{fontSize:"var(--arcd-type-label)",color:C.red}}>{preview.reason}</p>}</div>
-          <div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Btn v="ghost" full onClick={()=>setRentalMeasurementModal(null)}>Cancelar</Btn><Btn full disabled={!!salvandoEquipamento||!preview.ok} loading={salvandoEquipamento===`medicao-${rentalMeasurementModal.rentalId}`} onClick={()=>salvarMedicaoLocacao(rentalMeasurementModal)}>Confirmar medição</Btn></div>
+          <div style={{gridColumn:"1/-1",padding:"var(--arcd-space-2) var(--arcd-space-3)",border:`var(--arcd-border-width) solid ${preview.ok?C.green:C.red}44`,borderRadius:"var(--arcd-box-radius)"}}>{preview.ok?<><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Regra: {preview.record.billingRule} · bruto {fmt(preview.record.grossAmountCents/100)} · descontos {fmt(preview.record.discountAmountCents/100)}</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.green,marginTop:"var(--arcd-space-half)"}}>Líquido medido: {fmt(preview.record.netAmountCents/100)}</p></>:<p style={{fontSize:"var(--arcd-type-label)",color:C.red}}>{preview.reason}</p>}</div>
+          <div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-2)"}}><Btn v="ghost" full onClick={()=>setRentalMeasurementModal(null)}>Cancelar</Btn><Btn full disabled={!!salvandoEquipamento||!preview.ok} loading={salvandoEquipamento===`medicao-${rentalMeasurementModal.rentalId}`} onClick={()=>salvarMedicaoLocacao(rentalMeasurementModal)}>Confirmar medição</Btn></div>
         </div>
       </Modal>;})()}
 
       {rentalChargeModal&&(()=>{const rental=(data.locacoesEquip||[]).find(item=>item.id===rentalChargeModal.rentalId);const quantity=Number(String(rentalChargeModal.quantity||0).replace(",","."))||0,price=Number(String(rentalChargeModal.unitPrice||0).replace(",","."))||0,discount=Number(String(rentalChargeModal.discountAmount||0).replace(",","."))||0,tax=Number(String(rentalChargeModal.taxAmount||0).replace(",","."))||0;const preview=Math.round((quantity*price-discount+tax)*100)/100;return <Modal title={`Adicionar cobrança · ${equipName(rental?.equipamentoId)}`} onClose={()=>setRentalChargeModal(null)} wide>
-        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
-          <div style={{gridColumn:"1/-1",padding:"9px 11px",border:`1px solid ${C.yellowD}44`,borderRadius:8,background:`${C.yellowD}08`}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.yellowD}}>LINHA PREPARADA · NÃO FATURADA</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{obraName(rental?.obraId)} · esta inclusão não gera título nem lançamento bancário.</p></div>
+        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}>
+          <div style={{gridColumn:"1/-1",padding:"var(--arcd-space-2) var(--arcd-space-3)",border:`var(--arcd-border-width) solid ${C.yellowD}44`,borderRadius:"var(--arcd-box-radius)",background:`${C.yellowD}08`}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.yellowD}}>LINHA PREPARADA · NÃO FATURADA</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{obraName(rental?.obraId)} · esta inclusão não gera título nem lançamento bancário.</p></div>
           <Sel label="Tipo *" value={rentalChargeModal.type} onChange={v=>setRentalChargeModal(form=>({...form,type:v}))} options={[{v:"rental",l:"Locação"},{v:"mobilization",l:"Mobilização"},{v:"demobilization",l:"Desmobilização"},{v:"freight",l:"Frete"},{v:"operator",l:"Operador"},{v:"fuel",l:"Combustível"},{v:"cleaning",l:"Limpeza"},{v:"insurance",l:"Seguro"},{v:"accessory",l:"Acessório"},{v:"overtime",l:"Hora excedente"},{v:"late_fee",l:"Atraso"},{v:"damage",l:"Avaria"},{v:"lost_item",l:"Item perdido"},{v:"adjustment",l:"Ajuste"},{v:"discount",l:"Desconto"},{v:"reversal",l:"Estorno"}]}/>
           <Inp label="Competência *" type="month" value={rentalChargeModal.competence} onChange={v=>setRentalChargeModal(form=>({...form,competence:v}))}/>
           <div style={{gridColumn:"1/-1"}}><Inp label="Descrição *" value={rentalChargeModal.description} onChange={v=>setRentalChargeModal(form=>({...form,description:v}))}/></div>
@@ -1516,48 +1516,48 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
           <Inp label="Desconto (R$)" value={rentalChargeModal.discountAmount} onChange={v=>setRentalChargeModal(form=>({...form,discountAmount:v}))}/>
           <Inp label="Imposto (R$)" value={rentalChargeModal.taxAmount} onChange={v=>setRentalChargeModal(form=>({...form,taxAmount:v}))}/>
           <div style={{display:"flex",alignItems:"end",justifyContent:"flex-end",fontSize:"var(--arcd-type-body)",fontWeight:600,color:["discount","reversal"].includes(rentalChargeModal.type)?C.red:C.green}}>Líquido previsto: {fmt(["discount","reversal"].includes(rentalChargeModal.type)?-Math.max(0,preview):Math.max(0,preview))}</div>
-          <div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Btn v="ghost" full onClick={()=>setRentalChargeModal(null)}>Cancelar</Btn><Btn full disabled={!!salvandoEquipamento} loading={salvandoEquipamento===`cobranca-${rentalChargeModal.rentalId}`} onClick={()=>salvarLinhaCobranca(rentalChargeModal)}>Salvar linha</Btn></div>
+          <div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-2)"}}><Btn v="ghost" full onClick={()=>setRentalChargeModal(null)}>Cancelar</Btn><Btn full disabled={!!salvandoEquipamento} loading={salvandoEquipamento===`cobranca-${rentalChargeModal.rentalId}`} onClick={()=>salvarLinhaCobranca(rentalChargeModal)}>Salvar linha</Btn></div>
         </div>
       </Modal>;})()}
 
       {rentalAmendmentModal&&(()=>{const rental=(data.locacoesEquip||[]).find(item=>item.id===rentalAmendmentModal.rentalId);return <Modal
         title={`Prorrogar ou renovar · ${equipName(rental?.equipamentoId)}`} onClose={()=>setRentalAmendmentModal(null)}>
-        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
-          <div style={{gridColumn:"1/-1",padding:"9px 11px",border:`1px solid ${C.blue}44`,borderRadius:8,background:`${C.blue}08`}}>
+        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}>
+          <div style={{gridColumn:"1/-1",padding:"var(--arcd-space-2) var(--arcd-space-3)",border:`var(--arcd-border-width) solid ${C.blue}44`,borderRadius:"var(--arcd-box-radius)",background:`${C.blue}08`}}>
             <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.blue}}>ADITIVO DE PRAZO AUDITÁVEL</p>
-            <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{obraName(rental?.obraId)} · término planejado atual: {fmtDate(rentalAmendmentModal.currentEnd)}</p>
-            <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>As tarifas e os descontos negociados permanecem congelados. O encerramento real não será alterado.</p>
+            <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{obraName(rental?.obraId)} · término planejado atual: {fmtDate(rentalAmendmentModal.currentEnd)}</p>
+            <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>As tarifas e os descontos negociados permanecem congelados. O encerramento real não será alterado.</p>
           </div>
           <Sel label="Tipo de aditivo *" value={rentalAmendmentModal.type} onChange={v=>setRentalAmendmentModal(form=>({...form,type:v}))} options={[{v:"extension",l:"Prorrogação"},{v:"renewal",l:"Renovação"}]}/>
           {rentalAmendmentModal.type==="extension"
             ?<Inp label="Novo término planejado *" type="date" value={rentalAmendmentModal.newEndDate} onChange={v=>setRentalAmendmentModal(form=>({...form,newEndDate:v}))}/>
             :<><Inp label="Início da renovação *" type="date" value={rentalAmendmentModal.startDate} onChange={v=>setRentalAmendmentModal(form=>({...form,startDate:v}))}/><Inp label="Fim da renovação *" type="date" value={rentalAmendmentModal.endDate} onChange={v=>setRentalAmendmentModal(form=>({...form,endDate:v}))}/></>}
           <div style={{gridColumn:"1/-1"}}><Inp label="Motivo" value={rentalAmendmentModal.reason} onChange={v=>setRentalAmendmentModal(form=>({...form,reason:v}))} multiline/></div>
-          <div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Btn v="ghost" full onClick={()=>setRentalAmendmentModal(null)}>Cancelar</Btn><Btn full disabled={!!salvandoEquipamento} loading={salvandoEquipamento===`aditivo-${rentalAmendmentModal.rentalId}`} onClick={()=>salvarAditivoLocacao(rentalAmendmentModal)}>Salvar aditivo</Btn></div>
+          <div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-2)"}}><Btn v="ghost" full onClick={()=>setRentalAmendmentModal(null)}>Cancelar</Btn><Btn full disabled={!!salvandoEquipamento} loading={salvandoEquipamento===`aditivo-${rentalAmendmentModal.rentalId}`} onClick={()=>salvarAditivoLocacao(rentalAmendmentModal)}>Salvar aditivo</Btn></div>
         </div>
       </Modal>;})()}
 
       {rentalReplacementModal&&(()=>{const rental=(data.locacoesEquip||[]).find(item=>item.id===rentalReplacementModal.rentalId);const modelIds=new Set(physicalRegistry.models.filter(item=>String(item.legacySourceId||"")===String(rental?.equipamentoId)).map(item=>String(item.id)));const unitOptions=physicalRegistry.units.filter(item=>modelIds.has(String(item.modelId))).map(item=>({v:item.id,l:item.assetTag||item.serialNumber||item.id}));return <Modal title={`Substituir unidade · ${equipName(rental?.equipamentoId)}`} onClose={()=>setRentalReplacementModal(null)}>
-        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
+        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}>
           <Sel label="Unidade atual *" value={rentalReplacementModal.outgoingUnitId} onChange={v=>setRentalReplacementModal(form=>({...form,outgoingUnitId:v}))} options={unitOptions.filter(item=>(rental?.equipmentUnitIds||[]).includes(item.v))}/>
           <Sel label="Unidade substituta *" value={rentalReplacementModal.incomingUnitId} onChange={v=>setRentalReplacementModal(form=>({...form,incomingUnitId:v}))} options={[{v:"",l:"Selecione"},...unitOptions.filter(item=>!(rental?.equipmentUnitIds||[]).includes(item.v))]}/>
           <Inp label="Data *" type="date" value={rentalReplacementModal.date} onChange={v=>setRentalReplacementModal(form=>({...form,date:v}))}/>
           <Inp label="Motivo *" value={rentalReplacementModal.reason} onChange={v=>setRentalReplacementModal(form=>({...form,reason:v}))}/>
           <div style={{gridColumn:"1/-1"}}><Inp label="Observações" value={rentalReplacementModal.notes} onChange={v=>setRentalReplacementModal(form=>({...form,notes:v}))} multiline/></div>
-          <div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Btn v="ghost" full onClick={()=>setRentalReplacementModal(null)}>Cancelar</Btn><Btn full disabled={!!salvandoEquipamento} onClick={()=>salvarSubstituicaoLocacao(rentalReplacementModal)}>Confirmar substituição</Btn></div>
+          <div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-2)"}}><Btn v="ghost" full onClick={()=>setRentalReplacementModal(null)}>Cancelar</Btn><Btn full disabled={!!salvandoEquipamento} onClick={()=>salvarSubstituicaoLocacao(rentalReplacementModal)}>Confirmar substituição</Btn></div>
         </div>
       </Modal>;})()}
 
       {rentalCheckpointModal&&(()=>{const rental=(data.locacoesEquip||[]).find(item=>item.id===rentalCheckpointModal.rentalId);const returnFlow=[RENTAL_CHECKPOINT_TYPE.RETURN,RENTAL_CHECKPOINT_TYPE.INSPECTION].includes(rentalCheckpointModal.type);return <Modal
         title={`${CHECKPOINT_LABEL[rentalCheckpointModal.type]} · ${equipName(rental?.equipamentoId)}`} onClose={()=>setRentalCheckpointModal(null)} wide>
-        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
-          <div style={{gridColumn:"1/-1",padding:"9px 11px",border:`1px solid ${C.blue}44`,borderRadius:8,background:`${C.blue}08`}}>
+        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}>
+          <div style={{gridColumn:"1/-1",padding:"var(--arcd-space-2) var(--arcd-space-3)",border:`var(--arcd-border-width) solid ${C.blue}44`,borderRadius:"var(--arcd-box-radius)",background:`${C.blue}08`}}>
             <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.blue}}>EVIDÊNCIA OPERACIONAL OBRIGATÓRIA</p>
-            <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{obraName(rental?.obraId)} · {rentalStateLabel(rental?.lifecycleState||rental?.status)} → {rentalStateLabel(rentalCheckpointModal.nextState)}</p>
+            <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{obraName(rental?.obraId)} · {rentalStateLabel(rental?.lifecycleState||rental?.status)} → {rentalStateLabel(rentalCheckpointModal.nextState)}</p>
           </div>
           <Inp label="Data *" type="date" value={rentalCheckpointModal.date} onChange={v=>setRentalCheckpointModal(form=>({...form,date:v}))}/>
           <Inp label="Quantidade *" type="number" min="1" disabled={(rentalCheckpointModal.equipmentUnitIds||[]).length>0} value={rentalCheckpointModal.quantity} onChange={v=>setRentalCheckpointModal(form=>({...form,quantity:v}))}/>
-          {(rental?.equipmentUnitIds||[]).length>0&&<div style={{gridColumn:"1/-1",padding:"8px 10px",border:`1px solid ${C.border}`,borderRadius:7}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600}}>UNIDADES FÍSICAS</p>{[RENTAL_CHECKPOINT_TYPE.PARTIAL_DISPATCH,RENTAL_CHECKPOINT_TYPE.PARTIAL_DELIVERY,RENTAL_CHECKPOINT_TYPE.PARTIAL_RETURN].includes(rentalCheckpointModal.type)?<div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:6}}>{(rental.equipmentUnitIds||[]).filter(id=>{const balance=rentalCheckpointModal.type===RENTAL_CHECKPOINT_TYPE.PARTIAL_DISPATCH?rentalDispatchBalance(rental,rental.rentalCheckpoints||[]):rentalCheckpointModal.type===RENTAL_CHECKPOINT_TYPE.PARTIAL_DELIVERY?rentalDeliveryBalance(rental,rental.rentalCheckpoints||[]):rentalReturnBalance(rental,rental.rentalCheckpoints||[]);return !(balance.movedUnitIds||balance.returnedUnitIds||[]).includes(String(id));}).map(unitId=>{const selected=(rentalCheckpointModal.equipmentUnitIds||[]).includes(unitId);const unit=physicalRegistry.units.find(item=>item.id===unitId);return <label key={unitId} style={{display:"inline-flex",gap:5,alignItems:"center",fontSize:"var(--arcd-type-label)"}}><input type="checkbox" checked={selected} onChange={()=>setRentalCheckpointModal(form=>{const ids=selected?form.equipmentUnitIds.filter(id=>id!==unitId):[...form.equipmentUnitIds,unitId];return {...form,equipmentUnitIds:ids,quantity:Math.max(1,ids.length)};})}/>{unit?.assetTag||unitId}</label>;})}</div>:<p style={{fontSize:"var(--arcd-type-label)",color:C.text,marginTop:3}}>{physicalIdentityForRecord(data,{equipmentUnitIds:rentalCheckpointModal.equipmentUnitIds},(data.equipamentos||[]).find(item=>item.id===rental?.equipamentoId)).label}</p>}</div>}
+          {(rental?.equipmentUnitIds||[]).length>0&&<div style={{gridColumn:"1/-1",padding:"var(--arcd-space-2) var(--arcd-space-2)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)"}}><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",fontWeight:600}}>UNIDADES FÍSICAS</p>{[RENTAL_CHECKPOINT_TYPE.PARTIAL_DISPATCH,RENTAL_CHECKPOINT_TYPE.PARTIAL_DELIVERY,RENTAL_CHECKPOINT_TYPE.PARTIAL_RETURN].includes(rentalCheckpointModal.type)?<div style={{display:"flex",flexWrap:"wrap",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-1)"}}>{(rental.equipmentUnitIds||[]).filter(id=>{const balance=rentalCheckpointModal.type===RENTAL_CHECKPOINT_TYPE.PARTIAL_DISPATCH?rentalDispatchBalance(rental,rental.rentalCheckpoints||[]):rentalCheckpointModal.type===RENTAL_CHECKPOINT_TYPE.PARTIAL_DELIVERY?rentalDeliveryBalance(rental,rental.rentalCheckpoints||[]):rentalReturnBalance(rental,rental.rentalCheckpoints||[]);return !(balance.movedUnitIds||balance.returnedUnitIds||[]).includes(String(id));}).map(unitId=>{const selected=(rentalCheckpointModal.equipmentUnitIds||[]).includes(unitId);const unit=physicalRegistry.units.find(item=>item.id===unitId);return <label key={unitId} style={{display:"inline-flex",gap:"var(--arcd-space-1)",alignItems:"center",fontSize:"var(--arcd-type-label)"}}><input type="checkbox" checked={selected} onChange={()=>setRentalCheckpointModal(form=>{const ids=selected?form.equipmentUnitIds.filter(id=>id!==unitId):[...form.equipmentUnitIds,unitId];return {...form,equipmentUnitIds:ids,quantity:Math.max(1,ids.length)};})}/>{unit?.assetTag||unitId}</label>;})}</div>:<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)"}}>{physicalIdentityForRecord(data,{equipmentUnitIds:rentalCheckpointModal.equipmentUnitIds},(data.equipamentos||[]).find(item=>item.id===rental?.equipamentoId)).label}</p>}</div>}
           <Inp label="Acessórios" value={rentalCheckpointModal.accessories} onChange={v=>setRentalCheckpointModal(form=>({...form,accessories:v}))} placeholder="Separe por vírgula"/>
           <Inp label="Horímetro" type="number" min="0" value={rentalCheckpointModal.hourMeter} onChange={v=>setRentalCheckpointModal(form=>({...form,hourMeter:v}))}/>
           <Inp label="Combustível" value={rentalCheckpointModal.fuel} onChange={v=>setRentalCheckpointModal(form=>({...form,fuel:v}))} placeholder="Ex.: cheio, 3/4, 50%"/>
@@ -1567,13 +1567,13 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
           {returnFlow&&<><Sel label="Limpeza" value={rentalCheckpointModal.cleaning} onChange={v=>setRentalCheckpointModal(form=>({...form,cleaning:v}))} options={[{v:"",l:"Não informado"},{v:"dispensada",l:"Dispensada"},{v:"realizada",l:"Realizada"},{v:"necessária",l:"Necessária"}]}/><Sel label="Necessita ajuste" value={String(rentalCheckpointModal.needsAdjustment)} onChange={v=>setRentalCheckpointModal(form=>({...form,needsAdjustment:v}))} options={[{v:"false",l:"Não"},{v:"true",l:"Sim"}]}/><Inp label="Avarias" value={rentalCheckpointModal.damages} onChange={v=>setRentalCheckpointModal(form=>({...form,damages:v}))} placeholder="Separe por vírgula"/><Inp label="Itens faltantes" value={rentalCheckpointModal.missingItems} onChange={v=>setRentalCheckpointModal(form=>({...form,missingItems:v}))} placeholder="Separe por vírgula"/></>}
           <div style={{gridColumn:"1/-1"}}><Inp label="Fotos (uma URL por linha)" value={rentalCheckpointModal.photos} onChange={v=>setRentalCheckpointModal(form=>({...form,photos:v}))} multiline/></div>
           <div style={{gridColumn:"1/-1"}}><Inp label="Observações" value={rentalCheckpointModal.notes} onChange={v=>setRentalCheckpointModal(form=>({...form,notes:v}))} multiline/></div>
-          <div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Btn v="ghost" full onClick={()=>setRentalCheckpointModal(null)}>Cancelar</Btn><Btn full disabled={!!salvandoEquipamento} loading={salvandoEquipamento===`checklist-${rentalCheckpointModal.rentalId}`} onClick={()=>salvarChecklistLocacao(rentalCheckpointModal)}>Salvar checklist</Btn></div>
+          <div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-2)"}}><Btn v="ghost" full onClick={()=>setRentalCheckpointModal(null)}>Cancelar</Btn><Btn full disabled={!!salvandoEquipamento} loading={salvandoEquipamento===`checklist-${rentalCheckpointModal.rentalId}`} onClick={()=>salvarChecklistLocacao(rentalCheckpointModal)}>Salvar checklist</Btn></div>
         </div>
       </Modal>;})()}
 
       {locModal && (
         <Modal title={locModal.id?"Editar locação":"Nova locação"} onClose={()=>setLocModal(null)} wide>
-          <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
+          <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}>
             <Sel label="Equipamento *" value={locModal.equipamentoId} onChange={v=>{
               const e=(data.equipamentos||[]).find(x=>x.id===v);
               const lot=physicalRegistry.lots.find(item=>String(item.legacySourceId||item.sourceEquipmentId||"")===String(v));
@@ -1595,21 +1595,21 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
               const periodo=`${fmtDate(locModal.inicio||today())} a ${locModal.fim?fmtDate(locModal.fim):"em aberto"}`;
               return (
                 <div style={{gridColumn:"1/-1"}}>
-                  <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8,alignItems:"end"}}>
+                  <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)",alignItems:"end"}}>
                     <Inp label="Quantidade para esta obra *" type="number" min="1"
                          disabled={individualized}
                          value={locModal.quantidade ?? 1}
                          onChange={v=>setLocModal(f=>({...f,quantidade:v}))}/>
-                    <div style={{background:estoura?`${C.red}0C`:C.surface,
-                                 border:`1px solid ${estoura?C.red+"55":C.border}`,
-                                 borderRadius:9,padding:"9px 12px"}}>
-                      <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,textTransform:"uppercase",letterSpacing:.5,fontWeight:600}}>Disponibilidade de {periodo}</p>
-                      <p style={{fontSize:"var(--arcd-type-body)",color:C.text,marginTop:3}}>
+                    <div style={{background:estoura?`${C.red}0C`:"var(--arcd-surface-card)",
+                                 border:`var(--arcd-border-width) solid ${estoura?C.red+"55":C.border}`,
+                                 borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+                      <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:.5,fontWeight:600}}>Disponibilidade de {periodo}</p>
+                      <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)"}}>
                         <b>{total}</b> total · <b>{emUsoOutros}</b> locada(s) · <b>{unavailable}</b> indisponível(is) ·{" "}
                         <b style={{color:livre>0?C.green:C.red}}>{livre}</b> livre(s)
                       </p>
                       {estoura && (
-                        <p style={{fontSize:"var(--arcd-type-label)",color:C.red,fontWeight:600,marginTop:4,lineHeight:1.4}}>
+                        <p style={{fontSize:"var(--arcd-type-label)",color:C.red,fontWeight:600,marginTop:"var(--arcd-space-1)",lineHeight:1.4}}>
                           Solicitação de {contar(pedido,"unidade","unidades")} bloqueada: há somente {contar(livre,"livre","livres")} no período.
                         </p>
                       )}
@@ -1623,15 +1623,15 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
               const units=physicalRegistry.units.filter(item=>String(item.legacySourceId||item.sourceEquipmentId||"")===sourceId);
               const lots=physicalRegistry.lots.filter(item=>String(item.legacySourceId||item.sourceEquipmentId||"")===sourceId);
               if(!units.length&&!lots.length)return null;
-              return <div style={{gridColumn:"1/-1",padding:"10px 12px",border:`1px solid ${C.blue}38`,borderRadius:9,background:`${C.blue}07`}}>
+              return <div style={{gridColumn:"1/-1",padding:"var(--arcd-space-2) var(--arcd-space-3)",border:`var(--arcd-border-width) solid ${C.blue}38`,borderRadius:"var(--arcd-box-radius)",background:`${C.blue}07`}}>
                 <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.blue}}>Identificação física</p>
-                {lots.length>0&&<div style={{marginTop:7}}><Sel label="Lote" value={locModal.equipmentLotId||lots[0]?.id||""}
+                {lots.length>0&&<div style={{marginTop:"var(--arcd-space-2)"}}><Sel label="Lote" value={locModal.equipmentLotId||lots[0]?.id||""}
                   onChange={v=>setLocModal(form=>({...form,equipmentLotId:v,equipmentUnitIds:[]}))}
                   options={lots.map(lot=>({v:lot.id,l:`${lot.lotCode||lot.id} · ${lot.quantity} ${lot.unit||"un"}`}))}/></div>}
-                {units.length>0&&<div style={{marginTop:7}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.text,marginBottom:6}}>Unidades desta locação</p>
-                  <div style={{display:"flex",flexWrap:"wrap",gap:6}}>{units.map(unit=>{
+                {units.length>0&&<div style={{marginTop:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:"var(--arcd-text-primary)",marginBottom:"var(--arcd-space-1)"}}>Unidades desta locação</p>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:"var(--arcd-space-1)"}}>{units.map(unit=>{
                     const selected=(locModal.equipmentUnitIds||[]).includes(unit.id);
-                    return <label key={unit.id} style={{display:"inline-flex",alignItems:"center",gap:6,padding:"6px 8px",border:`1px solid ${selected?C.blue:C.border}`,borderRadius:7,background:selected?`${C.blue}10`:C.card,fontSize:"var(--arcd-type-label)",color:C.text,cursor:"pointer"}}>
+                    return <label key={unit.id} style={{display:"inline-flex",alignItems:"center",gap:"var(--arcd-space-1)",padding:"var(--arcd-space-1) var(--arcd-space-2)",border:`var(--arcd-border-width) solid ${selected?C.blue:C.border}`,borderRadius:"var(--arcd-radius-control)",background:selected?`${C.blue}10`:"var(--arcd-surface-card)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",cursor:"pointer"}}>
                       <input type="checkbox" checked={selected} onChange={()=>setLocModal(form=>{
                         const current=form.equipmentUnitIds||[];
                         const next=selected?current.filter(id=>id!==unit.id):[...current,unit.id];
@@ -1639,7 +1639,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                       })} style={{accentColor:C.blue}}/>{unit.assetTag||unit.serialNumber||unit.id}
                     </label>;
                   })}</div>
-                  <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:6}}>A quantidade acompanha o número de unidades marcadas.</p>
+                  <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>A quantidade acompanha o número de unidades marcadas.</p>
                 </div>}
               </div>;
             })()}
@@ -1658,11 +1658,11 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
               const diasPrevia = diasContrato || 30;
               const cob = cobrancaLocacao({...locModal, tarifas:tarifasEfetivas}, eq, diasPrevia);
               return (
-                <div style={{gridColumn:"1/-1",display:"flex",flexDirection:"column",gap:9}}>
-                  <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:9,padding:"11px 13px"}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:8}}>
-                      <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Tarifas desta locação</p>
-                      {!snapshotCongelado&&<label style={{display:"flex",alignItems:"center",gap:6,fontSize:"var(--arcd-type-label)",color:C.muted,cursor:"pointer"}}>
+                <div style={{gridColumn:"1/-1",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+                  <div style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-3) var(--arcd-space-3)"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",flexWrap:"wrap",marginBottom:"var(--arcd-space-2)"}}>
+                      <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"var(--arcd-text-primary)"}}>Tarifas desta locação</p>
+                      {!snapshotCongelado&&<label style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-1)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",cursor:"pointer"}}>
                         <input type="checkbox" checked={usaProprias}
                           onChange={e=>setLocModal(f=>({...f,
                             tarifaNegociada:e.target.checked,
@@ -1671,17 +1671,17 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                         Negociar preço só para esta obra
                       </label>}
                     </div>
-                    {snapshotCongelado ? <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}>
+                    {snapshotCongelado ? <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
                       <div style={{flex:"1 1 360px"}}>
                         <p style={{fontSize:"var(--arcd-type-label)",color:C.blue,lineHeight:1.5}}>
                           Condições comerciais vigentes desde {locModal.commercialSnapshot.negociadoEm?fmtDate(String(locModal.commercialSnapshot.negociadoEm).slice(0,10)):"data não registrada"}
                           {locModal.commercialSnapshot.negociadoPor?` · definidas por ${locModal.commercialSnapshot.negociadoPor}`:""}. Alterações no cadastro do equipamento não modificam esta locação.
                         </p>
-                        {currentUser?.role==="admin"&&!commercialEligibility.allowed&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,lineHeight:1.45,marginTop:4}}>{commercialEligibility.reason}</p>}
+                        {currentUser?.role==="admin"&&!commercialEligibility.allowed&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",lineHeight:1.45,marginTop:"var(--arcd-space-1)"}}>{commercialEligibility.reason}</p>}
                       </div>
                       {currentUser?.role==="admin"&&<Btn v="ghost" disabled={!commercialEligibility.allowed} onClick={()=>abrirEdicaoCondicoesComerciais(locModal)}>Editar condições comerciais</Btn>}
                     </div> : usaProprias ? (
-                      <div style={{display:"grid",gridTemplateColumns:formGrid(4),gap:8}}>
+                      <div style={{display:"grid",gridTemplateColumns:formGrid(4),gap:"var(--arcd-space-2)"}}>
                         {[["dia","Por dia"],["semana","Por semana"],["quinzena","Por quinzena"],["mes","Por mês"]].map(([k,l])=>(
                           <Inp key={k} label={`${l} (R$)`} type="number" min="0"
                                value={locModal.tarifas?.[k] ?? ""}
@@ -1689,7 +1689,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                         ))}
                       </div>
                     ) : (
-                      <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.5}}>
+                      <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:1.5}}>
                         Usando a tabela do cadastro:{" "}
                         {PACOTES_TARIFA.filter(p=>Number(tarifasEfetivas?.[p.id]||0)>0)
                           .map(p=>`${p.label} ${fmt(tarifasEfetivas[p.id])}`).join(" · ") || "nenhuma tarifa cadastrada"}
@@ -1697,39 +1697,39 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                     )}
                   </div>
 
-                  <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
+                  <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}>
                     <Sel label="Regra de cobrança *" disabled={snapshotCongelado} value={locModal.commercialSnapshot?.regraTarifaria||locModal.regraTarifaria||"best_combination"} onChange={v=>setLocModal(f=>({...f,regraTarifaria:v}))} options={[{v:"best_combination",l:"Melhor combinação tarifária"},{v:"calendar_day",l:"Por dia corrido"},{v:"business_day",l:"Por dia útil"},{v:"minimum_daily",l:"Diária mínima"},{v:"tariff_week",l:"Semana tarifária"},{v:"tariff_fortnight",l:"Quinzena tarifária"},{v:"thirty_day_month",l:"Mês de 30 dias"},{v:"civil_month",l:"Mês civil"},{v:"anniversary_cycle",l:"Ciclo por aniversário"}]}/>
                     <Inp label="Desconto ao cliente (%)" type="number" min="0" max="100" disabled={snapshotCongelado} value={locModal.descontoPct} onChange={v=>setLocModal(f=>({...f,descontoPct:v}))}/>
                     <Inp label="Desconto fixo (R$)" type="number" min="0" disabled={snapshotCongelado} value={locModal.descontoValor} onChange={v=>setLocModal(f=>({...f,descontoValor:v}))}/>
                   </div>
 
                   {/* Previa do que sera cobrado */}
-                  <div style={{background:`${C.green}0A`,border:`1px solid ${C.green}44`,borderRadius:9,padding:"11px 13px"}}>
-                    <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.5,marginBottom:6}}>
+                  <div style={{background:`${C.green}0A`,border:`var(--arcd-border-width) solid ${C.green}44`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-3) var(--arcd-space-3)"}}>
+                    <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:.5,marginBottom:"var(--arcd-space-1)"}}>
                       {diasContrato ? `Cobrança do período (${diasContrato} dia${diasContrato>1?"s":""})` : "Simulação para 30 dias"}
                     </p>
                     {cob.semTarifa
                       ? <p style={{fontSize:"var(--arcd-type-label)",color:C.orange}}>Sem tarifa cadastrada para este equipamento.</p>
                       : (<>
-                        <div style={{display:"flex",justifyContent:"space-between",fontSize:"var(--arcd-type-label)",color:C.text}}>
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>
                           <span>{textoComposicao(cob.composicao)}{cob.quantidade>1?` × ${cob.quantidade} un`:""}</span>
                           <span style={{fontWeight:600}}>{fmt(cob.bruto)}</span>
                         </div>
                         {cob.quantidade>1 && (
-                          <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>
+                          <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>
                             {fmt(cob.brutoUnitario)} por unidade
                           </p>
                         )}
                         {cob.desconto > 0.005 && (
-                          <div style={{display:"flex",justifyContent:"space-between",fontSize:"var(--arcd-type-label)",color:C.orange,marginTop:3}}>
+                          <div style={{display:"flex",justifyContent:"space-between",fontSize:"var(--arcd-type-label)",color:C.orange,marginTop:"var(--arcd-space-half)"}}>
                             <span>Desconto</span><span>- {fmt(cob.desconto)}</span>
                           </div>
                         )}
                         <div style={{display:"flex",justifyContent:"space-between",fontSize:"var(--arcd-type-body)",fontWeight:600,
-                                     color:C.green,marginTop:6,paddingTop:6,borderTop:`1px solid ${C.green}33`}}>
+                                     color:C.green,marginTop:"var(--arcd-space-1)",paddingTop:"var(--arcd-space-1)",borderTop:`var(--arcd-border-width) solid ${C.green}33`}}>
                           <span>Total</span><span>{fmt(cob.liquido)}</span>
                         </div>
-                        <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:5,lineHeight:1.45}}>
+                        <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)",lineHeight:1.45}}>
                           Combinação mais barata entre as modalidades cadastradas.
                           Para a cobrança, 1 mês tarifário corresponde a 30 dias; um período de 31 dias soma 1 mês + 1 diária.
                         </p>
@@ -1746,12 +1746,12 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
 
       {rentalCommercialModal&&(()=>{const rental=(data.locacoesEquip||[]).find(item=>item.id===rentalCommercialModal.rentalId);const eq=(data.equipamentos||[]).find(item=>item.id===rentalCommercialModal.equipamentoId);const dias=rental?.inicio&&rental?.fim?diasCorridos(rental.inicio,rental.fim)+1:30;const preview=cobrancaLocacao({...rental,commercialSnapshot:null,tarifas:rentalCommercialModal.tarifas,descontoPct:rentalCommercialModal.descontoPct,descontoValor:rentalCommercialModal.descontoValor},eq,dias);return <Modal
         title={`Editar condições comerciais · ${equipName(rental?.equipamentoId)}`} onClose={()=>setRentalCommercialModal(null)} wide>
-        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
-          <div style={{gridColumn:"1/-1",background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 12px"}}>
-            <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Substituição administrativa</p>
-            <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,lineHeight:1.5,marginTop:3}}>As condições vigentes serão substituídas sem criar aditivo ou histórico comercial. O sistema mantém apenas versionamento técnico e impede a alteração quando já existe medição, fatura ou recebimento.</p>
+        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}>
+          <div style={{gridColumn:"1/-1",background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+            <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"var(--arcd-text-primary)"}}>Substituição administrativa</p>
+            <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",lineHeight:1.5,marginTop:"var(--arcd-space-half)"}}>As condições vigentes serão substituídas sem criar aditivo ou histórico comercial. O sistema mantém apenas versionamento técnico e impede a alteração quando já existe medição, fatura ou recebimento.</p>
           </div>
-          <div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:formGrid(4),gap:8}}>
+          <div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:formGrid(4),gap:"var(--arcd-space-2)"}}>
             {[["dia","Por dia"],["semana","Por semana"],["quinzena","Por quinzena"],["mes","Por mês"]].map(([k,l])=>
               <Inp key={k} label={`${l} (R$)`} type="number" min="0" value={rentalCommercialModal.tarifas?.[k]??""}
                 onChange={v=>setRentalCommercialModal(form=>({...form,tarifas:{...(form.tarifas||{}),[k]:v}}))}/>)}
@@ -1760,11 +1760,11 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
             options={[{v:"best_combination",l:"Melhor combinação tarifária"},{v:"calendar_day",l:"Por dia corrido"},{v:"business_day",l:"Por dia útil"},{v:"minimum_daily",l:"Diária mínima"},{v:"tariff_week",l:"Semana tarifária"},{v:"tariff_fortnight",l:"Quinzena tarifária"},{v:"thirty_day_month",l:"Mês de 30 dias"},{v:"civil_month",l:"Mês civil"},{v:"anniversary_cycle",l:"Ciclo por aniversário"}]}/>
           <Inp label="Desconto ao cliente (%)" type="number" min="0" max="100" value={rentalCommercialModal.descontoPct} onChange={v=>setRentalCommercialModal(form=>({...form,descontoPct:v}))}/>
           <Inp label="Desconto fixo (R$)" type="number" min="0" value={rentalCommercialModal.descontoValor} onChange={v=>setRentalCommercialModal(form=>({...form,descontoValor:v}))}/>
-          <div style={{gridColumn:"1/-1",background:`${C.green}0A`,border:`1px solid ${C.green}44`,borderRadius:8,padding:"10px 12px"}}>
-            <div style={{display:"flex",justifyContent:"space-between",gap:12,fontSize:"var(--arcd-type-label)",color:C.text}}><span>Prévia para {dias} dia{dias!==1?"s":""}</span><strong>{fmt(preview.liquido)}</strong></div>
-            {preview.desconto>0.005&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.orange,marginTop:3}}>Desconto total: {fmt(preview.desconto)}</p>}
+          <div style={{gridColumn:"1/-1",background:`${C.green}0A`,border:`var(--arcd-border-width) solid ${C.green}44`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+            <div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-3)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}><span>Prévia para {dias} dia{dias!==1?"s":""}</span><strong>{fmt(preview.liquido)}</strong></div>
+            {preview.desconto>0.005&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.orange,marginTop:"var(--arcd-space-half)"}}>Desconto total: {fmt(preview.desconto)}</p>}
           </div>
-          <div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+          <div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-2)"}}>
             <Btn v="ghost" full onClick={()=>setRentalCommercialModal(null)}>Cancelar</Btn>
             <Btn full disabled={!!salvandoEquipamento} loading={salvandoEquipamento===`condicoes-comerciais-${rentalCommercialModal.rentalId}`} onClick={()=>salvarCondicoesComerciais(rentalCommercialModal)}>Substituir condições</Btn>
           </div>
@@ -1773,7 +1773,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
 
       {manutModal && (
         <Modal title={manutModal.id?"Editar manutenção":"Nova manutenção"} onClose={()=>setManutModal(null)} wide>
-          <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
+          <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}>
             <Sel label="Equipamento *" value={manutModal.equipamentoId} onChange={v=>{
               const lot=physicalRegistry.lots.find(item=>String(item.legacySourceId||item.sourceEquipmentId||"")===String(v));
               setManutModal(f=>({...f,equipamentoId:v,equipmentLotId:lot?.id||"",equipmentUnitIds:[],quantidade:1}));
@@ -1787,12 +1787,12 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
               const sourceId=String(manutModal.equipamentoId);
               const units=physicalRegistry.units.filter(item=>String(item.legacySourceId||item.sourceEquipmentId||"")===sourceId);
               const lots=physicalRegistry.lots.filter(item=>String(item.legacySourceId||item.sourceEquipmentId||"")===sourceId);
-              return <div style={{gridColumn:"1/-1",padding:"10px 12px",border:`1px solid ${C.orange}38`,borderRadius:9,background:`${C.orange}07`}}>
+              return <div style={{gridColumn:"1/-1",padding:"var(--arcd-space-2) var(--arcd-space-3)",border:`var(--arcd-border-width) solid ${C.orange}38`,borderRadius:"var(--arcd-box-radius)",background:`${C.orange}07`}}>
                 <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.orange}}>Ativo que ficará indisponível</p>
-                {lots.length>0&&<div style={{marginTop:7}}><Sel label="Lote" value={manutModal.equipmentLotId||lots[0]?.id||""} onChange={v=>setManutModal(form=>({...form,equipmentLotId:v,equipmentUnitIds:[]}))} options={lots.map(lot=>({v:lot.id,l:`${lot.lotCode||lot.id} · ${lot.quantity} ${lot.unit||"un"}`}))}/></div>}
-                {units.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:7}}>{units.map(unit=>{
+                {lots.length>0&&<div style={{marginTop:"var(--arcd-space-2)"}}><Sel label="Lote" value={manutModal.equipmentLotId||lots[0]?.id||""} onChange={v=>setManutModal(form=>({...form,equipmentLotId:v,equipmentUnitIds:[]}))} options={lots.map(lot=>({v:lot.id,l:`${lot.lotCode||lot.id} · ${lot.quantity} ${lot.unit||"un"}`}))}/></div>}
+                {units.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-2)"}}>{units.map(unit=>{
                   const selected=(manutModal.equipmentUnitIds||[]).includes(unit.id);
-                  return <label key={unit.id} style={{display:"inline-flex",alignItems:"center",gap:6,padding:"6px 8px",border:`1px solid ${selected?C.orange:C.border}`,borderRadius:7,background:selected?`${C.orange}10`:C.card,fontSize:"var(--arcd-type-label)",cursor:"pointer"}}><input type="checkbox" checked={selected} onChange={()=>setManutModal(form=>{const current=form.equipmentUnitIds||[];const next=selected?current.filter(id=>id!==unit.id):[...current,unit.id];return {...form,equipmentUnitIds:next,equipmentLotId:"",quantidade:Math.max(1,next.length)};})} style={{accentColor:C.orange}}/>{unit.assetTag||unit.serialNumber||unit.id}</label>;
+                  return <label key={unit.id} style={{display:"inline-flex",alignItems:"center",gap:"var(--arcd-space-1)",padding:"var(--arcd-space-1) var(--arcd-space-2)",border:`var(--arcd-border-width) solid ${selected?C.orange:C.border}`,borderRadius:"var(--arcd-radius-control)",background:selected?`${C.orange}10`:"var(--arcd-surface-card)",fontSize:"var(--arcd-type-label)",cursor:"pointer"}}><input type="checkbox" checked={selected} onChange={()=>setManutModal(form=>{const current=form.equipmentUnitIds||[];const next=selected?current.filter(id=>id!==unit.id):[...current,unit.id];return {...form,equipmentUnitIds:next,equipmentLotId:"",quantidade:Math.max(1,next.length)};})} style={{accentColor:C.orange}}/>{unit.assetTag||unit.serialNumber||unit.id}</label>;
                 })}</div>}
               </div>;
             })()}
@@ -1808,7 +1808,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
 
       {indispModal && (
         <Modal title={indispModal.id?"Editar indisponibilidade":"Reservar ou bloquear equipamento"} onClose={()=>setIndispModal(null)} wide>
-          <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
+          <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}>
             <Sel label="Equipamento *" value={indispModal.equipmentId} onChange={v=>setIndispModal(f=>({...f,equipmentId:v}))} options={equipOpts}/>
             <Sel label="Tipo *" value={indispModal.type} onChange={v=>setIndispModal(f=>({...f,type:v}))} options={[
               {v:"reservation",l:"Reserva"},{v:"inspection",l:"Inspeção"},{v:"transport",l:"Transporte"},
@@ -1819,7 +1819,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
             <Inp label="Quantidade *" type="number" min="1" value={indispModal.quantity||1} onChange={v=>setIndispModal(f=>({...f,quantity:v}))}/>
             <Sel label="Obra (opcional)" value={indispModal.workId||""} onChange={v=>setIndispModal(f=>({...f,workId:v}))} options={obraOpts}/>
             <div style={{gridColumn:"1/-1"}}><Inp label="Motivo *" value={indispModal.reason} onChange={v=>setIndispModal(f=>({...f,reason:v}))} multiline/></div>
-            <div style={{gridColumn:"1/-1",display:"flex",gap:8,justifyContent:"flex-end"}}>
+            <div style={{gridColumn:"1/-1",display:"flex",gap:"var(--arcd-space-2)",justifyContent:"flex-end"}}>
               {indispModal.id&&isActiveUnavailability(indispModal)&&<Btn v="danger" disabled={!!salvandoEquipamento} onClick={()=>cancelarIndisponibilidade(indispModal)}><Ic n="trash"/> Cancelar</Btn>}
               <Btn disabled={!!salvandoEquipamento} onClick={()=>salvarIndisponibilidade(indispModal)}><Ic n="check"/> {salvandoEquipamento==="indisponibilidade"?"Salvando...":"Salvar"}</Btn>
             </div>
@@ -1829,7 +1829,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
 
       {transfModal && (
         <Modal title="Transferir equipamento" onClose={()=>setTransfModal(null)}>
-          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
             <Sel label="Equipamento *" value={transfModal.equipamentoId} onChange={v=>{
               const lot=physicalRegistry.lots.find(item=>String(item.legacySourceId||item.sourceEquipmentId||"")===String(v));
               const position=physicalRegistry.allocations.find(item=>item.lotId===lot?.id);
@@ -1842,9 +1842,9 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
               const selectedAssets=new Set([transfModal.equipmentLotId,...(transfModal.equipmentUnitIds||[])].filter(Boolean));
               const positions=physicalRegistry.allocations.filter(item=>selectedAssets.has(item.lotId||item.unitId)&&item.type!=="exceeded");
               const locationOptions=[...new Set(positions.map(item=>item.locationId))].map(id=>({v:id,l:id==="depot"?"Depósito":obraName(id)}));
-              return <div style={{padding:"9px 10px",border:`1px solid ${C.blue}38`,borderRadius:8,background:`${C.blue}07`,display:"grid",gap:7}}>
+              return <div style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",border:`var(--arcd-border-width) solid ${C.blue}38`,borderRadius:"var(--arcd-box-radius)",background:`${C.blue}07`,display:"grid",gap:"var(--arcd-space-2)"}}>
                 {lots.length>0&&<Sel label="Lote" value={transfModal.equipmentLotId||lots[0]?.id||""} onChange={v=>setTransfModal(form=>({...form,equipmentLotId:v,equipmentUnitIds:[]}))} options={lots.map(lot=>({v:lot.id,l:`${lot.lotCode||lot.id} · ${lot.quantity} ${lot.unit||"un"}`}))}/>}
-                {units.length>0&&<div><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.text,marginBottom:5}}>Patrimônio(s)</p><div style={{display:"flex",flexWrap:"wrap",gap:5}}>{units.map(unit=>{const selected=(transfModal.equipmentUnitIds||[]).includes(unit.id);return <label key={unit.id} style={{fontSize:"var(--arcd-type-label)",padding:"5px 7px",border:`1px solid ${selected?C.blue:C.border}`,borderRadius:6,cursor:"pointer"}}><input type="checkbox" checked={selected} onChange={()=>setTransfModal(form=>{const current=form.equipmentUnitIds||[];const next=selected?current.filter(id=>id!==unit.id):[...current,unit.id];const firstPosition=physicalRegistry.allocations.find(item=>item.unitId===next[0]);return {...form,equipmentUnitIds:next,equipmentLotId:"",quantidade:Math.max(1,next.length),deLocationId:firstPosition?.locationId||"depot"};})} style={{accentColor:C.blue,marginRight:5}}/>{unit.assetTag||unit.id}</label>;})}</div></div>}
+                {units.length>0&&<div><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:"var(--arcd-text-primary)",marginBottom:"var(--arcd-space-1)"}}>Patrimônio(s)</p><div style={{display:"flex",flexWrap:"wrap",gap:"var(--arcd-space-1)"}}>{units.map(unit=>{const selected=(transfModal.equipmentUnitIds||[]).includes(unit.id);return <label key={unit.id} style={{fontSize:"var(--arcd-type-label)",padding:"var(--arcd-space-1) var(--arcd-space-2)",border:`var(--arcd-border-width) solid ${selected?C.blue:C.border}`,borderRadius:"var(--arcd-radius-control)",cursor:"pointer"}}><input type="checkbox" checked={selected} onChange={()=>setTransfModal(form=>{const current=form.equipmentUnitIds||[];const next=selected?current.filter(id=>id!==unit.id):[...current,unit.id];const firstPosition=physicalRegistry.allocations.find(item=>item.unitId===next[0]);return {...form,equipmentUnitIds:next,equipmentLotId:"",quantidade:Math.max(1,next.length),deLocationId:firstPosition?.locationId||"depot"};})} style={{accentColor:C.blue,marginRight:"var(--arcd-space-1)"}}/>{unit.assetTag||unit.id}</label>;})}</div></div>}
                 <Inp label="Quantidade" type="number" min="1" disabled={units.length>0} value={transfModal.quantidade||1} onChange={v=>setTransfModal(form=>({...form,quantidade:v}))}/>
                 <Sel label="Origem física" value={transfModal.deLocationId||locationOptions[0]?.v||"depot"} onChange={v=>setTransfModal(form=>({...form,deLocationId:v}))} options={locationOptions.length?locationOptions:[{v:"depot",l:"Depósito"}]}/>
               </div>;
@@ -1860,9 +1860,9 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
 
       {confirmModal && (
         <Modal title={confirmModal.titulo} onClose={()=>setConfirmModal(null)}>
-          <div style={{display:"flex",flexDirection:"column",gap:14}}>
-            <p style={{fontSize:"var(--arcd-type-body)",color:C.subtle,lineHeight:1.5,whiteSpace:"pre-line"}}>{confirmModal.mensagem}</p>
-            <div style={{display:"flex",gap:8}}>
+          <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
+            <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-muted)",lineHeight:1.5,whiteSpace:"pre-line"}}>{confirmModal.mensagem}</p>
+            <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
               <Btn v="ghost" onClick={()=>setConfirmModal(null)} style={{flex:1}}>Cancelar</Btn>
               <Btn v={confirmModal.tom==="danger"?"danger":undefined} style={{flex:1}}
                 onClick={()=>{const acao=confirmModal.onConfirmar;setConfirmModal(null);acao();}}>
@@ -1875,13 +1875,13 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
 
       {encerrarLocModal && (
         <Modal title="Encerrar locação" onClose={()=>setEncerrarLocModal(null)}>
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <p style={{fontSize:"var(--arcd-type-body)",color:C.subtle,lineHeight:1.5}}>
+          <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
+            <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-muted)",lineHeight:1.5}}>
               {equipName(encerrarLocModal.locacao.equipamentoId)} · {obraName(encerrarLocModal.locacao.obraId)}
             </p>
             <Inp label="Data de término" type="date" value={encerrarLocModal.data}
               onChange={v=>setEncerrarLocModal(f=>({...f,data:v}))}/>
-            <div style={{display:"flex",gap:8}}>
+            <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
               <Btn v="ghost" onClick={()=>setEncerrarLocModal(null)} style={{flex:1}}>Cancelar</Btn>
               <Btn disabled={!!salvandoEquipamento} onClick={confirmarEncerrarLoc} style={{flex:1}}>
                 {salvandoEquipamento===`encerrar-${encerrarLocModal.locacao.id}`?"Encerrando...":"Encerrar locação"}

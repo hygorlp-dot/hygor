@@ -26,7 +26,7 @@ function ModalContrato({form,setForm,onSave,fornecedores,materiais,obras,C}){
         <Inp label="Fim da vigência *" type="date" value={form.vigenciaFim} onChange={v=>setForm(f=>({...f,vigenciaFim:v}))}/>
       </div>
       <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Insumos e preços acordados</p>
-      {(form.itens||[]).map((it,i)=><div key={it.id} style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-2)",display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:"var(--arcd-space-2)",alignItems:"end"}}>
+      {(form.itens||[]).map((it,i)=><div key={it.id} style={{background:"var(--arcd-surface-muted)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-2)",display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:"var(--arcd-space-2)",alignItems:"end"}}>
         <div style={{gridColumn:"1/-1"}}><Sel label={`Insumo ${i+1} *`} value={it.materialId} onChange={v=>{const m=materiais.find(x=>x.id===v);setItem(i,{materialId:v,unidadeRef:m?.unidade||"UN",unidadeCompra:m?.unidade||"UN",fatorConversao:1});}}
           options={[{v:"",l:"Selecione..."},...materiais.map(m=>({v:m.id,l:`${m.descricao} (${m.unidade})`}))]}/></div>
         <Inp label={`Preço acordado (R$/${purchaseUnitOf(it)}) *`} type="number" value={it.precoUnit} onChange={v=>setItem(i,{precoUnit:v})}/>
@@ -94,10 +94,10 @@ export default function ContratosFornecimentoView({data,dispatchCommand,currentU
         {podeEditar&&<Btn size="sm" onClick={()=>setForm({id:"",fornecedorId:"",obraId:"",vigenciaInicio:hoje,vigenciaFim:"",observacao:"",itens:[itemVazio()]})}><Ic n="plus"/> Novo contrato</Btn>}
       </div>
     </div>
-    {!contratos.length&&<div style={{padding:"var(--arcd-space-6)",textAlign:"center",border:"1px dashed var(--arcd-border-default)",borderRadius:9,background:"var(--arcd-surface-card)",marginTop:"var(--arcd-space-2)"}}>
+    {!contratos.length&&<div style={{padding:"var(--arcd-space-6)",textAlign:"center",border:"var(--arcd-border-width) dashed var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)",background:"var(--arcd-surface-card)",marginTop:"var(--arcd-space-2)"}}>
       <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Nenhum contrato de fornecimento</p>
       <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Cadastre os acordos de preço com fornecedores (ex.: concreto 30 MPa a R$ 520/m³ até março).</p></div>}
-    {contratos.map(c=>{const r=resumoContrato(data,c),vencido=c.vigenciaFim<hoje;return <div key={c.id} style={{marginTop:"var(--arcd-space-2)",background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:9,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+    {contratos.map(c=>{const r=resumoContrato(data,c),vencido=c.vigenciaFim<hoje;return <div key={c.id} style={{marginTop:"var(--arcd-space-2)",background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
       <div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
         <div style={{minWidth:0}}><b style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)"}}>{c.numero} · {nomeForn(c.fornecedorId)}</b>
           <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{fmtDate(c.vigenciaInicio)} a {fmtDate(c.vigenciaFim)} · {c.obraId?obras.find(o=>o.id===c.obraId)?.name||"Obra":"Todas as obras"} · {fmt(r.valorConsumido)} de {fmt(r.valorContratado)}</p></div>
@@ -107,12 +107,12 @@ export default function ContratosFornecimentoView({data,dispatchCommand,currentU
           {podeEditar&&c.status==="ativo"&&<Btn size="sm" v="danger" onClick={()=>encerrar(c)}>Encerrar</Btn>}
         </div>
       </div>
-      {r.itens.map(i=><div key={i.id} style={{marginTop:"var(--arcd-space-2)",paddingTop:"var(--arcd-space-1)",borderTop:"1px solid var(--arcd-border-default)"}}>
+      {r.itens.map(i=><div key={i.id} style={{marginTop:"var(--arcd-space-2)",paddingTop:"var(--arcd-space-1)",borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)"}}>
         <div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",fontSize:"var(--arcd-type-label)",flexWrap:"wrap"}}>
           <span className="brk" style={{color:"var(--arcd-text-primary)",fontWeight:"var(--arcd-font-weight-semibold)",minWidth:0}}>{nomeMat(i.materialId)} · {fmt(i.precoUnit)}/{purchaseUnitOf(i)}</span>
           <span style={{color:i.saldo>0?"var(--arcd-text-primary)":"var(--arcd-danger-text)",fontWeight:"var(--arcd-font-weight-semibold)",whiteSpace:"nowrap"}}>saldo {i.saldo.toLocaleString("pt-BR")} de {Number(i.qtdContratada).toLocaleString("pt-BR")} {purchaseUnitOf(i)}</span>
         </div>
-        <div style={{height:5,background:"var(--arcd-surface-muted)",borderRadius:3,marginTop:"var(--arcd-space-1)",overflow:"hidden"}}><div style={{width:`${i.percentual}%`,height:"100%",background:i.percentual>=90?"var(--arcd-warning-text)":"var(--arcd-action-primary)"}}/></div>
+        <div style={{height:5,background:"var(--arcd-surface-muted)",borderRadius:"var(--arcd-radius-control)",marginTop:"var(--arcd-space-1)",overflow:"hidden"}}><div style={{width:`${i.percentual}%`,height:"100%",background:i.percentual>=90?"var(--arcd-warning-text)":"var(--arcd-action-primary)"}}/></div>
       </div>)}
       {c.status!=="ativo"&&c.motivoEncerramento&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>Encerrado por {c.encerradoPor}: {c.motivoEncerramento}</p>}
     </div>;})}

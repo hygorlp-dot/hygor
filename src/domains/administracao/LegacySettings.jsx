@@ -174,7 +174,7 @@ export function GestaoUsuarios({ data, update, showToast, currentUser, pageId="c
   };
 
   return (
-    <div style={{display:"flex",flexDirection:"column",gap:12}}>
+    <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
       <UserDirectory users={data.usuarios||[]} works={data.obras||[]} roles={ROLES} currentUser={currentUser} presences={presencasPorUsuario} onRefresh={carregarPresencas} refreshing={presencaBusy} presenceError={presencaErro} formatActivity={fmtUltimaAtividade}
         onAdd={()=>{setForm(emptyU);setEditorTab("dados");setModal(true);}}
         onEdit={u=>{setForm({...u,accessTabs:[...allowedTabsForUser(u)]});setEditorTab("dados");setModal(true);}}
@@ -185,26 +185,26 @@ export function GestaoUsuarios({ data, update, showToast, currentUser, pageId="c
       {/* Modal: cadastro de usuário */}
       {modal&&(
         <Modal title={form.id?"Editar usuário":"Novo usuário"} onClose={()=>setModal(false)} wide>
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <Tabs value={editorTab} onValueChange={setEditorTab}><TabsList aria-label="Cadastro do membro"><TabsTrigger value="dados">Dados do membro</TabsTrigger><TabsTrigger value="permissoes">Permissões de acesso</TabsTrigger></TabsList><TabsContent value="dados"><div style={{display:"flex",flexDirection:"column",gap:12}}><Inp label="Nome completo *" value={form.nome} onChange={F("nome")} placeholder="Nome do usuário"/>
+          <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
+            <Tabs value={editorTab} onValueChange={setEditorTab}><TabsList aria-label="Cadastro do membro"><TabsTrigger value="dados">Dados do membro</TabsTrigger><TabsTrigger value="permissoes">Permissões de acesso</TabsTrigger></TabsList><TabsContent value="dados"><div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}><Inp label="Nome completo *" value={form.nome} onChange={F("nome")} placeholder="Nome do usuário"/>
             <Sel label="Perfil-base *" value={form.role} onChange={mudarPerfil} options={ROLES.map(r=>({v:r.v,l:r.l}))}/>
             <Inp label="E-mail" value={form.email} onChange={F("email")} placeholder="email@empresa.com"/>
             <Inp label="Limite de desconto comercial (%)" type="number" value={form.maxDesconto??10} onChange={F("maxDesconto")} placeholder="10"/>
             <Sel label="Restringir a obra (opcional)" value={form.obraId} onChange={F("obraId")}
               options={[{v:"",l:"Todas as obras"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
-            </div></TabsContent><TabsContent value="permissoes"><div style={{display:"flex",flexDirection:"column",gap:12}}><div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 12px"}}>
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>
+            </div></TabsContent><TabsContent value="permissoes"><div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}><div style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+              <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>
                 O perfil preenche uma seleção inicial de telas. Confira também a restrição por obra em Dados do membro.
               </p>
             </div>
-            {form.role==="admin"?<div style={{background:`${C.yellow}10`,border:`1px solid ${C.yellow}`,borderRadius:6,padding:"10px 12px"}}><p style={{fontSize:"var(--arcd-type-label)",color:C.yellowD,fontWeight:600}}>ADMINISTRADOR · ACESSO TOTAL</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>O administrador sempre acessa todos os setores, usuários e configurações.</p></div>:<div style={{display:"flex",flexDirection:"column",gap:8}}>
-              <div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>ACESSOS DESTE USUÁRIO</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Marque o setor inteiro ou escolha telas individualmente. Dashboard é liberado automaticamente.</p></div>
-              {ACCESS_SECTORS.map(setor=>{const selecionadas=setor.tabs.filter(([id])=>(form.accessTabs||[]).includes(id)).length;const todas=selecionadas===setor.tabs.length;return <div key={setor.id} style={{border:`1px solid ${todas?setor.color:C.border}`,borderLeft:`1px solid ${setor.color}`,borderRadius:6,padding:"9px 10px",background:todas?`${setor.color}08`:C.surface}}>
-                <button onClick={()=>toggleSetor(setor)} style={{display:"flex",width:"100%",justifyContent:"space-between",alignItems:"center",gap:8,border:0,background:"transparent",cursor:"pointer",padding:0,textAlign:"left"}}><span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:setor.color}}>{setor.label.toUpperCase()}</span><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{selecionadas}/{setor.tabs.length} · {todas?"DESMARCAR SETOR":"MARCAR SETOR"}</span></button>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:5,marginTop:7}}>{setor.tabs.map(([id,label])=>{const marcado=(form.accessTabs||[]).includes(id);return <label key={id} style={{display:"flex",alignItems:"center",gap:7,border:`1px solid ${marcado?setor.color:C.border}`,background:marcado?`${setor.color}0B`:C.bg,borderRadius:6,padding:"6px 8px",cursor:"pointer"}}><input type="checkbox" checked={marcado} onChange={()=>toggleTela(id)}/><span style={{fontSize:"var(--arcd-type-label)",color:marcado?C.text:C.muted,fontWeight:marcado?600:500}}>{label}</span></label>;})}</div>
+            {form.role==="admin"?<div style={{background:`${C.yellow}10`,border:`var(--arcd-border-width) solid ${C.yellow}`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-label)",color:C.yellowD,fontWeight:600}}>ADMINISTRADOR · ACESSO TOTAL</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>O administrador sempre acessa todos os setores, usuários e configurações.</p></div>:<div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+              <div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"var(--arcd-text-primary)"}}>ACESSOS DESTE USUÁRIO</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Marque o setor inteiro ou escolha telas individualmente. Dashboard é liberado automaticamente.</p></div>
+              {ACCESS_SECTORS.map(setor=>{const selecionadas=setor.tabs.filter(([id])=>(form.accessTabs||[]).includes(id)).length;const todas=selecionadas===setor.tabs.length;return <div key={setor.id} style={{border:`var(--arcd-border-width) solid ${todas?setor.color:C.border}`,borderLeft:`var(--arcd-border-width) solid ${setor.color}`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-2)",background:todas?`${setor.color}08`:"var(--arcd-surface-card)"}}>
+                <button onClick={()=>toggleSetor(setor)} style={{display:"flex",width:"100%",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",border:0,background:"transparent",cursor:"pointer",padding:0,textAlign:"left"}}><span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:setor.color}}>{setor.label.toUpperCase()}</span><span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{selecionadas}/{setor.tabs.length} · {todas?"DESMARCAR SETOR":"MARCAR SETOR"}</span></button>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-2)"}}>{setor.tabs.map(([id,label])=>{const marcado=(form.accessTabs||[]).includes(id);return <label key={id} style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",border:`var(--arcd-border-width) solid ${marcado?setor.color:C.border}`,background:marcado?`${setor.color}0B`:"var(--arcd-surface-page)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-1) var(--arcd-space-2)",cursor:"pointer"}}><input type="checkbox" checked={marcado} onChange={()=>toggleTela(id)}/><span style={{fontSize:"var(--arcd-type-label)",color:marcado?"var(--arcd-text-primary)":"var(--arcd-text-secondary)",fontWeight:marcado?600:500}}>{label}</span></label>;})}</div>
               </div>;})}
             </div>}
-            </div></TabsContent></Tabs><div style={{display:"flex",gap:8}}>
+            </div></TabsContent></Tabs><div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
               <Btn v="ghost" onClick={()=>setModal(false)} full>Cancelar</Btn>
               <Btn onClick={saveUser} full><Ic n="check"/> Salvar</Btn>
             </div>
@@ -215,14 +215,14 @@ export function GestaoUsuarios({ data, update, showToast, currentUser, pageId="c
       {/* Modal: definir PIN */}
       {pinModal&&(
         <Modal title="Definir PIN de acesso" onClose={()=>{setPinModal(null);setNewPin("");setNewPin2("");}}>
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:6,padding:"10px 14px"}}>
-              <p style={{fontSize:"var(--arcd-type-body)",color:C.muted}}>Usuário: <strong style={{color:C.text}}>{(data.usuarios||[]).find(u=>u.id===pinModal)?.nome||"-"}</strong></p>
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4}}>O PIN é pessoal e deve ter entre 4 e 6 dígitos numéricos.</p>
+          <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
+            <div style={{background:"var(--arcd-surface-card)",border:`1.5px solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+              <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)"}}>Usuário: <strong style={{color:"var(--arcd-text-primary)"}}>{(data.usuarios||[]).find(u=>u.id===pinModal)?.nome||"-"}</strong></p>
+              <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>O PIN é pessoal e deve ter entre 4 e 6 dígitos numéricos.</p>
             </div>
             <Inp label="Novo PIN *" type="password" value={newPin} onChange={setNewPin} placeholder="4 a 6 dígitos"/>
             <Inp label="Confirmar PIN *" type="password" value={newPin2} onChange={setNewPin2} placeholder="Repita o PIN"/>
-            <div style={{display:"flex",gap:8}}>
+            <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
               <Btn v="ghost" onClick={()=>{setPinModal(null);setNewPin("");setNewPin2("");}} full>Cancelar</Btn>
               <Btn v="primary" onClick={()=>savePin(pinModal)} full><Ic n="check"/> Definir PIN</Btn>
             </div>
@@ -230,7 +230,7 @@ export function GestaoUsuarios({ data, update, showToast, currentUser, pageId="c
         </Modal>
       )}
 
-      {contaModal&&<Modal title={(data.usuarios||[]).find(u=>u.id===contaModal)?.authUserId?"Redefinir senha do operador":"Ativar acesso por e-mail"} onClose={()=>setContaModal(null)}><div style={{display:"flex",flexDirection:"column",gap:12}}><div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"10px 12px"}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{(data.usuarios||[]).find(u=>u.id===contaModal)?.nome}</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3}}>{(data.usuarios||[]).find(u=>u.id===contaModal)?.email}</p></div><Inp label="Senha temporária *" type="password" value={senhaTemp} onChange={setSenhaTemp} placeholder="Mínimo 8 caracteres"/><Inp label="Confirmar senha *" type="password" value={senhaTemp2} onChange={setSenhaTemp2} placeholder="Repita a senha"/><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.45}}>O operador usará seu e-mail e esta senha na nova tela de login. O PIN continuará disponível somente durante a transição.</p><div style={{display:"flex",gap:8}}><Btn v="ghost" full onClick={()=>setContaModal(null)}>Cancelar</Btn><Btn full onClick={ativarContaEmail} disabled={ativandoConta}>{ativandoConta?"Ativando...":"Ativar conta"}</Btn></div></div></Modal>}
+      {contaModal&&<Modal title={(data.usuarios||[]).find(u=>u.id===contaModal)?.authUserId?"Redefinir senha do operador":"Ativar acesso por e-mail"} onClose={()=>setContaModal(null)}><div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}><div style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"var(--arcd-text-primary)"}}>{(data.usuarios||[]).find(u=>u.id===contaModal)?.nome}</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{(data.usuarios||[]).find(u=>u.id===contaModal)?.email}</p></div><Inp label="Senha temporária *" type="password" value={senhaTemp} onChange={setSenhaTemp} placeholder="Mínimo 8 caracteres"/><Inp label="Confirmar senha *" type="password" value={senhaTemp2} onChange={setSenhaTemp2} placeholder="Repita a senha"/><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:1.45}}>O operador usará seu e-mail e esta senha na nova tela de login. O PIN continuará disponível somente durante a transição.</p><div style={{display:"flex",gap:"var(--arcd-space-2)"}}><Btn v="ghost" full onClick={()=>setContaModal(null)}>Cancelar</Btn><Btn full onClick={ativarContaEmail} disabled={ativandoConta}>{ativandoConta?"Ativando...":"Ativar conta"}</Btn></div></div></Modal>}
     </div>
   );
 }
@@ -341,7 +341,7 @@ export function EditorCondicaoAprovacao({ condicao, data, onChange, onRemove }) 
     : condicao.campo === "possuiMedicao"
     ? <Sel label="Valor" value={condicao.valor||""} onChange={v=>onChange({...condicao,valor:v})} options={[{v:"sim",l:"Sim, há medição"},{v:"nao",l:"Não, pagamento manual/sem medição"}]}/>
     : <Inp label="Valor" value={condicao.valor??""} onChange={v=>onChange({...condicao,valor:v})} placeholder={["entre","pertence_lista","nao_pertence_lista"].includes(condicao.operador)?"Separe por vírgula":""}/>;
-  return <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr auto",gap:6,alignItems:"end",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:8}}>
+  return <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr auto",gap:"var(--arcd-space-1)",alignItems:"end",background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2)"}}>
     <Sel label="Campo" value={condicao.campo} onChange={v=>onChange({...condicao,campo:v,valor:""})} options={CAMPOS_CONTEXTO_APROVACAO}/>
     <Sel label="Condição" value={condicao.operador} onChange={v=>onChange({...condicao,operador:v})} options={OPERADORES.map(op=>({v:op,l:ROTULOS_OPERADOR_APROVACAO[op]||op}))}/>
     {valorInput}
@@ -358,22 +358,22 @@ export function EditorEtapaAprovacao({ etapa, data, onChange, onRemove }) {
     : tipoDef?.refs === "role" ? ROLES.map(r=>({id:r.v,l:r.l})) : [];
   const toggleRef = id => onChange({...etapa, referenciasAprovadores: etapa.referenciasAprovadores.includes(id)
     ? etapa.referenciasAprovadores.filter(x=>x!==id) : [...etapa.referenciasAprovadores, id]});
-  return <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,padding:11,display:"flex",flexDirection:"column",gap:8}}>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 90px auto",gap:6,alignItems:"end"}}>
+  return <div style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 90px auto",gap:"var(--arcd-space-1)",alignItems:"end"}}>
       <Inp label="Nome da etapa" value={etapa.nome} onChange={v=>onChange({...etapa,nome:v})} placeholder="Ex.: Aprovação do engenheiro"/>
       <Inp label="Ordem" type="number" value={etapa.ordem} onChange={v=>onChange({...etapa,ordem:Number(v||0)})}/>
       <Btn size="sm" v="ghost" onClick={onRemove}><Ic n="trash"/> Remover etapa</Btn>
     </div>
-    <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Etapas com a mesma ordem rodam em paralelo; ordens diferentes rodam em sequência.</p>
+    <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Etapas com a mesma ordem rodam em paralelo; ordens diferentes rodam em sequência.</p>
     <Sel label="Quem aprova" value={etapa.tipoAprovador} onChange={v=>onChange({...etapa,tipoAprovador:v,referenciasAprovadores:[]})} options={TIPOS_APROVADOR_APROVACAO}/>
-    {tipoDef?.refs && <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:5}}>
-      {refOptions.map(o=><label key={o.id} style={{display:"flex",alignItems:"center",gap:6,border:`1px solid ${etapa.referenciasAprovadores.includes(o.id)?C.blue:C.border}`,background:etapa.referenciasAprovadores.includes(o.id)?`${C.blue}0B`:C.bg,borderRadius:6,padding:"5px 7px",cursor:"pointer"}}>
+    {tipoDef?.refs && <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:"var(--arcd-space-1)"}}>
+      {refOptions.map(o=><label key={o.id} style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-1)",border:`var(--arcd-border-width) solid ${etapa.referenciasAprovadores.includes(o.id)?C.blue:C.border}`,background:etapa.referenciasAprovadores.includes(o.id)?`${C.blue}0B`:"var(--arcd-surface-page)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-1) var(--arcd-space-2)",cursor:"pointer"}}>
         <input type="checkbox" checked={etapa.referenciasAprovadores.includes(o.id)} onChange={()=>toggleRef(o.id)}/>
-        <span style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{o.l}</span>
+        <span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>{o.l}</span>
       </label>)}
-      {!refOptions.length && <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Nenhuma opção cadastrada.</p>}
+      {!refOptions.length && <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Nenhuma opção cadastrada.</p>}
     </div>}
-    <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:6}}>
+    <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:"var(--arcd-space-1)"}}>
       <Sel label="Quórum" value={etapa.modoQuorum} onChange={v=>onChange({...etapa,modoQuorum:v})} options={Object.entries(ROTULOS_MODO_QUORUM).map(([v,l])=>({v,l}))}/>
       {etapa.modoQuorum==="minimo" && <Inp label="Quantidade mínima" type="number" value={etapa.quantidadeMinima} onChange={v=>onChange({...etapa,quantidadeMinima:Math.max(1,Number(v||1))})}/>}
       <Inp label="Prazo" type="number" value={etapa.prazoValor} onChange={v=>onChange({...etapa,prazoValor:Math.max(0,Number(v||0))})}/>
@@ -382,8 +382,8 @@ export function EditorEtapaAprovacao({ etapa, data, onChange, onRemove }) {
       <Sel label="Ao vencer o prazo" value={etapa.acaoNoVencimento} onChange={v=>onChange({...etapa,acaoNoVencimento:v})} options={Object.entries(ROTULOS_ACAO_VENCIMENTO).map(([v,l])=>({v,l}))}/>
       <Sel label="Aprovador repetido na próxima etapa" value={etapa.consolidarAprovadorRepetido} onChange={v=>onChange({...etapa,consolidarAprovadorRepetido:v})} options={[{v:"manter",l:"Manter separado"},{v:"consolidar",l:"Uma decisão conclui as duas"},{v:"ignorar",l:"Pular a próxima automaticamente"}]}/>
     </div>
-    <div style={{display:"flex",flexDirection:"column",gap:5}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted}}>CONDIÇÕES DA ETAPA (opcional - sem condição, a etapa sempre roda)</span><Btn size="sm" v="ghost" onClick={()=>onChange({...etapa,condicoes:[...etapa.condicoes,novaCondicaoAprovacao()]})}><Ic n="plus"/> Condição</Btn></div>
+    <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:"var(--arcd-text-secondary)"}}>CONDIÇÕES DA ETAPA (opcional - sem condição, a etapa sempre roda)</span><Btn size="sm" v="ghost" onClick={()=>onChange({...etapa,condicoes:[...etapa.condicoes,novaCondicaoAprovacao()]})}><Ic n="plus"/> Condição</Btn></div>
       {etapa.condicoes.map(c=><EditorCondicaoAprovacao key={c.id} condicao={c} data={data} onChange={nc=>onChange({...etapa,condicoes:etapa.condicoes.map(x=>x.id===nc.id?nc:x)})} onRemove={()=>onChange({...etapa,condicoes:etapa.condicoes.filter(x=>x.id!==c.id)})}/>)}
     </div>
   </div>;
@@ -441,7 +441,7 @@ export function GestaoAprovacoes({ data, update, showToast, currentUser }) {
   const [delegForm, setDelegForm] = useState({ usuarioOrigemId:"", usuarioDestinoId:"", inicio:today(), fim:"", escopo:"" });
   const podeDelegar = podeGerenciarDelegacoes(currentUser?.role);
 
-  if (!podeAdministrar) return <div style={{padding:24,textAlign:"center",color:C.red}}>Acesso exclusivo da administração.</div>;
+  if (!podeAdministrar) return <div style={{padding:"var(--arcd-space-6)",textAlign:"center",color:C.red}}>Acesso exclusivo da administração.</div>;
 
   const mudarComportamentoSemPolitica = v => {
     update({ ...data, configAprovacao: { ...data.configAprovacao, comportamentoSemPolitica: v } });
@@ -464,44 +464,44 @@ export function GestaoAprovacoes({ data, update, showToast, currentUser }) {
     showToast("Delegação revogada.");
   };
 
-  return <div style={{display:"flex",flexDirection:"column",gap:12}}>
-    <div style={{background:`${C.yellow}0B`,border:`1px solid ${C.yellow}44`,borderRadius:7,padding:"9px 11px",display:"flex",flexDirection:"column",gap:8}}>
-      <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Quando nenhuma política ativa se aplicar a um processo, o app nunca trava sozinho - ele segue o comportamento padrão abaixo. Hoje só o setor de Compras tem aprovadores conectados ao motor; outros setores exigem trabalho de desenvolvimento antes de aparecerem aqui.</p>
+  return <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
+    <div style={{background:`${C.yellow}0B`,border:`var(--arcd-border-width) solid ${C.yellow}44`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+      <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Quando nenhuma política ativa se aplicar a um processo, o app nunca trava sozinho - ele segue o comportamento padrão abaixo. Hoje só o setor de Compras tem aprovadores conectados ao motor; outros setores exigem trabalho de desenvolvimento antes de aparecerem aqui.</p>
       <div style={{maxWidth:340}}><Sel label="Comportamento sem política aplicável" value={data.configAprovacao?.comportamentoSemPolitica||"auto_aprovar"} onChange={mudarComportamentoSemPolitica} options={[{v:"auto_aprovar",l:"Aprovar automaticamente"},{v:"fila_administrativa",l:"Enviar à fila do administrador"},{v:"bloquear",l:"Bloquear até intervenção manual"}]}/></div>
     </div>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-      <b style={{fontSize:"var(--arcd-type-body)",color:C.text}}>{contar(politicas.length,"política","políticas")} de aprovação cadastrada(s)</b>
-      <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"var(--arcd-space-2)"}}>
+      <b style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)"}}>{contar(politicas.length,"política","políticas")} de aprovação cadastrada(s)</b>
+      <div style={{display:"flex",gap:"var(--arcd-space-1)",flexWrap:"wrap"}}>
         <Btn v="ghost" onClick={()=>setModal(MODELOS_PORTE_APROVACAO.enxuto())}>Modelo enxuto</Btn>
         <Btn v="ghost" onClick={()=>setModal(MODELOS_PORTE_APROVACAO.intermediario())}>Modelo intermediário</Btn>
         <Btn v="ghost" onClick={()=>setModal(MODELOS_PORTE_APROVACAO.segregado())}>Modelo segregado</Btn>
         <Btn onClick={abrirNova}><Ic n="plus"/> Do zero</Btn>
       </div>
     </div>
-    <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:-6}}>Os modelos só preenchem o formulário como ponto de partida - nada é salvo até você revisar e confirmar, e tudo continua editável depois.</p>
-    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
-      {politicas.map((p,i)=><div key={p.id} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:9,padding:"11px 12px",borderTop:i?`1px solid ${C.line}`:"none",alignItems:"center"}}>
+    <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:-6}}>Os modelos só preenchem o formulário como ponto de partida - nada é salvo até você revisar e confirmar, e tudo continua editável depois.</p>
+    <div style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",overflow:"hidden"}}>
+      {politicas.map((p,i)=><div key={p.id} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-3) var(--arcd-space-3)",borderTop:i?`var(--arcd-border-width) solid var(--arcd-border-subtle)`:"none",alignItems:"center"}}>
         <div style={{minWidth:0}}>
-          <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}>
-            <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>{p.nome||"Sem nome"}</p>
+          <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
+            <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"var(--arcd-text-primary)"}}>{p.nome||"Sem nome"}</p>
             <Badge color={p.ativa?C.green:C.muted}>{p.ativa?"ATIVA":"INATIVA"}</Badge>
             <Badge color={C.blue}>v{p.versao}</Badge>
           </div>
-          <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>{SETORES_APROVACAO.find(s=>s.v===p.entidadeTipo)?.l||p.entidadeTipo} · prioridade {p.prioridade} · {contar(p.etapas.length,"etapa","etapas")}{p.condicoes.length?` · ${p.condicoes.length} condição(ões)`:" · sem condição (aplica sempre que ativa)"}</p>
+          <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{SETORES_APROVACAO.find(s=>s.v===p.entidadeTipo)?.l||p.entidadeTipo} · prioridade {p.prioridade} · {contar(p.etapas.length,"etapa","etapas")}{p.condicoes.length?` · ${p.condicoes.length} condição(ões)`:" · sem condição (aplica sempre que ativa)"}</p>
         </div>
-        <div style={{display:"flex",gap:6,flexWrap:"wrap",justifyContent:"flex-end"}}>
+        <div style={{display:"flex",gap:"var(--arcd-space-1)",flexWrap:"wrap",justifyContent:"flex-end"}}>
           <Btn size="sm" v="ghost" onClick={()=>abrirSimulador(p)}><Ic n="eye"/> Simular</Btn>
           <Btn size="sm" v="ghost" onClick={()=>abrirEditar(p)}>Editar</Btn>
           <Btn size="sm" v={p.ativa?"ghost":"success"} onClick={()=>alternarAtiva(p)}>{p.ativa?"Desativar":"Ativar"}</Btn>
         </div>
       </div>)}
-      {!politicas.length && <p style={{padding:30,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhuma política cadastrada ainda. Enquanto isso, tudo segue o comportamento padrão acima.</p>}
+      {!politicas.length && <p style={{padding:"var(--arcd-space-8)",textAlign:"center",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhuma política cadastrada ainda. Enquanto isso, tudo segue o comportamento padrão acima.</p>}
     </div>
 
     {podeDelegar && <>
-      <b style={{fontSize:"var(--arcd-type-label)",color:C.text,marginTop:4}}>Delegações (férias, afastamento, substituição)</b>
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:12,display:"flex",flexDirection:"column",gap:8}}>
-        <div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:6}}>
+      <b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-1)"}}>Delegações (férias, afastamento, substituição)</b>
+      <div style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+        <div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:"var(--arcd-space-1)"}}>
           <Sel label="Usuário ausente" value={delegForm.usuarioOrigemId} onChange={v=>setDelegForm({...delegForm,usuarioOrigemId:v})} options={[{v:"",l:"Selecione"},...(data.usuarios||[]).map(u=>({v:u.id,l:u.nome}))]}/>
           <Sel label="Substituto" value={delegForm.usuarioDestinoId} onChange={v=>setDelegForm({...delegForm,usuarioDestinoId:v})} options={[{v:"",l:"Selecione"},...(data.usuarios||[]).map(u=>({v:u.id,l:u.nome}))]}/>
           <Inp label="Início" type="date" value={delegForm.inicio} onChange={v=>setDelegForm({...delegForm,inicio:v})}/>
@@ -509,64 +509,64 @@ export function GestaoAprovacoes({ data, update, showToast, currentUser }) {
         </div>
         <Inp label="Escopo/motivo (anotação - ainda não filtra por setor)" value={delegForm.escopo} onChange={v=>setDelegForm({...delegForm,escopo:v})} placeholder="Ex.: férias, cobre só Compras"/>
         <Btn onClick={criarDelegacao}><Ic n="plus"/> Criar delegação</Btn>
-        <div style={{display:"flex",flexDirection:"column",gap:5,marginTop:4}}>
-          {delegacoes.map(d=><div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"7px 9px"}}>
+        <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-1)"}}>
+          {delegacoes.map(d=><div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-2)"}}>
             <div style={{minWidth:0}}>
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{(data.usuarios||[]).find(u=>u.id===d.usuarioOrigemId)?.nome||"Usuário removido"} → {d.usuarioDestinoNome||"?"} <Badge color={d.ativo?C.green:C.muted}>{d.ativo?"ATIVA":"REVOGADA"}</Badge></p>
-              <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{fmtDateFull(d.inicio)}{d.fim?` até ${fmtDateFull(d.fim)}`:" · sem data de fim"}{d.escopo?` · ${d.escopo}`:""}</p>
+              <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>{(data.usuarios||[]).find(u=>u.id===d.usuarioOrigemId)?.nome||"Usuário removido"} → {d.usuarioDestinoNome||"?"} <Badge color={d.ativo?C.green:C.muted}>{d.ativo?"ATIVA":"REVOGADA"}</Badge></p>
+              <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{fmtDateFull(d.inicio)}{d.fim?` até ${fmtDateFull(d.fim)}`:" · sem data de fim"}{d.escopo?` · ${d.escopo}`:""}</p>
             </div>
             {d.ativo && <Btn size="sm" v="ghost" onClick={()=>revogarDelegacao(d.id)}>Revogar</Btn>}
           </div>)}
-          {!delegacoes.length && <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhuma delegação cadastrada.</p>}
+          {!delegacoes.length && <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhuma delegação cadastrada.</p>}
         </div>
       </div>
     </>}
 
-    <b style={{fontSize:"var(--arcd-type-label)",color:C.text,marginTop:4}}>Auditoria de aprovações</b>
-    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
-      {eventosAuditoria.map((e,i)=><div key={e.id||i} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:9,padding:"9px 12px",borderTop:i?`1px solid ${C.line}`:"none"}}>
-        <div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{e.motivo||e.evento}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{e.evento}{e.usuario?` · ${e.usuario}`:""}{e.instanciaId?` · ${e.instanciaId}`:""}</p></div>
-        <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,whiteSpace:"nowrap"}}>{e.data?new Date(e.data).toLocaleString("pt-BR"):""}</p>
+    <b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-1)"}}>Auditoria de aprovações</b>
+    <div style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",overflow:"hidden"}}>
+      {eventosAuditoria.map((e,i)=><div key={e.id||i} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-3)",borderTop:i?`var(--arcd-border-width) solid var(--arcd-border-subtle)`:"none"}}>
+        <div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>{e.motivo||e.evento}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{e.evento}{e.usuario?` · ${e.usuario}`:""}{e.instanciaId?` · ${e.instanciaId}`:""}</p></div>
+        <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",whiteSpace:"nowrap"}}>{e.data?new Date(e.data).toLocaleString("pt-BR"):""}</p>
       </div>)}
-      {!eventosAuditoria.length && <p style={{padding:20,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhum evento de aprovação registrado ainda.</p>}
+      {!eventosAuditoria.length && <p style={{padding:"var(--arcd-space-5)",textAlign:"center",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhum evento de aprovação registrado ainda.</p>}
     </div>
 
     {modal && <Modal wide title={modal.id?`Editar política · v${modal.versao||1}`:"Nova política de aprovação"} onClose={()=>setModal(null)}>
-      <div style={{display:"flex",flexDirection:"column",gap:10}}>
-        <div style={{display:"grid",gridTemplateColumns:cols(1,2,2),gap:8}}>
+      <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+        <div style={{display:"grid",gridTemplateColumns:cols(1,2,2),gap:"var(--arcd-space-2)"}}>
           <Inp label="Nome da política *" value={modal.nome} onChange={v=>setModal({...modal,nome:v})} placeholder="Ex.: Alçada de pedidos até R$ 5.000"/>
           <Sel label="Tipo de processo" value={modal.entidadeTipo} onChange={v=>setModal({...modal,entidadeTipo:v})} options={SETORES_APROVACAO}/>
           <Inp label="Prioridade (maior vence em caso de empate)" type="number" value={modal.prioridade} onChange={v=>setModal({...modal,prioridade:Number(v||0)})}/>
-          <label style={{display:"flex",alignItems:"center",gap:7,marginTop:18}}><input type="checkbox" checked={modal.ativa} onChange={()=>setModal({...modal,ativa:!modal.ativa})}/><span style={{fontSize:"var(--arcd-type-label)",color:C.text}}>Política ativa</span></label>
+          <label style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-4)"}}><input type="checkbox" checked={modal.ativa} onChange={()=>setModal({...modal,ativa:!modal.ativa})}/><span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>Política ativa</span></label>
           <Inp label="Vigência início (opcional)" type="date" value={modal.vigenciaInicio} onChange={v=>setModal({...modal,vigenciaInicio:v})}/>
           <Inp label="Vigência fim (opcional)" type="date" value={modal.vigenciaFim} onChange={v=>setModal({...modal,vigenciaFim:v})}/>
         </div>
         <Inp label="Descrição (opcional)" value={modal.descricao} onChange={v=>setModal({...modal,descricao:v})} multiline/>
 
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><b style={{fontSize:"var(--arcd-type-label)",color:C.text}}>Condições para esta política se aplicar</b><Btn size="sm" v="ghost" onClick={()=>setModal({...modal,condicoes:[...modal.condicoes,novaCondicaoAprovacao()]})}><Ic n="plus"/> Condição</Btn></div>
-        <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:-6}}>Sem nenhuma condição, a política se aplica sempre que estiver ativa e dentro da vigência.</p>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>Condições para esta política se aplicar</b><Btn size="sm" v="ghost" onClick={()=>setModal({...modal,condicoes:[...modal.condicoes,novaCondicaoAprovacao()]})}><Ic n="plus"/> Condição</Btn></div>
+        <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:-6}}>Sem nenhuma condição, a política se aplica sempre que estiver ativa e dentro da vigência.</p>
         {modal.condicoes.map(c=><EditorCondicaoAprovacao key={c.id} condicao={c} data={data} onChange={nc=>setModal({...modal,condicoes:modal.condicoes.map(x=>x.id===nc.id?nc:x)})} onRemove={()=>setModal({...modal,condicoes:modal.condicoes.filter(x=>x.id!==c.id)})}/>)}
 
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:4}}><b style={{fontSize:"var(--arcd-type-label)",color:C.text}}>Etapas de aprovação</b><Btn size="sm" v="ghost" onClick={()=>setModal({...modal,etapas:[...modal.etapas,novaEtapaAprovacao(modal.etapas.length)]})}><Ic n="plus"/> Etapa</Btn></div>
-        {!modal.etapas.length && <div style={{background:`${C.blue}0B`,border:`1px solid ${C.blue}44`,borderRadius:7,padding:"8px 10px",fontSize:"var(--arcd-type-label)",color:C.muted}}>Sem nenhuma etapa, esta política aprova automaticamente - use isso para dispensar aprovação explicitamente (fica registrado como decisão da política, não como aprovação humana).</div>}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:"var(--arcd-space-1)"}}><b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>Etapas de aprovação</b><Btn size="sm" v="ghost" onClick={()=>setModal({...modal,etapas:[...modal.etapas,novaEtapaAprovacao(modal.etapas.length)]})}><Ic n="plus"/> Etapa</Btn></div>
+        {!modal.etapas.length && <div style={{background:`${C.blue}0B`,border:`var(--arcd-border-width) solid ${C.blue}44`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Sem nenhuma etapa, esta política aprova automaticamente - use isso para dispensar aprovação explicitamente (fica registrado como decisão da política, não como aprovação humana).</div>}
         {modal.etapas.map(e=><EditorEtapaAprovacao key={e.id} etapa={e} data={data} onChange={ne=>setModal({...modal,etapas:modal.etapas.map(x=>x.id===ne.id?ne:x)})} onRemove={()=>setModal({...modal,etapas:modal.etapas.filter(x=>x.id!==e.id)})}/>)}
 
-        <b style={{fontSize:"var(--arcd-type-label)",color:C.text,marginTop:4}}>Autoaprovação (o próprio solicitante aprova)</b>
-        <div style={{display:"grid",gridTemplateColumns:cols(1,2,2),gap:8}}>
+        <b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-1)"}}>Autoaprovação (o próprio solicitante aprova)</b>
+        <div style={{display:"grid",gridTemplateColumns:cols(1,2,2),gap:"var(--arcd-space-2)"}}>
           <Sel label="Quando permitir" value={modal.autoaprovacao.modo} onChange={v=>setModal({...modal,autoaprovacao:{...modal.autoaprovacao,modo:v}})} options={Object.entries(ROTULOS_AUTOAPROVACAO).map(([v,l])=>({v,l}))}/>
           {modal.autoaprovacao.modo==="abaixo_valor" && <Inp label="Valor limite (R$)" type="number" value={modal.autoaprovacao.valorLimite} onChange={v=>setModal({...modal,autoaprovacao:{...modal.autoaprovacao,valorLimite:Number(v||0)}})}/>}
         </div>
-        {modal.autoaprovacao.modo==="perfis_especificos" && <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:5}}>
-          {ROLES.map(r=><label key={r.v} style={{display:"flex",alignItems:"center",gap:6,border:`1px solid ${modal.autoaprovacao.perfis.includes(r.v)?C.blue:C.border}`,background:modal.autoaprovacao.perfis.includes(r.v)?`${C.blue}0B`:C.bg,borderRadius:6,padding:"5px 7px",cursor:"pointer"}}>
+        {modal.autoaprovacao.modo==="perfis_especificos" && <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:"var(--arcd-space-1)"}}>
+          {ROLES.map(r=><label key={r.v} style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-1)",border:`var(--arcd-border-width) solid ${modal.autoaprovacao.perfis.includes(r.v)?C.blue:C.border}`,background:modal.autoaprovacao.perfis.includes(r.v)?`${C.blue}0B`:"var(--arcd-surface-page)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-1) var(--arcd-space-2)",cursor:"pointer"}}>
             <input type="checkbox" checked={modal.autoaprovacao.perfis.includes(r.v)} onChange={()=>setModal({...modal,autoaprovacao:{...modal.autoaprovacao,perfis:modal.autoaprovacao.perfis.includes(r.v)?modal.autoaprovacao.perfis.filter(x=>x!==r.v):[...modal.autoaprovacao.perfis,r.v]}})}/>
-            <span style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{r.l}</span>
+            <span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>{r.l}</span>
           </label>)}
         </div>}
 
-        {validacaoAtual.erros.length>0 && <div style={{background:`${C.red}0C`,border:`1px solid ${C.red}55`,borderRadius:7,padding:"9px 11px"}}>{validacaoAtual.erros.map((m,i)=><p key={i} style={{fontSize:"var(--arcd-type-label)",color:C.red}}>· {m}</p>)}</div>}
-        {validacaoAtual.alertas.length>0 && <div style={{background:`${C.yellow}0C`,border:`1px solid ${C.yellow}55`,borderRadius:7,padding:"9px 11px"}}>{validacaoAtual.alertas.map((m,i)=><p key={i} style={{fontSize:"var(--arcd-type-label)",color:C.yellowD}}>· {m}</p>)}</div>}
+        {validacaoAtual.erros.length>0 && <div style={{background:`${C.red}0C`,border:`var(--arcd-border-width) solid ${C.red}55`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>{validacaoAtual.erros.map((m,i)=><p key={i} style={{fontSize:"var(--arcd-type-label)",color:C.red}}>· {m}</p>)}</div>}
+        {validacaoAtual.alertas.length>0 && <div style={{background:`${C.yellow}0C`,border:`var(--arcd-border-width) solid ${C.yellow}55`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>{validacaoAtual.alertas.map((m,i)=><p key={i} style={{fontSize:"var(--arcd-type-label)",color:C.yellowD}}>· {m}</p>)}</div>}
 
-        <div style={{display:"flex",gap:8}}>
+        <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
           <Btn v="ghost" full onClick={()=>setModal(null)}>Cancelar</Btn>
           <Btn full onClick={salvar} disabled={!validacaoAtual.valida}><Ic n="check"/> {modal.id?"Salvar nova versão":"Criar política"}</Btn>
         </div>
@@ -574,21 +574,21 @@ export function GestaoAprovacoes({ data, update, showToast, currentUser }) {
     </Modal>}
 
     {simulando && <Modal title={`Simular · ${simulando.nome}`} onClose={()=>setSimulando(null)}>
-      <div style={{display:"flex",flexDirection:"column",gap:10}}>
-        <div style={{display:"grid",gridTemplateColumns:cols(1,2,2),gap:8}}>
+      <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+        <div style={{display:"grid",gridTemplateColumns:cols(1,2,2),gap:"var(--arcd-space-2)"}}>
           <Inp label="Valor total (R$)" type="number" value={contextoSim.valorTotal} onChange={v=>setContextoSim({...contextoSim,valorTotal:v})}/>
           <Sel label="Obra" value={contextoSim.obraId} onChange={v=>setContextoSim({...contextoSim,obraId:v})} options={[{v:"",l:"Nenhuma"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
           <Sel label="Prioridade" value={contextoSim.urgencia} onChange={v=>setContextoSim({...contextoSim,urgencia:v})} options={[{v:"normal",l:"Normal"},{v:"urgente",l:"Urgente"}]}/>
           <Sel label="Solicitante" value={contextoSim.solicitanteId} onChange={v=>setContextoSim({...contextoSim,solicitanteId:v})} options={[{v:"",l:"Eu mesmo"},...(data.usuarios||[]).map(u=>({v:u.id,l:u.nome}))]}/>
         </div>
         <Btn onClick={executarSimulacao}><Ic n="check"/> Simular</Btn>
-        {resultadoSim && <div style={{display:"flex",flexDirection:"column",gap:7}}>
+        {resultadoSim && <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
           <Badge color={resultadoSim.status==="aprovada"?C.green:resultadoSim.status==="em_andamento"?C.blue:C.orange}>{resultadoSim.status.toUpperCase()}</Badge>
-          {resultadoSim.etapas.map((e,i)=><div key={i} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"8px 10px"}}>
-            <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>{e.nome||`Etapa ${i+1}`} · {e.status}</p>
-            <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{(e.aprovadoresElegiveis||[]).map(a=>a.nome).join(", ")||e.motivoConclusao||"Sem aprovador elegível"}</p>
+          {resultadoSim.etapas.map((e,i)=><div key={i} style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-2)"}}>
+            <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"var(--arcd-text-primary)"}}>{e.nome||`Etapa ${i+1}`} · {e.status}</p>
+            <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{(e.aprovadoresElegiveis||[]).map(a=>a.nome).join(", ")||e.motivoConclusao||"Sem aprovador elegível"}</p>
           </div>)}
-          {!resultadoSim.etapas.length && <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>{resultadoSim.motivo}</p>}
+          {!resultadoSim.etapas.length && <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>{resultadoSim.motivo}</p>}
         </div>}
       </div>
     </Modal>}

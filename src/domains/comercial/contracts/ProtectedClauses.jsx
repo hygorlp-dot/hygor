@@ -11,5 +11,5 @@ export default function ProtectedClauses(){
   }).catch(()=>{if(active)setError('Não foi possível consultar o modelo. Tente novamente.');});return()=>{active=false;};},[attempt]);
   if(error)return <div role="alert"><p>{error}</p><Button variant="secondary" onClick={()=>setAttempt(value=>value+1)}>Tentar consultar modelo novamente</Button></div>;
   if(!nodes)return <LoadingState label="texto protegido"/>;
-  return <div className="contract-record-clauses">{nodes.map((node,index)=>node.rows?<div className="contract-record-table" key={index}><table><tbody>{node.rows.map((row,i)=><tr key={i}>{row.map((cell,j)=><td key={j}>{cell}</td>)}</tr>)}</tbody></table></div>:node.kind==='heading'?<h3 key={index}>{node.text}</h3>:<p key={index}>{node.text}</p>)}</div>;
+  return <div className="contract-record-clauses">{nodes.map((node,index)=>node.rows?<div className="contract-record-table" key={index}><table className="arcd-data-table__table"><tbody>{node.rows.map((row,i)=><tr key={i}>{row.map((cell,j)=><td key={j}>{cell}</td>)}</tr>)}</tbody></table></div>:node.kind==='heading'?<h3 key={index}>{node.text}</h3>:<p key={index}>{node.text}</p>)}</div>;
 }

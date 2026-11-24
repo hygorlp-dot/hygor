@@ -144,7 +144,7 @@ function ExtratoFuncionario({ linha, nomeObra, voltar }) {
       <option value="registros">Com registros</option><option value="pendentes">A conferir</option><option value="todos">Todos os dias</option>
     </SelectControl></label></div>
     <div className="bh-table-scroll" tabIndex={0} role="region" aria-label="Tabela de dias do banco de horas">
-      <table className="bh-table"><caption>Extrato diário de {linha.nome}. Horários de Recife.</caption><thead><tr>
+      <table className="arcd-data-table__table bh-table"><caption>Extrato diário de {linha.nome}. Horários de Recife.</caption><thead><tr>
         <th scope="col">Dia</th><th scope="col">Horas apuradas</th><th scope="col">Jornada</th><th scope="col">Variação</th><th scope="col">Acumulado</th><th scope="col">Situação</th>
       </tr></thead><tbody>{diasVisiveis.map(d => <tr key={d.data} data-selected={d.data === diaSelecionado ? "true" : undefined}>
         <th scope="row"><StandardButton variant="secondary" className="bh-text-button" type="button" aria-label={`Conferir dia ${diaLegivel(d.data)} de ${linha.nome}`} aria-pressed={d.data === diaSelecionado}
@@ -248,7 +248,7 @@ export default function BancoHorasView({ data, obraId, currentUser, dia }) {
         {selecionado ? <ExtratoFuncionario key={`${selecionado.employeeId}:${periodo.de}:${periodo.ate}`} linha={selecionado} nomeObra={nomeObra} voltar={() => selecionarFuncionario("")} /> : <section className="bh-equipe" aria-labelledby="bh-equipe-titulo">
           <div className="bh-section-heading"><h3 id="bh-equipe-titulo">Saldo por funcionário</h3><label className="bh-campo bh-busca"><span>Buscar funcionário</span><StandardInput type="search" value={busca} onChange={e => setBusca(e.target.value)} placeholder="Nome ou função" /></label></div>
           <div className="bh-table-scroll" tabIndex={0} role="region" aria-label="Tabela de saldo por funcionário">
-            <table className="bh-table bh-table-equipe"><caption>Saldo estimado por funcionário de {diaLegivel(periodo.de)} a {diaLegivel(periodo.ate)}.</caption><thead><tr>
+            <table className="arcd-data-table__table bh-table bh-table-equipe"><caption>Saldo estimado por funcionário de {diaLegivel(periodo.de)} a {diaLegivel(periodo.ate)}.</caption><thead><tr>
               <th scope="col">Funcionário</th><th scope="col">Jornada diária</th><th scope="col">Horas apuradas</th><th scope="col">Saldo estimado</th><th scope="col">Cobertura</th>
             </tr></thead><tbody>{linhasVisiveis.map(l => <tr key={l.employeeId}>
               <th scope="row"><StandardButton variant="secondary" className="bh-text-button" type="button" onClick={() => selecionarFuncionario(l.employeeId)} aria-label={`Ver extrato de ${l.nome}`}>{l.nome}</StandardButton><span className="bh-funcao">{l.funcao}</span></th>

@@ -27,7 +27,7 @@
 [data-theme] .arcd-sidebar button svg {color:inherit;stroke:currentColor;}
 [data-theme] .arcd-sidebar :is(.nav-grp-hd,.nav-item) span {color:inherit !important;}
 [data-theme] .arcd-sidebar .nav-body {border-left-color:var(--arcd-nav-border);}
-[data-theme] .arcd-sidebar .arcd-brand-mark {gap:10px !important;}
+[data-theme] .arcd-sidebar .arcd-brand-mark {gap:var(--arcd-space-2) !important;}
 [data-theme] .arcd-sidebar .arcd-brand-word p:last-child {color:var(--arcd-nav-text) !important;font-size:12px;max-width:122px;line-height:1.35;}
 [data-theme] .arcd-mobile-nav {background:var(--arcd-surface-card) !important;border-top-color:var(--arcd-border-default) !important;}
 /* Tela de acesso "Planta em vidro": malha técnica, emblema e vidro em camadas.
@@ -228,7 +228,7 @@ input,textarea {caret-color:#0d1b2e;}
 
 /* Dialog notices occupy layout space instead of obscuring editable fields. */
 .arcd-modal-notice:empty {display:none;}
-.arcd-modal-notice {padding:12px 14px 0;}
+.arcd-modal-notice {padding:var(--arcd-space-3) var(--arcd-space-3) 0;}
 .arcd-modal-notice .arcd-toast--inline {
   position:static !important;transform:none !important;max-width:100% !important;
   width:auto;animation:none;margin:0;overflow-wrap:anywhere;

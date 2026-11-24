@@ -1,4 +1,5 @@
 :root {
+  --arcd-border-width: 1px;
   --arcd-surface-page: var(--arcd-gray-50);
   --arcd-surface-card: var(--arcd-gray-0);
   --arcd-surface-muted: var(--arcd-gray-100);

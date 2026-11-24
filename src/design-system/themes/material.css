@@ -1,6 +1,6 @@
 /* Material and canvas consume theme roles; controls keep the common MARCELL scale. */
 .arcd-themed-canvas {min-height:100dvh;background-color:var(--arcd-surface-page);background-image:linear-gradient(var(--arcd-canvas-veil),var(--arcd-canvas-veil)),var(--arcd-canvas-image);background-size:cover;background-position:center;background-attachment:fixed}
-.arcd-material-panel {background:var(--arcd-material-panel-surface);border:1px solid var(--arcd-border-default);border-radius:var(--arcd-radius-lg);backdrop-filter:blur(var(--arcd-material-blur));-webkit-backdrop-filter:blur(var(--arcd-material-blur))}
+.arcd-material-panel {background:var(--arcd-material-panel-surface);border:var(--arcd-border-width) solid var(--arcd-border-default);border-radius:var(--arcd-radius-lg);backdrop-filter:blur(var(--arcd-material-blur));-webkit-backdrop-filter:blur(var(--arcd-material-blur))}
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {
  .arcd-material-panel {background:var(--arcd-material-fallback)}
 }

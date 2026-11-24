@@ -127,7 +127,7 @@ export function CampoCEP({ label = "CEP", value, onChange, onEncontrado }) {
         onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }}
         placeholder="00000-000"
         style={{ width:"100%", boxSizing:"border-box", background:"var(--arcd-surface-page)", border:"1.5px solid var(--arcd-border-default)",
-          color:"var(--arcd-text-primary)", padding:"var(--arcd-space-2) var(--arcd-space-2)", borderRadius:7, fontSize:"var(--arcd-type-control)", outline:"none",
+          color:"var(--arcd-text-primary)", padding:"var(--arcd-space-2) var(--arcd-space-2)", borderRadius:"var(--arcd-radius-control)", fontSize:"var(--arcd-type-control)", outline:"none",
           fontFamily:"var(--arcd-font-sans)" }}/>
       {carregando && <LoadingState label="endereço"/>}
       {erro && <span style={{ fontSize:"var(--arcd-type-label)", color:"var(--arcd-warning-text)" }}>{erro}</span>}
@@ -423,7 +423,7 @@ export function ModalCotacaoWhatsApp({ titulo, itens, obraNome, prazo, fornecedo
     <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", marginBottom: "var(--arcd-space-2)", lineHeight: "var(--arcd-line-height-normal)" }}>
       {itens.length} item(ns) na lista. Toque em cada fornecedor para abrir o WhatsApp com o pedido de orçamento completo. Quando as respostas chegarem, registre os preços em Cotações ou Suprimentos.
     </p>
-    <div style={{ background: "var(--arcd-surface-muted)", border: "1px solid var(--arcd-border-default)", borderRadius: 6, padding: "var(--arcd-space-2) var(--arcd-space-2)", marginBottom: "var(--arcd-space-2)", maxHeight: 120, overflow: "auto" }}>
+    <div style={{ background: "var(--arcd-surface-muted)", border: "var(--arcd-border-width) solid var(--arcd-border-default)", borderRadius: "var(--arcd-radius-control)", padding: "var(--arcd-space-2) var(--arcd-space-2)", marginBottom: "var(--arcd-space-2)", maxHeight: 120, overflow: "auto" }}>
       {itens.map((i, ix) => <p key={ix} style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>• {i.descricao} — <b style={{ color: "var(--arcd-text-primary)" }}>{i.qtd} {i.unidade}</b></p>)}
     </div>
     {!lista.length && <p style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)", textAlign: "center", padding: "var(--arcd-space-3)" }}>Nenhum fornecedor com telefone cadastrado.</p>}
@@ -433,7 +433,7 @@ export function ModalCotacaoWhatsApp({ titulo, itens, obraNome, prazo, fornecedo
         whatsappRetorno: data?.config?.whatsappCompras || "",
         fornecedorNome: f.nome, obraNome: obraNome || "", prazo: prazo || "", itens,
       });
-      return <div key={f.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--arcd-space-2)", borderBottom: "1px solid var(--arcd-border-default)", padding: "var(--arcd-space-2) var(--arcd-space-0)" }}>
+      return <div key={f.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--arcd-space-2)", borderBottom: "var(--arcd-border-width) solid var(--arcd-border-default)", padding: "var(--arcd-space-2) var(--arcd-space-0)" }}>
         <div style={{ minWidth: 0 }}>
           <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.nome}</p>
           {jaVendeu.has(f.id) && <p style={{ fontSize:"var(--arcd-type-caption)", color: "var(--arcd-success-text)", fontWeight:"var(--arcd-font-weight-semibold)" }}>já forneceu itens desta lista</p>}
@@ -502,15 +502,15 @@ export function ModalFornecedor({ form, setForm, onSave }) {
         </div>
 
         {/* O QUE ELE FORNECE - alimenta a sugestao de fornecedor nos pedidos */}
-        <div style={{gridColumn:"1/-1",background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",
-                     borderRadius:9,padding:"var(--arcd-space-3) var(--arcd-space-3)"}}>
+        <div style={{gridColumn:"1/-1",background:"var(--arcd-surface-muted)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",
+                     borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-3) var(--arcd-space-3)"}}>
           <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginBottom:"var(--arcd-space-half)"}}>O que fornece</p>
           <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginBottom:"var(--arcd-space-2)",lineHeight:"var(--arcd-line-height-normal)"}}>
             Marque todos os ramos. Uma casa de construção atende vários; uma serralheria, só metais.
             O sistema usa isso para sugerir de quem comprar cada material.
           </p>
           {(form.ramosSugeridos||[]).length > 0 && (
-            <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 4%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)",borderRadius:8,
+            <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 4%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)",borderRadius:"var(--arcd-box-radius)",
                          padding:"var(--arcd-space-2) var(--arcd-space-2)",marginBottom:"var(--arcd-space-2)"}}>
               <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)",lineHeight:"var(--arcd-line-height-normal)"}}>
                 Marcado automaticamente pelo CNPJ: {(form.ramosSugeridos||[]).map(rotuloRamo).join(", ")}.
@@ -545,8 +545,8 @@ export function ModalFornecedor({ form, setForm, onSave }) {
         </div>
 
         {/* ENDERECO - frete, retirada e proximidade da obra */}
-        <div style={{gridColumn:"1/-1",background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",
-                     borderRadius:9,padding:"var(--arcd-space-3) var(--arcd-space-3)"}}>
+        <div style={{gridColumn:"1/-1",background:"var(--arcd-surface-muted)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",
+                     borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-3) var(--arcd-space-3)"}}>
           <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginBottom:"var(--arcd-space-2)"}}>Endereço</p>
           <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}>
             <CampoCEP value={form.cep} onChange={F("cep")}

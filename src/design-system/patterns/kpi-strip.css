@@ -2,18 +2,86 @@
    Uma régua com divisórias, rótulo em 13 px, número no tamanho de indicador e uma linha de contexto.
    A cor da categoria não pinta o número; cor só para desvio (definida em cada componente). */
 @media screen {
-  [data-theme] .arcd-main :is(.page-hero__stats,.dre-kpi-grid,.dashboard-executive-grid) {
+  [data-theme] .arcd-main .mrc-kpi-strip.mrc-kpi-strip--summary {
+    gap: 1px !important;
+    background: var(--arcd-border-default);
+    margin-inline: 0;
+  }
+
+  .mrc-kpi-strip__item {
+    background: var(--arcd-surface-card);
+    min-width: 0;
+    padding: var(--arcd-space-3) var(--arcd-box-padding);
+  }
+
+  .mrc-kpi-strip__item:has(> .mrc-kpi__action, > dd > .mrc-kpi__action) { padding: 0; }
+  .mrc-kpi-strip__item > dd:not(.mrc-kpi__value, .mrc-kpi__detail) { margin: 0; }
+
+  [data-theme] .arcd-main .mrc-kpi__action {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: start;
+    gap: 0;
+    width: 100%;
+    height: 100%;
+    padding: var(--arcd-space-3) var(--arcd-box-padding) !important;
+    text-align: start;
+    white-space: normal;
+  }
+
+  [data-theme] .arcd-main .mrc-kpi__action:focus-visible { outline-offset: -2px; }
+
+  .mrc-kpi__label,
+  .mrc-kpi__detail {
+    display: block;
+    color: var(--arcd-text-secondary);
+    font-size: var(--arcd-type-caption);
+    font-weight: var(--arcd-font-weight-regular);
+  }
+
+  .mrc-kpi__value {
+    display: block;
+    margin: var(--arcd-space-1) 0 0;
+    color: var(--arcd-text-primary);
+    font-family: var(--arcd-font-numeric, var(--arcd-font-sans));
+    font-size: var(--arcd-type-kpi);
+    font-weight: var(--arcd-font-weight-semibold);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+  }
+
+  [data-tone="danger"] .mrc-kpi__value { color: var(--arcd-danger-text); }
+  [data-tone="warning"] .mrc-kpi__value,
+  .mrc-kpi__detail[data-tone="warning"] { color: var(--arcd-warning-text); }
+  .mrc-kpi__detail { margin: var(--arcd-space-1) 0 0; }
+
+  .mrc-kpi__value-link { white-space: normal; overflow-wrap: anywhere; }
+  .mrc-kpi__value-link:is(:hover, :focus-visible) { text-decoration: underline; }
+
+  @media (max-width: 767px) {
+    [data-theme] .arcd-main .mrc-kpi-strip.mrc-kpi-strip--summary {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+    .mrc-kpi-strip--summary > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+  }
+
+  [data-theme] .arcd-main :is(.page-hero__stats,.dre-kpi-grid,.dashboard-executive-grid,.finance-today__filters,.purchase-queue-metrics,.mrc-kpi-strip,.payroll-summary-strip) {
     display: grid !important;
-    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)) !important;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)) !important;
     gap: 0 !important;
-    border: 1px solid var(--arcd-border-default);
-    border-radius: var(--arcd-radius-lg);
+    border: var(--arcd-border-width) solid var(--arcd-border-default);
+    border-radius: var(--arcd-box-radius) !important;
     background: var(--arcd-surface-card);
     overflow: hidden;
   }
-  [data-theme] .arcd-main :is(.page-hero__stat,.dre-kpi-card,.dashboard-executive-grid > span > .dashboard-kpi) {
+  [data-theme] .arcd-main :is(.page-hero__stat,.dre-kpi-card,.dashboard-executive-grid > span > .dashboard-kpi,.payroll-summary-strip > div,:is(.finance-today__filters,.purchase-queue-metrics,.mrc-kpi-strip) > button) {
+    padding: var(--arcd-space-3) var(--arcd-box-padding) !important;
+  }
+  [data-theme] .arcd-main :is(.page-hero__stat,.dre-kpi-card,.dashboard-executive-grid > span > .dashboard-kpi,.payroll-summary-strip > div) {
+    min-width: 0;
     min-height: 5.25rem;
-    padding: .75rem 1rem !important;
     border: 0 !important;
     border-radius: 0 !important;
     background: transparent !important;
@@ -22,21 +90,26 @@
     animation: none !important;
   }
   [data-theme] .arcd-main :is(.page-hero__stat,.dre-kpi-card,.dashboard-executive-grid > span) + :is(.page-hero__stat,.dre-kpi-card,.dashboard-executive-grid > span) {
-    border-inline-start: 1px solid var(--arcd-border-default) !important;
+    border-inline-start: var(--arcd-border-width) solid var(--arcd-border-default) !important;
   }
-  [data-theme] .arcd-main .dashboard-executive-grid > span { border-bottom: 0 !important; }
-  [data-theme] .arcd-main .dre-kpi-card::before,
-  [data-theme] .arcd-main .dashboard-kpi::after { display: none !important; }
+  [data-theme] .arcd-main .page-hero__stats { margin-block-start: var(--arcd-space-3); }
+  [data-theme] .arcd-main .dashboard-executive-grid { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+  [data-theme] .arcd-main .dashboard-executive-grid > span { min-width: 0; }
+  [data-theme] .arcd-main .dashboard-executive-grid .dashboard-kpi { display: flex; flex-direction: column; }
+  [data-theme] .arcd-main .dashboard-executive-grid[data-expanded="false"] > span:nth-child(n+5) { display: none; }
+  [data-theme] .arcd-main .dashboard-executive-grid > span:nth-child(4n+1) { border-inline-start: 0 !important; }
+  [data-theme] .arcd-main .dashboard-executive-grid > span:nth-child(n+5) { border-block-start: var(--arcd-border-width) solid var(--arcd-border-default); }
   [data-theme] .arcd-main :is(.dre-kpi-card,.dashboard-kpi[data-interactive="true"]):hover { background: var(--arcd-surface-subtle) !important; }
-  [data-theme] .arcd-main :is(.page-hero__stat-label,.dashboard-kpi__label,.dre-kpi-card > p:first-child) {
+  [data-theme] .arcd-main :is(.page-hero__stat-label,.dashboard-kpi__label,.dre-kpi-card > p:first-child,.payroll-summary-strip > div > span) {
     color: var(--arcd-text-secondary) !important;
     font-size: var(--arcd-type-caption) !important;
     font-weight: 500 !important;
     letter-spacing: 0 !important;
     text-transform: none !important;
   }
-  [data-theme] .arcd-main :is(.page-hero__stat-value,.dashboard-kpi__value,.dre-kpi-card > p:nth-of-type(2)) {
-    margin-top: .375rem !important;
+  [data-theme] .arcd-main :is(.page-hero__stat-value,.dashboard-kpi__value,.dre-kpi-card > p:nth-of-type(2),.payroll-summary-strip strong) {
+    margin-top: var(--arcd-space-1) !important;
+    overflow-wrap: anywhere;
     font-family: var(--arcd-font-numeric, var(--arcd-font-sans)) !important;
     font-size: var(--arcd-type-kpi) !important;
     font-weight: 600 !important;
@@ -44,29 +117,57 @@
     letter-spacing: -.01em !important;
     font-variant-numeric: tabular-nums;
   }
-  [data-theme] .arcd-main :is(.page-hero__stat-detail,.dashboard-kpi__detail,.dre-kpi-footer) {
-    margin-top: .25rem !important;
+  [data-theme] .arcd-main :is(.page-hero__stat-detail,.dashboard-kpi__detail,.dre-kpi-footer,.payroll-summary-strip small) {
+    margin-top: var(--arcd-space-1) !important;
     color: var(--arcd-text-secondary) !important;
     font-size: var(--arcd-type-caption) !important;
   }
+  [data-theme] .arcd-main :is(.dre-kpi-card,.payroll-summary-strip) [data-tone="danger"] { color: var(--arcd-danger-text) !important; }
+  [data-theme] .arcd-main .payroll-summary-strip { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; }
+  [data-theme] .arcd-main .payroll-summary-strip > div { display: flex; flex-direction: column; align-items: flex-start; }
+  [data-theme] .arcd-main .payroll-summary-strip > div + div { border-inline-start: var(--arcd-border-width) solid var(--arcd-border-default) !important; }
+  [data-theme] .arcd-main .payroll-summary-strip > .payroll-summary-strip__net { background: var(--arcd-surface-subtle) !important; }
+
+  @media (max-width: 980px) {
+    [data-theme] .arcd-main .payroll-summary-strip { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+    [data-theme] .arcd-main .payroll-summary-strip > div:nth-child(4) { border-inline-start: 0 !important; }
+    [data-theme] .arcd-main .payroll-summary-strip > div:nth-child(n+4) { border-block-start: var(--arcd-border-width) solid var(--arcd-border-default) !important; }
+  }
+
   @media (max-width: 690px) {
+    [data-theme] .arcd-main .dashboard-executive-grid .dashboard-kpi__head { min-block-size: 3em; }
+    [data-theme] .arcd-main .payroll-summary-strip { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+    [data-theme] .arcd-main .payroll-summary-strip > div:nth-child(even) { border-inline-start: var(--arcd-border-width) solid var(--arcd-border-default) !important; }
+    [data-theme] .arcd-main .payroll-summary-strip > div:nth-child(odd) { border-inline-start: 0 !important; }
+    [data-theme] .arcd-main .payroll-summary-strip > div:nth-child(n+3) { border-block-start: var(--arcd-border-width) solid var(--arcd-border-default) !important; }
     [data-theme] .arcd-main :is(.page-hero__stats,.dre-kpi-grid,.dashboard-executive-grid) { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
     [data-theme] .arcd-main :is(.page-hero__stat,.dre-kpi-card,.dashboard-executive-grid > span):nth-child(odd) { border-inline-start: 0 !important; }
-    [data-theme] .arcd-main :is(.page-hero__stat,.dre-kpi-card,.dashboard-executive-grid > span):nth-child(n+3) { border-top: 1px solid var(--arcd-border-default) !important; }
+    [data-theme] .arcd-main :is(.page-hero__stat,.dre-kpi-card,.dashboard-executive-grid > span):nth-child(n+3) { border-top: var(--arcd-border-width) solid var(--arcd-border-default) !important; }
   }
 }
 
-/* Abas e filtros que rolam para o lado: a borda direita esmaece para indicar que há mais opções. */
 @media screen {
-  [data-theme] .arcd-main :is(.workflow-tabs > nav,.dashboard-action-filters,.works-category-tabs) {
-    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 2.5rem), transparent);
-    mask-image: linear-gradient(90deg, #000 calc(100% - 2.5rem), transparent);
-    padding-inline-end: 2.5rem;
+  [data-theme] .arcd-main .dre-kpi-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    text-align: start;
+    cursor: pointer;
   }
-}
-@media screen {
-  [data-theme] .arcd-main .dre-kpi-card { display: flex; flex-direction: column; justify-content: flex-start; }
-  [data-theme] .arcd-main .dre-kpi-footer { flex-wrap: wrap; margin-top: auto !important; padding-top: .25rem; }
+  [data-theme] .arcd-main :is(.dre-kpi-card,button.dashboard-kpi):focus-visible {
+    outline: 2px solid var(--arcd-focus-ring);
+    outline-offset: -2px;
+  }
+  [data-theme] .arcd-main .dre-kpi-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    align-self: stretch;
+    flex-wrap: wrap;
+    gap: var(--arcd-space-1) var(--arcd-space-2);
+    margin-top: auto !important;
+    padding-block-start: var(--arcd-space-1);
+  }
 }
 /* Rótulos de seção em caixa normal, como os demais títulos de cartão. Nome da obra no celular com alvo de 44 px. */
 @media screen {
@@ -78,16 +179,10 @@
    Os botões têm span (rótulo) e strong (valor) como filhos diretos; o botão comum força linha, altura fixa e nowrap,
    por isso as propriedades de layout aqui são !important. O ativo ganha fundo suave e filete inferior. */
 @media screen {
-  [data-theme] .arcd-main :is(.finance-today__filters,.purchase-queue-metrics) {
-    display: grid !important;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important;
-    gap: 0 !important;
-    border: 1px solid var(--arcd-border-default);
-    border-radius: var(--arcd-radius-lg);
-    background: var(--arcd-surface-card);
-    overflow: hidden;
+  [data-theme] .arcd-main :is(.finance-today__filters,.purchase-queue-metrics,.mrc-kpi-strip) {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)) !important;
   }
-  [data-theme] .arcd-main :is(.finance-today__filters,.purchase-queue-metrics) > button {
+  [data-theme] .arcd-main :is(.finance-today__filters,.purchase-queue-metrics,.mrc-kpi-strip) > button {
     display: flex !important;
     flex-direction: column !important;
     align-items: flex-start !important;
@@ -97,7 +192,7 @@
     height: auto !important;
     min-height: 4.5rem !important;
     margin: 0 !important;
-    padding: .75rem 1rem !important;
+    min-inline-size: 0 !important;
     border: 0 !important;
     border-radius: 0 !important;
     background: transparent !important;
@@ -106,18 +201,18 @@
     white-space: normal !important;
     text-align: left !important;
   }
-  [data-theme] .arcd-main :is(.finance-today__filters,.purchase-queue-metrics) > button + button { border-inline-start: 1px solid var(--arcd-border-default) !important; }
-  [data-theme] .arcd-main :is(.finance-today__filters,.purchase-queue-metrics) > button:hover { background: var(--arcd-surface-subtle) !important; }
-  [data-theme] .arcd-main :is(.finance-today__filters,.purchase-queue-metrics) > button[aria-pressed="true"] { background: var(--arcd-surface-subtle) !important; box-shadow: inset 0 -2px 0 var(--arcd-text-primary) !important; }
-  [data-theme] .arcd-main :is(.finance-today__filters,.purchase-queue-metrics) > button > span { display: block; margin: 0 !important; color: var(--arcd-text-secondary) !important; font-size: var(--arcd-type-caption) !important; font-weight: 500 !important; }
-  [data-theme] .arcd-main :is(.finance-today__filters,.purchase-queue-metrics) > button > strong { display: block; margin: 0 !important; font-size: var(--arcd-type-kpi) !important; font-weight: 600 !important; line-height: 1.15 !important; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--arcd-text-primary) !important; }
-  [data-theme] .arcd-main .purchase-queue-metrics > button > small { display: block; margin: 0 !important; color: var(--arcd-text-secondary) !important; font-size: var(--arcd-type-caption) !important; }
-  [data-theme] .arcd-main :is(.finance-today__filters,.purchase-queue-metrics) > button[data-tone="danger"] > :is(span,strong) { color: var(--arcd-danger-text) !important; }
-  [data-theme] .arcd-main .purchase-queue-metrics > button[data-tone="warning"] > strong { color: var(--arcd-warning-text) !important; }
+  [data-theme] .arcd-main :is(.finance-today__filters,.purchase-queue-metrics,.mrc-kpi-strip) > button + button { border-inline-start: var(--arcd-border-width) solid var(--arcd-border-default) !important; }
+  [data-theme] .arcd-main :is(.finance-today__filters,.purchase-queue-metrics,.mrc-kpi-strip) > button:hover { background: var(--arcd-surface-subtle) !important; }
+  [data-theme] .arcd-main :is(.finance-today__filters,.purchase-queue-metrics,.mrc-kpi-strip) > button[aria-pressed="true"] { background: var(--arcd-surface-subtle) !important; box-shadow: inset 0 -2px 0 var(--arcd-text-primary) !important; }
+  [data-theme] .arcd-main :is(.finance-today__filters,.purchase-queue-metrics,.mrc-kpi-strip) > button > span { display: block; margin: 0 !important; color: var(--arcd-text-secondary) !important; font-size: var(--arcd-type-caption) !important; font-weight: 500 !important; }
+  [data-theme] .arcd-main :is(.finance-today__filters,.purchase-queue-metrics,.mrc-kpi-strip) > button > strong { display: block; margin: 0 !important; font-family: var(--arcd-font-numeric, var(--arcd-font-sans)) !important; font-size: var(--arcd-type-kpi) !important; font-weight: 600 !important; line-height: 1.15 !important; font-variant-numeric: tabular-nums; min-width: 0; overflow-wrap: anywhere; color: var(--arcd-text-primary) !important; }
+  [data-theme] .arcd-main :is(.finance-today__filters,.purchase-queue-metrics,.mrc-kpi-strip) > button > small { display: block; margin: 0 !important; color: var(--arcd-text-secondary) !important; font-size: var(--arcd-type-caption) !important; }
+  [data-theme] .arcd-main :is(.finance-today__filters,.purchase-queue-metrics,.mrc-kpi-strip) > button[data-tone="danger"] > :is(span,strong) { color: var(--arcd-danger-text) !important; }
+  [data-theme] .arcd-main :is(.finance-today__filters,.purchase-queue-metrics,.mrc-kpi-strip) > button[data-tone="warning"] > strong { color: var(--arcd-warning-text) !important; }
   @media (max-width: 690px) {
-    [data-theme] .arcd-main :is(.finance-today__filters,.purchase-queue-metrics) { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
-    [data-theme] .arcd-main :is(.finance-today__filters,.purchase-queue-metrics) > button:nth-child(odd) { border-inline-start: 0 !important; }
-    [data-theme] .arcd-main :is(.finance-today__filters,.purchase-queue-metrics) > button:nth-child(n+3) { border-top: 1px solid var(--arcd-border-default) !important; }
+    [data-theme] .arcd-main :is(.finance-today__filters,.purchase-queue-metrics,.mrc-kpi-strip) { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+    [data-theme] .arcd-main :is(.finance-today__filters,.purchase-queue-metrics,.mrc-kpi-strip) > button:nth-child(odd) { border-inline-start: 0 !important; }
+    [data-theme] .arcd-main :is(.finance-today__filters,.purchase-queue-metrics,.mrc-kpi-strip) > button:nth-child(n+3) { border-top: var(--arcd-border-width) solid var(--arcd-border-default) !important; }
   }
 }
 /* Celular: alvos de toque de 44 px nos filtros da Central de ações e nas setas do calendário do Dashboard. */
@@ -125,15 +220,7 @@
   [data-theme] .arcd-main .dashboard-action-filters > button { min-width: 44px; min-height: 44px; }
   [data-theme] .arcd-main .dashboard-command-center button[aria-label*="mês"] { min-width: 44px; min-height: 44px; }
 }
-/* Descrição curta de um campo de filtro (ex.: "Segue a Obra em foco") fica na linha do rótulo, à direita:
-   não muda a altura do campo, então os rótulos da linha seguem alinhados no computador e no celular. */
 @media screen {
-  :is(.workspace-command-bar,.purchase-context-bar,.payroll-filter-grid) .arcd-field:has(> .arcd-field__description) { position: relative; }
-  :is(.workspace-command-bar,.purchase-context-bar,.payroll-filter-grid) .arcd-field > .arcd-field__description {
-    position: absolute; top: 0; right: 0; max-width: calc(100% - 3.5rem); margin: 0;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    color: var(--arcd-text-secondary); font-size: var(--arcd-type-caption); line-height: inherit;
-  }
   /* Chips da Central de ações: não encolhem abaixo do texto; rolam para o lado. */
   [data-theme] .arcd-main .dashboard-action-filters > button { flex: none !important; white-space: nowrap; }
 }

@@ -6,9 +6,9 @@ Vigente desde 01/11/2026. Aplica-se a toda nova tela, módulo, aba, componente, 
 
 | Ajuste desejado | Fonte única |
 | --- | --- |
-| Tamanhos de títulos, corpo, rótulos, tabela e botões | `src/design-system/foundations.js` |
+| Fonte da interface e tamanhos de títulos, corpo, rótulos, tabela e botões | `src/design-system/tokens/typography.css` |
 | Peso, espaçamento interno, distância entre ícone/texto e tamanhos de botão | Tokens `--arcd-button-*` em `foundations.js`; receita em `src/design-system/primitives/button-contract.css` |
-| Cores, família de fonte, pesos de cabeçalho e diferenças de cada tema | `src/design-system/themes/themeRegistry.js` |
+| Cores, pesos de cabeçalho e diferenças de cada tema | `src/design-system/themes/themeRegistry.js` |
 | Altura dos controles, linhas, preenchimento de painéis e distância entre grupos por densidade | `src/design-system/tokens/density.css` |
 | Escala de espaçamentos para composições | `src/design-system/tokens/spacing.css` |
 | Caixa padrão: raio, recuo interno, distância entre caixas e alinhamento de tabelas | Tokens `--arcd-box-*` em `foundations.js`; receita em `src/design-system/themes/box-contract.css`; regras em `docs/REGRAS-UX-UI.md` §8 |
@@ -17,11 +17,9 @@ Vigente desde 01/11/2026. Aplica-se a toda nova tela, módulo, aba, componente, 
 | Título, instrução ou ação de negócio específica | Componente do módulo; se repetidos, catálogo de textos do próprio domínio |
 | Ajuda e manual do operador | `src/features/help/help-content.js`; gerar com `npm run manual:generate` |
 
-`foundations.js` é aplicado pelo ThemeProvider a todos os temas. Um tema pode sobrescrever um papel deliberadamente; ajuste essa sobrescrita no registro quando necessário. Não acrescente outra definição do mesmo papel ao CSS de uma tela. Os tokens de `tokens/typography.css` continuam como base de compatibilidade para superfícies sem ThemeProvider; a escala vigente do ERP vem de `foundations.js`.
+A família da interface começa em `--arcd-font-sans`, com Inter local. Ajuste esse token uma vez em `tokens/typography.css` para todos os temas, incluindo o Modo TV. Os tamanhos da interface também ficam nesse arquivo. A densidade aplica os papéis compactos em `tokens/density.css`. As aliases legadas `--type-body` e `--type-display` seguem a fonte comum. Identificadores técnicos usam `--arcd-font-mono`. Impressão e PDF usam Nimbus Sans.
 
-As declarações de IBM Plex Sans e a família de reserva operacional ficam em `tokens/typography.css`. As aliases herdadas `--type-body` e `--type-display` devem referenciar `--arcd-font-sans`; `--type-data` deve referenciar `--arcd-font-mono`. Isso permite ao corpo legado acompanhar o tema. A conferência deve incluir a fonte realmente carregada no navegador; relatórios independentes continuam com Nimbus Sans incorporada.
-
-Para aumentar todos os títulos, por exemplo, altere `--arcd-type-page-title` de `1.5rem` para `1.625rem`. Para mudar o texto padrão de confirmação, altere `UI_TEXT.actions.confirm`. Textos específicos como “Aprovar proposta” continuam explícitos no módulo: não devem virar “Confirmar” só para reutilizar uma chave.
+A geometria de botões vem dos tokens de `foundations.js` e da densidade, com a receita em `primitives/button-contract.css`. O tema fornece as cores dos papéis ao mesmo componente. Textos genéricos como Confirmar vêm de `UI_TEXT.actions.confirm`. Ações específicas como Aprovar proposta continuam com o nome da operação.
 
 As alturas de toque têm mínimo de 44px. Ao alterar a escala, preserve esse mínimo, contraste, foco e legibilidade. Aparência e densidade podem ser escolhidas pelo operador em Alterar aparência; este guia descreve manutenção pelo desenvolvimento, não um editor visual de todos os textos.
 
@@ -175,6 +173,10 @@ A recuperação de falhas da fila geral usa `src/domains/sync/SaveRecovery.jsx` 
 
 Compras e Financeiro usam WorkspaceHeading e WorkspaceCommandBar, em src/design-system/patterns/WorkspaceCommandBar.jsx. O título e a navegação formam a identificação da área. A barra seguinte reúne escopo, consulta e ações; indicadores resumidos e resultados precedem a lista. Não repetir obra, exportação ou ação principal em outra faixa. Nenhum comando deve ser duplicado apenas para adaptar o celular.
 
+Submenus de áreas, abas e filtros de visão seguem o mesmo contrato em `src/design-system/patterns/submenus.css`. A seleção usa um filete inferior na cor do texto, com contagens tabulares e foco visível. Altura, tipografia e espaçamentos vêm da densidade compartilhada. No celular, os seletores existentes conservam sua função e as faixas horizontais têm altura de toque. Mudanças nesse padrão devem chegar a todas as implementações do mesmo controle.
+
+Use `TabRow`, `TabsList`, `FlowTabs` ou `WorkspaceNavigation` conforme a navegação da tela. Grupos de filtros de visão que precisam de marcação própria usam `mrc-submenu`. Ajuste a posição do grupo em um contêiner da página e faça alterações visuais dos submenus no CSS compartilhado. O comando `npm run design:check`, também executado pelo lint, exige a regra comum e barra novas exceções nos seletores e elementos cobertos. O inventário `scripts/submenu-legacy.json` identifica regras anteriores e permite sua remoção. Preserve o inventário ao alterar a regra comum.
+
 A barra usa os tokens comuns e conserva os rótulos dos controles, a ordem natural de Tab e os estados dos filtros. No celular, os grupos se reorganizam em linhas, mantendo alvos de toque e a próxima ação no registro. Não ocultar valores ou avisos relevantes para compactar. A lateral padrão continua azul-marinho MARCELL; outros temas previamente disponíveis conservam suas preferências.
 
 
@@ -186,3 +188,117 @@ Correção de alinhamento em 02/11/2026: WorkspaceCommandBar controla a altura r
 O contrato de campos em src/design-system/primitives/control-contract.css aplica a altura da densidade a entradas de uma linha e seletores simples em toda a ERP. Os espaçamentos verticais dos botões vêm de foundations.js; a altura mínima e a centralização do conteúdo não dependem do padding. Botões com texto longo continuam podendo crescer. Textarea, seletores múltiplos, arquivos, opções de seleção e editores de planilha preservam seus contratos próprios. No celular, campos e botões comuns mantêm pelo menos 44 px.
 
 A barra de Compras/Financeiro consome a mesma base. Filtros da Conciliação usam Input, Select e Button compartilhados, incluindo rótulos visíveis e o intervalo padrão no seletor de categoria. Não criar controles nativos ou alturas particulares para reproduzir uma barra.
+
+## Travas de padronização do ERP — 24/11/2026
+
+O `design:check` também verifica mudanças de apresentação nos seletores compartilhados e em propriedades de estilo inline dos componentes abaixo. As exceções encontradas na primeira varredura foram registradas por arquivo, seletor, propriedade e valor. A trava permite eliminar esse legado. Novos valores e duplicações precisam seguir a fonte comum.
+
+| Padrão protegido | Fonte para mudanças globais | Ocorrências legadas na auditoria inicial |
+| --- | --- | ---: |
+| Botões e campos | `primitives/button-contract.css` e `primitives/control-contract.css` | 228 |
+| Caixas e indicadores | `themes/box-contract.css` e `patterns/kpi-strip.css` | 167 |
+| Diálogos e estados de tela | `primitives/styles.css` e `patterns/styles.css` | 80 |
+| Tokens de aparência | `foundations.js`, `themeRegistry.js` e `tokens/` | 32 |
+| Cabeçalhos e filtros | `themes/module-standard.css` e `patterns/command-bar.css` | 24 |
+| Tabelas e listas responsivas | `data/styles.css` | 3 |
+
+As contagens registram declarações ou propriedades, inclusive algumas regras históricas na base comum. Cada contagem indica o escopo da trava estática. Componentes próprios ainda precisam ser migrados para herdar o contrato. A auditoria local abriu as 65 áreas administrativas no Plataforma em 1440 e 390 px e conferiu dez áreas nos temas Preciso e Noite nas mesmas larguras, em 170 combinações. Os dados de teste eram fictícios. Foram observados cabeçalhos compartilhados em 64 áreas, com a composição própria do Modo TV. Na amostra do desktop, nove telas exibiram tabelas e não apresentaram o componente de tabela compartilhado. Entre elas estão Compras, Financeiro, Conferência e Ponto Geral.
+
+A primeira prioridade de migração é eliminar a personalização direta de botões e campos no legado, começando por Obras, Orçamento e Compras. Em seguida, adote o padrão comum nas tabelas operacionais sem perder seleção, ordenação, paginação e ações em linha. A revisão de filtros e indicadores deve conferir mesmo recorte, mesmo alinhamento e mesmas convenções de resultado em desktop e celular. Para novas telas, prefira os componentes compartilhados desde a origem.
+
+Use `e2e/erp-layout-review.spec.js` para verificar o cabeçalho das áreas acessíveis ao administrador, o encaixe horizontal e o alinhamento dos filtros. O teste lê o tamanho do título pelo token global. A checagem de código cobre seletores e usos diretos conhecidos. Estilos indiretos, telas com outras permissões e estados que dependem de dados específicos exigem validação de navegador. Ajuda e manual foram revisados pela checagem de sincronização. O lint e seus testes atuam no código de apresentação, sem efeito no DRE.
+
+Na DRE Empresa, Saldo em conta usa a variante de seção do cabeçalho compartilhado. A consulta, o cálculo e o caminho para a Conciliação foram conferidos em oito cenários com dados fictícios nos temas Preciso e Noite.
+
+### Tabelas operacionais e controles migrados
+
+Use `DataTable` em listas de registros que adotam os comportamentos comuns. Em tabelas com fluxo especializado, aplique `arcd-data-table__table` à tabela existente para herdar tipografia, divisórias e recuos da base em `src/design-system/data/styles.css`. Use `data-align="end"` para colunas numéricas. Nas matrizes de Ponto Geral e Locação, `data-table-layout="matrix"` aplica a tipografia comum e preserva a geometria da grade e a sinalização de cada célula.
+
+A base passou a atender Compras, Financeiro, Fornecedores, Conferência, Ajustes, Locação de equipamentos, Ponto Geral, Gestão comercial e Relatórios comerciais, além da tabela de etapas na Visão geral de Obras. Os seletores ajustados de Orçamento e Diário de Obra usam o contrato de controles. A ajuda e o manual foram revisados com os fluxos existentes. Todos os dados e cálculos da DRE continuam nas fontes anteriores. O teste de layout confere a adoção da base e a tipografia para as tabelas apresentadas nas nove áreas.
+
+Use `RecordAction layout="row"` para linhas que abrem registros. Recuos, foco, realce ao passar o mouse e divisórias entre linhas vêm de `record-action.css`. A tela fornece a composição das colunas com `--record-columns`. Os resultados de referência e exceções em Compras e a abertura de análises por obra no Financeiro usam essa receita.
+
+Use os tamanhos de `Button`, a caixa de seleção de `ChoiceControl` e os estados nativos de `SelectControl` para herdar o padrão. Seletores de Orçamento, Obras, Conferência e caixas de seleção de Planejamento e Licenciamento passaram por essa revisão. Em Obras, um vínculo com serviço removido usa o estado de campo inválido. A seleção, os vínculos e os cálculos de competência e resultado mantêm a lógica anterior.
+
+### Fonte e escala em um lugar
+
+A Inter passou a ser a família de interface em todas as opções de aparência. Os testes alteram temporariamente a fonte e o peso do botão principal na raiz e conferem os controles em Obras, Orçamento, Compras, Financeiro, Equipamentos e Modo TV. O lint rejeita fontes fixas em CSS de tela e em estilos JSX diretos. A troca altera somente a apresentação. Os fluxos, dados e regras do DRE permanecem no domínio de origem.
+
+## Roteiro de padronização — 24/11/2026
+
+| Etapa | Trabalho | Critério de conclusão |
+| --- | --- | --- |
+| 1. Botões e campos | Eliminar exceções em Orçamento, Obras, Compras e Ponto. Usar os controles e estados da base para ações, seletores, buscas e linhas clicáveis. | Cada remoção sai do inventário do lint. Controles especializados mantêm a indicação de estado, a operação e a navegação por teclado. |
+| 2. Caixas e indicadores | Unificar faixas de indicadores e caixas em Dashboard, Obras, Compras e Financeiro. Reaproveitar os valores e recortes existentes. | O mesmo ajuste de raio, recuo e tipografia aparece nas telas cobertas. Desvios continuam identificáveis sem depender só da cor. |
+| 3. Diálogos e formulários | Aplicar o contrato de cabeçalho, campos, ação principal, cancelamento, erro e retorno do foco nos fluxos frequentes. | Editar, cancelar, revisar erros e fechar funcionam por teclado e no celular. Ajuda e manual acompanham mudanças de fluxo ou de rótulo. |
+| 4. Proteção contínua | Em paralelo às migrações, testar a propagação de mudanças nos tokens e validar filtros expandidos, diálogos e outros estados condicionais. | O lint rejeita novos desvios. Os testes comprovam a propagação em 1440 e 390 px, com verificações em Plataforma, Preciso e Noite. |
+
+O ponto de partida do lint registrava 78 ocorrências de botões e campos, 167 de caixas e indicadores e 80 de diálogos e estados. As contagens medem ocorrências de código. O trabalho começou pelas linhas de referência e pela navegação da memória de cálculo no Orçamento, pela escolha de etapas no Planejamento e pelo teste de propagação da geometria em Compras.
+
+A primeira rodada reduziu de 78 para 68 as ocorrências de botões e campos. Os resultados do Orçamento e a escolha de etapas do Planejamento usam `RecordAction layout="row"`. A altura mínima de toque dos botões legados e do formulário de Compras acompanha `--arcd-touch-target`. O teste abre os filtros e o formulário para conferir altura, raio e espaçamento. Os nomes dos controles e os passos da Ajuda e do Manual continuam aplicáveis. O fluxo usa os mesmos dados, eventos e cálculos, sem efeito na DRE.
+
+No Ponto Geral, os controles de situação e de troca de obra usam `RecordAction layout="cell"`. Tipografia, raio, altura, foco e indicador de gravação vêm da base. A cor da situação vem do domínio do Ponto e também é usada na legenda. As situações começam na mesma altura na linha, inclusive quando o nome da obra aparece abaixo de uma delas. A ajuda descreve o rótulo Trocar obra e o caminho pelo teclado. O comando de ponto, a obra considerada no cálculo e as permissões continuam com a lógica anterior. A padronização visual não gera lançamentos nem muda o cálculo da DRE.
+
+### Botões e campos concluídos no inventário estático
+
+As 45 ocorrências restantes saíram do inventário. As opções de encargos e de cópia de quantidades em Orçamento usam a caixa de seleção visível de `ChoiceControl`. A Visão geral e o Diário de Obra usam `RecordAction layout="row"` para abrir registros. A descrição curta dos filtros e a sinalização de responsável pendente pertencem ao contrato de campos. A trava continua a rejeitar propriedades locais nos seletores e componentes que monitora.
+
+### Caixas e indicadores em migração
+
+Use `mrc-box` e `mrc-box__header` para caixas com cabeçalho e `mrc-kpi-strip` para faixas de indicadores clicáveis. O recuo, o raio e a tipografia vêm de `box-contract.css` e `kpi-strip.css`. As faixas de Dashboard, Obras, Compras e Financeiro compartilham essa geometria. O fluxo de trabalho permanece nas telas: Compras e Financeiro mantêm o filtro selecionado e os atalhos por teclado. As caixas Avanço por etapa e Próximas ações, em Obras, compartilham o cabeçalho de caixa.
+
+O inventário de caixas e indicadores caiu de 167 para 154 ocorrências. A trava cobre as receitas novas e os seletores existentes da fila de Compras e da fila de hoje do Financeiro. O teste `Caixas e indicadores compartilham tokens` altera temporariamente raio, recuo e tamanho do número em quatro telas e confere sua propagação. A revisão da ajuda e do manual confirmou os rótulos e passos vigentes. As alterações estão na apresentação e preservam as fontes, os cálculos e os lançamentos do DRE.
+
+Na prévia local com dados fictícios, passaram 36 cenários de layout e interação em Plataforma, Preciso e Noite, em 1440 e 390 px, e 68 cenários de contexto da obra e busca de itens do orçamento. A varredura de 210 combinações não apontou problemas de encaixe horizontal, submenus ou propagação da tipografia nos elementos medidos. As duas caixas de seleção revisadas no Orçamento responderam ao rótulo e à tecla Espaço em 1440 e 390 px. Passaram também os 17 testes de contrato e controles, `npm run lint`, `npm run architecture:check`, `npm run typecheck` e `npm run build:local`.
+
+Na rodada seguinte, a DRE de Obras e a Composição do pagamento da Folha passaram a consumir a mesma base. A Folha usa seis colunas no desktop amplo, três em largura intermediária e duas no celular. O total líquido mantém destaque pela superfície, e valores negativos usam o token de desvio. A faixa da DRE conserva o acesso a Ver movimentos, com foco visível. A remoção de estilos duplicados no Dashboard, nos resumos de página e na DRE reduziu de 154 para 72 as ocorrências legadas de caixas e indicadores. A trava passou a abranger a faixa e o total da Folha.
+
+Os valores, origens, recortes, encargos e cálculos continuam sob responsabilidade das implementações financeiras existentes. A ajuda e o manual seguem aplicáveis aos mesmos controles. A validação cobriu 36 cenários de propagação dos tokens em seis telas, 210 combinações da varredura geral e 20 testes de contrato, Folha e integração com a DRE. Lint, arquitetura, tipos, manual e build local passaram. A checagem mecânica do Impeccable apontou ocorrências fora do trecho editado do arquivo legado. As capturas e o log da varredura estão em `artifacts/caixas-indicadores`.
+
+### Caixas e indicadores concluídos no inventário estático
+
+As 72 ocorrências restantes foram retiradas do inventário. Os cartões de Locação e do Dashboard compartilham a escala dos valores, os recuos e a hierarquia de texto. Os painéis de gráfico usam `mrc-box` e `mrc-box__header`, com superfície opaca e detalhes em tokens de tema. Em Relatórios, as barras e a legenda usam as mesmas cores semânticas, inclusive no Noite. O recuo da lista de Compras e do resumo do Financeiro também vem do contrato de caixas.
+
+A trava protege seletores de cartões, painéis, detalhes de gráficos e faixas. A revisão da ajuda e do manual confirmou os mesmos caminhos de consulta. As mudanças preservam as séries, os recortes, os cálculos e os lançamentos do DRE. A amostra de navegador cobriu Plataforma, Preciso e Noite em 1440 e 390 px. A segunda varredura de 210 combinações completou todas as telas após dois esgotamentos de tempo da primeira. Evidências em `artifacts/cartoes-graficos`.
+
+### Diálogos e formulários operacionais
+
+`DialogSurface` é a base do diálogo, da gaveta e do componente legado `Modal`. O cabeçalho apresenta o título e Fechar. O corpo pode rolar sem deslocar as ações do rodapé. Use `footer` para ações de confirmação e cancelamento, `mrc-dialog-fields` para agrupar campos e `mrc-dialog-fields__row` para pares responsivos. Os campos usam os rótulos e estados de erro da base. O título, o recuo e a tipografia seguem os mesmos tokens de tema e densidade.
+
+Solicitar materiais, Receber, Registrar pagamento e Novo orçamento usam as ações compartilhadas. Em recebimento e pagamento, os erros aparecem junto aos botões. Os testes cobrem retorno de foco, ordem de tabulação, cancelamento, dados inválidos, diálogos empilhados e repetição de confirmação. A trava passou a proteger o rodapé e os agrupamentos de campos. O inventário de diálogos e estados caiu de 76 para 55 ocorrências.
+
+A Ajuda e o Manual passaram a descrever as ações no rodapé e os avisos de falha. Os formulários preservam permissões, validações, recuperação de rascunhos e comandos de gravação. A mudança visual não gera lançamentos e não altera a origem ou o cálculo do DRE.
+
+A prévia local cobriu os tokens e a navegação por teclado em Plataforma, Preciso e Noite, em 1440 e 390 px. Também foram conferidos recebimento e pagamento com resposta perdida, recuperação de rascunhos e o editor de fotos em tela estreita e paisagem. O teste de recebimento voltou a exercitar a recuperação após alinhar a unidade do pedido fictício à do catálogo. A varredura de 210 combinações passou. Capturas e logs em `artifacts/dialogos-formularios`.
+
+### Diálogos e estados concluídos no inventário estático
+
+As 55 ocorrências restantes saíram do inventário. A tipografia, os campos e as tabelas dos diálogos e gavetas usam a receita compartilhada. O estado Carregando pertence à base de padrões. O lint continua a rejeitar estilos locais nos seletores e componentes monitorados.
+
+O rodapé compartilhado ganhou criação e edição de pedidos, cotações e obras, cópia e edição de orçamento, insumos e composições. A confirmação de descarte de pedido e cotação usa o mesmo rodapé. Ajuda e manual incluem os caminhos e as ações. Comandos, permissões e cálculos financeiros continuam no domínio de origem. A padronização de apresentação não cria lançamentos nem interfere no DRE.
+
+A tabela de propostas da cotação fica em uma região rolável com foco por teclado. No celular, a primeira coluna ocupa menos espaço e a instrução indica como acessar os fornecedores fora da área visível. Os testes conferiram abertura, cancelamento e retorno de foco dos formulários, bem como a escolha entre continuar editando e descartar um pedido. Plataforma, Preciso e Noite foram conferidos em 1440 e 390 px. A varredura de 210 combinações passou. Evidências em `artifacts/dialogos-restantes`.
+
+### Cabeçalhos, filtros e tokens concluídos no inventário estático
+
+As 16 ocorrências restantes de cabeçalhos e filtros e as duas definições locais de tokens saíram do inventário. Cabeçalhos operacionais usam a escala de título e descrição do componente compartilhado. Os filtros de Pedidos e Cotações usam o intervalo de `--arcd-layout-gap`. Em Relatórios financeiros, o cabeçalho de seção identifica a consulta. Use `FilterBar` com `legend` e `disabled` para agrupar e desabilitar os controles juntos durante uma exportação.
+
+A densidade compacta do Plataforma é definida em `tokens/density.css`. A impressão recebe Nimbus Sans de `tokens/print.css`. A interface usa Inter. A trava também protege o espaçamento de layout contra novas definições locais. O inventário de contratos visuais ficou vazio após a remoção dessas ocorrências. A ajuda e o manual explicam o caminho pelos filtros. As consultas e exportações preservam os critérios, as fontes e os totais do DRE.
+
+### Tabelas, caixas e indicadores operacionais
+
+As tabelas nativas da interface web usam `arcd-data-table__table`. A receita define a tipografia, os recuos e os cabeçalhos das tabelas comuns. A matriz fixa do DRE anual mantém a geometria e as colunas fixas, com tipografia da base. A matriz de Sapatas mantém os tamanhos escolhidos pelo usuário. As tabelas do documento da Folha seguem a configuração de impressão.
+
+Use `mrc-box--padded` para o recuo da caixa e `mrc-box--scroll` para manter a rolagem de uma tabela dentro da caixa. As faixas de Pagamentos, DRE, Projeção de mão de obra, Fornecedores, Comercial e Relatório financeiro por obra usam os mesmos elementos de rótulo, valor e contexto de `kpi-strip.css`. O resumo da Visão financeira usa as caixas e a mesma escala de valores. Orçamento e a análise de Locação usam a escala de indicadores sem perder a disposição dos dados de cada consulta.
+
+O lint exige a receita nas tabelas JSX da interface e protege as classes compartilhadas de caixas e indicadores contra substituições locais. A ajuda e o manual foram conferidos para os mesmos controles, consultas e exportações. A alteração de apresentação preserva as origens, fórmulas, recortes e gravações do DRE.
+
+A migração aplicou a receita a 83 tabelas e retirou 17 ocorrências do inventário de UX/UI. A varredura na prévia local cobriu 210 combinações de telas, temas e larguras. A substituição temporária dos tokens em navegador confirmou a propagação em Plataforma, Preciso e Noite, em desktop e celular. Os testes de Orçamento conferiram o alinhamento, a abertura da versão e a busca. As evidências estão em `artifacts/tabelas-caixas-indicadores`.
+
+### Varredura de cores, bordas e espaçamentos
+
+Superfícies, textos, estados e divisórias operacionais usam as cores semânticas. Use `--arcd-border-width` nas bordas e divisórias comuns, os raios compartilhados nas caixas e controles e `--arcd-space-*` nos recuos e intervalos. A folha de estilos carregada pelo aplicativo também segue essa base. O Ponto Geral usa a receita declarada na folha principal para evitar dois estilos concorrentes.
+
+O inventário do lint passou de 333 para zero ocorrências de cor fixa nas propriedades de CSS monitoradas, de 956 para zero raios fixos em CSS e JSX e de 121 para zero lacunas fora da escala monitorada. A trava impede redefinições locais da espessura da borda. A cor da arte institucional e a escala de leitura à distância seguem os tokens das respectivas superfícies. A ajuda e o manual foram revistos e os controles e caminhos de consulta continuam descritos pelos guias atuais. As alterações de apresentação não geram lançamentos nem interferem nas origens e nos cálculos do DRE.
+
+A varredura local percorreu as 65 abas do perfil administrador em Plataforma, Preciso e Noite, a 1440 e 390 px, totalizando 390 combinações. Os testes alteraram temporariamente os tokens de borda, cor, raio e recuo em Ponto Geral e Fornecedores. Passaram também os testes de navegação em Obras, busca no Orçamento, lint, arquitetura, tipos e build local. Capturas e logs em `artifacts/varredura-visual-final`.

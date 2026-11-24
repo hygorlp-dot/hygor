@@ -13,4 +13,4 @@
 @import "./density.css";
 @import "./elevation.css";
 @import "../themes/marcell.css";
-@import "../themes/print.css";
+@import "./print.css";

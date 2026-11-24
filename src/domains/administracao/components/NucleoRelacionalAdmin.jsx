@@ -115,49 +115,49 @@ export default function NucleoRelacionalAdmin({ currentUser }) {
   useEffect(() => { carregar(dominioAtivo); }, [dominioAtivo]);
 
   if (currentUser?.role !== "admin") {
-    return <div style={{ padding: 30, textAlign: "center", color: C.red }}>Acesso exclusivo da administração.</div>;
+    return <div style={{ padding: "var(--arcd-space-8)", textAlign: "center", color: C.red }}>Acesso exclusivo da administração.</div>;
   }
 
   const dominio = DOMINIOS[dominioAtivo];
   const ordemSecoes = Object.keys(dominio.rotuloSecao);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={{ background: `${C.blue}08`, border: `1px solid ${C.blue}33`, borderRadius: 9, padding: "10px 12px", fontSize:"var(--arcd-type-label)", color: C.muted }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
+      <div style={{ background: `${C.blue}08`, border: `var(--arcd-border-width) solid ${C.blue}33`, borderRadius: "var(--arcd-box-radius)", padding: "var(--arcd-space-2) var(--arcd-space-3)", fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>
         Projeção relacional em modo sombra (Fase 2 da redução do monólito). Só leitura - nenhuma tela aqui grava nada; a fonte de verdade operacional continua sendo o cadastro normal. Serve para conferir se a sincronização automática (a cada deploy) está em dia.
       </div>
 
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: "var(--arcd-space-1)", flexWrap: "wrap" }}>
         {ORDEM_DOMINIOS.map(chave => (
           <Btn key={chave} size="sm" v={dominioAtivo === chave ? "primary" : "ghost"} onClick={() => setDominioAtivo(chave)}>
             {DOMINIOS[chave].rotulo}
           </Btn>
         ))}
       </div>
-      <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginTop: -6 }}>{dominio.descricao}</p>
+      <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", marginTop: -6 }}>{dominio.descricao}</p>
 
       {estado === "carregando" && <LoadingState label="núcleo relacional"/>}
 
       {estado === "erro" && (
-        <div style={{ background: `${C.red}0C`, border: `1px solid ${C.red}44`, borderRadius: 9, padding: 14 }}>
+        <div style={{ background: `${C.red}0C`, border: `var(--arcd-border-width) solid ${C.red}44`, borderRadius: "var(--arcd-box-radius)", padding: "var(--arcd-space-3)" }}>
           <p style={{ fontSize:"var(--arcd-type-label)", color: C.red, fontWeight:600 }}>{erro}</p>
-          <Btn size="sm" v="ghost" onClick={() => carregar(dominioAtivo)} style={{ marginTop: 8 }}><Ic n="refresh" /> Tentar de novo</Btn>
+          <Btn size="sm" v="ghost" onClick={() => carregar(dominioAtivo)} style={{ marginTop: "var(--arcd-space-2)" }}><Ic n="refresh" /> Tentar de novo</Btn>
         </div>
       )}
 
       {estado === "pronto" && relatorio && (
         <>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "var(--arcd-space-2)" }}>
             <div>
               {relatorio.hasRuns ? (
-                <p style={{ fontSize:"var(--arcd-type-label)", color: C.text }}>
+                <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-primary)" }}>
                   Última sincronização <b>{idadeLegivel(relatorio.ageMs)}</b> ({new Date(relatorio.lastRun.created_at).toLocaleString("pt-BR")}, ator <code>{relatorio.lastRun.actor_id}</code>)
                 </p>
               ) : (
-                <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>Nenhuma sincronização registrada ainda.</p>
+                <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>Nenhuma sincronização registrada ainda.</p>
               )}
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--arcd-space-2)" }}>
               {relatorio.warnings?.length
                 ? <Badge color={C.red}>{relatorio.warnings.length} ALERTA(S)</Badge>
                 : <Badge color={C.green}>0 DIVERGÊNCIAS</Badge>}
@@ -166,34 +166,34 @@ export default function NucleoRelacionalAdmin({ currentUser }) {
           </div>
 
           {!!relatorio.warnings?.length && (
-            <div style={{ background: `${C.red}0C`, border: `1px solid ${C.red}33`, borderRadius: 9, padding: 12 }}>
+            <div style={{ background: `${C.red}0C`, border: `var(--arcd-border-width) solid ${C.red}33`, borderRadius: "var(--arcd-box-radius)", padding: "var(--arcd-space-3)" }}>
               {relatorio.warnings.map((aviso, i) => (
-                <p key={i} style={{ fontSize:"var(--arcd-type-label)", color: C.red, lineHeight: 1.5, marginTop: i ? 6 : 0 }}>! {aviso}</p>
+                <p key={i} style={{ fontSize:"var(--arcd-type-label)", color: C.red, lineHeight: 1.5, marginTop: i ? "var(--arcd-space-1)" : 0 }}>! {aviso}</p>
               ))}
             </div>
           )}
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "var(--arcd-space-2)" }}>
             {ordemSecoes.map(secao => {
               const amostra = relatorio.sample?.[secao] || [];
               const aberta = secaoAberta === secao;
               return (
-                <div key={secao} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 9, padding: 11 }}>
-                  <p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color: C.muted, textTransform: "uppercase", letterSpacing: 0.3 }}>{dominio.rotuloSecao[secao]}</p>
-                  <p style={{ fontSize: "var(--arcd-type-section-title)", fontWeight:600, color: C.text, marginTop: 4 }}>{relatorio.liveCounts?.[secao] ?? 0}</p>
-                  <p style={{ fontSize:"var(--arcd-type-caption)", color: C.muted, marginTop: 2 }}>linha(s) ativa(s)</p>
+                <div key={secao} style={{ background: "var(--arcd-surface-card)", border: `var(--arcd-border-width) solid var(--arcd-border-default)`, borderRadius: "var(--arcd-box-radius)", padding: "var(--arcd-space-3)" }}>
+                  <p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color: "var(--arcd-text-secondary)", textTransform: "uppercase", letterSpacing: 0.3 }}>{dominio.rotuloSecao[secao]}</p>
+                  <p style={{ fontSize: "var(--arcd-type-section-title)", fontWeight:600, color: "var(--arcd-text-primary)", marginTop: "var(--arcd-space-1)" }}>{relatorio.liveCounts?.[secao] ?? 0}</p>
+                  <p style={{ fontSize:"var(--arcd-type-caption)", color: "var(--arcd-text-secondary)", marginTop: "var(--arcd-space-half)" }}>linha(s) ativa(s)</p>
                   {!!amostra.length && (
                     <>
                       <button
                         onClick={() => setSecaoAberta(aberta ? "" : secao)}
-                        style={{ marginTop: 8, background: "none", border: "none", padding: 0, fontSize:"var(--arcd-type-control)", color: C.blue, fontWeight:600, cursor: "pointer" }}
+                        style={{ marginTop: "var(--arcd-space-2)", background: "none", border: "none", padding: 0, fontSize:"var(--arcd-type-control)", color: C.blue, fontWeight:600, cursor: "pointer" }}
                       >
                         {aberta ? "Ocultar amostra" : `Ver amostra (${amostra.length})`}
                       </button>
                       {aberta && (
-                        <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 4 }}>
+                        <div style={{ marginTop: "var(--arcd-space-1)", display: "flex", flexDirection: "column", gap: "var(--arcd-space-1)" }}>
                           {amostra.map((linha, i) => (
-                            <p key={i} style={{ fontSize:"var(--arcd-type-caption)", color: C.text, lineHeight: 1.4, borderTop: i ? `1px solid ${C.line}` : "none", paddingTop: i ? 4 : 0 }}>
+                            <p key={i} style={{ fontSize:"var(--arcd-type-caption)", color: "var(--arcd-text-primary)", lineHeight: 1.4, borderTop: i ? `var(--arcd-border-width) solid var(--arcd-border-subtle)` : "none", paddingTop: i ? "var(--arcd-space-1)" : 0 }}>
                               {rotuloLinha(linha)}
                             </p>
                           ))}

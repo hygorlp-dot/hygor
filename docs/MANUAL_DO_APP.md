@@ -402,10 +402,12 @@ Escolha o grupo, a competência e a obra. A aba Administrativo inclui engenheiro
 
 ### Como fazer
 
-1. Escolha Pessoal de obra ou Administrativo no início da tela.
-2. Confira o período e a obra; trocar de grupo preserva esses filtros.
-3. Revise os registros das pessoas do grupo. Use Todos para conferir a empresa completa.
-4. Para corrigir um atestado já registrado, toque em AT, escolha a Nova situação e use Salvar correção. Escolha Sem marcação para limpar o dia. Se o dia estiver bloqueado, obtenha liberação no Ponto por obra. O anexo já enviado fica no prontuário.
+1. Ao chegar de Revisar ponto na Folha, confira a obra, o mês, o ciclo e o grupo preenchidos. Use Voltar a Folha para retomar a conferência. Se a célula estiver Sem registro, confira o dia antes de marcar uma falta.
+2. Escolha Pessoal de obra ou Administrativo no início da tela.
+3. Confira o período e a obra; trocar de grupo preserva esses filtros.
+4. Revise os registros das pessoas do grupo. Use Todos para conferir a empresa completa.
+5. Para corrigir um atestado já registrado, toque em AT, escolha a Nova situação e use Salvar correção. Escolha Sem marcação para limpar o dia. Se o dia estiver bloqueado, obtenha liberação no Ponto por obra. O anexo já enviado fica no prontuário.
+6. Para corrigir um atestado já registrado, toque em AT, escolha a Nova situação e use Salvar correção. Escolha Sem marcação para limpar o dia. Se o dia estiver bloqueado, obtenha liberação no Ponto por obra. O anexo já enviado fica no prontuário.
 
 ### Como conferir se deu certo
 
@@ -413,7 +415,7 @@ A lista e os totais mostram o grupo selecionado.
 
 ### O que merece atenção
 
-O grupo é um filtro de consulta; não transfere pessoas nem altera o histórico. Finalizar ponto exige Todos; arquivar a quinzena exige também Todas as obras.
+O grupo é um filtro de consulta; não transfere pessoas nem altera o histórico. Finalizar ponto exige Todos; arquivar a quinzena exige também Todas as obras. Ver arquivo e Finalizar e arquivar quinzena exigem RH ou administrador com acesso à Gestão do ponto da empresa inteira. A opção Restaurar é do administrador com esse acesso.
 
 <a id="guia-ponto_geral_central"></a>
 
@@ -427,10 +429,12 @@ Escolha o grupo, a competência e a obra. A aba Administrativo inclui engenheiro
 
 ### Como fazer
 
-1. Escolha Pessoal de obra ou Administrativo no início da tela.
-2. Confira o período e a obra; trocar de grupo preserva esses filtros.
-3. Revise os registros das pessoas do grupo. Use Todos para conferir a empresa completa.
-4. Para corrigir um atestado já registrado, toque em AT, escolha a Nova situação e use Salvar correção. Escolha Sem marcação para limpar o dia. Se o dia estiver bloqueado, obtenha liberação no Ponto por obra. O anexo já enviado fica no prontuário.
+1. Ao chegar de Revisar ponto na Folha, confira a obra, o mês, o ciclo e o grupo preenchidos. Use Voltar a Folha para retomar a conferência. Se a célula estiver Sem registro, confira o dia antes de marcar uma falta.
+2. Escolha Pessoal de obra ou Administrativo no início da tela.
+3. Confira o período e a obra; trocar de grupo preserva esses filtros.
+4. Revise os registros das pessoas do grupo. Use Todos para conferir a empresa completa.
+5. Para corrigir um atestado já registrado, toque em AT, escolha a Nova situação e use Salvar correção. Escolha Sem marcação para limpar o dia. Se o dia estiver bloqueado, obtenha liberação no Ponto por obra. O anexo já enviado fica no prontuário.
+6. Para corrigir um atestado já registrado, toque em AT, escolha a Nova situação e use Salvar correção. Escolha Sem marcação para limpar o dia. Se o dia estiver bloqueado, obtenha liberação no Ponto por obra. O anexo já enviado fica no prontuário.
 
 ### Como conferir se deu certo
 
@@ -438,7 +442,7 @@ A lista e os totais mostram o grupo selecionado.
 
 ### O que merece atenção
 
-O grupo é um filtro de consulta; não transfere pessoas nem altera o histórico. Finalizar ponto exige Todos; arquivar a quinzena exige também Todas as obras.
+O grupo é um filtro de consulta; não transfere pessoas nem altera o histórico. Finalizar ponto exige Todos; arquivar a quinzena exige também Todas as obras. Ver arquivo e Finalizar e arquivar quinzena exigem RH ou administrador com acesso à Gestão do ponto da empresa inteira. A opção Restaurar é do administrador com esse acesso.
 
 <a id="guia-folha_obras"></a>
 
@@ -647,6 +651,7 @@ Tenha o nome, o cliente e os dados contratuais da obra.
 6. No contrato por administração, escolha separadamente Equipamentos / locação e Engenharia de campo para definir se esses custos recebem a taxa. Para excluir engenharia, selecione a Categoria de custo da engenharia de campo já usada nos lançamentos. Não há vínculo por nome ou descrição. Revise a base antes de salvar.
 7. Na lista, confira o intervalo de resultados. Anterior e Próxima mostram até 12 registros por página; a busca considera toda a lista disponível, não só a página atual. Alterar o recorte volta à primeira página. Totais e relatórios continuam usando o conjunto completo.
 8. No celular, Indicadores da área reúne os totais da carteira sem afastar a busca. Abra para consultar; os filtros e a paginação ficam antes dos cartões.
+9. Em Nova obra ou Editar obra, use Revisar cadastro no rodapé. Confira o resumo antes de escolher Confirmar e salvar.
 
 ### Como conferir se deu certo
 
@@ -705,6 +710,8 @@ Selecione a obra e confira a versão do orçamento.
 9. Confira Total parcial na tela, no PDF e no Excel enquanto houver serviços a medir ou a cotar. No PDF, as exclusões aparecem junto aos itens. No Excel, consulte a aba Fora do escopo para ver os motivos e responsáveis.
 10. Em Dados e versões, use Comparar revisões para consultar as diferenças por serviço entre versões do mesmo orçamento.
 11. No botão Ajuda, abra Manual completo para consultar os guias Hierarquia de seis níveis e Comparar revisões. Ao fechar a ajuda, você volta ao orçamento e aos filtros que estava usando.
+12. Em Novo orçamento, percorra os campos e confira a base de preços. Use Criar ou Cancelar no rodapé do formulário.
+13. Em Copiar de outra obra, confira a obra e o orçamento de origem antes de escolher Copiar no rodapé. Na edição dos dados, o rodapé também reúne as ações para salvar e cancelar.
 
 ### Como conferir se deu certo
 
@@ -900,6 +907,7 @@ Confira a obra, o material e a unidade de medida.
 2. Registre a movimentação disponível com quantidade e motivo.
 3. Confira o saldo e a movimentação após a confirmação.
 4. Em Movimentos, use Abrir pedido seguido do número para consultar a compra de origem. A ação aparece quando a entrada tem um pedido vinculado e seu perfil pode abrir Compras. Na tela geral, confira todas as obras listadas antes de gerar reposição.
+5. Em Cadastros e análises, abra Insumos ou Composições. Ao cadastrar ou editar, use Salvar ou Cancelar no rodapé.
 
 ### Como conferir se deu certo
 
@@ -997,6 +1005,7 @@ Tenha obra, descrição, unidade, quantidade e data necessária.
 4. Revise obra, data necessária, materiais, quantidades, unidades e etapa do orçamento; preencha os dados ausentes.
 5. Use Formalizar e enviar para Compras e aguarde a confirmação do servidor. Consulte Pedido original da conversa na solicitação.
 6. Confira Unidade de compra e o conteúdo de cada embalagem na unidade de referência. Use a embalagem ou o certificado do fornecedor: descrição, bitola e comprimento não definem o fator automaticamente. Ao trocar unidade ou comprimento, confira e informe o fator novamente.
+7. Os botões Cancelar e Formalizar e enviar para Compras ficam no rodapé enquanto você percorre os campos. Se a solicitação tiver dados inválidos, confira o primeiro campo destacado. Ao sair com alterações, use Continuar editando para voltar ao formulário.
 
 ### Como conferir se deu certo
 
@@ -1067,6 +1076,7 @@ Confira os itens e as quantidades da solicitação.
 1. Abra ou prepare a cotação dos itens.
 2. Registre as propostas e compare preço, frete, descontos e prazo.
 3. Escolha a proposta por item, justifique quando solicitado e confirme a decisão.
+4. No celular, deslize a tabela para ver os outros fornecedores. Ao preparar uma cotação, use Salvar cotação no rodapé. Cancelar permite voltar à edição ou descartar alterações.
 
 ### Como conferir se deu certo
 
@@ -1157,6 +1167,7 @@ Tenha o fornecedor, a obra e as condições negociadas.
 2. Confira itens, quantidades, entrega, frete e condições de pagamento.
 3. Use a ação disponível para o estado do pedido e acompanhe a resposta.
 4. Compare preços somente na mesma unidade e com conversão conferida. Se a comparação estiver indisponível, confira a unidade de referência, o preço e o fator antes de decidir.
+5. Ao preencher um pedido, use Salvar pedido ou Salvar rascunho no rodapé, conforme a situação escolhida. Para sair sem salvar, use Cancelar e confira o aviso antes de descartar.
 
 ### Como conferir se deu certo
 
@@ -1203,6 +1214,7 @@ Confira a entrega, o pedido e a pessoa que recebeu.
 3. Informe somente as quantidades que chegaram e registre a conferência solicitada.
 4. Use Dar entrada no estoque e confira o recebido, o saldo pendente e o estoque. Sem confirmação, repita o botão ou, após recarregar, use Retomar trabalho salvo.
 5. Se a entrada for recusada por conversão ou unidade incompatível, confira o pedido e o cadastro do material vinculado antes de tentar novamente. O sistema calcula quantidade e custo do estoque pelo pedido e não corrige entradas antigas automaticamente.
+6. Se Dar entrada no estoque retornar um erro, leia o aviso acima dos botões e confira as quantidades antes de tentar novamente.
 
 ### Como conferir se deu certo
 
@@ -1324,11 +1336,13 @@ Escolha Pessoal de obra, Administrativo ou Todos; depois selecione o período e 
 
 ### Como fazer
 
-1. Localize as situações que precisam de conferência.
-2. Abra os registros e compare horários, origem e informações disponíveis.
-3. Ao chegar em Atestado na célula do dia, confira funcionário e data. Selecione uma imagem JPEG ou PNG de até 3 MB e use Confirmar e anexar. Se estiver sem a imagem, use Registrar AT e anexar depois. Use Marcar folga apenas se o dia foi de folga. Nos dias já lançados como atestado, use Anexar atestado. O arquivo fica no prontuário do funcionário, acessível a RH e administradores.
-4. Trate as pendências pelas ações autorizadas e confira o resultado.
-5. Para corrigir um atestado já registrado, toque em AT, escolha a Nova situação e use Salvar correção. Escolha Sem marcação para limpar o dia. Se o dia estiver bloqueado, obtenha liberação no Ponto por obra. O anexo já enviado fica no prontuário.
+1. Ao chegar de Revisar ponto na Folha, confira a obra, o mês, o ciclo e o grupo preenchidos. Use Voltar a Folha para retomar a conferência. Se a célula estiver Sem registro, confira o dia antes de marcar uma falta.
+2. Localize as situações que precisam de conferência.
+3. Abra os registros e compare horários, origem e informações disponíveis.
+4. Ao chegar em Atestado na célula do dia, confira funcionário e data. Selecione uma imagem JPEG ou PNG de até 3 MB e use Confirmar e anexar. Se estiver sem a imagem, use Registrar AT e anexar depois. Use Marcar folga apenas se o dia foi de folga. Nos dias já lançados como atestado, use Anexar atestado. O arquivo fica no prontuário do funcionário, acessível a RH e administradores.
+5. Trate as pendências pelas ações autorizadas e confira o resultado.
+6. Para corrigir um atestado já registrado, toque em AT, escolha a Nova situação e use Salvar correção. Escolha Sem marcação para limpar o dia. Se o dia estiver bloqueado, obtenha liberação no Ponto por obra. O anexo já enviado fica no prontuário.
+7. Para corrigir um atestado já registrado, toque em AT, escolha a Nova situação e use Salvar correção. Escolha Sem marcação para limpar o dia. Se o dia estiver bloqueado, obtenha liberação no Ponto por obra. O anexo já enviado fica no prontuário.
 
 ### Como conferir se deu certo
 
@@ -1336,7 +1350,7 @@ As pendências foram conferidas com base nos registros disponíveis.
 
 ### O que merece atenção
 
-Batidas do ponto eletrônico são imutáveis; não suponha que uma consulta altere a marcação original.
+Batidas do ponto eletrônico são imutáveis; não suponha que uma consulta altere a marcação original. Ver arquivo e Finalizar e arquivar quinzena exigem RH ou administrador com acesso à Gestão do ponto da empresa inteira. A opção Restaurar é do administrador com esse acesso.
 
 <a id="guia-ponto_app"></a>
 
@@ -1380,7 +1394,7 @@ Localize a pessoa. Acesso de RH ou administrador.
 3. Rever saída altera agendamentos; Ver saída consulta uma saída registrada.
 4. O nome abre a ficha. Confira Vínculo e desligamento no início. Ficha em PDF abre o documento; salve outras edições pelo cadastro.
 5. Na lista, confira o intervalo de resultados. Anterior e Próxima mostram até 12 registros por página; a busca considera toda a lista disponível, não só a página atual. Alterar o recorte volta à primeira página. Totais e relatórios continuam usando o conjunto completo.
-6. Pesquisar na equipe fica antes da lista. Abra Filtros para escolher Pendências da equipe, com Documentação vencida ou Sem lotação, e Filtrar por lotação. Situação da equipe controla ativos e demais vínculos. Recolher Filtros preserva as escolhas.
+6. Use Pesquisar na equipe ou abra Filtros para escolher Pendências da equipe e Filtrar por lotação. As contagens por situação acompanham a busca e os filtros. Escolha Ativos, Agendados, Desligados, Arquivados ou Todas as situações para abrir a lista correspondente.
 
 ### Como conferir se deu certo
 
@@ -1431,11 +1445,12 @@ Confira a obra, o prestador e o contrato.
 
 ### Como fazer
 
-1. Localize ou cadastre o contrato conforme sua permissão.
-2. Confira escopo, valores, itens e documentos.
-3. Acompanhe medições e saldos no contrato correto. Vincular e conferir exige nota fiscal e medição da mesma obra, inclusive nos rateios.
-4. No celular, a consulta começa pela lista de contratos. Use os filtros de contratos também no Kanban. Abra Aprovações pendentes para revisar a fila. Saldo das etapas usa os valores das etapas cadastradas; se houver divergência com o contrato, confira a origem antes de corrigir o cadastro.
-5. Os percentuais mostram até duas casas decimais, com vírgula, para facilitar a leitura. Ao entrar no campo, a precisão completa é apresentada. Sair sem editar não arredonda o valor usado no cálculo. Digite com ponto ou vírgula, ou ajuste a barra deslizante. O valor anterior e a diferença continuam baseados na medição original.
+1. Confira Resumo e filas. Na central, os totais e as filas incluem todas as obras disponíveis no seu acesso. Obra do cadastro filtra o Quadro e o Cadastro. Em Obras, o resumo e as filas acompanham a obra aberta.
+2. Localize ou cadastre o contrato conforme sua permissão.
+3. Confira escopo, valores, itens e documentos.
+4. Acompanhe medições e saldos no contrato correto. Vincular e conferir exige nota fiscal e medição da mesma obra, inclusive nos rateios.
+5. No celular, a consulta começa pela lista de contratos. Use os filtros de contratos também no Kanban. Abra Aprovações pendentes para revisar a fila. Saldo das etapas usa os valores das etapas cadastradas; se houver divergência com o contrato, confira a origem antes de corrigir o cadastro.
+6. Os percentuais mostram até duas casas decimais, com vírgula, para facilitar a leitura. Ao entrar no campo, a precisão completa é apresentada. Sair sem editar não arredonda o valor usado no cálculo. Digite com ponto ou vírgula, ou ajuste a barra deslizante. O valor anterior e a diferença continuam baseados na medição original.
 
 ### Como conferir se deu certo
 
@@ -1747,6 +1762,7 @@ Confira Obra da obrigação, Fornecedor, Valor da obrigação, Saldo a pagar e o
 4. Para corrigir, use Desfazer alocação, preencha Motivo para desfazer a alocação e confirme. O saldo volta ao adiantamento, sem devolução bancária.
 5. Use Registrar pagamento para uma nova saída real e aguarde. Pagar não conclui entrega nem conferência fiscal. Informe o motivo do adiantamento, se possível.
 6. Após recarregar, use Retomar trabalho salvo. Reabra o rascunho ou retome a confirmação original.
+7. No formulário de pagamento, Cancelar e Registrar pagamento ficam no rodapé. Se a baixa retornar um erro, leia o aviso acima dos botões antes de tentar novamente.
 
 ### Como conferir se deu certo
 
@@ -1926,6 +1942,7 @@ Defina se precisa analisar resultado, movimentos ou posição em uma data.
 1. Escolha o tipo de relatório e o agrupamento.
 2. Ajuste período, obra, conta e demais filtros disponíveis.
 3. Confira os totais e os detalhes antes de imprimir ou exportar.
+4. Na Central de relatórios financeiros, escolha Relatório e Obra em Consulta financeira. Abra Filtros do relatório para refinar o recorte antes de exportar.
 
 ### Como conferir se deu certo
 
@@ -3294,6 +3311,7 @@ Confira Obra da obrigação, Fornecedor, Valor da obrigação, Saldo a pagar e o
 3. Para corrigir, use Desfazer alocação, preencha Motivo para desfazer a alocação e confirme. O saldo volta ao adiantamento, sem devolução bancária.
 4. Use Registrar pagamento para uma nova saída real e aguarde. Pagar não conclui entrega nem conferência fiscal. Informe o motivo do adiantamento, se possível.
 5. Após recarregar, use Retomar trabalho salvo. Reabra o rascunho ou retome a confirmação original.
+6. No formulário de pagamento, Cancelar e Registrar pagamento ficam no rodapé. Se a baixa retornar um erro, leia o aviso acima dos botões antes de tentar novamente.
 
 ### Como conferir se deu certo
 

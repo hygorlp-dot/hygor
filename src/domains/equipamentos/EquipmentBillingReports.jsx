@@ -229,7 +229,7 @@ export default function EquipmentBillingReports({
             </div>
             <div>
               <p className="bc-eyebrow">Próprios × terceiros</p>
-              <table className="bc-table bc-table--compact">
+              <table className="arcd-data-table__table bc-table bc-table--compact">
                 <caption className="bc-sr-only">Comparação entre equipamentos próprios e de terceiros</caption>
                 <thead><tr><th scope="col">Indicador</th><th scope="col" className="num">Próprios</th><th scope="col" className="num">Terceiros</th></tr></thead>
                 <tbody>
@@ -285,7 +285,7 @@ export default function EquipmentBillingReports({
                 </div>
                 <details className="bc-chart__table">
                   <summary>Ver valores em tabela</summary>
-                  <table className="bc-table bc-table--compact">
+                  <table className="arcd-data-table__table bc-table bc-table--compact">
                     <caption className="bc-sr-only">Tendência mensal</caption>
                     <thead><tr><th scope="col">Competência</th>{TREND_SERIES.map(series => <th key={series.key} scope="col" className="num">{series.label}</th>)}</tr></thead>
                     <tbody>{model.trend.map(point => <tr key={point.ym}><th scope="row">{point.label}</th>{point.semDados ? <td colSpan={3} className="bc-note">sem locações</td> : TREND_SERIES.map(series => <td key={series.key} className="num bc-mono">{signedMoney(point[series.key])}</td>)}</tr>)}</tbody>
@@ -316,7 +316,7 @@ export default function EquipmentBillingReports({
       {!filteredEmpty && view === "obras" && !memory && <section className="bc-section" aria-labelledby="bc-works-title">
         <div className="bc-section__head"><h3 id="bc-works-title">Resultado por obra</h3><span className="bc-note">{scope} · custo = repasses (manutenção não é apropriada por obra)</span></div>
         <div className="bc-table-wrap">
-          <table className="bc-table">
+          <table className="arcd-data-table__table bc-table">
             <caption className="bc-sr-only">Ranking de obras da competência</caption>
             <thead><tr>{WORK_COLUMNS.map(column => {
               const active = workSort.key === column.key;
@@ -379,7 +379,7 @@ function WorkMemory({ memory, model, formatDate, formatComposition, onBack, onEd
           : <ul>{pendencias.map((item, index) => <li key={`${item.type}-${item.locacaoId}-${index}`}><AlertTriangle size={14} aria-hidden="true" />{item.label}{item.equipamento ? ` · ${item.equipamento}` : ""}</li>)}</ul>}
       </div>
       <div className="bc-table-wrap">
-        <table className="bc-table">
+        <table className="arcd-data-table__table bc-table">
           <caption>Memória de cálculo · 1 mês tarifário = 30 dias; 31 dias = 1 mês + 1 diária</caption>
           <thead><tr><th scope="col">Equipamento</th><th scope="col">Período</th><th scope="col" className="num">Qtd.</th><th scope="col" className="num">Diárias-un.</th><th scope="col">Composição</th><th scope="col" className="num">Bruto</th><th scope="col" className="num">Desconto</th><th scope="col" className="num">Líquido</th><th scope="col" className="num">Repasse</th><th scope="col"><span className="bc-sr-only">Ações</span></th></tr></thead>
           <tbody>{rows.map(row => <tr key={row.id}>
@@ -416,7 +416,7 @@ function EquipmentTables({ model, data, ownerName }) {
   const ownerRows = [...owners.values()].sort((a, b) => a.owner.localeCompare(b.owner, "pt-BR") || a.obra.localeCompare(b.obra, "pt-BR"));
   return <>
     <div className="bc-table-wrap">
-      <table className="bc-table">
+      <table className="arcd-data-table__table bc-table">
         <caption>Resultado por equipamento (competência inteira, inclui manutenção)</caption>
         <thead><tr><th scope="col">Equipamento</th><th scope="col">Propriedade</th><th scope="col" className="num">Diárias-un.</th><th scope="col" className="num">Receita líquida</th><th scope="col" className="num">Descontos</th><th scope="col" className="num">Repasse</th><th scope="col" className="num">Manutenção</th><th scope="col" className="num">Resultado</th><th scope="col" className="num">Margem</th></tr></thead>
         <tbody>{equipmentRows.map(line => <tr key={line.equip.id}>
@@ -429,7 +429,7 @@ function EquipmentTables({ model, data, ownerName }) {
       </table>
     </div>
     <div className="bc-table-wrap">
-      <table className="bc-table">
+      <table className="arcd-data-table__table bc-table">
         <caption>Repasses aos proprietários por obra (mesmo valor líquido das locações)</caption>
         <thead><tr><th scope="col">Proprietário</th><th scope="col">Obra</th><th scope="col" className="num">Equip.</th><th scope="col" className="num">Locações</th><th scope="col" className="num">Diárias-un.</th><th scope="col" className="num">Valor a repassar</th></tr></thead>
         <tbody>{ownerRows.length ? ownerRows.map(row => <tr key={row.key}>
@@ -476,7 +476,7 @@ function FleetMap({ works, work, onSelect, query, onQuery, ownerName, formatDate
       </div>
       <Input label="Buscar equipamento neste local" type="search" value={query} placeholder="Nome, patrimônio ou categoria" onChange={event => onQuery(event.target.value)} />
       <div className="bc-table-wrap">
-        <table className="bc-table">
+        <table className="arcd-data-table__table bc-table">
           <caption className="bc-sr-only">Equipamentos em {work.nome}</caption>
           <thead><tr><th scope="col">Equipamento</th><th scope="col">Permanência</th><th scope="col" className="num">Quantidade</th><th scope="col" className="num">Diárias-un.</th><th scope="col">Propriedade</th></tr></thead>
           <tbody>{equipment.length ? equipment.map(item => {

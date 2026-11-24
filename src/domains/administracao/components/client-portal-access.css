@@ -1,6 +1,6 @@
 .client-portal-access {display:grid;gap:var(--arcd-space-4);min-width:0}
 .client-portal-access__actions {display:flex;flex-wrap:wrap;gap:var(--arcd-space-2);margin-block:var(--arcd-space-3)}
-.client-portal-access article {display:flex;align-items:center;justify-content:space-between;gap:var(--arcd-space-3);padding-block:var(--arcd-space-3);border-bottom:1px solid var(--arcd-border-default);overflow-wrap:anywhere}
+.client-portal-access article {display:flex;align-items:center;justify-content:space-between;gap:var(--arcd-space-3);padding-block:var(--arcd-space-3);border-bottom:var(--arcd-border-width) solid var(--arcd-border-default);overflow-wrap:anywhere}
 @media(max-width:767px){.client-portal-access article{display:grid}}
 
 .client-portal-access__fields {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--arcd-space-4)}

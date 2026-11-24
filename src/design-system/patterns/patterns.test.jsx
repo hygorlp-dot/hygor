@@ -3,7 +3,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Button } from "../primitives/index.js";
-import { ConfirmDialog, EmptyState, ErrorState, PageHeader, StatusBadge, SummaryCard } from "./index.js";
+import { ConfirmDialog, EmptyState, ErrorState, FilterBar, PageHeader, StatusBadge, SummaryCard } from "./index.js";
 
 const mounted = [];
 function changeNativeValue(element, value) {
@@ -29,6 +29,16 @@ describe("padrões de página", () => {
     expect(container.textContent).toContain("Compras / Fornecedores");
     expect(container.textContent).toContain("Novo fornecedor");
     expect(container.textContent).toContain("Exportar");
+  });
+
+  it("mantém seção nomeada e permite desabilitar os filtros durante uma operação", () => {
+    const container = render(<section aria-labelledby="report-title">
+      <PageHeader section titleId="report-title" title="Relatórios financeiros" />
+      <FilterBar layout="grid" legend="Consulta financeira" disabled><input aria-label="Obra" /></FilterBar>
+    </section>);
+    expect(container.querySelector("h2#report-title").textContent).toBe("Relatórios financeiros");
+    expect(container.querySelector("fieldset legend").textContent).toBe("Consulta financeira");
+    expect(container.querySelector("input").matches(":disabled")).toBe(true);
   });
 
   it("expõe estados vazio e de erro", () => {

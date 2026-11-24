@@ -1,6 +1,6 @@
 [data-mrc-field]{gap:var(--arcd-space-2)}
 [data-theme] [data-mrc-field]>label.arcd-field__label{font-size:var(--arcd-type-label)!important;font-weight:var(--arcd-font-weight-medium)!important;line-height:var(--arcd-line-height-normal)}
-input[data-mrc-control],select[data-mrc-control],textarea[data-mrc-control]{width:100%;min-width:0;min-height:var(--arcd-control-height,40px);border:1px solid var(--arcd-border-strong);border-radius:var(--arcd-radius-control,6px);background:var(--arcd-surface-card);color:var(--arcd-text-primary);padding:var(--arcd-space-2) var(--arcd-space-3);font-family:var(--arcd-font-sans);font-size:var(--arcd-type-control);line-height:var(--arcd-line-height-normal);box-shadow:none}
+input[data-mrc-control],select[data-mrc-control],textarea[data-mrc-control]{width:100%;min-width:0;min-height:var(--arcd-control-height,40px);border:var(--arcd-border-width) solid var(--arcd-border-strong);border-radius:var(--arcd-radius-control,6px);background:var(--arcd-surface-card);color:var(--arcd-text-primary);padding:var(--arcd-space-2) var(--arcd-space-3);font-family:var(--arcd-font-sans);font-size:var(--arcd-type-control);line-height:var(--arcd-line-height-normal);box-shadow:none}
 textarea[data-mrc-control]{min-height:var(--arcd-textarea-min-height,6rem);resize:vertical}
 [data-theme] textarea[data-mrc-control]:is(:focus,:hover):not(:disabled):not([readonly]){background-color:var(--arcd-surface-elevated)!important}
 [data-mrc-control]:focus-visible{outline:2px solid var(--arcd-focus-ring);outline-offset:2px}
@@ -13,3 +13,16 @@ textarea[data-mrc-control]{min-height:var(--arcd-textarea-min-height,6rem);resiz
 /* Uma linha: mesma caixa em todas as famílias; editores de tabela preservam seu contrato. */
 input[data-mrc-control]:not([type=file]):not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]),select[data-mrc-control]:not([multiple]):not([size]){box-sizing:border-box;height:var(--arcd-control-height,40px);padding-block:0;}
 @media(max-width:767px){input[data-mrc-control]:not([type=file]):not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]),select[data-mrc-control]:not([multiple]):not([size]){height:max(var(--arcd-control-height,40px),var(--arcd-touch-target,2.75rem));}}
+
+[data-theme] select[data-mrc-control][data-tone="warning"]:not(:disabled):not([aria-invalid=true]){color:var(--arcd-warning-text)}
+
+/* Descrição curta de um campo de filtro (ex.: "Segue a Obra em foco") fica na linha do rótulo, à direita:
+   não muda a altura do campo, então os rótulos da linha seguem alinhados no computador e no celular. */
+@media screen {
+  :is(.workspace-command-bar,.purchase-context-bar,.payroll-filter-grid) .arcd-field:has(> .arcd-field__description) { position: relative; }
+  :is(.workspace-command-bar,.purchase-context-bar,.payroll-filter-grid) .arcd-field > .arcd-field__description {
+    position: absolute; top: 0; right: 0; max-width: calc(100% - 3.5rem); margin: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: var(--arcd-text-secondary); font-size: var(--arcd-type-caption); line-height: inherit;
+  }
+}

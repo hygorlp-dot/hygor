@@ -77,7 +77,7 @@ export default function ConferenciaBatidas({ data, events, date, obraId, current
     <p className="pe-day-totals">Batidas recebidas: {people.reduce((n,p)=>n+p.day.batidas.length,0)}</p>
     <p>Confira as batidas com a escala definida no RH. Somente a confirmação do RH integra o dia à Gestão do ponto.</p>
     <div className="punch-conference__filters"><Inp label="Buscar funcionário" value={search} onChange={setSearch} placeholder="Nome ou função"/><Sel label="Situação da conferência" value={filter} onChange={setFilter} options={[{v:"",l:`Todos (${people.length})`},...Object.entries(labels).map(([v,l])=>({v,l:`${l} (${people.filter(p=>p.state===v).length})`}))]}/></div>
-    {filtered.length===0?<p role="status">Nenhum funcionário encontrado para os filtros selecionados.</p>:<div className="punch-conference__table"><table>
+    {filtered.length===0?<p role="status">Nenhum funcionário encontrado para os filtros selecionados.</p>:<div className="punch-conference__table"><table className="arcd-data-table__table">
       <caption className="pe-sr-only">Batidas na obra {(data.obras||[]).find(o=>String(o.id)===String(obraId))?.name} em {date.split("-").reverse().join("/")}</caption>
       <thead><tr><th scope="col">Funcionário e escala</th><th scope="col">Batidas recebidas</th><th scope="col">Conferência e integração</th></tr></thead>
       <tbody>{filtered.map(p=><tr key={p.id}>

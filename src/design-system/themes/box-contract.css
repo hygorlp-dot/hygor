@@ -3,17 +3,85 @@
    segue a densidade), --arcd-box-gap (entre caixas). Este arquivo entra depois de vidro-erp.css. */
 
 @media screen {
+  [data-theme] .arcd-main .mrc-box {
+    min-width: 0;
+    overflow: hidden;
+    border: var(--arcd-border-width) solid var(--arcd-border-default);
+    border-radius: var(--arcd-box-radius);
+    background: var(--arcd-surface-card);
+  }
+
+  [data-theme] .arcd-main .mrc-box--padded {
+    padding: var(--arcd-box-padding);
+  }
+
+  [data-theme] .arcd-main .mrc-box--scroll {
+    overflow: auto;
+  }
+
+  [data-theme] .arcd-main .mrc-box__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--arcd-box-header-gap);
+    min-height: calc(var(--arcd-control-height) + 2 * var(--arcd-box-padding) + 1px);
+    padding: var(--arcd-box-padding);
+    border-bottom: var(--arcd-border-width) solid var(--arcd-border-default);
+  }
+
+  [data-theme] .arcd-main .mrc-box__header :is(h2,h3) {
+    margin: 0;
+    font-size: var(--arcd-type-section-title);
+  }
+
+  [data-theme] .arcd-chart-panel__header { align-items: flex-start; }
+  [data-theme] .arcd-chart-panel__header > div { min-width: 0; }
+  [data-theme] .arcd-chart-panel__header p {
+    color: var(--arcd-text-secondary);
+    font-size: var(--arcd-type-caption);
+  }
+  .arcd-chart-panel__legend { padding: var(--arcd-space-2) var(--arcd-box-padding) 0; }
+  .arcd-chart-panel__content { position: relative; padding: var(--arcd-space-2); }
+  [data-theme] .arcd-chart-panel :is(.recharts-cartesian-grid line,.recharts-cartesian-axis-line) { stroke: var(--arcd-border-subtle); }
+  [data-theme] .arcd-chart-panel .recharts-text { fill: var(--arcd-text-secondary); }
+  .arcd-chart-tooltip {
+    min-inline-size: 10rem;
+    padding: var(--arcd-box-padding);
+    border: var(--arcd-border-width) solid var(--arcd-border-default);
+    border-radius: var(--arcd-box-radius);
+    background: var(--arcd-surface-elevated);
+    color: var(--arcd-text-primary);
+    box-shadow: var(--arcd-shadow-md);
+    font-size: var(--arcd-type-label);
+    font-variant-numeric: tabular-nums;
+  }
+  .arcd-chart-tooltip p {
+    margin: 0 0 var(--arcd-space-1);
+    color: var(--arcd-text-secondary);
+    font-size: var(--arcd-type-caption);
+    font-weight: var(--arcd-font-weight-medium);
+  }
+  .arcd-chart-tooltip > div,
+  .arcd-chart-tooltip > div > span { display: flex; align-items: center; gap: var(--arcd-space-2); }
+  .arcd-chart-tooltip > div { justify-content: space-between; }
+  .arcd-chart-tooltip > div + div { margin-block-start: var(--arcd-space-1); }
+  .arcd-chart-tooltip i {
+    inline-size: var(--arcd-space-2);
+    block-size: var(--arcd-space-2);
+    border-radius: var(--arcd-radius-pill);
+  }
+
   /* 8.1 Toda caixa da operação usa o mesmo raio. Lista = caixas conhecidas do ERP (as mesmas que recebem vidro). */
   [data-theme] .arcd-main :is(
-    .page-hero__stats, .dre-kpi-grid, .dashboard-executive-grid, .finance-today__filters, .purchase-queue-metrics,
     .gav, .dashboard-mission-queue, .works-card, .works-filter-bar, .payroll-controls, .payroll-checklist,
-    .payroll-summary-strip, .workspace-disclosure, .finance-today__table-scroll, .arcd-chart-panel, .dre-toolbar,
+    .workspace-disclosure, .finance-today__table-scroll, .dre-toolbar,
     .purchase-queue-table, .purchase-by-work, .workspace-command-bar
   ) { border-radius: var(--arcd-box-radius) !important; }
 
   /* 8.2 Caixa com campos (filtros, comandos): recuo interno padrão. Sem isto, nos temas com vidro o rótulo encosta na borda. */
   :is([data-theme="noite"],[data-theme="cristal"],[data-theme="marcell"],[data-theme="plataforma"]) .arcd-main :is(
-    .workspace-command-bar, .finance-today__filters, .works-filter-bar, .dre-toolbar, .payroll-controls,
+    .workspace-command-bar, .works-filter-bar, .dre-toolbar, .payroll-controls,
     .payroll-checklist, .workspace-disclosure
   ) { padding: var(--arcd-box-padding) !important; }
 
@@ -27,6 +95,22 @@
   [data-theme] .arcd-main :is(.purchase-queue-table, .finance-today__table-scroll, .purchase-by-work) :is(th, td):first-child { padding-inline-start: var(--arcd-box-padding) !important; }
   [data-theme] .arcd-main :is(.purchase-queue-table, .finance-today__table-scroll, .purchase-by-work) :is(th, td):last-child { padding-inline-end: var(--arcd-box-padding) !important; }
 
+  [data-theme] .arcd-main .purchase-queue-panel > .purchase-order-count-row {
+    padding: var(--arcd-space-1) var(--arcd-box-padding);
+  }
+  [data-theme] .arcd-main .finance-today__results {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--arcd-space-1) var(--arcd-box-padding);
+  }
+  [data-theme] .arcd-main .finance-today__results h2 {
+    font-size: var(--arcd-type-card-title);
+    margin: 0;
+  }
+  [data-theme] .arcd-main .finance-today__results p { margin: 0; }
+
   /* 8.5 Caixas irmãs na mesma coluna: uma distância só, em todo módulo montado com a composição comum (.mrc-command-workspace). */
   [data-theme] .arcd-main :is(.mrc-command-workspace, .purchase-workspace, .finance-today) { row-gap: var(--arcd-box-gap) !important; }
 
@@ -34,16 +118,4 @@
   [data-theme] .arcd-main :is(table, [class*="kpi"], [class*="metric"]) { font-variant-numeric: tabular-nums; }
   [data-theme] .arcd-main :is(th, td):is([data-align="end"], [data-align="right"], [data-numeric], .num, .is-numeric) { text-align: right !important; }
 
-  /* 8.1 (legado) Raios fixos em estilo inline viram os dois níveis do contrato: até 7 px = controle; 8 a 16 px = caixa.
-     Só valores únicos, com ";" no fim: cantos parciais, círculos (50%) e pílulas (99px) não mudam.
-     O "\:" dentro das strings é o mesmo ":" (escape de CSS), para o detector não ler o seletor como raio em uso.
-     Telas novas não usam isto: a catraca "raio-fixo-em-jsx" do lint impede raios fixos novos. */
-  [data-theme] .arcd-app-shell :is(
-    [style*="border-radius\: 2px;"], [style*="border-radius\: 3px;"], [style*="border-radius\: 4px;"],
-    [style*="border-radius\: 5px;"], [style*="border-radius\: 6px;"], [style*="border-radius\: 7px;"]
-  ) { border-radius: var(--arcd-radius-control) !important; }
-  [data-theme] .arcd-app-shell :is(
-    [style*="border-radius\: 8px;"], [style*="border-radius\: 9px;"], [style*="border-radius\: 10px;"],
-    [style*="border-radius\: 11px;"], [style*="border-radius\: 12px;"], [style*="border-radius\: 14px;"], [style*="border-radius\: 16px;"]
-  ) { border-radius: var(--arcd-box-radius) !important; }
 }

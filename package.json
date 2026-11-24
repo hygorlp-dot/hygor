@@ -39,7 +39,7 @@
     "build:local": "node node_modules/vite/bin/vite.js build",
     "validate:local": "npm run lint && npm run architecture:check && npm run typecheck && npm run build:local",
     "lint": "node scripts/check-financial-boundaries.mjs && node scripts/check-undeclared-names.mjs && node scripts/check-ui-pitfalls.mjs && node scripts/check-ux-rules.mjs && npm run design:check && npm run manual:check",
-    "design:check": "node scripts/check-design-system.mjs",
+    "design:check": "node scripts/check-design-system.mjs && node scripts/check-submenus.mjs && node scripts/check-ui-contracts.mjs",
     "manual:generate": "node scripts/generate-app-manual.mjs",
     "manual:check": "node scripts/generate-app-manual.mjs --check",
     "test": "vitest run",

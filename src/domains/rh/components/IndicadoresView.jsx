@@ -59,13 +59,13 @@ function Indicadores({ data,currentUser }) {
         <MiniKpi label="Documentação vencida" value={compliance.withExpiredCount} cor={compliance.withExpiredCount ? C.red : C.green} sub={`de ${compliance.activeCount} ativos`} />
       </div>
 
-      <div style={{ background: "var(--arcd-surface-card)", border: "1px solid var(--arcd-border-default)", borderRadius: 8, padding: "var(--arcd-space-3)" }}>
+      <div style={{ background: "var(--arcd-surface-card)", border: "var(--arcd-border-width) solid var(--arcd-border-default)", borderRadius: "var(--arcd-box-radius)", padding: "var(--arcd-space-3)" }}>
         <p style={TYPO.eyebrow}>Documentos e certificações vencidos</p>
         {pendentes.length === 0 && <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", marginTop: "var(--arcd-space-2)" }}>Nenhum funcionário ativo com ASO ou treinamento (NR) vencido.</p>}
         {pendentes.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-1)", marginTop: "var(--arcd-space-2)" }}>
             {pendentes.map(({ employee, expired }) => (
-              <div key={employee.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--arcd-space-2)", padding: "var(--arcd-space-2) var(--arcd-space-0)", borderBottom: "1px solid var(--arcd-border-default)" }}>
+              <div key={employee.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--arcd-space-2)", padding: "var(--arcd-space-2) var(--arcd-space-0)", borderBottom: "var(--arcd-border-width) solid var(--arcd-border-default)" }}>
                 <span style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)" }}>{employee.name}</span>
                 <div style={{ display: "flex", gap: "var(--arcd-space-1)", flexWrap: "wrap", justifyContent: "flex-end" }}>
                   {expired.map(label => <Badge key={label} color={C.red}>{label}</Badge>)}

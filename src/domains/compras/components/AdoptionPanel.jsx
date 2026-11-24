@@ -35,7 +35,7 @@ export function AdoptionPanel({ model, nomeObra = id => id }) {
       <header><h4 id="adocao-semanas">Lançamentos por semana</h4>
         <p>Semanas de segunda a domingo; a última é a atual, até hoje.</p></header>
       <div ref={rolagem} className="purchase-table-scroll" tabIndex={0} role="region" aria-label="Lançamentos por semana: tabela">
-        <table className="purchase-adoption__table">
+        <table className="arcd-data-table__table purchase-adoption__table">
           <thead><tr><th scope="col">Etapa</th>
             {semanas.map((s, i) => <th key={s.inicio} scope="col" className="purchase-num" aria-label={`Semana de ${dataCurta(s.inicio)}`}>{i === ultima ? "Atual" : dataCurta(s.inicio)}</th>)}
             <th scope="col" className="purchase-num">Total</th></tr></thead>

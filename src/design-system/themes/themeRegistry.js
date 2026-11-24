@@ -10,7 +10,6 @@ export const DISTANCE_VIEW_COLORS = Object.freeze({
 // Themes change semantic roles. Components never need to know a theme's ID.
 const shared = Object.freeze({
   ...foundationTokens,
-  "--arcd-font-sans":"'Geist', 'Inter', 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif",
   "--arcd-nav-focus":"#235bb0",
   "--arcd-surface-card":"#ffffff", "--arcd-surface-elevated":"#ffffff",
   "--arcd-tv-canvas":"#101a28", "--arcd-tv-panel":"#1a2636", "--arcd-tv-border":"#405064",
@@ -138,7 +137,6 @@ export const themeRegistry = Object.freeze({
   marcell:theme("marcell","MARCELL Preciso","Menu azul-marinho, caixas de vidro sobre o emblema e ações em azul-marinho.",preciseTokens),
   plataforma:theme("plataforma","MARCELL Plataforma","Menu azul-ardósia, malha de projeto e caixas de vidro claro sobre a marca MARCELL.",{
     ...preciseTokens,
-    "--arcd-font-sans":"'Inter', 'Geist', 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif",
     "--arcd-page-padding":"var(--arcd-space-4)", "--arcd-page-padding-mobile":"var(--arcd-space-3)",
     "--arcd-surface-page":"#e5e9ee", "--arcd-surface-card":"rgb(248 250 252 / 86%)",
     "--arcd-surface-muted":"#e5eaf0", "--arcd-surface-subtle":"#eff2f6",

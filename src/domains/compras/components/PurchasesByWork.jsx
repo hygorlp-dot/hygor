@@ -38,11 +38,11 @@ export function PurchasesByWork({ model, onOpenWork, titulo = "Compras por obra"
       {totais.semControle > 0 && <span className="purchase-by-work__note">{totais.semControle} de {contar(totais.obras,"obra","obras")} sem orçamento de controle</span>}
     </header>
     <div className="purchase-table-scroll" tabIndex={0} role="region" aria-label={`${titulo}: tabela comparativa`}>
-      <table className="purchase-work-table">
+      <table className="arcd-data-table__table purchase-work-table">
         <caption className="purchase-sr-only">Orçado, comprometido, a receber, a pagar e prazos de compras em cada obra</caption>
         <thead><tr>
-          <th scope="col">Obra</th><th scope="col">Orçado</th><th scope="col">Comprometido</th>
-          <th scope="col">A receber</th><th scope="col">A pagar</th><th scope="col">Prazos</th><th scope="col"><span className="purchase-sr-only">Ação</span></th>
+          <th scope="col">Obra</th><th scope="col" data-align="end">Orçado</th><th scope="col" data-align="end">Comprometido</th>
+          <th scope="col" data-align="end">A receber</th><th scope="col" data-align="end">A pagar</th><th scope="col">Prazos</th><th scope="col"><span className="purchase-sr-only">Ação</span></th>
         </tr></thead>
         <tbody>{linhas.map(linha => {
           const prazo = resumoDePrazo(linha);
@@ -54,16 +54,16 @@ export function PurchasesByWork({ model, onOpenWork, titulo = "Compras por obra"
               {linha.estouradas === 0 && linha.atencaoOrcamento > 0 && <span className="purchase-chip" data-tone="warning">{linha.atencaoOrcamento} etapa{linha.atencaoOrcamento > 1 ? "s" : ""} perto do limite</span>}
               {semControle && <span className="purchase-chip" data-tone="neutral" title={semControle.dica}>{semControle.label}</span>}
             </td>
-            <td data-label="Orçado" className="purchase-num">{linha.temControle ? <span title={moedaExata(linha.orcado)}>{moeda(linha.orcado)}</span> : <span aria-label="sem orçamento de controle">—</span>}</td>
-            <td data-label="Comprometido" className="purchase-num">
+            <td data-label="Orçado" data-align="end" className="purchase-num">{linha.temControle ? <span title={moedaExata(linha.orcado)}>{moeda(linha.orcado)}</span> : <span aria-label="sem orçamento de controle">—</span>}</td>
+            <td data-label="Comprometido" data-align="end" className="purchase-num">
               <span title={moedaExata(linha.comprometido)}>{moeda(linha.comprometido)}</span>
               {linha.pctOrcado != null && <>
                 <span className="purchase-work-bar" data-tone={tom} role="img" aria-label={`${percentual(linha.pctOrcado)} do orçamento comprometido`}>
                   <i style={{ width: `${Math.min(100, linha.pctOrcado)}%` }} /></span>
                 <small data-tone={tom}>{linha.pctOrcado > 100 ? "▲ " : ""}{percentual(linha.pctOrcado)} do orçado</small></>}
             </td>
-            <td data-label="A receber" className="purchase-num"><span title={moedaExata(linha.aReceber)}>{moeda(linha.aReceber)}</span></td>
-            <td data-label="A pagar" className="purchase-num"><span title={moedaExata(linha.aPagar)}>{moeda(linha.aPagar)}</span></td>
+            <td data-label="A receber" data-align="end" className="purchase-num"><span title={moedaExata(linha.aReceber)}>{moeda(linha.aReceber)}</span></td>
+            <td data-label="A pagar" data-align="end" className="purchase-num"><span title={moedaExata(linha.aPagar)}>{moeda(linha.aPagar)}</span></td>
             <td data-label="Prazos"><span className="purchase-chip" data-tone={prazo.tom}>{prazo.texto}</span>
               {linha.andamento > 0 && <small>{linha.andamento} em andamento</small>}</td>
             <td className="purchase-work-action"><Button variant="secondary" size="sm" onClick={() => onOpenWork(linha.obraId)} aria-label={`Abrir compras de ${linha.obra}`}>Abrir<ArrowRight size={14} aria-hidden="true" /></Button></td>

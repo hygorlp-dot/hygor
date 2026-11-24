@@ -18,3 +18,19 @@ it('seletor de arquivos mantém disabled, múltiplos, câmera e os eventos nativ
  const el=document.createElement('div'),root=createRoot(el);let files,clicks=0;document.body.append(el);
  try{const render=disabled=>act(()=>root.render(<FilePicker disabled={disabled} multiple accept=".pdf" inputProps={{capture:'environment',onClick:()=>clicks++}} onChange={e=>files=e.target.files} buttonLabel="Selecionar comprovantes"/>));render(true);expect(el.querySelector('button').disabled).toBe(true);expect(el.querySelector('input').disabled).toBe(true);render(false);const input=el.querySelector('input');expect(input.multiple).toBe(true);expect(input.accept).toBe('.pdf');expect(input.getAttribute('capture')).toBe('environment');act(()=>el.querySelector('button').click());expect(clicks).toBe(1);const chosen=[new File(['teste'],'comprovante.pdf',{type:'application/pdf'})];Object.defineProperty(input,'files',{value:chosen});act(()=>input.dispatchEvent(new Event('change',{bubbles:true})));expect(files).toBe(chosen);}finally{act(()=>root.unmount());el.remove();}
 });
+
+it('aplica o layout de linha sem alterar a ação, o foco ou o tipo do botão',()=>{
+ const el=document.createElement('div'),root=createRoot(el),ref=createRef();
+ let opened=0;
+ document.body.append(el);
+ try{
+  act(()=>root.render(<RecordAction ref={ref} layout="row" aria-expanded={false} onClick={()=>opened++}>Abrir referência</RecordAction>));
+  expect(ref.current.dataset.recordLayout).toBe('row');
+  expect(ref.current.type).toBe('button');
+  expect(ref.current.getAttribute('aria-expanded')).toBe('false');
+  ref.current.focus();
+  expect(document.activeElement).toBe(ref.current);
+  act(()=>ref.current.click());
+  expect(opened).toBe(1);
+ }finally{act(()=>root.unmount());el.remove();}
+});

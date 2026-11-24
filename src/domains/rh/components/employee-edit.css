@@ -1,11 +1,11 @@
 .employee-edit-modal{display:flex;flex-direction:column;overflow:hidden!important}
 .employee-edit-modal>.arcd-modal-header,.employee-edit-modal>.arcd-modal-notice,.employee-edit-modal>.arcd-modal-footer{flex:0 0 auto}
 .employee-edit-modal>.arcd-modal-body{min-height:0;flex:1 1 auto;overflow-y:auto;overscroll-behavior:contain}
-.employee-edit-modal>.arcd-modal-footer{padding:var(--arcd-space-3) var(--arcd-space-3) calc(var(--arcd-space-3) + env(safe-area-inset-bottom));border-top:1px solid var(--arcd-border,#d5dce4);background:var(--arcd-surface-card,#fff)}
+.employee-edit-modal>.arcd-modal-footer{padding:var(--arcd-space-3) var(--arcd-space-3) calc(var(--arcd-space-3) + env(safe-area-inset-bottom));border-top:var(--arcd-border-width) solid var(--arcd-border-default);background:var(--arcd-surface-card)}
 .employee-edit-actions{display:flex;gap:var(--arcd-space-2)}.employee-edit-actions>button{flex:1;min-height:40px}
 .employee-edit-feedback{margin:0 0 var(--arcd-space-2);font-size:13px;line-height:1.4;overflow-wrap:anywhere}
 .employee-edit-feedback:empty{display:none}
-.employee-edit-hint{margin:0;color:var(--arcd-text-muted,#536171);font-size:12px;line-height:1.5}
+.employee-edit-hint{margin:0;color:var(--arcd-text-muted);font-size:12px;line-height:1.5}
 
-.employee-employment{border-bottom:1px solid var(--arcd-border-default);padding-bottom:var(--arcd-space-4);margin-bottom:var(--arcd-space-4)}
+.employee-employment{border-bottom:var(--arcd-border-width) solid var(--arcd-border-default);padding-bottom:var(--arcd-space-4);margin-bottom:var(--arcd-space-4)}
 .employee-employment header,.employee-employment__actions{display:flex;align-items:center;flex-wrap:wrap;gap:var(--arcd-space-3)}.employee-employment header{justify-content:space-between}.employee-employment h3{margin:0;font-size:var(--arcd-type-section-title)}.employee-employment dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,14rem),1fr));gap:var(--arcd-space-3);margin:var(--arcd-space-3) 0}.employee-employment dt{font-size:var(--arcd-type-caption);color:var(--arcd-text-secondary)}.employee-employment dd{margin:var(--arcd-space-1) 0 0;overflow-wrap:anywhere}.employee-employment p{margin:var(--arcd-space-3) 0;overflow-wrap:anywhere}
