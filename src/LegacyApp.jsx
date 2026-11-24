@@ -9654,7 +9654,6 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
     return update(recomporDadosDaObra(data,proximos,obraId));
   },[data,obraId,update]);
   const [abaConteudo,setAbaConteudo]=useWorkspaceState("obras","area","geral",obraId);
-  useHelpTopic('obras',WORK_HELP[abaConteudo]||abaConteudo);
   const [terceiroAlvo,setTerceiroAlvo]=useState(null); // contrato a abrir em Terceiros (vindo da aba Medição)
   const [grupoMenuObra,setGrupoMenuObra]=useWorkspaceState("obras","group","geral",obraId);
 
@@ -9724,6 +9723,9 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
   // Secoes abertas do acordeao. Financeiro e Equipe comecam abertos - sao o
   // que se olha primeiro ao abrir uma obra.
   const [secaoVisaoGeral, setSecaoVisaoGeral] = useWorkspaceState("obras", "overview-section", "resumo", obraId);
+  const orcamentoNaVisaoGeral = abaConteudo === "geral" && secaoVisaoGeral === "orcamento";
+  const exibindoOrcamento = abaConteudo === "orc" || orcamentoNaVisaoGeral;
+  useHelpTopic('obras', exibindoOrcamento ? "orc" : WORK_HELP[abaConteudo] || abaConteudo);
   const faixaVisaoGeral = useRef(null);
   useLayoutEffect(() => {
     const faixa = faixaVisaoGeral.current;
@@ -10223,7 +10225,15 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
     </div>
   );
 
-  const resumoAcoesObra = (abaConteudo!=="geral" || obra.capaUrl)&&<details className="work-detail-summary" data-overview={abaConteudo==="geral"} open={abaConteudo==="geral"}><summary>Resumo e ações da obra</summary>
+  const painelOrcamento = exibindoOrcamento && (
+    <Suspense fallback={<LoadingState label="orçamento"/>}>
+      <Orcamento key={obraId} data={dadosObra} update={atualizarDadosObra} showToast={showToast}
+        obraIdFixo={obraId} currentUser={currentUser} todasObras={data.obras}
+        todosOrcamentosGlobais={data.orcamentos} todosPlanosGlobais={data.planos}/>
+    </Suspense>
+  );
+  const mostraResumoAberto = abaConteudo === "geral" && !orcamentoNaVisaoGeral;
+  const resumoAcoesObra = (abaConteudo!=="geral" || obra.capaUrl)&&<details className="work-detail-summary" data-overview={mostraResumoAberto} open={mostraResumoAberto}><summary>Resumo e ações da obra</summary>
         {abaConteudo!=="geral"&&<div className="work-detail-summary__actions"><Btn v="ghost" onClick={()=>inputCapaRef.current?.click()} disabled={enviandoCapa}>{enviandoCapa?"Enviando...":obra.capaUrl?"Alterar imagem":"Adicionar imagem"}</Btn><Btn onClick={onEditarObra}><Ic n="edit" s={14}/> Editar obra</Btn></div>}
         {obra.capaUrl&&<img className="work-detail-image" src={obra.capaUrl} alt={`Imagem de ${obra.name}`}/>}
 </details>;
@@ -10231,7 +10241,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
   return (
     <div className="anim work-detail-workspace" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
       <div className="work-detail-context">
-        {abaConteudo === "orc" ? <div className="work-detail-budget-context">
+        {exibindoOrcamento ? <div className="work-detail-budget-context">
           <Btn v="ghost" onClick={onVoltar}>Todas as obras</Btn>
           {resumoAcoesObra}
         </div> : <Btn v="ghost" onClick={onVoltar}>Todas as obras</Btn>}
@@ -10243,7 +10253,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         </PageHeader>
         <input ref={inputCapaRef} type="file" accept="image/*" style={{display:"none"}}
           onChange={event=>{const file=event.target.files?.[0];if(file)enviarCapa(file);event.target.value="";}}/>
-        {abaConteudo !== "orc" && resumoAcoesObra}
+        {!exibindoOrcamento && resumoAcoesObra}
 
       {/* Navegação compacta em dois níveis. O primeiro nível acompanha a
           largura da tela; o segundo mostra apenas os módulos do grupo ativo. */}
@@ -10568,20 +10578,9 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         <Par l="Terceirizados" v={`${resumo.terceiros}`}/>
       </>, "ponto")}
 
-      {renderSecao("orcamento", <>
-        {resumo.orc ? (<>
-          <Par l="Custo orçado" v={fmt(resumo.orcTotal)}/>
-          <Par l="Já comprado" v={fmt(resumo.cmp.comprado)} c={C.blue}/>
-          <Par l="Saldo" v={fmt(resumo.orcTotal - resumo.cmp.comprado)}
-               c={resumo.cmp.comprado > resumo.orcTotal ? C.red : C.green}/>
-          {barra(resumo.orcTotal ? (resumo.cmp.comprado/resumo.orcTotal)*100 : 0,
-                 resumo.cmp.comprado > resumo.orcTotal ? C.red : C.yellow)}
-        </>) : (
-          <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)"}}>
-            Sem orçamento vinculado a esta obra.
-          </p>
-        )}
-      </>, "orc")}
+      <TabsContent value="orcamento" className="work-overview-section">
+        {painelOrcamento}
+      </TabsContent>
 
       {renderSecao("compras", <>
         <Par l="Comprado" v={fmt(resumo.cmp.comprado)}/>
@@ -10608,7 +10607,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         {atualizacoesObra.length===0?<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhuma atualização registrada ainda.</p>:<div style={{display:"flex",flexDirection:"column"}}>{atualizacoesObra.map((e,i)=>{const d=new Date(e.at);const hora=d.getHours()===0&&d.getMinutes()===0?"":d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});const cor=e.tipo==="removeu"?C.red:e.tipo==="criou"?C.green:e.tipo==="operacao"?C.orange:C.blue;return <div key={e.id} style={{display:"grid",gridTemplateColumns:"34px minmax(0,1fr) auto",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-0)",borderTop:i?"var(--arcd-border-width) solid var(--arcd-border-default)":"none",alignItems:"start"}}><span style={{width:30,height:30,borderRadius:"var(--arcd-radius-pill)",display:"grid",placeItems:"center",background:`${cor}12`,color:cor,fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{String(e.responsavel||"S").split(/\s+/).slice(0,2).map(n=>n[0]).join("").toUpperCase()}</span><div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",lineHeight:"var(--arcd-line-height-normal)"}}>{e.texto}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Responsável: <strong style={{color:"var(--arcd-text-primary)"}}>{e.responsavel}</strong></p></div><div style={{textAlign:"right",whiteSpace:"nowrap"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{d.toLocaleDateString("pt-BR")}</p>{hora&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{hora}</p>}{e.valor>0&&<p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-success-text)",marginTop:"var(--arcd-space-half)"}}>{fmt(e.valor)}</p>}</div></div>;})}</div>}
       </>)}
       </Tabs>:<div style={{paddingTop:"var(--arcd-space-1)"}}>
-        {abaConteudo==="orc"&&<Suspense fallback={<LoadingState label="orçamento"/>}><Orcamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} todasObras={data.obras} todosOrcamentosGlobais={data.orcamentos} todosPlanosGlobais={data.planos}/></Suspense>}
+        {abaConteudo==="orc"&&painelOrcamento}
         {abaConteudo==="plan"&&<Suspense fallback={<LoadingState label="planejamento"/>}><Planejamento data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand}/></Suspense>}
         {abaConteudo==="rdo"&&<Suspense fallback={<LoadingState label="diário de obra"/>}><DiarioObra data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/></Suspense>}
         {abaConteudo==="qualidade"&&<Qualidade data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/>}

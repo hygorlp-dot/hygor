@@ -154,8 +154,10 @@ async function openWorkBudget(page) {
   const main = page.getByRole('main');
   await main.getByRole('article').filter({ hasText: 'Residencial Alameda' })
     .getByRole('button', { name: /^Abrir obra/ }).click();
-  if (mobile) await main.getByRole('combobox', { name: 'Telas da obra' }).selectOption('orc');
-  else await main.getByRole('button', { name: 'Obra', exact: true }).click();
+  const budgetTab = main.getByRole('tablist', { name: 'Informações da obra' })
+    .getByRole('tab', { name: 'Orçamento', exact: true });
+  await budgetTab.click();
+  await expect(budgetTab).toHaveAttribute('aria-selected', 'true');
   return main;
 }
 

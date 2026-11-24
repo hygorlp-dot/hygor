@@ -393,7 +393,8 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   // Abrir uma versão é navegação. A aprovação é um comando separado.
   const versoesDaObra = obraIdFixo ? (data.orcamentos || []).filter(budget => budget.obraId === obraIdFixo) : [];
   const versaoUnica = versoesDaObra.length === 1 ? versoesDaObra[0] : null;
-  const [view, setView] = useSessionState("view", versaoUnica ? "editor" : "lista");
+  // Keep the automatic choice separate from an explicit return to the list.
+  const [viewChoice, setView] = useSessionState("view", obraIdFixo ? null : "lista");
   const [buscaPlanilha, setBuscaPlanilha] = useState({ budgetId: null, texto: "" });
   const [orcAba,    setOrcAba]    = useSessionState("orcAba","orcamento"); // orçamento | insumos | próprias | memoria
   const [disciplinaMemoria,setDisciplinaMemoria]=useSessionState("disciplinaMemoria","estrutural"); // estrutural (única disciplina por enquanto)
@@ -429,7 +430,10 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     nos.forEach(([,no])=>observador.observe(no));
     return () => observador.disconnect();
   }, [orcAba, disciplinaMemoria]);
-  const [selOrc,    setSelOrc]    = useSessionState("selOrc",()=>obraIdFixo ? versaoUnica?.id ?? null : getActiveBudgetBaseline(data,obraContextoSalvo(),"controle").budget?.id || null);      // id do orçamento aberto
+  const [selectedBudgetId, setSelOrc] = useSessionState("selOrc", () =>
+    obraIdFixo ? null : getActiveBudgetBaseline(data,obraContextoSalvo(),"controle").budget?.id || null);
+  const selOrc = viewChoice === null ? versaoUnica?.id ?? null : selectedBudgetId;
+  const view = viewChoice ?? (selOrc ? "editor" : "lista");
   useRememberWorkflowScope(obraIdFixo?"obras":"orc",{obraId:obraIdFixo||(data.orcamentos||[]).find(b=>b.id===selOrc)?.obraId||""});
   useEffect(()=>{
     if(obraIdFixo||intent?.tabId!=="orc"||intent.action==="resume"||!intent.scope?.obraId)return;
@@ -3479,7 +3483,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
   };
 
   //  VIEW: LISTA
-  if (view === "lista") {
+  if (view === "lista" || !orc || !calc) {
     return (
       <div className="anim budget-workspace" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
         <PageHeader headingLevel={obraIdFixo?2:1} className="workspace-header"
@@ -3699,9 +3703,6 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
       </div>
     );
   }
-
-  //  VIEW: EDITOR
-  if (!orc || !calc) { setView("lista"); return null; }
 
   // Menu "⋯" de uma linha, etapa ou do orçamento. Função comum (não componente)
   // pelo mesmo motivo de renderEtapa: identidade estável entre renders. O menu

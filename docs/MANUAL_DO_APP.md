@@ -1,6 +1,6 @@
 # Manual de uso do app MARCELL
 
-Revisão do conteúdo: 23/11/2026.
+Revisão do conteúdo: 24/11/2026.
 
 Este guia explica o uso das telas em linguagem simples. No aplicativo, clique em **Ajuda**, no cabeçalho, para ler o fluxo da página aberta. Em **Manual completo**, pesquise uma tarefa ou tela. As áreas exibidas no aplicativo respeitam seu perfil de acesso.
 
@@ -699,7 +699,7 @@ Selecione a obra e confira a versão do orçamento.
 
 ### Como fazer
 
-1. Em Obras, abra a obra e escolha Orçamento. Com uma única versão, a planilha abre diretamente. Com várias versões, escolha a desejada na lista. Use Orçamentos para voltar à lista ou Novo orçamento para cadastrar. Ao vincular uma obra no novo orçamento, Cliente, Local / Endereço e Área construída são preenchidos a partir dessa obra. Confira os valores; suas edições são preservadas ao trocar a obra. Guia do orçamento explica os recursos desta tela.
+1. Em Obras, abra a obra e escolha Orçamento na faixa Informações da obra. Uma única versão vinculada abre diretamente, inclusive em rascunho. Com várias versões, escolha a desejada na lista. Abrir uma versão permite consultá-la. A aprovação para uso no controle da obra é uma ação separada. Use Orçamentos para voltar à lista ou Novo orçamento para cadastrar. Ao vincular uma obra no novo orçamento, Cliente, Local / Endereço e Área construída são preenchidos a partir dessa obra. Confira os valores; suas edições são preservadas ao trocar a obra. Guia do orçamento explica os recursos desta tela.
 2. Na barra da planilha da obra, use Buscar itens por código ou descrição para localizar itens já orçados. A busca mostra os itens e suas etapas, mantendo os totais do orçamento completo. Apague a busca para voltar à planilha inteira.
 3. Cadastre até seis níveis de etapas e confira os serviços. Cada etapa mostra quantos subníveis e itens tem e quanto representa do total do orçamento.
 4. Para incluir um serviço, use + Adicionar item na barra da planilha e escolha a Etapa que recebe o item, ou use Mais ações da etapa → Adicionar item, que já traz a etapa escolhida.
