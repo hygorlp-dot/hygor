@@ -16,7 +16,7 @@ describe("enquadramento das datas do cronograma", () => {
   });
 
   it("mantém os campos dentro da coluna com foco e toque acessíveis", () => {
-    expect(css).toMatch(/\.planning-gantt-date-cell\s*\{[\s\S]*?padding:\s*4px 6px;/);
+    expect(css).toMatch(/\.planning-gantt-date-cell\s*\{[^}]*padding:\s*var\(--arcd-space-1\) var\(--arcd-space-1\);/);
     expect(css).toMatch(/\.arcd-main \.planning-inline-date\s*\{[\s\S]*?box-sizing:\s*border-box;/);
     expect(css).toMatch(/\.arcd-main \.planning-inline-date\s*\{[\s\S]*?min-height:\s*30px !important;/);
     expect(css).toMatch(/@media\s*\(max-width:\s*700px\)[\s\S]*?\.arcd-main \.planning-inline-date\s*\{[\s\S]*?min-height:\s*44px !important;/);
