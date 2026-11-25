@@ -63,6 +63,7 @@ import { TaskDisclosure } from "../../../design-system/patterns/TaskDisclosure.j
 import { LoadingState, Badge, Btn, Ic, Inp, Modal, Sel } from "../../../legacy/ui.jsx";
 import { C } from "../../../legacy/palette.js";
 import { XLSX, carregarXLSX } from "../../../legacy/files.js";
+import { budgetOwnCompositionRows } from "../budget-own-compositions-export.js";
 import { jsonDaRespostaIA } from "../../../features/financeiro/LegacyDocumentTools.jsx";
 import { obraContextoSalvo, maiusculoOrcamento, proximoCodigoArcd, escapeHtml, fmt, today, uid } from "../../../legacy/format.js";
 import { ETAPAS_PADRAO, MAX_NIVEL, CLASSE_ABC, calcControleCustosOrcamento } from "../legacy-reference.js";
@@ -396,6 +397,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   // Keep the automatic choice separate from an explicit return to the list.
   const [viewChoice, setView] = useSessionState("view", obraIdFixo ? null : "lista");
   const [buscaPlanilha, setBuscaPlanilha] = useState({ budgetId: null, texto: "" });
+  const [exportandoComposicoes, setExportandoComposicoes] = useState(false);
   const [orcAba,    setOrcAba]    = useSessionState("orcAba","orcamento"); // orçamento | insumos | próprias | memoria
   const [disciplinaMemoria,setDisciplinaMemoria]=useSessionState("disciplinaMemoria","estrutural"); // estrutural (única disciplina por enquanto)
   // Memória de Cálculo Navegável (28/08/2026, pedido detalhado do usuário):
@@ -2815,6 +2817,36 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     XLSX.utils.book_append_sheet(wb,wsComp,"Composições");
   };
 
+  const composicoesParaExportar = orcAba === "proprias" && calc
+    ? budgetOwnCompositionRows(orc, new Map(achatarArvore(calc.arvore).map(row => [row.id, row.codigoItem])), normalizarCodigoRef)
+    : null;
+
+  const exportarComposicoesDoOrcamento = async () => {
+    if (!composicoesParaExportar?.compositions.length || exportandoComposicoes) return;
+    setExportandoComposicoes(true);
+    try {
+      await carregarXLSX();
+      const workbook = XLSX.utils.book_new();
+      const sheets = [
+        ["Composições", ["Item", "Código", "Descrição", "Unidade", "Quantidade", "Custo unitário sem BDI", "Origem do detalhamento", "Memória de preços"],
+          composicoesParaExportar.compositions, [12, 27, 55, 10, 14, 23, 28, 50]],
+        ["Componentes", ["Item", "Código da composição", "Tipo", "Fonte", "Código do componente", "Descrição", "Unidade", "Coeficiente", "Custo unitário do componente"],
+          composicoesParaExportar.components, [12, 27, 16, 13, 24, 55, 10, 14, 29]],
+      ];
+      for (const [name, headers, rows, widths] of sheets) {
+        const sheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+        sheet["!cols"] = widths.map(wch => ({ wch }));
+        XLSX.utils.book_append_sheet(workbook, sheet, name);
+      }
+      const nome = orc.nome.replace(/[^\p{L}\p{N} _-]/gu, "-").trim().slice(0, 80);
+      await XLSX.writeFile(workbook, `Composições - ${nome || "Orçamento"} - V${orc.versionNumber || 1}.xlsx`);
+    } catch {
+      showToast("Não foi possível exportar as composições. Tente novamente.", "error");
+    } finally {
+      setExportandoComposicoes(false);
+    }
+  };
+
   const formatarColunasOrcamento = (ws, aoa, cabecalhoIdx) => {
     for (let r=cabecalhoIdx+1;r<aoa.length;r++) {
       [[6,"#,##0.00"],[7,"R$ #,##0.00"],[8,"0.00%"],[9,"R$ #,##0.00"],[10,"R$ #,##0.00"]].forEach(([c,z])=>{
@@ -5148,7 +5180,15 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
         </div>
       )}
 
-      {orcAba==="proprias" && (
+      {orcAba==="proprias" && <>
+        <PageHeader section headingLevel={3} title="Exportar composições do orçamento"
+          description={composicoesParaExportar?.compositions.length
+            ? contar(composicoesParaExportar.compositions.length, "item com composição própria nesta versão", "itens com composição própria nesta versão")
+            : "Esta versão não tem itens com composição própria."}
+          primaryAction={<StandardButton variant="secondary" loading={exportandoComposicoes}
+            disabled={!composicoesParaExportar?.compositions.length} onClick={exportarComposicoesDoOrcamento}>
+            <Ic n="download"/> Exportar em Excel
+          </StandardButton>}/>
         <div style={{display:"grid",gridTemplateColumns:cols("1fr","1fr","300px minmax(0,1fr)"),gap:"var(--arcd-space-2)",alignItems:"start"}}>
           <div style={{background:"var(--arcd-surface-page)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2)"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-1)",marginBottom:"var(--arcd-space-2)"}}>
@@ -5221,7 +5261,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             <div style={{display:"flex",gap:"var(--arcd-space-2)",justifyContent:"flex-end"}}><Btn v="ghost" onClick={()=>novaComposicao()}>LIMPAR</Btn><Btn onClick={salvarComposicaoPropria}><Ic n="check"/> SALVAR COMPOSIÇÃO</Btn></div>
           </div>
         </div>
-      )}
+      </>}
 
           {addFloorOpen && <Modal title="Adicionar pavimento" onClose={()=>setAddFloorOpen(false)}>
             <AddFloorForm budget={orc} onCancel={()=>setAddFloorOpen(false)} onCreate={form=>{
