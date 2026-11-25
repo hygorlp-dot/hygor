@@ -1,5 +1,6 @@
 import {confirmReportIdentity} from './report-identity-helper.js';
 import { expect, test } from "@playwright/test";
+import ExcelJS from "exceljs";
 
 // Ações críticas que quebraram em produção em 29-30/09/2026 SEM derrubar a
 // tela - o smoke de módulos (que só abre cada tela) não as via:
@@ -31,10 +32,12 @@ const estado = () => ({
     updatedAt:"2026-09-29T12:00:00.000Z", etapas:ETAPAS,
     itens:[
       item("i1","et-canteiro","98459","TAPUME COM TELHA METÁLICA",20,102.87),
-      item("i2","et-pil1","92762","ARMAÇÃO DE PILAR",100,13.25),
+      { ...item("i2","et-pil1","FABEJA-ADM-ESTAGIO-ENG-CIVIL","ESTÁGIO SUPERVISIONADO EM ENGENHARIA CIVIL — APOIO À OBRA, 30 H SEMANAIS",100,13.25),
+        fonte:"PRÓPRIA", composicao:JSON.stringify([{codigo:"00012",descricao:"Insumo congelado",coeficiente:0.5,precoUnit:26.5}]) },
       item("i3","et-pilcob","92762","ARMAÇÃO DE PILAR",80,13.25),
     ],
   }],
+  composicoesEmpresa:[{id:"somente-catalogo",codigo:"SO-CATALOGO",descricao:"Composição fora do orçamento",unidade:"UN",itens:[]}],
   budgetBaselines:[],
   planos:[{
     id:"plano-qa", obraId:"obra-qa", budgetId:"orc-qa", inicio:"2026-09-29", diasSemana:[1,2,3,4,5], pularFeriados:true, feriados:[], marcos:[],
@@ -94,8 +97,11 @@ async function abrirOrcamento(page) {
     await page.getByRole("button", { name:"Obra", exact:true }).click();
     await page.locator(".tab-row__tab").filter({ hasText:/^Orçamento$/ }).click();
   }
-  await page.getByRole("button", { name:"Abrir", exact:true }).first().click();
-  await expect(page.getByText("ORÇAMENTO V1").first()).toBeVisible();
+  const open = page.getByRole("button", { name:"Abrir", exact:true }).first();
+  const sheet = page.getByRole("toolbar", { name:"Ações da planilha" });
+  await expect(open.or(sheet).first()).toBeVisible();
+  if (await open.isVisible()) await open.click();
+  await expect(sheet).toBeVisible();
 }
 
 // Conteúdo que o app escreveu na janela de exportação.
@@ -131,6 +137,83 @@ test.describe("ações críticas", () => {
     expect(html).toContain("Construtora Cliente QA"); // cliente vindo da obra
     expect(html).not.toMatch(/\/m<\/td>/);
     await expect(janela.getByRole("button", { name:"Imprimir / salvar PDF" })).toBeVisible();
+
+    await janela.setViewportSize({ width:718, height:1000 });
+    await janela.emulateMedia({ media:"print" });
+    const longCode = janela.getByRole("cell", { name:"FABEJA-ADM-ESTAGIO-ENG-CIVIL", exact:true });
+    await expect(longCode).toBeVisible();
+    const widths = await longCode.evaluate(cell => {
+      const row = cell.parentElement;
+      const code = cell.getBoundingClientRect();
+      const description = row.cells[3].getBoundingClientRect();
+      return {
+        codeShare: code.width / row.getBoundingClientRect().width,
+        descriptionShare: description.width / row.getBoundingClientRect().width,
+        overflow: cell.scrollWidth - cell.clientWidth,
+      };
+    });
+    expect(widths.codeShare).toBeLessThan(0.14);
+    expect(widths.descriptionShare).toBeGreaterThan(0.35);
+    expect(widths.overflow).toBeLessThanOrEqual(1);
+  });
+
+  test("exporta somente as composições próprias do orçamento aberto", async ({ page }) => {
+    await abrirOrcamento(page);
+    await page.getByRole("button", { name:"Composições próprias", exact:true }).click();
+    await expect(page.getByRole("heading", { name:"Exportar composições do orçamento" })).toBeVisible();
+    const pending = page.waitForEvent("download");
+    await page.getByRole("button", { name:"Exportar em Excel", exact:true }).click();
+    const download = await pending;
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(await download.path());
+    expect(download.suggestedFilename()).toContain("V1.xlsx");
+    const compositions = workbook.getWorksheet("Composições");
+    expect(compositions.rowCount).toBe(2);
+    expect(compositions.getCell("B2").value).toBe("FABEJA-ADM-ESTAGIO-ENG-CIVIL");
+    expect(compositions.getCell("F2").value).toBe(13.25);
+    const components = workbook.getWorksheet("Componentes");
+    expect(components.rowCount).toBe(2);
+    expect(components.getCell("E2").value).toBe("00012");
+    expect(components.getCell("H2").value).toBe(0.5);
+  });
+
+  test("PDF exporta somente as composições próprias da versão aberta", async ({ page }, testInfo) => {
+    await abrirOrcamento(page);
+    await page.getByRole("button", { name:"Composições próprias", exact:true }).click();
+    const section = page.locator("header").filter({ has:page.getByRole("heading", { name:"Exportar composições do orçamento" }) });
+    const excel = section.getByRole("button", { name:"Exportar em Excel", exact:true });
+    const pdf = section.getByRole("button", { name:"Exportar em PDF", exact:true });
+    for (const theme of ["marcell", "noite", "plataforma"]) {
+      await page.setViewportSize({ width:1440, height:900 });
+      await page.getByRole("button", { name:"Alterar aparência" }).click();
+      await page.getByRole("combobox", { name:"Tema", exact:true }).selectOption(theme);
+      await page.keyboard.press("Escape");
+      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      await expect(excel).toBeVisible();
+      await expect(pdf).toBeEnabled();
+      await section.screenshot({ path:testInfo.outputPath(`exportacao-${theme}-desktop.png`) });
+      await page.setViewportSize({ width:390, height:844 });
+      await expect(excel).toBeVisible();
+      await expect(pdf).toBeVisible();
+      await section.screenshot({ path:testInfo.outputPath(`exportacao-${theme}-celular.png`) });
+    }
+    const preview = await conteudoDaJanela(page, () => pdf.click());
+    await expect(preview).toHaveTitle(/Composições próprias.*ORÇAMENTO V1 · V1/);
+    await expect(preview.getByText("1 item com composição própria nesta versão")).toBeVisible();
+    const compositions = preview.getByRole("table", { name:"Composições", exact:true });
+    await expect(compositions.locator("tbody tr")).toHaveCount(1);
+    const code = compositions.getByRole("cell", { name:"FABEJA-ADM-ESTAGIO-ENG-CIVIL", exact:true });
+    await expect(code).toHaveCount(1);
+    const components = preview.getByRole("table", { name:"Componentes", exact:true });
+    await expect(components.locator("tbody tr")).toHaveCount(1);
+    await expect(components.getByRole("cell", { name:"00012", exact:true })).toHaveCount(1);
+    await expect(preview.getByText("SO-CATALOGO", { exact:true })).toHaveCount(0);
+    await expect(preview.getByText("98459", { exact:true })).toHaveCount(0);
+    await expect(preview.getByRole("button", { name:"Imprimir / salvar PDF", exact:true })).toBeVisible();
+    await preview.setViewportSize({ width:1045, height:730 });
+    await preview.emulateMedia({ media:"print" });
+    expect(await code.evaluate(cell => cell.scrollWidth - cell.clientWidth)).toBeLessThanOrEqual(1);
+    await preview.pdf({ path:testInfo.outputPath("composicoes-proprias.pdf"), preferCSSPageSize:true, printBackground:true });
   });
 
   test("aprovar e adotar baseline aprova o orçamento aberto", async ({ page }) => {

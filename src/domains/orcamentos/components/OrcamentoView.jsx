@@ -63,7 +63,7 @@ import { TaskDisclosure } from "../../../design-system/patterns/TaskDisclosure.j
 import { LoadingState, Badge, Btn, Ic, Inp, Modal, Sel } from "../../../legacy/ui.jsx";
 import { C } from "../../../legacy/palette.js";
 import { XLSX, carregarXLSX } from "../../../legacy/files.js";
-import { budgetOwnCompositionRows } from "../budget-own-compositions-export.js";
+import { budgetOwnCompositionPrintHtml, budgetOwnCompositionRows, budgetOwnCompositionSheets } from "../budget-own-compositions-export.js";
 import { jsonDaRespostaIA } from "../../../features/financeiro/LegacyDocumentTools.jsx";
 import { obraContextoSalvo, maiusculoOrcamento, proximoCodigoArcd, escapeHtml, fmt, today, uid } from "../../../legacy/format.js";
 import { ETAPAS_PADRAO, MAX_NIVEL, CLASSE_ABC, calcControleCustosOrcamento } from "../legacy-reference.js";
@@ -2820,20 +2820,18 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const composicoesParaExportar = orcAba === "proprias" && calc
     ? budgetOwnCompositionRows(orc, new Map(achatarArvore(calc.arvore).map(row => [row.id, row.codigoItem])), normalizarCodigoRef)
     : null;
+  const quantidadeComposicoes = composicoesParaExportar?.compositions.length || 0;
+  const resumoComposicoes = quantidadeComposicoes
+    ? contar(quantidadeComposicoes, "item com composição própria nesta versão", "itens com composição própria nesta versão")
+    : "Esta versão não tem itens com composição própria.";
 
   const exportarComposicoesDoOrcamento = async () => {
-    if (!composicoesParaExportar?.compositions.length || exportandoComposicoes) return;
+    if (!quantidadeComposicoes || exportandoComposicoes) return;
     setExportandoComposicoes(true);
     try {
       await carregarXLSX();
       const workbook = XLSX.utils.book_new();
-      const sheets = [
-        ["Composições", ["Item", "Código", "Descrição", "Unidade", "Quantidade", "Custo unitário sem BDI", "Origem do detalhamento", "Memória de preços"],
-          composicoesParaExportar.compositions, [12, 27, 55, 10, 14, 23, 28, 50]],
-        ["Componentes", ["Item", "Código da composição", "Tipo", "Fonte", "Código do componente", "Descrição", "Unidade", "Coeficiente", "Custo unitário do componente"],
-          composicoesParaExportar.components, [12, 27, 16, 13, 24, 55, 10, 14, 29]],
-      ];
-      for (const [name, headers, rows, widths] of sheets) {
+      for (const [name, headers, rows, widths] of budgetOwnCompositionSheets(composicoesParaExportar)) {
         const sheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
         sheet["!cols"] = widths.map(wch => ({ wch }));
         XLSX.utils.book_append_sheet(workbook, sheet, name);
@@ -2844,6 +2842,20 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
       showToast("Não foi possível exportar as composições. Tente novamente.", "error");
     } finally {
       setExportandoComposicoes(false);
+    }
+  };
+
+  const exportarComposicoesPDF = () => {
+    if (!quantidadeComposicoes) return;
+    try {
+      openReportPreview(budgetOwnCompositionPrintHtml({
+        name: orc.nome,
+        version: orc.versionNumber || 1,
+        itemCountLabel: resumoComposicoes,
+        rows: composicoesParaExportar,
+      }));
+    } catch (error) {
+      showToast(error.message, "error");
     }
   };
 
@@ -5182,12 +5194,13 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 
       {orcAba==="proprias" && <>
         <PageHeader section headingLevel={3} title="Exportar composições do orçamento"
-          description={composicoesParaExportar?.compositions.length
-            ? contar(composicoesParaExportar.compositions.length, "item com composição própria nesta versão", "itens com composição própria nesta versão")
-            : "Esta versão não tem itens com composição própria."}
-          primaryAction={<StandardButton variant="secondary" loading={exportandoComposicoes}
-            disabled={!composicoesParaExportar?.compositions.length} onClick={exportarComposicoesDoOrcamento}>
+          description={resumoComposicoes}
+          secondaryActions={<StandardButton variant="secondary" loading={exportandoComposicoes}
+            disabled={!quantidadeComposicoes} onClick={exportarComposicoesDoOrcamento}>
             <Ic n="download"/> Exportar em Excel
+          </StandardButton>}
+          primaryAction={<StandardButton variant="secondary" disabled={!quantidadeComposicoes} onClick={exportarComposicoesPDF}>
+            <Ic n="file"/> Exportar em PDF
           </StandardButton>}/>
         <div style={{display:"grid",gridTemplateColumns:cols("1fr","1fr","300px minmax(0,1fr)"),gap:"var(--arcd-space-2)",alignItems:"start"}}>
           <div style={{background:"var(--arcd-surface-page)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2)"}}>
