@@ -3292,7 +3292,8 @@ table{width:100%;border-collapse:collapse}
 th{background:#161616;color:#fff;padding:6px 5px;font-size:8px;text-transform:uppercase;text-align:left}
 td{padding:4px 5px;border-bottom:1px solid #eee;font-size:9px;vertical-align:top}
 td.r,th.r{text-align:right}td.c,th.c{text-align:center}
-td.desc{max-width:290px}
+.planilha-detalhada{table-layout:fixed}
+.planilha-detalhada :is(.num,.desc){white-space:normal;overflow-wrap:anywhere}
 tr.etapa td{background:#F5F3EE;border-top:1px solid #C8C2B6;border-bottom:1px solid #E0DAD0}
 tr.etapa.n1 td{background:#EFEBE2;border-top:2px solid #161616}
 tr.etapa.n2 td{background:#F5F3EE}
@@ -3347,7 +3348,11 @@ ${blocoBDI}
   <tfoot><tr class="tot"><td colspan="2">${totalLabel}</td><td class="r">R$ ${f2(calc.total)}</td><td class="r">${calc.total>0?'100,00%':'0,00%'}</td><td></td></tr></tfoot>
 </table>
 <h2 class="sec">Planilha detalhada</h2>
-<table>
+<table class="planilha-detalhada">
+  <colgroup>
+    <col style="width:8%"><col style="width:13%"><col style="width:8%"><col>
+    <col style="width:5%"><col style="width:8%"><col style="width:10%"><col style="width:12%">
+  </colgroup>
   <thead><tr>
     <th>Item</th><th>Código</th><th>Fonte</th><th>Discriminação dos serviços</th>
     <th class="c">Un.</th><th class="r">Quant.</th><th class="r">P. Unit. c/ BDI</th><th class="r">Total</th>
