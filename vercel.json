@@ -1,6 +1,7 @@
 {
   "git": {
     "deploymentEnabled": {
+      "codex/own-compositions-release-20261126": false,
       "codex/modo-tv-plataforma-release-20261123": false,
       "codex/ponto-atestado-release-20261119": false,
       "codex/folha-composicao-release-20261119": false,

@@ -109,6 +109,7 @@ export const workbookFromTables = tables => {
 };
 
 export const writeTables = (tables, fileName) => download(workbookFromTables(tables), fileName);
+export const writeWorkbook = (workbook, fileName) => download(workbook, fileName);
 
 const writeFile = async (book, fileName) => {
   const workbook = new ExcelJS.Workbook();

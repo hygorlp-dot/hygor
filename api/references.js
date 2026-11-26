@@ -922,6 +922,9 @@ async function handler(req, res) {
           // limitação conhecida do "Ver composição analítica", que é só
           // exibição e nunca decide o preço da composição em si.
           fonte: row.source,
+          compositionFonte: base?.source || row.source,
+          baseId: row.base_id,
+          precoDisponivel: !!price && (price.price_des != null || price.price_not != null),
           compositionCode: row.composition_code,
           itemType: row.item_type,
           itemCode: row.item_code,

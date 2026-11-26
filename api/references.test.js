@@ -166,4 +166,17 @@ describe("/api/references - ORSE reaproveita o pipeline do SINAPI", () => {
     expect(queued.chamadas).toContainEqual(['budget_reference_items','eq','company_id','arcd']);
   });
 
+  it('composition-details: distingue a fonte da composição pai e preço ausente em filhos de outra fonte',async()=>{
+    const queued=createSupabaseMock({
+      budget_reference_bases:[{data:[{id:'orse',source:'ORSE',mode:'uploaded',status:'ready',competence:'2026-07',uf:'SE'}]}],
+      budget_reference_components:[{data:[{base_id:'orse',source:'SINAPI',composition_code:'100',item_type:'INSUMO',item_code:'001',description:'Material',unit:'KG',coefficient:2}]}],
+      budget_reference_inputs:[{data:[]}],
+    });
+    supabaseMock.from.mockImplementation(queued.from);
+    const {req,res}=reqRes({action:'composition-details',referenceIds:['orse'],entries:[{codigo:'100',fonte:'ORSE'}]});
+    await handler(req,res);
+    expect(res.statusCode).toBe(200);
+    expect(res.body.components).toEqual([expect.objectContaining({compositionFonte:'ORSE',fonte:'SINAPI',baseId:'orse',precoDisponivel:false})]);
+    expect(queued.chamadas).toContainEqual(['budget_reference_components','eq','company_id','arcd']);
+  });
 });

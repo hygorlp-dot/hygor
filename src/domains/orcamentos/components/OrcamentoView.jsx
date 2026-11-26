@@ -63,7 +63,7 @@ import { TaskDisclosure } from "../../../design-system/patterns/TaskDisclosure.j
 import { LoadingState, Badge, Btn, Ic, Inp, Modal, Sel } from "../../../legacy/ui.jsx";
 import { C } from "../../../legacy/palette.js";
 import { XLSX, carregarXLSX } from "../../../legacy/files.js";
-import { budgetOwnCompositionPrintHtml, budgetOwnCompositionRows, budgetOwnCompositionSheets } from "../budget-own-compositions-export.js";
+import { budgetOwnCompositionPrintHtml, budgetOwnCompositionRows, budgetOwnCompositionWorkbook, loadBudgetOwnCompositionRows } from "../budget-own-compositions-export.js";
 import { jsonDaRespostaIA } from "../../../features/financeiro/LegacyDocumentTools.jsx";
 import { obraContextoSalvo, maiusculoOrcamento, proximoCodigoArcd, escapeHtml, fmt, today, uid } from "../../../legacy/format.js";
 import { ETAPAS_PADRAO, MAX_NIVEL, CLASSE_ABC, calcControleCustosOrcamento } from "../legacy-reference.js";
@@ -2825,19 +2825,18 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     ? contar(quantidadeComposicoes, "item com composição própria nesta versão", "itens com composição própria nesta versão")
     : "Esta versão não tem itens com composição própria.";
 
+  const carregarComposicoesParaExportar = () => loadBudgetOwnCompositionRows(orc,
+    new Map(achatarArvore(calc.arvore).map(row => [row.id, row.codigoItem])), normalizarCodigoRef, detalharComposicoesReferencia);
+
   const exportarComposicoesDoOrcamento = async () => {
     if (!quantidadeComposicoes || exportandoComposicoes) return;
     setExportandoComposicoes(true);
     try {
       await carregarXLSX();
-      const workbook = XLSX.utils.book_new();
-      for (const [name, headers, rows, widths] of budgetOwnCompositionSheets(composicoesParaExportar)) {
-        const sheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-        sheet["!cols"] = widths.map(wch => ({ wch }));
-        XLSX.utils.book_append_sheet(workbook, sheet, name);
-      }
+      const detalhadas = await carregarComposicoesParaExportar();
+      const workbook = budgetOwnCompositionWorkbook(detalhadas, XLSX);
       const nome = orc.nome.replace(/[^\p{L}\p{N} _-]/gu, "-").trim().slice(0, 80);
-      await XLSX.writeFile(workbook, `Composições - ${nome || "Orçamento"} - V${orc.versionNumber || 1}.xlsx`);
+      await XLSX.writeWorkbook(workbook, `Composições - ${nome || "Orçamento"} - V${orc.versionNumber || 1}.xlsx`);
     } catch {
       showToast("Não foi possível exportar as composições. Tente novamente.", "error");
     } finally {
@@ -2845,17 +2844,21 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     }
   };
 
-  const exportarComposicoesPDF = () => {
-    if (!quantidadeComposicoes) return;
+  const exportarComposicoesPDF = async () => {
+    if (!quantidadeComposicoes || exportandoComposicoes) return;
+    setExportandoComposicoes(true);
     try {
-      openReportPreview(budgetOwnCompositionPrintHtml({
+      const detalhadas = await carregarComposicoesParaExportar();
+      await openReportPreview(budgetOwnCompositionPrintHtml({
         name: orc.nome,
         version: orc.versionNumber || 1,
         itemCountLabel: resumoComposicoes,
-        rows: composicoesParaExportar,
+        rows: detalhadas,
       }));
     } catch (error) {
       showToast(error.message, "error");
+    } finally {
+      setExportandoComposicoes(false);
     }
   };
 
@@ -5199,7 +5202,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             disabled={!quantidadeComposicoes} onClick={exportarComposicoesDoOrcamento}>
             <Ic n="download"/> Exportar em Excel
           </StandardButton>}
-          primaryAction={<StandardButton variant="secondary" disabled={!quantidadeComposicoes} onClick={exportarComposicoesPDF}>
+          primaryAction={<StandardButton variant="secondary" disabled={!quantidadeComposicoes || exportandoComposicoes} onClick={exportarComposicoesPDF}>
             <Ic n="file"/> Exportar em PDF
           </StandardButton>}/>
         <div style={{display:"grid",gridTemplateColumns:cols("1fr","1fr","300px minmax(0,1fr)"),gap:"var(--arcd-space-2)",alignItems:"start"}}>
