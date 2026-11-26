@@ -102,7 +102,8 @@ export const BUNDLE_BUDGETS = Object.freeze({
   // Revisão Unslop consolidada sobre a correção de atestados: 1.904.482 bytes gzip.
   // 26/11/2026: +4 KiB autorizados para fichas e auxiliares das composições.
   // A/B na mesma base: 1.904.674 -> 1.908.566 bytes gzip (+3.892 bytes).
-  totalGzipBytes: 1_865 * 1024,
+  // Dialogo de impressao do orcamento: mais 1 KiB no limite total.
+  totalGzipBytes: 1_866 * 1024,
   genericJavaScriptGzipBytes: 200 * 1024,
   staticMediaTotalBytes: 4 * 1024 * 1024,
   genericStaticMediaBytes: 1 * 1024 * 1024,

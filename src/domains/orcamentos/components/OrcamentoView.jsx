@@ -3272,7 +3272,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     const p = orc.bdiParams;
     const sitPDF = situacaoBDI(Number(orc.bdi||0), orc.bdiTipo || "edificios");
     const blocoBDI = !p ? "" : `
-<div class="bdi-box">
+<div class="bdi-box" data-budget-section="calculation">
   <p class="bdi-t">MEMÓRIA DE CÁLCULO DO BDI - Acórdão 2622/2013-TCU-Plenário</p>
   <p class="bdi-f">BDI = [ (1 + AC + S + R + G) × (1 + DF) × (1 + L) ÷ (1 − I) ] − 1</p>
   <table class="bdi-tb">
@@ -3311,21 +3311,16 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     // folha; o botão fica numa barra própria (antes, fixo, cobria o nome do
     // orçamento no canto superior direito).
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Orçamento - ${escapeHtml(orc.nome)}</title>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-@page{size:A4 portrait;margin:12mm 10mm 14mm;@bottom-left{content:"${textoCss(orc.nome)} · ${textoCss(empresaPDF)}";font:7.5px "Nimbus Sans",Arial,sans-serif;color:#6f6f6f}@bottom-right{content:"Página " counter(page) " de " counter(pages);font:7.5px "IBM Plex Mono",monospace;color:#6f6f6f}}
+@page{size:A4 portrait;margin:12mm 10mm 14mm;@bottom-left{content:"${textoCss(orc.nome)} · ${textoCss(empresaPDF)}";font:7.5px "Nimbus Sans",Arial,sans-serif;color:#6f6f6f}@bottom-right{content:"Página " counter(page) " de " counter(pages);font:7.5px "Nimbus Sans",Arial,sans-serif;color:#6f6f6f}}
 body{font-family:"Nimbus Sans",Arial,sans-serif;color:#161616;background:#fff;padding:22px;font-size:9.5px;letter-spacing:.1px}
 .acoes{display:flex;justify-content:flex-end;margin:-8px 0 10px}
-.btn{background:#D4AF37;color:#161616;border:0;padding:9px 16px;font:600 12px "Nimbus Sans",Arial,sans-serif;cursor:pointer}
 .btn:focus-visible{outline:2px solid #161616;outline-offset:2px}
-.num,td.r,.meta div p:last-child,tfoot td.r{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
-thead{display:table-header-group}tr{break-inside:avoid}
 .ph{display:flex;align-items:center;gap:14px;padding-bottom:12px;border-bottom:2px solid #161616;margin-bottom:14px}
-.logo{background:#161616;color:#D4AF37;padding:9px 15px;font-size:19px;font-weight:600;letter-spacing:3px}
-.co h1{font-size:15px;font-weight:600}.co p{font-size:9px;color:#525252;margin-top:2px}
+.co p{font-size:9px;color:#525252;margin-top:2px}
 .tag{font-size:15px;font-weight:400;text-align:right;flex:1}.tag small{display:block;font-size:8px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:#525252;margin-bottom:2px}
-.sec{font-size:11px;font-weight:600;margin:14px 0 6px;padding-bottom:3px;border-bottom:1px solid #D6D6D6}
+.sec{margin:14px 0 6px;padding-bottom:3px;border-bottom:1px solid #D6D6D6}
 .resumo{margin-bottom:6px}.resumo td{border-bottom:1px solid #E0E0E0}.resumo .barra-h{width:22%}
 .resumo td.barra-h i{display:block;height:6px;background:#161616;min-width:1px}
 .assinaturas{display:grid;grid-template-columns:1fr 1fr;gap:18px 36px;margin-top:34px;break-inside:avoid}
@@ -3359,14 +3354,14 @@ tfoot tr.m2 td{background:#F5F3EE;font-size:10px}
 .bdi-tb tr.trib td{background:#F5F3EE}
 .bdi-res{display:flex;justify-content:space-between;align-items:center;margin-top:6px;padding-top:5px;border-top:2px solid #161616}
 .bdi-res span{font-size:9px;font-weight:600;letter-spacing:.5px}
-.bdi-res b{font-size:14px;font-weight:600;color:#161616;font-family:"IBM Plex Mono",monospace;border-bottom:2px solid #D4AF37}
+.bdi-res b{font-size:14px;font-weight:600;color:#161616;border-bottom:2px solid #D4AF37}
 .bdi-sit{font-size:8px;margin-top:5px;padding:4px 6px}
 .bdi-sit.dentro{background:#E8F2E9;color:#1E6B31}
 .bdi-sit.acima,.bdi-sit.abaixo{background:#FBEAE9;color:#B71C1C}
 .footer{margin-top:20px;text-align:center;font-size:8px;color:#6f6f6f;border-top:1px solid #D6D6D6;padding-top:8px}
 @media print{.acoes{display:none}body{padding:0}}
 </style></head><body>
-<div class="acoes"><button class="btn" onclick="window.print()">Imprimir / salvar PDF</button></div>
+<div class="acoes"><button type="button" class="btn" data-budget-print-settings>Configurar PDF</button></div>
 <div class="ph">
   <div class="logo">MARCELL</div>
   <div class="co">
@@ -3381,45 +3376,45 @@ ${orc.descricao?`<p style="font-size:10px;color:#525252;margin:-5px 0 12px">${es
   <div><p>Local</p><p>${escapeHtml(localPDF)}</p></div>
   <div><p>Base de preços</p><p>${escapeHtml(orc.fonte)} ${escapeHtml(orc.uf)} · ${escapeHtml(dataBaseLegivel)}</p></div>
   <div><p>Encargos</p><p>${orc.desonerado?"Desonerado":"Não desonerado"}</p></div>
-  <div><p>BDI aplicado</p><p>${f2(orc.bdi)}%</p></div>
+  <div data-budget-section="bdi"><p>BDI aplicado</p><p>${f2(orc.bdi)}%</p></div>
   <div><p>Área</p><p>${orc.areaM2>0?f2(orc.areaM2)+" m²":"-"}</p></div>
   <div><p>Itens</p><p>${calc.qtdItens}</p></div>
   <div><p>Emissão</p><p>${new Date().toLocaleDateString("pt-BR")}</p></div>
 </div>
 ${completion.warning?`<p><strong>${escapeHtml(completion.warning)}</strong></p>`:''}
 ${blocoBDI}
-<h2 class="sec">Resumo por etapa</h2>
-<table class="resumo">
-  <thead><tr><th>Item</th><th>Etapa</th><th class="r">Total c/ BDI</th><th class="r">% do total</th><th class="barra-h"></th></tr></thead>
+<h2 class="sec" data-budget-section="summary">Resumo por etapa</h2>
+<table class="resumo" data-budget-section="summary">
+  <thead><tr><th>Item</th><th>Etapa</th><th class="r" data-budget-neutral-label="Total">Total c/ BDI</th><th class="r">% do total</th><th class="barra-h"></th></tr></thead>
   <tbody>${resumoEtapas}</tbody>
   <tfoot><tr class="tot"><td colspan="2">${totalLabel}</td><td class="r">R$ ${f2(calc.total)}</td><td class="r">${calc.total>0?'100,00%':'0,00%'}</td><td></td></tr></tfoot>
 </table>
 <h2 class="sec">Planilha detalhada</h2>
 <table class="planilha-detalhada">
   <colgroup>
-    <col style="width:8%"><col data-report-adjust-column style="width:13%"><col style="width:8%"><col data-report-balance-column>
+    <col style="width:8%"><col style="width:13%"><col style="width:8%"><col style="width:36%">
     <col style="width:5%"><col style="width:8%"><col style="width:10%"><col style="width:12%">
   </colgroup>
   <thead><tr>
     <th>Item</th><th>Código</th><th>Fonte</th><th>Discriminação dos serviços</th>
-    <th class="c">Un.</th><th class="r">Quant.</th><th class="r">P. Unit. c/ BDI</th><th class="r">Total</th>
+    <th class="c">Un.</th><th class="r">Quant.</th><th class="r" data-budget-neutral-label="Preço unitário">P. Unit. c/ BDI</th><th class="r">Total</th>
   </tr></thead>
   <tbody>${linhas}</tbody>
   <tfoot>
     <tr><td colspan="7">CUSTO DIRETO (sem BDI)</td><td class="r">R$ ${f2(calc.custoDireto)}</td></tr>
-    <tr><td colspan="7">BDI (${f2(orc.bdi)}%)</td><td class="r">R$ ${f2(calc.valorBDI)}</td></tr>
+    <tr data-budget-section="bdi"><td colspan="7">BDI (${f2(orc.bdi)}%)</td><td class="r">R$ ${f2(calc.valorBDI)}</td></tr>
     <tr class="tot"><td colspan="7">${totalLabel} do orçamento</td><td class="r">R$ ${f2(calc.total)}</td></tr>
-    ${orc.areaM2>0?`<tr class="m2"><td colspan="7">CUSTO POR METRO QUADRADO</td><td class="r">R$ ${f2(calc.porM2)}/m²</td></tr>`:""}
+    ${orc.areaM2>0?`<tr class="m2" data-budget-section="areaCost"><td colspan="7">CUSTO POR METRO QUADRADO</td><td class="r">R$ ${f2(calc.porM2)}/m²</td></tr>`:""}
   </tfoot>
 </table>
-<section class="assinaturas">
+<section class="assinaturas" data-budget-section="signatures">
   <div><span class="linha"></span><b>Responsável técnico</b><small>Nome · CREA/CAU nº</small></div>
   <div><span class="linha"></span><b>Contratante</b><small>${escapeHtml(clientePDF!=="-"?clientePDF:"Nome · CPF/CNPJ")}</small></div>
   <p class="local-data">Local e data: ____________________________, ____/____/________</p>
 </section>
 <div class="footer">${escapeHtml(empresaPDF)} · gerado em ${new Date().toLocaleString("pt-BR")} · preços congelados na data-base ${escapeHtml(dataBaseLegivel)}</div>
 </body></html>`;
-    openReportPreview(html, { adjustableTables: "column" });
+    openReportPreview(html, { adjustableTables: "budget" });
   };
 
   // Exportações da tabela de Sapatas (Memória de Cálculo - Fundação) - pedido

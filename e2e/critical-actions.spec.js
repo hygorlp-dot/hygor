@@ -29,6 +29,7 @@ const estado = () => ({
   orcamentos:[{
     id:"orc-qa", obraId:"obra-qa", nome:"ORÇAMENTO V1", versionNumber:1, versionStatus:"rascunho", status:"rascunho",
     fonte:"SINAPI", uf:"PE", dataBase:"2026-07", desonerado:false, bdi:22.12, areaM2:120.5, referencias:[],
+    bdiParams:{ac:3,seguro:0.4,risco:1,garantia:0.4,df:1,lucro:7,pis:0.65,cofins:3,iss:2,cprb:0},
     updatedAt:"2026-09-29T12:00:00.000Z", etapas:ETAPAS,
     itens:[
       item("i1","et-canteiro","98459","TAPUME COM TELHA METÁLICA",20,102.87),
@@ -138,26 +139,53 @@ test.describe("ações críticas", () => {
     expect(html).not.toMatch(/\/m<\/td>/);
     await expect(janela.getByRole("button", { name:"Imprimir / salvar PDF" })).toBeVisible();
 
-    const control = janela.getByRole("slider", { name:"Largura da coluna Código (%)" });
+    const printSettings = janela.getByRole("dialog", { name:"Configurar PDF do orçamento" });
+    const control = printSettings.getByRole("slider", { name:/Largura da coluna/ });
+    const columns = janela.locator(".planilha-detalhada col");
+    const tableWidths = () => columns.evaluateAll(cols => cols.map(col => col.style.width));
     await expect(control).toHaveValue("13");
-    const printSettings = janela.getByRole("complementary", { name:"Ajustes de impressão" });
     await printSettings.screenshot({ path:testInfo.outputPath("ajuste-desktop.png") });
     await janela.setViewportSize({ width:390, height:844 });
     await expect(control).toBeVisible();
     await printSettings.screenshot({ path:testInfo.outputPath("ajuste-celular.png") });
-    const columns = janela.locator(".planilha-detalhada col");
-    const tableWidths = () => columns.evaluateAll(cols => cols.map(col => col.style.width));
     const defaultWidths = await tableWidths();
     await control.press("Home");
     await expect(control).toHaveValue("6");
-    const compactWidths = await tableWidths();
-    expect(compactWidths).toEqual(defaultWidths.map((width, index) => index === 1 ? "6%" : index === 3 ? "43%" : width));
-    await janela.getByRole("button", { name:"Restaurar largura original" }).click();
     expect(await tableWidths()).toEqual(defaultWidths);
+    await printSettings.getByRole("button", { name:"Cancelar" }).click();
+    const configure = janela.getByRole("button", { name:"Configurar PDF", exact:true });
+    await configure.click();
+    await expect(control).toHaveValue("13");
+    await printSettings.getByRole("checkbox", { name:"Memória de cálculo do BDI", exact:true }).uncheck();
+    await printSettings.getByRole("button", { name:"Aplicar à prévia" }).click();
+    await expect(janela.locator(".bdi-box")).toBeHidden();
+    await expect(janela.locator(".meta").getByText("BDI aplicado")).toBeVisible();
+    const totalCell = janela.locator(".planilha-detalhada tfoot .tot td").last();
+    const totalBefore = await totalCell.textContent();
+    await configure.click();
+    await printSettings.getByRole("checkbox", { name:"Código", exact:true }).uncheck();
+    await printSettings.getByRole("checkbox", { name:"BDI aplicado", exact:true }).uncheck();
+    await printSettings.getByRole("checkbox", { name:"Assinaturas", exact:true }).uncheck();
+    await printSettings.getByRole("combobox", { name:"Orientação" }).selectOption("landscape");
+    await printSettings.getByRole("combobox", { name:"Papel" }).selectOption("A3");
+    await printSettings.getByRole("combobox", { name:"Margens" }).selectOption("8mm");
+    await printSettings.getByRole("button", { name:"Aplicar à prévia" }).click();
+    await expect(janela.getByRole("columnheader", { name:"Código", exact:true })).toHaveCount(0);
+    await expect(janela.getByText("Responsável técnico", { exact:true })).toBeHidden();
+    await expect(janela.getByText("BDI aplicado", { exact:true }).first()).toBeHidden();
+    await expect(totalCell).toHaveText(totalBefore);
+    expect(await janela.content()).toContain("size:A3 landscape;margin:8mm");
+    await janela.pdf({ path:testInfo.outputPath("orcamento-a3-paisagem.pdf"), preferCSSPageSize:true, printBackground:true });
+    await configure.click();
+    await printSettings.getByRole("button", { name:"Restaurar padrão" }).click();
+    await expect(control).toHaveValue("13");
+    await expect(printSettings.getByRole("checkbox", { name:"Memória de cálculo do BDI", exact:true })).toBeChecked();
     await control.press("Home");
+    await printSettings.getByRole("button", { name:"Aplicar à prévia" }).click();
+    expect(await tableWidths()).toEqual(defaultWidths.map((width, index) => index === 1 ? "6%" : index === 3 ? "43%" : width));
     await janela.setViewportSize({ width:718, height:1000 });
     await janela.emulateMedia({ media:"print" });
-    await expect(control).toBeHidden();
+    await expect(configure).toBeHidden();
     const longCode = janela.getByRole("cell", { name:"FABEJA-ADM-ESTAGIO-ENG-CIVIL", exact:true });
     await expect(longCode).toBeVisible();
     const widths = await longCode.evaluate(cell => {
@@ -192,8 +220,8 @@ test.describe("ações críticas", () => {
     expect(compositions.getCell("F2").value).toBe(13.25);
     const components = workbook.getWorksheet("Componentes");
     expect(components.rowCount).toBe(2);
-    expect(components.getCell("E2").value).toBe("00012");
-    expect(components.getCell("H2").value).toBe(0.5);
+    expect(components.getCell("G2").value).toBe("00012");
+    expect(components.getCell("J2").value).toBe(0.5);
   });
 
   test("PDF exporta somente as composições próprias da versão aberta", async ({ page }, testInfo) => {
@@ -219,11 +247,11 @@ test.describe("ações críticas", () => {
     const preview = await conteudoDaJanela(page, () => pdf.click());
     await expect(preview).toHaveTitle(/Composições próprias.*ORÇAMENTO V1 · V1/);
     await expect(preview.getByText("1 item com composição própria nesta versão")).toBeVisible();
-    const compositions = preview.getByRole("table", { name:"Composições", exact:true });
-    await expect(compositions.locator("tbody tr")).toHaveCount(1);
-    const code = compositions.getByRole("cell", { name:"FABEJA-ADM-ESTAGIO-ENG-CIVIL", exact:true });
-    await expect(code).toHaveCount(1);
-    const components = preview.getByRole("table", { name:"Componentes", exact:true });
+    const sheets = preview.locator(".composition-sheet");
+    await expect(sheets).toHaveCount(1);
+    const code = sheets.getByRole("heading", { name:/Item .*FABEJA-ADM-ESTAGIO-ENG-CIVIL/ });
+    await expect(code).toBeVisible();
+    const components = sheets.getByRole("table", { name:"FABEJA-ADM-ESTAGIO-ENG-CIVIL", exact:true });
     await expect(components.locator("tbody tr")).toHaveCount(1);
     await expect(components.getByRole("cell", { name:"00012", exact:true })).toHaveCount(1);
     await expect(preview.getByText("SO-CATALOGO", { exact:true })).toHaveCount(0);

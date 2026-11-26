@@ -1,4 +1,5 @@
-import { adjustableColumnScript, adjustableTablesScript } from "./adjustable-tables.js";
+import { adjustableTablesScript } from "./adjustable-tables.js";
+import { budgetPrintSettingsScript } from "./budget-print-settings.js";
 import { MARCELL_LOGO } from "../brand/identity.js";
 import {readReportFonts} from './report-fonts.js';
 
@@ -40,7 +41,7 @@ export function marcellReportHtml(html, { adjustableTables = false, requireFonts
   const fullTableControls = adjustableTables === true;
   const tableControlsScript = fullTableControls
     ? adjustableTablesScript()
-    : adjustableTables === "column" ? adjustableColumnScript() : "";
+    : adjustableTables === "budget" ? budgetPrintSettingsScript() : "";
   let branded = false;
   let result = atualizarAssinatura(html).replace(/<div class="(?:logo|logo-box)">(?:MARCELL|ArcD)<\/div>/g, () => {
     branded = true;
@@ -102,7 +103,14 @@ body[data-adjustable-tables][data-annex-new-page="true"] .section{break-before:p
 body[data-adjustable-tables] .section :is(h3,p){break-after:avoid}
 .mrc-report-controls{background:#f3f0e9;border:1px solid #7a8591;padding:16px;margin-bottom:20px}
 .mrc-report-controls__fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px;margin:12px 0}
-.mrc-report-controls__fields--single{max-width:26rem}
+.mrc-report-dialog{width:min(44rem,calc(100% - 24px));max-height:calc(100dvh - 24px);margin:auto;overflow:auto;color:inherit}
+.mrc-report-dialog::backdrop{background:rgb(13 27 46 / 55%)}
+.mrc-report-dialog fieldset{margin:12px 0;padding:8px}
+.mrc-report-dialog__checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(9rem,1fr))}
+.mrc-report-dialog .mrc-report-controls__check{margin:4px 0}
+body[data-marcell-report] .mrc-report-dialog button:not([value="print"]){background:transparent!important;color:#0d1b2e!important}
+body[data-marcell-report] .planilha-detalhada td{font-size:var(--mrc-budget-table-font,10px)!important}
+body[data-marcell-report] :is([data-budget-section],.planilha-detalhada td,.planilha-detalhada th)[hidden]{display:none!important}
 .mrc-report-controls label{display:flex;flex-direction:column;gap:6px;font-size:12px}
 .mrc-report-controls select{padding:8px;background:white;color:#0d1b2e;border:1px solid #7a8591;font:inherit;min-height:36px;max-width:100%}
 .mrc-report-controls input[type=range]{width:100%;accent-color:#0d1b2e}

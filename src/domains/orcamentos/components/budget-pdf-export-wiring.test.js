@@ -25,7 +25,7 @@ it("área e custo por área saem em metro quadrado", () => {
 it("documento entregável: paginação, resumo por etapa e assinaturas", () => {
   expect(trecho).toContain('"Página " counter(page) " de " counter(pages)');
   expect(trecho).toContain("Resumo por etapa");
-  expect(trecho).toContain('<section class="assinaturas">');
+  expect(trecho).toContain('<section class="assinaturas" data-budget-section="signatures">');
   expect(trecho).toContain("Responsável técnico");
 });
 
