@@ -2854,7 +2854,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
         version: orc.versionNumber || 1,
         itemCountLabel: resumoComposicoes,
         rows: detalhadas,
-      }));
+      }), { adjustableTables: "budget" });
     } catch (error) {
       showToast(error.message, "error");
     } finally {

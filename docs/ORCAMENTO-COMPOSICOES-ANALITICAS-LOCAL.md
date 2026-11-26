@@ -113,3 +113,28 @@ manual, arquitetura, tipos e build); oito testes da exportação aprovados.
 `node scripts/bundle-metrics.mjs`: 1.864,76 KiB gzip, sem ampliar limites.
 Prévia fictícia em 1440/390 px sem transbordamento de página; componentes
 oficiais referenciados e nenhuma ficha auxiliar oficial. Detector sem achados.
+
+
+## Impressão configurável das composições — 26/11/2026
+
+A exportação PDF passa a usar o configurador compartilhado do orçamento:
+Configurar PDF das composições permite papel A4/A3/Carta, retrato/paisagem,
+margens, tamanho do texto, visibilidade e largura das colunas em todas as fichas.
+Uma composição por página é opcional, desmarcada por padrão. O padrão é A4
+paisagem com fichas em sequência. Cancelar conserva a prévia aplicada;
+Restaurar padrão só altera a impressão após aplicar. O fluxo de identificação
+MARCELL e os ajustes do orçamento completo são preservados. A largura do diálogo
+compartilhado inclui borda e recuo para caber no celular.
+
+Dados de origem permanecem os snapshots e as composições próprias da versão.
+A alteração muda apresentação; não grava orçamento, compromissos, estoque,
+custos reconhecidos, pagamentos ou DRE realizado. SINAPI e ORSE continuam
+referenciados sem reproduzir analíticos. Ajuda e manual atualizados.
+
+Validação específica: 25 testes em quatro arquivos aprovados. Chromium real em
+1440 e 390 px, sem erros de página: aplicar, reabrir, orientação, fonte, colunas
+e quebra entre fichas. PDF fictício contínuo: duas composições em uma página
+A4 paisagem (841,9 x 595 pontos); modo individual: duas páginas A4 retrato
+(595 x 841,9 pontos), uma composição em cada. Diálogo móvel com largura 362 px,
+dentro da tela de 390 px. Evidências locais em
+output/own-compositions-export/print-settings; não são dados reais da K1-10.

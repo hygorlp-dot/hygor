@@ -145,10 +145,13 @@ export function budgetOwnCompositionPrintHtml({ name, version, itemCountLabel, r
   .detail-totals div { display: flex; justify-content: space-between; gap: 12pt; }
   .detail-totals dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
   .detail-warning { font-weight: bold; }
+  body[data-marcell-report] .composition-sheet table td { font-size: var(--mrc-budget-table-font, 10px)!important; }
+  body[data-marcell-report] .composition-sheet table th { font-size: calc(var(--mrc-budget-table-font, 10px) - 1px)!important; }
+  .composition-sheet :is(td,th)[hidden] { display: none!important; }
   @media screen { body { padding: 16px; } .detail-table { overflow-x: auto; } table { min-width: 760px; } }
   @media print {
     .composition-sheet { margin-block: 12pt; }
-    .composition-sheet + .composition-sheet { break-before: page; }
+    body[data-composition-new-page="true"] .composition-sheet + .composition-sheet { break-before: page; }
     .composition-sheet p { margin-block: 5pt; }
     .auxiliary-sheet { margin-block: 10pt; break-inside: avoid; }
     .detail-totals { break-before: avoid; }
@@ -156,8 +159,8 @@ export function budgetOwnCompositionPrintHtml({ name, version, itemCountLabel, r
     tr { break-inside: avoid; }
     th, td { overflow-wrap: anywhere; }
   }
-</style></head><body>
-<button type="button" onclick="window.print()">Imprimir / salvar PDF</button>
+</style></head><body data-own-compositions>
+<div class="acoes"><button type="button" data-budget-print-settings>Configurar PDF</button></div>
 <h1>Composições próprias</h1>
 <p>${reportText(name)} · V${reportText(version)}</p>
 <p>${reportText(itemCountLabel)}</p>

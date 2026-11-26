@@ -1,10 +1,13 @@
 function setupBudgetPrintSettings() {
-  const table = document.querySelector(".planilha-detalhada");
+  const own = document.body.hasAttribute("data-own-compositions");
+  const tables = [...document.querySelectorAll(own ? ".composition-sheet table" : ".planilha-detalhada")];
+  const table = tables[0];
   const trigger = document.querySelector("[data-budget-print-settings]");
   if (!table || !trigger) return;
-  const headers = [...table.tHead.rows[0].cells];
-  const columns = [...table.querySelectorAll("col")];
-  const description = 3;
+  const headers = [...table.tHead.rows[own ? 1 : 0].cells];
+  const columnGroups = tables.map(table => [...table.querySelectorAll("col")]);
+  const columns = columnGroups[0];
+  const description = own ? 2 : 3;
   const initialWidths = columns.map(col => parseFloat(col.style.width));
   const sectionNodes = [...document.querySelectorAll("[data-budget-section]")];
   const bdiLabels = [...document.querySelectorAll("[data-budget-neutral-label]")].map(node => [node,node.textContent]);
@@ -21,20 +24,21 @@ function setupBudgetPrintSettings() {
   const checkbox = ([id, title]) => `<label class="mrc-report-controls__check"><input type="checkbox" name="${id}" checked>${title}</label>`;
   const sections = [["bdi","BDI aplicado"],["calculation","Memória de cálculo do BDI"],["summary","Resumo por etapa"],["areaCost","Custo por m²"],["signatures","Assinaturas"]]
     .filter(([id]) => sectionNodes.some(node => node.dataset.budgetSection === id));
-  const optional = [[1,"Código"],[2,"Fonte"],[4,"Unidade"],[5,"Quantidade"],[6,"Preço unitário"]];
-  dialog.innerHTML = `<form><h2 id="mrc-print-title">Configurar PDF do orçamento</h2>
-    <fieldset><legend>Conteúdo</legend><div class="mrc-report-dialog__checks">${sections.map(checkbox).join("")}</div></fieldset>
+  const optional = own ? [[0,"Fonte / tipo"],[1,"Código"],[3,"Unidade"],[4,"Coeficiente"],[5,"Custo unitário"]] : [[1,"Código"],[2,"Fonte"],[4,"Unidade"],[5,"Quantidade"],[6,"Preço unitário"]];
+  dialog.innerHTML = `<form><h2 id="mrc-print-title">Configurar PDF ${own ? 'das composições' : 'do orçamento'}</h2>
+    ${sections.length ? `<fieldset><legend>Conteúdo</legend><div class="mrc-report-dialog__checks">${sections.map(checkbox).join("")}</div></fieldset>` : ''}
     <fieldset><legend>Colunas da planilha</legend><div class="mrc-report-dialog__checks">${optional.map(checkbox).join("")}</div>
     <div class="mrc-report-controls__fields"><label>Coluna para ajustar<select name="column"></select></label>
     <label>Largura da coluna (%)<input type="range" step="any" name="width"><output></output></label></div></fieldset>
     <fieldset><legend>Página</legend><div class="mrc-report-controls__fields">
     ${fieldsHtml}
-    </div></fieldset><div class="mrc-report-controls__actions">
+    </div>${own ? '<label class="mrc-report-controls__check"><input type="checkbox" name="newPage">Uma composição por página</label>' : ''}</fieldset><div class="mrc-report-controls__actions">
     <button type="reset">Restaurar padrão</button><button type="button">Cancelar</button>
     <button type="submit">Aplicar à prévia</button><button type="submit" value="print">Imprimir / salvar PDF</button></div></form>`;
   document.body.append(dialog);
   const form = dialog.querySelector("form");
   const field = name => form.elements.namedItem(name);
+  if (own) field("orientation").value = "landscape";
   const select = field("column");
   const slider = field("width");
   const output = form.querySelector("output");
@@ -67,7 +71,7 @@ function setupBudgetPrintSettings() {
     if (field("calculation")) field("calculation").disabled = !field("bdi").checked;
     renderSlider();
   };
-  const grid = [...table.rows].flatMap(row => {
+  const grid = tables.flatMap(table => [...table.rows]).flatMap(row => {
     let start = 0;
     return [...row.cells].map(cell => {
       const entry=[cell,start,cell.colSpan];
@@ -102,10 +106,10 @@ function setupBudgetPrintSettings() {
     event.preventDefault();
     saved = savedValues();
     widths = [...draft];
-    columns.forEach((col, i) => {
+    columnGroups.forEach(columns => columns.forEach((col, i) => {
       col.style.display = shown(i) ? "" : "none";
       col.style.width = shown(i) ? `${effective(i)}%` : "0%";
-    });
+    }));
     grid.forEach(([cell,start,span]) => {
       const count=columns.slice(start,start+span).filter((_,i)=>shown(start+i)).length;
       cell.hidden = count === 0;
@@ -116,7 +120,8 @@ function setupBudgetPrintSettings() {
       node.hidden = !toggle.checked || toggle.disabled;
     });
     bdiLabels.forEach(([node,label]) => { node.textContent = field("bdi").checked ? label : node.dataset.budgetNeutralLabel; });
-    table.style.setProperty("--mrc-budget-table-font", field("font").value + "px");
+    tables.forEach(table => table.style.setProperty("--mrc-budget-table-font", field("font").value + "px"));
+    if (own) document.body.dataset.compositionNewPage = String(field("newPage").checked);
     pageStyle.textContent = `@page{size:${field("paper").value} ${field("orientation").value};margin:${field("margin").value}}`;
     dialog.close();
     if (event.submitter?.value === "print") window.print();
