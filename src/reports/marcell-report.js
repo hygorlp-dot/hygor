@@ -14,7 +14,7 @@ function atualizarAssinatura(html) {
 
 // Presentation only: the existing report remains responsible for its data,
 // totals, columns, paper size, signatures and legal company identification.
-export function marcellReportHtml(html, { adjustableTables = false, requireFonts = false } = {}) {
+export function marcellReportHtml(html, { adjustableTables = false, requireFonts = false, printPreferenceScope = '' } = {}) {
   // Builders may prepare a template before the identity dialog has finished
   // loading. The only window-writing boundary requires real embedded fonts;
   // this pass also completes an already branded template without duplicating it.
@@ -41,7 +41,7 @@ export function marcellReportHtml(html, { adjustableTables = false, requireFonts
   const fullTableControls = adjustableTables === true;
   const tableControlsScript = fullTableControls
     ? adjustableTablesScript()
-    : adjustableTables === "budget" ? budgetPrintSettingsScript() : "";
+    : adjustableTables === "budget" ? budgetPrintSettingsScript(printPreferenceScope) : "";
   let branded = false;
   let result = atualizarAssinatura(html).replace(/<div class="(?:logo|logo-box)">(?:MARCELL|ArcD)<\/div>/g, () => {
     branded = true;

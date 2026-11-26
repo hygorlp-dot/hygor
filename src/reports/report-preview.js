@@ -9,7 +9,7 @@ export function registerReportIdentityPresenter(present) {
   return ()=>{if(presenter===present){presenter=undefined;pending?.cancel();}};
 }
 
-export function openReportPreview(html, {autoPrint=false,adjustableTables=false}={}) {
+export function openReportPreview(html, {autoPrint=false,adjustableTables=false,printPreferenceScope=''}={}) {
   if(typeof html!=='string'||!/<body\b/i.test(html))throw new Error('Confira os dados do relatório e tente novamente.');
   if(!presenter)throw new Error('Aguarde a logomarca e tente novamente.');
   if(pending)return Promise.resolve(null);
@@ -24,7 +24,7 @@ export function openReportPreview(html, {autoPrint=false,adjustableTables=false}
     try{
       preview.opener=null;
       preview.document.open();
-      preview.document.write(marcellReportHtml(html,{adjustableTables,requireFonts:true}));
+      preview.document.write(marcellReportHtml(html,{adjustableTables,requireFonts:true,printPreferenceScope}));
       preview.document.close();
       preview.focus();
       if(autoPrint)window.setTimeout(()=>{if(!preview.closed)preview.print();},300);

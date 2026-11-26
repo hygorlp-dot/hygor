@@ -1,4 +1,4 @@
-function setupBudgetPrintSettings() {
+function setupBudgetPrintSettings(scope) {
   const own = document.body.hasAttribute("data-own-compositions");
   const tables = [...document.querySelectorAll(own ? ".composition-sheet table" : ".planilha-detalhada")];
   const table = tables[0];
@@ -33,8 +33,9 @@ function setupBudgetPrintSettings() {
     <fieldset><legend>Página</legend><div class="mrc-report-controls__fields">
     ${fieldsHtml}
     </div>${own ? '<label class="mrc-report-controls__check"><input type="checkbox" name="newPage">Uma composição por página</label>' : ''}</fieldset><div class="mrc-report-controls__actions">
-    <button type="reset">Restaurar padrão</button><button type="button">Cancelar</button>
-    <button type="submit">Aplicar à prévia</button><button type="submit" value="print">Imprimir / salvar PDF</button></div></form>`;
+    <button type="reset">Restaurar padrão</button><button type="button" value="cancel">Cancelar</button>
+    <button type="button" value="save">Salvar como padrão</button>
+    <button type="submit">Aplicar à prévia</button><button type="submit" value="print">Imprimir / salvar PDF</button></div><p role="status"></p></form>`;
   document.body.append(dialog);
   const form = dialog.querySelector("form");
   const field = name => form.elements.namedItem(name);
@@ -45,6 +46,9 @@ function setupBudgetPrintSettings() {
   const fields = [...form.querySelectorAll("input[type=checkbox],select")].filter(el => el !== select);
   const savedValues = () => fields.map(el => el.type === "checkbox" ? el.checked : el.value);
   const initialValues = savedValues();
+  const storageKey = `mrc-budget-print-v1:${scope}:${own ? 'own' : 'budget'}`;
+  const schema = headers.map(h => h.dataset.budgetNeutralLabel || h.textContent).join('|');
+  const status = form.querySelector('[role=status]');
   let saved = initialValues;
   const restoreValues = values => fields.forEach((el, i) => {
     if (el.type === "checkbox") el.checked = values[i];
@@ -100,10 +104,10 @@ function setupBudgetPrintSettings() {
     restoreValues(initialValues);
     draft = [...initialWidths];
     render("1");
+    status.textContent = 'Padrão inicial restaurado. Salve para usar nas próximas exportações.';
   };
-  form.querySelector('button[type="button"]').onclick = () => dialog.close();
-  form.onsubmit = event => {
-    event.preventDefault();
+  form.querySelector('[value=cancel]').onclick = () => dialog.close();
+  const apply = () => {
     saved = savedValues();
     widths = [...draft];
     columnGroups.forEach(columns => columns.forEach((col, i) => {
@@ -123,9 +127,32 @@ function setupBudgetPrintSettings() {
     tables.forEach(table => table.style.setProperty("--mrc-budget-table-font", field("font").value + "px"));
     if (own) document.body.dataset.compositionNewPage = String(field("newPage").checked);
     pageStyle.textContent = `@page{size:${field("paper").value} ${field("orientation").value};margin:${field("margin").value}}`;
-    dialog.close();
-    if (event.submitter?.value === "print") window.print();
   };
+  const saveButton = form.querySelector('[value=save]');
+  saveButton.disabled = !scope;
+  if (!scope) status.textContent = 'Entre com seu usuário para salvar um padrão.';
+  saveButton.onclick = () => {
+    apply();
+    try {
+      localStorage.setItem(storageKey, JSON.stringify({schema,widths,values:Object.fromEntries(fields.map(el => [el.name,el.type === 'checkbox' ? el.checked : el.value]))}));
+      status.textContent = 'Padrão salvo neste navegador.';
+    } catch { status.textContent = 'Não foi possível salvar. Os ajustes continuam válidos nesta prévia.'; }
+  };
+  form.onsubmit = event => {
+    event.preventDefault();apply();dialog.close();
+    if (event.submitter?.value === 'print') window.print();
+  };
+  try {
+    const stored = scope && JSON.parse(localStorage.getItem(storageKey) || 'null');
+    if (stored?.schema === schema && Array.isArray(stored.widths) && stored.widths.length === widths.length && stored.widths.every(w => Number.isFinite(w) && w > 0) && Math.abs(stored.widths.reduce((a,b) => a+b,0)-100) < .01) {
+      fields.forEach(el => {
+        const value = stored.values?.[el.name];
+        if (el.type === 'checkbox' && typeof value === 'boolean') el.checked = value;
+        else if (el.type !== 'checkbox' && [...el.options].some(option => option.value === value)) el.value = value;
+      });
+      draft = [...stored.widths];render();apply();
+    }
+  } catch { /* Armazenamento indisponível não impede a impressão. */ }
   trigger.onclick = () => {
     restoreValues(saved);
     draft = [...widths];
@@ -134,4 +161,4 @@ function setupBudgetPrintSettings() {
   };
   trigger.click();
 }
-export const budgetPrintSettingsScript = () => `(${setupBudgetPrintSettings.toString()})();`;
+export const budgetPrintSettingsScript = (scope = '') => `(${setupBudgetPrintSettings.toString()})(${JSON.stringify(scope).replaceAll('<','\\u003c')});`;

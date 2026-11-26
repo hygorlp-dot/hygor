@@ -138,3 +138,32 @@ A4 paisagem (841,9 x 595 pontos); modo individual: duas páginas A4 retrato
 (595 x 841,9 pontos), uma composição em cada. Diálogo móvel com largura 362 px,
 dentro da tela de 390 px. Evidências locais em
 output/own-compositions-export/print-settings; não são dados reais da K1-10.
+
+
+## Padrões de impressão salvos — 26/11/2026
+
+Salvar como padrão guarda somente preferências de apresentação no localStorage
+do navegador: papel, orientação, margens, fonte, conteúdo/colunas, larguras e,
+para composições, quebra individual. Aplicar à prévia e imprimir não persistem.
+Restaurar padrão volta ao padrão inicial nesta prévia; é necessário salvar para
+substituir o padrão guardado. Sucesso e falha de armazenamento têm mensagem.
+
+A identidade vem de currentUser.id e currentUser.companyId (com activeCompany
+como origem da empresa ativa), já existentes no app. Passa explicitamente por
+openReportPreview, marcellReportHtml e pelo configurador, sem ler credenciais.
+As chaves separam usuário, empresa e tipo (orçamento/composições). Sem identidade,
+o salvamento fica indisponível. Mudança de esquema de colunas, dados inválidos
+ou armazenamento indisponível não bloqueiam a prévia. Nenhuma API de negócio
+é chamada e não há escrita em dados de orçamento, financeiro ou banco.
+
+Os valores continuam sendo previsões das memórias da versão aberta: não há
+impacto no DRE realizado, compromissos, estoque ou pagamentos. Preferências
+não contêm nomes de obra, itens, preços ou documentos. Ajuda e manual revisados.
+Conferência real em Chromium, 1440 e 390 px: salvar, fechar a janela, abrir outra
+prévia e conferir reaplicação integral; sem erros de página. Dados de teste
+fictícios em output/own-compositions-export/print-defaults.
+
+Validação final desta revisão: 38 testes em cinco arquivos aprovados;
+`npm run validate:local` aprovado (lint, design/manual, arquitetura, tipos e
+compilação). Pacote: 1.910.614 bytes gzip, limite 1.910.784, nenhuma violação e
+nenhum aumento de limites. Detector Impeccable sem achados no configurador.

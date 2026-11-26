@@ -1,5 +1,6 @@
 import {budgetWorkDefaults} from '../work-defaults.js';
 import {openReportPreview} from '../../../reports/report-preview.js';
+import {activeCompany} from '../../../lib/company-scope.js';
 import {contar} from '../../../design-system/copy.js';
 import {FormSection} from '../../../design-system/patterns/FormSection.jsx';
 import {Alert,AlertDescription} from '../../../components/ui/alert.jsx';
@@ -2827,6 +2828,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
 
   const carregarComposicoesParaExportar = () => loadBudgetOwnCompositionRows(orc,
     new Map(achatarArvore(calc.arvore).map(row => [row.id, row.codigoItem])), normalizarCodigoRef);
+  const printPreferenceScope = currentUser?.id ? JSON.stringify([currentUser.companyId || activeCompany(),currentUser.id]) : '';
 
   const exportarComposicoesDoOrcamento = async () => {
     if (!quantidadeComposicoes || exportandoComposicoes) return;
@@ -2854,7 +2856,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
         version: orc.versionNumber || 1,
         itemCountLabel: resumoComposicoes,
         rows: detalhadas,
-      }), { adjustableTables: "budget" });
+      }), { adjustableTables: "budget", printPreferenceScope });
     } catch (error) {
       showToast(error.message, "error");
     } finally {
@@ -3414,7 +3416,7 @@ ${blocoBDI}
 </section>
 <div class="footer">${escapeHtml(empresaPDF)} · gerado em ${new Date().toLocaleString("pt-BR")} · preços congelados na data-base ${escapeHtml(dataBaseLegivel)}</div>
 </body></html>`;
-    openReportPreview(html, { adjustableTables: "budget" });
+    openReportPreview(html, { adjustableTables: "budget", printPreferenceScope });
   };
 
   // Exportações da tabela de Sapatas (Memória de Cálculo - Fundação) - pedido
