@@ -1,5 +1,11 @@
 import "./styles.css";
 
+/**
+ * @param {{title: import("react").ReactNode, titleId?: string, description?: import("react").ReactNode,
+ * breadcrumb?: import("react").ReactNode[], primaryAction?: import("react").ReactNode,
+ * secondaryActions?: import("react").ReactNode, children?: import("react").ReactNode,
+ * className?: string, section?: boolean, headingLevel?: number}} props
+ */
 export function PageHeader({ title, titleId, description, breadcrumb = [], primaryAction, secondaryActions, children, className = "", section = false, headingLevel = section ? 2 : 1 }) {
   const Heading = headingLevel === 3 ? "h3" : headingLevel === 2 ? "h2" : "h1";
   return <header className={`arcd-page-header ${section ? "mrc-section-heading" : "mrc-screen-header"} ${className}`.trim()}>

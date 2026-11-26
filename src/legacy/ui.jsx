@@ -67,6 +67,7 @@ export const buscarCNPJ = async (cnpjBruto) => {
 // UI base
 //
 
+/** @param {{n:string, s?:number, color?:string}} props */
 export function Ic({ n, s = 16, color }) {
   // Icones em SVG (feather-style). Antes eram emojis, que o build do Vercel
   // apaga - por isso sumiam na tela. SVG e ASCII puro: aparece sempre, tem
@@ -197,6 +198,7 @@ export function conteudoUi(children) {
 }
 
 
+/** @param {import("react").ButtonHTMLAttributes<HTMLButtonElement> & {v?:string, size?:string, full?:boolean, loading?:boolean|string, iconOnly?:boolean, ariaLabel?:string}} props */
 export function Btn({ children, onClick, v = "primary", size = "md", full = false, disabled = false, loading = false, iconOnly = false, type = "button", style = {}, className = "", title, ariaLabel, ...props }) {
   return <SharedUiButton {...props} type={type} variant={legacyButtonRole(v)} size={iconOnly?"icon":size}
     className={`arcd-btn ${className}`.trim()} data-variant={v} data-size={size} data-icon-only={iconOnly}

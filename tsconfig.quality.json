@@ -1,14 +1,17 @@
 {
   "compilerOptions": {
-    "allowJs": false,
+    "allowJs": true,
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "noEmit": true,
     "skipLibCheck": true,
     "strict": true,
-    "target": "ES2022"
+    "target": "ES2022",
+    "checkJs": false,
+    "jsx": "react-jsx"
   },
   "include": [
+    "src/domains/administracao/components/Obsoletos.jsx",
     "src/domains/documentos/upload-retry.ts",
     "src/observability/local-error-diagnostic.ts"
   ]

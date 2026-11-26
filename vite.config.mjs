@@ -8,13 +8,14 @@ import {sharedChartHelpers} from './scripts/shared-chart-helpers.mjs';
 import {sharedUiHelpers} from './scripts/shared-ui-helpers.mjs';
 import {operationalChartScales} from './scripts/operational-chart-scales.mjs';
 import {legacyScreenChunks} from './scripts/legacy-screen-chunks.mjs';
+import {minifyLegacyApp} from './scripts/minify-legacy-app.mjs';
 const projectRoot=fileURLToPath(new URL('.',import.meta.url));
 // Worktrees may share only node_modules through a junction. Permit that exact
 // dependency tree without granting access to sibling workspaces or evidence.
 const dependencyRoot=realpathSync(fileURLToPath(new URL('./node_modules',import.meta.url)));
 
 export default defineConfig(({mode})=>mergeConfig({
-  plugins: [legacyScreenChunks(),react(),sharedSinapiWorker(),sharedChartHelpers(),sharedUiHelpers(),operationalChartScales()],
+  plugins: [legacyScreenChunks(),react(),sharedSinapiWorker(),sharedChartHelpers(),sharedUiHelpers(),operationalChartScales(),minifyLegacyApp()],
   // Restrinja a descoberta ao aplicativo: builds e evidências HTML em
   // artifacts não são entradas de desenvolvimento.
   optimizeDeps: {entries:["index.html"]},

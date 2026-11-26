@@ -9,11 +9,11 @@
       "inline-style": 9
     },
     "src/LegacyApp.jsx": {
-      "literal-spacing": 780,
-      "literal-typography": 344,
-      "native-control": 77,
+      "literal-spacing": 779,
+      "literal-typography": 340,
+      "native-control": 76,
       "literal-color": 79,
-      "inline-style": 1883,
+      "inline-style": 1858,
       "plural-parenthesis": 95
     },
     "src/client-portal/app/ClientPortalApp.jsx": {
@@ -90,6 +90,12 @@
       "literal-typography": 10,
       "inline-style": 45,
       "plural-parenthesis": 3
+    },
+    "src/domains/administracao/components/Obsoletos.jsx": {
+      "inline-style": 25,
+      "native-control": 1,
+      "literal-typography": 4,
+      "literal-spacing": 1
     },
     "src/domains/administracao/components/NucleoRelacionalAdmin.jsx": {
       "literal-spacing": 17,

@@ -122,7 +122,7 @@ test("com serviços, Confirmar medição abre o boletim como antes", async () =>
 }, 60000);
 
 test("fiação: boletim usa a proposta do terceirizado e a obra navega até o contrato", () => {
-  const medicao = source.slice(source.indexOf("function MedicaoEvolucao("), source.indexOf("//  OBSOLETOS"));
+  const medicao = source.slice(source.indexOf("function MedicaoEvolucao("), source.indexOf("function Cadastros("));
   expect(medicao).toContain("String(propostaBoletim(t))");
   expect(medicao).toContain("pctTerceiros: avancoTerceiros.get(t.id).pct");
   expect(medicao).toContain("<TerceirosNaMedicao");
