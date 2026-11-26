@@ -15,6 +15,10 @@
 }
 .mrc-record-action[data-record-layout="row"]:hover:not(:disabled) {background:var(--arcd-surface-muted);}
 .mrc-record-action[data-record-layout="row"]:focus-visible {outline-offset:-2px;}
+[data-record-status-tone="success"] {--record-cell-status:var(--arcd-success-text);}
+[data-record-status-tone="warning"] {--record-cell-status:var(--arcd-warning-text);}
+[data-record-status-tone="danger"] {--record-cell-status:var(--arcd-danger-text);}
+[data-record-status-tone="info"] {--record-cell-status:var(--arcd-info-text);}
 .mrc-record-action[data-record-layout="cell"] {
   inline-size: 100%;
   min-block-size: var(--arcd-control-height);
@@ -28,7 +32,7 @@
   text-align: center;
   transition: box-shadow var(--arcd-motion-fast) var(--arcd-ease-standard);
 }
-.mrc-record-action[data-record-layout="cell"][data-has-status] {color:var(--arcd-text-inverse);}
+.mrc-record-action[data-record-layout="cell"][data-record-status-tone] {color:var(--arcd-text-inverse);}
 .mrc-record-action[data-record-layout="cell"][aria-busy="true"] {
   box-shadow: inset 0 0 0 2px var(--arcd-focus-ring);
 }

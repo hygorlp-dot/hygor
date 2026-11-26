@@ -681,7 +681,7 @@ div::-webkit-scrollbar{height:0;width:0}
 /* Ponto da quinzena: controles e legenda (sem estas regras os filtros e a
    legenda caiam um sob o outro, sem espaçamento nem quebra responsiva). */
 .ponto-legend-chip{display:inline-flex;align-items:center;gap:var(--arcd-space-1)}
-.ponto-legend-chip>i{width:8px;height:8px;border-radius:var(--arcd-radius-pill);display:block;flex-shrink:0}
+.ponto-legend-chip>[aria-hidden="true"]{width:8px;height:8px;border-radius:var(--arcd-radius-pill);display:block;flex-shrink:0;background:var(--record-cell-status,var(--arcd-text-muted))}
 .ponto-legend-help{margin-left:auto;font-style:italic}
 @media(max-width:767px){
     .ponto-legend-help{margin-left:0;width:100%}
@@ -6072,7 +6072,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
     .sort((a,b)=>a.name.localeCompare(b.name));
   const diaLabel=iso=>{const d=prParseIso(iso);return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}`;};
   const semana=iso=>["DOM","SEG","TER","QUA","QUI","SEX","SÁB"][prParseIso(iso).getDay()];
-  const corStatus=st=>st==="P"?"var(--arcd-success-text)":st==="M"?"var(--arcd-warning-text)":st==="F"?"var(--arcd-danger-text)":isLeaveStatus(st)?"var(--arcd-info-text)":"var(--arcd-text-muted)";
+  const tomStatus=st=>st==="P"?"success":st==="M"?"warning":st==="F"?"danger":isLeaveStatus(st)?"info":undefined;
   // O atestado já confirmado tem correção explícita, sem gravar um status intermediário.
   const proxStatus=st=>st==="FG"?null:({P:"M",M:"F",F:"FE",FE:"AT"})[st]??"P";
   const cellKeyFor=(employeeId,date)=>`${employeeId}::${date}`;
@@ -6189,11 +6189,9 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
 
     <div className="ponto-geral-legend">
       <span className="ponto-legend-title">Selecione a célula para alterar o status</span>
-      <span className="ponto-legend-chip"><i style={{background:"var(--arcd-success-text)"}}/>Presente</span>
-      <span className="ponto-legend-chip"><i style={{background:"var(--arcd-action-primary)"}}/>Meio dia</span>
-      <span className="ponto-legend-chip"><i style={{background:"var(--arcd-danger-text)"}}/>Falta</span>
-      <span className="ponto-legend-chip"><i style={{background:"var(--arcd-text-muted)"}}/>Sem registro</span>
-      <span className="ponto-legend-chip"><i style={{background:"var(--arcd-surface-inverse)"}}/>Feriado</span>
+      {["P","M","F"].map(st=><span className="ponto-legend-chip" key={st}><span aria-hidden="true" data-record-status-tone={tomStatus(st)}/>{ATTENDANCE_STATUS_LABEL[st]}</span>)}
+      <span className="ponto-legend-chip"><span aria-hidden="true"/>Sem registro</span>
+      <span className="ponto-legend-chip"><span aria-hidden="true" style={{background:"var(--arcd-surface-inverse)"}}/>Feriado</span>
       <span className="ponto-legend-help">Para mudar a obra do dia, clique no texto abaixo do status.</span>
     </div>
 
@@ -6217,7 +6215,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
             const aberto=obraCell===cellKey;
             return <td className={`ponto-dia-cell${feriado?" ponto-feriado":""}`} key={date} style={{padding:"var(--arcd-space-1)",borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)",borderLeft:"var(--arcd-border-width) solid var(--arcd-border-default)",background:feriado?"color-mix(in srgb, var(--arcd-danger-text) 2%, transparent)":fora?"var(--arcd-surface-muted)":"var(--arcd-surface-card)",verticalAlign:"middle"}}>
               {fora?<div style={{textAlign:"center",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)"}}>—</div>:<>
-                <RecordAction onClick={()=>{
+                <RecordAction layout="cell" onClick={()=>{
                   if(st==="AT"){
                     if(!pending&&!bloqueadoPorArquivo())setCorrecaoAtestado({employee:emp,date,status:""});
                     return;
@@ -6226,9 +6224,10 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
                   return nextStatus==="AT"?openCertificate(emp,date):salvarCelula(emp,date,{status:nextStatus});
                 }}
                   aria-busy={pending}
+                  data-record-status-tone={tomStatus(st)}
                   aria-haspopup={st==="AT"?"dialog":undefined}
                   title={pending?"Salvando...":ATTENDANCE_STATUS_LABEL[st]||"Sem registro"}
-                  style={{width:"100%",cursor:"pointer",opacity:pending ? .82 : 1}}>
+                  style={pending?{opacity:.82}:undefined}>
                   {st?rotuloCurto(st):feriado?"Feriado":rotuloCurto(st)}
                 </RecordAction>
                 {st==="AT"&&<RecordAction title="Anexar atestado" onClick={()=>openCertificate(emp,date,true)}>Anexar atestado</RecordAction>}

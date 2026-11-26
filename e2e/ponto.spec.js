@@ -151,6 +151,64 @@ const installIsolatedBackend = async (page, stateOverride = {}, options = {}) =>
   };
 };
 
+test("Gestão do ponto mantém as cores da grade e da legenda", async ({page,baseURL},info)=>{
+  const date="2026-11-23",profile={...PROFILE,role:"admin",obraId:"",accessTabs:["home","ponto_geral"]};
+  await page.clock.setFixedTime(new Date("2026-11-23T12:00:00-03:00"));
+  await page.addInitScript(({id,theme})=>{
+    sessionStorage.setItem(`arcd-section:${id}`,"ponto_geral");
+    localStorage.setItem("arcd-theme",theme);
+  },{id:profile.id,theme:info.project.metadata.theme||"plataforma"});
+  await page.route("**/*",route=>{
+    const request=route.request();
+    const url=new URL(request.url());
+    const isAsset=url.origin===new URL(baseURL).origin&&!url.pathname.startsWith("/api/");
+    return isAsset&&["GET","HEAD"].includes(request.method())?route.fallback():route.abort();
+  });
+  await installIsolatedBackend(page,{
+    usuarios:[profile],
+    attendance:{"emp-qa":{
+      [date]:{status:"P",obraId:"obra-qa",note:"Observação mantida"},
+      "2026-11-24":{status:"M",obraId:"obra-qa"},
+      "2026-11-25":{status:"F",obraId:"obra-qa"},
+      "2026-11-26":{status:"AT",obraId:"obra-qa"},
+    }},
+  },{profile});
+  await page.goto("/");
+  await page.locator("#login-email").fill(profile.email);
+  await page.locator("#login-senha").fill("senha-isolada");
+  await page.getByRole("button",{name:"Acessar central MARCELL"}).click();
+  const table=page.locator(".ponto-geral-table");
+  await expect(page.locator("html")).toHaveAttribute("data-theme",info.project.metadata.theme||"plataforma");
+  const present=table.getByRole("button",{name:"P",exact:true});
+  await expect(present).toBeVisible();
+  for(const [label,tone] of Object.entries({Presente:"success","Meio dia":"warning",Falta:"danger",Atestado:"info"})){
+    const cell=table.getByTitle(label,{exact:true});
+    await expect(cell).toBeVisible();
+    const colors=await cell.evaluate((button,tone)=>{
+      const styles=getComputedStyle(button);
+      const probe=document.createElement("span");
+      button.append(probe);
+      probe.style.color=`var(--arcd-${tone}-text)`;
+      probe.style.backgroundColor="var(--arcd-text-inverse)";
+      const expected=getComputedStyle(probe);
+      const colors={
+        fill:styles.backgroundColor, border:styles.borderTopColor, text:styles.color,
+        tone:expected.color, inverse:expected.backgroundColor,
+      };
+      probe.remove();
+      return colors;
+    },tone);
+    expect(colors.fill,`fundo da marcação ${label}`).toBe(colors.tone);
+    expect(colors.border,`borda da marcação ${label}`).toBe(colors.tone);
+    expect(colors.text,`texto da marcação ${label}`).toBe(colors.inverse);
+    if(label!=="Atestado"){
+      const marker=page.locator(".ponto-geral-legend").getByText(label,{exact:true}).locator('[aria-hidden="true"]');
+      await expect(marker).toHaveCSS("background-color",colors.tone);
+    }
+  }
+  await page.screenshot({path:info.outputPath("gestao-do-ponto.png"),animations:"disabled"});
+});
+
 test("Gestão do ponto corrige AT diretamente, sem lançar folga nem reenviar atestado", async ({page},info)=>{
   const date="2026-11-12",profile={...PROFILE,role:"admin",obraId:"",accessTabs:["home","ponto_geral"]};
   await page.clock.setFixedTime(new Date("2026-11-12T12:00:00-03:00"));
