@@ -3308,21 +3308,16 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     // folha; o botão fica numa barra própria (antes, fixo, cobria o nome do
     // orçamento no canto superior direito).
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Orçamento - ${escapeHtml(orc.nome)}</title>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-@page{size:A4 portrait;margin:12mm 10mm 14mm;@bottom-left{content:"${textoCss(orc.nome)} · ${textoCss(empresaPDF)}";font:7.5px "Nimbus Sans",Arial,sans-serif;color:#6f6f6f}@bottom-right{content:"Página " counter(page) " de " counter(pages);font:7.5px "IBM Plex Mono",monospace;color:#6f6f6f}}
+@page{size:A4 portrait;margin:12mm 10mm 14mm;@bottom-left{content:"${textoCss(orc.nome)} · ${textoCss(empresaPDF)}";font:7.5px "Nimbus Sans",Arial,sans-serif;color:#6f6f6f}@bottom-right{content:"Página " counter(page) " de " counter(pages);font:7.5px "Nimbus Sans",Arial,sans-serif;color:#6f6f6f}}
 body{font-family:"Nimbus Sans",Arial,sans-serif;color:#161616;background:#fff;padding:22px;font-size:9.5px;letter-spacing:.1px}
 .acoes{display:flex;justify-content:flex-end;margin:-8px 0 10px}
-.btn{background:#D4AF37;color:#161616;border:0;padding:9px 16px;font:600 12px "Nimbus Sans",Arial,sans-serif;cursor:pointer}
 .btn:focus-visible{outline:2px solid #161616;outline-offset:2px}
-.num,td.r,.meta div p:last-child,tfoot td.r{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
-thead{display:table-header-group}tr{break-inside:avoid}
 .ph{display:flex;align-items:center;gap:14px;padding-bottom:12px;border-bottom:2px solid #161616;margin-bottom:14px}
-.logo{background:#161616;color:#D4AF37;padding:9px 15px;font-size:19px;font-weight:600;letter-spacing:3px}
-.co h1{font-size:15px;font-weight:600}.co p{font-size:9px;color:#525252;margin-top:2px}
+.co p{font-size:9px;color:#525252;margin-top:2px}
 .tag{font-size:15px;font-weight:400;text-align:right;flex:1}.tag small{display:block;font-size:8px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:#525252;margin-bottom:2px}
-.sec{font-size:11px;font-weight:600;margin:14px 0 6px;padding-bottom:3px;border-bottom:1px solid #D6D6D6}
+.sec{margin:14px 0 6px;padding-bottom:3px;border-bottom:1px solid #D6D6D6}
 .resumo{margin-bottom:6px}.resumo td{border-bottom:1px solid #E0E0E0}.resumo .barra-h{width:22%}
 .resumo td.barra-h i{display:block;height:6px;background:#161616;min-width:1px}
 .assinaturas{display:grid;grid-template-columns:1fr 1fr;gap:18px 36px;margin-top:34px;break-inside:avoid}
@@ -3356,7 +3351,7 @@ tfoot tr.m2 td{background:#F5F3EE;font-size:10px}
 .bdi-tb tr.trib td{background:#F5F3EE}
 .bdi-res{display:flex;justify-content:space-between;align-items:center;margin-top:6px;padding-top:5px;border-top:2px solid #161616}
 .bdi-res span{font-size:9px;font-weight:600;letter-spacing:.5px}
-.bdi-res b{font-size:14px;font-weight:600;color:#161616;font-family:"IBM Plex Mono",monospace;border-bottom:2px solid #D4AF37}
+.bdi-res b{font-size:14px;font-weight:600;color:#161616;border-bottom:2px solid #D4AF37}
 .bdi-sit{font-size:8px;margin-top:5px;padding:4px 6px}
 .bdi-sit.dentro{background:#E8F2E9;color:#1E6B31}
 .bdi-sit.acima,.bdi-sit.abaixo{background:#FBEAE9;color:#B71C1C}

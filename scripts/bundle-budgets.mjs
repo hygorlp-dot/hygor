@@ -100,7 +100,8 @@ export const BUNDLE_BUDGETS = Object.freeze({
   // Carimbo no Diário (PR #239): CI mediu 1.890.307 bytes, 3 acima do teto.
   // Acréscimo limitado a 1 KiB, com folga para o ajuste do modal de item (#240).
   // Revisão Unslop consolidada sobre a correção de atestados: 1.904.482 bytes gzip.
-  totalGzipBytes: 1_861 * 1024,
+  // Diálogo do PDF do orçamento: acréscimo limitado a 1 KiB no total.
+  totalGzipBytes: 1_862 * 1024,
   genericJavaScriptGzipBytes: 200 * 1024,
   staticMediaTotalBytes: 4 * 1024 * 1024,
   genericStaticMediaBytes: 1 * 1024 * 1024,

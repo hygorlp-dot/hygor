@@ -103,18 +103,12 @@ body[data-adjustable-tables][data-annex-new-page="true"] .section{break-before:p
 body[data-adjustable-tables] .section :is(h3,p){break-after:avoid}
 .mrc-report-controls{background:#f3f0e9;border:1px solid #7a8591;padding:16px;margin-bottom:20px}
 .mrc-report-controls__fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px;margin:12px 0}
-.mrc-report-dialog{box-sizing:border-box;max-width:min(44rem,calc(100% - 24px));width:100%;max-height:calc(100dvh - 24px);margin:auto;overflow:auto;color:inherit}
+.mrc-report-dialog{width:min(44rem,calc(100% - 24px));max-height:calc(100dvh - 24px);margin:auto;overflow:auto;color:inherit}
 .mrc-report-dialog::backdrop{background:rgb(13 27 46 / 55%)}
-.mrc-report-dialog h2{margin-bottom:16px}
-.mrc-report-dialog fieldset{border:1px solid #7a8591;margin:0 0 12px;padding:8px 12px;min-width:0}
-.mrc-report-dialog legend{padding:0 4px;font-weight:600}
-.mrc-report-dialog__checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,12rem),1fr));gap:4px 12px}
-.mrc-report-dialog .mrc-report-dialog__checks .mrc-report-controls__check{margin:0;align-items:center;min-height:36px}
-.mrc-report-dialog .mrc-report-controls__fields{grid-template-columns:repeat(auto-fit,minmax(min(100%,10rem),1fr))}
-.mrc-report-dialog .mrc-report-controls__actions{justify-content:flex-end}
+.mrc-report-dialog fieldset{margin:12px 0;padding:8px}
+.mrc-report-dialog__checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(9rem,1fr))}
+.mrc-report-dialog .mrc-report-controls__check{margin:4px 0}
 body[data-marcell-report] .mrc-report-dialog button:not([value="print"]){background:transparent!important;color:#0d1b2e!important}
-body[data-marcell-report] .mrc-report-dialog :is(button,select){min-height:44px}
-@media (max-width:36rem){.mrc-report-dialog :is(.mrc-report-dialog__checks,.mrc-report-controls__fields){grid-template-columns:repeat(2,minmax(0,1fr))}}
 body[data-marcell-report] .planilha-detalhada td{font-size:var(--mrc-budget-table-font,10px)!important}
 body[data-marcell-report] :is([data-budget-section],.planilha-detalhada td,.planilha-detalhada th)[hidden]{display:none!important}
 .mrc-report-controls label{display:flex;flex-direction:column;gap:6px;font-size:12px}

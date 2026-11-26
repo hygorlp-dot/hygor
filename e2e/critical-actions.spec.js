@@ -168,7 +168,7 @@ test.describe("ações críticas", () => {
     await printSettings.getByRole("checkbox", { name:"Assinaturas", exact:true }).uncheck();
     await printSettings.getByRole("combobox", { name:"Orientação" }).selectOption("landscape");
     await printSettings.getByRole("combobox", { name:"Papel" }).selectOption("A3");
-    await printSettings.getByRole("combobox", { name:"Margens" }).selectOption("narrow");
+    await printSettings.getByRole("combobox", { name:"Margens" }).selectOption("8mm");
     await printSettings.getByRole("button", { name:"Aplicar à prévia" }).click();
     await expect(janela.getByRole("columnheader", { name:"Código", exact:true })).toHaveCount(0);
     await expect(janela.getByText("Responsável técnico", { exact:true })).toBeHidden();
