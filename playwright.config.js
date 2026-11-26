@@ -73,6 +73,8 @@ export default defineConfig({
     {name:"reconciliation-categories-mobile",testMatch:/reconciliation-categories\.spec\.js/,use:{browserName:"chromium",viewport:{width:390,height:844},isMobile:true,hasTouch:true}},
     { name:"pilot-recovery-desktop",testMatch:/pilot-recovery\.spec\.js/,use:{browserName:"chromium",viewport:{width:1440,height:1000}} },
     { name:"pilot-recovery-mobile",testMatch:/pilot-recovery\.spec\.js/,use:{browserName:"chromium",viewport:{width:390,height:844},isMobile:true,hasTouch:true} },
+    { name:"company-isolation-desktop",testMatch:/company-isolation\.spec\.js/,use:{browserName:"chromium",viewport:{width:1440,height:1000}} },
+    { name:"company-isolation-mobile",testMatch:/company-isolation\.spec\.js/,use:{browserName:"chromium",viewport:{width:390,height:844},isMobile:true,hasTouch:true} },
     { name:"pilot-exceptions-desktop",testMatch:/pilot-exceptions\.spec\.js/,use:{browserName:"chromium",viewport:{width:1440,height:1000}} },
     { name:"pilot-exceptions-mobile",testMatch:/pilot-exceptions\.spec\.js/,use:{browserName:"chromium",viewport:{width:390,height:844},isMobile:true,hasTouch:true} },
     { name:"record-panel-desktop", testMatch:/record-panel\.spec\.js/, use:{browserName:"chromium",viewport:{width:1440,height:1000}} },

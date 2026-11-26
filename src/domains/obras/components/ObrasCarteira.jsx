@@ -1,6 +1,7 @@
 // @ts-check
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { conectarOneDrive, criarEstruturaOneDrive, sincronizarEstruturasOneDrive, statusOneDrive } from "../../../api.js";
+import { useCompanyAssetUrl } from "../../../components/CompanyAsset.jsx";
 import { Button as StandardButton } from "../../../components/ui/button.jsx";
 import { Input as StandardInput } from "../../../components/ui/input.jsx";
 import { contar } from "../../../design-system/copy.js";
@@ -24,6 +25,16 @@ import { projectAlertAction, validateProjectForm } from "../project-validation.j
 
 /** @type {Record<string,string|undefined>} */
 const CONTRACT_LABELS = contractLabels;
+
+/** @param {{reference?: string, onOpen: () => void, children: import('react').ReactNode}} props */
+function CapaObra({ reference, onOpen, children }) {
+  const { url } = useCompanyAssetUrl(reference);
+  return <RecordAction data-has-image={!!url} className="works-card-cover" onClick={onOpen}
+    style={{ "--work-cover-image": url ? `url(${JSON.stringify(url)})` : undefined }}>
+    {!url && <span aria-hidden="true" style={{position:"absolute",right:-24,top:-46,width:180,height:180,borderRadius:"var(--arcd-radius-pill)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-action-primary) 33%, transparent)",boxShadow:"none"}}/>}
+    {children}
+  </RecordAction>;
+}
 
 // Paleta oferecida ao criar/editar uma fase
 const CORES_FASE = [
@@ -747,8 +758,7 @@ export default function ObrasCarteira({ data, update, showToast, onAbrirObra, cu
           const prazo = prazoObra(o);
           const risco = o._alertas.length > 0;
           return <article data-risk={risco} key={o.id} className="lift-card works-card" style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid ${risco?"color-mix(in srgb, var(--arcd-danger-text) 40%, transparent)":"var(--arcd-border-default)"}`,borderRadius:"var(--arcd-box-radius)",overflow:"hidden",boxShadow:"var(--arcd-shadow-lg)",display:"flex",flexDirection:"column",minWidth:0}}>
-            <RecordAction data-has-image={!!o.capaUrl} className="works-card-cover" onClick={()=>onAbrirObra?.(o.id)} style={{"--work-cover-image":o.capaUrl?"url("+JSON.stringify(o.capaUrl)+")":undefined}}>
-              {!o.capaUrl&&<><span aria-hidden="true" style={{position:"absolute",right:-24,top:-46,width:180,height:180,borderRadius:"var(--arcd-radius-pill)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-action-primary) 33%, transparent)",boxShadow:"none"}}/></>}
+            <CapaObra reference={o.capaUrl} onOpen={()=>onAbrirObra?.(o.id)}>
               <div style={{position:"absolute",inset:0,padding:"var(--arcd-space-3)",display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)"}}>
                   <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",letterSpacing:"var(--arcd-letter-spacing-body)",color:"var(--arcd-action-primary-subtle)"}}>MARCELL · #{codigo}</span>
@@ -759,7 +769,7 @@ export default function ObrasCarteira({ data, update, showToast, onAbrirObra, cu
                   <h3 className="brk" style={{fontFamily:FONT_DISPLAY,fontSize:"var(--arcd-type-section-title)",fontWeight:"var(--arcd-font-weight-semibold)",lineHeight:"var(--arcd-line-height-normal)",color:"var(--arcd-text-inverse)",paddingRight:"var(--arcd-space-3)"}}>{o.name}</h3>
                 </div>
               </div>
-            </RecordAction>
+            </CapaObra>
             <div className="works-card-body" style={{padding:"var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)",flex:1}}>
               <div className="works-card-identity" style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"var(--arcd-space-2)"}}>
                 <div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",color:"var(--arcd-text-secondary)"}}>Cliente</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:o.cliente?"var(--arcd-text-primary)":"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.cliente||"Não vinculado"}</p></div>
