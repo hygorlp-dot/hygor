@@ -3269,7 +3269,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     const p = orc.bdiParams;
     const sitPDF = situacaoBDI(Number(orc.bdi||0), orc.bdiTipo || "edificios");
     const blocoBDI = !p ? "" : `
-<div class="bdi-box">
+<div class="bdi-box" data-budget-section="calculation">
   <p class="bdi-t">MEMÓRIA DE CÁLCULO DO BDI - Acórdão 2622/2013-TCU-Plenário</p>
   <p class="bdi-f">BDI = [ (1 + AC + S + R + G) × (1 + DF) × (1 + L) ÷ (1 − I) ] − 1</p>
   <table class="bdi-tb">
@@ -3363,7 +3363,7 @@ tfoot tr.m2 td{background:#F5F3EE;font-size:10px}
 .footer{margin-top:20px;text-align:center;font-size:8px;color:#6f6f6f;border-top:1px solid #D6D6D6;padding-top:8px}
 @media print{.acoes{display:none}body{padding:0}}
 </style></head><body>
-<div class="acoes"><button class="btn" onclick="window.print()">Imprimir / salvar PDF</button></div>
+<div class="acoes"><button type="button" class="btn" data-budget-print-settings>Configurar PDF</button></div>
 <div class="ph">
   <div class="logo">MARCELL</div>
   <div class="co">
@@ -3378,45 +3378,45 @@ ${orc.descricao?`<p style="font-size:10px;color:#525252;margin:-5px 0 12px">${es
   <div><p>Local</p><p>${escapeHtml(localPDF)}</p></div>
   <div><p>Base de preços</p><p>${escapeHtml(orc.fonte)} ${escapeHtml(orc.uf)} · ${escapeHtml(dataBaseLegivel)}</p></div>
   <div><p>Encargos</p><p>${orc.desonerado?"Desonerado":"Não desonerado"}</p></div>
-  <div><p>BDI aplicado</p><p>${f2(orc.bdi)}%</p></div>
+  <div data-budget-section="bdi"><p>BDI aplicado</p><p>${f2(orc.bdi)}%</p></div>
   <div><p>Área</p><p>${orc.areaM2>0?f2(orc.areaM2)+" m²":"-"}</p></div>
   <div><p>Itens</p><p>${calc.qtdItens}</p></div>
   <div><p>Emissão</p><p>${new Date().toLocaleDateString("pt-BR")}</p></div>
 </div>
 ${completion.warning?`<p><strong>${escapeHtml(completion.warning)}</strong></p>`:''}
 ${blocoBDI}
-<h2 class="sec">Resumo por etapa</h2>
-<table class="resumo">
-  <thead><tr><th>Item</th><th>Etapa</th><th class="r">Total c/ BDI</th><th class="r">% do total</th><th class="barra-h"></th></tr></thead>
+<h2 class="sec" data-budget-section="summary">Resumo por etapa</h2>
+<table class="resumo" data-budget-section="summary">
+  <thead><tr><th>Item</th><th>Etapa</th><th class="r" data-budget-neutral-label="Total">Total c/ BDI</th><th class="r">% do total</th><th class="barra-h"></th></tr></thead>
   <tbody>${resumoEtapas}</tbody>
   <tfoot><tr class="tot"><td colspan="2">${totalLabel}</td><td class="r">R$ ${f2(calc.total)}</td><td class="r">${calc.total>0?'100,00%':'0,00%'}</td><td></td></tr></tfoot>
 </table>
 <h2 class="sec">Planilha detalhada</h2>
 <table class="planilha-detalhada">
   <colgroup>
-    <col style="width:8%"><col data-report-adjust-column style="width:13%"><col style="width:8%"><col data-report-balance-column>
+    <col style="width:8%"><col style="width:13%"><col style="width:8%"><col style="width:36%">
     <col style="width:5%"><col style="width:8%"><col style="width:10%"><col style="width:12%">
   </colgroup>
   <thead><tr>
     <th>Item</th><th>Código</th><th>Fonte</th><th>Discriminação dos serviços</th>
-    <th class="c">Un.</th><th class="r">Quant.</th><th class="r">P. Unit. c/ BDI</th><th class="r">Total</th>
+    <th class="c">Un.</th><th class="r">Quant.</th><th class="r" data-budget-neutral-label="Preço unitário">P. Unit. c/ BDI</th><th class="r">Total</th>
   </tr></thead>
   <tbody>${linhas}</tbody>
   <tfoot>
     <tr><td colspan="7">CUSTO DIRETO (sem BDI)</td><td class="r">R$ ${f2(calc.custoDireto)}</td></tr>
-    <tr><td colspan="7">BDI (${f2(orc.bdi)}%)</td><td class="r">R$ ${f2(calc.valorBDI)}</td></tr>
+    <tr data-budget-section="bdi"><td colspan="7">BDI (${f2(orc.bdi)}%)</td><td class="r">R$ ${f2(calc.valorBDI)}</td></tr>
     <tr class="tot"><td colspan="7">${totalLabel} do orçamento</td><td class="r">R$ ${f2(calc.total)}</td></tr>
-    ${orc.areaM2>0?`<tr class="m2"><td colspan="7">CUSTO POR METRO QUADRADO</td><td class="r">R$ ${f2(calc.porM2)}/m²</td></tr>`:""}
+    ${orc.areaM2>0?`<tr class="m2" data-budget-section="areaCost"><td colspan="7">CUSTO POR METRO QUADRADO</td><td class="r">R$ ${f2(calc.porM2)}/m²</td></tr>`:""}
   </tfoot>
 </table>
-<section class="assinaturas">
+<section class="assinaturas" data-budget-section="signatures">
   <div><span class="linha"></span><b>Responsável técnico</b><small>Nome · CREA/CAU nº</small></div>
   <div><span class="linha"></span><b>Contratante</b><small>${escapeHtml(clientePDF!=="-"?clientePDF:"Nome · CPF/CNPJ")}</small></div>
   <p class="local-data">Local e data: ____________________________, ____/____/________</p>
 </section>
 <div class="footer">${escapeHtml(empresaPDF)} · gerado em ${new Date().toLocaleString("pt-BR")} · preços congelados na data-base ${escapeHtml(dataBaseLegivel)}</div>
 </body></html>`;
-    openReportPreview(html, { adjustableTables: "column" });
+    openReportPreview(html, { adjustableTables: "budget" });
   };
 
   // Exportações da tabela de Sapatas (Memória de Cálculo - Fundação) - pedido
