@@ -1,10 +1,11 @@
 export const COMPANY_OPTIONS=Object.freeze([{value:'arcd',label:'ARCD'},{value:'mrc',label:'MRC'}]);
+export const REMEMBERED_COMPANY_KEY='arcd_remembered_company';
 let companyId='arcd';
 let enabled=false;
 try{
   const saved=JSON.parse(globalThis.sessionStorage?.getItem('arcd_auth_session')||'{}');
   const requested=new URLSearchParams(globalThis.location?.search||'').get('empresa');
-  const value=saved.companyId||requested;
+  const value=saved.companyId||requested||globalThis.localStorage?.getItem(REMEMBERED_COMPANY_KEY);
   if(COMPANY_OPTIONS.some(company=>company.value===value))companyId=value;
 }catch{ /* A empresa é validada novamente pelo servidor. */ }
 export const activeCompany=()=>companyId;

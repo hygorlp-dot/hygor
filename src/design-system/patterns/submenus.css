@@ -1,7 +1,7 @@
 /* Shared presentation for workspace destinations, tablists and view filters.
    The owning component retains its navigation, keyboard and selection behavior. */
 @media screen {
-  :root[data-theme] :is(.arcd-main, .arcd-dialog, .arcd-modal-panel, .arcd-drawer, .arcd-client-shell)
+  :root[data-theme] :is(.arcd-main, .arcd-dialog, .arcd-modal-panel, .arcd-drawer, .arcd-client-shell, .arcd-access-shell)
   :is(
     [role="tablist"],
     .tab-row,
@@ -103,7 +103,7 @@
     }
   }
 
-  :root[data-theme] .arcd-main .mrc-submenu {
+  :root[data-theme] :is(.arcd-main, .arcd-access-shell) .mrc-submenu {
     display: flex;
     flex-wrap: wrap;
   }

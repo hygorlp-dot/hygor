@@ -16,6 +16,7 @@
   --arcd-font-sans: "Inter", "Geist", "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
   --arcd-font-mono: "Geist Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --arcd-font-numeric: var(--arcd-font-sans);
+  --arcd-font-editorial: "P052", Georgia, serif;
 
   --arcd-font-size-xs: 0.75rem;
   --arcd-font-size-sm: 0.875rem;
@@ -35,6 +36,8 @@
 
   /* Escala da interface, aplicada desde a primeira pintura. */
   --arcd-type-page-title: 1.375rem;
+  --arcd-type-access-title: clamp(1.5rem, 2.5vw, 2.125rem);
+  --arcd-type-access-brand: clamp(2rem, 4.1vw, 3.75rem);
   --arcd-type-section-title: .9375rem;
   --arcd-type-card-title: .875rem;
   --arcd-type-body: 0.8125rem;

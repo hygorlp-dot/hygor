@@ -104,15 +104,95 @@ test("identidade MARCELL carrega as fontes locais e a marca oficial no acesso",a
   expect(await page.evaluate(()=>[...document.fonts].filter(font=>font.family.includes("Inter")&&font.status==="loaded").length)).toBeGreaterThan(0);
   await expect(page.locator("#login-email")).toHaveCSS("font-family",/Inter/);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)).toBe(false);
-  const tools=page.locator(".mrc-draft-tool");
+  const brandTitle=page.getByText("Gestão de obras",{exact:true});
+  const photo=page.locator(".mrc-access__photo");
   const {height}=page.viewportSize();
   await page.setViewportSize({width:900,height});
-  await expect(tools).toHaveCount(0);
+  await expect(brandTitle).toBeHidden();
   await page.setViewportSize({width:901,height});
-  await expect(tools).toHaveCount(4);
+  await expect(brandTitle).toBeVisible();
+  await expect(photo).toHaveJSProperty("complete",true);
+  expect(await photo.evaluate(image=>image.naturalWidth)).toBeGreaterThan(0);
   await page.setViewportSize({width:900,height});
-  await expect(tools).toHaveCount(0);
+  await expect(brandTitle).toBeHidden();
   await expect(page.locator("#login-email")).toBeVisible();
+  await page.getByRole("button",{name:"Mostrar senha"}).click();
+  await expect(page.locator("#login-senha")).toHaveAttribute("type","text");
+  await page.getByRole("button",{name:"Ocultar senha"}).click();
+  await expect(page.locator("#login-senha")).toHaveAttribute("type","password");
+  await page.locator("#login-email").press("Enter");
+  await expect(page.getByRole("alert")).toHaveText("Informe e-mail e senha.");
+
+  const pinTab=page.getByRole("tab",{name:"PIN de acesso"});
+  await pinTab.click();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await page.getByLabel("E-mail ou nome completo").fill("Operador QA");
+  await page.getByRole("button",{name:"Continuar com PIN"}).click();
+  const keypad=page.getByRole("group",{name:"Teclado do PIN"});
+  for(const digit of [1,2,3,4]) await keypad.getByRole("button",{name:String(digit),exact:true}).click();
+  await expect(page.getByRole("button",{name:"Confirmar acesso"})).toBeVisible();
+  await keypad.getByRole("button",{name:"Apagar último dígito"}).click();
+  await expect(page.getByRole("button",{name:"Confirmar acesso"})).toHaveCount(0);
+  await page.getByRole("button",{name:"Alterar identificação"}).click();
+  await expect(page.getByLabel("E-mail ou nome completo")).toHaveValue("Operador QA");
+});
+
+test("login oferece troca de senha e mantém o acesso somente por escolha",async({page},info)=>{
+  await page.emulateMedia({reducedMotion:"reduce"});
+  await page.addInitScript(()=>localStorage.setItem("arcd-theme","plataforma"));
+  const requests=[];
+  await page.route("**/api/data",route=>{
+    const request=route.request().postDataJSON();
+    requests.push(request.action);
+    if(request.action==="auth-change-password")return route.fulfill({json:{ok:true}});
+    if(request.action==="auth-login")return route.fulfill({status:401,json:{error:request.rememberMe?"Opção recebida no teste.":"Opção ausente no teste."}});
+    return route.fulfill({json:{precisaSetup:false}});
+  });
+  await page.goto("/");
+  await expect(page.locator("html")).toHaveAttribute("data-theme","plataforma");
+  const remember=page.getByRole("checkbox",{name:"Manter conectado neste dispositivo"});
+  await expect(remember).not.toBeChecked();
+  const [email,password,submit,rememberLabel,rememberHint]=await Promise.all([
+    page.locator("#login-email").boundingBox(),page.locator("#login-senha").boundingBox(),
+    page.getByRole("button",{name:"Acessar central MARCELL"}).boundingBox(),
+    page.locator("#login-remember-label").boundingBox(),page.locator("#login-remember-note").boundingBox(),
+  ]);
+  expect([password.x,submit.x].every(x=>Math.abs(x-email.x)<=1)).toBe(true);
+  expect([password.width,submit.width].every(width=>Math.abs(width-email.width)<=1)).toBe(true);
+  expect(Math.abs(rememberLabel.x-rememberHint.x)).toBeLessThanOrEqual(1);
+  await page.screenshot({path:info.outputPath("login-plataforma.png")});
+  await remember.check();
+  const trigger=page.getByRole("button",{name:"Alterar senha"});
+  await trigger.click();
+  const dialog=page.getByRole("dialog",{name:"Alterar senha"});
+  await expect(dialog).toBeVisible();
+  const [title,firstField,footer]=await Promise.all([
+    dialog.getByRole("heading").boundingBox(),dialog.getByLabel("E-mail corporativo").boundingBox(),
+    dialog.locator(".mrc-dialog-actions").boundingBox(),
+  ]);
+  expect([title.x,footer.x].every(x=>Math.abs(x-firstField.x)<=1)).toBe(true);
+  await page.screenshot({path:info.outputPath("alterar-senha-plataforma.png"),animations:"disabled"});
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  await trigger.click();
+  await dialog.getByLabel("E-mail corporativo").fill("operador@arcd.test");
+  await dialog.getByLabel("Senha atual",{exact:true}).fill("senha-atual-teste");
+  await dialog.getByLabel("Nova senha",{exact:true}).fill("nova-senha-teste");
+  const confirmation=dialog.getByLabel("Confirmar nova senha");
+  await confirmation.fill("senha-diferente");
+  const save=dialog.getByRole("button",{name:"Salvar nova senha"});
+  await save.click();
+  await expect(dialog.getByRole("alert")).toHaveText("A confirmação deve ser igual à nova senha.");
+  expect(requests).not.toContain("auth-change-password");
+  await confirmation.fill("nova-senha-teste");
+  await save.click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole("status")).toHaveText("Senha alterada. Entre com a nova senha.");
+  await expect(page.getByLabel("E-mail corporativo")).toHaveValue("operador@arcd.test");
+  await page.getByLabel("Senha",{exact:true}).fill("nova-senha-teste");
+  await page.getByRole("button",{name:"Acessar central MARCELL"}).click();
+  await expect(page.getByRole("alert")).toHaveText("Opção recebida no teste.");
 });
 
 for(const theme of ["marcell","noite"])test(`tema MARCELL mantém leitura com ampliação · ${theme}`,async({page},testInfo)=>{

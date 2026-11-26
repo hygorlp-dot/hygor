@@ -10,6 +10,7 @@ describe("contrato de resposta do login", () => {
   beforeEach(() => {
     vi.resetModules();
     sessionStorage.clear();
+    localStorage.clear();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
@@ -38,6 +39,30 @@ describe("contrato de resposta do login", () => {
       usuario:{id:"u1"},
     });
     expect(temSessao()).toBe(true);
+  });
+
+  it("restaura o acesso lembrado sem guardar credenciais no storage do navegador",async()=>{
+    const fetchMock=vi.fn((_,options)=>{
+      const {action}=JSON.parse(options.body);
+      if(action==="auth-login")return response({data:{obras:[]},usuario:{id:"u1"},accessToken:"token-inicial",remembered:true});
+      if(action==="auth-refresh")return response({userId:"u1",accessToken:"token-renovado"});
+      return response({ok:true,data:{obras:[]},usuario:{id:"u1"}});
+    });
+    vi.stubGlobal("fetch",fetchMock);
+    const {entrarComEmail}=await import("./api.js");
+    await expect(entrarComEmail("qa@arcd.test","senha",{rememberMe:true})).resolves.toMatchObject({ok:true});
+    expect(sessionStorage.getItem("arcd_auth_session")).toBeNull();
+    expect(localStorage.getItem("arcd_remembered_company")).toBe("arcd");
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).rememberMe).toBe(true);
+
+    vi.resetModules();
+    const {restaurarSessaoEmail,logout}=await import("./api.js");
+    await expect(restaurarSessaoEmail()).resolves.toMatchObject({ok:true,usuario:{id:"u1"}});
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({action:"auth-refresh",companyId:"arcd",remembered:true});
+    expect(sessionStorage.getItem("arcd_auth_session")).toBeNull();
+    await logout();
+    expect(localStorage.getItem("arcd_remembered_company")).toBeNull();
+    expect(JSON.parse(fetchMock.mock.calls.at(-1)[1].body).action).toBe("auth-forget");
   });
 
   it("não repassa a lista de operadores mesmo se um servidor antigo ainda a devolver", async () => {

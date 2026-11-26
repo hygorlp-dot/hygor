@@ -11,6 +11,7 @@ import {BASELINE_COMMAND_TYPES} from '../src/domains/planejamento/approved-basel
 import {quoteLinkKey,issueQuoteLink,verifyQuoteLink,quoteLinkAccess,publicQuoteView} from "../server/supplier-quote-link.js";
 import {storeSupplierResponse} from "../src/domains/compras/supplier-quote-response.js";
 import { reconcileImportedStatement } from "../server/reconciliation-after-import.js";
+import {clearRememberedLogin, createRememberedLoginKey, readRememberedLogin, writeRememberedLogin} from '../server/remembered-login.js';
 // ═══════════════════════════════════════════════════════════════════
 // /api/data — a única porta de entrada para o banco
 //
@@ -209,6 +210,7 @@ const authDb = URL&&SERVICE ? createClient(URL, SERVICE, {
   auth: { persistSession: false, autoRefreshToken: false },
 }) : null;
 const validarToken = criarValidadorDeToken(authDb);
+const rememberedLoginKey = createRememberedLoginKey(SERVICE);
 
 const { backupFolder, criarBackupOneDrive, verificarBackupOneDrive } = createCompanyBackup(db);
 
@@ -952,6 +954,12 @@ async function handler(req, res) {
   let { action=req.query?.action, userId, identificador, pin, accessToken, payload } = req.body || {};
   const getActions=new Set(["profiles","client-portal","pedido-aceite-ver","backup-create","backup-verify","ponto-tempo-verificar"]);
   if(req.method&&req.method!=="POST"&&!(req.method==="GET"&&getActions.has(action)))return res.status(405).json({error:"Método não permitido."});
+  const managingLoginCookie=action==="auth-forget"||action==="auth-change-password"
+    ||(action==="auth-login"&&typeof req.body?.rememberMe==="boolean")
+    ||(action==="auth-refresh"&&req.body?.remembered===true);
+  if(managingLoginCookie&&req.headers["sec-fetch-site"]&&req.headers["sec-fetch-site"]!=="same-origin"){
+    return res.status(403).json({error:"Use a página de acesso da MARCELL para continuar."});
+  }
 
   try {
     if(action==="client-error"){
@@ -1064,9 +1072,18 @@ async function handler(req, res) {
       return res.status(result.status).json(result.body);
     }
 
-    if (action === "auth-login") {
+    if (action === "auth-login" || action === "auth-change-password") {
+      res.setHeader("Cache-Control","private, no-store");
       const email=String(req.body?.email||"").trim().toLowerCase();
       const password=String(req.body?.password||"");
+      const changingPassword=action==="auth-change-password";
+      const newPassword=String(req.body?.newPassword||"");
+      if(changingPassword&&(newPassword.length<8||password===newPassword)){
+        return res.status(400).json({error:"Escolha uma senha diferente da atual, com pelo menos 8 caracteres."});
+      }
+      if(changingPassword&&Buffer.byteLength(newPassword,"utf8")>72){
+        return res.status(400).json({error:"A nova senha é longa demais. Use uma senha mais curta."});
+      }
       const authSubject=`${ip}|email:${email||"unknown"}`;
       const limiteCentral=await rateLimitCentral(authSubject,"status");
       if(limiteCentral?.blocked||bloqueado(authSubject)){
@@ -1086,14 +1103,47 @@ async function handler(req, res) {
       if(!usuario)return res.status(403).json({error:"Conta sem vínculo com um operador ativo do ArcD."});
       limparFalhas(authSubject);
       await rateLimitCentral(authSubject,"success");
+      if(changingPassword){
+        const identity=auth.user||auth.session.user;
+        const {error:changeError}=await authDb.auth.admin.updateUserById(identity.id,{password:newPassword});
+        if(changeError)return res.status(400).json({error:"Não foi possível salvar a nova senha. Confira os requisitos e tente novamente."});
+        await authDb.auth.admin.signOut(auth.session.access_token,"global").catch(()=>{});
+        clearRememberedLogin(res);
+        return res.status(200).json({ok:true});
+      }
       const completo=await anexarCustosArquivados(p);
-      return res.status(200).json({data:projectDataForUser(completo,usuario),updatedAt,usuario:publicUser(usuario),accessToken:auth.session.access_token,refreshToken:auth.session.refresh_token});
+      const remembered=req.body?.rememberMe===true&&writeRememberedLogin(res,rememberedLoginKey,auth.session.refresh_token);
+      if(req.body?.rememberMe===false)clearRememberedLogin(res);
+      return res.status(200).json({data:projectDataForUser(completo,usuario),updatedAt,usuario:publicUser(usuario),accessToken:auth.session.access_token,
+        ...(remembered?{remembered:true}:{refreshToken:auth.session.refresh_token})});
     }
 
     if (action === "auth-refresh") {
-      const {data:auth,error}=await authDb.auth.refreshSession({refresh_token:String(req.body?.refreshToken||"")});
+      res.setHeader("Cache-Control","private, no-store");
+      const remembered=req.body?.remembered===true;
+      const saved=remembered?readRememberedLogin(req,rememberedLoginKey):null;
+      if(remembered&&!saved)return res.status(401).json({error:"Sessão expirada."});
+      const {data:auth,error}=await authDb.auth.refreshSession({refresh_token:saved?.refreshToken||String(req.body?.refreshToken||"")});
       if(error||!auth?.session)return res.status(401).json({error:"Sessão expirada."});
+      if(saved){
+        const {payload:p}=await lerLinha();
+        const usuario=encontrarUsuarioAuth(p,auth.user||auth.session.user);
+        if(!usuario)return res.status(403).json({error:"Sessão sem vínculo com um operador ativo."});
+        if(!writeRememberedLogin(res,rememberedLoginKey,auth.session.refresh_token,Date.now(),saved.until))return res.status(401).json({error:"Sessão expirada."});
+        return res.status(200).json({accessToken:auth.session.access_token,userId:usuario.id});
+      }
       return res.status(200).json({accessToken:auth.session.access_token,refreshToken:auth.session.refresh_token});
+    }
+
+    if (action === "auth-forget") {
+      res.setHeader("Cache-Control","private, no-store");
+      const saved=readRememberedLogin(req,rememberedLoginKey);
+      clearRememberedLogin(res);
+      if(saved){
+        const {data:auth}=await authDb.auth.refreshSession({refresh_token:saved.refreshToken});
+        if(auth?.session)await authDb.auth.admin.signOut(auth.session.access_token,"local");
+      }
+      return res.status(200).json({ok:true});
     }
 
     // ── 1. Estado público do primeiro acesso ──────────────────────

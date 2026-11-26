@@ -43,7 +43,7 @@ export function inspectSharedSubmenuCss(source) {
   // Every destination must use the same base rule. State and theme rules can
   // still be composed below it.
   const stylesheet = postcss.parse(source);
-  const globalScopes = new Set(['arcd-main', 'arcd-dialog', 'arcd-modal-panel', 'arcd-drawer', 'arcd-client-shell', 'arcd-tv']);
+  const globalScopes = new Set(['arcd-main', 'arcd-dialog', 'arcd-modal-panel', 'arcd-drawer', 'arcd-client-shell', 'arcd-access-shell', 'arcd-tv']);
   let classes = [];
   let hasTablist = false;
   stylesheet.walkDecls('--submenu-height', declaration => {

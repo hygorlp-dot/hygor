@@ -280,13 +280,13 @@ Campos usam 16 px em telas até 767 px. O modo TV admite títulos maiores para l
 
 O ritmo usa os tokens de espaçamento. A densidade padrão Compacta define controles de 36 px, linhas de 34 px, painel de 12 px e intervalo de 10 px. Confortável usa 44/42/16/14 px; Espaçosa usa 48/48/20/18 px, nessa mesma ordem. O contexto de campo usa controles de 52 px e linhas de 50 px. No celular, os contratos de toque preservam pelo menos 44 px, independentemente da densidade salva.
 
-O acesso desktop usa duas colunas: painel de marca e formulário com largura máxima de 430 px. Até 900 px, passa a uma coluna, com assinatura oficial no topo e sem a frase editorial. No sistema autenticado, a navegação lateral azul atende desktop e a navegação inferior compacta atende celular. Tabelas extensas mantêm rolagem interna; cartões de registro adaptam dados à largura disponível.
+O acesso desktop usa duas colunas, com imagem arquitetônica estática, assinatura oficial e título institucional em P052. O formulário tem largura máxima de 430 px e usa Inter. Até 900 px, o painel de marca vira uma faixa acima do formulário e oculta o título institucional. No sistema autenticado, a navegação lateral azul atende desktop e a navegação inferior compacta atende celular. Tabelas extensas mantêm rolagem interna; cartões de registro adaptam dados à largura disponível.
 
 O sistema declara marcos de 480, 768, 1024 e 1280 px; o acesso tem sua transição específica de 900 px. Modais ocupam a tela no celular, com corpo rolável e respeito às áreas seguras. O aplicativo de ponto em campo conserva sua documentação específica.
 
 ## Elevation & Depth
 
-Superfícies operacionais são planas, diferenciadas por fundo, bordas e proximidade. Sombras médias pertencem a sobreposições e sombras maiores a modais e gavetas. O acesso MARCELL usa painel sólido e formulário sem sombra, filtro de fundo ou animação de entrada.
+Superfícies operacionais são planas, diferenciadas por fundo, bordas e proximidade. Sombras médias pertencem a sobreposições e sombras maiores a modais e gavetas. O acesso MARCELL usa formulário em superfície sólida e uma imagem estática com tratamento de contraste para a assinatura e o título.
 
 ### Shadow Vocabulary
 - **Overlay:** `0 8px 20px rgb(22 22 22 / 12%)`.

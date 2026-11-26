@@ -1,4 +1,4 @@
-import {activeCompany,setActiveCompany,setCompanyIsolation,companyIsolationActive} from './lib/company-scope.js';
+import {activeCompany,companyIsolationActive,setActiveCompany,setCompanyIsolation,REMEMBERED_COMPANY_KEY} from './lib/company-scope.js';
 import {parseCompanyFileReference} from './domains/arquivos/company-file-reference.js';
 // ═══════════════════════════════════════════════════════════════════
 // src/api.js — substitui o supabase.js no frontend
@@ -47,7 +47,7 @@ if (typeof window !== "undefined") {
 // Guardado só em memória (não em localStorage): fechou a aba, tem que
 // digitar o PIN de novo. Se ficasse no disco, quem pegasse o celular
 // destravado entrava sem PIN.
-let sessao = { userId: null, pin: null, accessToken: null, refreshToken: null, sessionId: null };
+let sessao = { userId: null, pin: null, accessToken: null, refreshToken: null, sessionId: null, remembered:false };
 try { sessao={...sessao,...JSON.parse(sessionStorage.getItem("arcd_auth_session")||"{}")}; } catch (_) {}
 let ultimoUpdatedAt = null;
 let renovacaoEmCurso = null;
@@ -62,15 +62,32 @@ const novaSessaoId = () => {
 
 export const abrirSessao = (userId, pin) => {
   sessionEpoch++;renovacaoEmCurso=null;
-  sessao = { userId, pin, accessToken:null,refreshToken:null,sessionId: novaSessaoId() };
+  sessao = { userId, pin, accessToken:null,refreshToken:null,sessionId: novaSessaoId(),remembered:false };
   presenceAuthBlocked=false;
 };
 
-const abrirSessaoEmail=(userId,accessToken,refreshToken)=>{
+const temLembrete=()=>{
+  try{return Boolean(localStorage.getItem(REMEMBERED_COMPANY_KEY));}catch{return false;}
+};
+
+const limparLembrete=()=>{try{localStorage.removeItem(REMEMBERED_COMPANY_KEY);}catch{}};
+
+const persistirSessaoEmail=()=>{
+  try{
+    if(sessao.remembered){
+      sessionStorage.removeItem("arcd_auth_session");
+      localStorage.setItem(REMEMBERED_COMPANY_KEY,activeCompany());
+    }else{
+      sessionStorage.setItem("arcd_auth_session",JSON.stringify({...sessao,companyId:activeCompany()}));
+    }
+  }catch{}
+};
+
+const abrirSessaoEmail=(userId,accessToken,refreshToken,remembered=false)=>{
   sessionEpoch++;renovacaoEmCurso=null;
-  sessao={userId,pin:null,accessToken,refreshToken,sessionId:novaSessaoId()};
+  sessao={userId,pin:null,accessToken,refreshToken:remembered?null:refreshToken,sessionId:novaSessaoId(),remembered};
   presenceAuthBlocked=false;
-  try{sessionStorage.setItem("arcd_auth_session",JSON.stringify({...sessao,companyId:activeCompany()}));}catch(_){}
+  persistirSessaoEmail();
 };
 
 const credenciais=()=>({companyId:activeCompany(),userId:sessao.userId,pin:sessao.pin,accessToken:sessao.accessToken});
@@ -89,9 +106,9 @@ const tokenExpiraEmBreve = (token, margemSegundos=30) => {
 };
 
 const renovarSessaoEmail = async () => {
-  if(!sessao.refreshToken)return false;
+  if(!sessao.refreshToken&&!sessao.remembered)return false;
   if(renovacaoEmCurso)return renovacaoEmCurso;
-  const epoch=sessionEpoch,refreshToken=sessao.refreshToken;
+  const {refreshToken,remembered,userId}=sessao,epoch=sessionEpoch;
   const task=(async()=>{
     const controller=new AbortController();
     const timer=window.setTimeout(()=>controller.abort(),15000);
@@ -99,13 +116,19 @@ const renovarSessaoEmail = async () => {
       const response=await fetch(ROTA,{
         method:"POST",signal:controller.signal,
         headers:{"content-type":"application/json"},
-        body:JSON.stringify({action:"auth-refresh",companyId:activeCompany(),refreshToken}),
+        body:JSON.stringify({action:"auth-refresh",companyId:activeCompany(),...(remembered?{remembered:true}:{refreshToken})}),
       });
       const refreshed=await response.json().catch(()=>({}));
-      if(epoch!==sessionEpoch||!response.ok||!refreshed.accessToken)return false;
-      sessao={...sessao,accessToken:refreshed.accessToken,refreshToken:refreshed.refreshToken||sessao.refreshToken};
+      if(epoch!==sessionEpoch)return false;
+      if(!response.ok||!refreshed.accessToken){
+        if(remembered&&(response.status===401||response.status===403))limparLembrete();
+        return false;
+      }
+      if(remembered&&(!refreshed.userId||(userId&&String(refreshed.userId)!==String(userId))))return false;
+      sessao={...sessao,userId:userId||refreshed.userId,sessionId:sessao.sessionId||novaSessaoId(),
+        accessToken:refreshed.accessToken,refreshToken:remembered?null:refreshed.refreshToken||sessao.refreshToken};
       presenceAuthBlocked=false;
-      try{sessionStorage.setItem("arcd_auth_session",JSON.stringify({...sessao,companyId:activeCompany()}));}catch(_){}
+      persistirSessaoEmail();
       return true;
     }catch{return false;}
     finally{window.clearTimeout(timer);}
@@ -116,11 +139,14 @@ const renovarSessaoEmail = async () => {
 };
 
 const fecharSessao = () => {
+  const forget = sessao.remembered||temLembrete();
   sessionEpoch++;renovacaoEmCurso=null;
-  sessao = { userId: null, pin: null, accessToken:null,refreshToken:null,sessionId:null };
+  sessao = { userId: null, pin: null, accessToken:null,refreshToken:null,sessionId:null,remembered:false };
   presenceAuthBlocked=false;
   try{sessionStorage.removeItem("arcd_auth_session");}catch(_){}
+  limparLembrete();
   ultimoUpdatedAt = null;
+  return forget?chamar({action:"auth-forget"}):undefined;
 };
 
 export const temSessao = () => {
@@ -150,7 +176,7 @@ const chamar = async (body) => {
       : "Não foi possível conectar ao servidor." };
   }
   if(epoch!==sessionEpoch)return sessionChanged();
-  if(r.status===401&&sessao.refreshToken&&!String(body.action||"").startsWith("auth-")){
+  if(r.status===401&&(sessao.refreshToken||sessao.remembered)&&!String(body.action||"").startsWith("auth-")){
     if(await renovarSessaoEmail()) {
       if(epoch!==sessionEpoch)return sessionChanged();
       try { r=await requisitar({...body,accessToken:sessao.accessToken}); }
@@ -175,7 +201,7 @@ const chamar = async (body) => {
 const chamarRotaAutenticada = async (rota, payload = {}) => {
   const epoch=sessionEpoch;
   if (!temSessao()) return { ok:false, status:401, error:"Sessão encerrada." };
-  if(sessao.accessToken&&sessao.refreshToken&&tokenExpiraEmBreve(sessao.accessToken)){
+  if(sessao.accessToken&&(sessao.refreshToken||sessao.remembered)&&tokenExpiraEmBreve(sessao.accessToken)){
     await renovarSessaoEmail();
   }
   if(epoch!==sessionEpoch)return sessionChanged();
@@ -199,7 +225,7 @@ const chamarRotaAutenticada = async (rota, payload = {}) => {
   if(epoch!==sessionEpoch)return sessionChanged();
   if(!tentativa.response)return {ok:false,status:0,error:tentativa.error};
   let response=tentativa.response;
-  if (response.status === 401 && sessao.refreshToken) {
+  if (response.status === 401 && (sessao.refreshToken||sessao.remembered)) {
     if(await renovarSessaoEmail()){
       if(epoch!==sessionEpoch)return sessionChanged();
       tentativa=await executar();
@@ -326,28 +352,38 @@ export const entrarComPin = async (identificador, pin) => {
   }
 
   setCompanyIsolation(r.companyIsolationEnabled);
+  if(sessao.remembered||temLembrete())await fecharSessao();
   abrirSessao(r.usuario.id, pin);
   ultimoUpdatedAt = r.updatedAt || null;
   return { ok: true, data: r.data, usuario: {...r.usuario,companyId:r.companyId||activeCompany(),companyIsolationEnabled:!!r.companyIsolationEnabled} };
 };
 
-export const entrarComEmail = async (email,password) => {
-  const r=await chamar({action:"auth-login",email,password});
+export const entrarComEmail = async (email,password,{rememberMe=false}={}) => {
+  const r=await chamar({action:"auth-login",email,password,rememberMe});
   if(r.status!==200)return{ok:false,erro:r.error||"E-mail ou senha inválidos."};
   if(!r.data||!r.usuario?.id||!r.accessToken){
     return{ok:false,erro:"O servidor devolveu uma resposta de autenticação inválida. Tente novamente."};
   }
   setCompanyIsolation(r.companyIsolationEnabled);
-  abrirSessaoEmail(r.usuario.id,r.accessToken,r.refreshToken);
+  if(!r.remembered)limparLembrete();
+  abrirSessaoEmail(r.usuario.id,r.accessToken,r.refreshToken,r.remembered===true);
   ultimoUpdatedAt=r.updatedAt||null;
   return{ok:true,data:r.data,usuario:{...r.usuario,companyId:r.companyId||activeCompany(),companyIsolationEnabled:!!r.companyIsolationEnabled}};
+};
+
+export const alterarMinhaSenha=async(email,password,newPassword)=>{
+  const r=await chamar({action:"auth-change-password",email,password,newPassword});
+  if(r.status!==200||!r.ok)return{ok:false,erro:r.error||"Não foi possível alterar a senha."};
+  limparLembrete();
+  fecharSessao();
+  return{ok:true};
 };
 
 // Reauthenticate the same operator without unmounting an in-progress editor.
 export const renewEditingSession=async({email,password,userId})=>{
  const r=await chamar({action:'auth-login',email,password});
  if(r.status!==200||!r.accessToken||!r.data||String(r.usuario?.id)!==String(userId))return {ok:false,error:r.error||'Renove o acesso com a mesma conta que iniciou a edição.'};
- abrirSessaoEmail(r.usuario.id,r.accessToken,r.refreshToken);
+ abrirSessaoEmail(r.usuario.id,r.accessToken,r.refreshToken,sessao.remembered);
  return {ok:true,usuario:{...r.usuario,companyId:r.companyId||activeCompany(),companyIsolationEnabled:!!r.companyIsolationEnabled}};
 };
 export const readRecoveryData=async()=>{
@@ -356,8 +392,11 @@ export const readRecoveryData=async()=>{
 };
 
 export const restaurarSessaoEmail=async()=>{
-  if(!temSessao())return{ok:false};
-  if(sessao.accessToken&&tokenExpiraEmBreve(sessao.accessToken)&&!await renovarSessaoEmail())return{ok:false};
+  if(!temSessao()){
+    if(!temLembrete())return{ok:false};
+    sessao={...sessao,remembered:true};
+    if(!await renovarSessaoEmail())return{ok:false};
+  }else if(sessao.accessToken&&tokenExpiraEmBreve(sessao.accessToken)&&!await renovarSessaoEmail())return{ok:false};
   const r=await chamar({action:"load",...credenciais()});
   if(r.status!==200)return{ok:false};
   setCompanyIsolation(r.companyIsolationEnabled);
@@ -749,6 +788,6 @@ export async function trocarEmpresa(companyId){
   sessionEpoch++;renovacaoEmCurso=null;ultimoUpdatedAt=null;presenceAuthBlocked=false;
   setActiveCompany(companyId);setCompanyIsolation(true);
   sessao={...sessao,sessionId:novaSessaoId()};
-  if(sessao.accessToken)try{sessionStorage.setItem('arcd_auth_session',JSON.stringify({...sessao,companyId}));}catch{}
+  if(sessao.accessToken)persistirSessaoEmail();
   return {ok:true,companyId};
 }

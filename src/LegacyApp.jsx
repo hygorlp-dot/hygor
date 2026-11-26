@@ -10787,7 +10787,7 @@ function CompanyWorkspace({session,onCompanyChanged,onSessionEnded}) {
     if (!window.confirm("Sair do sistema?")) return;
     if(!prepararTrocaDeConta())return;
     await encerrarPresenca();
-    encerrarSessao();
+    await encerrarSessao();
     onSessionEnded();
   };
 
@@ -10795,7 +10795,7 @@ function CompanyWorkspace({session,onCompanyChanged,onSessionEnded}) {
   const trocarDeUsuario = async () => {
     if(!prepararTrocaDeConta())return;
     await encerrarPresenca();
-    encerrarSessao();
+    await encerrarSessao();
     onSessionEnded();
   };
 

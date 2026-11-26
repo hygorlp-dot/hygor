@@ -31,7 +31,14 @@ const queryFor=() => {
 const bancoFalso=vi.hoisted(() => ({
   auth:{getUser:vi.fn(async token => token==="jwt-valido"
     ?{data:{user:{id:"auth-admin",email:"joao@arcd.test"}},error:null}
-    :{data:null,error:{message:"invalid"}})},
+    :{data:null,error:{message:"invalid"}}),
+    signInWithPassword:vi.fn(async ({email,password}) => email==="joao@arcd.test"&&password==="senha-atual-teste"
+      ?{data:{user:{id:"auth-admin",email},session:{access_token:"jwt-valido",refresh_token:"refresh-inicial"}},error:null}
+      :{data:null,error:{message:"invalid"}}),
+    refreshSession:vi.fn(async ({refresh_token}) => ["refresh-inicial","refresh-renovado"].includes(refresh_token)
+      ?{data:{user:{id:"auth-admin",email:"joao@arcd.test"},session:{access_token:"jwt-valido",refresh_token:"refresh-renovado"}},error:null}
+      :{data:null,error:{message:"invalid"}}),
+    admin:{updateUserById:vi.fn(async ()=>({error:null})),signOut:vi.fn(async ()=>({error:null}))}},
   from:vi.fn(() => queryFor()),
   rpc:vi.fn(async (funcao,args) => {
     if(!funcao.startsWith("auth_rate_limit_"))return {data:null,error:null};
@@ -47,11 +54,11 @@ const bancoFalso=vi.hoisted(() => ({
 vi.mock("@supabase/supabase-js", () => ({createClient:() => bancoFalso}));
 
 let handler, pinHash, sequencia=0, janela=0;
-const chamar=async (body,ip=`192.0.2.${++sequencia}`) => {
-  let status=200,corpo;
-  const res={headersSent:false,setHeader() {},status(codigo) { status=codigo; return res; },json(valor) { corpo=valor; return valor; }};
-  await handler({method:"POST",body,query:{},headers:{"x-forwarded-for":ip}},res);
-  return {status,corpo};
+const chamar=async (body,ip=`192.0.2.${++sequencia}`,cookie,fetchSite) => {
+  let status=200,corpo,setCookie;
+  const res={headersSent:false,setHeader(name,value) {if(name==="Set-Cookie")setCookie=value;},status(codigo) { status=codigo; return res; },json(valor) { corpo=valor; return valor; }};
+  await handler({method:"POST",body,query:{},headers:{"x-forwarded-for":ip,cookie,"sec-fetch-site":fetchSite}},res);
+  return {status,corpo,...(setCookie?{cookie:setCookie}:{})};
 };
 const sujeito=valor => authRateLimitSubject("arcd-login-test",valor);
 
@@ -82,11 +89,60 @@ describe("login privado · API e limite compartilhado", () => {
     estado.limites.clear();
     estado.chamadas.length=0;
     estado.rpcDisponivel=true;
+    bancoFalso.auth.admin.updateUserById.mockClear();
+    bancoFalso.auth.admin.signOut.mockClear();
   });
 
   it("profiles não enumera IDs, nomes, cargos nem credenciais", async () => {
     expect(await chamar({action:"profiles"})).toEqual({status:200,corpo:{precisaSetup:false}});
     expect(estado.consultas).toEqual({nucleo:0,separadas:0,pontoObra:0});
+  });
+
+  it("troca somente a senha da identidade autenticada com a senha atual", async()=>{
+    const change={action:"auth-change-password",email:"joao@arcd.test",newPassword:"nova-senha-teste",targetUserId:"outra-conta"};
+    expect((await chamar({...change,password:"incorreta"})).status).toBe(401);
+    expect(bancoFalso.auth.admin.updateUserById).not.toHaveBeenCalled();
+    const result=await chamar({...change,password:"senha-atual-teste"});
+    expect(result.status).toBe(200);
+    expect(result.corpo).toEqual({ok:true});
+    expect(result.cookie).toContain("Max-Age=0");
+    expect(bancoFalso.auth.admin.updateUserById).toHaveBeenCalledWith("auth-admin",{password:"nova-senha-teste"});
+    expect(bancoFalso.auth.admin.signOut).toHaveBeenCalledWith("jwt-valido","global");
+  });
+
+  it("protege a troca com o limite do login e recusa conta inativa", async()=>{
+    const ip="192.0.2.181",email="joao@arcd.test";
+    estado.limites.set(sujeito(ip+"|email:"+email),8);
+    const change={action:"auth-change-password",email,password:"senha-atual-teste",newPassword:"nova-senha-teste"};
+    expect((await chamar(change,ip)).status).toBe(429);
+    estado.usuarios[0].active=false;
+    expect((await chamar(change)).status).toBe(403);
+    expect(bancoFalso.auth.admin.updateUserById).not.toHaveBeenCalled();
+  });
+
+  it("recusa que outra origem gerencie o cookie do navegador", async()=>{
+    const result=await chamar({action:"auth-forget"},undefined,undefined,"same-site");
+    expect(result.status).toBe(403);
+    expect(result).not.toHaveProperty("cookie");
+  });
+
+  it("renova o acesso lembrado por cookie opaco até o prazo original e revoga ao sair", async()=>{
+    const login=await chamar({action:"auth-login",email:"joao@arcd.test",password:"senha-atual-teste",rememberMe:true});
+    expect(login.status).toBe(200);
+    expect(login.corpo).toMatchObject({remembered:true,accessToken:"jwt-valido"});
+    expect(login.corpo).not.toHaveProperty("refreshToken");
+    expect(login.cookie).toContain("HttpOnly; Secure; SameSite=Strict; Max-Age=604800");
+    expect(login.cookie).not.toContain("refresh-inicial");
+    const halfDay=12*60*60*1000;
+    vi.setSystemTime(Date.now()+halfDay);
+    const refreshed=await chamar({action:"auth-refresh",remembered:true},undefined,login.cookie.split(";")[0]);
+    expect(refreshed.corpo).toEqual({accessToken:"jwt-valido",userId:"admin-a"});
+    expect(refreshed.cookie).toContain("Max-Age=561600");
+    const exit=await chamar({action:"auth-forget"},undefined,refreshed.cookie.split(";")[0]);
+    expect(exit.cookie).toContain("Max-Age=0");
+    expect(bancoFalso.auth.admin.signOut).toHaveBeenCalledWith("jwt-valido","local");
+    vi.setSystemTime(Date.now()+7*24*60*60*1000);
+    expect((await chamar({action:"auth-refresh",remembered:true},undefined,refreshed.cookie.split(";")[0])).status).toBe(401);
   });
 
   it("não oferece o setup encerrado quando só há operadores inativos", async () => {
