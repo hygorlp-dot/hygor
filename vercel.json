@@ -20,7 +20,8 @@
       "codex/print-defaults-20261126": false,
       "codex/rounded-composition-costs-20261126": false,
       "codex/arquitetura-obsoletos-release-20261126": false,
-      "codex/ajustes-consolidados-20261126": false
+      "codex/ajustes-consolidados-20261126": false,
+      "codex/capas-protegidas-release-20261126": false
     }
   },
   "buildCommand": "node scripts/audit-import-cycles.mjs && npx vite build && node scripts/bundle-metrics.mjs && node scripts/apply-legacy-save-receipts.mjs && npm run acesso-publico:migrate",

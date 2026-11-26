@@ -659,7 +659,7 @@ Tenha o nome, o cliente e os dados contratuais da obra.
 
 ### Como conferir se deu certo
 
-A obra aparece na lista e seu painel abre com o nome correto.
+A obra aparece na lista e seu painel abre com o nome correto. Se a capa estiver indisponível para sua conta, o cartão mantém o nome e continua abrindo a obra.
 
 ### O que merece atenção
 

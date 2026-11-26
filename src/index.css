@@ -2980,7 +2980,7 @@ canvas {
   background: var(--arcd-surface-inverse);
 }
 .works-card-cover[data-has-image="true"] {
-  background: linear-gradient(180deg, transparent, var(--arcd-surface-overlay)), var(--work-cover-image) center / cover;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--arcd-surface-overlay), var(--arcd-gray-900) 25%), color-mix(in srgb, var(--arcd-surface-overlay), var(--arcd-gray-900) 50%)), var(--work-cover-image) center / cover;
 }
 .works-card-cover[data-has-image="false"]>span[aria-hidden="true"]{display:none}
 .works-card-body{padding:var(--arcd-space-3) var(--arcd-space-4) var(--arcd-space-3)!important;gap:var(--arcd-space-3)!important}
