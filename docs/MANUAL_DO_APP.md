@@ -1,6 +1,6 @@
 # Manual de uso do app MARCELL
 
-Revisão do conteúdo: 25/11/2026.
+Revisão do conteúdo: 26/11/2026.
 
 Este guia explica o uso das telas em linguagem simples. No aplicativo, clique em **Ajuda**, no cabeçalho, para ler o fluxo da página aberta. Em **Manual completo**, pesquise uma tarefa ou tela. As áreas exibidas no aplicativo respeitam seu perfil de acesso.
 
@@ -705,7 +705,7 @@ Selecione a obra e confira a versão do orçamento.
 4. Para incluir um serviço, use + Adicionar item na barra da planilha e escolha a Etapa que recebe o item, ou use Mais ações da etapa → Adicionar item, que já traz a etapa escolhida.
 5. Revise unidade, quantidade, composição e preço de cada item. Unit. sem BDI é o custo que você digita; Unit. com BDI e Total com BDI são calculados com o BDI (Benefícios e Despesas Indiretas) da linha. Use Colunas para mostrar ou ocultar campos opcionais e Recolher todas ou Expandir todas para navegar pelas etapas. No celular, cada item aparece como um cartão. Abra Opções da planilha para acessar Colunas, Recolher todas ou Expandir todas e Adicionar pavimento. Use Ver composição, junto ao total, para conferir o custo direto, o BDI e o valor por metro quadrado ou a quantidade de itens. A fonte e a data dos preços ficam em Dados e versões.
 6. Em Composições próprias, confira a versão e a quantidade de itens na área Exportar composições do orçamento. Use Exportar em Excel para baixar a planilha ou Exportar em PDF para abrir a prévia. Para salvar o PDF, escolha Gerar relatório e depois Imprimir / salvar PDF. Os dois arquivos listam apenas os itens com composição própria da versão aberta e os componentes gravados nela. O catálogo da empresa e as outras versões ficam fora da exportação.
-7. Confira os totais, salve as alterações e use a saída de relatório disponível.
+7. Confira os totais, salve as alterações e use a saída de relatório disponível. No PDF do orçamento completo, escolha Gerar relatório. Na prévia, mova o controle Largura da coluna Código (%) para ajustar o espaço da planilha detalhada. Use Restaurar largura original para voltar ao padrão e Imprimir / salvar PDF para usar a largura que estiver na tela.
 8. Em Análises e ferramentas, abra Conferência do orçamento inteiro. Use Tipo de ocorrência para ver A medir, A cotar ou Fora do escopo. Filtre por Etapa da ocorrência ou busque pelo item. Selecione a ocorrência para abrir a linha e revisar quantidade, preço ou composição.
 9. Em uma versão editável, use Excluir do escopo somente depois de confirmar que o serviço pendente não faz parte da obra. Informe o Motivo da exclusão e confirme. Use Fora do escopo para consultar o responsável e a data ou para Reincluir no escopo. Alterar os dados do serviço pode reabrir a pendência.
 10. Confira Total parcial na tela, no PDF e no Excel enquanto houver serviços a medir ou a cotar. No PDF, as exclusões aparecem junto aos itens. No Excel, consulte a aba Fora do escopo para ver os motivos e responsáveis.

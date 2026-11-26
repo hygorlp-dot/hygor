@@ -1,4 +1,4 @@
-import { adjustableTablesScript } from "./adjustable-tables.js";
+import { adjustableColumnScript, adjustableTablesScript } from "./adjustable-tables.js";
 import { MARCELL_LOGO } from "../brand/identity.js";
 import {readReportFonts} from './report-fonts.js';
 
@@ -37,6 +37,10 @@ export function marcellReportHtml(html, { adjustableTables = false, requireFonts
   const format = a2 ? "a2" : wide ? "wide" : dense ? "dense" : "standard";
   const logo = `<img class="mrc-report-logo" src="${MARCELL_LOGO}" alt="${logoAlt}">`;
   const brand = `<div class="mrc-report-brand">${logo}</div>`;
+  const fullTableControls = adjustableTables === true;
+  const tableControlsScript = fullTableControls
+    ? adjustableTablesScript()
+    : adjustableTables === "column" ? adjustableColumnScript() : "";
   let branded = false;
   let result = atualizarAssinatura(html).replace(/<div class="(?:logo|logo-box)">(?:MARCELL|ArcD)<\/div>/g, () => {
     branded = true;
@@ -98,6 +102,7 @@ body[data-adjustable-tables][data-annex-new-page="true"] .section{break-before:p
 body[data-adjustable-tables] .section :is(h3,p){break-after:avoid}
 .mrc-report-controls{background:#f3f0e9;border:1px solid #7a8591;padding:16px;margin-bottom:20px}
 .mrc-report-controls__fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px;margin:12px 0}
+.mrc-report-controls__fields--single{max-width:26rem}
 .mrc-report-controls label{display:flex;flex-direction:column;gap:6px;font-size:12px}
 .mrc-report-controls select{padding:8px;background:white;color:#0d1b2e;border:1px solid #7a8591;font:inherit;min-height:36px;max-width:100%}
 .mrc-report-controls input[type=range]{width:100%;accent-color:#0d1b2e}
@@ -109,10 +114,10 @@ body[data-adjustable-tables] .section :is(h3,p){break-after:avoid}
 </style>`;
   result = result.replace(/<\/head>/i, `${css}</head>`);
   const watermark = `<div class="mrc-report-watermark" aria-hidden="true"><img src="${MARCELL_LOGO}" alt=""></div>`;
-  result = result.replace(/<body\b([^>]*)>/i, `<body$1 data-report-identity="marcell" data-marcell-report="true" data-marcell-format="${format}"${adjustableTables ? ' data-adjustable-tables="true"' : ""}>${watermark}${branded || a2 ? "" : brand}`);
+  result = result.replace(/<body\b([^>]*)>/i, `<body$1 data-report-identity="marcell" data-marcell-report="true" data-marcell-format="${format}"${fullTableControls ? ' data-adjustable-tables="true"' : ""}>${watermark}${branded || a2 ? "" : brand}`);
   if (a2) result = result.replace(/<section class="page">/g, `<section class="page">${brand}`);
   // Printing from any existing button/automatic path waits for the actual
   // fonts and embedded brand. No totals or report content are recomputed.
-  const readyScript = `<script>(()=>{const original=window.print.bind(window);const ready=Promise.resolve().then(async()=>{if(document.fonts){await Promise.all([document.fonts.load('400 11px "Nimbus Sans"'),document.fonts.load('600 11px "Nimbus Sans"')]);await document.fonts.ready;}await Promise.all([...document.querySelectorAll('.mrc-report-logo, .mrc-report-watermark img, .patrimony-report .photo')].map(img=>img.decode?img.decode():Promise.resolve()));${adjustableTables ? adjustableTablesScript() : ""}});ready.catch(()=>{});window.__marcellReportReady=ready;let printing=false;window.print=async()=>{if(printing)return;printing=true;try{await ready;original();}catch{window.alert('Não foi possível carregar a identidade do relatório. Verifique a conexão e reabra o documento antes de imprimir.');}finally{printing=false;}};})();</script>`;
+  const readyScript = `<script>(()=>{const original=window.print.bind(window);const ready=Promise.resolve().then(async()=>{if(document.fonts){await Promise.all([document.fonts.load('400 11px "Nimbus Sans"'),document.fonts.load('600 11px "Nimbus Sans"')]);await document.fonts.ready;}await Promise.all([...document.querySelectorAll('.mrc-report-logo, .mrc-report-watermark img, .patrimony-report .photo')].map(img=>img.decode?img.decode():Promise.resolve()));${tableControlsScript}});ready.catch(()=>{});window.__marcellReportReady=ready;let printing=false;window.print=async()=>{if(printing)return;printing=true;try{await ready;original();}catch{window.alert('Não foi possível carregar a identidade do relatório. Verifique a conexão e reabra o documento antes de imprimir.');}finally{printing=false;}};})();</script>`;
   return result.replace(/<\/body>/i, `${readyScript}</body>`);
 }

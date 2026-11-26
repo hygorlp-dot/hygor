@@ -3394,7 +3394,7 @@ ${blocoBDI}
 <h2 class="sec">Planilha detalhada</h2>
 <table class="planilha-detalhada">
   <colgroup>
-    <col style="width:8%"><col style="width:13%"><col style="width:8%"><col>
+    <col style="width:8%"><col data-report-adjust-column style="width:13%"><col style="width:8%"><col data-report-balance-column>
     <col style="width:5%"><col style="width:8%"><col style="width:10%"><col style="width:12%">
   </colgroup>
   <thead><tr>
@@ -3416,7 +3416,7 @@ ${blocoBDI}
 </section>
 <div class="footer">${escapeHtml(empresaPDF)} · gerado em ${new Date().toLocaleString("pt-BR")} · preços congelados na data-base ${escapeHtml(dataBaseLegivel)}</div>
 </body></html>`;
-    openReportPreview(html);
+    openReportPreview(html, { adjustableTables: "column" });
   };
 
   // Exportações da tabela de Sapatas (Memória de Cálculo - Fundação) - pedido

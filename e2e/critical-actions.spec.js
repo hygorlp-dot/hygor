@@ -124,7 +124,7 @@ test.describe("ações críticas", () => {
     expect(erros, "erros de runtime na página").toEqual([]);
   });
 
-  test("PDF do orçamento sai completo: m², resumo por etapa, paginação e assinaturas", async ({ page }) => {
+  test("PDF do orçamento sai completo: m², resumo por etapa, paginação e assinaturas", async ({ page }, testInfo) => {
     await abrirOrcamento(page);
     await page.locator('.budget-analysis > summary').click();
     await page.getByRole("button", { name:/Ferramentas do orçamento/ }).click();
@@ -138,8 +138,26 @@ test.describe("ações críticas", () => {
     expect(html).not.toMatch(/\/m<\/td>/);
     await expect(janela.getByRole("button", { name:"Imprimir / salvar PDF" })).toBeVisible();
 
+    const control = janela.getByRole("slider", { name:"Largura da coluna Código (%)" });
+    await expect(control).toHaveValue("13");
+    const printSettings = janela.getByRole("complementary", { name:"Ajustes de impressão" });
+    await printSettings.screenshot({ path:testInfo.outputPath("ajuste-desktop.png") });
+    await janela.setViewportSize({ width:390, height:844 });
+    await expect(control).toBeVisible();
+    await printSettings.screenshot({ path:testInfo.outputPath("ajuste-celular.png") });
+    const columns = janela.locator(".planilha-detalhada col");
+    const tableWidths = () => columns.evaluateAll(cols => cols.map(col => col.style.width));
+    const defaultWidths = await tableWidths();
+    await control.press("Home");
+    await expect(control).toHaveValue("6");
+    const compactWidths = await tableWidths();
+    expect(compactWidths).toEqual(defaultWidths.map((width, index) => index === 1 ? "6%" : index === 3 ? "43%" : width));
+    await janela.getByRole("button", { name:"Restaurar largura original" }).click();
+    expect(await tableWidths()).toEqual(defaultWidths);
+    await control.press("Home");
     await janela.setViewportSize({ width:718, height:1000 });
     await janela.emulateMedia({ media:"print" });
+    await expect(control).toBeHidden();
     const longCode = janela.getByRole("cell", { name:"FABEJA-ADM-ESTAGIO-ENG-CIVIL", exact:true });
     await expect(longCode).toBeVisible();
     const widths = await longCode.evaluate(cell => {
@@ -152,9 +170,10 @@ test.describe("ações críticas", () => {
         overflow: cell.scrollWidth - cell.clientWidth,
       };
     });
-    expect(widths.codeShare).toBeLessThan(0.14);
+    expect(widths.codeShare).toBeCloseTo(0.06, 2);
     expect(widths.descriptionShare).toBeGreaterThan(0.35);
     expect(widths.overflow).toBeLessThanOrEqual(1);
+    await janela.pdf({ path:testInfo.outputPath("orcamento-coluna-compacta.pdf"), preferCSSPageSize:true, printBackground:true });
   });
 
   test("exporta somente as composições próprias do orçamento aberto", async ({ page }) => {

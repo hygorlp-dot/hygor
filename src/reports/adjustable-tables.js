@@ -140,3 +140,44 @@ export function setupAdjustableTables() {
 }
 
 export const adjustableTablesScript = () => `(${setupAdjustableTables.toString()})();`;
+
+function setupAdjustableColumn() {
+  const column = document.querySelector("col[data-report-adjust-column]");
+  const group = column?.parentElement;
+  const balance = group?.querySelector("col[data-report-balance-column]");
+  if (!balance) return;
+
+  const defaultWidth = Number.parseFloat(column.style.width);
+  const availableWidth = 100 - [...group.children]
+    .filter(col => col !== column && col !== balance)
+    .reduce((sum, col) => sum + Number.parseFloat(col.style.width), 0);
+  const panel = document.createElement("aside");
+  panel.className = "mrc-report-controls";
+  panel.setAttribute("aria-label", "Ajustes de impressão");
+  panel.innerHTML = `<h2>Ajustar PDF</h2>
+    <div class="mrc-report-controls__fields mrc-report-controls__fields--single">
+      <label>Largura da coluna Código (%)<input type="range" min="6" max="20" step="0.5"><output></output></label>
+    </div>
+    <div class="mrc-report-controls__actions"><button type="button">Restaurar largura original</button></div>`;
+  const range = panel.querySelector("input");
+  const output = panel.querySelector("output");
+  const format = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
+  const apply = () => {
+    const width = Number(range.value);
+    column.style.width = `${width}%`;
+    balance.style.width = `${availableWidth - width}%`;
+    const display = `${format.format(width)}%`;
+    output.value = display;
+    range.setAttribute("aria-valuetext", display);
+  };
+  const reset = () => {
+    range.value = defaultWidth;
+    apply();
+  };
+  range.addEventListener("input", apply);
+  panel.querySelector("button").addEventListener("click", reset);
+  reset();
+  document.body.prepend(panel);
+}
+
+export const adjustableColumnScript = () => `(${setupAdjustableColumn.toString()})();`;
