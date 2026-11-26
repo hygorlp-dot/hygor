@@ -128,6 +128,27 @@ const opCommand=(type,payload,extra={})=>({
 });
 
 describe("/api/data · roteamento de OPERATIONAL_COMMAND por linha separada",()=>{
+  it('desvincula a capa pelo handler sem alterar arquivos, outra obra ou campos da obra',async()=>{
+    const core=testState.rows[CORE_KEY].value;
+    const project={id:'i-8',name:'I-8',capaUrl:'capa-confirmada',oneDriveFolderId:'pasta-existente',contractValue:125000};
+    const other={id:'outra',name:'Outra obra',capaUrl:'outra-capa'};
+    const documents=[{id:'arquivo-existente',obraId:project.id}];
+    core.obras=[project,other];
+    core.documentos=documents;
+    const request=opCommand('CAPA_OBRA_REMOVIDA',{projectId:project.id,expectedCover:project.capaUrl});
+    core.usuarios[0].role='engenheiro';
+    expect((await callApi(request)).status).toBe(403);
+    core.usuarios[0].role='admin';
+    expect((await callApi(opCommand('CAPA_OBRA_REMOVIDA',{projectId:project.id,expectedCover:'capa-antiga'}))).status).toBe(409);
+    expect(testState.rpcCalls).toHaveLength(0);
+    const result=await callApi(request);
+    expect(result.status,JSON.stringify(result.body)).toBe(200);
+    const saved=decodeAppData(testState.rows[CORE_KEY].value);
+    expect(saved.obras).toEqual([{...project,capaUrl:''},other]);
+    expect(saved.documentos).toEqual(documents);
+    expect((await callApi(request)).body.idempotent).toBe(true);
+    expect(testState.rpcCalls).toHaveLength(1);
+  });
   it('reverte lote bancário pelo handler autenticado, persiste original e autoria, rejeita snapshot e versão antiga',async()=>{
     const originalFile={size:1,dataUrl:'data:application/octet-stream;base64,YQ=='};
     const imported=await callApi(opCommand('TRANSACOES_BANCARIAS_IMPORTADAS',{statement:{id:'bank-batch',arquivo:'original.ofx',originalFile},transactions:[{id:'bank-tx',data:'2026-08-19',descricao:'Movimento sem uso',valor:-321,chave:'bank-key'}]}));

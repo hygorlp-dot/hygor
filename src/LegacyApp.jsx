@@ -7524,6 +7524,8 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
   const inputCapaRef = useRef(null);
   const inputDocumentoRef = useRef(null);
   const [enviandoCapa, setEnviandoCapa] = useState(false);
+  const [capaParaRemover, setCapaParaRemover] = useState(null);
+  const [removendoCapa, setRemovendoCapa] = useState(false);
   const [enviandoDocumento, setEnviandoDocumento] = useState(false);
   const [novaPasta, setNovaPasta] = useState("");
   const [pastaAtual,setPastaAtual]=useState(null);
@@ -7667,7 +7669,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
   // Sobe a imagem de capa. Comprime antes (a foto do celular e enorme) e
   // guarda so a URL - o binario fica no Storage, nao no JSON do app.
   const enviarCapa = async (file) => {
-    if (!update) return;
+    if (!update || removendoCapa) return;
     setEnviandoCapa(true);
     try {
       const dataUrl = await comprimirImagem(file);
@@ -7683,6 +7685,29 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
       showToast?.("Falha ao processar a imagem.", "error");
     } finally {
       setEnviandoCapa(false);
+    }
+  };
+
+  const removerCapa = async () => {
+    if (!ehAdmin || !dispatchCommand || capaParaRemover?.obraId !== obraId || enviandoCapa || removendoCapa) return;
+    const { url } = capaParaRemover;
+    setRemovendoCapa(true);
+    try {
+      const result = await dispatchCommand({
+        type: OPERATIONAL_COMMAND.PROJECT_COVER_REMOVED,
+        idempotencyKey: crypto.randomUUID(),
+        payload: { projectId: obraId, expectedCover: url },
+      });
+      if (!result?.ok) {
+        showToast?.(result?.reason || "Não foi possível confirmar a remoção da capa.", "error");
+        return;
+      }
+      showToast?.("Capa removida da obra.");
+    } catch (error) {
+      showToast?.(error.message || "Não foi possível remover a capa.", "error");
+    } finally {
+      setRemovendoCapa(false);
+      setCapaParaRemover(null);
     }
   };
 
@@ -8013,8 +8038,15 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
     </Suspense>
   );
   const mostraResumoAberto = abaConteudo === "geral" && !orcamentoNaVisaoGeral;
+  const acoesCapa = <>
+    <Btn v="ghost" onClick={()=>inputCapaRef.current?.click()} disabled={enviandoCapa||removendoCapa}>{enviandoCapa?"Enviando...":obra.capaUrl?"Alterar imagem":"Adicionar imagem"}</Btn>
+    {ehAdmin && dispatchCommand && obra.capaUrl && <details className="record-more">
+      <summary aria-label="Mais ações da capa" title="Mais ações da capa">⋯</summary>
+      <div role="menu"><Btn v="danger" size="sm" disabled={enviandoCapa||removendoCapa} onClick={()=>setCapaParaRemover({obraId,url:obra.capaUrl})}>Remover capa</Btn></div>
+    </details>}
+  </>;
   const resumoAcoesObra = (abaConteudo!=="geral" || obra.capaUrl)&&<details className="work-detail-summary" data-overview={mostraResumoAberto} open={mostraResumoAberto}><summary>Resumo e ações da obra</summary>
-        {abaConteudo!=="geral"&&<div className="work-detail-summary__actions"><Btn v="ghost" onClick={()=>inputCapaRef.current?.click()} disabled={enviandoCapa}>{enviandoCapa?"Enviando...":obra.capaUrl?"Alterar imagem":"Adicionar imagem"}</Btn><Btn onClick={onEditarObra}><Ic n="edit" s={14}/> Editar obra</Btn></div>}
+        {abaConteudo!=="geral"&&<div className="work-detail-summary__actions">{acoesCapa}<Btn onClick={onEditarObra}><Ic n="edit" s={14}/> Editar obra</Btn></div>}
         {obra.capaUrl&&<img className="work-detail-image" src={obra.capaUrl} alt={`Imagem de ${obra.name}`}/>}
 </details>;
 
@@ -8028,11 +8060,19 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         <PageHeader className="workspace-header" title={obra.name}
           description={[obra.cliente,obra.engineer&&`Eng. ${obra.engineer}`].filter(Boolean).join(" · ")}
           primaryAction={abaConteudo==="geral"&&<Btn onClick={onEditarObra}><Ic n="edit" s={14}/> Editar obra</Btn>}
-          secondaryActions={abaConteudo==="geral"&&<Btn v="ghost" onClick={()=>inputCapaRef.current?.click()} disabled={enviandoCapa}>{enviandoCapa?"Enviando...":obra.capaUrl?"Alterar imagem":"Adicionar imagem"}</Btn>}>
+          secondaryActions={abaConteudo==="geral"&&acoesCapa}>
           <div className="work-detail-status"><Badge color={st.c}>{st.l}</Badge>{resumo.fase&&<span>{resumo.fase.nome}</span>}</div>
         </PageHeader>
         <input ref={inputCapaRef} type="file" accept="image/*" style={{display:"none"}}
           onChange={event=>{const file=event.target.files?.[0];if(file)enviarCapa(file);event.target.value="";}}/>
+        {ehAdmin && capaParaRemover?.obraId === obraId && <DesignSystemDialog open size="compact" title="Remover capa da obra"
+          onOpenChange={()=>{if(!removendoCapa)setCapaParaRemover(null);}}
+          footer={<>
+            <DesignSystemButton variant="secondary" disabled={removendoCapa} onClick={()=>setCapaParaRemover(null)}>Cancelar</DesignSystemButton>
+            <DesignSystemButton variant="danger" disabled={removendoCapa} loading={removendoCapa} onClick={removerCapa}>Remover capa</DesignSystemButton>
+          </>}>
+          <p>A obra {obra.name} volta a exibir o fundo padrão. O arquivo da imagem continua no local de armazenamento.</p>
+        </DesignSystemDialog>}
         {!exibindoOrcamento && resumoAcoesObra}
 
       {/* Navegação compacta em dois níveis. O primeiro nível acompanha a

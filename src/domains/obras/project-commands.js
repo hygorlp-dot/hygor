@@ -4,6 +4,7 @@ import {workExpenseCategories} from '../dre/work-expense-categories.js';
 
 export const PROJECT_COMMAND = Object.freeze({
   PROJECT_SAVED:"OBRA_SALVA",
+  PROJECT_COVER_REMOVED:"CAPA_OBRA_REMOVIDA",
   PROJECT_DELETED:"OBRA_EXCLUIDA",
   PROJECT_PHASES_SAVED:"FASES_OBRA_SALVAS",
 });
@@ -78,6 +79,19 @@ export const applyProjectCommand = (
   const actorId = String(command.actorId || "");
   const actorName = String(command.actorName || "").trim() || "Administrador";
   if (!actorId) return fail("Sessão do administrador indisponível.");
+
+  if (command.type === PROJECT_COMMAND.PROJECT_COVER_REMOVED) {
+    const { projectId, expectedCover } = command.payload || {};
+    const project = projectById(data, projectId);
+    if (!project?.id || !project.capaUrl || project.capaUrl !== expectedCover) {
+      return fail("A capa mudou. Abra a obra para conferir a imagem atual.");
+    }
+    return {
+      ok: true,
+      entityId: project.id,
+      data: { ...data, obras: data.obras.map(item => item === project ? { ...item, capaUrl: "" } : item) },
+    };
+  }
 
   if(command.type===PROJECT_COMMAND.PROJECT_PHASES_SAVED){
     const phases=Array.isArray(command.payload?.phases)?command.payload.phases:[];

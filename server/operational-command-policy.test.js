@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
 import { validateOperationalCommandScope, operationalIdempotencyKey } from "./operational-command-policy.js";
 
+import { authorizeOperationalCommand } from "./command-role-policy.js";
+
 describe("escopo servidor de comandos operacionais",()=>{
   const data={
     medicoesObra:[{id:"m-a",obraId:"obra-a"}],rdos:[{id:"r-a",obraId:"obra-a"}],pedidos:[{id:"p-a",obraId:"obra-a"}],progressRecords:[{id:"av-a",obraId:"obra-a"}],weeklyCommitments:[{id:"c-a",obraId:"obra-a"}],qualidadeRegistros:[{id:"q-a",obraId:"obra-a"}],lookaheadWindows:[{id:"la-a",obraId:"obra-a"}],
@@ -283,6 +285,14 @@ describe("escopo servidor de comandos operacionais",()=>{
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED,payload:{record:{obraId:"obra-a"}}}})).toMatchObject({ok:true,obraId:"obra-a"});
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED,payload:{record:{obraId:"obra-b"}}}})).toMatchObject({ok:false});
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.PROGRESS_RECORD_CANCELLED,payload:{recordId:"av-a"}}})).toMatchObject({ok:true});
+  });
+  it("reserva a remoção da capa ao mesmo perfil que edita a obra",()=>{
+    const type=OPERATIONAL_COMMAND.PROJECT_COVER_REMOVED;
+    const command={type,payload:{projectId:"obra-a",expectedCover:"capa-confirmada"}};
+    expect(authorizeOperationalCommand(type,"engenheiro")).toMatchObject({ok:false,status:403});
+    expect(validateOperationalCommandScope({user,data,command})).toMatchObject({ok:false});
+    expect(authorizeOperationalCommand(type,"admin")).toEqual({ok:true});
+    expect(validateOperationalCommandScope({user:{role:"admin"},data,command})).toMatchObject({ok:true,obraId:"obra-a"});
   });
   it("mantém a conclusão do compromisso dentro da obra atribuída",()=>{
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.WEEKLY_COMMITMENT_COMPLETED,payload:{commitmentId:"c-a"}}})).toMatchObject({ok:true,obraId:"obra-a"});

@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {applyProjectCommand,PROJECT_COMMAND} from '../src/domains/obras/project-commands.js';
 import {data,profile} from '../scripts/fixtures/workflow-priorities-data.mjs';
 
 test('administrador alterna a empresa, obras e navegação sem gravar dados',async({page},testInfo)=>{
@@ -76,4 +77,68 @@ test('administrador alterna a empresa, obras e navegação sem gravar dados',asy
   expect(coverReads).toContainEqual({company:'mrc',reference:ownCompany});
   expect(coverReads.some(read=>read.reference===otherCompany)).toBe(false);
   expect(writes).toEqual([]);expect(errors).toEqual([]);expect(calls.some(call=>call.action==='load'&&call.company==='mrc')).toBe(true);
+});
+
+for(const role of ['admin','engenheiro'])test(`remover capa respeita a confirmação e o perfil ${role}`,async({page},testInfo)=>{
+  const user={...profile,role};
+  const cover='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+X2ioAAAAASUVORK5CYII=';
+  const state={...structuredClone(data),usuarios:[user]};
+  state.obras=[{...state.obras[0],name:'I-8 de teste',capaUrl:cover},{...state.obras[1],name:'Outra obra de teste',capaUrl:cover}];
+  const original=structuredClone(state.obras);
+  const saves=[],fileWrites=[];
+  let updatedAt='2026-11-26T12:00:00Z';
+  await page.addInitScript(({userId,theme})=>{
+    sessionStorage.setItem(`arcd-section:${userId}`,'obras');
+    localStorage.setItem('arcd-theme',theme);
+  },{userId:user.id,theme:testInfo.project.name.includes('noite')?'noite':'marcell'});
+  await page.route('https://**/*',route=>route.abort());
+  await page.route('**/api/**',route=>{
+    const action=route.request().postDataJSON()?.action;
+    if(/upload|trash|delete/i.test(action||''))fileWrites.push(action);
+    return route.fulfill({json:{ok:true,items:[],presencas:[],connected:false}});
+  });
+  await page.route('**/api/data',route=>{
+    const body=route.request().postDataJSON();
+    if(['save','save-sections','operational-command'].includes(body?.action)){
+      saves.push(body);
+      expect(role).toBe('admin');
+      expect(body).toMatchObject({action:'operational-command',command:{type:PROJECT_COMMAND.PROJECT_COVER_REMOVED,payload:{projectId:original[0].id,expectedCover:cover}}});
+      const result=applyProjectCommand(state,{...body.command,actorId:user.id});
+      expect(result.data).toEqual({...state,obras:[{...original[0],capaUrl:''},original[1]]});
+      state.obras=result.data.obras;
+      updatedAt='2026-11-26T12:01:00Z';
+      return route.fulfill({json:{ok:true,sections:{obras:state.obras},updatedAt}});
+    }
+    return route.fulfill({json:{ok:true,precisaSetup:false,usuario:user,data:state,accessToken:'capa-ficticia',refreshToken:'capa-ficticia',updatedAt}});
+  });
+  await page.goto('/');
+  await page.locator('#login-email').fill(user.email);
+  await page.locator('#login-senha').fill('conta-ficticia');
+  await page.getByRole('button',{name:'Acessar central MARCELL',exact:true}).click();
+  await page.locator('.works-card-cover').filter({hasText:original[0].name}).click();
+  await expect(page.getByRole('heading',{name:original[0].name,exact:true})).toBeVisible();
+  const menu=page.getByLabel('Mais ações da capa',{exact:true});
+  if(role==='admin'){
+    await menu.click();
+    await page.getByRole('button',{name:'Remover capa',exact:true}).click();
+    const dialog=page.getByRole('dialog',{name:'Remover capa da obra'});
+    await expect(dialog).toContainText('O arquivo da imagem continua');
+    await dialog.screenshot({path:testInfo.outputPath('confirmacao-capa.png')});
+    await dialog.getByRole('button',{name:'Cancelar',exact:true}).click();
+    await expect(dialog).toBeHidden();
+    expect(saves).toHaveLength(0);
+    await page.getByRole('button',{name:'Remover capa',exact:true}).click();
+    await dialog.getByRole('button',{name:'Remover capa',exact:true}).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.getByRole('button',{name:'Adicionar imagem',exact:true})).toBeVisible();
+    await expect.poll(()=>saves.length).toBe(1);
+    await page.getByRole('button',{name:'Todas as obras',exact:true}).click();
+    await page.reload();
+    await expect(page.locator('.works-card-cover').filter({hasText:original[0].name})).toHaveAttribute('data-has-image','false');
+    await expect(page.locator('.works-card-cover').filter({hasText:original[1].name})).toHaveAttribute('data-has-image','true');
+  }else{
+    await expect(menu).toHaveCount(0);
+    expect(saves).toHaveLength(0);
+  }
+  expect(fileWrites).toEqual([]);
 });

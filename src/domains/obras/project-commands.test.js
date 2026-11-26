@@ -13,6 +13,15 @@ const command = (type, payload, expectedVersion = 0) => ({
   actorName:"Administrador",
 });
 
+it("desvincula só a capa confirmada",()=>{
+  const type=PROJECT_COMMAND.PROJECT_COVER_REMOVED;
+  const obra={id:"i-8",capaUrl:"capa-anterior",oneDriveFolderId:"pasta-existente",contrato:"contrato-existente"};
+  const data={obras:[obra,{id:"outra",capaUrl:"outra-capa"}],documentos:[{id:"doc",obraId:obra.id}]};
+  const request=command(type,{projectId:obra.id,expectedCover:obra.capaUrl});
+  expect(applyProjectCommand(data,request)).toEqual({ok:true,entityId:obra.id,data:{...data,obras:[{...obra,capaUrl:""},data.obras[1]]}});
+  expect(applyProjectCommand(data,{...request,payload:{...request.payload,expectedCover:"imagem-antiga"}})).toMatchObject({ok:false});
+});
+
 describe("comandos transacionais de obra", () => {
   it('preserva as opções explícitas da taxa e exige categoria existente para engenharia',()=>{
     const project={id:'admin-work',name:'Obra administrativa',contractType:'admin_only',adminPercentage:12,adminBaseEquipamentos:false,adminBaseEngenhariaCampo:false,adminFieldEngineeringCategoryId:'engenharia_campo'};

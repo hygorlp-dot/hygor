@@ -678,10 +678,11 @@ Confira o nome da obra no cabeçalho.
 ### Como fazer
 
 1. Em Geral, escolha uma aba na faixa Informações da obra. Comece em Resumo para conferir orçamento, compras, custo reconhecido e avanço físico. Em telas estreitas, deslize a faixa para ver as demais abas. Ao voltar à mesma obra durante a sessão, a aba que você estava consultando reaparece na faixa.
-2. Em Avanço por etapa, veja as etapas vinculadas ao planejamento. Use Abrir planejamento para conferir vínculos e atrasos.
-3. Use Próximas ações para abrir a área de uma pendência da obra.
-4. Expanda Previsão executiva da obra, Mudanças e aditivos se precisar dos detalhes. Use as abas Detalhes gerais, Dados do cliente, Financeiro e as demais para consultar cada assunto logo abaixo da faixa.
-5. Em Próximos recebimentos, consulte as medições da obra que ainda têm valor a receber do cliente. Use Abrir Medições a faturar para conferir as cobranças. Em Obra → Medição física, acompanhe o avanço dos serviços. Ao escolher um grupo do menu, sua primeira tela abre imediatamente.
+2. Para retirar a imagem, o administrador abre Mais ações da capa, escolhe Remover capa e confirma. A obra volta ao fundo padrão. O arquivo continua no local de armazenamento.
+3. Em Avanço por etapa, veja as etapas vinculadas ao planejamento. Use Abrir planejamento para conferir vínculos e atrasos.
+4. Use Próximas ações para abrir a área de uma pendência da obra.
+5. Expanda Previsão executiva da obra, Mudanças e aditivos se precisar dos detalhes. Use as abas Detalhes gerais, Dados do cliente, Financeiro e as demais para consultar cada assunto logo abaixo da faixa.
+6. Em Próximos recebimentos, consulte as medições da obra que ainda têm valor a receber do cliente. Use Abrir Medições a faturar para conferir as cobranças. Em Obra → Medição física, acompanhe o avanço dos serviços. Ao escolher um grupo do menu, sua primeira tela abre imediatamente.
 
 ### Como conferir se deu certo
 
