@@ -33,7 +33,7 @@ import {
 } from "../attendance-engine";
 import { calculateAttendanceDayCost, hasWaivedDelayDeduction } from "../payroll";
 import { ATTENDANCE_STATUS, ATTENDANCE_STATUS_LABEL, isLeaveStatus, isValidAttendanceStatus } from "../attendance-status";
-import { resolveHistoricalEmployeeObraId, resolveHolidayObraId } from "../permissions";
+import { canManageCompanyPayroll, resolveHistoricalEmployeeObraId, resolveHolidayObraId } from "../permissions";
 import { allocateAdvancesByWork } from "../advance-allocation";
 import { payrollPayerForWork, splitPayrollResponsibility } from "../payroll-responsibility";
 import {
@@ -547,7 +547,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
   // Fechamento da quinzena: congela o líquido de cada funcionário em um título
   // a pagar rateado por obra (ver payroll-closing.js). Só fecha pela visão
   // consolidada, para que nenhum funcionário de outra obra fique de fora.
-  const canManageClosing=canReview;
+  const canManageClosing=canManageCompanyPayroll(currentUser);
   const isCompanyScope=laborGroup==='all'&&filterObra==='all';
   const [certificateCheck,setCertificateCheck]=useState(null);
   const [certificateRefresh,setCertificateRefresh]=useState(0);
@@ -568,7 +568,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
   const certificateIssue=!shouldCheckCertificates?"":!certificateResult?"Conferindo anexos dos atestados…":
     !certificateResult.ok||!Array.isArray(certificateResult.missing)?certificateResult.error||"Falha ao conferir os anexos dos atestados.":
     missingCertificates.length?`Anexe os documentos de ${contar(missingCertificates.length,"atestado pendente","atestados pendentes")} antes de fechar.`:"";
-  const closingBlockers=isCompanyScope?[
+  const closingBlockers=!canManageClosing?["O fechamento exige acesso à Folha da empresa inteira."]:isCompanyScope?[
     ...payrollClosingBlockers({pendencias:pendenciasRelatorio,rows}),...(certificateIssue?[certificateIssue]:[]),
   ]:["Selecione Todos e Todas as obras para fechar a quinzena da empresa inteira."];
   const closingDivergences=isCompanyScope&&closedTitles.length?payrollClosingDivergences(closedTitles,rows):[];

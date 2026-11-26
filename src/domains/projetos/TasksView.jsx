@@ -1,6 +1,6 @@
 import { contar } from "../../design-system/copy.js";
 import {ChoiceControl} from '../../design-system/primitives/ChoiceControl.jsx';
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Play, Pause, ExternalLink } from "lucide-react";
 import { Button } from "../../components/ui/button.jsx";
 import { Badge } from "../../design-system/primitives/Badge.jsx";
@@ -9,10 +9,10 @@ import { Select } from "../../design-system/primitives/Select.jsx";
 import KanbanBoard from "./KanbanBoard.jsx";
 import { ENGINEERING_COMMAND as CMD } from "./commands.js";
 import { formatDuration, safeProjectUrl, REVISION_STATUSES } from "./model.js";
-import { TASK_STATUSES, TASK_PRIORITIES, taskSeconds, taskDependencyError, checklistProgress, latestDeliveryRevision } from "./kanban-model.js";
+import { TASK_STATUSES, TASK_PRIORITIES, taskSecondsById, taskDependencyError, checklistProgress, latestDeliveryRevision } from "./kanban-model.js";
 import { displayDate, displayTimestamp } from "./date-labels.js";
 
-function TaskCard({ task, project, users, currentUser, now, active, busy, editable, send, onEdit }) {
+function TaskCard({ task, project, users, currentUser, seconds, active, busy, editable, send, onEdit }) {
   const [comment, setComment] = useState("");
   const [pendingChecklist, setPendingChecklist] = useState(null);
   const progress = checklistProgress(task);
@@ -26,7 +26,7 @@ function TaskCard({ task, project, users, currentUser, now, active, busy, editab
     <h5>{task.title}</h5>
     <div className="engineering-card-badges"><Badge tone={priority === "urgente" ? "danger" : priority === "alta" ? "warning" : "neutral"}>{TASK_PRIORITIES[priority]}</Badge>{blocked && <Badge tone="warning">Bloqueada</Badge>}{running && <Badge tone="success">Seu cronômetro ativo</Badge>}</div>
     <p>{users.get(task.responsibleId) || "Responsável indisponível"} · {displayDate(task.deadline)}</p>
-    <p className="engineering-duration">{formatDuration(taskSeconds(project, task.id, now))} / {Number(task.plannedHours || 0).toLocaleString("pt-BR")} h previstas</p>
+    <p className="engineering-duration">{formatDuration(seconds)} / {Number(task.plannedHours || 0).toLocaleString("pt-BR")} h previstas</p>
     {blocked && <p className="engineering-blocked">{blocked}</p>}
     {task.description && <p>{task.description}</p>}
     {progress.total > 0 && <fieldset className="engineering-checklist"><legend>Checklist · {progress.done}/{progress.total}{pendingChecklist ? " · salvando…" : ""}</legend>{task.checklist.map(item => <label key={item.id}><ChoiceControl type="checkbox" aria-label={`Checklist · ${task.title} · ${item.text}`} checked={pendingChecklist?.id === item.id ? pendingChecklist.done : item.done} disabled={busy || !editable || task.status === "concluida"} onChange={async event => { const done = event.target.checked; setPendingChecklist({ id: item.id, done }); await send(CMD.ENG_CHECKLIST_TOGGLED, project.id, { taskId: task.id, itemId: item.id, done }, project.version); setPendingChecklist(null); }} /><span>{item.text}</span></label>)}</fieldset>}
@@ -48,8 +48,9 @@ export default function TasksView({ project, data, currentUser, now, active, bus
   const users = new Map((data.usuarios || []).map(user => [user.id, user.nome]));
   const editable = project.status === "ativo";
   const tasks = project.tasks || [];
+  const secondsByTask = useMemo(() => taskSecondsById(project.sessions, now), [project.sessions, now]);
   const visible = tasks.filter(task => (!search || `${task.title} ${task.description || ""}`.toLocaleLowerCase("pt-BR").includes(search.toLocaleLowerCase("pt-BR"))) && (!responsibleId || task.responsibleId === responsibleId) && (!priority || (task.priority || "normal") === priority));
-  const render = task => <TaskCard task={task} project={project} users={users} currentUser={currentUser} now={now} active={active} busy={busy} editable={editable} send={send} onEdit={onEdit} />;
+  const render = task => <TaskCard task={task} project={project} users={users} currentUser={currentUser} seconds={secondsByTask.get(task.id) ?? 0} active={active} busy={busy} editable={editable} send={send} onEdit={onEdit} />;
   return <div className="engineering-tasks-view">
     <div className="engineering-filters"><Input label="Buscar atividades" value={search} onChange={event => setSearch(event.target.value)} placeholder="Título ou descrição" /><Select label="Responsável das atividades" value={responsibleId} onChange={event => setResponsibleId(event.target.value)}><option value="">Todos</option>{(data.usuarios || []).map(user => <option key={user.id} value={user.id}>{user.nome}</option>)}</Select><Select label="Prioridade das atividades" value={priority} onChange={event => setPriority(event.target.value)}><option value="">Todas</option>{Object.entries(TASK_PRIORITIES).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select><Select label="Visualização das atividades" value={view} onChange={event => setView(event.target.value)} options={[{ value: "board", label: "Quadro Kanban" }, { value: "list", label: "Lista" }]} /></div>
     <p className="engineering-help">{visible.length} de {contar(tasks.length,"atividade","atividades")} · {tasks.filter(task => task.status === "concluida").length} concluída(s)</p>

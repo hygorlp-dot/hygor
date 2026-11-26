@@ -41,7 +41,7 @@ export function buildDreMemorial(data,base,ym){
   }
   for(const event of base.ledger?.events||[]){
     if(event.obraId||event.competence!==ym)continue;
-    if(event.effect==="revenue")add("receitaCorporativa",fromEvent(event));
+    if(event.effect==="revenue")add(event.category==="receita_locacoes"?"receitaLocacoes":"receitaCorporativa",fromEvent(event));
     if(["cost","cost_reversal"].includes(event.effect)&&["despesa_empresa","canonical_title"].includes(event.sourceType))add(`category:${event.category}`,fromEvent(event));
   }
   const [year,month]=ym.split("-").map(Number),start=`${ym}-01`,end=`${ym}-${new Date(year,month,0).getDate()}`;

@@ -1693,8 +1693,6 @@ canvas {
 }
 
 .ponto-geral-table thead th {
-  position: sticky;
-  top: 0;
   z-index: 3;
   background: var(--arcd-surface-muted) !important;
   height: 48px;
@@ -2897,10 +2895,10 @@ canvas {
 .supplier-toolbar{display:grid;grid-template-columns:minmax(260px,1fr) 250px 190px;gap:var(--arcd-space-2);padding:var(--arcd-space-2);background:var(--arcd-surface-muted);border:var(--arcd-border-width) solid var(--arcd-border-default);border-radius:var(--arcd-box-radius)}
 .supplier-toolbar select{height:44px;border:var(--arcd-border-width) solid var(--arcd-border-default);border-radius:var(--arcd-radius-control);background:var(--arcd-surface-subtle);color:var(--arcd-text-primary);font:600 var(--arcd-type-control) var(--arcd-font-sans)}
 .supplier-toolbar select{padding:0 var(--arcd-space-8) 0 var(--arcd-space-3);cursor:pointer}
-.supplier-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:var(--arcd-border-width) solid var(--arcd-border-default);border-radius:var(--arcd-box-radius);background:var(--arcd-surface-subtle);overflow:hidden}
-.supplier-kpis>div{padding:var(--arcd-space-4) var(--arcd-space-4);border-right:var(--arcd-border-width) solid var(--arcd-border-default)}.supplier-kpis>div:last-child{border-right:0}
-.supplier-kpis span{display:block;color:var(--arcd-text-secondary);font-size:var(--arcd-type-caption);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
-.supplier-kpis strong{display:block;margin-top:var(--arcd-space-2);font-size:var(--arcd-type-kpi);letter-spacing:-.03em}.supplier-kpis small{font-size:var(--arcd-type-caption);color:var(--arcd-text-secondary);font-weight:600;letter-spacing:0}
+
+
+
+
 .supplier-ranking-card{background:var(--arcd-surface-card);border:var(--arcd-border-width) solid var(--arcd-border-default);border-radius:var(--arcd-box-radius);overflow:hidden;box-shadow:var(--arcd-shadow-hairline)}
 .supplier-card-title{display:flex;justify-content:space-between;align-items:flex-end;gap:var(--arcd-space-3);padding:var(--arcd-space-4) var(--arcd-space-4);border-bottom:var(--arcd-border-width) solid var(--arcd-border-default);background:var(--arcd-surface-subtle)}
 .supplier-card-title h2{font-size:var(--arcd-type-section-title);font-weight:600;margin-top:var(--arcd-space-half)}.supplier-card-title>span{font-size:var(--arcd-type-caption);color:var(--arcd-text-secondary)}
@@ -2923,7 +2921,7 @@ canvas {
 @media(max-width:900px){
   .supplier-page{gap:var(--arcd-space-3)}.supplier-toolbar{grid-template-columns:1fr 1fr}.supplier-card-title{align-items:flex-start;flex-direction:column}
 }
-@media(max-width:640px){.supplier-toolbar{grid-template-columns:1fr}.supplier-kpis>div{padding:var(--arcd-space-3)}.supplier-kpis strong{font-size:var(--arcd-type-section-title)}
+@media(max-width:640px){.supplier-toolbar{grid-template-columns:1fr}
   .supplier-table{min-width:0}.supplier-table thead{display:none}.supplier-table tbody{display:flex;flex-direction:column;padding:var(--arcd-space-2);gap:var(--arcd-space-2)}.supplier-table tr{display:grid;grid-template-columns:38px 1fr 52px;gap:var(--arcd-space-2);padding:var(--arcd-space-3);border:var(--arcd-border-width) solid var(--arcd-border-default);border-radius:var(--arcd-box-radius)}.supplier-table td{padding:0;border:0}.supplier-table td:nth-child(1){grid-row:1/3}.supplier-table td:nth-child(2){grid-column:2}.supplier-table td:nth-child(3){grid-column:3;grid-row:1/3}.supplier-table td:nth-child(n+4):nth-child(-n+7){display:flex;align-items:center;justify-content:space-between;border-top:var(--arcd-border-width) solid var(--arcd-border-default);padding-top:var(--arcd-space-2);grid-column:auto}.supplier-table td:nth-child(n+4):nth-child(-n+7)::before{content:attr(data-label);font-size:var(--arcd-type-caption);color:var(--arcd-text-secondary);text-transform:uppercase}.supplier-table td:nth-child(4),.supplier-table td:nth-child(6){grid-column:1/2}.supplier-table td:nth-child(5),.supplier-table td:nth-child(7){grid-column:2/4}.supplier-table td:nth-child(8){grid-column:1/3}.supplier-table td:nth-child(9){grid-column:3;grid-row:4}.supplier-name{min-width:0}
 }
 
@@ -3154,7 +3152,7 @@ canvas {
 .dre-detail-row{display:grid;grid-template-columns:92px minmax(220px,1.7fr) minmax(120px,1fr) minmax(110px,.8fr) 120px;gap:var(--arcd-space-2);align-items:center;padding:var(--arcd-space-2) var(--arcd-space-3);border-bottom:var(--arcd-border-width) solid var(--arcd-border-default);color:var(--arcd-text-secondary);font-size:var(--arcd-type-caption)}
 .dre-detail-row:last-child{border-bottom:0}
 .dre-detail-row:not(.dre-detail-head):hover{background:var(--arcd-surface-subtle)}
-.dre-detail-head{position:sticky;top:0;z-index:2;background:var(--arcd-surface-muted);color:var(--arcd-text-secondary);font-size:var(--arcd-type-caption);font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.dre-detail-head{z-index:2;background:var(--arcd-surface-muted);color:var(--arcd-text-secondary);font-size:var(--arcd-type-caption);font-weight:600;letter-spacing:.04em;text-transform:uppercase}
 .dre-detail-row b{display:block;color:var(--arcd-text-primary);font-size:var(--arcd-type-caption)}
 .dre-detail-row small{display:block;margin-top:var(--arcd-space-half);color:var(--arcd-text-muted);font-size:var(--arcd-type-caption)}
 .dre-detail-row em{display:inline-flex;padding:var(--arcd-space-half) var(--arcd-space-1);border-radius:var(--arcd-radius-pill);background:var(--arcd-surface-muted);color:var(--arcd-text-secondary);font-size:var(--arcd-type-caption);font-style:normal}
@@ -3958,7 +3956,7 @@ canvas {
 .commercial-goal-track{height:6px;margin:var(--arcd-space-2) 0 var(--arcd-space-2);overflow:hidden;border-radius:var(--arcd-radius-pill);background:var(--arcd-surface-muted)}
 .commercial-goal-track i{display:block;width:100%;height:100%;border-radius:inherit;background:var(--arcd-success-text);transform-origin:left;transition:transform .3s ease}
 .commercial-goal small{color:var(--arcd-text-secondary);font-size:var(--arcd-type-caption)}
-.commercial-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--arcd-space-2)}
+
 .commercial-panel{overflow:hidden;border:var(--arcd-border-width) solid var(--arcd-border-default);border-radius:var(--arcd-box-radius);background:var(--arcd-surface-subtle)}
 .commercial-panel-head{display:flex;min-height:54px;padding:var(--arcd-space-3) var(--arcd-space-3);align-items:center;justify-content:space-between;gap:var(--arcd-space-2);border-bottom:var(--arcd-border-width) solid var(--arcd-border-default)}
 .commercial-panel-head h3{margin-top:var(--arcd-space-half);color:var(--arcd-text-primary);font-size:var(--arcd-type-label);font-weight:600}
@@ -3989,8 +3987,8 @@ canvas {
 .commercial-health-grid b{font-size:var(--arcd-type-section-title)}
 .commercial-health-grid span{margin-top:var(--arcd-space-half);color:var(--arcd-text-secondary);font-size:var(--arcd-type-caption)}
 .commercial-loss-note{padding:var(--arcd-space-2) var(--arcd-space-3);border-top:var(--arcd-border-width) solid var(--arcd-border-default);color:var(--arcd-text-secondary);font-size:var(--arcd-type-caption)}
-@media(max-width:900px){.commercial-command-card{grid-template-columns:1fr}.commercial-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.commercial-dashboard-columns{grid-template-columns:1fr}}
-@media(max-width:520px){.commercial-kpis{grid-template-columns:1fr 1fr}.commercial-kpis button{padding:var(--arcd-box-padding)!important}.commercial-kpis button p:nth-child(2){font-size:var(--arcd-type-section-title)!important}.commercial-panel-head{align-items:flex-start}.commercial-health-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:900px){.commercial-command-card{grid-template-columns:1fr}.commercial-dashboard-columns{grid-template-columns:1fr}}
+@media(max-width:520px){.commercial-panel-head{align-items:flex-start}.commercial-health-grid{grid-template-columns:1fr 1fr}}
 
 /* Kanban de compras — controle visual Andon inspirado no sistema Toyota. */
 .purchase-dashboard-kanban{overflow:hidden;border:var(--arcd-border-width) solid var(--arcd-border-default);border-radius:var(--arcd-box-radius);background:var(--arcd-surface-subtle)}

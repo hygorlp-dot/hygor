@@ -903,9 +903,9 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
                  style={{display:"flex",alignItems:"flex-start",gap:"var(--arcd-space-2)",cursor:"pointer",padding:"var(--arcd-space-2) var(--arcd-space-3)",
                          background: conciliar.modo===v ? `${cor}12` : "var(--arcd-surface-card)",
                          border:`1.5px solid ${conciliar.modo===v ? cor : C.border}`,borderRadius:"var(--arcd-radius-control)"}}>
-            <div style={{width:18,height:18,borderRadius:"50%",flexShrink:0,marginTop:1,
+            <div style={{width:18,height:18,borderRadius:"var(--arcd-radius-pill)",flexShrink:0,marginTop:1,
                          border:`2px solid ${conciliar.modo===v?cor:C.muted}`,display:"flex",alignItems:"center",justifyContent:"center"}}>
-              {conciliar.modo===v && <div style={{width:9,height:9,borderRadius:"50%",background:cor}}/>}
+              {conciliar.modo===v && <div style={{width:9,height:9,borderRadius:"var(--arcd-radius-pill)",background:cor}}/>}
             </div>
             <div>
               <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:conciliar.modo===v?cor:"var(--arcd-text-primary)"}}>{titulo}</p>

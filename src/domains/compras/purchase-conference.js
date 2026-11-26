@@ -1,6 +1,7 @@
 import {active,buildFinancialLedger,selectAccountsPayable} from '../financeiro/ledger.js';
 import {positionEntries} from '../financeiro/workspace.js';
 import {analyzePurchaseThreeWayMatch} from '../financeiro/workflows.js';
+import {purchaseQuantityConference} from './purchase-quantity-conference.js';
 
 const same=(a,b)=>a!=null&&b!=null&&String(a)!==''&&String(a)===String(b);
 const numberKnown=value=>value!=null&&value!==''&&Number.isFinite(Number(value));
@@ -15,6 +16,7 @@ export function purchaseConference(data,dossier,{asOf,includeTitles=false}={}){
  const orders=dossier.orders.filter(item=>active(item)||item.status==='rascunho'&&item.ativo!==false&&!item.deletedAt);
  const invoices=dossier.invoices.filter(invoice=>active(invoice)&&orders.some(order=>same(invoice.pedidoId,order.id)&&same(invoice.obraId,order.obraId)));
  const matches=orders.map(order=>({order,
+  quantities:purchaseQuantityConference(order,invoices),
   amountsKnown:(order.itens||[]).length>0&&(order.itens||[]).every(item=>numberKnown(item.qtd)&&numberKnown(item.precoUnit)&&numberKnown(item.qtdRecebida??0))&&invoices.filter(n=>same(n.pedidoId,order.id)).every(n=>numberKnown(n.valorBruto??n.valorLiquido??n.valor)),
   match:analyzePurchaseThreeWayMatch({...data,notasFiscais:invoices.filter(n=>same(n.obraId,order.obraId))},order.id)}));
  const titles=includeTitles?positionEntries(data,selectAccountsPayable(buildFinancialLedger(data),{asOfDate:asOf})).filter(entry=>

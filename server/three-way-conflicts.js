@@ -98,5 +98,12 @@ export const findAggregateConflicts=(base,incoming,current,section="")=>{
   return [...ids].map(id=>({section,id}));
 };
 
+/**
+ * @param {Record<string, unknown> | null} [baseSections]
+ * @param {Record<string, unknown> | null} [incomingSections]
+ * @param {Record<string, unknown> | null} [currentSections]
+ * @param {string[]} [keys]
+ * @returns {{section: string, id: string}[]}
+ */
 export const findSectionConflicts=(baseSections={},incomingSections={},currentSections={},keys=Object.keys(incomingSections||{}))=>
   (keys||[]).flatMap(section=>findAggregateConflicts(baseSections?.[section],incomingSections?.[section],currentSections?.[section],section));

@@ -49,7 +49,9 @@
     "src/features/conciliacao/ConciliacaoView.jsx": 10,
     "src/features/financeiro/FinancialReportCenter.jsx": 1,
     "src/features/financeiro/LegacyDocumentTools.jsx": 1,
-    "src/LegacyApp.jsx": 9,
+    "src/features/relatorios/RelatoriosView.jsx": 1,
+    "src/domains/obras/components/ObrasCarteira.jsx": 2,
+    "src/LegacyApp.jsx": 6,
     "src/reports/labor-projection.js": 4,
     "src/reports/legacy-standard.js": 1
   },
@@ -57,7 +59,7 @@
   "percentual-com-ponto": {
     "src/components/charts/CubChart.jsx": 3,
     "src/components/charts/DreMargemChart.jsx": 2,
-    "src/domains/comercial/components/ComercialView.jsx": 5,
+    "src/domains/comercial/components/ComercialView.jsx": 4,
     "src/domains/comercial/legacy-model.js": 1,
     "src/domains/comercial/RealEstateCommercial.jsx": 1,
     "src/domains/compras/calculations.js": 1,
@@ -70,25 +72,18 @@
     "src/domains/estoque/components/EstoqueView.jsx": 1,
     "src/domains/licenciamento/components/LicenciamentoView.jsx": 2,
     "src/domains/medicoes/components/MedicoesView.jsx": 8,
+    "src/domains/medicoes/components/MedicaoEvolucao.jsx": 7,
     "src/domains/orcamentos/components/OrcamentoView.jsx": 19,
     "src/domains/planejamento/components/PlanejamentoView.jsx": 7,
     "src/domains/terceirizados/components/TerceirosView.jsx": 8,
     "src/features/conciliacao/ConciliacaoView.jsx": 1,
     "src/features/pilot/OperationalPilot.jsx": 1,
-    "src/LegacyApp.jsx": 30,
+    "src/features/relatorios/RelatoriosView.jsx": 3,
+    "src/LegacyApp.jsx": 20,
     "src/reports/adjustable-tables.js": 2,
     "src/reports/legacy-standard.js": 2
   },
   "raio-fixo-em-css-de-tela": {},
-  "raio-fixo-em-jsx": {
-    "src/domains/compras/components/ComprasView.jsx": 2,
-    "src/domains/licenciamento/components/LicenciamentoView.jsx": 4,
-    "src/domains/medicoes/components/MedicoesView.jsx": 2,
-    "src/domains/orcamentos/components/OrcamentoView.jsx": 3,
-    "src/domains/terceirizados/components/TerceirosView.jsx": 1,
-    "src/LegacyApp.jsx": 24
-  },
-  "gap-fora-da-escala": {
-    "src/domains/administracao/components/user-directory.css": 1
-  }
+  "raio-fixo-em-jsx": {},
+  "gap-fora-da-escala": {}
 }

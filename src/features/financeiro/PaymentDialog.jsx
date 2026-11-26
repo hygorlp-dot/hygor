@@ -54,20 +54,24 @@ export default function PaymentDialog({data,user,type,id,pageId='fin',dispatch,o
    done.current=true;onSaved?.(result);onClose();
   }catch(error){setMessage(attempt.current.command?UNCONFIRMED_COMMAND:error.message||UNCONFIRMED_COMMAND);}finally{lock.current=false;setBusy(false);}
  };
- return <><Modal title={`Pagamento · ${record.numero||id}`} onClose={close.requestClose} panelClass="mrc-payment-dialog"><div className="mrc-payment-dialog__body">
+ return <><Modal title={`Pagamento · ${record.numero||id}`} onClose={close.requestClose} panelClass="mrc-payment-dialog" footer={<>
+  {message&&<p className="arcd-dialog__error" role="alert">{message}</p>}
+  <Button variant="outline" disabled={busy} onClick={close.requestClose}>Cancelar</Button>
+  <Button disabled={busy||!ready||otherPending||!canPay} onClick={save}>{busy?'Registrando pagamento…':'Registrar pagamento'}</Button>
+ </>}><div className="mrc-payment-dialog__body">
  <HelpButton pageId={pageId} allowedTabs={[pageId]}/>
  <ScopeNote title="Obra da obrigação">{work?.name||'Não informada'}</ScopeNote>
  <p>Fornecedor: {record.fornecedorNome||(data.fornecedores||[]).find(f=>f.id===record.fornecedorId)?.nome||'Não informado'}</p>
  <p>Valor da obrigação <strong>{fmt(total)}</strong> · Saldo a pagar <strong>{fmt(balance)}</strong></p>
  <p>Registre uma saída já realizada. O lançamento aparece no histórico com seu nome, data, origem e valor.</p>
  {!canPay&&<p role="status">Seu perfil não pode registrar pagamentos desta obrigação.</p>}
- {message&&<p role="alert">{message}</p>}{draftStatus&&<p role="status">{draftStatus}</p>}
+ {draftStatus&&<p role="status">{draftStatus}</p>}
  {type==='nota'&&availableOrderPayments(data,record).length>0&&<p role="status">{UNALLOCATED_ORDER_PAYMENT}</p>}
  {type==='nota'&&canPay&&<AdvanceAllocation data={data} note={record} user={user} dispatch={dispatch} busy={busy||!ready||otherPending||!!attempt.current.command} onBusy={setBusy} onPending={()=>setOtherPending(true)} onSaved={result=>{done.current=true;onSaved?.(result);onClose();}}/>}
  {!ready?(!message&&<p role="status">Preparando rascunho local…</p>):<fieldset className="mrc-command-fields" aria-label="Dados do pagamento" disabled={busy||!!attempt.current.command||otherPending||!canPay}>
  <Sel label="Origem real do pagamento *" value={form.origem} onChange={v=>{patch('origem',v);patch('transacaoId','');}} options={[{v:'empresa',l:'Conta bancária da empresa'},{v:'caixa_obra',l:'Caixa da obra'},{v:'cliente_direto',l:'Cliente pagou diretamente'}]}/>
  {form.origem==='caixa_obra'&&<p role="status">Saldo do caixa: {fmt(cash.saldo)} · após este pagamento: {fmt(cash.saldo-value)}. {!work?.hasCaixa?'Caixa não ativado. ':''}{cash.saldo-value<0?'O caixa ficará negativo. Confira a origem real.':''}</p>}
- <div className="mrc-payment-dialog__grid"><Inp label="Valor pago *" type="number" min="0.01" value={form.valor} onChange={v=>patch('valor',v)}/><Inp label="Data do pagamento *" type="date" value={form.data} onChange={v=>patch('data',v)}/></div>
+ <div className="mrc-dialog-fields__row"><Inp label="Valor pago *" type="number" min="0.01" value={form.valor} onChange={v=>patch('valor',v)}/><Inp label="Data do pagamento *" type="date" value={form.data} onChange={v=>patch('data',v)}/></div>
  {Number.isFinite(value)&&value>0&&!validation.error&&<p>Saldo após esta baixa <strong>{fmt(Math.max(0,balance-value))}</strong>.</p>}
  {validation.campos?.tipo==='adiantamento'&&<><p role="status">Este valor será registrado como adiantamento. Entrega e nota continuam independentes.</p><Inp label="Motivo do adiantamento (recomendado)" value={form.motivoAdiantamento} onChange={v=>patch('motivoAdiantamento',v)}/></>}
  {type==='nota'&&validation.warnings?.filter(w=>w.code!=='ORDER_PAYMENTS_TO_REVIEW').map(w=><p key={w.code} role="status">{w.message} {w.resolution}</p>)}

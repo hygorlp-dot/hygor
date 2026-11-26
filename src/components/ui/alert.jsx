@@ -21,6 +21,7 @@ const alertVariants = cva(
   }
 );
 
+/** @type {React.ForwardRefExoticComponent<React.HTMLAttributes<HTMLDivElement> & {variant?: "default" | "destructive" | "warning"} & React.RefAttributes<HTMLDivElement>>} */
 const Alert = React.forwardRef(({ className, variant, ...props }, ref) => (
   <div ref={ref} role="alert" className={cn(alertVariants({ variant }), className)} {...props} />
 ));
@@ -31,6 +32,7 @@ const AlertTitle = React.forwardRef(({ className, ...props }, ref) => (
 ));
 AlertTitle.displayName = "AlertTitle";
 
+/** @type {React.ForwardRefExoticComponent<React.HTMLAttributes<HTMLDivElement> & React.RefAttributes<HTMLDivElement>>} */
 const AlertDescription = React.forwardRef(({ className, ...props }, ref) => (
   <div ref={ref} className={cn("text-sm [&_p]:leading-relaxed", className)} {...props} />
 ));

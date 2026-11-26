@@ -6,7 +6,7 @@
 
 .dashboard-daily {
   padding: var(--arcd-space-2) var(--arcd-space-4);
-  border: 1px solid var(--arcd-border-default);
+  border: var(--arcd-border-width) solid var(--arcd-border-default);
   border-radius: var(--arcd-box-radius);
   background: var(--arcd-material-panel-surface);
   color: var(--arcd-text-primary);
@@ -31,10 +31,10 @@
 .dashboard-daily__header h3 { font-size: var(--arcd-type-label); }
 .dashboard-daily__header time { color: var(--arcd-text-secondary); font-size: var(--arcd-type-caption); white-space: nowrap; }
 
-.dashboard-daily__days { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-block-start: 1px solid var(--arcd-border-subtle); }
+.dashboard-daily__days { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-block-start: var(--arcd-border-width) solid var(--arcd-border-subtle); }
 .dashboard-daily__day { display: grid; align-content: start; gap: var(--arcd-space-1); padding-block: var(--arcd-space-2); }
 .dashboard-daily__day:first-child { padding-inline-end: var(--arcd-space-3); }
-.dashboard-daily__day + .dashboard-daily__day { padding-inline-start: var(--arcd-space-3); border-inline-start: 1px solid var(--arcd-border-subtle); }
+.dashboard-daily__day + .dashboard-daily__day { padding-inline-start: var(--arcd-space-3); border-inline-start: var(--arcd-border-width) solid var(--arcd-border-subtle); }
 
 .dashboard-daily__metrics {
   display: grid;
@@ -60,5 +60,5 @@
 .dashboard-daily progress::-moz-progress-bar { background: var(--arcd-action-primary); }
 
 @media (min-width: 1024px) {
-  .dashboard-daily__metrics div + div { padding-inline-start: var(--arcd-space-2); border-inline-start: 1px solid var(--arcd-border-subtle); }
+  .dashboard-daily__metrics div + div { padding-inline-start: var(--arcd-space-2); border-inline-start: var(--arcd-border-width) solid var(--arcd-border-subtle); }
 }

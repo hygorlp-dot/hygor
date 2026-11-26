@@ -7,6 +7,7 @@ const testState=vi.hoisted(()=>({
   rows:{},
   rpcCalls:[],
   sourceEvents:[],
+  concurrentWrites:[],
 }));
 vi.mock('../../server/pg-conexao.js',()=>({comSql:callback=>callback(async(parts)=>{
   const query=parts.join('?');
@@ -83,6 +84,7 @@ const fakeDb=vi.hoisted(()=>({
     if(name.startsWith("auth_rate_limit_"))return{data:null,error:null};
     if(name==="company_save_with_audit"){
       testState.rpcCalls.push(args);
+      testState.concurrentWrites.shift()?.();
       const row=testState.rows[args.p_key];
       if(!row||row.updated_at!==args.p_expected_updated_at){
         return{data:[{updated_at:row?.updated_at||null,applied:false}],error:null};
@@ -90,6 +92,9 @@ const fakeDb=vi.hoisted(()=>({
       const updatedAt=new Date(new Date(row.updated_at).getTime()+1000).toISOString();
       testState.rows[args.p_key]={...row,value:args.p_value,updated_at:updatedAt};
       return{data:[{updated_at:updatedAt,applied:true}],error:null};
+    }
+    if(name==="attendance_archive_transaction"&&args.p_company_id==="arcd__health_probe"){
+      return{data:[{applied:false}],error:null};
     }
     return{data:null,error:{code:"PGRST202",message:`Unexpected RPC ${name}`}};
   }),
@@ -176,10 +181,129 @@ describe("/api/data · persistência granular do ponto",()=>{
       },
     };
     testState.rpcCalls.length=0;
+    testState.concurrentWrites.length=0;
     fakeDb.rpc.mockClear();
     fakeDb.from.mockClear();
   });
   afterAll(()=>vi.useRealTimers());
+
+  it("limita a verificação de persistência ao administrador e usa as sondas da empresa",async()=>{
+    const request={action:"persistence-health",accessToken:"valid-token"};
+    expect(await callApi(request)).toEqual({
+      status:403,body:{error:"Apenas administradores verificam a persistência."},
+    });
+    expect(testState.rpcCalls).toHaveLength(0);
+
+    Object.assign(testState.rows[CORE_KEY].value.usuarios[0],{role:"admin",obraId:""});
+    const before=structuredClone(testState.rows);
+    expect(await callApi(request)).toEqual({
+      status:200,body:{ok:true,companyAppData:true,auditRpc:true,attendanceArchiveRpc:true},
+    });
+    expect(testState.rpcCalls).toMatchObject([{p_company_id:"arcd__health_probe",p_key:"health",p_action:"health_probe"}]);
+    expect(testState.rows).toEqual(before);
+  });
+
+  describe.each(["save","save-sections"])("concorrência da gravação %s",action=>{
+    const fixture=()=>{
+      const row=testState.rows[CORE_KEY];
+      Object.assign(row.value.usuarios[0],{role:"admin",obraId:""});
+      row.value.condominios=[{id:"c1",nome:"Original",descricao:"Original"}];
+      const base=structuredClone(row.value);
+      const incoming={...base,condominios:[{...base.condominios[0],nome:"Edição local"}]};
+      const request={
+        action,
+        accessToken:"valid-token",
+        expectedUpdatedAt:row.updated_at,
+        ...(action==="save"
+          ? {basePayload:base,payload:incoming}
+          : {baseSections:{condominios:base.condominios},sections:{condominios:incoming.condominios}}),
+      };
+      return request;
+    };
+
+    const writeConcurrently=(patch,updatedAt)=>{
+      testState.concurrentWrites.push(()=>{
+        const row=testState.rows[CORE_KEY];
+        const condominios=[{...row.value.condominios[0],...patch}];
+        testState.rows[CORE_KEY]={...row,updated_at:updatedAt,value:{...row.value,condominios}};
+      });
+    };
+
+    it("relê a revisão perdida e mantém as duas alterações compatíveis",async()=>{
+      const request=fixture();
+      const concurrentAt="2026-07-28T12:00:01.000Z";
+      writeConcurrently({descricao:"Edição concorrente"},concurrentAt);
+
+      const result=await callApi(request);
+
+      expect(result.status,result.body?.error).toBe(200);
+      expect(result.body).toMatchObject({ok:true,merged:true,updatedAt:"2026-07-28T12:00:02.000Z"});
+      expect(testState.rpcCalls.map(call=>call.p_expected_updated_at)).toEqual([request.expectedUpdatedAt,concurrentAt]);
+      const merged=[{id:"c1",nome:"Edição local",descricao:"Edição concorrente"}];
+      expect(testState.rows[CORE_KEY].value.condominios).toEqual(merged);
+      expect(result.body.data.condominios).toEqual(merged);
+      expect((await callApi(request)).status).toBe(200);
+      expect(testState.rows[CORE_KEY].value.condominios).toEqual(merged);
+    });
+
+    it("retorna 409 para edição concorrente do mesmo campo sem gravar por cima",async()=>{
+      const request=fixture();
+      const concurrentAt="2026-07-28T12:00:01.000Z";
+      writeConcurrently({nome:"Edição concorrente"},concurrentAt);
+
+      const result=await callApi(request);
+
+      expect(result).toMatchObject({status:409,body:{
+        conflict:true,currentUpdatedAt:concurrentAt,conflicts:[{section:"condominios",id:"c1"}],
+      }});
+      expect(testState.rpcCalls).toHaveLength(1);
+      expect(testState.rows[CORE_KEY].value.condominios[0].nome).toBe("Edição concorrente");
+    });
+
+    it("retorna 409 quando a revisão muda de novo na segunda tentativa",async()=>{
+      const request=fixture();
+      const concurrentAt="2026-07-28T12:00:01.000Z";
+      const secondAt="2026-07-28T12:00:02.000Z";
+      writeConcurrently({descricao:"Primeira edição concorrente"},concurrentAt);
+      writeConcurrently({descricao:"Segunda edição concorrente"},secondAt);
+
+      const result=await callApi(request);
+
+      expect(result).toMatchObject({status:409,body:{conflict:true}});
+      expect(testState.rpcCalls.map(call=>call.p_expected_updated_at)).toEqual([request.expectedUpdatedAt,concurrentAt]);
+      expect(testState.rows[CORE_KEY]).toMatchObject({updated_at:secondAt,value:{
+        condominios:[{id:"c1",nome:"Original",descricao:"Segunda edição concorrente"}],
+      }});
+    });
+  });
+
+  it.each([
+    ["engenheiro", 403],
+    ["engenheiro_auditor", 200],
+  ])("conferência: verifica a criação de vistoria pelo perfil %s", async (role, expectedStatus) => {
+    const row = testState.rows[CORE_KEY];
+    const user = row.value.usuarios[0];
+    user.role = role;
+    row.value.conferencias = [];
+    const inspection = {
+      id: "vistoria-a", obraId: "obra-a",
+      responsavelId: user.id, responsavel: user.nome, pendencias: [],
+    };
+
+    const result = await callApi({
+      action: "save-sections", accessToken: "valid-token", expectedUpdatedAt: row.updated_at,
+      sections: { conferencias: [inspection] }, baseSections: { conferencias: [] },
+    });
+
+    expect(result.status).toBe(expectedStatus);
+    if (expectedStatus === 403) {
+      expect(result.body.error).toBe("Somente o administrador ou o engenheiro auditor pode criar uma vistoria.");
+      expect(testState.rpcCalls).toHaveLength(0);
+      expect(testState.rows[CORE_KEY].value.conferencias).toEqual([]);
+    } else {
+      expect(testState.rows[CORE_KEY].value.conferencias).toEqual([inspection]);
+    }
+  });
 
   it('orçamento: persiste seis níveis e recusa sétimo, ciclo e pai ausente pelo handler real',async()=>{
     testState.rows[CORE_KEY].value={...initialData(),orcamentos:[]};

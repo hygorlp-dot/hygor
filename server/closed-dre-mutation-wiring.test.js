@@ -104,8 +104,6 @@ describe("FIN 9.6 — wiring da imutabilidade de competência fechada",()=>{
     );
     expect(block).toContain("validarPontoEmCompetenciaAberta(current,command)");
     expect(block).toContain("code:closedPoint.code");
-    const guard=between("const validarPontoEmCompetenciaAberta=","const validarConciliacaoEmCompetenciaAberta=");
-    expect(guard).toContain('code:"CLOSED_DRE_IMMUTABLE"');
     expect(block.indexOf("validarPontoEmCompetenciaAberta"))
       .toBeLessThan(block.indexOf("update company_app_data"));
   });

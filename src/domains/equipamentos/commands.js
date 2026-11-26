@@ -559,7 +559,7 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
     if(!invoice)return fail("Fatura não encontrada.");
     const stale=versionError(invoice,command.expectedVersion,"A fatura");if(stale)return fail(stale);
     const transaction=list(data,"transacoes").find(item=>String(item.id)===String(payload.receipt?.transactionId));
-    const validation=validateRentalInvoiceReceipt(invoice,transaction,payload.receipt||{},list(data,"rentalInvoiceReceipts"));
+    const validation=validateRentalInvoiceReceipt(invoice,transaction,payload.receipt||{},list(data,"rentalInvoiceReceipts"),data);
     if(!validation.ok)return fail(validation.reason);
     const receipt={...validation.record,id:`rental_receipt_${command.idempotencyKey}`,createdAt:now,createdById:command.actorId||"",
       operationalHistory:audit(null,command,now,"EQUIPMENT_RENTAL_INVOICE_RECEIPT_LINKED")};

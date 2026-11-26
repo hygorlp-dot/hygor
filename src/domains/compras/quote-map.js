@@ -17,7 +17,7 @@ export const itensDaCotacao=quote=>{
     id:ITEM_COTACAO_LEGADO,materialId:quote.materialId,qtd:Number(quote.qtd||0),
     unidadeRef:quote.unidadeRef||"",unidadeCompra:quote.unidadeCompra||"",
     fatorConversao:Number(quote.fatorConversao||1),precoRef:Number(quote.precoRef||0),
-    orcItemId:quote.orcItemId||"",orcNivel1Id:quote.orcNivel1Id||"",
+    orcItemId:quote.orcItemId||"",orcNivel1Id:quote.orcNivel1Id||"",solicitacaoItemId:quote.solicitacaoItemId||"",
   }];
 };
 

@@ -323,6 +323,7 @@ test('o Diário segue o carimbo na lista e no editor',async({page})=>{
   await stamp(page).selectOption('b');
   await expect(screenObra(page)).toHaveValue('b');
   // "Todas" no filtro da lista limpa o carimbo; escolher de novo volta a obra.
+  if(!await screenObra(page).isVisible())await page.locator('main details > summary').filter({hasText:/^Filtros/}).click();
   await screenObra(page).selectOption('all');
   await expect(stamp(page)).toHaveValue('');
   await stamp(page).selectOption('b');
@@ -341,6 +342,7 @@ test('Estoque, Licenciamento, Marcos e Curva A e Terceirizados seguem o carimbo'
   // Começa em Compras: o Planejamento grava o plano ao trocar de obra, e a API
   // simulada deste teste não confirma gravações.
   const errors=await enter(page,'cmp');
+  const cadastroObra=page.locator('main').getByLabel('Obra do cadastro',{exact:true});
   async function open(label){
     await page.keyboard.press('Control+k');
     const search=page.getByPlaceholder('Buscar obra, lead, pedido, funcionário, tela...');
@@ -358,18 +360,18 @@ test('Estoque, Licenciamento, Marcos e Curva A e Terceirizados seguem o carimbo'
   await stamp(page).selectOption('b');
   for(const label of ['Estoque','Licenciamento','Marcos e Curva A','Terceirizados']){
     await open(label);
-    await expect(screenObra(page),label).toHaveValue('b');
+    await expect(label==='Terceirizados'?cadastroObra:screenObra(page),label).toHaveValue('b');
   }
   // "Todas as obras" nos Terceirizados limpa o carimbo. Com o carimbo vazio o
   // Estoque abre na primeira obra; trocar a obra nele grava o carimbo.
-  await screenObra(page).selectOption('all');
+  await cadastroObra.selectOption('all');
   await expect(stamp(page)).toHaveValue('');
   await open('Estoque');
   await expect(screenObra(page)).toHaveValue('a');
   await screenObra(page).selectOption('b');
   await expect(stamp(page)).toHaveValue('b');
   await open('Terceirizados');
-  await expect(screenObra(page)).toHaveValue('b');
+  await expect(cadastroObra).toHaveValue('b');
   expect(errors).toEqual([]);
 });
 

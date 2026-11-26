@@ -5,11 +5,12 @@ import { cn } from "../../lib/utils";
 
 const Tabs = TabsPrimitive.Root;
 
-const TabsList = React.forwardRef(({ className, ...props }, ref) => (
+const TabsList = React.forwardRef(({ className, fullWidth = false, ...props }, ref) => (
   <TabsPrimitive.List
     ref={ref}
     className={cn(
       "inline-flex min-h-(--arcd-control-height) items-center justify-center rounded-(--arcd-radius-md) border border-(--arcd-border-default) bg-(--arcd-surface-muted) p-1 text-(--arcd-text-secondary)",
+      fullWidth && "grid auto-cols-fr grid-flow-col h-12 w-full",
       className
     )}
     {...props}

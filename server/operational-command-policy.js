@@ -1,4 +1,5 @@
 import {canApprovePayableInvoice,canRecordPayable} from '../src/domains/financeiro/payable-access.js';
+import {canManageCompanyPayroll} from '../src/domains/ponto/permissions.js';
 import {contractCommandScope,RECORD_COMMAND_TYPES} from '../src/domains/comercial/contracts/record-commands.js';
 import {thirdPartyInvoiceLinkWork} from '../src/domains/financeiro/workflows.js';
 import {folderAccess} from '../src/domains/arquivos/access.js';
@@ -293,9 +294,9 @@ export const validateOperationalCommandScope=({user={},data={},command={}}={})=>
   // Fechar/reabrir a quinzena cria e cancela obrigações de toda a empresa
   // (um título por funcionário, rateado entre obras): escopo corporativo.
   if(PAYROLL_CLOSING_COMMAND_TYPES.has(command.type)){
-    return ["admin","rh"].includes(user?.role)
+    return canManageCompanyPayroll(user)
       ?{ok:true,obraId:"",scope:"company"}
-      :{ok:false,error:"Somente administrador ou RH pode fechar ou reabrir a quinzena da folha."};
+      :{ok:false,error:"Fechar ou reabrir a quinzena exige acesso à Folha da empresa inteira."};
   }
   if(PATRIMONY_COMMAND_TYPES.has(command.type)){
     const roleAllowed=["admin","financeiro","compras"].includes(user?.role);

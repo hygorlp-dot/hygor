@@ -8,14 +8,15 @@ import {sharedChartHelpers} from './scripts/shared-chart-helpers.mjs';
 import {sharedUiHelpers} from './scripts/shared-ui-helpers.mjs';
 import {operationalChartScales} from './scripts/operational-chart-scales.mjs';
 import {legacyScreenChunks} from './scripts/legacy-screen-chunks.mjs';
-import {minifyLegacyApp} from './scripts/minify-legacy-app.mjs';
+import {pdfjsModuleExports} from './scripts/pdfjs-module-exports.mjs';
+import {minifyVendorChunks} from './scripts/minify-vendor-chunks.mjs';
+
 const projectRoot=fileURLToPath(new URL('.',import.meta.url));
 // Worktrees may share only node_modules through a junction. Permit that exact
 // dependency tree without granting access to sibling workspaces or evidence.
 const dependencyRoot=realpathSync(fileURLToPath(new URL('./node_modules',import.meta.url)));
-
 export default defineConfig(({mode})=>mergeConfig({
-  plugins: [legacyScreenChunks(),react(),sharedSinapiWorker(),sharedChartHelpers(),sharedUiHelpers(),operationalChartScales(),minifyLegacyApp()],
+  plugins: [legacyScreenChunks(),react(),sharedSinapiWorker(),sharedChartHelpers(),sharedUiHelpers(),operationalChartScales(),pdfjsModuleExports(),minifyVendorChunks()],
   // Restrinja a descoberta ao aplicativo: builds e evidências HTML em
   // artifacts não são entradas de desenvolvimento.
   optimizeDeps: {entries:["index.html"]},
@@ -64,32 +65,26 @@ export default defineConfig(({mode})=>mergeConfig({
           const prefix=preserve?name:name==="financial-domain"?"fi":name.slice(0,1);
           return `assets/${prefix}-[hash].js`;
         },
-        manualChunks(id) {
-          // Shared interface primitives are loaded by the application shell.
-          // Keeping them together avoids repeated import paths and independent
-          // compression overhead across small chunks, without changing UI code.
-          if(id.includes('/src/design-system/')||id.includes('/src/components/ui/'))return 'interface';
-          // Os adaptadores legados já usam os mesmos controles. Mantê-los
-          // junto da base compartilha a compressão, sem antecipar as telas.
-          if(id.includes('/src/legacy/')||id.includes('/src/hooks/')||id.includes('/src/features/workflow/'))return 'interface';
-          // O mesmo repertório de ícones atende todos os módulos. Compartilhar
-          // a compressão evita o custo repetido dos pequenos chunks por ícone.
-          if(id.includes('/node_modules/lucide-react/'))return 'interface';
-          if(id.includes('/node_modules/fflate/')||id.endsWith('/src/lib/zip-reader.js'))return 'zip-codec';
-          // Os gráficos compartilham Lodash com a leitura CSV do ExcelJS.
-          // Um chunk comum evita vários blocos pequenos comprimidos à parte.
-          if(id.includes("/node_modules/recharts/")||id.includes("/node_modules/lodash/"))return "charts";
-          if (id.includes("exceljs")) return "spreadsheet-tools";
-          if (
-            id.includes("/src/domains/financeiro/")
-            // Sincronização e finanças compartilham deltas, comandos e validações.
-            || (id.includes("/src/domains/sync/")&&!id.endsWith(".jsx"))
-            || id.includes("/src/domains/dre/")
-            || id.includes("/src/domains/conciliacao/")
-            || (id.includes('/src/domains/compras/')&&!id.includes('/components/')&&!id.endsWith('/LegacySupport.jsx')&&!id.endsWith('/export-sheets.js'))
-          ) return "financial-domain";
-          // As demais dependências compartilhadas ficam a cargo do
-          // particionamento automático do Rolldown.
+        codeSplitting: {
+          // React e a base da sessão também são usados na entrada. A prioridade
+          // impede que sejam absorvidos pelos grupos operacionais abaixo.
+          groups: [
+            { name: "vendor", test: /\/node_modules\/(?:react|react-dom|scheduler|clsx)\//, priority: 100 },
+            { name: "workspace-styles", test: /\/src\/(?:domains|features)\/.+\.css$/, priority: 50 },
+            { name: "interface", test: /\/(?:src\/(?:lib\/lazy-with-css-retry\.js|features\/help\/HelpContext\.jsx)$|(?:src\/(?:design-system|components\/ui|legacy|hooks)|node_modules\/lucide-react)\/)/, priority: 40 },
+            // Telas do mesmo fluxo de Compras compartilham compressão após o login.
+            { name: "procurement-ui", test: /\/src\/domains\/compras\/components\/(?:PurchaseDossier|PurchaseConference|PurchaseFinalCost|PurchaseWorkspace|PurchasesByWork|ReceiptModal|QuoteComparisonWorkspace)/, priority: 35 },
+            { name: "zip-codec", test: /\/(?:node_modules\/fflate\/|src\/lib\/zip-reader\.js$)/, priority: 30 },
+            { name: "charts", test: /\/node_modules\/(?:recharts|lodash)\//, priority: 20 },
+            // Gráficos financeiros compartilham compressão no primeiro acesso a um deles.
+            { name: "financial-chart-views", test: /\/src\/components\/charts\/(?:RelatoriosChartPanel|FinanceiroCharts|Dre(?:EmpresaHistorico|FaturamentoResultado|DistribuicaoCustos|Margem)Chart)\.jsx$/, priority: 25, includeDependenciesRecursively: false },
+            { name: "spreadsheet-tools", test: /exceljs/, priority: 10 },
+            // Telas de obra sob demanda compartilham o chunk sem antecipar dependências da entrada.
+            { name: "project-checks", test: /\/src\/domains\/(?:qualidade\/components\/ConferenciaView|licenciamento\/components\/LicenciamentoView|medicoes\/components\/MedicoesView|obras\/components\/DiarioObraView)\.jsx$/, priority: 25, includeDependenciesRecursively: false },
+            // Deltas e telemetria da API ficam com as dependências compartilhadas.
+            // O grupo financeiro só reúne domínios usados na operação.
+            { name: "financial-domain", test: /\/src\/domains\/(?:financeiro|dre|conciliacao|compras\/(?!components\/|.*(?:LegacySupport\.jsx|export-sheets\.js)$))/, priority: 0 },
+          ],
         },
       },
     },

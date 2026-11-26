@@ -7,7 +7,10 @@ async function enter(page,tab,{many=false,readonly=false,reject=0}={}){
  const a=data.obras[0].id,b=data.obras[1].id;data.obras[0].name='Obra Alfa P2';data.obras[1].name='Obra Beta P2';
  const request=data.solicitacoesCompra[0];data.solicitacoesCompra=[{...request,id:'req-a',numero:'SC-A',obraId:a,status:'enviada',necessidade:'2026-10-30',itens:[{...request.itens[0],descricaoRef:'Cimento Alfa'}]},{...request,id:'req-b',numero:'SC-B',obraId:b,status:'enviada',necessidade:'2026-11-04',itens:[{...request.itens[0],descricaoRef:'Cimento Beta'}]}];data.cotacoes=[];data.pedidos=[{...data.pedidos[0],id:'order-a',numero:'PC-A',obraId:a,status:'enviado'}];
  if(many)for(let i=3;i<30;i++)data.solicitacoesCompra.push({...data.solicitacoesCompra[0],id:`req-${i}`,numero:`SC-${i}`});
- data.pedidos[0].itens[0]={...data.pedidos[0].itens[0],qtd:10,qtdRecebida:2,precoUnit:25};data.pedidos[0].pagamentos=[{id:'old',valor:20,tipo:'adiantamento',data:'2026-10-20',origem:'empresa'}];
+ const receiptItem=data.pedidos[0].itens[0];
+ const receiptUnit=data.materiais.find(material=>material.id===receiptItem.materialId).unidade;
+ Object.assign(receiptItem,{qtd:10,qtdRecebida:2,precoUnit:25,unidadeRef:receiptUnit,unidadeCompra:receiptUnit,fatorConversao:1});
+ data.pedidos[0].pagamentos=[{id:'old',valor:20,tipo:'adiantamento',data:'2026-10-20',origem:'empresa'}];
  const dates=['2026-10-31','2026-11-01','2026-11-02','2026-11-08','2026-11-09',''];
  data.notasFiscais=dates.map((vencimento,i)=>({id:`nf-p2-${i}`,obraId:a,numero:`NF-P2-${i}`,status:'aprovada',emissao:'2026-10-01',valorBruto:100,vencimento,pagamentos:i===0?[{id:'partial',data:'2026-10-20',valor:30}]:[]}));
  data.notasFiscais[0].pedidoId='order-a';

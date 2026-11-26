@@ -36,7 +36,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
 import { Badge, Btn, Divider, Ic, Inp, MiniKpi, Modal, Sel, TabRow } from "../../../legacy/ui.jsx";
 import { C } from "../../../legacy/palette.js";
-import { ajustarParaDiaUtil, aplicarRollup, caminhoCritico, compararBaseline, curvaS, custoEtapa, desvioAutomatico, diasCorridos, diasUteis, distribuicaoMensal, ehDiaUtil, fisicoFinanceiro, fisicoFinanceiroMensal, fundirEvolucao, idsSucessoras, janelaPlano, montarCronogramaIA, montarTarefas, ordemEtapasOrcamento, progressoPlano, proximoDiaUtil, resumoPlano, somaDias, somaDiasUteis, sugerirDependenciasPlanejamento } from "../legacy-engine.js";
+import { ajustarParaDiaUtil, aplicarRollup, caminhoCritico, coberturaItensPlano, compararBaseline, curvaS, custoEtapa, desvioAutomatico, diasCorridos, diasUteis, distribuicaoMensal, ehDiaUtil, fisicoFinanceiro, fisicoFinanceiroMensal, fundirEvolucao, idsSucessoras, janelaPlano, montarCronogramaIA, montarTarefas, ordemEtapasOrcamento, progressoPlano, proximoDiaUtil, resumoPlano, somaDias, somaDiasUteis, sugerirDependenciasPlanejamento } from "../legacy-engine.js";
 import { fmt, fmtCompact, fmtDate, fmtDateFull, fmtMesAno, monthName, obraContextoSalvo, today, uid } from "../../../legacy/format.js";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { WORKER_TRAINING_TYPES } from "../../seguranca/constants";
@@ -110,6 +110,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
     return aplicarRollup(fundirEvolucao(base, data.rdos, obraId), orc);
   }, [plano, orc, data.rdos, obraId]);
   const resumo  = useMemo(() => resumoPlano(tarefas.filter(t=>!t.titulo), orc), [tarefas, orc]);
+  const cobertura = useMemo(() => coberturaItensPlano(tarefas, orc), [tarefas, orc]);
   const boletim = selectApprovedTechnicalMeasurements(data, obraId).at(-1);
   const [anoDre,mesDre] = today().split("-").map(Number);
   const janela  = useMemo(() => janelaPlano(tarefas, plano.marcos), [tarefas, plano.marcos]);
@@ -896,9 +897,11 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
         </> : "Sem orçamento disponível para esta obra."}
       </ScopeNote>
 <TaskDisclosure summary="Escala, calendário e colunas">        <div role="group" aria-label="Escala e opções do cronograma" style={{ display: "flex", gap: "var(--arcd-space-1)", alignItems: "center", flexWrap:"wrap" }}>
-          {["dia", "semana", "mes"].map(z => (
-            <Button key={z} variant="secondary" aria-pressed={zoom===z} onClick={() => setZoom(z)}>{{dia:"Dia",semana:"Semana",mes:"Mês"}[z]}</Button>
-          ))}
+          <div className="mrc-submenu" role="group" aria-label="Escala do cronograma">
+            {["dia", "semana", "mes"].map(z => (
+              <Button key={z} variant="secondary" aria-pressed={zoom===z} onClick={() => setZoom(z)}>{{dia:"Dia",semana:"Semana",mes:"Mês"}[z]}</Button>
+            ))}
+          </div>
           <Button variant="secondary" onClick={() => setCalModal(true)} title="Calendário de trabalho"><Ic n="calendar" s={14}/> Dias</Button>
           <div style={{ position:"relative" }}>
             <Button variant="secondary" onClick={() => setColsCronoAberto(a=>!a)} title="Colunas da tabela" aria-expanded={colsCronoAberto}>Colunas</Button>
@@ -911,7 +914,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                   <label key={k} style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-1) var(--arcd-space-0)",cursor:"pointer",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>
                     <ChoiceControl type="checkbox" checked={!!colsCrono[k]}
                       onChange={()=>setColsCrono(c=>({...c,[k]:!c[k]}))}
-                      style={{width:15,accentColor:"var(--arcd-action-primary)",cursor:"pointer"}}/>
+                      />
                     {l}
                   </label>
                 ))}
@@ -921,7 +924,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                 <label style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-0) var(--arcd-space-0)",cursor:"pointer",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)",marginTop:"var(--arcd-space-2)"}}>
                   <ChoiceControl type="checkbox" checked={planMostrarReal}
                     onChange={()=>setPlanMostrarReal(v=>!v)}
-                    style={{width:15,accentColor:"var(--arcd-action-primary)",cursor:"pointer"}}/>
+                    />
                   Mostrar linha "Realizado"
                 </label>
               </div>
@@ -951,6 +954,9 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
           <p className="page-hero__stat-detail">{detail}</p>
         </div>)}
       </div>
+      {orc&&<ScopeNote title="Vínculos por item com valor">
+        {contar(cobertura.semTarefa,"item","itens")} sem tarefa · {contar(cobertura.comSobreposicao,"item","itens")} em mais de uma tarefa
+      </ScopeNote>}
       {podeAcessarAba(currentUser,"dre")&&<DreIntegration key={`dre-${obraId}`} kind="planning" currentUser={currentUser} obraId={obraId} year={anoDre} month={mesDre-1}/>}
       <ApprovedBaselinePanel key={obraId} data={data} obraId={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand}/>
 
@@ -1814,8 +1820,8 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-1)" }}>
             {etapasLivres.map(e => (
-              <RecordAction key={e.id} onClick={() => { adicionarEtapa(e.id); setTarefaModal(null); }}
-                      className="lift-card" style={{display: "flex",justifyContent: "space-between",alignItems: "center",cursor: "pointer"}}>
+              <RecordAction layout="row" key={e.id} onClick={() => { adicionarEtapa(e.id); setTarefaModal(null); }}
+                      style={{"--record-columns":"minmax(0, 1fr) auto"}}>
                 <span style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)" }}>{e.nome}</span>
                 <span style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-action-primary)" }}>{fmt(custoEtapa(orc, e.id))}</span>
               </RecordAction>
@@ -1857,7 +1863,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
               {COLS_CRONO_DEF.map(c=><label key={c.id} style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-1) var(--arcd-space-0)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",cursor:c.fixa?"default":"pointer"}}>
                 <ChoiceControl type="checkbox" checked={c.fixa?true:!!exportA2Cols[c.id]} disabled={c.fixa}
                   onChange={()=>!c.fixa&&setExportA2Cols(v=>({...v,[c.id]:!v[c.id]}))}
-                  style={{width:15,accentColor:"var(--arcd-action-primary)"}}/>{c.label}{c.fixa&&<span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>(obrigatoria)</span>}
+                  />{c.label}{c.fixa&&<span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>(obrigatoria)</span>}
               </label>)}
             </div>
             <div style={{border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-3)"}}>
@@ -2323,7 +2329,7 @@ function ModalCalendario({ cal, onSalvar, onClose }) {
 
         <label style={{ display: "flex", alignItems: "center", gap: "var(--arcd-space-2)", cursor: "pointer" }}>
           <ChoiceControl type="checkbox" checked={pular} onChange={e => setPular(e.target.checked)}
-                 style={{width: 18,accentColor: "var(--arcd-action-primary)"}} />
+                  />
           <span style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-primary)" }}>Retirar feriados do cronograma</span>
         </label>
 
@@ -2384,7 +2390,7 @@ function ModalMarco({ marco, onSalvar, onRemover, onClose }) {
         <Inp label="Nota (opcional)" value={nota} onChange={setNota} multiline />
         <label style={{ display: "flex", alignItems: "center", gap: "var(--arcd-space-2)", cursor: "pointer" }}>
           <ChoiceControl type="checkbox" checked={feito} onChange={e => setFeito(e.target.checked)}
-                 style={{width: 18,accentColor: "var(--arcd-success-text)"}} />
+                  />
           <span style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-primary)" }}>Já concluído</span>
         </label>
         <div style={{ display: "flex", gap: "var(--arcd-space-2)", marginTop: "var(--arcd-space-1)" }}>

@@ -32,6 +32,13 @@ module.exports = {
       from: { path: "^src/" },
       to: { path: "^postgres$" },
     },
+    {
+      name: "extracted-use-cases-must-not-import-transport-or-storage",
+      severity: "error",
+      comment: "Leitura de arquivo e retentativa recebem persistência por função. A API monta os adaptadores.",
+      from: { path: "^server/(attendance-archive-reader|legacy-save-retry)\\.js$" },
+      to: { path: "^(api/|server/(attendance-archive-persistence|company-context)\\.js$|(?:node_modules/)?(?:postgres|@supabase/))" },
+    },
   ],
   options: {
     doNotFollow: {

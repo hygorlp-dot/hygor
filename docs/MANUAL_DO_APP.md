@@ -171,6 +171,8 @@ Conteúdo gerado de `src/features/help/help-content.js`, a mesma fonte da ajuda 
 - [Arquivos · Exclusão e lixeira](#guia-arquivos_exclusao)
 - [Terceirizados · Recuperar medição](#guia-terc_rascunho)
 - [Apagar conciliação na simulação local](#guia-conc_apagar_local)
+- [Conciliação · Editar classificação](#guia-conc_editar_classificacao)
+- [Conciliação · Receitas de locação](#guia-conc_receitas_locacao)
 
 <a id="guia-fin_previsoes"></a>
 
@@ -460,8 +462,9 @@ Escolha o grupo, a competência e a obra. A aba Administrativo inclui engenheiro
 2. Confira a competência, o ciclo e a obra. No celular, abra Competência e escopo para alterá-los e use Buscar funcionário na folha para localizar uma pessoa. Na Folha da quinzena, totais, pendências e relatórios respeitam o grupo.
 3. Em Holerites CLT, escolha uma pessoa do grupo. Confirme o descarte se houver edição não salva antes de trocar de grupo.
 4. Para fechar ou reabrir a quinzena da empresa inteira, escolha Todos e Todas as obras e revise as pendências.
-5. Abra Ver atestados pendentes, anexe os documentos no ponto e use Conferir anexos novamente antes de fechar a quinzena.
-6. No celular, Buscar funcionário na folha consulta todo o recorte em páginas de até seis pessoas. Abra Indicadores da área para consultar os totais e Pendências para conferir para ver a lista de alertas da quinzena, quando houver.
+5. Em Fechamento da quinzena, abra Ver atestados pendentes para conferir os nomes e as datas. Anexe as imagens no ponto e use Conferir anexos novamente. O ERP libera o fechamento quando todos os atestados tiverem imagem e as demais pendências forem resolvidas.
+6. Use Revisar ponto para abrir Gestão do ponto com a mesma obra, o mesmo mês, ciclo e grupo. Use Voltar a Folha para voltar com a consulta preservada.
+7. No celular, Buscar funcionário na folha consulta todo o recorte em páginas de até seis pessoas. Abra Indicadores da área para consultar os totais e Pendências para conferir para ver a lista de alertas da quinzena, quando houver.
 
 ### Como conferir se deu certo
 
@@ -469,7 +472,7 @@ A lista e os totais mostram o grupo selecionado.
 
 ### O que merece atenção
 
-O fechamento inclui os dois grupos. As áreas gerais, como encargos e projeção, mantêm seu escopo próprio; nelas o seletor de grupo não aparece. O grupo não muda a lotação nem o cálculo individual.
+O fechamento inclui os dois grupos. As áreas gerais, como encargos e projeção, mantêm seu escopo próprio; nelas o seletor de grupo não aparece. O grupo não muda a lotação nem o cálculo individual. Conferir anexos, fechar ou reabrir a quinzena exige RH ou administrador com acesso à Folha da empresa inteira.
 
 <a id="guia-folha_central"></a>
 
@@ -487,8 +490,9 @@ Escolha o grupo, a competência e a obra. A aba Administrativo inclui engenheiro
 2. Confira a competência, o ciclo e a obra. No celular, abra Competência e escopo para alterá-los e use Buscar funcionário na folha para localizar uma pessoa. Na Folha da quinzena, totais, pendências e relatórios respeitam o grupo.
 3. Em Holerites CLT, escolha uma pessoa do grupo. Confirme o descarte se houver edição não salva antes de trocar de grupo.
 4. Para fechar ou reabrir a quinzena da empresa inteira, escolha Todos e Todas as obras e revise as pendências.
-5. Abra Ver atestados pendentes, anexe os documentos no ponto e use Conferir anexos novamente antes de fechar a quinzena.
-6. No celular, Buscar funcionário na folha consulta todo o recorte em páginas de até seis pessoas. Abra Indicadores da área para consultar os totais e Pendências para conferir para ver a lista de alertas da quinzena, quando houver.
+5. Em Fechamento da quinzena, abra Ver atestados pendentes para conferir os nomes e as datas. Anexe as imagens no ponto e use Conferir anexos novamente. O ERP libera o fechamento quando todos os atestados tiverem imagem e as demais pendências forem resolvidas.
+6. Use Revisar ponto para abrir Gestão do ponto com a mesma obra, o mesmo mês, ciclo e grupo. Use Voltar a Folha para voltar com a consulta preservada.
+7. No celular, Buscar funcionário na folha consulta todo o recorte em páginas de até seis pessoas. Abra Indicadores da área para consultar os totais e Pendências para conferir para ver a lista de alertas da quinzena, quando houver.
 
 ### Como conferir se deu certo
 
@@ -496,7 +500,7 @@ A lista e os totais mostram o grupo selecionado.
 
 ### O que merece atenção
 
-O fechamento inclui os dois grupos. As áreas gerais, como encargos e projeção, mantêm seu escopo próprio; nelas o seletor de grupo não aparece. O grupo não muda a lotação nem o cálculo individual.
+O fechamento inclui os dois grupos. As áreas gerais, como encargos e projeção, mantêm seu escopo próprio; nelas o seletor de grupo não aparece. O grupo não muda a lotação nem o cálculo individual. Conferir anexos, fechar ou reabrir a quinzena exige RH ou administrador com acesso à Folha da empresa inteira.
 
 <a id="guia-home"></a>
 
@@ -953,8 +957,9 @@ Confirme a obra e o material necessário.
 1. Na Fila de trabalho, escolha Tabela ou Kanban em Visualização. Busca, obra, etapa e prazo são os mesmos; exportar considera todo o recorte. A visão fica salva por usuário neste navegador; filtros e agrupamento são preservados ao navegar na sessão. No Mapa gerencial, Abrir Kanban da fila abre esse mesmo quadro.
 2. Clique no código para consultar a ficha rápida; use a próxima ação para continuar. Confira a necessidade da obra, o estoque e os pedidos em aberto. Registre ou localize a solicitação.
 3. Compare as propostas e condições, registre a decisão e acompanhe o pedido. Aprovações pendentes ficam sinalizadas, sem impedir o andamento.
-4. Registre a entrega física para dar entrada no estoque. Vincule a nota e registre os pagamentos reais quando ocorrerem; essas etapas podem acontecer em outra ordem.
-5. Na Fila de trabalho, abra o registro e use a Próxima ação. Analisar solicitação fecha a ficha de consulta e posiciona a solicitação exata em Solicitar; confira o número destacado antes de agir.
+4. Em Pedidos, abra Mais ações do pedido, escolha Cancelar pedido e informe o motivo. Se já houve recebimento, estorne pelo Estoque antes de cancelar.
+5. Registre a entrega física para dar entrada no estoque. Vincule a nota e registre os pagamentos reais quando ocorrerem; essas etapas podem acontecer em outra ordem.
+6. Na Fila de trabalho, abra o registro e use a Próxima ação. Analisar solicitação fecha a ficha de consulta e posiciona a solicitação exata em Solicitar; confira o número destacado antes de agir.
 
 ### Como conferir se deu certo
 
@@ -1340,10 +1345,11 @@ Escolha Pessoal de obra, Administrativo ou Todos; depois selecione o período e 
 1. Ao chegar de Revisar ponto na Folha, confira a obra, o mês, o ciclo e o grupo preenchidos. Use Voltar a Folha para retomar a conferência. Se a célula estiver Sem registro, confira o dia antes de marcar uma falta.
 2. Localize as situações que precisam de conferência.
 3. Abra os registros e compare horários, origem e informações disponíveis.
-4. Ao chegar em Atestado na célula do dia, confira funcionário e data. Selecione uma imagem JPEG ou PNG de até 3 MB e use Confirmar e anexar. Se estiver sem a imagem, use Registrar AT e anexar depois. Use Marcar folga apenas se o dia foi de folga. Nos dias já lançados como atestado, use Anexar atestado. O arquivo fica no prontuário do funcionário, acessível a RH e administradores.
-5. Trate as pendências pelas ações autorizadas e confira o resultado.
-6. Para corrigir um atestado já registrado, toque em AT, escolha a Nova situação e use Salvar correção. Escolha Sem marcação para limpar o dia. Se o dia estiver bloqueado, obtenha liberação no Ponto por obra. O anexo já enviado fica no prontuário.
+4. Para alterar a situação, selecione a célula do dia. Use Trocar obra ou selecione o nome da obra exibida para mudar a obra daquele registro. Pelo teclado, use Tab para chegar ao controle e Enter para abri-lo.
+5. Ao chegar em Atestado na célula do dia, confira funcionário e data. Selecione uma imagem JPEG ou PNG de até 3 MB e use Confirmar e anexar. Se estiver sem a imagem, use Registrar AT e anexar depois. Use Marcar folga apenas se o dia foi de folga. Nos dias já lançados como atestado, use Anexar atestado. O arquivo fica no prontuário do funcionário, acessível a RH e administradores.
+6. Trate as pendências pelas ações autorizadas e confira o resultado.
 7. Para corrigir um atestado já registrado, toque em AT, escolha a Nova situação e use Salvar correção. Escolha Sem marcação para limpar o dia. Se o dia estiver bloqueado, obtenha liberação no Ponto por obra. O anexo já enviado fica no prontuário.
+8. Para corrigir um atestado já registrado, toque em AT, escolha a Nova situação e use Salvar correção. Escolha Sem marcação para limpar o dia. Se o dia estiver bloqueado, obtenha liberação no Ponto por obra. O anexo já enviado fica no prontuário.
 
 ### Como conferir se deu certo
 
@@ -1504,8 +1510,9 @@ Escolha Pessoal de obra, Administrativo ou Todos e selecione a competência, ist
 4. Se o RH decidir dispensar os descontos de entrada, marque Não descontar atrasos nesta quinzena. A prévia recalcula a folha dos diaristas de todas as obras, mesmo se houver filtro. A opção já vem desmarcada.
 5. Use Gerar PDF para consultar a seção Composição do valor bruto ou Exportar Excel para abrir a aba Composição do bruto. Os dois mostram as datas dos atestados e os valores no recorte escolhido.
 6. Confira o líquido em Composição do pagamento. Selecione Todos e Todas as obras, abra Fechamento da quinzena, use Fechar quinzena e revise os valores em Confirmar fechamento.
-7. Abra Ver atestados pendentes, anexe os documentos no ponto e use Conferir anexos novamente antes de fechar a quinzena.
-8. No celular, Buscar funcionário na folha consulta todo o recorte em páginas de até seis pessoas. Abra Indicadores da área para consultar os totais e Pendências para conferir para ver a lista de alertas da quinzena, quando houver.
+7. Em Fechamento da quinzena, abra Ver atestados pendentes para conferir os nomes e as datas. Anexe as imagens no ponto e use Conferir anexos novamente. O ERP libera o fechamento quando todos os atestados tiverem imagem e as demais pendências forem resolvidas.
+8. Use Revisar ponto para abrir Gestão do ponto com a mesma obra, o mesmo mês, ciclo e grupo. Use Voltar a Folha para voltar com a consulta preservada.
+9. No celular, Buscar funcionário na folha consulta todo o recorte em páginas de até seis pessoas. Abra Indicadores da área para consultar os totais e Pendências para conferir para ver a lista de alertas da quinzena, quando houver.
 
 ### Como conferir se deu certo
 
@@ -1513,7 +1520,7 @@ Ao fechar, o ERP grava a escolha e cria os valores a pagar. O custo de mão de o
 
 ### O que merece atenção
 
-A opção trata apenas atrasos. Faltas, meios períodos, sindicato e adiantamentos seguem suas próprias regras. A dispensa exige que o ponto esteja disponível e as competências financeiras da quinzena estejam abertas. Fechar ou emitir a folha não comprova pagamento.
+A opção trata apenas atrasos. Faltas, meios períodos, sindicato e adiantamentos seguem suas próprias regras. A dispensa exige que o ponto esteja disponível e as competências financeiras da quinzena estejam abertas. Fechar ou emitir a folha não comprova pagamento. Conferir anexos, fechar ou reabrir a quinzena exige RH ou administrador com acesso à Folha da empresa inteira.
 
 ### Exemplo ilustrativo
 
@@ -2049,6 +2056,7 @@ Confira banco, conta e período do extrato.
 7. Confirme o vínculo apenas após a conferência e acompanhe o saldo e as pendências.
 8. Em Mais opções · extratos, regras e histórico, escolha Extratos. Em Extratos sem conta vinculada, use Vincular à conta. Confira as datas dos movimentos, a cobertura do OFX quando disponível e o saldo informado pelo banco. Escolha uma conta ativa com mesmo banco e número ou use Cadastrar conta do extrato. Volte ao lote e confirme o vínculo; os movimentos já importados são preservados. Se a posição estiver indisponível, compare com o extrato oficial.
 9. Em Mais opções · extratos, regras e histórico, abra Histórico para conferir as operações e as referências dos lançamentos. Você pode buscar pelo identificador do registro.
+10. Para aluguel ou locação, use Recebimento de locação: vincule a fatura já cadastrada ou escolha Registrar receita nova de locação. Em Conciliados, Editar classificação atualiza o mesmo lançamento do DRE, preservando valor, data bancária e identificadores.
 
 ### Como conferir se deu certo
 
@@ -2177,7 +2185,7 @@ Tenha o equipamento, fornecedor, obra e período da locação.
 ### Como fazer
 
 1. Em Frota, o nome abre o cadastro e Locar, Transferir e Manutenção ficam no cartão. No celular, abra Detalhes do equipamento para consultar a foto e os valores, quando disponíveis.
-2. Em Locações, confira contrato, período, devolução e documentos.
+2. Em Locações, confira contrato, período, devolução e documentos. No computador, role dentro da tabela para ver mais registros com os títulos das colunas no topo.
 3. Confira os pagamentos na origem financeira.
 
 ### Como conferir se deu certo
@@ -4248,6 +4256,56 @@ A cópia deixa de apresentar os movimentos e extratos selecionados, seus víncul
 ### O que merece atenção
 
 Apagar custos gerados reduz o custo no DRE; apagar recebimentos de caixa não reduz automaticamente receita reconhecida. A operação não apaga pagamentos ou documentos preexistentes que foram apenas vinculados. Período fechado, vínculo parcial, transferência com outra conta, origem ambígua ou dependência nativa impedem a limpeza automática. Atualização concorrente exige nova prévia. A opção está restrita à simulação local; não altera a nuvem nem apaga os arquivos originais. A conciliação automática permanece pausada e não pode ser retomada nesse ambiente.
+
+<a id="guia-conc_editar_classificacao"></a>
+
+## Conciliação · Editar classificação
+
+Corrigir a categoria, a descrição e a competência no mesmo lançamento usado pelo DRE.
+
+### Antes de começar
+
+Confira a empresa, o movimento original e o período. Financeiro sem restrição de obra e Administrador podem editar; períodos fechados precisam ser reabertos formalmente.
+
+### Como fazer
+
+1. Em Conciliação, abra Conciliados e localize o movimento.
+2. Use Editar classificação. Confira os lançamentos carregados da origem, o valor original e a data do banco.
+3. Ajuste Categoria do DRE, Descrição do lançamento e Competência do DRE. Em recebimentos, escolha Destino no DRE e a obra quando necessário. Em despesas, o cadastro empresa/obra é preservado; uma despesa de obra pode ter a obra corrigida.
+4. Use Salvar classificação. A tela e o DRE passam a ler os mesmos dados. Se outro usuário alterou a origem, atualize e revise antes de salvar novamente.
+
+### Como conferir se deu certo
+
+O registro mantém seu identificador, o valor e os vínculos bancários. A competência define o resultado; a data do banco define o caixa. A edição não cria outro pagamento ou recebimento.
+
+### O que merece atenção
+
+Pagamentos de folha, notas, medições, locações e vínculos parciais continuam sujeitos às regras da origem. Não transforme uma baixa de receita já existente em receita nova. A edição não troca despesas entre os cadastros de empresa e obra.
+
+<a id="guia-conc_receitas_locacao"></a>
+
+## Conciliação · Receitas de locação
+
+Conciliar aluguéis e locações usando a origem correta, sem duplicar o faturamento.
+
+### Antes de começar
+
+Confira empresa, data e valor da entrada bancária. Para locação de equipamento já cadastrada, confira a fatura na Central de locações.
+
+### Como fazer
+
+1. Na entrada pendente, use Recebimento de locação.
+2. Se a receita já existe, escolha Fatura de locação. Confira a competência, o saldo e o valor do movimento. Use Vincular recebimento. O valor integral do banco deve caber no saldo da fatura; pagamentos menores que o total da fatura deixam o restante em aberto.
+3. Se o aluguel ainda não foi registrado no ERP, use Registrar receita nova de locação. O formulário prepara Empresa e Receita de locação / aluguel. Confira a competência e confirme a classificação.
+4. Para corrigir a classificação de uma receita manual já conciliada, abra Conciliados e use Editar classificação.
+
+### Como conferir se deu certo
+
+Fatura existente: registra somente caixa e baixa, preservando o faturamento da locação já apurado no DRE. Receita nova: reconhece Receita de locação / aluguel na competência informada, e o caixa na data original do banco.
+
+### O que merece atenção
+
+Não use receita nova quando o mesmo aluguel já estiver registrado. Movimentos revertidos, usados em outro recebimento ou protegidos por fechamento não podem ser reutilizados. Para corrigir valor ou emissão de fatura, use a origem na Central de locações.
 
 ## Aparência, botões e navegação
 

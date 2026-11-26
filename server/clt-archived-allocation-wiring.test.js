@@ -23,8 +23,10 @@ describe("FIN 9.6 — wiring do arquivo CLT",()=>{
 
   it("recomposição de arquivo antigo recebe employees atuais só como fallback",()=>{
     const source=readFileSync("server/financial-archived-costs-source.js","utf8");
+    const reader=readFileSync("server/financial-archived-costs-reader.js","utf8");
     expect(source).toContain("summarizeArchivedCosts(decodeAppData(row.value),data?.config,data?.employees,data?.titulosFolha)");
-    expect(api).toContain("rebuildArchivedLaborCosts({data:payload,archiveRows:linhas||[],key:KEY})");
+    expect(api).toContain("createArchivedLaborReader({ db, key: KEY })");
+    expect(reader).toContain("rebuildArchivedLaborCosts({data:payload,archiveRows:linhas||[],key:KEY})");
   });
 
   it("resumo criado no arquivamento usa a fotografia completa congelada",()=>{

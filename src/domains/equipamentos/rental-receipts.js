@@ -1,7 +1,12 @@
 import { isValidIsoDate } from "./date.js";
+import {buildFinancialLedger} from '../financeiro/ledger.js';
 
 const text=value=>String(value||"").trim();
-export const validateRentalInvoiceReceipt=(invoice={},transaction={},input={},existing=[])=>{
+export const validateRentalInvoiceReceipt=(invoice={},transaction={},input={},existing=[],data={})=>{
+  if(transaction.importReversal||(transaction.status&&transaction.status!=='pendente'))return {ok:false,reason:'Selecione um movimento bancário pendente e não revertido.'};
+  if(buildFinancialLedger(data).events.some(event=>event.transactionId===transaction.id&&['cash_in','cash_out'].includes(event.effect)))return {ok:false,reason:'O movimento já representa um pagamento ou recebimento no financeiro.'};
+  if((data.payments||[]).some(item=>item.transacaoId===transaction.id&&!['cancelado','estornado'].includes(item.status))||
+    (data.reconciliationLinks||[]).some(item=>item.transactionId===transaction.id&&item.status==='active'))return {ok:false,reason:'O movimento já está vinculado no financeiro. Confira a conciliação existente.'};
   if(!["issued","partially_paid"].includes(invoice.status))return {ok:false,reason:"A fatura não possui saldo recebível."};
   const transactionId=text(input.transactionId),paymentDate=text(input.paymentDate||transaction.data);
   if(!transactionId||String(transaction.id)!==transactionId)return {ok:false,reason:"Selecione uma transação bancária existente."};

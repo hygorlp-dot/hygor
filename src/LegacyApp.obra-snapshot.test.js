@@ -1,10 +1,7 @@
 // @vitest-environment node
-import {readFileSync} from "node:fs";
 import {expect,it} from "vitest";
 import {validateFinancialWritePath} from "../server/financial-write-policy";
-const source=readFileSync(new URL("./LegacyApp.jsx",import.meta.url),"utf8");
-const trecho=source.slice(source.indexOf("const CHAVES_ISOLADAS_OBRA="),source.indexOf("function ObraDetalhe("));
-const {isolar,recompor}=new Function("resolveEmployeeAttendanceObraId",`${trecho};return {isolar:dadosDaObraIsolados,recompor:recomporDadosDaObra};`)(()=>"");
+import {dadosDaObraIsolados as isolar,recomporDadosDaObra as recompor} from "./domains/obras/work-data-snapshot.js";
 const base={obras:[{id:"a"},{id:"b"}],employees:[],terceirizados:[],attendance:{},payments:[{id:"pa",obraId:"a"},{id:"pb",obraId:"b"}],transacoes:[{id:"ta",obraId:"a"},{id:"tb",obraId:"b"}],orcamentos:[{id:"oa",obraId:"a",itens:[{descricao:"Antiga"}]},{id:"ob",obraId:"b"}]};
 it("editar composição não reordena nem envia as coleções financeiras intactas",()=>{
   const scoped=structuredClone(isolar(base,"a"));scoped.orcamentos[0].itens[0].descricao="Nova";
@@ -19,4 +16,15 @@ it("uma alteração financeira real continua bloqueada pelo FIN-003",()=>{
   const scoped=structuredClone(isolar(base,"a"));scoped.payments[0].valor=100;
   const next=recompor(base,scoped,"a");
   expect(validateFinancialWritePath({engineEnforced:true,sections:{payments:next.payments}}).ok).toBe(false);
+});
+it("inclui o funcionário com ponto na obra e preserva a seção de ponto na recomposição",()=>{
+  const empresa={
+    ...base,
+    employees:[{id:"func",obra:"b"}],
+    attendance:{func:{"2026-11-17":{status:"P",obraId:"a"}}},
+  };
+  const recorte=isolar(empresa,"a");
+  expect(recorte.employees).toEqual(empresa.employees);
+  expect(recorte.attendance).toEqual(empresa.attendance);
+  expect(recompor(empresa,{...recorte,attendance:{}}, "a").attendance).toBe(empresa.attendance);
 });

@@ -7,12 +7,13 @@ const require = createRequire(import.meta.url);
 const rules = require("../.dependency-cruiser.cjs");
 
 describe("guarda de fronteiras arquiteturais", () => {
-  it("mantém somente as quatro fronteiras aprovadas para a POC", () => {
+  it("mantém as fronteiras aprovadas no piloto", () => {
     expect(rules.forbidden.map(rule => rule.name)).toEqual([
       "client-portal-must-not-import-legacy-app",
       "design-system-must-not-import-domains",
       "api-must-not-import-react-ui",
       "browser-src-must-not-import-postgres",
+      "extracted-use-cases-must-not-import-transport-or-storage",
     ]);
     expect(rules.forbidden.every(rule => rule.severity === "error")).toBe(true);
   });

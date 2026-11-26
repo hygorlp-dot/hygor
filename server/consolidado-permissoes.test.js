@@ -43,7 +43,7 @@ describe("base contábil da empresa", () => {
     expect(validateAccountingSnapshotPolicy(before, { accountingBases: [{ id: "base-1", saldo: 9999 }] })).toMatch(/comandos próprios/);
     expect(validateAccountingSnapshotPolicy(before, { accountingBases: [] })).toMatch(/comandos próprios/);
     const api = fs.readFileSync(path.resolve(process.cwd(), "api/data.js"), "utf8");
-    expect(api.match(/if\(erroBaseContabil\)return (?:res\.status\(403\)|\{kind:"error",status:403)/g)).toHaveLength(3);
+    expect(api.match(/if\(erroBaseContabil\)return (?:reply\(403,|\{kind:"error",status:403)/g)).toHaveLength(3);
   });
 });
 

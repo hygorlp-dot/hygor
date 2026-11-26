@@ -208,6 +208,7 @@ export function Btn({ children, onClick, v = "primary", size = "md", full = fals
 }
 
 
+/** @param {{label?:string, value?:string|number|null, onChange:(value:string)=>void, type?:string, placeholder?:string, max?:number|string, min?:number|string, disabled?:boolean, multiline?:boolean, inputRef?:import("react").Ref<HTMLInputElement|HTMLTextAreaElement>, error?:string}} props */
 export function Inp({ label, value, onChange, type = "text", placeholder = "", max, min, disabled = false, multiline = false, inputRef = null, error = "" }) {
   const Control=multiline?SharedTextarea:DesignSystemInput;
   return <Control fieldClassName="arcd-legacy-field" className="arcd-field-control" label={label?textoUi(label):undefined}
@@ -256,6 +257,7 @@ export function CampoCNPJ({ label = "CNPJ", value, onChange, onEncontrado, disab
 }
 
 
+/** @param {{label?:string, value?:string|number|null, onChange:(value:string)=>void, options?:{v:string|number,l:string,disabled?:boolean}[], disabled?:boolean, error?:string, description?:string, "aria-label"?:string}} props */
 export function Sel({ label, value, onChange, options = [], disabled = false, error = "", description, 'aria-label': ariaLabel }) {
   return <DesignSystemSelect fieldClassName="arcd-legacy-field" className="arcd-field-control" label={label?textoUi(label):undefined} description={description}
     aria-label={ariaLabel||(label?textoUi(label):undefined)} value={value??""} onChange={event=>onChange(event.target.value)} disabled={disabled} error={error}>
@@ -380,6 +382,8 @@ export function ChartPanel({ title, subtitle, legend=[], action, children, heigh
 // (gradiente escuro, cor e padding diferentes por tela) por um único
 // componente flat, no mesmo sistema Carbon do dashboard. Sem alterar o
 // conteúdo de cada tela — só o invólucro visual.
+/** @typedef {import("react").ReactNode} ReactNode */
+/** @param {{title:ReactNode, description?:ReactNode, alert?:{tone?:string,text:ReactNode}, stats?:{label:string,value:ReactNode,detail?:ReactNode,color?:string}[], actions?:ReactNode, headingLevel?:number, statsDisclosure?:boolean}} props */
 export function PageHero({title,description,alert,stats,actions,headingLevel=1,statsDisclosure=false}){
   const Heading=headingLevel===3?"h3":headingLevel===2?"h2":"h1";
   const statistics=!!stats?.length&&<div className="page-hero__stats">
@@ -444,6 +448,7 @@ export function Divider() {
 }
 
 
+/** @param {{title:ReactNode,children:ReactNode,onClose:()=>void,wide?:boolean,panelClass?:string,footer?:ReactNode}} props */
 export function Modal({ title, children, onClose, wide = false, panelClass = "", footer = null }) {
   return <DialogSurface open legacy size={wide?"wide":"compact"} title={textoUi(title)}
     onOpenChange={()=>onClose?.()} className={panelClass} footer={footer}>
@@ -457,6 +462,7 @@ export function Modal({ title, children, onClose, wide = false, panelClass = "",
 // em 2026-08-16 - importada como `Planejamento` abaixo, mesmo nome de
 // sempre. MiniKpi continua aqui porque é usado por vários outros módulos.
 
+/** @param {{ label: React.ReactNode, value: React.ReactNode, cor: string, sub?: React.ReactNode }} props */
 export function MiniKpi({ label, value, cor, sub }) {
   return (
     <div className="mrc-mini-kpi" data-tone={semanticToneFromLegacyColor(cor)} style={{ background: "var(--arcd-surface-card)", border: `var(--arcd-border-width) solid var(--arcd-border-default)`,

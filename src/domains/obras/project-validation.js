@@ -2,6 +2,7 @@ import {isFinancialDate} from '../financeiro/dates.js';
 const numberOf=value=>Number(value||0);
 const integerIn=(value,min,max)=>Number.isInteger(numberOf(value))&&numberOf(value)>=min&&numberOf(value)<=max;
 
+/** @returns {Record<string,string>} */
 export const validateProjectForm=(project={},options={})=>{
   const errors={};
   const required=options.requireComplete!==false;

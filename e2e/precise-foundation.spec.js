@@ -10,14 +10,28 @@ test('fundação precisa mantém identidade, fonte, densidade e contexto da tare
  await page.route('**/api/data',r=>r.fulfill({json:{ok:true,usuarios:[profile],usuario:profile,precisaSetup:false,data,accessToken:'local',refreshToken:'local'}}));
  await page.goto('/');await page.locator('#login-email').fill(profile.email);await page.locator('#login-senha').fill('local');await page.getByRole('button',{name:'Acessar central MARCELL',exact:true}).click();
  await expect(page.locator('html')).toHaveAttribute('data-theme','marcell');await expect(page.locator('.purchase-workspace')).toBeVisible();
- await page.evaluate(()=>Promise.all([400,500,600].map(w=>document.fonts.load(`${w} 13px "Geist"`))));
- const font=await page.locator('.purchase-workspace').evaluate(el=>getComputedStyle(el).fontFamily);expect(font).toContain("Geist");
+ const font=await page.locator('.purchase-workspace').evaluate(async el=>{
+  const family=getComputedStyle(el).fontFamily;
+  await Promise.all([400,500,600].map(weight=>document.fonts.load(`${weight} 13px ${family}`)));
+  return family;
+ });
+ expect(font.split(',')[0].replace(/["']/g,'').trim()).toBe('Inter');
  const search=page.getByLabel('Buscar na fila',{exact:true});await search.fill('cimento');const before=await page.locator('.purchase-queue-table tbody').innerText();
  const changeDensity=async value=>{await page.getByRole('button',{name:'Alterar aparência',exact:true}).click();await page.locator('.theme-menu').getByLabel('Densidade',{exact:true}).selectOption(value);await page.keyboard.press('Escape');};
  for(const density of ['compact','comfortable']){
   await changeDensity(density);await expect(search).toHaveValue('cimento');expect(await page.locator('.purchase-queue-table tbody').innerText()).toBe(before);
-  const geometry=await page.evaluate(()=>({fits:document.documentElement.scrollWidth<=innerWidth+1,font:getComputedStyle(document.querySelector('.purchase-queue-table')).fontSize,controls:[...document.querySelectorAll('.purchase-workspace .mrc-button')].filter(el=>el.getBoundingClientRect().height).map(el=>el.getBoundingClientRect().height)}));
-  expect(geometry.fits).toBe(true);expect(geometry.font).toBe("13px");if(page.viewportSize().width<768)expect(Math.min(...geometry.controls)).toBeGreaterThanOrEqual(44);
+  const geometry=await page.evaluate(()=>{
+   const cell=document.querySelector('.purchase-queue-table tbody td');
+   const probe=document.createElement('span');
+   probe.hidden=true;
+   probe.style.fontSize='var(--arcd-type-table)';
+   cell.append(probe);
+   const font=getComputedStyle(cell).fontSize,expectedFont=getComputedStyle(probe).fontSize;
+   probe.remove();
+   const controls=[...document.querySelectorAll('.purchase-workspace .mrc-button')].filter(el=>el.getBoundingClientRect().height).map(el=>el.getBoundingClientRect().height);
+   return {fits:document.documentElement.scrollWidth<=innerWidth+1,font,expectedFont,controls};
+  });
+  expect(geometry.fits).toBe(true);expect(geometry.font).toBe(geometry.expectedFont);if(page.viewportSize().width<768)expect(Math.min(...geometry.controls)).toBeGreaterThanOrEqual(44);
   await page.screenshot({path:info.outputPath(`compras-${density}.png`),animations:'disabled'});
  }
  const primary=page.getByRole('button',{name:'Nova solicitação',exact:true});await expect(primary).toHaveCSS("background-color","rgb(13, 27, 46)");

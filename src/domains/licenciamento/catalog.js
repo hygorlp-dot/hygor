@@ -44,14 +44,14 @@ export const LIC_SIMPLIFICADA_DOCS = [
 // Fluxo fornecido pela Associacao Terras Alpha Caruaru. Ele cobre a analise
 // interna do condominio e a liberacao posterior ao alvara da Prefeitura, para
 // que o operador nao confunda "projeto aprovado" com "obra liberada".
-const LIC_TERRAS_ALPHA_PRE = [
+export const LIC_TERRAS_ALPHA_PRE = [
   { id:"normas_condominio", texto:"Projeto conferido conforme o Regulamento do Condomínio Terras Alpha Caruaru e o plano diretor do Município" },
   { id:"titularidade", texto:"Proprietário do projeto confere com o titular do lote/quadra e com os documentos de propriedade" },
   { id:"adimplencia", texto:"Associado adimplente com as despesas da Associação" },
   { id:"fiduciaria", texto:"Situação fiduciária do lote verificada; certidão atualizada disponível quando houver alienação ou gravame" },
 ];
 
-const LIC_TERRAS_ALPHA_DOCS = [
+export const LIC_TERRAS_ALPHA_DOCS = [
   { id:"projeto_arquitetonico", nome:"Projeto arquitetônico no padrão da Prefeitura", quando:"sempre", grupo:"Projeto arquitetônico", obs:"Incluir plantas de todos os pavimentos, implantação, localização e cobertura." },
   { id:"elevacoes", nome:"Elevações de todas as fachadas", quando:"sempre", grupo:"Projeto arquitetônico" },
   { id:"cortes", nome:"Mínimo de dois cortes", quando:"sempre", grupo:"Projeto arquitetônico" },

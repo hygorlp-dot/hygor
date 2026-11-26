@@ -1,23 +1,61 @@
+// @ts-check
 export const SAVE_QUEUE_STATE = Object.freeze({
   IDLE:"idle", SAVING:"saving", RETRY_SCHEDULED:"retry_scheduled", OFFLINE:"offline", CONFLICT:"conflict", FAILED:"failed",
 });
 
+/** @typedef {typeof SAVE_QUEUE_STATE[keyof typeof SAVE_QUEUE_STATE]} SaveQueueState */
+/** @typedef {{ok:boolean, state:SaveQueueState, reason?:string, timeout?:boolean, destroyed?:boolean}} SaveQueueOutcome */
+/**
+ * @template Snapshot
+ * @typedef {{ok:boolean, conflict?:boolean, local?:boolean, reason?:string, error?:unknown,
+ *   status?:number, retryAfter?:number, retry_after_seconds?:number, merged?:boolean, data?:Snapshot}} SaveResult
+ */
+/**
+ * @template Snapshot, Receipt
+ * @typedef {{snapshot:Snapshot, protection:Promise<Receipt>|null, operationId?:string,
+ *   basePayload?:Snapshot|null, expectedUpdatedAt?:string|null}} SaveQueueEntry
+ */
+/** @param {number} status */
 const transientStatus=status=>[0,408,429,500,502,503,504].includes(status);
 
 // Serializa snapshots já reconciliados pelo App. A fila não descarta uma nova
 // alteração enquanto uma gravação está em voo e nunca reinicia sozinha depois
 // de atingir o limite de falhas.
+/**
+ * @template Snapshot, Context, Receipt
+ * @param {{
+ *   save:(target:Snapshot, entry:SaveQueueEntry<Snapshot, Receipt>)=>Promise<SaveResult<Snapshot>>,
+ *   capture?:()=>Context,
+ *   protect?:(snapshot:Snapshot, context:Context|undefined)=>Promise<Receipt>,
+ *   release?:(receipt:Receipt|null)=>Promise<void>,
+ *   onStorageError?:(error:unknown)=>void,
+ *   onState?:(state:SaveQueueState)=>void,
+ *   onSuccess?:(event:{result:SaveResult<Snapshot>, target:Snapshot})=>void,
+ *   onConflict?:(event:{result:SaveResult<Snapshot>, pending:Snapshot})=>void,
+ *   onRetry?:(event:{result:SaveResult<Snapshot>, attempt:number, delay:number})=>void,
+ *   onFailed?:(event:{result:SaveResult<Snapshot>, attempts:number, pending:Snapshot, offline?:boolean})=>void,
+ *   schedule?:typeof setTimeout, cancelSchedule?:typeof clearTimeout,
+ *   maxRetries?:number, retryDelay?:(attempt:number)=>number, isOffline?:()=>boolean
+ * }} options
+ */
 export const createSaveQueue = ({ save, capture, protect, release, onStorageError=()=>{}, onState = () => {}, onSuccess = () => {}, onConflict = () => {}, onRetry = () => {}, onFailed = () => {}, schedule = setTimeout, cancelSchedule = clearTimeout, maxRetries = 3, retryDelay = attempt => 1500 * attempt, isOffline = () => typeof navigator !== "undefined" && navigator.onLine === false }) => {
+  /** @type {SaveQueueState} */
   let state=SAVE_QUEUE_STATE.IDLE;
+  /** @type {SaveQueueEntry<Snapshot, Receipt>|null} */
   let pending=null;
   let inFlight=false;
   let retryScheduled=false;
+  /** @type {ReturnType<typeof setTimeout>|null} */
   let retryTimer=null;
   let destroyed=false;
   let attempts=0;
+  /** @type {SaveResult<Snapshot>|null} */
   let lastFailure=null;
+  /** @type {Set<{resolve:(result:SaveQueueOutcome)=>void, timer?:ReturnType<typeof setTimeout>}>} */
   const waiters=new Set();
+  /** @type {Promise<unknown>} */
   let protectionTail=Promise.resolve();
+  /** @param {Snapshot} snapshot */
   const remember=snapshot=>{
     if(!protect)return null;
     let context;
@@ -26,9 +64,10 @@ export const createSaveQueue = ({ save, capture, protect, release, onStorageErro
     protectionTail=promise;promise.catch(()=>{});return promise;
   };
 
+  /** @param {SaveQueueState} next */
   const transition=next=>{state=next;onState(next);};
   const hasPending=()=>!destroyed&&(!!pending||inFlight||retryScheduled);
-  const terminal=()=>[SAVE_QUEUE_STATE.CONFLICT,SAVE_QUEUE_STATE.FAILED,SAVE_QUEUE_STATE.OFFLINE].includes(state);
+  const terminal=()=>state===SAVE_QUEUE_STATE.CONFLICT||state===SAVE_QUEUE_STATE.FAILED||state===SAVE_QUEUE_STATE.OFFLINE;
   const isSettled=()=>!inFlight&&!retryScheduled&&(terminal()||(!pending&&state===SAVE_QUEUE_STATE.IDLE));
   const settleWaiters=()=>{
     if(!isSettled())return;
@@ -39,9 +78,11 @@ export const createSaveQueue = ({ save, capture, protect, release, onStorageErro
       waiter.resolve(result);
     }
   };
+  /** @returns {Promise<SaveQueueOutcome>} */
   const waitForIdle=(timeoutMs=50000)=>{
     if(isSettled())return Promise.resolve({ok:state===SAVE_QUEUE_STATE.IDLE,state,...(lastFailure?.reason?{reason:lastFailure.reason}:{})});
     return new Promise(resolve=>{
+      /** @type {{resolve:typeof resolve, timer?:ReturnType<typeof setTimeout>}} */
       const waiter={resolve};
       waiters.add(waiter);
       if(timeoutMs>0)waiter.timer=setTimeout(()=>{
@@ -58,6 +99,7 @@ export const createSaveQueue = ({ save, capture, protect, release, onStorageErro
     inFlight=true;
     transition(SAVE_QUEUE_STATE.SAVING);
     let drain=false,persisted=!protect,confirmed=false;
+    /** @param {SaveResult<Snapshot>} result */
     const fail=result=>{
       lastFailure=result||{reason:"Falha desconhecida ao salvar."};
       if(!pending)pending=entry;
@@ -99,7 +141,7 @@ export const createSaveQueue = ({ save, capture, protect, release, onStorageErro
       const receipt=entry.protection?await entry.protection:null;
       persisted=true;
       if(destroyed)return;
-      const result=await save(target);
+      const result=await save(target,entry);
       if(destroyed)return;
       if(result?.conflict){
         if(!pending)pending=entry;
@@ -129,10 +171,11 @@ export const createSaveQueue = ({ save, capture, protect, release, onStorageErro
   return {
     canRetry,
     async protectPending(){if(!pending||inFlight||!protect)return false;pending.protection=remember(pending.snapshot);await pending.protection;return true;},
+    /** @param {Snapshot} snapshot */
     enqueue(snapshot){
       if(destroyed)return Promise.resolve({ok:false,state:SAVE_QUEUE_STATE.FAILED,destroyed:true});
       pending={snapshot,protection:remember(snapshot)};
-      if([SAVE_QUEUE_STATE.FAILED,SAVE_QUEUE_STATE.OFFLINE].includes(state)){attempts=0;lastFailure=null;transition(SAVE_QUEUE_STATE.IDLE);}
+      if(state===SAVE_QUEUE_STATE.FAILED||state===SAVE_QUEUE_STATE.OFFLINE){attempts=0;lastFailure=null;transition(SAVE_QUEUE_STATE.IDLE);}
       void flush();
       return waitForIdle();
     },

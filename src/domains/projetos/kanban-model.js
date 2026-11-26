@@ -3,7 +3,14 @@ import { sessionSeconds } from "./model.js";
 export const TASK_STATUSES = { pendente: "A fazer", em_andamento: "Em produção", em_revisao: "Revisão técnica", aguardando_cliente: "Aguardando cliente", concluida: "Concluído" };
 export const TASK_PRIORITIES = { baixa: "Baixa", normal: "Normal", alta: "Alta", urgente: "Urgente" };
 export const projectColumn = project => project.status === "concluido" ? "Concluído" : project.stage;
-export const taskSeconds = (project, taskId, now) => (project.sessions || []).filter(session => session.taskId === taskId).reduce((total, session) => total + sessionSeconds(session, now), 0);
+export function taskSecondsById(sessions, now) {
+  const totals = new Map();
+  for (const session of sessions || []) {
+    const { taskId } = session;
+    totals.set(taskId, (totals.get(taskId) ?? 0) + sessionSeconds(session, now));
+  }
+  return totals;
+}
 export const latestDeliveryRevision = (project, linkId) => (project.revisions || []).filter(revision => revision.linkId === linkId).reduce((latest, revision) => !latest || revision.number > latest.number ? revision : latest, null);
 export const taskChecklist = task => Array.isArray(task.checklist) ? task.checklist : [];
 export const checklistProgress = task => ({ done: taskChecklist(task).filter(item => item.done).length, total: taskChecklist(task).length });
@@ -75,7 +82,7 @@ export function orderedProjects(projects) {
     .sort((a, b) => a.order - b.order || a.project.id.localeCompare(b.project.id)).map(item => item.project);
 }
 
-export function projectOrderForMove(projects, projectId, stage, beforeId) {
+export function planProjectMove(projects, projectId, stage, beforeId) {
   const ranked = projects.map((project, index) => ({ ...project, rank: Number.isFinite(project.boardOrder) ? project.boardOrder : (index + 1) * 1024 }));
   const targets = ranked.filter(project => project.id !== projectId && projectColumn(project) === stage).sort((a, b) => a.rank - b.rank || a.id.localeCompare(b.id));
   const index = beforeId ? targets.findIndex(project => project.id === beforeId) : targets.length;
@@ -83,5 +90,14 @@ export function projectOrderForMove(projects, projectId, stage, beforeId) {
   const previous = targets[index - 1]?.rank;
   const next = targets[index]?.rank;
   const rank = previous == null ? (next == null ? 1024 : next - 1024) : next == null ? previous + 1024 : (previous + next) / 2;
-  return Number.isFinite(rank) && rank !== previous && rank !== next ? rank : null;
+  if (Number.isFinite(rank) && (previous == null || rank > previous) && (next == null || rank < next)) {
+    return { rank };
+  }
+
+  // A precisão pode se esgotar após inserções repetidas no mesmo intervalo.
+  // Redistribui só a coluna de destino, mantendo a ordem dos demais cartões.
+  const rebalancedOrders = new Map(targets.map((target, i) => [
+    target.id, (i + (i < index ? 1 : 2)) * 1024,
+  ]));
+  return { rank: (index + 1) * 1024, rebalancedOrders };
 }

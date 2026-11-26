@@ -60,6 +60,8 @@
 .purchase-order-count{color:var(--purchase-muted);font-size:var(--arcd-type-caption)}
 .purchase-order-actions{display:flex;align-items:center;flex-wrap:wrap;gap:var(--arcd-space-2);margin-top:var(--arcd-space-3)}
 .purchase-order-actions>.purchase-order-primary{flex:0 1 auto;min-width:0}
+/* O cartão com menu aberto fica acima dos cartões seguintes, inclusive no tema translúcido. */
+.compras-view>article:has(.purchase-order-menu__trigger[aria-expanded=true]){z-index:1}
 .purchase-order-menu{position:relative;flex:none;margin-left:auto}
 .purchase-order-menu__trigger{display:inline-flex;align-items:center;justify-content:center;width:36px;min-height:36px;padding:0;border:var(--arcd-border-width) solid var(--arcd-border-strong);border-radius:var(--arcd-radius-md);background:var(--arcd-surface-card);color:var(--arcd-text-primary);cursor:pointer}
 .purchase-order-menu__trigger:hover,.purchase-order-menu__trigger[aria-expanded=true]{background:var(--arcd-surface-muted)}

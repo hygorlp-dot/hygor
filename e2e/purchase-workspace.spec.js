@@ -42,8 +42,8 @@ async function openPurchases(page){
   await expect(page.locator(".compras-view .workspace-heading")).toBeVisible({timeout:15000});
 }
 
-async function enter(page,{role="admin",failFirstRequest=false,prepare=null}={}) {
-  let state=fixture();state.usuarios=[{...PROFILE,role}];prepare?.(state);
+async function enter(page,{role="admin",workId,failFirstRequest=false,prepare=null}={}) {
+  let state=fixture();state.usuarios=[{...PROFILE,role,...(workId&&{obraId:workId})}];prepare?.(state);
   let fail=failFirstRequest;const commands=[];
   await page.clock.setFixedTime(new Date("2026-10-23T12:00:00-03:00"));
   await page.route("**/api/**",route=>route.fulfill({json:{ok:true,bases:[],items:[],components:[],presencas:[],reply:""}}));
@@ -76,6 +76,12 @@ const navigate=async(page,name)=>{
   }else await page.getByRole("navigation",{name:"Fluxo de compras"}).getByRole("button",{name:new RegExp(`^${name}`)}).click();
 };
 const selectWork=page=>page.locator(".purchase-context-bar").getByLabel("Obra",{exact:true}).selectOption("a");
+const openSuppliers=async page=>{
+  const mobile=page.getByRole("combobox",{name:"Telas de Compras e suprimentos",exact:true});
+  if(page.viewportSize().width<1100)await mobile.selectOption({label:"Fornecedores"});
+  else await page.locator(".arcd-sidebar .nav-item").filter({hasText:/^Fornecedores$/}).click();
+  await expect(page.getByRole("heading",{name:"Ranking geral",exact:true})).toBeVisible();
+};
 const openTool=async(page,name)=>{
   const selector=page.getByRole('combobox',{name:'Fluxo de compras',exact:true});
   if(await selector.isVisible())return navigate(page,name);
@@ -91,6 +97,62 @@ function prepareLinkedPurchase(state){
  quote.propostas.forEach(p=>{p.precos={'cement-quote':25,'steel-quote':30};});
  quote.decisoes={'cement-quote':{pedidoId:order.id,propostaId:'p1'}};
  order.cotacaoId=quote.id;order.solicitacaoId=request.id;order.itens[0].qtdRecebida=4;
+}
+
+for(const [width,theme] of [[390,"marcell"],[390,"noite"],[1440,"marcell"],[1440,"noite"]]){
+  test(`ranking de fornecedores abre a evidência e o pedido exato em ${width}px · ${theme}`,async({page},info)=>{
+    await page.setViewportSize({width,height:900});
+    await page.addInitScript(value=>localStorage.setItem("arcd-theme",value),theme);
+    const scoped=width===390&&theme==="noite";
+    const app=await enter(page,{role:scoped?"engenheiro":width===390?"compras":"admin",workId:scoped?"a":null,prepare:state=>{
+      prepareLinkedPurchase(state);
+      state.cotacoes[0].propostas[0].precoUnit=0;
+      state.cotacoes[0].propostas[1].precoUnit=0;
+      state.pedidos[0].itens[0].qtdRecebida=10;
+      state.pedidos[0].itens[0].recebimentos=[{qtd:10,data:"2026-10-25"}];
+      state.pedidos.push({...state.pedidos[0],id:"old",numero:"PC-ANTIGO",data:"2025-01-05"});
+      state.fornecedores.push({id:"empty",nome:"Fornecedor sem amostra",ativo:true});
+    }});
+    await openSuppliers(page);
+    if(width<1100)await page.getByText("Obra e período",{exact:true}).click();
+    const work=page.getByLabel("Obra",{exact:true}).last();
+    if(scoped) await expect(work).toBeDisabled();
+    else await work.selectOption("a");
+    await page.getByLabel("Período",{exact:true}).selectOption("6");
+    await expect(page.getByText("Residencial Alameda · Últimos 6 meses",{exact:true})).toBeVisible();
+    await page.getByRole("button",{name:"Ver detalhes de Fornecedor sem amostra",exact:true}).click();
+    let detail=page.getByRole("dialog",{name:"Fornecedor sem amostra",exact:true});
+    await expect(detail.getByText("Nenhum pedido no período selecionado.")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("button",{name:"Ver detalhes de Fornecedor sem amostra",exact:true})).toBeFocused();
+    await page.getByRole("button",{name:"Ver detalhes de Depósito Central",exact:true}).click();
+    detail=page.getByRole("dialog",{name:"Depósito Central",exact:true});
+    await expect(detail.getByText("1 pedido no período",{exact:true})).toBeVisible();
+    await expect(detail).toContainText("1 proposta · 1 proposta escolhida");
+    await expect(detail).toContainText("Cotação COT-001 · 2 dias cotados");
+    await expect(detail).toContainText("1 dia de atraso");
+    await expect(detail).not.toContainText(/PC-003|PC-ANTIGO/);
+    const contrast=await detail.locator(".supplier-detail-score .arcd-badge").evaluate(node=>{
+      const luminance=color=>color.match(/\d+/g).slice(0,3).reduce((sum,value,index)=>{
+        const channel=Number(value)/255;
+        return sum+[0.2126,0.7152,0.0722][index]*(channel<=0.04045?channel/12.92:((channel+0.055)/1.055)**2.4);
+      },0);
+      const style=getComputedStyle(node);
+      const levels=[luminance(style.color),luminance(style.backgroundColor)].sort((a,b)=>b-a);
+      return (levels[0]+0.05)/(levels[1]+0.05);
+    });
+    expect(contrast).toBeGreaterThanOrEqual(4.5);
+    const action=detail.getByRole("button",{name:"Abrir pedido PC-001",exact:true});
+    expect(await detail.evaluate(node=>node.scrollWidth)).toBeLessThanOrEqual(width);
+    await action.scrollIntoViewIfNeeded();
+    const screenshot=await page.screenshot({path:`test-results/compras-etapa6-capturas/fornecedores-${width}-${theme}.png`});
+    await info.attach("fornecedores-amostra",{body:screenshot,contentType:"image/png"});
+    await action.click();
+    const dossier=page.getByRole("dialog",{name:"Ficha completa da compra conjunta",exact:true});
+    await expect(dossier).toContainText("PC-001");
+    await expect(dossier).not.toContainText("PC-003");
+    expect(app.commands).toEqual([]);expect(app.errors).toEqual([]);
+  });
 }
 
 for(const width of [390,1440])test(`WF03/WF04 vínculos, recorte e recebimento parcial em ${width}px`,async({page})=>{
@@ -130,18 +192,39 @@ for(const width of [390,1440])test(`WF03/WF04 vínculos, recorte e recebimento p
  await page.screenshot({path:test.info().outputPath(`wf03-cotacao-${width}.png`)});
 });
 
-test('WF04 cancelamento conserva histórico e impede cancelar entrega já recebida',async({page})=>{
- const app=await enter(page,{prepare:state=>{state.pedidos[0].itens[0].qtdRecebida=4;}});await selectWork(page);await navigate(page,'Pedidos');
- const partial=page.getByRole('article',{name:'Pedido PC-001',exact:true});
- await partial.getByRole('button',{name:'Mais ações do pedido PC-001',exact:true}).click();await partial.getByRole('menuitem',{name:/^Cancelar pedido/}).click();
- await expect(page.getByText('Pedido já tem material recebido. Estorne pelo Estoque antes.',{exact:true})).toBeVisible();expect(app.commands).toHaveLength(0);
- const draft=page.getByRole('article',{name:'Pedido PC-002',exact:true});
- await draft.getByRole('button',{name:'Mais ações do pedido PC-002',exact:true}).click();page.once('dialog',dialog=>dialog.accept('Fornecedor não atende à necessidade da obra'));
- await draft.getByRole('menuitem',{name:/^Cancelar pedido/}).click();
- await expect(draft.getByRole('region',{name:'Andamento de PC-002',exact:true})).toContainText('Pedido cancelado');
- await expect(draft.getByRole('button',{name:'Revisar pedido',exact:true})).toHaveCount(0);
- await draft.getByRole('button',{name:'Ficha completa · notas e anexos',exact:true}).click();await expect(page.getByRole('dialog')).toBeVisible();
- expect(app.state().pedidos.find(p=>p.id==='draft').status).toBe('cancelado');expect(app.state().pedidos).toHaveLength(3);expect(app.commands).toHaveLength(1);expect(app.errors).toEqual([]);
+for(const width of [390,1440])test.describe(`Pedidos em ${width} px`,()=>{
+ const mobile=width===390;
+ test.use({viewport:{width,height:mobile?844:1000},isMobile:mobile,hasTouch:mobile});
+
+ for(const theme of ['marcell','noite'])test(`WF04 cancelamento conserva histórico e impede cancelar entrega já recebida · ${theme}`,async({page},testInfo)=>{
+  await page.addInitScript(value=>localStorage.setItem('arcd-theme',value),theme);
+  const app=await enter(page,{prepare:state=>{state.pedidos[0].itens[0].qtdRecebida=4;}});
+  await selectWork(page);await navigate(page,'Pedidos');
+  await expect(page.locator('html')).toHaveAttribute('data-theme',theme);
+  const press=control=>mobile?control.tap():control.click();
+  const partial=page.getByRole('article',{name:'Pedido PC-001',exact:true});
+  await press(partial.getByRole('button',{name:'Mais ações do pedido PC-001',exact:true}));
+  const cancel=partial.getByRole('menuitem',{name:/^Cancelar pedido/});
+  await cancel.scrollIntoViewIfNeeded();
+  await page.screenshot({path:testInfo.outputPath('menu-pedido.png')});
+  await press(cancel);
+  await expect(page.getByText('Pedido já tem material recebido. Estorne pelo Estoque antes.',{exact:true})).toBeVisible();
+  expect(app.commands).toHaveLength(0);
+
+  const draft=page.getByRole('article',{name:'Pedido PC-002',exact:true});
+  await press(draft.getByRole('button',{name:'Mais ações do pedido PC-002',exact:true}));
+  const reason='Fornecedor não atende à necessidade da obra';
+  page.once('dialog',dialog=>dialog.accept(reason));
+  await press(draft.getByRole('menuitem',{name:/^Cancelar pedido/}));
+  await expect(draft.getByRole('region',{name:'Andamento de PC-002',exact:true})).toContainText('Pedido cancelado');
+  await expect(draft.getByRole('button',{name:'Revisar pedido',exact:true})).toHaveCount(0);
+  await press(draft.getByRole('button',{name:'Ficha completa · notas e anexos',exact:true}));
+  await expect(page.getByRole('dialog')).toBeVisible();
+  expect(app.state().pedidos.find(p=>p.id==='draft')).toMatchObject({status:'cancelado',motivoCancelamento:reason});
+  expect(app.state().pedidos).toHaveLength(3);
+  expect(app.commands).toHaveLength(1);
+  expect(app.errors).toEqual([]);
+ });
 });
 
 for(const width of [390,1440])test(`condições do pedido preservam o legado e as revisões em ${width}px`,async({page})=>{
@@ -363,6 +446,7 @@ test("receber parcialmente a prazo atualiza estoque e saldo sem registrar pagame
   const app=await enter(page);await selectWork(page);await navigate(page,"Receber");
   await page.getByRole("button",{name:"Receber materiais · PC-001"}).click();
   const dialog=page.getByRole("dialog");
+  await expect(dialog.getByRole("note").filter({hasText:"Obra que recebe o material"})).toBeVisible();
   await expect(dialog).not.toContainText("Pagamento já verificado");
   await dialog.getByLabel("Chegou agora (UN)").fill("11");
   await expect(dialog).toContainText("Quantidade acima do saldo. Confira a diferença com o fornecedor");
@@ -883,11 +967,21 @@ test("painel separa Resumo de Análises, sem ação destrutiva, e cada exceção
 });
 
 
-test("ficha conjunta mostra custo final, pedidos e notas com anexos no celular",async({page})=>{
+for(const theme of ['marcell','noite'])test(`ficha conjunta mostra custo final, pedidos e notas com anexos no celular · ${theme}`,async({page},info)=>{
+  await page.addInitScript(value=>localStorage.setItem('arcd-theme',value),theme);
   const app=await enter(page,{prepare:state=>{
     state.cotacoes[0].propostas.forEach((p,index)=>{p.custoFinal={frete:index?0:100,desconto:0,impostos:0,despesas:0};p.condicoesPagamento="30 dias";});
+    state.cotacoes[0].solicitacaoId="req";
+    state.cotacoes[0].solicitacaoItemId="ri";
+    state.cotacoes[0].orcNivel1Id="foundation";
     state.pedidos[0].cotacaoId="quote";state.pedidos[1].cotacaoId="quote";
-    state.notasFiscais=[{id:"nf-dossier",pedidoId:"delivery",obraId:"a",fornecedorId:"central",numero:"NF-TESTE-123",status:"aprovada",emissao:"2026-10-20",vencimento:"2026-11-20",valorBruto:250,valorLiquido:250,documentos:[{id:"doc",nome:"nota.pdf",legenda:"DANFE de teste",url:"https://example.test/nota.pdf"}]}];
+    state.pedidos[0].itens[0].solicitacaoItemId="ri";
+    state.pedidos[1].itens[0].solicitacaoItemId="ri";
+    state.budgetBaselines=[{obraId:"a",tipo:"controle",ativo:true,budgetId:"budget"}];
+    state.orcamentos[0].itens=[{id:"budget-item",codigo:"MAT-1",etapaId:"foundation",quantidade:10,precoUnit:100}];
+    state.notasFiscais=[{id:"nf-dossier",pedidoId:"delivery",obraId:"a",fornecedorId:"central",numero:"NF-TESTE-123",status:"aprovada",emissao:"2026-10-20",vencimento:"2026-11-20",valorBruto:250,valorLiquido:250,
+      itensNota:[{nItem:1,pedidoItemId:"di",descricao:"CIMENTO CP II",qtd:8,unidade:"UN",precoUnit:25}],
+      documentos:[{id:"doc",nome:"nota.pdf",legenda:"DANFE de teste",url:"https://example.test/nota.pdf"}]}];
   }});
   await page.route("https://example.test/**",route=>route.fulfill({contentType:"application/pdf",body:samplePdf(),headers:{'access-control-allow-origin':'*'}}));
   await selectWork(page);await navigate(page,"Pedidos");
@@ -905,6 +999,22 @@ test("ficha conjunta mostra custo final, pedidos e notas com anexos no celular",
   await page.setViewportSize({width:390,height:844});
   await expect(dialog).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+  await dialog.getByRole("button",{name:"Conferência",exact:true}).click();
+  const quantities=dialog.getByRole("region",{name:"Quantidades e divergências da compra"});
+  await expect(quantities.getByRole("heading",{name:"Quantidades por item"})).toBeInViewport();
+  await expect(quantities.getByText("8 UN",{exact:true})).toBeVisible();
+  await expect(quantities).toContainText("quantidade faturada acima da recebida em NF NF-TESTE-123");
+  await page.screenshot({path:info.outputPath("recebimento-fiscal-mobile.png"),animations:"disabled"});
+  await dialog.getByRole("button",{name:"Itens e orçamento",exact:true}).click();
+  const trace=dialog.locator('[data-section="trace"]');
+  await expect(trace).toBeFocused();
+  await trace.getByText("CIMENTO CP II",{exact:true}).click();
+  await expect(trace.getByText("Solicitação SC-001 · 10 UN · FUNDAÇÕES",{exact:true})).toBeVisible();
+  await expect(trace.getByText("Cotação COT-001 · 10 UN · FUNDAÇÕES",{exact:true})).toBeVisible();
+  await expect(trace.getByText(/Pedido PC-001 · 10 UN/)).toBeVisible();
+  await expect(trace.getByText(/Pedido PC-002 · 5 UN.*Rascunho/)).toBeVisible();
+  await expect(trace.getByText(/Nesta compra R\$\s*250,00 · Comprometido na etapa R\$\s*250,00 de R\$\s*1\.000,00/)).toBeVisible();
+  await page.screenshot({path:info.outputPath("itens-e-orcamento-mobile.png"),animations:"disabled"});
   await dialog.getByRole("button",{name:"Custos",exact:true}).click();
   await expect(dialog.locator('[data-section="cost"]')).toBeFocused();
   const comparison=dialog.getByRole("region",{name:"Valores das propostas"});
@@ -915,6 +1025,108 @@ test("ficha conjunta mostra custo final, pedidos e notas com anexos no celular",
   await expect(dialog.getByRole("button",{name:"Visualizar",exact:true})).toBeInViewport();
   await page.screenshot({path:"test-results/compras-anexos-mobile.png"});
   expect(app.commands).toEqual([]);expect(app.errors).toEqual([]);
+});
+
+for(const [width,theme] of [[390,'marcell'],[390,'noite'],[1440,'marcell'],[1440,'noite']]){
+ test(`rastreio financeiro da compra abre a obrigação e o movimento em ${width}px · ${theme}`,async({page},info)=>{
+  await page.setViewportSize({width,height:900});
+  await page.addInitScript(value=>localStorage.setItem('arcd-theme',value),theme);
+  const app=await enter(page,{prepare:state=>{
+   const payment={id:'partial',valor:100,data:'2026-10-20',origem:'empresa',transacaoId:'bank-order',conciliado:true,
+    comprovantes:[{id:'proof-qa',nome:'Comprovante QA',url:'https://example.test/comprovante.pdf'}]};
+   state.notasFiscais=[{id:'purchase-invoice',numero:'NF-901',obraId:'a',pedidoId:'delivery',fornecedorId:'central',status:'aprovada',
+    emissao:'2026-10-20',vencimento:'2026-10-30',valorBruto:250,valorLiquido:250,aprovadoPor:'Financeiro QA',pagamentos:[payment]},
+    {id:'other-invoice',numero:'NF-FORA',obraId:'a',status:'aprovada',emissao:'2026-10-20',valorBruto:95}];
+   state.transacoes=[{id:'bank-order',data:'2026-10-20',descricao:'Saída do pedido em teste',valor:-100,status:'conciliado'},
+    {id:'unlinked',data:'2026-10-20',descricao:'Saída de outro registro',valor:-100,status:'conciliado'}];
+  }});
+  await page.route('https://example.test/comprovante.pdf',route=>route.fulfill({contentType:'application/pdf',body:samplePdf(),headers:{'access-control-allow-origin':'*'}}));
+  await selectWork(page);await navigate(page,'Pedidos');
+  await page.getByRole('article',{name:'Pedido PC-001',exact:true}).getByRole('button',{name:'Ficha completa · notas e anexos'}).click();
+  const dialog=page.getByRole('dialog');
+  await dialog.getByRole('button',{name:'Pagamentos',exact:true}).click();
+  const trace=dialog.locator('[data-section="payments"]');
+  await expect(trace.getByRole('heading',{name:'NF NF-901 · Parcial'})).toBeVisible();
+  await expect(trace.getByText(/R\$\s*150,00/)).toBeVisible();
+  await expect(trace.getByText('Aprovação fiscal por Financeiro QA',{exact:false})).toBeVisible();
+  await expect(trace.getByText('Vencimento 30/10/2026',{exact:false})).toBeVisible();
+  await trace.getByRole('button',{name:'Comprovantes desta baixa'}).click();
+  await expect(trace.getByRole('region',{name:'Comprovantes da baixa'}).getByRole('link',{name:'Abrir original em nova aba'})).toHaveAttribute('href','https://example.test/comprovante.pdf');
+  await page.screenshot({path:info.outputPath('pagamento-compra.png'),animations:'disabled'});
+  await trace.getByRole('button',{name:'Consultar em Pagamentos'}).click();
+  await expect(page.getByText(/Mostrando somente a obrigação do documento selecionado/)).toBeVisible();
+  await page.getByRole('button',{name:'Abrir compra de origem',exact:true}).click();
+  await expect(dialog.getByRole('heading',{name:'Ficha completa da compra conjunta',exact:true})).toBeVisible();
+  await dialog.getByRole('button',{name:'Pagamentos',exact:true}).click();
+  await trace.getByRole('button',{name:'Abrir movimento na Conciliação'}).click();
+  await expect(page.getByText('Saída do pedido em teste',{exact:true})).toBeVisible();
+  await expect(page.getByText('Saída de outro registro',{exact:true})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Retomar automação'})).toBeVisible();
+  expect(app.commands).toEqual([]);
+  expect(app.errors).toEqual([]);
+ });
+}
+
+for(const [width,theme] of [[390,'marcell'],[390,'noite'],[1440,'marcell'],[1440,'noite']]){
+ test(`memorial da compra abre somente suas notas no DRE em ${width}px · ${theme}`,async({page},info)=>{
+  await page.setViewportSize({width,height:900});
+  await page.addInitScript(value=>localStorage.setItem('arcd-theme',value),theme);
+  const app=await enter(page,{prepare:state=>{
+   state.notasFiscais=[
+    {id:'note-dre',numero:'NF-DRE',obraId:'a',pedidoId:'delivery',status:'aprovada',emissao:'2026-10-20',competencia:'2026-09',valorBruto:150,
+     pagamentos:[{id:'paid-dre',origem:'empresa',data:'2026-10-21',valor:40}]},
+    {id:'unrelated-dre',numero:'NF-FORA',obraId:'a',status:'aprovada',emissao:'2026-09-20',valorBruto:95},
+   ];
+  }});
+  await selectWork(page);await navigate(page,'Pedidos');
+  await page.getByRole('article',{name:'Pedido PC-001',exact:true}).getByRole('button',{name:'Ficha completa · notas e anexos'}).click();
+  const dossier=page.getByRole('dialog',{name:'Ficha completa da compra conjunta'});
+  await dossier.getByRole('button',{name:'DRE e caixa',exact:true}).click();
+  const evidence=dossier.locator('[data-section="dre"]');
+  await expect(evidence.locator('dl')).toContainText(/R\$\s*250,00/);
+  await expect(evidence.locator('dl')).toContainText(/R\$\s*150,00/);
+  await expect(evidence.locator('dl')).toContainText(/R\$\s*40,00/);
+  await expect(evidence.getByRole('heading',{name:'Residencial Alameda · 09/2026'})).toBeVisible();
+  await page.screenshot({path:info.outputPath('dre-e-caixa-na-compra.png'),animations:'disabled'});
+  await evidence.getByRole('button',{name:'Consultar memorial da compra'}).click();
+  const memorial=page.getByRole('dialog',{name:'Memorial do custo da compra'});
+  await expect(memorial).toContainText('NF-DRE');
+  await expect(memorial).not.toContainText('NF-FORA');
+  await memorial.getByRole('button',{name:'Fechar memorial'}).click();
+  await evidence.getByRole('button',{name:'Abrir DRE desta competência'}).click();
+  const drill=page.getByRole('dialog',{name:'Custos da compra no DRE'});
+  await expect(drill).toContainText('NF-DRE');
+  await expect(drill).not.toContainText('NF-FORA');
+  await expect(drill).toContainText(/setembro/i);
+  expect(app.commands).toEqual([]);
+  expect(app.errors).toEqual([]);
+ });
+}
+
+for(const theme of ['marcell','noite'])test(`Curva e preços explica vínculos ausentes e abre o Planejamento da obra no celular · ${theme}`,async({page},info)=>{
+  await page.addInitScript(value=>localStorage.setItem('arcd-theme',value),theme);
+  await page.setViewportSize({width:390,height:844});
+  const app=await enter(page,{prepare:state=>{
+    state.obras.push({id:'c',name:'Obra sem orçamento',status:'active'});
+    state.orcamentos.push({id:'draft-b',obraId:'b',nome:'Rascunho Horizonte',status:'rascunho',etapas:[],itens:[]});
+  }});
+  await page.getByRole('combobox',{name:'Telas de Compras e suprimentos'}).selectOption({label:'Curva e preços'});
+  await expect(page.getByText('Vínculos do orçamento e planejamento por obra',{exact:true})).toBeInViewport();
+  const work=page.getByRole('listitem').filter({hasText:'Residencial Horizonte'});
+  const withoutBudget=page.getByRole('listitem').filter({hasText:'Obra sem orçamento'});
+  await expect(work.getByText('Sem orçamento de controle disponível · Sem planejamento da obra')).toBeVisible();
+  await expect(work.getByRole('button',{name:'Abrir Orçamento',exact:true})).toBeVisible();
+  await expect(withoutBudget.getByRole('button',{name:'Abrir Planejamento',exact:true})).toHaveCount(0);
+  await page.screenshot({path:info.outputPath('vinculos-curva.png')});
+  await withoutBudget.getByRole('button',{name:'Abrir Orçamento',exact:true}).click();
+  await expect(page.locator('.arcd-app-shell')).toHaveAttribute('data-tab','orc');
+  await expect(page.getByRole('combobox',{name:'Obra em foco'}).locator('option:checked')).toHaveText('Obra sem orçamento');
+  await page.getByRole('navigation',{name:'Retornar ao contexto anterior'}).getByRole('button').click();
+  await work.getByRole('button',{name:'Abrir Planejamento',exact:true}).click();
+  await expect(page.locator('.arcd-app-shell')).toHaveAttribute('data-tab','plan');
+  await expect(page.getByRole('combobox',{name:'Obra',exact:true}).locator('option:checked')).toHaveText('Residencial Horizonte');
+  expect(app.commands).toEqual([]);
+  expect(app.errors).toEqual([]);
 });
 
 

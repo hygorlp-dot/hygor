@@ -1,6 +1,8 @@
 import {buildBudgetMaterialDemand,availableStock} from "../suprimentos/calculations.js";
 import {getPlanningBudget} from "../orcamentos/calculations.js";
 import {montarTarefas} from "./legacy-engine.js";
+import {STATUS_PEDIDO,statusPedido} from "../compras/calculations.js";
+import {remessasDoItem} from "../compras/delivery-schedule.js";
 
 const inactive=value=>["cancelada","cancelado","estornada","estornado","rejeitada","rejeitado"].includes(value?.status);
 const unit=value=>String(value||"").trim().toUpperCase().replace(/^UND?$/,"UN");
@@ -8,23 +10,48 @@ const unit=value=>String(value||"").trim().toUpperCase().replace(/^UND?$/,"UN");
 export function planningPurchaseNeeds(data,{obraId,taskId,budgetId}={}){
  const plan=(data.planos||[]).find(p=>p.obraId===obraId);
  const planning=getPlanningBudget(data,obraId,plan),budget=planning.budget;
- const task=montarTarefas(plan,budget).find(t=>t.id===taskId);
+ const tasks=montarTarefas(plan,budget);
+ const task=tasks.find(t=>t.id===taskId);
  if(!plan||!budget||!task||inactive(task)||!task.etapaId||!(budget.etapas||[]).some(e=>e.id===task.etapaId))return {error:"Esta atividade não possui uma etapa válida do orçamento."};
  if(budgetId&&budget.id!==budgetId)return {error:"O orçamento do planejamento mudou. Volte ao cronograma e revise a etapa."};
  const budgetLines=(budget.itens||[]).filter(i=>i.etapaId===task.etapaId&&i.tipo!=="titulo"&&!inactive(i));
- const items=buildBudgetMaterialDemand({budget:{...budget,itens:budgetLines},materials:data.materiais||[],tasks:montarTarefas(plan,budget)});
+ const items=buildBudgetMaterialDemand({budget:{...budget,itens:budgetLines},materials:data.materiais||[],tasks});
  const covered=new Set(items.flatMap(item=>item.itemOrcamentoIds));
  budgetLines.filter(item=>!covered.has(item.id)).forEach(item=>items.push({materialId:"",descricao:item.descricao||"Item sem detalhamento",unidade:item.unidade||"",quantidade:Number(item.quantidade||0),vinculo:"pendente",itemOrcamentoIds:[item.id]}));
  const rows=items.map(item=>{
   const material=(data.materiais||[]).find(m=>m.id===item.materialId&&m.ativo!==false);
   const valid=item.vinculo==="confirmado"&&material&&unit(item.unidade)===unit(material.unidade)&&Number.isFinite(item.quantidade)&&item.quantidade>0;
   const stock=availableStock({movements:data.movEstoque||[],reservations:data.reservasEstoque||[],obraId,materialId:item.materialId});
-  const orders=(data.pedidos||[]).filter(p=>p.obraId===obraId&&!inactive(p)&&p.status!=="rascunho"&&(p.itens||[]).some(i=>i.materialId===item.materialId&&Number(i.qtdRecebida||0)<Number(i.qtd||0)));
+  const orders=(data.pedidos||[]).filter(p=>p.obraId===obraId&&!p.deletedAt&&!inactive(p)&&p.status!=="rascunho"&&(p.itens||[]).some(i=>i.materialId===item.materialId&&Number(i.qtdRecebida||0)<Number(i.qtd||0)));
   return {...item,codigo:material?.codigo||item.codigo,valid:Boolean(valid),stock:stock.livre,orders:orders.map(p=>({id:p.id,numero:p.numero||"Pedido",previsao:p.previsao||""}))};
  });
  const requests=(data.solicitacoesCompra||[]).filter(r=>r.obraId===obraId&&!inactive(r)&&r.planningOrigin?.planId===plan.id&&r.planningOrigin?.stageId===task.etapaId);
- const stageDates=montarTarefas(plan,budget).filter(t=>t.etapaId===task.etapaId&&t.inicio&&!inactive(t)).map(t=>t.inicio).sort();
- return {obraId,planId:plan.id,budgetId:budget.id,taskId:task.id,stageId:task.etapaId,taskName:task.nome,needDate:stageDates[0]||"",preliminary:planning.source==="rascunho"||["rascunho","draft"].includes(budget.versionStatus),rows,requests};
+ const stageDates=tasks.filter(t=>t.etapaId===task.etapaId&&t.inicio&&!inactive(t)).map(t=>t.inicio).sort();
+ const needDate=stageDates[0]||"";
+ const requestIds=new Set(requests.map(request=>request.id).filter(Boolean));
+ const linkedOrders=(data.pedidos||[]).filter(order=>
+  order.obraId===obraId&&!order.deletedAt&&!inactive(order)&&requestIds.has(order.solicitacaoId)
+ ).map(order=>{
+  const lines=order.itens||[];
+  const stage=statusPedido(order);
+  const deliveries=stage==="rascunho"?[]:lines.flatMap(line=>{
+   const received=Number(line.qtdRecebida||0),quantity=Number(line.qtd||0);
+   if(quantity-received<=1e-6)return [];
+   const schedule=remessasDoItem(line,order);
+   return [{
+    date:schedule.find(shipment=>shipment.acumulado-received>1e-6)?.data,
+    missing:quantity-(schedule.at(-1)?.acumulado||0)>1e-6,
+   }];
+  });
+  const nextDelivery=deliveries.map(item=>item.date).filter(Boolean).sort()[0]||"";
+  const receivedOn=lines.flatMap(line=>(line.recebimentos||[])
+   .filter(receipt=>Number(receipt.qtd)>0&&receipt.data)
+   .map(receipt=>String(receipt.data).slice(0,10))).sort().at(-1)||"";
+  return {id:order.id,number:order.numero||order.id,stage:STATUS_PEDIDO[stage]?.l,
+   receiptMissing:!receivedOn&&lines.some(line=>Number(line.qtdRecebida)>0),
+   receivedOn,nextDelivery,missingForecast:deliveries.some(item=>item.missing)};
+ });
+ return {obraId,planId:plan.id,budgetId:budget.id,taskId:task.id,stageId:task.etapaId,taskName:task.nome,needDate,preliminary:planning.source==="rascunho"||["rascunho","draft"].includes(budget.versionStatus),rows,requests,linkedOrders};
 }
 
 export function planningRequestDraft(needs,id){

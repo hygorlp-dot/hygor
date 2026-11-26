@@ -49,6 +49,7 @@ export const resolveOvertimePolicy = input => {
 // Regra única de custo diário do Ponto. A diária remunera a jornada padrão;
 // a hora extra é calculada sobre a hora normal acrescida do percentual
 // configurado. Falta ou dia sem situação não pode gerar hora extra.
+/** @param {{employee?:object|null, record?:object|string|null, config?:object|null, waiveDelayDeduction?:boolean}} [options] */
 export const calculateAttendanceDayCost = ({
   employee: employeeInput,
   record: recordInput,

@@ -151,21 +151,17 @@ const installIsolatedBackend = async (page, stateOverride = {}, options = {}) =>
   };
 };
 
-test("Gestão do ponto mantém as cores da grade e da legenda", async ({page,baseURL},info)=>{
+test("Gestão do ponto usa a geometria comum e troca a obra sem alterar a situação do dia", async ({page},info)=>{
   const date="2026-11-23",profile={...PROFILE,role:"admin",obraId:"",accessTabs:["home","ponto_geral"]};
   await page.clock.setFixedTime(new Date("2026-11-23T12:00:00-03:00"));
   await page.addInitScript(({id,theme})=>{
     sessionStorage.setItem(`arcd-section:${id}`,"ponto_geral");
     localStorage.setItem("arcd-theme",theme);
   },{id:profile.id,theme:info.project.metadata.theme||"plataforma"});
-  await page.route("**/*",route=>{
-    const request=route.request();
-    const url=new URL(request.url());
-    const isAsset=url.origin===new URL(baseURL).origin&&!url.pathname.startsWith("/api/");
-    return isAsset&&["GET","HEAD"].includes(request.method())?route.fallback():route.abort();
-  });
-  await installIsolatedBackend(page,{
+  await page.route("https://**/*",route=>route.abort());
+  const backend=await installIsolatedBackend(page,{
     usuarios:[profile],
+    obras:[...initialState().obras,{id:"outra-obra",name:"Outra obra de teste",status:"active"}],
     attendance:{"emp-qa":{
       [date]:{status:"P",obraId:"obra-qa",note:"Observação mantida"},
       "2026-11-24":{status:"M",obraId:"obra-qa"},
@@ -206,7 +202,29 @@ test("Gestão do ponto mantém as cores da grade e da legenda", async ({page,bas
       await expect(marker).toHaveCSS("background-color",colors.tone);
     }
   }
-  await page.screenshot({path:info.outputPath("gestao-do-ponto.png"),animations:"disabled"});
+  const tokens=await page.addStyleTag({content:`
+    :root { --arcd-radius-control:11px !important; --arcd-touch-target:56px !important; }
+    [data-density] .arcd-app-shell { --arcd-control-height:56px !important; }
+  `});
+  const trocarObra=table.getByRole("cell").filter({has:page.getByRole("button",{name:"P",exact:true})})
+    .getByRole("button",{name:"Trocar obra",exact:true});
+  for(const control of [present,trocarObra]){
+    await expect(control).toHaveCSS("min-height","56px");
+    await expect(control).toHaveCSS("border-radius","11px");
+  }
+  await tokens.evaluate(tag=>tag.remove());
+  await trocarObra.press("Enter");
+  const selector=table.getByRole("combobox",{name:"Obra do dia",exact:true});
+  await expect(selector).toBeFocused();
+  await selector.selectOption("outra-obra");
+  await expect(table.getByRole("button",{name:"Outra obra de teste",exact:true})).toHaveAttribute("data-cell-tone","warning");
+  await expect(present).toBeVisible();
+  const positions=await present.evaluate(button=>[...button.closest("tr").querySelectorAll('.ponto-dia-cell > [data-record-layout="cell"]:first-child')].map(control=>control.getBoundingClientRect().top));
+  expect(positions.length).toBeGreaterThan(1);
+  expect(Math.max(...positions)-Math.min(...positions)).toBeLessThanOrEqual(1);
+  expect(backend.getSaves().filter(save=>save.action==="attendance-upsert")).toHaveLength(1);
+  expect(backend.getState().attendance["emp-qa"][date]).toMatchObject({status:"P",obraId:"outra-obra",note:"Observação mantida"});
+  await page.screenshot({path:info.outputPath("grade-ponto.png"),animations:"disabled"});
 });
 
 test("Gestão do ponto corrige AT diretamente, sem lançar folga nem reenviar atestado", async ({page},info)=>{

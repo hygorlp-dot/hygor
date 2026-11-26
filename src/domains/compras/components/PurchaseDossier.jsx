@@ -9,6 +9,9 @@ import { CostComparison } from "./PurchaseFinalCost";
 import {purchaseDossierPending} from "../purchase-dossier-status";
 import OrderConditions from "./OrderConditions";
 import PurchaseConference from "./PurchaseConference.jsx";
+import {PurchaseOriginTrace} from "./PurchaseOriginTrace.jsx";
+import PurchasePaymentTrace from "./PurchasePaymentTrace.jsx";
+import PurchaseDreEvidence from "./PurchaseDreEvidence.jsx";
 import DocumentEvidence from '../../../features/financeiro/DocumentEvidence.jsx';
 import FinancialDocumentLink from '../../../features/financeiro/FinancialDocumentLink.jsx';
 import {documentEvidenceInfo} from '../../financeiro/document-evidence.js';
@@ -25,6 +28,8 @@ export function PurchaseDossier({data,selection,onClose,inline=false,currentUser
   const {navigate}=useWorkflow();
   const f=useMemo(()=>fichaDaCompra(data,selection),[data,selection]),[selected,setSelected]=useState(null);
   const canReadTitles=['admin','financeiro'].includes(currentUser?.role)&&podeAcessarAba(currentUser,'fin')&&(!currentUser.obraId||f.orders.every(order=>String(order.obraId)===String(currentUser.obraId)));
+  const canReadBank=canReadTitles&&navigate&&podeAcessarAba(currentUser,'conc');
+  const canReadDre=canReadTitles&&podeAcessarAba(currentUser,'dre');
   const dossierRef=useRef(null);
   const status=purchaseDossierPending(f);
   const goTo=key=>{const section=dossierRef.current?.querySelector(`[data-section="${key}"]`);section?.scrollIntoView({block:"start"});section?.focus({preventScroll:true});};
@@ -32,7 +37,7 @@ export function PurchaseDossier({data,selection,onClose,inline=false,currentUser
   const material=id=>(data.materiais||[]).find(p=>String(p.id)===String(id))?.descricao||"Material";
   return <DossierFrame inline={inline} onClose={onClose}>
     <div className="purchase-dossier" ref={dossierRef}>
-      <nav className="purchase-dossier-nav" aria-label="Seções da compra">{[["conference","Conferência"],["origin","Origem"],["cost","Custos"],["orders",`Pedidos (${f.orders.length})`],["invoices",`Notas fiscais (${f.invoices.length})`],["payments","Pagamentos"],["documents",`Anexos (${f.documents.length})`]].filter(([key])=>key!=="cost"||f.quote).map(([key,label])=><Button key={key} variant="ghost" onClick={()=>goTo(key)}>{label}</Button>)}</nav>
+      <nav className="purchase-dossier-nav" aria-label="Seções da compra">{[["conference","Conferência"],["origin","Origem"],["trace","Itens e orçamento"],["cost","Custos"],["orders",`Pedidos (${f.orders.length})`],["invoices",`Notas fiscais (${f.invoices.length})`],["payments","Pagamentos"],...(canReadDre?[["dre","DRE e caixa"]]:[]),["documents",`Anexos (${f.documents.length})`]].filter(([key])=>key!=="cost"||f.quote).map(([key,label])=><Button key={key} variant="ghost" onClick={()=>goTo(key)}>{label}</Button>)}</nav>
       <p>Pedidos agrupados pela cotação de origem. Pendências de aprovação ficam sinalizadas sem impedir o andamento.</p>
       <section aria-label="Pendências da compra"><h3>Pendências para conferência</h3><p>{contar(status.orders,"pedido ativo","pedidos ativos")} · {status.deliveries} com entrega pendente · {status.missingInvoices} sem nota vinculada · {contar(f.documents.length,"anexo","anexos")}</p>{status.pending.length?<ul>{status.pending.map(p=><li key={p.label}><Button variant="ghost" onClick={()=>goTo(p.key)}>{p.label}</Button></li>)}</ul>:<p>Nenhuma pendência detectada nos recebimentos, notas e endereços de anexos desta ficha.</p>}<p>As indicações orientam a conferência; não substituem a aprovação nem autorizam pagamentos.</p></section>
       <div data-section="conference" tabIndex={-1}><PurchaseConference data={data} dossier={f} asOf={today()} canReadTitles={canReadTitles}
@@ -46,6 +51,7 @@ export function PurchaseDossier({data,selection,onClose,inline=false,currentUser
         {f.quote?.decididoEm&&<p>Decisão: {fmtDate(f.quote.decididoEm.slice(0,10))} · {f.quote.decididoPorNome||"Autor não informado"}</p>}
       </section>
       {f.quote&&<div data-section="cost" tabIndex={-1}><CostComparison quote={f.quote} supplierName={name}/></div>}
+      <section data-section="trace" tabIndex={-1}><PurchaseOriginTrace data={data} dossier={f}/></section>
       <section data-section="orders" tabIndex={-1}><h3>Pedidos e recebimentos · {f.orders.length}</h3>
         {!f.orders.length&&<p>A cotação ainda não gerou pedidos.</p>}
         {f.orders.map(p=><article key={p.id}><h4>{p.numero} · {p.historicoCondicoesPedido?.at(-1)?.fornecedor?.nome||name(p.fornecedorId)} · {p.status}</h4>
@@ -68,12 +74,23 @@ export function PurchaseDossier({data,selection,onClose,inline=false,currentUser
           {(n.rateios||[]).map((r,index)=><p key={r.id||index}>Rateio: {(data.obras||[]).find(o=>o.id===r.obraId)?.name||r.obraId} · {fmt(r.valor)}</p>)}
           {n.obs&&<p>{n.obs}</p>}</article>)}
       </section>
-      <section data-section="payments" tabIndex={-1}><h3>Pagamentos e conciliação</h3>
-        {!f.payments.length&&<p>Nenhum pagamento registrado.</p>}
-        {f.payments.map((p,index)=><p key={`${p.origem}-${p.id||index}`}>{p.origem} · {fmtDate(p.data)} · {fmt(p.valor)} · {p.status||"Registrado"}</p>)}
-        {f.transactions.map(t=><p key={t.id}>Extrato: {fmtDate(t.data)} · {fmt(t.valor)} · {t.status}</p>)}
-        {!f.transactions.length&&<p>Sem vínculo bancário identificado nesta ficha.</p>}
+      <section data-section="payments" tabIndex={-1}>
+        {canReadTitles?<PurchasePaymentTrace data={data} dossier={f} date={today()}
+          onOpenTitle={navigate?invoice=>{if(onReviewInvoice)onClose();navigate('fin',{obraId:invoice.obraId},{action:'review-purchase-payments',record:{invoiceId:invoice.id}});}:undefined}
+          onOpenBank={canReadBank?(row,transaction)=>{navigate('conc',{obraId:row.order.obraId},{action:'review-financial-origin',
+            record:{label:`Pedido ${row.order.numero||row.order.id}`,transactionIds:[transaction.id],accountId:transaction.contaBancariaId||''}});}:undefined}/>
+        :<><h3>Pagamentos e conciliação</h3>
+          {!f.payments.length&&<p>Nenhum pagamento registrado.</p>}
+          {f.payments.map((p,index)=><p key={`${p.origem}-${p.id||index}`}>{p.origem} · {fmtDate(p.data)} · {fmt(p.valor)} · {p.status||"Registrado"}</p>)}
+          {f.transactions.map(t=><p key={t.id}>Extrato · {fmtDate(t.data)} · {fmt(t.valor)} · {t.status}</p>)}
+        </>}
       </section>
+      {canReadDre&&<section data-section="dre" tabIndex={-1}>
+        <PurchaseDreEvidence data={data} dossier={f} onlyWork={currentUser.obraId} onOpenDre={navigate?cost=>{
+          const [year,month]=cost.competence.split('-').map(Number);
+          navigate('dre',{obraId:cost.obraId,year,month:month-1,period:'mes'},{action:'review-purchase-dre',record:{invoiceIds:cost.invoiceIds}});
+        }:undefined}/>
+      </section>}
       <section data-section="documents" tabIndex={-1}><h3>Notas e demais anexos · {f.documents.length}</h3>
         {!f.documents.length&&<p>Nenhum arquivo anexado aos registros desta compra.</p>}
         {f.documents.map((d,index)=><div className="purchase-document-row" key={`${d.origem}-${d.id||index}`}><span>{d.origem} · {d.legenda||d.nome||"Documento"}</span>{documentEvidenceInfo(d).resolvable?<><Button variant="secondary" onClick={()=>setSelected(d)}>Visualizar</Button>{documentEvidenceInfo(d).url&&<FinancialDocumentLink href={documentEvidenceInfo(d).url}>Abrir arquivo ↗</FinancialDocumentLink>}</>:<span>Arquivo sem endereço válido</span>}</div>)}

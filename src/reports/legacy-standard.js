@@ -194,6 +194,11 @@ export function gerarFichaFuncionarioPDF(data, employee, showToast) {
 // seu HTML a partir daqui em vez de inventar CSS próprio; os textos das
 // células já devem chegar formatados/escapados pelo chamador (mesma
 // convenção usada nos templates existentes).
+/** @typedef {{config?:{companyImageUrl?:string, logoUrl?:string, companyName?:string, cnpj?:string}}} ReportBrandData */
+/** @typedef {(message:string, type?:string)=>void} ReportToast */
+/** @typedef {{label:string, value:string|number}} ReportLabel */
+/** @typedef {{titulo?:string, descricao?:string, headers:(string|{label:string, num?:boolean})[], rows:string[][], totalRow?:string[], vazio?:string}} ReportTable */
+/** @param {{data:ReportBrandData, titulo:string, subtitulo?:string, meta?:ReportLabel[], kpis?:ReportLabel[], tabelas?:ReportTable[], legenda?:string, assinaturas?:string[], paisagem?:boolean}} options */
 export function montarRelatorioPadraoHtml({
   data, titulo, subtitulo = "", meta = [], kpis = [], tabelas = [], legenda = "",
   assinaturas = [], paisagem = true,
@@ -266,6 +271,7 @@ ${assinaturasHtml}
 
 // Abre o HTML do relatório numa aba nova e já dispara a impressão - mesmo
 // comportamento (e mesmo aviso de pop-up bloqueado) usado pela Folha.
+/** @param {string} html @param {ReportToast} [showToast] */
 export function abrirRelatorioPadrao(html, showToast) {
   try{return openReportPreview(html,{autoPrint:true});}
   catch(error){showToast?.(error.message,"error");return null;}

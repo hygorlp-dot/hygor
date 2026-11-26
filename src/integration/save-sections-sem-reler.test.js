@@ -120,6 +120,35 @@ describe("/api/data save-sections · reaproveita as linhas já lidas dentro da t
     expectedUpdatedAt: T0,
   });
 
+  it.each([
+    [{ action: "save" }, "Nada para salvar."],
+    [{ action: "save-sections", sections: [] }, "Nenhuma seção para salvar."],
+    [{ action: "save-sections", sectionDeltas: { orcamentos: { changed: false } } },
+      "Alteração da seção orcamentos em formato inválido."],
+  ])("recusa a entrada inválida antes de escrever (%j)", async (request, error) => {
+    const r = await chamar(request);
+    expect(r).toMatchObject({ status: 400, body: { error } });
+    expect(estado.sql).toEqual([]);
+    expect(idsDeOrcamentos()).toEqual(["orc-a"]);
+  });
+
+  it("preserva o contrato do save completo com versão equivalente e correlação gerada no servidor", async () => {
+    const payload = { ...estado.rows[CORE].value, ...estado.rows[ORC].value };
+    const savedAt = new Date().toISOString();
+    bancoFalso.rpc.mockResolvedValueOnce({ data: [{ applied: true, updated_at: savedAt }], error: null });
+    const r = await chamar({
+      action: "save", payload, expectedUpdatedAt: new Date(T0).toISOString(),
+      correlationId: "valor-do-cliente",
+    });
+    expect(r.status, r.body?.error).toBe(200);
+    expect(r.body).toMatchObject({ ok: true, updatedAt: savedAt });
+    expect(bancoFalso.rpc).toHaveBeenLastCalledWith("company_save_with_audit", expect.objectContaining({
+      p_expected_updated_at: T0,
+      p_action: "save_blob",
+      p_correlation_id: expect.stringMatching(/^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i),
+    }));
+  });
+
   it("com as linhas inalteradas, trava só pelo carimbo e não baixa o valor de novo", async () => {
     const r = await salvar(orc("orc-c"));
     expect(r.status).toBe(200);

@@ -226,6 +226,8 @@ export const extrairNotaPatrimonioIA = ({dataUrl,fileName}) => chamarRotaAutenti
 });
 export const consultarCNPJReceita = cnpj => chamarRotaAutenticada("/api/cnpj", { cnpj });
 export const employeeDocumentsRequest = payload => chamarRotaAutenticada('/api/upload',{...payload,folder:'rh'});
+export const uploadAttendanceCertificate = payload => chamarRotaAutenticada('/api/data',{...payload,action:'attendance-certificate'});
+export const checkPayrollCertificates = periodKey => chamarRotaAutenticada('/api/data',{action:'payroll-certificate-check',periodKey});
 
 export const assetAuthorizationKey=()=>`${activeCompany()}:${sessionEpoch}`;
 export const protectedCompanyAsset=value=>typeof value==='string'&&(value.startsWith('company-file:')||value.startsWith('/api/microsoft/onedrive?'));
@@ -257,8 +259,6 @@ export async function resolveCompanyAssetUrl(value){
   if(!/^(?:https?:\/\/|\/[^/]|data:image\/|blob:)/i.test(value))return {ok:false,error:'Referência de arquivo inválida.'};
   return {ok:true,url:value};
 }
-export const checkPayrollCertificates = periodKey => chamarRotaAutenticada('/api/data',{action:'payroll-certificate-check',periodKey});
-export const uploadAttendanceCertificate = payload => chamarRotaAutenticada('/api/data',{...payload,action:'attendance-certificate'});
 export const buscarResumoDiario = () => chamarRotaAutenticada("/api/ai-agent", { action:"daily-brief" });
 export const executarComandoFinanceiro = command => chamar({ action:"financial-command", ...credenciais(), command });
 export const consultarPreviaFechamentoFinanceiro = ({startsOn,endsOn}) =>
@@ -375,8 +375,15 @@ const loadData = async () => {
 };
 
 // ── Salvar ─────────────────────────────────────────────────────────
-export const saveDataDetailed = async (payload,basePayload=null) => {
+/**
+ * @param {Record<string, unknown>} payload
+ * @param {Record<string, unknown>|null} [basePayload]
+ * @param {{operationId?:string, basePayload?:Record<string, unknown>|null, expectedUpdatedAt?:string|null}} [attempt]
+ */
+export const saveDataDetailed = async (payload,basePayload=null,attempt={}) => {
   if (!temSessao()) return { ok: false, conflict: false, reason: "Sessão encerrada." };
+  if(!attempt.operationId)Object.assign(attempt,{operationId:novaOperacaoId(),basePayload,expectedUpdatedAt:ultimoUpdatedAt});
+  basePayload=attempt.basePayload;
   // Ponto e auditoria possuem comandos autoritativos próprios. Excluí-los
   // daqui impede que um snapshot antigo substitua lançamentos ou histórico.
   const commandOnlyKeys=new Set([
@@ -408,14 +415,12 @@ export const saveDataDetailed = async (payload,basePayload=null) => {
     else { sections[k] = safePayload[k]; baseSections[k] = safeBase[k]; }
   });
 
-  const r = await chamar(porSecoes ? {
-    action:"save-sections",...credenciais(),sections,baseSections,
+  const r = await chamar({...credenciais(),operationId:attempt.operationId,expectedUpdatedAt:attempt.expectedUpdatedAt,...(porSecoes ? {
+    action:"save-sections",sections,baseSections,
     ...(Object.keys(sectionDeltas).length ? { sectionDeltas } : {}),
-    expectedUpdatedAt:ultimoUpdatedAt,
   } : {
-    action:"save",...credenciais(),payload:safePayload,basePayload:safeBase,
-    expectedUpdatedAt:ultimoUpdatedAt,
-  });
+    action:"save",payload:safePayload,basePayload:safeBase,
+  })});
 
   if (r.status === 409 && r.conflict) {
     const detalhe = {
@@ -528,6 +533,10 @@ export const listarPresencas = async () => {
 // Serverless Functions por deployment.
 const novaOperacaoId=()=>globalThis.crypto?.randomUUID?.()
   || `op-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+/**
+ * @param {string} texto
+ * @param {{mentions?: import("./domains/chat/contracts").ChatMention[], attachment?: import("./domains/chat/contracts").ChatAttachment | null}} [options]
+ */
 export const enviarMensagemChat = (texto, { mentions = [], attachment = null } = {}) => chamarRotaAutenticada("/api/presence", {
   action:"chat-send",text:texto,mentions,attachment,operationId:novaOperacaoId(),
 });

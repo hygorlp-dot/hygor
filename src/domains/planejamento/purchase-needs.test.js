@@ -43,3 +43,26 @@ it("mantém origem no rascunho e a remove ao mudar de obra",()=>{
  expect(JSON.stringify(data)).toBe(before);expect(draft.planningOrigin).toMatchObject({planId:"plan",taskId:"task",stageId:"stage",budgetId:"budget"});
  expect(changePurchaseRequestProject(draft,"other").planningOrigin).toBeNull();
 });
+
+it("rastreia remessas e recebimentos apenas de pedidos da solicitação e da obra",()=>{
+ const data=fixture();
+ data.solicitacoesCompra=[{id:"request",obraId:"work",status:"enviada",planningOrigin:{planId:"plan",stageId:"stage"}}];
+ const done={id:"done",numero:"PC-1",obraId:"work",solicitacaoId:"request",status:"recebido",
+  itens:[{materialId:"steel",qtd:20,qtdRecebida:20,recebimentos:[{qtd:20,data:"2026-11-05"}]}]};
+ data.pedidos=[done,
+  {...done,id:"partial",status:"parcial",itens:[{materialId:"steel",qtd:20,qtdRecebida:10,
+   remessas:[{data:"2026-11-04",qtd:10},{data:"2026-11-12",qtd:5}],
+   recebimentos:[{qtd:10,data:"2026-11-04"}]}]},
+  {...done,id:"undated",itens:[{materialId:"steel",qtd:20,qtdRecebida:5}]},
+  {...done,id:"unrelated",solicitacaoId:"other"},
+  {...done,id:"other-work",obraId:"other"},
+  {...done,id:"deleted",deletedAt:"2026-11-01"},
+ ];
+ const needs=planningPurchaseNeeds(data,scope);
+ expect(needs.linkedOrders.map(order=>order.id)).toEqual(["done","partial","undated"]);
+ expect(needs.linkedOrders).toMatchObject([
+  {stage:"Recebido",receivedOn:"2026-11-05",nextDelivery:""},
+  {stage:"Parcial",receivedOn:"2026-11-04",nextDelivery:"2026-11-12",missingForecast:true},
+  {stage:"Parcial",receiptMissing:true,missingForecast:true},
+ ]);
+});

@@ -9,12 +9,46 @@
       "inline-style": 9
     },
     "src/LegacyApp.jsx": {
-      "literal-spacing": 779,
-      "literal-typography": 340,
-      "native-control": 76,
+      "literal-spacing": 775,
+      "literal-typography": 274,
+      "native-control": 64,
       "literal-color": 79,
-      "inline-style": 1858,
-      "plural-parenthesis": 95
+      "inline-style": 1398,
+      "plural-parenthesis": 93
+    },
+    "src/domains/administracao/components/Obsoletos.jsx": {
+      "inline-style": 25,
+      "native-control": 1,
+      "literal-typography": 4,
+      "literal-spacing": 1
+    },
+    "src/domains/medicoes/components/MedicaoEvolucao.jsx": {
+      "inline-style": 86
+    },
+    "src/domains/obras/components/ObrasCarteira.jsx": {
+      "inline-style": 162,
+      "plural-parenthesis": 2
+    },
+    "src/features/relatorios/RelatoriosView.jsx": {
+      "inline-style": 128,
+      "literal-typography": 47,
+      "native-control": 1
+    },
+    "src/features/workflow/ChatFlutuante.jsx": {
+      "inline-style": 43,
+      "literal-typography": 10,
+      "native-control": 9,
+      "literal-spacing": 3
+    },
+    "src/features/workflow/Comunicacao.jsx": {
+      "inline-style": 27,
+      "literal-typography": 6
+    },
+    "src/navigation/BuscaGlobal.jsx": {
+      "literal-spacing": 1,
+      "inline-style": 14,
+      "native-control": 2,
+      "literal-typography": 3
     },
     "src/client-portal/app/ClientPortalApp.jsx": {
       "native-control": 1

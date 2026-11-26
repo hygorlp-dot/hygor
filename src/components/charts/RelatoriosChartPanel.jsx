@@ -1,6 +1,6 @@
 // Extraído de src/LegacyApp.jsx (26/08/2026, Onda 4 do raio-X, item 12)
 // para virar seu próprio chunk lazy - ver LazyRelatoriosChartPanel no
-// ponto de uso em LegacyApp.jsx.
+// ponto de uso em features/relatorios/RelatoriosView.jsx.
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ArcdChartTooltip, ChartPanel } from "../../legacy/ui.jsx";
 import { C } from "../../legacy/palette.js";

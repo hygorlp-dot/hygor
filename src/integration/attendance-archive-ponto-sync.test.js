@@ -23,8 +23,9 @@ const queryFor=table=>{
   let inFilter=null;
   let likeFilter=null;
   let orderFilter=null;
+  let columns="";
   const query={
-    select(){return query;},
+    select(value){columns=value;return query;},
     eq(key,value){filters[key]=value;return query;},
     in(key,values){inFilter={key,values};return query;},
     // lerLinha() usa .like("key", `${prefix}%`) para descobrir as linhas de
@@ -55,7 +56,9 @@ const queryFor=table=>{
           const direction=orderFilter.ascending?1:-1;
           matches.sort((a,b)=>direction*String(a[orderFilter.field]||"").localeCompare(String(b[orderFilter.field]||"")));
         }
-        result={data:matches,error:null};
+        result={data:columns==="key, updated_at, value->meta"
+          ? matches.map(row=>({key:row.key,updated_at:row.updated_at,meta:row.value?.meta}))
+          : matches,error:null};
       }else{
         result={data:[],error:null};
       }
@@ -142,6 +145,32 @@ describe("/api/data · arquivar quinzena sincroniza a linha de Ponto quando ela 
   const archiveBody=()=>({
     action:"archive-quinzena",accessToken:"valid-token",
     archive:{quinzenaId:"2026-08-Q1",label:"Agosto Q1",dates:["2026-08-05"]},
+  });
+
+  it("lista metadados por data e abre somente a quinzena da empresa da sessão",async()=>{
+    const older="2026-07-Q2";
+    const foreign="2026-09-Q1";
+    const updatedAt="2026-09-20T10:00:00.000Z";
+    const row=(quinzenaId,inicio,company_id)=>({
+      company_id,key:`${CORE_KEY}__arq__${quinzenaId}`,updated_at:updatedAt,
+      value:{meta:{inicio},attendance:{"emp-1":{"2026-08-05":{status:"P"}}}},
+    });
+    const archive=row("2026-08-Q1","2026-08-01","arcd");
+    const legacy=row(older,"2026-07-16","arcd");
+    const external=row(foreign,"2026-09-01","mrc");
+    Object.assign(testState.rows,{[legacy.key]:legacy,[archive.key]:archive,[external.key]:external});
+    const before=structuredClone(testState.rows);
+
+    const list=await callApi({action:"list-quinzena-archives",accessToken:"valid-token"});
+    expect(list).toEqual({status:200,body:{ok:true,arquivos:[archive,legacy].map(item=>({
+      key:item.key,updatedAt,meta:item.value.meta,
+    }))}});
+    const open=quinzenaId=>callApi({action:"load-quinzena-archive",accessToken:"valid-token",quinzenaId});
+    expect(await open("2026-08-Q1")).toEqual({status:200,body:{ok:true,arquivo:archive.value,updatedAt}});
+    expect(await open(foreign)).toMatchObject({status:404});
+    expect(await open("2026-08")).toMatchObject({status:400});
+    expect(testState.rows).toEqual(before);
+    expect(testState.rpcCalls).toEqual([]);
   });
 
   it("quando a linha de Ponto NÃO existe ainda, arquiva só na core - sem chamada extra",async()=>{

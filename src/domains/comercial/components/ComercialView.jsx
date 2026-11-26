@@ -1,3 +1,4 @@
+import { Button } from "../../../design-system/primitives/Button.jsx";
 import { contar } from "../../../design-system/copy.js";
 import {openReportPreview} from '../../../reports/report-preview.js';
 import { PageHeader } from "../../../design-system/patterns/PageHeader";
@@ -1265,11 +1266,11 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
         </div>
       </section>
 
-      <div className="commercial-kpis">
-        <KpiCard label="Funil ativo" value={fmtCompact(funil)} sub={`${contar(leadAtivos.length,"oportunidade","oportunidades")}`} color={C.blue} icon="trending" tab="com_funil"/>
-        <KpiCard label="Valor provável de venda" value={fmtCompact(ponderada)} sub="Valor ponderado pela probabilidade" color={C.yellowD} icon="chart" tab="com_funil"/>
-        <KpiCard label="Vendas no mês" value={vendasMes.length} sub={`${fmtCompact(receitaMes)} em contratos`} color={C.green} icon="check" tab="com_contratos"/>
-        <KpiCard label="Conversão geral" value={`${conv.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%`} sub={ticket?`Ticket do mês ${fmtCompact(ticket)}`:"Sem venda no mês"} color={conv>=20?C.green:C.orange} icon="target" tab="com_relatorios"/>
+      <div className="mrc-kpi-strip mrc-kpi-strip--summary">
+        <KpiCard label="Funil ativo" value={fmtCompact(funil)} sub={`${contar(leadAtivos.length,"oportunidade","oportunidades")}`} icon="trending" tab="com_funil"/>
+        <KpiCard label="Valor provável de venda" value={fmtCompact(ponderada)} sub="Valor ponderado pela probabilidade" icon="chart" tab="com_funil"/>
+        <KpiCard label="Vendas no mês" value={vendasMes.length} sub={`${fmtCompact(receitaMes)} em contratos`} icon="check" tab="com_contratos"/>
+        <KpiCard label="Conversão geral" value={`${conv.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%`} sub={ticket?`Ticket do mês ${fmtCompact(ticket)}`:"Sem venda no mês"} icon="target" tab="com_relatorios"/>
       </div>
 
       <TaskDisclosure summary="Como são contados os indicadores comerciais">
@@ -1459,7 +1460,34 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
   } else if(commercialView==="com_perdas"){
     const perdidos=leads.filter(l=>l.etapa==="perdido");conteudo=<><Titulo titulo="Motivos de perda" sub="Análise, concorrentes e reativação futura"/><div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:"var(--arcd-space-2)"}}>{COM_PERDAS.map(m=>kpi(m,perdidos.filter(l=>l.motivoPerda===m).length,perdidos.some(l=>l.motivoPerda===m)?C.red:C.muted))}</div>{perdidos.map(l=><div key={l.id} style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-2)",marginTop:"var(--arcd-space-1)"}}><div style={{display:"flex",justifyContent:"space-between"}}><div><b style={{fontSize:"var(--arcd-type-label)"}}>{l.nome} · {l.motivoPerda}</b><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Concorrente: {l.concorrente||"-"} · {fmt(l.valorConcorrente)} · reativação {fmtDate(l.reativacaoEm)}</p></div>{l.reativacaoEm&&l.reativacaoEm<=today()&&<Btn size="sm" v="success" onClick={()=>moverLead(l,"novo")}>REATIVAR</Btn>}</div></div>)}{!perdidos.length&&vazio("Nenhuma perda registrada.")}</>;
   } else if(commercialView==="com_relatorios"){
-    conteudo=<><Titulo titulo="Relatórios comerciais" sub="Desempenho por vendedor, origem, receita, conversão e funil" acao={<Btn onClick={exportarRelatorio}>EXPORTAR EXCEL</Btn>}/><div style={{overflowX:"auto",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)"}}><table className="arcd-data-table__table" style={{width:"100%",borderCollapse:"collapse"}}><thead><tr style={{background:"var(--arcd-surface-card)"}}>{["VENDEDOR","LEADS","VENDAS","RECEITA","CONVERSÃO"].map(h=><th key={h} style={{padding:"var(--arcd-space-2)",textAlign:h==="VENDEDOR"?"left":"right"}}>{h}</th>)}</tr></thead><tbody>{vendedores.map(v=><tr key={v.id} style={{borderTop:`var(--arcd-border-width) solid var(--arcd-border-subtle)`}}><td style={{padding:"var(--arcd-space-2)"}}>{v.nome}</td><td style={{padding:"var(--arcd-space-2)",textAlign:"right"}}>{v.leads}</td><td style={{padding:"var(--arcd-space-2)",textAlign:"right"}}>{v.vendas}</td><td style={{padding:"var(--arcd-space-2)",textAlign:"right"}}>{fmt(v.receita)}</td><td style={{padding:"var(--arcd-space-2)",textAlign:"right"}}>{v.conversao.toFixed(1)}%</td></tr>)}</tbody></table></div><div style={{overflowX:"auto",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)"}}><table className="arcd-data-table__table" style={{width:"100%",borderCollapse:"collapse"}}><thead><tr style={{background:"var(--arcd-surface-card)"}}>{["ORIGEM","LEADS","VENDAS","RECEITA"].map(h=><th key={h} style={{padding:"var(--arcd-space-2)",textAlign:h==="ORIGEM"?"left":"right"}}>{h}</th>)}</tr></thead><tbody>{origens.map(o=><tr key={o.origem} style={{borderTop:`var(--arcd-border-width) solid var(--arcd-border-subtle)`}}><td style={{padding:"var(--arcd-space-2)"}}>{o.origem}</td><td style={{padding:"var(--arcd-space-2)",textAlign:"right"}}>{o.leads}</td><td style={{padding:"var(--arcd-space-2)",textAlign:"right"}}>{o.vendas}</td><td style={{padding:"var(--arcd-space-2)",textAlign:"right"}}>{fmt(o.receita)}</td></tr>)}</tbody></table></div></>;
+    conteudo=<>
+      <Titulo titulo="Relatórios comerciais" sub="Desempenho por vendedor, origem, receita, conversão e funil" acao={<Btn onClick={exportarRelatorio}>EXPORTAR EXCEL</Btn>}/>
+      <div className="arcd-data-table arcd-data-table--scroll">
+        <table className="arcd-data-table__table" aria-label="Desempenho por vendedor">
+          <thead><tr>
+            <th scope="col">Vendedor</th>
+            {["Leads","Vendas","Receita","Conversão"].map(label=><th scope="col" data-align="end" key={label}>{label}</th>)}
+          </tr></thead>
+          <tbody>{vendedores.map(v=><tr key={v.id}>
+            <th scope="row">{v.nome}</th><td data-align="end">{v.leads}</td><td data-align="end">{v.vendas}</td>
+            <td data-align="end">{fmt(v.receita)}</td>
+            <td data-align="end">{v.conversao.toLocaleString("pt-BR",{minimumFractionDigits:1,maximumFractionDigits:1})}%</td>
+          </tr>)}</tbody>
+        </table>
+      </div>
+      <div className="arcd-data-table arcd-data-table--scroll">
+        <table className="arcd-data-table__table" aria-label="Desempenho por origem">
+          <thead><tr>
+            <th scope="col">Origem</th>
+            {["Leads","Vendas","Receita"].map(label=><th scope="col" data-align="end" key={label}>{label}</th>)}
+          </tr></thead>
+          <tbody>{origens.map(o=><tr key={o.origem}>
+            <th scope="row">{o.origem}</th><td data-align="end">{o.leads}</td><td data-align="end">{o.vendas}</td>
+            <td data-align="end">{fmt(o.receita)}</td>
+          </tr>)}</tbody>
+        </table>
+      </div>
+    </>;
   }
 
   const showRealEstateHub=view==="com_real_estate";

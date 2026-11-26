@@ -4,7 +4,8 @@ import { cn } from "../../lib/utils";
 import {buttonRole,buttonSize} from '../../design-system/primitives/button-contract.js';
 import '../../design-system/primitives/button-contract.css';
 
-const Button = React.forwardRef(({ className, variant='primary', size='md', loading=false, loadingLabel, disabled=false, asChild = false, children, ...props }, ref) => {
+/** @typedef {React.ButtonHTMLAttributes<HTMLButtonElement> & {variant?:string, size?:string, loading?:boolean, loadingLabel?:React.ReactNode, asChild?:boolean}} ButtonProps */
+const Button = React.forwardRef((/** @type {ButtonProps} */ { className, variant='primary', size='md', loading=false, loadingLabel, disabled=false, asChild = false, children, ...props }, ref) => {
   const Comp = asChild ? Slot : "button";
   return (
     <Comp

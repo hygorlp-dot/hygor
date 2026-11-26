@@ -138,6 +138,27 @@ test("central operacional: contexto, indicadores, situação e tabela", async ({
   expect(pageErrors).toEqual([]);
 });
 
+test("cabeçalho de locações fica rente ao topo da área de rolagem", async ({ page }, info) => {
+  await abrirCentral(page);
+  await page.getByRole("button", { name:"Alterar aparência", exact:true }).click();
+  await page.locator(".theme-menu").getByLabel("Tema", { exact:true }).selectOption("plataforma");
+  await page.keyboard.press("Escape");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "plataforma");
+  await page.getByRole("button", { name:/^Todas/ }).click();
+  await page.getByLabel("Período", { exact:true }).selectOption("tudo");
+
+  const area = page.getByRole("region", { name:"Tabela de locações de equipamentos" });
+  await area.evaluate(element => { element.scrollTop = element.scrollHeight / 2; });
+  const metrics = await area.evaluate(element => ({
+    scroll: element.scrollTop,
+    gap: element.querySelector("thead th").getBoundingClientRect().top
+      - element.getBoundingClientRect().top - element.clientTop,
+  }));
+  expect(metrics.scroll).toBeGreaterThan(100);
+  expect(Math.abs(metrics.gap)).toBeLessThan(1);
+  await area.screenshot({ path:info.outputPath("locacoes-cabecalho-fixo.png") });
+});
+
 for (const [width, height] of [[1440, 900], [1280, 800], [1024, 768]]) {
   test(`layout da central em ${width}px: sem rolagem horizontal e colunas coerentes`, async ({ page }) => {
     // A navegação lateral muda abaixo de 1100px: abre a central em desktop

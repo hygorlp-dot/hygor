@@ -3,6 +3,7 @@
 
 // Planilhas são um recurso pesado e opcional. O pacote só entra na memória
 // quando o usuário realmente importa ou exporta um arquivo.
+/** @type {typeof import("../lib/spreadsheet.js")|null} */
 export let XLSX = null;
 
 export const carregarXLSX = async () => {

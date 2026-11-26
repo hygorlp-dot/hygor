@@ -2,6 +2,7 @@
 import {it,expect,afterAll} from 'vitest';
 import {PGlite} from '@electric-sql/pglite';
 import {mkdirSync,writeFileSync} from 'node:fs';
+import {dirname} from 'node:path';
 import {applyOperationalCommand,OPERATIONAL_COMMAND as OP} from '../src/domains/sync/operational-commands.js';
 import {montarRecebimento} from '../src/domains/compras/receipt.js';
 import {applyReconciliationCommand,RECONCILIATION_COMMAND as RC} from '../server/reconciliation-command.js';
@@ -13,6 +14,8 @@ import {THIRD_PARTY_COMMAND as TP} from '../src/domains/financeiro/third-party-c
 import {applyAttendanceCommand,ATTENDANCE_COMMAND as ATT} from '../server/attendance-command.js';
 import {calculateAttendanceDayCost} from '../src/domains/ponto/payroll.js';
 import {buildPayrollTitles,PAYROLL_CLOSING_COMMAND as PC} from '../src/domains/ponto/payroll-closing.js';
+import {BASELINE_COMMAND,proposeBaselineSnapshot} from '../src/domains/planejamento/approved-baseline.js';
+import {data as planningFixture} from '../scripts/fixtures/spi-data.mjs';
 const now='2026-11-17T15:00:00Z',date='2026-11-17';
 let seq=0;
 const evidence=[];
@@ -37,10 +40,23 @@ it('compra, entrega convertida, nota, pagamento e conciliação persistem sem re
  let ids=0;const receipt=montarRecebimento(data.pedidos[0],{line:2},{quando:date,novoId:()=>`stock-${++ids}`});expect(receipt.ok).toBe(true);
  data=await save('Entrega: 2 SC = 100 KG, sem custo',apply(data,command(OP.PURCHASE_RECEIPT_RECORDED,{pedidoId:'pc',receivedQuantities:receipt.receivedQuantities,stockEntries:receipt.stockEntries},data.pedidos[0].version)));expect(data.movEstoque[0]).toMatchObject({qtd:100,valorUnit:2});finance(data);
  data=await save('Nota: custo reconhecido 20000 centavos',apply(data,command(OP.INVOICE_SAVED,{invoice:{id:'nf',obraId:'a',pedidoId:'pc',fornecedorId:'forn',numero:'QA-1',tipo:'nfe',emissao:date,vencimento:'2026-11-30',valorBruto:200,retencoes:{},rateios:[],documentos:[]}})));finance(data,{cost:20000});
- data=await save('Pagamento: caixa 20000, custo preservado',apply(data,command(OP.PAYABLE_PAYMENT_RECORDED,{targetType:'nota',targetId:'nf',payment:{id:'pay',valor:200,data:date,origem:'empresa'}},data.notasFiscais[0].version)));finance(data,{cost:20000,out:20000});
- data.transacoes.push({id:'bank',valor:-200,data:date,status:'pendente',fitid:'QA-ONLY'});
- const r=applyReconciliationCommand(data,{type:RC.LINK_EXISTING_PAYMENT,payload:{transactionId:'bank',targetType:'nota',targetId:'nf',paymentId:'pay'}},{id:'admin',role:'admin',nome:'QA'});expect(r.resumo.ok).toBe(true);
- data=await save('Conciliação: pagamento original, sem novo custo',r.data);finance(data,{cost:20000,out:20000});expect(applyOperationalCommand(data,c).idempotent).toBe(true);
+ const invoiceVersion=data.notasFiscais[0].version;
+ const payment=(id,valor,version)=>command(OP.PAYABLE_PAYMENT_RECORDED,{targetType:'nota',targetId:'nf',payment:{id,valor,data:date,origem:'empresa'}},version);
+ const first=payment('pay',80,invoiceVersion);
+ data=await save('Pagamento parcial: caixa 8000 e custo preservado',apply(data,first));finance(data,{cost:20000,out:8000});
+ const partial=JSON.stringify(data);
+ expect(applyOperationalCommand(data,payment('pay-restante',120,invoiceVersion)).ok).toBe(false);
+ expect(JSON.stringify(data)).toBe(partial);
+ data=await save('Pagamento complementar após reler a nota',apply(data,payment('pay-restante',120,data.notasFiscais[0].version)));finance(data,{cost:20000,out:20000});
+ expect(applyOperationalCommand(data,first).idempotent).toBe(true);
+ for(const [id,valor,paymentId] of [['bank',-80,'pay'],['bank-restante',-120,'pay-restante']]){
+  data.transacoes.push({id,valor,data:date,status:'pendente',fitid:`QA-${id}`});
+  const r=applyReconciliationCommand(data,{type:RC.LINK_EXISTING_PAYMENT,payload:{transactionId:id,targetType:'nota',targetId:'nf',paymentId}},{id:'admin',role:'admin',nome:'QA'});
+  expect(r.resumo.ok).toBe(true);
+  data=await save('Conciliação: pagamento original, sem novo custo',r.data);finance(data,{cost:20000,out:20000});
+ }
+ expect(data.notasFiscais[0].pagamentos).toHaveLength(2);
+ expect(applyOperationalCommand(data,c).idempotent).toBe(true);
  const before=JSON.stringify(data);expect(applyOperationalCommand(data,command(OP.INVOICE_SAVED,{invoice:{...data.notasFiscais[0],id:'duplicate'}})).ok).toBe(false);expect(JSON.stringify(data)).toBe(before);
 }),30000);
 it('comercial aprova e sincroniza a obra por ID sem criar receita nem alterar a obra',async()=>journey(async save=>{
@@ -67,4 +83,45 @@ it('ponto confirmado alimenta custo; fechamento da folha cria obrigação sem re
  const titles=buildPayrollTitles({rows:[{id:'person',name:'QA Pessoa',gross:day.laborCost,vt:0,vr:0,net:day.totalCost,obrasPorDia:[{obraId:'a',obraName:'QA A',netObra:day.totalCost}]}],closingId:'closing-qa',periodKey:'2026-11-Q1',periodoInicio:'2026-11-06',periodoFim:'2026-11-20',vencimento:'2026-11-20',payerForWork:()=> 'construtora'});
  const c=command(PC.PAYROLL_FORTNIGHT_CLOSED,{periodKey:'2026-11-Q1',closingId:'closing-qa',titles});data=await save('Folha: título de 150, custo permanece 150',apply(data,c));expect(data.titulosFolha[0].liquido).toBe(150);expect(project(data).totalCustos).toBe(150);expect(applyOperationalCommand(data,c).idempotent).toBe(true);
 }),30000);
-afterAll(()=>{mkdirSync('artifacts/roadmap-usabilidade-etapa5',{recursive:true});writeFileSync('artifacts/roadmap-usabilidade-etapa5/sector-checkpoints.json',JSON.stringify({syntheticOnly:true,remoteWrites:0,checkpoints:evidence},null,2));});
+
+it('orçamento de controle chega à medição física e o reenvio mantém avanço, obra e DRE',async()=>journey(async save=>{
+ const plan=structuredClone(planningFixture.planos.find(row=>row.obraId==='a'));
+ const otherWork={...structuredClone(plan),id:'plano-controle',obraId:'b'};
+ let data={...base(),planos:[plan,otherWork],
+  orcamentos:structuredClone(planningFixture.orcamentos.filter(row=>row.obraId==='a')),
+  budgetBaselines:structuredClone(planningFixture.budgetBaselines.filter(row=>row.obraId==='a')),
+ };
+ const proposal=proposeBaselineSnapshot(data,'a');
+ expect(proposal.ok).toBe(true);
+ data=await save('Planejamento: proposta vinculada ao orçamento de controle',apply(data,command(BASELINE_COMMAND.SCHEDULE_BASELINE_PROPOSED,{
+  obraId:'a',id:'planejamento-qa',reason:'Orçamento e calendário conferidos',signature:proposal.signature,
+ })));
+ data=await save('Planejamento: aprovação congela a versão de controle',apply(data,command(BASELINE_COMMAND.SCHEDULE_BASELINE_APPROVED,{obraId:'a',id:'planejamento-qa'},1)));
+ const baseline=structuredClone(data.scheduleBaselines[0]);
+ expect(baseline.snapshot).toMatchObject({budgetId:'budget-a',budgetCents:12000000});
+ const {taskId,budgetCents}=baseline.snapshot.items[0];
+ const item={tarefaId:taskId,pctConfirmado:30,custo:budgetCents/100};
+ const measurement={id:'medicao-fisica-qa',obraId:'a',data:date,itens:[item]};
+ const before=JSON.stringify(data);
+ expect(applyOperationalCommand(data,command(OP.TECHNICAL_MEASUREMENT_CREATED,{measurement:{...measurement,itens:[item,item]}})).ok).toBe(false);
+ expect(JSON.stringify(data)).toBe(before);
+ const register=command(OP.TECHNICAL_MEASUREMENT_CREATED,{measurement});
+ data=await save('Medição física: boletim confirmado altera avanço, sem faturamento',apply(data,register));finance(data);
+ expect(data.medicoesObra).toMatchObject([{id:measurement.id,obraId:'a',avancoFisico:30}]);
+ expect(data.planos[0].tarefas.find(row=>row.id===taskId)).toMatchObject({progresso:30,medicaoTecnicaId:measurement.id});
+ expect(data.planos[1]).toEqual(otherWork);
+ expect(data.scheduleBaselines[0]).toEqual(baseline);
+ const repeated=applyOperationalCommand(data,register);
+ expect(repeated).toMatchObject({ok:true,idempotent:true});
+ expect(repeated.data).toEqual(data);
+ data=await save('Cancelamento: remove avanço projetado e preserva orçamento aprovado',apply(data,command(OP.TECHNICAL_MEASUREMENT_CANCELLED,{measurementId:measurement.id,reason:'Correção da conferência física'},1)));
+ expect(data.planos[0].tarefas.find(row=>row.id===taskId)).toMatchObject({progresso:0,medicaoTecnicaId:''});
+ expect(data.planos[1]).toEqual(otherWork);
+ expect(data.scheduleBaselines[0]).toEqual(baseline);
+ finance(data);
+}),30000);
+afterAll(()=>{
+ const report=process.env.MRC_SECTOR_TEST_REPORT||'artifacts/roadmap-usabilidade-etapa5/sector-checkpoints.json';
+ mkdirSync(dirname(report),{recursive:true});
+ writeFileSync(report,JSON.stringify({syntheticOnly:true,remoteWrites:0,checkpoints:evidence},null,2));
+});

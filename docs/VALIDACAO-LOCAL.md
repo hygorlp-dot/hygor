@@ -1,6 +1,6 @@
 # Validação local do MARCELL
 
-Revisão: 18/11/2026. Este roteiro é para desenvolvimento no checkout local.
+Revisão: 24/11/2026. Este roteiro é para desenvolvimento no checkout local.
 Não publica código, não autoriza acesso de escrita à produção e não substitui
 a validação de implantação. As regras compartilhadas estão em [AGENTS.md](../AGENTS.md).
 
@@ -31,8 +31,8 @@ na configuração revisada; confira essa condição ao modificar esses comandos.
 | Comando | O que verifica | Limite e efeito local |
 | --- | --- | --- |
 | `npm run lint` | Fronteiras financeiras, nomes não declarados, armadilhas de UI, regras de UX, design e manual | Verificações específicas, não um ESLint geral. Não atualizar baselines para liberar desvios. |
-| `npm run architecture:check` | Quatro fronteiras de imports aprovadas em `.dependency-cruiser.cjs` | Não comprova toda a arquitetura ou todos os vínculos de negócio. |
-| `npm run typecheck` | Os dois arquivos do piloto em `tsconfig.quality.json` | Não verifica tipos de todo o JS/JSX. |
+| `npm run architecture:check` | As fronteiras de imports aprovadas em `.dependency-cruiser.cjs` | Não comprova toda a arquitetura ou todos os vínculos de negócio. |
+| `npm run typecheck` | Os módulos do piloto em `tsconfig.quality.json` | A checagem de JavaScript é habilitada por arquivo com `@ts-check`. |
 | `npm run build:local` | Compilação Vite com dependências locais | Executa o Vite diretamente, sem chamar `npm run build`/`prebuild`; gera ou substitui `dist`. Não valida APIs ou migrations. |
 | `npm run manual:check` | Cobertura de abas e sincronização entre ajuda e manual | Já incluído no lint; não substitui revisão humana do texto. |
 

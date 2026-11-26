@@ -1,6 +1,39 @@
 import {expect,test} from "@playwright/test";
 import {selectWorkspaceArea} from './helpers/workspace-navigation.js';
 
+const tokenValue=(element,token,property)=>element.evaluate((node,{name,property})=>{
+  const probe=document.createElement("span");
+  probe.hidden=true;
+  probe.style.setProperty(property,getComputedStyle(node).getPropertyValue(name).trim());
+  node.parentElement.append(probe);
+  const value=getComputedStyle(probe).getPropertyValue(property);
+  probe.remove();
+  return value;
+},{name:token,property});
+const tokenSize=(element,token)=>tokenValue(element,token,"font-size");
+
+test('a área autenticada fica fora da entrada até a sessão ser confirmada',async({page})=>{
+  const operationalRequests=[];
+  page.on('request',request=>{
+    const {pathname}=new URL(request.url());
+    if(/\/assets\/(?:LegacyApp|fi|charts)-[^/]+\.js$|\/recharts\.js$|\/src\/(?:.*LegacyApp\.jsx|(?:domains|features)\/(?:financeiro|dre|conciliacao)\/.+\.[jt]sx?)$/.test(pathname)){
+      operationalRequests.push(pathname);
+    }
+  });
+  await page.route('**/api/data',route=>{
+    const {action}=route.request().postDataJSON()||{};
+    if(action==='profiles')return route.fulfill({json:{precisaSetup:false}});
+    return route.fulfill({status:401,json:{error:'E-mail ou senha inválidos.'}});
+  });
+  await page.goto('/');
+  await page.locator('#login-email').fill('teste@example.test');
+  await page.locator('#login-senha').fill('senha-ficticia');
+  await page.getByRole('button',{name:'Acessar central MARCELL'}).click();
+  await expect(page.getByText('E-mail ou senha inválidos.',{exact:true})).toBeVisible();
+  await page.waitForLoadState('networkidle');
+  expect(operationalRequests).toEqual([]);
+});
+
 test('Ajuda contextual acompanha a tela e oferece manual pesquisável sem alterar registros',async({page})=>{
  const app=await enter(page,'admin');
  const help=page.getByRole('button',{name:'Ajuda',exact:true});
@@ -71,39 +104,56 @@ test("identidade MARCELL carrega as fontes locais e a marca oficial no acesso",a
   expect(await page.evaluate(()=>[...document.fonts].filter(font=>font.family.includes("Inter")&&font.status==="loaded").length)).toBeGreaterThan(0);
   await expect(page.locator("#login-email")).toHaveCSS("font-family",/Inter/);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)).toBe(false);
+  const tools=page.locator(".mrc-draft-tool");
+  const {height}=page.viewportSize();
+  await page.setViewportSize({width:900,height});
+  await expect(tools).toHaveCount(0);
+  await page.setViewportSize({width:901,height});
+  await expect(tools).toHaveCount(4);
+  await page.setViewportSize({width:900,height});
+  await expect(tools).toHaveCount(0);
+  await expect(page.locator("#login-email")).toBeVisible();
 });
 
-test("tema MARCELL migra a aparência e mantém leitura com ampliação",async({page})=>{
-  await page.addInitScript(()=>localStorage.setItem("arcd-theme","architectural"));
+for(const theme of ["marcell","noite"])test(`tema MARCELL mantém leitura com ampliação · ${theme}`,async({page},testInfo)=>{
+  await page.addInitScript(value=>localStorage.setItem("arcd-theme",value),theme==="marcell"?"architectural":theme);
   const app=await enter(page,"admin");
-  await expect(page.locator("html")).toHaveAttribute("data-theme","marcell");
+  await expect(page.locator("html")).toHaveAttribute("data-theme",theme);
   await page.keyboard.press("Control+k");
   const search=page.getByPlaceholder("Buscar obra, lead, pedido, funcionário, tela...");
   await search.fill("Gestão financeira");
   await search.locator("xpath=../..").getByRole("button").filter({hasText:"Gestão financeira"}).click();
   await selectWorkspaceArea(page,'Áreas do financeiro','Visão financeira');
   await expect(page.locator(".financial-summary")).toBeVisible();
-  await expect(page.getByRole('heading',{name:'Financeiro',exact:true})).toHaveCSS("font-size","24px");
+  const title=page.getByRole('heading',{name:'Financeiro',exact:true,level:1});
+  await expect(title).toBeVisible();
+  await expect(title).toHaveCSS("font-family",/Inter/);
+  const normalSize=await tokenSize(title,"--arcd-type-page-title");
   await expect(page.locator(".arcd-main")).toHaveCSS("background-image","none");
   expect(await page.locator(".module-workflow").count()).toBe(0);
   await expect(page.getByRole("combobox",{name:"Ano",exact:true})).toBeVisible();
   await expect(page.getByRole("combobox",{name:"Mês",exact:true})).toBeVisible();
   for(const scale of ["100%","200%"]){
     await page.evaluate(value=>document.documentElement.style.fontSize=value,scale);
+    await expect(title).toHaveCSS("font-size",await tokenSize(title,"--arcd-type-page-title"));
     const layout=await page.evaluate(()=>({overflow:document.documentElement.scrollWidth>innerWidth+1,clipped:[...document.querySelectorAll(".financial-metric dd")].some(e=>e.scrollWidth>e.clientWidth+1)}));
     expect(layout).toEqual({overflow:false,clipped:false});
+    await page.screenshot({path:testInfo.outputPath(`financeiro-${scale}.png`)});
   }
+  expect(parseFloat(await tokenSize(title,"--arcd-type-page-title"))).toBeCloseTo(2*parseFloat(normalSize));
   await page.evaluate(()=>document.documentElement.style.fontSize="100%");
   await page.keyboard.press("Control+k");await search.fill("Folha");
   await search.locator("xpath=../..").getByRole("button").filter({hasText:"Folha"}).first().click();
-  await expect(page.locator(".payroll-summary-strip__net strong")).toHaveCSS("color","rgb(255, 255, 255)");
-  await expect(page.locator(".payroll-summary-strip__net small")).toHaveCSS("color","rgb(217, 221, 226)"); // --arcd-border-default do Preciso
+  const net=page.locator(".payroll-summary-strip__net");
+  await expect(net.locator("strong")).toHaveCSS("color",await tokenValue(net,"--arcd-text-primary","color"));
+  await expect(net.locator("small")).toHaveCSS("color",await tokenValue(net,"--arcd-text-secondary","color"));
   expect(app.errors).toEqual([]);expect(app.financialUnchanged()).toBe(true);
 });
 
 test("tipografia mantém hierarquia em páginas, campos e modais",async({page})=>{
   const app=await enter(page,"admin");
   const touch=page.viewportSize().width<768;
+  const controlSize=touch?"--arcd-type-control-touch":"--arcd-type-control";
   async function open(label){
     await page.keyboard.press("Control+k");
     const search=page.getByPlaceholder("Buscar obra, lead, pedido, funcionário, tela...");
@@ -112,42 +162,54 @@ test("tipografia mantém hierarquia em páginas, campos e modais",async({page})=
     await expect(page.locator(".arcd-page-loading:visible")).toHaveCount(0);
   }
   await open("Compras");
-  await expect(page.getByRole('heading',{name:'Compras',exact:true})).toHaveCSS("font-size","24px");
-  await expect(page.getByRole('heading',{name:'Compras',exact:true})).toHaveCSS("font-weight","600");
+  const purchaseTitle=page.getByRole('heading',{name:'Compras',exact:true});
+  await expect(purchaseTitle).toHaveCSS("font-size",await tokenSize(purchaseTitle,"--arcd-type-page-title"));
+  await expect(purchaseTitle).toHaveCSS("font-weight",await purchaseTitle.evaluate(title=>getComputedStyle(title).getPropertyValue("--arcd-heading-weight").trim()));
   await open("Fornecedores");
   const supplierFields=page.locator("main input:visible");
-  expect(await supplierFields.count()).toBeGreaterThan(0);
+  await expect(supplierFields.first()).toBeVisible();
   for(const field of await supplierFields.all()){
     await expect(field).toHaveCSS("font-family",/Inter/);
-    await expect(field).toHaveCSS("font-size",touch?"16px":"14px");
+    await expect(field).toHaveCSS("font-size",await tokenSize(field,controlSize));
   }
   await open("Obras");
   // Empty portfolio: this existing action emits a notice without saving a record.
   await page.locator('.works-files > summary').click();
   await page.getByRole("button",{name:"Preparar pastas",exact:true}).click();
-  await expect(page.locator(".arcd-toast")).toContainText("Todas as obras já estão com a estrutura documental preparada.");
+  await expect(page.locator(".arcd-toast")).toContainText("Nenhuma obra disponível para preparar pastas.");
   await page.getByRole("button",{name:/Nova obra/}).first().click();
   const dialog=page.getByRole("dialog");
   await expect(dialog).toBeVisible();
-  await expect(dialog.locator("h3")).toHaveCSS("font-size","18px");
-  await expect(dialog.locator("h3")).toHaveCSS("font-weight","500");
+  const dialogTitle=dialog.getByRole("heading",{name:"Nova obra",exact:true});
+  await expect(dialogTitle).toHaveCSS("font-size",await tokenSize(dialogTitle,"--arcd-type-dialog-title"));
   const notice=dialog.locator(".arcd-modal-notice .arcd-toast");
   await expect(notice).toBeVisible();
   await expect(notice).toHaveCSS("position","static");
-  const noticeBounds=await notice.boundingBox(),firstFieldBounds=await dialog.locator("input").first().boundingBox();
-  expect(noticeBounds.y+noticeBounds.height).toBeLessThanOrEqual(firstFieldBounds.y);
+  // Compare both positions in the same frame while the dialog can be animating.
+  const {noticeBottom,firstFieldTop}=await dialog.evaluate(node=>{
+    const notice=node.querySelector(".arcd-modal-notice .arcd-toast");
+    const firstField=node.querySelector("input");
+    return {
+      noticeBottom:notice.getBoundingClientRect().bottom,
+      firstFieldTop:firstField.getBoundingClientRect().top,
+    };
+  });
+  expect(noticeBottom).toBeLessThanOrEqual(firstFieldTop);
 
   for(const field of await dialog.locator('input:not([type="checkbox"]):not([type="radio"]):visible,select:visible,textarea:visible').all()){
     await expect(field).toHaveCSS("font-family",/Inter/);
-    await expect(field).toHaveCSS("font-size",touch?"16px":"14px");
+    await expect(field).toHaveCSS("font-size",await tokenSize(field,controlSize));
   }
   await page.keyboard.press("Escape");
   await open("Folha");
-  await expect(page.locator(".payroll-summary-strip__net small")).toHaveCSS("font-size","13px");
+  const payrollDetail=page.locator(".payroll-summary-strip__net small");
+  await expect(payrollDetail).toHaveCSS("font-size",await tokenSize(payrollDetail,"--arcd-type-caption"));
   await expect(page.locator(".payroll-summary-strip__net strong")).toHaveCSS("font-family",/Inter/);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)).toBe(false);
   await open("Ajustes");
   await page.evaluate(()=>document.documentElement.style.fontSize="200%");
+  const appearance=page.locator('main details:not([open]) > summary').getByText("Aparência",{exact:true});
+  if(await appearance.isVisible())await appearance.click();
   const themeSelect=page.getByRole("combobox",{name:"Tema",exact:true});
   await expect(themeSelect).toBeVisible();
   expect(await themeSelect.evaluate(e=>{const r=e.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth;})).toBe(true);

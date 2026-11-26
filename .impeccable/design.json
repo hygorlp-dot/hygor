@@ -3,6 +3,42 @@
   "generatedAt": "2026-10-23T21:31:09.316940+00:00",
   "title": "Design System: MARCELL",
   "extensions": {
+    "themeVariants": {
+      "plataforma": {
+        "label": "MARCELL Plataforma",
+        "defaultThemeId": "marcell",
+        "sources": [
+          "src/design-system/themes/themeRegistry.js",
+          "src/design-system/themes/plataforma.css",
+          "src/design-system/themes/vidro-erp.css",
+          "src/design-system/themes/box-contract.css"
+        ],
+        "inherits": "preciseTokens, com Inter como fonte operacional",
+        "tokens": {
+          "--arcd-font-sans": "Inter, Geist, IBM Plex Sans, Helvetica Neue, Arial, sans-serif",
+          "--arcd-page-padding": "var(--arcd-space-4)",
+          "--arcd-page-padding-mobile": "var(--arcd-space-3)",
+          "--arcd-surface-page": "#e5e9ee",
+          "--arcd-surface-card": "rgb(248 250 252 / 86%)",
+          "--arcd-nav-surface": "#222f40",
+          "--arcd-nav-active-surface": "#344153",
+          "--arcd-text-primary": "#0d1b2e",
+          "--arcd-radius-control": ".5rem",
+          "--arcd-radius-lg": "1rem",
+          "--plataforma-grid": "rgb(13 27 46 / 4%)",
+          "--plataforma-light": "rgb(185 152 91 / 10%)",
+          "--vidro-fundo": "linear-gradient(135deg, rgb(248 250 252 / 76%), rgb(248 250 252 / 62%))",
+          "--vidro-borda": "rgb(255 255 255 / 88%)",
+          "--vidro-sombra": "0 16px 32px -24px rgb(13 27 46 / 24%), inset 0 1px 0 rgb(255 255 255 / 90%)"
+        },
+        "gridSize": "40px 40px",
+        "watermark": "/brand/marcell/emblem-marca-dagua-clara.svg",
+        "layout": "Cabeçalho afastado pela escala compartilhada; lateral afastada e arredondada a partir de 1100px; margem menor no celular até 767px.",
+        "fallback": "--vidro-fundo usa var(--arcd-surface-elevated) sem suporte a backdrop-filter ou com prefers-reduced-transparency: reduce.",
+        "preserved": "Impressão clara, Modo TV, composição, controles, densidade, dados e permissões existentes.",
+        "scope": "Opção de aparência inspirada na referência aprovada; não reproduz a composição da imagem."
+      }
+    },
     "colorMeta": {
       "navy": {
         "role": "primary",

@@ -1,13 +1,13 @@
+import { authorizeFinancialCommand, authorizeOperationalCommand } from "../server/command-role-policy.js";
 import { canGenerateMissingDre, missingDrePlan, buildMissingDreRows } from "../server/missing-dre-projections.js";
 import {currentCompany, withCompanyContext, isolationEnabled, COMPANIES, runWithCompany, assertCompanyReady} from '../server/company-context.js';
 import {runCompanyBackupCron} from '../server/company-backup-cron.js';
 import {parseCompanyFileReference} from '../src/domains/arquivos/company-file-reference.js';
 import {resolvePublishedCompanyFile} from '../server/company-files.js';
 import {verifiedFileTrashCommand} from '../server/work-file-trash.js';
-import {RECORD_COMMANDS} from '../src/domains/comercial/contracts/record-commands.js';
 import contractSourceModel from '../src/domains/comercial/contracts/administration-template.json' with {type:'json'};
 import {ACCOUNTING_COMMAND_TYPES,validateAccountingSnapshotPolicy} from '../src/domains/financeiro/accounting-indicators.js';
-import {BASELINE_COMMAND,BASELINE_COMMAND_TYPES} from '../src/domains/planejamento/approved-baseline.js';
+import {BASELINE_COMMAND_TYPES} from '../src/domains/planejamento/approved-baseline.js';
 import {quoteLinkKey,issueQuoteLink,verifyQuoteLink,quoteLinkAccess,publicQuoteView} from "../server/supplier-quote-link.js";
 import {storeSupplierResponse} from "../src/domains/compras/supplier-quote-response.js";
 import { reconcileImportedStatement } from "../server/reconciliation-after-import.js";
@@ -40,27 +40,28 @@ import { comSql } from "../server/pg-conexao.js";
 import { mesmoCarimboExato } from "../server/row-version.js";
 import { anexarCronometro, criarCronometro } from "../server/server-timing.js";
 import { criarValidadorDeToken } from "../server/token-auth.js";
-import { compactProfiles, decodeAppData, encodeAppData, isEncodedAppData, profileIndexOutdated } from "../server/data-codec.js";
+import { createCompanyWorkspaceLoader } from "../server/load-company-workspace.js";
+import { compactProfiles, decodeAppData, encodeAppData } from "../server/data-codec.js";
 import { normalizeArchivedCosts, summarizeArchivedCosts } from "../server/archived-costs.js";
-import { archivedLaborKeys, rebuildArchivedLaborCosts } from "../server/financial-archived-costs-source.js";
+import { createArchivedLaborReader } from "../server/financial-archived-costs-reader.js";
+import { createAttendanceArchivePersistence } from "../server/attendance-archive-persistence.js";
+import { createAttendanceArchiveReader } from "../server/attendance-archive-reader.js";
+import { createPersistenceHealthCheck } from "../server/persistence-health.js";
+import { createFinancialShadowReport } from "../server/financial-shadow-report.js";
 import { restorationRecord, restoreArchivedAttendance } from "../server/archived-restoration.js";
-import { getLaborProjectionAccess, prepareLaborProjectionSource, sanitizeLaborProjectionReport, validateLaborProjectionFilters } from "../server/labor-projection.js";
-import { buildLaborProjection } from "../src/domains/ponto/labor-projection.js";
-import { buildLaborProjectionCash } from "../src/domains/ponto/labor-projection-cash.js";
-import { validatePurchaseChanges } from "../server/permission-policies.js";
+import { handleLaborProjectionReport } from "../server/labor-projection-report.js";
+import { validatePurchaseChanges, validarAlteracoesConferencias, validarExclusaoObras } from "../server/permission-policies.js";
 import { podeAcessarAba } from "../src/domains/administracao/abas-acesso.js";
-import { compactAuditSnapshots, expandSectionDelta } from "../src/domains/sync/section-delta.js";
+import { compactAuditSnapshots } from "../src/domains/sync/section-delta.js";
 import { validateProcurementChain } from "../server/procurement-chain-policy.js";
-import { backupKeyFromEnv, createBackupBundle, verifyBackupBundle } from "../server/backup.js";
 import { projectDataForUser, publicUser } from "../server/data-projection.js";
 import { findSectionConflicts } from "../server/three-way-conflicts.js";
+import { legacySaveAuditAction, legacySaveResponder, prepareBlobSave, prepareSectionSave, sameSaveInstant } from "../server/legacy-save-contract.js";
+import { retryLegacySave } from "../server/legacy-save-retry.js";
+import { legacySaveOperation, lockLegacySaveReceipt, readLegacySaveReceipt, recordLegacySaveReceipt } from "../server/legacy-save-receipts.js";
 import { mergeThreeWay } from "../server/three-way-merge.js";
 import { authorizeSectionChanges, validateTechnicalRetentionPolicy, validateBankReconciliationPolicy, validateBudgetBaselinePolicy, validateNoPhysicalDeletes, validatePlanningBaselinePolicy } from "../server/section-authorizations.js";
-import { buildLegacyFinancialFacts, compareDreProjectionRows, compareFinancialScopes, summarizeCanonicalFinancialRows, summarizeLegacyFinancialFacts } from "../server/financial-shadow.js";
-import { auditCanonicalFinancialIntegrity } from "../server/financial-integrity.js";
-import { compareLegacyBankTransactions } from "../server/financial-bank-shadow.js";
-import { findStaleFinancialLegacyLinks } from "../server/financial-legacy-link-integrity.js";
-import { compareProcurementDreRecognition } from "../server/procurement-financial-facts.js";
+import { buildLegacyFinancialFacts } from "../server/financial-shadow.js";
 import { buildAccumulatedWorkCosts, buildRequestedDreProjectionRows, dreSourceRevision } from "../server/dre-projection.js";
 import { readAnnualLayout, saveAnnualLayout } from "../src/domains/dre/annual-statement.js";
 import { applyReconciliationCommand, RECONCILIATION_COMMAND } from "../server/reconciliation-command.js";
@@ -72,23 +73,26 @@ import { buildIntegratedDreManagement, canonicalDreEvents, loadCanonicalDre, val
 import { monthlyClosingPeriodFromCommand, prepareMonthlyFinancialClosing, previewMonthlyFinancialClosing } from "../server/financial-closing.js";
 import { closedCompanyDreBySourceId, closedCompanyDreEntries, closedCompanyDreFor, overlayClosedCompanyDreYear } from "../server/financial-closing-read.js";
 import {
-  closedCompetenceForDate,
   validateClosedCompanyDreMutation,
   validateClosedRepresentationPreservation,
 } from "../server/closed-dre-mutation-guard.js";
+import { validarPontoEmCompetenciaAberta, validarConciliacaoEmCompetenciaAberta } from "../server/closed-dre-command-period.js";
 import { projectChangedSectionsPatch } from "../server/section-patch.js";
-import { ENGINEERING_COMMAND_TYPES, ENGINEERING_ROLES } from "../src/domains/projetos/commands.js";
-import { FILE_COMMAND_TYPES, FILE_ROLES } from "../src/domains/arquivos/commands.js";
+import { ENGINEERING_COMMAND_TYPES } from "../src/domains/projetos/commands.js";
+import { FILE_COMMAND_TYPES } from "../src/domains/arquivos/commands.js";
 import { DOSSIER_COMMAND_TYPES } from '../src/domains/licenciamento/dossier.js';
 import { applyOperationalCommand, OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
 import { validateOperationalCommandScope, operationalIdempotencyKey } from "../server/operational-command-policy.js";
+import { buildOperationalCommandAudit } from "../server/operational-command-audit.js";
+import { createCompanyDataReader } from "../server/company-data-reader.js";
+import { createCompanyProfileIndex } from "../server/company-profile-index.js";
+import { createCompanyBackup } from "../server/company-backup.js";
 import {
   avaliarAcessoAceite, chaveLinkAceite, comandoAceitePorLink, gerarTokenAceite, linkAceiteDisponivel,
   podeGerarLinkAceite, verificarTokenAceite, visaoPublicaPedido,
 } from "../server/supplier-acceptance-link.js";
-import { RENTAL_COMMAND_ROLES } from "../src/domains/equipamentos/rental-command-roles.js";
 import {
-  requiresFinancialOperationalPersistence,
+  FINANCIAL_OPERATIONAL_COMMANDS, legacyFinancialFactsChanged, requiresFinancialOperationalPersistence,
 } from "../server/operational-command-persistence.js";
 import {
   coreFieldsOnly, DOMAIN_ROW, domainForField, mergeDomainRows, pickDomainFields, rowForAttendanceCommand,
@@ -99,31 +103,20 @@ import { readFreshAttendance, readReviewEvents, readSyncEvents } from "../server
 import { planBiometricSync, validSyncRange, biometricSyncPreview } from '../server/attendance-biometric-sync.js';
 import { applyAttendanceCommand, ATTENDANCE_COMMAND, validateAttendanceCertificate } from "../server/attendance-command.js";
 import {handleRhDocuments} from "../server/rh-documents.js";
+import {canAccessCompanyAttendanceArchive,canManageCompanyPayroll} from "../src/domains/ponto/permissions.js";
 import {enrichAttendanceWithAutomaticAllocation} from '../server/attendance-auto-allocation.js';
 import {
   applyEntriesToAttendance, attendanceObraKeyPrefix,
   groupAttendanceEntriesByObra, groupObraDeparturesByBucket, mergeAttendanceObjects,
   obraBucketFromKey, tombstoneAttendanceEntries, withAttendanceSyncedAt,
 } from "../server/attendance-obra-routing.js";
-import {
-  CORE_REGISTRY_TABLES, summarizeCoreRegistryShadowStatus,
-} from "../server/core-registry-shadow-status.js";
-import {
-  EQUIPMENT_REGISTRY_TABLES, summarizeEquipmentRegistryShadowStatus,
-} from "../server/equipment-registry-shadow-status.js";
-import {
-  PROCUREMENT_REGISTRY_TABLES, summarizeProcurementRegistryShadowStatus,
-} from "../server/procurement-registry-shadow-status.js";
-import {
-  ATTENDANCE_REGISTRY_TABLES, summarizeAttendanceRegistryShadowStatus,
-} from "../server/attendance-registry-shadow-status.js";
-import { buildPurchaseRequestLiveRow } from "../server/purchase-request-live-write.js";
-import { buildPurchaseOrderLiveRow, buildQuotationLiveRow } from "../server/purchase-quote-order-live-write.js";
-import { financialActivationEvidenceGate, financialPersistenceMode, hasLegacyFinancialWrite, validateFinancialWritePath, validateProjectFinancialSnapshotPolicy } from "../server/financial-write-policy.js";
-import { getOrCreateFolder, graph, refresh, rootItem } from "../server/microsoft/graph.js";
+import { handleRegistryShadowReport, isRegistryShadowReport } from "../server/registry-shadow-report.js";
+import { createProcurementLiveSync } from "../server/procurement-live-sync.js";
+import { handlePurchaseRequestsReport, handlePurchaseRequestTestCleanup } from "../server/purchase-request-admin.js";
+import { financialPersistenceMode, hasLegacyFinancialWrite, validateFinancialWritePath, validateProjectFinancialSnapshotPolicy } from "../server/financial-write-policy.js";
 import { executeClientPortalAdmin } from "../server/client-portal-admin.js";
-import { applyPersistentAuthRateLimit, hashAppPin, verifyAppPin } from "../server/app-auth-security.js";
-import { buildClientPortalPublicationRows } from "../server/client-portal-publication.js";
+import { createAppAuthRateLimiter, hashAppPin, verifyAppPin } from "../server/app-auth-security.js";
+import { readLegacyClientPortal } from "../server/legacy-client-portal.js";
 import { sanitizeClientError, sanitizeServerError } from "../server/client-error-report.js";
 import { assuntoLimitePinUsuario, normalizarIdentificador, resolverUsuarioPorIdentificador, respostaPerfisPublica } from "../server/login-identity.js";
 import { authenticateAppUser } from "../server/app-auth.js";
@@ -134,8 +127,7 @@ import dgram from "node:dgram";
 const URL     = process.env.SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;   // sem REACT_APP_ — server-side
 const KEY     = "arced_ponto_v1";
-const PROFILE_KEY = "arced_auth_profiles_v1";
-// Linhas separadas na MESMA tabela (mesmo padrão de PROFILE_KEY e do arquivo
+// Linhas separadas na MESMA tabela (mesmo padrão do índice de perfis e do arquivo
 // de ponto por quinzena, "${KEY}__arq__<id>") - eliminam a contenção de
 // escrita entre domínios que hoje disputam a mesma linha (achado de
 // 20/08/2026, ver server/domain-row-routing.js para a classificação
@@ -185,7 +177,7 @@ const keyForDomain = domain => SPLIT_ROW_KEYS[domain] || KEY;
 // migra sozinha para ela - sem exigir nenhuma ordem de deploy específica.
 const linhaEfetivaParaEscrita = (domain, rowVersions) =>
   (domain!==DOMAIN_ROW.CORE && rowVersions[domain]==null) ? DOMAIN_ROW.CORE : domain;
-const DRE_PROJECTION_VERSION = "2026-11-folha-desconto-atraso-v14";
+const DRE_PROJECTION_VERSION = "2026-11-conciliacao-locacoes-v15";
 const OPERATIONAL_RESPONSE_EXCLUDED_SECTIONS = [
   "operationalCommandReceipts",
   "changeLog",
@@ -193,250 +185,8 @@ const OPERATIONAL_RESPONSE_EXCLUDED_SECTIONS = [
 // Ativação somente após executar a migração canônica e concluir a comparação
 // em sombra. Evita quebrar instalações legadas durante a transição.
 const FINANCIAL_ENGINE_ENFORCE = process.env.FINANCIAL_ENGINE_ENFORCE === "true";
-export const FINANCIAL_COMMANDS = new Set(["CREATE_FINANCIAL_TITLE","REGISTER_SETTLEMENT","REVERSE_SETTLEMENT","CLOSE_ACCOUNTING_PERIOD"]);
-export const FINANCIAL_COMMAND_ROLES = {
-  CREATE_FINANCIAL_TITLE:["admin","financeiro"], REGISTER_SETTLEMENT:["admin","financeiro"],
-  REVERSE_SETTLEMENT:["admin","financeiro"], CLOSE_ACCOUNTING_PERIOD:["admin"],
-};
-// Mesmo padrão de authorizeOperationalCommand, para o motor financeiro
-// canônico (rota "financial-command").
-export const authorizeFinancialCommand = (commandType, role) => {
-  if (!FINANCIAL_COMMANDS.has(commandType)) return { ok:false, status:400, error:"Comando financeiro inválido." };
-  if (!FINANCIAL_COMMAND_ROLES[commandType].includes(role)) return { ok:false, status:403, error:"Seu perfil não pode executar este comando financeiro." };
-  return { ok:true };
-};
 const RECONCILIATION_COMMANDS=new Set(Object.values(RECONCILIATION_COMMAND));
 const ATTENDANCE_COMMANDS=new Set(Object.values(ATTENDANCE_COMMAND));
-export const OPERATIONAL_COMMAND_ROLES = {
-  [RECORD_COMMANDS.SAVE]:['admin','comercial'],
-  [RECORD_COMMANDS.REVIEW]:['admin','comercial'],
-  [RECORD_COMMANDS.LINK_WORK]:['admin','comercial'],
-  [RECORD_COMMANDS.REVISE]:['admin','comercial'],
-  [RECORD_COMMANDS.DECIDE]:['admin'],
-  [RECORD_COMMANDS.STATE]:['admin'],
-  [RECORD_COMMANDS.COMPANY]:['admin'],
-  ...Object.fromEntries([...ACCOUNTING_COMMAND_TYPES].map(type=>[type,['admin','financeiro']])),
-  [BASELINE_COMMAND.SCHEDULE_BASELINE_PROPOSED]:['admin','diretoria','engenheiro','engenheiro_auditor','planejamento'],
-  [BASELINE_COMMAND.SCHEDULE_BASELINE_APPROVED]:['admin','diretoria'],
-  [OPERATIONAL_COMMAND.CLOSING_SOURCE_CORRECTED]:['admin','financeiro'],
-  ...Object.fromEntries([...ENGINEERING_COMMAND_TYPES].map(type=>[type,ENGINEERING_ROLES])),
-  ...Object.fromEntries([...FILE_COMMAND_TYPES].map(type=>[type,FILE_ROLES])),
-  ...Object.fromEntries([...DOSSIER_COMMAND_TYPES].map(type=>[type,['admin','engenheiro']])),
-  [OPERATIONAL_COMMAND.COST_ALLOCATION_SAVED]:['admin','financeiro'],
-  [OPERATIONAL_COMMAND.COST_FORECAST_SAVED]:['admin','financeiro'],
-  [OPERATIONAL_COMMAND.SERVICE_COMMITMENT_LINK_SAVED]:['admin','financeiro'],
-  [OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED]:["admin","engenheiro","engenheiro_auditor"],
-  [OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CANCELLED]:["admin","engenheiro","engenheiro_auditor"],
-  [OPERATIONAL_COMMAND.FIELD_REPORT_CHANGED]:["admin","engenheiro","engenheiro_auditor"],
-  [OPERATIONAL_COMMAND.FIELD_REPORT_CANCELLED]:["admin","engenheiro","engenheiro_auditor"],
-  [OPERATIONAL_COMMAND.FIELD_REPORT_REOPENED]:["admin"],
-  [OPERATIONAL_COMMAND.PROGRESS_RECORD_SAVED]:["admin","engenheiro","engenheiro_auditor","planejamento","mestre"],
-  [OPERATIONAL_COMMAND.PROGRESS_RECORD_CANCELLED]:["admin","engenheiro","engenheiro_auditor","planejamento","mestre"],
-  [OPERATIONAL_COMMAND.WEEKLY_COMMITMENT_COMPLETED]:["admin","engenheiro","engenheiro_auditor","planejamento","mestre"],
-  [OPERATIONAL_COMMAND.WEEKLY_COMMITMENT_CREATED]:["admin","engenheiro","engenheiro_auditor","planejamento","mestre"],
-  [OPERATIONAL_COMMAND.WEEKLY_COMMITMENT_RELEASED]:["admin","engenheiro","engenheiro_auditor","planejamento","mestre"],
-  [OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED]:["admin","compras","financeiro","engenheiro","engenheiro_auditor"],
-  [OPERATIONAL_COMMAND.MANUAL_RECEIPT_CREATED]:["admin","financeiro"],
-  [OPERATIONAL_COMMAND.MANUAL_RECEIPT_REVERSED]:["admin","financeiro"],
-  [OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_SAVED]:["admin","financeiro"],
-  [OPERATIONAL_COMMAND.CLIENT_MEASUREMENTS_GENERATED]:["admin","financeiro"],
-  [OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_CANCELLED]:["admin","financeiro"],
-  [OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_RECEIPTS_CHANGED]:["admin","financeiro"],
-  [OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_ADMIN_CLOSED]:["admin","financeiro"],
-  [OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_BILLED]:["admin","financeiro","engenheiro","engenheiro_auditor"],
-  [OPERATIONAL_COMMAND.COMMERCIAL_CONTRACT_ACTIVATED]:["admin","comercial"],
-  [OPERATIONAL_COMMAND.PROJECT_EXPENSE_CREATED]:["admin","financeiro"],
-  [OPERATIONAL_COMMAND.PROJECT_EXPENSE_CANCELLED]:["admin","financeiro"],
-  [OPERATIONAL_COMMAND.COMPANY_EXPENSE_SAVED]:["admin","financeiro"],
-  [OPERATIONAL_COMMAND.COMPANY_EXPENSE_CANCELLED]:["admin","financeiro"],
-  [OPERATIONAL_COMMAND.COMPANY_RECURRING_EXPENSES_REPLICATED]:["admin","financeiro"],
-  [OPERATIONAL_COMMAND.WORK_CASH_MOVEMENT_CREATED]:["admin","financeiro"],
-  [OPERATIONAL_COMMAND.WORK_CASH_MOVEMENT_CANCELLED]:["admin","financeiro"],
-  [OPERATIONAL_COMMAND.ORDER_PAYMENT_ALLOCATED]:["admin","financeiro","compras"],
-  [OPERATIONAL_COMMAND.PAYABLE_PAYMENT_RECORDED]:["admin","financeiro","compras"],
-  [OPERATIONAL_COMMAND.PURCHASE_PAYMENT_RECLASSIFIED]:["admin","financeiro","compras"],
-  [OPERATIONAL_COMMAND.PAYABLE_PAYMENT_REVERSED]:["admin","financeiro","compras"],
-  [OPERATIONAL_COMMAND.PURCHASE_CANCELLED]:["admin","financeiro","compras"],
-  [OPERATIONAL_COMMAND.BANK_TRANSACTIONS_IMPORTED]:["admin","financeiro"],
-  [OPERATIONAL_COMMAND.BANK_STATEMENT_ACCOUNT_LINKED]:["admin"],
-  [OPERATIONAL_COMMAND.BANK_IMPORT_REVERSED]:['admin'],
-  [OPERATIONAL_COMMAND.BANK_TRANSACTIONS_IGNORED]:["admin","financeiro"],
-  [OPERATIONAL_COMMAND.BANK_TRANSACTIONS_REOPENED]:["admin","financeiro"],
-  [OPERATIONAL_COMMAND.THIRD_PARTY_PAYMENT_RECORDED]:["admin","financeiro"],
-  [OPERATIONAL_COMMAND.THIRD_PARTY_PAYMENT_REVERSED]:["admin","financeiro"],
-  [OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_RECORDED]:["admin","engenheiro","engenheiro_auditor"],
-  [OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_CANCELLED]:["admin","engenheiro","engenheiro_auditor"],
-  [OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_PAID]:["admin","financeiro"],
-  ...Object.fromEntries(["THIRD_PARTY_RETENTION_SAVED","THIRD_PARTY_RETENTION_RELEASED","THIRD_PARTY_RETENTION_PAID"].map(key=>[OPERATIONAL_COMMAND[key],["admin","financeiro"]])),
-  [OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_APPROVED]:["admin","financeiro"],
-  [OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_REJECTED]:["admin","financeiro"],
-  [OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_RESUBMITTED]:["admin","engenheiro","engenheiro_auditor"],
-  [OPERATIONAL_COMMAND.THIRD_PARTY_INVOICE_LINKED]:["admin","financeiro"],
-  [OPERATIONAL_COMMAND.THIRD_PARTY_CONTRACT_STAGES_SAVED]:["admin","engenheiro","engenheiro_auditor"],
-  [OPERATIONAL_COMMAND.INVOICE_SAVED]:["admin","financeiro"],
-  [OPERATIONAL_COMMAND.INVOICE_APPROVED]:["admin","financeiro"],
-  [OPERATIONAL_COMMAND.INVOICE_REJECTED]:["admin","financeiro"],
-  [OPERATIONAL_COMMAND.PURCHASE_ORDER_SAVED]:["admin","compras"],
-  // Qualquer perfil que possa ser aprovador; quem decide é o motor, que só
-  // aceita o usuário autenticado se ele estiver entre os elegíveis da etapa.
-  [OPERATIONAL_COMMAND.APPROVAL_DECISION_RECORDED]:["admin","compras","financeiro","engenheiro","engenheiro_auditor","rh","diretoria"],
-  [OPERATIONAL_COMMAND.PURCHASE_REQUEST_SAVED]:["admin","compras","engenheiro","engenheiro_auditor"],
-  [OPERATIONAL_COMMAND.PURCHASE_REQUEST_CANCELLED]:["admin","compras","engenheiro","engenheiro_auditor"],
-  // Mesmos perfis que a tela libera (canManagePurchases) para assumir a solicitação.
-  [OPERATIONAL_COMMAND.PURCHASE_REQUEST_ANALYSIS_STARTED]:["admin","compras","financeiro"],
-  [OPERATIONAL_COMMAND.PURCHASE_REQUEST_SUPPLIER_CONTACTED]:["admin","compras","engenheiro","engenheiro_auditor"],
-  [OPERATIONAL_COMMAND.SUPPLIER_SAVED]:["admin","compras","financeiro"],
-  [OPERATIONAL_COMMAND.SUPPLY_CONTRACT_SAVED]:["admin","compras"],
-  [OPERATIONAL_COMMAND.SUPPLY_CONTRACT_CLOSED]:["admin","compras"],
-  [OPERATIONAL_COMMAND.MATERIAL_SAVED]:["admin","compras","engenheiro","engenheiro_auditor"],
-  [OPERATIONAL_COMMAND.PURCHASE_ORDER_CREATED_FROM_QUOTE]:["admin","compras"],
-  [OPERATIONAL_COMMAND.QUOTE_SUPPLIER_RESPONSE_REVIEWED]:["admin","compras"],
-  [OPERATIONAL_COMMAND.QUOTE_SUPPLIER_DISPATCH_RECORDED]:["admin","compras"],
-  [OPERATIONAL_COMMAND.QUOTE_SUPPLIER_DISPATCH_UPDATED]:["admin","compras"],
-  [OPERATIONAL_COMMAND.QUOTE_MAP_DECIDED]:["admin","compras"],
-  [OPERATIONAL_COMMAND.PURCHASE_ORDER_DOCUMENT_ATTACHED]:["admin","compras"],
-  [OPERATIONAL_COMMAND.PURCHASE_ORDER_SENT_TO_SUPPLIER]:["admin","compras"],
-  [OPERATIONAL_COMMAND.PURCHASE_ORDER_SUPPLIER_ACCEPTED]:["admin","compras"],
-  [OPERATIONAL_COMMAND.PURCHASE_QUOTE_CANCELLED]:["admin","compras"],
-  [OPERATIONAL_COMMAND.QUOTATION_SAVED]:["admin","compras"],
-  [OPERATIONAL_COMMAND.PURCHASE_QUOTE_DOCUMENT_ATTACHED]:["admin","compras"],
-  [OPERATIONAL_COMMAND.PAYROLL_RESCISSION_CREATED]:["admin","rh"],
-  [OPERATIONAL_COMMAND.PAYROLL_RESCISSION_CANCELLED]:["admin","rh"],
-  [OPERATIONAL_COMMAND.EMPLOYEE_SAVED]:["admin","rh"],
-  [OPERATIONAL_COMMAND.EMPLOYEE_PAY_MODE_SET]:["admin","rh"],
-  [OPERATIONAL_COMMAND.PAYROLL_ADVANCE_CREATED]:["admin","rh"],
-  [OPERATIONAL_COMMAND.PAYROLL_ADVANCE_CANCELLED]:["admin","rh"],
-  [OPERATIONAL_COMMAND.PAYROLL_FORTNIGHT_CLOSED]:["admin","rh"],
-  [OPERATIONAL_COMMAND.PAYROLL_FORTNIGHT_REOPENED]:["admin","rh"],
-  // Aditivo muda a receita do contrato: registra quem cuida do contrato;
-  // registrar a decisão do cliente é do administrador.
-  [OPERATIONAL_COMMAND.CONTRACT_AMENDMENT_SAVED]:["admin","engenheiro","financeiro"],
-  [OPERATIONAL_COMMAND.CONTRACT_AMENDMENT_DECIDED]:["admin"],
-  [OPERATIONAL_COMMAND.CONTRACT_AMENDMENT_CANCELLED]:["admin","financeiro"],
-  [OPERATIONAL_COMMAND.COMPANY_CONFIG_SAVED]:["admin"],
-  [OPERATIONAL_COMMAND.PROJECT_SAVED]:["admin"],
-  [OPERATIONAL_COMMAND.PROJECT_DELETED]:["admin"],
-  [OPERATIONAL_COMMAND.PROJECT_PHASES_SAVED]:["admin"],
-  [OPERATIONAL_COMMAND.LICENSE_CHECKLIST_SAVED]:["admin","engenheiro"],
-  [OPERATIONAL_COMMAND.CONDOMINIUM_SAVED]:["admin","engenheiro"],
-  [OPERATIONAL_COMMAND.MATERIAL_MOVEMENT_RECORDED]:["admin","compras","engenheiro","engenheiro_auditor","mestre"],
-  [OPERATIONAL_COMMAND.SERVICE_EXECUTION_RECORDED]:["admin","compras","engenheiro","engenheiro_auditor","mestre"],
-  [OPERATIONAL_COMMAND.MATERIAL_MOVEMENT_REVERSED]:["admin","compras","engenheiro","engenheiro_auditor"],
-  [OPERATIONAL_COMMAND.COMPOSITION_SAVED]:["admin","compras","engenheiro","engenheiro_auditor"],
-  [OPERATIONAL_COMMAND.COMPOSITION_DELETED]:["admin","compras","engenheiro","engenheiro_auditor"],
-  [OPERATIONAL_COMMAND.CONFERENCE_CREATED]:["admin","engenheiro_auditor"],
-  [OPERATIONAL_COMMAND.CONFERENCE_CANCELLED]:["admin","engenheiro_auditor"],
-  [OPERATIONAL_COMMAND.CONFERENCE_METADATA_UPDATED]:["admin","engenheiro_auditor"],
-  [OPERATIONAL_COMMAND.CONFERENCE_COMPLETED]:["admin","engenheiro_auditor"],
-  [OPERATIONAL_COMMAND.CONFERENCE_REOPENED]:["admin","engenheiro_auditor"],
-  [OPERATIONAL_COMMAND.CONFERENCE_FINDING_SAVED]:["admin","engenheiro_auditor"],
-  [OPERATIONAL_COMMAND.CONFERENCE_FINDING_CANCELLED]:["admin","engenheiro_auditor"],
-  [OPERATIONAL_COMMAND.CONFERENCE_FINDING_EVIDENCE_ADDED]:["admin","engenheiro_auditor","engenheiro"],
-  [OPERATIONAL_COMMAND.CONFERENCE_FINDING_VALIDATED]:["admin","engenheiro_auditor"],
-  [OPERATIONAL_COMMAND.QUALITY_PLAN_GENERATED]:["admin","engenheiro","engenheiro_auditor","qualidade"],
-  [OPERATIONAL_COMMAND.QUALITY_ITEM_INSPECTED]:["admin","engenheiro","engenheiro_auditor","qualidade"],
-  [OPERATIONAL_COMMAND.QUALITY_NONCONFORMITY_RESOLVED]:["admin","engenheiro","qualidade"],
-  [OPERATIONAL_COMMAND.QUALITY_RECORD_RELEASED]:["admin","engenheiro","engenheiro_auditor","qualidade"],
-  [OPERATIONAL_COMMAND.QUALITY_RECORD_DETAILS_UPDATED]:["admin","engenheiro","engenheiro_auditor","qualidade"],
-  [OPERATIONAL_COMMAND.SAFETY_RISK_ANALYSIS_SAVED]:["admin","engenheiro","seguranca"],
-  [OPERATIONAL_COMMAND.SAFETY_WORK_PERMIT_SAVED]:["admin","engenheiro","seguranca"],
-  [OPERATIONAL_COMMAND.LOOKAHEAD_CREATED]:["admin","engenheiro","engenheiro_auditor","planejamento","mestre"],
-  [OPERATIONAL_COMMAND.LOOKAHEAD_CONSTRAINT_ADDED]:["admin","engenheiro","engenheiro_auditor","planejamento","mestre","qualidade","seguranca"],
-  [OPERATIONAL_COMMAND.LOOKAHEAD_CONSTRAINT_RELEASED]:["admin","engenheiro","engenheiro_auditor","planejamento","mestre","qualidade","seguranca"],
-  [OPERATIONAL_COMMAND.LOOKAHEAD_PACKAGE_COMMITTED]:["admin","engenheiro","engenheiro_auditor","planejamento","mestre"],
-  [OPERATIONAL_COMMAND.EQUIPMENT_REGISTRY_MIGRATED]:["admin"],
-  [OPERATIONAL_COMMAND.EQUIPMENT_REGISTRY_CLASSIFIED]:["admin"],
-  [OPERATIONAL_COMMAND.EQUIPMENT_SAVED]:["admin","engenheiro","engenheiro_auditor","compras","financeiro"],
-  [OPERATIONAL_COMMAND.ASSET_SAVED]:["admin","financeiro","compras"],
-  [OPERATIONAL_COMMAND.ASSETS_IMPORTED]:["admin","financeiro","compras"],
-  [OPERATIONAL_COMMAND.ASSET_MOVED]:["admin","financeiro","compras"],
-  [OPERATIONAL_COMMAND.ASSET_STATUS_CHANGED]:["admin","financeiro","compras"],
-  [OPERATIONAL_COMMAND.EQUIPMENT_DEACTIVATED]:["admin","engenheiro","engenheiro_auditor","compras","financeiro"],
-  [OPERATIONAL_COMMAND.EQUIPMENT_OWNER_SAVED]:["admin","engenheiro","engenheiro_auditor","compras","financeiro"],
-  // Papéis dos comandos de locação: fonte única compartilhada com a Central de locações.
-  ...RENTAL_COMMAND_ROLES,
-  [OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_SAVED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
-  [OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_CANCELLED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
-  [OPERATIONAL_COMMAND.EQUIPMENT_TRANSFERRED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
-  [OPERATIONAL_COMMAND.EQUIPMENT_RESERVATION_SAVED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
-  [OPERATIONAL_COMMAND.EQUIPMENT_RESERVATION_CANCELLED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
-  [OPERATIONAL_COMMAND.EQUIPMENT_UNAVAILABILITY_SAVED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
-  [OPERATIONAL_COMMAND.EQUIPMENT_UNAVAILABILITY_CANCELLED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
-};
-// Extraído do handler para ser testável sem mock de Supabase/HTTP - é o
-// único ponto de rejeição por papel para comandos operacionais.
-export const authorizeOperationalCommand = (commandType, role) => {
-  const roles = OPERATIONAL_COMMAND_ROLES[commandType];
-  if (!roles) return { ok:false, status:400, error:"Comando operacional inválido." };
-  if (!roles.includes(role)) return { ok:false, status:403, error:"Seu perfil não pode executar este comando operacional." };
-  return { ok:true };
-};
-const FINANCIAL_OPERATIONAL_COMMANDS=new Set([
-  OPERATIONAL_COMMAND.CLOSING_SOURCE_CORRECTED,
-  OPERATIONAL_COMMAND.COST_ALLOCATION_SAVED,
-  OPERATIONAL_COMMAND.MANUAL_RECEIPT_CREATED,OPERATIONAL_COMMAND.MANUAL_RECEIPT_REVERSED,
-  OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_SAVED,OPERATIONAL_COMMAND.CLIENT_MEASUREMENTS_GENERATED,
-  OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_CANCELLED,OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_RECEIPTS_CHANGED,
-  OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_ADMIN_CLOSED,
-  OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_BILLED,
-  OPERATIONAL_COMMAND.COMMERCIAL_CONTRACT_ACTIVATED,
-  OPERATIONAL_COMMAND.PROJECT_EXPENSE_CREATED,OPERATIONAL_COMMAND.PROJECT_EXPENSE_CANCELLED,
-  OPERATIONAL_COMMAND.COMPANY_EXPENSE_SAVED,OPERATIONAL_COMMAND.COMPANY_EXPENSE_CANCELLED,
-  OPERATIONAL_COMMAND.COMPANY_RECURRING_EXPENSES_REPLICATED,
-  OPERATIONAL_COMMAND.WORK_CASH_MOVEMENT_CREATED,OPERATIONAL_COMMAND.WORK_CASH_MOVEMENT_CANCELLED,
-  OPERATIONAL_COMMAND.ORDER_PAYMENT_ALLOCATED,
-  OPERATIONAL_COMMAND.PAYABLE_PAYMENT_RECORDED,OPERATIONAL_COMMAND.PURCHASE_PAYMENT_RECLASSIFIED,
-  OPERATIONAL_COMMAND.PAYABLE_PAYMENT_REVERSED,
-  OPERATIONAL_COMMAND.PURCHASE_CANCELLED,
-  OPERATIONAL_COMMAND.BANK_TRANSACTIONS_IMPORTED,
-  OPERATIONAL_COMMAND.BANK_IMPORT_REVERSED,
-  OPERATIONAL_COMMAND.BANK_TRANSACTIONS_IGNORED,
-  OPERATIONAL_COMMAND.BANK_TRANSACTIONS_REOPENED,
-  OPERATIONAL_COMMAND.THIRD_PARTY_PAYMENT_RECORDED,
-  OPERATIONAL_COMMAND.THIRD_PARTY_PAYMENT_REVERSED,
-  OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_RECORDED,
-  OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_CANCELLED,
-  OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_PAID,
-  OPERATIONAL_COMMAND.THIRD_PARTY_RETENTION_SAVED,OPERATIONAL_COMMAND.THIRD_PARTY_RETENTION_RELEASED,OPERATIONAL_COMMAND.THIRD_PARTY_RETENTION_PAID,
-  OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_APPROVED,
-  OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_REJECTED,
-  OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_RESUBMITTED,
-  OPERATIONAL_COMMAND.THIRD_PARTY_INVOICE_LINKED,
-  OPERATIONAL_COMMAND.INVOICE_SAVED,
-  OPERATIONAL_COMMAND.INVOICE_APPROVED,
-  OPERATIONAL_COMMAND.INVOICE_REJECTED,
-  OPERATIONAL_COMMAND.PURCHASE_ORDER_SAVED,
-  OPERATIONAL_COMMAND.PURCHASE_ORDER_CREATED_FROM_QUOTE,
-  OPERATIONAL_COMMAND.QUOTE_SUPPLIER_RESPONSE_REVIEWED,
-  OPERATIONAL_COMMAND.QUOTE_SUPPLIER_DISPATCH_RECORDED,
-  OPERATIONAL_COMMAND.QUOTE_SUPPLIER_DISPATCH_UPDATED,
-  OPERATIONAL_COMMAND.QUOTE_MAP_DECIDED,
-  OPERATIONAL_COMMAND.PURCHASE_ORDER_DOCUMENT_ATTACHED,
-  OPERATIONAL_COMMAND.PURCHASE_ORDER_SENT_TO_SUPPLIER,
-  OPERATIONAL_COMMAND.PURCHASE_ORDER_SUPPLIER_ACCEPTED,
-  OPERATIONAL_COMMAND.PURCHASE_QUOTE_CANCELLED,
-  OPERATIONAL_COMMAND.QUOTATION_SAVED,
-  OPERATIONAL_COMMAND.PURCHASE_QUOTE_DOCUMENT_ATTACHED,
-  OPERATIONAL_COMMAND.PAYROLL_RESCISSION_CREATED,
-  OPERATIONAL_COMMAND.PAYROLL_RESCISSION_CANCELLED,
-  OPERATIONAL_COMMAND.EMPLOYEE_SAVED,
-  OPERATIONAL_COMMAND.EMPLOYEE_PAY_MODE_SET,
-  OPERATIONAL_COMMAND.PAYROLL_ADVANCE_CREATED,
-  OPERATIONAL_COMMAND.PAYROLL_ADVANCE_CANCELLED,
-  OPERATIONAL_COMMAND.PAYROLL_FORTNIGHT_CLOSED,
-  OPERATIONAL_COMMAND.PAYROLL_FORTNIGHT_REOPENED,
-  OPERATIONAL_COMMAND.CONTRACT_AMENDMENT_SAVED,
-  OPERATIONAL_COMMAND.CONTRACT_AMENDMENT_DECIDED,
-  OPERATIONAL_COMMAND.CONTRACT_AMENDMENT_CANCELLED,
-  OPERATIONAL_COMMAND.COMPANY_CONFIG_SAVED,
-  OPERATIONAL_COMMAND.PROJECT_SAVED,OPERATIONAL_COMMAND.PROJECT_DELETED,
-  OPERATIONAL_COMMAND.EQUIPMENT_REGISTRY_MIGRATED,
-  OPERATIONAL_COMMAND.EQUIPMENT_REGISTRY_CLASSIFIED,
-  OPERATIONAL_COMMAND.EQUIPMENT_SAVED,OPERATIONAL_COMMAND.EQUIPMENT_DEACTIVATED,OPERATIONAL_COMMAND.EQUIPMENT_OWNER_SAVED,
-  OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_COMMERCIAL_OVERRIDDEN,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CLOSED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CANCELLED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_TRANSITIONED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHECKPOINT_RECORDED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_AMENDED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_UNIT_REPLACED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHARGE_ITEM_SAVED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHARGE_MEASURED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_INVOICE_ISSUED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_INVOICE_RECEIPT_LINKED,
-  OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_SAVED,OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_CANCELLED,OPERATIONAL_COMMAND.EQUIPMENT_TRANSFERRED,
-]);
-const backupFolder=()=>`00 - Backups ${isolationEnabled()?currentCompany().toUpperCase():'ARCD'}`;
 const cronAutorizado=req=>!!process.env.CRON_SECRET&&req.headers.authorization===`Bearer ${process.env.CRON_SECRET}`;
 
 const db = URL&&SERVICE ? createClient(URL, SERVICE, {
@@ -460,213 +210,25 @@ const authDb = URL&&SERVICE ? createClient(URL, SERVICE, {
 }) : null;
 const validarToken = criarValidadorDeToken(authDb);
 
-const listarLinhasBackup=async()=>{
-  const rows=[];let from=0;
-  while(true){const {data,error}=await db.from("company_app_data").select("key,value,updated_at").eq("company_id",currentCompany()).range(from,from+999);if(error)throw error;rows.push(...(data||[]));if((data||[]).length<1000)break;from+=1000;}
-  return rows.filter(row=>row.key!=="onedrive_auth_v1");
-};
-const pastaBackup=async token=>{const root=await rootItem(token),driveId=root.parentReference.driveId;return{driveId,folder:await getOrCreateFolder(token,driveId,root.id,backupFolder())};};
-const enviarBufferBackup=async(token,driveId,parentId,name,buffer,contentType)=>{
-  const session=await (await graph(token,`/drives/${driveId}/items/${parentId}:/${encodeURIComponent(name)}:/createUploadSession`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({item:{"@microsoft.graph.conflictBehavior":"fail",name}})})).json();
-  const chunkSize=5*320*1024;
-  for(let start=0;start<buffer.length;start+=chunkSize){const end=Math.min(buffer.length,start+chunkSize)-1;const r=await fetch(session.uploadUrl,{method:"PUT",headers:{"Content-Length":String(end-start+1),"Content-Range":`bytes ${start}-${end}/${buffer.length}`,"Content-Type":contentType},body:buffer.subarray(start,end+1)});if(!r.ok&&r.status!==202)throw new Error(`Falha ao enviar backup ao OneDrive (${r.status}).`);}
-};
-const criarBackupOneDrive=async(req,actor)=>{
-  const key=backupKeyFromEnv(process.env.BACKUP_ENCRYPTION_KEY),{accessToken}=await refresh(req),{driveId,folder}=await pastaBackup(accessToken),now=new Date().toISOString(),name=`${currentCompany()}-${now.replace(/[:.]/g,"-")}.arcdbackup`;
-  const bundle=createBackupBundle({companyId:currentCompany(),rows:await listarLinhasBackup(),now,key});const manifest={...bundle.manifest,actor,encryptedFile:name,bytes:bundle.body.length,excludedKeys:["onedrive_auth_v1"]};
-  await enviarBufferBackup(accessToken,driveId,folder.id,name,bundle.body,"application/octet-stream");
-  await enviarBufferBackup(accessToken,driveId,folder.id,`${name}.manifest.json`,Buffer.from(JSON.stringify(manifest,null,2)),"application/json");
-  return{ok:true,name,recordCount:manifest.recordCount,sha256:manifest.sha256,bytes:manifest.bytes,createdAt:now};
-};
-const verificarBackupOneDrive=async req=>{
-  const key=backupKeyFromEnv(process.env.BACKUP_ENCRYPTION_KEY),{accessToken}=await refresh(req),{driveId,folder}=await pastaBackup(accessToken);
-  const children=(await (await graph(accessToken,`/drives/${driveId}/items/${folder.id}/children?$select=id,name,lastModifiedDateTime,size,file`)).json()).value||[];
-  const manifestItem=children.filter(item=>item.file&&item.name.endsWith(".arcdbackup.manifest.json")).sort((a,b)=>String(b.lastModifiedDateTime).localeCompare(String(a.lastModifiedDateTime)))[0];if(!manifestItem)throw Object.assign(new Error("Nenhum backup encontrado no OneDrive."),{status:404});
-  const read=async item=>Buffer.from(await (await graph(accessToken,`/drives/${driveId}/items/${item.id}/content`,{redirect:"follow"})).arrayBuffer());const manifest=JSON.parse((await read(manifestItem)).toString("utf8")),backup=children.find(item=>item.name===manifest.encryptedFile);if(!backup)throw new Error("Arquivo criptografado correspondente não encontrado.");
-  return{...verifyBackupBundle({body:await read(backup),key,manifest,expectedCompanyId:currentCompany()}),name:backup.name,bytes:Number(backup.size||manifest.bytes||0)};
-};
+const { backupFolder, criarBackupOneDrive, verificarBackupOneDrive } = createCompanyBackup(db);
 
-const listarTabelaFinanceira = async (table, columns) => {
-  const rows=[];
-  for(let from=0;;from+=1000){
-    const {data,error}=await db.from(table).select(columns).eq("company_id",currentCompany()).range(from,from+999);
-    if(error)throw error;
-    rows.push(...(data||[]));
-    if((data||[]).length<1000)break;
-  }
-  return rows;
-};
-
-const relatorioSombraFinanceira = async atual => {
-  const fonteFinanceira=await exigirCustosArquivados(atual);
-  const snapshot=buildLegacyFinancialFacts(fonteFinanceira);
-  const legado=summarizeLegacyFinancialFacts(snapshot);
-  const [titles,settlements,events,banks,reconciliationLinks,legacyLinks,accountingPeriods,qualityCases,runs]=await Promise.all([
-    listarTabelaFinanceira("financial_titles","id,obra_id,direction,original_amount,status,metadata"),
-    listarTabelaFinanceira("settlements","id,title_id,bank_transaction_id,amount,status,metadata"),
-    listarTabelaFinanceira("financial_events","id,event_type,source_id,effective_date,payload"),
-    listarTabelaFinanceira("bank_transactions","id,booking_date,direction,amount,raw_description,status,metadata"),
-    listarTabelaFinanceira("reconciliation_links","id,bank_transaction_id,title_id,settlement_id,amount,status"),
-    listarTabelaFinanceira("legacy_record_links","legacy_type,legacy_id,canonical_type,canonical_id"),
-    listarTabelaFinanceira("accounting_periods","id,starts_on,ends_on,status"),
-    listarTabelaFinanceira("data_quality_cases","id,status,category,details"),
-    listarTabelaFinanceira("financial_shadow_runs","id,created_at,result"),
-  ]);
-  const canonico=summarizeCanonicalFinancialRows({titles,settlements,events});
-  const divergencias=compareFinancialScopes(legado,canonico);
-  const divergenciasDRE=compareDreProjectionRows(snapshot.dreSnapshots,events);
-  const divergenciasComprasDRE=compareProcurementDreRecognition(fonteFinanceira,events);
-  const lastRun=[...runs].sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)))[0]||null;
-
-  const linkedLegacyKeys=new Set(legacyLinks.map(link=>`${String(link.legacy_type||"")}:${String(link.legacy_id||"")}`));
-  const missingLegacyLinks=snapshot.facts
-    .filter(fact=>!linkedLegacyKeys.has(`${String(fact.legacyType||"")}:${String(fact.legacyId||"")}`))
-    .map(fact=>({legacyType:String(fact.legacyType||""),legacyId:String(fact.legacyId||"")}));
-  const openFinancialQualityCases=qualityCases.filter(item=>
-    item.status==="open"
-    && /^(financial_|reconciliation_)/.test(String(item.category||""))
-  );
-  let staleLegacyLinks=[];
-  let legacyHashesVerified=false;
-  if(process.env.POSTGRES_URL_NON_POOLING){
-    staleLegacyLinks=await comSql(sql=>findStaleFinancialLegacyLinks({
-      sql,companyId:currentCompany(),facts:snapshot.facts,
-    }));
-    legacyHashesVerified=true;
-  }
-  const canonicalIntegrity=auditCanonicalFinancialIntegrity({
-    titles,settlements,banks,reconciliationLinks,legacyLinks,accountingPeriods,
-  });
-  const bankDivergences=compareLegacyBankTransactions(snapshot.bankTransactions,banks);
-  const activationGate=financialActivationEvidenceGate({
-    factsCount:snapshot.facts.length,
-    shadowRun:lastRun,
-    ledgerComparisonVerified:true,
-    divergences:divergencias,
-    dreComparisonVerified:true,
-    dreDivergences:divergenciasDRE,
-    procurementDreComparisonVerified:true,
-    procurementDreDivergences:divergenciasComprasDRE,
-    legacyLinksVerified:true,
-    missingLegacyLinks,
-    legacyHashesVerified,
-    staleLegacyLinks,
-    bankComparisonVerified:true,
-    bankDivergences,
-    qualityCasesVerified:true,
-    openQualityCases:openFinancialQualityCases,
-    canonicalIntegrityVerified:true,
-    canonicalIntegrity,
-  });
-
-  return {
-    ok:true,modo:"sombra",engineEnforced:FINANCIAL_ENGINE_ENFORCE,
-    legado,canonico,divergencias,divergenciasDRE,divergenciasComprasDRE,
-    missingLegacyLinks,
-    legacyHashesVerified,
-    staleLegacyLinks,
-    bankComparisonVerified:true,
-    bankDivergences,
-    canonicalIntegrity,
-    activationGate,
-    prontoParaAtivar:activationGate.ready,
-    contagens:{
-      fatosLegados:snapshot.facts.length,
-      transacoesLegadas:snapshot.bankTransactions.length,
-      titulos:titles.length,
-      liquidacoes:settlements.filter(row=>row.status==="active").length,
-      vinculosConciliacao:reconciliationLinks.filter(row=>row.status==="active").length,
-      vinculosLegado:legacyLinks.length,
-      vinculosLegadoAusentes:missingLegacyLinks.length,
-      vinculosLegadoDesatualizados:staleLegacyLinks.length,
-      hashesLegadoVerificados:legacyHashesVerified,
-      divergenciasBancoLegado:bankDivergences.length,
-      bancoLegadoVerificado:true,
-      projecoesDRE:snapshot.dreSnapshots.length,
-      divergenciasDRE:divergenciasDRE.length,
-      divergenciasAbertas:openFinancialQualityCases.length,
-      errosIntegridadeCanonica:canonicalIntegrity.counts.errors,
-      avisosIntegridadeCanonica:canonicalIntegrity.counts.warnings,
-    },
-    ultimaCarga:lastRun,
-  };
-};
 // O ponto arquivado sai do dataset principal, mas seu custo não pode sair do
 // DRE. O resumo abaixo é compacto: conserva competência/obra/custo e, para
 // CLT mensal, apenas o ID interno necessário ao rateio histórico. CPF, PIX,
 // documentos e demais dados pessoais continuam somente no cadastro/arquivo.
-const carregarCustosArquivados = async payload => {
-  const expected=archivedLaborKeys(payload,KEY);
-  if(!expected.length)return {data:{...payload,archivedLaborCosts:{}},missing:[],rebuilt:0};
-  const {data:linhas,error}=await db.from("company_app_data")
-    .select("key,value").eq("company_id",currentCompany()).in("key",expected.map(item=>item.key));
-  if(error)throw error;
-  return rebuildArchivedLaborCosts({data:payload,archiveRows:linhas||[],key:KEY});
-};
+const { anexarCustosArquivados, exigirCustosArquivados, carregarCustosArquivadosNaTransacao } =
+  createArchivedLaborReader({ db, key: KEY });
+const relatorioSombraFinanceira = createFinancialShadowReport({
+  db, exigirCustosArquivados, engineEnforced: FINANCIAL_ENGINE_ENFORCE,
+});
 
-const anexarCustosArquivados = async payload =>
-  (await carregarCustosArquivados(payload)).data;
+const { bloqueado, registrarFalha, limparFalhas, rateLimitCentral } =
+  createAppAuthRateLimiter({ db, currentCompany });
 
-const exigirCustosArquivados = async payload => {
-  const rebuilt=await carregarCustosArquivados(payload);
-  if(rebuilt.missing.length){
-    const error=new Error("Existem quinzenas arquivadas sem o arquivo imutável correspondente.");
-    error.code="ARCHIVED_LABOR_SOURCE_MISSING";
-    error.missing=rebuilt.missing;
-    throw error;
-  }
-  return rebuilt.data;
-};
-
-const carregarCustosArquivadosNaTransacao=async(transaction,payload)=>{
-  const expected=archivedLaborKeys(payload,KEY);
-  if(!expected.length)return {data:{...payload,archivedLaborCosts:{}},missing:[],rebuilt:0};
-  // O fechamento já trava a core antes daqui. Arquivar/restaurar quinzena
-  // também precisa da core, então os marcadores não podem mudar enquanto
-  // esta fotografia lê os arquivos imutáveis.
-  const linhas=await transaction`
-    select key,value
-      from company_app_data
-     where company_id=${currentCompany()}
-       and key like ${`${KEY}__arq__%`}
-     order by key
-  `;
-  return rebuildArchivedLaborCosts({data:payload,archiveRows:linhas||[],key:KEY});
-};
-
-// Dois carimbos de tempo apontam para o mesmo instante?
-// Compara o VALOR, não o texto: "…Z" (JS) e "…+00:00" (Postgres) são o mesmo
-// momento escrito de duas formas.
-const mesmoInstante = (a, b) => {
-  const ta = new Date(a).getTime();
-  const tb = new Date(b).getTime();
-  if (isNaN(ta) || isNaN(tb)) return false;
-  return ta === tb;
-};
-
-// ── Freio contra força bruta ───────────────────────────────────────
-// Um PIN de 4 dígitos tem 10.000 combinações — um script testa tudo em
-// minutos se deixarmos. Aqui a memória é por instância (serverless recicla),
-// então é um freio, não um cofre. O que realmente protege é PIN de 6 dígitos.
-const tentativas = new Map();
-const LIMITE = 8;
-const JANELA = 5 * 60 * 1000;
 const clientErrorBuckets = new Map();
 const CLIENT_ERROR_WINDOW = 60 * 1000;
 const CLIENT_ERROR_LIMIT = 12;
 
-const bloqueado = (ip) => {
-  const t = tentativas.get(ip);
-  if (!t) return false;
-  if (Date.now() - t.desde > JANELA) { tentativas.delete(ip); return false; }
-  return t.n >= LIMITE;
-};
-
-const registrarFalha = (ip) => {
-  const t = tentativas.get(ip);
-  if (!t || Date.now() - t.desde > JANELA) tentativas.set(ip, { n: 1, desde: Date.now() });
-  else t.n += 1;
-};
 const aceitarErroCliente = (ip, now=Date.now()) => {
   const atual=clientErrorBuckets.get(ip);
   if(!atual||now-atual.desde>=CLIENT_ERROR_WINDOW){
@@ -675,11 +237,6 @@ const aceitarErroCliente = (ip, now=Date.now()) => {
   }
   atual.n+=1;
   return atual.n<=CLIENT_ERROR_LIMIT;
-};
-const limparFalhas = subject => tentativas.delete(subject);
-const rateLimitCentral=async(subject,action)=>{
-  const result=await applyPersistentAuthRateLimit(db,{company:currentCompany(),subject,action});
-  return result?{blocked:result.blocked,retry:result.retryAfter}:null;
 };
 
 // Lê a linha core e mescla nela as linhas separadas (Ponto/Lookahead/
@@ -710,131 +267,13 @@ const tratarAcaoPonto = request => criarTratadorPonto({
     { userId: body.userId, pin: body.pin, accessToken: body.accessToken }, { scope: "ponto-eletronico" }),
 })(request);
 
-// Consultas à base. Ficam separadas para que a autenticação leia SÓ a linha
-// core (onde moram os `usuarios`) e deixe as demais linhas para depois de a
-// sessão ser aceita. Uma chamada sem sessão válida não precisa baixar nem
-// decodificar o resto do dataset - ver lerNucleo/completarLinha e o handler.
-const splitEntries = Object.entries(SPLIT_ROW_KEYS);
-const consultarNucleo = () => db.from("company_app_data").select("value, updated_at")
-  .eq("company_id", currentCompany()).eq("key", KEY).maybeSingle();
-const consultarLinhasAuxiliares = () => Promise.all([
-  db.from("company_app_data").select("key, value, updated_at")
-    .eq("company_id", currentCompany()).in("key", splitEntries.map(([, key]) => key)),
-  // Achado de 04/09/2026 (ver server/attendance-obra-routing.js): ordenar
-  // por updated_at aqui já não é mais o que garante a correção - esse
-  // campo é da LINHA inteira (compartilhado por todo funcionário/dia que
-  // mora nela) e pode ser "refrescado" por uma gravação totalmente alheia
-  // na mesma obra. mergeAttendanceObjects agora compara um carimbo POR
-  // CÉLULA (withAttendanceSyncedAt, abaixo) - o `.order()` aqui fica só
-  // como reforço inofensivo para dados antigos sem esse carimbo.
-  // A busca usa LIKE (padrão de chave), não um .in() de lista fixa, porque o
-  // número de obras muda com o tempo - ver server/attendance-obra-routing.js.
-  db.from("company_app_data").select("key, value, updated_at")
-    .eq("company_id", currentCompany()).like("key", `${PONTO_OBRA_KEY_PREFIX}%`)
-    .order("updated_at", { ascending: true }),
-]);
+const { lerNucleo, completarLinha, lerLinha } = createCompanyDataReader({
+  db, coreKey: KEY, attendanceKey: PONTO_KEY, splitRowKeys: SPLIT_ROW_KEYS,
+});
 
-const decodificarNucleo = async data => {
-  const payload = decodeAppData(data.value);
-  // Migração transparente: preserva o mesmo updated_at para não criar um
-  // falso conflito nos navegadores que já estavam editando. Se outra gravação
-  // vencer durante a migração, a condição impede qualquer sobrescrita.
-  if(!isEncodedAppData(data.value)){
-    const encoded=encodeAppData(payload);
-    if(isEncodedAppData(encoded)){
-      const migrated=await db.from("company_app_data").update({value:encoded})
-        .eq("company_id",currentCompany()).eq("key",KEY).eq("updated_at",data.updated_at);
-      if(migrated.error)console.error("Não foi possível compactar o dataset:",migrated.error.message);
-    }
-  }
-  return payload;
-};
-
-const montarLinha = ({ data, payload, splitRows, pontoObraRows }) => {
-  const rowVersions = { [DOMAIN_ROW.CORE]: data.updated_at || null };
-  const rowPayloadsByDomain = {};
-  for (const [domain, key] of splitEntries) {
-    const row = (splitRows || []).find(item => item.key === key);
-    rowVersions[domain] = row?.updated_at || null;
-    if (row) rowPayloadsByDomain[domain] = decodeAppData(row.value);
-  }
-  let merged = mergeDomainRows(payload, rowPayloadsByDomain);
-
-  // A cópia de `attendance` que sobrar em `merged` até aqui vem da linha
-  // "meta" de Ponto (ou, se essa também não existir ainda, da própria
-  // core) - é o fallback correto para qualquer obra que ainda não ganhou
-  // linha própria. Uma linha por obra, quando existe, sempre VENCE esse
-  // fallback (mergeAttendanceObjects: fontes posteriores vencem).
-  const rowVersionsPontoObra = {};
-  const attendanceSources = [merged.attendance || {}];
-  for (const row of pontoObraRows || []) {
-    rowVersionsPontoObra[obraBucketFromKey(PONTO_KEY, row.key)] = row.updated_at || null;
-    const decodedObraRow = decodeAppData(row.value);
-    attendanceSources.push(withAttendanceSyncedAt(decodedObraRow?.attendance, decodedObraRow?.attendanceSyncedAt));
-  }
-  merged = { ...merged, attendance: mergeAttendanceObjects(...attendanceSources) };
-
-  // `linhasBrutas`: o que cada linha guarda, já decodificado e ANTES do merge.
-  // A transação de várias linhas reaproveita estas fatias quando o carimbo
-  // travado confirma que a linha não mudou (ver executarMutacaoMultiLinha).
-  const linhasBrutas = { [DOMAIN_ROW.CORE]: payload, ...rowPayloadsByDomain };
-  return { payload: merged, updatedAt: data.updated_at || null, rowVersions, rowVersionsPontoObra, linhasBrutas };
-};
-
-const lerLinha = async () => {
-  // Achado de 21/08/2026: as três leituras (linha core, linhas separadas de
-  // domínio fixo, linhas de Ponto por obra) são independentes - não há motivo
-  // para uma esperar a outra terminar. Rodá-las em paralelo tira round-trips
-  // inteiros de rede do caminho crítico de toda gravação.
-  const [{ data, error }, [{ data: splitRows, error: splitError }, { data: pontoObraRows, error: pontoObraError }]] = await Promise.all([
-    consultarNucleo(), consultarLinhasAuxiliares(),
-  ]);
-  if (error) throw error;
-  if (!data) return { payload: null, updatedAt: null, rowVersions: {}, rowVersionsPontoObra: {} };
-  if (splitError) throw splitError;
-  if (pontoObraError) throw pontoObraError;
-  return montarLinha({ data, payload: await decodificarNucleo(data), splitRows, pontoObraRows });
-};
-
-// Leitura em duas etapas, para autenticar antes de baixar o resto: lerNucleo()
-// traz só a linha core (suficiente para conferir PIN ou vincular o token a um
-// usuário) e completarLinha() devolve o MESMO resultado de lerLinha(), reaproveitando
-// a core já decodificada. Só quem foi autenticado paga a segunda etapa.
-const lerNucleo = async () => {
-  const { data, error } = await consultarNucleo();
-  if (error) throw error;
-  if (!data) return { data: null, payload: null, updatedAt: null };
-  return { data, payload: await decodificarNucleo(data), updatedAt: data.updated_at || null };
-};
-const completarLinha = async nucleo => {
-  if (!nucleo.data) return { payload: null, updatedAt: null, rowVersions: {}, rowVersionsPontoObra: {} };
-  const [{ data: splitRows, error: splitError }, { data: pontoObraRows, error: pontoObraError }] = await consultarLinhasAuxiliares();
-  if (splitError) throw splitError;
-  if (pontoObraError) throw pontoObraError;
-  return montarLinha({ data: nucleo.data, payload: nucleo.payload, splitRows, pontoObraRows });
-};
-
-const salvarIndicePerfis = async payload => {
-  const agora=new Date().toISOString(),value=compactProfiles(payload);
-  const {error}=await db.from("company_app_data").upsert({company_id:currentCompany(),key:PROFILE_KEY,value,updated_at:agora,updated_by:null},{onConflict:"company_id,key"});
-  if(error)console.error("Não foi possível atualizar o índice de login:",error.message);
-};
-
-// Regrava o índice só quando o que ele guarda (usuários e obras) mudou.
-const indicePerfisMudou=(antes,depois)=>!igualIndice(antes,depois);
-const igualIndice=(antes,depois)=>!profileIndexOutdated(compactProfiles(antes),depois);
-// Atualização do índice é acessória: nunca derruba a carga ou a gravação que
-// já deu certo, e nunca troca um índice por outro sem nenhum usuário.
-const atualizarIndicePerfisSeguro=async payload=>{
-  if(!(payload?.usuarios||[]).length)return;
-  try{await salvarIndicePerfis(payload);}
-  catch(error){console.error("Não foi possível atualizar o índice de login:",error?.message||error);}
-};
-const lerIndicePerfis = async () => {
-  const {data,error}=await db.from("company_app_data").select("value").eq("company_id",currentCompany()).eq("key",PROFILE_KEY).maybeSingle();
-  if(error)throw error;
-  return data?.value||null;
-};
+const { salvarIndicePerfis, lerIndicePerfis, indicePerfisMudou, atualizarIndicePerfisSeguro } =
+  createCompanyProfileIndex(db);
+const loadCompanyWorkspace = createCompanyWorkspaceLoader({ anexarCustosArquivados, lerIndicePerfis, atualizarIndicePerfisSeguro });
 
 // DATA-001: a RPC atualiza o blob e insere o evento append-only na mesma
 // transação PostgreSQL. `before`/`after` recebem somente as seções alteradas,
@@ -847,13 +286,15 @@ const lerIndicePerfis = async () => {
 // core reencodava (gzip) e regravava todo o histórico dessas 4 linhas de
 // novo, sem necessidade (achado de 21/08/2026: era a causa real de
 // EMPLOYEE_SAVED levando ~25s mesmo depois da separação de linhas).
-const salvarComAuditoria = async ({ key=KEY, expectedUpdatedAt, value, rowVersions={}, keepDomain=null, actor, action, before, after }) => {
-  const correlationId=crypto.randomUUID();
+/** @returns {Promise<import("../server/legacy-save-contract.js").AuditedSaveReceipt>} */
+const salvarComAuditoria = async ({ key=KEY, expectedUpdatedAt, value, rowVersions={}, keepDomain=null, actor, action, before, after, saveOperation=null }) => {
+  const correlationId=saveOperation?.correlationId||crypto.randomUUID();
   const valorPersistido=key===KEY?coreFieldsOnly(value,rowVersions,keepDomain):value;
-  const {data,error}=await db.rpc("company_save_with_audit",{
+  const {data,error}=await db.rpc(saveOperation?"save_legacy_operation_with_audit":"company_save_with_audit",{
     p_company_id:currentCompany(),p_key:key,p_expected_updated_at:expectedUpdatedAt,p_value:encodeAppData(valorPersistido),
     p_actor_id:String(actor?.id||"system"),p_actor_name:String(actor?.nome||actor?.email||"Sistema"),
     p_correlation_id:correlationId,p_action:action,p_before:before||{},p_after:after||{},
+    ...(saveOperation?{p_operation:saveOperation.action,p_operation_id:saveOperation.id,p_request_hash:saveOperation.hash}:{}),
   });
   if(error){
     if(/PGRST202|schema cache|Could not find the function|does not exist/i.test(`${error.code||""} ${error.message||""}`)){
@@ -864,168 +305,23 @@ const salvarComAuditoria = async ({ key=KEY, expectedUpdatedAt, value, rowVersio
     throw error;
   }
   const result=Array.isArray(data)?data[0]:data;
-  return { applied:!!result?.applied, updatedAt:result?.updated_at||null, correlationId };
+  return { applied:!!result?.applied, updatedAt:result?.updated_at||null, correlationId:result?.correlation_id||correlationId,
+    ...(result?.replayed?{replayed:true}:{}) };
 };
 
-const executarArquivoPontoTransacional=async({
-  mode,mainKey=KEY,expectedUpdatedAt,mainValue,archiveKey,archiveValue,actor,before,after,
-})=>{
-  const correlationId=crypto.randomUUID();
-  const rpc=mode==="archive"?"attendance_archive_transaction":"attendance_restore_transaction";
-  const args={
-    p_company_id:currentCompany(),p_main_key:mainKey,p_archive_key:archiveKey,
-    p_expected_updated_at:expectedUpdatedAt,p_main_value:encodeAppData(mainValue),
-    p_actor_id:String(actor?.id||"system"),p_actor_name:String(actor?.nome||actor?.email||"Sistema"),
-    p_actor_role:String(actor?.role||""),
-    p_correlation_id:correlationId,p_before:before||{},p_after:after||{},
-  };
-  if(mode==="archive")args.p_archive_value=archiveValue||{};
-  const {data,error}=await db.rpc(rpc,args);
-  if(error){
-    const wrapped=new Error(/PGRST202|schema cache|Could not find the function|does not exist/i.test(`${error.code||""} ${error.message||""}`)
-      ?"A migration transacional do arquivo de ponto não foi aplicada."
-      :"A transação do arquivo de ponto falhou.");
-    wrapped.code=/migration/i.test(wrapped.message)?"ATTENDANCE_ARCHIVE_MIGRATION_REQUIRED":"ATTENDANCE_ARCHIVE_FAILED";
-    throw wrapped;
-  }
-  const result=Array.isArray(data)?data[0]:data;
-  return {
-    applied:!!result?.applied,updatedAt:result?.updated_at||null,
-    reason:String(result?.reason||""),correlationId,
-  };
-};
+const { executarArquivoPontoTransacional, sincronizarPontoAposArquivo, listArchiveRows, readArchiveRow } =
+  createAttendanceArchivePersistence({ db, key: KEY, pontoKey: PONTO_KEY, salvarComAuditoria });
+const { chaveArquivo, quinzenaValida, listQuinzenaArchives, loadQuinzenaArchive } =
+  createAttendanceArchiveReader({ listArchiveRows, readArchiveRow, key: KEY });
+const checkPersistenceHealth = createPersistenceHealthCheck({ db, key: KEY, randomUUID: crypto.randomUUID });
 
-// Achado de 21/08/2026 (limitação documentada duas vezes sem correção -
-// ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md): o arquivamento/restauração de
-// ponto sempre grava `attendance` na linha core (`p_main_key=KEY`, sem
-// roteamento por domínio), porque tornar attendance_archive_transaction/
-// attendance_restore_transaction (já uma RPC de duas chaves) ciente de um
-// terceiro alvo (a linha de Ponto) exigiria uma nova migration
-// transacional de três chaves - risco maior do que o benefício justifica
-// para uma ação rara (admin, periódica, não concorrente com o check-in
-// normal). Em vez disso, esta segunda escrita best-effort sincroniza a
-// cópia de `attendance` na linha própria de Ponto logo depois que a
-// transação principal já confirmou o arquivamento/restauração - fecha a
-// lacuna que fazia a leitura (que sempre prioriza a linha de Ponto sobre a
-// core para esse campo) ignorar o resultado. Se essa segunda escrita
-// falhar (ex.: conflito de versão por um check-in concorrente
-// raríssimo), o arquivamento em si já está correto e seguro na linha
-// core - só fica registrado no log do servidor, sem bloquear a resposta.
-// Achado de 22/08/2026 (Fase 1.5 reduzida): `attendance` saiu de
-// DOMAIN_FIELDS[PONTO], então pickDomainFields sozinho passou a devolver só
-// os 4 campos meta - esta função silenciosamente deixaria de sincronizar a
-// própria coisa para a qual existe. O arquivamento/restauração não conhece
-// obra por obra (a RPC opera a quinzena inteira, todos os funcionários), só
-// o resultado final consolidado (`novoPrincipal.attendance`, já com o
-// funcionário/data arquivado removido ou restaurado) - dividir esse
-// resultado por obra exigiria diferenciar antes/depois entrada a entrada,
-// risco maior do que uma ação rara e não concorrente justifica (mesma lógica
-// do comentário acima). Em vez disso, grava o blob completo como cópia
-// legada na própria linha de Ponto: para qualquer (funcionário,data) que
-// ainda não migrou para uma linha própria de obra, essa cópia já é a fonte
-// lida por lerLinha(); para quem já migrou, a linha de obra continua
-// vencendo a leitura (mergeAttendanceObjects) - a mesma tolerância de
-// "melhor esforço" que este best-effort já assumia antes desta fase.
-const sincronizarPontoAposArquivo=async({rowVersions,novoPrincipal,actor,quinzenaId,action})=>{
-  if(rowVersions?.[DOMAIN_ROW.PONTO]==null)return;
-  try{
-    await salvarComAuditoria({
-      key:PONTO_KEY,expectedUpdatedAt:rowVersions[DOMAIN_ROW.PONTO],
-      value:{...pickDomainFields(novoPrincipal,DOMAIN_ROW.PONTO),attendance:novoPrincipal.attendance||{}},
-      actor,action,before:{quinzenaId},after:{quinzenaId},
-    });
-  }catch(err){
-    console.error(`Falha ao sincronizar attendance na linha de Ponto apos ${action}:`,err.message);
-  }
-};
-
-// Primeira escrita transacional real de Fase 2 (24/08/2026, ver
-// docs/BLUEPRINT_CONCORRENCIA_TRAVA.md, seção "Fase 2, primeiro passo na
-// camada transacional"). Diferente de todo o resto deste arquivo (que só
-// grava o blob em company_app_data), esta função grava AO VIVO na tabela
-// relacional `purchase_requests` (migration 010) - mas só como efeito
-// colateral de melhor esforço, depois que SOLICITACAO_COMPRA_SALVA já foi
-// processado com sucesso no caminho existente. O blob continua sendo a
-// única fonte de verdade operacional: se esta gravação falhar, a resposta
-// ao usuário não muda em nada, só fica um log de erro no servidor - mesma
-// tolerância de sincronizarPontoAposArquivo, acima.
-const sincronizarSolicitacaoCompraAoVivo=async({companyId,requestId,mergedData,actor})=>{
-  if(!requestId)return;
-  const record=(mergedData?.solicitacoesCompra||[]).find(item=>String(item?.id)===String(requestId));
-  if(!record)return;
-  try{
-    const { error }=await db
-      .from("purchase_requests")
-      .upsert(buildPurchaseRequestLiveRow(companyId,record),{onConflict:"company_id,id"});
-    if(error)throw error;
-  }catch(err){
-    console.error(`Falha ao sincronizar solicitação de compra ${requestId} em purchase_requests (ator=${actor?.id||"desconhecido"}):`,err.message);
-  }
-};
-
-// Escrita ao vivo de cotação/pedido (31/08/2026, ver
-// docs/BLUEPRINT_CONCORRENCIA_TRAVA.md) - mesma tolerância de melhor
-// esforço de sincronizarSolicitacaoCompraAoVivo acima: se a gravação
-// falhar, a resposta ao usuário não muda em nada, só um log de erro no
-// servidor. Escopo desta rodada: só QUOTATION_SAVED e PURCHASE_ORDER_SAVED
-// (decisão do usuário) - decidir/cancelar cotação, cancelar pedido e
-// anexar documento continuam só na sincronização em lote por enquanto.
-const sincronizarCotacaoAoVivo=async({companyId,quoteId,mergedData,actor})=>{
-  if(!quoteId)return;
-  const record=(mergedData?.cotacoes||[]).find(item=>String(item?.id)===String(quoteId));
-  if(!record)return;
-  try{
-    const { error }=await db
-      .from("core_quotations")
-      .upsert(buildQuotationLiveRow(companyId,record),{onConflict:"company_id,id"});
-    if(error)throw error;
-  }catch(err){
-    console.error(`Falha ao sincronizar cotação ${quoteId} em core_quotations (ator=${actor?.id||"desconhecido"}):`,err.message);
-  }
-};
-
-const sincronizarPedidoAoVivo=async({companyId,orderId,mergedData,actor})=>{
-  if(!orderId)return;
-  const record=(mergedData?.pedidos||[]).find(item=>String(item?.id)===String(orderId));
-  if(!record)return;
-  try{
-    const { error }=await db
-      .from("core_purchase_orders")
-      .upsert(buildPurchaseOrderLiveRow(companyId,record),{onConflict:"company_id,id"});
-    if(error)throw error;
-  }catch(err){
-    console.error(`Falha ao sincronizar pedido ${orderId} em core_purchase_orders (ator=${actor?.id||"desconhecido"}):`,err.message);
-  }
-};
-
-const sincronizarComprasAlteradas=async(before,after,actor)=>{
-  for(const [section,sync,idKey] of [
-    ["solicitacoesCompra",sincronizarSolicitacaoCompraAoVivo,"requestId"],
-    ["cotacoes",sincronizarCotacaoAoVivo,"quoteId"],
-    ["pedidos",sincronizarPedidoAoVivo,"orderId"],
-  ]){
-    const previous=new Map((before?.[section]||[]).map(record=>[record.id,record]));
-    for(const record of after?.[section]||[]){
-      if(JSON.stringify(previous.get(record.id))===JSON.stringify(record))continue;
-      await sync({companyId:currentCompany(),[idKey]:record.id,mergedData:after,actor});
-    }
-  }
-};
-
-const sincronizarPedidosConciliacao=async(data,command,actor)=>{
-  const entry=(data.reconciliationCommandLog||[]).find(item=>item.idempotencyKey===command.idempotencyKey);
-  const ids=new Set(entry?.purchaseOrderIds||[]);
-  const payload=command.payload||{};
-  if(["pedido","pagamentoPedido"].includes(payload.targetType))ids.add(payload.targetId);
-  if(["nota","pagamentoNota"].includes(payload.targetType)){
-    const note=(data.notasFiscais||[]).find(item=>item.id===payload.targetId);
-    if(note?.pedidoId)ids.add(note.pedidoId);
-  }
-  for(const order of data.pedidos||[]){
-    if((order.pagamentos||[]).some(payment=>payment.transacaoId===payload.transactionId))ids.add(order.id);
-  }
-  for(const orderId of ids)await sincronizarPedidoAoVivo({companyId:currentCompany(),orderId,mergedData:data,actor});
-};
+const {
+  sincronizarSolicitacaoCompraAoVivo,
+  sincronizarCotacaoAoVivo,
+  sincronizarPedidoAoVivo,
+  sincronizarComprasAlteradas,
+  sincronizarPedidosConciliacao,
+} = createProcurementLiveSync(db);
 
 // `financialSnapshotData` é o `data` COMPLETO mesclado (todos os domínios),
 // usado só para calcular os fatos financeiros de sincronização
@@ -1036,17 +332,22 @@ const sincronizarPedidosConciliacao=async(data,command,actor)=>{
 // financeiro. Todo chamador que ainda grava a linha core inteira (o caso de
 // sempre, antes desta separação) não precisa passá-lo - o default preserva
 // o comportamento exato de antes.
-const salvarFinanceiroComAuditoria = async ({ key=KEY, expectedUpdatedAt, value, financialSnapshotData=value, rowVersions={}, keepDomain=null, actor, action, before, after }) => {
+/** @returns {Promise<import("../server/legacy-save-contract.js").AuditedSaveReceipt & {syncResult?: Record<string, unknown>}>} */
+const salvarFinanceiroComAuditoria = async ({ key=KEY, expectedUpdatedAt, value, financialSnapshotData=value, rowVersions={}, keepDomain=null, actor, action, before, after, saveOperation=null }) => {
   // Enquanto FIN-003 está em sombra, o legado é a fonte oficial. Exigir a
   // reconstrução integral do razão dentro de cada clique deixava conciliações
   // presas em 503 sob concorrência. A ativação do enforcement restaura a
   // transação conjunta; até lá, preservamos disponibilidade + auditoria.
   if(financialPersistenceMode(FINANCIAL_ENGINE_ENFORCE)==="audited_shadow"){
-    return salvarComAuditoria({key,expectedUpdatedAt,value,rowVersions,keepDomain,actor,action,before,after});
+    return salvarComAuditoria({key,expectedUpdatedAt,value,rowVersions,keepDomain,actor,action,before,after,saveOperation});
   }
   if(!process.env.POSTGRES_URL_NON_POOLING)throw new Error("A conexão transacional do motor financeiro não está configurada.");
-  const correlationId=crypto.randomUUID();
-  return comSql(async sql=>{
+  const correlationId=saveOperation?.correlationId||crypto.randomUUID();
+  const write=async sql=>{
+    if(saveOperation){
+      const receipt=await lockLegacySaveReceipt(sql,saveOperation);
+      if(receipt)return {applied:true,replayed:true,updatedAt:receipt.updated_at,correlationId:receipt.correlation_id};
+    }
     const snapshot=buildLegacyFinancialFacts(financialSnapshotData,{includeDreSnapshots:false});
     const valorPersistido=key===KEY?coreFieldsOnly(value,rowVersions,keepDomain):value;
     const [result]=await sql`
@@ -1057,68 +358,14 @@ const salvarFinanceiroComAuditoria = async ({ key=KEY, expectedUpdatedAt, value,
         false
       )
     `;
+    if(saveOperation&&result?.applied)await recordLegacySaveReceipt(sql,saveOperation,result.updated_at);
     return {
       applied:!!result?.applied,updatedAt:result?.updated_at||null,
       correlationId,syncResult:result?.sync_result||{},
     };
-  });
+  };
+  return comSql(sql=>saveOperation?sql.begin(write):write(sql));
 };
-
-const operationalCommandEntityId=command=>
-  command.payload?.statement?.id
-  ||command.payload?.targets?.[0]?.id
-  ||command.payload?.contractId
-  ||command.payload?.medicaoTecnicaId
-  ||command.payload?.expenseId
-  ||command.payload?.measurementId
-  ||command.payload?.pedidoId
-  ||command.payload?.targetId
-  ||command.payload?.paymentId
-  ||command.payload?.recordId
-  ||command.payload?.reportId
-  ||command.payload?.commitmentId
-  ||command.payload?.rentalId
-  ||command.payload?.unavailabilityId
-  ||command.payload?.equipmentId
-  ||command.payload?.assetId
-  ||command.payload?.rescissionId
-  ||command.payload?.advanceId
-  ||command.payload?.projectId
-  ||command.payload?.payment?.id
-  ||command.payload?.expense?.id
-  ||command.payload?.rescission?.id
-  ||command.payload?.employee?.id
-  ||command.payload?.advance?.id
-  ||command.payload?.project?.id
-  ||command.payload?.request?.id
-  ||command.payload?.supplier?.id
-  ||command.payload?.material?.id
-  ||command.payload?.report?.id
-  ||command.payload?.measurement?.id
-  ||command.payload?.record?.id
-  ||command.payload?.commitment?.id
-  ||command.payload?.equipment?.id
-  ||command.payload?.asset?.id
-  ||command.payload?.assets?.[0]?.id
-  ||command.payload?.rental?.id
-  ||command.payload?.unavailability?.id
-  ||command.payload?.maintenance?.id
-  ||command.payload?.transfer?.id
-  ||command.payload?.records?.[0]?.id
-  ||(command.type===OPERATIONAL_COMMAND.COMPANY_CONFIG_SAVED?"company-config":"");
-
-// Só estes 7 campos alimentam financial_titles/settlements/bank_transactions
-// (buildLegacyFinancialFacts, server/financial-shadow.js:33-114) - dreSnapshots
-// NÃO entra aqui de propósito: depende de employees/config/obras/equipamentos/
-// rescisoes (labor-cost-engine.js, dre-projection.js) e já se auto-repara na
-// leitura (ver includeDreSnapshots:false abaixo), então nunca precisa
-// disparar a sincronização síncrona por si só.
-export const LEGACY_FINANCIAL_FACT_FIELDS=[
-  "medicoes","payments","pagsTerceiros","outrasDesp","despesasEmpresa","pedidos","transacoes",
-];
-export const legacyFinancialFactsChanged=(before,after)=>
-  LEGACY_FINANCIAL_FACT_FIELDS.some(field=>
-    JSON.stringify(before?.[field])!==JSON.stringify(after?.[field]));
 
 // Valores jsonb vão sempre por `transaction.json(...)`. Interpolar
 // JSON.stringify(x) seguido de ::jsonb faz o driver `postgres` codificar de novo e
@@ -1127,9 +374,8 @@ export const legacyFinancialFactsChanged=(before,after)=>
 // formato (~1 s a mais por salvamento, achado de 21/10/2026). O mesmo valia
 // para before/after da auditoria. Teste: server/jsonb-gravacao.test.js.
 const gravarMutacaoNaTransacao=async({
-  transaction,key=KEY,rowVersions={},keepDomain=null,value,basePayload=null,actor,action,before,after,financial=false,
+  transaction,key=KEY,rowVersions={},keepDomain=null,value,basePayload=null,actor,action,before,after,financial=false,correlationId=crypto.randomUUID(),
 })=>{
-  const correlationId=crypto.randomUUID();
   // Achado de 21/08/2026: este era o único ponto do caminho travado que
   // ainda gravava sempre em key=KEY, ignorando o roteamento por domínio -
   // ver executarMutacaoEmpresaBloqueada. Quando key aponta para uma linha
@@ -1299,7 +545,7 @@ export const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false
 // Uma linha separada que ainda não existe é criada aqui, com a core travada
 // e a partir do valor dela: nenhuma gravação concorrente se perde na troca.
 const executarMutacaoMultiLinha=async({
-  actor,action,financial=false,domains,writeDomains=domains,linha,mutate,cronometro,
+  actor,action,financial=false,domains,writeDomains=domains,linha,mutate,cronometro,saveOperation=null,
 })=>{
   const separados=[...new Set(domains)].filter(d=>d!==DOMAIN_ROW.CORE&&SPLIT_ROW_KEYS[d]);
   const separadosGravaveis=new Set(
@@ -1307,6 +553,7 @@ const executarMutacaoMultiLinha=async({
   );
   const resultado=await comSql(connection=>connection.begin(async transaction=>{
       cronometro?.marcar("conexao");
+      if(saveOperation&&await lockLegacySaveReceipt(transaction,saveOperation))return {kind:"replayed"};
       // A leitura sem lock do topo do handler (lerLinha) já decodificou estas
       // mesmas linhas. O lock pede só o carimbo: se ele é EXATAMENTE o que foi
       // lido, a linha não mudou e a fatia já decodificada vale como se fosse
@@ -1383,6 +630,7 @@ const executarMutacaoMultiLinha=async({
           transaction,key:KEY,rowVersions:versoes,keepDomain:DOMAIN_ROW.CORE,
           value:coreProxima,basePayload:coreFresca,actor,action,
           before:outcome.before,after:outcome.after,financial,
+          correlationId:saveOperation?.correlationId,
         });
       }else{
         const [carimbo]=await transaction`
@@ -1397,7 +645,7 @@ const executarMutacaoMultiLinha=async({
           ) values (
             ${currentCompany()},'company_app_data',${separados.map(d=>SPLIT_ROW_KEYS[d]).join(",")||KEY},${action},
             ${String(actor?.id||"system")},${String(actor?.nome||actor?.email||"Sistema")},
-            ${crypto.randomUUID()},
+            ${saveOperation?.correlationId||crypto.randomUUID()},
             ${transaction.json(outcome.before||{})}::jsonb,
             ${transaction.json(outcome.after||{})}::jsonb,
             'api/data'
@@ -1406,6 +654,7 @@ const executarMutacaoMultiLinha=async({
         saved={updatedAt:carimbo.updated_at,syncResult:{}};
       }
       cronometro?.marcar("gravacao");
+      if(saveOperation)await recordLegacySaveReceipt(transaction,saveOperation,saved.updatedAt);
       return {...outcome,updatedAt:saved.updatedAt,syncResult:saved.syncResult};
   }));
   cronometro?.marcar("commit");
@@ -1479,54 +728,10 @@ const executarComandoOperacionalBloqueado=async({
         kind:"save",data:executed.data,
         basePayload:current,
         copied:executed.copied,summary:executed.summary,
-        before:{command:command.type,entityId:operationalCommandEntityId(command)},
-        after:{command:command.type,idempotencyKey:command.idempotencyKey},
+        ...buildOperationalCommandAudit(command),
       };
     },
   });
-};
-
-const datasAlteradasPeloComandoPonto=command=>{
-  if(command?.action===ATTENDANCE_COMMAND.SYNC)return (command.items||[]).map(item=>String(item.date||''));
-  if([ATTENDANCE_COMMAND.UPSERT,ATTENDANCE_COMMAND.REVIEW].includes(command?.action))return [String(command.date||"")].filter(Boolean);
-  if(command?.action===ATTENDANCE_COMMAND.BATCH_UPSERT){
-    return [...new Set((Array.isArray(command.patches)?command.patches:[])
-      .map(patch=>String(patch?.date||"")).filter(Boolean))];
-  }
-  return [];
-};
-
-const validarPontoEmCompetenciaAberta=(data,command)=>{
-  const closed=datasAlteradasPeloComandoPonto(command)
-    .map(date=>({date,closing:closedCompetenceForDate(data,date)}))
-    .find(item=>item.closing);
-  if(!closed)return {ok:true};
-  return {
-    ok:false,
-    code:"CLOSED_DRE_IMMUTABLE",
-    competence:closed.closing.competencia,
-    error:`O ponto de ${closed.date} pertence à competência financeira fechada ${closed.closing.competencia}. O fechamento contábil não pode ser alterado por liberação de ponto.`,
-  };
-};
-
-const validarConciliacaoEmCompetenciaAberta=(data,command)=>{
-  const ids=[
-    String(command?.payload?.transactionId||""),
-    String(command?.payload?.counterpartyTransactionId||""),
-  ].filter(Boolean);
-  for(const id of [...new Set(ids)]){
-    const transaction=(data?.transacoes||[]).find(item=>String(item?.id)===id);
-    const closing=closedCompetenceForDate(data,transaction?.data);
-    if(!closing)continue;
-    return {
-      ok:false,
-      code:"CLOSED_DRE_IMMUTABLE",
-      competence:closing.competencia,
-      transactionId:id,
-      error:`A transação bancária de ${String(transaction?.data||"")} pertence à competência financeira fechada ${closing.competencia}. A conciliação histórica não pode ser alterada.`,
-    };
-  }
-  return {ok:true};
 };
 
 // Fase 1.5 reduzida (22/08/2026, ver server/attendance-obra-routing.js):
@@ -1728,90 +933,6 @@ const encontrarUsuarioAuth = (payload, authUser) => {
 };
 
 const igual = (a,b) => JSON.stringify(a) === JSON.stringify(b);
-const objeto = value => value && typeof value === "object" && !Array.isArray(value);
-
-// A Conferência tem segregação de função: o vistoriador registra e julga;
-// quem recebeu o ajuste apenas anexa a própria evidência. A validação precisa
-// acontecer no servidor, pois esconder botões no React não impede uma chamada
-// manual à API.
-const compactarPermissao = value => {
-  if(Array.isArray(value))return value.map(compactarPermissao);
-  if(!objeto(value))return value;
-  const out={};
-  Object.entries(value).forEach(([key,item])=>{
-    if(item===undefined||item===""||(Array.isArray(item)&&item.length===0))return;
-    out[key]=compactarPermissao(item);
-  });
-  return out;
-};
-const igualPermissao=(a,b)=>JSON.stringify(compactarPermissao(a))===JSON.stringify(compactarPermissao(b));
-const validarExclusaoObras=(usuario,anterior=[],proximo=[])=>{
-  if(usuario?.role==="admin")return "";
-  if(!Array.isArray(anterior)||!Array.isArray(proximo))return "Formato de obras inválido.";
-  const idsDepois=new Set(proximo.map(obra=>String(obra?.id||"")).filter(Boolean));
-  const removida=anterior.some(obra=>obra?.id&&!idsDepois.has(String(obra.id)));
-  return removida?"Somente o administrador pode excluir uma obra.":"";
-};
-const validarAlteracoesConferencias=(usuario,anterior=[],proximo=[],autoritativo=[],obras=[])=>{
-  if(usuario?.role==="admin")return "";
-  if(!Array.isArray(anterior)||!Array.isArray(proximo))return "Formato de conferências inválido.";
-  const antes=new Map(anterior.map(c=>[String(c.id),c]));
-  const depois=new Map(proximo.map(c=>[String(c.id),c]));
-  const atual=new Map((autoritativo||[]).map(c=>[String(c.id),c]));
-  const adicionadas=[...depois.entries()].filter(([id])=>!antes.has(id));
-  const removidas=[...antes.keys()].filter(id=>!depois.has(id));
-  if(removidas.length)return "Somente o administrador pode excluir uma vistoria.";
-  for(const [,nova] of adicionadas){
-    if(usuario?.role!=="engenheiro_auditor")return "Somente o administrador ou o engenheiro auditor pode criar uma vistoria.";
-    const obra=(obras||[]).find(o=>String(o.id)===String(nova?.obraId));
-    const estaNoEscopo=!usuario.obraId||String(usuario.obraId)===String(obra?.id);
-    if(!obra||!estaNoEscopo)return "Esta obra não está disponível no escopo do engenheiro auditor.";
-    if(String(nova?.responsavelId)!==String(usuario.id)||String(nova?.responsavel||"").trim()!==String(usuario.nome||"").trim())return "A nova vistoria deve ser registrada automaticamente em nome do engenheiro auditor conectado.";
-    if((nova?.pendencias||[]).length)return "Crie a vistoria primeiro; as pendências devem ser registradas dentro dela.";
-  }
-
-  for(const [id,nova] of depois){
-    const antiga=antes.get(id);
-    if(!antiga)continue;
-    if(igualPermissao(antiga,nova))continue;
-    const vigente=atual.get(id)||antiga;
-    if(usuario?.role==="engenheiro_auditor"&&vigente?.responsavelId===usuario?.id){
-      const imutaveis=["id","obraId","codigo","responsavelId","responsavel","criadoEm"];
-      if(imutaveis.some(k=>!igualPermissao(antiga?.[k],nova?.[k])))return "O responsável pela vistoria não pode alterar a autoria ou o vínculo da conferência.";
-      continue;
-    }
-
-    if(usuario?.role!=="engenheiro")return "Somente o engenheiro auditor responsável ou o administrador pode alterar esta vistoria.";
-
-    const topoAntigo={...antiga},topoNovo={...nova};
-    delete topoAntigo.pendencias;delete topoNovo.pendencias;
-    delete topoAntigo.atualizadoEm;delete topoNovo.atualizadoEm;
-    if(!igualPermissao(topoAntigo,topoNovo))return "O responsável pelo ajuste possui acesso somente para enviar a foto da correção.";
-    const pendAntes=new Map((antiga?.pendencias||[]).map(p=>[String(p.id),p]));
-    const pendDepois=new Map((nova?.pendencias||[]).map(p=>[String(p.id),p]));
-    if([...pendDepois.keys()].some(pid=>!pendAntes.has(pid))||[...pendAntes.keys()].some(pid=>!pendDepois.has(pid)))return "O responsável pelo ajuste não pode criar ou excluir pendências.";
-    for(const [pid,pendNova] of pendDepois){
-      const pendAntiga=pendAntes.get(pid);
-      if(igualPermissao(pendAntiga,pendNova))continue;
-      const pendVigente=(vigente?.pendencias||[]).find(p=>String(p.id)===pid)||pendAntiga;
-      if(pendVigente?.responsavelAjusteId!==usuario?.id)return "Você não pode alterar uma pendência atribuída a outro responsável.";
-      if(pendAntiga?.status==="resolvida")return "Uma pendência conforme não aceita nova evidência sem reabertura pelo vistoriador.";
-      const camposPermitidos=new Set(["status","fotos","validacaoStatus","validacaoObservacao","validadoPorId","validadoPor","validadoEm","resolvidoEm"]);
-      const campos=new Set([...Object.keys(pendAntiga||{}),...Object.keys(pendNova||{})]);
-      if([...campos].some(k=>!camposPermitidos.has(k)&&!igualPermissao(pendAntiga?.[k],pendNova?.[k])))return "O responsável pelo ajuste não pode editar os dados da pendência.";
-      const fotosAntes=pendAntiga?.fotos||[],fotosDepois=pendNova?.fotos||[];
-      if(fotosDepois.length<=fotosAntes.length)return "Envie uma nova foto para registrar a correção.";
-      for(let i=0;i<fotosAntes.length;i++){
-        const a={...fotosAntes[i]},b={...fotosDepois[i]};delete a.id;delete b.id;
-        if(!igualPermissao(a,b))return "As evidências anteriores não podem ser alteradas ou removidas.";
-      }
-      const adicionadas=fotosDepois.slice(fotosAntes.length);
-      if(adicionadas.some(f=>f.tipo!=="ajuste"||f.enviadoPorId!==usuario.id||!/^https:\/\//i.test(String(f.url||""))))return "A nova evidência deve ser a foto de correção enviada pelo próprio responsável.";
-      if(pendNova.status!=="aguardando_validacao"||pendNova.validacaoStatus||pendNova.validadoEm||pendNova.resolvidoEm)return "Depois da foto, a pendência deve aguardar a validação do vistoriador.";
-    }
-  }
-  return "";
-};
 
 async function handler(req, res) {
   if (!URL || !SERVICE) {
@@ -1828,7 +949,7 @@ async function handler(req, res) {
   anexarCronometro(res,cronometro);
 
   const ip = req.headers["x-forwarded-for"]?.split(",")[0] || "desconhecido";
-  let { action=req.query?.action, userId, identificador, pin, accessToken, payload, expectedUpdatedAt, basePayload, sections, baseSections } = req.body || {};
+  let { action=req.query?.action, userId, identificador, pin, accessToken, payload } = req.body || {};
   const getActions=new Set(["profiles","client-portal","pedido-aceite-ver","backup-create","backup-verify","ponto-tempo-verificar"]);
   if(req.method&&req.method!=="POST"&&!(req.method==="GET"&&getActions.has(action)))return res.status(405).json({error:"Método não permitido."});
 
@@ -1935,59 +1056,12 @@ async function handler(req, res) {
       return res.status(200).json({ok:true});
     }
     if (action === "client-portal") {
-      const { payload: p } = await lerLinha();
-      const obraId = String(req.body?.obraId || "");
-      const token = String(req.body?.token || "");
-      const obra = (p?.obras || []).find(o => String(o.id) === obraId);
-      const portal = obra?.portalCliente || {};
-      const tokenValido = token && portal.token && token.length === String(portal.token).length &&
-        crypto.timingSafeEqual(Buffer.from(token), Buffer.from(String(portal.token)));
-      if (!obra || !portal.ativo || !tokenValido) {
-        return res.status(404).json({ error: "Portal indisponível ou link inválido." });
-      }
-
-      const rdos = (p?.rdos || []).filter(r => r.obraId === obraId && r.status === "concluido")
-        .sort((a,b) => String(b.data||"").localeCompare(String(a.data||""))).slice(0, 12);
-      const fotos = portal.publicarFotos === false ? [] : rdos.flatMap(r => (r.fotos || [])
-        .filter(f => f.publicarCliente !== false).map(f => ({ url:f.url || "", legenda:f.legenda || "", data:r.data, rdoCodigo:r.codigo })))
-        .filter(f => f.url).slice(0, 24);
-      // Token and project were verified above; never publish a stable private
-      // reference or sign an object belonging to a different project/company.
-      await Promise.all(fotos.map(async photo=>{
-        if(!photo.url.startsWith('company-file:'))return;
-        const reference=parseCompanyFileReference(photo.url);
-        if(!reference){photo.url='';return;}
-        const result=await resolvePublishedCompanyFile({reference:photo.url,companyId:currentCompany(),projectId:obraId,storage:db.storage});
-        photo.url=result.status===200?result.body.url:'';
-      }));
-      const plano = (p?.planos || []).find(x => x.obraId === obraId);
-      const tarefas = (plano?.tarefas || []).filter(t => !t.titulo).map(t => ({
-        id:t.id, nome:t.nome || t.descricao || "Etapa", inicio:t.inicio || "", fim:t.fim || "",
-        progresso:Math.max(0,Math.min(100,Number(t.progresso || 0))),
-      }));
-      const progresso = tarefas.length ? Math.round(tarefas.reduce((s,t)=>s+t.progresso,0)/tarefas.length) : 0;
-      const medicoes = portal.publicarFinanceiro ? (p?.medicoes || []).filter(m => m.obraId === obraId).map(m => ({
-        id:m.id, descricao:m.descricao || m.competencia || "Medição", competencia:m.competencia || "",
-        valorPrevisto:Number(m.valorPrevisto || 0), valorRecebido:Number(m.valorRecebido || 0), recebido:!!m.recebido,
-      })) : [];
-      const documentos = portal.publicarDocumentos === false ? [] : (obra.documentosOneDrive || [])
-        .filter(d => d.publicarCliente === true).map(d => ({ id:d.id, nome:d.nome || "Documento", url:d.url || "" }));
-      const rowsPublicados=buildClientPortalPublicationRows({data:p,projectId:obraId,publishedAt:portal.atualizadoEm || new Date().toISOString()});
-      const payloads=domain=>rowsPublicados.filter(row=>row.domain===domain).map(row=>row.payload);
-      const atualizacoes=payloads("weekly_update").map(item=>({id:item.id,at:item.period,mensagem:item.summary,responsavel:item.authorName||"Equipe ARCD"}));
-      return res.status(200).json({ portal:{
-        obra:{ id:obra.id, nome:obra.name, status:obra.status, capaUrl:obra.capaUrl || "", cliente:obra.cliente || "", engenheiro:obra.engineer || "", endereco:obra.address || "", inicio:obra.contractStart || obra.startDate || "", terminoPrevisto:obra.contractEnd || "" },
-        mensagem:portal.mensagem || "Acompanhe aqui a evolução da sua obra.", progresso,
-        cronograma:portal.publicarCronograma === false ? [] : tarefas.slice(0,30),
-        diarios:rdos.map(r => ({ id:r.id, codigo:r.codigo, data:r.data, descricao:r.descricao || "", clima:r.clima || {}, fotos:(r.fotos||[]).filter(f=>f.publicarCliente!==false).length })),
-        fotos:fotos.filter(photo=>photo.url), medicoes, documentos, atualizacoes,
-        caixaResumo:payloads("cash_summary")[0] || null,
-        caixaMovimentacoes:payloads("cash_movement"),
-        notasFiscais:payloads("invoice"),
-        compras:payloads("purchase_order"),
-        cotacoes:payloads("quotation"),
-        atualizadoEm:portal.atualizadoEm || "",
-      }});
+      const { payload } = await lerLinha();
+      const result = await readLegacyClientPortal({
+        data:payload,request:req.body,companyId:currentCompany(),storage:db.storage,
+        equalTokens:(left,right)=>crypto.timingSafeEqual(Buffer.from(left),Buffer.from(right)),
+      });
+      return res.status(result.status).json(result.body);
     }
 
     if (action === "auth-login") {
@@ -2317,6 +1391,7 @@ async function handler(req, res) {
         period:preview.period,
         closing:preview.closing,
         conference:preview.conference,
+        controls:preview.controls,
         alreadyClosed:!!preview.alreadyClosed,
         sourceRevision:canonicalDreSnapshot.sourceRevision,
         canonicalRevision:canonical.revision,
@@ -2689,7 +1764,7 @@ async function handler(req, res) {
 
     if(action==="payroll-certificate-check"){
       res.setHeader("Cache-Control","private, no-store");
-      if(!["admin","rh"].includes(usuario.role)||usuario.obraId||!podeAcessarAba(usuario,"folha")){
+      if(!canManageCompanyPayroll(usuario)){
         return res.status(403).json({ok:false,error:"Seu perfil não pode conferir os atestados da folha da empresa."});
       }
       const check=await checkPayrollCertificates({data:atual,periodKey:req.body.periodKey,db,company:currentCompany()});
@@ -2929,8 +2004,7 @@ async function handler(req, res) {
         return save({key:keyForDomain(base.domain),expectedUpdatedAt:base.updatedAt,value:valorLinha,
         financialSnapshotData:resultData,rowVersions:base.rowVersions,keepDomain:domainAlvo,actor:usuario,
         action:`operational_${command.type.toLowerCase()}`,
-        before:{command:command.type,entityId:operationalCommandEntityId(command)},
-        after:{command:command.type,idempotencyKey:command.idempotencyKey}});
+        ...buildOperationalCommandAudit(command)});
       };
 
       // Um único reenvio não bastava sob concorrência real: qualquer gravação
@@ -3087,92 +2161,13 @@ async function handler(req, res) {
       return res.status(200).json({...report,sync});
     }
 
-    // Fase 2, primeiro consumidor real do CORE-001 (23/08/2026, ver
-    // docs/BLUEPRINT_CONCORRENCIA_TRAVA.md): só leitura, só admin. Reaproveita
-    // o mesmo resumo de server/core-registry-shadow-status.js usado por
-    // scripts/check-core-registry-shadow-status.mjs, mais uma amostra
-    // pequena de cada tabela - prova que a projeção é consultável de
-    // verdade, sem virar tela nem exigir política de RLS por papel/obra
-    // (que não se aplica aqui: toda leitura já passa por `db`, o cliente
-    // service_role compartilhado - a autorização por papel é sempre feita
-    // aqui em JS, nunca em RLS, mesmo padrão do resto deste arquivo).
-    if(action==="core-registry-report"){
-      if(usuario.role!=="admin")return res.status(403).json({error:"Apenas administradores consultam a projeção cadastral."});
-      // Achado de 24/08/2026: `db` é um cliente Supabase compartilhado de
-      // escopo de módulo (pode sobreviver a múltiplas requisições numa
-      // instância "quente" da função serverless), e `db.auth.getUser(
-      // accessToken)` - chamado mais acima, na resolução de `usuario` -
-      // muda o estado interno de sessão do próprio `db`, fazendo chamadas
-      // .from() POSTERIORES (como estas) usarem o JWT do usuário logado em
-      // vez da service_role key com que `db` foi criado. Isso derruba com
-      // "permission denied" em qualquer tabela sem grant para
-      // "authenticated" (como as core_*, que revogam tudo exceto
-      // service_role - migration 007). Um cliente isolado, criado aqui e
-      // usado só nesta ação, evita essa contaminação - mesmo padrão que
-      // scripts/check-core-registry-shadow-status.mjs já usa (que nunca
-      // teve esse problema, por nunca compartilhar cliente entre requests).
-      const registryDb = createClient(URL, SERVICE, { auth: { persistSession: false, autoRefreshToken: false } });
-      const { data: runs, error: runsError } = await registryDb
-        .from("core_registry_shadow_runs")
-        .select("result, created_at, actor_id")
-        .eq("company_id", currentCompany())
-        .order("created_at", { ascending: false })
-        .limit(20);
-      if (runsError) throw runsError;
-      const liveCounts = {};
-      const sample = {};
-      for (const [section, table] of Object.entries(CORE_REGISTRY_TABLES)) {
-        const [{ count, error: countError }, { data: sampleRows, error: sampleError }] = await Promise.all([
-          registryDb.from(table).select("*", { count: "exact", head: true })
-            .eq("company_id", currentCompany()).is("archived_at", null),
-          registryDb.from(table).select("*")
-            .eq("company_id", currentCompany()).is("archived_at", null)
-            .order("synced_at", { ascending: false }).limit(5),
-        ]);
-        if (countError) throw countError;
-        if (sampleError) throw sampleError;
-        liveCounts[section] = count || 0;
-        sample[section] = sampleRows || [];
-      }
-      const summary = summarizeCoreRegistryShadowStatus({ runs: runs || [], liveCounts });
-      return res.status(200).json({ ok:true, ...summary, liveCounts, sample });
+    if(isRegistryShadowReport(action)){
+      return await handleRegistryShadowReport({
+        action, usuario, res, db,
+        createCoreDb: () => createClient(URL, SERVICE, { auth: { persistSession: false, autoRefreshToken: false } }),
+      });
     }
 
-    // CORE-002, mesmo padrão do core-registry-report acima (24/08/2026, ver
-    // docs/BLUEPRINT_CONCORRENCIA_TRAVA.md). `db` já não precisa de
-    // isolamento próprio aqui - authDb absorve toda chamada .auth.* deste
-    // arquivo desde a correção na raiz, então `db` nunca mais é contaminado.
-    if(action==="equipment-registry-report"){
-      if(usuario.role!=="admin")return res.status(403).json({error:"Apenas administradores consultam a projeção de equipamentos."});
-      const { data: runs, error: runsError } = await db
-        .from("equipment_registry_shadow_runs")
-        .select("result, created_at, actor_id")
-        .eq("company_id", currentCompany())
-        .order("created_at", { ascending: false })
-        .limit(20);
-      if (runsError) throw runsError;
-      const liveCounts = {};
-      const sample = {};
-      for (const [section, table] of Object.entries(EQUIPMENT_REGISTRY_TABLES)) {
-        const [{ count, error: countError }, { data: sampleRows, error: sampleError }] = await Promise.all([
-          db.from(table).select("*", { count: "exact", head: true })
-            .eq("company_id", currentCompany()).is("archived_at", null),
-          db.from(table).select("*")
-            .eq("company_id", currentCompany()).is("archived_at", null)
-            .order("synced_at", { ascending: false }).limit(5),
-        ]);
-        if (countError) throw countError;
-        if (sampleError) throw sampleError;
-        liveCounts[section] = count || 0;
-        sample[section] = sampleRows || [];
-      }
-      const summary = summarizeEquipmentRegistryShadowStatus({ runs: runs || [], liveCounts });
-      return res.status(200).json({ ok:true, ...summary, liveCounts, sample });
-    }
-
-    // CORE-003, mesmo padrão do equipment-registry-report acima (24/08/2026,
-    // ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md, seção "Comando de criação de
-    // cotação: a lacuna fundamental fechada").
     // Gera o link de aceite do pedido para o fornecedor (C2.5): mesmos perfis
     // que enviam o pedido. Só o código assinado sai daqui; nada é gravado.
     if(action==="cotacao-fornecedor-link"){
@@ -3195,161 +2190,19 @@ async function handler(req, res) {
       const {token,expiraEm}=gerarTokenAceite({key,order:pedido});
       return res.status(200).json({ok:true,token,expiraEm});
     }
-    if(action==="procurement-registry-report"){
-      if(usuario.role!=="admin")return res.status(403).json({error:"Apenas administradores consultam a projeção de compras."});
-      const { data: runs, error: runsError } = await db
-        .from("procurement_registry_shadow_runs")
-        .select("result, created_at, actor_id")
-        .eq("company_id", currentCompany())
-        .order("created_at", { ascending: false })
-        .limit(20);
-      if (runsError) throw runsError;
-      const liveCounts = {};
-      const sample = {};
-      for (const [section, table] of Object.entries(PROCUREMENT_REGISTRY_TABLES)) {
-        const [{ count, error: countError }, { data: sampleRows, error: sampleError }] = await Promise.all([
-          db.from(table).select("*", { count: "exact", head: true })
-            .eq("company_id", currentCompany()).is("archived_at", null),
-          db.from(table).select("*")
-            .eq("company_id", currentCompany()).is("archived_at", null)
-            .order("synced_at", { ascending: false }).limit(5),
-        ]);
-        if (countError) throw countError;
-        if (sampleError) throw sampleError;
-        liveCounts[section] = count || 0;
-        sample[section] = sampleRows || [];
-      }
-      const summary = summarizeProcurementRegistryShadowStatus({ runs: runs || [], liveCounts });
-      return res.status(200).json({ ok:true, ...summary, liveCounts, sample });
-    }
-
-    // CORE-004, mesmo padrão do equipment-registry-report acima (02/09/2026,
-    // ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md, seção "Motor canônico do
-    // Ponto em modo sombra (CORE-004)").
-    if(action==="attendance-registry-report"){
-      if(usuario.role!=="admin")return res.status(403).json({error:"Apenas administradores consultam a projeção de ponto."});
-      const { data: runs, error: runsError } = await db
-        .from("attendance_registry_shadow_runs")
-        .select("result, created_at, actor_id")
-        .eq("company_id", currentCompany())
-        .order("created_at", { ascending: false })
-        .limit(20);
-      if (runsError) throw runsError;
-      const liveCounts = {};
-      const sample = {};
-      for (const [section, table] of Object.entries(ATTENDANCE_REGISTRY_TABLES)) {
-        const [{ count, error: countError }, { data: sampleRows, error: sampleError }] = await Promise.all([
-          db.from(table).select("*", { count: "exact", head: true })
-            .eq("company_id", currentCompany()).is("archived_at", null),
-          db.from(table).select("*")
-            .eq("company_id", currentCompany()).is("archived_at", null)
-            .order("synced_at", { ascending: false }).limit(5),
-        ]);
-        if (countError) throw countError;
-        if (sampleError) throw sampleError;
-        liveCounts[section] = count || 0;
-        sample[section] = sampleRows || [];
-      }
-      const summary = summarizeAttendanceRegistryShadowStatus({ runs: runs || [], liveCounts });
-      return res.status(200).json({ ok:true, ...summary, liveCounts, sample });
-    }
-
-    // Verificação da primeira escrita transacional real de Fase 2
-    // (24/08/2026, ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md). Diferente dos
-    // dois relatórios acima (que resumem uma sincronização em lote), esta
-    // tabela recebe uma linha por vez, ao vivo - só lista o que já chegou,
-    // sem noção de "última sincronização".
     if(action==="purchase-requests-report"){
-      if(usuario.role!=="admin")return res.status(403).json({error:"Apenas administradores consultam a projeção de solicitações de compra."});
-      const [{ count, error: countError }, { data: sample, error: sampleError }] = await Promise.all([
-        db.from("purchase_requests").select("*", { count: "exact", head: true }).eq("company_id", currentCompany()),
-        db.from("purchase_requests").select("*").eq("company_id", currentCompany())
-          .order("updated_at", { ascending: false }).limit(10),
-      ]);
-      if (countError) throw countError;
-      if (sampleError) throw sampleError;
-      return res.status(200).json({ ok:true, count: count || 0, sample: sample || [] });
+      return await handlePurchaseRequestsReport({ db, usuario, res });
     }
-
-    // Removido em 24/08/2026 (ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md):
-    // purchase-requests-delete-test-row usava o DELETE que a migration 011
-    // concedia a service_role em purchase_requests - achado de auditoria:
-    // esse grant tinha ficado permanente por omissão (reaplicado em todo
-    // deploy), apesar de documentado como uso único. A migration 013
-    // revoga o privilégio; sem ele, esta ação só falharia com erro de
-    // permissão, então foi removida em vez de deixada como código morto.
-    // O registro de teste que motivou sua criação já foi removido (0
-    // linhas em purchase_requests, confirmado em produção).
-
-    // Mesmo utilitário estreito acima, mas para o lado do blob
-    // (data.solicitacoesCompra/data.materiais) - não existe comando de
-    // cancelamento/exclusão de solicitação de compra no aplicativo (só
-    // SOLICITACAO_COMPRA_SALVA, criar/editar), então o registro de teste
-    // usado para verificar a escrita ao vivo em purchase_requests
-    // (24/08/2026) não tinha como ser removido pelo caminho normal. Mesma
-    // guarda de segurança: só remove entradas cujo `numero` comece com
-    // "TESTE-".
     if(action==="purchase-requests-cleanup-test-blob-entry"){
-      if(usuario.role!=="admin")return res.status(403).json({error:"Apenas administradores limpam registros de teste."});
-      if(!process.env.POSTGRES_URL_NON_POOLING)return res.status(503).json({error:"A conexão direta do Supabase não está configurada."});
-      const id=String(req.body?.id||"");
-      if(!id)return res.status(400).json({error:"Informe o id do registro de teste."});
-      const outcome=await executarMutacaoEmpresaBloqueada({
-        actor:usuario,action:"purchase_request_test_blob_cleanup",
-        domain:DOMAIN_ROW.CORE,linha:{payload:atual,rowVersions},
-        mutate:async({payload:current})=>{
-          const record=(current.solicitacoesCompra||[]).find(item=>String(item?.id)===id);
-          if(!record)return {kind:"error",status:404,error:"Registro não encontrado no blob."};
-          if(!/^TESTE-/.test(String(record.numero||"")))return {
-            kind:"error",status:400,
-            error:"Só registros com numero começando em 'TESTE-' podem ser removidos por aqui.",
-          };
-          const nextData={
-            ...current,
-            solicitacoesCompra:(current.solicitacoesCompra||[]).filter(item=>String(item?.id)!==id),
-            materiais:(current.materiais||[]).filter(item=>String(item?.solicitacaoOrigemId||"")!==id),
-          };
-          return {kind:"save",data:nextData,before:{purchaseRequestId:id},after:{removed:true}};
-        },
+      return await handlePurchaseRequestTestCleanup({
+        req,res,usuario,atual,rowVersions,executarMutacaoEmpresaBloqueada,
       });
-      if(outcome.kind==="error")return res.status(outcome.status||400).json({error:outcome.error});
-      return res.status(200).json({ ok:true, removed:id });
     }
 
     if(action==="labor-projection-report"){
-      try{
-        const access=getLaborProjectionAccess(usuario,atual);
-        // Permissões e escopo de obra são verificados antes de ler arquivos.
-        // A identidade histórica é validada depois da reconstrução, pois uma
-        // pessoa pode existir só na fotografia de uma quinzena arquivada.
-        validateLaborProjectionFilters({...req.body?.filters,
-          employeeId:access.canViewPeople?"":req.body?.filters?.employeeId},access,atual);
-        const source=await prepareLaborProjectionSource({
-          data:atual,baseKey:KEY,now:new Date(),
-          initialVersion:{updatedAt,rowVersions:{...rowVersions,[DOMAIN_ROW.CORE]:updatedAt},rowVersionsPontoObra},
-          readCurrentVersion:async()=>{
-            const current=await lerLinha();
-            return {updatedAt:current.updatedAt,rowVersions:current.rowVersions,rowVersionsPontoObra:current.rowVersionsPontoObra};
-          },
-          readArchive:async key=>{
-            const {data:archive,error}=await db.from("company_app_data").select("key,value,updated_at")
-              .eq("company_id",currentCompany()).eq("key",key).maybeSingle();
-            if(error)throw error;
-            return archive;
-          },
-        });
-        const {data:projectionData,...sourceOptions}=source;
-        const filters=validateLaborProjectionFilters(req.body?.filters,access,projectionData);
-        const report=buildLaborProjection(projectionData,{...sourceOptions,access,filters,includeCashBasis:true});
-        report.sourceVersion=source.sourceVersion;
-        report.cash=buildLaborProjectionCash(projectionData,report,{access});
-        return res.status(200).json({ok:true,report:sanitizeLaborProjectionReport(report,access)});
-      }catch(error){
-        if(String(error?.code||"").startsWith("LABOR_")&&[400,403,409,503].includes(error.status)){
-          return res.status(error.status).json({error:error.message,code:error.code,retryable:error.status===409});
-        }
-        throw error;
-      }
+      return await handleLaborProjectionReport({
+        req,res,usuario,atual,updatedAt,rowVersions,rowVersionsPontoObra,db,lerLinha,baseKey:KEY,
+      });
     }
 
     if(action==="financial-annual-dre-report"||action==="financial-annual-dre-layout"){
@@ -3539,51 +2392,25 @@ async function handler(req, res) {
       return res.status(200).json({ok:true,model:{id:contractSourceModel.id,version:contractSourceModel.version,nodes:contractSourceModel.nodes}});
     }
     if (action === "load") {
-      const [completo,indice] = await Promise.all([anexarCustosArquivados(atual),lerIndicePerfis().catch(()=>null)]);
-      // Autocorreção: índice de login/OneDrive desatualizado (obra criada por
-      // comando operacional antes desta correção) é regravado na carga.
-      if(profileIndexOutdated(indice,atual))await atualizarIndicePerfisSeguro(atual);
-      return res.status(200).json({
-        data: projectDataForUser(completo, usuario),
-        updatedAt,
-        usuario: publicUser(usuario),
-      });
+      const workspace = await loadCompanyWorkspace({ data: atual, updatedAt, user: usuario });
+      return res.status(200).json(workspace);
     }
 
     if(action==="persistence-health"){
-      if(usuario.role!=="admin")return res.status(403).json({error:"Apenas administradores verificam a persistência."});
-      const tableCheck=await db.from("company_app_data").select("key",{head:true,count:"exact"})
-        .eq("company_id",currentCompany()).eq("key",KEY);
-      if(tableCheck.error)return res.status(503).json({
-        ok:false,code:"COMPANY_APP_DATA_UNAVAILABLE",
-        error:"A tabela principal não respondeu à verificação.",
-      });
-      const probeId=crypto.randomUUID();
-      const auditCheck=await db.rpc("company_save_with_audit",{
-        p_company_id:`${currentCompany()}__health_probe`,p_key:"health",
-        p_expected_updated_at:"1970-01-01T00:00:00.000Z",p_value:{},
-        p_actor_id:String(usuario.id||"admin"),p_actor_name:String(usuario.nome||"Administrador"),
-        p_correlation_id:probeId,p_action:"health_probe",p_before:{},p_after:{},
-      });
-      if(auditCheck.error)return res.status(503).json({
-        ok:false,code:"AUDIT_RPC_UNAVAILABLE",
-        error:"A RPC append-only não está disponível. Execute migrations/20260725_append_only_audit.sql.",
-      });
-      const archiveCheck=await db.rpc("attendance_archive_transaction",{
-        p_company_id:`${currentCompany()}__health_probe`,p_main_key:"health",p_archive_key:"health_archive",
-        p_expected_updated_at:"1970-01-01T00:00:00.000Z",p_main_value:{},p_archive_value:{},
-        p_actor_id:String(usuario.id||"admin"),p_actor_name:String(usuario.nome||"Administrador"),
-        p_actor_role:String(usuario.role||""),
-        p_correlation_id:crypto.randomUUID(),p_before:{},p_after:{},
-      });
-      if(archiveCheck.error)return res.status(503).json({
-        ok:false,code:"ATTENDANCE_ARCHIVE_RPC_UNAVAILABLE",
-        error:"A RPC transacional do arquivo de ponto não está disponível. Execute migrations/006_attendance_archive_transaction.up.sql.",
-      });
-      return res.status(200).json({
-        ok:true,companyAppData:true,auditRpc:true,attendanceArchiveRpc:true,
-      });
+      const { status, body } = await checkPersistenceHealth(usuario);
+      return res.status(status).json(body);
     }
+
+    const saveOperation=action==="save"||action==="save-sections"
+      ?legacySaveOperation(req.body,currentCompany(),String(usuario.id),action):null;
+    const replaySave=async()=>{
+      const confirmed=await lerLinha();
+      const savedSections=action==="save-sections"?prepareSectionSave(req.body,confirmed.payload).keys:undefined;
+      const complete=await anexarCustosArquivados(confirmed.payload);
+      return legacySaveResponder(res)(200,{ok:true,replayed:true,merged:true,
+        data:projectDataForUser(complete,usuario),updatedAt:confirmed.updatedAt,savedSections});
+    };
+    if(saveOperation&&await readLegacySaveReceipt(db,saveOperation))return await replaySave();
 
     // ── 4. Salvar somente os módulos alterados ─────────────────────
     // O estado histórico continua compatível com o blob existente, porém o
@@ -3592,24 +2419,13 @@ async function handler(req, res) {
     // alteração: Obras, RH, Compras, Financeiro etc. Em concorrência, somente
     // as seções realmente tocadas entram no merge de três vias.
     if (action === "save-sections") {
-      // Seções enviadas como delta (só registros alterados) voltam a ser
-      // listas completas aqui, sobre o estado atual, antes de qualquer
-      // validação - ver src/domains/sync/section-delta.js.
-      if(objeto(req.body?.sectionDeltas)){
-        const completas={...(objeto(sections)?sections:{})},bases={...(objeto(baseSections)?baseSections:{})};
-        for(const [key,delta] of Object.entries(req.body.sectionDeltas).slice(0,120)){
-          if(!key||key.startsWith("__"))continue;
-          const expandido=expandSectionDelta(delta,atual?.[key]);
-          if(!expandido)return res.status(400).json({ error:`Alteração da seção ${key} em formato inválido.` });
-          completas[key]=expandido.incoming;bases[key]=expandido.base;
-        }
-        sections=completas;baseSections=bases;
-      }
-      if (!objeto(sections)) return res.status(400).json({ error: "Nenhuma seção para salvar." });
-      const chaves = Object.keys(sections).filter(k => k && !k.startsWith("__")).slice(0, 120);
+      const reply=legacySaveResponder(res);
+      const input=prepareSectionSave(req.body||{},atual);
+      if(!input.ok)return reply(400,{error:input.error});
+      const {sections,baseSections,expectedUpdatedAt,keys:chaves}=input;
       const commandOnlySections=["commercialContractRecords","commercialContractCompany","workFileCabinets","engineeringProjects","attendance","attendanceLocks","unlockRequests","dailyCheckDate","attendanceOperationReceipts","changeLog"];
       const legacyPointWrite=chaves.find(key=>commandOnlySections.includes(key));
-      if(legacyPointWrite)return res.status(409).json({
+      if(legacyPointWrite)return reply(409,{
         error:`A seção ${legacyPointWrite} exige o comando granular do servidor.`,
         code:"ATTENDANCE_GRANULAR_REQUIRED",
       });
@@ -3620,18 +2436,18 @@ async function handler(req, res) {
       const secoesFinanceiras=Object.fromEntries(chaves.map(key=>[key,sections[key]]));
       const sincronizaFinanceiro=hasLegacyFinancialWrite(secoesFinanceiras);
       const protegeDreFechado=sincronizaFinanceiro;
-      if (!chaves.length) return res.status(200).json({ ok:true, updatedAt, unchanged:true });
+      if (!chaves.length) return reply(200,{ ok:true, updatedAt, unchanged:true });
       if(process.env.POSTGRES_URL_NON_POOLING){
         const outcome=await executarMutacaoMultiLinha({
           actor:usuario,
-          action:sincronizaFinanceiro?"financial_shadow_save_sections":"save_sections",
+          action:legacySaveAuditAction(action,sincronizaFinanceiro),
           financial:sincronizaFinanceiro,
           domains:chaves.map(domainForField),
           linha:{payload:atual,rowVersions,linhasBrutas:linha.linhasBrutas},
-          cronometro,
+          cronometro,saveOperation,
           mutate:async({payload:current,updatedAt:lockedUpdatedAt,transaction})=>{
             const houveConcorrencia=expectedUpdatedAt&&lockedUpdatedAt
-              &&!mesmoInstante(expectedUpdatedAt,lockedUpdatedAt);
+              &&!sameSaveInstant(expectedUpdatedAt,lockedUpdatedAt);
             if(houveConcorrencia&&!baseSections)return {
               kind:"error",status:409,conflict:true,
               error:"A versão de origem é necessária para mesclar alterações concorrentes.",
@@ -3718,7 +2534,8 @@ async function handler(req, res) {
             };
           },
         });
-        if(outcome.kind==="error")return res.status(outcome.status||409).json({
+        if(outcome.kind==="replayed")return await replaySave();
+        if(outcome.kind==="error")return reply(outcome.status||409,{
           error:outcome.error,code:outcome.code,
           ...(outcome.closedDreChanges?.length?{closedDreChanges:outcome.closedDreChanges}:{}),
           ...(outcome.conflict?{
@@ -3727,7 +2544,7 @@ async function handler(req, res) {
           }:{}),
         });
         if(chaves.includes("usuarios")||chaves.includes("obras"))await salvarIndicePerfis(outcome.data);
-        return res.status(200).json({
+        return reply(200,{
           ok:true,merged:!!outcome.merged,
           data:outcome.merged?projectDataForUser(outcome.data,usuario):undefined,
           updatedAt:outcome.updatedAt,savedSections:chaves,
@@ -3735,7 +2552,7 @@ async function handler(req, res) {
       }
       // Com competência fechada não existe fallback otimista: sem a conexão
       // transacional não conseguimos provar que a mutação preserva o DRE.
-      if(protegeDreFechado&&closedCompanyDreEntries(atual).length)return res.status(503).json({
+      if(protegeDreFechado&&closedCompanyDreEntries(atual).length)return reply(503,{
         error:"Há competência financeira fechada. Esta alteração exige a conexão transacional do servidor.",
         code:"CLOSED_DRE_TRANSACTION_REQUIRED",
       });
@@ -3743,101 +2560,107 @@ async function handler(req, res) {
       // apenas a core, então recusa seção que já mora em linha própria.
       const secaoEmOutraLinha=chaves.find(key=>
         domainForField(key)!==DOMAIN_ROW.CORE&&rowVersions[domainForField(key)]!=null);
-      if(secaoEmOutraLinha)return res.status(409).json({
+      if(secaoEmOutraLinha)return reply(409,{
         error:"Recarregue a página para salvar estas alterações.",code:"SECTION_IN_OWN_ROW",section:secaoEmOutraLinha,
       });
       const erroSnapshotObra=validateProjectFinancialSnapshotPolicy({
         engineEnforced:FINANCIAL_ENGINE_ENFORCE,before:atual,after:{...atual,...sections},
       });
-      if(!erroSnapshotObra.ok)return res.status(409).json({error:erroSnapshotObra.error,code:"PROJECT_FINANCIAL_COMMAND_REQUIRED"});
+      if(!erroSnapshotObra.ok)return reply(409,{error:erroSnapshotObra.error,code:"PROJECT_FINANCIAL_COMMAND_REQUIRED"});
       const erroMotorFinanceiro=validateFinancialWritePath({engineEnforced:FINANCIAL_ENGINE_ENFORCE,sections:secoesFinanceiras});
-      if(!erroMotorFinanceiro.ok)return res.status(409).json({error:erroMotorFinanceiro.error,code:"FINANCIAL_ENGINE_ENFORCED"});
+      if(!erroMotorFinanceiro.ok)return reply(409,{error:erroMotorFinanceiro.error,code:"FINANCIAL_ENGINE_ENFORCED"});
       const aplicar = estado => ({...estado,...Object.fromEntries(chaves.map(key=>[key,
         baseSections&&Object.prototype.hasOwnProperty.call(baseSections,key)
           ?mergeThreeWay(baseSections[key],sections[key],estado?.[key]):sections[key],
       ]))});
       let valor=aplicar(atual);
       const erroAutorizacao=authorizeSectionChanges(usuario,secoesFinanceiras,{before:atual,after:valor});
-      if(erroAutorizacao)return res.status(403).json({error:erroAutorizacao});
+      if(erroAutorizacao)return reply(403,{error:erroAutorizacao});
       const erroExclusao=validateNoPhysicalDeletes(
         Object.fromEntries(chaves.map(key=>[key,atual?.[key]])),
         Object.fromEntries(chaves.map(key=>[key,valor[key]])),
       );
-      if(erroExclusao)return res.status(409).json({error:erroExclusao});
+      if(erroExclusao)return reply(409,{error:erroExclusao});
       const erroGarantia=validateTechnicalRetentionPolicy(atual,{...atual,...sections});
-            if(erroGarantia)return res.status(403).json({error:erroGarantia});
+            if(erroGarantia)return reply(403,{error:erroGarantia});
             const erroBaseline=validateBudgetBaselinePolicy(atual,{...atual,...sections},usuario);
-      if(erroBaseline)return res.status(403).json({error:erroBaseline});
+      if(erroBaseline)return reply(403,{error:erroBaseline});
       const erroBaseContabil=validateAccountingSnapshotPolicy(atual,{...atual,...sections});
-      if(erroBaseContabil)return res.status(403).json({error:erroBaseContabil});
+      if(erroBaseContabil)return reply(403,{error:erroBaseContabil});
       const erroBaselinePlano=validatePlanningBaselinePolicy(atual,{...atual,...sections},usuario);
-      if(erroBaselinePlano)return res.status(403).json({error:erroBaselinePlano});
+      if(erroBaselinePlano)return reply(403,{error:erroBaselinePlano});
       const erroConciliacaoBancaria=validateBankReconciliationPolicy(atual,{...atual,...sections},usuario);
-      if(erroConciliacaoBancaria)return res.status(403).json({error:erroConciliacaoBancaria});
+      if(erroConciliacaoBancaria)return reply(403,{error:erroConciliacaoBancaria});
       if(chaves.includes("conferencias")){
         const baseConferencias=baseSections&&Object.prototype.hasOwnProperty.call(baseSections,"conferencias")?baseSections.conferencias:atual?.conferencias;
         const erroPermissao=validarAlteracoesConferencias(usuario,baseConferencias||[],sections.conferencias||[],atual?.conferencias||[],atual?.obras||[]);
-        if(erroPermissao)return res.status(403).json({error:erroPermissao});
+        if(erroPermissao)return reply(403,{error:erroPermissao});
       }
       if(chaves.includes("pedidos")){
         const basePedidos=baseSections&&Object.prototype.hasOwnProperty.call(baseSections,"pedidos")?baseSections.pedidos:atual?.pedidos;
         const erroCompras=validatePurchaseChanges(usuario,basePedidos||[],sections.pedidos||[]);
-        if(erroCompras)return res.status(403).json({error:erroCompras});
+        if(erroCompras)return reply(403,{error:erroCompras});
       }
       if(chaves.some(key=>["solicitacoesCompra","cotacoes","pedidos","notasFiscais"].includes(key))){
         const erroCadeiaCompras=validateProcurementChain({...atual,...sections});
-        if(erroCadeiaCompras)return res.status(409).json({error:erroCadeiaCompras});
+        if(erroCadeiaCompras)return reply(409,{error:erroCadeiaCompras});
       }
       if(chaves.includes("obras")){
         const baseObras=baseSections&&Object.prototype.hasOwnProperty.call(baseSections,"obras")?baseSections.obras:atual?.obras;
         const erroObras=validarExclusaoObras(usuario,baseObras||[],sections.obras||[]);
-        if(erroObras)return res.status(403).json({error:erroObras});
+        if(erroObras)return reply(403,{error:erroObras});
       }
 
-      const houveConcorrencia=expectedUpdatedAt&&updatedAt&&!mesmoInstante(expectedUpdatedAt,updatedAt);
-      if(houveConcorrencia&&!baseSections)return res.status(409).json({conflict:true,reason:"A versão de origem é necessária para mesclar alterações concorrentes."});
+      const houveConcorrencia=expectedUpdatedAt&&updatedAt&&!sameSaveInstant(expectedUpdatedAt,updatedAt);
+      if(houveConcorrencia&&!baseSections)return reply(409,{conflict:true,reason:"A versão de origem é necessária para mesclar alterações concorrentes."});
       if(houveConcorrencia){
         const conflicts=findSectionConflicts(baseSections,sections,atual,chaves);
-        if(conflicts.length)return res.status(409).json({conflict:true,reason:"Outro operador alterou o mesmo registro. Atualize os dados antes de tentar novamente.",conflicts,currentUpdatedAt:updatedAt});
+        if(conflicts.length)return reply(409,{conflict:true,reason:"Outro operador alterou o mesmo registro. Atualize os dados antes de tentar novamente.",conflicts,currentUpdatedAt:updatedAt});
       }
       let agora=new Date().toISOString();
       const salvarVersao=sincronizaFinanceiro?salvarFinanceiroComAuditoria:salvarComAuditoria;
-      let gravacao=await salvarVersao({expectedUpdatedAt:updatedAt,value:valor,rowVersions,actor:usuario,action:sincronizaFinanceiro?"financial_shadow_save_sections":"save_sections",
+      const saveAction=legacySaveAuditAction(action,sincronizaFinanceiro);
+      const gravacao=await salvarVersao({expectedUpdatedAt:updatedAt,value:valor,rowVersions,actor:usuario,action:saveAction,saveOperation,
         ...compactAuditSnapshots(Object.fromEntries(chaves.map(key=>[key,atual?.[key]])),Object.fromEntries(chaves.map(key=>[key,valor?.[key]])))});
+      if(gravacao.replayed)return await replaySave();
       let gravado=gravacao.applied?{updated_at:gravacao.updatedAt}:null;
 
       let combinado=houveConcorrencia;
       if(!gravado){
-        const recente=await lerLinha();
-        const conflicts=findSectionConflicts(baseSections,sections,recente.payload,chaves);
-        if(conflicts.length)return res.status(409).json({conflict:true,reason:"Outro operador alterou o mesmo registro. Atualize os dados antes de tentar novamente.",conflicts,currentUpdatedAt:recente.updatedAt});
-        valor=aplicar(recente.payload);
-        const erroAutorizacao=authorizeSectionChanges(usuario,secoesFinanceiras,{before:recente.payload,after:valor});
-        if(erroAutorizacao)return res.status(403).json({error:erroAutorizacao});
-        agora=new Date().toISOString();
-        const retry=await salvarVersao({expectedUpdatedAt:recente.updatedAt,value:valor,rowVersions:recente.rowVersions,actor:usuario,action:sincronizaFinanceiro?"financial_shadow_save_sections":"save_sections",
-          before:Object.fromEntries(chaves.map(key=>[key,recente.payload?.[key]])),after:Object.fromEntries(chaves.map(key=>[key,valor?.[key]]))});
-        if(!retry.applied)return res.status(409).json({conflict:true,reason:"Muitas alterações simultâneas. Tente novamente."});
+        const retry=await retryLegacySave({
+          readCurrent:lerLinha,base:baseSections,incoming:sections,keys:chaves,sections:secoesFinanceiras,
+          merge:aplicar,save:attempt=>salvarVersao({...attempt,saveOperation}),actor:usuario,action:saveAction,
+          onRetry:()=>{agora=new Date().toISOString();},
+        });
+        if(!retry.ok){
+          if(saveOperation&&await readLegacySaveReceipt(db,saveOperation))return await replaySave();
+          return reply(retry.status,retry.body);
+        }
+        if(retry.replayed)return await replaySave();
+        valor=retry.value;
         gravado={updated_at:retry.updatedAt};combinado=true;
       }
       if(chaves.includes("usuarios")||chaves.includes("obras"))await salvarIndicePerfis(valor);
-      return res.status(200).json({ok:true,merged:combinado,data:combinado?projectDataForUser(valor,usuario):undefined,updatedAt:gravado?.updated_at||agora,savedSections:chaves});
+      return reply(200,{ok:true,merged:combinado,data:combinado?projectDataForUser(valor,usuario):undefined,updatedAt:gravado?.updated_at||agora,savedSections:chaves});
     }
 
     // ── 4b. Salvar blob completo (compatibilidade / primeiro acesso) ─
     if (action === "save") {
-      if (!payload) return res.status(400).json({ error: "Nada para salvar." });
+      const reply=legacySaveResponder(res);
+      const input=prepareBlobSave(req.body||{});
+      if(!input.ok)return reply(400,{error:input.error});
+      const {payload,basePayload,expectedUpdatedAt}=input;
       // Depois do primeiro fechamento mensal, o blob completo não é mais uma
       // unidade de escrita segura: qualquer alteração deve passar por comando
       // ou save-sections, onde o DRE fechado é revalidado antes do commit.
-      if(closedCompanyDreEntries(atual).length)return res.status(409).json({
+      if(closedCompanyDreEntries(atual).length)return reply(409,{
         error:"Há competência financeira fechada. Recarregue a página e salve pela operação granular do módulo.",
         code:"CLOSED_DRE_GRANULAR_REQUIRED",
       });
       const commandOnlySections=["commercialContractRecords","commercialContractCompany","workFileCabinets","engineeringProjects","attendance","attendanceLocks","unlockRequests","dailyCheckDate","attendanceOperationReceipts","changeLog"];
       const attemptedCommandOnly=commandOnlySections.find(key=>
         Object.prototype.hasOwnProperty.call(payload,key)&&!igual(payload?.[key],atual?.[key]));
-      if(attemptedCommandOnly)return res.status(409).json({
+      if(attemptedCommandOnly)return reply(409,{
         error:`A seção ${attemptedCommandOnly} exige o comando granular do servidor.`,
         code:"ATTENDANCE_GRANULAR_REQUIRED",
       });
@@ -3850,7 +2673,7 @@ async function handler(req, res) {
         .filter(key=>!igual(incomingPayload?.[key],atual?.[key])).map(key=>[key,incomingPayload?.[key]]));
       const legacyPointWrite=Object.keys(secoesAlteradas).find(key=>
         commandOnlySections.includes(key));
-      if(legacyPointWrite)return res.status(409).json({
+      if(legacyPointWrite)return reply(409,{
         error:`A seção ${legacyPointWrite} exige o comando granular do servidor.`,
         code:"ATTENDANCE_GRANULAR_REQUIRED",
       });
@@ -3858,46 +2681,46 @@ async function handler(req, res) {
       // própria (orçamentos, equipamentos...) seria descartada em silêncio.
       const secaoEmOutraLinha=Object.keys(secoesAlteradas).find(key=>
         domainForField(key)!==DOMAIN_ROW.CORE&&rowVersions[domainForField(key)]!=null);
-      if(secaoEmOutraLinha)return res.status(409).json({
+      if(secaoEmOutraLinha)return reply(409,{
         error:"Recarregue a página para salvar estas alterações.",code:"SECTION_IN_OWN_ROW",section:secaoEmOutraLinha,
       });
       const sincronizaFinanceiro=hasLegacyFinancialWrite(secoesAlteradas);
       const erroSnapshotObra=validateProjectFinancialSnapshotPolicy({
         engineEnforced:FINANCIAL_ENGINE_ENFORCE,before:atual,after:incomingPayload,
       });
-      if(!erroSnapshotObra.ok)return res.status(409).json({error:erroSnapshotObra.error,code:"PROJECT_FINANCIAL_COMMAND_REQUIRED"});
+      if(!erroSnapshotObra.ok)return reply(409,{error:erroSnapshotObra.error,code:"PROJECT_FINANCIAL_COMMAND_REQUIRED"});
       const erroMotorFinanceiro=validateFinancialWritePath({engineEnforced:FINANCIAL_ENGINE_ENFORCE,sections:secoesAlteradas});
-      if(!erroMotorFinanceiro.ok)return res.status(409).json({error:erroMotorFinanceiro.error,code:"FINANCIAL_ENGINE_ENFORCED"});
+      if(!erroMotorFinanceiro.ok)return reply(409,{error:erroMotorFinanceiro.error,code:"FINANCIAL_ENGINE_ENFORCED"});
       let valor=basePayload?mergeThreeWay(basePayload,incomingPayload,atual):incomingPayload;
       const erroAutorizacao=authorizeSectionChanges(usuario,secoesAlteradas,{before:atual,after:valor});
-      if(erroAutorizacao)return res.status(403).json({error:erroAutorizacao});
+      if(erroAutorizacao)return reply(403,{error:erroAutorizacao});
       const erroExclusao=validateNoPhysicalDeletes(atual,incomingPayload);
-      if(erroExclusao)return res.status(409).json({error:erroExclusao});
+      if(erroExclusao)return reply(409,{error:erroExclusao});
       const erroGarantia=validateTechnicalRetentionPolicy(atual,incomingPayload);
-            if(erroGarantia)return res.status(403).json({error:erroGarantia});
+            if(erroGarantia)return reply(403,{error:erroGarantia});
             const erroBaseline=validateBudgetBaselinePolicy(atual,incomingPayload,usuario);
-      if(erroBaseline)return res.status(403).json({error:erroBaseline});
+      if(erroBaseline)return reply(403,{error:erroBaseline});
       const erroBaseContabil=validateAccountingSnapshotPolicy(atual,incomingPayload);
-      if(erroBaseContabil)return res.status(403).json({error:erroBaseContabil});
+      if(erroBaseContabil)return reply(403,{error:erroBaseContabil});
       const erroBaselinePlano=validatePlanningBaselinePolicy(atual,incomingPayload,usuario);
-      if(erroBaselinePlano)return res.status(403).json({error:erroBaselinePlano});
+      if(erroBaselinePlano)return reply(403,{error:erroBaselinePlano});
       const erroConciliacaoBancaria=validateBankReconciliationPolicy(atual,incomingPayload,usuario);
-      if(erroConciliacaoBancaria)return res.status(403).json({error:erroConciliacaoBancaria});
+      if(erroConciliacaoBancaria)return reply(403,{error:erroConciliacaoBancaria});
       if(!igual(incomingPayload.conferencias,atual?.conferencias)){
         const erroPermissao=validarAlteracoesConferencias(usuario,basePayload?.conferencias||atual?.conferencias||[],incomingPayload.conferencias||[],atual?.conferencias||[],atual?.obras||[]);
-        if(erroPermissao)return res.status(403).json({error:erroPermissao});
+        if(erroPermissao)return reply(403,{error:erroPermissao});
       }
       if(!igual(incomingPayload.pedidos,atual?.pedidos)){
         const erroCompras=validatePurchaseChanges(usuario,basePayload?.pedidos||atual?.pedidos||[],incomingPayload.pedidos||[]);
-        if(erroCompras)return res.status(403).json({error:erroCompras});
+        if(erroCompras)return reply(403,{error:erroCompras});
       }
       if(["solicitacoesCompra","cotacoes","pedidos","notasFiscais"].some(key=>!igual(incomingPayload?.[key],atual?.[key]))){
         const erroCadeiaCompras=validateProcurementChain(incomingPayload);
-        if(erroCadeiaCompras)return res.status(409).json({error:erroCadeiaCompras});
+        if(erroCadeiaCompras)return reply(409,{error:erroCadeiaCompras});
       }
       if(!igual(incomingPayload.obras,atual?.obras)){
         const erroObras=validarExclusaoObras(usuario,basePayload?.obras||atual?.obras||[],incomingPayload.obras||[]);
-        if(erroObras)return res.status(403).json({error:erroObras});
+        if(erroObras)return reply(403,{error:erroObras});
       }
 
       // Se outro salvou depois da sua leitura, recusa — e devolve a versão
@@ -3910,12 +2733,12 @@ async function handler(req, res) {
       // timestamptz, devolve "2026-07-14T09:46:11.545+00:00". É o MESMO
       // instante, mas são strings diferentes — e comparar com !== dava
       // conflito eterno. O ponto simplesmente não salvava.
-      const houveConcorrencia=expectedUpdatedAt&&updatedAt&&!mesmoInstante(expectedUpdatedAt,updatedAt);
+      const houveConcorrencia=expectedUpdatedAt&&updatedAt&&!sameSaveInstant(expectedUpdatedAt,updatedAt);
       if(houveConcorrencia&&basePayload){
         const conflicts=findSectionConflicts(basePayload,incomingPayload,atual,Object.keys(secoesAlteradas));
-        if(conflicts.length)return res.status(409).json({conflict:true,reason:"Outro operador alterou o mesmo registro. Atualize os dados antes de tentar novamente.",conflicts,currentUpdatedAt:updatedAt});
+        if(conflicts.length)return reply(409,{conflict:true,reason:"Outro operador alterou o mesmo registro. Atualize os dados antes de tentar novamente.",conflicts,currentUpdatedAt:updatedAt});
       }
-      if(houveConcorrencia&&!basePayload)return res.status(409).json({conflict:true,reason:"Outro usuário salvou enquanto você trabalhava.",currentData:projectDataForUser(atual,usuario),currentUpdatedAt:updatedAt});
+      if(houveConcorrencia&&!basePayload)return reply(409,{conflict:true,reason:"Outro usuário salvou enquanto você trabalhava.",currentData:projectDataForUser(atual,usuario),currentUpdatedAt:updatedAt});
 
       const agora = new Date().toISOString();
       const beforeAudit=Object.fromEntries(Object.keys(secoesAlteradas).map(key=>[key,atual?.[key]]));
@@ -3925,25 +2748,32 @@ async function handler(req, res) {
       // mandamos de volta ao navegador é exatamente o que estará lá na próxima
       // comparação — sem discrepância de formato.
       const salvarVersao=sincronizaFinanceiro?salvarFinanceiroComAuditoria:salvarComAuditoria;
-      const primeira=await salvarVersao({expectedUpdatedAt:updatedAt,value:valor,rowVersions,actor:usuario,action:sincronizaFinanceiro?"financial_shadow_save_blob":"save_blob",before:beforeAudit,after:afterAudit});
+      const saveAction=legacySaveAuditAction(action,sincronizaFinanceiro);
+      const primeira=await salvarVersao({expectedUpdatedAt:updatedAt,value:valor,rowVersions,actor:usuario,action:saveAction,before:beforeAudit,after:afterAudit,saveOperation});
+      if(primeira.replayed)return await replaySave();
       let gravado=primeira.applied?{updated_at:primeira.updatedAt}:null;
       // Outra gravação pode entrar entre a leitura e o UPDATE. A condição no
       // updated_at impede sobrescrita; nesse caso relê e reaplica a mesma mescla.
       if(!gravado){
-        if(!basePayload)return res.status(409).json({conflict:true,reason:"Outro usuário salvou ao mesmo tempo."});
-        const recente=await lerLinha();
-        const conflicts=findSectionConflicts(basePayload,incomingPayload,recente.payload,Object.keys(secoesAlteradas));
-        if(conflicts.length)return res.status(409).json({conflict:true,reason:"Outro operador alterou o mesmo registro. Atualize os dados antes de tentar novamente.",conflicts,currentUpdatedAt:recente.updatedAt});
-        valor=mergeThreeWay(basePayload,incomingPayload,recente.payload);
-        const erroAutorizacao=authorizeSectionChanges(usuario,secoesAlteradas,{before:recente.payload,after:valor});
-        if(erroAutorizacao)return res.status(403).json({error:erroAutorizacao});
-        const retry=await salvarVersao({expectedUpdatedAt:recente.updatedAt,value:valor,rowVersions:recente.rowVersions,actor:usuario,action:sincronizaFinanceiro?"financial_shadow_save_blob":"save_blob",
-          before:Object.fromEntries(Object.keys(secoesAlteradas).map(key=>[key,recente.payload?.[key]])),after:Object.fromEntries(Object.keys(secoesAlteradas).map(key=>[key,valor?.[key]]))});
-        if(!retry.applied)return res.status(409).json({conflict:true,reason:"Muitas alterações simultâneas. Tente novamente."});
+        if(!basePayload){
+          if(saveOperation&&await readLegacySaveReceipt(db,saveOperation))return await replaySave();
+          return reply(409,{conflict:true,reason:"Outro usuário salvou ao mesmo tempo."});
+        }
+        const retry=await retryLegacySave({
+          readCurrent:lerLinha,base:basePayload,incoming:incomingPayload,keys:Object.keys(secoesAlteradas),
+          sections:secoesAlteradas,merge:current=>mergeThreeWay(basePayload,incomingPayload,current),
+          save:attempt=>salvarVersao({...attempt,saveOperation}),actor:usuario,action:saveAction,
+        });
+        if(!retry.ok){
+          if(saveOperation&&await readLegacySaveReceipt(db,saveOperation))return await replaySave();
+          return reply(retry.status,retry.body);
+        }
+        if(retry.replayed)return await replaySave();
+        valor=retry.value;
         gravado={updated_at:retry.updatedAt};
       }
       if(indicePerfisMudou(atual,valor))await atualizarIndicePerfisSeguro(valor);
-      return res.status(200).json({ ok: true, merged:!!houveConcorrencia||!mesmoInstante(gravado?.updated_at,agora), data:(houveConcorrencia||!mesmoInstante(gravado?.updated_at,agora))?projectDataForUser(valor,usuario):undefined, updatedAt: gravado?.updated_at || agora });
+      return reply(200,{ ok: true, merged:!!houveConcorrencia||!sameSaveInstant(gravado?.updated_at,agora), data:(houveConcorrencia||!sameSaveInstant(gravado?.updated_at,agora))?projectDataForUser(valor,usuario):undefined, updatedAt: gravado?.updated_at || agora });
     }
 
     // ── 5. Quinzenas arquivadas ────────────────────────────────────
@@ -3959,13 +2789,9 @@ async function handler(req, res) {
     // requisicao elimina a janela em que um conflito perderia dados.
     // O papel (rh/admin) e conferido aqui - a tela apenas esconde o botao.
 
-    const PAPEIS_ARQUIVO = ["admin", "rh"];
-    const chaveArquivo = (qid) => `${KEY}__arq__${qid}`;
-    const quinzenaValida = (qid) => /^\d{4}-\d{2}-Q[12]$/.test(String(qid || ""));
-
     if (action === "archive-quinzena") {
-      if (!PAPEIS_ARQUIVO.includes(usuario.role)) {
-        return res.status(403).json({ error: "Apenas RH e administrador podem arquivar quinzenas." });
+      if (!canAccessCompanyAttendanceArchive(usuario)) {
+        return res.status(403).json({ error: "Arquivar a quinzena exige acesso à Gestão do ponto da empresa inteira." });
       }
       const { quinzenaId, label, dates } = req.body.archive || {};
       if (!quinzenaValida(quinzenaId) || !Array.isArray(dates) || !dates.length) {
@@ -4100,40 +2926,21 @@ async function handler(req, res) {
     }
 
     if (action === "list-quinzena-archives") {
-      if (!PAPEIS_ARQUIVO.includes(usuario.role)) {
-        return res.status(403).json({ error: "Sem permissão para ver os arquivos." });
-      }
-      const { data: linhas, error } = await db.from("company_app_data")
-        .select("key, updated_at, value->meta")
-        .eq("company_id", currentCompany())
-        .like("key", `${KEY}__arq__%`);
-      if (error) throw error;
-      const arquivos = (linhas || [])
-        .map(l => ({ key: l.key, updatedAt: l.updated_at, meta: l.meta || {} }))
-        .sort((a, b) => String(b.meta?.inicio || "").localeCompare(String(a.meta?.inicio || "")));
-      return res.status(200).json({ ok: true, arquivos });
+      const { status, body } = await listQuinzenaArchives(usuario);
+      return res.status(status).json(body);
     }
 
     if (action === "load-quinzena-archive") {
-      if (!PAPEIS_ARQUIVO.includes(usuario.role)) {
-        return res.status(403).json({ error: "Sem permissão para ler o arquivo." });
-      }
-      const { quinzenaId } = req.body || {};
-      if (!quinzenaValida(quinzenaId)) return res.status(400).json({ error: "Quinzena inválida." });
-      const { data: linha, error } = await db.from("company_app_data")
-        .select("value, updated_at")
-        .eq("company_id", currentCompany()).eq("key", chaveArquivo(quinzenaId)).maybeSingle();
-      if (error) throw error;
-      if (!linha) return res.status(404).json({ error: "Arquivo não encontrado." });
-      return res.status(200).json({ ok: true, arquivo: linha.value, updatedAt: linha.updated_at });
+      const { status, body } = await loadQuinzenaArchive(usuario, req.body?.quinzenaId);
+      return res.status(status).json(body);
     }
 
     // Restaurar e ato de ADMIN: desfaz um arquivamento feito por engano.
     // Os lancamentos voltam ao principal SEM sobrescrever o que ja existir la
     // (se alguem relancou um dia, o relancado vence e o do arquivo e descartado).
     if (action === "restore-quinzena") {
-      if (usuario.role !== "admin") {
-        return res.status(403).json({ error: "Apenas o administrador pode restaurar uma quinzena." });
+      if (usuario.role !== "admin" || !canAccessCompanyAttendanceArchive(usuario)) {
+        return res.status(403).json({ error: "Restaurar a quinzena exige administrador com acesso à Gestão do ponto da empresa inteira." });
       }
       const { quinzenaId } = req.body || {};
       if (!quinzenaValida(quinzenaId)) return res.status(400).json({ error: "Quinzena inválida." });
@@ -4211,6 +3018,11 @@ async function handler(req, res) {
 
     return res.status(400).json({ error: "Ação desconhecida." });
   } catch (err) {
+    if(err?.code==="INVALID_SAVE_OPERATION"||err?.code==="P0409"){
+      return res.status(err.code==="P0409"?409:400).json({
+        error:err.message,code:err.code==="P0409"?"SAVE_OPERATION_REUSED":err.code,
+      });
+    }
     const correlationId=crypto.randomUUID();
     console.error(`Falha em /api/data [${correlationId}]:`, sanitizeServerError(err));
     if(err?.code==="ARCHIVED_LABOR_SOURCE_MISSING"){
@@ -4247,5 +3059,12 @@ async function handler(req, res) {
     });
   }
 }
+
+export {
+  authorizeFinancialCommand, authorizeOperationalCommand,
+  FINANCIAL_COMMANDS, FINANCIAL_COMMAND_ROLES, OPERATIONAL_COMMAND_ROLES,
+} from "../server/command-role-policy.js";
+
+export { legacyFinancialFactsChanged, LEGACY_FINANCIAL_FACT_FIELDS } from "../server/operational-command-persistence.js";
 
 export default withCompanyContext(handler);

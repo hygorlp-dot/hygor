@@ -1,5 +1,24 @@
-import { useEffect, useRef } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { BRAND } from "../../brand/identity.js";
+import { lazyWithCssRetry } from "../../lib/lazy-with-css-retry.js";
+import DraftPlan from "./LoginDraftPlan.jsx";
+
+// A cena usa o mesmo recorte em themes/marcell.css.
+const NARROW_LOGIN = "(max-width:900px)";
+const DesktopDraftingSet = lazyWithCssRetry(() => import("./LoginDraftingSet.jsx"));
+
+function useShowDraftingSet() {
+  const [visible, setVisible] = useState(() => !window.matchMedia?.(NARROW_LOGIN)?.matches);
+  useEffect(() => {
+    const query = window.matchMedia?.(NARROW_LOGIN);
+    if (!query) return undefined;
+    const update = () => setVisible(!query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+  return visible;
+}
 
 // Cena "Planta em vidro" da tela de acesso. O parallax só escreve --px/--py
 // (de -0,5 a 0,5) no contêiner .login-tech-shell; as camadas e a inclinação do
@@ -40,6 +59,7 @@ function useLoginParallax(ref){
 
 export default function LoginBrandPanel(){
   const ref=useRef(null);
+  const showDraftingSet=useShowDraftingSet();
   useLoginParallax(ref);
   return <>
     <div ref={ref} className="mrc-login-scene" aria-hidden="true">
@@ -52,16 +72,10 @@ export default function LoginBrandPanel(){
         <span className="mrc-login-orb mrc-login-orb--gold-xl"/>
       </div>
       <div className="mrc-login-layer mrc-login-layer--emblem">
-        <img src={BRAND.emblemOnDark} alt="" className="mrc-login-emblem" width="1180" height="1088"/>
+        <DraftPlan/>
         <span className="mrc-login-scan"/>
       </div>
-      <div className="mrc-login-layer mrc-login-layer--near">
-        <span className="mrc-login-pane mrc-login-pane--tall"/>
-        <span className="mrc-login-pane mrc-login-pane--wide"/>
-        <span className="mrc-login-orb mrc-login-orb--gold"/>
-        <span className="mrc-login-orb mrc-login-orb--ice"/>
-        <span className="mrc-login-orb mrc-login-orb--steel"/>
-      </div>
+      {showDraftingSet&&<Suspense fallback={null}><DesktopDraftingSet/></Suspense>}
     </div>
     <section className="mrc-login-brand" aria-label="MARCELL Engenharia e construção">
       <div className="mrc-login-mark">

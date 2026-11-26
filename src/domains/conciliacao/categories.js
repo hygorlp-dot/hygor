@@ -20,7 +20,7 @@ const workCategories = [
 // A natureza do lançamento é resolvida no servidor pelo mesmo catálogo da
 // interface. O cliente nunca decide livremente se um movimento vira receita.
 export const reconciliationCategories = (data = {}, { direction = "saida", destination = "obra" } = {}) => {
-  if (direction === "entrada") return INCOME_RECONCILIATION_CATEGORIES.map(category => ({ ...category }));
+  if (direction === "entrada") return INCOME_RECONCILIATION_CATEGORIES.filter(category=>!category.destinations||category.destinations.includes(destination)).map(category => ({ ...category }));
   if (direction !== "saida") return [];
   if (destination === "empresa") return COMPANY_EXPENSE_CATEGORIES.map(category => ({
     ...category, groupLabel:COMPANY_EXPENSE_GROUPS.find(group => group.id === category.group)?.label || "Outras despesas operacionais",

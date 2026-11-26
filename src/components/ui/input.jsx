@@ -3,7 +3,7 @@ import '../../design-system/primitives/control-contract.css';
 
 import { cn } from "../../lib/utils";
 
-const Input = React.forwardRef(({ className, type, ...props }, ref) => {
+const Input = React.forwardRef((/** @type {React.InputHTMLAttributes<HTMLInputElement>} */ { className, type, ...props }, ref) => {
   return (
     <input
       data-mrc-control

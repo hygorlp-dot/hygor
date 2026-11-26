@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
+import { MedicaoEvolucao, TerceirosNaMedicao } from "./domains/medicoes/components/MedicaoEvolucao.jsx";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 // O botão real participa do contrato de interação da medição. Substituí-lo
@@ -32,7 +33,6 @@ const data = {
 };
 
 test("a aba Medição da obra mostra os terceirizados, vincula etapa a serviço e abre a medição do contrato", async () => {
-  const { TerceirosNaMedicao } = await import("./LegacyApp");
   const commands = [], abertos = [];
   const dispatchCommand = async build => { commands.push(build(data)); return { ok: true }; };
   container = document.createElement("div"); document.body.append(container); root = createRoot(container);
@@ -56,7 +56,6 @@ test("a aba Medição da obra mostra os terceirizados, vincula etapa a serviço 
 }, 60000);
 
 test("sem planejamento, a seção explica como ligar as etapas ao avanço físico", async () => {
-  const { TerceirosNaMedicao } = await import("./LegacyApp");
   container = document.createElement("div"); document.body.append(container); root = createRoot(container);
   await act(async () => root.render(<TerceirosNaMedicao data={data} obraId="ca106" tarefas={[]} currentUser={{ role: "engenheiro" }} dispatchCommand={null} />));
   expect(container.textContent).toContain("Cadastre os serviços no Planejamento");
@@ -64,7 +63,6 @@ test("sem planejamento, a seção explica como ligar as etapas ao avanço físic
 }, 60000);
 
 test("sem serviços, Confirmar medição abre o único contrato sem criar boletim vazio", async () => {
-  const { MedicaoEvolucao } = await import("./LegacyApp");
   const update = vi.fn(), dispatchCommand = vi.fn(), abrirPlano = vi.fn(), abrirTerceiro = vi.fn();
   container = document.createElement("div"); document.body.append(container); root = createRoot(container);
   await act(async () => root.render(<MedicaoEvolucao data={data} obraIdFixo="ca106" update={update}
@@ -88,7 +86,6 @@ test("sem serviços, Confirmar medição abre o único contrato sem criar boleti
 }, 60000);
 
 test("sem planejamento, vários contratos exigem escolher o terceirizado da obra", async () => {
-  const { MedicaoEvolucao } = await import("./LegacyApp");
   const abrirTerceiro = vi.fn();
   const multiple = {...data, terceirizados:[...data.terceirizados,{...data.terceirizados[0],id:"segundo",name:"Segundo contrato"},{...data.terceirizados[0],id:"outra",obraId:"outra",name:"Outra obra"}]};
   container = document.createElement("div"); document.body.append(container); root = createRoot(container);
@@ -103,7 +100,6 @@ test("sem planejamento, vários contratos exigem escolher o terceirizado da obra
 }, 60000);
 
 test("sem contratos, o botão explica o cadastro necessário", async () => {
-  const { MedicaoEvolucao } = await import("./LegacyApp");
   container = document.createElement("div"); document.body.append(container); root = createRoot(container);
   await act(async () => root.render(<MedicaoEvolucao data={{...data,terceirizados:[]}} obraIdFixo="ca106" update={vi.fn()} />));
   await act(async () => [...container.querySelectorAll("button")].find(b=>b.textContent.includes("Confirmar medição")).click());
@@ -111,7 +107,6 @@ test("sem contratos, o botão explica o cadastro necessário", async () => {
 }, 60000);
 
 test("com serviços, Confirmar medição abre o boletim como antes", async () => {
-  const { MedicaoEvolucao } = await import("./LegacyApp");
   container = document.createElement("div"); document.body.append(container); root = createRoot(container);
   const plannedData = {...data, planos:[{obraId:"ca106", tarefas:[{id:"t1",nome:"Instalações",progresso:25}]}]};
   await act(async () => root.render(<MedicaoEvolucao data={plannedData} obraIdFixo="ca106" update={vi.fn()} />));
@@ -122,9 +117,10 @@ test("com serviços, Confirmar medição abre o boletim como antes", async () =>
 }, 60000);
 
 test("fiação: boletim usa a proposta do terceirizado e a obra navega até o contrato", () => {
-  const medicao = source.slice(source.indexOf("function MedicaoEvolucao("), source.indexOf("function Cadastros("));
+  const medicao = readFileSync(resolve(process.cwd(), "src/domains/medicoes/components/MedicaoEvolucao.jsx"), "utf8");
   expect(medicao).toContain("String(propostaBoletim(t))");
-  expect(medicao).toContain("pctTerceiros: avancoTerceiros.get(t.id).pct");
+  expect(medicao).toContain("pctTerceiros: terceiro.pct");
+  expect(source).toContain("export { MedicaoEvolucao, TerceirosNaMedicao }");
   expect(medicao).toContain("<TerceirosNaMedicao");
   expect(source).toContain('abrirModuloDaObra("terc")');
   expect(source).toContain("contratoInicial={terceiroAlvo}");

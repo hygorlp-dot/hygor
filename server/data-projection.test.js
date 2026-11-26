@@ -229,3 +229,11 @@ describe("SEC-001 · projeção de leitura por obra",()=>{
     expect(projected.transferenciasEquip.map(item=>item.id)).toEqual(["tr-a"]);
   });
 });
+
+it('entrega faturas de locação só ao financeiro autorizado à conciliação sem restrição de obra',()=>{
+ const data={rentalInvoices:[{id:'i'}],rentalInvoiceReceipts:[{id:'r'}]},finance={id:'f',role:'financeiro'};
+ expect(projectDataForUser(data,finance)).toMatchObject(data);
+ for(const user of [{...finance,obraId:'work'},{...finance,accessTabs:['dre_emp']},{role:'rh'}]){
+  expect(projectDataForUser(data,user).rentalInvoices).toBeUndefined();expect(projectDataForUser(data,user).rentalInvoiceReceipts).toBeUndefined();
+ }
+});

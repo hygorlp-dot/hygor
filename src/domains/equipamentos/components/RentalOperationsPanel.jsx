@@ -276,10 +276,10 @@ export default function RentalOperationsPanel({
             description={nothingInContext ? "Ajuste o período ou limpe os filtros para ver outras locações." : `Há ${context.length} locação(ões) neste contexto em outras situações. Troque a aba acima ou limpe os filtros.`}
             action={<Button variant="secondary" onClick={clearAll}>Limpar filtros</Button>} />
         : <>
-          <div className="ro-table-wrap">
+          <div className="ro-table-wrap" role="region" aria-label="Tabela de locações de equipamentos" tabIndex={0}>
             <table className="arcd-data-table__table ro-table">
               <caption className="ro-sr-only">Locações de equipamentos</caption>
-              <thead><tr>{COLUMNS.map(column => <SortHeader key={column.key} column={column} effectiveSort={results.effectiveSort} onSort={key => change({ sort: nextRentalSort(view.sort || results.effectiveSort, key) })} />)}</tr></thead>
+              <thead className="arcd-sticky-table-header-cells"><tr>{COLUMNS.map(column => <SortHeader key={column.key} column={column} effectiveSort={results.effectiveSort} onSort={key => change({ sort: nextRentalSort(view.sort || results.effectiveSort, key) })} />)}</tr></thead>
               <tbody>{results.entries.map(entry => entry.type === "group"
                 ? <tr key={`group-${entry.group.key}`} className="ro-group-row">
                   <th scope="rowgroup" colSpan={COLUMNS.length}>

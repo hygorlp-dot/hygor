@@ -13,14 +13,17 @@ describe("FIN 9.6 — arquivos de ponto são fonte financeira autoritativa",()=>
   };
 
   it("bump da projeção invalida snapshots antigos gerados com cache arquivado",()=>{
-    expect(api).toContain('DRE_PROJECTION_VERSION = "2026-11-folha-desconto-atraso-v14"');
+    const version=api.match(/const DRE_PROJECTION_VERSION\s*=\s*"[^"]+-v(\d+)"/);
+    expect(Number(version?.[1])).toBeGreaterThanOrEqual(13);
+    expect(api).toContain('String(currentEvent.payload?.projectionVersion||"")!==DRE_PROJECTION_VERSION');
+    expect(api).toContain("period:row.period,sourceRevision,projectionVersion:DRE_PROJECTION_VERSION");
   });
 
   it("relatório e carga de sombra recompõem arquivos antes do snapshot",()=>{
-    const report=between(
-      "const relatorioSombraFinanceira = async atual =>",
-      "// O ponto arquivado sai do dataset principal",
-    );
+    expect(api).toContain("createFinancialShadowReport({");
+    expect(api).toContain("db, exigirCustosArquivados, engineEnforced: FINANCIAL_ENGINE_ENFORCE");
+    const source=readFileSync("server/financial-shadow-report.js","utf8");
+    const report=source.slice(source.indexOf("const relatorioSombraFinanceira = async atual =>"));
     expect(report).toContain("fonteFinanceira=await exigirCustosArquivados(atual)");
     expect(report.indexOf("exigirCustosArquivados"))
       .toBeLessThan(report.indexOf("buildLegacyFinancialFacts(fonteFinanceira)"));
@@ -28,7 +31,7 @@ describe("FIN 9.6 — arquivos de ponto são fonte financeira autoritativa",()=>
 
     const sync=between(
       'if(action==="financial-shadow-sync")',
-      "// Fase 2, primeiro consumidor real do CORE-001",
+      "if(isRegistryShadowReport(action))",
     );
     expect(sync).toContain("fonteFinanceira=await exigirCustosArquivados(atual)");
     expect(sync).toContain("buildLegacyFinancialFacts(fonteFinanceira)");

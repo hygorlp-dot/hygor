@@ -105,6 +105,16 @@ async function abrirOrcamento(page) {
   await expect(sheet).toBeVisible();
 }
 
+async function abrirComposicoesProprias(page) {
+  await abrirOrcamento(page);
+  const areas = page.getByRole("combobox", { name:"Áreas do orçamento", exact:true });
+  if (await areas.isVisible()) {
+    await areas.selectOption({ label:"Composições próprias" });
+  } else {
+    await page.getByRole("button", { name:"Composições próprias", exact:true }).click();
+  }
+}
+
 // Conteúdo que o app escreveu na janela de exportação.
 async function conteudoDaJanela(page, disparar) {
   const pending = page.waitForEvent("popup");await disparar();await confirmReportIdentity(page);const janela=await pending;
@@ -205,8 +215,7 @@ test.describe("ações críticas", () => {
   });
 
   test("exporta somente as composições próprias do orçamento aberto", async ({ page }) => {
-    await abrirOrcamento(page);
-    await page.getByRole("button", { name:"Composições próprias", exact:true }).click();
+    await abrirComposicoesProprias(page);
     await expect(page.getByRole("heading", { name:"Exportar composições do orçamento" })).toBeVisible();
     const pending = page.waitForEvent("download");
     await page.getByRole("button", { name:"Exportar em Excel", exact:true }).click();
@@ -220,13 +229,16 @@ test.describe("ações críticas", () => {
     expect(compositions.getCell("F2").value).toBe(13.25);
     const components = workbook.getWorksheet("Componentes");
     expect(components.rowCount).toBe(2);
-    expect(components.getCell("G2").value).toBe("00012");
-    expect(components.getCell("J2").value).toBe(0.5);
+    const componentColumns = new Map();
+    components.getRow(1).eachCell((cell, column) => componentColumns.set(cell.value, column));
+    expect(componentColumns.has("Código")).toBe(true);
+    expect(componentColumns.has("Coeficiente local")).toBe(true);
+    expect(components.getRow(2).getCell(componentColumns.get("Código")).value).toBe("00012");
+    expect(components.getRow(2).getCell(componentColumns.get("Coeficiente local")).value).toBe(0.5);
   });
 
   test("PDF exporta somente as composições próprias da versão aberta", async ({ page }, testInfo) => {
-    await abrirOrcamento(page);
-    await page.getByRole("button", { name:"Composições próprias", exact:true }).click();
+    await abrirComposicoesProprias(page);
     const section = page.locator("header").filter({ has:page.getByRole("heading", { name:"Exportar composições do orçamento" }) });
     const excel = section.getByRole("button", { name:"Exportar em Excel", exact:true });
     const pdf = section.getByRole("button", { name:"Exportar em PDF", exact:true });

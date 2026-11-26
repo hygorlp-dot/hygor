@@ -1,4 +1,6 @@
 export const INCOME_RECONCILIATION_CATEGORIES = [
+  { id:"receita_locacoes", label:"Receita de locação / aluguel", effect:"revenue", group:"receitas", groupLabel:"Receitas no DRE", destinations:["empresa"],
+    description:"Receita nova de locação ainda não registrada. Se a locação já existe no ERP, vincule a fatura para registrar somente o recebimento." },
   { id:"receita", label:"Recebimento de cliente a vincular", effect:"unallocated", group:"a_classificar", groupLabel:"Recebimentos a vincular",
     description:"Vincule à medição ou ao contrato existente. Sem vínculo, o valor fica no caixa a classificar e não reconhece receita novamente." },
   { id:"receita_servicos", label:"Receita de serviços", effect:"revenue", group:"receitas", groupLabel:"Receitas no DRE",
@@ -27,7 +29,7 @@ export const receiptRecognitionDate = receipt => {
 // Um recebimento pode liquidar um fato já reconhecido. Só a classificação
 // explícita de receita nova reconhece outro fato; texto bancário não decide.
 export const classifyReceiptForDre = receipt => {
-  const linked = Boolean(receipt?.medicaoId || receipt?.contratoId);
+  const linked = Boolean(receipt?.medicaoId || receipt?.contratoId || receipt?.locacaoId || receipt?.rentalInvoiceId);
   const effect = incomeCategoryEffect(receipt?.categoria);
   const recognizeRevenue = !linked && receipt?.efeitoDRE === "receita" && effect === "revenue";
   const funding = !linked && receipt?.efeitoDRE === "sem_efeito" && ["funding", "loan"].includes(effect);

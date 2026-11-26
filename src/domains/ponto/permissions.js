@@ -1,3 +1,11 @@
+import {podeAcessarAba} from "../administracao/abas-acesso.js";
+
+const canManageCompanyRecords=(user,tab)=>
+  user?.active!==false&&["admin","rh"].includes(user?.role)&&!user?.obraId&&podeAcessarAba(user,tab);
+
+export const canManageCompanyPayroll=user=>canManageCompanyRecords(user,"folha");
+export const canAccessCompanyAttendanceArchive=user=>canManageCompanyRecords(user,"ponto_geral");
+
 const validSelectedObra = value => value && value !== "all";
 
 // Transferências de cada funcionário, já filtradas e em ordem decrescente de
@@ -67,6 +75,9 @@ export const resolveAttendanceObraId = ({
   return String(employeeObraId||"");
 };
 
+/**
+ * @param {{data?: object, employee?: object, date?: string, selectedObraId?: string, record?: unknown}} [params]
+ */
 export const resolveEmployeeAttendanceObraId=({
   data={},employee,date,selectedObraId,record,
 }={})=>resolveAttendanceObraId({
@@ -96,6 +107,7 @@ const previousIsoDate = value => {
   return date.toISOString().slice(0, 10);
 };
 
+/** @param {{data?:object, employee?:{id?:string, obra?:string}, holidayIso?:string, lookbackDays?:number}} [options] */
 export const resolveHolidayObraId = ({
   data = {}, employee, holidayIso, lookbackDays = HOLIDAY_OBRA_LOOKBACK_DAYS,
 } = {}) => {

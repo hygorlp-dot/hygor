@@ -113,6 +113,25 @@ export const resumoPlano = (tarefas, orc) => {
   };
 };
 
+export const coberturaItensPlano = (tarefas, orc) => {
+  const usosPorEtapa = new Map();
+  for (const tarefa of tarefas) {
+    if (tarefa.titulo || !tarefa.etapaId) continue;
+    for (const etapaId of idsDaSubarvore(orc?.etapas || [], tarefa.etapaId)) {
+      usosPorEtapa.set(etapaId, (usosPorEtapa.get(etapaId) || 0) + 1);
+    }
+  }
+  let semTarefa = 0;
+  let comSobreposicao = 0;
+  for (const item of orc?.itens || []) {
+    if (item.tipo === "titulo" || !(Number(item.quantidade) * Number(item.precoUnit) > 0)) continue;
+    const usos = usosPorEtapa.get(item.etapaId) || 0;
+    if (!usos) semTarefa++;
+    if (usos > 1) comSobreposicao++;
+  }
+  return {semTarefa, comSobreposicao};
+};
+
 // Progresso geral do plano: media do progresso ponderada pela duracao.
 // Uma tarefa de 30 dias pesa mais que uma de 2 dias.
 export const progressoPlano = (tarefas) => {

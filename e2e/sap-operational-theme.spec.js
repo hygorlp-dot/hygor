@@ -18,9 +18,9 @@ for(const tab of ['cmp','fin','ponto_geral','folha'])test(`${tab}: tema operacio
  await page.goto('/');await page.locator('#login-email').fill(profile.email);await page.locator('#login-senha').fill('local-sap-only');await page.getByRole('button',{name:'Acessar central MARCELL',exact:true}).click();
  const main=page.locator('.arcd-main');await expect(main).toBeVisible();await expect(main.locator('.arcd-page-loading')).toHaveCount(0);
  await expect(page.locator('html')).toHaveAttribute('data-theme','operacional');
- await expect(main).toHaveCSS('font-family',/IBM Plex Sans/);
+ await expect(main).toHaveCSS('font-family',/^"?Inter\b/);
  await page.evaluate(()=>document.fonts.ready);
- expect(await page.evaluate(()=>[...document.fonts].filter(f=>f.family.replaceAll('"','').replaceAll("'",'')==='IBM Plex Sans'&&f.status==='loaded').length)).toBeGreaterThan(0);
+ expect(await page.evaluate(()=>[...document.fonts].filter(f=>f.family.replaceAll('"','').replaceAll("'",'')==='Inter'&&f.status==='loaded').length)).toBeGreaterThan(0);
  expect(await page.locator('html').evaluate(el=>el.scrollWidth<=innerWidth+1)).toBe(true);
  await page.screenshot({path:info.outputPath(`${tab}.png`),animations:'disabled',fullPage:false});
  if(tab==='cmp'){
@@ -37,7 +37,18 @@ for(const tab of ['cmp','fin','ponto_geral','folha'])test(`${tab}: tema operacio
   await main.getByRole('button',{name:'Nova solicitação',exact:true}).click();await expect(page.getByRole('dialog',{name:'Solicitar materiais para Compras',exact:true})).toBeVisible();await page.getByRole('dialog').getByRole('button',{name:'Fechar',exact:true}).click();
  }
  if(tab==='folha'||tab==='ponto_geral'){
-  await main.locator('.labor-area-tabs').getByRole('button',{name:'Administrativo',exact:true}).click();await expect(main.locator('.labor-area-tabs').getByRole('button',{name:'Administrativo',exact:true})).toHaveAttribute('aria-current','page');
+  const summary=main.locator('details:not([open]) > summary').filter({hasText:/^Competência e escopo/});
+  if(await summary.isVisible())await summary.click();
+  const areas=main.locator('.labor-area-tabs');
+  const mobile=areas.getByRole('combobox',{name:'Grupo da equipe'});
+  if(await mobile.isVisible()){
+   await mobile.selectOption({label:'Administrativo'});
+   await expect(mobile.locator('option:checked')).toHaveText('Administrativo');
+  }else{
+   const admin=areas.getByRole('button',{name:'Administrativo',exact:true});
+   await admin.click();
+   await expect(admin).toHaveAttribute('aria-current','page');
+  }
  }
  await page.getByRole('button',{name:'Ajuda',exact:true}).click();await expect(page.locator('.app-help-panel')).toBeVisible();await page.getByRole('button',{name:'Fechar ajuda',exact:true}).click();
  await appearance(page,'operacional');await page.reload();await expect(page.locator('html')).toHaveAttribute('data-theme','operacional');

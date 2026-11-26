@@ -73,6 +73,9 @@ import ReconciliationReview from "./ReconciliationReview.jsx";
 import { Button } from "../../components/ui/button";
 import { accountReviewSummary, reconciliationHistoryDetails } from "./review-context.js";
 import CategoryCombobox from "./CategoryCombobox.jsx";
+import ReconciliationEditDialog from './ReconciliationEditDialog.jsx';
+import RentalReceiptDialog from './RentalReceiptDialog.jsx';
+import {reconciliationEditableEntries} from '../../domains/conciliacao/classification-edit.js';
 import { confirmedClassificationContext } from "./classification-context.js";
 
 const OperationalPilot = lazy(()=>import("../pilot/OperationalPilot.jsx"));
@@ -100,6 +103,8 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
   useWorkspaceScroll('conc');
   const [bankOrigin,setBankOrigin]=useView('bankOrigin',null);
   const [reviewId,setReviewId]=useState("");
+  const [editClassificationId,setEditClassificationId]=useState('');
+  const [rentalReceiptId,setRentalReceiptId]=useState('');
   const [pilotOpen,setPilotOpen]=useState(false);
   const [pilotNotes,setPilotNotes]=useState({});
   const [reviewSaving,setReviewSaving]=useState(false);
@@ -791,6 +796,12 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
   };
 
   // Candidatas a serem quitadas por esta entrada
+  const abrirNovaReceitaLocacao=transaction=>{
+    setEntradaModal(null);abrirApropriacao(transaction);
+    setRateios([{destino:'empresa',obraId:'',categoria:'receita_locacoes',valor:String(Math.abs(Number(transaction.valor)))}]);
+  };
+
+  // Candidatas a serem quitadas por esta entrada
   const candidatas = useMemo(
     () => apropModal ? sugerirMedicoes(apropModal, data) : [],
     [apropModal, data.medicoes, data.obras]
@@ -1319,6 +1330,8 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                       (!currentUser.obraId||currentUser.obraId===tr.vinculo.obraId)&&<Button variant="outline" onClick={()=>navigate("caixa",{obraId:tr.vinculo.obraId},{
                         action:"review-work-cash",record:{movementId:tr.vinculo.id},
                       })}>Ver no Caixa da obra</Button>}
+                    {tr.status==="conciliado"&&!hasPartialLinks&&!modoConciliacaoRh&&["admin","financeiro"].includes(currentUser?.role)&&!currentUser?.obraId&&reconciliationEditableEntries(data,tr).length>0&&<Button variant="outline" size="sm" onClick={()=>setEditClassificationId(tr.id)}>Editar classificação</Button>}
+                    {tr.status==="pendente"&&Number(tr.valor)>0&&!modoConciliacaoRh&&!currentUser?.obraId&&<Button variant="outline" size="sm" onClick={()=>setRentalReceiptId(tr.id)}>Recebimento de locação</Button>}
                     {tr.status==="conciliado"&&!hasPartialLinks&&!modoConciliacaoRh&&<Btn size="sm" v="ghost" onClick={()=>desfazer(tr)}>Desfazer</Btn>}
                     {tr.status==="ignorado"&&!modoConciliacaoRh&&<><Btn size="sm" onClick={()=>abrirApropriacao(tr)}>Reclassificar</Btn> <Btn size="sm" v="ghost" onClick={()=>reabrir([tr])}>Reabrir</Btn></>}
                   </td>
@@ -1328,6 +1341,11 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
             {filteredTransactions.length>limiteVisivel&&<button className="reconciliation-load-more" onClick={()=>setLimiteVisivel(v=>v+50)}>Mostrar mais · {contar(filteredTransactions.length-limiteVisivel,"restante","restantes")}</button>}
           </div>)}
 
+      {editClassificationId&&<ReconciliationEditDialog key={editClassificationId} data={data} transaction={(data.transacoes||[]).find(row=>row.id===editClassificationId)} fmt={fmt}
+        onClose={()=>setEditClassificationId('')} onSave={payload=>executarConciliacaoNoServidor({type:'EDIT_CLASSIFICATION',payload},'Não foi possível salvar a classificação.')}/>}
+      {rentalReceiptId&&<RentalReceiptDialog key={rentalReceiptId} data={data} transaction={(data.transacoes||[]).find(row=>row.id===rentalReceiptId)} fmt={fmt}
+        onClose={()=>setRentalReceiptId('')} onNew={()=>{const transaction=(data.transacoes||[]).find(row=>row.id===rentalReceiptId);setRentalReceiptId('');if(transaction)abrirNovaReceitaLocacao(transaction);}}
+        onSave={payload=>executarConciliacaoNoServidor({type:'CONFIRM_RENTAL_RECEIPT',payload},'Não foi possível vincular a locação.')}/>}
       {reviewTransaction&&(()=>{
         const tr=reviewTransaction;
         return <section ref={reviewPanelRef} id="reconciliation-inspector" className="reconciliation-inspector" aria-label="Comparar e resolver movimento">
@@ -1436,7 +1454,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
 
             {sugestoesExistentesApropriacao.length>0&&<div className="reconciliation-existing-first">
               <strong>Há {contar(sugestoesExistentesApropriacao.length,"lançamento existente","lançamentos existentes")} para revisar</strong>
-              <p>Vincule a compra, folha ou recebimento já cadastrado para preservar a categoria, a competência e o custo ou receita de origem.</p>
+          <p>Vincule a compra, folha ou recebimento já cadastrado para preservar a categoria, a competência e o custo ou receita de origem.</p>
               <div>{sugestoesExistentesApropriacao.slice(0,3).map(candidate=><Btn key={`${candidate.tipo}-${candidate.entidadeId}-${candidate.pagamentoId||""}`} size="sm" v="ghost" onClick={()=>{
                 setApropModal(null);abrirCandidato(apropModal,(candidatosPorTransacao.get(apropModal.id)||[]).indexOf(candidate));
               }}>{candidate.podeVincular?"Vincular":"Revisar"} · {candidate.titulo}</Btn>)}</div>

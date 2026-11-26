@@ -1,12 +1,39 @@
 import { instanciaDaSolicitacao } from "./purchase-approval.js";
 import { buildDreCashManagement } from "../conciliacao/cash-allocations.js";
+import { decisoesDaCotacao, itensDaCotacao } from "./quote-map.js";
 
 const same=(a,b)=>a!=null&&b!=null&&String(a)!==""&&String(a)===String(b);
+
+// Usa os identificadores salvos na compra. Descrição e código do material não
+// distinguem dois itens da mesma solicitação ou do mesmo orçamento.
+export function purchaseItemTrace({request,quote,orders}){
+  const rows=new Map();
+  for(const item of request?.itens||[])rows.set(`request:${item.id}`,{requestItem:item,quotes:[],orders:[]});
+  const quoteRows=new Map();
+  for(const item of itensDaCotacao(quote)){
+    const key=`quote:${item.id}`;
+    const row=rows.get(`request:${item.solicitacaoItemId}`)||{quotes:[],orders:[]};
+    if(!row.requestItem)rows.set(key,row);
+    row.quotes.push(item);
+    quoteRows.set(String(item.id),row);
+  }
+  for(const order of orders)for(const item of order.itens||[]){
+    const byRequest=rows.get(`request:${item.solicitacaoItemId}`);
+    const byQuote=same(order.cotacaoId,quote?.id)&&quoteRows.get(String(item.cotacaoItemId));
+    const conflict=byRequest&&byQuote&&byRequest!==byQuote;
+    const row=(conflict?null:byRequest||byQuote)||{quotes:[],orders:[],conflict};
+    if(!row.requestItem&&!row.quotes.length)rows.set(`order:${order.id}:${item.id}`,row);
+    row.orders.push({order,item});
+  }
+  return [...rows].map(([id,row])=>({id,...row}));
+}
 export function fichaDaCompra(data,{pedidoId,cotacaoId}){
   const order=(data.pedidos||[]).find(p=>same(p.id,pedidoId));
   const quote=(data.cotacoes||[]).find(c=>same(c.id,cotacaoId||order?.cotacaoId)&&(!order||same(c.obraId,order.obraId)));
   const project=order?.obraId||quote?.obraId;
-  const orders=(data.pedidos||[]).filter(p=>same(p.obraId,project)&&(quote?same(p.cotacaoId,quote.id):same(p.id,pedidoId)));
+  const decidedOrderIds=new Set(quote?Object.values(decisoesDaCotacao(quote)).map(item=>String(item.pedidoId||'')).filter(Boolean):[]);
+  const orders=(data.pedidos||[]).filter(p=>same(p.obraId,project)&&(quote?
+    same(p.cotacaoId,quote.id)||(!p.cotacaoId&&decidedOrderIds.has(String(p.id))):same(p.id,pedidoId)));
   const request=(data.solicitacoesCompra||[]).find(s=>same(s.id,quote?.solicitacaoId||order?.solicitacaoId)&&same(s.obraId,project));
   const invoices=(data.notasFiscais||[]).filter(n=>same(n.obraId,project)&&orders.some(p=>same(p.id,n.pedidoId)));
   const invoicePayments=invoices.flatMap(n=>(n.pagamentos||[]).map(pg=>({...pg,origem:`NF ${n.numero}`})));

@@ -2,6 +2,9 @@ import {expandSectionDelta} from '../src/domains/sync/section-delta.js';
 import {applyOperationalCommand} from '../src/domains/sync/operational-commands.js';
 import {test,expect} from '@playwright/test';
 import {data as fixture,profile} from '../scripts/fixtures/workflow-priorities-data.mjs';
+import {companyStorageKey} from '../src/lib/company-scope.js';
+
+const journalName=companyStorageKey('workspace-edits-v1');
 async function enter(page,tab,{many=false,readonly=false,reject=0,legacyDraft=false,saveFailure=0,loadFailure=false,reapplyFailure=false,storageUnavailable=false}={}){
  const account={...profile,...(readonly?{role:"visualizador",accessTabs:["home","cmp","fin"]}:{})};
  let updatedAt='2026-11-01T15:00:00Z';
@@ -42,7 +45,7 @@ async function enter(page,tab,{many=false,readonly=false,reject=0,legacyDraft=fa
  return r.fulfill({json:{ok:true,usuarios:[account],usuario:account,data,precisaSetup:false,accessToken:'local',refreshToken:'local',updatedAt}});
  });
  if(process.env.MARCELL_P3_STRESS){await page.route('**/fonts/**',r=>r.abort());await page.addInitScript(()=>window.addEventListener('DOMContentLoaded',()=>{if(innerWidth>1000)document.documentElement.style.fontSize='200%';}));}
- if(storageUnavailable)await page.addInitScript(()=>{const nativeOpen=IDBFactory.prototype.open;IDBFactory.prototype.open=function(name,...args){if(name==='marcell-workspace-edits-v1'&&!window.__allowWorkspaceStorage)throw new DOMException('Armazenamento bloqueado','SecurityError');return nativeOpen.call(this,name,...args);};});
+ if(storageUnavailable)await page.addInitScript(journal=>{const nativeOpen=IDBFactory.prototype.open;IDBFactory.prototype.open=function(name,...args){if(name===journal&&!window.__allowWorkspaceStorage)throw new DOMException('Armazenamento bloqueado','SecurityError');return nativeOpen.call(this,name,...args);};},journalName);
  await page.goto('/');if(legacyDraft)await page.evaluate(async({owner,obraId})=>{await new Promise((resolve,reject)=>{const request=indexedDB.open('marcell-confirmations-v1',10);request.onupgradeneeded=()=>{const table=request.result.createObjectStore('records',{keyPath:'key'});table.createIndex('owner','owner');table.createIndex('kind','kind');};request.onerror=()=>reject(request.error);request.onsuccess=()=>{const db=request.result,tx=db.transaction('records','readwrite');tx.objectStore('records').put({key:JSON.stringify(['draft',owner,'nota','nf-p2-0']),owner,kind:'draft',type:'nota',id:'nf-p2-0',createdAt:'2026-11-01T15:00:00Z',context:{pageId:'fin',obraId,label:'Pagamento · NF-P2-0'},value:{valor:'12.34',data:'2026-11-01',origem:'empresa',referencia:'Versão anterior',observacao:'Conferir documento',comprovanteFile:new File(['%PDF-1.4 preservado'],'legado.pdf',{type:'application/pdf'})}});tx.oncomplete=()=>{db.close();resolve();};tx.onerror=()=>reject(tx.error);};});},{owner:profile.id,obraId:a});await page.locator('#login-email').fill(profile.email);await page.locator('#login-senha').fill('local');await page.getByRole('button',{name:'Acessar central MARCELL',exact:true}).click();
  return {a,b,writes,saves,allowLoads:()=>{blockLoads=false;},account,getData:()=>data,check:()=>{expect(errors).toEqual([]);}};
 }
@@ -184,8 +187,18 @@ test('Recuperação integral: acesso alterado bloqueia revisão e conserva inten
 test('Recuperação integral: segunda edição fica protegida enquanto a primeira aguarda revisão',async({page})=>{
  const app=await failCalendarSave(page,503);await page.getByRole('button',{name:'Novo evento',exact:true}).click();const editor=page.getByRole('dialog').first();
  await editor.getByLabel('Título *',{exact:true}).fill('Segundo trabalho protegido');await editor.getByRole('button',{name:'Salvar',exact:true}).click();
- const count=await page.evaluate(()=>new Promise((resolve,reject)=>{const request=indexedDB.open('marcell-workspace-edits-v1');request.onerror=()=>reject(request.error);request.onsuccess=()=>{const db=request.result,r=db.transaction('edits').objectStore('edits').getAll();r.onsuccess=()=>{db.close();resolve(r.result.length);};};}));
- expect(count).toBeGreaterThanOrEqual(2);expect(app.saves).toHaveLength(4);
+ await expect.poll(()=>page.evaluate(journal=>new Promise((resolve,reject)=>{
+  const request=indexedDB.open(journal);
+  request.onerror=()=>reject(request.error);
+  request.onsuccess=()=>{
+   const db=request.result;
+   const tx=db.transaction('edits');
+   const rows=tx.objectStore('edits').getAll();
+   tx.oncomplete=()=>{db.close();resolve(rows.result.length);};
+   tx.onerror=()=>{db.close();reject(tx.error);};
+  };
+ }),journalName)).toBeGreaterThanOrEqual(2);
+ expect(app.saves).toHaveLength(4);
  const first=page.getByRole('dialog').last();await first.getByRole('button',{name:'Consultar versão atual',exact:true}).click();await first.getByRole('button',{name:'Salvar alterações revisadas',exact:true}).click();
  await expect(page.getByRole('dialog')).toHaveCount(1);await editor.getByRole('button',{name:'Fechar',exact:true}).click();
  const second=await reviewGeneral(page);await expect(second).toContainText('Segundo trabalho protegido');await second.getByRole('button',{name:'Salvar alterações revisadas',exact:true}).click();
@@ -204,9 +217,11 @@ test('Recuperação integral: troca de conta não expõe nem reenvia a edição 
 
 test('Recuperação integral: falha ao proteger segunda edição bloqueia confirmação até recuperar armazenamento',async({page})=>{
  const app=await failCalendarSave(page,503);
- await page.evaluate(()=>{const put=IDBObjectStore.prototype.put;window.__blockRecoveryWrites=true;IDBObjectStore.prototype.put=function(...args){if(this.transaction.db.name==='marcell-workspace-edits-v1'&&window.__blockRecoveryWrites)throw new DOMException('Sem espaço no ensaio','QuotaExceededError');return put.apply(this,args);};});
+ await page.evaluate(journal=>{const put=IDBObjectStore.prototype.put;window.__blockRecoveryWrites=true;IDBObjectStore.prototype.put=function(...args){if(this.transaction.db.name===journal&&window.__blockRecoveryWrites)throw new DOMException('Sem espaço no ensaio','QuotaExceededError');return put.apply(this,args);};},journalName);
  await page.getByRole('button',{name:'Novo evento',exact:true}).click();const editor=page.getByRole('dialog').last();await editor.getByLabel('Título *',{exact:true}).fill('Segunda edição sem espaço');await editor.getByRole('button',{name:'Salvar',exact:true}).click();
  const recovery=page.getByRole('dialog').last();await expect(recovery).toContainText('1 preenchimento ainda está');await recovery.getByRole('button',{name:'Consultar versão atual',exact:true}).click();await expect(recovery.getByRole('button',{name:'Salvar alterações revisadas',exact:true})).toBeDisabled();expect(app.saves).toHaveLength(4);
- await recovery.getByRole('button',{name:'Proteger preenchimentos',exact:true}).click();await expect(recovery).toContainText('1 preenchimento ainda está');expect(app.saves).toHaveLength(4);
+ await recovery.getByRole('button',{name:'Proteger preenchimentos',exact:true}).click();
+ await expect(recovery).toContainText('Não foi possível proteger todos os preenchimentos.');
+ await expect(recovery).toContainText('1 preenchimento ainda está');expect(app.saves).toHaveLength(4);
  await page.evaluate(()=>{window.__blockRecoveryWrites=false;});await recovery.getByRole('button',{name:'Proteger preenchimentos',exact:true}).click();await expect(recovery.getByRole('button',{name:'Proteger preenchimentos',exact:true})).toHaveCount(0);await expect(recovery.getByRole('button',{name:'Salvar alterações revisadas',exact:true})).toBeEnabled();expect(app.saves).toHaveLength(4);app.check();
 });

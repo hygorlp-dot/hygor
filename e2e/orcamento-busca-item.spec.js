@@ -18,7 +18,7 @@ test('os resultados da busca de item não se sobrepõem e ficam alinhados à esq
   await page.getByRole('button',{name:'Acessar central MARCELL',exact:true}).click();
   await expect(page.locator('.arcd-main .arcd-page-loading')).toHaveCount(0);
   await page.locator('main').getByRole('button',{name:'Abrir',exact:true}).first().click();
-  await page.locator('main').getByRole('button',{name:'+ Item',exact:true}).first().click();
+  await page.locator('main').getByRole('button',{name:'+ Adicionar item',exact:true}).click();
   const dialog=page.getByRole('dialog',{name:'Adicionar item à etapa'});
   await expect(dialog.getByText('Seus favoritos')).toBeVisible();
   const cards=dialog.getByRole('button').filter({hasText:'Muro em alvenaria'});

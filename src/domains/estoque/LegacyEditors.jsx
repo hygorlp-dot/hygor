@@ -2,15 +2,16 @@
 import { Modal, Inp, Sel, Btn, Ic } from "../../legacy/ui.jsx";
 import { CATS_MATERIAL } from "../compras/LegacySupport.jsx";
 import { C } from "../../legacy/palette.js";
-import { useBreakpoint } from "../../hooks/useBreakpoint";
 
 
 export function ModalMaterial({ form, setForm, onSave, unidades = [] }) {
-  const { formGrid } = useBreakpoint();
   const F = k => v => setForm(f => ({ ...f, [k]: v }));
   return (
-    <Modal title={form.id ? "Editar insumo" : "Novo insumo"} onClose={()=>setForm(null)} wide>
-      <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-3)"}}>
+    <Modal title={form.id ? "Editar insumo" : "Novo insumo"} onClose={()=>setForm(null)} wide footer={<>
+      <Btn v="ghost" onClick={()=>setForm(null)}>Cancelar</Btn>
+      <Btn onClick={()=>onSave(form)}><Ic n="check"/> Salvar</Btn>
+    </>}>
+      <div className="mrc-dialog-fields__row">
         <Inp label="Código automático" value={form.codigo} onChange={()=>{}} disabled/>
         <Inp label="Descrição *" value={form.descricao} onChange={F("descricao")}
              placeholder="Cimento CP-II 50kg"/>
@@ -22,10 +23,6 @@ export function ModalMaterial({ form, setForm, onSave, unidades = [] }) {
              placeholder="0"/>
         <Inp label="Preço médio (R$)" type="number" value={form.precoMedio} onChange={F("precoMedio")}
              placeholder="0,00"/>
-        <div style={{gridColumn:"1/-1",display:"flex",gap:"var(--arcd-space-2)"}}>
-          <Btn v="ghost" onClick={()=>setForm(null)} full>Cancelar</Btn>
-          <Btn onClick={()=>onSave(form)} full><Ic n="check"/> Salvar</Btn>
-        </div>
       </div>
     </Modal>
   );
@@ -33,7 +30,6 @@ export function ModalMaterial({ form, setForm, onSave, unidades = [] }) {
 
 
 export function ModalComposicao({ form, setForm, onSave, materiais, unidades = [] }) {
-  const { formGrid } = useBreakpoint();
   const F = k => v => setForm(f => ({ ...f, [k]: v }));
   const setItem = (i, campo, v) =>
     setForm(f => ({ ...f, itens: f.itens.map((x,k) => k===i ? {...x,[campo]:v} : x) }));
@@ -41,9 +37,12 @@ export function ModalComposicao({ form, setForm, onSave, materiais, unidades = [
   const delItem = (i) => setForm(f => ({ ...f, itens: f.itens.filter((_,k)=>k!==i) }));
 
   return (
-    <Modal title={form.id ? "Editar composição" : "Nova composição"} onClose={()=>setForm(null)} wide>
-      <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
-        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-3)"}}>
+    <Modal title={form.id ? "Editar composição" : "Nova composição"} onClose={()=>setForm(null)} wide footer={<>
+      <Btn v="ghost" onClick={()=>setForm(null)}>Cancelar</Btn>
+      <Btn onClick={()=>onSave(form)}><Ic n="check"/> Salvar</Btn>
+    </>}>
+      <div className="mrc-dialog-fields">
+        <div className="mrc-dialog-fields__row">
           <Inp label="Código automático" value={form.codigo||""} onChange={()=>{}} disabled/>
           <Inp label="Serviço *" value={form.nome} onChange={F("nome")}
                placeholder="Alvenaria de vedação"/>
@@ -59,7 +58,7 @@ export function ModalComposicao({ form, setForm, onSave, materiais, unidades = [
         {form.itens.map((it, i) => (
           <div key={i} style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,
                                borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
-            <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}>
+            <div className="mrc-dialog-fields__row">
               <Sel label="Insumo" value={it.materialId} onChange={v=>setItem(i,"materialId",v)}
                    options={[{v:"",l:"Selecione..."}, ...materiais.map(m=>({v:m.id,l:`${m.descricao} (${m.unidade})`}))]}/>
               <Inp label={`Consumo por 1 ${form.unidade||"un"}`} type="number" value={it.coef}
@@ -74,10 +73,6 @@ export function ModalComposicao({ form, setForm, onSave, materiais, unidades = [
 
         <Btn v="ghost" onClick={addItem} full><Ic n="plus"/> Adicionar insumo</Btn>
 
-        <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
-          <Btn v="ghost" onClick={()=>setForm(null)} full>Cancelar</Btn>
-          <Btn onClick={()=>onSave(form)} full><Ic n="check"/> Salvar</Btn>
-        </div>
       </div>
     </Modal>
   );

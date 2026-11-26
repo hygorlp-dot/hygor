@@ -82,7 +82,12 @@ export function thirdPartyMeasurementsForProject(data, obraId) {
 // Avanço proposto para cada serviço do planejamento, a partir das etapas de
 // contrato vinculadas a ele (ponderado pelo valor de cada etapa). É proposta
 // para o boletim técnico, nunca o avanço oficial por si só.
+/**
+ * @param {ReturnType<typeof thirdPartyMeasurementsForProject>} contracts
+ * @param {ReadonlySet<string> | null} validTaskIds
+ */
 export function thirdPartyProgressByTask(contracts, validTaskIds = null) {
+  /** @type {Map<string, {stages: object[], fontes: {contratoId: string, contrato: string, etapaId: string, etapa: string, pct: number, pctEnviado: number}[]}>} */
   const byTask = new Map();
   for (const contract of contracts || []) {
     for (const stage of contract.etapas || []) {

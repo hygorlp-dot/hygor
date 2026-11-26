@@ -9,6 +9,11 @@ const visualCss = /^(?:font(?:-|$)|line-height$|letter-spacing$|color$|backgroun
 const inlineStyle = /^(?:font|lineHeight$|letterSpacing$|color$|background|border|outline|boxShadow$|textTransform$|(?:rowGap|columnGap|gap)$|padding|(?:minHeight|maxHeight|height)$|textAlign$)/;
 const inheritedFont = /^(?:var\(|inherit\b|unset\b|revert\b)/;
 const shared = 'src/design-system/';
+const tableHeaderClass = /\barcd-sticky-table-header(?:-cells)?\b/;
+const tableHeaderSelector = /(?<![\w.-])thead\b|\.(?:budget-cols|dre-detail-head)\b/;
+const tableHeaderOffset = /^(?:top|inset|inset-block(?:-start)?)$/;
+const tableHeaderFinding = 'Cabeçalhos fixos de tabela';
+const tableStyles = shared + 'data/styles.css';
 const families = [
   {
     name: 'Cabeçalhos e filtros',
@@ -51,8 +56,14 @@ export function inspectUiContractCss(source, file) {
     }
     if (sharedTokens.test(property) && !file.startsWith(`${shared}tokens/`)) record('Tokens de aparência');
     if (property === 'font-family' && !inheritedFont.test(value) && !context.some(part => part.startsWith('@font-face'))) record('Tipografia compartilhada');
-    if (property !== '@apply' && !visualCss.test(property)) return;
     const selector = selectors.join(' ');
+    if (file !== tableStyles &&
+        ((tableHeaderOffset.test(property) && (tableHeaderSelector.test(selector) || tableHeaderClass.test(selector))) ||
+         (property === 'position' && (tableHeaderClass.test(selector) ||
+          (value.startsWith('sticky') && tableHeaderSelector.test(selector)))))) {
+      record(tableHeaderFinding);
+    }
+    if (property !== '@apply' && !visualCss.test(property)) return;
     const matching = families.filter(({ hooks }) => hooks.test(selector));
     // In a shared recipe, a selector can intentionally combine several patterns.
     if (matching.some(({ sources }) => sources.some(path => file === shared + path))) return;
@@ -88,7 +99,15 @@ export function inspectUiContractJsx(source, file) {
           const key = property.name.getText(ast).replace(/^['"]|['"]$/g, '');
           const fixedFont = key === 'fontFamily' && ts.isPropertyAssignment(property) &&
             ts.isStringLiteralLike(property.initializer) && !inheritedFont.test(property.initializer.text);
-          const name = fixedFont ? 'Tipografia compartilhada' : sharedTokens.test(key) ? 'Tokens de aparência' : inlineStyle.test(key) ? family?.name : undefined;
+          const sharedHeader = tableHeaderClass.test(classNames);
+          const headerOwnsPosition = key === 'position' && (sharedHeader || tag === 'thead' &&
+            ts.isPropertyAssignment(property) && ts.isStringLiteralLike(property.initializer) &&
+            property.initializer.text === 'sticky');
+          const headerOwnsOffset = /^(?:top|inset|insetBlock(?:Start)?)$/.test(key) &&
+            (sharedHeader || tag === 'thead' || tag === 'th');
+          const name = headerOwnsPosition || headerOwnsOffset ? tableHeaderFinding :
+            fixedFont ? 'Tipografia compartilhada' : sharedTokens.test(key) ? 'Tokens de aparência' :
+              inlineStyle.test(key) ? family?.name : undefined;
           if (!name) continue;
           const note = `<${tag}> usa ${key} no estilo inline`;
           const line = ast.getLineAndCharacterOfPosition(property.getStart(ast)).line + 1;

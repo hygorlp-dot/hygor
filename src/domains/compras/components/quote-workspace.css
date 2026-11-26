@@ -10,7 +10,7 @@
 .quote-comparison-scroll { overflow:auto; max-height:60vh; max-width:100%; font-variant-numeric:tabular-nums; isolation:isolate; }
 .quote-comparison-scroll table { border-collapse:separate; border-spacing:0; width:100%; }
 .quote-comparison-scroll :is(th,td) { min-width:170px; padding:var(--arcd-space-3); text-align:left; vertical-align:top; background:var(--arcd-surface-card); border-bottom:var(--arcd-border-width) solid var(--arcd-border-default); font-size:var(--arcd-type-body); }
-.quote-comparison-scroll thead th { position:sticky; top:0; z-index:2; background:var(--arcd-surface-muted); }
+.quote-comparison-scroll thead th { z-index:2; background:var(--arcd-surface-muted); }
 .quote-comparison-scroll tr > :first-child { position:sticky; left:0; z-index:1; width:220px; min-width:180px; }
 .quote-comparison-scroll thead tr > :first-child { z-index:3; }
 .compras-view [id^="purchase-record-"] { scroll-margin-top:80px; }

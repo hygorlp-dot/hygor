@@ -72,6 +72,7 @@ export function clientPortalProgress({ data = {}, obraId = "", tasks = [],asOf }
  * Monta somente o contrato editorial do Portal do Cliente. Nenhum array
  * financeiro operacional, custo, colaborador, conciliação ou dado bancário
  * atravessa esta fronteira.
+ * @param {{data?: Record<string, unknown>, projectId?: string|number, publishedAt?: string}} [input]
  */
 export function buildClientPortalPublicationRows({ data = {}, projectId, publishedAt = new Date().toISOString() } = {}) {
   data={...data,...Object.fromEntries(['rdos','caixaObra','pedidos','notasFiscais'].map(key=>[key,uniquePortalRecords(list(data[key]).filter(item=>String(item.obraId)===String(projectId)))]))};

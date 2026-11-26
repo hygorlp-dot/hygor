@@ -1,5 +1,5 @@
 // Papéis autorizados a cada comando de LOCAÇÃO de equipamento: fonte única.
-// api/data.js monta OPERATIONAL_COMMAND_ROLES a partir daqui e a Central de
+// server/command-role-policy.js monta OPERATIONAL_COMMAND_ROLES a partir daqui e a Central de
 // locações (rental-actions.js) decide, pelos mesmos papéis, quais botões
 // oferecer - a tela nunca mantém uma cópia própria da política. Os valores são
 // exatamente os que já valiam no servidor.

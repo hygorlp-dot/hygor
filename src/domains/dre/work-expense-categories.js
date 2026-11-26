@@ -9,6 +9,7 @@ export const DEFAULT_WORK_EXPENSE_CATEGORIES = Object.freeze([
   { v:"outros", l:"Outros" },
 ]);
 
+/** @returns {readonly {v:string,l:string}[]} */
 export const workExpenseCategories = data => {
   const custom = Array.isArray(data?.categoriasDesp) ? data.categoriasDesp : [];
   if (!custom.length) return DEFAULT_WORK_EXPENSE_CATEGORIES;

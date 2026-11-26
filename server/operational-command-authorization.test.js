@@ -3,7 +3,7 @@ import { OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js
 import {
   authorizeFinancialCommand, authorizeOperationalCommand,
   FINANCIAL_COMMAND_ROLES, FINANCIAL_COMMANDS, OPERATIONAL_COMMAND_ROLES,
-} from "../api/data.js";
+} from "./command-role-policy.js";
 
 // Universo de papéis conhecidos, extraído dos dois mapas de autorização mais
 // um papel inexistente ("visitante") para representar um ator totalmente de

@@ -135,6 +135,8 @@ jobs:
         run: npx vitest run server/ponto-eletronico/arp/arp-concorrencia.pg.test.js
       - name: Gravação de jsonb pelo driver postgres (objeto, não texto)
         run: npx vitest run server/jsonb-gravacao.test.js server/orcamentos-linha-propria.pg.test.js
+      - name: Recibos de gravação, concorrência e rollback
+        run: npx vitest run server/legacy-save-receipts.pg.test.js
       - name: Fechamento contra ponto e equipamentos (locks reais)
         run: |
           npx vitest run server/closed-dre-locking.pg.test.js --maxWorkers=2 --reporter=json --outputFile=closed-dre-locking.json

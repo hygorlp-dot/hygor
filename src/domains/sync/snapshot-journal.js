@@ -1,10 +1,19 @@
 import {activeCompany,companyStorageKey} from '../../lib/company-scope.js';
 import {createLocalDatabase,createStore,idbResult} from '../../lib/local-indexed-db.js';
 import {buildSectionDelta,expandSectionDelta} from './section-delta.js';
+/** @typedef {Record<string, unknown>} Snapshot */
+/** @typedef {{id:string, role:string, companyId?:string, obraId?:string, active?:boolean, accessTabs?:string[]}} RecoveryUser */
+/** @typedef {{owner:string, tab:string, revision:string}} JournalReceipt */
+/** @typedef {{user:RecoveryUser, tab:string, base:Snapshot}} JournalContext */
+/** @typedef {JournalContext & {intended:Snapshot}} ProtectedEdit */
+/** @typedef {{changed:{id:string|number}[], removed:(string|number)[]}} ChangeDelta */
+/** @typedef {{delta?:ChangeDelta, base?:unknown, intended?:unknown}} SnapshotChange */
+/** @typedef {JournalReceipt & {scope:string, changes:Record<string,SnapshotChange>, createdAt:string}} JournalRow */
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const excluded=new Set(['attendance','attendanceLocks','unlockRequests','dailyCheckDate','attendanceOperationReceipts','operationalCommandReceipts','changeLog']);
 export const recoveryScope=user=>JSON.stringify([user.companyId||activeCompany(),user.id,user.role,user.obraId||'',user.active!==false,[...(user.accessTabs||[])].sort()]);
 export function recoveryTab(){let id=sessionStorage.getItem('marcell-recovery-tab');if(!id){id=crypto.randomUUID();sessionStorage.setItem('marcell-recovery-tab',id);}return id;}
+/** @param {Snapshot} base @param {Snapshot} intended @returns {Record<string, SnapshotChange>} */
 export function snapshotChanges(base,intended){
  const changes={};
  for(const key of new Set([...Object.keys(base||{}),...Object.keys(intended||{})])){
@@ -40,12 +49,14 @@ export function createSnapshotJournal(name='marcell-workspace-edits-v1'){
  const read=(owner,tab)=>db.run('edits','readonly',tx=>idbResult(tx.objectStore('edits').get([owner,tab])));
  const key=(owner,tab)=>JSON.stringify([owner,tab]);
  return {db,
-  adopt:row=>known.set(key(row.owner,row.tab),row.revision),
+  adopt:(/** @type {JournalReceipt} */ row)=>known.set(key(row.owner,row.tab),row.revision),
   read,
+  /** @param {string} owner @param {string} tab @returns {Promise<JournalRow|undefined>} */
   async readLatest(owner,tab){return db.run('edits','readonly',async tx=>{
    const edits=tx.objectStore('edits'),current=await idbResult(edits.get([owner,tab]));
    return current||(await idbResult(edits.index('owner').getAll(owner))).sort((a,b)=>String(a.createdAt||'').localeCompare(String(b.createdAt||''))).at(-1);
   });},
+  /** @param {ProtectedEdit} edit */
   async protect({user,tab,base,intended}){
    const row={owner:user.id,tab,scope:recoveryScope(user),revision:crypto.randomUUID(),changes:snapshotChanges(base,intended),createdAt:new Date().toISOString()};
    // Dados de autenticação nunca pertencem a uma intenção de edição.
@@ -56,11 +67,12 @@ export function createSnapshotJournal(name='marcell-workspace-edits-v1'){
     await idbResult(edits.put(row));
    });known.set(key(row.owner,tab),row.revision);changed();return {owner:row.owner,tab,revision:row.revision};
   },
+  /** @param {JournalReceipt|null|undefined} receipt */
   async release(receipt){if(!receipt)return;await db.run('edits','readwrite',async tx=>{const edits=tx.objectStore('edits'),row=await idbResult(edits.get([receipt.owner,receipt.tab]));if(row?.revision===receipt.revision)await idbResult(edits.delete([receipt.owner,receipt.tab]));});changed();},
  };
 }
 const companyJournals=new Map();
-export const snapshotJournal=new Proxy({}, {get(_target,property){
+export const snapshotJournal=new Proxy(/** @type {ReturnType<typeof createSnapshotJournal>} */ ({}), {get(_target,property){
  const companyId=activeCompany();
  if(!companyJournals.has(companyId))companyJournals.set(companyId,createSnapshotJournal(companyStorageKey('workspace-edits-v1')));
  const journal=companyJournals.get(companyId),value=journal[property];

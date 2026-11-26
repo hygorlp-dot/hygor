@@ -15,10 +15,14 @@ import { aplicarRecebimentoMedicao, totalRecebidoMedicao } from "../src/domains/
 import { active } from "../src/domains/financeiro/ledger.js";
 import { activeCashAllocations, applyCashAllocation, reconciliationHold } from "../src/domains/conciliacao/cash-allocations.js";
 import { findReconciliationCategory } from "../src/domains/conciliacao/categories.js";
+import {editReconciliationClassification} from '../src/domains/conciliacao/classification-edit.js';
+import {confirmRentalReceipt} from './reconciliation-rental.js';
 import { isCompetenceInClosedPeriod, isDateInClosedPeriod } from "../src/domains/financeiro/workflows.js";
 import { saldoTituloFolha } from "../src/domains/conciliacao/payroll.js";
 
 export const RECONCILIATION_COMMAND = Object.freeze({
+  EDIT_CLASSIFICATION: 'EDIT_CLASSIFICATION',
+  CONFIRM_RENTAL_RECEIPT: 'CONFIRM_RENTAL_RECEIPT',
   AUTO_MATCH: "AUTO_MATCH",
   CONFIRM_RECEIPT: "CONFIRM_RECEIPT",
   CONFIRM_MANUAL_ENTRY: "CONFIRM_MANUAL_ENTRY",
@@ -155,6 +159,11 @@ export const applyReconciliationCommand = (data, command = {}, actor = {}) => {
   const transactionId=String(payload.transactionId || "");
   if((data.transacoes||[]).some(t=>t.importReversal&&[transactionId,payload.originalTransactionId,payload.counterpartyTransactionId].includes(String(t.id))))return invalid(data,'Movimento de importação revertida: somente consulta e auditoria.');
   if(!positiveId(transactionId))return invalid(data,"Identificador da transação inválido.");
+  const rentalUsesBank=id=>(data.rentalInvoiceReceipts||[]).some(receipt=>String(receipt.transactionId)===String(id)&&receipt.status!=='cancelled');
+  const rentalBridge=command.type===RECONCILIATION_COMMAND.CONFIRM_RENTAL_RECEIPT;
+  const rentalUndo=command.type===RECONCILIATION_COMMAND.REVERSE_RECONCILIATION&&findTransaction(data,transactionId)?.vinculo?.tipo==='rentalInvoice';
+  if((rentalUsesBank(transactionId)&&!rentalBridge&&!rentalUndo)||
+    [payload.originalTransactionId,payload.counterpartyTransactionId].filter(Boolean).some(rentalUsesBank))return invalid(data,'Este movimento já está registrado em uma locação. Vincule a fatura existente para não duplicar a receita.');
   const hold = reconciliationHold(findTransaction(data, transactionId));
   if(hold)return invalid(data,hold);
   if([RECONCILIATION_COMMAND.LINK_PARTIAL_CASH,RECONCILIATION_COMMAND.REVERSE_PARTIAL_CASH].includes(command.type)){
@@ -162,6 +171,12 @@ export const applyReconciliationCommand = (data, command = {}, actor = {}) => {
   }
   const partialLinks=activeCashAllocations(data);
   if(partialLinks.some(link=>link.transactionId===transactionId))return invalid(data,"Este movimento possui vínculos parciais. Desfaça os vínculos pelo gestor do DRE antes de reclassificá-lo.");
+  if(command.type===RECONCILIATION_COMMAND.EDIT_CLASSIFICATION)return editReconciliationClassification(data,findTransaction(data,transactionId),payload,actor);
+  if(command.type===RECONCILIATION_COMMAND.CONFIRM_RENTAL_RECEIPT){
+    const checked=mustBePending(data,transactionId,1);
+    if(checked.error)return invalid(data,checked.error);
+    return confirmRentalReceipt(data,checked.transaction,payload,actor,command.idempotencyKey);
+  }
   if(command.type===RECONCILIATION_COMMAND.LINK_EXISTING_PAYMENT&&partialLinks.some(link=>[link.sourceId,link.sourceSubId].filter(Boolean).includes(String(payload.paymentId||payload.targetId))))return invalid(data,"O pagamento já possui vínculos parciais no DRE.");
   if(command.type===RECONCILIATION_COMMAND.CONFIRM_TRANSFER&&reconciliationHold(findTransaction(data,payload.counterpartyTransactionId)))return invalid(data,"A outra ponta está bloqueada para conferência da composição do aporte.");
   if(command.type===RECONCILIATION_COMMAND.CONFIRM_TRANSFER&&partialLinks.some(link=>link.transactionId===payload.counterpartyTransactionId))return invalid(data,"A outra ponta possui vínculos parciais no DRE.");

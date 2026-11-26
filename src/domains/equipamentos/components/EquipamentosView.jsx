@@ -1149,18 +1149,18 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
             ? <div style={{padding:"var(--arcd-space-6)",textAlign:"center",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-body)"}}>Nenhum equipamento no filtro.</div>
             : <div tabIndex={0} role="region" aria-label="Demonstrativo financeiro dos equipamentos" style={{overflow:"auto",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",background:"var(--arcd-surface-card)",maxHeight:"70vh"}}>
               <table className="arcd-data-table__table" data-table-layout="matrix">
-                <thead>
+                <thead className="arcd-sticky-table-header-cells">
                   <tr>
-                    <th style={{position:"sticky",left:0,top:0,zIndex:3,background:"var(--arcd-surface-card)",textAlign:"left",
+                    <th style={{left:0,zIndex:3,background:"var(--arcd-surface-card)",textAlign:"left",
                                 padding:"var(--arcd-space-2) var(--arcd-space-2)",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRight:`var(--arcd-border-width) solid var(--arcd-border-default)`,
                                 minWidth:150,fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Equipamento</th>
                     {diasMes.map(d=>(
-                      <th key={d} style={{position:"sticky",top:0,zIndex:2,background:ehFimSemana(d)?`${C.blue}10`:"var(--arcd-surface-card)",
+                      <th key={d} style={{zIndex:2,background:ehFimSemana(d)?`${C.blue}10`:"var(--arcd-surface-card)",
                                           padding:"var(--arcd-space-2) 0",minWidth:42,borderBottom:`var(--arcd-border-width) solid var(--arcd-border-default)`,
                                           fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",fontWeight:600}}>{diaCurto(d)}</th>
                     ))}
                     {["Dias","Ocup.","Receita","Result."].map(h=>(
-                      <th key={h} style={{position:"sticky",top:0,zIndex:2,background:"var(--arcd-surface-card)",padding:"var(--arcd-space-2) var(--arcd-space-2)",
+                      <th key={h} style={{zIndex:2,background:"var(--arcd-surface-card)",padding:"var(--arcd-space-2) var(--arcd-space-2)",
                                           borderBottom:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderLeft:`var(--arcd-border-width) solid var(--arcd-border-default)`,
                                           fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>
                     ))}

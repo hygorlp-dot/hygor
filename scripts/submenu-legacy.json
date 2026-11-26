@@ -1,5 +1,6 @@
 {
-  "src/LegacyApp.jsx": ["022edfd9c4d2d3e5","3e5c27ae7a0a827a","54df3447c8483cf2","6a959fca1932a584","6a959fca1932a584","ca522da967393bf5","f1dc63272d20ecf5"],
+  "src/LegacyApp.jsx": ["022edfd9c4d2d3e5","3e5c27ae7a0a827a","54df3447c8483cf2","6a959fca1932a584","6a959fca1932a584","ca522da967393bf5"],
+  "src/domains/obras/components/ObrasCarteira.jsx": ["f1dc63272d20ecf5"],
   "src/client-portal/styles/portal.css": ["676525b2b40439c7"],
   "src/design-system/patterns/WorkspaceNavigation.jsx": ["42b231fe725ad128","ab262c4efd2b9d52"],
   "src/design-system/patterns/command-bar.css": ["8aeb1ac95342c3fe","e01e8142c4b9fad0"],

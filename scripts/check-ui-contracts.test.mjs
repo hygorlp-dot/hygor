@@ -3,6 +3,17 @@ import { inspectUiContractCss, inspectUiContractJsx } from './check-ui-contracts
 import { findOverrides, legacyKey } from './ui-contract-legacy.mjs';
 
 describe('contratos visuais do ERP', () => {
+  it('mantém a posição vertical dos cabeçalhos fixos na receita compartilhada', () => {
+    const source = '.arcd-sticky-table-header { position: sticky; inset-block-start: 0; }';
+    expect(inspectUiContractCss(source, 'src/design-system/data/styles.css')).toEqual([]);
+    expect(inspectUiContractCss(source, 'src/Area.css').map(({family}) => family))
+      .toEqual(['Cabeçalhos fixos de tabela', 'Cabeçalhos fixos de tabela']);
+    expect(inspectUiContractCss('.painel thead th { top: 58px; }', 'src/Area.css')).toHaveLength(1);
+    expect(inspectUiContractJsx('<thead style={{position:"sticky",top:0}} />', 'src/Area.jsx'))
+      .toHaveLength(2);
+    expect(inspectUiContractJsx('<th style={{position:"sticky",left:0}} />', 'src/Area.jsx')).toEqual([]);
+  });
+
   it('barra substituições locais para cada família e permite compor a largura', () => {
     const source = `
       .obras .arcd-page-header__title { font-size: var(--arcd-type-kpi); }

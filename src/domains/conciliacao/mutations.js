@@ -534,6 +534,15 @@ export const desfazerConciliacao = (data, transacaoId, operador, motivo = "") =>
   if (bloqueioPeriodo) return { data, resumo: { ok: false, motivo: bloqueioPeriodo } };
 
   const gerados = tr.gerados || [];
+  let rentalUndo=null;
+  if(tr.vinculo?.tipo==='rentalInvoice'){
+    if(!tr.vinculo.receiptCreated)return {data,resumo:{ok:false,motivo:'O recebimento de locação já existia. Corrija o vínculo no módulo de origem para preservar esse recebimento.'}};
+    const receipt=(data.rentalInvoiceReceipts||[]).find(row=>row.id===tr.vinculo.receiptId&&row.status!=='cancelled');
+    const invoice=(data.rentalInvoices||[]).find(row=>row.id===tr.vinculo.id);
+    if(!receipt||!invoice||receipt.transactionId!==tr.id||receipt.invoiceId!==invoice.id||Number(invoice.receivedAmountCents)<receipt.amountCents)return {data,resumo:{ok:false,motivo:'O recebimento da locação mudou. Confira a origem antes de desfazer.'}};
+    if(isCompetenceInClosedPeriod(data,invoice.competence))return {data,resumo:{ok:false,motivo:'A competência da locação está fechada.'}};
+    rentalUndo={receipt,invoice};
+  }
   if (tr.vinculo?.tipo === "transferencia_caixa_obra") {
     const movement = (data.caixaObra || []).find(item => item.id === tr.vinculo.id && active(item));
     if (movement && workCashInternalTransfer(movement) && movement.tipo === "aporte" &&
@@ -646,6 +655,11 @@ export const desfazerConciliacao = (data, transacaoId, operador, motivo = "") =>
       : c) };
   }
 
+  if(rentalUndo){
+    const {receipt,invoice}=rentalUndo,receivedAmountCents=Number(invoice.receivedAmountCents)-receipt.amountCents;
+    next={...next,rentalInvoiceReceipts:(next.rentalInvoiceReceipts||[]).map(row=>row.id!==receipt.id?row:{...row,status:'cancelled',cancelledAt:new Date().toISOString(),cancelledById:operador?.id}),
+      rentalInvoices:(next.rentalInvoices||[]).map(row=>row.id!==invoice.id?row:{...row,receivedAmountCents,openAmountCents:Number(invoice.netAmountCents)-receivedAmountCents,status:receivedAmountCents?'partially_paid':'issued',paidAt:'',version:Number(invoice.version||0)+1})};
+  }
   const transacoes = marcarTransacao(next.transacoes, transacaoId, { status: "pendente", vinculo: null, gerados: [], automacaoConciliacao: null,valorVinculado:0,saldoNaoVinculado:Math.abs(Number(tr.valor)) });
   const historicoConc = registrarHistorico(next.historicoConc, {
     transacaoId, extratoId: tr.extratoId, acao: "desfeito",

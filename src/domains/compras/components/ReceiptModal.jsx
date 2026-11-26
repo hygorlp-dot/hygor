@@ -41,7 +41,7 @@ export function ModalRecebimento({ pedido, onClose, onReceber, nomeMat, nomeForn
     </>}>
       <HelpButton pageId="cmp" allowedTabs={["cmp"]}/>
       {!salvando&&attempt?.command&&<p role="status">{UNCONFIRMED_COMMAND}</p>}
-      <fieldset disabled={salvando} style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
+      <fieldset disabled={salvando} className="mrc-dialog-fields">
         {obraNome&&<ScopeNote title="Obra que recebe o material">{obraNome}</ScopeNote>}
         <div style={{background:"var(--arcd-surface-muted)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
           <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{nomeForn(pedido.fornecedorId)}</p>

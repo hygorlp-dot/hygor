@@ -287,7 +287,7 @@ A densidade compacta do Plataforma é definida em `tokens/density.css`. A impres
 
 ### Tabelas, caixas e indicadores operacionais
 
-As tabelas nativas da interface web usam `arcd-data-table__table`. A receita define a tipografia, os recuos e os cabeçalhos das tabelas comuns. A matriz fixa do DRE anual mantém a geometria e as colunas fixas, com tipografia da base. A matriz de Sapatas mantém os tamanhos escolhidos pelo usuário. As tabelas do documento da Folha seguem a configuração de impressão.
+As tabelas nativas da interface web usam `arcd-data-table__table`. A receita define a tipografia, os recuos e os cabeçalhos das tabelas comuns. A matriz fixa do DRE anual mantém a geometria e as colunas fixas, com tipografia da base. A matriz de Sapatas mantém os tamanhos escolhidos pelo usuário. As tabelas do documento da Folha seguem a configuração de impressão. Para cabeçalhos fixos, use `arcd-sticky-table-header` na faixa inteira ou `arcd-sticky-table-header-cells` no `thead` de uma matriz com células fixas. A regra em `data/styles.css` encosta o cabeçalho no topo da área que rola, seja a página ou a própria tabela. O lint barra recuos locais em cabeçalhos.
 
 Use `mrc-box--padded` para o recuo da caixa e `mrc-box--scroll` para manter a rolagem de uma tabela dentro da caixa. As faixas de Pagamentos, DRE, Projeção de mão de obra, Fornecedores, Comercial e Relatório financeiro por obra usam os mesmos elementos de rótulo, valor e contexto de `kpi-strip.css`. O resumo da Visão financeira usa as caixas e a mesma escala de valores. Orçamento e a análise de Locação usam a escala de indicadores sem perder a disposição dos dados de cada consulta.
 

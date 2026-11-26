@@ -1,4 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { runWithCompany } from "./company-context.js";
+import { createCompanyProfileIndex } from "./company-profile-index.js";
 import { compactProfiles, profileIndexOutdated } from "./data-codec.js";
 
 // O índice de login/OneDrive precisa acompanhar usuários E obras. Caso real
@@ -29,5 +31,43 @@ describe("índice de perfis (login e escopo do OneDrive)", () => {
 
   it("índice ausente conta como desatualizado", () => {
     expect(profileIndexOutdated(null, dados)).toBe(true);
+  });
+
+  it("lê e atualiza o índice na empresa da operação", async () => {
+    const stored = compactProfiles(dados);
+    const query = {
+      select: vi.fn(() => query),
+      eq: vi.fn(() => query),
+      maybeSingle: vi.fn(async () => ({data: {value: stored}, error: null})),
+      upsert: vi.fn(async () => ({error: null})),
+    };
+    const from = vi.fn(() => query);
+    const index = createCompanyProfileIndex({from});
+    await runWithCompany("mrc", async () => {
+      expect(await index.lerIndicePerfis()).toEqual(stored);
+      await index.salvarIndicePerfis(dados);
+    });
+    expect(from.mock.calls).toEqual([["company_app_data"], ["company_app_data"]]);
+    expect(query.eq.mock.calls).toEqual([["company_id", "mrc"], ["key", "arced_auth_profiles_v1"]]);
+    expect(query.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      company_id: "mrc",
+      key: "arced_auth_profiles_v1",
+      value: expect.objectContaining({usuarios: stored.usuarios, obras: stored.obras}),
+    }), {onConflict: "company_id,key"});
+  });
+
+  it("protege o índice de usuário vazio e tolera falha na atualização acessória", async () => {
+    const from = vi.fn(() => { throw new Error("Falha simulada"); });
+    const index = createCompanyProfileIndex({from});
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      await index.atualizarIndicePerfisSeguro({usuarios: []});
+      expect(from).not.toHaveBeenCalled();
+      await expect(index.atualizarIndicePerfisSeguro(dados)).resolves.toBeUndefined();
+      expect(from).toHaveBeenCalledOnce();
+      expect(log).toHaveBeenCalledWith("Não foi possível atualizar o índice de login:", "Falha simulada");
+    } finally {
+      log.mockRestore();
+    }
   });
 });

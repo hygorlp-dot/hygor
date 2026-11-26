@@ -190,17 +190,24 @@ test('Orçamento da obra abre a versão única e filtra itens sem mudar o total'
       const amount = cell.querySelector('strong');
       const labelBox = label.getBoundingClientRect();
       const amountBox = amount.getBoundingClientRect();
+      const reference = document.createElement('span');
+      reference.hidden = true;
+      reference.style.fontSize = 'var(--arcd-type-kpi)';
+      cell.append(reference);
+      const expectedAmountSize = getComputedStyle(reference).fontSize;
+      reference.remove();
       return {
         labelY: labelBox.top,
         amountY: amountBox.top,
         aligned: Math.abs(labelBox.left - amountBox.left) < 1,
         amountSize: getComputedStyle(amount).fontSize,
+        expectedAmountSize,
       };
     }));
     expect(totals).toHaveLength(4);
     for (const total of totals) {
       expect(total.aligned).toBe(true);
-      expect(total.amountSize).toBe('14px');
+      expect(total.amountSize).toBe(total.expectedAmountSize);
     }
     const columns = page.viewportSize().width <= 767 ? 2 : 4;
     for (let index = 0; index < totals.length; index += columns) {

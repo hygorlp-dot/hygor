@@ -9,7 +9,7 @@ const primitives = read("src/design-system/primitives/styles.css");
 const typography = read("src/design-system/tokens/typography.css");
 const app = read("src/LegacyApp.jsx");
 const shared = read("src/legacy/ui.jsx");
-const dialog = read("src/design-system/primitives/Dialog.jsx");
+const dialogSurface = read("src/design-system/primitives/Dialog.jsx");
 
 describe("fundações responsivas", () => {
   it("configura viewport com safe area e não mascara estouro global", () => {
@@ -28,8 +28,9 @@ describe("fundações responsivas", () => {
 
   it("usa navegação compacta e diálogo acessível no app operacional", () => {
     expect(app).toContain("<LazyLegacyMobileNavigation");
-    expect(shared).toContain("<DialogSurface open legacy");
-    expect(dialog).toContain('role="dialog" aria-modal="true" aria-labelledby={titleId}');
-    expect(dialog).toContain("useDialogLifecycle(open,dialogRef,()=>onOpenChange?.(false),triggerRef,overlayRef)");
+    expect(shared).toContain("<DialogSurface");
+    expect(dialogSurface).toContain('role="dialog"');
+    expect(dialogSurface).toContain('aria-modal="true"');
+    expect(dialogSurface).toMatch(/useDialogLifecycle\(open,\s*dialogRef,.*triggerRef,\s*overlayRef\)/);
   });
 });

@@ -29,6 +29,7 @@ export function CompanyAssetImage({src,alt,...props}){
  return <img {...props} src={file.url} alt={file.error?`${alt||'Imagem'} — indisponível`:alt} aria-busy={file.loading||undefined} title={file.error||props.title}/>;
 }
 
+/** @param {import("react").AnchorHTMLAttributes<HTMLAnchorElement> & {href: string}} props */
 export function CompanyAssetLink({href,children,onClick,...props}){
  const file=useCompanyAssetUrl(href);
  return <a {...props} href={file.url} aria-disabled={!file.url||undefined} title={file.error||props.title} onClick={event=>{if(!file.url)event.preventDefault();else onClick?.(event);}}>{children}</a>;

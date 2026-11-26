@@ -37,6 +37,11 @@ export const useWorkContextObra=()=>useSyncExternalStore(subscribe,workContextOb
 // tiraria o Financeiro de "Todas as obras", e abrir o Financeiro em "Todas"
 // apagaria o carimbo antes de a tela segui-lo.
 // No detalhe de uma obra (fixed) nada muda: a obra fixa manda.
+/**
+ * @param {string} obraId
+ * @param {(id:string)=>void} setObraId
+ * @param {{allowedIds?:string[], fixed?:string, allValue?:string|null}} [options]
+ */
 export function useSyncedWorkObra(obraId,setObraId,{allowedIds=[],fixed='',allValue=null}={}){
   const stamped=useWorkContextObra();
   const allowed=allowedIds.join('|');

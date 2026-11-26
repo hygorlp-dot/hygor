@@ -11,6 +11,7 @@ const columnName = index => {
 
 const encodeCell = ({r, c}) => `${columnName(c)}${r + 1}`;
 
+/** @returns {{__rows:unknown[][], "!cols"?:{wch:number}[]} & Record<string, unknown>} */
 const sheetFromRows = (rows,formatos) => {
   const sheet = {__rows: rows.map(row => Array.isArray(row) ? [...row] : [])};
   sheet.__rows.forEach((row, r) => row.forEach((value, c) => {

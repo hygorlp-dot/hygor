@@ -1,3 +1,10 @@
+/**
+ * @template {{obraId?: string|number|null}} RecordWithWork
+ * @param {RecordWithWork[]} records
+ * @param {Map<string,string|undefined>} workNames
+ * @param {(record: RecordWithWork) => string|null|undefined} [dateOf]
+ * @param {string} [dateLabel]
+ */
 export function priorityContext(records, workNames, dateOf, dateLabel) {
   const workIds = new Set(records.map(record => String(record.obraId || '')));
   const names = [...workIds].map(id => workNames.get(id)).filter(Boolean);

@@ -120,7 +120,7 @@ button.budget-kpi:hover { background: var(--arcd-surface-muted); }
 .budget-sheet { background: var(--bs-edit); border: var(--arcd-border-width) solid var(--bs-line); font-family: var(--bs-font); color: var(--bs-ink); }
 .budget-cols {
   border-left: 3px solid transparent;
-  position: sticky; inset-block-start: 0; z-index: 5; display: grid; align-items: center; min-height: 26px;
+  z-index: 5; display: grid; align-items: center; min-height: 26px;
   padding: 0 var(--arcd-space-2); background: var(--bs-n2); border-bottom: var(--arcd-border-width) solid var(--bs-line-strong);
   font-size: var(--bs-fs-body); font-weight: var(--arcd-font-weight-semibold); color: var(--bs-ink-2);
 }

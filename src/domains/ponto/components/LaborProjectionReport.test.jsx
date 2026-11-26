@@ -46,8 +46,12 @@ describe("LaborProjectionReport", () => {
     expect(button("PDF").disabled).toBe(true);
     await settle(pending, report);
     expect(requestReport).toHaveBeenCalledOnce();
-    expect(container.querySelectorAll(".lp-kpi")).toHaveLength(4);
-    expect(container.querySelector(".lp-kpis").compareDocumentPosition(container.querySelector(".lp-filters")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const summary = container.querySelector('dl[aria-label="Resumo da projeção"]');
+    expect(summary).not.toBeNull();
+    expect([...summary.querySelectorAll("[data-metric]")].map(metric => metric.dataset.metric)).toEqual([
+      "projectedCost", "actualCost", "estimatedCost", "fullAttendanceReserve",
+    ]);
+    expect(summary.compareDocumentPosition(container.querySelector(".lp-filters")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(text(container.querySelector('[data-metric="projectedCost"]'))).toBe("R$ 1.440,00");
     expect(text(container.querySelector('[data-metric="actualCost"]'))).toBe("R$ 900,00");
     expect(text(container.querySelector('[data-metric="fullAttendanceReserve"]'))).toBe("R$ 1.500,00");

@@ -113,3 +113,6 @@ export const compLabel = ym => {
   const [y, m] = ym.split("-");
   return `${fullMonth(Number(m)-1)} ${y}`;
 };
+
+/** @param {number} v */
+export const pct1=v=>`${new Intl.NumberFormat("pt-BR",{minimumFractionDigits:1,maximumFractionDigits:1}).format(Number(v)||0)}%`;

@@ -1,5 +1,5 @@
 import { PROJECT_STAGES, PROJECT_DISCIPLINES, PROJECT_STATUSES, isProjectDate, safeProjectUrl, activeProjectSession, sessionSeconds } from "./model.js";
-import { TASK_STATUSES, TASK_PRIORITIES, cyclicDependencies, taskTransitionError, taskDependencyError, projectCompletionError, reorderTask, projectOrderForMove } from "./kanban-model.js";
+import { TASK_STATUSES, TASK_PRIORITIES, cyclicDependencies, taskTransitionError, taskDependencyError, projectCompletionError, reorderTask, planProjectMove } from "./kanban-model.js";
 
 export const ENGINEERING_COMMAND = Object.freeze({
   ENG_PROJECT_SAVED: "PROJETO_ENGENHARIA_SALVO",
@@ -42,6 +42,7 @@ export function applyEngineeringCommand(data, command, now) {
   if (!isTimer && Number(command.expectedVersion) !== Number(current?.version || 0)) return fail("O projeto foi alterado. Atualize a tela antes de salvar novamente.");
   let project = current ? { ...current } : { id: payload.projectId, links: [], revisions: [], sessions: [], tasks: [], history: [], createdAt: now, createdById: command.actorId };
   let detail = "";
+  let rebalancedOrders;
 
   if (isSave) {
     const form = payload.project || {};
@@ -66,12 +67,13 @@ export function applyEngineeringCommand(data, command, now) {
     if (project.status === "arquivado") return fail("Reabra o projeto arquivado no cadastro antes de movê-lo.");
     if (!PROJECT_STAGES.includes(payload.stage)) return fail("Etapa de destino inválida.");
     if (payload.stage === "Concluído") { const error = projectCompletionError(project); if (error) return fail(error); }
-    const rank = projectOrderForMove(projects, project.id, payload.stage, payload.beforeId);
-    if (rank == null || payload.beforeId === project.id) return fail("Posição de destino inválida. Atualize o quadro.");
+    const move = planProjectMove(projects, project.id, payload.stage, payload.beforeId);
+    if (!move || payload.beforeId === project.id) return fail("Posição de destino inválida. Atualize o quadro.");
     detail = `Cartão movido: ${project.stage} → ${payload.stage}`;
     project.stage = payload.stage;
     project.status = payload.stage === "Concluído" ? "concluido" : "ativo";
-    project.boardOrder = rank;
+    project.boardOrder = move.rank;
+    rebalancedOrders = move.rebalancedOrders;
   } else if (command.type === ENGINEERING_COMMAND.ENG_TIMER_STOPPED) {
     const session = (project.sessions || []).find(item => item.id === payload.sessionId);
     if (!session || session.userId !== command.actorId) return fail("Você só pode pausar seu próprio cronômetro.");
@@ -167,5 +169,10 @@ export function applyEngineeringCommand(data, command, now) {
   project.updatedAt = now;
   project.updatedById = command.actorId;
   project.history = [...(project.history || []), { id: command.idempotencyKey, type: command.type, detail, at: now, byId: command.actorId, by: text(command.actorName) }];
-  return { ok: true, entityId: project.id, data: { ...data, engineeringProjects: current ? projects.map(item => item.id === project.id ? project : item) : [...projects, project] } };
+  const engineeringProjects = current ? projects.map(item => {
+    if (item.id === project.id) return project;
+    const boardOrder = rebalancedOrders?.get(item.id);
+    return boardOrder == null ? item : { ...item, boardOrder };
+  }) : [...projects, project];
+  return { ok: true, entityId: project.id, data: { ...data, engineeringProjects } };
 }

@@ -62,6 +62,11 @@ import { enviarArquivoOneDrive } from "../../../api";
 import { ProgressPercentageField } from "../../medicoes/components/ProgressPercentageField.jsx";
 import {formatProgress} from '../../medicoes/progress-presentation.js';
 
+/**
+ * @param {{data: object, update: Function, showToast?: Function, obraIdFixo?: string,
+ * currentUser?: object | null, dispatchCommand?: Function | null,
+ * contratoInicial?: {contratoId: string, novaMedicao: boolean} | null}} props
+ */
 export default function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, dispatchCommand=null, contratoInicial=null }) {
   const { formGrid,isMobile } = useBreakpoint();
   const perfil=currentUser?.role;
@@ -1508,7 +1513,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                   <CartesianGrid strokeDasharray="3 3" stroke={C.line}/>
                   <XAxis dataKey="nome" tick={{ fontSize:"var(--arcd-type-label)", fill:C.muted }} axisLine={{ stroke:C.border }} tickLine={false}/>
                   <YAxis tick={{ fontSize:"var(--arcd-type-caption)", fill:C.muted }} axisLine={false} tickLine={false} tickFormatter={v=>`${(v/1000).toFixed(0)}k`}/>
-                  <Tooltip formatter={v=>fmt(v)} contentStyle={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:6, fontSize:"var(--arcd-type-body)" }}/>
+                  <Tooltip formatter={v=>fmt(v)} contentStyle={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:"var(--arcd-radius-control)", fontSize:"var(--arcd-type-body)" }}/>
                   <Line type="monotone" dataKey="acumulado" stroke={C.blue} strokeWidth={2.5} dot={{ r:3, fill:C.blue }}/>
                 </LineChart>
               </ResponsiveContainer>
@@ -2169,7 +2174,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                 <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-text-primary)", textTransform:"uppercase", letterSpacing:"var(--arcd-letter-spacing-body)", marginBottom:"var(--arcd-space-1)" }}>Quem realizou este pagamento? *</p>
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"var(--arcd-space-2)" }}>
                   {[["empresa","Empresa","Despesa administrativa"],["obra","Obra","Custo direto da obra"]].map(([v,l,dica])=>(
-                    <StandardButton variant="secondary" key={v} onClick={()=>setPaySource(v)}>
+                    <StandardButton variant="secondary" key={v} onClick={()=>setPaySource(v)} className="justify-start text-left">
                       <p style={{ fontSize:"var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color:paySource===v?"var(--arcd-text-primary)":"var(--arcd-text-secondary)" }}>{l}</p>
                       <p style={{ fontSize:"var(--arcd-type-caption)", color:"var(--arcd-text-secondary)", marginTop:"var(--arcd-space-half)" }}>{v==="obra"?`${dica}: ${obraName(medPayModal.obraId)}`:dica}</p>
                     </StandardButton>
@@ -2196,7 +2201,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
               <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-text-primary)", textTransform:"uppercase", letterSpacing:"var(--arcd-letter-spacing-body)", marginBottom:"var(--arcd-space-1)" }}>Quem realizou este pagamento? *</p>
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"var(--arcd-space-2)" }}>
                 {[["empresa","Empresa","Despesa administrativa"],["obra","Obra","Custo direto da obra"]].map(([v,l,dica])=>(
-                  <StandardButton variant="secondary" key={v} onClick={()=>setPaySource(v)}>
+                  <StandardButton variant="secondary" key={v} onClick={()=>setPaySource(v)} className="justify-start text-left">
                     <p style={{ fontSize:"var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color:paySource===v?"var(--arcd-text-primary)":"var(--arcd-text-secondary)" }}>{l}</p>
                     <p style={{ fontSize:"var(--arcd-type-caption)", color:"var(--arcd-text-secondary)", marginTop:"var(--arcd-space-half)" }}>{v==="obra"?`${dica}: ${obraName(payModal.obraId)}`:dica}</p>
                   </StandardButton>

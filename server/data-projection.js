@@ -99,6 +99,7 @@ export const projectDataForUser = (payload = {}, user = {}) => {
     const {accountingBases:_companyAccounting,...safe}=payload;return safe;
   }
   const allowedSections = new Set(ROLE_SECTIONS[user.role] || []);
+  if(user.role==='financeiro'&&!user.obraId&&podeAcessarAba(user,'conc'))for(const section of ['rentalInvoices','rentalInvoiceReceipts'])allowedSections.add(section);
   if(podeAcessarAba(user,'plan')||podeAcessarAba(user,'fin'))for(const section of ['scheduleBaselines','planos','orcamentos','budgetBaselines'])allowedSections.add(section);
   if(user.role==='financeiro'&&podeAcessarAba(user,'fin'))allowedSections.add('rdos');
   if(user.role==='financeiro'&&podeAcessarAba(user,'fin'))for(const section of ['materiais','movEstoque','reservasEstoque'])allowedSections.add(section);

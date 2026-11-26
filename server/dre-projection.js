@@ -109,9 +109,9 @@ const companyDre = (data,year,month,engine=calculations,includeMemorial=false) =
     !event.obraId&&event.competence===ym&&["cost","cost_reversal"].includes(event.effect));
   const signedAmount=event=>(event.effect==="cost_reversal"?-1:1)*Number(event.amountCents||0)/100;
   const faturamentoObras=workRevenue;
-  const receitaCorporativa=(base.ledger?.events||[]).filter(event=>!event.obraId&&event.competence===ym&&event.effect==="revenue")
+  const receitaCorporativa=(base.ledger?.events||[]).filter(event=>!event.obraId&&event.competence===ym&&event.effect==="revenue"&&event.category!=="receita_locacoes")
     .reduce((sum,event)=>sum+Number(event.amountCents||0)/100,0);
-  const receitaLocacoes=Number(base.equipReceitaBruta??base.equipReceita??0);
+  const receitaLocacoes=Number(base.equipReceitaBruta??base.equipReceita??0)+(base.ledger?.events||[]).filter(event=>!event.obraId&&event.competence===ym&&event.effect==="revenue"&&event.category==="receita_locacoes").reduce((sum,event)=>sum+Number(event.amountCents||0)/100,0);
   const descontoLocacoes=Number(base.equipDescontos||0);
   const faturamentoTotal=faturamentoObras+receitaLocacoes+receitaCorporativa;
   const recebidoObras=base.entradasCaixa;

@@ -2,12 +2,16 @@
 import {beforeAll,afterAll,it,expect,vi} from 'vitest';
 import {readFileSync} from 'node:fs';
 import {portalFixture} from '../server/client-portal.fixture.js';
-const state=vi.hoisted(()=>({rows:[],writes:0}));
+import {companyFileReference} from '../src/domains/arquivos/company-file-reference.js';
+const state=vi.hoisted(()=>({rows:[],writes:0,signed:[]}));
 vi.mock('@supabase/supabase-js',()=>({createClient:()=>({from(table){
  if(table!=='company_app_data')throw new Error('Tabela fora da auditoria legada.');
  const filters=[],q={select(){return q;},eq(k,v){filters.push(row=>row[k]===v);return q;},in(k,values){filters.push(row=>values.includes(row[k]));return q;},like(k,pattern){const prefix=pattern.replace(/%$/,'');filters.push(row=>String(row[k]).startsWith(prefix));return q;},order(){return q;},range(){return q;},maybeSingle:async()=>({data:state.rows.filter(row=>filters.every(fn=>fn(row)))[0]||null,error:null}),then(resolve,reject){return Promise.resolve({data:state.rows.filter(row=>filters.every(fn=>fn(row))),error:null}).then(resolve,reject);}};
  for(const method of ['update','insert','upsert','delete'])q[method]=()=>{state.writes++;throw new Error('Gravação local não esperada.');};return q;
- },rpc(){state.writes++;throw new Error('RPC não permitida na auditoria legada.');}})}));
+ },storage:{from(bucket){return {async createSignedUrl(name,ttl){
+   state.signed.push({bucket,name,ttl});
+   return {data:{signedUrl:'https://files.example.test/foto-assinada'},error:null};
+ }};}},rpc(){state.writes++;throw new Error('RPC não permitida na auditoria legada.');}})}));
 let handler;
 beforeAll(async()=>{
  vi.stubEnv('SUPABASE_URL','https://audit.invalid');vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY','audit-local-only');vi.stubEnv('COMPANY_ID','arcd');
@@ -26,3 +30,35 @@ it('o link antigo usa o token da obra exata e recusa IDs trocados ou token ausen
  expect((await call({obraId:work.id})).code).toBe(404);expect((await call({obraId:work.id,token:'invalid'})).code).toBe(404);
  expect(state.writes).toBe(0);
 },30000);
+
+it('o link antigo assina somente a foto autorizada e conserva a projeção pública',async()=>{
+ const original=state.rows;
+ const data=portalFixture(),obra=data.obras[0];
+ Object.assign(obra.portalCliente,{token:'tok-ficticio',publicarFinanceiro:false,publicarCronograma:false});
+ const filename='35136ece-8161-4cb3-89a2-b9d6a4ad470c.jpg';
+ const own='arcd/obra-local/2026/'+filename;
+ data.rdos[0].fotos=[
+  {url:companyFileReference(own),legenda:'Foto liberada'},
+  {url:companyFileReference('arcd/outra-obra/2026/'+filename),legenda:'Outra obra'},
+  {url:companyFileReference('mrc/obra-local/2026/'+filename),legenda:'Outra empresa'},
+  {url:companyFileReference(own),publicarCliente:false,legenda:'Foto reservada'},
+ ];
+ data.rdos=data.rdos.slice(0,1);
+ state.rows=[{key:'arced_ponto_v1',company_id:'arcd',value:data,updated_at:'2026-11-15T12:00:00Z'}];
+ state.signed=[];
+ try {
+  expect((await call({obraId:obra.id,token:'tok-diferido'})).code).toBe(404);
+  expect(state.signed).toEqual([]);
+  const res=await call({obraId:obra.id,token:obra.portalCliente.token});
+  expect(res.code).toBe(200);
+  expect(res.body.portal).toMatchObject({
+   obra:{id:obra.id},cronograma:[],medicoes:[],
+   fotos:[{url:'https://files.example.test/foto-assinada',legenda:'Foto liberada'}],
+  });
+  expect(state.signed).toEqual([{bucket:'company-files-private',name:own,ttl:300}]);
+  expect(res.body.portal.obra).not.toHaveProperty('portalCliente');
+  expect(state.writes).toBe(0);
+ } finally {
+  state.rows=original;
+ }
+});

@@ -3,7 +3,7 @@ import { Field, useFieldIds } from "./Field.jsx";
 import "./styles.css";
 
 // Controle sem Field para composições que já têm label/fieldset semântico.
-export const SelectControl = forwardRef(function SelectControl({className='',children,...props},ref){
+export const SelectControl = forwardRef(/** @param {import("react").SelectHTMLAttributes<HTMLSelectElement>} props */ function SelectControl({className='',children,...props},ref){
   return <select ref={ref} data-mrc-control className={`arcd-control arcd-select ${className}`.trim()} {...props}>{children}</select>;
 });
 

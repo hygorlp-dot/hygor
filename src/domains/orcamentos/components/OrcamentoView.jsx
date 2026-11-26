@@ -99,6 +99,7 @@ import {
   detectarColunasImportacao, detectarFormatoBdi, importacaoComPendencia, indexarReferenciasImportacao, montarLinhasImportacao, referenceFonteOficial,
 } from "../budget-import-mapping";
 import { clonarCronogramaPlano, clonarEstruturaOrcamento } from "../budget-clone";
+import { selectBudgetWorkContext } from "../budget-work-context.js";
 import { entradasParaDetalheAnalitico } from "../abc-detail-entries";
 import { auditBudgetTechnicalScope } from "../technical-audit";
 import {
@@ -302,7 +303,7 @@ const FloorSection = ({ id, sectionRef, title, resumo, children }) => (
 
 const StructuralElementSection = ({ id, sectionRef, title, subtitle, open, onToggle, resumo, warning, children }) => (
   <div ref={sectionRef} id={id} style={{border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",background:"var(--arcd-surface-page)",scrollMarginTop:SCROLL_MARGIN,overflow:"hidden"}}>
-    <StandardButton variant="secondary" onClick={onToggle} aria-expanded={open} style={{width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap"}}>
+    <StandardButton variant="secondary" onClick={onToggle} aria-expanded={open} className="w-full justify-between flex-wrap text-left">
       <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",minWidth:0}}>
         <span style={{display:"flex",flexShrink:0,transform:open?"rotate(90deg)":"none",transition:"transform 120ms ease-out"}}><Ic n="chevR" s={12} color={C.muted}/></span>
         <span style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",whiteSpace:"nowrap"}}>{title}</span>
@@ -339,7 +340,7 @@ const TabelaEditavel = ({ colunas, linhas, onChange, onAdd, onRemove, totalLabel
             <span key={c.chave}>
               {c.opcoes ? (
                 <SelectControl aria-label={c.rotulo} value={linha[c.chave]||""} onChange={e=>onChange(i,{[c.chave]:e.target.value})}
-                  style={{width:"100%",boxSizing:"border-box"}}>
+                 >
                   <option value="">-</option>
                   {c.opcoes.map(o=><option key={o} value={o}>{o}</option>)}
                 </SelectControl>
@@ -603,16 +604,10 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const selectWork = obraId => setForm(f=>budgetWorkDefaults(f,obraId,data.obras||[]));
 
   const todosOrcamentos=data.orcamentos||[];
-  const orcamentos = obraIdFixo?todosOrcamentos.filter(o=>o.obraId===obraIdFixo):todosOrcamentos;
-  // Carimbo: os orçamentos da obra em foco vêm primeiro; os demais (inclusive os
-  // sem obra, da fase comercial) continuam na lista logo abaixo.
   const carimboObra=useWorkContextObra();
-  const obraEmFoco=obraIdFixo?null:(data.obras||[]).find(o=>o.id===carimboObra)||null;
-  const gruposOrcamento=!orcamentos.length?[]:!obraEmFoco?[{id:"todos",itens:orcamentos}]:[
-    {id:"foco",titulo:`Obra em foco · ${obraEmFoco.name}`,itens:orcamentos.filter(o=>o.obraId===obraEmFoco.id),vazio:"Nenhum orçamento vinculado a esta obra."},
-    {id:"outros",titulo:"Outros orçamentos",itens:orcamentos.filter(o=>o.obraId!==obraEmFoco.id)},
-  ].filter(g=>g.itens.length||g.vazio);
-  const orc = orcamentos.find(o => o.id === selOrc);
+  const {orcamentos,gruposOrcamento,orc}=selectBudgetWorkContext(todosOrcamentos,data.obras||[],{
+    fixedWorkId:obraIdFixo,focusedWorkId:carimboObra,selectedBudgetId:selOrc,
+  });
   const [addFloorOpen, setAddFloorOpen] = useState(false);
   const floors = memoryFloors(orc?.memoriaCalculo);
   const floorPairs = floors.map(f => [f.id, f.nome]);
@@ -1288,7 +1283,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     const acoPilares = somaAcoPorBitola(pilar.acoPorBitola);
     return (
       <StructuralElementSection id={chave} sectionRef={registrarSecaoMemoria(chave)}
-        title={<span style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-1)"}}>PILARES{pilar.precisaRevisar&&<span title="Importado do PDF - ainda não revisado. Editar qualquer campo aqui remove este aviso." style={{width:7,height:7,borderRadius:"50%",background:"var(--arcd-warning-text)",display:"inline-block"}}/>}</span>}
+        title={<span style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-1)"}}>PILARES{pilar.precisaRevisar&&<span title="Importado do PDF - ainda não revisado. Editar qualquer campo aqui remove este aviso." style={{width:7,height:7,borderRadius:"var(--arcd-radius-pill)",background:"var(--arcd-warning-text)",display:"inline-block"}}/>}</span>}
         open={aberto} onToggle={()=>alternarElementoMemoria(chave,false)}
         resumo={<>
           <Metric label="Concreto" value={fmtNum(pilar.concretoM3)} unit="m³"/>
@@ -1414,7 +1409,8 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
                 <label style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-half)"}}>
                   <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>MALHA</span>
                   <SelectControl aria-label="Malha da tela soldada da vigota" value={laje.malhaVigota}
-                    onChange={e=>salvarLajeDoPavimento(pav,{malhaVigota:e.target.value,pesoMalhaVigotaKgM2:PESO_TELA_SOLDADA_KG_M2[e.target.value]})}>
+                    onChange={e=>salvarLajeDoPavimento(pav,{malhaVigota:e.target.value,pesoMalhaVigotaKgM2:PESO_TELA_SOLDADA_KG_M2[e.target.value]})}
+                   >
                     {MALHAS_TELA_SOLDADA.map(m=><option key={m} value={m}>{m}</option>)}
                   </SelectControl>
                 </label>
@@ -3636,8 +3632,11 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 
         {/* Modal novo orçamento */}
         {novoModal && (
-          <Modal title="Novo orçamento" onClose={()=>setNovoModal(false)}>
-            <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
+          <Modal title="Novo orçamento" onClose={()=>setNovoModal(false)} footer={<>
+            <Btn v="ghost" onClick={()=>setNovoModal(false)}>Cancelar</Btn>
+            <Btn onClick={criarOrc}><Ic n="check"/> Criar</Btn>
+          </>}>
+            <div className="mrc-dialog-fields">
               <Inp label="Nome do orçamento *" value={form.nome} onChange={F("nome")} placeholder="Ex.: Residência Terras Alpha - CA1-13"/>
               <Inp label="Descrição" value={form.descricao} onChange={F("descricao")} placeholder="Resumo, escopo ou observações do orçamento"/>
               {obraIdFixo
@@ -3645,14 +3644,14 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 : <Sel label="Vincular a uma obra (opcional)" value={form.obraId} onChange={selectWork}
                     options={[{v:"",l:"- Nenhuma -"}, ...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
               }
-              <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}>
+              <div className="mrc-dialog-fields__row">
                 <Inp label="Cliente" value={form.cliente} onChange={F("cliente")} placeholder="Nome do contratante"/>
                 <Inp label="Área construída (m)" type="number" value={form.areaM2} onChange={F("areaM2")} placeholder="Ex.: 388"/>
               </div>
               <Inp label="Local / Endereço" value={form.local} onChange={F("local")} placeholder="Ex.: Caruaru/PE"/>
               <div style={{height:1,background:"var(--arcd-border-default)",margin:"var(--arcd-space-half) var(--arcd-space-0)"}}/>
               <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>Base de preços</p>
-              <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}>
+              <div className="mrc-dialog-fields__row">
                 <Sel label="Fonte" value={form.fonte} onChange={F("fonte")} options={[
                   {v:"SINAPI",l:"SINAPI"},{v:"ORSE",l:"ORSE"},{v:"MISTO",l:"Misto (SINAPI + ORSE)"},
                 ]}/>
@@ -3661,22 +3660,12 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 <Inp label="BDI (%)" type="number" value={form.bdi} onChange={F("bdi")} placeholder="23.25"/>
               </div>
               <label style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",cursor:"pointer",padding:"var(--arcd-space-2) var(--arcd-space-3)",background:form.desonerado?"color-mix(in srgb, var(--arcd-success-text) 3%, transparent)":"var(--arcd-surface-muted)",borderRadius:"var(--arcd-radius-control)",border:`1.5px solid ${form.desonerado?"var(--arcd-success-text)"+"55":"var(--arcd-border-default)"}`}}>
-                <span style={{position:"relative",width:19,height:19,flexShrink:0,display:"inline-block"}}>
-                  <ChoiceControl type="checkbox" checked={form.desonerado!==false} onChange={e=>F("desonerado")(e.target.checked)}
-                    style={{position:"absolute",inset:0,width:"100%",margin:0,opacity:0,cursor:"pointer"}}/>
-                  <div aria-hidden="true" style={{width:19,height:19,border:`2px solid ${form.desonerado?"var(--arcd-success-text)":"var(--arcd-text-secondary)"}`,background:form.desonerado?"var(--arcd-success-text)":"transparent",borderRadius:"var(--arcd-radius-control)",display:"flex",alignItems:"center",justifyContent:"center",pointerEvents:"none"}}>
-                    {form.desonerado && <span style={{color:"var(--arcd-text-inverse)",fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)"}}>ok</span>}
-                  </div>
-                </span>
+                <ChoiceControl type="checkbox" checked={form.desonerado!==false} onChange={e=>F("desonerado")(e.target.checked)}/>
                 <div>
                   <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:form.desonerado?"var(--arcd-success-text)":"var(--arcd-text-primary)"}}>Encargos desonerados</p>
                   <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Desmarque para usar a tabela não desonerada</p>
                 </div>
               </label>
-              <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
-                <Btn v="ghost" onClick={()=>setNovoModal(false)} full>Cancelar</Btn>
-                <Btn onClick={criarOrc} full><Ic n="check"/> Criar</Btn>
-              </div>
             </div>
           </Modal>
         )}
@@ -3687,7 +3676,10 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           const orcsDaOrigem = orcamentosParaCopia.filter(o => o.obraId === copiarModal.obraOrigemId);
           const planoOrigemTemTarefas = !!planosParaCopia.find(p => p.obraId === copiarModal.obraOrigemId)?.tarefas?.length;
           return (
-            <Modal title="Copiar de outra obra" onClose={()=>setCopiarModal(null)} wide>
+            <Modal title="Copiar de outra obra" onClose={()=>setCopiarModal(null)} wide footer={<>
+              <Btn v="ghost" onClick={()=>setCopiarModal(null)}>Cancelar</Btn>
+              <Btn onClick={confirmarCopiaDeObra} disabled={!copiarModal.orcOrigemId||!obraDestinoId}><Ic n="copy"/> Copiar</Btn>
+            </>}>
               <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
                 <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)"}}>
                   Cria um orçamento novo nesta obra a partir das etapas e itens de um orçamento já existente em outra obra. Se a obra de origem já tiver um cronograma montado, ele também é copiado - com datas deslocadas para começar hoje.
@@ -3717,17 +3709,8 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   <label style={{display:"flex",alignItems:"flex-start",gap:"var(--arcd-space-2)",cursor:"pointer",padding:"var(--arcd-space-2) var(--arcd-space-3)",
                           background: copiarModal.repetirQuantidades ? "color-mix(in srgb, var(--arcd-action-primary) 6%, transparent)" : "var(--arcd-surface-muted)",
                           border:`1.5px solid ${copiarModal.repetirQuantidades ? "var(--arcd-action-primary)" : "var(--arcd-border-default)"}`,borderRadius:"var(--arcd-radius-control)"}}>
-                    <span style={{position:"relative",width:18,height:18,flexShrink:0,marginTop:"var(--arcd-space-0)",display:"inline-block"}}>
-                      <ChoiceControl type="checkbox" checked={copiarModal.repetirQuantidades}
-                        onChange={e=>setCopiarModal(m=>({...m,repetirQuantidades:e.target.checked}))}
-                        style={{position:"absolute",inset:0,width:"100%",margin:0,opacity:0,cursor:"pointer"}}/>
-                      <div aria-hidden="true"
-                           style={{width:18,height:18,borderRadius:"var(--arcd-radius-control)",
-                                   border:`2px solid ${copiarModal.repetirQuantidades?"var(--arcd-action-primary)":"var(--arcd-text-secondary)"}`,background:copiarModal.repetirQuantidades?"var(--arcd-action-primary)":"transparent",
-                                   display:"flex",alignItems:"center",justifyContent:"center",pointerEvents:"none"}}>
-                        {copiarModal.repetirQuantidades && <span style={{color:"var(--arcd-text-inverse)",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>ok</span>}
-                      </div>
-                    </span>
+                    <ChoiceControl type="checkbox" checked={copiarModal.repetirQuantidades}
+                        onChange={e=>setCopiarModal(m=>({...m,repetirQuantidades:e.target.checked}))}/>
                     <div>
                       <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:copiarModal.repetirQuantidades?"var(--arcd-action-primary)":"var(--arcd-text-primary)"}}>Repetir as quantidades da obra de origem</p>
                       <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",lineHeight:"var(--arcd-line-height-normal)"}}>Desmarcado, os itens entram com quantidade zerada - a estrutura e o preço unitário de referência vêm, mas você lança a medida real desta obra.</p>
@@ -3736,10 +3719,6 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 )}
                 <Inp label="Nome do novo orçamento" value={form.nome} onChange={F("nome")}
                      placeholder={copiarModal.orcOrigemId ? `Cópia de ${orcamentosParaCopia.find(o=>o.id===copiarModal.orcOrigemId)?.nome||""}` : ""}/>
-                <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
-                  <Btn v="ghost" onClick={()=>setCopiarModal(null)} full>Cancelar</Btn>
-                  <Btn onClick={confirmarCopiaDeObra} full disabled={!copiarModal.orcOrigemId||!obraDestinoId}><Ic n="copy"/> Copiar</Btn>
-                </div>
               </div>
             </Modal>
           );
@@ -4018,10 +3997,10 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                           </p>
                           {buscaLinhaAviso && <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-warning-text)",padding:"var(--arcd-space-half) var(--arcd-space-1) var(--arcd-space-1)"}}>{buscaLinhaAviso}</p>}
                           {resultadosLinha.slice(0,12).map((resultado,indice)=>(
-                            <StandardButton variant="secondary" key={`${resultado.fonte}-${resultado.codigo}-${indice}`}
+                            <RecordAction layout="row" key={`${resultado.fonte}-${resultado.codigo}-${indice}`}
                               onMouseDown={e=>e.preventDefault()}
                               onClick={()=>selecionarReferenciaLinha(it.id,resultado)}
-                              style={{width:"100%",display:"grid",gridTemplateColumns:"74px minmax(0,1fr) 78px",alignItems:"center"}}>
+                              style={{"--record-columns":"minmax(0, 4.625rem) minmax(0, 1fr) minmax(0, 4.875rem)"}}>
                               <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:resultado.fonte==="ORSE"?"var(--arcd-action-primary)":"var(--arcd-action-primary)",whiteSpace:"nowrap"}}>
                                 {resultado.fonte||"SINAPI"} {resultado.codigo}
                               </span>
@@ -4031,7 +4010,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                               <span style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textAlign:"right",whiteSpace:"nowrap"}}>
                                 {fmt(precoDoItem(resultado,orc))}/{resultado.unidade||"UN"}
                               </span>
-                            </StandardButton>
+                            </RecordAction>
                           ))}
                           {!buscaLinhaLoading && resultadosLinha.length===0 && (
                             <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",textAlign:"center",padding:"var(--arcd-space-2)"}}>Nenhuma composição encontrada.</p>
@@ -4070,7 +4049,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                     <label key={k} style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-1) var(--arcd-space-0)",cursor:"pointer",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>
                       <ChoiceControl type="checkbox" checked={k==="unitBdi"?(colsOrc.unitBdi ?? true):!!colsOrc[k]}
                         onChange={()=>setColsOrc(c=>({...c,[k]:k==="unitBdi"?!(c.unitBdi ?? true):!c[k]}))}
-                        style={{width:15,accentColor:"var(--arcd-action-primary)",cursor:"pointer"}}/>
+                        />
                       {l}
                     </label>
                   ))}
@@ -4091,7 +4070,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             <div className="budget-sheet">
               <div className="budget-sheet__inner">
                 {/* Cabeçalho fixo de colunas: a mesma grade (gc) das linhas */}
-                <div className="budget-cols" role="row" style={{gridTemplateColumns:gc.join(" ")}}>
+                <div className="budget-cols arcd-sticky-table-header" role="row" style={{gridTemplateColumns:gc.join(" ")}}>
                   <span aria-hidden="true"/>
                   <span>Item</span>
                   <span>Fonte</span>
@@ -4185,14 +4164,14 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             <TaskDisclosure enabled={compactWorkSheet}
               summary={<>{totalLabel} <strong>{fmt(calc.total)}</strong> · <span>Ver composição</span></>}>
             <div className="budget-kpis">
-              <div className="budget-kpi"><span>Custo direto</span><strong>{fmt(calc.custoDireto)}</strong></div>
+              <div className="budget-kpi"><span className="mrc-kpi__label">Custo direto</span><strong className="mrc-kpi__value">{fmt(calc.custoDireto)}</strong></div>
               <StandardButton variant="secondary" type="button" className="budget-kpi" onClick={abrirBDI} title={foraDaFaixa?`${detalheBDI}. ${sit.msg}`:`${detalheBDI}. Abrir cálculo do BDI`}>
-                <span>BDI {fmtPct(orc.bdi)}</span>
-                <strong>{fmt(calc.valorBDI)}</strong>
-                <small className={foraDaFaixa?"budget-kpi__alert":"budget-kpi__note"}>{foraDaFaixa?"Fora da faixa TCU":"Dentro da faixa TCU"}</small>
+                <span className="mrc-kpi__label">BDI {fmtPct(orc.bdi)}</span>
+                <strong className="mrc-kpi__value">{fmt(calc.valorBDI)}</strong>
+                <small className="mrc-kpi__detail" data-tone={foraDaFaixa?"warning":undefined}>{foraDaFaixa?"Fora da faixa TCU":"Dentro da faixa TCU"}</small>
               </StandardButton>
-              <div className="budget-kpi budget-kpi--total"><span>{totalLabel}</span><strong>{fmt(calc.total)}</strong></div>
-              <div className="budget-kpi"><span>{orc.areaM2>0?"Por m²":"Itens"}</span><strong>{orc.areaM2>0 ? fmt(calc.porM2) : String(calc.qtdItens)}</strong></div>
+              <div className="budget-kpi budget-kpi--total"><span className="mrc-kpi__label">{totalLabel}</span><strong className="mrc-kpi__value">{fmt(calc.total)}</strong></div>
+              <div className="budget-kpi"><span className="mrc-kpi__label">{orc.areaM2>0?"Por m²":"Itens"}</span><strong className="mrc-kpi__value">{orc.areaM2>0 ? fmt(calc.porM2) : String(calc.qtdItens)}</strong></div>
             </div>
             </TaskDisclosure>
           );
@@ -4348,7 +4327,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:cor}}>{base.fonte} · {base.dataBase}{base.uf?` · ${base.uf}`:""}</p>
                   <p title={base.arquivo} style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{base.fonte==="ORSE"?"Pesquisa oficial CEHOP":`${base.total.toLocaleString("pt-BR")} composições no Supabase`}{base.arquivo?` · ${base.arquivo}`:""}</p>
                 </div>
-                {ehAdmin&&<StandardButton variant="secondary" onClick={()=>desvincularBase(base)} title="Desvincular" style={{width:28}}>×</StandardButton>}
+                {ehAdmin&&<StandardButton variant="secondary" onClick={()=>desvincularBase(base)} title="Desvincular" size="icon">×</StandardButton>}
               </div>); })}
           </div>
         ) : <div style={{background:"var(--arcd-surface-muted)",border:"var(--arcd-border-width) dashed var(--arcd-border-default)",padding:"var(--arcd-space-2)",borderRadius:"var(--arcd-radius-control)"}}><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhuma base do Supabase vinculada a este orçamento.</p></div>}
@@ -4370,7 +4349,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
       {/*  CURVA ABC  */}
       <div style={{background:"var(--arcd-surface-page)",border:"1.5px solid var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)",overflow:"hidden",boxShadow:`0 1px 4px ${C.shadow}`}}>
         <StandardButton variant="secondary" onClick={()=>setAbcAberta(a=>!a)}
-                style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                className="w-full justify-between" aria-expanded={abcAberta}>
           <div>
             <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>Análise de Pareto</p>
             <p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-0)"}}>Curva ABC</p>
@@ -4407,7 +4386,8 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               {/* Resumo por classe */}
               <div style={{display:"grid",gridTemplateColumns:cols(1,3,3),gap:"var(--arcd-space-2)"}}>
                 {abc.resumo.map(r => (
-                  <StandardButton variant="secondary" key={r.classe} onClick={()=>setAbcFiltro(f=>f===r.classe?"todas":r.classe)}>
+                  <StandardButton variant="secondary" key={r.classe} onClick={()=>setAbcFiltro(f=>f===r.classe?"todas":r.classe)}
+                          className="justify-start">
                     <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:"var(--arcd-space-1)"}}>
                       <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:r.cor}}>Classe {r.classe}</p>
                       <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>{r.qtd} item(ns)  {r.pctItens.toFixed(0)}%</p>
@@ -4433,7 +4413,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                       <YAxis yAxisId="r" orientation="right" domain={[0,100]} tick={{fontSize:"var(--arcd-type-label)",fill:C.muted}}
                              axisLine={false} tickLine={false} tickFormatter={v=>`${v}%`}/>
                       <Tooltip
-                        contentStyle={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:6,fontSize:"var(--arcd-type-body)"}}
+                        contentStyle={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:"var(--arcd-radius-control)",fontSize:"var(--arcd-type-body)"}}
                         formatter={(v,n)=> n==="acum" ? [`${v}%`,"Acumulado"] : [fmt(v),"Custo direto"]}/>
                       <Bar yAxisId="l" dataKey="custo" radius={[3,3,0,0]}>
                         {grafico.map((g,i)=><Cell key={i} fill={g.cor}/>)}
@@ -4466,7 +4446,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               <div style={{border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",overflow:"hidden"}}>
                 <div className="scroll-x" style={{maxHeight:360,overflowY:"auto"}}>
                   <table className="arcd-data-table__table" style={{width:"100%",borderCollapse:"collapse",minWidth:660}}>
-                    <thead style={{position:"sticky",top:0,zIndex:1}}>
+                    <thead className="arcd-sticky-table-header" style={{zIndex:1}}>
                       <tr style={{background:"var(--arcd-surface-muted)"}}>
                         {["#","Cl.","Código","Descrição","Un.","Qtd.","Custo direto","% item","% acum."].map((h,i)=>(
                           <th key={h} style={{padding:"var(--arcd-space-2)",textAlign:i>=4?"right":"left",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",
@@ -4636,18 +4616,16 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 
       {/* Modal: BDI - Acórdão 2622/2013-TCU */}
       {editMetaModal && (
-        <Modal title="Editar dados do orçamento" onClose={()=>setEditMetaModal(false)} wide>
-          <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
+        <Modal title="Editar dados do orçamento" onClose={()=>setEditMetaModal(false)} wide footer={<>
+          <Btn v="ghost" onClick={()=>setEditMetaModal(false)}>Cancelar</Btn>
+          <Btn onClick={salvarDadosOrc}><Ic n="check"/> Salvar dados</Btn>
+        </>}>
+          <div className="mrc-dialog-fields">
             <Inp label="Nome do orçamento *" value={form.nome} onChange={F("nome")}/>
-            <label style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>
-              <span style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Descrição</span>
-              <TextareaControl value={form.descricao||""} onChange={e=>F("descricao")(e.target.value)} rows={3}
-                placeholder="Escopo, objetivo ou observações do orçamento"
-                style={{background:"var(--arcd-surface-page)",border:"1.5px solid var(--arcd-border-default)",color:"var(--arcd-text-primary)",padding:"var(--arcd-space-2) var(--arcd-space-3)",borderRadius:"var(--arcd-radius-control)",fontSize:"var(--arcd-type-control)",outline:"none",resize:"vertical",fontFamily:"var(--arcd-font-sans)"}}/>
-            </label>
+            <Inp label="Descrição" value={form.descricao||""} onChange={F("descricao")} multiline placeholder="Escopo, objetivo ou observações do orçamento"/>
             <Sel label="Obra vinculada" value={form.obraId} onChange={F("obraId")}
               options={[{v:"",l:"- Nenhuma -"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
-            <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}>
+            <div className="mrc-dialog-fields__row">
               <Inp label="Cliente" value={form.cliente} onChange={F("cliente")}/>
               <Inp label="Área construída (m²)" type="number" value={form.areaM2} onChange={F("areaM2")}/>
               <Inp label="Local / Endereço" value={form.local} onChange={F("local")}/>
@@ -4665,10 +4643,6 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               <ChoiceControl type="checkbox" checked={form.desonerado!==false} onChange={e=>F("desonerado")(e.target.checked)}/>
               <span style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Encargos desonerados</span>
             </label>
-            <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
-              <Btn v="ghost" onClick={()=>setEditMetaModal(false)} full>Cancelar</Btn>
-              <Btn onClick={salvarDadosOrc} full><Ic n="check"/> Salvar dados</Btn>
-            </div>
           </div>
         </Modal>
       )}
@@ -4924,7 +4898,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 
             <div style={{maxHeight:340,overflowY:"auto",display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>
               {resultados.map((r,i)=>(
-                <StandardButton variant="secondary" key={`${r.codigo}-${i}`} onClick={()=>{setQtdModal(r);setQtd("");setBuscaModal(false);}} style={{flexShrink:0,justifyContent:"flex-start"}}>
+                <StandardButton variant="secondary" key={`${r.codigo}-${i}`} onClick={()=>{setQtdModal(r);setQtd("");setBuscaModal(false);}} className="shrink-0 justify-start text-left">
                   <div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"flex-start",flex:1,minWidth:0}}>
                     <div style={{flex:1,minWidth:0}}>
                       <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)",lineHeight:"var(--arcd-line-height-normal)"}}>{r.descricao}</p>
@@ -5099,7 +5073,8 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             <div style={{display:"flex",gap:"var(--arcd-space-1)",flexWrap:"wrap",marginTop:"var(--arcd-space-2)"}}>
               {naoAbertasPorFonte.map(linha=>(
                 <StandardButton variant="secondary" key={linha.fonte} onClick={()=>{setAbcInsumoTipo("COMPOSICAO");setAbcInsumoFiltro("todas");}}
-                  title="Ver só as composições não abertas">
+                  title="Ver só as composições não abertas"
+                  className="justify-start text-left">
                   <b style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:linha.fonte==="ORSE"?"var(--arcd-action-primary)":"var(--arcd-action-primary)"}}>{linha.fonte}</b>
                   <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginLeft:"var(--arcd-space-1)"}}>{linha.qtd} composição(ões) · {fmt(linha.custo)}</span>
                 </StandardButton>
@@ -5107,7 +5082,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             </div>
             <div style={{marginTop:"var(--arcd-space-2)",maxHeight:180,overflowY:"auto",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-warning-text) 20%, transparent)",borderRadius:"var(--arcd-radius-control)"}}>
               <table className="arcd-data-table__table" style={{width:"100%",borderCollapse:"collapse"}}>
-                <thead><tr style={{background:"var(--arcd-surface-page)"}}>{["FONTE","CÓDIGO","DESCRIÇÃO","CUSTO NO ORÇAMENTO"].map(h=><th key={h} style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",textAlign:h==="CUSTO NO ORÇAMENTO"?"right":"left",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)",position:"sticky",top:0,background:"var(--arcd-surface-page)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}>{h}</th>)}</tr></thead>
+                <thead><tr style={{background:"var(--arcd-surface-page)"}}>{["FONTE","CÓDIGO","DESCRIÇÃO","CUSTO NO ORÇAMENTO"].map(h=><th key={h} className="arcd-sticky-table-header" style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",textAlign:h==="CUSTO NO ORÇAMENTO"?"right":"left",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)",background:"var(--arcd-surface-page)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}>{h}</th>)}</tr></thead>
                 <tbody>{composicoesNaoDocumentadas.map(item=><tr key={`${item.fonte}-${item.codigo}`} style={{borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}>
                   <td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-semibold)",color:item.fonte==="ORSE"?"var(--arcd-action-primary)":"var(--arcd-action-primary)"}}>{item.fonte}</td>
                   <td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",color:"var(--arcd-text-primary)"}}>{item.codigo}</td>
@@ -5217,9 +5192,9 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)",flexWrap:"wrap"}}>
                   <b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)"}}>{fmt(custo)}</b>
                   <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-1)",flexWrap:"wrap"}}>
-                    <StandardButton variant="secondary" onClick={()=>setCompForm({...comp,itens:(comp.itens||[]).map(item=>({...item}))})} style={{display:"inline-flex",alignItems:"center"}}><Ic n="edit" s={11}/> Editar</StandardButton>
-                    <StandardButton variant="secondary" title="Criar uma nova composição a partir desta" onClick={()=>novaComposicao({...comp,id:"",itens:(comp.itens||[]).map(item=>({...item,id:uid()})),codigo:proximoCodigoProprio()})} style={{display:"inline-flex",alignItems:"center"}}><Ic n="copy" s={11}/> Duplicar</StandardButton>
-                    <StandardButton variant="secondary" onClick={()=>excluirComposicaoPropria(comp)} style={{display:"inline-flex",alignItems:"center"}}><Ic n="trash" s={11}/> Excluir</StandardButton>
+                    <StandardButton variant="secondary" onClick={()=>setCompForm({...comp,itens:(comp.itens||[]).map(item=>({...item}))})} size="sm"><Ic n="edit" s={11}/> Editar</StandardButton>
+                    <StandardButton variant="secondary" title="Criar uma nova composição a partir desta" onClick={()=>novaComposicao({...comp,id:"",itens:(comp.itens||[]).map(item=>({...item,id:uid()})),codigo:proximoCodigoProprio()})} size="sm"><Ic n="copy" s={11}/> Duplicar</StandardButton>
+                    <StandardButton variant="secondary" onClick={()=>excluirComposicaoPropria(comp)} size="sm"><Ic n="trash" s={11}/> Excluir</StandardButton>
                   </div>
                 </div>
               </div>;
@@ -5259,7 +5234,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 </div>)}
                 {!compBuscaLoading&&!compResultados.length&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",textAlign:"center",padding:"var(--arcd-space-2)"}}>Nenhum resultado.</p>}
               </div>}
-              {compBusca.trim()&&compTipoBusca!=="COMPOSICAO"&&<StandardButton variant="secondary" onClick={criarInsumoDaBusca} style={{display:"inline-flex",alignItems:"center",marginTop:"var(--arcd-space-1)"}}><Ic n="plus"/> Criar insumo “{compBusca.trim().slice(0,55)}{compBusca.trim().length>55?"…":""}”</StandardButton>}
+              {compBusca.trim()&&compTipoBusca!=="COMPOSICAO"&&<StandardButton variant="secondary" onClick={criarInsumoDaBusca} className="mt-[var(--arcd-space-1)]"><Ic n="plus"/> Criar insumo “{compBusca.trim().slice(0,55)}{compBusca.trim().length>55?"…":""}”</StandardButton>}
             </div>
             <div style={{overflowX:"auto",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)"}}><table className="arcd-data-table__table" style={{width:"100%",minWidth:750,borderCollapse:"collapse"}}>
               <thead><tr style={{background:"var(--arcd-surface-muted)"}}>{["TIPO","FONTE","CÓDIGO","DESCRIÇÃO","UN.","COEFICIENTE","PREÇO UNIT.","TOTAL",""] .map(h=><th key={h} style={{padding:"var(--arcd-space-1)",textAlign:h.includes("PREÇO")||h==="TOTAL"||h==="COEFICIENTE"?"right":"left",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}>{h}</th>)}</tr></thead>
@@ -5308,7 +5283,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             </p>
           </div>
 
-          <div style={{display:"flex",gap:"var(--arcd-space-1)",flexWrap:"wrap"}}>
+          <div className="mrc-submenu" role="group" aria-label="Disciplinas da memória">
             {DISCIPLINAS_MEMORIA.map(([valor,label])=>(
               <StandardButton variant="secondary" key={valor} aria-pressed={disciplinaMemoria===valor} onClick={()=>setDisciplinaMemoria(valor)}>{label}</StandardButton>
             ))}
@@ -5378,7 +5353,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             <summary>Importar projeto PDF</summary>
             <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
             <div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>IMPORTAR PROJETO (PDF)</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Sinalize qual documento é e o sistema tenta preencher a memória de cálculo sozinho - você sempre confere antes de aplicar.</p></div>
-            <SelectControl aria-label="Tipo de documento do PDF" value={pdfTipoDocumento} onChange={e=>setPdfTipoDocumento(e.target.value)} style={{maxWidth:360}}>
+            <SelectControl aria-label="Tipo de documento do PDF" value={pdfTipoDocumento} onChange={e=>setPdfTipoDocumento(e.target.value)} className="max-w-[22.5rem]">
               <option value="estrutural-completo">Projeto estrutural completo - Fundação, Pilares, Vigas e Laje</option>
               <option value="quantitativos">Quantitativos de superfícies e volumes - concreto/fôrma de vigas e laje</option>
             </SelectControl>
@@ -5480,7 +5455,8 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               onChange={e=>{
                 const item=ITENS_NAV_MEMORIA.find(i=>i.elementos.some(el=>el.id===e.target.value));
                 navegarParaSecaoMemoria(e.target.value, item&&item.id!=="fundacao"?e.target.value:null);
-              }}>
+              }}
+              >
               {ITENS_NAV_MEMORIA.map(item=>(
                 <optgroup key={item.id} label={item.label}>
                   {item.elementos.map(el=><option key={el.id} value={el.id}>{el.label}</option>)}
@@ -5494,9 +5470,9 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               <nav aria-label="Índice da memória de cálculo" style={{position:"sticky",top:SCROLL_MARGIN,width:160,flexShrink:0,display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)",maxHeight:`calc(100vh - ${SCROLL_MARGIN+16}px)`,overflowY:"auto",paddingBottom:"var(--arcd-space-2)"}}>
                 {ITENS_NAV_MEMORIA.map(item=>(
                   <div key={item.id} style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-half)"}}>
-                    <StandardButton variant="secondary" onClick={()=>navegarParaSecaoMemoria(item.id)}>{item.label}</StandardButton>
+                    <StandardButton variant="secondary" onClick={()=>navegarParaSecaoMemoria(item.id)} className="justify-start text-left">{item.label}</StandardButton>
                     {item.elementos.length>1 && item.elementos.map(el=>(
-                      <StandardButton variant="secondary" key={el.id} onClick={()=>navegarParaSecaoMemoria(el.id,el.id)}>{el.label}</StandardButton>
+                      <StandardButton variant="secondary" key={el.id} onClick={()=>navegarParaSecaoMemoria(el.id,el.id)} aria-current={secaoAtivaMemoria===el.id?'location':undefined} className="justify-start text-left">{el.label}</StandardButton>
                     ))}
                   </div>
                 ))}
@@ -5579,7 +5555,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               <div className="sapata-table-scroll" role="region" aria-label="Dimensões e quantitativos das sapatas" tabIndex={0} style={{overflow:"auto",maxHeight:"62vh",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)"}}>
                 <table className="arcd-data-table__table sapata-table" data-table-layout="editable-matrix" style={{width:"100%",minWidth:COLUNAS_SAPATAS.reduce((s,c)=>s+larguraColunaEfetiva(c.chave),0),tableLayout:"fixed",borderCollapse:"separate",borderSpacing:0,fontSize:dSapatas.fonte,userSelect:colunaArrastando?"none":"auto"}}>
                   <colgroup>{COLUNAS_SAPATAS.map(col=><col key={col.chave} style={{width:larguraColunaEfetiva(col.chave)}}/>)}</colgroup>
-                  <thead style={{position:"sticky",top:0,zIndex:4,background:"var(--arcd-surface-muted)"}}>
+                  <thead className="arcd-sticky-table-header" style={{zIndex:4,background:"var(--arcd-surface-muted)"}}>
                     {/* Cabeçalho em dois níveis - agrupa as 23 colunas em blocos
                         (Dimensões/Escavação/Concreto/Armadura X/Armadura Y), achado
                         da crítica Impeccable contra a densidade da tabela. Rótulo
@@ -5629,7 +5605,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                       const armInput=(direcao,campo,largura="100%")=><StandardInput type="number" step="any" min="0" className="sapata-num-input" aria-label={`${campo==="quantidade"?"Quantidade":"Comprimento"} da armadura ${direcao==="armaduraX"?"X":"Y"}`} value={tipo[direcao]?.[campo]} onChange={e=>atualizarSapataTipo(tipo.id,{[direcao]:{...tipo[direcao],[campo]:e.target.value.replace(",",".")}})}
                         style={{width:largura,boxSizing:"border-box",padding:dSapatas.pad,border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",background:"var(--arcd-surface-page)",color:"var(--arcd-text-primary)",textAlign:"right",fontSize:dSapatas.fonte}}/>;
                       const armSelect=direcao=><SelectControl aria-label={`Bitola da armadura ${direcao==="armaduraX"?"X":"Y"}`} value={tipo[direcao]?.bitola} onChange={e=>atualizarSapataTipo(tipo.id,{[direcao]:{...tipo[direcao],bitola:e.target.value}})}
-                        style={{width:"100%",boxSizing:"border-box"}}>
+                        >
                         {BITOLAS_ACO.map(b=><option key={b} value={b}>∅{b}</option>)}
                       </SelectControl>;
                       // Vermelho ganha de laranja: escavação insuficiente é um erro de
@@ -5640,7 +5616,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                         <tr key={tipo.id} style={{borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)",background:corLinha}}>
                           <td style={{padding:dSapatas.pad,position:"sticky",left:0,zIndex:1,background:corFixa}}>
                             <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-1)"}}>
-                              {tipo.precisaRevisar&&<span title="Importado do PDF - ainda não revisado. Editar qualquer campo desta linha remove este aviso." style={{flexShrink:0,width:7,height:7,borderRadius:"50%",background:"var(--arcd-warning-text)"}}/>}
+                              {tipo.precisaRevisar&&<span title="Importado do PDF - ainda não revisado. Editar qualquer campo desta linha remove este aviso." style={{flexShrink:0,width:7,height:7,borderRadius:"var(--arcd-radius-pill)",background:"var(--arcd-warning-text)"}}/>}
                               <StandardInput aria-label="Tipo (referência dos pilares)" value={tipo.tipo} onChange={e=>atualizarSapataTipo(tipo.id,{tipo:e.target.value})} placeholder="Ex.: P1, P4, P5..." style={{width:"100%",boxSizing:"border-box",padding:dSapatas.pad,border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",background:"var(--arcd-surface-page)",color:"var(--arcd-text-primary)",fontSize:dSapatas.fonte}}/>
                             </div>
 
@@ -5934,7 +5910,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           {analiseReferencia.tipoItem==="COMPOSICAO"&&!analiseReferenciaLoading&&analiseComponentes.length>0&&<>
             <div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"center"}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>COMPOSIÇÃO ANALÍTICA DIRETA</p><b style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-action-primary)"}}>{fmt(analiseComponentes.reduce((s,item)=>s+Number(item.coeficiente||0)*precoDoItem(item,orc),0))}</b></div>
             <div style={{overflowX:"auto",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",maxHeight:390,overflowY:"auto"}}><table className="arcd-data-table__table" style={{width:"100%",minWidth:760,borderCollapse:"collapse"}}>
-              <thead style={{position:"sticky",top:0,zIndex:1}}><tr style={{background:"var(--arcd-surface-muted)"}}>{["TIPO","FONTE","CÓDIGO","DESCRIÇÃO","UN.","COEFICIENTE","PREÇO UNIT.","TOTAL"].map(h=><th key={h} style={{padding:"var(--arcd-space-2) var(--arcd-space-1)",textAlign:["COEFICIENTE","PREÇO UNIT.","TOTAL"].includes(h)?"right":"left",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}>{h}</th>)}</tr></thead>
+              <thead className="arcd-sticky-table-header" style={{zIndex:1}}><tr style={{background:"var(--arcd-surface-muted)"}}>{["TIPO","FONTE","CÓDIGO","DESCRIÇÃO","UN.","COEFICIENTE","PREÇO UNIT.","TOTAL"].map(h=><th key={h} style={{padding:"var(--arcd-space-2) var(--arcd-space-1)",textAlign:["COEFICIENTE","PREÇO UNIT.","TOTAL"].includes(h)?"right":"left",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}>{h}</th>)}</tr></thead>
               <tbody>{analiseComponentes.map((item,index)=><tr key={`${item.itemType}-${item.itemCode}-${index}`} style={{borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}>
                 <td style={{padding:"var(--arcd-space-1)",color:item.itemType==="COMPOSICAO"?"var(--arcd-success-text)":"var(--arcd-warning-text)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{item.itemType}</td>
                 <td style={{padding:"var(--arcd-space-1)",fontWeight:"var(--arcd-font-weight-semibold)",color:item.fonte==="ORSE"?"var(--arcd-action-primary)":"var(--arcd-action-primary)"}}>{item.fonte}</td><td style={{padding:"var(--arcd-space-1)"}}>{item.itemCode}</td>

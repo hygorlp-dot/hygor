@@ -4,6 +4,7 @@ import './styles.css';
 import {UI_TEXT} from '../copy.js';
 
 // A moldura nasce com a espera; texto e anúncio só aparecem se ela persistir.
+/** @param {{label?:string, title?:string, description?:string}} props */
 export function LoadingState({label,title,description}){
  const [visible,setVisible]=useState(false);
  const message=label?`${UI_TEXT.feedback.loading} ${label}…`:title||UI_TEXT.feedback.loading;

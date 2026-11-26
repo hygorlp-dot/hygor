@@ -44,6 +44,8 @@ const rhAllocationError=(data,payload,actor)=>{
 // estreita: confirmar somente saídas de folha/mão de obra. Entradas,
 // fornecedores, transferências, estornos e reversões continuam financeiras.
 export const authorizeReconciliationCommand=(data,command={},actor={})=>{
+  if([RECONCILIATION_COMMAND.EDIT_CLASSIFICATION,RECONCILIATION_COMMAND.CONFIRM_RENTAL_RECEIPT].includes(command.type)&&
+    (actor.active===false||actor.obraId||!podeAcessarAba(actor,'conc')||!['admin','financeiro'].includes(actor.role)))return {ok:false,error:'Esta operação exige perfil financeiro sem restrição de obra.'};
   if(command.type===RECONCILIATION_COMMAND.CONFIRM_TRANSFER&&command.payload?.workCashObraId){
     if(!["admin","financeiro"].includes(actor.role)||actor.active===false||!podeAcessarAba(actor,"conc")||!podeAcessarAba(actor,"caixa")||
       (actor.obraId&&String(actor.obraId)!==String(command.payload.workCashObraId))){

@@ -18,12 +18,14 @@ const testState=vi.hoisted(()=>({
 
 const queryFor=table=>{
   const filters={};
+  let countOnly=false;
   const query={
-    select(){return query;},
+    select(_columns,options){countOnly=options?.head===true;return query;},
     eq(key,value){filters[key]=value;return query;},
     in(){return query;},
     like(){return query;},
     order(){return query;},
+    limit(){return query;},
     maybeSingle:async()=>{
       if(table!=="company_app_data")return{data:null,error:null};
       const row=testState.rows[filters.key];
@@ -31,6 +33,10 @@ const queryFor=table=>{
       return{data:{value:row.value,updated_at:row.updated_at},error:null};
     },
     then(resolve,reject){
+      if(table==="purchase_requests"&&filters.company_id==="arcd"){
+        const data=countOnly?{count:1}:{data:[{id:"req-relacional-1"}]};
+        return Promise.resolve({...data,error:null}).then(resolve,reject);
+      }
       return Promise.resolve({data:[],error:null}).then(resolve,reject);
     },
   };
@@ -111,7 +117,7 @@ const initialData=()=>({
   changeLog:[],
 });
 
-describe("/api/data · purchase-requests-cleanup-test-blob-entry",()=>{
+describe("/api/data · administração de solicitações de compra",()=>{
   beforeAll(async()=>{
     process.env.SUPABASE_URL="https://blob-cleanup.test";
     process.env.SUPABASE_SERVICE_ROLE_KEY="service-role-test";
@@ -131,6 +137,26 @@ describe("/api/data · purchase-requests-cleanup-test-blob-entry",()=>{
     fakeDb.from.mockClear();
   });
   afterAll(()=>vi.useRealTimers());
+
+  it("retorna a contagem e a amostra da tabela relacional para o administrador",async()=>{
+    const result=await callApi({action:"purchase-requests-report",accessToken:"valid-token"});
+    expect(result).toEqual({
+      status:200,
+      body:{ok:true,count:1,sample:[{id:"req-relacional-1"}]},
+    });
+  });
+
+  it.each([
+    "purchase-requests-report",
+    "purchase-requests-cleanup-test-blob-entry",
+  ])("nega o acesso ao perfil de compras para %s",async action=>{
+    testState.rows[CORE_KEY].value.usuarios[0].role="compras";
+    const before=structuredClone(testState.rows);
+    const result=await callApi({action,accessToken:"valid-token",id:"req-teste-1"});
+    expect(result.status).toBe(403);
+    expect(fakeDb.from).not.toHaveBeenCalledWith("purchase_requests");
+    expect(testState.rows).toEqual(before);
+  });
 
   it("remove a solicitação e o material de teste associado, preservando os reais",async()=>{
     const result=await callApi({

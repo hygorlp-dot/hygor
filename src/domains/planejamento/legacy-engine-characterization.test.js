@@ -23,6 +23,22 @@ vi.mock("../../components/ui/tabs", () => ({
 vi.mock("../../components/ui/alert", () => ({ Alert: () => null, AlertDescription: () => null }));
 
 import { describe, it, expect, beforeAll } from "vitest";
+import { coberturaItensPlano, resumoPlano } from "./legacy-engine.js";
+
+it("100% de cobertura por valor pode esconder um item sem tarefa e outro contado duas vezes", () => {
+  const budget = {
+    etapas: [{id:"grupo"},{id:"filha",parentId:"grupo"},{id:"outra"}],
+    itens: [
+      {etapaId:"filha",quantidade:1,precoUnit:100},
+      {etapaId:"outra",quantidade:1,precoUnit:100},
+      {etapaId:"outra",quantidade:1,precoUnit:0},
+    ],
+  };
+  const tasks = [{etapaId:"grupo",custo:100},{etapaId:"filha",custo:100}];
+  expect(resumoPlano(tasks,budget).coberto).toBe(100);
+  expect(coberturaItensPlano(tasks,budget)).toEqual({semTarefa:1,comSobreposicao:1});
+  expect(coberturaItensPlano([{...tasks[0],titulo:true},tasks[1]],budget)).toEqual({semTarefa:1,comSobreposicao:0});
+});
 
 let legacy;
 

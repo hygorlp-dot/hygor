@@ -19,7 +19,7 @@
  .payment-workspace article footer>span{display:none}
  .payment-workspace article footer>button{flex:1 1 130px;min-height:44px;min-width:min(100%,130px);word-break:normal;overflow-wrap:normal}
 }
-.payment-obligation{display:grid;gap:var(--arcd-space-2);min-width:0;padding:var(--arcd-box-padding);border:1px solid var(--arcd-border-default);border-radius:var(--arcd-box-radius);background:var(--arcd-surface-card);overflow-wrap:anywhere}
+.payment-obligation{display:grid;gap:var(--arcd-space-2);min-width:0;padding:var(--arcd-box-padding);border:var(--arcd-border-width) solid var(--arcd-border-default);border-radius:var(--arcd-box-radius);background:var(--arcd-surface-card);overflow-wrap:anywhere}
 .payment-obligation__summary{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--arcd-space-2);align-items:start}
 .payment-obligation h3{font-size:var(--arcd-type-card-title)}
 .payment-obligation p,.payment-obligation__balance{font-size:var(--arcd-type-label)}

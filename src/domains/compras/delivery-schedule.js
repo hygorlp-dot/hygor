@@ -91,7 +91,7 @@ export const entregasAvaliadas=(pedidos,hoje)=>(pedidos||[])
     const alcancou=dataQueAlcancou(item,Math.min(remessa.acumulado,Number(item.qtd||0)));
     if(!alcancou&&!(hoje&&remessa.data<hoje))return [];
     const atraso=alcancou?diasEntre(remessa.data,alcancou):diasEntre(remessa.data,hoje);
-    return [{pedidoId:pedido.id,itemId:item.id,fornecedorId:pedido.fornecedorId,data:remessa.data,
+    return [{pedidoId:pedido.id,itemId:item.id,fornecedorId:pedido.fornecedorId,data:remessa.data,recebidaEm:alcancou,
       noPrazo:!!alcancou&&atraso<=0,atraso:Math.max(0,atraso),pendente:!alcancou}];
   })));
 

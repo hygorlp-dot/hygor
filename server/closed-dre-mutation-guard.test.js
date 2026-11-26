@@ -3,6 +3,8 @@ import {buildRequestedDreProjectionRows} from "./dre-projection.js";
 import {normalizeArchivedCosts,summarizeArchivedCosts} from "./archived-costs.js";
 import {createMonthlyClosingSnapshot} from "../src/domains/financeiro/workflows.js";
 import {buildFinancialLedger} from "../src/domains/financeiro/ledger.js";
+import {ATTENDANCE_COMMAND} from "./attendance-command.js";
+import {validarConciliacaoEmCompetenciaAberta,validarPontoEmCompetenciaAberta} from "./closed-dre-command-period.js";
 import {
   closedCompetenceForDate,
   validateClosedCompanyDreMutation,
@@ -49,6 +51,38 @@ const rawBase=()=>({
 });
 
 const baseData=()=>closeJuly(rawBase());
+
+describe("períodos de Ponto e Conciliação",()=>{
+  it("impede alteração de ponto com data fechada mesmo se o lote inclui data aberta",()=>{
+    const data=baseData();
+    const aberto={date:"2026-08-01"};
+    const fechado={date:"2026-07-31"};
+    for(const command of [
+      {action:ATTENDANCE_COMMAND.UPSERT,...fechado},
+      {action:ATTENDANCE_COMMAND.REVIEW,...fechado},
+      {action:ATTENDANCE_COMMAND.BATCH_UPSERT,patches:[aberto,fechado,fechado]},
+      {action:ATTENDANCE_COMMAND.SYNC,items:[aberto,fechado]},
+    ]){
+      expect(validarPontoEmCompetenciaAberta(data,command)).toMatchObject({
+        ok:false,code:"CLOSED_DRE_IMMUTABLE",competence:"2026-07",
+      });
+    }
+    expect(validarPontoEmCompetenciaAberta(data,{action:ATTENDANCE_COMMAND.UPSERT,...aberto})).toEqual({ok:true});
+  });
+
+  it("bloqueia a vinculação bancária quando o movimento de contrapartida está fechado",()=>{
+    const data={...baseData(),transacoes:[
+      {id:"aberto",data:"2026-08-01"},
+      {id:"fechado",data:"2026-07-31"},
+    ]};
+    expect(validarConciliacaoEmCompetenciaAberta(data,{payload:{
+      transactionId:"aberto",counterpartyTransactionId:"fechado",
+    }})).toMatchObject({
+      ok:false,code:"CLOSED_DRE_IMMUTABLE",competence:"2026-07",transactionId:"fechado",
+    });
+    expect(validarConciliacaoEmCompetenciaAberta(data,{payload:{transactionId:"aberto"}})).toEqual({ok:true});
+  });
+});
 
 const settlementCases=[
   {name:"recebimento de medição",collection:"medicoes",field:"recebimentos",effects:["cash_in","receivable_decrease"]},

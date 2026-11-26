@@ -81,3 +81,20 @@ não substitui medição em aparelho físico. Nenhum serviço externo recebeu
 registros dos testes. Não houve push, commit, PR ou deploy.
 
 Referência da biblioteca de compactação: [documentação oficial do fflate](https://github.com/101arrowz/fflate).
+
+## Rechecagem após a etapa 6 de Compras — 20/11/2026
+
+| Medição | Bytes gzip de JS/CSS |
+| --- | ---: |
+| Checkout antes do ajuste | 1.899.372 |
+| Build local e configuração de produção compilada localmente | 1.889.699 |
+| Teto preservado | 1.891.328 |
+| Margem abaixo do teto | 1.629 |
+
+O build reaproveita um único catálogo de Licenciamento, com os mesmos identificadores e textos. O adaptador de PDF.js preserva os exports do módulo e permite descartar código do visualizador sem uso no ERP. Se a distribuição mudar os exports, o build pede revisão do adaptador. O arquivo do worker de PDF conserva o SHA-256 da distribuição. Os orçamentos individuais e de mídia passaram com os limites vigentes.
+
+`npm run validate:local` passou. A verificação de arquivos do build de produção compilado localmente encontrou 623 referências sem destino ausente. Passaram 38 testes direcionados e 34 cenários no navegador, incluindo Compras, DRE, Conciliação e a abertura de PDFs de Compras e Licenciamento. O build extraiu texto de um PDF sintético com o worker. A inicialização em sessões novas passou nos 216 casos do build, com 83 imports de chunks, 130 sessões de telas e 3 entradas públicas. A auditoria do grafo encontrou zero ciclos em 989 arquivos. As evidências de tamanho e inicialização estão em `artifacts/bundle-reduction/compras-audit/`.
+
+A ajuda e o manual foram conferidos. O ajuste técnico preserva os passos do operador. Ele não muda o cálculo do DRE, as permissões ou as rotinas de gravação. A homologação com dados reais da MRC e perfis distintos continua pendente. Esta rodada foi local.
+
+No DEV, a primeira abertura ultrapassou a janela de 45 segundos da execução inicial. A repetição com janela de 120 segundos passou nos seis cenários de ranking e anexos. O teste isolado do worker no build de produção compilado localmente também passou.

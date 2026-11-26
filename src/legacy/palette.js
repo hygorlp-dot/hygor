@@ -83,6 +83,8 @@ export const TYPO = {
 // quadro rola horizontal e cabe muita coisa na tela sem parecer "gordo".
 // Reutilizados por todos os Kanbans (Terceiros, Obras, Funil, Jornada) para
 // que fiquem visualmente idênticos.
+/** @typedef {import("react").CSSProperties} CSSProperties */
+/** @type {{scroll:CSSProperties,coluna:(cor:string,ativa:boolean)=>CSSProperties,colBody:CSSProperties,card:(destaque:string|null)=>CSSProperties} & Record<string,unknown>} */
 export const KB = {
   larguraCol: 272,          // largura da coluna (Trello usa ~272px)
   gapCols:    8,            // espaço entre colunas

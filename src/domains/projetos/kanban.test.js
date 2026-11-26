@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { applyOperationalCommand } from "../sync/operational-commands.js";
 import { ENGINEERING_COMMAND as CMD } from "./commands.js";
-import { orderedProjects, projectColumn } from "./kanban-model.js";
+import { orderedProjects, projectColumn, taskSecondsById } from "./kanban-model.js";
 
 let sequence = 0;
 const form = { name: "Casa Kanban", obraId: "a", responsibleId: "u1", discipline: "Arquitetura", stage: "Executivo", status: "ativo", plannedHours: 40 };
@@ -14,6 +14,22 @@ function withTasks() { return ["Primeira", "Segunda", "Terceira"].reduce((data, 
 const project = data => data.engineeringProjects[0];
 
 describe("Kanban de projetos e atividades", () => {
+  it("agrupa sessões abertas, encerradas e ajustadas por atividade", () => {
+    const now = Date.parse("2026-11-25T12:00:00Z");
+    const sessions = [
+      { taskId: "a", startedAt: "2026-11-25T11:30:00Z", endedAt: "2026-11-25T11:45:00Z" },
+      { taskId: "a", startedAt: "2026-11-25T11:59:00Z", endedAt: "" },
+      { taskId: "a", adjustedSeconds: 90 },
+      { taskId: "b", adjustedSeconds: 0 },
+      { taskId: "b", startedAt: "data antiga inválida" },
+      { adjustedSeconds: 120 },
+    ];
+    const totals = taskSecondsById(sessions, now);
+    expect(totals.get("a")).toBe(1050);
+    expect(totals.get("b")).toBe(0);
+    expect(totals.get("sem-sessao") ?? 0).toBe(0);
+    expect(taskSecondsById(sessions, now + 1000).get("a")).toBe(1051);
+  });
   it("move o cartão de projeto preservando horas, vínculos e revisões", () => {
     let data = seed();
     data = ok(data, CMD.ENG_PROJECT_MOVED, { stage: "Anteprojeto" });
@@ -27,6 +43,27 @@ describe("Kanban de projetos e atividades", () => {
     data = ok(data, CMD.ENG_PROJECT_MOVED, { projectId: "p2", stage: "Executivo", beforeId: "p1" }, 1);
     expect(orderedProjects(JSON.parse(JSON.stringify(data.engineeringProjects))).map(item => item.id)).toEqual(["p2", "p1"]);
     expect(project(data).version).toBe(1);
+  });
+  it("mantém o destino válido depois de mais de 52 inserções no mesmo intervalo", () => {
+    const left = { id: "esquerda", stage: "Executivo", status: "ativo", version: 4, boardOrder: 1024 };
+    const right = { id: "direita", stage: "Executivo", status: "ativo", version: 7, boardOrder: 2048 };
+    const untouched = { id: "fora", stage: "Levantamento", status: "ativo", version: 3, boardOrder: 1024 };
+    const moving = Array.from({ length: 60 }, (_, index) => ({
+      id: `movel-${index}`, stage: "Anteprojeto", status: "ativo", version: 1,
+    }));
+    let data = { engineeringProjects: [left, right, untouched, ...moving] };
+    for (const card of moving) {
+      data = ok(data, CMD.ENG_PROJECT_MOVED, { projectId: card.id, stage: "Executivo", beforeId: right.id }, 1);
+    }
+
+    const persisted = JSON.parse(JSON.stringify(data.engineeringProjects));
+    const column = orderedProjects(persisted).filter(item => projectColumn(item) === "Executivo");
+    expect(column.map(item => item.id)).toEqual([left.id, ...moving.map(card => card.id), right.id]);
+    expect(new Set(column.map(item => item.boardOrder)).size).toBe(column.length);
+    expect(persisted.find(item => item.id === untouched.id)).toEqual(untouched);
+    expect(persisted.find(item => item.id === left.id).version).toBe(left.version);
+    expect(persisted.find(item => item.id === right.id).version).toBe(right.version);
+    expect(persisted.find(item => item.id === moving[0].id).history).toHaveLength(1);
   });
   it("rejeita destino inexistente, referência de outra coluna e projeto arquivado", () => {
     let data = seed();

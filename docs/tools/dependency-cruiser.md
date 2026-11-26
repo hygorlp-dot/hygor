@@ -33,6 +33,12 @@ também passaram. A configuração é coberta por `src/tooling-architecture.test
 
 ## Riscos, decisão e rollback
 
+Na etapa 5 do roadmap, uma quinta regra passou a proteger a leitura de
+quinzenas arquivadas e a retentativa de salvamento. Esses módulos recebem as
+operações de persistência por função. A regra rejeita imports diretos da API
+e dos adaptadores de banco cobertos pela configuração. Uma prova local com
+imports artificiais confirmou as duas rejeições esperadas.
+
 **Adotado no piloto — gate aprovado.** Regras ficam em arquivo removível e script
 isolado. O rollback remove a dependência, o script, a configuração e a etapa de
 CI, sem efeito runtime.

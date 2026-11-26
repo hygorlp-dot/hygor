@@ -229,6 +229,27 @@ describe("/api/data · caminho travado (executarMutacaoEmpresaBloqueada) roteia 
     expect(loaded.body.data.engineeringProjects[0].history.at(-1).type).toBe("PROJETO_ATIVIDADE_MOVIDA");
   });
 
+  it("persiste a redistribuição das posições do Kanban de projetos na mesma gravação do movimento",async()=>{
+    const project={stage:"Executivo",status:"ativo",version:1,boardOrder:1024};
+    const first={...project,id:"primeiro"};
+    const target={...project,id:"segundo"};
+    const moving={...project,id:"movel",stage:"Anteprojeto"};
+    testState.rows[CORE_KEY].value.engineeringProjects=[first,target,moving];
+    const request=opCommand("PROJETO_CARTAO_MOVIDO",{
+      projectId:moving.id,stage:"Executivo",beforeId:target.id,
+    },{expectedVersion:1});
+
+    const result=await callApi(request);
+    expect(result.status).toBe(200);
+    const saved=testState.rows[CORE_KEY].value.engineeringProjects;
+    expect(saved[0]).toEqual(first);
+    expect(saved[1]).toEqual({...target,boardOrder:3072});
+    expect(saved[2]).toMatchObject({stage:"Executivo",boardOrder:2048,version:2,
+      history:[{type:"PROJETO_CARTAO_MOVIDO"}]});
+    expect((await callApi(request)).body.idempotent).toBe(true);
+    expect(testState.rows[CORE_KEY].value.engineeringProjects).toEqual(saved);
+  });
+
   it("persiste pastas e revisões pela API com horário do servidor, idempotência e proteção de snapshot",async()=>{
     testState.rows[CORE_KEY].value.obras=[{id:'files-work',name:'Obra de teste'}];
     const folder=await callApi(opCommand('ARQUIVOS_PASTA_SALVA',{obraId:'files-work',id:'folder',name:'Projetos'},{expectedVersion:0,now:'1900-01-01T00:00:00Z'}));

@@ -1,15 +1,16 @@
+import {invoiceFiscalPending} from "./domains/financeiro/payables.js";
 import {isDateInClosedPeriod,isCompetenceInClosedPeriod} from "./domains/financeiro/workflows.js";
 import {hasWorkspaceEditor} from './features/workflow/editing-scope.js';
+import {ChatFlutuante} from './features/workflow/ChatFlutuante.jsx';
 import {CompanyAssetImage,CompanyAssetLink,CompanyAssetBackground} from './components/CompanyAsset.jsx';
 import {CompanySelector} from './features/company/CompanySelector.jsx';
 import './features/company/company-selector.css';
 import {activeCompany,companyStorageKey,companyIsolationActive} from './lib/company-scope.js';
 import {trocarEmpresa} from './api.js';
-import {UI_TEXT} from './design-system/copy.js';
 import {workNavigationGroups,workNavigationTarget} from './domains/obras/work-navigation.js';
 import {DesktopTVWork} from './domains/dashboard/components/DesktopTVWork.jsx';
-import {openConferenceFindings} from './domains/qualidade/conference-workflow.js';
 import {DISTANCE_VIEW_COLORS} from './design-system/themes/themeRegistry.js';
+import {openConferenceFindings} from './domains/qualidade/conference-workflow.js';
 import {portalLoginUrl} from "./client-portal/routes.js";
 import {PublicationReview} from "./client-portal/components/PublicationReview.jsx";
 import {openReportPreview} from './reports/report-preview.js';
@@ -24,17 +25,15 @@ import {DashboardDailyOperation} from './domains/dashboard/components/DashboardD
 import {DashboardPriorities} from './domains/dashboard/components/DashboardPriorities.jsx';
 import {priorityContext} from './domains/dashboard/priority-context.js';
 import {OPEN_FIELD_REPORT_DAY} from './domains/obras/field-report-workflow.js';
-import {SectorTasks} from './features/workflow/SectorTasks.jsx';
+import {Comunicacao} from './features/workflow/Comunicacao.jsx';
 import {useRecordPage} from './design-system/data/useRecordPage.js';
 import {RecordListPagination} from './design-system/data/RecordListPagination.jsx';
 import WorkCashView from "./features/financeiro/WorkCashView.jsx";
 import {TaskDisclosure} from './design-system/patterns/TaskDisclosure.jsx';
-import {setWorkContextObra,useSyncedWorkObra,workContextObraId} from './features/workflow/work-context.js';
+import {setWorkContextObra,useSyncedWorkObra} from './features/workflow/work-context.js';
 import {SaveRecoveryContext} from './features/workflow/SaveRecoveryContext.jsx';
-import {snapshotJournal,recoveryTab,snapshotChanges} from './domains/sync/snapshot-journal.js';
 import {SaveRecovery} from './domains/sync/SaveRecovery.jsx';
 import PaymentDialog from './features/financeiro/PaymentDialog.jsx';
-import {invoiceFiscalPending} from "./domains/financeiro/payables.js";
 import PaymentObligationCard from './features/financeiro/PaymentObligationCard.jsx';
 import {canRecordPayable} from './domains/financeiro/payable-access.js';
 import {awaitingBankReconciliation,requiresBankReconciliation} from './domains/financeiro/payment-evidence.js';
@@ -50,7 +49,7 @@ import {Button as StandardButton} from './components/ui/button.jsx';
 import {FilterBar} from "./design-system/patterns/FilterBar.jsx";
 import { C, C_ARCD_SETOR, FONT_DISPLAY, TYPO, KB, semanticToneFromLegacyColor } from "./legacy/palette.js";
 export { C, C_ARCD_SETOR, TYPO, KB } from "./legacy/palette.js";
-import { uid, today, fmt, fmtCompact, fmtDate, fmtDateFull, monthName, MONTHS, fullMonth, fmtMesAno, escapeHtml, compactNumber, maiusculoOrcamento, proximoCodigoArcd, obraContextoSalvo, compLabel, rotuloRamo, numeroCodigoArcd, formatarCodigoArcd } from "./legacy/format.js";
+import { uid, today, fmt, fmtCompact, fmtDate, fmtDateFull, pct1, monthName, MONTHS, fullMonth, fmtMesAno, escapeHtml, compactNumber, maiusculoOrcamento, proximoCodigoArcd, obraContextoSalvo, compLabel, rotuloRamo, numeroCodigoArcd, formatarCodigoArcd } from "./legacy/format.js";
 export { uid, today, fmt, fmtCompact, fmtDate, fmtDateFull, monthName, MONTHS, fullMonth, fmtMesAno, escapeHtml, compactNumber, maiusculoOrcamento, proximoCodigoArcd, obraContextoSalvo, compLabel, rotuloRamo } from "./legacy/format.js";
 import { prazoObra } from "./domains/obras/legacy-deadline.js";
 import { LoadingState, Ic, Btn, Inp, Sel, SelBtn, Badge, ArcdChartTooltip, ChartPanel, PageHero, TabRow, Divider, Modal, MiniKpi, Bloco, CampoCNPJ, textoUi, conteudoUi, ChartLegend, buscarCNPJ, SIGLAS_UI } from "./legacy/ui.jsx";
@@ -77,7 +76,7 @@ import { semAcentoConc, parseBRConc, chaveTransacao, somaRateios, sugerirRateio,
 export { semAcentoConc, parseBRConc, chaveTransacao, somaRateios, sugerirRateio, diasEntre, sugerirMedicoes, sugerirPagamentoMaoObra, periodoPontoDaTransacao } from "./domains/conciliacao/legacy-suggestions.js";
 import { montarRelatorioPadraoHtml, abrirRelatorioPadrao, gerarFichaFuncionarioPDF, ARCD_LOGO, calcFrequenciaMensalFuncionario, calcRankingFrequencia, FICHA_TIPO_LABEL } from "./reports/legacy-standard.js";
 export { montarRelatorioPadraoHtml, abrirRelatorioPadrao, gerarFichaFuncionarioPDF, ARCD_LOGO } from "./reports/legacy-standard.js";
-import { calcObraLaborCost, calcDREObra, calcDREConsolidado, calcDREHistorico, calcVisaoFinanceira, calcLedgerAcumulado, calcProjecaoContratoObra, calcularRankingFinanceiro, calcRelatorioMensal } from "./domains/financeiro/legacy-calculations.js";
+import { calcObraLaborCost, calcDREObra, calcDREConsolidado, calcDREHistorico, calcVisaoFinanceira, calcLedgerAcumulado, calcProjecaoContratoObra, calcularRankingFinanceiro } from "./domains/financeiro/legacy-calculations.js";
 import {useVisualViewportBounds} from "./lib/useVisualViewportBounds.js";
 import {useUnsavedChanges} from "./features/workflow/useUnsavedChanges.js";
 import UnsavedChangesPrompt from "./features/workflow/UnsavedChangesPrompt.jsx";
@@ -130,8 +129,9 @@ import { WorkspaceNavigation } from "./design-system/patterns/WorkspaceNavigatio
 import { Children, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { lazyWithCssRetry as lazy } from "./lib/lazy-with-css-retry.js";
 import DreReconciliationManager from "./features/financeiro/DreReconciliationManager.jsx";
-import { activeErpModule, moduleForTab, visibleErpModules } from "./navigation/erp-navigation.js";
-import { rememberSection, restoreSection } from "./navigation/section-session.js";
+import { useWorkspaceNavigation } from "./navigation/use-workspace-navigation.js";
+import { buildGlobalSearchIndex } from "./navigation/global-search.js";
+import { BuscaGlobal } from "./navigation/BuscaGlobal.jsx";
 import { FlowTabs, WorkflowContext, useWorkflow, useRememberWorkflowScope } from "./features/workflow/WorkflowNavigation.jsx";
 import {useWorkspaceState,useWorkspaceScroll,WorkflowReturn} from "./features/workflow/workspace-session.jsx";
 import {LaborAreaTabs} from './domains/rh/components/LaborAreaTabs.jsx';
@@ -139,30 +139,25 @@ import {laborArea,matchesLaborArea} from './domains/rh/labor-area.js';
 import { normalizeWorkflowScope } from "./features/workflow/workflow-model.js";
 import MonthlyDreMemorial from "./features/financeiro/MonthlyDreMemorial.jsx";
 import AnnualDre from "./features/financeiro/AnnualDre.jsx";
-import LaborProjectionReport from "./domains/ponto/components/LaborProjectionReport.jsx";
 import {AttendanceCertificateDialog} from "./domains/ponto/components/AttendanceCertificateDialog.jsx";
 
 // O navegador não conversa mais com o banco. Fala com /api/data, que roda no
 // servidor e é quem guarda a chave. Sem chave de banco neste bundle.
-import { listarPerfis, criarPrimeiroAdmin, entrarComPin, entrarComEmail, restaurarSessaoEmail, provisionarContaEmail, definirPinOperador,
-         saveDataDetailed, logout as encerrarSessao,
+import { provisionarContaEmail, definirPinOperador,
+         logout as encerrarSessao,
          registrarPresenca, encerrarPresenca, listarPresencas,
          loadDataWithMeta, adoptServerVersion,renewEditingSession,
-         conectarOneDrive, statusOneDrive, criarEstruturaOneDrive,
-         sincronizarEstruturasOneDrive, criarPastaOneDrive, listarPastaOneDrive, enviarArquivoOneDrive, obterLinkArquivoOneDrive,
+         criarEstruturaOneDrive, criarPastaOneDrive, listarPastaOneDrive, enviarArquivoOneDrive, obterLinkArquivoOneDrive,
          arquivarQuinzena, restaurarQuinzena,
          carregarQuinzenaArquivada, chamarIA, verificarStatusIA, configurarGemini,
          removerConfiguracaoIA, consultarCNPJReceita, buscarResumoDiario,
-         enviarMensagemChat, listarMensagensChat, apagarMensagemChat, silenciarUsuarioChat, dessilenciarUsuarioChat, subirAnexoChat,
-         listarAjustesRanking, adicionarAjusteRanking, removerAjusteRanking,
          consultarSombraFinanceira, prepararSombraFinanceira, sincronizarSombraFinanceira, gerarProjecoesDreAusentes,
          consultarDreCanonico, consultarDreEmpresaCanonico, consultarCustoAcumuladoObras, executarComandoFinanceiro,
          executarComandoOperacional, executarComandoPonto,
-         gerenciarAcessoPortalCliente, obterProjecaoMaoObra } from "./api";
+         gerenciarAcessoPortalCliente } from "./api";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
-import { Label } from "./components/ui/label";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "./components/ui/card";
+import { Card } from "./components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "./components/ui/alert";
 import { MobileRecordList } from "./design-system/data/MobileRecordList.jsx";
@@ -174,15 +169,13 @@ import { Dialog as DesignSystemDialog } from "./design-system/primitives/Dialog.
 import { Badge as DesignSystemBadge } from "./design-system/primitives/Badge.jsx";
 import { Input as DesignSystemInput } from "./design-system/primitives/Input.jsx";
 import { Select as DesignSystemSelect } from "./design-system/primitives/Select.jsx";
-import { Eye, EyeOff, ChevronLeft, ChevronRight, Search, RefreshCw, Delete, Maximize, Minimize } from "lucide-react";
-import { cn } from "./lib/utils";
+import { ChevronLeft, ChevronRight, Search, RefreshCw, Maximize, Minimize } from "lucide-react";
 import { features } from "./config/features";
 import { SUPPLIER_CATEGORIES as RAMOS_FORNECIMENTO } from "./domains/suppliers/categories";
 import { useCountUp } from "./lib/useCountUp";
 import { useBreakpoint } from "./hooks/useBreakpoint";
 const LazyLegacyMobileNavigation = lazy(() => import("./mobile/LegacyMobileNavigation.jsx")
   .then(module => ({ default:module.LegacyMobileNavigation })));
-const LazyLoginBrandPanel = lazy(() => import("./components/login/LoginProjectParallax"));
 const Equipamentos = lazy(() => import("./domains/equipamentos/components/EquipamentosView"));
 const PatrimonioEmpresa = lazy(() => import("./domains/patrimonio/components/PatrimonioEmpresaView"));
 const DiarioObra = lazy(() => import("./domains/obras/components/DiarioObraView.jsx"));
@@ -200,21 +193,23 @@ const PontoEletronico = lazy(() => import("./domains/ponto-eletronico/components
 // próprio chunk lazy - Recharts+d3 só entram no bundle quando a tela
 // efetivamente monta. Ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md.
 const LazyCubChart = lazy(() => import("./components/charts/CubChart.jsx"));
-const LazyRelatoriosChartPanel = lazy(() => import("./components/charts/RelatoriosChartPanel.jsx"));
+import RelatoriosView from "./features/relatorios/RelatoriosView.jsx";
+import ObrasCarteira from "./domains/obras/components/ObrasCarteira.jsx";
 const LazyFinanceiroCharts = lazy(() => import("./components/charts/FinanceiroCharts.jsx"));
 const LazyDreEmpresaHistoricoChart = lazy(() => import("./components/charts/DreEmpresaHistoricoChart.jsx"));
 const LazyDreFaturamentoResultadoChart = lazy(() => import("./components/charts/DreFaturamentoResultadoChart.jsx"));
 const LazyDreDistribuicaoCustosChart = lazy(() => import("./components/charts/DreDistribuicaoCustosChart.jsx"));
 const LazyDreMargemChart = lazy(() => import("./components/charts/DreMargemChart.jsx"));
 import {
-  statusPedido, totalPedido, recebidoPedido,
-  totalPagoPedido, saldoPagamentoPedido, statusPagamentoPedido,
-  origemPagamentoLabel, situacaoCaixaObra,
+  STATUS_PEDIDO, statusPedido, totalPedido, recebidoPedido,
+  totalPagoPedido, saldoPagamentoPedido,
+  situacaoCaixaObra,
 } from "./domains/compras/calculations";
 import { calcOrcadoComprado, niveisUmOrcamento } from "./domains/compras/budget-tracking";
 import { mapaDaCotacao } from "./domains/compras/quote-map";
 import { casarItensNota, divergenciasDoItem, fornecedorPorDocumento, lerXmlNfe, sugerirPedidosParaNota } from "./domains/compras/nfe-xml";
-import { entregasAvaliadas, pedidosComItensAtrasados } from "./domains/compras/delivery-schedule";
+import { pedidosComItensAtrasados } from "./domains/compras/delivery-schedule";
+import { supplierOrderEvidence, supplierQuoteSamples } from "./domains/compras/supplier-ranking-evidence.js";
 import { calculateContractProjection } from "./domains/dre/calculations";
 import { DEFAULT_WORK_EXPENSE_CATEGORIES, workExpenseCategories } from "./domains/dre/work-expense-categories.js";
 import { suggestClassificationRule } from "./domains/conciliacao/classification-rules.js";
@@ -239,12 +234,12 @@ import {
 } from "./domains/financeiro/ledger";
 import { createFinancialCalculationEngine } from "./domains/financeiro/calculation-engine";
 import {workCashNature, calculateWorkCash as calcCaixaObra } from "./domains/financeiro/work-cash";
+import { gerarRelatorioCaixaObraPDF } from "./reports/work-cash-report.js";
 import { pedidoVivo } from "./domains/compras/purchase-position";
 import { notaSemEfeito, saldoPagamentoNota, statusPagamentoNota } from "./domains/financeiro/payables";
 import { createExecutiveSummaryEngine } from "./domains/controladoria/executive-summary";
-import { createSaveQueue, SAVE_QUEUE_STATE } from "./domains/sync/save-queue";
-import { criarPollingAdaptativo } from "./domains/sync/polling";
-import { reconcileOptimisticSnapshot } from "./domains/sync/optimistic-merge";
+import { SAVE_QUEUE_STATE } from "./domains/sync/save-queue";
+import { useWorkspaceSaving } from "./features/workflow/use-workspace-saving.js";
 import { OPERATIONAL_COMMAND } from "./domains/sync/operational-commands";
 import { createOfflineOperationStore } from "./domains/campo-offline/local-store";
 
@@ -263,17 +258,16 @@ const OFFLINE_QUEUEABLE_COMMANDS={
     entityId:command=>command?.payload?.analysis?.id||"",
   },
 };
-import { projectAlertAction, validateProjectForm } from "./domains/obras/project-validation";
-import { rebuildTechnicalMeasurementProjection } from "./domains/medicoes";
-import { ProgressPercentageField } from "./domains/medicoes/components/ProgressPercentageField.jsx";
+import { MedicaoEvolucao } from "./domains/medicoes/components/MedicaoEvolucao.jsx";
+export { MedicaoEvolucao, TerceirosNaMedicao } from "./domains/medicoes/components/MedicaoEvolucao.jsx";
 import { calcSaldos } from "./domains/estoque/calculations";
-import { canManageAttendanceWorkforce, resolveEmployeeAttendanceObraId, resolveHolidayObraId } from "./domains/ponto/permissions";
+import { dadosDaObraIsolados, recomporDadosDaObra } from "./domains/obras/work-data-snapshot.js";
+import { canAccessCompanyAttendanceArchive, canManageAttendanceWorkforce, resolveEmployeeAttendanceObraId, resolveHolidayObraId } from "./domains/ponto/permissions";
 import { dashboardActiveWorks, resumoGestaoAVista, ultimoMesFechado } from "./domains/dashboard/gestao-a-vista.js";
 import GestaoAVistaObras, {WORK_SCORE_SEARCH_ID} from "./domains/dashboard/components/GestaoAVistaObras.jsx";
 import { applyAttendanceServerResult, applyAttendanceStatus, applyAttendanceStatusBatch } from "./domains/ponto/attendance-mutations";
 import { createAttendanceCommandQueue } from "./domains/ponto/attendance-command-queue";
 import { calculateAttendanceDayCost } from "./domains/ponto/payroll";
-import { isServerRejection, rejectedSections } from "./domains/sync/rejected-save";
 import { ATTENDANCE_STATUSES, ATTENDANCE_STATUS_LABEL, isLeaveStatus, isValidAttendanceStatus } from "./domains/ponto/attendance-status";
 import { normalizeUnionDuesConfig } from "./domains/ponto/union-dues";
 import {
@@ -299,15 +293,11 @@ import {
   toLocalISODate,
 } from "./domains/ponto/attendance-engine";
 import { calculateTimekeeping, formatMinutes } from "./domains/ponto/timekeeping";
-import { RESCISSION_TYPE_LABEL } from "./domains/rh/rescission-calculations";
 // DISMISSAL_TO_RESCISSION_TYPE/RESCISSION_TYPE_TO_DISMISSAL,
 // employeeLifecycleStatus, isRescissionActive, isAdvanceActive e
 // buildAdvanceInstallments moveram com Equipe/Rescisao para
 // src/domains/rh/components/ em 2026-08-20 (únicos consumidores). Só
-// RESCISSION_TYPE_LABEL (via TIPO_LABEL, ver abaixo) continua sendo usado
-// aqui, por RelatorioMensal.
 import {
-  createBillingFromTechnicalMeasurement,
   createMonthlyClosingSnapshot,
 } from "./domains/financeiro/workflows";
 const Orcamento = lazy(() => import("./domains/orcamentos/components/OrcamentoView"));
@@ -324,13 +314,8 @@ import { normalizeRealEstateCommercial } from "./domains/comercial/real-estate";
 import { APP_SCHEMA_VERSION, finalizeNormalizedData } from "./domains/data/record-schema";
 import {
   digitsOnly as soDigitos,
-  formatBrazilianDocument as maskDoc,
 } from "./domains/data/brazilian-documents";
-import { linkStageToTask, thirdPartyMeasurementsForProject, thirdPartyProgressByTask } from "./domains/terceirizados/obra-measurements";
-import { resolveMentionsInText, splitMentionText } from "./domains/chat/mentions";
-import { playChatMentionSound, playChatMessageSound } from "./domains/chat/notification-sounds";
 import {
-  thirdPartySpecialty as specInfo,
 } from "./domains/terceirizados/catalog";
 import {
   paymentFriday as getFridayOfWeek,
@@ -351,6 +336,7 @@ import {
 } from "./domains/aprovacoes/index.js";
 import { arcdApprovalEngine as motorAprovacaoGenerico } from "./domains/aprovacoes/arcd-engine.js";
 import { ROLE_TABS, allowedTabsForUser, podeAcessarAba } from "./domains/administracao/abas-acesso.js";
+import { construirFilaOperador, obrasDoDiarioNoDashboard } from "./domains/dashboard/operator-priorities.js";
 
 const G = `
 @keyframes chatMentionPulse{0%,100%{box-shadow:var(--arcd-shadow-md)}50%{box-shadow:0 0 0 8px color-mix(in srgb, var(--arcd-focus-ring) 28%, transparent), var(--arcd-shadow-md)}}
@@ -719,18 +705,6 @@ const FASES_PADRAO = [
   { nome: "Concluída",              cor: "#3D3530" },
 ];
 
-// Paleta oferecida ao criar/editar uma fase
-const CORES_FASE = [
-  "#D4AF37", "#0D47A1", "#1E6B31", "#B71C1C", "#4A148C",
-  "#C2185B", "#BF360C", "#00796B", "#6B6459", "#3D3530",
-];
-
-const CONTRACT_TYPES = [
-  { v: "fixed_labor",       l: "Somente MO - entrada + parcelas fixas"                },
-  { v: "admin_only",        l: "Somente Administração - % sobre todos os custos"      },
-  { v: "fixed_labor_admin", l: "Misto - MO fixo + % sobre materiais e terceirizados"  },
-];
-
 const CONDOMINIOS_PADRAO = [{
   id:"cond-terras-alpha-caruaru", nome:"Terras Alpha Caruaru", cidade:"Caruaru", uf:"PE",
   cep:"55038-215", endereco:"Rua Quitéria Luiza da Silva Nova, 35 - Universitário, Empresarial Ethos, sala 810",
@@ -738,18 +712,6 @@ const CONDOMINIOS_PADRAO = [{
   atendimento:"Segunda a sexta, das 08:00 às 12:00. Análises iniciadas na segunda e na quarta-feira após a entrega.",
   observacoes:"A entrega do projeto é presencial. A aprovação do condomínio antecede o protocolo na Prefeitura.",
 }];
-
-// Frequência de cobrança
-// Os dias de vencimento NAO sao mais fixos no codigo: cada obra guarda
-// diaVenc1 / diaVenc2 (padrao 15 e 30) e o operador ajusta ao lancar a obra.
-const FREQ_OPTS = [
-  { v:"mensal",    l:"Mensal - 1 parcela por mês"       },
-  { v:"quinzenal", l:"Quinzenal - 2 parcelas por mês"   },
-];
-
-// Opcoes de dia para os selects (1..31). "30" em fevereiro vira 28/29 -
-// ver clampDiaNoMes abaixo.
-const DIA_OPTS = Array.from({length:31}, (_,i) => ({ v:String(i+1), l:`Dia ${i+1}` }));
 
 const DEFAULT = () => ({
   schemaVersion: APP_SCHEMA_VERSION,
@@ -2396,55 +2358,19 @@ const normalizeData = incoming => {
   };
   return finalizeNormalizedData(d, normalized);
 };
-function IcoObra({ n, s = 17 }) {
-  const P = {
-    financeiro: "M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6",
-    equipe:     "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
-    orcamento:  "M18 20V10M12 20V4M6 20v-6",
-    compras:    "M9 22a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM20 22a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6",
-    arquivos:   "M3 5h6l2 2h10a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z",
-    estoque:    "M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16zM3.27 6.96 12 12.01l8.73-5.05M12 22.08V12",
-    medicoes:   "M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11",
-    atividade:  "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2",
-  };
-  const d = P[n];
-  if (!d) return null;
-  return (
-    <svg width={s} height={s} viewBox="0 0 24 24" fill="none"
-         stroke="currentColor" strokeWidth="2"
-         strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d={d}/>
-    </svg>
-  );
-}
+
 
 // Seta (chevron) que gira ao abrir. Tambem SVG.
-function ChevronBaixo({ s = 14 }) {
-  return (
-    <svg width={s} height={s} viewBox="0 0 24 24" fill="none"
-         stroke="currentColor" strokeWidth="2.5"
-         strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M6 9l6 6 6-6"/>
-    </svg>
-  );
-}
+
 
 function BrandMark({ compact = false, dark = false, signature = true }) {
   const {theme} = useTheme();
-  dark = dark && theme === "marcell";
+  const platformDark = dark && theme === "plataforma";
+  dark = dark && (theme === "marcell" || platformDark);
   return <div className="arcd-brand-mark" style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-3)",minWidth:0}}>
-    <CompanyAssetImage src={dark?BRAND.monogramOnDark:BRAND.monogram} alt="MRC" width={compact?34:46} style={{height:"auto",flexShrink:0}}/>
+    <CompanyAssetImage src={platformDark?"/brand/marcell/monogram-branco.svg":dark?BRAND.monogramOnDark:BRAND.monogram} alt="MRC" width={compact?34:46} style={{height:"auto",flexShrink:0}}/>
     {!compact&&<div className="arcd-brand-word"><p style={{fontFamily:"var(--arcd-font-sans)",color:dark?"var(--arcd-text-inverse)":"var(--arcd-text-primary)",fontSize:"var(--arcd-type-card-title)",fontWeight:600,letterSpacing:".13em",lineHeight:1.2}}>MARCELL</p>{signature&&<p style={{fontSize:"var(--arcd-type-caption)",color:dark?"var(--arcd-text-secondary)":"var(--arcd-text-secondary)",lineHeight:1.5}}>Engenharia e construção</p>}</div>}
   </div>;
-}
-
-function ReportMetric({ label, value, detail, color=C.yellow, icon="chart", active=false, onClick }) {
-  const Comp=onClick?"button":"div";
-  return <Comp type={onClick?"button":undefined} onClick={onClick} className={onClick?"lift-card":""} style={{
-    appearance:"none",textAlign:"left",width:"100%",background:active?`${color}0D`:"var(--arcd-surface-card)",
-    border:`var(--arcd-border-width) solid ${active?color:C.line}`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-2) var(--arcd-space-3)",cursor:onClick?"pointer":"default",
-    boxShadow:active?`0 0 0 2px ${color}12`:C.shHair,position:"relative",overflow:"hidden",
-  }}><span style={{position:"absolute",left:0,top:0,bottom:0,width:3,background:color}}/><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:.8,textTransform:"uppercase",color:"var(--arcd-text-secondary)"}}>{label}</p><span style={{width:24,height:24,borderRadius:"var(--arcd-radius-control)",display:"grid",placeItems:"center",background:`${color}10`,color}}><Ic n={icon} s={12} color={color}/></span></div><p style={{fontFamily:FONT_DISPLAY,fontSize:"clamp(17px,2vw,21px)",fontWeight:600,letterSpacing:-.55,color:"var(--arcd-text-primary)",lineHeight:1,marginTop:"var(--arcd-space-2)"}}>{value}</p>{detail&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>{detail}</p>}</Comp>;
 }
 
 function Toast({ toast }) {
@@ -2468,7 +2394,7 @@ function Toast({ toast }) {
       borderLeft:`var(--arcd-border-width) solid ${color}`,
       color:"var(--arcd-text-primary)", padding:"var(--arcd-space-2) var(--arcd-space-3)",
       boxShadow:"none",
-      fontSize:"var(--arcd-type-label)", fontWeight:600, borderRadius:C.rMd,
+      fontSize:"var(--arcd-type-label)", fontWeight:600, borderRadius:"var(--arcd-box-radius)",
       fontFamily:FONT_DISPLAY,
     }}>
       {toast.msg}
@@ -2512,7 +2438,6 @@ const calcObraRevenue = calculateContractProjection;
 // DASHBOARD - redesenhado
 //
 
-const pct1=v=>`${new Intl.NumberFormat("pt-BR",{minimumFractionDigits:1,maximumFractionDigits:1}).format(Number(v)||0)}%`;
 const dreMargin=(base,value)=>base>0&&Number.isFinite(value)?pct1(value):"Não aplicável";
 const pct0=v=>`${new Intl.NumberFormat("pt-BR",{maximumFractionDigits:0}).format(Number(v)||0)}%`;
 function KpiCard({label,value,detail,icon,color=C.blue,onClick,animate=true}){
@@ -2566,7 +2491,7 @@ function FilaOperador({fila,onTab}){
   const setores=[...new Set(fila.map(x=>x.setor))];
   const setorAtivo=setores.includes(filtro)?filtro:"todas";
   const lista=setorAtivo==="todas"?fila:fila.filter(x=>x.setor===setorAtivo);
-  return <section id="dashboard-missoes" tabIndex={-1} className="dashboard-mission-queue" style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:C.rLg,overflow:"hidden",boxShadow:"none"}}>
+  return <section id="dashboard-missoes" tabIndex={-1} className="dashboard-mission-queue" style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",overflow:"hidden",boxShadow:"none"}}>
     <div className="dashboard-actions-header" style={{padding:"var(--arcd-space-3) var(--arcd-space-4)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",flexWrap:"wrap",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`}}>
       <div><h3 style={{...TYPO.h3,marginTop:"var(--arcd-space-half)"}}>Principais pendências</h3></div>
       {setores.length>1&&<div className="dashboard-queue-filters" role="group" aria-label="Filtrar pendências por área">{["todas",...setores].map(setor=><Button key={setor} type="button" variant={setorAtivo===setor?"secondary":"ghost"} size="sm" onClick={()=>setFiltro(setor)} aria-pressed={setorAtivo===setor}>{setor==="todas"?"Todas":setor}</Button>)}</div>}
@@ -2582,7 +2507,7 @@ function FilaOperador({fila,onTab}){
 // buscar em outro lugar.
 function NoticiasSetor({carregando,noticias,titulo="Notícias do setor",subtitulo="Construção civil e engenharia"}){
   if(!carregando&&!noticias.length)return null;
-  return <section className="dashboard-news" style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:C.rLg,overflow:"hidden",boxShadow:"none"}}>
+  return <section className="dashboard-news" style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",overflow:"hidden",boxShadow:"none"}}>
     <div className="dashboard-news-header" style={{padding:"var(--arcd-space-3) var(--arcd-space-4)",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`,display:"flex",alignItems:"center",gap:"var(--arcd-space-2)"}}>
       <Ic n="fileText" s={14} color={C.yellowD}/>
       <h3 style={TYPO.h4}>{titulo}</h3>
@@ -2667,7 +2592,7 @@ function CalendarioEmpresa({data,update,showToast,currentUser}){
   })];
   const proximos=eventos.filter(e=>e.data>=today()).sort((a,b)=>a.data.localeCompare(b.data)).slice(0,8);
 
-  return <div style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:C.rLg,boxShadow:"none",padding:"var(--arcd-space-4)"}}>
+  return <div style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",boxShadow:"none",padding:"var(--arcd-space-4)"}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"var(--arcd-space-3)",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
       <h3 style={TYPO.h3}>Calendário da empresa</h3>
       <Btn size="sm" onClick={()=>setEventoForm({id:"",titulo:"",data:diaSelecionado||today(),tipo:"outro",descricao:""})}><Ic n="plus"/> Novo evento</Btn>
@@ -2742,81 +2667,6 @@ function CalendarioEmpresa({data,update,showToast,currentUser}){
   </div>;
 }
 
-const obrasDoDiarioNoDashboard=(data,currentUser)=>{
-  const role=currentUser?.role,userId=currentUser?.id;
-  const obrasAtivas=dashboardActiveWorks(data,currentUser?.obraId);
-  if(currentUser?.obraId||role!=="engenheiro")return obrasAtivas;
-  const atribuidas=obrasAtivas.filter(o=>(userId&&o.engineerId===userId)||(currentUser?.nome&&o.engineer===currentUser.nome));
-  return atribuidas.length?atribuidas:obrasAtivas;
-};
-
-const construirFilaOperador=(data,currentUser)=>{
-  const role=currentUser?.role||"visualizador",userId=currentUser?.id||"",hoje=today();
-  const acessos=new Set(allowedTabsForUser(currentUser));
-  const escopoEngenharia=obrasDoDiarioNoDashboard(data,currentUser);
-  const idsObras=new Set(escopoEngenharia.map(o=>o.id));
-  const workNames=new Map((data.obras||[]).filter(o=>!currentUser?.obraId||String(o.id)===String(currentUser.obraId)).map(o=>[String(o.id),o.name]));
-  const fila=[];
-  const incluir=(id,setor,titulo,detalhe,quantidade,severidade,tab,icon,color,contexto)=>{
-    if(!quantidade||!acessos.has(tab))return;
-    fila.push({id,setor,titulo,detalhe,quantidade,severidade,tab,icon,color,...contexto});
-  };
-
-  if(role==="admin"||["engenheiro","engenheiro_auditor"].includes(role)||acessos.has("rdo")){
-    const diariosConcluidos=new Set((data.rdos||[]).filter(r=>r.data===hoje&&r.status==="concluido").map(r=>String(r.obraId)));
-    const semRdo=escopoEngenharia.filter(o=>!diariosConcluidos.has(String(o.id)));
-    incluir("rdo-hoje","Engenharia","Diário de obra do dia",`${contar(semRdo.length,"obra","obras")} sem diário concluído`,semRdo.length,2,"rdo","clipboard",C.blue,
-      priorityContext(semRdo.map(o=>({obraId:o.id})),workNames,()=>hoje,"Referência"));
-    const equipe=(data.employees||[]).filter(e=>e.active!==false&&(!idsObras.size||idsObras.has(e.obra)));
-    const semPonto=equipe.filter(e=>!isValidAttendanceStatus(attStatus(data,e.id,hoje)));
-    incluir("ponto-hoje","Campo","Apontamentos de equipe incompletos",`${semPonto.length} de ${contar(equipe.length,"profissional","profissionais")} sem situação registrada hoje`,semPonto.length,semPonto.length===equipe.length?3:2,"ponto","clock",C.orange,
-      priorityContext(semPonto.map(employee=>({obraId:resolveEmployeeAttendanceObraId({data,employee,date:hoje,record:null})})),workNames,()=>hoje,"Referência"));
-    const fichas=(data.qualidadeRegistros||[]).filter(q=>idsObras.has(q.obraId)&&q.status!=="aprovada"&&(role==="admin"||!q.responsavelId||q.responsavelId===userId));
-    incluir("qualidade","Qualidade","FVS/FVM aguardando inspeção",`${contar(fichas.filter(q=>q.status==="reprovada").length,"ficha reprovada","fichas reprovadas")} a corrigir`,fichas.length,fichas.some(q=>q.status==="reprovada")?3:1,"obras","check",C.purple,priorityContext(fichas,workNames));
-    const patologias=(data.conferencias||[]).flatMap(c=>(c.pendencias||[]).filter(p=>p.status!=="resolvida"&&(role==="admin"||(role==="engenheiro_auditor"&&c.responsavelId===userId)||(role==="engenheiro"&&p.responsavelAjusteId===userId))).map(p=>({...p,obraId:c.obraId})));
-    incluir("patologias","Qualidade","Patologias e inconformidades abertas",`${contar(patologias.filter(p=>p.impacto==="critico").length,"crítica","críticas")} · ${patologias.filter(p=>!(p.fotos||[]).some(f=>f.tipo==="ajuste")).length} aguardando foto`,patologias.length,patologias.some(p=>p.impacto==="critico")?3:2,"conferencia","alert",C.red,priorityContext(patologias,workNames));
-  }
-
-  if(role==="admin"||role==="compras"||acessos.has("cmp")){
-    const solicitacoes=(data.solicitacoesCompra||[]).filter(s=>["enviada","em_analise"].includes(s.status));
-    const urgentes=solicitacoes.filter(s=>s.prioridade==="urgente").length;
-    const volume=urgentes?contar(urgentes,"urgente","urgentes"):contar(solicitacoes.length,"solicitação","solicitações");
-    incluir("solicitacoes","Compras","Solicitações aguardando processamento",`${volume} para cotar ou transformar em pedido`,solicitacoes.length,urgentes?3:2,"cmp","cart",C.orange,
-      priorityContext(solicitacoes,workNames,s=>s.necessidade,"Data necessária mais antiga"));
-    const pedidos=(data.pedidos||[]).filter(p=>!["recebido","cancelado"].includes(p.status));
-    incluir("pedidos","Compras","Pedidos ainda não concluídos",`${pedidos.filter(p=>p.status==="parcial").length} com recebimento parcial`,pedidos.length,pedidos.some(p=>p.status==="parcial")?2:1,"cmp","box",C.yellowD,
-      priorityContext(pedidos,workNames,p=>p.previsao,"Previsão mais antiga"));
-  }
-
-  if(role==="admin"||role==="financeiro"||acessos.has("conc")){
-    const conciliacoes=(data.transacoes||[]).filter(t=>t.status==="pendente");
-    incluir("conciliacao","Financeiro","Movimentos sem conciliação",`${contar(conciliacoes.length,"lançamento","lançamentos")} ainda sem obra/categoria confirmada`,conciliacoes.length,conciliacoes.length>10?3:2,"conc","receipt",C.purple);
-    const notas=(data.notasFiscais||[]).filter(n=>n.status==="recebida");
-    incluir("fiscal","Financeiro","Notas aguardando conferência",`${contar(notas.filter(n=>n.divergencias?.length).length,"documento","documentos")} com divergência de pedido ou recebimento`,notas.length,notas.some(n=>n.divergencias?.length)?3:2,"fin","fileText",C.red,priorityContext(notas,workNames));
-    const med=(data.medicoes||[]).filter(m=>statusRecebimentoMedicao(m)!=="recebida"&&(!m.dataVencimento||m.dataVencimento<=hoje));
-    incluir("medicoes","Financeiro","Medições a receber",contar(med.filter(m=>m.dataVencimento&&m.dataVencimento<hoje).length,"vencida","vencidas"),med.length,med.some(m=>m.dataVencimento&&m.dataVencimento<hoje)?3:1,"medicoes","ruler",C.green,
-      priorityContext(med,workNames,m=>m.dataVencimento,"Vencimento mais antigo"));
-  }
-
-  if(role==="admin"||role==="rh"||acessos.has("ponto_geral")){
-    const ativos=(data.employees||[]).filter(e=>e.active!==false);
-    const semPonto=ativos.filter(e=>!isValidAttendanceStatus(attStatus(data,e.id,hoje)));
-    incluir("rh-ponto","RH","Fechamento diário do ponto",`${semPonto.length} de ${contar(ativos.length,"cadastro","cadastros")} sem apontamento`,semPonto.length,semPonto.length===ativos.length?3:2,"ponto_geral","users",C.green,
-      priorityContext(semPonto.map(employee=>({obraId:resolveEmployeeAttendanceObraId({data,employee,date:hoje,record:null})})),workNames,()=>hoje,"Referência"));
-    const incompletos=ativos.filter(e=>!e.pixKey||!e.dailyRate||!e.obra);
-    incluir("rh-cadastro","RH","Cadastros de equipe incompletos",`${incompletos.filter(e=>!e.pixKey).length} sem PIX · ${incompletos.filter(e=>!e.obra).length} sem lotação`,incompletos.length,1,"equipe","user",C.blue);
-  }
-
-  if(role==="admin"||role==="comercial"||acessos.has("com_tarefas")){
-    const atividades=(data.comercial?.atividades||[]).filter(a=>a.status!=="concluida"&&(role==="admin"||!a.responsavelId||a.responsavelId===userId));
-    const atrasadas=atividades.filter(a=>a.dataHora&&a.dataHora<new Date().toISOString());
-    incluir("comercial-atividades","Comercial","Follow-ups e atividades pendentes",`${contar(atrasadas.length,"atividade","atividades")} fora do prazo`,atividades.length,atrasadas.length?3:1,"com_tarefas","funnel",C.green);
-    const leads=(data.comercial?.leads||[]).filter(l=>!["perdido","arquivado","transferido"].includes(l.etapa)&&(role==="admin"||!l.responsavelId||l.responsavelId===userId)&&!l.proximaAtividadeEm);
-    incluir("comercial-leads","Comercial","Leads sem próximo passo",`${contar(leads.length,"oportunidade","oportunidades")} precisam de data e ação definida`,leads.length,2,"com_leads","target",C.orange);
-  }
-  return fila.sort((a,b)=>b.severidade-a.severidade||b.quantidade-a.quantidade);
-};
-
 // O placar só agrega registros autorizados. O custo oficial continua vindo do DRE fechado.
 function DashboardWorkOverview({data,currentUser,ultimaSync,hoje,onAbrirObra,tabs}){
   const {navigate}=useWorkflow();
@@ -2870,7 +2720,7 @@ function DashboardEngenheiro({data,update,showToast,onTab,currentUser,ultimaSync
   const criticas=abertas.filter(x=>x.p.impacto==="critico").length;
   const aguardandoValidacao=ehAuditor?abertas.filter(x=>x.p.status==="aguardando_validacao").length:0;
   const aguardandoCorrecao=!ehAuditor?abertas.filter(x=>["aberta","em_ajuste"].includes(x.p.status)).length:0;
-  const fila=useMemo(()=>construirFilaOperador(data,currentUser),[data,currentUser]);
+  const fila=useMemo(()=>construirFilaOperador(data,currentUser,C,today()),[data,currentUser]);
   const abrir=c=>{setWorkContextObra(c.obraId);sessionContext.setItem("arcd_conferencia_obra",c.obraId);onTab("conferencia");};
   const impacto={baixo:C.green,medio:C.orange,alto:"#E26A2C",critico:C.red};
   return <div className="anim dashboard-tech-motion" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-4)"}}>
@@ -2881,8 +2731,8 @@ function DashboardEngenheiro({data,update,showToast,onTab,currentUser,ultimaSync
     <FilaOperador fila={fila} onTab={onTab}/>
     <div><p style={{...TYPO.eyebrow,color:C.blue}}>{ehAuditor?"Auditoria de engenharia":"Engenharia de campo"}</p><h2 style={{...TYPO.h2,marginTop:"var(--arcd-space-1)"}}>{ehAuditor?"Vistorias e validações":"Correções e evidências"}</h2><p style={{...TYPO.bodyMuted,marginTop:"var(--arcd-space-1)"}}>{ehAuditor?"Crie vistorias, registre os achados e valide as evidências enviadas pelos engenheiros de campo.":"Acesse apenas as pendências atribuídas a você e envie a foto da correção para validação do auditor."}</p></div>
     <div className="dashboard-kpi-grid" style={{display:"grid",gridTemplateColumns:cols(2,3,4),gap:"var(--arcd-space-2)"}}>{(ehAuditor?[["Pendências auditadas",abertas.length,C.blue,"clipboard"],["Críticas",criticas,C.red,"alert"],["Para sua validação",aguardandoValidacao,C.green,"check"],["Vistorias sob sua responsabilidade",conferencias.length,C.purple,"building"]]:[["Pendências para corrigir",abertas.length,C.blue,"clipboard"],["Críticas",criticas,C.red,"alert"],["Aguardando sua correção",aguardandoCorrecao,C.orange,"camera"]]).map(([l,v,c,i],idx)=><span key={l} style={{"--row-i":idx}}><KpiCard label={l} value={v} icon={i} color={c}/></span>)}</div>
-    <div style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:C.rLg,boxShadow:"none",display:"flex",gap:"var(--arcd-space-2)",alignItems:"end",flexWrap:"wrap",padding:"var(--arcd-space-3)"}}><div style={{minWidth:240,flex:1}}><Sel label="Filtrar conferências por obra" value={obraFiltro} onChange={setObraFiltro} options={[{v:"all",l:"Todas as obras disponíveis"},...obras.map(o=>({v:o.id,l:o.name}))]}/></div><Btn v="ghost" onClick={()=>onTab("obras")}><Ic n="building"/> Abrir todas as obras</Btn>{currentUser?.obraId&&<p style={{width:"100%",fontSize:"var(--arcd-type-caption)",color:C.orange}}>Seu cadastro está restrito a uma obra. O administrador pode liberar “Todas as obras” na Central do Administrador.</p>}</div>
-    <div style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:C.rLg,overflow:"hidden",boxShadow:"none"}}><div style={{padding:"var(--arcd-space-3) var(--arcd-space-4)",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`,display:"flex",justifyContent:"space-between"}}><b style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)"}}>Pendências sob sua responsabilidade</b><span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{ehAuditor?"Análise e validação técnica":"Somente envio da correção"}</span></div>{!abertas.length?<div style={{padding:"var(--arcd-space-8)",textAlign:"center"}}><Ic n="check" s={24} color={C.green}/><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-2)"}}>Nenhuma pendência aberta neste filtro</p></div>:abertas.map(({p,c,obra},index)=>{const acao=ehAuditor?(p.status==="aguardando_validacao"?"Validar evidência":"Acompanhar vistoria"):(p.status==="aguardando_validacao"?"Aguardando auditor":"Enviar correção");const corAcao=acao==="Validar evidência"?C.green:acao==="Enviar correção"?C.orange:C.blue;return <button key={`${c.id}-${p.id}`} onClick={()=>abrir(c)} style={{width:"100%",border:0,borderTop:index?`var(--arcd-border-width) solid var(--arcd-border-subtle)`:"none",background:"transparent",padding:"var(--arcd-space-3) var(--arcd-space-4)",display:"grid",gridTemplateColumns:isDesktop?"minmax(170px,.7fr) minmax(260px,1.5fr) 130px 140px 26px":"1fr auto",gap:"var(--arcd-space-3)",alignItems:"center",textAlign:"left",cursor:"pointer"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.blue}}>{obra?.name||"Obra"}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>CONF-{String(c.codigo||0).padStart(3,"0")}</p></div><div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"var(--arcd-text-primary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.descricao}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.ajusteNecessario}</p></div><span style={{display:isDesktop?"inline-flex":"none",justifySelf:"start"}}><Badge color={impacto[p.impacto]||C.orange}>{p.impacto}</Badge></span><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:corAcao,whiteSpace:"nowrap"}}>{acao}</span><span style={{fontSize:"var(--arcd-type-section-title)",color:"var(--arcd-text-secondary)"}}>›</span></button>;})}</div>
+    <div style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",boxShadow:"none",display:"flex",gap:"var(--arcd-space-2)",alignItems:"end",flexWrap:"wrap",padding:"var(--arcd-space-3)"}}><div style={{minWidth:240,flex:1}}><Sel label="Filtrar conferências por obra" value={obraFiltro} onChange={setObraFiltro} options={[{v:"all",l:"Todas as obras disponíveis"},...obras.map(o=>({v:o.id,l:o.name}))]}/></div><Btn v="ghost" onClick={()=>onTab("obras")}><Ic n="building"/> Abrir todas as obras</Btn>{currentUser?.obraId&&<p style={{width:"100%",fontSize:"var(--arcd-type-caption)",color:C.orange}}>Seu cadastro está restrito a uma obra. O administrador pode liberar “Todas as obras” na Central do Administrador.</p>}</div>
+    <div style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",overflow:"hidden",boxShadow:"none"}}><div style={{padding:"var(--arcd-space-3) var(--arcd-space-4)",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`,display:"flex",justifyContent:"space-between"}}><b style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)"}}>Pendências sob sua responsabilidade</b><span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{ehAuditor?"Análise e validação técnica":"Somente envio da correção"}</span></div>{!abertas.length?<div style={{padding:"var(--arcd-space-8)",textAlign:"center"}}><Ic n="check" s={24} color={C.green}/><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-2)"}}>Nenhuma pendência aberta neste filtro</p></div>:abertas.map(({p,c,obra},index)=>{const acao=ehAuditor?(p.status==="aguardando_validacao"?"Validar evidência":"Acompanhar vistoria"):(p.status==="aguardando_validacao"?"Aguardando auditor":"Enviar correção");const corAcao=acao==="Validar evidência"?C.green:acao==="Enviar correção"?C.orange:C.blue;return <button key={`${c.id}-${p.id}`} onClick={()=>abrir(c)} style={{width:"100%",border:0,borderTop:index?`var(--arcd-border-width) solid var(--arcd-border-subtle)`:"none",background:"transparent",padding:"var(--arcd-space-3) var(--arcd-space-4)",display:"grid",gridTemplateColumns:isDesktop?"minmax(170px,.7fr) minmax(260px,1.5fr) 130px 140px 26px":"1fr auto",gap:"var(--arcd-space-3)",alignItems:"center",textAlign:"left",cursor:"pointer"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.blue}}>{obra?.name||"Obra"}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>CONF-{String(c.codigo||0).padStart(3,"0")}</p></div><div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"var(--arcd-text-primary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.descricao}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.ajusteNecessario}</p></div><span style={{display:isDesktop?"inline-flex":"none",justifySelf:"start"}}><Badge color={impacto[p.impacto]||C.orange}>{p.impacto}</Badge></span><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:corAcao,whiteSpace:"nowrap"}}>{acao}</span><span style={{fontSize:"var(--arcd-type-section-title)",color:"var(--arcd-text-secondary)"}}>›</span></button>;})}</div>
     <CalendarioEmpresa data={data} update={update} showToast={showToast} currentUser={currentUser}/>
   </div>;
 }
@@ -2904,7 +2754,7 @@ function Dashboard({ data, update, showToast, onTab, onAbrirObra, ultimaSync, cu
   const hoje=today();
   const fimMes=`${ym}-${String(new Date(year,month+1,0).getDate()).padStart(2,"0")}`;
   const abasPermitidas=allowedTabsForUser(currentUser);
-  const filaOperador=useMemo(()=>construirFilaOperador(data,currentUser),[data,currentUser]);
+  const filaOperador=useMemo(()=>construirFilaOperador(data,currentUser,C,today()),[data,currentUser]);
   // Resumo diário (clima + notícias do setor): carrega uma vez por sessão de
   // dashboard, cacheado 15min no servidor — não precisa refazer a cada render.
   const [resumoDiario,setResumoDiario]=useState({carregando:true,clima:null,noticias:[],noticiasCbicPe:[],cub:null});
@@ -2937,7 +2787,7 @@ function Dashboard({ data, update, showToast, onTab, onAbrirObra, ultimaSync, cu
   ].filter(a=>abasPermitidas.includes(a.tab)).filter((a,i,arr)=>arr.findIndex(x=>x.texto===a.texto)===i).sort((a,b)=>b.sev-a.sev);
 
   const Titulo=({children,acao})=><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"var(--arcd-space-2)",marginBottom:"var(--arcd-space-3)"}}><div><h3 style={TYPO.h3}>{children}</h3></div>{acao}</div>;
-  const superficie={background:C.card,border:`1px solid ${C.border}`,borderRadius:C.rLg,boxShadow:"none"};
+  const superficie={background:C.card,border:`1px solid ${C.border}`,borderRadius:"var(--arcd-box-radius)",boxShadow:"none"};
 
   return <div className="anim dashboard-tech-motion dashboard-command-center" style={{position:"relative",display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)",paddingBottom:"var(--arcd-space-4)"}}>
     <DashboardTechHero currentUser={currentUser} ultimaSync={ultimaSync} onBuscar={onBuscar} onAtualizar={onAtualizar} buscaObras={dashboardHasWorkSearch(data,currentUser,abasPermitidas)} clima={resumoDiario.clima} saveState={saveState}/>
@@ -2957,7 +2807,7 @@ function Dashboard({ data, update, showToast, onTab, onAbrirObra, ultimaSync, cu
       </div>
       <ScopeNote title="Escopo dos indicadores">Consolidado do seu acesso. A seleção Obra em foco não filtra este painel. No Placar das obras, Hoje e Ontem alteram o ponto e o diário.</ScopeNote>
     </FilterBar>
-    <section id="dashboard-indicators" className="dashboard-executive-grid" data-expanded={todosIndicadores} style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:cols(2,3,4),gap:"var(--arcd-space-2)"}}>
+    <section id="dashboard-indicators" className="dashboard-executive-grid" data-expanded={todosIndicadores}>
       {[
         // Os quatro primeiros são os que pedem decisão; os demais ficam em "Mais indicadores".
         // Cor só quando há desvio (negativo, crítico, pendente); o resto fica neutro.
@@ -2981,7 +2831,7 @@ function Dashboard({ data, update, showToast, onTab, onAbrirObra, ultimaSync, cu
 
     <section style={{position:"relative",zIndex:1}}><Titulo>Ações rápidas</Titulo><div className="dashboard-quick-actions">{[
       ["Nova compra","cart","cmp"],["Novo lead","user","com_leads"],["Lançar despesa","dollar","dre_emp"],["Abrir ponto","clock","ponto"],["Revisar medições","ruler","medicoes"],["Conferências","check","conferencia"],
-    ].filter(([, ,tab])=>abasPermitidas.includes(tab)).map(([label,icon,tab])=><button key={label} onClick={()=>onTab(tab)} className="dashboard-quick-action" style={{minHeight:70,border:`var(--arcd-border-width) solid var(--arcd-border-default)`,background:"var(--arcd-surface-card)",borderRadius:C.rLg,padding:"var(--arcd-space-3)",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"flex-start",justifyContent:"space-between",textAlign:"left",...TYPO.label}}><span style={{width:28,height:28,borderRadius:"var(--arcd-box-radius)",background:"var(--arcd-surface-muted)",display:"grid",placeItems:"center",color:C.blue}}><Ic n={icon} s={13}/></span>{label}</button>)}</div></section>
+    ].filter(([, ,tab])=>abasPermitidas.includes(tab)).map(([label,icon,tab])=><button key={label} onClick={()=>onTab(tab)} className="dashboard-quick-action" style={{minHeight:70,border:`var(--arcd-border-width) solid var(--arcd-border-default)`,background:"var(--arcd-surface-card)",borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-3)",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"flex-start",justifyContent:"space-between",textAlign:"left",...TYPO.label}}><span style={{width:28,height:28,borderRadius:"var(--arcd-box-radius)",background:"var(--arcd-surface-muted)",display:"grid",placeItems:"center",color:C.blue}}><Ic n={icon} s={13}/></span>{label}</button>)}</div></section>
     <CalendarioEmpresa data={data} update={update} showToast={showToast} currentUser={currentUser}/>
     <details className="workspace-disclosure"><summary>Mercado e índices da construção</summary>
     <section style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:isDesktop?"1fr 1fr":"1fr",gap:"var(--arcd-space-3)"}}>
@@ -3069,7 +2919,7 @@ function FinanceiroObraPainel({data,showToast,currentUser=null,obraId,dispatchCo
       setExpenseCommandPending(false);
     }
   };
-  const Metric=({label,value,detail,tone="neutral"})=><div className={`obra-fin-metric ${tone}`}><span>{label}</span><strong>{fmt(value)}</strong><small>{detail}</small></div>;
+  const Metric=({label,value,detail,tone="neutral"})=><div className="mrc-box mrc-box--padded" data-tone={tone==="danger"?"danger":undefined}><span className="mrc-kpi__label">{label}</span><strong className="mrc-kpi__value">{fmt(value)}</strong><small className="mrc-kpi__detail">{detail}</small></div>;
   const Tabela=({lista})=><div className="obra-fin-table-wrap"><table className="arcd-data-table__table obra-fin-table"><thead><tr><th>Movimentação</th><th>Origem</th><th>Data</th><th>Natureza</th><th>Valor</th></tr></thead><tbody>{lista.map(m=><tr key={m.id}><td data-label="Movimentação"><b>{m.descricao}</b><small>{m.documento||m.grupo}</small></td><td data-label="Origem">{m.origem}</td><td data-label="Data">{m.data?fmtDate(m.data):"—"}</td><td data-label="Natureza"><span className={`obra-fin-status ${m.status}`}>{m.tipo==="receita"?"Receita reconhecida":m.tipo==="custo"?"Custo incorrido":m.tipo==="entrada"?"Entrada de caixa":"Saída de caixa"}</span></td><td data-label="Valor" className={["custo","saida"].includes(m.tipo)?"despesa":"receita"}>{["custo","saida"].includes(m.tipo)?"− ":"+ "}{fmt(m.valor)}</td></tr>)}</tbody></table>{!lista.length&&<div className="obra-fin-empty">Nenhuma movimentação encontrada neste filtro.</div>}</div>;
 
   return <div className="obra-financeiro">
@@ -3127,7 +2977,17 @@ function DRELegado({ data, showToast, currentUser=null, obraIdFixo="", dispatchC
   const [despModal, setDespModal] = useState(false);
   const [expenseCommandPending,setExpenseCommandPending]=useState(false);
   const [despForm,  setDespForm]  = useState({ obraId:"", competencia:"", categoria:"material", descricao:"", valor:"" });
-  const [detalheKpi, setDetalheKpi] = useState("");
+  const [detalheNormal, setDetalheKpi] = useState("");
+  const [origemCompra,setOrigemCompra]=useState(null);
+  const notasDaCompra=origemCompra&&view==="obra"&&periodoDRE==="mes"&&origemCompra.obraId===selObra&&
+    origemCompra.year===year&&origemCompra.month===month?origemCompra.ids:null;
+  const detalheKpi=notasDaCompra?"custos":detalheNormal;
+  useEffect(()=>{
+    if(intent?.tabId!=="dre"||intent.action!=="review-purchase-dre"||!podeAcessarAba(currentUser,"dre"))return;
+    const ids=new Set((data.notasFiscais||[]).filter(note=>activeFinancialRecord(note)&&
+      intent.record?.invoiceIds?.includes(String(note.id))).map(note=>String(note.id)));
+    if(ids.size)setOrigemCompra({...normalizeWorkflowScope(intent.scope,currentUser),ids});
+  },[intent?.sequence]);
   const [filtroDetalhe, setFiltroDetalhe] = useSessionState("filtroDetalhe",{ busca:"", categoria:"todos", obra:"todas", ordem:"data_desc" });
   const [avaliacaoCFOObra,setAvaliacaoCFOObra]=useState(null);
   const [avaliandoCFOObra,setAvaliandoCFOObra]=useState(false);
@@ -3252,14 +3112,14 @@ Regras: diferencie faturamento de recebimento; não conclua excesso de pessoas a
       ...(periodoDRE==="mes"?{competence:dreResumo.ym}:{}),
     };
     return selectFinancialMovements(dreResumo.ledger,filters)
-      .filter(item=>["revenue","cost","cash_in"].includes(item.natureza))
+      .filter(item=>["revenue","cost","cash_in"].includes(item.natureza)||notasDaCompra&&item.natureza==="cost_reversal")
       .map(item=>({
         ...item,obra:porId.get(item.obraId)||"Empresa",
         categoria:rotuloCategoria(data,item.categoria),
         natureza:item.natureza==="revenue"?"faturamento":item.natureza==="cash_in"?"recebido":"custo",
-        valor:item.valor,
+        valor:item.natureza==="cost_reversal"?-item.valor:item.valor,
       }));
-  }, [data,periodoDRE,obraIdFixo,view,obraFinanceiraId,dreResumo]);
+  }, [data,periodoDRE,obraIdFixo,view,obraFinanceiraId,dreResumo,notasDaCompra]);
 
   const movimentosDetalhe = useMemo(() => {
     const permitidos = detalheKpi==="faturamento" ? ["faturamento"]
@@ -3268,16 +3128,17 @@ Regras: diferencie faturamento de recebimento; não conclua excesso de pessoas a
     const busca=filtroDetalhe.busca.trim().toLocaleLowerCase("pt-BR");
     const fator = detalheKpi==="lucro" ? (x=>x.natureza==="custo"?-1:1) : (()=>1);
     return movimentosDRE.filter(x=>
-      permitidos.includes(x.natureza) &&
-      (filtroDetalhe.categoria==="todos"||x.categoria===filtroDetalhe.categoria) &&
+      permitidos.includes(x.natureza) && (notasDaCompra
+      ? x.origem==="nota_fiscal"&&notasDaCompra.has(String(x.sourceId))
+      : (filtroDetalhe.categoria==="todos"||x.categoria===filtroDetalhe.categoria) &&
       (filtroDetalhe.obra==="todas"||x.obraId===filtroDetalhe.obra) &&
-      (!busca||`${x.descricao} ${x.obra} ${x.documento}`.toLocaleLowerCase("pt-BR").includes(busca))
+      (!busca||`${x.descricao} ${x.obra} ${x.documento}`.toLocaleLowerCase("pt-BR").includes(busca)))
     ).map(x=>({...x,valorExibido:x.valor*fator(x)})).sort((a,b)=>{
       if(filtroDetalhe.ordem==="valor_desc") return Math.abs(b.valorExibido)-Math.abs(a.valorExibido);
       if(filtroDetalhe.ordem==="valor_asc") return Math.abs(a.valorExibido)-Math.abs(b.valorExibido);
       return filtroDetalhe.ordem==="data_asc" ? a.data.localeCompare(b.data) : b.data.localeCompare(a.data);
     });
-  },[movimentosDRE,detalheKpi,filtroDetalhe]);
+  },[movimentosDRE,detalheKpi,filtroDetalhe,notasDaCompra]);
 
   const saveDesp = async() => {
     if(!dispatchCommand||expenseCommandPending)return;
@@ -3833,10 +3694,10 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
       </div>
 
       {detalheKpi&&!carregandoObra&&(
-        <Modal title={{
+        <Modal title={notasDaCompra?"Custos da compra no DRE":{
           faturamento:"Detalhamento do faturamento",recebido:"Recebimentos do período",
           custos:"Pagamentos e custos do período",lucro:"Composição do lucro bruto",
-        }[detalheKpi]} onClose={()=>setDetalheKpi("")} wide>
+        }[detalheKpi]} onClose={()=>{setDetalheKpi("");setOrigemCompra(null);}} wide>
           <div className="dre-detail">
             <div className="dre-detail-context">
               <div>
@@ -3845,7 +3706,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
               </div>
               <strong>{fmt(movimentosDetalhe.reduce((s,x)=>s+x.valorExibido,0))}</strong>
             </div>
-            <div className="dre-detail-filters">
+            {notasDaCompra?<p>Notas vinculadas à compra, na obra e competência selecionadas. O detalhamento usa a base carregada.</p>:<div className="dre-detail-filters">
               <label className="dre-detail-search">
                 <span>Buscar</span>
                 <input value={filtroDetalhe.busca} onChange={e=>setFiltroDetalhe(f=>({...f,busca:e.target.value}))} placeholder="Descrição, obra ou documento"/>
@@ -3858,9 +3719,9 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
                 {v:"data_desc",l:"Mais recentes"},{v:"data_asc",l:"Mais antigos"},
                 {v:"valor_desc",l:"Maior valor"},{v:"valor_asc",l:"Menor valor"},
               ]}/>
-            </div>
+            </div>}
             <div className="dre-detail-list" role="table" aria-label="Movimentos financeiros">
-              <div className="dre-detail-row dre-detail-head" role="row">
+              <div className="dre-detail-row dre-detail-head arcd-sticky-table-header" role="row">
                 <span>Data</span><span>Movimento</span><span>Obra</span><span>Categoria</span><span>Valor</span>
               </div>
               {movimentosDetalhe.length ? movimentosDetalhe.map(x=>(
@@ -4067,7 +3928,7 @@ function CentralFiscal({data,update,showToast,currentUser,obraIdFiltro="all",onO
       ]}
       actions={<Btn onClick={()=>{setSugestoesNota([]);setForm(vazia());}}><Ic n="plus"/> Receber nota</Btn>}
     />
-    <Sel label="Obra" value={obraIdFiltro} onChange={onObraChange} options={[{v:"all",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/><div style={{display:"flex",gap:"var(--arcd-space-1)",overflowX:"auto"}}>{[["todas","Todas"],["recebida","Em conferência"],["aprovada","Aprovadas"],["paga","Pagas"],["rejeitada","Rejeitadas"]].map(([v,l])=><button key={v} onClick={()=>setFiltro(v)} style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",border:`var(--arcd-border-width) solid ${filtro===v?C.purple:C.border}`,borderRadius:"var(--arcd-radius-control)",background:filtro===v?`${C.purple}12`:"var(--arcd-surface-card)",color:filtro===v?C.purple:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>{l}</button>)}</div>{lista.map(n=><div key={n.id} style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderLeft:`var(--arcd-border-width) solid ${n.divergencias?.length?C.red:n.status==="aprovada"?C.green:C.blue}`,borderRadius:"var(--arcd-box-radius)",background:"var(--arcd-surface-card)"}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)"}}><div><b style={{fontSize:"var(--arcd-type-body)"}}>{n.tipo.toUpperCase()} {n.numero} · {n.fornecedorNome||"Fornecedor"}</b><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{(data.obras||[]).find(o=>o.id===n.obraId)?.name} · emissão {fmtDate(n.emissao)} · {contar(n.documentos.length,"arquivo","arquivos")} no Drive</p></div><b style={{color:C.yellowD}}>{fmt(n.valorLiquido)}</b></div>{n.conferenciaFiscalPendente&&<p role="status">Conferência fiscal pendente. O pagamento registrado não substitui a revisão do documento.</p>}{n.divergencias?.map((d,i)=><p key={i} style={{fontSize:"var(--arcd-type-caption)",color:C.red,marginTop:"var(--arcd-space-1)"}}>⚠ {d}</p>)}{n.status==="rejeitada"&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.red,marginTop:"var(--arcd-space-1)"}}>Rejeitada por {n.rejeitadoPor||"-"}: {n.motivoRejeicao||"sem motivo registrado"}</p>}<div style={{display:"flex",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-2)",flexWrap:"wrap"}}><Btn size="sm" v="ghost" onClick={()=>setForm({...n,valorBruto:String(n.valorBruto),valorLiquido:String(n.valorLiquido)})}>Verificar</Btn><Btn size="sm" v="ghost" onClick={()=>onMemorial?.({title:`Nota ${n.numero}`,items:[financialEntry(data,{sourceType:"nota_fiscal",sourceId:n.id,obraId:n.obraId,amountCents:Math.round(Number(n.valorLiquido||n.valorBruto||0)*100)})],context:"Documento fiscal e dados vinculados"})}>Ver memorial</Btn>{(n.status==="recebida"||n.conferenciaFiscalPendente)&&<Btn size="sm" v="success" onClick={()=>aprovar(n)}>Concluir conferência fiscal</Btn>}{["recebida","aprovada"].includes(n.status)&&<Btn size="sm" v="danger" onClick={()=>rejeitar(n)}>Rejeitar</Btn>}{n.documentos.map(a=><CompanyAssetLink key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-caption)",color:C.blue,padding:"var(--arcd-space-1)"}}>{a.legenda||a.nome} ↗</CompanyAssetLink>)}</div></div>)}{!lista.length&&<p style={{padding:"var(--arcd-space-5)",textAlign:"center",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhuma nota neste estágio.</p>}{form&&<Modal title={form.id?`Conferir nota ${form.numero}`:"Receber documento fiscal"} onClose={invoiceExit.requestClose} wide panelClass="invoice-conference-modal"><InvoiceConference documents={form.documentos||[]} driveId={(data.obras||[]).find(obra=>obra.id===(notas.find(nota=>nota.id===form.id)?.obraId||form.obraId))?.oneDriveDriveId} resolveFile={obterLinkArquivoOneDrive}><div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:"var(--arcd-space-2)"}}><Sel label="Tipo" value={form.tipo} onChange={F("tipo")} options={[{v:"nfe",l:"NF-e de produto"},{v:"nfse",l:"NFS-e de serviço"},{v:"cte",l:"CT-e / frete"},{v:"outro",l:"Outro documento"}]}/><Sel label="Obra *" value={form.obraId} onChange={v=>setForm(f=>({...f,obraId:v,pedidoId:""}))} options={[{v:"",l:"Selecione"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/><Sel label="Pedido relacionado" value={form.pedidoId} onChange={v=>setForm(f=>({...f,pedidoId:v,...(f.itensNota?.length?{itensNota:ligarItensAoPedido(f.itensNota,v)}:{})}))} options={[{v:"",l:"Sem pedido"},...(data.pedidos||[]).filter(p=>p.obraId===form.obraId).map(p=>({v:p.id,l:`${p.numero} · ${fmt(totalPedido(p))}`}))]}/><Inp label="Número *" value={form.numero} onChange={F("numero")}/><Inp label="Série" value={form.serie} onChange={F("serie")}/><Inp label="Chave de acesso" value={form.chave} onChange={F("chave")}/><Inp label="Emissão" type="date" value={form.emissao} onChange={F("emissao")}/><Inp label="Vencimento" type="date" value={form.vencimento} onChange={F("vencimento")}/><Inp label="Fornecedor" value={form.fornecedorNome} onChange={F("fornecedorNome")}/><Sel label="Categoria" value={form.categoria||""} onChange={F("categoria")} options={[{v:"",l:"Não informada"},...categoriasDesp(data),...(form.categoria&&!categoriasDesp(data).some(c=>c.v===form.categoria)?[{v:form.categoria,l:form.categoria}]:[])]}/><Inp label="Valor bruto *" type="number" value={form.valorBruto} onChange={v=>setForm(f=>({...f,valorBruto:v,valorLiquido:String(Math.max(0,Number(v||0)-totalRet(f)))}))}/><Inp label="Retenções" value={fmt(totalRet(form))} onChange={()=>{}} disabled/><Inp label="Valor líquido" type="number" value={form.valorLiquido} onChange={F("valorLiquido")}/></div><div style={{display:"grid",gridTemplateColumns:formGrid(4),gap:"var(--arcd-space-1)"}}>{Object.keys(form.retencoes).map(k=><Inp key={k} label={k.toUpperCase()} type="number" value={form.retencoes[k]} onChange={v=>setRetencao(k,v)}/>)}</div><label style={{padding:"var(--arcd-space-3)",border:`2px solid ${C.green}66`,borderRadius:"var(--arcd-box-radius)",textAlign:"center",cursor:"pointer",color:C.green,fontSize:"var(--arcd-type-label)",fontWeight:600,background:`${C.green}08`}}>Importar XML da NF-e (preenche a nota e confere com o pedido)<input type="file" accept=".xml,text/xml,application/xml" onChange={importarXmlNfe} style={{display:"none"}}/></label>{sugestoesNota.length>1&&<div style={{display:"flex",gap:"var(--arcd-space-1)",flexWrap:"wrap",alignItems:"center"}}><span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Outros pedidos do fornecedor:</span>{sugestoesNota.map(s=><Btn key={s.pedido.id} size="sm" v={form.pedidoId===s.pedido.id?"success":"ghost"} onClick={()=>setForm(f=>({...f,obraId:s.pedido.obraId,pedidoId:s.pedido.id,...(f.itensNota?.length?{itensNota:ligarItensAoPedido(f.itensNota,s.pedido.id)}:{})}))}>{s.pedido.numero} · {fmt(s.total)} · {s.casados} item(ns)</Btn>)}</div>}{form.itensNota?.length>0&&(()=>{const ped=(data.pedidos||[]).find(p=>p.id===form.pedidoId);const nomeItem=i=>(data.materiais||[]).find(m=>m.id===i.materialId)?.descricao||i.descricaoRef||"Item";const usados=new Set(form.itensNota.map(i=>i.pedidoItemId).filter(Boolean));return <div style={{border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-2) var(--arcd-space-2)",background:"var(--arcd-surface-card)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"var(--arcd-text-primary)"}}>Itens da nota × pedido {ped?.numero||""}</p>{form.itensNota.map((it,ix)=>{const itemPed=ped?.itens?.find(x=>x.id===it.pedidoItemId);const divs=it.pedidoItemId?divergenciasDoItem(it,itemPed):[ped?"Sem item correspondente: vincule manualmente.":"Escolha o pedido para conferir."];return <div key={ix} style={{marginTop:"var(--arcd-space-1)",paddingTop:"var(--arcd-space-1)",borderTop:`var(--arcd-border-width) solid var(--arcd-border-subtle)`,display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)",gap:"var(--arcd-space-1)",alignItems:"center"}}><span className="brk" style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}><b>{it.descricao}</b><small style={{display:"block",color:"var(--arcd-text-secondary)"}}>{Number(it.qtd).toLocaleString("pt-BR")} {it.unidade} × {fmt(it.precoUnit)} = {fmt(it.valorTotal)}</small></span><Sel label="Item do pedido" value={it.pedidoItemId||""} onChange={v=>setForm(f=>({...f,itensNota:f.itensNota.map((x,k)=>k===ix?{...x,pedidoItemId:v}:x)}))} options={[{v:"",l:"Sem vínculo"},...(ped?.itens||[]).filter(x=>x.id===it.pedidoItemId||!usados.has(x.id)).map(x=>({v:x.id,l:`${nomeItem(x)} · ${Number(x.qtd).toLocaleString("pt-BR")} × ${fmt(x.precoUnit)}`}))]}/>{divs.map((d,k)=><p key={k} style={{gridColumn:"1/-1",fontSize:"var(--arcd-type-caption)",color:C.red,fontWeight:600}}>⚠ {d}</p>)}</div>;})}{ped&&<p style={{fontSize:"var(--arcd-type-caption)",color:Math.abs(Number(form.valorBruto||0)-totalPedido(ped))>0.01?C.orange:C.green,fontWeight:600,marginTop:"var(--arcd-space-1)"}}>Nota {fmt(Number(form.valorBruto||0))} · pedido {fmt(totalPedido(ped))} · recebido {fmt(recebidoPedido(ped))}. A conferência completa roda ao salvar.</p>}</div>;})()}<label style={{padding:"var(--arcd-space-3)",border:`2px dashed ${C.blue}55`,borderRadius:"var(--arcd-box-radius)",textAlign:"center",cursor:"pointer",color:C.blue,fontSize:"var(--arcd-type-label)",fontWeight:600}}>{subindo?"Enviando e lendo documento...":form.documentos?.length?"+ Anexar outro XML, PDF ou imagem":"Anexar XML, PDF ou imagem da nota"}<input type="file" accept=".xml,.pdf,image/*" onChange={importar} disabled={subindo} style={{display:"none"}}/></label>{form.documentos?.map(a=><CompanyAssetLink key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-label)",color:C.blue,textDecoration:"underline"}}>{a.legenda||a.nome} · visualizar no OneDrive ↗</CompanyAssetLink>)}{pedido&&<div style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",background:"var(--arcd-surface-card)",borderRadius:"var(--arcd-box-radius)",fontSize:"var(--arcd-type-label)"}}>Pedido {pedido.numero}: <b>{fmt(totalPedido(pedido))}</b> · recebido: <b>{fmt(recebidoPedido(pedido))}</b></div>}<RecordRecoveryPanel data={data} recovery={invoiceRecovery} draft={form} fields={invoiceRecoveryFields} user={currentUser} onRebase={setForm} onConfirmed={async result=>{await update({__adotarServidorPatch:true,updatedAt:result.updatedAt,sections:{notasFiscais:result.data.notasFiscais,operationalCommandReceipts:result.data.operationalCommandReceipts}});setForm(null);}}/><div style={{display:"flex",gap:"var(--arcd-space-2)"}}><Btn v="ghost" disabled={invoiceCommandPending} onClick={invoiceExit.requestClose} full>Cancelar</Btn><Btn onClick={salvar} disabled={invoiceCommandPending} loading={invoiceCommandPending&&"Salvando…"} full>Salvar e conferir</Btn></div></div></InvoiceConference></Modal>}{form&&<UnsavedChangesPrompt guard={invoiceExit}/>}{xmlPreview&&<Modal title="Prévia da importação XML" wide onClose={()=>setXmlPreview(null)}><FinancialPreview
+    <Sel label="Obra" value={obraIdFiltro} onChange={onObraChange} options={[{v:"all",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/><div style={{display:"flex",gap:"var(--arcd-space-1)",overflowX:"auto"}}>{[["todas","Todas"],["recebida","Em conferência"],["aprovada","Aprovadas"],["paga","Pagas"],["rejeitada","Rejeitadas"]].map(([v,l])=><button key={v} onClick={()=>setFiltro(v)} style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",border:`var(--arcd-border-width) solid ${filtro===v?C.purple:C.border}`,borderRadius:"var(--arcd-radius-control)",background:filtro===v?`${C.purple}12`:"var(--arcd-surface-card)",color:filtro===v?C.purple:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>{l}</button>)}</div>{lista.map(n=><div key={n.id} style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderLeft:`var(--arcd-border-width) solid ${n.divergencias?.length?C.red:n.status==="aprovada"?C.green:C.blue}`,borderRadius:"var(--arcd-box-radius)",background:"var(--arcd-surface-card)"}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)"}}><div><b style={{fontSize:"var(--arcd-type-body)"}}>{n.tipo.toUpperCase()} {n.numero} · {n.fornecedorNome||"Fornecedor"}</b><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{(data.obras||[]).find(o=>o.id===n.obraId)?.name} · emissão {fmtDate(n.emissao)} · {contar(n.documentos.length,"arquivo","arquivos")} no Drive</p></div><b style={{color:C.yellowD}}>{fmt(n.valorLiquido)}</b></div>{n.conferenciaFiscalPendente&&<p role="status">Conferência fiscal pendente. O pagamento registrado não substitui a revisão do documento.</p>}{n.divergencias?.map((d,i)=><p key={i} style={{fontSize:"var(--arcd-type-caption)",color:C.red,marginTop:"var(--arcd-space-1)"}}>⚠ {d}</p>)}{n.status==="rejeitada"&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.red,marginTop:"var(--arcd-space-1)"}}>Rejeitada por {n.rejeitadoPor||"-"}: {n.motivoRejeicao||"sem motivo registrado"}</p>}<div style={{display:"flex",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-2)",flexWrap:"wrap"}}><Btn size="sm" v="ghost" onClick={()=>setForm({...n,valorBruto:String(n.valorBruto),valorLiquido:String(n.valorLiquido)})}>Verificar</Btn><Btn size="sm" v="ghost" onClick={()=>onMemorial?.({title:`Nota ${n.numero}`,items:[financialEntry(data,{sourceType:"nota_fiscal",sourceId:n.id,obraId:n.obraId,amountCents:Math.round(Number(n.valorLiquido||n.valorBruto||0)*100)})],context:"Documento fiscal e dados vinculados"})}>Ver memorial</Btn>{(n.status==="recebida"||n.conferenciaFiscalPendente)&&<Btn size="sm" v="success" onClick={()=>aprovar(n)}>Concluir conferência fiscal</Btn>}{["recebida","aprovada"].includes(n.status)&&<Btn size="sm" v="danger" onClick={()=>rejeitar(n)}>Rejeitar</Btn>}{n.documentos.map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-caption)",color:C.blue,padding:"var(--arcd-space-1)"}}>{a.legenda||a.nome} ↗</a>)}</div></div>)}{!lista.length&&<p style={{padding:"var(--arcd-space-5)",textAlign:"center",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhuma nota neste estágio.</p>}{form&&<Modal title={form.id?`Conferir nota ${form.numero}`:"Receber documento fiscal"} onClose={invoiceExit.requestClose} wide panelClass="invoice-conference-modal"><InvoiceConference documents={form.documentos||[]} driveId={(data.obras||[]).find(obra=>obra.id===(notas.find(nota=>nota.id===form.id)?.obraId||form.obraId))?.oneDriveDriveId} resolveFile={obterLinkArquivoOneDrive}><div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:"var(--arcd-space-2)"}}><Sel label="Tipo" value={form.tipo} onChange={F("tipo")} options={[{v:"nfe",l:"NF-e de produto"},{v:"nfse",l:"NFS-e de serviço"},{v:"cte",l:"CT-e / frete"},{v:"outro",l:"Outro documento"}]}/><Sel label="Obra *" value={form.obraId} onChange={v=>setForm(f=>({...f,obraId:v,pedidoId:""}))} options={[{v:"",l:"Selecione"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/><Sel label="Pedido relacionado" value={form.pedidoId} onChange={v=>setForm(f=>({...f,pedidoId:v,...(f.itensNota?.length?{itensNota:ligarItensAoPedido(f.itensNota,v)}:{})}))} options={[{v:"",l:"Sem pedido"},...(data.pedidos||[]).filter(p=>p.obraId===form.obraId).map(p=>({v:p.id,l:`${p.numero} · ${fmt(totalPedido(p))}`}))]}/><Inp label="Número *" value={form.numero} onChange={F("numero")}/><Inp label="Série" value={form.serie} onChange={F("serie")}/><Inp label="Chave de acesso" value={form.chave} onChange={F("chave")}/><Inp label="Emissão" type="date" value={form.emissao} onChange={F("emissao")}/><Inp label="Vencimento" type="date" value={form.vencimento} onChange={F("vencimento")}/><Inp label="Fornecedor" value={form.fornecedorNome} onChange={F("fornecedorNome")}/><Sel label="Categoria" value={form.categoria||""} onChange={F("categoria")} options={[{v:"",l:"Não informada"},...categoriasDesp(data),...(form.categoria&&!categoriasDesp(data).some(c=>c.v===form.categoria)?[{v:form.categoria,l:form.categoria}]:[])]}/><Inp label="Valor bruto *" type="number" value={form.valorBruto} onChange={v=>setForm(f=>({...f,valorBruto:v,valorLiquido:String(Math.max(0,Number(v||0)-totalRet(f)))}))}/><Inp label="Retenções" value={fmt(totalRet(form))} onChange={()=>{}} disabled/><Inp label="Valor líquido" type="number" value={form.valorLiquido} onChange={F("valorLiquido")}/></div><div style={{display:"grid",gridTemplateColumns:formGrid(4),gap:"var(--arcd-space-1)"}}>{Object.keys(form.retencoes).map(k=><Inp key={k} label={k.toUpperCase()} type="number" value={form.retencoes[k]} onChange={v=>setRetencao(k,v)}/>)}</div><label style={{padding:"var(--arcd-space-3)",border:`2px solid ${C.green}66`,borderRadius:"var(--arcd-box-radius)",textAlign:"center",cursor:"pointer",color:C.green,fontSize:"var(--arcd-type-label)",fontWeight:600,background:`${C.green}08`}}>Importar XML da NF-e (preenche a nota e confere com o pedido)<input type="file" accept=".xml,text/xml,application/xml" onChange={importarXmlNfe} style={{display:"none"}}/></label>{sugestoesNota.length>1&&<div style={{display:"flex",gap:"var(--arcd-space-1)",flexWrap:"wrap",alignItems:"center"}}><span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Outros pedidos do fornecedor:</span>{sugestoesNota.map(s=><Btn key={s.pedido.id} size="sm" v={form.pedidoId===s.pedido.id?"success":"ghost"} onClick={()=>setForm(f=>({...f,obraId:s.pedido.obraId,pedidoId:s.pedido.id,...(f.itensNota?.length?{itensNota:ligarItensAoPedido(f.itensNota,s.pedido.id)}:{})}))}>{s.pedido.numero} · {fmt(s.total)} · {s.casados} item(ns)</Btn>)}</div>}{form.itensNota?.length>0&&(()=>{const ped=(data.pedidos||[]).find(p=>p.id===form.pedidoId);const nomeItem=i=>(data.materiais||[]).find(m=>m.id===i.materialId)?.descricao||i.descricaoRef||"Item";const usados=new Set(form.itensNota.map(i=>i.pedidoItemId).filter(Boolean));return <div style={{border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-2) var(--arcd-space-2)",background:"var(--arcd-surface-card)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"var(--arcd-text-primary)"}}>Itens da nota × pedido {ped?.numero||""}</p>{form.itensNota.map((it,ix)=>{const itemPed=ped?.itens?.find(x=>x.id===it.pedidoItemId);const divs=it.pedidoItemId?divergenciasDoItem(it,itemPed):[ped?"Sem item correspondente: vincule manualmente.":"Escolha o pedido para conferir."];return <div key={ix} style={{marginTop:"var(--arcd-space-1)",paddingTop:"var(--arcd-space-1)",borderTop:`var(--arcd-border-width) solid var(--arcd-border-subtle)`,display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)",gap:"var(--arcd-space-1)",alignItems:"center"}}><span className="brk" style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}><b>{it.descricao}</b><small style={{display:"block",color:"var(--arcd-text-secondary)"}}>{Number(it.qtd).toLocaleString("pt-BR")} {it.unidade} × {fmt(it.precoUnit)} = {fmt(it.valorTotal)}</small></span><Sel label="Item do pedido" value={it.pedidoItemId||""} onChange={v=>setForm(f=>({...f,itensNota:f.itensNota.map((x,k)=>k===ix?{...x,pedidoItemId:v}:x)}))} options={[{v:"",l:"Sem vínculo"},...(ped?.itens||[]).filter(x=>x.id===it.pedidoItemId||!usados.has(x.id)).map(x=>({v:x.id,l:`${nomeItem(x)} · ${Number(x.qtd).toLocaleString("pt-BR")} × ${fmt(x.precoUnit)}`}))]}/>{divs.map((d,k)=><p key={k} style={{gridColumn:"1/-1",fontSize:"var(--arcd-type-caption)",color:C.red,fontWeight:600}}>⚠ {d}</p>)}</div>;})}{ped&&<p style={{fontSize:"var(--arcd-type-caption)",color:Math.abs(Number(form.valorBruto||0)-totalPedido(ped))>0.01?C.orange:C.green,fontWeight:600,marginTop:"var(--arcd-space-1)"}}>Nota {fmt(Number(form.valorBruto||0))} · pedido {fmt(totalPedido(ped))} · recebido {fmt(recebidoPedido(ped))}. A conferência completa roda ao salvar.</p>}</div>;})()}<label style={{padding:"var(--arcd-space-3)",border:`2px dashed ${C.blue}55`,borderRadius:"var(--arcd-box-radius)",textAlign:"center",cursor:"pointer",color:C.blue,fontSize:"var(--arcd-type-label)",fontWeight:600}}>{subindo?"Enviando e lendo documento...":form.documentos?.length?"+ Anexar outro XML, PDF ou imagem":"Anexar XML, PDF ou imagem da nota"}<input type="file" accept=".xml,.pdf,image/*" onChange={importar} disabled={subindo} style={{display:"none"}}/></label>{form.documentos?.map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-label)",color:C.blue,textDecoration:"underline"}}>{a.legenda||a.nome} · visualizar no OneDrive ↗</a>)}{pedido&&<div style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",background:"var(--arcd-surface-card)",borderRadius:"var(--arcd-box-radius)",fontSize:"var(--arcd-type-label)"}}>Pedido {pedido.numero}: <b>{fmt(totalPedido(pedido))}</b> · recebido: <b>{fmt(recebidoPedido(pedido))}</b></div>}<RecordRecoveryPanel data={data} recovery={invoiceRecovery} draft={form} fields={invoiceRecoveryFields} user={currentUser} onRebase={setForm} onConfirmed={async result=>{await update({__adotarServidorPatch:true,updatedAt:result.updatedAt,sections:{notasFiscais:result.data.notasFiscais,operationalCommandReceipts:result.data.operationalCommandReceipts}});setForm(null);}}/><div style={{display:"flex",gap:"var(--arcd-space-2)"}}><Btn v="ghost" disabled={invoiceCommandPending} onClick={invoiceExit.requestClose} full>Cancelar</Btn><Btn onClick={salvar} disabled={invoiceCommandPending} loading={invoiceCommandPending&&"Salvando…"} full>Salvar e conferir</Btn></div></div></InvoiceConference></Modal>}{form&&<UnsavedChangesPrompt guard={invoiceExit}/>}{xmlPreview&&<Modal title="Prévia da importação XML" wide onClose={()=>setXmlPreview(null)}><FinancialPreview
       description={`${xmlPreview.filename}. Aplicar preenche a ficha aberta; não salva nem cria uma nota fiscal.`}
       columns={["Campo","Na ficha","Do XML / proposta"]}
       rows={[["Número","numero"],["Série","serie"],["Chave","chave"],["Fornecedor","fornecedorNome"],["CNPJ / CPF","documentoFornecedor"],["Emissão","emissao"],["Vencimento","vencimento"],["Valor bruto","valorBruto"],["Valor líquido após retenções","valorLiquido"],["Pedido","pedidoId"]].map(([label,key])=>({id:key,cells:[label,xmlPreviewValue(key,xmlPreview.before[key]),xmlPreviewValue(key,xmlPreview.proposed[key])]}))}
@@ -4267,7 +4128,7 @@ function FinanceiroAdministrativo({data,update,showToast,currentUser,C=C_ARCD_SE
       <div style={{display:"grid",gridTemplateColumns:cols("1fr","1fr","1.1fr .9fr"),gap:"var(--arcd-space-2)"}}><div style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>Composição do período</p>{[["Faturamento",faturamento,C.green],["Recebido",recebido,C.blue],["Custos",custos,C.red],["Resultado",Math.abs(resultado),(resultado>0?C.green:resultado<0?C.red:C.muted)]].map(([l,v,c])=><div key={l} style={{marginTop:"var(--arcd-space-3)"}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",fontSize:"var(--arcd-type-caption)"}}><span style={{fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{l}</span><b style={{color:c}}>{l==="Resultado"&&resultado<0?"- ":""}{fmt(v)}</b></div><div style={{height:7,borderRadius:"var(--arcd-radius-pill)",background:"var(--arcd-surface-muted)",overflow:"hidden",marginTop:"var(--arcd-space-1)"}}><i style={{display:"block",height:"100%",width:`${Math.max(2,v/maiorGrafico*100)}%`,background:c,borderRadius:"var(--arcd-radius-pill)"}}/></div></div>)}</div><div style={{background:`linear-gradient(145deg,${(resultado>0?C.green:resultado<0?C.red:C.muted)}12,var(--arcd-surface-card))`,border:`var(--arcd-border-width) solid ${resultado>=0?"var(--arcd-success-text)":"var(--arcd-danger-text)"}55`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-3)",display:"flex",flexDirection:"column",justifyContent:"center"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Resultado gerencial</p><p style={{fontSize:"clamp(25px,5vw,40px)",fontWeight:"var(--arcd-font-weight-semibold)",color:resultado>=0?"var(--arcd-success-text)":"var(--arcd-danger-text)",marginTop:"var(--arcd-space-1)"}}>{fmt(resultado)}</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>{faturamento?`${pct1(resultado/faturamento*100)} de margem no período`:"Sem faturamento no período"}</p></div></div>
       <div style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)",overflowX:"auto"}}><table className="arcd-data-table__table" style={{width:"100%",minWidth:720,borderCollapse:"collapse"}}><thead><tr style={{background:"var(--arcd-surface-muted)"}}>{["Obra","Faturado","Recebido","Custos","Resultado","A receber","Margem"].map(h=><th key={h} style={{padding:"var(--arcd-space-2)",textAlign:h==="Obra"?"left":"right",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}>{h}</th>)}</tr></thead><tbody>{linhasObra.map(l=>{const res=l.faturamento-l.totalCustos;return <tr key={l.obra.id} onClick={()=>setObraId(l.obra.id)} style={{borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)",cursor:"pointer"}}><td style={{padding:"var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{l.obra.name}</td>{[l.faturamento,l.recebido,l.totalCustos,res,l.aReceber].map((v,i)=><td key={i} style={{padding:"var(--arcd-space-2)",textAlign:"right",fontWeight:i===3?600:600,color:i===3?(v>=0?"var(--arcd-success-text)":"var(--arcd-danger-text)"):"var(--arcd-text-primary)"}}>{fmt(v)}</td>)}<td style={{padding:"var(--arcd-space-2)",textAlign:"right",fontWeight:"var(--arcd-font-weight-semibold)",color:res>=0?"var(--arcd-success-text)":"var(--arcd-danger-text)"}}>{l.faturamento?`${pct1(res/l.faturamento*100)}`:"-"}</td></tr>})}</tbody></table></div>
     </>}
-    {aba==="documentos"&&<><div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:"var(--arcd-space-2)",alignItems:"end"}}><Inp label="Pesquisar nota, fornecedor, obra ou arquivo" value={buscaDoc} onChange={setBuscaDoc} placeholder="Ex.: B2-04, energia, fornecedor..."/><StandardButton variant="secondary" onClick={()=>setDocPeriodo(v=>v==="periodo"?"todos":"periodo")} style={{cursor:"pointer"}}>{docPeriodo==="periodo"?`${fullMonth(mes)} ${ano}`:"Todo o histórico"}</StandardButton></div><div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>{documentos.map(item=>{const cor=statusCor(item.status);return <div key={item.id} style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderLeft:`var(--arcd-border-width) solid ${item.url?"var(--arcd-action-primary)":"var(--arcd-warning-text)"}`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}><div style={{minWidth:0,flex:1}}><div style={{display:"flex",gap:"var(--arcd-space-1)",alignItems:"center",flexWrap:"wrap"}}><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textTransform:"uppercase"}}>{item.tipo}</span><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:cor,background:`${cor}12`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-half) var(--arcd-space-1)"}}>{item.status||"cadastrado"}</span></div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.referencia} · {item.nome}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{obraNome(item.obraId)}{item.fornecedor?` · ${item.fornecedor}`:""}{item.data?` · ${fmtDate(item.data)}`:""}{item.valor?` · ${fmt(item.valor)}`:""}</p></div>{item.url?<CompanyAssetLink href={item.url} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",gap:"var(--arcd-space-1)",border:"var(--arcd-border-width) solid var(--arcd-action-primary)",background:"color-mix(in srgb, var(--arcd-action-primary) 5%, transparent)",color:"var(--arcd-action-primary)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-1) var(--arcd-space-2)",fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",textDecoration:"none"}}><Ic n="file" s={12}/> Visualizar</CompanyAssetLink>:<span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-warning-text)",fontWeight:"var(--arcd-font-weight-semibold)"}}>SEM ANEXO</span>}</div>})}{!documentos.length&&<div style={{padding:"var(--arcd-space-6)",textAlign:"center",border:"var(--arcd-border-width) dashed var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)"}}>Nenhuma nota ou documento encontrado com os filtros escolhidos.</div>}</div></>}
+    {aba==="documentos"&&<><div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:"var(--arcd-space-2)",alignItems:"end"}}><Inp label="Pesquisar nota, fornecedor, obra ou arquivo" value={buscaDoc} onChange={setBuscaDoc} placeholder="Ex.: B2-04, energia, fornecedor..."/><StandardButton variant="secondary" onClick={()=>setDocPeriodo(v=>v==="periodo"?"todos":"periodo")} aria-pressed={docPeriodo==="periodo"}>{docPeriodo==="periodo"?`${fullMonth(mes)} ${ano}`:"Todo o histórico"}</StandardButton></div><div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>{documentos.map(item=>{const cor=statusCor(item.status);return <div key={item.id} style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderLeft:`var(--arcd-border-width) solid ${item.url?"var(--arcd-action-primary)":"var(--arcd-warning-text)"}`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}><div style={{minWidth:0,flex:1}}><div style={{display:"flex",gap:"var(--arcd-space-1)",alignItems:"center",flexWrap:"wrap"}}><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textTransform:"uppercase"}}>{item.tipo}</span><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:cor,background:`${cor}12`,borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-half) var(--arcd-space-1)"}}>{item.status||"cadastrado"}</span></div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.referencia} · {item.nome}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{obraNome(item.obraId)}{item.fornecedor?` · ${item.fornecedor}`:""}{item.data?` · ${fmtDate(item.data)}`:""}{item.valor?` · ${fmt(item.valor)}`:""}</p></div>{item.url?<a href={item.url} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",gap:"var(--arcd-space-1)",border:"var(--arcd-border-width) solid var(--arcd-action-primary)",background:"color-mix(in srgb, var(--arcd-action-primary) 5%, transparent)",color:"var(--arcd-action-primary)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-1) var(--arcd-space-2)",fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",textDecoration:"none"}}><Ic n="file" s={12}/> Visualizar</a>:<span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-warning-text)",fontWeight:"var(--arcd-font-weight-semibold)"}}>SEM ANEXO</span>}</div>})}{!documentos.length&&<div style={{padding:"var(--arcd-space-6)",textAlign:"center",border:"var(--arcd-border-width) dashed var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)"}}>Nenhuma nota ou documento encontrado com os filtros escolhidos.</div>}</div></>}
     <ModalLegendaDocumento anexo={anexoMov} setAnexo={setAnexoMov} onClose={()=>!subindoAnexoMov&&setAnexoMov(null)} onSalvar={salvarDocumentoMovimento} salvando={subindoAnexoMov} titulo="Anexar documento à movimentação" C={C}/>
   </div>;
 }
@@ -4489,9 +4350,11 @@ function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatch
   const abrirFiscal=useCallback(()=>{setAbrirCadastroFiscal(false);setAreaFinanceira("fiscal");},[]);
   const confirmarAberturaFiscal=useCallback(()=>setAbrirCadastroFiscal(false),[]);
   useEffect(()=>{
-    if(intent?.tabId!=="fin"||intent.action!=="review-purchase-invoice"||!['admin','financeiro'].includes(currentUser?.role)||!podeAcessarAba(currentUser,'fin'))return;
+    if(intent?.tabId!=="fin"||!["review-purchase-invoice","review-purchase-payments"].includes(intent.action)||!['admin','financeiro'].includes(currentUser?.role)||!podeAcessarAba(currentUser,'fin'))return;
     const invoice=(data.notasFiscais||[]).find(n=>String(n.id)===String(intent.record?.invoiceId)&&String(n.obraId)===String(intent.scope?.obraId)&&(!currentUser.obraId||String(n.obraId)===String(currentUser.obraId))&&!n.deletedAt&&n.ativo!==false&&!['cancelada','cancelado','estornada','estornado'].includes(n.status));
-    if(invoice&&financeNextAction(data,{sourceType:'nota_fiscal',sourceId:invoice.id,obraId:invoice.obraId},currentUser)){setNotaParaConferir(invoice.id);setAbrirCadastroFiscal(false);setAreaFinanceira('fiscal');}
+    if(!invoice||!financeNextAction(data,{sourceType:'nota_fiscal',sourceId:invoice.id,obraId:invoice.obraId},currentUser))return;
+    if(intent.action==="review-purchase-payments"){openInvoicePayments(invoice.id);return;}
+    setNotaParaConferir(invoice.id);setAbrirCadastroFiscal(false);setAreaFinanceira('fiscal');
   },[intent?.sequence]);
   const now = new Date();
   const [year,  setYear]  = useSessionState("year",now.getFullYear());
@@ -4720,7 +4583,7 @@ function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatch
         const commitColor = r.commitment!=null&&r.commitment>100 ? C.red : r.commitment!=null&&r.commitment>80 ? C.orange : C.green;
         return (
           <div key={r.id} style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)",overflow:"hidden"}}>
-            <StandardButton variant="secondary" onClick={()=>setExpanded(exp?null:r.id)} style={{width:"100%",cursor:"pointer"}}>
+            <RecordAction layout="row" aria-expanded={exp} onClick={()=>setExpanded(exp?null:r.id)}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-2)"}}>
                 <div style={{flex:1}}>
                   <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:"var(--arcd-font-weight-semibold)",fontSize:"var(--arcd-type-section-title)",letterSpacing:"var(--arcd-letter-spacing-body)"}}>{r.name}</p>
@@ -4796,7 +4659,7 @@ function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatch
                   </div>
                 );
               })()}
-            </StandardButton>
+            </RecordAction>
 
             {exp && (
               <div style={{borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)",padding:"var(--arcd-space-3) var(--arcd-space-4)",background:"var(--arcd-surface-muted)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
@@ -4875,903 +4738,8 @@ function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatch
   );
 }
 
-//
-// Obras
-//
-
-const clienteContratualVazio = () => ({id:"",leadId:"",nome:"",tipoPessoa:"PF",documento:"",rg:"",orgaoExpedidor:"",dataNascimento:"",nacionalidade:"Brasileira",estadoCivil:"",regimeBens:"",profissao:"",conjugeNome:"",conjugeCpf:"",telefone:"",whatsapp:"",email:"",cep:"",endereco:"",numero:"",complemento:"",bairro:"",cidade:"",uf:"PE",razaoSocial:"",nomeFantasia:"",inscricaoEstadual:"",inscricaoMunicipal:"",representanteNome:"",representanteCpf:"",representanteRg:"",representanteOrgaoExpedidor:"",representanteCargo:"",representanteNacionalidade:"Brasileira",representanteEstadoCivil:"",representanteProfissao:"",observacoes:""});
-
-function ClienteContratualModal({form,setForm,onClose,onSave,formGrid}){
-  const F=k=>v=>setForm(f=>({...f,[k]:v}));
-  const civis=["Solteiro(a)","Casado(a)","União estável","Divorciado(a)","Separado(a)","Viúvo(a)"];
-  return <Modal title={form.id?"Editar cliente":"Novo cliente contratual"} onClose={onClose} wide><div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
-    <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:"var(--arcd-space-2)"}}><Sel label="Tipo de pessoa *" value={form.tipoPessoa} onChange={v=>setForm(f=>({...f,tipoPessoa:v,documento:""}))} options={[{v:"PF",l:"Pessoa física"},{v:"PJ",l:"Pessoa jurídica"}]}/><Inp label={form.tipoPessoa==="PJ"?"Nome para identificação *":"Nome completo *"} value={form.nome} onChange={F("nome")}/><Inp label={`${form.tipoPessoa==="PJ"?"CNPJ":"CPF"} *`} value={maskDoc(form.documento,form.tipoPessoa)} onChange={v=>F("documento")(soDigitos(v))}/></div>
-    {form.tipoPessoa==="PF"?<><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textTransform:"uppercase"}}>Qualificação pessoal</p><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:"var(--arcd-space-2)"}}><Inp label="RG / identidade *" value={form.rg} onChange={F("rg")}/><Inp label="Órgão expedidor / UF *" value={form.orgaoExpedidor} onChange={F("orgaoExpedidor")}/><Inp label="Data de nascimento" type="date" value={form.dataNascimento} onChange={F("dataNascimento")}/><Inp label="Nacionalidade *" value={form.nacionalidade} onChange={F("nacionalidade")}/><Sel label="Estado civil *" value={form.estadoCivil} onChange={F("estadoCivil")} options={[{v:"",l:"Selecione"},...civis.map(v=>({v,l:v}))]}/><Inp label="Regime de bens" value={form.regimeBens} onChange={F("regimeBens")}/><Inp label="Profissão *" value={form.profissao} onChange={F("profissao")}/></div>{["Casado(a)","União estável"].includes(form.estadoCivil)&&<div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}><Inp label="Nome do cônjuge/companheiro" value={form.conjugeNome} onChange={F("conjugeNome")}/><Inp label="CPF do cônjuge/companheiro" value={maskDoc(form.conjugeCpf,"PF")} onChange={v=>F("conjugeCpf")(soDigitos(v))}/></div>}</>:<><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textTransform:"uppercase"}}>Empresa e representante legal</p><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:"var(--arcd-space-2)"}}><Inp label="Razão social *" value={form.razaoSocial} onChange={F("razaoSocial")}/><Inp label="Nome fantasia" value={form.nomeFantasia} onChange={F("nomeFantasia")}/><Inp label="Inscrição estadual" value={form.inscricaoEstadual} onChange={F("inscricaoEstadual")}/><Inp label="Inscrição municipal" value={form.inscricaoMunicipal} onChange={F("inscricaoMunicipal")}/><Inp label="Representante legal *" value={form.representanteNome} onChange={F("representanteNome")}/><Inp label="CPF do representante *" value={maskDoc(form.representanteCpf,"PF")} onChange={v=>F("representanteCpf")(soDigitos(v))}/><Inp label="RG / órgão expedidor" value={`${form.representanteRg}${form.representanteOrgaoExpedidor?` · ${form.representanteOrgaoExpedidor}`:""}`} onChange={F("representanteRg")}/><Inp label="Cargo / poderes *" value={form.representanteCargo} onChange={F("representanteCargo")}/><Inp label="Nacionalidade" value={form.representanteNacionalidade} onChange={F("representanteNacionalidade")}/><Sel label="Estado civil" value={form.representanteEstadoCivil} onChange={F("representanteEstadoCivil")} options={[{v:"",l:"Selecione"},...civis.map(v=>({v,l:v}))]}/><Inp label="Profissão" value={form.representanteProfissao} onChange={F("representanteProfissao")}/></div></>}
-    <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textTransform:"uppercase"}}>Contato e domicílio contratual</p><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:"var(--arcd-space-2)"}}><Inp label="Telefone *" value={form.telefone} onChange={F("telefone")}/><Inp label="WhatsApp" value={form.whatsapp} onChange={F("whatsapp")}/><Inp label="E-mail *" type="email" value={form.email} onChange={F("email")}/><Inp label="CEP *" value={form.cep} onChange={F("cep")}/><Inp label="Logradouro *" value={form.endereco} onChange={F("endereco")}/><Inp label="Número *" value={form.numero} onChange={F("numero")}/><Inp label="Complemento" value={form.complemento} onChange={F("complemento")}/><Inp label="Bairro *" value={form.bairro} onChange={F("bairro")}/><Inp label="Cidade *" value={form.cidade} onChange={F("cidade")}/><Inp label="UF *" value={form.uf} onChange={v=>F("uf")(v.toUpperCase().slice(0,2))}/></div><Inp label="Observações contratuais" value={form.observacoes} onChange={F("observacoes")} multiline/>
-    <div style={{display:"flex",gap:"var(--arcd-space-2)"}}><Btn v="ghost" onClick={onClose} full>Cancelar</Btn><Btn onClick={onSave} full><Ic n="check"/> Salvar cliente</Btn></div>
-  </div></Modal>;
-}
-
-function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchCommand }) {
-  const { formGrid, cols, isDesktop } = useBreakpoint();
-  const empty = { id: "", name: "", clienteId:"", cliente: "", address: "", condominioId:"", condominioNome:"", quadra:"", lote:"", engineer: "", engineerId: "", startDate: "", faseId: "", status: "active", areaM2: "", oneDriveUrl: "", contractType: "fixed_labor", contractValue: "", adminPercentage: "", billingType: "mensal_fixo", parcelaMensal: "", contractStart: "", contractEnd: "", totalParcelas: "", billingFrequency: "mensal", diaVenc1: String(DIA_VENC_1_PADRAO), diaVenc2: String(DIA_VENC_2_PADRAO), entrada: "", entradaDate: "", hasCaixa: false };
-  const [modal, setModal] = useState(false);
-  const [form, setForm] = useState(empty);
-  const [clienteModal,setClienteModal]=useState(null);
-  const [search, setSearch] = useWorkspaceState("obras","search","");
-  const [oneDriveStatus, setOneDriveStatus] = useState("checking");
-  const [sincronizandoPastas,setSincronizandoPastas]=useState(false);
-  const [erroPastas,setErroPastas]=useState("");
-  const [savingProject,setSavingProject]=useState(false);
-  const [projectErrors,setProjectErrors]=useState({});
-  const [reviewingProject,setReviewingProject]=useState(false);
-  const [undoMove,setUndoMove]=useState(null);
-  const [expandedAlerts,setExpandedAlerts]=useState(new Set());
-  const ehAdmin=currentUser?.role==="admin";
-  const engenheiros=(data.usuarios||[]).filter(u=>u.active!==false&&u.role==="engenheiro");
-  const clientes=data.comercial?.clientes||[];
-  const condominios=(data.condominios||[]).filter(x=>x.ativo!==false);
-  useEffect(()=>{
-    const id=sessionContext.getItem("arcd_editar_obra");if(!id)return;
-    sessionContext.removeItem("arcd_editar_obra");const obra=(data.obras||[]).find(o=>o.id===id);if(!obra)return;
-    setForm({...obra,areaM2:String(obra.areaM2||""),diaVenc1:String(obra.diaVenc1||DIA_VENC_1_PADRAO),diaVenc2:String(obra.diaVenc2||DIA_VENC_2_PADRAO)});setModal(true);
-  },[data.obras]);
-  const salvarClienteDaObra=async()=>{
-    const f=clienteModal;if(!f?.nome?.trim()||!f.documento||!f.telefone||!f.email||!f.endereco||!f.numero||!f.cidade||!f.uf){showToast("Preencha nome, documento, contato e endereço contratual.","error");return;}
-    const cliente={...clienteContratualVazio(),...f,id:f.id||uid(),nome:f.nome.trim(),createdAt:f.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()};
-    const lista=f.id?clientes.map(c=>c.id===f.id?cliente:c):[...clientes,cliente];
-    const result=await update({...data,comercial:{...(data.comercial||{}),clientes:lista}});
-    if(!result?.ok){
-      showToast("O servidor não confirmou o cliente. Os dados continuam abertos para uma nova tentativa.","error");
-      return;
-    }
-    setForm(x=>({...x,clienteId:cliente.id,cliente:cliente.tipoPessoa==="PJ"?(cliente.razaoSocial||cliente.nome):cliente.nome}));
-    setClienteModal(null);showToast("Cliente cadastrado e vinculado à obra.");
-  };
-  useEffect(()=>{
-    if(!ehAdmin){setOneDriveStatus("restricted");return;}
-    statusOneDrive().then(r=>setOneDriveStatus(r.ok?"connected":"disconnected"));
-  },[ehAdmin]);
-  const sincronizarPastas=useCallback(async()=>{
-    if(!ehAdmin||oneDriveStatus!=="connected"||sincronizandoPastas)return;
-    const candidatas=(data.obras||[]).filter(o=>o.name);
-    if(!candidatas.length){showToast("Nenhuma obra disponível para preparar pastas.");return;}
-    setSincronizandoPastas(true);setErroPastas("");
-    try{
-      const resp=await sincronizarEstruturasOneDrive(candidatas.map(o=>({id:o.id,name:o.name,driveId:o.oneDriveDriveId||"",folderId:o.oneDriveFolderId||""})));
-      const resultados=Array.isArray(resp.resultados)?resp.resultados:[];
-      if(!resultados.length)throw new Error(resp.error||"O OneDrive não retornou a estrutura das obras.");
-      const porId=new Map(resultados.map(r=>[r.id,r]));
-      const agora=new Date().toISOString();
-      const aplicarPastas=o=>{
-        const r=porId.get(o.id);if(!r?.ok||!r.workspace)return o;
-        const completa=Number(r.migracao?.conflitos||0)===0;
-        return {...o,oneDriveDriveId:r.workspace.driveId||o.oneDriveDriveId,oneDriveFolderId:r.workspace.folderId||o.oneDriveFolderId,oneDriveFolders:r.workspace.folders||o.oneDriveFolders,oneDriveUrl:r.workspace.webUrl||o.oneDriveUrl,oneDriveStructureVersion:completa?2:1,oneDriveStructureSyncedAt:agora};
-      };
-      if(resultados.some(r=>r.ok&&r.workspace)){
-        const saved=await update(current=>({...current,obras:(current.obras||[]).map(aplicarPastas)}));
-        if(!saved?.ok)throw new Error("As pastas foram processadas no OneDrive. Confira o salvamento para registrar os vínculos na central.");
-      }
-      const preparadas=resultados.filter(r=>r.ok).length;
-      const movidos=resultados.reduce((s,r)=>s+Number(r.migracao?.movidos||0),0);
-      const conflitos=resultados.reduce((s,r)=>s+Number(r.migracao?.conflitos||0),0);
-      const falhas=resultados.length-preparadas;
-      if(falhas||conflitos)showToast(`${contar(preparadas,"obra preparada","obras preparadas")}. ${movidos} item(ns) de licenciamento migrado(s). ${contar(falhas+conflitos,"pendência","pendências")} exigem nova tentativa.`,"error");
-      else showToast(`${contar(preparadas,"obra preparada","obras preparadas")} no OneDrive${movidos?` e ${movidos} item(ns) de licenciamento migrado(s)`:""}.`);
-    }catch(e){setErroPastas(e.message||"Não foi possível preparar as pastas das obras.");}
-    finally{setSincronizandoPastas(false);}
-  },[data,ehAdmin,oneDriveStatus,showToast,sincronizandoPastas,update]);
-
-  //  Kanban
-  const [vista,      setVista]      = useState("lista");   // "lista" | "quadro"
-  const [faseModal,  setFaseModal]  = useState(null);      // {modo:"nova"|"editar", fase}
-  const [faseNome,   setFaseNome]   = useState("");
-  const [faseCor,    setFaseCor]    = useState(CORES_FASE[0]);
-  const [arrastando, setArrastando] = useState(null);      // id da obra em arraste
-  const [sobreFase,  setSobreFase]  = useState(null);      // id da coluna sob o cursor
-  const [menuCard,   setMenuCard]   = useState(null);      // id da obra c/ menu aberto
-  const [categoria,  setCategoria]  = useWorkspaceState("obras","category","todas");
-
-  const fases = useMemo(
-    () => [...(data.fases || [])].sort((a, b) => a.ordem - b.ordem),
-    [data.fases]
-  );
-
-  // Obras agrupadas por fase. Quem não tem fase (ou aponta pra uma fase
-  // apagada) cai na primeira coluna - nenhuma obra some do quadro.
-  const porFase = useMemo(() => {
-    const idsValidos = new Set(fases.map(f => f.id));
-    const primeira = fases[0]?.id || "";
-    const mapa = {};
-    fases.forEach(f => { mapa[f.id] = []; });
-    (data.obras || []).forEach(o => {
-      const alvo = idsValidos.has(o.faseId) ? o.faseId : primeira;
-      if (mapa[alvo]) mapa[alvo].push(o);
-    });
-    // Ordena cada coluna pela data de finalizacao prevista (contractEnd).
-    // Obras sem data prevista vao para o fim da coluna.
-    Object.keys(mapa).forEach(k => {
-      mapa[k].sort((a, b) => {
-        const fa = a.contractEnd || "9999-12-31";
-        const fb = b.contractEnd || "9999-12-31";
-        return fa.localeCompare(fb);
-      });
-    });
-    return mapa;
-  }, [data.obras, fases]);
-
-  // Total efetivamente renderizado no quadro. Se divergir de data.obras.length,
-  // alguma obra ficou de fora - e o resumo acusa em vermelho.
-  const somaQuadro = useMemo(
-    () => Object.values(porFase).reduce((s, arr) => s + arr.length, 0),
-    [porFase]
-  );
-
-  const moverObra = async (obraId, faseId) => {
-    const obra = (data.obras || []).find(o => o.id === obraId);
-    if (!obra || obra.faseId === faseId) return;
-    const fase = fases.find(f => f.id === faseId);
-    const anterior=obra.faseId||"";
-    const result=await dispatchCommand(atual=>{const vigente=(atual.obras||[]).find(o=>o.id===obraId);return {type:OPERATIONAL_COMMAND.PROJECT_SAVED,idempotencyKey:`obra-mover-${obraId}-${uid()}`,expectedVersion:Number(vigente?.version||0),payload:{project:{...vigente,faseId}}};});
-    if(!result?.ok){showToast(result?.reason||"Não foi possível mover a obra.","error");return;}
-    setUndoMove({obraId,obraName:obra.name,from:anterior,to:faseId});
-    setMenuCard(null);
-    showToast(`"${obra.name}" movida para ${fase?.nome || "-"}.`);
-  };
-
-  const desfazerMovimento=async()=>{
-    if(!undoMove)return;
-    const movimento=undoMove;setUndoMove(null);
-    const result=await dispatchCommand(atual=>{const vigente=(atual.obras||[]).find(o=>o.id===movimento.obraId);return {type:OPERATIONAL_COMMAND.PROJECT_SAVED,idempotencyKey:`obra-desfazer-${movimento.obraId}-${uid()}`,expectedVersion:Number(vigente?.version||0),payload:{project:{...vigente,faseId:movimento.from}}};});
-    if(!result?.ok){showToast(result?.reason||"Não foi possível desfazer o movimento.","error");return;}
-    showToast(`Movimento de "${movimento.obraName}" desfeito.`);
-  };
-
-  const salvarFases=async next=>{
-    const result=await dispatchCommand({type:OPERATIONAL_COMMAND.PROJECT_PHASES_SAVED,idempotencyKey:`fases-obras-${uid()}`,expectedVersion:Number(data.fasesVersion||0),payload:{phases:next}});
-    if(!result?.ok){showToast(result?.reason||"Não foi possível salvar as fases.","error");return false;}
-    return true;
-  };
-
-  //  Fases: criar / renomear / excluir / reordenar
-  const abrirNovaFase = () => {
-    setFaseModal({ modo: "nova", fase: null });
-    setFaseNome("");
-    setFaseCor(CORES_FASE[fases.length % CORES_FASE.length]);
-  };
-  const abrirEditarFase = (fase) => {
-    setFaseModal({ modo: "editar", fase });
-    setFaseNome(fase.nome);
-    setFaseCor(fase.cor);
-  };
-
-  const salvarFase = async () => {
-    if (!faseNome.trim()) { showToast("Informe o nome da fase.", "error"); return; }
-    const { modo, fase } = faseModal;
-    if (modo === "editar") {
-      if(!await salvarFases(fases.map(f =>f.id === fase.id ? { ...f, nome: faseNome.trim(), cor: faseCor } : f)))return;
-      showToast("Fase atualizada.");
-    } else {
-      const ordem = fases.length ? Math.max(...fases.map(f => f.ordem)) + 1 : 0;
-      if(!await salvarFases([...fases,{ id: uid(), nome: faseNome.trim(), cor: faseCor, ordem }]))return;
-      showToast("Fase criada.");
-    }
-    setFaseModal(null); setFaseNome("");
-  };
-
-  const excluirFase = async (fase) => {
-    if (fases.length <= 1) { showToast("O quadro precisa de ao menos uma fase.", "error"); return; }
-    const dentro = (porFase[fase.id] || []).length;
-    const destino = fases.find(f => f.id !== fase.id);
-    const aviso = dentro
-      ? `Excluir "${fase.nome}"?\n\nAs ${contar(dentro,"obra","obras")} desta coluna vão para "${destino.nome}". Nenhuma obra é apagada.`
-      : `Excluir a fase "${fase.nome}"?`;
-    if (!window.confirm(aviso)) return;
-    if(!await salvarFases(fases.filter(f => f.id !== fase.id)))return;
-    showToast("Fase removida.");
-  };
-
-  const moverFase = async (faseId, dir) => {
-    const i = fases.findIndex(f => f.id === faseId);
-    const j = i + dir;
-    if (i < 0 || j < 0 || j >= fases.length) return;
-    const nova = [...fases];
-    [nova[i], nova[j]] = [nova[j], nova[i]];
-    if(await salvarFases(nova.map((f, k) => ({ ...f, ordem: k }))))showToast("Ordem das fases atualizada.");
-  };
-
-
-  const setField = key => value => {setForm(f => ({ ...f, [key]: value }));setProjectErrors(errors=>{if(!errors[key])return errors;const next={...errors};delete next[key];return next;});setReviewingProject(false);};
-
-  const abrirEditorObra=(obra=empty)=>{setForm(obra.id?{...obra,areaM2:String(obra.areaM2||""),diaVenc1:String(obra.diaVenc1||DIA_VENC_1_PADRAO),diaVenc2:String(obra.diaVenc2||DIA_VENC_2_PADRAO)}:{...empty});setProjectErrors({});setReviewingProject(false);setModal(true);};
-
-  const abrirOneDrive = (url) => {
-    if(!ehAdmin){showToast("Apenas administradores podem acessar os diretórios do OneDrive.","error");return;}
-    try {
-      const destino = new URL(String(url || "").trim());
-      if (destino.protocol !== "https:") throw new Error("protocolo");
-      window.open(destino.toString(), "_blank", "noopener,noreferrer");
-    } catch (_) {
-      showToast("Link do OneDrive inválido. Use um endereço iniciado por https://", "error");
-    }
-  };
-
-  const save = async () => {
-    const areaM2 = Number(form.areaM2 || 0);
-    const errors=validateProjectForm(form);
-
-    if (ehAdmin && form.oneDriveUrl) {
-      try {
-        const link = new URL(form.oneDriveUrl.trim());
-        if (link.protocol !== "https:") throw new Error("protocolo");
-      } catch (_) {
-        errors.oneDriveUrl="Informe um link válido do OneDrive iniciado por https://";
-      }
-    }
-    if(Object.keys(errors).length){setProjectErrors(errors);setReviewingProject(false);showToast(`Revise ${contar(Object.keys(errors).length,"campo destacado","campos destacados")}.`,"error");return;}
-    if(!reviewingProject){setReviewingProject(true);return;}
-    if(savingProject)return;
-    setSavingProject(true);
-    try{
-      let payload = {
-      ...form,
-      id: form.id || uid(),
-      cliente: clientes.find(c=>c.id===form.clienteId)?.nome || form.cliente || "",
-      condominioNome: condominios.find(c=>c.id===form.condominioId)?.nome || "",
-      quadra: String(form.quadra||"").trim(),
-      lote: String(form.lote||"").trim(),
-      engineerId: engenheiros.some(u=>u.id===form.engineerId) ? form.engineerId : "",
-      engineer: engenheiros.find(u=>u.id===form.engineerId)?.nome || "",
-      areaM2,
-      oneDriveUrl: String(form.oneDriveUrl || "").trim(),
-      contractValue: Number(form.contractValue || 0),
-      adminPercentage: Number(form.adminPercentage || 0),
-      parcelaMensal:     Number(form.parcelaMensal     || 0),
-      contractStart:     form.contractStart     || "",
-      contractEnd:       form.contractEnd       || "",
-      totalParcelas:     Number(form.totalParcelas     || 0),
-      billingFrequency:  form.billingFrequency  || "mensal",
-      diaVenc1:          Number(form.diaVenc1 || DIA_VENC_1_PADRAO),
-      diaVenc2:          Number(form.diaVenc2 || DIA_VENC_2_PADRAO),
-      entrada:           Number(form.entrada    || 0),
-      entradaDate:       form.entradaDate       || "",
-      hasCaixa:          !!form.hasCaixa,
-      // Obra nova sem fase escolhida entra na primeira coluna do quadro
-      faseId:            form.faseId || fases[0]?.id || "",
-    };
-
-    // No primeiro cadastro, cria a pasta da obra e a estrutura padrao. Se a
-    // conta ainda nao estiver conectada, preserva o cadastro e mostra o passo
-    // necessario, sem voltar a usar o Supabase Storage.
-    // Nunca bloqueia a edição de uma obra antiga tentando criar estrutura no
-    // OneDrive. Essa integração só pertence ao primeiro cadastro; antes, toda
-    // edição sem folderId aguardava uma chamada externa e fazia o modal parecer
-    // travado mesmo quando o usuário alterava apenas um campo simples.
-    if (ehAdmin && !form.id && !payload.oneDriveFolderId && oneDriveStatus === "connected") {
-      const ws = await criarEstruturaOneDrive(payload.name);
-      if (ws.ok) payload = {...payload,oneDriveDriveId:ws.driveId,oneDriveFolderId:ws.folderId,oneDriveFolders:ws.folders||{},oneDriveUrl:ws.webUrl||payload.oneDriveUrl,oneDriveStructureVersion:2,oneDriveStructureSyncedAt:new Date().toISOString()};
-      else showToast(`A obra será salva sem pasta no OneDrive: ${ws.error||"falha na conexão"}`, "error");
-    }
-
-      if(!dispatchCommand){
-        showToast("O comando transacional de obras não está disponível.","error");
-        return;
-      }
-      const result=await dispatchCommand(atual=>{
-        const vigente=(atual.obras||[]).find(o=>o.id===payload.id);
-        return {
-          type:OPERATIONAL_COMMAND.PROJECT_SAVED,
-          idempotencyKey:`obra-salvar-${payload.id}-${uid()}`,
-          expectedVersion:Number(vigente?.version||0),
-          payload:{project:payload},
-        };
-      });
-      if(!result.ok){
-        showToast(result.reason||"Não foi possível salvar a obra.","error");
-        return;
-      }
-      setModal(false);setReviewingProject(false);
-      showToast(form.id ? "Obra atualizada." : "Obra cadastrada.");
-    }catch(error){
-      showToast(error?.message||"A obra não pôde ser salva. Seus dados continuam no formulário para uma nova tentativa.","error");
-    }finally{
-      setSavingProject(false);
-    }
-  };
-
-  const remove = async id => {
-    if (!ehAdmin) {
-      showToast("Somente o administrador pode excluir uma obra.", "error");
-      return;
-    }
-    if (data.employees.some(e => e.obra === id || e.lastObra === id)) {
-      showToast("Não é possível apagar obra com histórico de funcionários.", "error");
-      return;
-    }
-    const obra=(data.obras||[]).find(item=>item.id===id);
-    if (!window.confirm(`Remover definitivamente “${obra?.name||"esta obra"}”?\n\nA exclusão só será concluída se não existir histórico operacional ou financeiro vinculado.`)) return;
-    if(!dispatchCommand){
-      showToast("O comando transacional de obras não está disponível.","error");
-      return;
-    }
-    const result=await dispatchCommand(atual=>{
-      const vigente=(atual.obras||[]).find(o=>o.id===id);
-      return {
-        type:OPERATIONAL_COMMAND.PROJECT_DELETED,
-        idempotencyKey:`obra-excluir-${id}-${uid()}`,
-        expectedVersion:Number(vigente?.version||0),
-        payload:{projectId:id},
-      };
-    });
-    if(!result.ok){
-      showToast(result.reason||"Não foi possível excluir a obra.","error");
-      return;
-    }
-    showToast("Obra removida.");
-  };
-
-  const statusMap = {
-    active: { l: "Ativa", c: C.green },
-    paused: { l: "Pausada", c: C.yellow },
-    done: { l: "Concluída", c: C.muted },
-  };
-  const obrasComando = useMemo(() => (data.obras || []).map(o => {
-    const fase = fases.find(f => f.id === o.faseId);
-    const equipe = (data.employees || []).filter(e => e.active !== false && e.obra === o.id);
-    const nomeFase = String(fase?.nome || "").toLocaleLowerCase("pt-BR");
-    const emPlanejamento = o.status !== "done" && /estudo|or[cç]amento|projeto|licen|prefeitura|planejamento|anteprojeto/.test(nomeFase);
-    const emExecucao = o.status === "active" && !emPlanejamento;
-    let diasPrazo = null;
-    if (o.contractEnd) {
-      const fim = new Date(`${o.contractEnd}T12:00:00`);
-      const agora = new Date(`${today()}T12:00:00`);
-      if (!Number.isNaN(fim.getTime())) diasPrazo = Math.ceil((fim - agora) / 86400000);
-    }
-    const alertas = [];
-    if (o.status !== "done" && !o.engineerId && !o.engineer) alertas.push("Sem engenheiro responsável");
-    if (o.status !== "done" && !o.clienteId && !o.cliente) alertas.push("Cliente não vinculado");
-    if (o.status !== "done" && !o.address) alertas.push("Endereço incompleto");
-    if (o.status === "paused") alertas.push("Obra pausada");
-    if (o.status !== "done" && diasPrazo !== null && diasPrazo < 0) alertas.push(`Prazo vencido há ${Math.abs(diasPrazo)} dias`);
-    const dadosChave = [o.name, o.clienteId || o.cliente, o.address, o.engineerId || o.engineer, o.contractStart || o.startDate, o.contractEnd, Number(o.contractValue) > 0];
-    const completude = Math.round((dadosChave.filter(Boolean).length / dadosChave.length) * 100);
-    return { ...o, _fase:fase, _equipe:equipe, _diasPrazo:diasPrazo, _alertas:alertas, _planejamento:emPlanejamento, _execucao:emExecucao, _completude:completude };
-  }), [data.obras, data.employees, fases]);
-  const totalCarteira = obrasComando.filter(o => o.status !== "done").reduce((s,o) => s + Number(o.contractValue || 0), 0);
-  const contagensObras = {
-    todas: obrasComando.length,
-    atencao: obrasComando.filter(o => o._alertas.length).length,
-    planejamento: obrasComando.filter(o => o._planejamento).length,
-    execucao: obrasComando.filter(o => o._execucao).length,
-    prazo: obrasComando.filter(o => o.status !== "done" && o._diasPrazo !== null && o._diasPrazo <= 30).length,
-    concluidas: obrasComando.filter(o => o.status === "done").length,
-  };
-  const categoriasObras = [
-    ["todas","Todas"], ["atencao","Cadastro com pendência"], ["planejamento","Planejamento"],
-    ["execucao","Em execução"], ["prazo","Prazo próximo"], ["concluidas","Concluídas"],
-  ];
-  const correspondeCategoria = o => categoria === "todas"
-    || (categoria === "atencao" && o._alertas.length > 0)
-    || (categoria === "planejamento" && o._planejamento)
-    || (categoria === "execucao" && o._execucao)
-    || (categoria === "prazo" && o.status !== "done" && o._diasPrazo !== null && o._diasPrazo <= 30)
-    || (categoria === "concluidas" && o.status === "done");
-  const termoBusca=search.toLocaleLowerCase("pt-BR");
-  const list = obrasComando.filter(o => correspondeCategoria(o) && [o.name,o.cliente,o.address,o.engineer,o._fase?.nome].some(v=>String(v||"").toLocaleLowerCase("pt-BR").includes(termoBusca)));
-  const worksPage=useRecordPage('obras',list,JSON.stringify([categoria,search]));
-  const resumoOperacional = contagensObras.atencao
-    // Aqui é cadastro (dados faltando), não a situação de custo e prazo do Dashboard: nome próprio para não parecer contradição.
-    ? `${contagensObras.atencao} ${contagensObras.atencao === 1 ? "obra com cadastro" : "obras com cadastro"} a completar`
-    : "Cadastros das obras completos";
-
-  const buscaObras = (
-    <label className="works-search" style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)"}}>
-      <Ic n="search" s={16} color={C.muted}/>
-      <span className="sr-only">Buscar obras</span><StandardInput aria-label={isDesktop?"Buscar obras":undefined} value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar por obra, cliente, endereço, responsável ou fase..." style={{flex:1,minWidth:0}}/>
-      {(!isDesktop||search.trim())&&<span role={isDesktop?"status":undefined} style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",whiteSpace:"nowrap"}}>{contar(list.length,"resultado","resultados")}</span>}
-    </label>
-  );
-
-  return (
-    <div className="anim works-hub" style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
-      <PageHero
-        eyebrow="MARCELL · Engenharia operacional"
-        title="Central de obras"
-        description="Encontre a obra certa, entenda o que exige atenção e siga para a próxima ação."
-        statsDisclosure={!isDesktop}
-        alert={{tone:contagensObras.atencao?"warning":"success",text:resumoOperacional}}
-        stats={[
-          {label:"Obras ativas",value:obrasComando.filter(o=>o.status==="active").length,detail:"Em operação"},
-          {label:"Cadastro com pendência",value:contagensObras.atencao,detail:"Dados da obra a completar",color:contagensObras.atencao?C.orange:undefined},
-          {label:"Prazo ≤ 30 dias",value:contagensObras.prazo,detail:"Janela crítica",color:contagensObras.prazo?C.orange:undefined},
-          {label:"Carteira ativa",value:fmt(totalCarteira),detail:"Valor contratado"},
-        ]}
-        actions={<>
-          {ehAdmin&&<details className="works-files"><summary>Arquivos e pastas</summary><div>
-          {ehAdmin&&<Btn v="ghost" onClick={()=>abrirOneDrive(data.config?.oneDriveRootUrl)}><Ic n="folder" s={14}/> Arquivos gerais</Btn>}
-          {ehAdmin&&oneDriveStatus==="connected"&&<Btn v="ghost" disabled={sincronizandoPastas} onClick={sincronizarPastas}><Ic n="folder" s={14}/> {sincronizandoPastas?"Preparando pastas...":"Preparar pastas"}</Btn>}
-          {ehAdmin&&oneDriveStatus!=="connected"&&<Btn v="ghost" onClick={conectarOneDrive}>Conectar OneDrive</Btn>}
-          </div></details>}
-          {ehAdmin&&<Btn onClick={()=>abrirEditorObra()}><Ic n="plus" s={14}/> Nova obra</Btn>}
-        </>}
-      />
-
-      {erroPastas&&<div className="works-sync-error" role="alert"><Ic n="alert" s={14}/><p><strong>Pastas do OneDrive não preparadas.</strong> {erroPastas}</p><Btn v="secondary" size="sm" disabled={sincronizandoPastas} onClick={()=>sincronizarPastas(true)}>Tentar de novo</Btn><Btn v="ghost" size="sm" ariaLabel="Dispensar aviso" title="Dispensar aviso" onClick={()=>setErroPastas("")}><Ic n="x" s={14}/></Btn></div>}
-      <section className="works-filter-bar" aria-label={isDesktop?"Filtros de Obras":undefined} style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:C.rLg,padding:"var(--arcd-space-2)",boxShadow:"none"}}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
-          <label className="works-category-select">Situação das obras<SelectControl value={categoria} onChange={event=>setCategoria(event.target.value)}>{categoriasObras.map(([v,l])=><option key={v} value={v}>{l} · {contagensObras[v]}</option>)}</SelectControl></label>
-          <div className="works-category-tabs" style={{display:"flex",gap:"var(--arcd-space-1)",overflowX:"auto",paddingBottom:"var(--arcd-space-0)",maxWidth:"100%"}}>
-            {categoriasObras.map(([v,l])=><StandardButton variant="secondary" type="button" aria-pressed={categoria===v} data-active={categoria===v} key={v} onClick={()=>setCategoria(v)}>{l} <span>{contagensObras[v]}</span></StandardButton>)}
-          </div>
-          <div className="works-view-toggle">
-            {[["lista","Painel"],["quadro","Fluxo"]].map(([v,l])=><StandardButton variant="secondary" type="button" aria-pressed={vista===v} data-active={vista===v} key={v} onClick={()=>setVista(v)}>{l}</StandardButton>)}
-          </div>
-        </div>
-        {isDesktop&&vista==="lista"&&buscaObras}
-      </section>
-
-      {undoMove&&<div className="works-undo" role="status"><div><strong>Obra movida</strong><span>“{undoMove.obraName}” mudou de fase e a alteração foi registrada.</span></div><Btn v="ghost" onClick={desfazerMovimento}>Desfazer</Btn></div>}
-
-      {/*  QUADRO (KANBAN)  */}
-      {vista === "quadro" && (<>
-
-        {/* Conferência: a soma das colunas TEM que bater com o total de obras.
-            O contador dentro de cada coluna é só daquela coluna - sem este
-            resumo, não dá pra saber se alguma obra sumiu ou só está fora da
-            tela, numa coluna que exige rolar. */}
-        <div style={{
-          background:"var(--arcd-surface-muted)", border:"var(--arcd-border-width) solid var(--arcd-border-default)", borderRadius:"var(--arcd-radius-control)",
-          padding:"var(--arcd-space-2) var(--arcd-space-3)", display:"flex", justifyContent:"space-between",
-          alignItems:"center", gap:"var(--arcd-space-2)", flexWrap:"wrap",
-        }}>
-          <div>
-            <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",
-                       fontFamily:"var(--arcd-font-sans)"}}>
-              {(data.obras||[]).length} obra{(data.obras||[]).length===1?"":"s"} no quadro
-            </p>
-            <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>
-              {fases.filter(f => (porFase[f.id]||[]).length > 0)
-                    .map(f => `${(porFase[f.id]||[]).length} em ${f.nome}`)
-                    .join(" · ") || "nenhuma posicionada"}
-            </p>
-          </div>
-          {somaQuadro !== (data.obras||[]).length && (
-            <span style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-danger-text)",
-                          background:"color-mix(in srgb, var(--arcd-danger-text) 7%, transparent)",padding:"var(--arcd-space-1) var(--arcd-space-2)",borderRadius:"var(--arcd-radius-control)"}}>
-              ! {somaQuadro} exibidas de {(data.obras||[]).length}
-            </span>
-          )}
-        </div>
-
-        <div style={{...KB.scroll, margin:"var(--arcd-space-0) calc(var(--arcd-space-3) * -1)", padding:"var(--arcd-space-0) var(--arcd-space-3) var(--arcd-space-2)"}}>
-          {fases.map((fase, fi) => {
-            const obrasDaFase = porFase[fase.id] || [];
-            const alvo = sobreFase === fase.id;
-            return (
-              <div key={fase.id}
-                onDragOver={e => { e.preventDefault(); setSobreFase(fase.id); }}
-                onDragLeave={() => setSobreFase(s => s===fase.id ? null : s)}
-                onDrop={e => {
-                  e.preventDefault();
-                  if (arrastando) moverObra(arrastando, fase.id);
-                  setArrastando(null); setSobreFase(null);
-                }}
-                style={KB.coluna(fase.cor, alvo)}>
-
-                {/* Cabeçalho da coluna */}
-                <div style={{padding:"var(--arcd-space-2)", borderTop:`3px solid ${fase.cor}`, borderTopLeftRadius:"var(--arcd-box-radius)", borderTopRightRadius:"var(--arcd-box-radius)", borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)", position:"sticky", top:0, zIndex:1, background:"inherit"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-1)"}}>
-                    <span style={{width:9,height:9,borderRadius:"var(--arcd-radius-control)",background:fase.cor,flexShrink:0}}/>
-                    <p style={{
-                      flex:1, minWidth:0, fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)",
-                      textTransform:"uppercase", letterSpacing:"var(--arcd-letter-spacing-body)", color:"var(--arcd-text-primary)",
-                      overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
-                    }}>{fase.nome}</p>
-                    {ehAdmin&&<div style={{display:"flex",gap:"var(--arcd-space-0)",flexShrink:0}}>
-                      <Btn v="ghost" size="sm" iconOnly onClick={()=>moverFase(fase.id,-1)} disabled={fi===0} title="Mover coluna p/ esquerda" ariaLabel="Mover coluna para a esquerda">
-                        <Ic n="chevL" s={11}/>
-                      </Btn>
-                      <Btn v="ghost" size="sm" iconOnly onClick={()=>moverFase(fase.id,+1)} disabled={fi===fases.length-1} title="Mover coluna p/ direita" ariaLabel="Mover coluna para a direita">
-                        <Ic n="chevR" s={11}/>
-                      </Btn>
-                      <Btn v="ghost" size="sm" iconOnly onClick={()=>abrirEditarFase(fase)} title="Renomear / cor" ariaLabel="Renomear fase">
-                        <Ic n="edit" s={11}/>
-                      </Btn>
-                      <Btn v="ghost" size="sm" iconOnly onClick={()=>excluirFase(fase)} title="Excluir fase" ariaLabel="Excluir fase">
-                        <Ic n="x" s={11}/>
-                      </Btn>
-                    </div>}
-                  </div>
-                  <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>
-                    {obrasDaFase.length} obra{obrasDaFase.length===1?"":"s"}
-                  </p>
-                </div>
-
-                {/* Cards */}
-                <div style={KB.colBody}>
-                  {obrasDaFase.map(o => {
-                    const st    = statusMap[o.status] || statusMap.active;
-                    const count = data.employees.filter(e => e.active!==false && e.obra===o.id).length;
-                    const menu  = menuCard === o.id;
-                    return (
-                      <div key={o.id}
-                        draggable={ehAdmin}
-                        onDragStart={() => setArrastando(o.id)}
-                        onDragEnd={() => { setArrastando(null); setSobreFase(null); }}
-                        style={{
-                          ...KB.card(null),
-                          border:"var(--arcd-border-width) solid var(--arcd-border-default)",
-                          opacity: arrastando===o.id ? .4 : 1,
-                          position:"relative",
-                        }}>
-                        <div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-1)",alignItems:"flex-start"}}>
-                          <p style={{
-                            flex:1, minWidth:0,
-                            fontFamily:"var(--arcd-font-sans)",
-                            fontSize:"var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-text-primary)", lineHeight:"var(--arcd-line-height-normal)",
-                          }}>{o.name}</p>
-                          {ehAdmin&&<Btn v="ghost" size="sm" iconOnly onClick={()=>setMenuCard(menu ? null : o.id)} title="Mover ou editar obra" ariaLabel="Mover ou editar obra" style={{flexShrink:0}}>⋮</Btn>}
-                        </div>
-
-                        {o.cliente && (
-                          <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-muted)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-half)"}}>{o.cliente}</p>
-                        )}
-                        {o.engineer && (
-                          <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Eng. {o.engineer}</p>
-                        )}
-
-                        <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-1)",flexWrap:"wrap"}}>
-                          <Badge color={st.c}>{st.l}</Badge>
-                          <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",background:"var(--arcd-surface-muted)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-0) var(--arcd-space-1)"}}>
-                            {CONTRACT_LABELS[o.contractType]||o.contractType}
-                          </span>
-                          {Number(o.areaM2)>0 && (
-                            <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{o.areaM2} m2</span>
-                          )}
-                          {count>0 && (
-                            <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{count} func.</span>
-                          )}
-                        </div>
-
-                        {Number(o.contractValue)>0 && (
-                          <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",marginTop:"var(--arcd-space-1)"}}>
-                            {fmt(o.contractValue)}
-                          </p>
-                        )}
-
-                        {/* Datas: inicio e finalizacao prevista, com prazo restante */}
-                        {(o.contractStart || o.contractEnd) && (() => {
-                          const prz = prazoObra(o);
-                          return (
-                            <div style={{marginTop:"var(--arcd-space-1)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-half)"}}>
-                              <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-1)",fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>
-                                <Ic n="calendar" s={11} color={C.muted}/>
-                                <span>
-                                  {o.contractStart ? fmtDate(o.contractStart) : "?"}
-                                  {" a "}
-                                  {o.contractEnd ? fmtDate(o.contractEnd) : "?"}
-                                </span>
-                              </div>
-                              {prz && (
-                                <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:prz.cor}}>{prz.rotulo}</span>
-                              )}
-                            </div>
-                          );
-                        })()}
-
-                        {/* Menu "Mover para" - é o caminho que funciona no celular,
-                            onde arrastar (HTML5 drag) simplesmente não existe. */}
-                        {menu && (
-                          <div style={{
-                            position:"absolute", top:28, right:8, zIndex:20,
-                            background:"var(--arcd-surface-page)", border:"1.5px solid var(--arcd-border-default)",
-                            borderRadius:"var(--arcd-radius-control)", boxShadow:`0 6px 20px ${C.shadow}`,
-                            minWidth:180, padding:"var(--arcd-space-1)",
-                          }}>
-                            <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",
-                                       letterSpacing:"var(--arcd-letter-spacing-body)",padding:"var(--arcd-space-1) var(--arcd-space-2)"}}>Mover para</p>
-                            {fases.filter(f=>f.id!==fase.id).map(f=>(
-                              <StandardButton variant="secondary" key={f.id} onClick={()=>moverObra(o.id, f.id)} style={{width:"100%",display:"flex",alignItems:"center"}}>
-                                <span style={{width:7,height:7,borderRadius:"var(--arcd-radius-control)",background:f.cor,flexShrink:0}}/>
-                                {f.nome}
-                              </StandardButton>
-                            ))}
-                            <div style={{height:1,background:"var(--arcd-border-default)",margin:"var(--arcd-space-1) var(--arcd-space-0)"}}/>
-                            {ehAdmin&&<StandardButton variant="secondary" onClick={()=>{abrirEditorObra(o);setMenuCard(null);}}
-                              style={{width:"100%"}}>
-                               Editar obra
-                            </StandardButton>}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-
-                  {obrasDaFase.length === 0 && (
-                    <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",textAlign:"center",padding:"var(--arcd-space-3) var(--arcd-space-1)"}}>
-                      Mova uma obra para esta fase
-                    </p>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-
-          {/* Nova coluna */}
-          {ehAdmin&&<div style={{flex:"0 0 168px",minWidth:168}}>
-            <StandardButton variant="secondary" className="works-new-phase" onClick={abrirNovaFase} style={{width:"100%"}}>+ Nova fase</StandardButton>
-          </div>}
-        </div>
-      </>)}
-
-      {/*  LISTA  */}
-      {vista === "lista" && <>
-      {!isDesktop&&buscaObras}
-
-      <RecordListPagination pagination={worksPage} label="obras"/>
-      <div className="works-grid" style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:"var(--arcd-space-3)"}}>
-        {worksPage.rows.map(o => {
-          const st = statusMap[o.status] || statusMap.active;
-          const codigo = String(Math.max(0,(data.obras||[]).findIndex(x=>x.id===o.id))+1).padStart(4,"0");
-          const prazo = prazoObra(o);
-          const risco = o._alertas.length > 0;
-          return <article data-risk={risco} key={o.id} className="lift-card works-card" style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid ${risco?"color-mix(in srgb, var(--arcd-danger-text) 40%, transparent)":"var(--arcd-border-default)"}`,borderRadius:"var(--arcd-box-radius)",overflow:"hidden",boxShadow:"var(--arcd-shadow-lg)",display:"flex",flexDirection:"column",minWidth:0}}>
-            <RecordAction data-has-image={!!o.capaUrl} className="works-card-cover" onClick={()=>onAbrirObra?.(o.id)} style={{position:"relative",cursor:"pointer",overflow:"hidden"}}>
-              {!o.capaUrl&&<><span aria-hidden="true" style={{position:"absolute",right:-24,top:-46,width:180,height:180,borderRadius:"50%",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-action-primary) 33%, transparent)",boxShadow:"none"}}/></>}
-              <div style={{position:"absolute",inset:0,padding:"var(--arcd-space-3)",display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)"}}>
-                  <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",letterSpacing:"var(--arcd-letter-spacing-body)",color:"var(--arcd-action-primary-subtle)"}}>MARCELL · #{codigo}</span>
-                  <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",color:st.c,background:"color-mix(in srgb, var(--arcd-text-inverse) 94%, transparent)",borderRadius:"var(--arcd-radius-pill)",padding:"var(--arcd-space-1) var(--arcd-space-2)"}}>{st.l}</span>
-                </div>
-                <div style={{position:"relative"}}>
-                  <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",color:"var(--arcd-text-inverse)",marginBottom:"var(--arcd-space-half)"}}>{o._fase?.nome||"Fase não definida"}</p>
-                  <h3 className="brk" style={{fontFamily:FONT_DISPLAY,fontSize:"var(--arcd-type-section-title)",fontWeight:"var(--arcd-font-weight-semibold)",lineHeight:"var(--arcd-line-height-normal)",color:"var(--arcd-text-inverse)",paddingRight:"var(--arcd-space-3)"}}>{o.name}</h3>
-                </div>
-              </div>
-            </RecordAction>
-            <div className="works-card-body" style={{padding:"var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)",flex:1}}>
-              <div className="works-card-identity" style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"var(--arcd-space-2)"}}>
-                <div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",color:"var(--arcd-text-secondary)"}}>Cliente</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:o.cliente?"var(--arcd-text-primary)":"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.cliente||"Não vinculado"}</p></div>
-                <div title={o.engineer||"Sem responsável"} style={{width:34,height:34,flexShrink:0,borderRadius:"var(--arcd-radius-pill)",display:"grid",placeItems:"center",background:o.engineer?"var(--arcd-text-primary)":"var(--arcd-surface-muted)",border:`var(--arcd-border-width) solid ${o.engineer?"var(--arcd-text-primary)":"var(--arcd-border-default)"}`,color:o.engineer?"var(--arcd-text-inverse)":"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{(o.engineer||"?").split(" ").slice(0,2).map(n=>n[0]).join("")}</div>
-              </div>
-
-              <div className="works-card-metrics" style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:"var(--arcd-space-1)"}}>
-                {[["Contrato",Number(o.contractValue)>0?fmt(o.contractValue):"—"],["Área",Number(o.areaM2)>0?`${Number(o.areaM2).toLocaleString("pt-BR")} m²`:"—"],["Equipe",`${o._equipe.length}`]].map(([l,v])=><div key={l} style={{background:"var(--arcd-surface-muted)",border:"var(--arcd-border-width) solid var(--arcd-surface-muted)",borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-2) var(--arcd-space-2) var(--arcd-space-1)",minWidth:0}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",color:"var(--arcd-text-secondary)"}}>{l}</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{v}</p></div>)}
-              </div>
-
-              <div className="works-card-health">
-                <div style={{display:"flex",justifyContent:"space-between",fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",marginBottom:"var(--arcd-space-1)"}}><span>Dados essenciais preenchidos</span><span>{o._completude}%</span></div>
-                <div style={{height:4,borderRadius:"var(--arcd-radius-pill)",background:"var(--arcd-surface-muted)",overflow:"hidden"}}><i style={{display:"block",height:"100%",width:`${o._completude}%`,borderRadius:"var(--arcd-radius-pill)",background:o._completude>=80?"var(--arcd-success-text)":o._completude>=55?"var(--arcd-action-primary)":"var(--arcd-danger-text)"}}/></div>
-              </div>
-
-              {risco?<div className="works-alerts"><StandardButton variant="secondary" type="button" aria-expanded={expandedAlerts.has(o.id)} onClick={()=>setExpandedAlerts(current=>{const next=new Set(current);next.has(o.id)?next.delete(o.id):next.add(o.id);return next;})}><Ic n="alert" s={14}/><span><strong>{contar(o._alertas.length,"pendência","pendências")}</strong><small>{expandedAlerts.has(o.id)?"Ocultar ações":"Ver como corrigir"}</small></span><Ic n="chevron" s={12}/></StandardButton>{expandedAlerts.has(o.id)&&<div className="works-alerts__list">{o._alertas.map(alert=>{const action=projectAlertAction(alert);return <div key={alert}><span>{alert}</span><StandardButton variant="secondary" type="button" onClick={()=>ehAdmin?abrirEditorObra(o):onAbrirObra?.(o.id)}>{ehAdmin?action.label:"Abrir obra"}</StandardButton></div>;})}</div>}</div>:<div className="works-regular"><Ic n="check" s={14}/><span>Cadastro operacional regular</span></div>}
-
-              <div className="works-card-deadline" style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",minHeight:18}}>
-                <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:prazo?.cor||"var(--arcd-text-secondary)"}}>{prazo?.rotulo||"Prazo não definido"}</span>
-                <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",whiteSpace:"nowrap"}}>Eng. {o.engineer?.split(" ")[0]||"não definido"}</span>
-              </div>
-
-              <div className="works-card-open" style={{display:"grid",gridTemplateColumns:ehAdmin&&o.oneDriveUrl?"1fr auto":"1fr",gap:"var(--arcd-space-1)",marginTop:"auto"}}>
-                {/* Botão cheio só no cartão que tem pendência; nos demais, secundário. Assim a tela tem um destaque, não três. */}<Btn v={risco?"dark":"secondary"} full onClick={()=>onAbrirObra?.(o.id)}>Abrir obra <span>→</span></Btn>
-                {ehAdmin&&o.oneDriveUrl&&<Btn v="ghost" iconOnly onClick={()=>abrirOneDrive(o.oneDriveUrl)} title="Abrir arquivos" ariaLabel="Abrir arquivos"><Ic n="folder" s={14}/></Btn>}
-              </div>
-              <div className="works-card-footer" style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:"var(--arcd-space-2)",borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)"}}>
-                <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{CONTRACT_LABELS[o.contractType]||"Contrato"}</span>
-                {ehAdmin&&<div style={{display:"flex",gap:"var(--arcd-space-half)"}}><Btn v="ghost" size="sm" iconOnly onClick={()=>abrirEditorObra(o)} title="Editar obra" ariaLabel="Editar obra"><Ic n="edit" s={12}/></Btn><details className="record-more"><summary aria-label="Mais ações da obra" title="Mais ações">⋯</summary><div role="menu"><Btn v="danger" size="sm" onClick={()=>remove(o.id)} title="Excluir obra" ariaLabel="Excluir obra"><Ic n="trash" s={12}/> Excluir obra</Btn></div></details></div>}
-              </div>
-            </div>
-          </article>;
-        })}
-        {!list.length&&<div style={{gridColumn:"1/-1",textAlign:"center",padding:"var(--arcd-space-10)",background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) dashed var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)"}}><div style={{width:46,height:46,borderRadius:"var(--arcd-radius-pill)",display:"grid",placeItems:"center",margin:"var(--arcd-space-0) auto",background:"var(--arcd-surface-muted)",color:"var(--arcd-text-secondary)"}}><Ic n="building" s={22}/></div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-2)"}}>Nenhuma obra nesta categoria</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Altere o filtro ou a busca para ampliar os resultados.</p></div>}
-      </div>
-
-      {/* A grade acima é a única representação da visão Painel. As duas
-          implementações antigas (tabela desktop e cartões móveis) foram
-          removidas para que semântica, permissões e estados não divirjam. */}
-      {false&&isDesktop&&<div hidden aria-hidden="true">
-        <div style={{display:"grid",gridTemplateColumns:"74px minmax(220px,1.5fr) minmax(160px,1fr) 110px 145px 125px minmax(150px,.8fr) 72px",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-3)",background:"var(--arcd-surface-overlay)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)",fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}><span>Código</span><span>Obra</span><span>Cliente</span><span>Status</span><span>Fase</span><span>Início</span><span>Responsável</span><span style={{textAlign:"right"}}>Ações</span></div>
-        {list.map((o,index)=>{const st=statusMap[o.status]||statusMap.active;const fase=fases.find(f=>f.id===o.faseId);const equipe=(data.employees||[]).filter(e=>e.active!==false&&e.obra===o.id);const codigo=String(index+1).padStart(4,"0");return <div key={o.id} className="lift-card" onClick={()=>onAbrirObra?.(o.id)} style={{display:"grid",gridTemplateColumns:"74px minmax(220px,1.5fr) minmax(160px,1fr) 110px 145px 125px minmax(150px,.8fr) 72px",gap:"var(--arcd-space-2)",alignItems:"center",padding:"var(--arcd-space-3)",borderBottom:index<list.length-1?"var(--arcd-border-width) solid var(--arcd-border-default)":"none",cursor:"pointer",background:"var(--arcd-surface-card)"}}>
-          <span style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)"}}>#{codigo}</span>
-          <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",minWidth:0}}><div style={{width:38,height:38,borderRadius:"var(--arcd-box-radius)",flexShrink:0,display:"grid",placeItems:"center",overflow:"hidden",background:o.capaUrl?`url("${o.capaUrl}") center/cover`:"linear-gradient(145deg,var(--arcd-text-primary),var(--arcd-action-primary))",color:"var(--arcd-text-inverse)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{!o.capaUrl&&(o.name||"O").charAt(0)}</div><div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.name}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.address||`${Number(o.areaM2||0).toLocaleString("pt-BR")} m²`}</p></div></div>
-          <span style={{fontSize:"var(--arcd-type-label)",color:o.cliente?"var(--arcd-text-primary)":"var(--arcd-text-secondary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.cliente||"Não informado"}</span>
-          <span><Badge color={st.c}>{st.l}</Badge></span>
-          <span style={{display:"inline-flex",alignItems:"center",gap:"var(--arcd-space-1)",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:fase?.cor||"var(--arcd-text-secondary)"}}><i style={{width:7,height:7,borderRadius:"var(--arcd-radius-pill)",background:fase?.cor||"var(--arcd-border-default)"}}/>{fase?.nome||"Sem fase"}</span>
-          <span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>{fmtDate(o.contractStart||o.startDate)||"—"}</span>
-          <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",minWidth:0}}><span style={{width:28,height:28,borderRadius:"var(--arcd-radius-pill)",display:"grid",placeItems:"center",background:"color-mix(in srgb, var(--arcd-action-primary) 8%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-action-primary) 20%, transparent)",color:"var(--arcd-action-primary)",fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{(o.engineer||"?").split(" ").slice(0,2).map(n=>n[0]).join("")}</span><span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.engineer||"Não definido"}{equipe.length>0&&<small style={{display:"block",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-caption)"}}>{equipe.length} na equipe</small>}</span></div>
-          <div onClick={e=>e.stopPropagation()} style={{display:"flex",justifyContent:"flex-end",gap:"var(--arcd-space-half)"}}><Btn v="ghost" size="sm" iconOnly onClick={()=>{setForm({...o,areaM2:String(o.areaM2||""),diaVenc1:String(o.diaVenc1||DIA_VENC_1_PADRAO),diaVenc2:String(o.diaVenc2||DIA_VENC_2_PADRAO)});setModal(true);}} title="Editar obra" ariaLabel="Editar obra"><Ic n="edit" s={13}/></Btn>{ehAdmin&&<Btn v="danger" size="sm" iconOnly onClick={()=>remove(o.id)} title="Excluir obra" ariaLabel="Excluir obra"><Ic n="trash" s={13}/></Btn>}</div>
-        </div>;})}
-        {!list.length&&<div style={{textAlign:"center",padding:"var(--arcd-space-8)",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-body)"}}>Nenhuma obra encontrada.</div>}
-      </div>}
-
-      {false&&!isDesktop&&<div hidden aria-hidden="true">
-      {list.map(o => {
-        const count = data.employees.filter(e => e.active !== false && e.obra === o.id).length;
-        const st = statusMap[o.status] || statusMap.active;
-        const area = Number(o.areaM2 || 0);
-        const fase = fases.find(f=>f.id===o.faseId);
-        const prazo = prazoObra(o);
-        return (
-          <div key={o.id} className="lift-card" style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)",overflow:"hidden",boxShadow:C.shCard,display:"flex",flexDirection:"column",minWidth:0}}>
-            <StandardButton variant="secondary" onClick={()=>onAbrirObra?.(o.id)} style={{position:"relative"}}>
-              {!o.capaUrl&&<span style={{position:"absolute",right:16,top:5,fontFamily:"var(--arcd-font-sans)",fontSize:"var(--arcd-type-page-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:"color-mix(in srgb, var(--arcd-text-inverse) 8%, transparent)",lineHeight:"var(--arcd-line-height-normal)"}}>{(o.name||"O").charAt(0)}</span>}
-              <div style={{position:"absolute",inset:0,padding:"var(--arcd-space-3)",display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-1)"}}><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",letterSpacing:"var(--arcd-letter-spacing-body)",textTransform:"uppercase",background:"color-mix(in srgb, var(--arcd-text-inverse) 92%, transparent)",color:st.c,borderRadius:"var(--arcd-radius-pill)",padding:"var(--arcd-space-1) var(--arcd-space-2)"}}>{st.l}</span>{fase&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"color-mix(in srgb, var(--arcd-text-inverse) 85%, transparent)"}}>{fase.nome}</span>}</div>
-                <div><h3 className="brk" style={{fontFamily:FONT_DISPLAY,fontSize:"var(--arcd-type-section-title)",fontWeight:"var(--arcd-font-weight-semibold)",lineHeight:"var(--arcd-line-height-normal)",color:"var(--arcd-text-inverse)"}}>{o.name}</h3>{o.cliente&&<p style={{fontSize:"var(--arcd-type-label)",color:"color-mix(in srgb, var(--arcd-text-inverse) 82%, transparent)",marginTop:"var(--arcd-space-half)"}}>{o.cliente}</p>}</div>
-              </div>
-            </StandardButton>
-            <div style={{padding:"var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)",flex:1}}>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"var(--arcd-space-2)"}}>{[["Contrato",Number(o.contractValue)>0?fmtCompact(o.contractValue):"-"],["Área",area>0?`${area.toLocaleString("pt-BR")} m²`:"-"],["Equipe",`${count}`]].map(([l,v])=><div key={l} style={{background:"var(--arcd-surface-muted)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-1)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>{l}</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{v}</p></div>)}</div>
-              <div style={{minHeight:37}}>{o.address&&<p className="brk" style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-muted)",lineHeight:"var(--arcd-line-height-normal)"}}>{o.address}</p>}{o.engineer&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Responsável · <b style={{color:"var(--arcd-text-primary)"}}>{o.engineer}</b></p>}{prazo&&<p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:prazo.cor,marginTop:"var(--arcd-space-half)"}}>{prazo.rotulo}</p>}</div>
-              <div style={{display:"grid",gridTemplateColumns:ehAdmin&&o.oneDriveUrl?"1fr 1fr":"1fr",gap:"var(--arcd-space-1)",marginTop:"auto"}}><Btn size="sm" onClick={()=>onAbrirObra?.(o.id)}>Abrir painel →</Btn>{ehAdmin&&o.oneDriveUrl&&<Btn size="sm" v="ghost" onClick={()=>abrirOneDrive(o.oneDriveUrl)}><Ic n="folder"/> Arquivos</Btn>}</div>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)",paddingTop:"var(--arcd-space-2)"}}><span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{CONTRACT_LABELS[o.contractType]||"Contrato"}</span><div style={{display:"flex",gap:"var(--arcd-space-half)"}}><Btn v="ghost" size="sm" iconOnly onClick={()=>{setForm({...o,areaM2:String(o.areaM2||""),diaVenc1:String(o.diaVenc1||DIA_VENC_1_PADRAO),diaVenc2:String(o.diaVenc2||DIA_VENC_2_PADRAO)});setModal(true);}} title="Editar obra" ariaLabel="Editar obra"><Ic n="edit" s={14}/></Btn>{ehAdmin&&<Btn v="danger" size="sm" iconOnly onClick={()=>remove(o.id)} title="Excluir obra" ariaLabel="Excluir obra"><Ic n="trash" s={14}/></Btn>}</div></div>
-            </div>
-          </div>
-        );
-      })}
-      {!list.length&&<div style={{gridColumn:"1/-1",textAlign:"center",padding:"var(--arcd-space-8)",border:"var(--arcd-border-width) dashed var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)"}}><Ic n="building" s={25} color={C.muted}/><p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-2)"}}>Nenhuma obra encontrada.</p></div>}
-      </div>}
-      </>}
-
-      {/* Modal: nova fase / editar fase */}
-      {faseModal && (
-        <Modal title={faseModal.modo==="editar" ? "Editar fase" : "Nova fase"}
-               onClose={()=>{setFaseModal(null);setFaseNome("");}}>
-          <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
-            <Inp label="Nome da fase *" value={faseNome} onChange={setFaseNome}
-              placeholder="Ex.: Análise da Prefeitura"/>
-
-            <div>
-              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginBottom:"var(--arcd-space-1)"}}>Cor</p>
-              <div style={{display:"flex",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
-                {CORES_FASE.map(c=>(
-                  <StandardButton variant="secondary" type="button" key={c} aria-label={`Usar cor ${c}`} aria-pressed={faseCor===c} title={`Cor ${c}`} onClick={()=>setFaseCor(c)} style={{width:44}}/>
-                ))}
-              </div>
-            </div>
-
-            {/* Prévia da coluna */}
-            <div style={{background:"var(--arcd-surface-muted)",border:"1.5px solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
-              <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-1)"}}>
-                <span style={{width:9,height:9,borderRadius:"var(--arcd-radius-control)",background:faseCor}}/>
-                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",color:"var(--arcd-text-primary)"}}>
-                  {faseNome || "Nome da fase"}
-                </p>
-              </div>
-            </div>
-
-            <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
-              <Btn v="ghost" onClick={()=>{setFaseModal(null);setFaseNome("");}} full>Cancelar</Btn>
-              <Btn onClick={salvarFase} full><Ic n="check"/> Salvar</Btn>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {modal && (
-        <Modal title={form.id ? "Editar obra" : "Nova obra"} onClose={() => setModal(false)} wide>
-          {/* Grid de verdade: 1 coluna no celular, 2 no resto. Os separadores de
-              seção usam gridColumn:"1/-1", que só funciona em container grid -
-              dentro do flex antigo eram CSS morto. */}
-          <div style={{ display: "grid", gridTemplateColumns: formGrid(2), gap: "var(--arcd-space-3)" }}>
-            <Inp label="Nome *" value={form.name} onChange={setField("name")} error={projectErrors.name}/>
-            <Inp label="Área (m²)" type="number" min="0" value={form.areaM2} onChange={setField("areaM2")} placeholder="Ex.: 250" error={projectErrors.areaM2}/>
-            <Inp label="Endereço" value={form.address} onChange={setField("address")} />
-            <Sel label="Condomínio / loteamento" value={form.condominioId||""} onChange={setField("condominioId")}
-              options={[{v:"",l:"Fora de condomínio / não informado"},...condominios.map(c=>({v:c.id,l:`${c.nome}${c.cidade?` · ${c.cidade}/${c.uf}`:""}`}))]}/>
-            {form.condominioId&&<><Inp label="Quadra" value={form.quadra||""} onChange={setField("quadra")} placeholder="Ex.: Q-12"/><Inp label="Lote" value={form.lote||""} onChange={setField("lote")} placeholder="Ex.: 08"/></>}
-            <Sel label="Engenheiro de campo responsável" value={form.engineerId||""} onChange={setField("engineerId")}
-              options={[{v:"",l:engenheiros.length?"Selecione o engenheiro...":"Cadastre um engenheiro em Ajustes > Usuários"},...engenheiros.map(u=>({v:u.id,l:u.nome}))]}/>
-            <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:"var(--arcd-space-1)",alignItems:"end"}}><Sel label="Cliente contratante" value={form.clienteId||""} onChange={v=>{const c=clientes.find(x=>x.id===v);setForm(f=>({...f,clienteId:v,cliente:c?.nome||""}));}} options={[{v:"",l:"Selecione um cliente"},...clientes.map(c=>({v:c.id,l:c.tipoPessoa==="PJ"?(c.razaoSocial||c.nome):c.nome}))]}/><Btn v="info" onClick={()=>setClienteModal(clienteContratualVazio())}><Ic n="plus"/> Cliente</Btn></div>
-            <Inp label="Data de início" type="date" value={form.startDate} onChange={setField("startDate")} />
-            {ehAdmin&&<div style={{gridColumn:"1/-1"}}>
-              <Inp label="Pasta da obra no OneDrive" value={form.oneDriveUrl} onChange={setField("oneDriveUrl")} placeholder="Cole aqui o link da subpasta desta obra" error={projectErrors.oneDriveUrl}/>
-              <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>O sistema salva apenas o link. Projetos, contratos e documentos permanecem no OneDrive.</p>
-            </div>}
-            <Sel label="Fase (quadro)" value={form.faseId || (fases[0]?.id||"")} onChange={setField("faseId")}
-              options={fases.map(f=>({v:f.id,l:f.nome}))}/>
-            <Sel label="Status" value={form.status} onChange={setField("status")} options={[
-              { v: "active", l: "Ativa" },
-              { v: "paused", l: "Pausada" },
-              { v: "done", l: "Concluída" },
-            ]} />
-            <div style={{ gridColumn:"1/-1", height:1, background:"linear-gradient(90deg,transparent,var(--arcd-border-default),transparent)", margin:"var(--arcd-space-1) var(--arcd-space-0)" }}/>
-            <div style={{ gridColumn:"1/-1" }}>
-              <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-action-primary)", textTransform:"uppercase", letterSpacing:"var(--arcd-letter-spacing-body)", marginBottom:"var(--arcd-space-2)" }}>Contrato financeiro</p>
-            </div>
-            <Sel label="Modalidade do contrato *" value={form.contractType} onChange={setField("contractType")} options={CONTRACT_TYPES}/>
-            <Inp label="Valor total do contrato (R$)" type="number" min="0" value={form.contractValue} onChange={setField("contractValue")} placeholder="0,00" error={projectErrors.contractValue}/>
-            {(form.contractType === "fixed_labor_admin" || form.contractType === "admin_only") && (
-              <div style={{gridColumn: form.contractType==="admin_only"?"1/-1":"auto"}}>
-                <Inp label="% Administração" type="number" min="0" max="100" value={form.adminPercentage} onChange={setField("adminPercentage")} placeholder="Ex.: 12" error={projectErrors.adminPercentage}/>
-                <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>
-                  {form.contractType==="admin_only"
-                    ? "Por padrão incide sobre todos os custos gastos na obra (mão de obra, benefícios, materiais, terceirizados, equipamentos e rescisões)."
-                    : "Por padrão incide só sobre materiais e terceirizados gastos - a mão de obra já está coberta pela parcela fixa abaixo."}
-                  {" "}Ajuste abaixo o que entra nessa base.
-                </p>
-                <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)"}}>
-                  {[
-                    ["adminBaseMateriais","Materiais",form.adminBaseMateriais!==false],
-                    ["adminBaseMaoDeObra","Mão de obra",form.adminBaseMaoDeObra===true||(form.adminBaseMaoDeObra===undefined&&form.contractType==="admin_only")],
-                    ["adminBaseTerceirizados","Terceirizados",form.adminBaseTerceirizados!==false],
-                    ["adminBaseEquipamentos","Equipamentos / locação",form.adminBaseEquipamentos??form.contractType==="admin_only"],
-                    ["adminBaseEngenhariaCampo","Engenharia de campo",form.adminBaseEngenhariaCampo??form.contractType==="admin_only"],
-                  ].map(([campo,label,checked])=>(
-                    <label key={campo} className="works-check" data-checked={checked}>
-                      <ChoiceControl type="checkbox" checked={checked} onChange={e=>setField(campo)(e.target.checked)}/>
-                      <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:checked?"var(--arcd-action-primary)":"var(--arcd-text-primary)"}}>{label}</p>
-                    </label>
-                  ))}
-                </div>
-                {projectErrors.adminBases&&<p className="works-field-error" role="alert">{projectErrors.adminBases}</p>}
-                <Sel label="Categoria de custo da engenharia de campo" value={form.adminFieldEngineeringCategoryId||""} onChange={setField("adminFieldEngineeringCategoryId")} options={[{v:"",l:"Não identificada — conferir classificação"},...categoriasDesp(data).filter(category=>!["material","equipamento","mao_obra","beneficios","rescisao","terceirizado"].includes(category.v))]}/>
-                <p>As opções acima alteram somente a base da taxa. Equipamentos e engenharia continuam no custo da obra. Selecione a categoria já usada nos lançamentos de engenharia; não há identificação pelo nome do profissional ou pela descrição.</p>
-              </div>
-            )}
-            {(form.contractType === "fixed_labor" || form.contractType === "fixed_labor_admin") && (
-              <Inp label="Valor parcela MO fixo (R$)" type="number" min="0" value={form.parcelaMensal} onChange={setField("parcelaMensal")} placeholder="Ex.: 15.000"/>
-            )}
-            <div style={{gridColumn:"1/-1",height:1,background:"var(--arcd-border-default)",margin:"var(--arcd-space-1) var(--arcd-space-0)"}}/>
-            <p style={{gridColumn:"1/-1",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>Cronograma de cobrança</p>
-            <Sel label="Frequência de cobrança *" value={form.billingFrequency} onChange={setField("billingFrequency")} options={FREQ_OPTS}/>
-            <Inp label="Total de parcelas" type="number" min="1" value={form.totalParcelas} onChange={setField("totalParcelas")} placeholder={form.billingFrequency==="quinzenal"?"Ex.: 24":"Ex.: 12"} error={projectErrors.totalParcelas}/>
-
-            {/* Dias de vencimento - perguntados aqui, na hora de lancar a obra.
-                O padrao segue o contrato (15 e 30), mas cada obra pode fugir dele. */}
-            {form.billingFrequency === "quinzenal" ? (
-              <>
-                <Sel label="Vencimento da 1ª quinzena *" value={String(form.diaVenc1||DIA_VENC_1_PADRAO)} onChange={setField("diaVenc1")} options={DIA_OPTS} error={projectErrors.diaVenc1}/>
-                <Sel label="Vencimento da 2ª quinzena *" value={String(form.diaVenc2||DIA_VENC_2_PADRAO)} onChange={setField("diaVenc2")} options={DIA_OPTS} error={projectErrors.diaVenc2}/>
-              </>
-            ) : (
-              <Sel label="Dia de vencimento *" value={String(form.diaVenc1||DIA_VENC_1_PADRAO)} onChange={setField("diaVenc1")} options={DIA_OPTS} error={projectErrors.diaVenc1}/>
-            )}
-            <div style={{gridColumn:"1/-1",background:"color-mix(in srgb, var(--arcd-action-primary) 7%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
-              <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-muted)",lineHeight:"var(--arcd-line-height-normal)"}}>
-                {form.billingFrequency === "quinzenal"
-                  ? <>Cada mês gera 2 parcelas: uma no dia <b>{form.diaVenc1||DIA_VENC_1_PADRAO}</b> e outra no dia <b>{form.diaVenc2||DIA_VENC_2_PADRAO}</b>. Padrão do contrato: 15 e 30.</>
-                  : <>Cada mês gera 1 parcela, vencendo no dia <b>{form.diaVenc1||DIA_VENC_1_PADRAO}</b>.</>}
-                {" "}Em meses mais curtos, o dia 29/30/31 cai no último dia do mês (fev → 28).
-              </p>
-            </div>
-            <div style={{gridColumn:"1/-1",height:1,background:"var(--arcd-border-default)",margin:"var(--arcd-space-1) var(--arcd-space-0)"}}/>
-            <p style={{gridColumn:"1/-1",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>Período e entrada</p>
-            <Inp label="Início do contrato *" type="date" value={form.contractStart} onChange={setField("contractStart")} error={projectErrors.contractStart}/>
-            <Inp label="Fim previsto" type="date" value={form.contractEnd} onChange={setField("contractEnd")} error={projectErrors.contractEnd}/>
-            {form.contractType !== "admin_only" && (<>
-              <Inp label="Entrada (R$)" type="number" min="0" value={form.entrada} onChange={setField("entrada")} placeholder="0,00" error={projectErrors.entrada}/>
-              <Inp label="Data da entrada" type="date" value={form.entradaDate} onChange={setField("entradaDate")} error={projectErrors.entradaDate}/>
-            </>)}
-            {form.contractValue && form.totalParcelas && Number(form.totalParcelas)>0 && form.contractType !== "admin_only" && !form.parcelaMensal && (
-              <div style={{gridColumn:"1/-1",background:"color-mix(in srgb, var(--arcd-action-primary) 7%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
-                <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Parcela MO sugerida: <strong style={{color:"var(--arcd-action-primary)"}}>{(((Number(form.contractValue)-Number(form.entrada||0))/Number(form.totalParcelas))).toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</strong></p>
-                <Btn v="primary" size="sm" style={{marginTop:"var(--arcd-space-1)"}} onClick={()=>setField("parcelaMensal")(String(Math.round((Number(form.contractValue)-Number(form.entrada||0))/Number(form.totalParcelas))))}>
-                  Usar este valor →
-                </Btn>
-              </div>
-            )}
-            {/* Caixa de obra */}
-            <div style={{gridColumn:"1/-1",height:1,background:"var(--arcd-border-default)",margin:"var(--arcd-space-1) var(--arcd-space-0)"}}/>
-            <label className="works-check works-check--wide" data-checked={form.hasCaixa} style={{gridColumn:"1/-1"}}>
-              <ChoiceControl type="checkbox" checked={form.hasCaixa} onChange={e=>setField("hasCaixa")(e.target.checked)}/>
-              <div>
-                <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:form.hasCaixa?"var(--arcd-success-text)":"var(--arcd-text-primary)"}}> Esta obra possui caixa de obra</p>
-                <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-0)"}}>Cliente faz aportes para compra de materiais - controle separado de entradas e gastos</p>
-              </div>
-            </label>
-            {reviewingProject&&<div className="works-review" role="status" style={{gridColumn:"1/-1"}}><div><strong>Revise antes de confirmar</strong><p>{form.name||"Obra sem nome"} · {CONTRACT_LABELS[form.contractType]||form.contractType} · {fmt(Number(form.contractValue||0))}</p><p>{form.billingFrequency==="quinzenal"?"2 cobranças por mês":"1 cobrança por mês"} · {contar(form.totalParcelas||0,"parcela","parcelas")} · início {fmtDate(form.contractStart)}</p></div><span>Nenhuma folha anterior será alterada por este cadastro.</span></div>}
-            <div style={{ gridColumn:"1/-1", display: "flex", gap: "var(--arcd-space-2)", marginTop: "var(--arcd-space-1)" }}>
-              <Btn v="ghost" onClick={() => setModal(false)} full>Cancelar</Btn>
-              <Btn onClick={save} loading={savingProject} full><Ic n="check" /> {reviewingProject?"Confirmar e salvar":"Revisar cadastro"}</Btn>
-            </div>
-          </div>
-        </Modal>
-      )}
-      {clienteModal&&<ClienteContratualModal
-        form={clienteModal} setForm={setClienteModal} onClose={()=>setClienteModal(null)}
-        onSave={salvarClienteDaObra} formGrid={formGrid}/>}
-    </div>
-  );
+function Obras(props) {
+  return <ObrasCarteira {...props}/>;
 }
 
 //
@@ -5998,7 +4966,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
   const quinzenaId=`${year}-${String(month+1).padStart(2,"0")}-Q${q}`;
   const quinzenaLabel=`${q==="1"?"1ª":"2ª"} quinzena de ${MONTHS[month]}/${year}`;
   const arqMeta=(data.quinzenasArquivadas||{})[quinzenaId];
-  const podeArquivar=currentUser?.role==="admin"||currentUser?.role==="rh";
+  const podeArquivar=canAccessCompanyAttendanceArchive(currentUser);
   const quinzenaEncerrada=diasCiclo[diasCiclo.length-1]<today();
   const [arqBusy,setArqBusy]=useState(false);
   const [arqView,setArqView]=useState(null);   // conteudo do arquivo aberto no modal
@@ -6164,10 +5132,10 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
             {contar(arqMeta.totalLancamentos,"lançamento","lançamentos")} de {contar(arqMeta.funcionarios,"funcionário","funcionários")} · arquivada por {arqMeta.archivedBy?.nome||"-"} em {fmtDateFull(String(arqMeta.archivedAt||"").slice(0,10))}. Edição bloqueada.
           </p>
         </div>
-        <div style={{display:"flex",gap:"var(--arcd-space-1)",flexWrap:"wrap"}}>
+        {podeArquivar&&<div style={{display:"flex",gap:"var(--arcd-space-1)",flexWrap:"wrap"}}>
           <Btn v="ghost" size="sm" onClick={verArquivo} disabled={arqBusy}><Ic n="calendar"/> Ver arquivo</Btn>
           {currentUser?.role==="admin"&&<Btn v="warning" size="sm" onClick={restaurarArquivo} disabled={arqBusy}><Ic n="unlock"/> Restaurar</Btn>}
-        </div>
+        </div>}
       </div>
     ) : podeArquivar ? (
       <div className="ponto-geral-archive" style={{background:"var(--arcd-surface-card)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
@@ -6193,13 +5161,13 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
       {["P","M","F"].map(st=><span className="ponto-legend-chip" key={st}><span aria-hidden="true" data-record-status-tone={tomStatus(st)}/>{ATTENDANCE_STATUS_LABEL[st]}</span>)}
       <span className="ponto-legend-chip"><span aria-hidden="true"/>Sem registro</span>
       <span className="ponto-legend-chip"><span aria-hidden="true" style={{background:"var(--arcd-surface-inverse)"}}/>Feriado</span>
-      <span className="ponto-legend-help">Para mudar a obra do dia, clique no texto abaixo do status.</span>
+      <span className="ponto-legend-help">Para mudar a obra do dia, selecione Trocar obra ou o nome da obra abaixo da situação.</span>
     </div>
 
     <div className="ponto-geral-table-wrap" style={{overflow:"auto",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)",background:"var(--arcd-surface-card)",maxHeight:"70vh"}}>
-      <table className="arcd-data-table__table ponto-geral-table" style={{borderCollapse:"separate",borderSpacing:0,minWidth:Math.max(900,284+days.length*64),width:"100%"}}>
-        <thead><tr>
-          <th className="ponto-col-funcionario" style={{position:"sticky",left:0,zIndex:7,minWidth:220,background:"var(--arcd-surface-muted)",color:"var(--arcd-text-primary)",padding:"var(--arcd-space-2) var(--arcd-space-3)",textAlign:"left",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",letterSpacing:"var(--arcd-letter-spacing-body)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}>Funcionário</th>
+      <table className="arcd-data-table__table ponto-geral-table" data-table-layout="matrix" style={{borderCollapse:"separate",borderSpacing:0,minWidth:Math.max(900,284+days.length*64),width:"100%",fontSize:"var(--arcd-type-label)"}}>
+        <thead className="arcd-sticky-table-header-cells"><tr>
+          <th className="ponto-col-funcionario" style={{left:0,zIndex:7,minWidth:220,background:"var(--arcd-surface-muted)",color:"var(--arcd-text-primary)",padding:"var(--arcd-space-2) var(--arcd-space-3)",textAlign:"left",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",letterSpacing:"var(--arcd-letter-spacing-body)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}>Funcionário</th>
           <th className="ponto-col-total" style={{minWidth:64,background:"var(--arcd-surface-muted)",color:"var(--arcd-text-primary)",padding:"var(--arcd-space-2)",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}>DIAS</th>
           {days.map(date=>{const feriado=feriados.includes(date);return <th className={`ponto-col-dia${feriado?" ponto-feriado":""}`} key={date} title={feriado?(nomesFeriados.get(date)||"Feriado"):""} style={{minWidth:64,background:feriado?"color-mix(in srgb, var(--arcd-danger-text) 8%, transparent)":"var(--arcd-surface-muted)",color:feriado?"var(--arcd-danger-text)":"var(--arcd-text-primary)",padding:"var(--arcd-space-1)",borderLeft:"var(--arcd-border-width) solid var(--arcd-border-default)",borderBottom:"var(--arcd-border-width) solid var(--arcd-border-default)"}}><div style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{diaLabel(date)}</div><div style={{fontSize:"var(--arcd-type-caption)",fontWeight:feriado?600:600,opacity:1}}>{semana(date)}</div>{feriado&&<span className="ponto-feriado-label">Feriado</span>}</th>;})}
         </tr></thead>
@@ -6214,7 +5182,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
             const att=attendanceFor(emp.id,date),st=att?.status,obraId=obraDoRegistro(emp,date,att),fora=!employeeRelevantOnDate(data,emp,date),feriado=feriados.includes(date);
             const foraDeLotacao=st&&obraId&&obraId!==emp.obra;   // trabalhou em obra diferente da lotação
             const aberto=obraCell===cellKey;
-            return <td className={`ponto-dia-cell${feriado?" ponto-feriado":""}`} key={date} style={{padding:"var(--arcd-space-1)",borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)",borderLeft:"var(--arcd-border-width) solid var(--arcd-border-default)",background:feriado?"color-mix(in srgb, var(--arcd-danger-text) 2%, transparent)":fora?"var(--arcd-surface-muted)":"var(--arcd-surface-card)",verticalAlign:"middle"}}>
+            return <td className={`ponto-dia-cell${feriado?" ponto-feriado":""}`} key={date} style={{padding:"var(--arcd-space-1)",borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)",borderLeft:"var(--arcd-border-width) solid var(--arcd-border-default)",background:feriado?"color-mix(in srgb, var(--arcd-danger-text) 2%, transparent)":fora?"var(--arcd-surface-muted)":"var(--arcd-surface-card)",verticalAlign:"top"}}>
               {fora?<div style={{textAlign:"center",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)"}}>—</div>:<>
                 <RecordAction layout="cell" onClick={()=>{
                   if(st==="AT"){
@@ -6227,28 +5195,26 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
                   aria-busy={pending}
                   data-record-status-tone={tomStatus(st)}
                   aria-haspopup={st==="AT"?"dialog":undefined}
-                  title={pending?"Salvando...":ATTENDANCE_STATUS_LABEL[st]||"Sem registro"}
-                  style={pending?{opacity:.82}:undefined}>
+                  title={pending?"Salvando...":ATTENDANCE_STATUS_LABEL[st]||"Sem registro"}>
                   {st?rotuloCurto(st):feriado?"Feriado":rotuloCurto(st)}
                 </RecordAction>
                 {st==="AT"&&<RecordAction title="Anexar atestado" onClick={()=>openCertificate(emp,date,true)}>Anexar atestado</RecordAction>}
                 {/* Obra: escondida por padrão. Mostra um chip discreto só quando a
                     obra do dia difere da lotação; toque abre a troca. */}
                 {aberto ? (
-                  <SelectControl autoFocus value={obraId} onChange={e=>{salvarCelula(emp,date,{obraId:e.target.value});setObraCell(null);}} onBlur={()=>setObraCell(null)}
-                    style={{width:"100%",marginTop:"var(--arcd-space-half)"}}>
+                  <SelectControl autoFocus aria-label="Obra do dia" value={obraId} onChange={e=>{salvarCelula(emp,date,{obraId:e.target.value});setObraCell(null);}} onBlur={()=>setObraCell(null)}
+                    className="mt-[var(--arcd-space-half)]">
                     <option value="">Sem obra</option>
                     {(data.obras||[]).map(o=><option key={o.id} value={o.id}>{o.name}</option>)}
                   </SelectControl>
                 ) : foraDeLotacao ? (
-                  <RecordAction onClick={()=>setObraCell(cellKey)} title={`Obra do dia: ${obraName(obraId)}`}
-                    style={{width:"100%",marginTop:"var(--arcd-space-half)",cursor:"pointer",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                  <RecordAction layout="cell" data-cell-action="link" data-cell-tone="warning"
+                    onClick={()=>setObraCell(cellKey)} title={`Obra do dia: ${obraName(obraId)}`}>
                     {obraName(obraId)}
                   </RecordAction>
                 ) : st ? (
-                  <RecordAction onClick={()=>setObraCell(cellKey)} title="Trocar a obra deste dia"
-                    style={{width:"100%",marginTop:"var(--arcd-space-half)",cursor:"pointer",opacity:.55}}>
-                    trocar obra
+                  <RecordAction layout="cell" data-cell-action="link" onClick={()=>setObraCell(cellKey)} title="Trocar a obra deste dia">
+                    Trocar obra
                   </RecordAction>
                 ) : null}
               </>}
@@ -6750,7 +5716,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
       <ScopeNote title={isMobile?"Alcance do lote":"Ações em lote"}>A busca e a paginação organizam a leitura. Os lotes continuam abrangendo os {list.length} funcionários da obra e do grupo selecionados.</ScopeNote>
       <div className="obra-attendance__bulk">
         <Btn v="success" size="sm" onClick={() => markAll("P")} disabled={filterObra==="all"||!selectedObraCanEdit||list.length===0} full title={filterObra==="all"?"Selecione uma obra para usar ações em lote":undefined}><Ic n="check" /> Todos presentes</Btn>
-        <Btn v="ghost" size="sm" onClick={() => markAll("F")} disabled={filterObra==="all"||!selectedObraCanEdit||list.length===0} full title={filterObra==="all"?"Selecione uma obra para usar ações em lote":undefined}><Ic n="x" /> Todos com falta</Btn>
+        <Btn v="danger" size="sm" onClick={() => markAll("F")} disabled={filterObra==="all"||!selectedObraCanEdit||list.length===0} full title={filterObra==="all"?"Selecione uma obra para usar ações em lote":undefined}><Ic n="x" /> Todos com falta</Btn>
       </div>
       </TaskDisclosure>
 
@@ -7048,936 +6014,8 @@ function FluxoCaixa({ data, year, month, obraId="all" }) {
   );
 }
 
-//
-// Relatórios
-//
-
-// Relatório financeiro consolidado do caixa de obra: uma linha por obra com
-// caixa ativado, saldo/aportes/gastos e um PDF por obra (mesmo template já
-// usado dentro da tela Caixa de Obra).
-function RelatorioCaixaObra({ data, showToast }) {
-  const obrasComCaixa = useMemo(() => (data.obras||[]).filter(o=>o.hasCaixa), [data.obras]);
-  const linhas = useMemo(() => obrasComCaixa.map(o => ({ obra:o, ...calcCaixaObra(data,o.id) })),
-    [obrasComCaixa, data.caixaObra]);
-  const totalAportes  = linhas.reduce((s,l)=>s+l.totalAportes,0);
-  const totalDespesas = linhas.reduce((s,l)=>s+l.totalDespesas,0);
-  const totalDevolucoes = linhas.reduce((s,l)=>s+l.totalDevolucoes,0);
-  const totalSaldo    = linhas.reduce((s,l)=>s+l.saldo,0);
-
-  if (!obrasComCaixa.length) {
-    return (
-      <div style={{padding:"var(--arcd-space-6)",textAlign:"center",border:`var(--arcd-border-width) dashed var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)"}}>
-        Nenhuma obra com caixa ativado. Ative em <strong>Obras</strong> · "Esta obra possui caixa de obra".
-      </div>
-    );
-  }
-
-  return (
-    <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(165px,1fr))",gap:"var(--arcd-space-2)"}}>
-        <ReportMetric label="Total de entradas" value={fmt(totalAportes)} color={C.green} icon="download"/>
-        <ReportMetric label="Total de gastos" value={fmt(totalDespesas)} color={C.red} icon="cart"/>
-        <ReportMetric label="Devoluções" value={fmt(totalDevolucoes)} color={C.muted} icon="wallet"/>
-        <ReportMetric label="Saldo consolidado" value={fmt(totalSaldo)} color={(totalSaldo>0?C.green:totalSaldo<0?C.red:C.muted)} icon="wallet"/>
-      </div>
-      <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
-        {linhas.map(l => (
-          <div key={l.obra.id} style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-3) var(--arcd-space-3)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
-            <div>
-              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"var(--arcd-text-primary)"}}>{l.obra.name}</p>
-              <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{contar(l.movimentos.length,"lançamento","lançamentos")} · entradas {fmt(l.totalAportes)} · despesas {fmt(l.totalDespesas)} · devoluções {fmt(l.totalDevolucoes)}</p>
-            </div>
-            <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)"}}>
-              <b style={{fontSize:"var(--arcd-type-card-title)",color:(l.saldo>0?C.green:l.saldo<0?C.red:C.muted)}}>{fmt(l.saldo)}</b>
-              <Btn size="sm" v="ghost" onClick={()=>gerarRelatorioCaixaObraPDF(data,l.obra,l,showToast)}><Ic n="download" s={12}/> PDF</Btn>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function gerarRelatorioComprasPDF(data, { inicio, fim, obraId, origem, linhas, totais }, showToast) {
-  const obraNomeSel = obraId === "all" ? "Todas as obras" : (data.obras||[]).find(o=>o.id===obraId)?.name || "-";
-  const origemSel = origem === "todas" ? "Todos" : origemPagamentoLabel(origem);
-  const html = montarRelatorioPadraoHtml({
-    data,
-    titulo: "Relatório de compras",
-    subtitulo: `${fmtDateFull(inicio)} a ${fmtDateFull(fim)}`,
-    meta: [
-      { label: "Obra", value: obraNomeSel },
-      { label: "Quem pagou", value: origemSel },
-    ],
-    kpis: [
-      { label: "Total comprado", value: fmt(totais.comprado) },
-      { label: "Total pago", value: fmt(totais.pago) },
-      { label: "Saldo a pagar", value: fmt(totais.pendente) },
-      { label: "Itens no período", value: String(linhas.length) },
-    ],
-    tabelas: [{
-      headers: ["Data","Pedido","Obra","Fornecedor","Item",{label:"Qtd",num:true},{label:"Preço unit.",num:true},{label:"Subtotal",num:true},"Quem pagou","Status"],
-      rows: linhas.map(l => [
-        escapeHtml(fmtDateFull(l.data)), escapeHtml(l.numero), escapeHtml(l.obra), escapeHtml(l.fornecedor),
-        escapeHtml(l.item), escapeHtml(`${l.qtd} ${l.unidade}`), escapeHtml(fmt(l.precoUnit)), escapeHtml(fmt(l.subtotal)),
-        escapeHtml(l.origemPagamento), escapeHtml(l.statusLabel),
-      ]),
-      totalRow: ["","","","","","","TOTAL", fmt(totais.comprado), "", ""],
-      vazio: "Nenhuma compra encontrada neste filtro.",
-    }],
-  });
-  abrirRelatorioPadrao(html, showToast);
-}
-
-function RelatorioCompras({ data, showToast }) {
-  const [inicio, setInicio] = useState(() => `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,"0")}-01`);
-  const [fim, setFim] = useState(() => today());
-  const [obraId, setObraId] = useState("all");
-  const [origem, setOrigem] = useState("todas");
-
-  const obraPorIdC = useMemo(() => new Map((data.obras||[]).map(o=>[o.id,o])), [data.obras]);
-  const fornecedorPorId = useMemo(() => new Map((data.fornecedores||[]).map(f=>[f.id,f])), [data.fornecedores]);
-  const materialPorId = useMemo(() => new Map((data.materiais||[]).map(m=>[m.id,m])), [data.materiais]);
-
-  const linhas = useMemo(() => {
-    const out = [];
-    (data.pedidos||[]).forEach(p => {
-      if (p.status === "cancelado") return;
-      if (!p.data || p.data < inicio || p.data > fim) return;
-      if (obraId!=="all" && p.obraId!==obraId) return;
-      const origemPag = p.origemPagamento || "empresa";
-      if (origem!=="todas" && origemPag!==origem) return;
-      const statusPag = statusPagamentoPedido(p);
-      const statusLabel = statusPag==="pago"?"Pago":statusPag==="parcial"?"Parcial":statusPag==="cancelado"?"Cancelado":"Pendente";
-      (p.itens||[]).forEach(item => {
-        const nomeItem = materialPorId.get(item.materialId)?.descricao || item.descricaoRef || "Item";
-        const subtotal = Number(item.qtd||0) * Number(item.precoUnit||0);
-        out.push({
-          pedidoId: p.id, numero: p.numero||"-", data: p.data,
-          obra: obraPorIdC.get(p.obraId)?.name || "-",
-          fornecedor: fornecedorPorId.get(p.fornecedorId)?.nome || "-",
-          item: nomeItem, unidade: item.unidadeRef||"-",
-          qtd: Number(item.qtd||0), precoUnit: Number(item.precoUnit||0), subtotal,
-          origemPagamento: origemPagamentoLabel(origemPag),
-          statusLabel,
-        });
-      });
-    });
-    return out.sort((a,b)=>String(b.data||"").localeCompare(String(a.data||"")));
-  }, [data.pedidos, obraPorIdC, fornecedorPorId, materialPorId, inicio, fim, obraId, origem]);
-
-  const totais = useMemo(() => {
-    const comprado = linhas.reduce((s,l)=>s+l.subtotal,0);
-    const pago = linhas.filter(l=>l.statusLabel==="Pago").reduce((s,l)=>s+l.subtotal,0);
-    return { comprado, pago, pendente: comprado - pago };
-  }, [linhas]);
-
-  return (
-    <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
-      <div className="no-print" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:"var(--arcd-space-2)"}}>
-        <Inp label="De" type="date" value={inicio} onChange={setInicio}/>
-        <Inp label="Até" type="date" value={fim} onChange={setFim}/>
-        <Sel label="Obra" value={obraId} onChange={setObraId} options={[{v:"all",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
-        <Sel label="Quem pagou" value={origem} onChange={setOrigem} options={[{v:"todas",l:"Todos"},{v:"empresa",l:origemPagamentoLabel("empresa")},{v:"caixa_obra",l:origemPagamentoLabel("caixa_obra")},{v:"cliente_direto",l:origemPagamentoLabel("cliente_direto")}]}/>
-      </div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(165px,1fr))",gap:"var(--arcd-space-2)"}}>
-        <ReportMetric label="Total comprado" value={fmt(totais.comprado)} color={C.blue} icon="cart"/>
-        <ReportMetric label="Total pago" value={fmt(totais.pago)} color={C.green} icon="check"/>
-        <ReportMetric label="Saldo a pagar" value={fmt(totais.pendente)} color={totais.pendente>0?C.orange:C.green} icon="wallet"/>
-      </div>
-      <div className="no-print" style={{display:"flex",justifyContent:"flex-end"}}>
-        <Btn size="sm" v="ghost" onClick={()=>gerarRelatorioComprasPDF(data,{inicio,fim,obraId,origem,linhas,totais},showToast)}><Ic n="download" s={12}/> Exportar PDF</Btn>
-      </div>
-      <div className="scroll-x" style={{border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",overflow:"hidden"}}>
-        <table className="arcd-data-table__table" style={{width:"100%",minWidth:900,borderCollapse:"collapse",background:"var(--arcd-surface-card)"}}>
-          <thead><tr>{["Data","Pedido","Obra","Fornecedor","Item","Qtd","Preço unit.","Subtotal","Quem pagou","Status"].map(h=><th key={h} style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",textAlign:["Qtd","Preço unit.","Subtotal"].includes(h)?"right":"left",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-default)`}}>{h}</th>)}</tr></thead>
-          <tbody>{linhas.map((l,i)=><tr key={`${l.pedidoId}-${i}`} style={{borderTop:`var(--arcd-border-width) solid var(--arcd-border-subtle)`}}>
-            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)",color:"var(--arcd-text-secondary)",whiteSpace:"nowrap"}}>{fmtDate(l.data)}</td>
-            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)",fontWeight:600,color:C.blue}}>{l.numero}</td>
-            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)"}}>{l.obra}</td>
-            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)"}}>{l.fornecedor}</td>
-            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)",maxWidth:220,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{l.item}</td>
-            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)",textAlign:"right",whiteSpace:"nowrap"}}>{l.qtd} {l.unidade}</td>
-            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)",textAlign:"right"}}>{fmt(l.precoUnit)}</td>
-            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)",fontWeight:600,textAlign:"right"}}>{fmt(l.subtotal)}</td>
-            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)"}}>{l.origemPagamento}</td>
-            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)"}}><Badge color={l.statusLabel==="Pago"?C.green:l.statusLabel==="Parcial"?C.orange:l.statusLabel==="Cancelado"?C.red:C.muted}>{l.statusLabel}</Badge></td>
-          </tr>)}</tbody>
-        </table>
-        {!linhas.length&&<div style={{padding:"var(--arcd-space-6)",textAlign:"center",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)"}}>Nenhuma compra encontrada neste filtro.</div>}
-      </div>
-    </div>
-  );
-}
-
-function gerarRelatorioAdministracaoPDF(data, { period, linhas, totais }, showToast) {
-  const html = montarRelatorioPadraoHtml({
-    data,
-    titulo: "Previsão de recebimento por administração",
-    subtitulo: period,
-    kpis: [
-      { label: "Previsto no período", value: fmt(totais.previsto) },
-      { label: "Já fechado nas medições", value: fmt(totais.fechado) },
-      { label: "Pendente de fechamento", value: fmt(totais.pendente) },
-      { label: "Obras por administração", value: String(linhas.length) },
-    ],
-    tabelas: [{
-      headers: ["Obra","Modalidade",{label:"% Admin.",num:true},{label:"Mão de obra",num:true},{label:"Materiais",num:true},{label:"Terceirizados",num:true},{label:"Base calculada",num:true},{label:"Previsto",num:true},{label:"Já fechado",num:true},{label:"Pendente",num:true}],
-      rows: linhas.map(l => [
-        escapeHtml(l.obra.name), escapeHtml(CONTRACT_LABELS[l.obra.contractType]||l.obra.contractType),
-        escapeHtml(`${l.ap}%`),
-        escapeHtml(`${fmt(l.laborBase)}${l.incluiMaoDeObra?"":" (não entra)"}`),
-        escapeHtml(`${fmt(l.materialCost)}${l.incluiMateriais?"":" (não entra)"}`),
-        escapeHtml(`${fmt(l.tercCost)}${l.incluiTerceirizados?"":" (não entra)"}`),
-        escapeHtml(fmt(l.adminBase)), escapeHtml(fmt(l.valorAdmin)),
-        escapeHtml(fmt(l.jaFechado)), escapeHtml(fmt(l.pendente)),
-      ]),
-      totalRow: ["","","","","","", "", fmt(totais.previsto), fmt(totais.fechado), fmt(totais.pendente)],
-      vazio: "Nenhuma obra por administração encontrada.",
-    }],
-    legenda: "Base calculada = soma apenas das categorias configuradas no cadastro de cada obra (materiais, mão de obra e/ou terceirizados). Compras via pedidos e terceirizados pagos pela empresa para a obra já estão incluídos nos valores de materiais e terceirizados.",
-  });
-  abrirRelatorioPadrao(html, showToast);
-}
-
-// Documento voltado ao cliente, para justificar a cobrança da administração
-// de uma obra específica no período - só entram as categorias efetivamente
-// configuradas para esta obra (cadastro de Obras).
-function gerarRelatorioCobrancaAdministracaoPDF(data, { l, period }, showToast) {
-  const obra = l.obra;
-  const composicao = [
-    { label: "Mão de obra e benefícios", valor: l.laborBase, incluido: l.incluiMaoDeObra },
-    { label: "Materiais (lançamentos e compras)", valor: l.materialCost, incluido: l.incluiMateriais },
-    { label: "Terceirizados", valor: l.tercCost, incluido: l.incluiTerceirizados },
-  ];
-  if (obra.contractType === "admin_only" && l.outrosCustos > 0) {
-    composicao.push({ label: "Equipamentos, rescisões e outras despesas", valor: l.outrosCustos, incluido: true });
-  }
-  const html = montarRelatorioPadraoHtml({
-    data,
-    titulo: "Relatório de cobrança - administração de obra",
-    subtitulo: `${obra.name} · ${period}`,
-    paisagem: false,
-    meta: [
-      { label: "Cliente", value: obra.cliente || "Não informado" },
-      { label: "Obra", value: obra.name },
-      { label: "Endereço", value: obra.address || "-" },
-      { label: "Modalidade", value: CONTRACT_LABELS[obra.contractType] || obra.contractType },
-    ],
-    kpis: [
-      { label: "Base de cálculo", value: fmt(l.adminBase) },
-      { label: "% de administração", value: `${l.ap}%` },
-      { label: "Valor da administração", value: fmt(l.valorAdmin) },
-      { label: "Já fechado nas medições", value: fmt(l.jaFechado) },
-    ],
-    tabelas: [{
-      titulo: "Composição dos custos do período",
-      headers: ["Categoria",{label:"Valor gasto",num:true},"Entra na base de administração?"],
-      rows: composicao.map(c => [escapeHtml(c.label), escapeHtml(fmt(c.valor)), c.incluido?"Sim":"Não"]),
-      totalRow: ["Base de administração ($ × %)", fmt(l.adminBase), `${l.ap}% = ${fmt(l.valorAdmin)}`],
-    }],
-    legenda: `Valor calculado como ${l.ap}% sobre a base de administração definida no contrato desta obra. Categorias marcadas "Não" não entram no cálculo, conforme configurado no cadastro da obra.`,
-    assinaturas: ["Responsável pela construtora", `Representante · ${obra.cliente || "cliente"}`],
-  });
-  abrirRelatorioPadrao(html, showToast);
-}
-
-function RelatorioAdministracao({ data, year, month, showToast }) {
-  const obrasAdmin = useMemo(() => (data.obras||[])
-    .filter(o => o.contractType==="admin_only" || o.contractType==="fixed_labor_admin"),
-    [data.obras]);
-
-  const linhas = useMemo(() => {
-    return obrasAdmin.map(obra => {
-      const projection = calcProjecaoContratoObra(data, obra.id, year, month);
-      const laborBase = projection.laborCost + projection.benefitCost;
-      // Usa exclusivamente a configuração salva no cadastro da obra (nenhum
-      // filtro deste relatório sobrescreve o que foi definido lá).
-      const {
-        adminBase, incluiMaoDeObra, incluiMateriais, incluiTerceirizados,
-        outrosCustos, adminEligibleMaterialCost, tercCost, jaFechado,
-      } = projection;
-      const ap = Number(obra.adminPercentage||0);
-      const valorAdmin = adminBase * (ap/100);
-      return {
-        obra, ap, adminBase, valorAdmin, jaFechado, pendente: Math.max(0, valorAdmin-jaFechado),
-        // Usa o material líquido (já descontando lançamentos marcados "não
-        // entra na taxa de administração"), não o bruto - senão a soma das
-        // linhas "Sim" deste relatório não bate com a base de fato cobrada.
-        laborBase, materialCost: adminEligibleMaterialCost, tercCost, outrosCustos,
-        incluiMaoDeObra, incluiMateriais, incluiTerceirizados,
-      };
-    });
-  }, [obrasAdmin, year, month, data]);
-
-  const totais = useMemo(() => ({
-    previsto: linhas.reduce((s,l)=>s+l.valorAdmin,0),
-    fechado:  linhas.reduce((s,l)=>s+l.jaFechado,0),
-    pendente: linhas.reduce((s,l)=>s+l.pendente,0),
-  }), [linhas]);
-
-  const period = `${fullMonth(month)} · ${year}`;
-  const celulaCategoria = (valor, incluido) => (
-    <span style={{color:incluido?"var(--arcd-text-primary)":"var(--arcd-text-secondary)",textDecoration:incluido?"none":"line-through"}}>{fmt(valor)}</span>
-  );
-
-  return (
-    <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
-      <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>A base de cálculo usa exatamente o que está configurado no cadastro de cada obra (Obras → Contrato financeiro). Valores riscados não entram na base dessa obra.</p>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(165px,1fr))",gap:"var(--arcd-space-2)"}}>
-        <ReportMetric label="Previsto no período" value={fmt(totais.previsto)} color={C.purple} icon="dollar"/>
-        <ReportMetric label="Já fechado nas medições" value={fmt(totais.fechado)} color={C.green} icon="check"/>
-        <ReportMetric label="Pendente de fechamento" value={fmt(totais.pendente)} color={totais.pendente>0?C.orange:C.green} icon="wallet"/>
-      </div>
-      <div className="no-print" style={{display:"flex",justifyContent:"flex-end"}}>
-        <Btn size="sm" v="ghost" onClick={()=>gerarRelatorioAdministracaoPDF(data,{ period, linhas, totais },showToast)}><Ic n="download" s={12}/> Exportar PDF</Btn>
-      </div>
-      <div className="scroll-x" style={{border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-box-radius)",overflow:"hidden"}}>
-        <table className="arcd-data-table__table" style={{width:"100%",minWidth:1050,borderCollapse:"collapse",background:"var(--arcd-surface-card)"}}>
-          <thead><tr>{["Obra","Modalidade","% Admin.","Mão de obra","Materiais","Terceirizados","Base calculada","Previsto","Já fechado","Pendente","Ações"].map(h=><th key={h} style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",textAlign:["Obra","Modalidade","Ações"].includes(h)?"left":"right",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-default)`}}>{h}</th>)}</tr></thead>
-          <tbody>{linhas.map(l=><tr key={l.obra.id} style={{borderTop:`var(--arcd-border-width) solid var(--arcd-border-subtle)`}}>
-            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)",fontWeight:600}}>{l.obra.name}</td>
-            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)",color:"var(--arcd-text-secondary)"}}>{CONTRACT_LABELS[l.obra.contractType]||l.obra.contractType}</td>
-            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)",textAlign:"right"}}>{l.ap}%</td>
-            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)",textAlign:"right"}}>{celulaCategoria(l.laborBase,l.incluiMaoDeObra)}</td>
-            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)",textAlign:"right"}}>{celulaCategoria(l.materialCost,l.incluiMateriais)}</td>
-            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)",textAlign:"right"}}>{celulaCategoria(l.tercCost,l.incluiTerceirizados)}</td>
-            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)",textAlign:"right",fontWeight:600}}>{fmt(l.adminBase)}</td>
-            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)",fontWeight:600,textAlign:"right",color:C.purple}}>{fmt(l.valorAdmin)}</td>
-            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)",textAlign:"right",color:C.green}}>{fmt(l.jaFechado)}</td>
-            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)",fontSize:"var(--arcd-type-table)",textAlign:"right",fontWeight:600,color:l.pendente>0?C.orange:C.green}}>{fmt(l.pendente)}</td>
-            <td style={{padding:"var(--arcd-space-2) var(--arcd-space-2)"}}><Btn size="sm" v="ghost" onClick={()=>gerarRelatorioCobrancaAdministracaoPDF(data,{l,period},showToast)}><Ic n="download" s={11}/> Cobrança</Btn></td>
-          </tr>)}</tbody>
-        </table>
-        {!linhas.length&&<div style={{padding:"var(--arcd-space-6)",textAlign:"center",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)"}}>Nenhuma obra por administração (admin_only ou mista) encontrada.</div>}
-      </div>
-    </div>
-  );
-}
-
-function Relatorios({ data, showToast, currentUser }) {
-  const [section,setSection]=useState("monthly");
-  const canViewProjection=["admin","rh","financeiro"].includes(currentUser?.role);
-  return <div>
-    {canViewProjection&&<FlowTabs label="Relatórios de mão de obra" active={section} onChange={setSection}
-      steps={[{id:"monthly",label:"Relatórios mensais"},{id:"projection",label:"Projeção de mão de obra"}]}/>}
-    {section==="projection"&&canViewProjection
-      ?<LaborProjectionReport requestReport={obterProjecaoMaoObra}/>
-      :<RelatoriosMensais data={data} showToast={showToast}/>}
-  </div>;
-}
-
-function RelatoriosMensais({ data, showToast }) {
-  const [year, setYear] = useState(new Date().getFullYear());
-  const [month, setMonth] = useState(new Date().getMonth());
-  const [filterObra, setFilterObra] = useState("all");
-  const [view, setView] = useState("custos");
-  const usesMonthlyPeriod = view === "custos" || view === "relatorio" || view === "administracao";
-
-  const days = useMemo(() => getDays(year, month), [year, month]);
-  const obraPorIdRel = useMemo(() => new Map(data.obras.map(o => [o.id, o])), [data.obras]);
-  const obraName = id => obraPorIdRel.get(id)?.name || "-";
-  const payrollHolidays = useMemo(() => getPayrollHolidays(data, year), [data.config?.paymentHolidays, year]);
-  const holidaysInMonth = useMemo(() => days.filter(d => payrollHolidays.includes(d) && prIsWeekdayIso(d)),
-    [days, payrollHolidays]);
-  const obraCostRows = useMemo(() => data.obras.map(o => {
-    const activeEmps = data.employees.filter(e => e.active !== false && e.obra === o.id);
-
-    let presentes = 0;
-    let meiodia = 0;
-    let faltas = 0;
-    let semRegistro = 0;
-    let holidayPay = 0;
-
-    data.employees.forEach(e => {
-      days.forEach(d => {
-        if (!isEmployeeEmployedOnDate(e, d)) return;
-        if (holidaysInMonth.includes(d)) return;
-
-        const a = getAtt(data, e.id, d);
-        const obraDoDia = resolveEmployeeAttendanceObraId({
-          data,
-          employee:e,
-          date:d,
-          record:a,
-        });
-        if (obraDoDia !== o.id) return;
-        const s = a?.status;
-
-        if (s === "P") {
-          presentes++;
-        } else if (s === "M") {
-          meiodia++;
-        } else if (s === "F") {
-          faltas++;
-        } else if (isLeaveStatus(s)) {
-          // Afastamento (férias/atestado/folga): não é falta nem pendência.
-        } else if (e.obra === o.id && e.active !== false) {
-          semRegistro++;
-        }
-      });
-
-      holidaysInMonth.forEach(h => {
-        if (!isEmployeeEmployedOnDate(e, h)) return;
-        if (resolveHolidayObraId({ data, employee:e, holidayIso:h }) !== o.id) return;
-        const rule = getHolidayPayRule(data, e, h, payrollHolidays);
-        holidayPay += Number(rule.amount || 0);
-      });
-    });
-
-    // Fonte única dos valores: a mesma função consumida pelo DRE, incluindo
-    // hora extra, benefício, obra gravada no ponto e custos arquivados.
-    const { laborCost, benefitCost, totalCost } = calcObraLaborCost(data, o.id, days);
-    const areaM2 = Number(o.areaM2 || 0);
-    const laborCostPerM2 = areaM2 > 0 ? laborCost / areaM2 : 0;
-    const totalCostPerM2 = areaM2 > 0 ? totalCost / areaM2 : 0;
-
-    return {
-      id: o.id,
-      name: o.name,
-      areaM2,
-      trabalhadores: activeEmps.length,
-      presentes,
-      meiodia,
-      faltas,
-      semRegistro,
-      laborCost,
-      benefitCost,
-      holidayPay,
-      totalCost,
-      laborCostPerM2,
-      totalCostPerM2,
-    };
-  }), [data, days, holidaysInMonth, payrollHolidays]);
-
-  const filteredRows = obraCostRows.filter(r => filterObra === "all" || r.id === filterObra);
-
-  const totals = filteredRows.reduce((acc, r) => ({
-    areaM2: acc.areaM2 + r.areaM2,
-    trabalhadores: acc.trabalhadores + r.trabalhadores,
-    presentes: acc.presentes + r.presentes,
-    meiodia: acc.meiodia + r.meiodia,
-    faltas: acc.faltas + r.faltas,
-    semRegistro: acc.semRegistro + r.semRegistro,
-    laborCost: acc.laborCost + r.laborCost,
-    benefitCost: acc.benefitCost + r.benefitCost,
-    holidayPay: acc.holidayPay + r.holidayPay,
-    totalCost: acc.totalCost + r.totalCost,
-  }), {
-    areaM2: 0,
-    trabalhadores: 0,
-    presentes: 0,
-    meiodia: 0,
-    faltas: 0,
-    semRegistro: 0,
-    laborCost: 0,
-    benefitCost: 0,
-    holidayPay: 0,
-    totalCost: 0,
-  });
-
-  const totalLaborCostPerM2 = totals.areaM2 > 0 ? totals.laborCost / totals.areaM2 : 0;
-  const totalCostPerM2 = totals.areaM2 > 0 ? totals.totalCost / totals.areaM2 : 0;
-
-  const byObra = filteredRows.map(r => ({
-    id: r.id,
-    name: r.name,
-    trabalhadores: r.trabalhadores,
-    presentes: r.presentes,
-    faltas: r.faltas,
-    custo: r.laborCost,
-    custoTotal: r.totalCost,
-    custoM2: r.laborCostPerM2,
-  }));
-
-  const topCost = useMemo(() => data.employees.map(e => {
-    let total = 0;
-
-    days.forEach(d => {
-      if (!isEmployeeEmployedOnDate(e, d)) return;
-      if (holidaysInMonth.includes(d)) return;
-      const record = getAtt(data, e.id, d);
-      const obraDoDia = resolveEmployeeAttendanceObraId({
-        data,
-        employee:e,
-        date:d,
-        record,
-      });
-      if (filterObra !== "all" && obraDoDia !== filterObra) return;
-      total += calculateAttendanceDayCost({ employee:e, record, config:data.config }).laborCost;
-    });
-
-    holidaysInMonth.forEach(h => {
-      if (!isEmployeeEmployedOnDate(e, h)) return;
-      const obraDoDia = resolveHolidayObraId({ data, employee:e, holidayIso:h });
-      if (filterObra !== "all" && obraDoDia !== filterObra) return;
-      total += Number(getHolidayPayRule(data, e, h, payrollHolidays).amount || 0);
-    });
-
-    return { name: e.name, obra: obraName(e.obra), total };
-  }).filter(i => i && i.total > 0).sort((a, b) => b.total - a.total).slice(0, 10),
-    [data, filterObra, days, holidaysInMonth, payrollHolidays, obraPorIdRel]);
-
-  const exportObraCosts = async () => {
-    await carregarXLSX();
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet([
-      ["Relatório de gasto por obra", `${fullMonth(month)} ${year}`],
-      ["Filtro", filterObra === "all" ? "Todas as obras" : obraName(filterObra)],
-      [],
-      [
-        "Obra",
-        "Área (m)",
-        "Trabalhadores ativos",
-        "Presenças",
-        "Meio dia",
-        "Faltas",
-        "Sem registro",
-        "Mão de obra",
-        "Feriados pagos",
-        "VT/VR",
-        "Total com benefícios",
-        "Mão de obra por m",
-        "Total por m",
-      ],
-      ...filteredRows.map(r => [
-        r.name,
-        r.areaM2,
-        r.trabalhadores,
-        r.presentes,
-        r.meiodia,
-        r.faltas,
-        r.semRegistro,
-        r.laborCost,
-        r.holidayPay,
-        r.benefitCost,
-        r.totalCost,
-        r.laborCostPerM2,
-        r.totalCostPerM2,
-      ]),
-      [
-        "TOTAL",
-        totals.areaM2,
-        totals.trabalhadores,
-        totals.presentes,
-        totals.meiodia,
-        totals.faltas,
-        totals.semRegistro,
-        totals.laborCost,
-        totals.holidayPay,
-        totals.benefitCost,
-        totals.totalCost,
-        totalLaborCostPerM2,
-        totalCostPerM2,
-      ],
-    ]);
-
-    ws["!cols"] = [22, 10, 16, 10, 10, 10, 12, 14, 14, 12, 18, 18, 14].map(w => ({ wch: w }));
-    XLSX.utils.book_append_sheet(wb, ws, "Gasto por Obra");
-    await XLSX.writeFile(wb, `arcd-gasto-obra-${year}-${String(month + 1).padStart(2, "0")}.xlsx`);
-  };
-
-  const [chartMode, setChartMode] = useState("custos");
-  const [highlightObra, setHighlightObra] = useState("");
-  // O escopo e o destaque andam juntos, tanto na escolha da tela quanto na vinda do carimbo.
-  const escolherEscopoObra = v => { setFilterObra(v); setHighlightObra(v === "all" ? "" : v); };
-  useSyncedWorkObra(filterObra, escolherEscopoObra, { allowedIds: (data.obras || []).map(o => o.id), allValue: "all" });
-
-  return (
-    <div className="anim" style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
-      <PageHero
-        eyebrow="Inteligência gerencial"
-        title="Relatórios e inteligência"
-        description="Consulte custos, presença, caixa e compras."
-      />
-
-      <div className="no-print" style={{display:"flex",flexWrap:"wrap",gap:"var(--arcd-space-2)",alignItems:"end"}}>
-        <TabRow tabs={[["custos","Painel analítico"],["relatorio","Relatório executivo"],["caixa","Caixa de obra"],["compras","Relatório de compras"],["administracao","Recebimento por administração"]]} active={view} onChange={setView}/>
-        {usesMonthlyPeriod && <div style={{display:"flex",gap:"var(--arcd-space-2)",marginInlineStart:"auto"}}>
-          <Sel label="Mês do relatório" value={String(month)} onChange={v => setMonth(Number(v))} options={Array.from({ length: 12 }, (_, i) => ({ v: String(i), l: fullMonth(i) }))} />
-          <Sel label="Ano do relatório" value={String(year)} onChange={v => setYear(Number(v))} options={Array.from({ length: 4 }, (_, i) => new Date().getFullYear() - 1 + i).map(y => ({ v: String(y), l: String(y) }))} />
-        </div>}
-      </div>
-
-      {/*  RELATÓRIO MENSAL COMPLETO  */}
-      {view === "relatorio" && <RelatorioMensal data={data} year={year} month={month} showToast={showToast}/>}
-
-      {/*  CAIXA DE OBRA  */}
-      {view === "caixa" && <>
-        <ScopeNote title="Escopo do caixa de obra">Saldo acumulado das obras com caixa ativo.</ScopeNote>
-        <RelatorioCaixaObra data={data} showToast={showToast}/>
-      </>}
-
-      {/*  RELATÓRIO DE COMPRAS  */}
-      {view === "compras" && <RelatorioCompras data={data} showToast={showToast}/>}
-
-      {/*  RECEBIMENTO POR ADMINISTRAÇÃO  */}
-      {view === "administracao" && <RelatorioAdministracao data={data} year={year} month={month} showToast={showToast}/>}
-
-      {/*  INDICADORES (view padrão)  */}
-      {view === "custos" && <>
-      <div className="no-print" style={{display:"flex",alignItems:"end",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
-        <div style={{flex:"1 1 12rem",minWidth:0}}><Sel label="Escopo da análise" value={filterObra} onChange={escolherEscopoObra} options={[{ v: "all", l: "Todas as obras" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]}/></div>
-        <Btn onClick={exportObraCosts} v="ghost"><Ic n="download" s={14}/> Exportar base</Btn>
-      </div>
-      <ScopeNote title="Indicadores e exportação">{filterObra === "all" ? "Todas as obras" : obraName(filterObra)} · {fullMonth(month)} {year}.</ScopeNote>
-
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(165px,1fr))",gap:"var(--arcd-space-2)"}}>
-        <ReportMetric label="Mão de obra" value={fmt(totals.laborCost)} detail={`${totals.trabalhadores} profissionais ativos`} color={C.yellow} icon="users"/>
-        <ReportMetric label="Custo por m²" value={totals.areaM2>0?fmt(totalLaborCostPerM2):"Sem área"} detail={`${totals.areaM2.toLocaleString("pt-BR")} m² analisados`} color={totals.areaM2>0?C.green:C.muted} icon="ruler"/>
-        <ReportMetric label="Custo total" value={fmt(totals.totalCost)} detail={`${fmt(totals.benefitCost)} em VT/VR`} color={C.blue} icon="wallet"/>
-        <ReportMetric label="Registros críticos" value={totals.faltas+totals.semRegistro} detail={`${totals.faltas} faltas · ${totals.semRegistro} sem registro`} color={(totals.faltas+totals.semRegistro)>0?C.red:C.green} icon="alert"/>
-      </div>
-
-      <Suspense fallback={<LoadingState label="gráfico"/>}>
-        <LazyRelatoriosChartPanel byObra={byObra} chartMode={chartMode} setChartMode={setChartMode} highlightObra={highlightObra} setHighlightObra={setHighlightObra}/>
-      </Suspense>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-2)" }}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:1,textTransform:"uppercase",color:"var(--arcd-text-secondary)"}}>Leitura técnica por obra</p>{highlightObra&&<button onClick={()=>setHighlightObra("")} style={{border:0,background:"transparent",color:C.yellowD,fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>Limpar destaque</button>}</div>
-        {[...filteredRows].sort((a,b)=>(b.id===highlightObra)-(a.id===highlightObra)).map(r => (
-          <div key={r.id} onClick={()=>setHighlightObra(r.id)} className="lift-card" style={{ background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid ${highlightObra===r.id?C.yellow:C.line}`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-3)",cursor:"pointer",opacity:highlightObra&&highlightObra!==r.id?0.72:1,boxShadow:highlightObra===r.id?`0 8px 24px ${C.yellow}12`:C.shHair }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--arcd-space-2)", alignItems: "flex-start" }}>
-              <div>
-                <p style={{ fontFamily:FONT_DISPLAY, fontWeight:600,fontSize:"var(--arcd-type-card-title)" }}>{r.name}</p>
-                <p style={{ color: "var(--arcd-text-secondary)", fontSize:"var(--arcd-type-label)",marginTop:"var(--arcd-space-half)" }}>
-                  Área: {r.areaM2 > 0 ? `${r.areaM2.toLocaleString("pt-BR")} m²` : "não cadastrada"} · {contar(r.trabalhadores,"trabalhador","trabalhadores")}
-                </p>
-                <p style={{ color: "var(--arcd-text-muted)", fontSize:"var(--arcd-type-label)",marginTop:"var(--arcd-space-half)" }}>
-                  {r.presentes} presentes · {r.meiodia} meios períodos · {r.faltas} faltas · {r.semRegistro} sem registro
-                </p>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <p style={{ color: C.yellow, fontWeight:600 }}>{fmt(r.laborCost)}</p>
-                <p style={{ color: r.areaM2 > 0 ? C.green : "var(--arcd-text-secondary)", fontSize: "var(--arcd-type-body)", fontWeight:600 }}>
-                  {r.areaM2 > 0 ? `${fmt(r.laborCostPerM2)}/m` : "sem m"}
-                </p>
-              </div>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "var(--arcd-space-1)", marginTop: "var(--arcd-space-2)" }}>
-              {[
-                ["Feriados pagos", fmt(r.holidayPay), C.green],
-                ["VT/VR", fmt(r.benefitCost), C.blue],
-                ["Total", fmt(r.totalCost), C.yellow],
-              ].map(([label, value, color]) => (
-                <div key={label} style={{ background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-subtle)`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-2) var(--arcd-space-2)" }}>
-                  <p style={{ fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",fontWeight:600,letterSpacing:.5 }}>{label}</p>
-                  <p style={{ color:"var(--arcd-text-primary)",fontWeight:600,fontSize:"var(--arcd-type-body)",marginTop:"var(--arcd-space-half)" }}>{value}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div style={{ background: "var(--arcd-surface-card)", border: `var(--arcd-border-width) solid var(--arcd-border-default)`, padding: "var(--arcd-space-3)" }}>
-        <h3 style={{ fontFamily:FONT_DISPLAY, color: C.yellow, textTransform: "uppercase", marginBottom: "var(--arcd-space-2)" }}>Top custos do mês</h3>
-        {topCost.length === 0 && <p style={{ color: "var(--arcd-text-secondary)", fontSize: "var(--arcd-type-body)" }}>Nenhum custo lançado no período.</p>}
-        {topCost.map(i => (
-          <div key={`${i.name}-${i.obra}`} style={{ borderTop: `var(--arcd-border-width) solid var(--arcd-border-default)`, padding: "var(--arcd-space-2) 0", display: "flex", justifyContent: "space-between" }}>
-            <div><p style={{ fontWeight:600 }}>{i.name}</p><p style={{ color: "var(--arcd-text-secondary)", fontSize: "var(--arcd-type-body)" }}>{i.obra}</p></div>
-            <p style={{ color: C.yellow, fontWeight:600 }}>{fmt(i.total)}</p>
-          </div>
-        ))}
-      </div>
-      </> /* fim view==="custos" */}
-    </div>
-  );
-}
-
-
-//
-// RELATÓRIO MENSAL COMPLETO POR OBRA
-//
-
-function RelatorioMensal({ data, year, month, showToast }) {
-  const rows   = useMemo(() => calcRelatorioMensal(data, year, month), [year, month,
-    data.obras, data.attendance, data.employees, data.pagsTerceiros, data.payments,
-    data.terceirizados, data.outrasDesp, data.pedidos, data.medicoes, data.rescisoes,
-    data.equipamentos, data.locacoesEquip, data.advances]);
-  const period = `${fullMonth(month)} ${year}`;
-
-  // Totais consolidados
-  const tot = rows.reduce((acc, r) => ({
-    received:       acc.received       + r.received,
-    revenueEsp:     acc.revenueEsp     + r.revenueEsperada,
-    laborCost:      acc.laborCost      + r.moData.laborCost,
-    benefitCost:    acc.benefitCost    + r.moData.benefitCost,
-    tercCost:       acc.tercCost       + r.tercCost,
-    rescTotal:      acc.rescTotal      + r.rescTotal,
-    adiantTotal:    acc.adiantTotal    + r.adiantTotal,
-    totalDespesas:  acc.totalDespesas  + r.totalDespesas,
-    margem:         acc.margem         + r.margem,
-  }), { received:0, revenueEsp:0, laborCost:0, benefitCost:0, tercCost:0, rescTotal:0, adiantTotal:0, totalDespesas:0, margem:0 });
-
-  //  PDF
-  const gerarPDF = () => {
-    const tabelaObra = r => ({
-      titulo: r.obra.name,
-      descricao: [
-        `${CONTRACT_LABELS[r.obra.contractType]||"Contrato"} · ${r.activeEmps} func. ativos · ${r.activeTercs} terceiros · ${r.presencaDias} presenças`,
-        r.tercDetalhes.length ? `Terceirizados pagos: ${r.tercDetalhes.map(p=>`${p.tercName||"-"} (${fmt(p.amount)}, ${fmtDateFull(p.date)})`).join("; ")}` : "",
-        r.rescDetalhes.length ? `Rescisões: ${r.rescDetalhes.map(rd=>`${rd.empName||"-"} (${fmt(rd.totalLiquido)}, ${fmtDateFull(rd.demissao)})`).join("; ")}` : "",
-      ].filter(Boolean).join(" — "),
-      headers: ["Descrição", { label:"Valor", num:true }],
-      rows: [
-        ["(+) Receita recebida", escapeHtml(fmt(r.received))],
-        ["(+) Receita esperada (contrato)", escapeHtml(fmt(r.revenueEsperada))],
-        ["(-) Mão de obra própria", escapeHtml(fmt(r.moData.laborCost))],
-        ["(-) Benefícios (VT/VR)", escapeHtml(fmt(r.moData.benefitCost))],
-        ["(-) Terceirizados", escapeHtml(fmt(r.tercCost))],
-        ...(r.rescTotal>0 ? [["(-) Rescisões", escapeHtml(fmt(r.rescTotal))]] : []),
-        ...(r.adiantTotal>0 ? [["(-) Adiantamentos", escapeHtml(fmt(r.adiantTotal))]] : []),
-        ["Total de despesas", escapeHtml(fmt(r.totalDespesas))],
-        ["Margem esperada", escapeHtml(fmt(r.margemEsperada))],
-      ],
-      totalRow: [`Margem (${pct1(r.margemPct)})`, escapeHtml(fmt(r.margem))],
-    });
-
-    const html = montarRelatorioPadraoHtml({
-      data,
-      titulo: "Relatório mensal",
-      subtitulo: period,
-      kpis: [
-        { label: "Receita recebida", value: fmt(tot.received) },
-        { label: "Custo MO própria", value: fmt(tot.laborCost+tot.benefitCost) },
-        { label: "Terceiros + rescisões", value: fmt(tot.tercCost+tot.rescTotal) },
-        { label: "Margem global", value: fmt(tot.margem) },
-      ],
-      tabelas: [
-        ...rows.map(tabelaObra),
-        {
-          titulo: "Consolidado geral",
-          headers: ["Descrição", { label:"Valor", num:true }],
-          rows: [
-            ["(+) Receita recebida total", escapeHtml(fmt(tot.received))],
-            ["(+) Receita esperada total", escapeHtml(fmt(tot.revenueEsp))],
-            ["(-) Mão de obra própria", escapeHtml(fmt(tot.laborCost))],
-            ["(-) Benefícios (VT/VR)", escapeHtml(fmt(tot.benefitCost))],
-            ["(-) Terceirizados", escapeHtml(fmt(tot.tercCost))],
-            ...(tot.rescTotal>0 ? [["(-) Rescisões", escapeHtml(fmt(tot.rescTotal))]] : []),
-            ...(tot.adiantTotal>0 ? [["(-) Adiantamentos", escapeHtml(fmt(tot.adiantTotal))]] : []),
-            ["Total de despesas", escapeHtml(fmt(tot.totalDespesas))],
-          ],
-          totalRow: ["Margem global", escapeHtml(fmt(tot.margem))],
-        },
-      ],
-    });
-    abrirRelatorioPadrao(html, showToast);
-  };
-
-  //  Excel
-  const exportXLS = async () => {
-    await carregarXLSX();
-    const wb = XLSX.utils.book_new();
-
-    // Aba 1 - Resumo consolidado
-    const ws1 = XLSX.utils.aoa_to_sheet([
-      [`Relatório Mensal - ${period}`],
-      [`Empresa: ${data.config.companyName||"ArcD"}`],
-      [],
-      ["Indicador","Valor"],
-      ["Receita recebida",        tot.received],
-      ["Receita esperada",        tot.revenueEsp],
-      ["(-) Mão de obra própria", tot.laborCost],
-      ["(-) Benefícios",          tot.benefitCost],
-      ["(-) Terceirizados",       tot.tercCost],
-      ["(-) Rescisões",           tot.rescTotal],
-      ["(-) Adiantamentos",       tot.adiantTotal],
-      ["Total despesas",          tot.totalDespesas],
-      ["Margem global",           tot.margem],
-    ]);
-    ws1["!cols"] = [{wch:28},{wch:16}];
-    XLSX.utils.book_append_sheet(wb, ws1, "Resumo");
-
-    // Aba 2 - Detalhe por obra
-    const header2 = ["Obra","Tipo Contrato","Recebido","Receita Esp.","MO Própria","Benefícios","Terceiros","Rescisões","Adiantamentos","Total Desp.","Margem","Margem %","Presenças","Faltas","Func.Ativos","Terceiros Ativos"];
-    const body2 = rows.map(r=>[
-      r.obra.name,
-      CONTRACT_LABELS[r.obra.contractType]||r.obra.contractType,
-      r.received, r.revenueEsperada,
-      r.moData.laborCost, r.moData.benefitCost,
-      r.tercCost, r.rescTotal, r.adiantTotal, r.totalDespesas,
-      r.margem, r.margemPct.toFixed(1)+"%",
-      r.presencaDias, r.faltas, r.activeEmps, r.activeTercs,
-    ]);
-    const total2 = ["TOTAL","",tot.received,tot.revenueEsp,tot.laborCost,tot.benefitCost,tot.tercCost,tot.rescTotal,tot.adiantTotal,tot.totalDespesas,tot.margem,"","","","",""];
-    const ws2 = XLSX.utils.aoa_to_sheet([[`Detalhe por obra - ${period}`],[],header2,...body2,total2]);
-    ws2["!cols"] = [22,16,12,12,12,12,12,12,12,12,12,10,10,8,10,12].map(w=>({wch:w}));
-    XLSX.utils.book_append_sheet(wb, ws2, "Por Obra");
-
-    // Aba 3 - Pagamentos recebidos
-    const h3=["Data","Obra","Valor","Descrição"];
-    const b3=rows.flatMap(r=>r.recDetalhes.map(p=>[p.date, r.obra.name, p.amount, p.description]));
-    const ws3=XLSX.utils.aoa_to_sheet([[`Pagamentos recebidos - ${period}`],[],h3,...b3]);
-    ws3["!cols"]=[12,22,12,30].map(w=>({wch:w}));
-    XLSX.utils.book_append_sheet(wb, ws3, "Recebimentos");
-
-    // Aba 4 - Terceiros
-    const h4=["Data","Obra","Terceirizado","Especialidade","Valor","Descrição"];
-    const b4=rows.flatMap(r=>r.tercDetalhes.map(p=>[p.date,r.obra.name,p.tercName||"-",p.specialty||"-",p.amount,p.description||"-"]));
-    const ws4=XLSX.utils.aoa_to_sheet([[`Pagamentos terceiros - ${period}`],[],h4,...b4]);
-    ws4["!cols"]=[12,22,20,14,12,28].map(w=>({wch:w}));
-    XLSX.utils.book_append_sheet(wb, ws4, "Terceiros");
-
-    // Aba 5 - Rescisões
-    const h5=["Obra","Funcionário","CPF","Admissão","Rescisão","Tipo","Total Líquido"];
-    const b5=rows.flatMap(r=>r.rescDetalhes.map(rc=>[r.obra.name,rc.empName||"-",rc.empCPF||"-",rc.admissao,rc.demissao,TIPO_LABEL[rc.tipo]||rc.tipo,rc.totalLiquido]));
-    if(b5.length>0){
-      const ws5=XLSX.utils.aoa_to_sheet([[`Rescisões - ${period}`],[],h5,...b5]);
-      ws5["!cols"]=[22,22,14,12,12,30,12].map(w=>({wch:w}));
-      XLSX.utils.book_append_sheet(wb, ws5, "Rescisões");
-    }
-
-    await XLSX.writeFile(wb, `arcd-relatorio-${year}-${String(month+1).padStart(2,"0")}.xlsx`);
-  };
-
-  //  UI
-  return (
-    <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}} className="anim">
-
-      <PageHero
-        eyebrow="Inteligência gerencial"
-        title="Relatório executivo"
-        description="Visão consolidada de receita, custo e resultado por obra."
-        actions={<span style={{display:"inline-flex",padding:"var(--arcd-space-1) var(--arcd-space-2)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,borderRadius:"var(--arcd-radius-control)",background:"var(--arcd-surface-card)",color:C.yellowD,fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:.3}}>{fullMonth(month)} · {year}</span>}
-      />
-
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:"var(--arcd-space-2)"}}>
-        <ReportMetric label="Receita recebida" value={fmt(tot.received)} detail="Caixa realizado no período" color={C.yellow} icon="wallet"/>
-        <ReportMetric label="Margem global" value={fmt(tot.margem)} detail={tot.received?`${((tot.margem/tot.received)*100).toFixed(1)}% da receita`:"Sem receita no período"} color={(tot.margem>0?C.green:tot.margem<0?C.red:C.muted)} icon="trending"/>
-        <ReportMetric label="Total de despesas" value={fmt(tot.totalDespesas)} detail="Custos diretos e benefícios" color={C.red} icon="receipt"/>
-        <ReportMetric label="Receita esperada" value={fmt(tot.revenueEsp)} detail="Posição contratual estimada" color={C.text} icon="target"/>
-      </div>
-
-      {/* Ações */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:"var(--arcd-space-2)"}}>
-        <Btn onClick={gerarPDF} v="danger" full><Ic n="file"/> Relatório PDF</Btn>
-        <Btn onClick={exportXLS} v="success" full><Ic n="download"/> Excel Completo</Btn>
-      </div>
-
-      {/* Cards por obra */}
-      {rows.map(r => {
-        const margemColor = r.margem >= 0 ? C.green : C.red;
-        return (
-          <div key={r.obra.id} style={{
-            background:"var(--arcd-surface-card)", border:`var(--arcd-border-width) solid var(--arcd-border-default)`,
-            borderTop:`2px solid ${margemColor}`, borderRadius:"var(--arcd-box-radius)", overflow:"hidden",
-          }}>
-            {/* Header da obra */}
-            <div style={{padding:"var(--arcd-space-3) var(--arcd-space-4)",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`,display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-2)"}}>
-              <div>
-                <p style={{fontFamily:FONT_DISPLAY,fontWeight:600,fontSize:"var(--arcd-type-section-title)",letterSpacing:.3}}>{r.obra.name}</p>
-                <div style={{display:"flex",gap:"var(--arcd-space-1)",flexWrap:"wrap",marginTop:"var(--arcd-space-1)"}}>
-                  <Badge color={C.yellow}>{CONTRACT_LABELS[r.obra.contractType]||"Contrato"}</Badge>
-                  <Badge color={C.blue}>{r.activeEmps} func.</Badge>
-                  {r.activeTercs>0&&<Badge color={C.orange}>{r.activeTercs} terceiros</Badge>}
-                  <Badge color={C.muted}>{r.presencaDias} presenças</Badge>
-                </div>
-              </div>
-              <div style={{textAlign:"right",flexShrink:0}}>
-                <p style={{fontFamily:FONT_DISPLAY,fontWeight:600,fontSize:"var(--arcd-type-section-title)",color:margemColor,letterSpacing:.5,lineHeight:1}}>{fmt(r.margem)}</p>
-                <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>margem {r.margemPct.toFixed(0)}%</p>
-              </div>
-            </div>
-
-            {/* DRE mini */}
-            <div style={{padding:"var(--arcd-space-2) var(--arcd-space-4)",display:"flex",flexDirection:"column",gap:0}}>
-              {/* Receitas */}
-              <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:.8,marginBottom:"var(--arcd-space-1)"}}>Receitas</p>
-              {[
-                ["Recebido no mês",  r.received,         C.green],
-                ["Esperado (contrato)", r.revenueEsperada, C.subtle],
-              ].map(([l,v,c])=>(
-                <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"var(--arcd-space-half) 0",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)44`}}>
-                  <p style={{fontSize:"var(--arcd-type-body)",color:c}}>{l}</p>
-                  <p style={{fontSize:"var(--arcd-type-body)",color:c,fontWeight:600}}>{fmt(v)}</p>
-                </div>
-              ))}
-
-              {/* Despesas */}
-              <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:.8,marginTop:"var(--arcd-space-2)",marginBottom:"var(--arcd-space-1)"}}>Despesas</p>
-              {[
-                ["(-) MO própria",       r.moData.laborCost,   C.orange],
-                ["(-) Benefícios VT/VR", r.moData.benefitCost, C.muted],
-                ["(-) Terceirizados",    r.tercCost,           C.purple, r.tercCost===0],
-                ["(-) Rescisões",        r.rescTotal,          C.red,    r.rescTotal===0],
-                ["(-) Adiantamentos",    r.adiantTotal,        C.muted,  r.adiantTotal===0],
-              ].filter(([,,, skip])=>!skip).map(([l,v,c])=>(
-                <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"var(--arcd-space-half) 0",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)44`}}>
-                  <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)"}}>{l}</p>
-                  <p style={{fontSize:"var(--arcd-type-body)",color:c,fontWeight:600}}>{fmt(v)}</p>
-                </div>
-              ))}
-
-              {/* Totais */}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-2)"}}>
-                <div style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid var(--arcd-border-default)`,padding:"var(--arcd-space-2) var(--arcd-space-2)",borderRadius:"var(--arcd-box-radius)"}}>
-                  <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",fontWeight:600}}>Total despesas</p>
-                  <p style={{fontSize:"var(--arcd-type-card-title)",color:C.red,fontWeight:600,marginTop:"var(--arcd-space-half)"}}>{fmt(r.totalDespesas)}</p>
-                </div>
-                <div style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid ${margemColor}44`,padding:"var(--arcd-space-2) var(--arcd-space-2)",borderRadius:"var(--arcd-box-radius)"}}>
-                  <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",fontWeight:600}}>Margem esp.</p>
-                  <p style={{fontSize:"var(--arcd-type-card-title)",color:(r.margemEsperada>0?C.green:r.margemEsperada<0?C.red:C.muted),fontWeight:600,marginTop:"var(--arcd-space-half)"}}>{fmt(r.margemEsperada)}</p>
-                </div>
-              </div>
-
-              {/* Detalhe terceiros/rescisões se houver */}
-              {r.tercDetalhes.length>0&&(
-                <div style={{marginTop:"var(--arcd-space-2)"}}>
-                  <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.purple,textTransform:"uppercase",marginBottom:"var(--arcd-space-half)"}}>Terceiros pagos</p>
-                  {r.tercDetalhes.map(p=>(
-                    <div key={p.id} style={{display:"flex",justifyContent:"space-between",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",padding:"var(--arcd-space-half) 0"}}>
-                      <span>{p.tercName||"-"} <span style={{color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)"}}>({fmtDateFull(p.date)})</span></span>
-                      <span style={{color:C.purple,fontWeight:600}}>{fmt(p.amount)}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {r.rescDetalhes.length>0&&(
-                <div style={{marginTop:"var(--arcd-space-2)"}}>
-                  <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.red,textTransform:"uppercase",marginBottom:"var(--arcd-space-half)"}}>Rescisões</p>
-                  {r.rescDetalhes.map(rc=>(
-                    <div key={rc.id} style={{display:"flex",justifyContent:"space-between",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",padding:"var(--arcd-space-half) 0"}}>
-                      <span>{rc.empName||"-"} <span style={{color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)"}}>({TIPO_LABEL[rc.tipo]||rc.tipo})</span></span>
-                      <span style={{color:C.red,fontWeight:600}}>{fmt(rc.totalLiquido)}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      })}
-
-      {/* Totais finais */}
-      <div style={{background:"var(--arcd-surface-card)",border:`2px solid ${C.yellow}`,borderRadius:"var(--arcd-box-radius)",padding:"var(--arcd-space-3) var(--arcd-space-4)"}}>
-        <p style={{fontFamily:FONT_DISPLAY,fontWeight:600,fontSize:"var(--arcd-type-card-title)",color:C.yellow,textTransform:"uppercase",letterSpacing:.5,marginBottom:"var(--arcd-space-2)"}}>Consolidado Geral - {fullMonth(month)} {year}</p>
-        {[
-          ["Receita recebida",  tot.received,          C.green],
-          ["Receita esperada",  tot.revenueEsp,        C.subtle],
-          ["MO própria",        tot.laborCost,         C.orange],
-          ["Benefícios",        tot.benefitCost,       C.muted],
-          ["Terceirizados",     tot.tercCost,          C.purple],
-          ["Rescisões",         tot.rescTotal,         C.red],
-          ["Adiantamentos",     tot.adiantTotal,       C.muted],
-          ["Total despesas",    tot.totalDespesas,     C.red],
-          ["Margem global",     tot.margem,            (tot.margem>0?C.green:tot.margem<0?C.red:C.muted)],
-        ].map(([l,v,c])=>(
-          <div key={l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"var(--arcd-space-1) 0",borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)44`}}>
-            <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)"}}>{l}</p>
-            <p style={{fontSize:"var(--arcd-type-body)",color:c,fontWeight:600}}>{fmt(v)}</p>
-          </div>
-        ))}
-      </div>
-
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-2)"}}>
-        <Btn onClick={gerarPDF} v="danger" full><Ic n="file"/> PDF</Btn>
-        <Btn onClick={exportXLS} v="success" full><Ic n="download"/> Excel</Btn>
-      </div>
-    </div>
-  );
+function Relatorios(props) {
+  return <RelatoriosView {...props}/>;
 }
 
 //
@@ -8395,11 +6433,6 @@ function AgenteIA({ data, showToast, onTab }) {
   );
 }
 
-// A tela de Rescisão foi extraída para
-// src/domains/rh/components/RescisaoView.jsx em 2026-08-20. TIPO_LABEL
-// segue aqui porque RelatorioMensal (mais abaixo) também usa.
-const TIPO_LABEL = RESCISSION_TYPE_LABEL;
-
 //
 // Configurações / aprovações
 //
@@ -8651,206 +6684,6 @@ function Config({ data, update, showToast, currentUser, onLogout, dispatchAttend
 }
 
 
-//  Tela de Login
-
-function LoginScreen({ onLogin, erroInicial="", precisaSetup=false }) {
-  const [metodo,setMetodo]=useState("email");
-  const [email,setEmail]=useState("");
-  const [senha,setSenha]=useState("");
-  const [mostrarSenha,setMostrarSenha]=useState(false);
-  const [step,setStep]=useState("select");
-  const [identificador,setIdentificador]=useState("");
-  const [pin,setPin]=useState("");
-  const [erro,setErro]=useState("");
-  const [loading,setLoading]=useState(false);
-  const [setupForm,setSetupForm]=useState({nome:"",email:"",pin:"",confirmacao:""});
-
-  const handleBackspace=()=>setPin(p=>p.slice(0,-1));
-  const iniciarPin=()=>{
-    if(!identificador.trim()){setErro("Informe seu e-mail ou nome completo.");return;}
-    setStep("pin");setPin("");setErro("");
-  };
-  const tentarEntrar=async valor=>{
-    if(!identificador.trim())return;
-    if(valor.length<4){setErro("O PIN tem no mínimo 4 dígitos.");return;}
-    setLoading(true);setErro("");
-    const r=await entrarComPin(identificador.trim(),valor);
-    if(!r.ok){setErro(r.erro||"Identificação ou PIN incorretos.");setPin("");setLoading(false);return;}
-    onLogin(r.usuario,r.data);setLoading(false);
-  };
-  const handleLogin=()=>tentarEntrar(pin);
-  const tentarEmail=async()=>{
-    if(!email.trim()||!senha){setErro("Informe e-mail e senha.");return;}
-    setLoading(true);setErro("");
-    const r=await entrarComEmail(email.trim(),senha);
-    if(!r.ok){setErro(r.erro||"E-mail ou senha inválidos.");setLoading(false);return;}
-    onLogin(r.usuario,r.data);setLoading(false);
-  };
-  const handleDigit=d=>{
-    if(loading)return;
-    const novo=pin.length<6?pin+d:pin;setPin(novo);setErro("");
-    if(novo.length===6)tentarEntrar(novo);
-  };
-  const trocarMetodo=v=>{setMetodo(v);setStep("select");setErro("");setPin("");};
-  const concluirPrimeiroAcesso=async()=>{
-    const nome=setupForm.nome.trim(),email=setupForm.email.trim().toLowerCase(),pin=setupForm.pin;
-    if(!nome){setErro("Informe o nome do administrador.");return;}
-    if(pin.length<4){setErro("O PIN tem no mínimo 4 dígitos.");return;}
-    if(pin!==setupForm.confirmacao){setErro("Os PINs não coincidem.");return;}
-    setLoading(true);setErro("");
-    try{
-      const usuario={id:uid(),nome,role:"admin",email,pinPlain:pin,active:true,createdAt:new Date().toISOString()};
-      const criado=await criarPrimeiroAdmin({usuarios:[usuario]});
-      if(!criado.ok)throw new Error(criado.erro||"Não foi possível criar o administrador.");
-      const acesso=await entrarComPin(email||nome,pin);
-      if(!acesso.ok)throw new Error(acesso.erro||"Administrador criado, mas não foi possível iniciar a sessão.");
-      onLogin(acesso.usuario,acesso.data);
-    }catch(error){setErro(error.message||"Não foi possível concluir o primeiro acesso.");}
-    finally{setLoading(false);}
-  };
-
-  return (
-    <div className="login-tech-shell">
-      <Suspense fallback={<div className="login-project-visual" aria-hidden="true"/>}>
-        <LazyLoginBrandPanel/>
-      </Suspense>
-
-      <main className="login-access-column">
-      <Card className="login-access-card w-full shadow-none">
-        <CardHeader className="pb-5 pt-8">
-          <CardTitle className="font-display text-2xl tracking-[-0.02em]">Acesse seu ambiente</CardTitle>
-          <CardDescription className="mt-2">Use sua credencial corporativa para continuar.</CardDescription>
-        </CardHeader>
-
-        <CardContent>
-            {erroInicial&&<div role="alert" className="mb-4 rounded-md border border-red-400/35 bg-red-400/10 px-3 py-2 text-xs font-medium text-red-100">{erroInicial}</div>}
-            {precisaSetup ? <div className="flex flex-col gap-4">
-              <div className="login-setup-note rounded-md p-3 text-xs leading-relaxed">
-                Crie o administrador inicial. Os dados existentes da empresa serão preservados.
-              </div>
-              <div className="flex flex-col gap-2"><Label htmlFor="setup-nome" className="text-xs font-semibold">Nome do administrador</Label><Input id="setup-nome" value={setupForm.nome} onChange={e=>setSetupForm(f=>({...f,nome:e.target.value}))} autoFocus className="h-12"/></div>
-              <div className="flex flex-col gap-2"><Label htmlFor="setup-email" className="text-xs font-semibold">E-mail corporativo</Label><Input id="setup-email" type="email" value={setupForm.email} onChange={e=>setSetupForm(f=>({...f,email:e.target.value}))} className="h-12"/></div>
-              <div className="grid grid-cols-2 gap-3"><div className="flex flex-col gap-2"><Label htmlFor="setup-pin" className="text-xs font-semibold">PIN</Label><Input id="setup-pin" type="password" inputMode="numeric" value={setupForm.pin} onChange={e=>setSetupForm(f=>({...f,pin:e.target.value}))} className="h-12"/></div><div className="flex flex-col gap-2"><Label htmlFor="setup-confirmacao" className="text-xs font-semibold">Confirmar PIN</Label><Input id="setup-confirmacao" type="password" inputMode="numeric" value={setupForm.confirmacao} onChange={e=>setSetupForm(f=>({...f,confirmacao:e.target.value}))} className="h-12"/></div></div>
-              {erro&&<Alert key={erro} variant="destructive" className="py-2.5 login-error-shake"><AlertDescription className="text-xs">{erro}</AlertDescription></Alert>}
-              <Button onClick={concluirPrimeiroAcesso} disabled={loading} className="login-primary-action h-12 w-full">{loading?"Criando ambiente...":"Criar administrador e entrar"}</Button>
-            </div> : <Tabs value={metodo} onValueChange={trocarMetodo}>
-              <TabsList className="grid grid-cols-2 w-full h-12 p-1">
-                <TabsTrigger value="email" className="text-sm">E-mail e senha</TabsTrigger>
-                <TabsTrigger value="pin" className="text-sm">PIN de acesso</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="email" className="flex flex-col gap-4 mt-5">
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="login-email" className="text-xs font-semibold">E-mail corporativo</Label>
-                  <Input id="login-email" type="email" autoComplete="username" autoFocus
-                         value={email} onChange={e=>setEmail(e.target.value)}
-                         onKeyDown={e=>{if(e.key==="Enter")tentarEmail();}}
-                         placeholder="nome@empresa.com.br"
-                         className="h-12" />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="login-senha" className="text-xs font-semibold">Senha</Label>
-                  <div className="relative">
-                    <Input id="login-senha" type={mostrarSenha?"text":"password"} autoComplete="current-password"
-                           value={senha} onChange={e=>setSenha(e.target.value)}
-                           onKeyDown={e=>{if(e.key==="Enter")tentarEmail();}}
-                           placeholder="Digite sua senha" className="h-12 pr-12" />
-                    <button type="button" onClick={()=>setMostrarSenha(v=>!v)}
-                            aria-label={mostrarSenha?"Ocultar senha":"Mostrar senha"}
-                            className="login-password-toggle absolute right-1 top-1/2 -translate-y-1/2">
-                      {mostrarSenha ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
-                    </button>
-                  </div>
-                </div>
-
-                {erro && (
-                  <Alert key={erro} variant="destructive" className="py-2.5 login-error-shake">
-                    <AlertDescription className="text-xs">{erro}</AlertDescription>
-                  </Alert>
-                )}
-
-                <Button onClick={tentarEmail} disabled={loading} className="login-primary-action h-12 w-full">
-                  {loading ? "Sincronizando operação..." : "Acessar central MARCELL"}
-                </Button>
-                <p className="text-center text-xs leading-relaxed">
-                  Acesso individual, seguro e auditável.
-                </p>
-              </TabsContent>
-
-              <TabsContent value="pin" className="mt-4">
-                {step === "select" ? (
-                  <form className="flex flex-col gap-4" onSubmit={e=>{e.preventDefault();iniciarPin();}}>
-                    <div className="flex flex-col gap-2">
-                      <Label htmlFor="login-identificador" className="text-xs font-semibold">E-mail ou nome completo</Label>
-                      <Input id="login-identificador" autoComplete="username" autoCapitalize="none" spellCheck={false}
-                             value={identificador} onChange={e=>{setIdentificador(e.target.value);setErro("");}}
-                             placeholder="Digite seu e-mail ou nome completo"
-                             className="h-12" />
-                    </div>
-                    {erro && (
-                      <Alert key={erro} variant="destructive" className="py-2.5 login-error-shake">
-                        <AlertDescription className="text-xs">{erro}</AlertDescription>
-                      </Alert>
-                    )}
-                    <Button type="submit" disabled={loading} className="login-primary-action h-12 w-full">
-                      Continuar com PIN
-                    </Button>
-                  </form>
-                ) : (
-                  <div className="flex flex-col gap-4">
-                    <button type="button" onClick={()=>{setStep("select");setPin("");setErro("");}}
-                            className="login-quiet-action flex min-h-11 items-center gap-1 text-xs font-semibold uppercase tracking-wide">
-                      <ChevronLeft className="w-3.5 h-3.5"/> Alterar identificação
-                    </button>
-                    <div className="text-center flex flex-col items-center gap-1">
-                      <b className="max-w-full break-words text-sm">{identificador.trim()}</b>
-                      <small className="text-xs">Informe seu PIN de acesso.</small>
-                    </div>
-                    <div className="flex justify-center gap-2.5" aria-label={`${pin.length} de 6 dígitos informados`}>
-                      {Array.from({length:6},(_,i)=>(
-                        <span key={i} data-filled={i < pin.length} className={cn(
-                          "login-pin-dot w-3 h-3 rounded-full border-[1.5px] transition-colors"
-                        )} />
-                      ))}
-                    </div>
-                    {erro && (
-                      <Alert key={erro} variant="destructive" className="py-2.5 login-error-shake">
-                        <AlertDescription className="text-xs">{erro}</AlertDescription>
-                      </Alert>
-                    )}
-                    <div className="grid grid-cols-3 gap-2">
-                      {[1,2,3,4,5,6,7,8,9,"",0,"back"].map((d,i)=>(
-                        <Button key={i} type="button" variant="outline" disabled={loading||d===""}
-                                className={cn("login-key h-12 active:scale-95 transition-transform",d===""&&"invisible")}
-                                onClick={()=>d===""?null:d==="back"?handleBackspace():handleDigit(String(d))}>
-                          {d==="back" ? <Delete className="w-4 h-4"/> : d}
-                        </Button>
-                      ))}
-                    </div>
-                    {pin.length>=4 && pin.length<6 && (
-                      <Button onClick={handleLogin} disabled={loading} className="login-primary-action w-full">
-                        {loading ? "Validando credencial..." : "Confirmar acesso"}
-                      </Button>
-                    )}
-                  </div>
-                )}
-              </TabsContent>
-            </Tabs>}
-        </CardContent>
-
-        <CardFooter className="mrc-login-footer justify-between border-t pt-4 text-xs">
-          <span className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-600" /> Conexão segura
-          </span>
-          <span>Acesso individual</span>
-        </CardFooter>
-      </Card>
-      </main>
-    </div>
-  );
-}
-
-
 const CentralAdministrador = lazy(() => import("./domains/administracao/components/CentralAdministradorView"));
 const AprovacoesPendentesView = lazy(() => import("./domains/aprovacoes/components/AprovacoesPendentesView"));
 const EquipeView = lazy(() => import("./domains/rh/components/EquipeView"));
@@ -8879,18 +6712,7 @@ import {
 export * from "./domains/planejamento/legacy-engine.js";
 
 
-// Resumo da medicao para o cabecalho: quantas tarefas medidas pelo diario,
-// avanco fisico geral e dias trabalhados somados.
-const resumoMedicao = (tarefasFundidas) => {
-  const t = (tarefasFundidas || []).filter(x => !x.titulo);
-  const peloDiario = t.filter(x => x.origemProgresso === "diario").length;
-  const diasTotais = t.reduce((s, x) => s + (x.diasTrabalhados || 0), 0);
-  const custoTotal = t.reduce((s, x) => s + (x.custo || 0), 0);
-  const avancoFisico = custoTotal
-    ? t.reduce((s, x) => s + (x.custo || 0) * (x.progresso || 0), 0) / custoTotal
-    : 0;
-  return { total: t.length, peloDiario, diasTotais, avancoFisico,temBaseValor:custoTotal>0 };
-};
+import { resumoMedicao } from "./domains/medicoes/evolution-summary.js";
 // A tela de Orçamento foi extraída para
 // src/domains/orcamentos/components/OrcamentoView.jsx em 2026-08-16 -
 // importada como `Orcamento` abaixo, mesmo nome de sempre. O comentário
@@ -8997,20 +6819,27 @@ const calcCurvaMateriais = (data, hojeIso) => {
   // 1. Junta a demanda de material de todas as obras com plano + orçamento.
   //    Agrega por código (o mesmo material em obras/etapas diferentes soma).
   const mat = new Map(); // codigo -> agregado
+  const pendencias = [];
   (data.obras||[]).forEach(obra => {
     const plano = (data.planos||[]).find(p => p.obraId === obra.id);
     const orc   = orcamentoDaObra(data, obra.id);
+    const itens = (orc?.itens||[]).filter(it=>it.tipo!=="titulo"&&it.codigo&&Number(it.quantidade||0)>0);
+    if(!orc||!itens.length||!plano){
+      const podePlanejar=Boolean(plano||getPlanningBudget(data,obra.id).budget);
+      pendencias.push({obra,orcamento:!orc?"Sem orçamento de controle disponível":!itens.length?"Orçamento sem itens com código e quantidade":"",
+        planejamento:!plano?"Sem planejamento da obra":"",podePlanejar});
+    }
     if (!plano || !orc) return;
     // data de início por etapa (a tarefa que cobre aquela etapa)
     const inicioEtapa = {};
     (plano.tarefas||[]).forEach(t => { if (t.etapaId && t.inicio) {
       if (!inicioEtapa[t.etapaId] || t.inicio < inicioEtapa[t.etapaId]) inicioEtapa[t.etapaId] = t.inicio;
     }});
-    (orc.itens||[]).forEach(it => {
-      if (it.tipo === "titulo" || !it.codigo) return;
+    const semData=itens.filter(it=>!inicioEtapa[it.etapaId]).length;
+    if(semData)pendencias.push({obra,podePlanejar:true,planejamento:`${contar(semData,"item sem etapa com data no planejamento","itens sem etapa com data no planejamento")}`});
+    itens.forEach(it => {
       const qtd = Number(it.quantidade||0);
       const valor = qtd * Number(it.precoUnit||0);
-      if (qtd <= 0) return;
       const inicio = inicioEtapa[it.etapaId] || "";       // quando a etapa começa
       const cod = it.codigo;
       const reg = mat.get(cod) || {
@@ -9027,7 +6856,7 @@ const calcCurvaMateriais = (data, hojeIso) => {
   });
 
   let linhas = Array.from(mat.values()).map(r => ({ ...r, obras: Array.from(r.obras) }));
-  if (!linhas.length) return { linhas: [], totalValor: 0, alertasPesquisa: [] };
+  if (!linhas.length) return { linhas: [], totalValor: 0, alertasPesquisa: [], pendencias };
 
   // 2. Curva ABC por valor (Pareto): A até 80% acumulado, B até 95%, C o resto.
   linhas.sort((a,b) => b.valor - a.valor);
@@ -9081,7 +6910,7 @@ const calcCurvaMateriais = (data, hojeIso) => {
   });
 
   const alertasPesquisa = linhas.filter(l => l.pesquisaVencida);
-  return { linhas, totalValor, alertasPesquisa };
+  return { linhas, totalValor, alertasPesquisa, pendencias };
 };
 
 // obraIds aceita um único id (string) ou uma lista de ids (visão "todas as
@@ -9117,8 +6946,9 @@ export const calcCompras = (data, obraIds) => {
 // grupo de menu "Suprimentos" (que já agrupa Compras+Estoque) nem com o
 // motor de marcos/curva ABC em src/domains/suprimentos - três coisas
 // diferentes que disputavam o mesmo nome (raio-X de 25/08/2026).
-function CotacoesMaterial({ data, update, showToast, onTab }) {
+function CotacoesMaterial({ data, update, showToast, onTab, currentUser }) {
   const { formGrid } = useBreakpoint();
+  const {navigate}=useWorkflow();
   const [aba, setAba] = useState("curva");   // curva | precos | alertas
   const [busca, setBusca] = useState("");
   const [filtroClasse, setFiltroClasse] = useState("todas");
@@ -9186,6 +7016,20 @@ function CotacoesMaterial({ data, update, showToast, onTab }) {
         itens={itensUrgentes} fornecedores={fornecedores} pedidos={data.pedidos} materiais={data.materiais} data={data}
         onClose={()=>setCotWppS(false)}/>}
 
+      {curva.linhas.length===0&&<EmptyState title="Nenhum material na curva" description="Confira a origem do orçamento e as datas do planejamento de cada obra."/>}
+      {curva.pendencias.length>0&&<TaskDisclosure summary="Vínculos do orçamento e planejamento por obra" defaultOpen={curva.linhas.length===0}>
+        <ul className="grid gap-3">{curva.pendencias.map(({obra,orcamento,planejamento,podePlanejar})=><li key={obra.id}>
+          <strong>{obra.name||obra.id}</strong>
+          <p>{[orcamento,planejamento].filter(Boolean).join(" · ")}</p>
+          {!podePlanejar&&<p>Prepare o orçamento da obra para começar o planejamento.</p>}
+          <div className="flex flex-wrap gap-2">
+            {orcamento&&navigate&&podeAcessarAba(currentUser,"orc")&&<StandardButton variant="outline" onClick={()=>navigate("orc",{obraId:obra.id},{action:"review-supply-origin"})}>Abrir Orçamento</StandardButton>}
+            {planejamento&&podePlanejar&&navigate&&podeAcessarAba(currentUser,"plan")&&<StandardButton variant="outline" onClick={()=>navigate("plan",{obraId:obra.id})}>Abrir Planejamento</StandardButton>}
+          </div>
+        </li>)}</ul>
+      </TaskDisclosure>}
+
+      {curva.linhas.length>0&&<>
       {/* KPIs rápidos */}
       <div style={{ display:"grid", gridTemplateColumns:formGrid(2), gap:"var(--arcd-space-2)" }}>
         <MiniKpi label="Comprar já (atrasado)" value={totalAtrasado} cor={totalAtrasado?C.red:C.muted}/>
@@ -9213,11 +7057,7 @@ function CotacoesMaterial({ data, update, showToast, onTab }) {
         </div>
       </div>
 
-      {curva.linhas.length===0 && (
-        <div style={{ padding:"var(--arcd-space-6)", textAlign:"center", color:"var(--arcd-text-secondary)", fontSize:"var(--arcd-type-body)", border:`var(--arcd-border-width) dashed var(--arcd-border-default)`, borderRadius:"var(--arcd-box-radius)" }}>
-          Nenhum material encontrado. A curva se monta cruzando o <b>planejamento</b> (datas das etapas) com o <b>orçamento</b> (materiais de cada etapa). Verifique se as obras têm plano e orçamento vinculados.
-        </div>
-      )}
+      </>}
 
       {/* ---------- CURVA DE NECESSIDADE ---------- */}
       {aba==="curva" && curva.linhas.length>0 && (
@@ -9371,11 +7211,14 @@ function CotacoesMaterial({ data, update, showToast, onTab }) {
 
 const limitarNotaFornecedor=n=>Math.max(0,Math.min(100,Math.round(Number(n)||0)));
 const textoFreteFornecedor=valor=>String(valor||"").toLowerCase();
+const supplierPeriods=[{v:"6",l:"Últimos 6 meses"},{v:"12",l:"Últimos 12 meses"},{v:"24",l:"Últimos 24 meses"},{v:"todos",l:"Todo o histórico"}];
+const supplierOrdersLabel=count=>contar(count,"pedido","pedidos");
 
 function RankingFornecedores({data,showToast,currentUser,dispatchCommand}){
   const {isDesktop,isMobile}=useBreakpoint();
+  const {navigate}=useWorkflow();
   const [busca,setBusca]=useWorkspaceState("fornecedores","search","");
-  const [obraId,setObraId]=useWorkspaceState("fornecedores","work","");
+  const [obraFiltro,setObraId]=useWorkspaceState("fornecedores","work","");
   const [periodo,setPeriodo]=useWorkspaceState("fornecedores","period","12");
   const [selecionadoId,setSelecionadoId]=useState("");
   const [fornModal,setFornModal]=useState(null);
@@ -9383,29 +7226,27 @@ function RankingFornecedores({data,showToast,currentUser,dispatchCommand}){
   const cotacoes=data.cotacoes||[];
   const pedidos=data.pedidos||[];
   const notas=data.notasFiscais||[];
+  const obraId=currentUser?.obraId||obraFiltro;
+  const obras=(data.obras||[]).filter(work=>!currentUser?.obraId||work.id===currentUser.obraId);
+  const nomeObra=id=>obras.find(work=>work.id===id)?.name;
+  const periodoLabel=supplierPeriods.find(option=>option.v===periodo)?.l||supplierPeriods[1].l;
   const inicio=useMemo(()=>{
     if(periodo==="todos")return "";
     const d=new Date();d.setMonth(d.getMonth()-Number(periodo||12));
     return d.toISOString().slice(0,10);
   },[periodo]);
+  const amostrasCotacao=useMemo(()=>supplierQuoteSamples(cotacoes.filter(c=>!c.deletedAt&&
+    (!obraId||c.obraId===obraId)&&(!inicio||String(c.data||c.criadoEm||"")>=inicio))),[cotacoes,obraId,inicio]);
 
   const ranking=useMemo(()=>fornecedores.filter(f=>f.ativo!==false).map(f=>{
-    const propostas=[];
-    cotacoes.filter(c=>(!obraId||c.obraId===obraId)&&(!inicio||String(c.data||c.criadoEm||"")>=inicio)).forEach(c=>{
-      const validas=(c.propostas||[]).filter(p=>Number(p.precoUnit||p.preco)>0);
-      const menorPreco=Math.min(...validas.map(p=>Number(p.precoUnit||p.preco)));
-      const prazos=validas.map(p=>Number(p.prazoDias||p.prazo)).filter(n=>n>0);
-      const menorPrazo=prazos.length?Math.min(...prazos):0;
-      validas.filter(p=>p.fornecedorId===f.id).forEach(p=>propostas.push({
-        ...p,cotacao:c,menorPreco,menorPrazo,
-        preco:Number(p.precoUnit||p.preco),prazo:Number(p.prazoDias||p.prazo||0),
-      }));
-    });
-    const pedidosF=pedidos.filter(p=>p.fornecedorId===f.id&&(!obraId||p.obraId===obraId)&&(!inicio||String(p.data||p.criadoEm||"")>=inicio));
+    const amostras=amostrasCotacao.filter(p=>p.fornecedorId===f.id);
+    const propostas=[...new Map(amostras.map(p=>[JSON.stringify([p.cotacao.id,p.id]),p])).values()];
+    const pedidosF=pedidos.filter(p=>!p.deletedAt&&p.fornecedorId===f.id&&(!obraId||p.obraId===obraId)&&(!inicio||String(p.data||p.criadoEm||"")>=inicio));
+    const fontesPedidos=supplierOrderEvidence(pedidosF,amostras);
     const docsFrete=notas.filter(n=>n.fornecedorId===f.id&&["frete","cte"].includes(String(n.tipo||"").toLowerCase())&&(!obraId||n.obraId===obraId)&&(!inicio||String(n.emissao||"")>=inicio));
-    const notasPreco=propostas.map(p=>limitarNotaFornecedor((p.menorPreco/p.preco)*100));
+    const notasPreco=amostras.map(p=>limitarNotaFornecedor((p.menorPreco/p.preco)*100));
     const preco=notasPreco.length?Math.round(notasPreco.reduce((a,b)=>a+b,0)/notasPreco.length):null;
-    const vitorias=propostas.filter(p=>p.cotacao?.escolhida===p.id||p.cotacao?.fornecedorId===f.id).length;
+    const vitorias=new Set(amostras.filter(p=>p.vitoria).map(p=>JSON.stringify([p.cotacao.id,p.id]))).size;
 
     const fretes=[];
     propostas.forEach(p=>{
@@ -9436,7 +7277,7 @@ function RankingFornecedores({data,showToast,currentUser,dispatchCommand}){
 
     const prazosPrometidos=propostas.filter(p=>p.prazo>0&&p.menorPrazo>0).map(p=>limitarNotaFornecedor((p.menorPrazo/p.prazo)*100));
     // C2.2: pontualidade por remessa do item, já recebida (a data do item vale).
-    const entregas=entregasAvaliadas(pedidosF,"").filter(e=>!e.pendente)
+    const entregas=fontesPedidos.flatMap(p=>p.deliveries)
       .map(e=>limitarNotaFornecedor(e.atraso<=0?100:100-e.atraso*8));
     const notasPrazo=[...entregas,...prazosPrometidos];
     const prazo=notasPrazo.length?Math.round(notasPrazo.reduce((a,b)=>a+b,0)/notasPrazo.length):null;
@@ -9460,9 +7301,9 @@ function RankingFornecedores({data,showToast,currentUser,dispatchCommand}){
     const evidencias=propostas.length+pedidosF.length+docsFrete.length;
     const confianca=limitarNotaFornecedor((disponiveis.length/4)*55+Math.min(45,evidencias*6));
     const valorComprado=pedidosF.reduce((s,p)=>s+Number(totalPedido(p)||0),0);
-    return {fornecedor:f,geral,preco,frete,prazo,qualidade,confianca,evidencias,propostas,pedidos:pedidosF,
+    return {fornecedor:f,geral,preco,frete,prazo,qualidade,confianca,evidencias,propostas,pedidos:pedidosF,fontesPedidos,
       vitorias,noPrazo,entregas:entregas.length,valorComprado,docsFrete:docsFrete.length};
-  }).sort((a,b)=>(b.geral??-1)-(a.geral??-1)||b.confianca-a.confianca),[fornecedores,cotacoes,pedidos,notas,obraId,inicio]);
+  }).sort((a,b)=>(b.geral??-1)-(a.geral??-1)||b.confianca-a.confianca),[fornecedores,amostrasCotacao,pedidos,notas,obraId,inicio]);
 
   const termo=busca.trim().toLowerCase();
   const lista=ranking.filter(r=>!termo||`${r.fornecedor.nome} ${r.fornecedor.cnpj||""} ${(r.fornecedor.categorias||[]).join(" ")}`.toLowerCase().includes(termo));
@@ -9481,66 +7322,77 @@ function RankingFornecedores({data,showToast,currentUser,dispatchCommand}){
     if(!result?.ok){showToast(result?.reason||"O fornecedor não foi confirmado pelo servidor.","error");return;}
     setFornModal(null);showToast(f.id?"Fornecedor atualizado.":"Fornecedor cadastrado.");
   };
-  const nota=(valor,cor=C.blue)=><span className="supplier-score" style={{"--supplier-score-color":cor}}>{valor===null?"—":valor}</span>;
-  const corNota=valor=>valor===null?C.muted:valor>=85?C.green:valor>=65?C.blue:valor>=45?C.orange:C.red;
+  const nota=valor=><DesignSystemBadge>{valor===null?"—":valor}</DesignSystemBadge>;
   const filtrosRanking=<>
-    <Sel label="Obra" value={obraId} onChange={setObraId} options={[{v:"",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
-    <Sel label="Período" value={periodo} onChange={setPeriodo} options={[{v:"6",l:"Últimos 6 meses"},{v:"12",l:"Últimos 12 meses"},{v:"24",l:"Últimos 24 meses"},{v:"todos",l:"Todo o histórico"}]}/>
+    <Sel label="Obra" value={obraId} onChange={setObraId} disabled={!!currentUser?.obraId} options={[{v:"",l:"Todas as obras"},...obras.map(o=>({v:o.id,l:o.name}))]}/>
+    <Sel label="Período" value={periodo} onChange={setPeriodo} options={supplierPeriods}/>
   </>;
 
   return <div className="supplier-page">
     <PageHero
-      eyebrow="Inteligência de suprimentos"
       title="Fornecedores"
-      description="Ranking automático por preço, frete, prazo e qualidade com base no histórico real."
+      description="Compare preço, frete, prazo e qualidade e confira os pedidos usados no ranking."
       actions={<Btn onClick={()=>setFornModal(novoFornecedor())}><Ic n="plus"/> Novo fornecedor</Btn>}
     />
     <FilterBar layout="grid" className={isMobile?"":"supplier-toolbar"} label="Filtros do ranking">
       <Inp label="Buscar fornecedor" value={busca} onChange={setBusca} placeholder="Nome, CNPJ ou ramo..."/>
       {isMobile?<TaskDisclosure summary="Obra e período"><FilterBar label="Recorte do ranking" layout="grid">{filtrosRanking}</FilterBar></TaskDisclosure>:filtrosRanking}
     </FilterBar>
-    <TaskDisclosure summary="Indicadores de fornecedores" defaultOpen={isDesktop}><section className="supplier-kpis">
-      <div><span>Fornecedores avaliados</span><strong>{avaliados.length}<small> de {fornecedores.filter(f=>f.ativo!==false).length}</small></strong></div>
-      <div><span>Cotações analisadas</span><strong>{ranking.reduce((s,r)=>s+r.propostas.length,0)}</strong></div>
-      <div><span>Pedidos considerados</span><strong>{ranking.reduce((s,r)=>s+r.pedidos.length,0)}</strong></div>
-      <div><span>Entregas no prazo</span><strong>{entregasTotal?`${Math.round(noPrazoTotal/entregasTotal*100)}%`:"—"}<small>{entregasTotal?` ${noPrazoTotal}/${entregasTotal}`:" sem histórico"}</small></strong></div>
+    <TaskDisclosure summary="Indicadores de fornecedores" defaultOpen={isDesktop}><section className="supplier-kpis mrc-kpi-strip mrc-kpi-strip--summary">
+      <div className="mrc-kpi-strip__item"><span className="mrc-kpi__label">Fornecedores avaliados</span><strong className="mrc-kpi__value">{avaliados.length}<small> de {fornecedores.filter(f=>f.ativo!==false).length}</small></strong></div>
+      <div className="mrc-kpi-strip__item"><span className="mrc-kpi__label">Propostas analisadas</span><strong className="mrc-kpi__value">{ranking.reduce((s,r)=>s+r.propostas.length,0)}</strong></div>
+      <div className="mrc-kpi-strip__item"><span className="mrc-kpi__label">Pedidos considerados</span><strong className="mrc-kpi__value">{ranking.reduce((s,r)=>s+r.pedidos.length,0)}</strong></div>
+      <div className="mrc-kpi-strip__item"><span className="mrc-kpi__label">Entregas no prazo</span><strong className="mrc-kpi__value">{entregasTotal?`${Math.round(noPrazoTotal/entregasTotal*100)}%`:"—"}<small>{entregasTotal?` ${noPrazoTotal}/${entregasTotal}`:" sem histórico"}</small></strong></div>
     </section>
     </TaskDisclosure>
     <RecordListPagination pagination={suppliersPage} label="fornecedores"/>
     <section className="supplier-ranking-card">
-      <div className="supplier-card-title"><div><h2>Ranking geral</h2></div>{!isMobile&&<span>Preço 35% · Frete 15% · Prazo 25% · Qualidade 25%</span>}</div>
+      <div className="supplier-card-title"><h2>Ranking geral</h2><span>{nomeObra(obraId)||(obraId?"Obra selecionada":"Todas as obras")} · {periodoLabel}</span></div>
       {isMobile?<MobileRecordList
         rows={suppliersPage.rows.map((row,index)=>({...row,id:row.fornecedor.id,posicao:suppliersPage.start+index}))}
-        columns={[{key:"geral",header:"Nota geral",render:row=>nota(row.geral,corNota(row.geral))}]}
+        columns={[{key:"geral",header:"Nota geral",render:row=>nota(row.geral)}]}
         config={{
           title:row=><RecordAction aria-label={`Ver detalhes de ${row.fornecedor.nome}`} onClick={()=>setSelecionadoId(row.id)}>{row.fornecedor.nome}</RecordAction>,
-          subtitle:row=>`${row.posicao}º · ${(row.fornecedor.categorias||[]).slice(0,2).map(rotuloRamo).join(" · ")||row.fornecedor.cidade||"Ramo não informado"}`,
+          subtitle:row=>`${row.geral===null?"Sem nota":`${row.posicao}º`} · ${supplierOrdersLabel(row.pedidos.length)}`,
           primaryFields:["geral"],
         }}
       />:<div className="supplier-table-wrap"><table className="arcd-data-table__table supplier-table">
         <thead><tr><th>#</th><th>Fornecedor</th><th>Nota geral</th><th>Preço</th><th>Frete</th><th>Prazo</th><th>Qualidade</th><th>Base</th><th></th></tr></thead>
         <tbody>{suppliersPage.rows.map((r,i)=><tr key={r.fornecedor.id} onClick={()=>setSelecionadoId(r.fornecedor.id)} className={selecionadoId===r.fornecedor.id?"is-selected":""}>
-          <td data-label="Posição"><b className={suppliersPage.start+i<=3?"supplier-rank top": "supplier-rank"}>{suppliersPage.start+i}º</b></td>
+          <td data-label="Posição"><b className={r.geral!==null&&suppliersPage.start+i<=3?"supplier-rank top": "supplier-rank"}>{r.geral===null?"—":`${suppliersPage.start+i}º`}</b></td>
           <td data-label="Fornecedor"><div className="supplier-name"><b>{r.fornecedor.nome}</b><span>{(r.fornecedor.categorias||[]).slice(0,2).map(rotuloRamo).join(" · ")||r.fornecedor.cidade||"Ramo não informado"}</span></div></td>
-          <td data-label="Nota geral">{nota(r.geral,corNota(r.geral))}</td>
-          <td data-label="Preço">{nota(r.preco,corNota(r.preco))}</td><td data-label="Frete">{nota(r.frete,corNota(r.frete))}</td>
-          <td data-label="Prazo">{nota(r.prazo,corNota(r.prazo))}</td><td data-label="Qualidade">{nota(r.qualidade,corNota(r.qualidade))}</td>
-          <td data-label="Base"><div className="supplier-confidence"><b>{r.confianca}% confiança</b><span>{contar(r.evidencias,"evidência","evidências")}</span></div></td>
+          <td data-label="Nota geral">{nota(r.geral)}</td>
+          <td data-label="Preço">{nota(r.preco)}</td><td data-label="Frete">{nota(r.frete)}</td>
+          <td data-label="Prazo">{nota(r.prazo)}</td><td data-label="Qualidade">{nota(r.qualidade)}</td>
+          <td data-label="Base"><div className="supplier-confidence"><b>{supplierOrdersLabel(r.pedidos.length)}</b><span>{contar(r.evidencias,"evidência","evidências")}</span></div></td>
           <td><button className="supplier-row-action" onClick={e=>{e.stopPropagation();setSelecionadoId(r.fornecedor.id)}} aria-label={`Ver detalhes de ${r.fornecedor.nome}`}><Ic n="chevronRight"/></button></td>
         </tr>)}</tbody>
       </table></div>}
       {!lista.length&&<div className="supplier-empty"><Ic n="search" s={22}/><b>Nenhum fornecedor encontrado</b><span>Ajuste os filtros ou cadastre o primeiro fornecedor.</span></div>}
     </section>
     <TaskDisclosure enabled={isMobile} summary="Como a nota é calculada">
-      <section className="supplier-method"><Ic n="ia"/><div>{isMobile?<p>Preço 35% · Frete 15% · Prazo 25% · Qualidade 25%</p>:<b>Como a nota é calculada</b>}<p>Preço compara cada proposta com a menor cotação; prazo combina promessa e entrega real; qualidade considera atendimento da quantidade e divergências; frete usa valor estruturado, condição CIF/FOB e CT-e. Critérios sem evidência não reduzem a nota — apenas a confiança.</p></div></section>
+      <section className="supplier-method"><Ic n="ia"/><div>{!isMobile&&<b>Como a nota é calculada</b>}<p>Preço 35% · Frete 15% · Prazo 25% · Qualidade 25%</p><p>Preço compara propostas do mesmo item. Prazo combina o prazo informado na proposta e as remessas recebidas. Qualidade considera quantidade atendida e divergências. Frete usa valores, condições de transporte e CT-e. A nota usa os critérios com dados disponíveis.</p></div></section>
     </TaskDisclosure>
-    {selecionado&&<div className="supplier-detail-backdrop" onClick={()=>setSelecionadoId("")}><aside className="supplier-detail" onClick={e=>e.stopPropagation()}>
-      <div className="supplier-detail-head"><div><h2>{selecionado.fornecedor.nome}</h2><span>{selecionado.fornecedor.cnpj||"CNPJ não informado"}</span></div><button onClick={()=>setSelecionadoId("")} aria-label="Fechar"><Ic n="x"/></button></div>
-      <div className="supplier-detail-score"><div>{nota(selecionado.geral,corNota(selecionado.geral))}<span>nota geral</span></div><p><b>{selecionado.confianca}% de confiança</b><br/>{contar(selecionado.evidencias,"evidência","evidências")} no período</p></div>
-      <div className="supplier-detail-grid">{[["Preço",selecionado.preco],["Frete",selecionado.frete],["Prazo",selecionado.prazo],["Qualidade",selecionado.qualidade]].map(([l,v])=><div key={l}><span>{l}</span><b style={{color:corNota(v)}}>{v===null?"Sem dados":v}</b></div>)}</div>
-      <div className="supplier-facts"><div><span>Volume comprado</span><b>{fmt(selecionado.valorComprado)}</b></div><div><span>Propostas / vitórias</span><b>{selecionado.propostas.length} / {selecionado.vitorias}</b></div><div><span>Pedidos</span><b>{selecionado.pedidos.length}</b></div><div><span>Entregas no prazo</span><b>{selecionado.entregas?`${selecionado.noPrazo}/${selecionado.entregas}`:"Sem dados"}</b></div></div>
-      <div className="supplier-detail-actions"><Btn v="ghost" onClick={()=>setFornModal({...selecionado.fornecedor,categorias:selecionado.fornecedor.categorias||[]})}><Ic n="edit"/> Editar cadastro</Btn></div>
-    </aside></div>}
+    {selecionado&&<DesignSystemDialog open drawer protectEdits={false} onOpenChange={()=>setSelecionadoId("")} title={selecionado.fornecedor.nome}>
+      <p>{selecionado.fornecedor.cnpj||"CNPJ não informado"} · {nomeObra(obraId)||(obraId?"Obra selecionada":"Todas as obras")} · {periodoLabel}</p>
+      <div className="supplier-detail-score"><div>{nota(selecionado.geral)}<span>nota geral</span></div><p><b>{supplierOrdersLabel(selecionado.pedidos.length)} no período</b><br/>{contar(selecionado.propostas.length,"proposta","propostas")} · {contar(selecionado.vitorias,"proposta escolhida","propostas escolhidas")} · {contar(selecionado.docsFrete,"documento de frete","documentos de frete")}</p></div>
+      <div className="supplier-detail-grid">{[["Preço",selecionado.preco],["Frete",selecionado.frete],["Prazo",selecionado.prazo],["Qualidade",selecionado.qualidade]].map(([l,v])=><div key={l}><span>{l}</span><b>{v===null?"Sem dados":v}</b></div>)}</div>
+      <div className="supplier-facts"><div><span>Valor dos pedidos da amostra</span><b>{fmt(selecionado.valorComprado)}</b></div><div><span>Remessas recebidas no prazo</span><b>{selecionado.entregas?`${selecionado.noPrazo} de ${selecionado.entregas}`:"Sem dados"}</b></div></div>
+      <section className="supplier-order-evidence" aria-labelledby="supplier-order-evidence-title">
+        <h3 id="supplier-order-evidence-title">Pedidos da amostra</h3>
+        {!selecionado.fontesPedidos.length&&<p>Nenhum pedido no período selecionado.</p>}
+      {selecionado.fontesPedidos.map(({order,total,quote,promisedDays,deliveries},index)=><TaskDisclosure key={order.id} defaultOpen={index===0} summary={`${order.numero||"Pedido sem número"} · ${fmt(total)}`}>
+        <p>{[nomeObra(order.obraId),order.data&&fmtDate(order.data),STATUS_PEDIDO[statusPedido(order)]?.l].filter(Boolean).join(" · ")}</p>
+        <p>{quote?`Cotação ${quote.numero||"sem número"} · ${promisedDays.map(d=>contar(d,"dia cotado","dias cotados")).join(" / ")||"Prazo da proposta não informado"}`:"Sem cotação vinculada na amostra."}</p>
+        {deliveries.length?<ul>{deliveries.map((delivery,i)=><li key={`${delivery.itemId}-${i}`}>Prevista para {fmtDate(delivery.data)} · Recebida em {fmtDate(delivery.recebidaEm)} · {delivery.noPrazo?"No prazo":contar(delivery.atraso,"dia de atraso","dias de atraso")}</li>)}</ul>:<p>Sem remessas recebidas com data prevista.</p>}
+        {!!navigate&&!!nomeObra(order.obraId)&&podeAcessarAba(currentUser,"cmp")&&<DesignSystemButton variant="secondary" onClick={()=>{
+          setSelecionadoId("");
+          navigate("cmp",{obraId:order.obraId},{action:"open-order",record:{pedidoId:order.id}});
+        }}>Abrir pedido {order.numero||"sem número"}</DesignSystemButton>}
+      </TaskDisclosure>)}
+      </section>
+      <div className="supplier-detail-actions"><DesignSystemButton variant="ghost" onClick={()=>{setSelecionadoId("");setFornModal({...selecionado.fornecedor,categorias:selecionado.fornecedor.categorias||[]});}}><Ic n="edit"/> Editar cadastro</DesignSystemButton></div>
+    </DesignSystemDialog>}
     {fornModal&&<FornecedorEditorPilot form={fornModal} setForm={setFornModal} onSave={salvarForn}/>}
   </div>;
 }
@@ -9566,78 +7418,6 @@ function RankingFornecedores({data,showToast,currentUser,dispatchCommand}){
 // Junta o que hoje está espalhado por 8 abas: contrato, financeiro, equipe,
 // orçamento, compras, estoque, medições e o que aconteceu ultimamente.
 //
-const CHAVES_ISOLADAS_OBRA=[
-  "payments","medicoes","outrasDesp","caixaObra","notasFiscais","orcamentos",
-  "conferencias","qualidadeRegistros","solicitacoesCompra","terceirizados",
-  "medicoesTerc","contratosTerc","pagsTerceiros","planos","rdos","pedidos",
-  "cotacoes","movEstoque","transacoes","licencas","locacoesEquip",
-  "jobRiskAnalyses","workPermits","lookaheadWindows",
-];
-
-const registroPertenceObra=(registro,obraId,idsFuncionarios=new Set(),idsTerceiros=new Set())=>{
-  if(!registro||typeof registro!=="object")return false;
-  if(registro.obraId!==undefined)return registro.obraId===obraId;
-  if(registro.obra!==undefined)return registro.obra===obraId;
-  if(registro.paraObraId!==undefined||registro.deObraId!==undefined)
-    return registro.paraObraId===obraId||registro.deObraId===obraId;
-  if(registro.employeeId!==undefined||registro.funcionarioId!==undefined)
-    return idsFuncionarios.has(registro.employeeId||registro.funcionarioId);
-  if(registro.tercId!==undefined||registro.terceirizadoId!==undefined)
-    return idsTerceiros.has(registro.tercId||registro.terceirizadoId);
-  return false;
-};
-
-function dadosDaObraIsolados(data,obraId){
-  const funcionarios=(data.employees||[]).filter(e=>e.obra===obraId||
-    Object.entries(data.attendance?.[e.id]||{}).some(([date,record])=>
-      resolveEmployeeAttendanceObraId({data,employee:e,date,record})===obraId));
-  const terceiros=(data.terceirizados||[]).filter(t=>t.obraId===obraId);
-  const idsFuncionarios=new Set(funcionarios.map(e=>e.id));
-  const idsTerceiros=new Set(terceiros.map(t=>t.id));
-  const isolado={...data,obras:(data.obras||[]).filter(o=>o.id===obraId),employees:funcionarios,terceirizados:terceiros};
-  CHAVES_ISOLADAS_OBRA.forEach(chave=>{
-    if(!Array.isArray(data[chave]))return;
-    isolado[chave]=data[chave].filter(item=>registroPertenceObra(item,obraId,idsFuncionarios,idsTerceiros));
-  });
-  isolado.equipamentos=(data.equipamentos||[]).filter(e=>!e.obraAtualId||e.obraAtualId===obraId);
-  isolado.attendance=Object.fromEntries(Object.entries(data.attendance||{}).filter(([id])=>idsFuncionarios.has(id)));
-  isolado.advances=(data.advances||[]).filter(a=>idsFuncionarios.has(a.employeeId||a.funcionarioId));
-  isolado.rescisoes=(data.rescisoes||[]).filter(r=>idsFuncionarios.has(r.employeeId||r.funcionarioId));
-  return isolado;
-}
-
-// Reaplica somente o recorte de uma obra sobre o dataset completo. Mantê-la
-// fora do componente permite que callbacks funcionais sejam resolvidos sobre
-// a versão mais recente do servidor, sem trazer de volta coleções antigas do
-// painel isolado.
-function recomporDadosDaObra(base,proximos,obraId){
-  // Um snapshot do painel traz todas as seções isoladas. Reaplicar as que
-  // não mudaram reordena listas financeiras e provoca uma falsa mutação.
-  const recorteOriginal=dadosDaObraIsolados(base,obraId);
-  proximos=Object.fromEntries(Object.entries(proximos||{}).filter(([chave,valor])=>
-    valor!==recorteOriginal[chave] && JSON.stringify(valor)!==JSON.stringify(recorteOriginal[chave])
-  ));
-  const funcionariosAtuais=(base.employees||[]).filter(e=>e.obra===obraId);
-  const terceirosAtuais=(base.terceirizados||[]).filter(t=>t.obraId===obraId);
-  const idsFuncionarios=new Set(funcionariosAtuais.map(e=>e.id));
-  const idsTerceiros=new Set(terceirosAtuais.map(t=>t.id));
-  // Ponto é somente leitura neste adaptador; toda escrita usa os comandos
-  // granulares e nunca recompõe/substitui a seção attendance.
-  const resultado={...base,...proximos,attendance:base.attendance};
-  const recompor=(chave,predicado)=>{
-    if(!Array.isArray(proximos[chave]))return;
-    const externos=(base[chave]||[]).filter(item=>!predicado(item));
-    resultado[chave]=[...externos,...proximos[chave]];
-  };
-  recompor("obras",o=>o.id===obraId);
-  recompor("employees",e=>e.obra===obraId);
-  CHAVES_ISOLADAS_OBRA.forEach(chave=>recompor(chave,item=>registroPertenceObra(item,obraId,idsFuncionarios,idsTerceiros)));
-  recompor("equipamentos",e=>!e.obraAtualId||e.obraAtualId===obraId);
-  recompor("advances",a=>idsFuncionarios.has(a.employeeId||a.funcionarioId));
-  recompor("rescisoes",r=>idsFuncionarios.has(r.employeeId||r.funcionarioId));
-  return resultado;
-}
-
 function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, showToast, currentUser, dispatchCommand=null, dispatchAttendanceCommand=null }) {
   const { cols } = useBreakpoint();
   const ehAdmin=currentUser?.role==="admin";
@@ -10142,7 +7922,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
       <div style={{borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)",paddingTop:"var(--arcd-space-3)",minWidth:0}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",marginBottom:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Conteúdo da pasta</p>{!carregandoPasta&&<span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",whiteSpace:"nowrap"}}>{contar(pastas.length,"pasta","pastas")} · {contar(arquivos.length||arquivosFallback.length,"arquivo","arquivos")}</span>}</div>
         {carregandoPasta?<LoadingState label="pastas e arquivos"/>:<>
-          {!!pastas.length&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,210px),1fr))",gap:"var(--arcd-space-2)",marginBottom:"var(--arcd-space-2)"}}>{pastas.map(pasta=><StandardButton variant="secondary" key={pasta.id} onClick={()=>abrirPastaInterna(pasta)} title={`Abrir ${pasta.name}`} style={{display:"flex",alignItems:"center",minWidth:0,width:"100%"}}><span style={{flex:"0 0 auto",color:"var(--arcd-action-primary)"}}><Ic n="folder"/></span><span style={{flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{pasta.name}</span><span style={{flex:"0 0 auto",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-body)"}}>›</span></StandardButton>)}</div>}
+          {!!pastas.length&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,210px),1fr))",gap:"var(--arcd-space-2)",marginBottom:"var(--arcd-space-2)"}}>{pastas.map(pasta=><StandardButton variant="secondary" key={pasta.id} onClick={()=>abrirPastaInterna(pasta)} title={`Abrir ${pasta.name}`} className="w-full min-w-0 justify-start text-left"><span style={{flex:"0 0 auto",color:"var(--arcd-action-primary)"}}><Ic n="folder"/></span><span style={{flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{pasta.name}</span><span style={{flex:"0 0 auto",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-body)"}}>›</span></StandardButton>)}</div>}
           {!!arquivos.length&&<div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>{arquivos.map(doc=>linkDocumentoObra(doc))}</div>}
           {!arquivos.length&&!!arquivosFallback.length&&<div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>{arquivosFallback.map(doc=>linkDocumentoObra(doc))}</div>}
           {!pastas.length&&!arquivos.length&&!arquivosFallback.length&&<div style={{padding:"var(--arcd-space-5) var(--arcd-space-2)",textAlign:"center",border:"var(--arcd-border-width) dashed var(--arcd-border-default)",borderRadius:"var(--arcd-box-radius)"}}><Ic n="folder" color={C.muted}/><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-1)"}}>Esta pasta está vazia</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Crie uma subpasta ou carregue um arquivo aqui.</p></div>}
@@ -10206,8 +7986,8 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
   const secaoAtual = titulosSecoes.has(secaoVisaoGeral) ? secaoVisaoGeral : "resumo";
   const renderSecao = (id, children, atalho) => (
     <TabsContent key={id} value={id} className="work-overview-section">
-      <section className="work-overview-panel">
-        <header className="work-overview-panel__header"><h2>{titulosSecoes.get(id)}</h2></header>
+      <section className="mrc-box">
+        <header className="mrc-box__header"><h2>{titulosSecoes.get(id)}</h2></header>
         <div className="work-overview-section__body">
           {children}
           {atalho && <StandardButton variant="secondary" onClick={() => abrirModuloDaObra(atalho)}>
@@ -10651,7 +8431,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
             <div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-3)"}}>
               <label style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>E-mail<StandardInput value={portalForm.email} onChange={e=>setPortalForm(form=>({...form,email:e.target.value}))} type="email" placeholder="cliente@email.com" style={{display:"block",width:"100%",marginTop:"var(--arcd-space-1)",padding:"var(--arcd-space-2)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)"}}/></label>
               <label style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Telefone<StandardInput value={portalForm.phone} onChange={e=>setPortalForm(form=>({...form,phone:e.target.value}))} placeholder="(81) 99999-9999" style={{display:"block",width:"100%",marginTop:"var(--arcd-space-1)",padding:"var(--arcd-space-2)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)"}}/></label>
-              <label style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Perfil<SelectControl value={portalForm.profile} onChange={e=>setPortalForm(form=>({...form,profile:e.target.value}))} style={{display:"block",width:"100%",marginTop:"var(--arcd-space-1)"}}><option value="owner">Proprietário</option><option value="spouse">Cônjuge</option><option value="representative">Representante</option><option value="financial">Financeiro</option><option value="external_architect">Arquiteto externo</option><option value="observer">Observador</option></SelectControl></label>
+              <label style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Perfil<SelectControl value={portalForm.profile} onChange={e=>setPortalForm(form=>({...form,profile:e.target.value}))} className="mt-[var(--arcd-space-1)]"><option value="owner">Proprietário</option><option value="spouse">Cônjuge</option><option value="representative">Representante</option><option value="financial">Financeiro</option><option value="external_architect">Arquiteto externo</option><option value="observer">Observador</option></SelectControl></label>
               <label style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Senha inicial<div style={{display:"flex",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-1)"}}><StandardInput value={portalForm.password} onChange={e=>setPortalForm(form=>({...form,password:e.target.value}))} style={{width:"100%",padding:"var(--arcd-space-2)",border:"var(--arcd-border-width) solid var(--arcd-border-default)",borderRadius:"var(--arcd-radius-control)"}}/><Btn size="sm" v="ghost" onClick={gerarSenhaPortal}>Gerar</Btn></div></label>
             </div>
             <div style={{display:"flex",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-3)",flexWrap:"wrap"}}><Btn onClick={cadastrarAcessoPortal} disabled={portalBusy||!portalForm.email||!portalForm.password}><Ic n="user"/> {portalBusy?"Salvando...":"Criar ou atualizar acesso"}</Btn>{portalForm.password&&<Btn v="ghost" onClick={()=>navigator.clipboard.writeText(`Portal MARCELL: ${linkNovoPortal}\nE-mail: ${portalForm.email}\nSenha inicial: ${portalForm.password}`)}><Ic n="copy"/> Copiar convite</Btn>}</div>
@@ -10787,572 +8567,11 @@ function Qualidade({data,showToast,currentUser,obraIdFixo="",dispatchCommand=nul
     {orc
       ? <ScopeNote title="Orçamento de controle para gerar fichas">V{orc.versionNumber||1} · {orc.nome||orc.codigo||"Orçamento sem nome"}</ScopeNote>
       : <Alert variant="warning" role="status"><AlertDescription>Para gerar o plano, confirme a versão de controle em Obras → Orçamento. As fichas já existentes continuam disponíveis.</AlertDescription></Alert>}
-    {regs.map(ficha=>{const open=aberto===ficha.id;const feitos=(ficha.itens||[]).filter(item=>item.status!=="pendente").length;const draft=rascunho(ficha.id);return <div key={ficha.id} style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid ${ficha.status==="reprovada"?"var(--arcd-danger-text)":"var(--arcd-border-default)"}`,borderRadius:"var(--arcd-box-radius)",overflow:"hidden"}}><StandardButton variant="secondary" aria-expanded={open} onClick={()=>setAberto(open?"":ficha.id)} style={{width:"100%",display:"flex",justifyContent:"space-between"}}><div><b style={{fontSize:"var(--arcd-type-label)",color:ficha.tipo==="fvs"?"var(--arcd-action-primary)":"var(--arcd-action-primary)"}}>{ficha.codigo} · {ficha.tipo.toUpperCase()}</b><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)"}}>{ficha.titulo}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Responsável: {ficha.responsavel||"Não definido"} · {feitos}/{(ficha.itens||[]).length} critérios</p></div><Badge color={ficha.status==="aprovada"?C.green:ficha.status==="reprovada"?C.red:C.orange}>{ficha.status}</Badge></StandardButton>{open&&<div style={{borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)",padding:"var(--arcd-space-2)"}}><Sel label="Responsável pela execução/correção" value={draft.responsavelId??ficha.responsavelId} onChange={value=>editarRascunho(ficha.id,{responsavelId:value})} options={[{v:"",l:"Selecione"},...usuarios.map(user=>({v:user.id,l:user.nome}))]}/><Inp label="Referência técnica (projeto, memorial, procedimento, norma)" value={draft.normaProjeto??ficha.normaProjeto} onChange={value=>editarRascunho(ficha.id,{normaProjeto:value})}/><Btn size="sm" v="ghost" style={{marginTop:"var(--arcd-space-2)"}} onClick={()=>salvarDetalhes(ficha)}>Salvar referência</Btn><div style={{marginTop:"var(--arcd-space-2)"}}>{(ficha.itens||[]).map(item=><div key={item.id} style={{padding:"var(--arcd-space-2) var(--arcd-space-0)",borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{item.criterio}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{item.metodo} · {item.tolerancia}</p><div style={{display:"flex",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-1)",flexWrap:"wrap"}}>{[["conforme","Conforme",C.green],["nao_conforme","Não conforme",C.red],["nao_aplicavel","N/A",C.muted]].map(([status,label,color])=><StandardButton variant="secondary" key={status} onClick={()=>inspecionar(ficha,item,status)} disabled={ficha.status==="aprovada"}>{label}</StandardButton>)}</div>{item.verificadoEm&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{item.responsavel} · {new Date(item.verificadoEm).toLocaleString("pt-BR")}</p>}</div>)}</div>{ficha.naoConformidade&&ficha.naoConformidade.status!=="encerrada"&&<div style={{background:"color-mix(in srgb, var(--arcd-danger-text) 3%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-danger-text) 33%, transparent)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-danger-text)"}}>Não conformidade</p><Inp label="Ação corretiva" value={draft.acao??""} onChange={value=>editarRascunho(ficha.id,{acao:value})} multiline/><Inp label="Verificação de eficácia" value={draft.eficacia??""} onChange={value=>editarRascunho(ficha.id,{eficacia:value})} multiline/><Btn size="sm" v="success" onClick={()=>resolverNC(ficha)}>Encerrar NC após reinspeção</Btn></div>}<Btn full style={{marginTop:"var(--arcd-space-2)"}} onClick={()=>liberar(ficha)} disabled={ficha.status==="aprovada"}>Liberar ficha</Btn></div>}</div>;})}{!regs.length&&<EmptyState title="Nenhuma ficha de qualidade" description={orc?"Gere o plano para criar fichas de serviço por etapa e fichas de material a partir dos pedidos da obra.":undefined}/>}</div>;
+    {regs.map(ficha=>{const open=aberto===ficha.id;const feitos=(ficha.itens||[]).filter(item=>item.status!=="pendente").length;const draft=rascunho(ficha.id);return <div key={ficha.id} style={{background:"var(--arcd-surface-card)",border:`var(--arcd-border-width) solid ${ficha.status==="reprovada"?"var(--arcd-danger-text)":"var(--arcd-border-default)"}`,borderRadius:"var(--arcd-box-radius)",overflow:"hidden"}}><StandardButton variant="secondary" aria-expanded={open} onClick={()=>setAberto(open?"":ficha.id)} className="w-full justify-between text-left"><div><b style={{fontSize:"var(--arcd-type-label)",color:ficha.tipo==="fvs"?"var(--arcd-action-primary)":"var(--arcd-action-primary)"}}>{ficha.codigo} · {ficha.tipo.toUpperCase()}</b><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)"}}>{ficha.titulo}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Responsável: {ficha.responsavel||"Não definido"} · {feitos}/{(ficha.itens||[]).length} critérios</p></div><Badge color={ficha.status==="aprovada"?C.green:ficha.status==="reprovada"?C.red:C.orange}>{ficha.status}</Badge></StandardButton>{open&&<div style={{borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)",padding:"var(--arcd-space-2)"}}><Sel label="Responsável pela execução/correção" value={draft.responsavelId??ficha.responsavelId} onChange={value=>editarRascunho(ficha.id,{responsavelId:value})} options={[{v:"",l:"Selecione"},...usuarios.map(user=>({v:user.id,l:user.nome}))]}/><Inp label="Referência técnica (projeto, memorial, procedimento, norma)" value={draft.normaProjeto??ficha.normaProjeto} onChange={value=>editarRascunho(ficha.id,{normaProjeto:value})}/><Btn size="sm" v="ghost" style={{marginTop:"var(--arcd-space-2)"}} onClick={()=>salvarDetalhes(ficha)}>Salvar referência</Btn><div style={{marginTop:"var(--arcd-space-2)"}}>{(ficha.itens||[]).map(item=><div key={item.id} style={{padding:"var(--arcd-space-2) var(--arcd-space-0)",borderTop:"var(--arcd-border-width) solid var(--arcd-border-default)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{item.criterio}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{item.metodo} · {item.tolerancia}</p><div style={{display:"flex",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-1)",flexWrap:"wrap"}}>{[["conforme","Conforme"],["nao_conforme","Não conforme"],["nao_aplicavel","N/A"]].map(([status,label])=><StandardButton variant={status==="nao_conforme"?"destructive":"secondary"} key={status} onClick={()=>inspecionar(ficha,item,status)} disabled={ficha.status==="aprovada"}>{label}</StandardButton>)}</div>{item.verificadoEm&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{item.responsavel} · {new Date(item.verificadoEm).toLocaleString("pt-BR")}</p>}</div>)}</div>{ficha.naoConformidade&&ficha.naoConformidade.status!=="encerrada"&&<div style={{background:"color-mix(in srgb, var(--arcd-danger-text) 3%, transparent)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-danger-text) 33%, transparent)",borderRadius:"var(--arcd-radius-control)",padding:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-danger-text)"}}>Não conformidade</p><Inp label="Ação corretiva" value={draft.acao??""} onChange={value=>editarRascunho(ficha.id,{acao:value})} multiline/><Inp label="Verificação de eficácia" value={draft.eficacia??""} onChange={value=>editarRascunho(ficha.id,{eficacia:value})} multiline/><Btn size="sm" v="success" onClick={()=>resolverNC(ficha)}>Encerrar NC após reinspeção</Btn></div>}<Btn full style={{marginTop:"var(--arcd-space-2)"}} onClick={()=>liberar(ficha)} disabled={ficha.status==="aprovada"}>Liberar ficha</Btn></div>}</div>;})}{!regs.length&&<EmptyState title="Nenhuma ficha de qualidade" description={orc?"Gere o plano para criar fichas de serviço por etapa e fichas de material a partir dos pedidos da obra.":undefined}/>}</div>;
 }
 
 
-// Contratos de terceirizados por medição desta obra, dentro da aba Medição.
-// Mostra o avanço aprovado pelo financeiro e permite vincular cada etapa do
-// contrato a um serviço do planejamento; o vínculo vira proposta de avanço no
-// boletim técnico (o avanço oficial continua sendo só o boletim aprovado).
-export function TerceirosNaMedicao({ data, obraId, tarefas, currentUser, dispatchCommand, showToast, onAbrirTerceiro }) {
-  const { isMobile } = useBreakpoint();
-  const contratos = useMemo(() => thirdPartyMeasurementsForProject(data, obraId), [data.terceirizados, data.medicoesTerc, obraId]);
-  const [salvando, setSalvando] = useState("");
-  const podeVincular = ["admin","engenheiro","engenheiro_auditor"].includes(currentUser?.role) && !!dispatchCommand;
-  const tarefasPorId = new Map(tarefas.map(t => [t.id, t]));
 
-  const vincular = async (contratoId, etapaId, tarefaId) => {
-    if (!podeVincular || salvando) return;
-    setSalvando(`${contratoId}:${etapaId}`);
-    try {
-      const result = await dispatchCommand(atual => {
-        const contrato = (atual.terceirizados || []).find(item => item.id === contratoId);
-        return {
-          type: OPERATIONAL_COMMAND.THIRD_PARTY_CONTRACT_STAGES_SAVED,
-          idempotencyKey: `third-contract-stage-link-${contratoId}-${etapaId}-${uid()}`,
-          expectedVersion: Number(contrato?.version || 0),
-          actorId: currentUser?.id || "", actorName: currentUser?.nome || "",
-          payload: { contractId: contratoId, stages: linkStageToTask(contrato, etapaId, tarefaId) },
-        };
-      });
-      if (!result?.ok) throw new Error(result?.reason || "O servidor não confirmou o vínculo.");
-      showToast?.(tarefaId ? "Etapa vinculada ao serviço do planejamento." : "Vínculo da etapa removido.");
-    } catch (error) {
-      showToast?.(error.message || "Não foi possível salvar o vínculo.", "error");
-    } finally { setSalvando(""); }
-  };
-
-  const chip = (texto, cor) => <span style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color: cor, background: `${cor}14`,
-    border: `var(--arcd-border-width) solid ${cor}44`, borderRadius: "var(--arcd-radius-pill)", padding: "var(--arcd-space-half) var(--arcd-space-2)", whiteSpace: "nowrap" }}>{texto}</span>;
-
-  return (
-    <div style={{ background: "var(--arcd-surface-card)", border: "var(--arcd-border-width) solid var(--arcd-border-default)", borderRadius: "var(--arcd-box-radius)", overflow: "hidden" }}>
-      <div style={{ padding: "var(--arcd-space-3)", borderBottom: "var(--arcd-border-width) solid var(--arcd-border-default)" }}>
-        <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)", textTransform: "uppercase", letterSpacing: "var(--arcd-letter-spacing-body)" }}>
-          Terceirizados desta obra
-        </p>
-        <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", marginTop: "var(--arcd-space-half)" }}>
-          Avanço das etapas contratadas, medido pelo engenheiro e aprovado pelo financeiro
-        </p>
-      </div>
-      {contratos.length === 0 ? (
-        <p style={{ padding: "var(--arcd-space-4)", fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", textAlign: "center" }}>
-          Nenhum contrato de terceirizado por medição nesta obra.
-        </p>
-      ) : contratos.map(c => {
-        const esp = specInfo(c.especialidade);
-        return (
-          <div key={c.id} style={{ padding: "var(--arcd-space-3)", borderTop: "var(--arcd-border-width) solid var(--arcd-border-default)", display: "flex", flexDirection: "column", gap: "var(--arcd-space-2)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--arcd-space-2)", flexWrap: "wrap" }}>
-              <div style={{ minWidth: 0 }}>
-                <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)" }}>{c.nome}</p>
-                <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", marginTop: "var(--arcd-space-0)" }}>
-                  {esp?.l || c.especialidade} · contrato {fmt(c.valorContrato)} · aprovado {fmt(c.valorAprovado)} · a medir {fmt(c.aMedir)}
-                  {c.valorAguardando > 0 && <> · <span style={{ color: "var(--arcd-warning-text)", fontWeight:"var(--arcd-font-weight-semibold)" }}>{fmt(c.valorAguardando)} aguardando aprovação</span></>}
-                </p>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <p style={{ fontSize: "var(--arcd-type-card-title)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-action-primary)" }}>{pct1(c.avancoAprovado)}</p>
-                <p style={{ fontSize:"var(--arcd-type-caption)", color: "var(--arcd-text-secondary)" }}>
-                  físico aprovado{c.avancoEnviado > c.avancoAprovado + 0.001 ? ` · ${pct1(c.avancoEnviado)} com os pendentes` : ""}
-                </p>
-              </div>
-            </div>
-            {(c.contagem.aguardando + c.contagem.rejeitadas + c.contagem.aPagar + c.contagem.pagas) > 0 && (
-              <div style={{ display: "flex", gap: "var(--arcd-space-1)", flexWrap: "wrap" }}>
-                {c.contagem.aguardando > 0 && chip(`${c.contagem.aguardando} aguardando aprovação`, C.orange)}
-                {c.contagem.rejeitadas > 0 && chip(`${contar(c.contagem.rejeitadas,"rejeitada","rejeitadas")}`, C.red)}
-                {c.contagem.aPagar > 0 && chip(`${contar(c.contagem.aPagar,"aprovada","aprovadas")} a pagar`, C.blue)}
-                {c.contagem.pagas > 0 && chip(`${contar(c.contagem.pagas,"paga","pagas")}`, C.green)}
-              </div>
-            )}
-            {c.etapas.length === 0 ? (
-              <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>Contrato ainda sem etapas. Subdivida-o em Terceiros para poder medir.</p>
-            ) : (
-              <div style={{ border: "var(--arcd-border-width) solid var(--arcd-border-default)", borderRadius: "var(--arcd-radius-control)", overflow: "hidden" }}>
-                {c.etapas.map((e, i) => {
-                  const vinculada = e.tarefaId ? tarefasPorId.get(e.tarefaId) : null;
-                  const orfa = e.tarefaId && !vinculada;
-                  return (
-                    <div key={e.id} style={{ padding: "var(--arcd-space-2)", borderTop: i ? "var(--arcd-border-width) solid var(--arcd-border-default)" : 0,
-                         display: "grid", gridTemplateColumns: isMobile ? "minmax(0,1fr) 70px" : "minmax(0,1.3fr) minmax(170px,1fr) 70px", gap: "var(--arcd-space-2)", alignItems: "center" }}>
-                      <div style={{ minWidth: 0 }}>
-                        <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)" }}>{e.nome} <span style={{ fontWeight: "var(--arcd-font-weight-regular)", color: "var(--arcd-text-secondary)" }}>· {fmt(e.valor)}</span></p>
-                        <div style={{ marginTop: "var(--arcd-space-1)", height: 5, background: "var(--arcd-border-default)", borderRadius: "var(--arcd-radius-pill)", overflow: "hidden", position: "relative" }}>
-                          <div style={{ position: "absolute", inset: 0, width: `${e.pctEnviado}%`, background: "color-mix(in srgb, var(--arcd-warning-text) 40%, transparent)" }} />
-                          <div style={{ position: "absolute", inset: 0, width: `${e.pctAprovado}%`, background: e.pctAprovado >= 100 ? "var(--arcd-success-text)" : "var(--arcd-action-primary)" }} />
-                        </div>
-                      </div>
-                      {tarefas.length > 0 ? (
-                        <SelectControl aria-label={`Serviço do planejamento para a etapa ${e.nome}`} value={orfa ? "" : e.tarefaId}
-                          disabled={!podeVincular || salvando === `${c.id}:${e.id}`}
-                          onChange={ev => vincular(c.id, e.id, ev.target.value)}
-                          style={{gridColumn: isMobile ? "1 / -1" : undefined,gridRow: isMobile ? 2 : undefined,width: "100%",minWidth: 0}}>
-                          <option value="">{orfa ? "Serviço removido — vincular de novo" : "Sem vínculo com o planejamento"}</option>
-                          {tarefas.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
-                        </SelectControl>
-                      ) : <span style={{ gridColumn: isMobile ? "1 / -1" : undefined, gridRow: isMobile ? 2 : undefined, fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>Sem serviços no planejamento</span>}
-                      <span style={{ gridColumn: isMobile ? 2 : undefined, gridRow: isMobile ? 1 : undefined, fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", textAlign: "right", color: e.pctAprovado >= 100 ? "var(--arcd-success-text)" : "var(--arcd-text-primary)" }}>
-                        {e.pctAprovado.toFixed(0)}%
-                        {e.pctEnviado > e.pctAprovado && <span style={{ display: "block", fontSize:"var(--arcd-type-caption)", fontWeight: "var(--arcd-font-weight-semibold)", color: "var(--arcd-warning-text)" }}>{e.pctEnviado.toFixed(0)}% enviado</span>}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            {tarefas.length === 0 && c.etapas.length > 0 && (
-              <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>
-                Cadastre os serviços no Planejamento para que estas etapas alimentem o avanço físico e a curva S da obra.
-              </p>
-            )}
-            {onAbrirTerceiro && (
-              <div style={{ display: "flex", gap: "var(--arcd-space-1)", justifyContent: "flex-end", flexWrap: "wrap" }}>
-                <Btn size="sm" v="ghost" onClick={() => onAbrirTerceiro(c.id, false)}>Ver medições</Btn>
-                <Btn size="sm" onClick={() => onAbrirTerceiro(c.id, true)} disabled={!c.etapas.length}><Ic n="plus" /> Nova medição</Btn>
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// ==============================================================
-//  MEDICAO DE EVOLUCAO (aba separada)
-//  Mostra o avanco de cada tarefa: o que veio do diario (RDO) e o
-//  que e manual. Permite ajustar o progresso manualmente aqui.
-// ==============================================================
-export function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=null, dispatchCommand=null, onAbrirTerceiro=null, onAbrirPlanejamento=null }) {
-  const { cols } = useBreakpoint();
-  const obras = (data.obras || []).filter(o => o.status !== "done");
-  const [obraId, setObraId] = useState(()=>obraIdFixo||(obras.some(o=>o.id===obraContextoSalvo())?obraContextoSalvo():(obras[0]?.id||"")));
-  useSyncedWorkObra(obraId,setObraId,{allowedIds:obras.map(o=>o.id),fixed:obraIdFixo});
-
-  const orc   = orcamentoDaObra(data, obraId);
-  const plano = useMemo(() =>
-    (data.planos || []).find(p => p.obraId === obraId)
-    || { tarefas: [] }, [data.planos, obraId]);
-
-  const tarefas = useMemo(() => {
-    const base = aplicarRollup(montarTarefas(plano, orc), orc);
-    return fundirEvolucao(base, data.rdos, obraId).filter(t => !t.titulo);
-  }, [plano, orc, data.rdos, obraId]);
-
-  const resumo = useMemo(() => resumoMedicao(tarefas), [tarefas]);
-  // Avanço aprovado dos terceirizados, por serviço vinculado. Só propõe no
-  // boletim; o avanço oficial continua saindo do boletim confirmado.
-  const avancoTerceiros = useMemo(
-    () => thirdPartyProgressByTask(thirdPartyMeasurementsForProject(data, obraId), new Set(tarefas.map(t => t.id))),
-    [data.terceirizados, data.medicoesTerc, obraId, tarefas]);
-  const propostaBoletim = t => avancoTerceiros.has(t.id) ? avancoTerceiros.get(t.id).pct : (t.progresso || 0);
-
-  const [editando, setEditando] = useState(null);
-  const [serviceSearch,setServiceSearch]=useWorkspaceState("med","search","",obraIdFixo);
-  const visibleServices=tarefas.filter(item=>item.nome.toLocaleLowerCase("pt-BR").includes(serviceSearch.trim().toLocaleLowerCase("pt-BR")));
-  const servicesPage=useRecordPage('med',visibleServices,JSON.stringify([obraId,serviceSearch]),obraIdFixo);
-  const [confModal, setConfModal] = useState(false);   // modal de confirmar medição
-  const [confPct, setConfPct] = useState({});          // pct confirmado por tarefa
-  const [confResp, setConfResp] = useState("");
-  const [confObs, setConfObs] = useState("");
-  const [confData, setConfData] = useState(today());
-  const [fatModal,setFatModal]=useState(null);
-  const [fatForm,setFatForm]=useState({competencia:today().slice(0,7),dataVencimento:""});
-  const [billingPending,setBillingPending]=useState(false);
-  const [escolherTerceiro, setEscolherTerceiro] = useState(false);
-  const [terceiroLocal, setTerceiroLocal] = useState(null);
-  const contratosMedicao = thirdPartyMeasurementsForProject(data, obraId);
-  const abrirTerceiro = (contratoId, novaMedicao) => {
-    setEscolherTerceiro(false);
-    if (onAbrirTerceiro) onAbrirTerceiro(contratoId, novaMedicao);
-    else setTerceiroLocal({contratoId, novaMedicao});
-  };
-  const iniciarMedicaoTerceiro = () => {
-    if (contratosMedicao.length === 1) {
-      const contrato = contratosMedicao[0];
-      abrirTerceiro(contrato.id, contrato.etapas.length > 0);
-    } else setEscolherTerceiro(true);
-  };
-
-  // Medições de obra já confirmadas desta obra, em ordem.
-  const medicoesObra = useMemo(() =>
-    (data.medicoesObra || []).filter(m => m.obraId === obraId)
-      .sort((a, b) => (a.data + a.id).localeCompare(b.data + b.id)),
-  [data.medicoesObra, obraId]);
-
-  // Abre o boletim já preenchido com o que o diário indica — o fiscal só
-  // confirma ou corrige. É a "confirmação com o diário" pedida: o número do
-  // diário entra como proposta, e a divergência aceita fica registrada.
-  const abrirConfirmacao = () => {
-    if (!tarefas.length) { iniciarMedicaoTerceiro(); return; }
-    setConfPct(Object.fromEntries(tarefas.map(t => [t.id, String(propostaBoletim(t))])));
-    setConfResp(""); setConfObs(""); setConfData(today());
-    setConfModal(true);
-  };
-
-  const salvarConfirmacao = async () => {
-    const itens = tarefas.map(t => ({
-      tarefaId: t.id, nome: t.nome,
-      pctDiario: t.progresso || 0,
-      pctConfirmado: Math.max(0, Math.min(100, Number(confPct[t.id]) || 0)),
-      custo: t.custo || 0,
-      ...(avancoTerceiros.has(t.id) ? {
-        pctTerceiros: avancoTerceiros.get(t.id).pct,
-        fontesTerceiros: avancoTerceiros.get(t.id).fontes.map(f => ({ contratoId: f.contratoId, etapaId: f.etapaId, pct: f.pct })),
-      } : {}),
-    }));
-    const custoTotal = itens.reduce((s, i) => s + i.custo, 0);
-    const avancoFisico = custoTotal
-      ? itens.reduce((s, i) => s + i.custo * i.pctConfirmado, 0) / custoTotal : 0;
-    const medicao = {
-      id: uid(), obraId, data: confData, dataMedicao: confData,
-      numero: medicoesObra.length + 1,
-      responsavel: confResp.trim(), observacao: confObs.trim(),
-      itens, avancoFisico,
-    };
-    // A medição é o fato oficial: ela é confirmada primeiro pelo comando
-    // versionado. O reflexo no planejamento é uma projeção operacional, sem
-    // alterar diários já concluídos.
-    if(dispatchCommand){
-      const result=await dispatchCommand({type:OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED,
-        idempotencyKey:`medicao-criacao-${medicao.id}-${uid()}`,expectedVersion:0,
-        actorId:currentUser?.id||"",actorName:currentUser?.nome||"",payload:{measurement:medicao}});
-      if(!result?.ok){showToast?.(result?.reason||"Não foi possível confirmar a medição.","error");return;}
-    }else{
-      const base = { ...data, medicoesObra: [...(data.medicoesObra || []), medicao] };
-      update(rebuildTechnicalMeasurementProjection(base, obraId, new Date().toISOString()));
-    }
-    setConfModal(false);
-    showToast?.(`Medição ${medicao.numero} confirmada: ${avancoFisico.toFixed(0)}% físico.`);
-  };
-
-  const removerMedicaoObra = async (m) => {
-    if((data.medicoes||[]).some(item=>item.medicaoTecnicaId===m.id&&!["cancelada","cancelado"].includes(item.status))){
-      showToast?.("A medição já possui faturamento. Cancele o documento financeiro antes.","error");return;
-    }
-    const ultima = medicoesObra[medicoesObra.length - 1];
-    if (!ultima || ultima.id !== m.id) {
-      showToast?.("Só a última medição pode ser removida.", "error"); return;
-    }
-    const motivo=window.prompt(`Motivo do cancelamento da medição ${m.numero}:`);
-    if(!String(motivo||"").trim())return;
-    const agora=new Date().toISOString();
-    if(dispatchCommand){
-      const result=await dispatchCommand(atual=>{
-        const vigente=(atual.medicoesObra||[]).find(item=>item.id===m.id);
-        return {type:OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CANCELLED,idempotencyKey:`medicao-cancelamento-${m.id}-${uid()}`,
-          expectedVersion:Number(vigente?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-          payload:{measurementId:m.id,reason:String(motivo).trim()}};
-      });
-      if(!result?.ok){showToast?.(result?.reason||"Não foi possível cancelar a medição.","error");return;}
-    }else {
-      const base={ ...data, medicoesObra: (data.medicoesObra || []).map(x => x.id!==m.id?x:{
-      ...x,status:"cancelada",motivoCancelamento:String(motivo).trim(),canceladaEm:agora,
-      canceladaPorId:currentUser?.id||"",canceladaPor:currentUser?.nome||"",
-      }) };
-      update(rebuildTechnicalMeasurementProjection(base, obraId, agora));
-    }
-    showToast?.("Medição cancelada e preservada no histórico.");
-  };
-
-  const abrirFaturamento=m=>{
-    if((data.medicoes||[]).some(item=>item.medicaoTecnicaId===m.id&&item.status!=="cancelada")){
-      showToast?.("Esta medição técnica já foi faturada.","warn");return;
-    }
-    const preview=createBillingFromTechnicalMeasurement(data,{medicaoTecnicaId:m.id,competencia:String(m.data||today()).slice(0,7)});
-    if(!preview.ok){showToast?.(preview.error,"error");return;}
-    setFatForm({competencia:String(m.data||today()).slice(0,7),dataVencimento:""});
-    setFatModal(m);
-  };
-  const faturamentoPreview=useMemo(
-    ()=>fatModal?createBillingFromTechnicalMeasurement(data,{medicaoTecnicaId:fatModal.id,competencia:fatForm.competencia}):null,
-    [data,fatModal,fatForm.competencia],
-  );
-  const confirmarFaturamento=async()=>{
-    if(!dispatchCommand||billingPending)return;
-    setBillingPending(true);
-    try{
-      const technicalId=fatModal?.id;
-      const result=await dispatchCommand(()=>({
-        type:OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_BILLED,
-        idempotencyKey:`client-measurement-billing-${technicalId}-${uid()}`,
-        actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-        payload:{
-          id:`fat-${technicalId}`,medicaoTecnicaId:technicalId,
-          competencia:fatForm.competencia,dataVencimento:fatForm.dataVencimento,
-        },
-      }));
-      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o faturamento.");
-      const billing=(result.data?.medicoes||[]).find(item=>item.medicaoTecnicaId===technicalId&&item.status!=="cancelada");
-      setFatModal(null);
-      showToast?.(`Faturamento de ${fmt(billing?.valorPrevisto||0)} gerado a partir da medição técnica.`);
-    }catch(error){
-      showToast?.(error.message||"Não foi possível gerar o faturamento.","error");
-    }finally{
-      setBillingPending(false);
-    }
-  };
-
-  // O plano é uma projeção do boletim aprovado. Não há sobrescrita manual do
-  // fato técnico: uma correção cria novo boletim e mantém a trilha auditável.
-  const ajustarManual = (tarefaId, progresso) => {
-    showToast?.("O avanço oficial só pode ser alterado em um novo boletim de medição aprovado.", "warn");
-  };
-
-  if (terceiroLocal) return <div className="measurement-surface">
-    <Btn v="ghost" onClick={()=>setTerceiroLocal(null)}>Voltar à medição da obra</Btn>
-    <Suspense fallback={<LoadingState label="medição do terceirizado"/>}>
-      <Terceiros data={data} update={update} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser}
-        dispatchCommand={dispatchCommand} contratoInicial={terceiroLocal} />
-    </Suspense>
-  </div>;
-
-  if (!obras.length) {
-    return <div style={{ padding: "var(--arcd-space-6)", textAlign: "center" }}>
-      <p style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)" }}>Cadastre uma obra para medir a evolução.</p>
-    </div>;
-  }
-
-  return (
-    <div className="measurement-surface" style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-box-gap)" }}>
-      <PageHeader headingLevel={obraIdFixo?2:1} className="workspace-header" title={obraIdFixo?"Medição física":"Avanço físico"} />
-      {!obraIdFixo&&<Sel label="Obra" value={obraId} onChange={setObraId}
-             options={obras.map(o => ({ v: o.id, l: o.name }))} />}
-      <ScopeNote title="Orçamento de controle da medição">
-        {orc ? `V${orc.versionNumber||1} · ${orc.nome||orc.codigo||"Orçamento sem nome"}. ` : "Sem orçamento de controle ativo. "}
-        O avanço oficial da obra vem do boletim aprovado.
-      </ScopeNote>
-
-      {/* Resumo */}
-      <div style={{ display: "grid", gridTemplateColumns: cols(2, 4, 4), gap: "var(--arcd-space-2)" }}>
-        <MiniKpi label="Evolução por valor" value={resumo.temBaseValor?`${resumo.avancoFisico.toFixed(0)}%`:"Sem base de valor"} cor={C.blue} />
-        <MiniKpi label="Serviços" value={`${resumo.total}`} cor={C.text} />
-        <MiniKpi label="Medidos pelo diário" value={`${resumo.peloDiario}`} cor={C.green}
-                 sub={`${resumo.total - resumo.peloDiario} manuais`} />
-        <MiniKpi label="Dias trabalhados" value={`${resumo.diasTotais}`} cor={C.yellow}
-                 sub="somados nos RDOs" />
-      </div>
-
-      {!tarefas.length && (
-        <Alert role="status" aria-label="Como iniciar a medição">
-          <AlertDescription>
-            <div className="flex flex-col gap-3">
-              <p><strong>Medição disponível sem Planejamento.</strong> Use “Confirmar medição” para medir as etapas do contrato de um terceirizado.</p>
-              <p>Para acompanhar também o avanço físico oficial da obra, cadastre os serviços no Planejamento e vincule as etapas dos contratos.</p>
-              <div className="flex flex-wrap gap-2">
-                {onAbrirPlanejamento && <Btn size="sm" onClick={()=>onAbrirPlanejamento(obraId)}>Abrir Planejamento</Btn>}
-                <Btn size="sm" v="ghost" onClick={iniciarMedicaoTerceiro}>Medir terceirizados</Btn>
-              </div>
-            </div>
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Tabela de evolucao */}
-      <RecordListPagination pagination={servicesPage} label="serviços"/>
-      <div style={{ background: "var(--arcd-surface-card)", border: "var(--arcd-border-width) solid var(--arcd-border-default)", borderRadius: "var(--arcd-box-radius)", overflow: "hidden" }}>
-        <div style={{ padding: "var(--arcd-space-3)", borderBottom: "var(--arcd-border-width) solid var(--arcd-border-default)" }}>
-          <h3 className="arcd-heading-section">Evolução por serviço</h3>
-          <p className="arcd-body-muted">A evolução por valor pondera o custo dos serviços vinculados. O Planejamento acompanha o avanço pela duração das tarefas.</p>
-          <Inp label="Buscar serviço da medição" value={serviceSearch} onChange={setServiceSearch} placeholder="Nome do serviço"/>
-        </div>
-        {visibleServices.length === 0 ? (
-          <p style={{ padding: "var(--arcd-space-5)", fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)", textAlign: "center" }}>
-            {serviceSearch?"Nenhum serviço corresponde à busca. Limpe o campo para ver todos.":"Sem serviços no planejamento desta obra."}
-          </p>
-        ) : servicesPage.rows.map(t => (
-          <div key={t.id} style={{ padding: "var(--arcd-space-3)", borderTop: "var(--arcd-border-width) solid var(--arcd-border-default)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--arcd-space-2)" }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p className="brk" style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)" }}>{t.nome}</p>
-                <div style={{ display: "flex", gap: "var(--arcd-space-2)", marginTop: "var(--arcd-space-half)", flexWrap: "wrap" }}>
-                  <span style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)",
-                                 color: t.origemProgresso === "diario" ? "var(--arcd-success-text)" : "var(--arcd-text-secondary)" }}>
-                    {t.origemProgresso === "diario" ? "via diário"
-                      : t.origemProgresso === "medicao_oficial" ? "medição oficial"
-                      : t.origemProgresso === "medicao" ? "ajustado na medição"
-                      : "manual"}
-                  </span>
-                  {t.diasTrabalhados > 0 && (
-                    <span style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>{contar(t.diasTrabalhados,"dia trabalhado","dias trabalhados")}</span>
-                  )}
-                  {t.custo > 0 && <span style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>{fmt(t.custo)}</span>}
-                  {avancoTerceiros.has(t.id) && (
-                    <span style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-action-primary)" }}
-                      title={avancoTerceiros.get(t.id).fontes.map(f => `${f.contrato} · ${f.etapa}: ${f.pct}%`).join("\n")}>
-                      terceirizado: {avancoTerceiros.get(t.id).pct.toFixed(0)}% aprovado
-                    </span>
-                  )}
-                </div>
-              </div>
-              {editando === t.id ? (
-                <div style={{ display: "flex", gap: "var(--arcd-space-1)", alignItems: "center" }}>
-                  <StandardInput type="number" defaultValue={t.progresso} min="0" max="100"
-                         id={`prog-${t.id}`} style={{ width: 60, padding: "var(--arcd-space-1)", borderRadius: "var(--arcd-radius-control)",
-                         border: "var(--arcd-border-width) solid var(--arcd-border-default)", fontSize: "var(--arcd-type-control)", textAlign: "center" }} />
-                  <Btn size="sm" onClick={() => {
-                    const v = document.getElementById(`prog-${t.id}`).value;
-                    ajustarManual(t.id, v); setEditando(null);
-                  }}><Ic n="check" /></Btn>
-                </div>
-              ) : (
-                <StandardButton variant="secondary" onClick={() => setEditando(t.id)} style={{display: "flex",alignItems: "center",flexShrink: 0}}>
-                  <span style={{ fontSize: "var(--arcd-type-card-title)", fontWeight:"var(--arcd-font-weight-semibold)",
-                                 color: t.progresso >= 100 ? "var(--arcd-success-text)" : "var(--arcd-action-primary)" }}>{t.progresso}%</span>
-                  <Ic n="edit" s={13} color={C.muted} />
-                </StandardButton>
-              )}
-            </div>
-            <div style={{ marginTop: "var(--arcd-space-2)", height: 6, background: "var(--arcd-border-default)", borderRadius: "var(--arcd-radius-pill)", overflow: "hidden" }}>
-              <div style={{ height: "100%", width: `${t.progresso}%`,
-                            background: t.progresso >= 100 ? "var(--arcd-success-text)" : "var(--arcd-action-primary)", borderRadius: "var(--arcd-radius-pill)" }} />
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", lineHeight: "var(--arcd-line-height-normal)", padding: "var(--arcd-space-0) var(--arcd-space-1)" }}>
-        O diário e as medições aprovadas dos terceirizados sugerem o avanço. O boletim técnico aprovado é a única
-        fonte do avanço oficial e alimenta a curva S e o físico-financeiro; correções geram um novo boletim auditável.
-      </p>
-
-      {obraId && <section aria-label="Medição dos terceirizados">
-        <TerceirosNaMedicao data={data} obraId={obraId} tarefas={tarefas} currentUser={currentUser}
-          dispatchCommand={dispatchCommand} showToast={showToast} onAbrirTerceiro={abrirTerceiro} />
-      </section>}
-
-      {/* Boletim de medição: confirma o avanço contra o diário */}
-      <div style={{ background: "var(--arcd-surface-card)", border: "var(--arcd-border-width) solid var(--arcd-border-default)", borderRadius: "var(--arcd-box-radius)", overflow: "hidden" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--arcd-space-2)",
-                      padding: "var(--arcd-space-3)", borderBottom: "var(--arcd-border-width) solid var(--arcd-border-default)", flexWrap: "wrap" }}>
-          <div>
-            <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)", textTransform: "uppercase", letterSpacing: "var(--arcd-letter-spacing-body)" }}>
-              Boletins de medição
-            </p>
-            <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", marginTop: "var(--arcd-space-half)" }}>
-              Confirma o avanço físico contra o diário e o congela como medição oficial
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {onAbrirPlanejamento && <Btn size="sm" v="ghost" onClick={()=>onAbrirPlanejamento(obraId)}>Abrir Planejamento</Btn>}
-            <Btn size="sm" onClick={abrirConfirmacao}>
-              <Ic n="check" /> Confirmar medição
-            </Btn>
-          </div>
-        </div>
-        {medicoesObra.length === 0 ? (
-          <p style={{ padding: "var(--arcd-space-4)", fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", textAlign: "center" }}>
-            Nenhuma medição confirmada. A medição fotografa o avanço aceito numa data.
-          </p>
-        ) : (
-          [...medicoesObra].reverse().map(m => {
-            const divergentes = m.itens.filter(i => Math.abs(i.pctConfirmado - i.pctDiario) > 0.01).length;
-            const faturamento=(data.medicoes||[]).find(item=>item.medicaoTecnicaId===m.id&&item.status!=="cancelada");
-            return (
-              <div key={m.id} style={{ padding: "var(--arcd-space-3)", borderTop: "var(--arcd-border-width) solid var(--arcd-border-default)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--arcd-space-2)", flexWrap: "wrap" }}>
-                  <div>
-                    <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)" }}>
-                      Medição {m.numero} · {fmtDateFull(m.data)}
-                    </p>
-                    <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", marginTop: "var(--arcd-space-half)" }}>
-                      {m.responsavel ? `${m.responsavel} · ` : ""}{contar(m.itens.length,"serviço","serviços")}
-                      {divergentes > 0 && <span style={{ color: "var(--arcd-warning-text)", fontWeight:"var(--arcd-font-weight-semibold)" }}> · {contar(divergentes,"ajustado","ajustados")} vs diário</span>}
-                    </p>
-                  </div>
-                  <div style={{ textAlign: "right" }}>
-                    <p style={{ fontSize: "var(--arcd-type-card-title)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-action-primary)",
-                                fontFamily: "var(--arcd-font-sans)" }}>{m.avancoFisico.toFixed(0)}%</p>
-                    <p style={{ fontSize:"var(--arcd-type-caption)", color: "var(--arcd-text-secondary)" }}>físico confirmado</p>
-                  </div>
-                </div>
-                {m.observacao && <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", fontStyle: "italic", marginTop: "var(--arcd-space-1)" }}>"{m.observacao}"</p>}
-                <div style={{ display: "flex", justifyContent: "flex-end", gap:"var(--arcd-space-1)", marginTop: "var(--arcd-space-2)" }}>
-                  {faturamento
-                    ? <Badge color={C.green}>FATURADA · {fmt(faturamento.valorPrevisto)}</Badge>
-                    : <Btn size="sm" v="success" onClick={()=>abrirFaturamento(m)}>Gerar faturamento</Btn>}
-                  <Btn size="sm" v="ghost" onClick={() => removerMedicaoObra(m)}>Remover</Btn>
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
-
-      {escolherTerceiro && <Modal title="Medir terceirizado" panelClass="measurement-entry-modal" onClose={()=>setEscolherTerceiro(false)}>
-        <div className="measurement-contract-choices">
-          <p>Escolha o contrato para registrar o percentual executado de cada etapa.</p>
-          {contratosMedicao.map(contrato=><Btn key={contrato.id} v="ghost" full onClick={()=>abrirTerceiro(contrato.id, contrato.etapas.length > 0)}>
-            <span>{contrato.nome}<small style={{display:"block"}}>{contrato.etapas.length ? `${pct1(contrato.avancoAprovado)} aprovado · ${contrato.etapas.length} etapas` : "Cadastrar etapas antes de medir"}</small></span>
-            <Ic n="chevR" />
-          </Btn>)}
-          {!contratosMedicao.length && <p>Nenhum contrato de terceirizado por medição nesta obra. Cadastre o contrato e suas etapas em RH → Terceiros.</p>}
-        </div>
-      </Modal>}
-
-      {/* Modal: confirmar medição contra o diário */}
-      {confModal && (
-        <Modal title={`Confirmar medição ${medicoesObra.length + 1}`} panelClass="measurement-entry-modal" onClose={() => setConfModal(false)} wide
-          footer={<div className="measurement-entry-actions">
-            <Btn v="ghost" full onClick={() => setConfModal(false)}>Cancelar</Btn>
-            <Btn full onClick={salvarConfirmacao}><Ic n="check" /> Confirmar e congelar</Btn>
-          </div>}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
-            <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", lineHeight: "var(--arcd-line-height-normal)" }}>
-              Cada serviço abre com a proposta: o avanço aprovado do terceirizado vinculado, quando
-              houver; senão, o do diário. Confirme ou corrija o valor que o fiscal aprova. A
-              divergência aceita fica registrada no boletim, e o progresso do cronograma passa a
-              ser o confirmado.
-            </p>
-            <Inp label="Data efetiva da medição" type="date" value={confData} onChange={setConfData}/>
-            <div style={{ border: "var(--arcd-border-width) solid var(--arcd-border-default)", borderRadius: "var(--arcd-box-radius)", overflow: "hidden" }}>
-              {tarefas.map(t => {
-                const conf = Number(confPct[t.id]) || 0;
-                const terc = avancoTerceiros.get(t.id);
-                const div = Math.round((conf - propostaBoletim(t)) * 100) / 100;
-                return (
-                  <div key={t.id} className="measurement-entry-row">
-                    <div style={{ minWidth: 0 }}>
-                      <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.nome}</p>
-                      <p style={{ fontSize:"var(--arcd-type-caption)", color: t.origemProgresso === "diario" ? "var(--arcd-success-text)" : "var(--arcd-text-secondary)" }}>
-                        diário: {t.progresso || 0}%{t.origemProgresso !== "diario" ? " (manual)" : ""}
-                        {terc && <span style={{ color: "var(--arcd-action-primary)", fontWeight:"var(--arcd-font-weight-semibold)" }}> · terceirizado aprovado: {terc.pct}%</span>}
-                      </p>
-                    </div>
-                    <ProgressPercentageField label={`Percentual de ${t.nome}`} value={confPct[t.id] ?? ""} previous={propostaBoletim(t)}
-                      onChange={value=>setConfPct(p=>({...p,[t.id]:value}))} />
-                    <span style={{ fontSize:"var(--arcd-type-label)", textAlign: "right", fontWeight:"var(--arcd-font-weight-semibold)",
-                                   color: div > 0 ? "var(--arcd-action-primary)" : div < 0 ? "var(--arcd-danger-text)" : "var(--arcd-text-secondary)" }}>
-                      {div === 0 ? "confere" : `${div > 0 ? "+" : ""}${div}%`}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-            <Inp label="Responsável pela medição" value={confResp} onChange={setConfResp}
-                 placeholder="Engenheiro / fiscal" />
-            <Inp label="Observação" value={confObs} onChange={setConfObs} multiline
-                 placeholder="Ex.: alvenaria do 2º pavimento medida a 60%, pendente verga" />
-          </div>
-        </Modal>
-      )}
-      {fatModal&&<Modal title={`Faturar medição técnica ${fatModal.numero}`} onClose={()=>setFatModal(null)}>
-        <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
-          <div style={{padding:"var(--arcd-space-2)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-action-primary) 33%, transparent)",borderRadius:"var(--arcd-radius-control)",background:"color-mix(in srgb, var(--arcd-action-primary) 3%, transparent)"}}>
-            <b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)"}}>Avanço físico confirmado: {Number(fatModal.avancoFisico||0).toFixed(1)}%</b>
-            <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>O valor é calculado pelo contrato e pelo avanço ainda não faturado; não há digitação manual.</p>
-          </div>
-          {faturamentoPreview?.ok?<div style={{padding:"var(--arcd-space-2)",border:"var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-success-text) 33%, transparent)",borderRadius:"var(--arcd-radius-control)",background:"color-mix(in srgb, var(--arcd-success-text) 3%, transparent)"}}><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Faturamento incremental calculado</p><b style={{fontSize:"var(--arcd-type-card-title)",color:"var(--arcd-success-text)"}}>{fmt(faturamentoPreview.measurement.valorPrevisto)}</b></div>:<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-danger-text)"}}>{faturamentoPreview?.error}</p>}
-          <Inp label="Competência" type="month" value={fatForm.competencia} onChange={competencia=>setFatForm(form=>({...form,competencia}))}/>
-          <Inp label="Vencimento" type="date" value={fatForm.dataVencimento} onChange={dataVencimento=>setFatForm(form=>({...form,dataVencimento}))}/>
-          <div style={{display:"flex",gap:"var(--arcd-space-2)"}}><Btn v="ghost" disabled={billingPending} full onClick={()=>setFatModal(null)}>Cancelar</Btn><Btn v="success" disabled={billingPending} full onClick={confirmarFaturamento}>{billingPending?"Gerando...":"Gerar faturamento"}</Btn></div>
-        </div>
-      </Modal>}
-    </div>
-  );
-}
 
 
 function Cadastros({ data, update, showToast, onTab, currentUser, dispatchCommand }) {
@@ -11919,38 +9138,6 @@ const CAIXA_CATS = [
   { v:"outros",       l:"Outros",                 icon:"" },
 ];
 
-// Extrato/relatório financeiro do caixa de uma obra, em PDF. Compartilhado
-// entre a tela de Caixa de Obra e o hub de Relatórios, para não duplicar o
-// mesmo template em dois lugares.
-function gerarRelatorioCaixaObraPDF(data, obra, caixa, showToast) {
-  if (!obra) return;
-  const c = caixa;
-  const movs = [...c.movimentos].reverse(); // ordem cronológica
-  const html = montarRelatorioPadraoHtml({
-    data,
-    titulo: "Extrato do Caixa de Obra",
-    subtitulo: obra.name,
-    kpis: [
-      { label: "Entradas", value: fmt(c.totalAportes) },
-      { label: "Despesas", value: fmt(c.totalDespesas) },
-      { label: "Devoluções", value: fmt(c.totalDevolucoes) },
-      { label: "Saldo em caixa", value: fmt(c.saldo) },
-    ],
-    tabelas: [{
-      headers: ["Data", "Tipo", "Descrição", { label: "Valor", num: true }, { label: "Saldo", num: true }],
-      rows: movs.map(m => [
-        escapeHtml(fmtDateFull(m.data)),
-        escapeHtml(workCashNature(m)),
-        escapeHtml(m.descricao || "-"),
-        `${m.tipo === "aporte" ? "+" : "-"} ${escapeHtml(fmt(Number(m.valor)))}`,
-        escapeHtml(fmt(m.saldoAcumulado)),
-      ]),
-      vazio: "Nenhum lançamento neste caixa.",
-    }],
-  });
-  abrirRelatorioPadrao(html, showToast);
-}
-
 function CaixaObra({data,showToast,currentUser,dispatchCommand}) {
   return <WorkCashView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchCommand}
     categories={CAIXA_CATS} onReport={(obra,caixa)=>gerarRelatorioCaixaObraPDF(data,obra,caixa,showToast)}/>;
@@ -12440,17 +9627,17 @@ td.val{text-align:right;font-weight:700;min-width:110px}
         <Button variant="outline" onClick={()=>setNovaConsulta(n=>n+1)}>Tentar novamente</Button>
       </Alert>:<>
       {/* KPI bar */}
-      <div className="dre-company-kpis" style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:"var(--arcd-space-2)"}}>
+      <div className="dre-company-kpis mrc-kpi-strip mrc-kpi-strip--summary">
         {[
           ["Faturamento",dre.faturamentoTotal,`Obras ${fmt(dre.faturamentoObras)} · locações ${fmt(dre.receitaLocacoes)}`],
           ["Receita líquida",dre.receitaLiquida,`${((dre.totalDeducoes/Math.max(dre.faturamentoTotal,1))*100).toFixed(1)}% em deduções`],
           ["EBITDA",dre.ebitda,`Margem ${dreMargin(dre.receitaLiquida,dre.margemEbitda)}`],
           ["Lucro líquido",dre.lucroLiquido,`Margem ${dreMargin(dre.receitaLiquida,dre.margemLiquida)}`],
         ].map(([l,v,s])=>(
-          <div key={l} data-negative={v<0}>
-            <p>{l}</p>
-            <strong className={razaoCarregando?"dre-kpi-loading":undefined}>{razaoCarregando?"":(v<0?`(${fmt(Math.abs(v))})`:fmt(v))}</strong>
-            <span>{s}</span>
+          <div className="mrc-kpi-strip__item" key={l} data-negative={v<0} data-tone={v<0?"danger":undefined}>
+            <span className="mrc-kpi__label">{l}</span>
+            <strong className={razaoCarregando?"mrc-kpi__value dre-kpi-loading":"mrc-kpi__value"}>{razaoCarregando?"":(v<0?`(${fmt(Math.abs(v))})`:fmt(v))}</strong>
+            <span className="mrc-kpi__detail">{s}</span>
           </div>
         ))}
       </div>
@@ -12882,11 +10069,11 @@ function PainelTV({data,ultimaSync,onAtualizar,allowedTabs=[]}){
   useEffect(()=>{const fn=()=>setTelaCheia(document.fullscreenElement===raizRef.current);document.addEventListener("fullscreenchange",fn);return()=>document.removeEventListener("fullscreenchange",fn);},[]);
   const alternarTelaCheia=async()=>{if(document.fullscreenElement)await document.exitFullscreen?.();else await raizRef.current?.requestFullscreen?.();};
 
-  return <div ref={raizRef} className="anim arcd-tv" style={{minHeight:telaCheia?"100vh":"calc(100vh - 126px)",background:"radial-gradient(circle at 78% 8%,rgba(212,175,55,.13),transparent 26%),linear-gradient(142deg,#111412,#1b1c18 62%,#111210)",color:tvColors.surface,borderRadius:telaCheia?0:16,overflow:"hidden",padding:"clamp(16px,2vw,28px)",position:"relative",display:"flex",flexDirection:"column",gap:"clamp(10px,1.3vw,17px)",boxShadow:"0 18px 60px rgba(18,18,18,.2)"}}>
+  return <div ref={raizRef} className="anim arcd-tv" style={{minHeight:telaCheia?"100vh":"calc(100vh - 126px)",background:"radial-gradient(circle at 78% 8%,rgba(212,175,55,.13),transparent 26%),linear-gradient(142deg,#111412,#1b1c18 62%,#111210)",color:tvColors.surface,borderRadius:telaCheia?0:"var(--arcd-box-radius)",overflow:"hidden",padding:"clamp(16px,2vw,28px)",position:"relative",display:"flex",flexDirection:"column",gap:"clamp(10px,1.3vw,17px)",boxShadow:"0 18px 60px rgba(18,18,18,.2)"}}>
     {!isDesktop&&<img src={imagem} alt="" aria-hidden="true" style={{position:"absolute",right:"3%",top:"5%",width:"min(30vw,420px)",height:"min(30vw,420px)",objectFit:"contain",opacity:.035,pointerEvents:"none"}}/>}
     <header className="arcd-tv-header" style={{position:"relative",zIndex:1,display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:18}}>
-      <div>{!isDesktop&&<div style={{display:"flex",alignItems:"center",gap:9}}><span style={{width:8,height:8,borderRadius:99,background:tvColors.green,boxShadow:`0 0 18px ${tvColors.green}`}}/><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:2,textTransform:"uppercase",color:tvColors.yellow}}>MARCELL · Centro de operações</span></div>}<h1 style={{fontFamily:"var(--arcd-font-sans)",fontSize:"clamp(24px,3vw,46px)",fontWeight:600,letterSpacing:-1.2,lineHeight:1,marginTop:9}}>{visao==="equipe"&&podeVerEquipe?"Equipe nas Obras":"Panorama executivo das obras"}</h1>{!isDesktop&&<p style={{fontSize:"var(--arcd-type-label)",color:"rgba(245,243,238,.5)",marginTop:7}}>{visao==="equipe"&&podeVerEquipe?"Equipe por obra e registros recebidos do ponto":"Visão contínua de avanço, campo, qualidade, suprimentos e prazos"}</p>}</div>
-      <div style={{display:"flex",alignItems:"center",gap:10}}><div style={{textAlign:"right"}}><p style={{fontFamily:"var(--arcd-font-sans)",fontSize:"clamp(20px,2.2vw,34px)",fontWeight:600,color:tvColors.yellow,lineHeight:1}}>{agora.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"rgba(245,243,238,.45)",marginTop:5}}>{agora.toLocaleDateString("pt-BR",{weekday:"short",day:"2-digit",month:"short"})}</p></div><button type="button" onClick={alternarTelaCheia} title="Alternar tela cheia" style={{width:40,height:40,borderRadius:11,border:`1px solid ${tvColors.yellow}44`,background:"rgba(212,175,55,.08)",color:tvColors.yellow,cursor:"pointer"}}>{isDesktop?(telaCheia?<Minimize size={16} aria-hidden="true"/>:<Maximize size={16} aria-hidden="true"/>):<Ic n={telaCheia?"x":"eye"} s={15}/>}</button></div>
+      <div>{!isDesktop&&<div style={{display:"flex",alignItems:"center",gap:9}}><span style={{width:8,height:8,borderRadius:"var(--arcd-radius-pill)",background:tvColors.green,boxShadow:`0 0 18px ${tvColors.green}`}}/><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:2,textTransform:"uppercase",color:tvColors.yellow}}>MARCELL · Centro de operações</span></div>}<h1 style={{fontFamily:"var(--arcd-font-sans)",fontSize:"clamp(24px,3vw,46px)",fontWeight:600,letterSpacing:-1.2,lineHeight:1,marginTop:9}}>{visao==="equipe"&&podeVerEquipe?"Equipe nas Obras":"Panorama executivo das obras"}</h1>{!isDesktop&&<p style={{fontSize:"var(--arcd-type-label)",color:"rgba(245,243,238,.5)",marginTop:7}}>{visao==="equipe"&&podeVerEquipe?"Equipe por obra e registros recebidos do ponto":"Visão contínua de avanço, campo, qualidade, suprimentos e prazos"}</p>}</div>
+      <div style={{display:"flex",alignItems:"center",gap:10}}><div style={{textAlign:"right"}}><p style={{fontFamily:"var(--arcd-font-sans)",fontSize:"clamp(20px,2.2vw,34px)",fontWeight:600,color:tvColors.yellow,lineHeight:1}}>{agora.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"rgba(245,243,238,.45)",marginTop:5}}>{agora.toLocaleDateString("pt-BR",{weekday:"short",day:"2-digit",month:"short"})}</p></div><button type="button" onClick={alternarTelaCheia} title="Alternar tela cheia" style={{width:40,height:40,borderRadius:"var(--arcd-box-radius)",border:`1px solid ${tvColors.yellow}44`,background:"rgba(212,175,55,.08)",color:tvColors.yellow,cursor:"pointer"}}>{isDesktop?(telaCheia?<Minimize size={16} aria-hidden="true"/>:<Maximize size={16} aria-hidden="true"/>):<Ic n={telaCheia?"x":"eye"} s={15}/>}</button></div>
     </header>
 
     <Tabs className="arcd-tv-content" value={visaoAtual} onValueChange={setVisao} style={{display:"flex",flexDirection:"column",gap:16,flex:1,minHeight:0}}><TabsList className="arcd-tv-visoes" aria-label="Visão do Modo TV"><TabsTrigger value="panorama">Panorama executivo</TabsTrigger>{podeVerEquipe&&<TabsTrigger value="equipe">Equipe nas Obras</TabsTrigger>}</TabsList>
@@ -12904,23 +10091,23 @@ function PainelTV({data,ultimaSync,onAtualizar,allowedTabs=[]}){
       ["Planejado × executado",linhasPlanejadas.length?`${planejadoGeral}% · ${progressoGeral}%`:"—",linhasPlanejadas.length?`${progressoGeral-planejadoGeral>=0?"+":""}${progressoGeral-planejadoGeral} p.p.`:"sem cronograma",linhasPlanejadas.length&&progressoGeral>=planejadoGeral?tvColors.green:tvColors.yellow,linhasPlanejadas.length>0&&progressoGeral<planejadoGeral?"warning":undefined],
       ["Pendências técnicas",pendenciasTotal,"conferências",pendenciasTotal?tvColors.red:tvColors.green,pendenciasTotal?"critical":undefined],
       ["Obras em atenção",obrasAtencao,necessidadesTotal?`${necessidadesTotal} ações mapeadas`:"operação regular",obrasAtencao?tvColors.yellow:tvColors.green,obrasAtencao?"warning":undefined],
-    ].map(([l,v,s,c,tom])=><div key={l} data-tone={tom} style={{background:"rgba(245,243,238,.055)",border:"1px solid rgba(245,243,238,.12)",borderRadius:10,padding:"clamp(9px,1vw,13px)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,textTransform:"uppercase",letterSpacing:.7,color:"rgba(245,243,238,.58)"}}>{l}</p><p style={{fontFamily:"var(--arcd-font-sans)",fontSize:"clamp(21px,2vw,32px)",fontWeight:600,color:c,lineHeight:1,marginTop:5}}>{v}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"rgba(245,243,238,.46)",marginTop:4}}>{s}</p></div>)}</section>
+    ].map(([l,v,s,c,tom])=><div key={l} data-tone={tom} style={{background:"rgba(245,243,238,.055)",border:"1px solid rgba(245,243,238,.12)",borderRadius:"var(--arcd-box-radius)",padding:"clamp(9px,1vw,13px)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,textTransform:"uppercase",letterSpacing:.7,color:"rgba(245,243,238,.58)"}}>{l}</p><p style={{fontFamily:"var(--arcd-font-sans)",fontSize:"clamp(21px,2vw,32px)",fontWeight:600,color:c,lineHeight:1,marginTop:5}}>{v}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"rgba(245,243,238,.46)",marginTop:4}}>{s}</p></div>)}</section>
 
     <section className="arcd-tv-grid" aria-live="polite" style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:isDesktop?"repeat(2,minmax(0,1fr))":"minmax(0,1fr)",gap:"clamp(8px,1vw,13px)",flex:1,minHeight:0}}>
-      {visiveis.map((item,cardIndex)=>{const cor=item.severidade===3?tvColors.red:item.severidade===2?tvColors.yellow:item.severidade===1?tvColors.cinza:tvColors.green;const indiceImagem=item.imagens.length?(cicloImagem+cardIndex)%item.imagens.length:0;const foto=item.imagens[indiceImagem];if(isDesktop)return <DesktopTVWork key={item.obra.id} item={item} photo={foto}/>;return <article className="arcd-tv-work" key={item.obra.id} style={{position:"relative",overflow:"hidden",border:`1px solid ${cor}66`,borderRadius:12,background:"linear-gradient(145deg,#171a17,#0e100f)",display:"flex",flexDirection:"column",minHeight:0,boxShadow:"inset 0 0 38px rgba(0,0,0,.2)"}}>
+      {visiveis.map((item,cardIndex)=>{const cor=item.severidade===3?tvColors.red:item.severidade===2?tvColors.yellow:item.severidade===1?tvColors.cinza:tvColors.green;const indiceImagem=item.imagens.length?(cicloImagem+cardIndex)%item.imagens.length:0;const foto=item.imagens[indiceImagem];if(isDesktop)return <DesktopTVWork key={item.obra.id} item={item} photo={foto}/>;return <article className="arcd-tv-work" key={item.obra.id} style={{position:"relative",overflow:"hidden",border:`1px solid ${cor}66`,borderRadius:"var(--arcd-box-radius)",background:"linear-gradient(145deg,#171a17,#0e100f)",display:"flex",flexDirection:"column",minHeight:0,boxShadow:"inset 0 0 38px rgba(0,0,0,.2)"}}>
         {foto&&<img key={`${item.obra.id}-${foto.url}-${cicloImagem}`} className="arcd-tv-photo" src={foto.url} alt="" aria-hidden="true" loading="eager" onError={e=>{e.currentTarget.style.display="none";}} style={{position:"absolute",inset:"-2%",width:"104%",height:"104%",objectFit:"cover",objectPosition:"center",filter:"saturate(.9) contrast(1.06) brightness(.94)",pointerEvents:"none"}}/>}
         <div aria-hidden="true" style={{position:"absolute",inset:0,zIndex:1,background:"linear-gradient(90deg,rgba(6,8,9,.7) 0%,rgba(6,8,9,.4) 48%,rgba(6,8,9,.12) 100%),linear-gradient(0deg,rgba(5,6,7,.6) 0%,rgba(5,6,7,.02) 76%)"}}/>
         <div aria-hidden="true" style={{position:"absolute",inset:0,zIndex:1,opacity:.1,backgroundImage:`linear-gradient(${tvColors.yellow}55 1px,transparent 1px),linear-gradient(90deg,${tvColors.yellow}55 1px,transparent 1px)`,backgroundSize:"34px 34px",maskImage:"linear-gradient(90deg,transparent 20%,#000 100%)"}}/>
         {!foto&&<div aria-hidden="true" style={{position:"absolute",inset:0,zIndex:1,opacity:.2,backgroundImage:`linear-gradient(${tvColors.yellow}40 1px,transparent 1px),linear-gradient(90deg,${tvColors.yellow}40 1px,transparent 1px)`,backgroundSize:"30px 30px"}}/>}
         <span style={{position:"absolute",zIndex:3,left:0,top:0,bottom:0,width:3,background:cor,boxShadow:`0 0 18px ${cor}`}}/>
         <div className="arcd-tv-work-content" style={{position:"relative",zIndex:2,padding:"clamp(11px,1.15vw,16px)",display:"flex",flexDirection:"column",flex:1,minHeight:0}}>
-          <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"flex-start"}}><div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:1,textTransform:"uppercase",color:cor,textShadow:"0 1px 10px rgba(0,0,0,.8)"}}>{item.severidade>=3?"Atenção crítica":item.severidade===2?"Ação necessária":item.severidade===1?"Monitoramento":"Operação regular"}</p><h2 style={{fontFamily:"var(--arcd-font-sans)",fontSize:"clamp(17px,1.5vw,25px)",fontWeight:600,color:"#fff",marginTop:4,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textShadow:"0 2px 14px #000"}}>{item.obra.name}</h2><p style={{fontSize:"var(--arcd-type-caption)",color:"rgba(255,255,255,.72)",marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textShadow:"0 1px 8px #000"}}>Eng. {item.obra.engineer||"não definido"} · {contar(item.equipe,"pessoa","pessoas")} em campo</p>{foto&&<p style={{fontSize:"var(--arcd-type-caption)",color:"rgba(255,255,255,.42)",marginTop:4,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{foto.tipo==="rdo"?`RDO-${String(foto.codigo||0).padStart(3,"0")} · ${fmtDate(foto.data)} · ${foto.legenda}`:"Imagem cadastrada da obra"} · {indiceImagem+1}/{item.imagens.length}</p>}</div><div style={{textAlign:"right",flexShrink:0,padding:"5px 8px",borderRadius:9,background:"rgba(4,5,6,.52)",border:"1px solid rgba(255,255,255,.09)",backdropFilter:"blur(8px)"}}><strong style={{fontSize:"clamp(20px,2vw,31px)",fontWeight:600,color:tvColors.yellow,textShadow:`0 0 16px ${tvColors.yellow}55`}}>{item.progresso}%</strong><p style={{fontSize:"var(--arcd-type-caption)",color:"rgba(255,255,255,.48)",textTransform:"uppercase"}}>avanço</p></div></div>
-          <div style={{marginTop:10,padding:"7px 9px",borderRadius:9,background:"rgba(5,8,10,.58)",border:"1px solid rgba(255,255,255,.11)",backdropFilter:"blur(8px)",boxShadow:"0 7px 22px rgba(0,0,0,.2)"}}><div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",marginBottom:5}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:1,color:"rgba(255,255,255,.54)",textTransform:"uppercase"}}>Curva física · hoje</p><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:item.temPlanejamento&&item.desvioFisico>=0?tvColors.green:tvColors.yellow}}>{item.temPlanejamento?`${item.desvioFisico>=0?"+":""}${item.desvioFisico} p.p.`:"sem cronograma"}</span></div>{[["Planejado",item.planejado,tvColors.cinza],["Executado",item.progresso,item.temPlanejamento&&item.progresso>=item.planejado?tvColors.green:tvColors.yellow]].map(([label,valor,cor])=>{const disponivel=valor!==null;return <div key={label} style={{display:"grid",gridTemplateColumns:"54px minmax(0,1fr) 30px",gap:6,alignItems:"center",marginTop:4}}><span style={{fontSize:"var(--arcd-type-caption)",color:"rgba(255,255,255,.58)"}}>{label}</span><div style={{height:4,borderRadius:99,background:"rgba(255,255,255,.14)",overflow:"hidden"}}><i style={{display:"block",height:"100%",width:`${disponivel?Math.max(0,Math.min(100,valor)):0}%`,background:cor,boxShadow:disponivel?`0 0 10px ${cor}`:"none"}}/></div><b style={{fontSize:"var(--arcd-type-caption)",color:cor,textAlign:"right"}}>{disponivel?`${valor}%`:"—"}</b></div>})}</div>
-          <div className="arcd-tv-work-stats" tabIndex={0} role="region" aria-label={`Indicadores de ${item.obra?.name||item.name||"obra"}`} style={{display:"grid",gridTemplateColumns:"repeat(4,minmax(0,1fr))",gap:5,marginTop:9}}>{[["RDO",item.diarioHoje?"OK":"Pendente",item.diarioHoje?tvColors.green:tvColors.yellow],["Atrasos",item.atrasadas,item.atrasadas?tvColors.red:tvColors.green],["Qualidade",item.qualidade,item.qualidade?tvColors.yellow:tvColors.green],["Compras",item.compras,item.compras?tvColors.yellow:tvColors.green]].map(([l,v,c])=><div key={l} style={{padding:"6px 7px",borderRadius:7,background:"rgba(6,8,9,.62)",border:"1px solid rgba(255,255,255,.11)",backdropFilter:"blur(8px)",minWidth:0}}><p style={{fontSize:"var(--arcd-type-caption)",color:"rgba(255,255,255,.55)",textTransform:"uppercase",fontWeight:600}}>{l}</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:c,marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textShadow:"0 1px 7px #000"}}>{v}</p></div>)}</div>
-          <div style={{marginTop:"auto",paddingTop:10,display:"flex",gap:6,alignItems:"center",minWidth:0}}><span style={{width:6,height:6,borderRadius:99,background:cor,boxShadow:`0 0 10px ${cor}`,flexShrink:0}}/><p style={{fontSize:"var(--arcd-type-caption)",color:item.necessidades.length?"rgba(255,255,255,.82)":tvColors.green,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textShadow:"0 1px 8px #000"}}>{item.necessidades[0]||"Sem necessidade operacional crítica"}{item.necessidades.length>1?` · +${item.necessidades.length-1}`:""}</p>{item.prazo!==null&&<span style={{marginLeft:"auto",padding:"3px 6px",borderRadius:6,background:"rgba(4,5,6,.55)",fontSize:"var(--arcd-type-caption)",color:item.prazo<0?tvColors.red:"rgba(255,255,255,.62)",whiteSpace:"nowrap"}}>{item.prazo<0?`${Math.abs(item.prazo)}d vencido`:`${item.prazo}d restantes`}</span>}</div>
+          <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"flex-start"}}><div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:1,textTransform:"uppercase",color:cor,textShadow:"0 1px 10px rgba(0,0,0,.8)"}}>{item.severidade>=3?"Atenção crítica":item.severidade===2?"Ação necessária":item.severidade===1?"Monitoramento":"Operação regular"}</p><h2 style={{fontFamily:"var(--arcd-font-sans)",fontSize:"clamp(17px,1.5vw,25px)",fontWeight:600,color:"#fff",marginTop:4,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textShadow:"0 2px 14px #000"}}>{item.obra.name}</h2><p style={{fontSize:"var(--arcd-type-caption)",color:"rgba(255,255,255,.72)",marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textShadow:"0 1px 8px #000"}}>Eng. {item.obra.engineer||"não definido"} · {contar(item.equipe,"pessoa","pessoas")} em campo</p>{foto&&<p style={{fontSize:"var(--arcd-type-caption)",color:"rgba(255,255,255,.42)",marginTop:4,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{foto.tipo==="rdo"?`RDO-${String(foto.codigo||0).padStart(3,"0")} · ${fmtDate(foto.data)} · ${foto.legenda}`:"Imagem cadastrada da obra"} · {indiceImagem+1}/{item.imagens.length}</p>}</div><div style={{textAlign:"right",flexShrink:0,padding:"5px 8px",borderRadius:"var(--arcd-box-radius)",background:"rgba(4,5,6,.52)",border:"1px solid rgba(255,255,255,.09)",backdropFilter:"blur(8px)"}}><strong style={{fontSize:"clamp(20px,2vw,31px)",fontWeight:600,color:tvColors.yellow,textShadow:`0 0 16px ${tvColors.yellow}55`}}>{item.progresso}%</strong><p style={{fontSize:"var(--arcd-type-caption)",color:"rgba(255,255,255,.48)",textTransform:"uppercase"}}>avanço</p></div></div>
+          <div style={{marginTop:10,padding:"7px 9px",borderRadius:"var(--arcd-box-radius)",background:"rgba(5,8,10,.58)",border:"1px solid rgba(255,255,255,.11)",backdropFilter:"blur(8px)",boxShadow:"0 7px 22px rgba(0,0,0,.2)"}}><div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",marginBottom:5}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:1,color:"rgba(255,255,255,.54)",textTransform:"uppercase"}}>Curva física · hoje</p><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:item.temPlanejamento&&item.desvioFisico>=0?tvColors.green:tvColors.yellow}}>{item.temPlanejamento?`${item.desvioFisico>=0?"+":""}${item.desvioFisico} p.p.`:"sem cronograma"}</span></div>{[["Planejado",item.planejado,tvColors.cinza],["Executado",item.progresso,item.temPlanejamento&&item.progresso>=item.planejado?tvColors.green:tvColors.yellow]].map(([label,valor,cor])=>{const disponivel=valor!==null;return <div key={label} style={{display:"grid",gridTemplateColumns:"54px minmax(0,1fr) 30px",gap:6,alignItems:"center",marginTop:4}}><span style={{fontSize:"var(--arcd-type-caption)",color:"rgba(255,255,255,.58)"}}>{label}</span><div style={{height:4,borderRadius:"var(--arcd-radius-pill)",background:"rgba(255,255,255,.14)",overflow:"hidden"}}><i style={{display:"block",height:"100%",width:`${disponivel?Math.max(0,Math.min(100,valor)):0}%`,background:cor,boxShadow:disponivel?`0 0 10px ${cor}`:"none"}}/></div><b style={{fontSize:"var(--arcd-type-caption)",color:cor,textAlign:"right"}}>{disponivel?`${valor}%`:"—"}</b></div>})}</div>
+          <div className="arcd-tv-work-stats" tabIndex={0} role="region" aria-label={`Indicadores de ${item.obra?.name||item.name||"obra"}`} style={{display:"grid",gridTemplateColumns:"repeat(4,minmax(0,1fr))",gap:5,marginTop:9}}>{[["RDO",item.diarioHoje?"OK":"Pendente",item.diarioHoje?tvColors.green:tvColors.yellow],["Atrasos",item.atrasadas,item.atrasadas?tvColors.red:tvColors.green],["Qualidade",item.qualidade,item.qualidade?tvColors.yellow:tvColors.green],["Compras",item.compras,item.compras?tvColors.yellow:tvColors.green]].map(([l,v,c])=><div key={l} style={{padding:"6px 7px",borderRadius:"var(--arcd-radius-control)",background:"rgba(6,8,9,.62)",border:"1px solid rgba(255,255,255,.11)",backdropFilter:"blur(8px)",minWidth:0}}><p style={{fontSize:"var(--arcd-type-caption)",color:"rgba(255,255,255,.55)",textTransform:"uppercase",fontWeight:600}}>{l}</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:c,marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textShadow:"0 1px 7px #000"}}>{v}</p></div>)}</div>
+          <div style={{marginTop:"auto",paddingTop:10,display:"flex",gap:6,alignItems:"center",minWidth:0}}><span style={{width:6,height:6,borderRadius:"var(--arcd-radius-pill)",background:cor,boxShadow:`0 0 10px ${cor}`,flexShrink:0}}/><p style={{fontSize:"var(--arcd-type-caption)",color:item.necessidades.length?"rgba(255,255,255,.82)":tvColors.green,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textShadow:"0 1px 8px #000"}}>{item.necessidades[0]||"Sem necessidade operacional crítica"}{item.necessidades.length>1?` · +${item.necessidades.length-1}`:""}</p>{item.prazo!==null&&<span style={{marginLeft:"auto",padding:"3px 6px",borderRadius:"var(--arcd-radius-control)",background:"rgba(4,5,6,.55)",fontSize:"var(--arcd-type-caption)",color:item.prazo<0?tvColors.red:"rgba(255,255,255,.62)",whiteSpace:"nowrap"}}>{item.prazo<0?`${Math.abs(item.prazo)}d vencido`:`${item.prazo}d restantes`}</span>}</div>
         </div>
       </article>;})}
-      {!visiveis.length&&<div className="arcd-tv-empty" style={{gridColumn:"1/-1",display:"grid",placeItems:"center",border:"1px dashed rgba(245,243,238,.15)",borderRadius:15,color:"rgba(245,243,238,.45)"}}>Nenhuma obra ativa para exibir.</div>}
+      {!visiveis.length&&<div className="arcd-tv-empty" style={{gridColumn:"1/-1",display:"grid",placeItems:"center",border:"1px dashed rgba(245,243,238,.15)",borderRadius:"var(--arcd-box-radius)",color:"rgba(245,243,238,.45)"}}>Nenhuma obra ativa para exibir.</div>}
     </section>
 
     <footer className="arcd-tv-footer">Última sincronização · {ultimaSync?ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}):"aguardando"}</footer>
@@ -12930,590 +10117,9 @@ function PainelTV({data,ultimaSync,onAtualizar,allowedTabs=[]}){
   </div>;
 }
 
-// Comunicação interna: conversa da equipe (chat), checklist de prioridades
-// diárias dos engenheiros de campo e ranking. Mensagens e ajustes de ranking
-// vivem em linhas próprias no banco (api/chat.js, api/ranking.js) - não
-// entram no documento único de "data", que não pode crescer a cada mensagem.
-// Atualização por atualização periódica (sem tempo real): a lista é
-// recarregada a cada poucos segundos enquanto a aba de conversa está aberta.
-function Comunicacao({ data, currentUser, showToast }) {
-  const {isMobile}=useBreakpoint();
-  const [aba, setAba] = useState("notificacoes");
-  const ehAdmin = currentUser?.role === "admin";
-
-  //  Notificações: checklist de prioridades por engenheiro de campo
-  const engenheiros = useMemo(() => (data.usuarios || []).filter(u => u.active !== false && u.role === "engenheiro"), [data.usuarios]);
-  const hoje = today();
-  const resumoAtendimento = useMemo(() => getObraAttendanceSummary(data, hoje), [data, hoje]);
-
-  const checklistPorUsuario = useMemo(() => engenheiros.map(u => {
-    const obrasDele = (data.obras || []).filter(o => o.engineerId === u.id && o.status !== "done");
-    const pontoOk = obrasDele.every(o => {
-      const s = resumoAtendimento.find(x => x.obraId === o.id);
-      return !s || !s.hasTeam || s.completed;
-    });
-    const diarioOk = obrasDele.every(o => (data.rdos || []).some(r => r.obraId === o.id && r.data === hoje));
-    const pendenciasAbertas = (data.conferencias || []).filter(c=>c.status!=="cancelada").flatMap(c => (c.pendencias || [])
-      .filter(p => !["resolvida","cancelada"].includes(p.status) && p.responsavelAjusteId === u.id));
-    return { usuario: u, obrasDele, pontoOk, diarioOk, conferenciasOk: pendenciasAbertas.length === 0, pendenciasAbertas: pendenciasAbertas.length };
-  }), [engenheiros, data.obras, data.rdos, data.conferencias, resumoAtendimento, hoje]);
-
-  //  Ranking
-  const [ajustes, setAjustes] = useState([]);
-  const [ajusteModal, setAjusteModal] = useState(null);
-  const [pontosForm, setPontosForm] = useState("");
-  const [motivoForm, setMotivoForm] = useState("");
-
-  const carregarRanking = useCallback(async () => {
-    const r = await listarAjustesRanking();
-    if (r.ok) setAjustes(r.ajustes || []);
-  }, []);
-
-  useEffect(() => { if (aba === "ranking" || aba === "notificacoes") carregarRanking(); }, [aba, carregarRanking]);
-
-  const ranking = useMemo(() => checklistPorUsuario.map(c => {
-    const meusAjustes = ajustes.filter(a => a.userId === c.usuario.id);
-    const pontosManual = meusAjustes.reduce((s, a) => s + Number(a.pontos || 0), 0);
-    const pontosAutomaticos = (c.pontoOk ? 10 : 0) + (c.diarioOk ? 10 : 0) + (c.conferenciasOk ? 10 : 0);
-    return { ...c, pontosManual, pontosAutomaticos, total: pontosAutomaticos + pontosManual, ajustes: meusAjustes };
-  }).sort((a, b) => b.total - a.total), [checklistPorUsuario, ajustes]);
-
-  const salvarAjuste = async () => {
-    const pts = Number(pontosForm);
-    if (!pts) { showToast("Informe os pontos.", "error"); return; }
-    if (!motivoForm.trim()) { showToast("Justifique o ajuste.", "error"); return; }
-    const r = await adicionarAjusteRanking(ajusteModal.usuario.id, pts, motivoForm.trim());
-    if (!r.ok) { showToast(r.error || "Não foi possível salvar.", "error"); return; }
-    setAjusteModal(null); setPontosForm(""); setMotivoForm("");
-    carregarRanking();
-    showToast("Ajuste registrado.");
-  };
-
-  const removerAjuste = async (id) => {
-    if (!window.confirm("Remover este ajuste?")) return;
-    const r = await removerAjusteRanking(id);
-    if (!r.ok) { showToast(r.error || "Não foi possível remover.", "error"); return; }
-    carregarRanking();
-  };
-
-  return (
-    <div className="anim" style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
-      <PageHero
-        eyebrow="Comunicação interna"
-        title="Comunicação"
-        description="Prioridades do dia e tarefas da equipe, com acesso aos registros de origem."
-      />
-      <TabRow equal tabs={[["notificacoes", "Notificações"], ["ranking", "Ranking"]]} active={aba} onChange={setAba}/>
-
-      {aba === "notificacoes" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-2)" }}>
-          <SectorTasks data={data} user={currentUser}/>
-          <TaskDisclosure enabled={isMobile} summary="Prioridades da equipe">
-          <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>Prioridades do dia por engenheiro de campo: ponto, diário de obra e conferências.</p>
-          {!checklistPorUsuario.length && <p style={{ padding: "var(--arcd-space-5)", textAlign: "center", color: "var(--arcd-text-secondary)", fontSize:"var(--arcd-type-label)" }}>Nenhum engenheiro de campo cadastrado.</p>}
-          {checklistPorUsuario.map(c => (
-            <div key={c.usuario.id} style={{ background: "var(--arcd-surface-card)", border: `var(--arcd-border-width) solid var(--arcd-border-default)`, borderRadius: "var(--arcd-box-radius)", padding: "var(--arcd-space-3) var(--arcd-space-3)" }}>
-              <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color: "var(--arcd-text-primary)" }}>{c.usuario.nome}</p>
-              <div style={{ display: "flex", gap: "var(--arcd-space-3)", marginTop: "var(--arcd-space-1)", flexWrap: "wrap" }}>
-                {[["Ponto", c.pontoOk], ["Diário de obra", c.diarioOk], ["Conferências", c.conferenciasOk]].map(([l, ok]) => (
-                  <span key={l} style={{ display: "inline-flex", alignItems: "center", gap: "var(--arcd-space-1)", fontSize:"var(--arcd-type-label)", color: ok ? C.green : C.red, fontWeight:600 }}>
-                    <Ic n={ok ? "check" : "alert"} s={12} color={ok ? C.green : C.red} />{l}
-                  </span>
-                ))}
-              </div>
-              {!c.conferenciasOk && <p style={{ fontSize:"var(--arcd-type-caption)", color: C.red, marginTop: "var(--arcd-space-1)" }}>{contar(c.pendenciasAbertas,"pendência","pendências")} de conferência em aberto.</p>}
-            </div>
-          ))}
-          </TaskDisclosure>
-        </div>
-      )}
-
-      {aba === "ranking" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-2)" }}>
-          <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>10 pontos por item do checklist de hoje (ponto, diário, conferências) + ajustes manuais do administrador.</p>
-          {ranking.map((r, idx) => (
-            <div key={r.usuario.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--arcd-space-2)", background: "var(--arcd-surface-card)", border: `var(--arcd-border-width) solid ${idx === 0 ? C.yellow : C.border}`, borderRadius: "var(--arcd-box-radius)", padding: "var(--arcd-space-2) var(--arcd-space-3)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "var(--arcd-space-2)", minWidth: 0 }}>
-                <span style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: idx < 3 ? C.yellowD : "var(--arcd-text-secondary)", width: 20 }}>{idx + 1}º</span>
-                <div style={{ minWidth: 0 }}>
-                  <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color: "var(--arcd-text-primary)" }}>{r.usuario.nome}</p>
-                  <p style={{ fontSize:"var(--arcd-type-caption)", color: "var(--arcd-text-secondary)", marginTop: "var(--arcd-space-half)" }}>{r.pontosAutomaticos} pts checklist{r.pontosManual ? ` · ${r.pontosManual > 0 ? "+" : ""}${r.pontosManual} ajuste` : ""}</p>
-                </div>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "var(--arcd-space-2)", flexShrink: 0 }}>
-                <b style={{ fontSize: "var(--arcd-type-card-title)", color: "var(--arcd-text-primary)" }}>{r.total}</b>
-                {ehAdmin && <Btn size="sm" v="ghost" onClick={() => setAjusteModal({ usuario: r.usuario })}><Ic n="edit" s={11} /> Ajustar</Btn>}
-              </div>
-            </div>
-          ))}
-          {ehAdmin && !!ajustes.length && (
-            <div style={{ marginTop: "var(--arcd-space-2)" }}>
-              <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color: "var(--arcd-text-secondary)", textTransform: "uppercase", letterSpacing: .6, marginBottom: "var(--arcd-space-1)" }}>Histórico de ajustes</p>
-              {ajustes.map(a => {
-                const u = (data.usuarios || []).find(x => x.id === a.userId);
-                return (
-                  <div key={a.id} style={{ display: "flex", justifyContent: "space-between", gap: "var(--arcd-space-2)", alignItems: "center", padding: "var(--arcd-space-2) 0", borderTop: `var(--arcd-border-width) solid var(--arcd-border-subtle)` }}>
-                    <div style={{ minWidth: 0 }}>
-                      <p style={{ fontSize:"var(--arcd-type-label)" }}><b>{u?.nome || "Usuário"}</b> {a.pontos > 0 ? "+" : ""}{a.pontos} pts · {a.motivo}</p>
-                      <p style={{ fontSize:"var(--arcd-type-caption)", color: "var(--arcd-text-secondary)", marginTop: "var(--arcd-space-half)" }}>{a.criadoPor} · {fmtDateFull(String(a.criadoEm || "").slice(0, 10))}</p>
-                    </div>
-                    <Btn size="sm" v="ghost" iconOnly title="Remover ajuste" ariaLabel="Remover ajuste" onClick={() => removerAjuste(a.id)}><Ic n="trash" s={11} /></Btn>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {ajusteModal && (
-        <Modal title={`Ajustar ranking · ${ajusteModal.usuario.nome}`} onClose={() => setAjusteModal(null)}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-2)" }}>
-            <Inp label="Pontos (use negativo para descontar) *" type="number" value={pontosForm} onChange={setPontosForm} placeholder="Ex.: 10 ou -5" />
-            <Inp label="Justificativa *" value={motivoForm} onChange={setMotivoForm} multiline placeholder="Ex.: Entregou o diário atrasado três vezes na semana." />
-            <div style={{ display: "flex", gap: "var(--arcd-space-2)" }}>
-              <Btn v="ghost" onClick={() => setAjusteModal(null)} full>Cancelar</Btn>
-              <Btn onClick={salvarAjuste} full>Salvar ajuste</Btn>
-            </div>
-          </div>
-        </Modal>
-      )}
-    </div>
-  );
-}
-
-// Bipe curto via Web Audio API - sem depender de um arquivo de áudio para
-// empacotar. Silencioso em navegadores que bloqueiam áudio sem interação
-// prévia do usuário (ignora o erro; a mensagem já chegou visualmente).
-// Chat flutuante da empresa: bolha fixa no canto inferior direito, minimizável,
-// com visual próximo do WhatsApp (fundo bege, balões verdes/brancos, cabeçalho
-// escuro). Fica montado em qualquer tela do app - não depende da aba "chat"
-// estar aberta. Atualização por atualização periódica (sem tempo real).
-const WA = {
-  header: "#075E54",
-  headerDark: "#054c40",
-  bubbleMine: "#DCF8C6",
-  bubbleTheirs: "#FFFFFF",
-  bg: "#ECE5DD",
-  green: "#25D366",
-  red: "#E53935",
-  mentionBg: "rgba(7,94,84,.14)",
-};
-
-function IconeChat({ size = 26 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M12 2C6.48 2 2 6.02 2 11c0 2.4 1.05 4.58 2.77 6.2L4 22l5.1-1.53C10.03 20.8 11 21 12 21c5.52 0 10-4.02 10-9s-4.48-10-10-10z" fill="currentColor"/>
-    </svg>
-  );
-}
-
-// Destaca "@Nome" dentro do texto da mensagem para quem já foi resolvido como
-// menção real (não qualquer "@" digitado à toa).
-function ChatFlutuante({ currentUser, usuarios, showToast, bottomOffset=20 }) {
-  const {isMobile}=useBreakpoint();
-  // O botão mora no topo, ao lado de Ajuda. Sem o topo (ex.: Modo TV), volta a flutuar.
-  const [launcherTarget,setLauncherTarget]=useState(null);
-  useLayoutEffect(()=>setLauncherTarget(document.querySelector('[data-chat-launcher-slot]')),[isMobile]);
-  const [aberto, setAberto] = useState(false);
-  const [gestaoAberta, setGestaoAberta] = useState(false);
-  const [mensagens, setMensagens] = useState([]);
-  const [mutados, setMutados] = useState([]);
-  const [texto, setTexto] = useState("");
-  const [enviando, setEnviando] = useState(false);
-  const [naoLidas, setNaoLidas] = useState(0);
-  const [temMencaoNaoLida, setTemMencaoNaoLida] = useState(false);
-  const [mencaoParaAbrirId, setMencaoParaAbrirId] = useState(null);
-  const [mencaoDestacadaId, setMencaoDestacadaId] = useState(null);
-  const [mencaoQuery, setMencaoQuery] = useState(null);
-  const [anexoPendente, setAnexoPendente] = useState(null);
-  const [subindoAnexo, setSubindoAnexo] = useState(false);
-  const scrollRef = useRef(null);
-  const inputRef = useRef(null);
-  const fileInputRef = useRef(null);
-  const ultimoIdRef = useRef(null);
-  const primeiraCargaRef = useRef(true);
-  const abertoRef = useRef(false);
-  useEffect(() => { abertoRef.current = aberto; }, [aberto]);
-
-  const ehAdmin = currentUser?.role === "admin";
-  const usuariosMencionaveis = (usuarios || []).filter(u => u.active !== false && u.id !== currentUser?.id);
-
-  const mencoesNoTexto = t => resolveMentionsInText(t, usuariosMencionaveis);
-
-  const carregarChat = useCallback(async () => {
-    const r = await listarMensagensChat();
-    if (!r.ok) return;
-    const lista = r.mensagens || [];
-    setMensagens(lista);
-    setMutados(r.mutados || []);
-
-    const ultima = lista[lista.length - 1];
-    if (ultima && ultima.id !== ultimoIdRef.current) {
-      const novas = ultimoIdRef.current
-        ? lista.slice(lista.findIndex(m => m.id === ultimoIdRef.current) + 1)
-        : [];
-      const novasDeOutros = novas.filter(m => m.userId !== currentUser?.id && !m.deletedAt);
-      if (novasDeOutros.length && !primeiraCargaRef.current) {
-        const mencaoRecebida = novasDeOutros.find(m => (m.mentions || []).some(mm => mm.id === currentUser?.id));
-        if (mencaoRecebida) {
-          playChatMentionSound();
-          showToast?.(`${mencaoRecebida.userName} mencionou você no chat.`, "info");
-          if (!abertoRef.current) { setNaoLidas(n => n + novasDeOutros.length); setTemMencaoNaoLida(true); }
-          setMencaoParaAbrirId(mencaoRecebida.id);
-        } else {
-          playChatMessageSound();
-          if (!abertoRef.current) setNaoLidas(n => n + novasDeOutros.length);
-        }
-      }
-      ultimoIdRef.current = ultima.id;
-    }
-    primeiraCargaRef.current = false;
-  }, [currentUser?.id, showToast]);
-
-  // 8 s com a aba visível; oculta, 60 s (ver domains/sync/polling.js).
-  useEffect(() => {
-    if (!currentUser) return undefined;
-    const polling = criarPollingAdaptativo({ tarefa: carregarChat, visivelMs: 8000, ocultoMs: 60000 });
-    polling.iniciar();
-    return polling.parar;
-  }, [carregarChat, currentUser]);
-
-  useEffect(() => {
-    if (aberto && scrollRef.current && !mencaoParaAbrirId) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [mensagens, aberto, mencaoParaAbrirId]);
-
-  // Ao abrir o painel com uma menção pendente, pula direto para ela em vez de
-  // rolar para o fim - é o motivo de o usuário ter clicado no sino.
-  useEffect(() => {
-    if (!aberto || !mencaoParaAbrirId) return;
-    const el = scrollRef.current?.querySelector(`[data-msg-id="${mencaoParaAbrirId}"]`);
-    el?.scrollIntoView({ block: "center" });
-    setMencaoDestacadaId(mencaoParaAbrirId);
-    setMencaoParaAbrirId(null);
-    const t = setTimeout(() => setMencaoDestacadaId(null), 2400);
-    return () => clearTimeout(t);
-  }, [aberto, mencaoParaAbrirId, mensagens]);
-
-  const abrirPainel = () => { setAberto(true); setNaoLidas(0); setTemMencaoNaoLida(false); };
-
-  const euEstouMutado = mutados.some(m => m.userId === currentUser?.id);
-
-  const aoDigitar = valor => {
-    setTexto(valor);
-    const m = /@([^\s@]*)$/.exec(valor);
-    setMencaoQuery(m ? m[1] : null);
-  };
-
-  const escolherMencao = u => {
-    setTexto(t => t.replace(/@([^\s@]*)$/, `@${u.nome} `));
-    setMencaoQuery(null);
-    inputRef.current?.focus();
-  };
-
-  const sugestoesMencao = mencaoQuery === null ? [] : usuariosMencionaveis
-    .filter(u => String(u.nome || "").toLowerCase().includes(mencaoQuery.toLowerCase()))
-    .slice(0, 6);
-
-  const escolherArquivo = async e => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    setSubindoAnexo(true);
-    try {
-      const ehImagem = String(file.type || "").startsWith("image/");
-      if (!ehImagem && file.size > 4 * 1024 * 1024) throw new Error("Arquivo muito grande (máx. 4MB).");
-      const dataUrl = ehImagem ? await comprimirImagem(file) : await arquivoComoDataUrl(file);
-      const ext = (file.name.split(".").pop() || "").slice(0, 8);
-      const r = await subirAnexoChat({ dataUrl, ext });
-      if (!r.ok || !r.url) throw new Error(r.error || "Falha ao enviar o arquivo.");
-      setAnexoPendente({ url: r.url, name: file.name, type: file.type || "", size: file.size || 0 });
-    } catch (err) {
-      showToast?.(err.message || "Falha ao enviar o arquivo.", "error");
-    } finally {
-      setSubindoAnexo(false);
-    }
-  };
-
-  const enviar = async () => {
-    const t = texto.trim();
-    if (!t && !anexoPendente) return;
-    setEnviando(true);
-    const r = await enviarMensagemChat(t, { mentions: mencoesNoTexto(t), attachment: anexoPendente });
-    setEnviando(false);
-    if (!r.ok) { showToast?.(r.error || "Não foi possível enviar a mensagem.", "error"); return; }
-    setTexto(""); setAnexoPendente(null); setMencaoQuery(null);
-    carregarChat();
-  };
-
-  const apagar = async (id) => {
-    if (!window.confirm("Apagar esta mensagem para todos?")) return;
-    const r = await apagarMensagemChat(id);
-    if (!r.ok) { showToast?.(r.error || "Não foi possível apagar.", "error"); return; }
-    carregarChat();
-  };
-
-  const alternarMudo = async (userId, mutadoAgora) => {
-    const r = mutadoAgora ? await dessilenciarUsuarioChat(userId) : await silenciarUsuarioChat(userId);
-    if (!r.ok) { showToast?.(r.error || "Não foi possível atualizar.", "error"); return; }
-    carregarChat();
-  };
-
-  if (!currentUser) return null;
-  const launcher=(
-      <DesignSystemButton variant="secondary" size="icon" onClick={() => (aberto ? setAberto(false) : abrirPainel())} title="Comunicação da equipe" aria-label={aberto?"Fechar chat da equipe":"Abrir chat da equipe"} aria-expanded={aberto}
-        className={["arcd-chat-launcher",launcherTarget?"":"arcd-chat-launcher--floating",temMencaoNaoLida?"chat-mention-pulse":""].filter(Boolean).join(" ")}>
-        <IconeChat size={20} />
-        {naoLidas > 0 && <span className="arcd-chat-launcher__count">{naoLidas > 99 ? "99+" : naoLidas}</span>}
-      </DesignSystemButton>
-  );
-
-  return (
-    <div className="no-print arcd-team-chat" style={{ "--chat-bottom":typeof bottomOffset==="number"?`${bottomOffset}px`:bottomOffset,position: "fixed", right: 20, bottom: bottomOffset, zIndex: 1300, display: "flex", flexDirection: "column", alignItems: "flex-end", fontFamily: "var(--arcd-font-sans)" }}>
-      {aberto && (
-        <div style={{
-          width: "min(360px, calc(100vw - 32px))", height: "min(520px, calc(100dvh - var(--chat-bottom) - 88px))",
-          background: WA.bg, borderRadius: "var(--arcd-box-radius)", overflow: "hidden", marginBottom: "var(--arcd-space-3)",
-          boxShadow: "var(--arcd-shadow-hairline)", display: "flex", flexDirection: "column",
-          border: "var(--arcd-border-width) solid color-mix(in srgb, var(--arcd-border-strong) 8%, transparent)",
-        }}>
-          {/* Cabeçalho estilo WhatsApp */}
-          <div style={{ background: WA.header, color: "var(--arcd-text-inverse)", padding: "var(--arcd-space-3) var(--arcd-space-3)", display: "flex", alignItems: "center", gap: "var(--arcd-space-2)", flexShrink: 0 }}>
-            <div style={{ width: 34, height: 34, borderRadius: "50%", background: "color-mix(in srgb, var(--arcd-surface-elevated) 18%, transparent)", display: "grid", placeItems: "center", flexShrink: 0 }}>
-              <IconeChat size={18} />
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Comunicação da equipe</p>
-              <p style={{ fontSize:"var(--arcd-type-label)", opacity: .8 }}>{contar((usuarios || []).filter(u => u.active !== false).length,"participante","participantes")}</p>
-            </div>
-            {ehAdmin && (
-              <button onClick={() => setGestaoAberta(v => !v)} title="Gerenciar grupo" aria-label="Gerenciar grupo"
-                style={{ background: "transparent", border: 0, color: "var(--arcd-text-inverse)", opacity: .85, cursor: "pointer", padding: "var(--arcd-space-1)" }}>
-                <Ic n="settings" s={16} />
-              </button>
-            )}
-            <button onClick={() => setAberto(false)} title="Minimizar" aria-label="Minimizar"
-              style={{ background: "transparent", border: 0, color: "var(--arcd-text-inverse)", cursor: "pointer", padding: "var(--arcd-space-1)" }}>
-              <Ic n="chevron" s={16} />
-            </button>
-          </div>
-
-          {gestaoAberta ? (
-            <div style={{ flex: 1, overflowY: "auto", background: "var(--arcd-surface-elevated)", padding: "var(--arcd-space-3)" }}>
-              <button onClick={() => setGestaoAberta(false)} style={{ background: "transparent", border: 0, color: WA.header, fontSize:"var(--arcd-type-control)", fontWeight:600, cursor: "pointer", marginBottom: "var(--arcd-space-2)" }}>← Voltar para a conversa</button>
-              <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color: "var(--arcd-text-secondary)", textTransform: "uppercase", letterSpacing: .6, marginBottom: "var(--arcd-space-2)" }}>Silenciar participantes</p>
-              <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-1)" }}>
-                {(usuarios || []).filter(u => u.active !== false && u.id !== currentUser?.id).map(u => {
-                  const mutado = mutados.some(m => m.userId === u.id);
-                  return (
-                    <div key={u.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--arcd-space-2)", padding: "var(--arcd-space-2) 0", borderTop: "var(--arcd-border-width) solid var(--arcd-border-default)" }}>
-                      <span style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-primary)" }}>{u.nome}</span>
-                      <Btn size="sm" v={mutado ? "danger" : "ghost"} onClick={() => alternarMudo(u.id, mutado)}>{mutado ? "Dessilenciar" : "Silenciar"}</Btn>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ) : (
-            <>
-              <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "var(--arcd-space-1)", padding: "var(--arcd-space-2) var(--arcd-space-2)" }}>
-                {!mensagens.length && <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", textAlign: "center", marginTop: "var(--arcd-space-5)" }}>Nenhuma mensagem ainda. Comece a conversa.</p>}
-                {mensagens.map(m => {
-                  const minha = m.userId === currentUser?.id;
-                  const apagada = !!m.deletedAt;
-                  const destacada = mencaoDestacadaId === m.id;
-                  return (
-                    <div key={m.id} data-msg-id={m.id} style={{ alignSelf: minha ? "flex-end" : "flex-start", maxWidth: "82%", display: "flex", alignItems: "flex-end", gap: "var(--arcd-space-1)" }}>
-                      <div className={destacada ? "chat-msg-flash" : ""} style={{
-                        padding: "var(--arcd-space-1) var(--arcd-space-2)", borderRadius: "var(--arcd-box-radius)", background: apagada ? "var(--arcd-surface-subtle)" : (minha ? WA.bubbleMine : WA.bubbleTheirs),
-                        boxShadow: "var(--arcd-shadow-hairline)",
-                      }}>
-                        {!minha && !apagada && <p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color: "var(--arcd-info-text)", marginBottom: 1 }}>{m.userName}</p>}
-                        {!apagada && m.attachment && (
-                          m.attachment.type?.startsWith("image/") ? (
-                            <CompanyAssetLink href={m.attachment.url} target="_blank" rel="noopener noreferrer" style={{ display: "block", marginBottom: m.text ? "var(--arcd-space-1)" : "var(--arcd-space-half)" }}>
-                              <CompanyAssetImage src={m.attachment.url} alt={m.attachment.name} style={{ maxWidth: "100%", maxHeight: 180, borderRadius: "var(--arcd-radius-control)", display: "block" }} />
-                            </CompanyAssetLink>
-                          ) : (
-                            <CompanyAssetLink href={m.attachment.url} target="_blank" rel="noopener noreferrer" style={{
-                              display: "flex", alignItems: "center", gap: "var(--arcd-space-1)", padding: "var(--arcd-space-1) var(--arcd-space-2)", borderRadius: "var(--arcd-radius-control)",
-                              background: "color-mix(in srgb, var(--arcd-surface-inverse) 5%, transparent)", marginBottom: m.text ? "var(--arcd-space-1)" : "var(--arcd-space-half)", textDecoration: "none",
-                            }}>
-                              <Ic n="file" s={16} color="#666" />
-                              <span style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-primary)", fontWeight:600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{m.attachment.name}</span>
-                              <Ic n="download" s={13} color="#888" />
-                            </CompanyAssetLink>
-                          )
-                        )}
-                        {(m.text || apagada) && <p style={{ fontSize: "var(--arcd-type-body)", color: apagada ? "var(--arcd-text-secondary)" : "var(--arcd-text-primary)", fontStyle: apagada ? "italic" : "normal", lineHeight: 1.35, wordBreak: "break-word" }}>
-                          {apagada ? "Mensagem apagada pelo administrador" : splitMentionText(m.text, m.mentions).map((part, index) => part.mentioned
-                            ? <b key={index} style={{ color: WA.header, background: WA.mentionBg, borderRadius:"var(--arcd-radius-control)", padding:"0 var(--arcd-space-half)" }}>{part.text}</b>
-                            : <span key={index}>{part.text}</span>)}
-                        </p>}
-                        <p style={{ fontSize:"var(--arcd-type-caption)", color: "var(--arcd-text-secondary)", textAlign: "right", marginTop: "var(--arcd-space-half)" }}>
-                          {new Date(m.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                        </p>
-                      </div>
-                      {ehAdmin && !apagada && (
-                        <button onClick={() => apagar(m.id)} title="Apagar mensagem" aria-label="Apagar mensagem"
-                          style={{ background: "transparent", border: 0, color: "var(--arcd-danger-text)", cursor: "pointer", padding: "var(--arcd-space-half)", flexShrink: 0 }}>
-                          <Ic n="trash" s={10} />
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-              <div style={{ padding: "var(--arcd-space-2)", background: "var(--arcd-surface-subtle)", flexShrink: 0, position: "relative" }}>
-                {sugestoesMencao.length > 0 && (
-                  <div style={{
-                    position: "absolute", left: 8, right: 8, bottom: "100%", marginBottom: "var(--arcd-space-1)", background: "var(--arcd-surface-elevated)",
-                    borderRadius: "var(--arcd-box-radius)", boxShadow: "var(--arcd-shadow-hairline)", border: "var(--arcd-border-width) solid var(--arcd-border-default)", overflow: "hidden", zIndex: 2,
-                  }}>
-                    {sugestoesMencao.map(u => (
-                      <button key={u.id} onClick={() => escolherMencao(u)} style={{
-                        display: "flex", alignItems: "center", gap: "var(--arcd-space-2)", width: "100%", padding: "var(--arcd-space-2) var(--arcd-space-2)",
-                        border: 0, background: "transparent", cursor: "pointer", textAlign: "left",
-                      }}>
-                        <span style={{
-                          width: 24, height: 24, borderRadius: "50%", background: WA.header, color: "var(--arcd-text-inverse)",
-                          fontSize:"var(--arcd-type-label)", fontWeight:600, display: "grid", placeItems: "center", flexShrink: 0,
-                        }}>{(u.nome || "?").slice(0, 1).toUpperCase()}</span>
-                        <span style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-primary)", fontWeight:600 }}>{u.nome}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {anexoPendente && (
-                  <div style={{ display: "flex", alignItems: "center", gap: "var(--arcd-space-2)", marginBottom: "var(--arcd-space-2)", padding: "var(--arcd-space-1) var(--arcd-space-2)", background: "var(--arcd-surface-elevated)", borderRadius: "var(--arcd-box-radius)", border: "var(--arcd-border-width) solid var(--arcd-border-default)" }}>
-                    {anexoPendente.type?.startsWith("image/")
-                      ? <img src={anexoPendente.url} alt="" style={{ width: 32, height: 32, objectFit: "cover", borderRadius: "var(--arcd-radius-control)" }} />
-                      : <Ic n="file" s={16} color="#666" />}
-                    <span style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-primary)", fontWeight:600, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{anexoPendente.name}</span>
-                    <button onClick={() => setAnexoPendente(null)} title="Remover anexo" aria-label="Remover anexo"
-                      style={{ background: "transparent", border: 0, color: "var(--arcd-text-secondary)", cursor: "pointer", padding: "var(--arcd-space-half)" }}>
-                      <Ic n="x" s={13} />
-                    </button>
-                  </div>
-                )}
-                <div style={{ display: "flex", gap: "var(--arcd-space-2)" }}>
-                  <input ref={fileInputRef} type="file" onChange={escolherArquivo} style={{ display: "none" }}
-                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,audio/*" />
-                  <button onClick={() => fileInputRef.current?.click()} disabled={euEstouMutado || subindoAnexo}
-                    title="Anexar arquivo" aria-label="Anexar arquivo" style={{
-                      width: 36, height: 36, borderRadius: "50%", border: 0, flexShrink: 0, background: "var(--arcd-surface-elevated)", color: "var(--arcd-text-secondary)",
-                      display: "grid", placeItems: "center", cursor: euEstouMutado ? "default" : "pointer", opacity: subindoAnexo ? .6 : 1,
-                    }}>
-                    {subindoAnexo
-                      ? <div style={{ width: 14, height: 14, border: "2px solid var(--arcd-border-default)", borderTopColor: WA.header, borderRadius: "var(--arcd-radius-pill)", animation: "spin 1s linear infinite" }} />
-                      : <Ic n="attach" s={16} />}
-                  </button>
-                  <input ref={inputRef} value={texto} onChange={e => aoDigitar(e.target.value)} disabled={euEstouMutado || enviando}
-                    onKeyDown={e => {
-                      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviar(); }
-                      if (e.key === "Escape") setMencaoQuery(null);
-                    }}
-                    placeholder={euEstouMutado ? "Você foi silenciado" : "Mensagem · use @ para marcar alguém"}
-                    style={{ flex: 1, height: 36, border: "var(--arcd-border-width) solid var(--arcd-border-default)", borderRadius: "var(--arcd-box-radius)", background: "var(--arcd-surface-elevated)", color: "var(--arcd-text-primary)", padding: "0 var(--arcd-space-3)", fontSize: "var(--arcd-type-control)", outline: "none" }} />
-                  <button onClick={enviar} disabled={euEstouMutado || enviando || (!texto.trim() && !anexoPendente)} title="Enviar" aria-label="Enviar"
-                    style={{
-                      width: 36, height: 36, borderRadius: "50%", border: 0, flexShrink: 0,
-                      background: (euEstouMutado || (!texto.trim() && !anexoPendente)) ? "var(--arcd-success-surface)" : WA.green, color: "var(--arcd-text-inverse)",
-                      display: "grid", placeItems: "center", cursor: (euEstouMutado || (!texto.trim() && !anexoPendente)) ? "default" : "pointer",
-                    }}>
-                    <Ic n="chevR" s={15} />
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {launcherTarget?createPortal(launcher,launcherTarget):launcher}
-    </div>
-  );
-}
-
 // App principal
 //
 
-
-// Busca global estilo command palette (Ctrl/Cmd+K). Filtra o índice por texto,
-// agrupa por tipo, navega por teclado (setas + Enter) ou clique.
-function BuscaGlobal({ indice, allowedTabs, onIr, onFechar }) {
-  const [q, setQ] = useState("");
-  const [sel, setSel] = useState(0);
-  const inputRef = useRef(null);
-  useEffect(() => { inputRef.current?.focus(); }, []);
-
-  const termo = q.trim().toLowerCase();
-  const resultados = useMemo(() => {
-    if (!termo) return [];
-    return indice
-      .filter(r => allowedTabs.includes(r.tabId))
-      .filter(r => r.rotulo.toLowerCase().includes(termo) || r.sub.toLowerCase().includes(termo))
-      .sort((a,b) => {
-        // Quem começa com o termo vem antes; telas por último.
-        const aStart = a.rotulo.toLowerCase().startsWith(termo) ? 0 : 1;
-        const bStart = b.rotulo.toLowerCase().startsWith(termo) ? 0 : 1;
-        if (aStart !== bStart) return aStart - bStart;
-        if ((a.tipo==="Tela") !== (b.tipo==="Tela")) return a.tipo==="Tela" ? 1 : -1;
-        return a.rotulo.localeCompare(b.rotulo);
-      })
-      .slice(0, 20);
-  }, [indice, termo, allowedTabs]);
-
-  useEffect(() => { setSel(0); }, [termo]);
-
-  const escolher = (r) => r && onIr(r.tabId, r.obraId);
-  const onKey = (e) => {
-    if (e.key==="ArrowDown") { e.preventDefault(); setSel(s => Math.min(s+1, resultados.length-1)); }
-    if (e.key==="ArrowUp")   { e.preventDefault(); setSel(s => Math.max(s-1, 0)); }
-    if (e.key==="Enter")     { e.preventDefault(); escolher(resultados[sel]); }
-  };
-
-  const corTipo = t => ({Obra:C.blue,Funcionário:C.green,Terceirizado:C.purple,Equipamento:C.orange,Lead:C.green,Cliente:C.blue,Proposta:C.yellowD,Contrato:C.purple,Pedido:C.orange,Orçamento:C.yellowD,Parceiro:C.blue,Tela:C.muted}[t]||C.muted);
-
-  return (
-    <div onClick={onFechar} style={{
-      position:"fixed", inset:0, zIndex:9999, background:"color-mix(in srgb, var(--arcd-surface-inverse) 45%, transparent)",
-      display:"flex", alignItems:"flex-start", justifyContent:"center", padding:"12vh 16px 16px" }}>
-      <div onClick={e=>e.stopPropagation()} style={{
-        width:"100%", maxWidth:560, background:"var(--arcd-surface-card)", border:`var(--arcd-border-width) solid var(--arcd-border-default)`,
-        borderRadius:"var(--arcd-box-radius)", boxShadow:"var(--arcd-shadow-hairline)", overflow:"hidden" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:"var(--arcd-space-2)", padding:"var(--arcd-space-3) var(--arcd-space-3)", borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)` }}>
-          <Ic n="funnel" s={16} color={C.muted}/>
-          <input ref={inputRef} value={q} onChange={e=>setQ(e.target.value)} onKeyDown={onKey}
-            placeholder="Buscar obra, lead, pedido, funcionário, tela..."
-            style={{ flex:1, border:0, outline:"none", background:"transparent", fontSize:"var(--arcd-type-control)", color:"var(--arcd-text-primary)" }}/>
-          <span style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color:"var(--arcd-text-secondary)", border:`var(--arcd-border-width) solid var(--arcd-border-default)`, borderRadius:"var(--arcd-radius-control)", padding:"var(--arcd-space-half) var(--arcd-space-1)" }}>ESC</span>
-        </div>
-        <div style={{ maxHeight:"48vh", overflowY:"auto" }}>
-          {!termo && <p style={{ padding:"var(--arcd-space-4) var(--arcd-space-4)", fontSize:"var(--arcd-type-body)", color:"var(--arcd-text-secondary)", textAlign:"center" }}>Digite para buscar em todo o sistema.</p>}
-          {termo && resultados.length===0 && <p style={{ padding:"var(--arcd-space-4) var(--arcd-space-4)", fontSize:"var(--arcd-type-body)", color:"var(--arcd-text-secondary)", textAlign:"center" }}>Nada encontrado para "{q}".</p>}
-          {resultados.map((r,i) => (
-            <button key={i} onClick={()=>escolher(r)} onMouseEnter={()=>setSel(i)} style={{
-              display:"flex", alignItems:"center", gap:"var(--arcd-space-2)", width:"100%", textAlign:"left",
-              background: i===sel ? `${C.yellow}12` : "transparent", border:0,
-              borderLeft:`var(--arcd-border-width) solid ${i===sel ? C.yellow : "transparent"}`,
-              padding:"var(--arcd-space-2) var(--arcd-space-3)", cursor:"pointer" }}>
-              <span style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color:corTipo(r.tipo), background:`${corTipo(r.tipo)}14`, padding:"var(--arcd-space-half) var(--arcd-space-2)", borderRadius:"var(--arcd-radius-pill)", flexShrink:0, textTransform:"uppercase", minWidth:78, textAlign:"center" }}>{r.tipo}</span>
-              <span style={{ minWidth:0, flex:1 }}>
-                <span style={{ fontSize:"var(--arcd-type-body)", fontWeight:600, color:"var(--arcd-text-primary)", display:"block", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{r.rotulo}</span>
-                {r.sub && <span style={{ fontSize:"var(--arcd-type-label)", color:"var(--arcd-text-secondary)", display:"block", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{r.sub}</span>}
-              </span>
-            </button>
-          ))}
-        </div>
-        <div style={{ display:"flex", justifyContent:"space-between", padding:"var(--arcd-space-2) var(--arcd-space-3)", borderTop:`var(--arcd-border-width) solid var(--arcd-border-subtle)`, fontSize:"var(--arcd-type-caption)", color:"var(--arcd-text-secondary)" }}>
-          <span>↑↓ navegar · Enter abrir</span>
-          <span>{contar(resultados.length,"resultado","resultados")}</span>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function PortalClientePublico({ obraId, token }) {
   const [estado,setEstado]=useState({loading:true,portal:null,error:""});
@@ -13532,63 +10138,227 @@ function PortalClientePublico({ obraId, token }) {
   </main></div></>;
 }
 
-export default function App(){
-  const [companyId,setCompanyId]=useState(activeCompany);
-  return <CompanyApp key={companyId} onCompanyChanged={setCompanyId}/>;
+function DesktopSidebar({
+  SIDEBAR_W, sidebarResizing, sidebarCompacta, setSidebarCompacta, setBuscaAberta,
+  visibleGroups, gruposAbertos, groupBadge, activeGroup, setGruposAbertos, toggleGrupo,
+  tab, tabBadge, irPara, obrasMenuEngenharia, obraAberta, currentUser, trocarDeUsuario,
+  sairDoSistema, sidebarWidth, setSidebarWidth, setSidebarResizing,
+}) {
+  return (
+    <aside id="menu-lateral" className="no-print arcd-sidebar" data-resizing={sidebarResizing || undefined} style={{
+      position:"fixed", top:0, left:0, bottom:0, width:SIDEBAR_W, zIndex:90,
+      background:"var(--arcd-surface-page)", borderRight:`var(--arcd-border-width) solid var(--arcd-border-default)`,
+      display:"flex", flexDirection:"column",
+      boxShadow:"none",
+      transition:sidebarResizing ? "none" : "width .18s ease",
+    }}>
+      {/* Marca */}
+      <div style={{
+        minHeight:64, padding:sidebarCompacta ? "var(--arcd-space-3) var(--arcd-space-2)" : "var(--arcd-space-3) var(--arcd-space-2) var(--arcd-space-3) var(--arcd-space-4)",
+        borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`, display:"flex", alignItems:"center",
+        justifyContent:"space-between", gap:"var(--arcd-space-2)",
+      }}>
+        {sidebarCompacta
+          ? <div style={{ width:30, height:30, borderRadius:"var(--arcd-box-radius)", display:"grid", placeItems:"center", background:C.yellowDim }}>
+              <Ic n="building" s={17} color={C.yellowD}/>
+            </div>
+          : <BrandMark dark signature={false}/>}
+        <button
+          onClick={()=>setSidebarCompacta(v=>!v)}
+          title={sidebarCompacta ? "Expandir menu" : "Minimizar menu"}
+          aria-label={sidebarCompacta ? "Expandir menu lateral" : "Minimizar menu lateral"}
+          style={{
+            width:30, height:30, flexShrink:0, borderRadius:"var(--arcd-box-radius)", cursor:"pointer",
+            border:`var(--arcd-border-width) solid var(--arcd-border-default)`, background:"var(--arcd-surface-card)", color:"var(--arcd-text-secondary)",
+            display:"grid", placeItems:"center", fontSize:"var(--arcd-type-control)", lineHeight:1,
+          }}
+        >{sidebarCompacta ? "›" : "‹"}</button>
+      </div>
+
+      {/* Busca global: atalho visível para o Ctrl/Cmd+K. */}
+      <div style={{ padding:"var(--arcd-space-2) var(--arcd-space-2) var(--arcd-space-1)" }}>
+        <button onClick={()=>setBuscaAberta(true)} style={{
+          display:"flex", alignItems:"center", justifyContent:sidebarCompacta ? "center" : "flex-start", gap:"var(--arcd-space-2)", width:"100%",
+          background:"var(--arcd-surface-card)", border:`var(--arcd-border-width) solid var(--arcd-border-default)`, borderRadius:"var(--arcd-box-radius)",
+          padding:sidebarCompacta ? "var(--arcd-space-2)" : "var(--arcd-space-2) var(--arcd-space-2)", cursor:"pointer", color:"var(--arcd-text-secondary)" }}
+          title={sidebarCompacta ? "Buscar (Ctrl + K)" : undefined}
+          aria-label={sidebarCompacta?"Buscar no sistema":undefined}>
+          <Ic n="search" s={14} color={C.muted}/>
+          {!sidebarCompacta && <span style={{ fontSize:"var(--arcd-type-body)", flex:1, textAlign:"left" }}>Buscar no sistema</span>}
+          {!sidebarCompacta && <span aria-hidden="true" style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, border:`var(--arcd-border-width) solid var(--arcd-border-default)`, borderRadius:"var(--arcd-radius-control)", padding:"1px var(--arcd-space-1)" }}>⌘K</span>}
+        </button>
+      </div>
+      {/* Navegação: grupos colapsáveis. Clique no cabeçalho abre/fecha;
+          o grupo da aba atual já começa aberto. O trilho na cor do grupo
+          dá o senso de nível - filho pende do pai. */}
+      <nav style={{ flex:1, overflowY:"auto", padding:"var(--arcd-space-2) var(--arcd-space-2)" }}>
+        {visibleGroups.map(group => {
+          const aberto = !!gruposAbertos[group.id];
+          const badge = groupBadge[group.id];
+          const contémAtiva = activeGroup?.id===group.id;
+
+          if (sidebarCompacta) return (
+            <button
+              key={group.id}
+              title={group.label}
+              aria-label={`Abrir grupo ${group.label}`}
+              aria-current={contémAtiva ? "page" : undefined}
+              onClick={() => {
+                setGruposAbertos(prev => ({ ...prev, [group.id]: true }));
+                setSidebarCompacta(false);
+              }}
+              style={{
+                width:"100%", height:42, marginBottom:"var(--arcd-space-1)", borderRadius:"var(--arcd-box-radius)", cursor:"pointer",
+                border:contémAtiva ? `var(--arcd-border-width) solid ${group.color}55` : "var(--arcd-border-width) solid transparent",
+                background:contémAtiva ? `${group.color}18` : "transparent",
+                color:contémAtiva ? group.color : "var(--arcd-text-secondary)",
+                display:"grid", placeItems:"center", position:"relative",
+              }}
+            >
+              <Ic n={group.icon} s={17}/>
+              {badge && (
+                <span style={{ position:"absolute", top:7, right:8, width:6, height:6, borderRadius:"var(--arcd-radius-pill)", background:group.color }}/>
+              )}
+            </button>
+          );
+
+          // Cores do grupo viram variáveis CSS - é o que permite :hover.
+          const vars = {
+            "--gc":      group.color,
+            "--gc-hov":  `${group.color}0F`,
+            "--gc-act":  `${group.color}18`,
+            "--gc-rail": aberto ? `${group.color}44` : "transparent",
+          };
+
+          return (
+            <div key={group.id} style={{ marginBottom:"var(--arcd-space-half)", ...vars }}>
+              {/* Cabeçalho clicável. Um grupo fechado que contém a aba
+                  atual mostra um ponto na sua cor - você não perde de
+                  vista onde está, mesmo com o grupo recolhido. */}
+              <button
+                className="nav-grp-hd"
+                title={group.description}
+                data-open={aberto || contémAtiva}
+                onClick={() => toggleGrupo(group.id)}
+                aria-expanded={aberto}
+              >
+                <Ic n={group.icon} s={13}/>
+                <span>{group.label}</span>
+                {badge && <span className="nav-dot" style={{ marginLeft:"auto" }}/>}
+                {!badge && !aberto && contémAtiva &&
+                  <span style={{ marginLeft:"auto", width:5, height:5, borderRadius:"var(--arcd-radius-pill)",
+                                 background:"var(--gc)" }}/>}
+                <span className="nav-chev" style={{ marginLeft:(badge||(!aberto&&contémAtiva)) ? "var(--arcd-space-2)" : "auto" }}>›</span>
+              </button>
+
+              {/* Corpo - só monta quando aberto */}
+              {aberto && (
+                <div className="nav-body">
+                  {group.tabs.map(tabId => {
+                    const meta = TAB_META[tabId];
+                    const ativo = tab === tabId;
+                    const temPend = tabBadge?.[tabId];
+                    return (
+                      <button
+                        key={tabId}
+                        className="nav-item"
+                        data-active={ativo}
+                        onClick={() => irPara(tabId)}
+                        aria-current={ativo ? "page" : undefined}
+                      >
+                        <Ic n={meta.icon} s={13}/>
+                        <span>{meta.label}</span>
+                        {temPend && <span className="nav-dot"/>}
+                      </button>
+                    );
+                  })}
+                  {group.id==="eng_grp" && obrasMenuEngenharia.length>0 && (<>
+                    <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:.6,margin:"var(--arcd-space-2) var(--arcd-space-2) var(--arcd-space-half)"}}>Obras ativas</p>
+                    {obrasMenuEngenharia.map(obra => (
+                      <button
+                        key={obra.id}
+                        className="nav-item"
+                        data-active={tab==="obras"&&obraAberta===obra.id}
+                        onClick={() => irPara("obras", obra.id)}
+                        aria-current={(tab==="obras"&&obraAberta===obra.id) ? "page" : undefined}
+                        title={obra.name}
+                      >
+                        <Ic n="building" s={13}/>
+                        <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{obra.name}</span>
+                      </button>
+                    ))}
+                  </>)}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </nav>
+
+      {/* Usuário + sair */}
+      <div style={{ padding:sidebarCompacta ? "var(--arcd-space-2) var(--arcd-space-2)" : "var(--arcd-space-2) var(--arcd-space-3)", borderTop:`var(--arcd-border-width) solid var(--arcd-border-subtle)`, background:"var(--arcd-surface-card)" }}>
+        {sidebarCompacta ? (
+          <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:"var(--arcd-space-2)" }}>
+            <div title={`${currentUser?.nome} · ${ROLES.find(r=>r.v===currentUser?.role)?.l || "Usuário"}`} style={{
+              width:30, height:30, borderRadius:"var(--arcd-radius-pill)", display:"grid", placeItems:"center",
+              background:`${ROLES.find(r=>r.v===currentUser?.role)?.color || C.yellow}22`,
+              color:ROLES.find(r=>r.v===currentUser?.role)?.color || C.yellow,
+              fontSize:"var(--arcd-type-body)", fontWeight:600,
+            }}>{(currentUser?.nome || "U").trim().charAt(0).toUpperCase()}</div>
+            <button onClick={sairDoSistema} title="Sair do sistema" aria-label="Sair do sistema" style={{
+              width:30, height:28, background:"transparent", border:0, color:"var(--arcd-text-secondary)",
+              fontSize:"var(--arcd-type-control)", cursor:"pointer", lineHeight:1,
+            }}>x</button>
+          </div>
+        ) : (
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:"var(--arcd-space-1)" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:"var(--arcd-space-1)", minWidth:0 }}>
+            <div style={{
+              width:7, height:7, borderRadius:"var(--arcd-radius-pill)", flexShrink:0,
+              background: ROLES.find(r=>r.v===currentUser?.role)?.color || C.yellow,
+            }}/>
+            <div style={{ minWidth:0 }}>
+              <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color:"var(--arcd-text-primary)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                {currentUser?.nome}
+              </p>
+              <p style={{ fontSize:"var(--arcd-type-caption)", color:"var(--arcd-text-secondary)" }}>
+                {ROLES.find(r=>r.v===currentUser?.role)?.l}
+              </p>
+            </div>
+          </div>
+          <div style={{display:"flex",gap:"var(--arcd-space-half)",flexShrink:0}}>
+            <Btn v="ghost" iconOnly onClick={trocarDeUsuario} title="Trocar usuário (tablet compartilhado)" ariaLabel="Trocar usuário"><Ic n="users"/></Btn>
+            <Btn v="ghost" iconOnly onClick={sairDoSistema} title="Sair do sistema" ariaLabel="Sair do sistema"><Ic n="x"/></Btn>
+          </div>
+        </div>
+        )}
+      </div>
+      {!sidebarCompacta && <SidebarResize width={sidebarWidth} onChange={setSidebarWidth} onResizing={setSidebarResizing}/>}
+    </aside>
+  );
 }
-function CompanyApp({onCompanyChanged}) {
-  const portalRequest = useMemo(()=>{
-    const q=new URLSearchParams(window.location.search);
-    return {obraId:q.get("portal")||"",token:q.get("token")||""};
-  },[]);
-  const [data,        setData]        = useState(null);
-  const [tab,         setTab]         = useState("home");
-  // Busca global (Ctrl/Cmd+K): índice de tudo que se pode encontrar por nome.
-  const [buscaAberta, setBuscaAberta] = useState(false);
-  // Obra aberta no painel detalhado. Vazio = lista/quadro normal.
-  const [obraAberta,  setObraAberta]  = useState("");
-  const [workflowIntent,setWorkflowIntent]=useState(null);
-  const [workflowScopes,setWorkflowScopes]=useState({});
-  const workflowViews=useRef(new Map());
-  const workflowLastScope=useRef({});
-  const workflowLastTabs=useRef(new Map());
-  const [workflowTrail,setWorkflowTrail]=useState([]);
-  const rememberWorkflowScope=useCallback((screen,scope)=>{
-    workflowLastScope.current=scope;
-    setWorkflowScopes(previous=>JSON.stringify(previous[screen])===JSON.stringify(scope)?previous:{...previous,[screen]:scope});
-  },[]);
-  const [loading,     setLoading]     = useState(true);
-  const [erroInicial, setErroInicial] = useState("");
-  const [firstSetup, setFirstSetup] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
+
+export default function App({portal,...workspace}){
+  if (portal) return <PortalClientePublico obraId={portal.obraId} token={portal.token}/>;
+  return <CompanyWorkspace {...workspace}/>;
+}
+
+function CompanyWorkspace({session,onCompanyChanged,onSessionEnded}) {
+  const [initial] = useState(() => {
+    const data = normalizeData(session.data || DEFAULT());
+    const cadastro = data.usuarios.find(usuario=>usuario.id===session.usuario?.id);
+    return {data,user:{...session.usuario,...cadastro,pin:undefined}};
+  });
+  const [currentUser,setCurrentUser] = useState(initial.user);
+  const [data,setData] = useState(initial.data);
+  const {
+    tab, setTab, buscaAberta, setBuscaAberta, obraAberta, setObraAberta,
+    workflowIntent, workflowScopes, workflowViews, workflowTrail, rememberWorkflowScope,
+    allowedTabs, visibleGroups, activeGroup, gruposAbertos, setGruposAbertos, sidebarCompacta, setSidebarCompacta,
+    irPara, navigateWorkflow, returnWorkflow, toggleGrupo, goGroup,
+  } = useWorkspaceNavigation(currentUser,C);
   const [switchingCompany,setSwitchingCompany]=useState(false);
-  const leavingSessionRef=useRef(false);
-  const recoveryUserRef=useRef(currentUser);recoveryUserRef.current=currentUser;
-  const [recoveryOpen,setRecoveryOpen]=useState(false),[recoveryAvailable,setRecoveryAvailable]=useState(false),[recoveryInitialization,setRecoveryInitialization]=useState({userId:null,ready:false}),[recoveryRevision,setRecoveryRevision]=useState(0);
-  const recoveryReady=recoveryInitialization.userId===currentUser?.id&&recoveryInitialization.ready;
-  const setRecoveryReady=useCallback(ready=>setRecoveryInitialization(previous=>previous.userId===currentUser?.id&&previous.ready===ready?previous:{userId:currentUser?.id,ready}),[currentUser?.id]);
-  useEffect(()=>{if(currentUser)leavingSessionRef.current=false;workflowViews.current.clear();workflowLastTabs.current.clear();workflowLastScope.current={};setWorkflowScopes({});setWorkflowTrail([]);setWorkflowIntent(null);},[currentUser?.id]);
-  const [conflito,    setConflito]    = useState(null);
   const [toast,       setToast]       = useState(null);
-  // Momento da ultima sincronizacao bem-sucedida com o servidor.
-  const [ultimaSync,  setUltimaSync]  = useState(null);
-  const [estadoSalvar,setEstadoSalvar] = useState(SAVE_QUEUE_STATE.IDLE);
-  // Última gravação recusada pelo servidor (desfeita na tela): fica visível até
-  // o usuário dispensar, para ninguém achar que salvou o que não salvou.
-  const [edicaoRecusada,setEdicaoRecusada] = useState(null);
-  const resolvingSaveRef=useRef(false);
-  const deferredEditKeysRef=useRef(new Map()),memoryEditsRef=useRef(new Map()),protectingEditsRef=useRef(0);
-  const [memoryEditCount,setMemoryEditCount]=useState(0);
-  const recoveryReadyRef=useRef(recoveryReady);recoveryReadyRef.current=recoveryReady;
-  // A lista de obras e o painel detalhado ocupam alturas diferentes. Sem este
-  // reset o navegador preserva o scroll da lista e a obra pode abrir já no
-  // meio do conteúdo. O layout effect executa antes da pintura, sem salto.
-  useLayoutEffect(() => {
-    if (!obraAberta) return;
-    window.scrollTo({top:0,left:0,behavior:"auto"});
-    document.documentElement.scrollTop=0;
-    document.body.scrollTop=0;
-  },[obraAberta]);
   const tabPresencaRef = useRef(tab);
   useEffect(() => {
     tabPresencaRef.current = tab;
@@ -13633,34 +10403,12 @@ function CompanyApp({onCompanyChanged}) {
   }, [data?.config?.companyName, data?.config?.productName]);
 
   const approvalHandledRef = useRef(false);
-  // Última versão que veio do servidor - o ponto de partida das minhas edições.
-  // Serve de "base" para o merge de conflito saber o que EU mudei.
-  const baseServidorRef = useRef(null);
-  // Espelho do estado atual, para a auditoria comparar antes/depois sem que o
-  // `update` precise depender de `data` (o que o recriaria a cada tecla).
-  const dataAtualRef = useRef(null);
-  useEffect(() => { dataAtualRef.current = data; }, [data]);
-  // Estado mais recente aplicado, atualizado SINCRONAMENTE dentro do `update`.
-  // Serve para reconciliar salvamentos em sequencia rapida: se dois cadastros
-  // sao salvos antes do React re-renderizar, o segundo poderia partir de um
-  // `data` velho (do closure) e apagar o primeiro. Comparando com este ref
-  // reaplicamos so as secoes que o chamador realmente mudou.
-  const ultimoDataRef = useRef(null);
-
   const showToast = useCallback((msg, type = "success") => {
     setToast({ msg, type });
     window.clearTimeout(showToast._t);
     showToast._t = window.setTimeout(() => setToast(null), 3200);
   }, []);
 
-  // FILA DE SALVAMENTO SERIALIZADA
-  // Antes, cada update() disparava um save de rede imediato. Toques rapidos no
-  // ponto criavam varios saves simultaneos com o MESMO expectedUpdatedAt - o
-  // servidor aceitava o primeiro e devolvia 409 para os demais: o app
-  // conflitava consigo mesmo e "nao salvava". Agora existe no maximo 1 save em
-  // voo; estados novos apenas substituem o proximo a enviar (coalescencia).
-  // Como o estado local ja acumula tudo, salvar so o mais recente nao perde nada.
-  const saveQueueRef=useRef(null);
   const attendanceCommandInFlightRef=useRef(0);
   const attendanceQueueRef=useRef(null);
   const campoOfflineStoreRef=useRef(null),campoOfflineScopeRef=useRef('');
@@ -13670,165 +10418,16 @@ function CompanyApp({onCompanyChanged}) {
     campoOfflineScopeRef.current=campoOfflineScope;
     campoOfflineStoreRef.current=createOfflineOperationStore({dbName:campoOfflineScope});
   }
-  if(!saveQueueRef.current){
-    saveQueueRef.current=createSaveQueue({
-      capture:()=>({user:recoveryUserRef.current,tab:recoveryTab(),base:baseServidorRef.current}),
-      protect:(intended,context)=>snapshotJournal.protect({...context,intended}),
-      release:receipt=>snapshotJournal.release(receipt),
-      onStorageError:()=>showToast("Confirmação recebida, mas a recuperação local não foi limpa. Consulte a versão atual antes de reenviar.","error"),
-      save:alvo=>saveDataDetailed(alvo,baseServidorRef.current),
-      onState:setEstadoSalvar,
-      onSuccess:({result, target})=>{
-        const confirmado=normalizeData(result.merged&&result.data?result.data:target);
-        baseServidorRef.current=confirmado;
-        if(result.merged){
-          // Uma resposta mesclada confirma `target`, mas pode chegar depois de
-          // outro clique já ter produzido um snapshot local mais novo. Reaplica
-          // essa intenção pendente sobre a nova base para a tela não "voltar"
-          // e esconder uma edição que a fila ainda vai enviar.
-          const localMaisNovo=ultimoDataRef.current||dataAtualRef.current||target;
-          const rebaseado=normalizeData(reconcileOptimisticSnapshot({
-            latest:confirmado,rendered:target,intended:localMaisNovo,
-          }));
-          ultimoDataRef.current=rebaseado;dataAtualRef.current=rebaseado;setData(rebaseado);
-          showToast("Alterações simultâneas foram combinadas automaticamente.");
-        }
-        setUltimaSync(new Date());
-      },
-      onConflict:()=>showToast("Alterações não salvas. Confira o aviso na página.","error"),
-      onRetry:({result,delay})=>showToast(`${result?.reason||"Não foi possível conectar ao servidor."} Nova tentativa em ${Math.round(delay/1000)}s.`,"error"),
-      onFailed:({result,offline,pending})=>{
-        if(isServerRejection({result,offline})&&baseServidorRef.current){
-          // O servidor recusou (permissão/regra): desfaz a edição otimista,
-          // voltando ao último estado confirmado. Roda depois que a fila
-          // devolve {ok:false} a quem chamou update(), para não confirmar
-          // como salvo o que foi recusado.
-          const confirmado=baseServidorRef.current;
-          const secoes=rejectedSections(confirmado,pending);
-          setTimeout(()=>{
-            saveQueueRef.current?.discard({keepJournal:true});
-            ultimoDataRef.current=confirmado;dataAtualRef.current=confirmado;setData(confirmado);
-            setEdicaoRecusada({motivo:result?.reason||result?.error||"O servidor recusou a alteração.",secoes,em:new Date()});
-          },0);
-          showToast(`Alteração não salva e desfeita: ${result?.reason||"recusada pelo servidor"}`,"error");
-          return;
-        }
-        showToast("Alterações não salvas. Confira o aviso na página.","error");
-      },
-    });
-  }
-  // Zera a ref (não só destrói) para que uma remontagem real - ou a
-  // montagem dupla do StrictMode em desenvolvimento - recrie a fila em vez
-  // de reaproveitar a instância já destruída (`if(!saveQueueRef.current)`
-  // acima nunca seria verdadeiro de outra forma, e todo update() passaria a
-  // falhar silenciosamente com {ok:false,destroyed:true} para sempre).
-  useEffect(()=>()=>{saveQueueRef.current?.destroy?.();saveQueueRef.current=null;},[]);
-
-  useEffect(()=>{
-    const retomar=()=>{
-      if(saveQueueRef.current?.getState()!==SAVE_QUEUE_STATE.OFFLINE)return;
-      showToast("Conexão restaurada. Retomando alterações pendentes.");
-      saveQueueRef.current.resume();
-    };
-    window.addEventListener("online",retomar);
-    return()=>window.removeEventListener("online",retomar);
-  },[showToast]);
-
-  useEffect(()=>{
-    const protegerSaida=event=>{
-      if(!saveQueueRef.current?.hasPending()&&!protectingEditsRef.current&&!memoryEditsRef.current.size&&!attendanceCommandInFlightRef.current&&!attendanceQueueRef.current?.hasPending()&&(recoveryReadyRef.current||!document.querySelector('.arcd-modal-panel input:not([readonly]):not(:disabled),.arcd-modal-panel textarea:not([readonly]):not(:disabled)')))return;
-      event.preventDefault();
-      event.returnValue="";
-    };
-    window.addEventListener("beforeunload",protegerSaida);
-    return()=>window.removeEventListener("beforeunload",protegerSaida);
-  },[]);
-
-  const update = useCallback(async (next) => {
-    if(leavingSessionRef.current||currentUser?.id!==recoveryUserRef.current?.id)return {ok:false,reason:"A conta da edição mudou. Entre com a conta original para conferir."};
-    // Aceita atualização funcional. O resolvedor recebe sempre o espelho mais
-    // recente, mesmo que o React ainda não tenha renderizado o clique anterior.
-    // Isso elimina a dependência de closures antigos nos fluxos migrados.
-    let rendered=data||dataAtualRef.current||DEFAULT();
-    if(typeof next==="function"){
-      rendered=dataAtualRef.current||rendered;
-      next=next(rendered);
-    }
-    if(next&&next.__aguardarFila){
-      return saveQueueRef.current?.waitForIdle()||{ok:true,state:SAVE_QUEUE_STATE.IDLE};
-    }
-    // ADOTAR ESTADO DO SERVIDOR (sem re-salvar)
-    // Operacoes cirurgicas como arquivar/restaurar quinzena acontecem no
-    // servidor e ja voltam com o dataset novo + carimbo. Aqui apenas
-    // adotamos essa versao como base - re-salvar seria redundante e
-    // reabriria a janela de conflito.
-    if (next && next.__adotarServidor) {
-      const norm = normalizeData(next.data);
-      adoptServerVersion(next.updatedAt);
-      baseServidorRef.current = norm;
-      ultimoDataRef.current = norm;
-      dataAtualRef.current = norm;
-      setData(norm);
-      setUltimaSync(new Date());
-      return;
-    }
-    // Respostas de comandos granulares trazem somente as seções confirmadas.
-    // Mesclá-las diretamente evita baixar e normalizar todo o cadastro após
-    // cada PIX, sem alterar a fotografia autoritativa das demais seções.
-    if (next && next.__adotarServidorPatch) {
-      const sections=next.sections&&typeof next.sections==="object"?next.sections:{};
-      const atual={...(dataAtualRef.current||DEFAULT()),...sections};
-      const base={...(baseServidorRef.current||dataAtualRef.current||DEFAULT()),...sections};
-      adoptServerVersion(next.updatedAt);
-      baseServidorRef.current=base;
-      ultimoDataRef.current=atual;
-      dataAtualRef.current=atual;
-      setData(atual);
-      setUltimaSync(new Date());
-      return;
-    }
-
-    if(!recoveryReady){setRecoveryOpen(true);return {ok:false,reason:"Confira o armazenamento antes de enviar a edição."};}
-    if((recoveryAvailable&&!saveQueueRef.current?.hasPending())||[SAVE_QUEUE_STATE.FAILED,SAVE_QUEUE_STATE.CONFLICT,SAVE_QUEUE_STATE.OFFLINE].includes(saveQueueRef.current?.getState())){
-      const editorId=document.activeElement?.closest('[data-recovery-editor]')?.dataset.recoveryEditor||'workspace';
-      const changes=snapshotChanges(rendered,next);
-      const identity=JSON.stringify([currentUser.id,editorId,Object.entries(changes).map(([key,c])=>[key,c.delta?[...c.delta.changed.map(r=>String(r.id)),...c.delta.removed.map(String)].sort():null])]);
-      let id=deferredEditKeysRef.current.get(identity);if(!id){id=crypto.randomUUID();deferredEditKeysRef.current.set(identity,id);}
-      const entry={user:currentUser,tab:`${recoveryTab()}:edit:${id}`,base:rendered,intended:normalizeData(next)};
-      memoryEditsRef.current.set(id,entry);setMemoryEditCount(memoryEditsRef.current.size);protectingEditsRef.current++;
-      try{
-        await snapshotJournal.protect(entry);
-        if(memoryEditsRef.current.get(id)===entry)memoryEditsRef.current.delete(id);
-        setRecoveryOpen(true);return {ok:false,deferred:true,reason:"Preenchimento protegido separadamente. Conclua as revisões em Resolver salvamento."};
-      }catch{setRecoveryOpen(true);return {ok:false,reason:"A nova edição está apenas na memória. Proteja ou descarte antes de continuar."};}
-      finally{protectingEditsRef.current--;setMemoryEditCount(memoryEditsRef.current.size);}
-    }
-    // RECONCILIAÇÃO CONTRA O ESTADO MAIS RECENTE
-    // `rendered` é exatamente a fotografia usada pelo handler do clique.
-    // `ultimoDataRef` pode já conter outro cadastro ainda não renderizado.
-    // A mescla de três vias aplica só a intenção do clique e conserva tanto
-    // alterações de outros módulos quanto dois cadastros rápidos na mesma lista.
-    let base=next;
-    try{
-      base=reconcileOptimisticSnapshot({
-        latest:ultimoDataRef.current||rendered,
-        rendered,
-        intended:next,
-      });
-    }catch(e){console.error("optimistic-reconcile",e);base=next;}
-
-    // O histórico auditável é criado exclusivamente no servidor, na mesma
-    // transação da mutação. O cliente nunca fabrica nem substitui auditoria.
-    const normalized = normalizeData(base);
-    ultimoDataRef.current = normalized;   // registra sincronamente o estado mais recente
-    dataAtualRef.current = normalized;    // e adianta o espelho (o effect confirmaria depois)
-    setData(normalized);   // otimista: a interface não trava esperando a rede
-
-    // Enfileira: se ja ha um save em voo, este estado apenas substitui o
-    // proximo a enviar. Nunca ha dois saves simultaneos - fim dos 409 do
-    // proprio dispositivo contra si mesmo.
-    return saveQueueRef.current.enqueue(normalized);
-  }, [data,showToast,recoveryAvailable,recoveryReady,currentUser?.id]);
+  const {
+    leavingSessionRef,recoveryUserRef,recoveryAvailable,conflito,
+    ultimaSync,setUltimaSync,estadoSalvar,setEstadoSalvar,edicaoRecusada,setEdicaoRecusada,
+    baseServidorRef,dataAtualRef,ultimoDataRef,saveQueueRef,update,
+    isProtectingEdits,hasMemoryEdits,resetSaveSession,
+    abrirRecuperacao,descartarMinhaVersao,atualizarPainelTV,recoveryContext,recoveryProps,
+  } = useWorkspaceSaving({
+    initialData:initial.data,data,setData,currentUser,showToast,normalizeData,defaultData:DEFAULT,
+    hasPendingAttendance:()=>Boolean(attendanceCommandInFlightRef.current||attendanceQueueRef.current?.hasPending()),
+  });
 
   // Ponte de migração para comandos por agregado. O comando é criado dentro
   // da atualização funcional, portanto `expectedVersion` é verificado contra
@@ -14023,46 +10622,8 @@ function CompanyApp({onCompanyChanged}) {
   // destruída (visível na montagem dupla do StrictMode em desenvolvimento).
   useEffect(()=>()=>{attendanceQueueRef.current?.destroy?.();attendanceQueueRef.current=null;},[]);
 
-  // Sem sessão restaurada, o boot consulta apenas o estado do primeiro acesso.
-  // A identificação do operador e os dados só chegam após a autenticação.
   useEffect(() => {
-    if (portalRequest.obraId && portalRequest.token) { setLoading(false); return undefined; }
-    let vivo = true;
-    (async () => {
-      try {
-        // Primeiro tenta restaurar a sessão por e-mail enquanto a tela neutra
-        // de carregamento ainda está ativa. Antes essa tentativa vivia dentro
-        // do LoginScreen: o login chegava a aparecer e só depois era trocado
-        // pelo dashboard, causando o salto visual a cada F5.
-        const restaurada=await restaurarSessaoEmail();
-        if(!vivo)return;
-        if(restaurada.ok){
-          const normalizados=normalizeData(restaurada.data||DEFAULT());
-          baseServidorRef.current=normalizados;
-          ultimoDataRef.current=normalizados;
-          dataAtualRef.current=normalizados;
-          const cadastro=normalizados.usuarios.find(u=>u.id===restaurada.usuario?.id);
-          const usuarioCompleto={...restaurada.usuario,...cadastro,pin:undefined};
-          setData(normalizados);leavingSessionRef.current=false;setCurrentUser(usuarioCompleto);setUltimaSync(new Date());
-          setTab(restoreSection(usuarioCompleto.id,allowedTabsForUser(usuarioCompleto)));
-          return;
-        }
-        const r = await listarPerfis();
-        if (!vivo) return;
-        if (r.erro) setErroInicial(r.erro);
-        if (r.precisaSetup) setFirstSetup(true);
-      } catch (err) {
-        console.error(err);
-        if (vivo) showToast("Não consegui falar com o servidor.", "error");
-      } finally {
-        if (vivo) setLoading(false);
-      }
-    })();
-    return () => { vivo = false; };
-  }, [showToast, portalRequest.obraId, portalRequest.token]);
-
-  useEffect(() => {
-    if (!data || loading || approvalHandledRef.current) return;
+    if (!data || approvalHandledRef.current) return;
     const params = new URLSearchParams(window.location.search);
     const requestId = params.get("approve_unlock");
     if (!requestId) return;
@@ -14099,103 +10660,12 @@ function CompanyApp({onCompanyChanged}) {
       );
       window.history.replaceState({}, "", window.location.pathname + window.location.hash);
     })();
-  }, [data, loading, showToast, dispatchAttendanceCommand]);
-
-  //  Navegação por grupos (filtrada por role)
-  const allowedTabs  = allowedTabsForUser(currentUser);
-  const allowedTabsKey=allowedTabs.join("|");
-  useEffect(()=>{if(currentUser&&!allowedTabs.includes(tab))setTab(allowedTabs[0]||"home");},[currentUser?.id,allowedTabsKey,tab]);
-  useEffect(()=>{rememberSection(currentUser?.id,tab,allowedTabs);},[currentUser?.id,allowedTabsKey,tab]);
-
-  // Filtra grupos para mostrar apenas os que o usuário pode acessar
-  const visibleGroups = visibleErpModules(allowedTabs,C);
-  const activeGroup = activeErpModule(visibleGroups,tab);
-
-  // Grupos abertos na sidebar. Só o grupo da aba atual começa aberto - a barra
-  // abre no que importa e deixa o resto recolhido, em vez de despejar 20 abas.
-  const [gruposAbertos, setGruposAbertos] = useState(() =>
-    activeGroup ? { [activeGroup.id]: true } : {});
-  useEffect(()=>{
-    if(activeGroup?.id)setGruposAbertos(previous=>previous[activeGroup.id]?previous:{...previous,[activeGroup.id]:true});
-  },[activeGroup?.id]);
-  const [sidebarCompacta, setSidebarCompacta] = useState(() => {
-    try { return window.localStorage.getItem("arcd-sidebar-compacta") === "1"; }
-    catch { return false; }
-  });
-
-  useEffect(() => {
-    try { window.localStorage.setItem("arcd-sidebar-compacta", sidebarCompacta ? "1" : "0"); }
-    catch { /* Navegação privada pode bloquear o armazenamento local. */ }
-  }, [sidebarCompacta]);
-
-  // Navegar para uma aba mantém o grupo dela aberto (você acabou de ir pra lá).
-  const abrirGrupoDaAba = useCallback((tabId) => {
-    const g = moduleForTab(tabId);
-    if (g) setGruposAbertos(prev => ({ ...prev, [g.id]: true }));
-  }, []);
-
-  // Navegação unificada: leva a uma aba (e opcionalmente abre uma obra),
-  // fechando a busca. Usado pela busca global e por qualquer atalho.
-  const irPara = useCallback((tabId, obraId="", options={}) => {
-    if(!options.preserveHistory)setWorkflowTrail(previous=>previous.length?[]:previous);
-    const scope=normalizeWorkflowScope(options.scope||{...workflowLastScope.current,...(obraId?{obraId}:{})},currentUser);
-    setWorkflowIntent(previous=>({tabId,scope,action:options.action||"navigate",linked:Boolean(options.linked),record:options.record||null,sequence:(previous?.sequence||0)+1}));
-    setObraAberta(obraId || "");
-    setTab(tabId);
-    const g = moduleForTab(tabId);
-    if(g)workflowLastTabs.current.set(g.id,{tabId,obraId});
-    if (g) setGruposAbertos(prev => ({ ...prev, [g.id]: true }));
-    setBuscaAberta(false);
-  }, [currentUser?.id,currentUser?.obraId]);
-  const navigateWorkflow=useCallback((tabId,scope,options={})=>{
-    if(!allowedTabs.includes(tabId))return;
-    const normalized=normalizeWorkflowScope(scope||workflowScopes[tabId]||{},currentUser);
-    if(tabId!==tab)setWorkflowTrail(previous=>[...previous.slice(-7),{tabId:tab,obraId:obraAberta,contextObraId:workContextObraId(),scope:normalizeWorkflowScope(workflowScopes[tab]||workflowLastScope.current,currentUser)}]);
-    irPara(tabId,"",{...options,linked:true,scope:normalized,preserveHistory:true});
-  },[allowedTabsKey,currentUser?.obraId,workflowScopes,irPara,tab,obraAberta]);
-  const returnWorkflow=()=>{
-    const previous=workflowTrail.at(-1);if(!previous||!allowedTabs.includes(previous.tabId))return;
-    setWorkflowTrail(history=>history.slice(0,-1));
-    if(previous.contextObraId!==undefined)setWorkContextObra(previous.contextObraId);
-    irPara(previous.tabId,previous.obraId,{scope:previous.scope,action:"resume",preserveHistory:true});
-  };
+  }, [data, showToast, dispatchAttendanceCommand]);
 
   // Índice de busca global: tudo que a pessoa pode querer achar por nome ou
   // número, com a aba de destino. Só monta quando há dados e usuário logado.
-  const indiceBusca = useMemo(() => {
-    if (!data) return [];
-    const ix = [];
-    const add = (tipo, rotulo, sub, tabId, obraId="") => rotulo && ix.push({ tipo, rotulo:String(rotulo), sub:sub||"", tabId, obraId });
-    (data.obras||[]).forEach(o => add("Obra", o.name, o.address||o.engineer, "obras", o.id));
-    (data.employees||[]).filter(e=>e.active!==false).forEach(e => add("Funcionário", e.name, e.role, "equipe"));
-    (data.terceirizados||[]).forEach(t => add("Terceirizado", t.name, t.specialty, "terc"));
-    (data.equipamentos||[]).filter(e=>e.ativo!==false).forEach(e => add("Equipamento", e.nome, e.categoria, "equip"));
-    (data.orcamentos||[]).forEach(o => add("Orçamento", o.nome, "", "orc"));
-    (data.pedidos||[]).forEach(p => add("Pedido", p.numero?`Pedido ${p.numero}`:"Pedido", p.fornecedor, "cmp"));
-    const com = data.comercial||{};
-    (com.leads||[]).forEach(l => add("Lead", l.nome, l.servico, "com_leads"));
-    (com.clientes||[]).forEach(c => add("Cliente", c.nome, c.documento, "com_clientes"));
-    (com.propostas||[]).forEach(p => add("Proposta", p.numero?`Proposta ${p.numero}`:p.titulo, "", "com_propostas"));
-    (com.contratos||[]).forEach(c => add("Contrato", c.numero?`Contrato ${c.numero}`:"Contrato", "", "com_contratos"));
-    (com.parceiros||[]).forEach(p => add("Parceiro", p.nome, "", "com_parceiros"));
-    // Também indexa as próprias telas, para navegar por nome.
-    Object.entries(TAB_META).forEach(([id,m]) => add("Tela", m.label, "abrir tela", id));
-    return ix;
-  }, [data]);
+  const indiceBusca = useMemo(() => buildGlobalSearchIndex(data, TAB_META), [data]);
 
-  // Atalho de teclado: Ctrl/Cmd+K abre a busca; Esc fecha.
-  useEffect(() => {
-    const onKey = (e) => {
-      if ((e.ctrlKey||e.metaKey) && (e.key==="k"||e.key==="K")) { e.preventDefault(); if(document.querySelector('[role="dialog"]'))return; setBuscaAberta(v=>!v); }
-      if (e.key==="Escape") setBuscaAberta(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
-  const toggleGrupo = useCallback((gid) => {
-    setGruposAbertos(prev => ({ ...prev, [gid]: !prev[gid] }));
-  }, []);
   // Obras ativas para o submenu de Engenharia - acesso direto à obra sem
   // passar pela lista em "Obras". Respeita a mesma restrição de obra única
   // que o usuário já tem no resto do sistema.
@@ -14220,12 +10690,6 @@ function CompanyApp({onCompanyChanged}) {
   // a leitura confortável e centraliza o conteúdo, sem deixar a tela "vazia":
   // as grades já usam 4 colunas nesse tamanho.
   const maxConteudo = "100%";
-
-  const goGroup = (group) => {
-    if (group.tabs.includes(tab)) return;
-    const previous=workflowLastTabs.current.get(group.id);
-    irPara(group.tabs.includes(previous?.tabId)?previous.tabId:group.tabs[0],group.tabs.includes(previous?.tabId)?previous.obraId:"");
-  };
 
   // Alerta rápido: ponto pendente hoje?
   const pontoPending = data
@@ -14288,110 +10752,25 @@ function CompanyApp({onCompanyChanged}) {
     aprov_pend: aprovacaoPendente || null,
   };
 
-  //  Conflito de gravação
-  // Tudo vive num único JSON, então DUAS pessoas mexendo em módulos
-  // DIFERENTES colidem: quem salvar depois é recusado. Antes isso virava um
-  // alert() e o trabalho evaporava - imagine perder o ponto de 40 pessoas
-  // porque o financeiro conciliou uma transação 30 segundos antes.
-  //
-  // Agora seguramos o que você tentou salvar e oferecemos reaplicar sobre a
-  // versão nova do servidor.
-  useEffect(() => {
-    const aoConflitar = (e) => setConflito(e.detail || null);
-    window.addEventListener("arcd:data-conflict", aoConflitar);
-    return () => window.removeEventListener("arcd:data-conflict", aoConflitar);
-  }, []);
-
-  const concluirRecuperacao=async(current,row)=>{
-    if(resolvingSaveRef.current||protectingEditsRef.current||memoryEditsRef.current.size||saveQueueRef.current.hasPending())return {ok:false,reason:'Há outro preenchimento ou envio pendente. A edição continua protegida; conclua essa revisão primeiro.'};
-    resolvingSaveRef.current=true;
-    try{
-      await snapshotJournal.release(row);
-      const norm=normalizeData(current.data);adoptServerVersion(current.updatedAt);baseServidorRef.current=norm;ultimoDataRef.current=norm;dataAtualRef.current=norm;setData(norm);setUltimaSync(new Date());setRecoveryRevision(v=>v+1);
-      return {ok:true};
-    }finally{resolvingSaveRef.current=false;}
-  };
-  const aplicarRecuperacao=async(merged,current,row)=>{
-    if(resolvingSaveRef.current||protectingEditsRef.current||memoryEditsRef.current.size)return {ok:false,reason:"Proteja os preenchimentos da memória antes de confirmar."};
-    resolvingSaveRef.current=true;
-    try{
-      snapshotJournal.adopt(row);
-      saveQueueRef.current.discard({keepJournal:true});
-      adoptServerVersion(current.updatedAt);baseServidorRef.current=normalizeData(current.data);
-      const norm=normalizeData(merged);ultimoDataRef.current=norm;dataAtualRef.current=norm;setData(norm);setConflito(null);
-      const result=await saveQueueRef.current.enqueue(norm);
-      if(result.ok){setRecoveryRevision(v=>v+1);await snapshotJournal.release(row).catch(()=>showToast("Registro confirmado. Confira a recuperação local antes de reenviar.","error"));}
-      return result;
-    }finally{resolvingSaveRef.current=false;}
-  };
-  const protegerPreenchimentos=async()=>{
-    protectingEditsRef.current++;
-    try{
-      for(const [id,entry] of [...memoryEditsRef.current]){await snapshotJournal.protect(entry);if(memoryEditsRef.current.get(id)===entry)memoryEditsRef.current.delete(id);}
-      return {ok:true};
-    }catch{return {ok:false,reason:"Não foi possível proteger todos os preenchimentos. Mantenha esta aba aberta."};}
-    finally{protectingEditsRef.current--;setMemoryEditCount(memoryEditsRef.current.size);}
-  };
-  const descartarEdicaoDaMemoria=()=>{
-    if(!window.confirm("Descartar a edição que ainda não foi protegida? O preenchimento desta tentativa será perdido."))return;
-    memoryEditsRef.current.clear();setMemoryEditCount(0);
-    saveQueueRef.current.discard({keepJournal:true});
-    const norm=normalizeData(baseServidorRef.current);ultimoDataRef.current=norm;dataAtualRef.current=norm;setData(norm);
-    setRecoveryRevision(v=>v+1);setRecoveryOpen(false);setConflito(null);
-  };
-  const reaplicarSobreServidor=()=>setRecoveryOpen(true);
-  const descartarMinhaVersao=async target=>{
-    if(resolvingSaveRef.current||[SAVE_QUEUE_STATE.SAVING,SAVE_QUEUE_STATE.RETRY_SCHEDULED].includes(saveQueueRef.current.getState()))return;
-    if((recoveryAvailable||saveQueueRef.current.hasPending())&&!window.confirm("Descartar as edições pendentes e consultar o servidor?"))return;
-    const protectedEdit=Boolean(recoveryAvailable||saveQueueRef.current.hasPending());
-    const refreshFailure=()=>UI_TEXT.feedback.refreshFailure({offline:navigator.onLine===false,protectedEdit});
-    resolvingSaveRef.current=true;
-    try{
-      const fresco=await loadDataWithMeta();
-      if(!fresco?.data){showToast(refreshFailure(),"error");return;}
-      const saved=target?.owner===currentUser.id?target:await snapshotJournal.readLatest(currentUser.id,recoveryTab());
-      if(saved)await snapshotJournal.release(saved);
-      saveQueueRef.current.discard({keepJournal:true});setConflito(null);
-      adoptServerVersion(fresco.updatedAt);const norm=normalizeData(fresco.data);
-      baseServidorRef.current=norm;ultimoDataRef.current=norm;dataAtualRef.current=norm;setData(norm);
-      setRecoveryRevision(v=>v+1);setRecoveryOpen(false);
-    }catch{showToast(refreshFailure(),"error");}
-    finally{resolvingSaveRef.current=false;}
-  };
-
-  // O painel de TV permanece aberto por horas. Ele atualiza a fotografia da
-  // empresa sem toast e sem disparar um novo save, mantendo a tela pública
-  // silenciosa enquanto recebe as alterações feitas pelos operadores.
-  const atualizarPainelTV = useCallback(async () => {
-    if (saveQueueRef.current?.hasPending()) return;
-    const fresco=await loadDataWithMeta();
-    if(!fresco?.data)return;
-    adoptServerVersion(fresco.updatedAt);
-    const norm=normalizeData(fresco.data);
-    baseServidorRef.current=norm;ultimoDataRef.current=norm;dataAtualRef.current=norm;
-    setData(norm);setUltimaSync(new Date());
-  }, []);
-
   // Sair e trocar usuário agora fazem a mesma coisa por baixo: limpam o PIN da
   // memória e voltam pro login. Não existe mais uma "sessão do Supabase" por
   // cima - o PIN É a sessão.
   const prepararTrocaDeConta=()=>{
-    if(saveQueueRef.current?.getState()===SAVE_QUEUE_STATE.SAVING||protectingEditsRef.current||operationalInFlightRef.current||attendanceCommandInFlightRef.current||attendanceQueueRef.current?.hasPending()){
+    if(saveQueueRef.current?.getState()===SAVE_QUEUE_STATE.SAVING||isProtectingEdits()||operationalInFlightRef.current||attendanceCommandInFlightRef.current||attendanceQueueRef.current?.hasPending()){
       showToast("Aguarde a conclusão do envio antes de trocar de conta.","error");return false;
     }
-    if(memoryEditsRef.current.size||(saveQueueRef.current?.getFailure()?.local&&saveQueueRef.current.hasPending())){
-      setRecoveryOpen(true);showToast("Proteja ou descarte a edição da memória antes de sair.","error");return false;
+    if(hasMemoryEdits()||(saveQueueRef.current?.getFailure()?.local&&saveQueueRef.current.hasPending())){
+      abrirRecuperacao();showToast("Proteja ou descarte a edição da memória antes de sair.","error");return false;
     }
     leavingSessionRef.current=true;
-    saveQueueRef.current?.destroy();saveQueueRef.current=null;
+    resetSaveSession();
     attendanceQueueRef.current?.destroy();attendanceQueueRef.current=null;
-    setEstadoSalvar(SAVE_QUEUE_STATE.IDLE);setConflito(null);setRecoveryReady(false);setRecoveryAvailable(false);setRecoveryOpen(false);
     return true;
   };
   const escolherEmpresa=async companyId=>{
     if(companyId===activeCompany()||switchingCompany)return;
     if(currentUser?.role!=='admin'||!currentUser.companyIsolationEnabled)return;
-    if(hasWorkspaceEditor()||document.querySelector('.arcd-modal-panel,[role="dialog"]')||saveQueueRef.current?.hasPending()||protectingEditsRef.current||memoryEditsRef.current.size||operationalInFlightRef.current||attendanceCommandInFlightRef.current||attendanceQueueRef.current?.hasPending()||recoveryAvailable){
+    if(hasWorkspaceEditor()||document.querySelector('.arcd-modal-panel,[role="dialog"]')||saveQueueRef.current?.hasPending()||isProtectingEdits()||hasMemoryEdits()||operationalInFlightRef.current||attendanceCommandInFlightRef.current||attendanceQueueRef.current?.hasPending()||recoveryAvailable){
       showToast('Conclua ou descarte a edição e resolva os envios pendentes antes de trocar de empresa.','error');return;
     }
     setSwitchingCompany(true);leavingSessionRef.current=true;
@@ -14408,73 +10787,20 @@ function CompanyApp({onCompanyChanged}) {
     if (!window.confirm("Sair do sistema?")) return;
     if(!prepararTrocaDeConta())return;
     await encerrarPresenca();
-    setCurrentUser(null);
-    setData(null);        // os dados saem da memória junto
     encerrarSessao();
+    onSessionEnded();
   };
 
   // Tablet compartilhado na obra: troca quem opera, sem a pergunta de confirmação.
   const trocarDeUsuario = async () => {
     if(!prepararTrocaDeConta())return;
     await encerrarPresenca();
-    setCurrentUser(null);
-    setData(null);
     encerrarSessao();
+    onSessionEnded();
   };
 
-  // ATENÇÃO À ORDEM DOS PORTÕES.
-  // `data` agora é null ATÉ o PIN passar. Se testássemos `!data` antes do
-  // login, o app ficaria carregando para sempre - os dados nunca chegariam,
-  // porque ninguém teria digitado o PIN. Primeiro loading, depois setup,
-  // depois login. Só então os dados existem.
-  if (portalRequest.obraId && portalRequest.token) {
-    return <PortalClientePublico obraId={portalRequest.obraId} token={portalRequest.token}/>;
-  }
-
-  if (loading) {
-    return (
-      <>
-        <style>{G}</style>
-        <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:"var(--arcd-surface-page)" }}>
-          <div style={{ textAlign:"center" }}>
-            <div style={{ width:44, height:44, border:`4px solid var(--arcd-border-default)`, borderTopColor:C.yellow, borderRadius:"50%", animation:"spin 1s linear infinite", margin:"0 auto var(--arcd-space-3)" }}/>
-            <BrandMark/>
-            <LoadingState label="operação"/>
-          </div>
-        </div>
-      </>
-    );
-  }
-
-  //  Tela de login se não há usuário logado
-  if (!currentUser) {
-    // O servidor devolve o usuário E os dados na mesma resposta - os dados
-    // não existiam no navegador antes do PIN passar.
-    const handleLogin = (usuario, dados) => {
-      const normalizados=normalizeData(dados || DEFAULT());
-      baseServidorRef.current = normalizados;   // ponto de partida para merge
-      ultimoDataRef.current = normalizados;
-      dataAtualRef.current = normalizados;
-      const cadastro=normalizados.usuarios.find(item=>item.id===usuario.id);
-      const usuarioCompleto={...usuario,...cadastro,pin:undefined};
-      setData(normalizados);
-      setUltimaSync(new Date());
-      leavingSessionRef.current=false;setCurrentUser(usuarioCompleto);
-      const allowed = allowedTabsForUser(usuarioCompleto);
-      setTab(restoreSection(usuarioCompleto.id,allowed));
-    };
-
-    return (
-      <LoginScreen
-        onLogin={handleLogin}
-        erroInicial={erroInicial}
-        precisaSetup={firstSetup}
-      />
-    );
-  }
-
   return (
-    <SaveRecoveryContext.Provider value={{visible:recoveryAvailable&&!recoveryOpen&&![SAVE_QUEUE_STATE.SAVING,SAVE_QUEUE_STATE.RETRY_SCHEDULED].includes(estadoSalvar),open:()=>setRecoveryOpen(true),revision:recoveryRevision,automaticSaveReady:recoveryReady&&!recoveryAvailable&&!recoveryOpen&&!memoryEditCount&&estadoSalvar===SAVE_QUEUE_STATE.IDLE}}>
+    <SaveRecoveryContext.Provider value={recoveryContext}>
       <style>{G}</style>
       <div className="arcd-app-shell" data-tab={tab} style={{
         minHeight:"100vh", background:"transparent", color:"var(--arcd-text-primary)",
@@ -14483,198 +10809,18 @@ function CompanyApp({onCompanyChanged}) {
         transition: sidebarResizing ? "none" : "padding-left .18s ease",
       }}>
 
-        {/*  SIDEBAR (só desktop)  */}
         {isDesktop && (
-          <aside id="menu-lateral" className="no-print arcd-sidebar" data-resizing={sidebarResizing || undefined} style={{
-            position:"fixed", top:0, left:0, bottom:0, width:SIDEBAR_W, zIndex:90,
-            background:"var(--arcd-surface-page)", borderRight:`var(--arcd-border-width) solid var(--arcd-border-default)`,
-            display:"flex", flexDirection:"column",
-            boxShadow:"none",
-            transition:sidebarResizing ? "none" : "width .18s ease",
-          }}>
-            {/* Marca */}
-            <div style={{
-              minHeight:64, padding:sidebarCompacta ? "var(--arcd-space-3) var(--arcd-space-2)" : "var(--arcd-space-3) var(--arcd-space-2) var(--arcd-space-3) var(--arcd-space-4)",
-              borderBottom:`var(--arcd-border-width) solid var(--arcd-border-subtle)`, display:"flex", alignItems:"center",
-              justifyContent:"space-between", gap:"var(--arcd-space-2)",
-            }}>
-              {sidebarCompacta
-                ? <div style={{ width:30, height:30, borderRadius:C.rMd, display:"grid", placeItems:"center", background:C.yellowDim }}>
-                    <Ic n="building" s={17} color={C.yellowD}/>
-                  </div>
-                : <BrandMark dark signature={false}/>}
-              <button
-                onClick={()=>setSidebarCompacta(v=>!v)}
-                title={sidebarCompacta ? "Expandir menu" : "Minimizar menu"}
-                aria-label={sidebarCompacta ? "Expandir menu lateral" : "Minimizar menu lateral"}
-                style={{
-                  width:30, height:30, flexShrink:0, borderRadius:C.rMd, cursor:"pointer",
-                  border:`var(--arcd-border-width) solid var(--arcd-border-default)`, background:"var(--arcd-surface-card)", color:"var(--arcd-text-secondary)",
-                  display:"grid", placeItems:"center", fontSize:"var(--arcd-type-control)", lineHeight:1,
-                }}
-              >{sidebarCompacta ? "›" : "‹"}</button>
-            </div>
-
-            {/* Busca global: atalho visível para o Ctrl/Cmd+K. */}
-            <div style={{ padding:"var(--arcd-space-2) var(--arcd-space-2) var(--arcd-space-1)" }}>
-              <button onClick={()=>setBuscaAberta(true)} style={{
-                display:"flex", alignItems:"center", justifyContent:sidebarCompacta ? "center" : "flex-start", gap:"var(--arcd-space-2)", width:"100%",
-                background:"var(--arcd-surface-card)", border:`var(--arcd-border-width) solid var(--arcd-border-default)`, borderRadius:C.rMd,
-                padding:sidebarCompacta ? "var(--arcd-space-2)" : "var(--arcd-space-2) var(--arcd-space-2)", cursor:"pointer", color:"var(--arcd-text-secondary)" }}
-                title={sidebarCompacta ? "Buscar (Ctrl + K)" : undefined}
-                aria-label={sidebarCompacta?"Buscar no sistema":undefined}>
-                <Ic n="search" s={14} color={C.muted}/>
-                {!sidebarCompacta && <span style={{ fontSize:"var(--arcd-type-body)", flex:1, textAlign:"left" }}>Buscar no sistema</span>}
-                {!sidebarCompacta && <span aria-hidden="true" style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, border:`var(--arcd-border-width) solid var(--arcd-border-default)`, borderRadius:"var(--arcd-radius-control)", padding:"1px var(--arcd-space-1)" }}>⌘K</span>}
-              </button>
-            </div>
-            {/* Navegação: grupos colapsáveis. Clique no cabeçalho abre/fecha;
-                o grupo da aba atual já começa aberto. O trilho na cor do grupo
-                dá o senso de nível - filho pende do pai. */}
-            <nav style={{ flex:1, overflowY:"auto", padding:"var(--arcd-space-2) var(--arcd-space-2)" }}>
-              {visibleGroups.map(group => {
-                const aberto = !!gruposAbertos[group.id];
-                const badge = groupBadge[group.id];
-                const contémAtiva = activeGroup?.id===group.id;
-
-                if (sidebarCompacta) return (
-                  <button
-                    key={group.id}
-                    title={group.label}
-                    aria-label={`Abrir grupo ${group.label}`}
-                    aria-current={contémAtiva ? "page" : undefined}
-                    onClick={() => {
-                      setGruposAbertos(prev => ({ ...prev, [group.id]: true }));
-                      setSidebarCompacta(false);
-                    }}
-                    style={{
-                      width:"100%", height:42, marginBottom:"var(--arcd-space-1)", borderRadius:"var(--arcd-box-radius)", cursor:"pointer",
-                      border:contémAtiva ? `var(--arcd-border-width) solid ${group.color}55` : "var(--arcd-border-width) solid transparent",
-                      background:contémAtiva ? `${group.color}18` : "transparent",
-                      color:contémAtiva ? group.color : "var(--arcd-text-secondary)",
-                      display:"grid", placeItems:"center", position:"relative",
-                    }}
-                  >
-                    <Ic n={group.icon} s={17}/>
-                    {badge && (
-                      <span style={{ position:"absolute", top:7, right:8, width:6, height:6, borderRadius:"50%", background:group.color }}/>
-                    )}
-                  </button>
-                );
-
-                // Cores do grupo viram variáveis CSS - é o que permite :hover.
-                const vars = {
-                  "--gc":      group.color,
-                  "--gc-hov":  `${group.color}0F`,
-                  "--gc-act":  `${group.color}18`,
-                  "--gc-rail": aberto ? `${group.color}44` : "transparent",
-                };
-
-                return (
-                  <div key={group.id} style={{ marginBottom:"var(--arcd-space-half)", ...vars }}>
-                    {/* Cabeçalho clicável. Um grupo fechado que contém a aba
-                        atual mostra um ponto na sua cor - você não perde de
-                        vista onde está, mesmo com o grupo recolhido. */}
-                    <button
-                      className="nav-grp-hd"
-                      title={group.description}
-                      data-open={aberto || contémAtiva}
-                      onClick={() => toggleGrupo(group.id)}
-                      aria-expanded={aberto}
-                    >
-                      <Ic n={group.icon} s={13}/>
-                      <span>{group.label}</span>
-                      {badge && <span className="nav-dot" style={{ marginLeft:"auto" }}/>}
-                      {!badge && !aberto && contémAtiva &&
-                        <span style={{ marginLeft:"auto", width:5, height:5, borderRadius:"50%",
-                                       background:"var(--gc)" }}/>}
-                      <span className="nav-chev" style={{ marginLeft:(badge||(!aberto&&contémAtiva)) ? "var(--arcd-space-2)" : "auto" }}>›</span>
-                    </button>
-
-                    {/* Corpo - só monta quando aberto */}
-                    {aberto && (
-                      <div className="nav-body">
-                        {group.tabs.map(tabId => {
-                          const meta = TAB_META[tabId];
-                          const ativo = tab === tabId;
-                          const temPend = tabBadge?.[tabId];
-                          return (
-                            <button
-                              key={tabId}
-                              className="nav-item"
-                              data-active={ativo}
-                              onClick={() => irPara(tabId)}
-                              aria-current={ativo ? "page" : undefined}
-                            >
-                              <Ic n={meta.icon} s={13}/>
-                              <span>{meta.label}</span>
-                              {temPend && <span className="nav-dot"/>}
-                            </button>
-                          );
-                        })}
-                        {group.id==="eng_grp" && obrasMenuEngenharia.length>0 && (<>
-                          <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:.6,margin:"var(--arcd-space-2) var(--arcd-space-2) var(--arcd-space-half)"}}>Obras ativas</p>
-                          {obrasMenuEngenharia.map(obra => (
-                            <button
-                              key={obra.id}
-                              className="nav-item"
-                              data-active={tab==="obras"&&obraAberta===obra.id}
-                              onClick={() => irPara("obras", obra.id)}
-                              aria-current={(tab==="obras"&&obraAberta===obra.id) ? "page" : undefined}
-                              title={obra.name}
-                            >
-                              <Ic n="building" s={13}/>
-                              <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{obra.name}</span>
-                            </button>
-                          ))}
-                        </>)}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </nav>
-
-            {/* Usuário + sair */}
-            <div style={{ padding:sidebarCompacta ? "var(--arcd-space-2) var(--arcd-space-2)" : "var(--arcd-space-2) var(--arcd-space-3)", borderTop:`var(--arcd-border-width) solid var(--arcd-border-subtle)`, background:"var(--arcd-surface-card)" }}>
-              {sidebarCompacta ? (
-                <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:"var(--arcd-space-2)" }}>
-                  <div title={`${currentUser?.nome} · ${ROLES.find(r=>r.v===currentUser?.role)?.l || "Usuário"}`} style={{
-                    width:30, height:30, borderRadius:"50%", display:"grid", placeItems:"center",
-                    background:`${ROLES.find(r=>r.v===currentUser?.role)?.color || C.yellow}22`,
-                    color:ROLES.find(r=>r.v===currentUser?.role)?.color || C.yellow,
-                    fontSize:"var(--arcd-type-body)", fontWeight:600,
-                  }}>{(currentUser?.nome || "U").trim().charAt(0).toUpperCase()}</div>
-                  <button onClick={sairDoSistema} title="Sair do sistema" aria-label="Sair do sistema" style={{
-                    width:30, height:28, background:"transparent", border:0, color:"var(--arcd-text-secondary)",
-                    fontSize:"var(--arcd-type-control)", cursor:"pointer", lineHeight:1,
-                  }}>x</button>
-                </div>
-              ) : (
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:"var(--arcd-space-1)" }}>
-                <div style={{ display:"flex", alignItems:"center", gap:"var(--arcd-space-1)", minWidth:0 }}>
-                  <div style={{
-                    width:7, height:7, borderRadius:"50%", flexShrink:0,
-                    background: ROLES.find(r=>r.v===currentUser?.role)?.color || C.yellow,
-                  }}/>
-                  <div style={{ minWidth:0 }}>
-                    <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color:"var(--arcd-text-primary)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                      {currentUser?.nome}
-                    </p>
-                    <p style={{ fontSize:"var(--arcd-type-caption)", color:"var(--arcd-text-secondary)" }}>
-                      {ROLES.find(r=>r.v===currentUser?.role)?.l}
-                    </p>
-                  </div>
-                </div>
-                <div style={{display:"flex",gap:"var(--arcd-space-half)",flexShrink:0}}>
-                  <Btn v="ghost" iconOnly onClick={trocarDeUsuario} title="Trocar usuário (tablet compartilhado)" ariaLabel="Trocar usuário"><Ic n="users"/></Btn>
-                  <Btn v="ghost" iconOnly onClick={sairDoSistema} title="Sair do sistema" ariaLabel="Sair do sistema"><Ic n="x"/></Btn>
-                </div>
-              </div>
-              )}
-            </div>
-            {!sidebarCompacta && <SidebarResize width={sidebarWidth} onChange={setSidebarWidth} onResizing={setSidebarResizing}/>}
-          </aside>
+          <DesktopSidebar
+            SIDEBAR_W={SIDEBAR_W} sidebarResizing={sidebarResizing}
+            sidebarCompacta={sidebarCompacta} setSidebarCompacta={setSidebarCompacta}
+            setBuscaAberta={setBuscaAberta} visibleGroups={visibleGroups}
+            gruposAbertos={gruposAbertos} groupBadge={groupBadge} activeGroup={activeGroup}
+            setGruposAbertos={setGruposAbertos} toggleGrupo={toggleGrupo}
+            tab={tab} tabBadge={tabBadge} irPara={irPara}
+            obrasMenuEngenharia={obrasMenuEngenharia} obraAberta={obraAberta}
+            currentUser={currentUser} trocarDeUsuario={trocarDeUsuario} sairDoSistema={sairDoSistema}
+            sidebarWidth={sidebarWidth} setSidebarWidth={setSidebarWidth} setSidebarResizing={setSidebarResizing}
+          />
         )}
 
         {/*  HEADER  */}
@@ -14726,8 +10872,8 @@ function CompanyApp({onCompanyChanged}) {
                 <span className="app-save-status-label">{syncStatus.label}</span>
               </div>
               {/* Badge do usuário - no desktop já aparece no rodapé da sidebar */}
-              <div className="app-user-badge" style={{ display: isDesktop ? "none" : "flex", alignItems:"center", gap:"var(--arcd-space-1)", padding:"var(--arcd-space-1) var(--arcd-space-2)", background:"var(--arcd-surface-card)", borderRadius:C.rMd, border:`var(--arcd-border-width) solid var(--arcd-border-default)` }}>
-                <div style={{ width:7, height:7, borderRadius:"50%", background:ROLES.find(r=>r.v===currentUser?.role)?.color||C.yellow, flexShrink:0 }}/>
+              <div className="app-user-badge" style={{ display: isDesktop ? "none" : "flex", alignItems:"center", gap:"var(--arcd-space-1)", padding:"var(--arcd-space-1) var(--arcd-space-2)", background:"var(--arcd-surface-card)", borderRadius:"var(--arcd-box-radius)", border:`var(--arcd-border-width) solid var(--arcd-border-default)` }}>
+                <div style={{ width:7, height:7, borderRadius:"var(--arcd-radius-pill)", background:ROLES.find(r=>r.v===currentUser?.role)?.color||C.yellow, flexShrink:0 }}/>
                 <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color:"var(--arcd-text-primary)", maxWidth:80, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{currentUser?.nome}</p>
                 <button onClick={sairDoSistema} style={{
                   background:"transparent", border:0, color:"var(--arcd-text-secondary)", fontSize:"var(--arcd-type-control)",
@@ -14745,7 +10891,7 @@ function CompanyApp({onCompanyChanged}) {
                 >
                   <Ic n="clock" s={13}/> <span className="app-quick-label">Ponto</span>
                   {pontoPending && tab!=="ponto" && (
-                    <span style={{ position:"absolute", top:-4, right:-4, width:9, height:9, background:C.red, borderRadius:"50%", border:`2px solid ${C.bg}` }}/>
+                    <span style={{ position:"absolute", top:-4, right:-4, width:9, height:9, background:C.red, borderRadius:"var(--arcd-radius-pill)", border:`2px solid ${C.bg}` }}/>
                   )}
                 </Button>
               )}
@@ -14766,9 +10912,9 @@ function CompanyApp({onCompanyChanged}) {
           {data.localCompanySimulation?.enabled&&<ScopeNote title="Simulação local">Empresa {data.localCompanySimulation.companyId.toUpperCase()}. Pastas e fotos usam cópias privadas. Somente a limpeza de conciliação desta cópia pode ser gravada; os demais envios e as conexões com a nuvem estão bloqueados.</ScopeNote>}
           {conflito&&<Alert variant="warning" className="mb-3"><AlertDescription>
             <strong>Conflito de salvamento.</strong> Outra pessoa salvou alterações. Confira antes de reaplicar: sua versão pode substituir edições do mesmo registro. Mantenha esta aba aberta até resolver.
-            <div className="flex flex-wrap gap-2 mt-2"><StandardButton onClick={reaplicarSobreServidor}>Reaplicar minhas alterações</StandardButton><StandardButton variant="outline" onClick={descartarMinhaVersao}>Descartar e recarregar</StandardButton></div>
+            <div className="flex flex-wrap gap-2 mt-2"><StandardButton onClick={abrirRecuperacao}>Reaplicar minhas alterações</StandardButton><StandardButton variant="outline" onClick={descartarMinhaVersao}>Descartar e recarregar</StandardButton></div>
           </AlertDescription></Alert>}
-          <SaveRecovery key={`save-recovery:${currentUser.id}`} memoryCount={memoryEditCount} onProtectMemory={protegerPreenchimentos} onDiscardMemory={descartarEdicaoDaMemoria} onRecovered={()=>setRecoveryRevision(v=>v+1)} normalize={normalizeData} pageId={tab} queue={saveQueueRef.current} state={estadoSalvar} user={currentUser} open={recoveryOpen} onOpen={()=>setRecoveryOpen(true)} onClose={()=>setRecoveryOpen(false)} onApply={aplicarRecuperacao} onComplete={concluirRecuperacao} onUser={setCurrentUser} onAvailable={setRecoveryAvailable} onReady={setRecoveryReady} revision={recoveryRevision} onDiscard={descartarMinhaVersao}/>
+          <SaveRecovery key={`save-recovery:${currentUser.id}`} {...recoveryProps} pageId={tab} onUser={setCurrentUser}/>
           {edicaoRecusada&&<Alert variant="destructive" data-testid="save-rejected" className="flex flex-wrap items-start justify-between gap-2 mb-3">
             <AlertDescription><b>Alteração não salva e desfeita</b> às {edicaoRecusada.em.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}: {edicaoRecusada.motivo}{edicaoRecusada.secoes.length?` (${edicaoRecusada.secoes.slice(0,4).join(", ")}${edicaoRecusada.secoes.length>4?"…":""})`:""}. A tela voltou ao último estado confirmado.</AlertDescription>
             <Btn v="ghost" size="sm" onClick={()=>setEdicaoRecusada(null)}>Entendi</Btn>
@@ -14825,7 +10971,7 @@ function CompanyApp({onCompanyChanged}) {
           {tab === "licenca"  && <Suspense fallback={<LoadingState label="licenciamento"/>}><Licenciamento data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
           {tab === "cmp"      && <Suspense fallback={<LoadingState label="compras"/>}><Compras      data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
           {tab === "fornecedores" && <RankingFornecedores data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
-          {tab === "suprimentos" && <CotacoesMaterial data={data} update={update} showToast={showToast} onTab={irPara}/>}
+          {tab === "suprimentos" && <CotacoesMaterial data={data} update={update} showToast={showToast} onTab={irPara} currentUser={currentUser}/>}
           {tab === "cad"      && <Cadastros    data={data} update={update} showToast={showToast} onTab={irPara} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
           {tab === "medicoes" && <Suspense fallback={<LoadingState label="medições"/>}><MedicoesView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "caixa" && <CaixaObra data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
@@ -14872,7 +11018,7 @@ function CompanyApp({onCompanyChanged}) {
                     }}>
                       <Ic n={meta.icon} s={12}/>
                       {meta.label}
-                      {isActive && <span style={{ width:5, height:5, background:activeGroup.color, borderRadius:"50%", flexShrink:0 }}/>}
+                      {isActive && <span style={{ width:5, height:5, background:activeGroup.color, borderRadius:"var(--arcd-radius-pill)", flexShrink:0 }}/>}
                     </button>
                   );
                 })}

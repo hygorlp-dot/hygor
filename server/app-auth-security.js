@@ -49,3 +49,33 @@ export const applyPersistentAuthRateLimit=async(db,{company,subject,action})=>{
     return {blocked:!!row?.blocked,retryAfter:Number(row?.retry_after_seconds||0)};
   }catch{return null;}
 };
+
+export function createAppAuthRateLimiter({ db, currentCompany }) {
+  // ── Freio contra força bruta ───────────────────────────────────────
+  // Um PIN de 4 dígitos tem 10.000 combinações — um script testa tudo em
+  // minutos se deixarmos. Aqui a memória é por instância (serverless recicla),
+  // então é um freio, não um cofre. O que realmente protege é PIN de 6 dígitos.
+  const tentativas = new Map();
+  const LIMITE = 8;
+  const JANELA = 5 * 60 * 1000;
+
+  const bloqueado = (ip) => {
+    const t = tentativas.get(ip);
+    if (!t) return false;
+    if (Date.now() - t.desde > JANELA) { tentativas.delete(ip); return false; }
+    return t.n >= LIMITE;
+  };
+
+  const registrarFalha = (ip) => {
+    const t = tentativas.get(ip);
+    if (!t || Date.now() - t.desde > JANELA) tentativas.set(ip, { n: 1, desde: Date.now() });
+    else t.n += 1;
+  };
+  const limparFalhas = subject => tentativas.delete(subject);
+  const rateLimitCentral=async(subject,action)=>{
+    const result=await applyPersistentAuthRateLimit(db,{company:currentCompany(),subject,action});
+    return result?{blocked:result.blocked,retry:result.retryAfter}:null;
+  };
+
+  return { bloqueado, registrarFalha, limparFalhas, rateLimitCentral };
+}
