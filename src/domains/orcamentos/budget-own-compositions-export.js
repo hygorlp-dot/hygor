@@ -94,7 +94,7 @@ export function budgetOwnCompositionWorkbook(rows, spreadsheet) {
         if(typeof cell.value!=='number')return;
         const c=column-1;
         const money=name==='Composições'?[5,6,7].includes(c):name==='Componentes'?[10,11,13].includes(c):c>=5||(c===1&&/^(Soma|Custo|Diferença)/.test(String(values[0])));
-        cell.numFmt=money?'"R$" #,##0.00####':'#,##0.######';
+        cell.numFmt=money?'"R$" #,##0.00':'#,##0.######';
       });
       row.height=Math.max(20,lines*14+6);
     });
@@ -103,7 +103,7 @@ export function budgetOwnCompositionWorkbook(rows, spreadsheet) {
 }
 
 const quantityFormat = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 6 });
-const unitCostFormat = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 6 });
+const unitCostFormat = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 2 });
 const reportText = value => escapeHtml(String(value ?? ""));
 const reportNumber = (value, formatter) => {
   if (value === "" || value == null) return "";
@@ -120,15 +120,15 @@ export function budgetOwnCompositionPrintHtml({ name, version, itemCountLabel, r
     <thead><tr><th colspan="7">${reportText(label)} — componentes por unidade</th></tr><tr>${componentHeaders.map((h,c)=>`<th scope="col"${c>=4?' class="num" data-align="end"':''}>${h}</th>`).join('')}</tr></thead>
     <tbody>${children.map(node=>`<tr>${componentRow(node).map((value,c)=>`<td${c>=4?' class="num" data-align="end"':''}>${c>=5?cost(value):c===4?(value==null?'Não informado':reportText(reportNumber(value,quantityFormat))):reportText(value)}</td>`).join('')}</tr>`).join('')}</tbody>
     </table></div>${warn(componentWarnings(children))}` : '<p>Sem componentes detalhados. Confira a memória desta composição.</p>';
-  const totals = (children, price) => `<dl class="detail-totals"><div><dt>Soma dos componentes</dt><dd>${cost(detailTotal(children))}</dd></div><div><dt>Custo unitário utilizado sem BDI</dt><dd>${cost(price)}</dd></div><div><dt>Diferença</dt><dd>${cost(difference(children,price))}</dd></div></dl>${difference(children,price)!=null&&Math.round(Math.abs(difference(children,price))*100)>0?'<p class="detail-warning">A soma dos componentes difere do custo utilizado. Confira a memória de preços; o valor lançado foi preservado.</p>':''}`;
+  const totals = price => `<dl class="detail-totals"><div><dt>Custo unitário utilizado sem BDI</dt><dd>${cost(price)}</dd></div></dl>`;
   const tables = (rows.records || []).map(record=>`<section class="composition-sheet">
     <h2>Item ${reportText(record.itemNumber)} · ${reportText(record.code)} — ${reportText(record.description)}</h2>
     <p>Unidade: ${reportText(record.unit)} · Quantidade orçada: ${reportText(reportNumber(record.quantity,quantityFormat))} · Custo unitário sem BDI: ${cost(record.unitCost)}</p>
     <p>Origem do detalhamento: ${reportText(record.origin)}</p>${record.note?`<p><strong>Memória de preços:</strong> ${reportText(record.note)}</p>`:''}${warn(record.warnings)}
-    ${table(record.children,record.code)}${totals(record.children,record.unitCost)}
+    ${table(record.children,record.code)}${totals(record.unitCost)}
     ${auxiliaryGroups(record.children).map(node=>`<section class="auxiliary-sheet"><h3>Auxiliar ${reportText(node.path)} · ${reportText(node.fonte)} ${reportText(node.codigo)} — ${reportText(node.descricao)}</h3>
       <p>Coeficiente acumulado por unidade de ${reportText(record.code)}: ${reportText(reportNumber(node.accumulated,quantityFormat))}. ${node.referenceOrigin?`Referência consultada: ${reportText(node.referenceOrigin)}.`:''}</p>
-      ${warn(node.warnings)}${table(node.children,`${record.code} / auxiliar ${node.path} / ${node.codigo}`)}${totals(node.children,node.price)}</section>`).join('')}
+      ${warn(node.warnings)}${table(node.children,`${record.code} / auxiliar ${node.path} / ${node.codigo}`)}${totals(node.price)}</section>`).join('')}
     </section>`).join('');
 
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${reportText(title)}</title>

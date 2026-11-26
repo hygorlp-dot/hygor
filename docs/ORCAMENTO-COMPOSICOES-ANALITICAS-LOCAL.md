@@ -167,3 +167,21 @@ Validação final desta revisão: 38 testes em cinco arquivos aprovados;
 `npm run validate:local` aprovado (lint, design/manual, arquitetura, tipos e
 compilação). Pacote: 1.910.614 bytes gzip, limite 1.910.784, nenhuma violação e
 nenhum aumento de limites. Detector Impeccable sem achados no configurador.
+
+
+## Exibição monetária arredondada — 26/11/2026
+
+O fechamento do PDF apresenta somente o custo unitário utilizado sem BDI,
+com duas casas decimais. Soma dos componentes e diferença deixam esse bloco.
+Valores monetários das tabelas PDF e do Excel têm duas casas; quantidades e
+coeficientes conservam até seis casas. O Excel mantém valores numéricos com
+precisão original e suas colunas de soma/diferença para conferência.
+
+A alteração é de apresentação: leitura da memória da versão, sem substituir
+preços congelados ou gravar orçamento. Não há efeito em compromisso, estoque,
+custo reconhecido, pagamento ou DRE realizado. Ajuda e manual atualizados.
+26 testes em três arquivos aprovados. Prévia fictícia conferida em 1440/390 px
+e em PDF: R$ 3,008466 aparece como R$ 3,01; fechamento com somente o custo,
+sem soma ou diferença. Cálculos e valores numéricos originais preservados.
+Detector Impeccable sem achados. Evidências em
+output/own-compositions-export/rounded-costs.

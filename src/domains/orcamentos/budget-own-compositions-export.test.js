@@ -45,8 +45,8 @@ it('keeps official compositions as references without exporting their internal c
   const rows=await loadBudgetOwnCompositionRows(budget,new Map([['a','1.1']]),normalize,fetch);
   const html=budgetOwnCompositionPrintHtml({name:'K1-10',version:2,rows});
   expect(html).toContain('Custo parcial');
-  expect(html).toContain('Soma dos componentes');
-  expect(html).toContain('Diferença');
+  expect(html).not.toContain('Soma dos componentes');
+  expect(html).not.toContain('Diferença');
   expect(html).not.toContain('Cimento');
   expect(html).not.toContain('class="auxiliary-sheet"');
   expect(html).toContain('SINAPI / COMPOSICAO');
@@ -117,4 +117,19 @@ it('writes grouped XLSX sheets with numeric costs, text codes and readable wrapp
   expect(leaves).toHaveLength(1);
   expect(leaves[0].getCell(13).value).toBe(24);
   expect(leaves[0].getCell(14).value).toBe(12);
+});
+
+
+it('prints only the rounded unit cost in the closing total and formats money in cents',()=>{
+  const budget=fixture();budget.itens[0].precoUnit=3.01;
+  budget.itens[0].composicao=[{tipoItem:'INSUMO',fonte:'SINAPI',codigo:'001',coeficiente:1,precoUnit:3.008466}];
+  const rows=budgetOwnCompositionRows(budget,new Map(),normalize);
+  const html=budgetOwnCompositionPrintHtml({name:'Obra',version:1,rows});
+  const doc=new DOMParser().parseFromString(html,'text/html');
+  expect(doc.querySelector('.detail-totals').textContent.replace(/\s/g,' ')).toBe('Custo unitário utilizado sem BDIR$ 3,01');
+  expect(html).not.toContain('3,008466');expect(html).not.toContain('0,001534');
+  expect(doc.querySelectorAll('.detail-totals dt')).toHaveLength(1);
+  const workbook=budgetOwnCompositionWorkbook(rows,spreadsheet);
+  const cell=workbook.getWorksheet('Componentes').getCell('K2');
+  expect(cell.value).toBe(3.008466);expect(cell.numFmt).toBe('"R$" #,##0.00');
 });
