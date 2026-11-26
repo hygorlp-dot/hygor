@@ -14,7 +14,8 @@
       "codex/navegacao-compacta-20261118": false,
       "codex/operacao-mobile-refinada-20261118": false,
       "codex/folha-desconto-release-20261119": false,
-      "codex/company-isolation-release-20261119": false
+      "codex/company-isolation-release-20261119": false,
+      "codex/own-compositions-official-references-20261126": false
     }
   },
   "buildCommand": "node scripts/audit-import-cycles.mjs && npx vite build && node scripts/bundle-metrics.mjs",

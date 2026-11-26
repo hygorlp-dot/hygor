@@ -29,16 +29,16 @@ export function budgetOwnCompositionRows(budget, itemNumbers, normalizeCode) {
   return { compositions, components, records:ownCompositionDetails(budget, itemNumbers, normalizeCode), warnings:[] };
 }
 
-export async function loadBudgetOwnCompositionRows(budget, itemNumbers, normalizeCode, fetchDetails) {
+export async function loadBudgetOwnCompositionRows(budget, itemNumbers, normalizeCode) {
   const rows = budgetOwnCompositionRows(budget, itemNumbers, normalizeCode);
-  return { ...rows, ...await loadOwnCompositionDetails(budget, itemNumbers, normalizeCode, fetchDetails) };
+  return { ...rows, ...await loadOwnCompositionDetails(budget, itemNumbers, normalizeCode) };
 }
 const componentHeaders = ['Fonte / tipo', 'Código', 'Descrição', 'Unidade', 'Coeficiente', 'Custo unitário', 'Custo parcial'];
 const componentWidths = [18, 18, 64, 10, 18, 23, 23];
 const componentRow = node => [ `${node.fonte || 'Fonte não informada'} / ${node.tipoItem || 'INSUMO'}`, String(node.codigo ?? ''), node.descricao, node.unidade, node.coefficient, node.price, node.partial ];
 const componentWarnings = nodes => nodes.filter(n=>n.tipoItem!=='COMPOSICAO').flatMap(n=>n.warnings.map(w=>`${n.codigo || n.descricao}: ${w}`));
 const difference = (children, price) => { const total = detailTotal(children); return total == null || price == null ? null : price - total; };
-const auxiliaryGroups = nodes => nodes.flatMap(node => node.tipoItem === 'COMPOSICAO' ? [node, ...auxiliaryGroups(node.children)] : []);
+const auxiliaryGroups = nodes => nodes.flatMap(node => node.tipoItem === 'COMPOSICAO' && /^PR[ÓO]PRIA$/i.test(String(node.fonte ?? '').trim()) ? [node, ...auxiliaryGroups(node.children)] : []);
 
 export function budgetOwnCompositionSheets({ records = [], warnings = [] }) {
   const summary = [], fichas = [], components = [];
@@ -64,7 +64,7 @@ export function budgetOwnCompositionSheets({ records = [], warnings = [] }) {
     });
     visit(record.children,record.code); fichas.push([]);
   }
-  fichas.unshift(['Critério','','Coeficientes e custos parciais das tabelas são locais, para uma unidade do respectivo serviço. Auxiliares explicam o custo do pai e não devem ser somadas novamente.'],...warnings.map(w=>['Atenção','',w]));
+  fichas.unshift(['Critério','','Coeficientes e custos parciais das tabelas são locais, para uma unidade do respectivo serviço. Auxiliares próprias explicam o custo do pai e não devem ser somadas novamente. Composições SINAPI e ORSE são identificadas como componentes, sem reprodução de seus analíticos.'],...warnings.map(w=>['Atenção','',w]));
   return [
     ['Composições',['Item','Código','Descrição','Unidade','Quantidade','Custo unitário sem BDI','Soma dos componentes','Diferença','Origem do detalhamento','Memória de preços'],summary,[12,20,60,10,16,23,23,20,28,55]],
     ['Fichas',['Fichas'],fichas,componentWidths],
@@ -161,7 +161,7 @@ export function budgetOwnCompositionPrintHtml({ name, version, itemCountLabel, r
 <h1>Composições próprias</h1>
 <p>${reportText(name)} · V${reportText(version)}</p>
 <p>${reportText(itemCountLabel)}</p>
-<p>Coeficientes e custos parciais são locais: cada tabela corresponde a uma unidade do serviço identificado. O coeficiente acumulado mostra a participação do auxiliar na composição própria. Não some novamente os auxiliares ao custo do pai. Preços das memórias são preservados; os analíticos consultados podem ter diferenças de base ou arredondamento.</p>
+<p>Coeficientes e custos parciais são locais: cada tabela corresponde a uma unidade do serviço identificado. Somente auxiliares próprias são detalhadas, com seus coeficientes acumulados. Composições SINAPI e ORSE são identificadas como componentes; consulte seus analíticos diretamente na fonte. Não some novamente os auxiliares ao custo do pai. Preços das memórias são preservados.</p>
 ${warn(rows.warnings || [])}
 ${tables}
 </body></html>`;

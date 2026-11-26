@@ -2826,7 +2826,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     : "Esta versão não tem itens com composição própria.";
 
   const carregarComposicoesParaExportar = () => loadBudgetOwnCompositionRows(orc,
-    new Map(achatarArvore(calc.arvore).map(row => [row.id, row.codigoItem])), normalizarCodigoRef, detalharComposicoesReferencia);
+    new Map(achatarArvore(calc.arvore).map(row => [row.id, row.codigoItem])), normalizarCodigoRef);
 
   const exportarComposicoesDoOrcamento = async () => {
     if (!quantidadeComposicoes || exportandoComposicoes) return;

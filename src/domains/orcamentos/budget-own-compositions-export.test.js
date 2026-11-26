@@ -1,4 +1,4 @@
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import { budgetOwnCompositionRows, budgetOwnCompositionPrintHtml, budgetOwnCompositionSheets, budgetOwnCompositionWorkbook, loadBudgetOwnCompositionRows } from "./budget-own-compositions-export.js";
 import * as spreadsheet from '../../lib/spreadsheet.js';
 import ExcelJS from 'exceljs';
@@ -39,17 +39,21 @@ const relations = [
   {compositionFonte:'SINAPI',fonte:'ORSE',baseId:'base',compositionCode:'100',itemType:'COMPOSICAO',itemCode:'200',descricao:'Argamassa',unidade:'M3',coeficiente:3,precoNao:2,precoDisponivel:true},
   {compositionFonte:'ORSE',fonte:'SINAPI',baseId:'base',compositionCode:'200',itemType:'INSUMO',itemCode:'001',descricao:'Cimento',unidade:'KG',coeficiente:4,precoNao:.5,precoDisponivel:true},
 ];
-it('keeps each saved cost and shows nested coefficients without adding auxiliaries twice', async () => {
+it('keeps official compositions as references without exporting their internal components', async () => {
   const budget=fixture(), original=JSON.stringify(budget);
-  const rows=await loadBudgetOwnCompositionRows(budget,new Map([['a','1.1']]),normalize,async()=>({ok:true,components:relations}));
+  const fetch=vi.fn(async()=>({ok:true,components:relations}));
+  const rows=await loadBudgetOwnCompositionRows(budget,new Map([['a','1.1']]),normalize,fetch);
   const html=budgetOwnCompositionPrintHtml({name:'K1-10',version:2,rows});
   expect(html).toContain('Custo parcial');
   expect(html).toContain('Soma dos componentes');
   expect(html).toContain('Diferença');
-  expect(html).toContain('Cimento');
+  expect(html).not.toContain('Cimento');
+  expect(html).not.toContain('class="auxiliary-sheet"');
+  expect(html).toContain('SINAPI / COMPOSICAO');
+  expect(fetch).not.toHaveBeenCalled();
   expect(html).toContain('Piso &lt;teste&gt;');
   expect(html).not.toContain('Piso <teste>');
-  expect(rows.records[0].children[0].children[0].children[0]).toMatchObject({accumulated:24,partial:2});
+  expect(rows.records[0].children[0]).toMatchObject({codigo:'100',coefficient:2,price:10,partial:20,children:[],warnings:[]});
   expect(budgetOwnCompositionSheets(rows).some(([name])=>name==='Fichas')).toBe(true);
   expect(JSON.stringify(budget)).toBe(original);
 });
@@ -60,20 +64,31 @@ it('does not expand an adapted remainder into the full official composition',asy
   expect(rows.records[0].children[0].children).toHaveLength(0);
   expect(rows.records[0].children[0].warnings.join()).toContain('Parcela adaptada');
 });
-it('exports explicit missing and circular detail warnings, including request failure',async()=>{
-  const budget=fixture();
-  const rows=await loadBudgetOwnCompositionRows(budget,new Map(),normalize,async()=>{throw Error('offline');});
-  expect(rows.warnings.join()).toContain('Não foi possível');
-  expect(rows.records[0].children[0].warnings.join()).toContain('indisponível');
-  budget.itens[0].composicao=JSON.stringify([{tipoItem:'COMPOSICAO',fonte:'PRÓPRIA',codigo:'CP-1',coeficiente:1,precoUnit:21}]);
+it('reports missing own detail and cycles without requesting official references',async()=>{
+  const budget=fixture(); const fetch=vi.fn(()=>{throw Error('offline');});
+  const rows=await loadBudgetOwnCompositionRows(budget,new Map(),normalize,fetch);
+  expect(fetch).not.toHaveBeenCalled();
+  expect(rows.warnings).toEqual([]);
+  expect(rows.records[0].children[0].warnings).toEqual([]);
+  budget.itens[0].composicao=[{tipoItem:'COMPOSICAO',fonte:'PRÓPRIA',codigo:'CP-1',coeficiente:1,precoUnit:21}];
   expect(budgetOwnCompositionRows(budget,new Map(),normalize).records[0].children[0].warnings.join()).toContain('circular');
+  budget.itens[0].composicao=[{tipoItem:'COMPOSICAO',fonte:'PRÓPRIA',codigo:'CP-2',coeficiente:1,precoUnit:21}];
+  expect(budgetOwnCompositionRows(budget,new Map(),normalize).records[0].children[0].warnings.join()).toContain('sem componentes');
 });
-it('does not turn an absent price into a zero price or combine ambiguous bases',async()=>{
+it('expands own auxiliaries while stopping at official references inside them',()=>{
   const budget=fixture();
-  const missing=await loadBudgetOwnCompositionRows(budget,new Map(),normalize,async()=>({ok:true,components:[{...relations[0],precoDisponivel:false}]}));
-  expect(missing.records[0].children[0].children[0].price).toBeNull();
-  const ambiguous=await loadBudgetOwnCompositionRows(budget,new Map(),normalize,async()=>({ok:true,components:[{...relations[0],baseId:'a',dataBase:'2026-07',uf:'PE'},{...relations[0],baseId:'b',dataBase:'2026-07',uf:'PE'}]}));
-  expect(ambiguous.records[0].children[0].warnings.join()).toContain('Mais de uma base');
+  budget.itens[0].composicao=[{tipoItem:'COMPOSICAO',fonte:'PRÓPRIA',codigo:'CP-2',coeficiente:2,precoUnit:10}];
+  budget.composicoesProprias=[{codigo:'CP-2',itens:[{tipoItem:'COMPOSICAO',fonte:'ORSE',codigo:'200',descricao:'Referência ORSE',coeficiente:3,precoUnit:2,itens:[{codigo:'HIDDEN',descricao:'Insumo interno oficial',coeficiente:4,precoUnit:.5}]},{codigo:'001',descricao:'Material próprio',coeficiente:1,precoUnit:null}]}];
+  const rows=budgetOwnCompositionRows(budget,new Map(),normalize);
+  const child=rows.records[0].children[0];
+  expect(child.children[0]).toMatchObject({accumulated:6,partial:6,children:[]});
+  expect(child.children[1].price).toBeNull();
+  const html=budgetOwnCompositionPrintHtml({name:'Obra',version:1,rows});
+  expect(html).toContain('Auxiliar 1');
+  expect(html).toContain('Referência ORSE');
+  expect(html).not.toContain('Insumo interno oficial');
+  const data=budgetOwnCompositionSheets(rows);
+  expect(JSON.stringify(data)).not.toContain('HIDDEN');
 });
 
 it('keeps separate item sheets when the same own code has different saved components',()=>{
@@ -82,14 +97,16 @@ it('keeps separate item sheets when the same own code has different saved compon
   expect(rows.records.map(r=>r.children[0].codigo)).toEqual(['100','OUTRO']);
   expect(budgetOwnCompositionPrintHtml({name:'Obra',version:1,rows}).match(/class="composition-sheet"/g)).toHaveLength(2);
 });
-it('preserves explicit zero costs and nested snapshots without requiring a reference request',async()=>{
+it('preserves zero prices but omits even saved official internal details',async()=>{
   const budget=fixture(); const component={tipoItem:'COMPOSICAO',fonte:'SINAPI',codigo:'100',coeficiente:2,precoUnit:0,itens:[{codigo:'001',coeficiente:1,precoUnit:0}]};
   budget.itens[0].composicao=[component]; let calls=0;
   const rows=await loadBudgetOwnCompositionRows(budget,new Map(),normalize,async()=>{calls++;return{ok:true,components:[]};});
-  expect(calls).toBe(0);expect(rows.records[0].children[0].children[0]).toMatchObject({price:0,partial:0});
+  expect(calls).toBe(0);expect(rows.records[0].children[0]).toMatchObject({price:0,partial:0,children:[]});
 });
 it('writes grouped XLSX sheets with numeric costs, text codes and readable wrapped detail',async()=>{
-  const rows=await loadBudgetOwnCompositionRows(fixture(),new Map([['a','1.1']]),normalize,async()=>({ok:true,components:relations}));
+  const budget=fixture();
+  budget.itens[0].composicao=[{tipoItem:'COMPOSICAO',fonte:'PRÓPRIA',codigo:'CP-2',coeficiente:2,precoUnit:10,itens:[{fonte:'SINAPI',codigo:'001',descricao:'Material próprio',coeficiente:12,precoUnit:.5}]}];
+  const rows=await loadBudgetOwnCompositionRows(budget,new Map([['a','1.1']]),normalize);
   const workbook=budgetOwnCompositionWorkbook(rows,spreadsheet);
   const reopened=await new ExcelJS.Workbook().xlsx.load(await workbook.xlsx.writeBuffer());
   expect(reopened.worksheets.map(s=>s.name)).toEqual(['Composições','Fichas','Componentes']);

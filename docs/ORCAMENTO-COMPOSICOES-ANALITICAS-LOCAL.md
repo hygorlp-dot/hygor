@@ -93,3 +93,23 @@ explicitamente ajustar o limite total em 4 KiB e publicar. O limite passa de
 1.905.664 para 1.909.760 bytes; os limites por chunk, mídia e baselines de
 interface permanecem iguais. Ensaios de compactação foram descartados;
 o leitor CSV nativo do ExcelJS e a configuração de chunks foram preservados.
+
+
+## Revisão solicitada em 26/11/2026 — auxiliares oficiais somente referenciadas
+
+Esta revisão substitui a expansão de analíticos oficiais descrita acima.
+Composições SINAPI e ORSE permanecem como componentes identificados por fonte,
+código, descrição, unidade, coeficiente e custo, sem fichas ou linhas de seus
+componentes internos, inclusive quando a memória gravada contém esse analítico.
+Somente auxiliares próprias são abertas. A exportação deixa de consultar a API
+de referências; ausência de analítico oficial não gera pendência no relatório.
+Preços, quantidades e memórias do orçamento não são alterados. Não há efeito
+no DRE realizado, compromissos, estoque ou pagamentos: a saída lê previsões.
+Ajuda e manual atualizados na mesma revisão.
+
+Verificações desta revisão: `npm run validate:local` aprovado (lint, design,
+manual, arquitetura, tipos e build); oito testes da exportação aprovados.
+`node scripts/audit-import-cycles.mjs`: 992 arquivos, nenhum ciclo.
+`node scripts/bundle-metrics.mjs`: 1.864,76 KiB gzip, sem ampliar limites.
+Prévia fictícia em 1440/390 px sem transbordamento de página; componentes
+oficiais referenciados e nenhuma ficha auxiliar oficial. Detector sem achados.
